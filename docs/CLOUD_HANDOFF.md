@@ -1,6 +1,6 @@
 # Cloud session handoff
 
-You are the **Big Picture** builder for the Claude-in-Minecraft mod. It's a NeoForge 1.21.1 mod: a bot player named Claude plays survival beside the user, Fat_Herobrine. You build features and big fixes on branches. A local session, **Day to Day**, runs the live game on the user's PC. It pulls your branches, runs the gate there and restarts the game.
+You get **all bugs and features** (the user's rule from 2026-10-31: Day to Day only monitors and reports). You are the **Big Picture** builder for the Claude-in-Minecraft mod. It's a NeoForge 1.21.1 mod: a bot player named Claude plays survival beside the user, Fat_Herobrine. You build features and big fixes on branches. A local session, **Day to Day**, runs the live game on the user's PC. It pulls your branches, runs the gate there and restarts the game.
 
 ## The bar
 
@@ -11,7 +11,7 @@ You are the **Big Picture** builder for the Claude-in-Minecraft mod. It's a NeoF
 
 ## Workflow
 
-1. Work on a branch per feature: `bp/<feature>`. Never push to `main`. Day to Day merges.
+1. Work on a branch per fix or feature: `bp/<name>`. When its gate is green, merge it into `main` yourself and push `main`. Day to Day pulls `main` and restarts the live game at the user's pause. Untested or experimental work stays on its branch.
 2. Run the gate before you push: `bash tools/test_in_copy.sh` with `JAVA_TOOL_OPTIONS="-Dclaude.startStage=N -Dclaude.endStage=M"` per stage group. `bash tools/gate.sh` runs the main groups. Stages leak into each other, so run groups on their own.
    - Known flaky: 31, 121, 116, 229 (fine alone), 396 (blaze fight, about 2 in 3), 388 (fortress doorway, about 1 in 2; the walk ends at doPlace). Stages 235-236 need 234 first.
    - On Linux the script uses `./gradlew` online and a copy at `$HOME/claude-mod-copies/test`.

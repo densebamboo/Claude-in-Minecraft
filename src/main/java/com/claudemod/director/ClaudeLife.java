@@ -180,6 +180,7 @@ public final class ClaudeLife {
                 g.skillQueue.clear();                    // the plan no longer holds; think again at once (a failure stood him idle 15 s each time; the plan gap, spinning() and planRepeats catch the loops)
                 g.nextPlanTick = result.startsWith("failed") ? Math.max(g.tickCount, g.planStartTick + PLAN_GAP_TICKS) : g.tickCount;
             }
+            try { com.claudemod.entity.life.Watchdog.quickReturn(g, line); } catch (RuntimeException e) { ClaudeMod.LOGGER.warn("[Claude watchdog] quickReturn threw", e); }
             try { com.claudemod.entity.life.Watchdog.skillRan(g, step, result); } catch (RuntimeException e) { ClaudeMod.LOGGER.warn("[Claude watchdog] skillRan threw on {}", line, e); } // the same failure again with nothing changed: the next way, then them told
             return;
         }
@@ -8882,6 +8883,7 @@ public final class ClaudeLife {
     static void fillBucket(ClaudeEntity g, ServerLevel level) {
         if (portalSlots != null && !portalSlots.isEmpty()) return; // mid-cast the bucket's state is the cast's business
         if (g.inventory.count(s -> s.is(Items.BUCKET)) == 0 || g.inventory.count(s -> s.is(Items.WATER_BUCKET)) > 0 || g.isUsingItem() || g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee) return;
+        if (g.fallDistance > 0.5f || !g.onGround() && !g.isInWater()) return; // (in the air: the water under him is his clutch; scooped back mid-fall, he died of the 28-block fall with it in his bucket)
         BlockPos best = null; double bd = 4.0 * 4.0;
         for (BlockPos q : BlockPos.betweenClosed(g.blockPosition().offset(-3, -2, -3), g.blockPosition().offset(3, 1, 3))) {
             var f = level.getFluidState(q);
@@ -12636,6 +12638,7 @@ public final class ClaudeLife {
         BlockPos spot = spotNear(player.serverLevel(), player, min, max);
         if (spot == null) return false;
         g.getNavigation().stop();
+        com.claudemod.entity.life.Watchdog.teleported(g);
         g.teleportTo(spot.getX() + 0.5, spot.getY(), spot.getZ() + 0.5);
         return true;
     }

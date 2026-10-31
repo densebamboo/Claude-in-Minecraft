@@ -133,6 +133,7 @@ public class WorkGoal extends Goal {
      *  (everything else waits). WorkGoal.tick runs it first; ClaudeEntity.brainTick runs it before FollowGoal (stage 489). */
     public static int fireballsHit; // (stages read it)
     public boolean reflexes() {
+        try { com.claudemod.entity.life.Watchdog.tick(g); } catch (RuntimeException e) { com.claudemod.ClaudeMod.LOGGER.warn("[Claude watchdog] tick threw", e); } // (the every-tick detectors: any state)
         if (g.level() instanceof ServerLevel fbl) for (var fb : fbl.getEntitiesOfClass(net.minecraft.world.entity.projectile.LargeFireball.class, g.getBoundingBox().inflate(5.0))) { // a ghast's fireball coming at him: hit it back, the hazard layer's first move in any state (the user, 13:00 World 15: "he never hit fireballs back at the ghast"; the old reflex sat in ClaudeLife.tick behind its early returns)
             Vec3 to = g.getEyePosition().subtract(fb.position());
             if (fb.getDeltaMovement().dot(to) <= 0 || !g.hasLineOfSight(fb)) continue;

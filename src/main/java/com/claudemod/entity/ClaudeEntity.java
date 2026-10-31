@@ -430,6 +430,7 @@ public class ClaudeEntity extends ServerPlayer {
     /** Dies like a player: death message, his things drop where he fell, then he respawns (see ClaudeSpawner). */
     @Override
     public void die(DamageSource source) {
+        try { com.claudemod.entity.life.Watchdog.death(this, "died to " + source.getMsgId() + (source.getEntity() == null ? "" : " (" + source.getEntity().getType().getDescription().getString() + ")") + " at " + blockPosition().toShortString()); } catch (RuntimeException e) { com.claudemod.ClaudeMod.LOGGER.warn("[Claude watchdog] death report threw", e); }
         ClaudeLife.noteDeath(this, source); // what did it and how he stood, for the respawned body's reading of the spot
         ClaudeLife.lesson(this, "died to " + source.getMsgId() + (source.getEntity() == null ? "" : " (" + source.getEntity().getType().getDescription().getString() + ")")
                 + " while " + (currentTask == null ? "idle" : currentTask.getClass().getSimpleName().toLowerCase()) + (lastStep == null ? "" : " on " + lastStep.skill())

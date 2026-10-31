@@ -267,6 +267,8 @@ public final class ExactSpot {
             return;
         }
         j.waitStart = -1;
+        BlockPos f = feet(g); int dy = f.getY() - j.cell.getY();
+        if (j.tries <= 2 && Math.abs(f.getX() - j.cell.getX()) <= 1 && Math.abs(f.getZ() - j.cell.getZ()) <= 1 && (dy == 0 || dy == 1) && LessonWords.stepIn(g, j.cell)) return; // (a cell touching his, level or one down: a step, not the walker; it "couldn't get to" water on stone one down and across, 4 tries, and the order ended)
         g.tasks.add(j.walk = new Task.GoTo(j.cell, ON));
     }
 

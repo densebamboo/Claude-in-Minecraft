@@ -359,6 +359,15 @@ public class WorkGoal extends Goal {
         try {
             done = switch (current) {
                 case Task.GoTo t -> { if (g.staying && t.pos().distSqr(g.blockPosition()) > 2 * 2) { if (g.tickCount % 100 < 2 || ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] staying put where they said: the walk to {} ({}) waits (WorkGoal)", t.pos().toShortString(), com.claudemod.entity.ClaudeEntity.originOf(t)); yield true; } // (told to stay put, every chore of his own walks him off: a stash run, a torch run, his nook; one gate at the walk, their own go_to clears staying first, 15:03)
+                    if (ticks == 1) { // a walk into a cell still solid, its dig queued behind the walk: the dig first, then the walk (live 04:43 World 15: a GoTo into the rock under him, its Break next in the queue, 32 stalls in a minute)
+                        BlockPos tp = t.pos(); var lv0 = g.level(); java.util.List<Task> first = new java.util.ArrayList<>();
+                        for (Task q0 : g.tasks) if (q0 instanceof Task.Break b0 && (b0.pos().equals(tp) || b0.pos().equals(tp.above())) && !lv0.getBlockState(b0.pos()).getCollisionShape(lv0, b0.pos()).isEmpty() && !first.contains(q0)) first.add(q0);
+                        if (!first.isEmpty()) {
+                            g.tasks.removeAll(first); g.tasks.addFirst(t); for (int i0 = first.size() - 1; i0 >= 0; i0--) g.tasks.addFirst(first.get(i0));
+                            com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] the walk to {} waits for its own cell's dig ({} block(s) still there, queued behind it): digging first (WorkGoal.GoTo)", tp.toShortString(), first.size());
+                            yield true;
+                        }
+                    }
                     if (ticks == 1 && t.pos().distSqr(g.blockPosition()) > 4 * 4) { // the user's rule: every break and patch in reach is done in the moment (ore, then holes, then the path), then on
                         java.util.List<Task> here = new java.util.ArrayList<>(); var eye0 = g.getEyePosition();
                         if (g.tickCount - pulledAt > 20 * 60) { pulledAt = g.tickCount; pulled.clear(); } // (kept 60 s whatever the walk: keyed by target it cleared each time the walk flipped between two cells by his arch, and pulled the same 8 jobs forward again and again, 04:03) // each job pulled once per walk: one that can't be done goes back in the queue, never pulled again ahead of the walk (03:29: a patch that failed was pulled forward 10 times a second)

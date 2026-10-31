@@ -199,10 +199,10 @@ public final class ClaudeLife {
     /** Where he is and what he's up to, every 10 s, in any dimension and state (a silent path is a bug). */
     static void logWhere(ClaudeEntity g, ServerPlayer player, double dist) {
             BlockPos headed = g.currentTask instanceof Task.GoTo go ? go.pos() : g.getNavigation().getPath() != null ? g.getNavigation().getPath().getTarget() : null;
-            ClaudeMod.LOGGER.info("[Claude where] (live build) at {}{} ({} blocks from them, health " + (int) g.getHealth() + " food " + g.getFoodData().getFoodLevel()
+            ClaudeMod.LOGGER.info("[Claude where] (live build) at {}{} ({}, health " + (int) g.getHealth() + " food " + g.getFoodData().getFoodLevel()
                     + ", carrying logs " + g.inventory.count(s -> s.is(ItemTags.LOGS)) + " planks " + g.inventory.count(s -> s.is(ItemTags.PLANKS)) + " cobble " + g.inventory.count(s -> s.is(Items.COBBLESTONE) || s.is(Items.COBBLED_DEEPSLATE))
                     + " torches " + g.inventory.count(s -> s.is(Items.TORCH)) + " iron " + g.inventory.count(s -> s.is(Items.IRON_INGOT) || s.is(Items.RAW_IRON)) +  " pick " + bestPickName(g) + " meals " + g.inventory.count(s -> s.get(net.minecraft.core.component.DataComponents.FOOD) != null && !s.is(Items.ROTTEN_FLESH))
-                    + "), doing {}{}, {} more queued, step: {}, skills queued {}{}{}{}", (g.level().dimension() == net.minecraft.world.level.Level.OVERWORLD ? "" : g.level().dimension().location().getPath() + " "), g.blockPosition().toShortString(), (int) dist,
+                    + "), doing {}{}, {} more queued, step: {}, skills queued {}{}{}{}", (g.level().dimension() == net.minecraft.world.level.Level.OVERWORLD ? "" : g.level().dimension().location().getPath() + " "), g.blockPosition().toShortString(), dist < 0 || player.level() != g.level() ? "they're in another world" : (int) dist + " blocks from them",
                     g.currentTask == null ? "nothing" : g.currentTask.getClass().getSimpleName(), headed != null ? " -> " + headed.toShortString() : "",
                     g.tasks.size(), g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target(), g.skillQueue.size(),
                     g.planning ? ", thinking" : "", g.staying ? ", staying" : "", g.commandActive ? ", on their job" : "");
@@ -1661,9 +1661,14 @@ public final class ClaudeLife {
     /** For the game tests: one skill run, as the planner would. */
     public static String testSkill(ClaudeEntity g, ServerPlayer player, String skill, String target, int count) { return runSkill(g, player, new Skills.Step(skill, target, count)); }
 
+    /** A go_to target that means them (no place named): blank, you/them/the player, their name. */
+    static boolean goToThem(String target, ServerPlayer player) {
+        String t = target == null ? "" : target.toLowerCase().replace('_', ' ').trim();
+        return t.isEmpty() || t.matches("(?s)(to )?(you|them|him|her|the player|player|me|over here|here)") || player != null && t.contains(player.getGameProfile().getName().toLowerCase());
+    }
     private static String runSkill(ClaudeEntity g, ServerPlayer player, Skills.Step st) {
         ServerLevel level = (ServerLevel) g.level(); // his world (the Nether, if he's there), never theirs
-        if (g.level() != player.level() && ("near_them".equals(st.where()) || java.util.Set.of("follow", "give", "go_to", "return_drops").contains(st.skill())))
+        if (g.level() != player.level() && ("near_them".equals(st.where()) || java.util.Set.of("follow", "give", "return_drops").contains(st.skill()) || st.skill().equals("go_to") && goToThem(st.target(), player))) // (go_to a place of his own world goes on: live 10:47 World 15 "go_to fortress" in the Nether failed as "they're in another world")
             return "failed: they're in another world (" + player.level().dimension().location().getPath() + "), I'm in " + g.level().dimension().location().getPath() + ": that needs us in the same world (back through the portal, or them coming over)";
         com.claudemod.entity.life.TempLedger.stepStart(g, level, st.skill()); // done crafting and off to something else: what he put down round him for it comes back up first, like a player (his table above all: the bed's and the furnace's tables stood as litter all over a new world)
         String target = st.target().toLowerCase().replace("minecraft:", "").trim().replace(' ', '_');
@@ -3967,6 +3972,8 @@ public final class ClaudeLife {
                     else if (target.contains("farm") && g.farm != null) { placeAt = g.farm.outside(); placeName = "my farm"; }
                     else if ((target.contains("chest") || target.contains("storage") || target.contains("nook") || target.contains("stash")) && g.nook != null) { var n0 = nearestNook(g, g.blockPosition(), x -> true); placeAt = n0.mouth(); placeName = "my chests in the base nook at the y " + n0.origin.getY() + " level"; }
                     else if (target.contains("mine") && bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty()) { placeAt = g.blueprint.outside(); placeName = "my mine's entrance"; }
+                    else if (target.contains("fortress") && level.dimension() == net.minecraft.world.level.Level.NETHER && com.claudemod.entity.life.FortressScout.found(g) != null) { placeAt = com.claudemod.entity.life.FortressScout.found(g); placeName = "the fortress I found"; } // (the place he's seen, in this world)
+                    else if (target.contains("portal")) { var pp = com.claudemod.entity.life.PortalMap.resolve(g, target.replace('_', ' ')); if (pp != null && pp.dim.equals(com.claudemod.entity.life.PortalMap.dim(level))) { placeAt = pp.at; placeName = "portal #" + pp.id; } }
                     if (placeAt != null) {
                         boolean down = bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.touches(g.blockPosition()) && !placeName.startsWith("my chests");
                         if (down) bpWalkTo(g, g.blueprint.entrance); // up his mine by its rows first, never a new hole up

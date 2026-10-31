@@ -735,7 +735,7 @@ public final class ClaudeBodyTest {
                             mock[0].teleportTo(at.getX() + 2.5, at.getY(), at.getZ() + 0.5);
                             c.storageChests.clear(); c.myStations.clear(); // (an earlier stage's chest of diamonds counted as his)
                             var missing = com.claudemod.director.Kit.missing(c, true);
-                            check(missing.size() == 9 && !missing.containsKey(Items.BREAD) && missing.containsKey(Items.DIAMOND_CHESTPLATE) && !missing.containsKey(Items.IRON_CHESTPLATE), "kit: with 31 diamonds missing should be 4 diamond armor (no iron armor, the user's rule) + sword + shield + 3 diamond tools, got " + com.claudemod.director.Kit.describe(missing));
+                            check(missing.size() == 7 && !missing.containsKey(Items.BREAD) && missing.containsKey(Items.DIAMOND_CHESTPLATE) && !missing.containsKey(Items.IRON_CHESTPLATE), "kit: with 31 diamonds want 4 diamond armor + sword + shield + diamond pick, got " + com.claudemod.director.Kit.describe(missing));
                             String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "gear_up", "", 1);
                             ClaudeMod.LOGGER.info("[Claude test] stage 37 gear_up -> {}", r);
                             check(r.startsWith("gearing up"), "gear_up: " + r);
@@ -8009,330 +8009,7 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
-        if (stage[0] == 512) { // 11 raw iron, his own furnace 12 off under the same roof, smelt iron_ingot 2 (live 12:03 World 15: 2 of 11 smelted, in a new furnace notched into an ore hole, his nook's 6 about 20 off): all 11, at his own furnace
-            BlockPos me = h.absolutePos(new BlockPos(2, 2, 2)), fur = h.absolutePos(new BlockPos(13, 2, 9));
-            if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); flatBox(h);
-                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) level.setBlock(h.absolutePos(new BlockPos(x, 6, z)), Blocks.STONE.defaultBlockState(), 2); // (a roof: underground, where he'd put one down)
-                level.setBlock(fur, Blocks.FURNACE.defaultBlockState(), 3); c.myStations.add(fur); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
-            if (t[0] == 5) {
-                c.getInventory().add(new ItemStack(Items.RAW_IRON, 11)); c.getInventory().add(new ItemStack(Items.COAL, 4)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE));
-                String a = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "iron_ingot", 2);
-                check(a != null && a.contains("all 11"), "smelt 2 of 11 raw iron: \"" + a + "\"");
-                var st2 = c.skillQueue.peekFirst(); check(st2 != null && st2.count() == 11, "smelt: the step back at 11: " + c.skillQueue);
-                c.skillQueue.clear();
-                String b = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "iron_ingot", 11);
-                boolean placed = false; for (BlockPos q : BlockPos.betweenClosed(me.offset(-4, -1, -4), me.offset(4, 3, 4))) if (level.getBlockState(q).is(Blocks.FURNACE)) placed = true;
-                check(b != null && b.contains("my furnace at " + fur.toShortString()) && !placed && c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().equals(fur)), "smelt with his own furnace 12 off: \"" + b + "\" (a new one by him " + placed + ", tasks " + c.tasks + ")");
-                c.tasks.clear(); c.skillQueue.clear(); c.myStations.remove(fur); level.setBlock(fur, Blocks.AIR.defaultBlockState(), 3);
-                BlockPos farF = me.offset(165, 0, 0); c.myStations.add(farF); // (his nook's furnaces, 165 off)
-                String d = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "iron_ingot", 11);
-                check(d != null && d.startsWith("done:") && d.contains("rides home") && c.tasks.isEmpty(), "smelt 165 from his furnaces: \"" + d + "\" (tasks " + c.tasks + ")");
-                c.myStations.remove(farF); c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
-                pass(stage, t, "\"" + a + "\"; then \"" + b + "\"; far: \"" + d + "\"");
-            }
-            return true;
-        }
-        if (stage[0] == 511) { // far from his mine (live 11:51 World 15: "cook my raw salmon" for 2 while fed, a furnace's cobble from a fresh hole 130 off): the raws ride home; no fresh hole out here for a few cobble
-            if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); flatBox(h); }
-            if (t[0] == 5) {
-                c.getInventory().add(new ItemStack(Items.SALMON, 2)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 5)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 4)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getFoodData().setFoodLevel(20);
-                String a = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "cooked_salmon", 2);
-                check(a != null && a.startsWith("done:") && c.tasks.isEmpty(), "smelt 2 salmon, fed, far from a furnace: \"" + a + "\" (tasks " + c.tasks + ")");
-                c.tasks.clear(); c.skillQueue.clear();
-                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) for (int y = -11; y <= 0; y++) h.setBlock(new BlockPos(x, y, z), Blocks.DIRT); // (no stone showing anywhere: only a fresh hole would reach it)
-                c.stairStart = c.blockPosition().offset(130, 0, 0); c.mineFace = c.blockPosition().offset(130, -40, 0); c.mineDir = net.minecraft.core.Direction.EAST;
-                String b = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "cobblestone", 8);
-                boolean holes = c.tasks.stream().anyMatch(q -> q instanceof Task.Break);
-                check(b != null && !holes, "cobble 130 from his mine, no stone showing: \"" + b + "\" (tasks " + c.tasks + ")");
-                c.tasks.clear(); c.skillQueue.clear(); c.stairStart = null; c.mineFace = null; c.mineDir = null; c.getInventory().clearContent();
-                pass(stage, t, "smelt: \"" + a + "\"; cobble: \"" + b + "\"");
-            }
-            return true;
-        }
-        if (stage[0] == 510) { // where he last stood survives a restart (live World 15: three restarts put him beside them, once out of his mine): his 10 s record gives his spot and world back; a spot filled in since gives nothing
-            if (t[0] == 1) scenarioReset(c);
-            if (t[0] == 5) { BlockPos me = h.absolutePos(new BlockPos(9, 2, 9)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
-            if (t[0] == 20) {
-                check(c.onGround(), "setup: not on the ground at " + c.blockPosition().toShortString());
-                BlockPos at = c.blockPosition();
-                c.saveMine(mock[0]);
-                var spot = com.claudemod.entity.ClaudeSpawner.lastSpot(level.getServer(), mock[0]);
-                check(spot != null && spot[0] == c.level() && at.equals(spot[1]), "rejoin: his last spot " + (spot == null ? "none" : spot[1] + " in " + ((ServerLevel) spot[0]).dimension().location()) + " (he's at " + at.toShortString() + ")");
-                level.setBlock(at, Blocks.STONE.defaultBlockState(), 2);
-                var gone = com.claudemod.entity.ClaudeSpawner.lastSpot(level.getServer(), mock[0]);
-                level.setBlock(at, Blocks.AIR.defaultBlockState(), 2);
-                check(gone == null, "rejoin: a spot filled with stone still given back: " + (gone == null ? "-" : gone[1]));
-                pass(stage, t, "his last spot " + at.toShortString() + " kept for a rejoin; not when it's filled in");
-            }
-            return true;
-        }
-        if (stage[0] == 509) { // raw salmon on him, logs for fuel, no furnace (live 11:20 World 15: "can't cook the salmon yet ... eat it raw only if starving" at food 3): below full with nothing to cook in, eaten raw; at food 6 or less, eaten raw even with a furnace by him; raw chicken still waits
-            if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); }
-            if (t[0] == 5) {
-                c.getInventory().add(new ItemStack(Items.SALMON, 4)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 4));
-                c.getFoodData().setFoodLevel(16); c.setHealth(20f);
-                String a = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "eat", "", 1);
-                check(a != null && a.startsWith("eating the salmon raw"), "eat at food 16, nothing to cook in: \"" + a + "\"");
-                c.tasks.clear();
-                BlockPos fur = h.absolutePos(new BlockPos(6, 2, 6)); level.setBlock(fur, Blocks.FURNACE.defaultBlockState(), 3);
-                c.getFoodData().setFoodLevel(3); c.setHealth(19f);
-                String b = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "eat", "", 1);
-                check(b != null && b.startsWith("eating") && b.contains("salmon") && c.tasks.stream().anyMatch(q -> q instanceof Task.Eat), "eat at food 3 with a furnace by him: \"" + b + "\" (tasks " + c.tasks + ")");
-                c.tasks.clear(); level.setBlock(fur, Blocks.AIR.defaultBlockState(), 3);
-                c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.CHICKEN, 2)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 4)); c.getFoodData().setFoodLevel(10); c.setHealth(20f);
-                String ch = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "eat", "", 1);
-                check(ch == null || !ch.startsWith("eating the chicken raw"), "raw chicken eaten at food 10, health 20: \"" + ch + "\"");
-                c.tasks.clear(); c.getInventory().clearContent(); c.getFoodData().setFoodLevel(20);
-                pass(stage, t, "food 16: \"" + a + "\"; food 3 by a furnace: \"" + b + "\"; chicken: \"" + ch + "\"");
-            }
-            return true;
-        }
-        if (stage[0] == 508) { // a ledge 10 over a lava lake, his walk's spot across it, no blocks to bridge with (live 10:53 World 15: the lava 18 under a Nether ledge passed the lip check as "water below", he walked off and burned with his whole kit): never off the ledge, never in the lava
-            BlockPos me = h.absolutePos(new BlockPos(4, 13, 7)), far = h.absolutePos(new BlockPos(15, 13, 7));
-            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); hzLow = 20f;
-                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 2; y <= 16; y++) { boolean ledge = x <= 7 && y <= 12, pillar = x == 15 && y <= 12; level.setBlock(h.absolutePos(new BlockPos(x, y, z)), ledge || pillar ? Blocks.STONE.defaultBlockState() : y == 2 ? Blocks.LAVA.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); } }
-                for (int x = 0; x < 16; x++) for (int y = 2; y <= 16; y++) { level.setBlock(h.absolutePos(new BlockPos(x, y, 0)), Blocks.GLASS.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, y, 15)), Blocks.GLASS.defaultBlockState(), 2); }
-                for (int z = 0; z < 16; z++) for (int y = 2; y <= 16; y++) level.setBlock(h.absolutePos(new BlockPos(0, y, z)), Blocks.GLASS.defaultBlockState(), 2); // (walled in: the lava side is the only edge)
-                BlockPos you = h.absolutePos(new BlockPos(2, 13, 3)); mock[0].teleportTo(you.getX() + 0.5, you.getY(), you.getZ() + 0.5);
-                c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
-            if (t[0] > 10 && t[0] < 300) { c.getNavigation().stop(); c.getMoveControl().setWantedPosition(far.getX() + 0.5, far.getY(), far.getZ() + 0.5, 1.0); } // (steered straight at it with no path, as the walker's fallback does: live "slow walk ... path=0/1")
-            if (t[0] > 10) { hzLow = Math.min(hzLow, c.getHealth()); check(!c.isInLava() && c.getY() > me.getY() - 1.5, "lava lip: off the ledge at " + String.format("%.1f %.1f %.1f", c.getX(), c.getY(), c.getZ()) + " (in lava " + c.isInLava() + ")"); }
-            if (t[0] == 400) { c.tasks.clear(); c.dropCurrent = true; for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) for (int y = 2; y <= 16; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(back.getX() + 0.5, back.getY(), back.getZ() + 0.5); mock[0].teleportTo(back.getX() + 0.5, back.getY(), back.getZ() + 0.5); pass(stage, t, "20 s on the ledge over the lava, never off it, low " + hzLow); }
-            return true;
-        }
-        if (stage[0] == 507) { // in the Nether with a fortress found, them in the overworld (live 10:47 World 15: "go_to fortress" failed as "they're in another world"): the place he knows in his own world; go_to them still says they're elsewhere
-            ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
-            if (t[0] == 1) { lwReset(c); com.claudemod.entity.life.FortressScout.reset(c); }
-            if (t[0] == 5) {
-                BlockPos at = new BlockPos(0, 100, 0), fort = new BlockPos(30, 100, 10);
-                for (int x = -2; x <= 34; x++) for (int z = -2; z <= 12; z++) { nether.setBlock(new BlockPos(x, 99, z), Blocks.NETHERRACK.defaultBlockState(), 2); for (int y = 100; y <= 103; y++) nether.setBlock(new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
-                c.teleportTo(nether, at.getX() + 0.5, at.getY(), at.getZ() + 0.5, 0, 0);
-                com.claudemod.entity.life.FortressScout.foundTest(c, fort);
-            }
-            if (t[0] == 15) {
-                check(c.level() == nether && mock[0].level() == level, "setup: him in " + c.level().dimension().location() + ", them in " + mock[0].level().dimension().location());
-                c.tasks.clear();
-                String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "go_to", "fortress", 1);
-                check(r != null && r.startsWith("heading to the fortress I found") && c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo), "go_to fortress in the Nether: \"" + r + "\" (tasks " + c.tasks + ")");
-                c.tasks.clear();
-                String r2 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "go_to", "you", 1);
-                check(r2 != null && r2.startsWith("failed: they're in another world"), "go_to them across worlds: \"" + r2 + "\"");
-                c.tasks.clear(); com.claudemod.entity.life.FortressScout.reset(c); BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(level, back.getX() + 0.5, back.getY(), back.getZ() + 0.5, 0, 0);
-                pass(stage, t, "\"" + r + "\"; them: \"" + r2 + "\"");
-            }
-            return true;
-        }
-        if (stage[0] == 506) { // enter_portal then blaze_rods (live 10:27 World 15: "stepping into portal #4" taken for there, find_fortress and blaze_rods run in the overworld): done only once he's through; never a Nether step in the overworld
-            ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
-            if (t[0] == 1) { lwReset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); wdRuns = 0; wdSaid = ""; }
-            if (t[0] == 10) {
-                esStart(c, h, level, mock, new BlockPos(5, 2, 7), new BlockPos(1, 2, 14));
-                for (int x = 0; x <= 3; x++) for (int y = 1; y <= 5; y++) if (x == 0 || x == 3 || y == 1 || y == 5) level.setBlock(h.absolutePos(new BlockPos(4 + x, y, 10)), Blocks.OBSIDIAN.defaultBlockState(), 2 | 16);
-                for (int x = 1; x <= 2; x++) for (int y = 2; y <= 4; y++) level.setBlock(h.absolutePos(new BlockPos(4 + x, y, 10)), Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
-                com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.dim(level), h.absolutePos(new BlockPos(5, 2, 10)), "him", "lit");
-                var a = steps1("enter_portal", "my portal", 1, "near_you"); a.addAll(steps1("blaze_rods", "", 6, "near_you"));
-                com.claudemod.director.ClaudeLife.command(c, mock[0], a, "go into the nether and get blaze rods", "replace");
-            }
-            if (t[0] > 10) {
-                String ln = c.lastSkillLine == null ? "" : c.lastSkillLine;
-                if (c.level() == level && ln.startsWith("blaze_rods") && !ln.contains("only in the Nether")) check(false, "portal: blaze_rods ran in the overworld: " + ln);
-                if (ln.contains("through portal")) wdSaid = ln;
-                if (c.level() == nether && !wdSaid.isEmpty()) { c.tasks.clear(); c.skillQueue.clear(); c.commandActive = false; BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(level, back.getX() + 0.5, back.getY(), back.getZ() + 0.5, 0, 0);
-                    for (int x = 0; x <= 3; x++) for (int y = 1; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(4 + x, y, 10)), Blocks.AIR.defaultBlockState(), 2 | 16);
-                    com.claudemod.entity.life.PortalMap.net(c).portals.clear(); pass(stage, t, "in the Nether, then \"" + wdSaid + "\""); }
-                else if (t[0] == 20 * 40) check(false, "portal: not through in 40 s (in " + c.level().dimension().location() + ", last " + ln + ", queue " + c.skillQueue + ")");
-            }
-            return true;
-        }
-        if (stage[0] == 505) { // a full pack: 2 stacks of cobble and 2 of cobbled deepslate, 2 sugar, the rest fish (live 10:18 World 15: "nothing junk in it", the sugar dropped and picked back up every 7 s): stone past 2 stacks all told goes, the sugar stays
-            if (t[0] == 1) { scenarioReset(c); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard(); }
-            if (t[0] == 5) {
-                var inv = c.getInventory(); inv.clearContent();
-                inv.items.set(0, new ItemStack(Items.IRON_PICKAXE)); inv.selected = 0;
-                inv.items.set(1, new ItemStack(Items.COBBLESTONE, 64)); inv.items.set(2, new ItemStack(Items.COBBLESTONE, 64)); inv.items.set(3, new ItemStack(Items.COBBLED_DEEPSLATE, 64)); inv.items.set(4, new ItemStack(Items.COBBLED_DEEPSLATE, 46)); inv.items.set(5, new ItemStack(Items.SUGAR, 2));
-                for (int i = 6; i < inv.items.size() - 1; i++) inv.items.set(i, new ItemStack(Items.COD, 16));
-                com.claudemod.director.ClaudeLife.dumpJunkTest(c);
-                int stone = c.inventory.count(x -> x.is(Items.COBBLESTONE) || x.is(Items.COBBLED_DEEPSLATE)), sugar = c.inventory.count(x -> x.is(Items.SUGAR)), free = 0; for (var st0 : inv.items) if (st0.isEmpty()) free++;
-                check(stone <= 128 && stone >= 64, "pack: stone " + stone + " after the clear-out (want 2 stacks all told)");
-                check(sugar == 2, "pack: the sugar went (" + sugar + " left) with surplus stone on him");
-                check(free >= 3, "pack: only " + free + " free slot(s) after it");
-                for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard();
-                inv.clearContent(); pass(stage, t, "surplus stone out (" + stone + " kept), sugar kept, " + free + " slots free");
-            }
-            return true;
-        }
-        if (stage[0] == 503) { // a walk to a cell far below that cuts one step and is back up the next moment, again and again (live 09:48 World 15: 21 "stepping off" in 80 s, net nothing, every one "got nearer"): no gain on his best over the window, the third trips
-            BlockPos A = h.absolutePos(new BlockPos(4, 2, 7)), goal = h.absolutePos(new BlockPos(4, -20, 7));
-            var walk = new Task.GoTo(goal, 1.0);
-            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.nextPlanTick = c.tickCount + 20 * 600; wdRuns = 0; }
-            int ph = t[0] % 20;
-            if (t[0] >= 10 && t[0] < 10 + 20 * 4) {
-                if (ph == 10) { c.teleportTo(A.getX() + 0.5, A.getY(), A.getZ() + 0.5); com.claudemod.entity.life.Watchdog.starting(c, walk); }
-                if (ph == 16) { c.teleportTo(A.getX() + 0.5, A.getY() - 1, A.getZ() + 0.5); com.claudemod.entity.life.Watchdog.ended(c, walk, null); wdRuns++; } // (one step down, the leg over)
-            }
-            if (t[0] == 10 + 20 * 4) {
-                check(com.claudemod.entity.life.Watchdog.trips(c) >= 1, "walk: one step down and back up " + wdRuns + " times, never seen as no progress (trips " + com.claudemod.entity.life.Watchdog.trips(c) + ")");
-                c.teleportTo(A.getX() + 0.5, A.getY(), A.getZ() + 0.5); c.tasks.clear(); com.claudemod.entity.life.Watchdog.reset(c);
-                pass(stage, t, "a step cut and undone " + wdRuns + " times: tripped");
-            }
-            return true;
-        }
-        if (stage[0] == 504) { // his stash chests deep in solid rock, him far above (live 09:48 World 15: a table "placed" into stone 37 under him, a walk down to it at the surface for minutes): no base stations laid off them
-            if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE)); c.getInventory().add(new ItemStack(Items.FURNACE, 4)); }
-            if (t[0] == 5) {
-                BlockPos a = h.absolutePos(new BlockPos(6, -2, 7)), b = a.east(); // (in the stone under the platform)
-                c.tasks.clear(); com.claudemod.director.ClaudeLife.baseStationsTest(c, level, a, b, net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.EAST);
-                check(c.tasks.isEmpty(), "base stations: laid off chests in solid rock " + (c.getBlockY() - a.getY()) + " below him: " + c.tasks);
-                c.tasks.clear(); pass(stage, t, "no stations off chests in the rock below");
-            }
-            return true;
-        }
-        if (stage[0] == 502) { // his furnace 3 off behind a wall, lava cells the nearest spots with a view of it (live 07:14 World 15: the view spot picked was lava, a walk at it every minute for 47 min, the furnace never opened): a dry spot, the batch out, never in the lava
-            BlockPos fur = h.absolutePos(new BlockPos(5, 2, 7)), me = h.absolutePos(new BlockPos(9, 2, 7));
-            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); hzLow = 20f;
-                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 2; y <= 8; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
-                for (int z = 4; z <= 10; z++) for (int y = 2; y <= 4; y++) level.setBlock(h.absolutePos(new BlockPos(7, y, z)), Blocks.STONE.defaultBlockState(), 2); // (the wall between him and it)
-                for (int z = 5; z <= 9; z++) { level.setBlock(h.absolutePos(new BlockPos(6, 1, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(6, 2, z)), Blocks.LAVA.defaultBlockState(), 2); } // (lava on stone: the nearest cells that see it)
-                level.setBlock(fur, Blocks.FURNACE.defaultBlockState(), 3); c.myStations.add(fur);
-                if (level.getBlockEntity(fur) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fb) fb.setItem(2, new ItemStack(Items.COOKED_CHICKEN, 2));
-                c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
-            if (t[0] == 10) c.tasks.add(new Task.FurnaceTake(fur));
-            if (t[0] > 10) { hzLow = Math.min(hzLow, c.getHealth()); check(!c.isInLava(), "furnace: he walked into the lava at " + c.blockPosition().toShortString());
-                if (c.inventory.count(x -> x.is(Items.COOKED_CHICKEN)) >= 2) { int at = t[0]; c.tasks.clear(); c.myStations.remove(fur); for (int z = 5; z <= 9; z++) level.setBlock(h.absolutePos(new BlockPos(6, 2, z)), Blocks.AIR.defaultBlockState(), 2); level.setBlock(fur, Blocks.AIR.defaultBlockState(), 3); pass(stage, t, "round the wall to a dry spot, the batch out in " + (at - 10) / 20 + " s, low " + hzLow); }
-                else if (t[0] == 600) check(false, "furnace: the batch not out in 30 s (at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ", queue " + c.tasks + ")"); }
-            return true;
-        }
-        if (stage[0] == 501) { // his dig opens onto lava (live 06:53 World 15: the plug was queued as a walk to a stand spot, the step never took, the lava came on, he burned with the whole diamond kit): the block straight back the same tick, from where he stands; never in the lava
-            BlockPos me = h.absolutePos(new BlockPos(4, 2, 7)), dig = h.absolutePos(new BlockPos(5, 2, 7)), lava = h.absolutePos(new BlockPos(6, 2, 7));
-            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); wdRuns = -1; hzLow = 20f;
-                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 2; y <= 8; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), (x >= 5 && x <= 9 && z >= 5 && z <= 9 && y <= 4) ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
-                for (int x = 6; x <= 8; x++) for (int z = 6; z <= 8; z++) level.setBlock(h.absolutePos(new BlockPos(x, 2, z)), Blocks.LAVA.defaultBlockState(), 3); // (a hidden pocket right behind the stone he's to dig)
-                c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
-            if (t[0] == 10) c.tasks.add(new Task.Break(dig));
-            if (t[0] > 10) { hzLow = Math.min(hzLow, c.getHealth()); check(!c.isInLava(), "lava release: he's in the lava at " + c.blockPosition().toShortString() + " (health " + c.getHealth() + ")");
-                boolean open = level.getBlockState(dig).getCollisionShape(level, dig).isEmpty();
-                if (open && wdRuns < 0) wdRuns = t[0];
-                if (level.getBlockState(dig).is(Blocks.COBBLESTONE) && (wdRuns > 0 || !open)) { int took = wdRuns > 0 ? t[0] - wdRuns : 0; /* (plugged in the very tick it opened: never seen open) */ check(took <= 3, "lava release: the hole took " + took + " ticks to plug (want the same tick: a right click)"); check(hzLow >= 20, "lava release: hurt, low " + hzLow); c.tasks.clear(); c.dropCurrent = true; for (int x = 6; x <= 8; x++) for (int z = 6; z <= 8; z++) level.setBlock(h.absolutePos(new BlockPos(x, 2, z)), Blocks.STONE.defaultBlockState(), 3); pass(stage, t, "the stone out and his cobble in its place " + took + " tick(s) after it opened, never hurt"); }
-                else if (t[0] == 400) check(false, "lava release: " + (wdRuns < 0 ? "the stone never dug" : "the hole onto the lava still open after " + (t[0] - wdRuns) + " ticks") + " (task " + c.currentTask + ", queue " + c.tasks + ")");
-            }
-            return true;
-        }
-        if (stage[0] == 500) { // build_portal with lava down here and no obsidian (live 06:43 World 15: one obsidian per 16-20 s, pour and wait for the drain each block): the frame's 10 made the user's way, at a diamond pick's pace (9.4 s a block: 10 in 150 s with the moves)
-            if (t[0] == 1) { lwReset(c); com.claudemod.director.ClaudeLife.lavaSeen(c).clear(); com.claudemod.director.ClaudeLife.obsTestReset(c); com.claudemod.entity.life.Watchdog.reset(c); }
-            if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
-            if (t[0] == 10) {
-                esStart(c, h, level, mock, new BlockPos(3, 2, 7), new BlockPos(1, 2, 14));
-                for (int x = 8; x <= 10; x++) for (int z = 6; z <= 8; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.LAVA.defaultBlockState(), 3); level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), Blocks.LAVA.defaultBlockState(), 3); com.claudemod.director.ClaudeLife.lavaSeen(c).add(h.absolutePos(new BlockPos(x, 1, z)).immutable()); }
-                c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.WATER_BUCKET)); c.getInventory().add(new ItemStack(Items.BREAD, 4)); c.getInventory().add(new ItemStack(Items.FLINT_AND_STEEL));
-            }
-            if (t[0] == 20) { com.claudemod.director.ClaudeLife.obsTestPortalMaking(true); com.claudemod.director.ClaudeLife.command(c, mock[0], steps1("make_obsidian", "obsidian", 10, "near_you"), "the portal's obsidian", "replace"); } // (build_portal's own step, as it runs: make_obsidian with the portal's flag set)
-            if (t[0] > 20) {
-                int have = c.inventory.count(x -> x.is(Items.OBSIDIAN));
-                if (have >= 10) { int secs = (t[0] - 20) / 20; c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear(); c.commandActive = false; com.claudemod.director.ClaudeLife.obsTestReset(c); com.claudemod.director.ClaudeLife.obsTestPortalMaking(false); pass(stage, t, "the portal's 10 obsidian made in " + secs + " s (last: " + c.lastSkillLine + ")"); }
-                else if (t[0] > 20 + 20 * 150) { com.claudemod.director.ClaudeLife.obsTestPortalMaking(false); check(false, "portal obsidian: " + have + " of 10 in 150 s (a diamond pick's pace is 9.4 s a block): last " + c.lastSkillLine); }
-            }
-            return true;
-        }
-        if (stage[0] == 499) { // at his furnace with his own pickups and a replant still queued (a tree just felled): those while it cooks, then the furnace; no new tree pushing them back (live 06:00 World 15: chop drops left, saplings never replanted)
-            BlockPos fur = h.absolutePos(new BlockPos(5, 2, 7)), me = h.absolutePos(new BlockPos(6, 2, 7)), sap = h.absolutePos(new BlockPos(3, 2, 3)), tree = h.absolutePos(new BlockPos(12, 2, 12));
-            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.OAK_SAPLING, 2)); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(1000);
-                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 2; y <= 12; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
-                for (int y = 0; y < 5; y++) level.setBlock(tree.above(y), Blocks.OAK_LOG.defaultBlockState(), 2); for (int x = -2; x <= 2; x++) for (int z = -2; z <= 2; z++) for (int y = 3; y <= 5; y++) if (level.getBlockState(tree.offset(x, y, z)).isAir()) level.setBlock(tree.offset(x, y, z), Blocks.OAK_LEAVES.defaultBlockState().setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true), 2);
-                level.setBlock(fur, Blocks.FURNACE.defaultBlockState(), 3); c.myStations.add(fur);
-                if (level.getBlockEntity(fur) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fb) { fb.setItem(0, new ItemStack(Items.RAW_IRON, 16)); fb.setItem(1, new ItemStack(Items.COAL, 4)); }
-                c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
-                var it = new net.minecraft.world.entity.item.ItemEntity(level, sap.getX() + 0.5, sap.getY() + 0.1, sap.getZ() + 0.5, new ItemStack(Items.OAK_LOG, 3), 0, 0, 0); level.addFreshEntity(it); }
-            if (t[0] == 40) { c.tasks.add(new Task.FurnaceTake(fur)); c.tasks.add(new Task.Pickup(100)); c.tasks.add(new Task.Replant(sap)); }
-            if (t[0] > 40 && (c.currentTask instanceof Task.ChopTree || c.tasks.stream().anyMatch(q -> q instanceof Task.ChopTree))) check(false, "furnace: a new tree taken on while his own pickup and replant waited: now " + c.currentTask + ", queue " + c.tasks);
-            if (t[0] > 40 && level.getBlockState(sap).is(Blocks.OAK_SAPLING)) { int at = t[0]; c.tasks.clear(); c.dropCurrent = true; c.myStations.remove(fur); level.setBlock(fur, Blocks.AIR.defaultBlockState(), 3); pass(stage, t, "his pickup and replant while it cooked, no new tree, " + (at - 40) + " ticks"); }
-            else if (t[0] == 900) check(false, "furnace: the sapling not back in 43 s (now " + c.currentTask + ", queue " + c.tasks + ")");
-            return true;
-        }
-        if (stage[0] == 498) { // a craft short of what it's made of, twice the same: the next way is obtain (the chain: smelt, mine, then craft), not the bare craft again (live World 15: iron_pickaxe with raw iron on him, diamond_leggings with 5 of 7 diamonds); "no building blocks" gets cobble first
-            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.failCount.clear(); c.skillQueue.clear(); }
-            if (t[0] == 5) {
-                var st = new com.claudemod.entity.life.Skills.Step("craft", "iron_pickaxe", 1);
-                String r = "failed: to craft iron_pickaxe you are missing iron_ingot";
-                com.claudemod.entity.life.Watchdog.skillRan(c, st, r); check(c.skillQueue.isEmpty(), "craft: one failure acted on: " + c.skillQueue);
-                com.claudemod.entity.life.Watchdog.skillRan(c, st, r);
-                var q = new java.util.ArrayList<>(c.skillQueue);
-                check(!q.isEmpty() && q.get(0).skill().equals("obtain") && q.get(0).target().equals("iron_pickaxe"), "craft: the 2nd \"missing iron_ingot\" didn't go to obtain iron_pickaxe: " + q);
-                c.skillQueue.clear(); com.claudemod.entity.life.Watchdog.reset(c);
-                var bh = new com.claudemod.entity.life.Skills.Step("build_here", "", 1);
-                String rb = "failed: no building blocks (collect logs or stone first)";
-                com.claudemod.entity.life.Watchdog.skillRan(c, bh, rb); com.claudemod.entity.life.Watchdog.skillRan(c, bh, rb);
-                q = new java.util.ArrayList<>(c.skillQueue);
-                check(q.size() == 2 && q.get(0).skill().equals("collect") && q.get(1).equals(bh), "build: \"no building blocks\" twice didn't get cobble first: " + q);
-                c.skillQueue.clear(); com.claudemod.entity.life.Watchdog.reset(c);
-                pass(stage, t, "missing iron_ingot -> obtain iron_pickaxe; no building blocks -> collect, then the build");
-            }
-            return true;
-        }
-        if (stage[0] == 497) { // a walk into a cell still solid, queued before the dig that opens it (live 04:43 World 15: a GoTo into the rock, its Break next in the queue, 32 stalls in a minute): the dig goes first, the walk waits behind it
-            BlockPos me = h.absolutePos(new BlockPos(4, 3, 7)), into = h.absolutePos(new BlockPos(7, 3, 7));
-            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no");
-                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 2, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 3; y <= 8; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
-                level.setBlock(into, Blocks.STONE.defaultBlockState(), 2); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
-            if (t[0] == 10) { c.tasks.add(new Task.GoTo(into, 0.5)); c.tasks.add(new Task.Pickup(20)); c.tasks.add(new Task.Break(into)); }
-            if (t[0] == 13) {
-                boolean digFirst = c.currentTask instanceof Task.Break b0 && b0.pos().equals(into) || c.tasks.peek() instanceof Task.Break b1 && b1.pos().equals(into);
-                boolean walkAfter = c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().equals(into));
-                check(digFirst && walkAfter, "walk into rock: the walk to " + into.toShortString() + " ran before its own cell's dig (now " + c.currentTask + ", queue " + c.tasks + ")");
-            }
-            if (t[0] > 13 && level.getBlockState(into).isAir() && c.position().distanceTo(into.getBottomCenter()) < 1.0) { int at = t[0]; c.tasks.clear(); pass(stage, t, "its cell dug first, then the walk in, " + (at - 10) + " ticks"); }
-            else if (t[0] == 300) check(false, "walk into rock: not in the cell after 14 s: at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ", queue " + c.tasks + ", cell " + level.getBlockState(into));
-            return true;
-        }
-        if (stage[0] == 496) { // collect cobblestone in his own mine never picks its wall (live 03:48 World 15: his shell stone queued, refused by doBreak, 0 got, the furnace craft looped)
-            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("mine_model", "blueprint"); }
-            if (t[0] == 5) {
-                var b = mrMine(h, level, 8); c.blueprint = b; com.claudemod.director.ClaudeLife.bpSync(c);
-                BlockPos me = h.absolutePos(new BlockPos(8, 6, 7)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
-                c.setHealth(8f); // (hurt with nothing to eat: the stone round him, not a trip down the mine: the path that queued his wall live)
-                String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "cobblestone", 4);
-                c.setHealth(20f);
-                var shell = c.tasks.stream().filter(q -> q instanceof Task.Break br && b.isShell(br.pos()) && !com.claudemod.entity.life.MineBlueprint.ore(level.getBlockState(br.pos()))).toList();
-                check(shell.isEmpty(), "collect in his mine: " + shell.size() + " dig(s) queued in his own mine's wall: " + shell + " (said: " + r + ")");
-                c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear(); c.blueprint = null;
-                pass(stage, t, "collect in his mine: none of its wall (" + r + ")");
-            }
-            return true;
-        }
-        if (stage[0] == 495) { // live 03:18 World 15: stone behind copper ore, a wooden pick, the dig re-queued by his mine round: never the copper queued, a few goes at most, then said once (it looped 270 times in 3 min)
-            BlockPos me = h.absolutePos(new BlockPos(4, 2, 7)), cu = h.absolutePos(new BlockPos(6, 3, 7)), st = h.absolutePos(new BlockPos(7, 3, 7));
-            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.WOODEN_PICKAXE)); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); wdRuns = 0; wdTold = 0; wdSaid = "";
-                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 2; y <= 8; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
-                level.setBlock(cu, Blocks.COPPER_ORE.defaultBlockState(), 2); level.setBlock(st, Blocks.STONE.defaultBlockState(), 2); level.setBlock(st.below(), Blocks.STONE.defaultBlockState(), 2); level.setBlock(cu.below(), Blocks.STONE.defaultBlockState(), 2); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
-            if (!com.claudemod.entity.life.Watchdog.lastTold(c).isEmpty() && !com.claudemod.entity.life.Watchdog.lastTold(c).equals(wdSaid)) { wdSaid = com.claudemod.entity.life.Watchdog.lastTold(c); wdTold++; }
-            check(!(c.currentTask instanceof Task.Break b0 && b0.pos().equals(cu)) && c.tasks.stream().noneMatch(q -> q instanceof Task.Break b1 && b1.pos().equals(cu)), "dig loop: the copper (past his wooden pick) queued: " + c.tasks);
-            if (t[0] >= 10 && t[0] % 10 == 0 && t[0] < 400 && c.tasks.isEmpty() && c.currentTask == null) { c.tasks.add(new Task.Break(st)); wdRuns++; } // (his mine round, putting the same dig back)
-            if (t[0] == 400) {
-                int starts = com.claudemod.entity.life.Watchdog.trips(c);
-                check(level.getBlockState(cu).is(Blocks.COPPER_ORE), "dig loop: the copper went with a wooden pick");
-                check(c.attempts.within(com.claudemod.entity.life.Attempts.Kind.BREAK, st, c.tickCount, 20 * 60), "dig loop: the stone behind the copper not on record as refused");
-                check(starts >= 1 && wdTold == 1, "dig loop: the same refused dig queued " + wdRuns + " times in 20 s; watchdog trips " + starts + ", told " + wdTold + " (\"" + wdSaid + "\")");
-                c.tasks.clear(); c.dropCurrent = true; com.claudemod.entity.life.Watchdog.reset(c);
-                for (BlockPos q : new BlockPos[] {cu, st, cu.below(), st.below()}) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2);
-                pass(stage, t, "copper never queued; the stone's dig tried, refused and written off; told once: \"" + wdSaid + "\"");
-            }
-            return true;
-        }
-        if (stage[0] == 494) { // a new mine on a 2:1 slope falling south (live 03:16 World 15: down the hillside, a trench open to the sky): looking downhill, he heads into the hill, never down it
-            if (t[0] == 5) {
-                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { int top = 14 - z / 2; for (int y = -3; y <= 22; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y < top ? Blocks.STONE.defaultBlockState() : y == top ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
-                BlockPos feet = h.absolutePos(new BlockPos(8, 14 - 8 / 2 + 1, 8));
-                var down = com.claudemod.director.ClaudeLife.mineHeading(c, level, feet, net.minecraft.core.Direction.SOUTH, false);
-                check(down != net.minecraft.core.Direction.SOUTH, "slope: looking downhill, the mine still heads down the slope");
-                check(down == net.minecraft.core.Direction.NORTH, "slope: heading " + down + " (want north, into the hill)");
-                var said = com.claudemod.director.ClaudeLife.mineHeading(c, level, feet, net.minecraft.core.Direction.SOUTH, true);
-                check(said != net.minecraft.core.Direction.SOUTH, "slope: their \"south\" took him down the open slope");
-                var flat = h.absolutePos(new BlockPos(8, 0, 8)); for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) for (int y = -3; y <= 22; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y < 1 ? Blocks.STONE.defaultBlockState() : y == 1 ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
-                var onFlat = com.claudemod.director.ClaudeLife.mineHeading(c, level, h.absolutePos(new BlockPos(8, 2, 8)), net.minecraft.core.Direction.EAST, false);
-                check(onFlat == net.minecraft.core.Direction.EAST, "flat: heading " + onFlat + " (on flat ground the way they look is fine: east)");
-                pass(stage, t, "slope: into the hill (" + down + "), their south refused (" + said + "); flat: their east kept");
-            }
-            return true;
-        }
+        if (stage[0] >= 494 && stage[0] <= 599 && stages494(stage, t, c, h, level, mock)) return true;
         if (stage[0] >= 279 && stage[0] <= 285) {
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Whereabouts.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.ExactSpot.reset(c); com.claudemod.director.Primitives.reset(c);
                 c.planning = false; c.failCount.clear(); c.commandResults.clear(); c.commandActive = false; c.lastSkillLine = ""; c.lastStep = null; c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600; esWaitT = -1; esMark = -1; esFake = ""; }
@@ -10661,6 +10338,413 @@ public final class ClaudeBodyTest {
             pass(stage, t, said.toString());
         }
         return true;
+    }
+
+    // ---------------------------------------------------------------- stages 494 on: one method each (exactStages is at the JVM's 64 KB limit)
+    private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        switch (stage[0]) {
+            case 494: return st494(stage, t, c, h, level, mock);
+            case 495: return st495(stage, t, c, h, level, mock);
+            case 496: return st496(stage, t, c, h, level, mock);
+            case 497: return st497(stage, t, c, h, level, mock);
+            case 498: return st498(stage, t, c, h, level, mock);
+            case 499: return st499(stage, t, c, h, level, mock);
+            case 500: return st500(stage, t, c, h, level, mock);
+            case 501: return st501(stage, t, c, h, level, mock);
+            case 502: return st502(stage, t, c, h, level, mock);
+            case 503: return st503(stage, t, c, h, level, mock);
+            case 504: return st504(stage, t, c, h, level, mock);
+            case 505: return st505(stage, t, c, h, level, mock);
+            case 506: return st506(stage, t, c, h, level, mock);
+            case 507: return st507(stage, t, c, h, level, mock);
+            case 508: return st508(stage, t, c, h, level, mock);
+            case 509: return st509(stage, t, c, h, level, mock);
+            case 510: return st510(stage, t, c, h, level, mock);
+            case 511: return st511(stage, t, c, h, level, mock);
+            case 512: return st512(stage, t, c, h, level, mock);
+            case 513: return st513(stage, t, c, h, level, mock);
+            default: return false;
+        }
+    }
+    private static boolean st494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        { // a new mine on a 2:1 slope falling south (live 03:16 World 15: down the hillside, a trench open to the sky): looking downhill, he heads into the hill, never down it
+            if (t[0] == 5) {
+                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { int top = 14 - z / 2; for (int y = -3; y <= 22; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y < top ? Blocks.STONE.defaultBlockState() : y == top ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+                BlockPos feet = h.absolutePos(new BlockPos(8, 14 - 8 / 2 + 1, 8));
+                var down = com.claudemod.director.ClaudeLife.mineHeading(c, level, feet, net.minecraft.core.Direction.SOUTH, false);
+                check(down != net.minecraft.core.Direction.SOUTH, "slope: looking downhill, the mine still heads down the slope");
+                check(down == net.minecraft.core.Direction.NORTH, "slope: heading " + down + " (want north, into the hill)");
+                var said = com.claudemod.director.ClaudeLife.mineHeading(c, level, feet, net.minecraft.core.Direction.SOUTH, true);
+                check(said != net.minecraft.core.Direction.SOUTH, "slope: their \"south\" took him down the open slope");
+                var flat = h.absolutePos(new BlockPos(8, 0, 8)); for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) for (int y = -3; y <= 22; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y < 1 ? Blocks.STONE.defaultBlockState() : y == 1 ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+                var onFlat = com.claudemod.director.ClaudeLife.mineHeading(c, level, h.absolutePos(new BlockPos(8, 2, 8)), net.minecraft.core.Direction.EAST, false);
+                check(onFlat == net.minecraft.core.Direction.EAST, "flat: heading " + onFlat + " (on flat ground the way they look is fine: east)");
+                pass(stage, t, "slope: into the hill (" + down + "), their south refused (" + said + "); flat: their east kept");
+            }
+            return true;
+        }
+    }
+    private static boolean st495(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        { // live 03:18 World 15: stone behind copper ore, a wooden pick, the dig re-queued by his mine round: never the copper queued, a few goes at most, then said once (it looped 270 times in 3 min)
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 7)), cu = h.absolutePos(new BlockPos(6, 3, 7)), st = h.absolutePos(new BlockPos(7, 3, 7));
+            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.WOODEN_PICKAXE)); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); wdRuns = 0; wdTold = 0; wdSaid = "";
+                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 2; y <= 8; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+                level.setBlock(cu, Blocks.COPPER_ORE.defaultBlockState(), 2); level.setBlock(st, Blocks.STONE.defaultBlockState(), 2); level.setBlock(st.below(), Blocks.STONE.defaultBlockState(), 2); level.setBlock(cu.below(), Blocks.STONE.defaultBlockState(), 2); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+            if (!com.claudemod.entity.life.Watchdog.lastTold(c).isEmpty() && !com.claudemod.entity.life.Watchdog.lastTold(c).equals(wdSaid)) { wdSaid = com.claudemod.entity.life.Watchdog.lastTold(c); wdTold++; }
+            check(!(c.currentTask instanceof Task.Break b0 && b0.pos().equals(cu)) && c.tasks.stream().noneMatch(q -> q instanceof Task.Break b1 && b1.pos().equals(cu)), "dig loop: the copper (past his wooden pick) queued: " + c.tasks);
+            if (t[0] >= 10 && t[0] % 10 == 0 && t[0] < 400 && c.tasks.isEmpty() && c.currentTask == null) { c.tasks.add(new Task.Break(st)); wdRuns++; } // (his mine round, putting the same dig back)
+            if (t[0] == 400) {
+                int starts = com.claudemod.entity.life.Watchdog.trips(c);
+                check(level.getBlockState(cu).is(Blocks.COPPER_ORE), "dig loop: the copper went with a wooden pick");
+                check(c.attempts.within(com.claudemod.entity.life.Attempts.Kind.BREAK, st, c.tickCount, 20 * 60), "dig loop: the stone behind the copper not on record as refused");
+                check(starts >= 1 && wdTold == 1, "dig loop: the same refused dig queued " + wdRuns + " times in 20 s; watchdog trips " + starts + ", told " + wdTold + " (\"" + wdSaid + "\")");
+                c.tasks.clear(); c.dropCurrent = true; com.claudemod.entity.life.Watchdog.reset(c);
+                for (BlockPos q : new BlockPos[] {cu, st, cu.below(), st.below()}) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2);
+                pass(stage, t, "copper never queued; the stone's dig tried, refused and written off; told once: \"" + wdSaid + "\"");
+            }
+            return true;
+        }
+    }
+    private static boolean st496(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        { // collect cobblestone in his own mine never picks its wall (live 03:48 World 15: his shell stone queued, refused by doBreak, 0 got, the furnace craft looped)
+            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("mine_model", "blueprint"); }
+            if (t[0] == 5) {
+                var b = mrMine(h, level, 8); c.blueprint = b; com.claudemod.director.ClaudeLife.bpSync(c);
+                BlockPos me = h.absolutePos(new BlockPos(8, 6, 7)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+                c.setHealth(8f); // (hurt with nothing to eat: the stone round him, not a trip down the mine: the path that queued his wall live)
+                String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "cobblestone", 4);
+                c.setHealth(20f);
+                var shell = c.tasks.stream().filter(q -> q instanceof Task.Break br && b.isShell(br.pos()) && !com.claudemod.entity.life.MineBlueprint.ore(level.getBlockState(br.pos()))).toList();
+                check(shell.isEmpty(), "collect in his mine: " + shell.size() + " dig(s) queued in his own mine's wall: " + shell + " (said: " + r + ")");
+                c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear(); c.blueprint = null;
+                pass(stage, t, "collect in his mine: none of its wall (" + r + ")");
+            }
+            return true;
+        }
+    }
+    private static boolean st497(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        { // a walk into a cell still solid, queued before the dig that opens it (live 04:43 World 15: a GoTo into the rock, its Break next in the queue, 32 stalls in a minute): the dig goes first, the walk waits behind it
+            BlockPos me = h.absolutePos(new BlockPos(4, 3, 7)), into = h.absolutePos(new BlockPos(7, 3, 7));
+            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no");
+                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 2, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 3; y <= 8; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+                level.setBlock(into, Blocks.STONE.defaultBlockState(), 2); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+            if (t[0] == 10) { c.tasks.add(new Task.GoTo(into, 0.5)); c.tasks.add(new Task.Pickup(20)); c.tasks.add(new Task.Break(into)); }
+            if (t[0] == 13) {
+                boolean digFirst = c.currentTask instanceof Task.Break b0 && b0.pos().equals(into) || c.tasks.peek() instanceof Task.Break b1 && b1.pos().equals(into);
+                boolean walkAfter = c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().equals(into));
+                check(digFirst && walkAfter, "walk into rock: the walk to " + into.toShortString() + " ran before its own cell's dig (now " + c.currentTask + ", queue " + c.tasks + ")");
+            }
+            if (t[0] > 13 && level.getBlockState(into).isAir() && c.position().distanceTo(into.getBottomCenter()) < 1.0) { int at = t[0]; c.tasks.clear(); pass(stage, t, "its cell dug first, then the walk in, " + (at - 10) + " ticks"); }
+            else if (t[0] == 300) check(false, "walk into rock: not in the cell after 14 s: at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ", queue " + c.tasks + ", cell " + level.getBlockState(into));
+            return true;
+        }
+    }
+    private static boolean st498(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        { // a craft short of what it's made of, twice the same: the next way is obtain (the chain: smelt, mine, then craft), not the bare craft again (live World 15: iron_pickaxe with raw iron on him, diamond_leggings with 5 of 7 diamonds); "no building blocks" gets cobble first
+            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.failCount.clear(); c.skillQueue.clear(); }
+            if (t[0] == 5) {
+                var st = new com.claudemod.entity.life.Skills.Step("craft", "iron_pickaxe", 1);
+                String r = "failed: to craft iron_pickaxe you are missing iron_ingot";
+                com.claudemod.entity.life.Watchdog.skillRan(c, st, r); check(c.skillQueue.isEmpty(), "craft: one failure acted on: " + c.skillQueue);
+                com.claudemod.entity.life.Watchdog.skillRan(c, st, r);
+                var q = new java.util.ArrayList<>(c.skillQueue);
+                check(!q.isEmpty() && q.get(0).skill().equals("obtain") && q.get(0).target().equals("iron_pickaxe"), "craft: the 2nd \"missing iron_ingot\" didn't go to obtain iron_pickaxe: " + q);
+                c.skillQueue.clear(); com.claudemod.entity.life.Watchdog.reset(c);
+                var bh = new com.claudemod.entity.life.Skills.Step("build_here", "", 1);
+                String rb = "failed: no building blocks (collect logs or stone first)";
+                com.claudemod.entity.life.Watchdog.skillRan(c, bh, rb); com.claudemod.entity.life.Watchdog.skillRan(c, bh, rb);
+                q = new java.util.ArrayList<>(c.skillQueue);
+                check(q.size() == 2 && q.get(0).skill().equals("collect") && q.get(1).equals(bh), "build: \"no building blocks\" twice didn't get cobble first: " + q);
+                c.skillQueue.clear(); com.claudemod.entity.life.Watchdog.reset(c);
+                pass(stage, t, "missing iron_ingot -> obtain iron_pickaxe; no building blocks -> collect, then the build");
+            }
+            return true;
+        }
+    }
+    private static boolean st499(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        { // at his furnace with his own pickups and a replant still queued (a tree just felled): those while it cooks, then the furnace; no new tree pushing them back (live 06:00 World 15: chop drops left, saplings never replanted)
+            BlockPos fur = h.absolutePos(new BlockPos(5, 2, 7)), me = h.absolutePos(new BlockPos(6, 2, 7)), sap = h.absolutePos(new BlockPos(3, 2, 3)), tree = h.absolutePos(new BlockPos(12, 2, 12));
+            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.OAK_SAPLING, 2)); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(1000);
+                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 2; y <= 12; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+                for (int y = 0; y < 5; y++) level.setBlock(tree.above(y), Blocks.OAK_LOG.defaultBlockState(), 2); for (int x = -2; x <= 2; x++) for (int z = -2; z <= 2; z++) for (int y = 3; y <= 5; y++) if (level.getBlockState(tree.offset(x, y, z)).isAir()) level.setBlock(tree.offset(x, y, z), Blocks.OAK_LEAVES.defaultBlockState().setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true), 2);
+                level.setBlock(fur, Blocks.FURNACE.defaultBlockState(), 3); c.myStations.add(fur);
+                if (level.getBlockEntity(fur) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fb) { fb.setItem(0, new ItemStack(Items.RAW_IRON, 16)); fb.setItem(1, new ItemStack(Items.COAL, 4)); }
+                c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+                var it = new net.minecraft.world.entity.item.ItemEntity(level, sap.getX() + 0.5, sap.getY() + 0.1, sap.getZ() + 0.5, new ItemStack(Items.OAK_LOG, 3), 0, 0, 0); level.addFreshEntity(it); }
+            if (t[0] == 40) { c.tasks.add(new Task.FurnaceTake(fur)); c.tasks.add(new Task.Pickup(100)); c.tasks.add(new Task.Replant(sap)); }
+            if (t[0] > 40 && (c.currentTask instanceof Task.ChopTree || c.tasks.stream().anyMatch(q -> q instanceof Task.ChopTree))) check(false, "furnace: a new tree taken on while his own pickup and replant waited: now " + c.currentTask + ", queue " + c.tasks);
+            if (t[0] > 40 && level.getBlockState(sap).is(Blocks.OAK_SAPLING)) { int at = t[0]; c.tasks.clear(); c.dropCurrent = true; c.myStations.remove(fur); level.setBlock(fur, Blocks.AIR.defaultBlockState(), 3); pass(stage, t, "his pickup and replant while it cooked, no new tree, " + (at - 40) + " ticks"); }
+            else if (t[0] == 900) check(false, "furnace: the sapling not back in 43 s (now " + c.currentTask + ", queue " + c.tasks + ")");
+            return true;
+        }
+    }
+    private static boolean st500(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        { // build_portal with lava down here and no obsidian (live 06:43 World 15: one obsidian per 16-20 s, pour and wait for the drain each block): the frame's 10 made the user's way, at a diamond pick's pace (9.4 s a block: 10 in 150 s with the moves)
+            if (t[0] == 1) { lwReset(c); com.claudemod.director.ClaudeLife.lavaSeen(c).clear(); com.claudemod.director.ClaudeLife.obsTestReset(c); com.claudemod.entity.life.Watchdog.reset(c); }
+            if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
+            if (t[0] == 10) {
+                esStart(c, h, level, mock, new BlockPos(3, 2, 7), new BlockPos(1, 2, 14));
+                for (int x = 8; x <= 10; x++) for (int z = 6; z <= 8; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.LAVA.defaultBlockState(), 3); level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), Blocks.LAVA.defaultBlockState(), 3); com.claudemod.director.ClaudeLife.lavaSeen(c).add(h.absolutePos(new BlockPos(x, 1, z)).immutable()); }
+                c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.WATER_BUCKET)); c.getInventory().add(new ItemStack(Items.BREAD, 4)); c.getInventory().add(new ItemStack(Items.FLINT_AND_STEEL));
+            }
+            if (t[0] == 20) { com.claudemod.director.ClaudeLife.obsTestPortalMaking(true); com.claudemod.director.ClaudeLife.command(c, mock[0], steps1("make_obsidian", "obsidian", 10, "near_you"), "the portal's obsidian", "replace"); } // (build_portal's own step, as it runs: make_obsidian with the portal's flag set)
+            if (t[0] > 20) {
+                int have = c.inventory.count(x -> x.is(Items.OBSIDIAN));
+                if (have >= 10) { int secs = (t[0] - 20) / 20; c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear(); c.commandActive = false; com.claudemod.director.ClaudeLife.obsTestReset(c); com.claudemod.director.ClaudeLife.obsTestPortalMaking(false); pass(stage, t, "the portal's 10 obsidian made in " + secs + " s (last: " + c.lastSkillLine + ")"); }
+                else if (t[0] > 20 + 20 * 150) { com.claudemod.director.ClaudeLife.obsTestPortalMaking(false); check(false, "portal obsidian: " + have + " of 10 in 150 s (a diamond pick's pace is 9.4 s a block): last " + c.lastSkillLine); }
+            }
+            return true;
+        }
+    }
+    private static boolean st501(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        { // his dig opens onto lava (live 06:53 World 15: the plug was queued as a walk to a stand spot, the step never took, the lava came on, he burned with the whole diamond kit): the block straight back the same tick, from where he stands; never in the lava
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 7)), dig = h.absolutePos(new BlockPos(5, 2, 7)), lava = h.absolutePos(new BlockPos(6, 2, 7));
+            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); wdRuns = -1; hzLow = 20f;
+                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 2; y <= 8; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), (x >= 5 && x <= 9 && z >= 5 && z <= 9 && y <= 4) ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+                for (int x = 6; x <= 8; x++) for (int z = 6; z <= 8; z++) level.setBlock(h.absolutePos(new BlockPos(x, 2, z)), Blocks.LAVA.defaultBlockState(), 3); // (a hidden pocket right behind the stone he's to dig)
+                c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+            if (t[0] == 10) c.tasks.add(new Task.Break(dig));
+            if (t[0] > 10) { hzLow = Math.min(hzLow, c.getHealth()); check(!c.isInLava(), "lava release: he's in the lava at " + c.blockPosition().toShortString() + " (health " + c.getHealth() + ")");
+                boolean open = level.getBlockState(dig).getCollisionShape(level, dig).isEmpty();
+                if (open && wdRuns < 0) wdRuns = t[0];
+                if (level.getBlockState(dig).is(Blocks.COBBLESTONE) && (wdRuns > 0 || !open)) { int took = wdRuns > 0 ? t[0] - wdRuns : 0; /* (plugged in the very tick it opened: never seen open) */ check(took <= 3, "lava release: the hole took " + took + " ticks to plug (want the same tick: a right click)"); check(hzLow >= 20, "lava release: hurt, low " + hzLow); c.tasks.clear(); c.dropCurrent = true; for (int x = 6; x <= 8; x++) for (int z = 6; z <= 8; z++) level.setBlock(h.absolutePos(new BlockPos(x, 2, z)), Blocks.STONE.defaultBlockState(), 3); pass(stage, t, "the stone out and his cobble in its place " + took + " tick(s) after it opened, never hurt"); }
+                else if (t[0] == 400) check(false, "lava release: " + (wdRuns < 0 ? "the stone never dug" : "the hole onto the lava still open after " + (t[0] - wdRuns) + " ticks") + " (task " + c.currentTask + ", queue " + c.tasks + ")");
+            }
+            return true;
+        }
+    }
+    private static boolean st502(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        { // his furnace 3 off behind a wall, lava cells the nearest spots with a view of it (live 07:14 World 15: the view spot picked was lava, a walk at it every minute for 47 min, the furnace never opened): a dry spot, the batch out, never in the lava
+            BlockPos fur = h.absolutePos(new BlockPos(5, 2, 7)), me = h.absolutePos(new BlockPos(9, 2, 7));
+            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); hzLow = 20f;
+                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 2; y <= 8; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+                for (int z = 4; z <= 10; z++) for (int y = 2; y <= 4; y++) level.setBlock(h.absolutePos(new BlockPos(7, y, z)), Blocks.STONE.defaultBlockState(), 2); // (the wall between him and it)
+                for (int z = 5; z <= 9; z++) { level.setBlock(h.absolutePos(new BlockPos(6, 1, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(6, 2, z)), Blocks.LAVA.defaultBlockState(), 2); } // (lava on stone: the nearest cells that see it)
+                level.setBlock(fur, Blocks.FURNACE.defaultBlockState(), 3); c.myStations.add(fur);
+                if (level.getBlockEntity(fur) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fb) fb.setItem(2, new ItemStack(Items.COOKED_CHICKEN, 2));
+                c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+            if (t[0] == 10) c.tasks.add(new Task.FurnaceTake(fur));
+            if (t[0] > 10) { hzLow = Math.min(hzLow, c.getHealth()); check(!c.isInLava(), "furnace: he walked into the lava at " + c.blockPosition().toShortString());
+                if (c.inventory.count(x -> x.is(Items.COOKED_CHICKEN)) >= 2) { int at = t[0]; c.tasks.clear(); c.myStations.remove(fur); for (int z = 5; z <= 9; z++) level.setBlock(h.absolutePos(new BlockPos(6, 2, z)), Blocks.AIR.defaultBlockState(), 2); level.setBlock(fur, Blocks.AIR.defaultBlockState(), 3); pass(stage, t, "round the wall to a dry spot, the batch out in " + (at - 10) / 20 + " s, low " + hzLow); }
+                else if (t[0] == 600) check(false, "furnace: the batch not out in 30 s (at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ", queue " + c.tasks + ")"); }
+            return true;
+        }
+    }
+    private static boolean st503(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        { // a walk to a cell far below that cuts one step and is back up the next moment, again and again (live 09:48 World 15: 21 "stepping off" in 80 s, net nothing, every one "got nearer"): no gain on his best over the window, the third trips
+            BlockPos A = h.absolutePos(new BlockPos(4, 2, 7)), goal = h.absolutePos(new BlockPos(4, -20, 7));
+            var walk = new Task.GoTo(goal, 1.0);
+            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.nextPlanTick = c.tickCount + 20 * 600; wdRuns = 0; }
+            int ph = t[0] % 20;
+            if (t[0] >= 10 && t[0] < 10 + 20 * 4) {
+                if (ph == 10) { c.teleportTo(A.getX() + 0.5, A.getY(), A.getZ() + 0.5); com.claudemod.entity.life.Watchdog.starting(c, walk); }
+                if (ph == 16) { c.teleportTo(A.getX() + 0.5, A.getY() - 1, A.getZ() + 0.5); com.claudemod.entity.life.Watchdog.ended(c, walk, null); wdRuns++; } // (one step down, the leg over)
+            }
+            if (t[0] == 10 + 20 * 4) {
+                check(com.claudemod.entity.life.Watchdog.trips(c) >= 1, "walk: one step down and back up " + wdRuns + " times, never seen as no progress (trips " + com.claudemod.entity.life.Watchdog.trips(c) + ")");
+                c.teleportTo(A.getX() + 0.5, A.getY(), A.getZ() + 0.5); c.tasks.clear(); com.claudemod.entity.life.Watchdog.reset(c);
+                pass(stage, t, "a step cut and undone " + wdRuns + " times: tripped");
+            }
+            return true;
+        }
+    }
+    private static boolean st504(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        { // his stash chests deep in solid rock, him far above (live 09:48 World 15: a table "placed" into stone 37 under him, a walk down to it at the surface for minutes): no base stations laid off them
+            if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE)); c.getInventory().add(new ItemStack(Items.FURNACE, 4)); }
+            if (t[0] == 5) {
+                BlockPos a = h.absolutePos(new BlockPos(6, -2, 7)), b = a.east(); // (in the stone under the platform)
+                c.tasks.clear(); com.claudemod.director.ClaudeLife.baseStationsTest(c, level, a, b, net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.EAST);
+                check(c.tasks.isEmpty(), "base stations: laid off chests in solid rock " + (c.getBlockY() - a.getY()) + " below him: " + c.tasks);
+                c.tasks.clear(); pass(stage, t, "no stations off chests in the rock below");
+            }
+            return true;
+        }
+    }
+    private static boolean st505(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        { // a full pack: 2 stacks of cobble and 2 of cobbled deepslate, 2 sugar, the rest fish (live 10:18 World 15: "nothing junk in it", the sugar dropped and picked back up every 7 s): stone past 2 stacks all told goes, the sugar stays
+            if (t[0] == 1) { scenarioReset(c); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard(); }
+            if (t[0] == 5) {
+                var inv = c.getInventory(); inv.clearContent();
+                inv.items.set(0, new ItemStack(Items.IRON_PICKAXE)); inv.selected = 0;
+                inv.items.set(1, new ItemStack(Items.COBBLESTONE, 64)); inv.items.set(2, new ItemStack(Items.COBBLESTONE, 64)); inv.items.set(3, new ItemStack(Items.COBBLED_DEEPSLATE, 64)); inv.items.set(4, new ItemStack(Items.COBBLED_DEEPSLATE, 46)); inv.items.set(5, new ItemStack(Items.SUGAR, 2));
+                for (int i = 6; i < inv.items.size() - 1; i++) inv.items.set(i, new ItemStack(Items.COD, 16));
+                com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+                int stone = c.inventory.count(x -> x.is(Items.COBBLESTONE) || x.is(Items.COBBLED_DEEPSLATE)), sugar = c.inventory.count(x -> x.is(Items.SUGAR)), free = 0; for (var st0 : inv.items) if (st0.isEmpty()) free++;
+                check(stone <= 128 && stone >= 64, "pack: stone " + stone + " after the clear-out (want 2 stacks all told)");
+                check(sugar == 2, "pack: the sugar went (" + sugar + " left) with surplus stone on him");
+                check(free >= 3, "pack: only " + free + " free slot(s) after it");
+                for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard();
+                inv.clearContent(); pass(stage, t, "surplus stone out (" + stone + " kept), sugar kept, " + free + " slots free");
+            }
+            return true;
+        }
+    }
+    private static boolean st506(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        { // enter_portal then blaze_rods (live 10:27 World 15: "stepping into portal #4" taken for there, find_fortress and blaze_rods run in the overworld): done only once he's through; never a Nether step in the overworld
+            ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+            if (t[0] == 1) { lwReset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); wdRuns = 0; wdSaid = ""; }
+            if (t[0] == 10) {
+                esStart(c, h, level, mock, new BlockPos(5, 2, 7), new BlockPos(1, 2, 14));
+                for (int x = 0; x <= 3; x++) for (int y = 1; y <= 5; y++) if (x == 0 || x == 3 || y == 1 || y == 5) level.setBlock(h.absolutePos(new BlockPos(4 + x, y, 10)), Blocks.OBSIDIAN.defaultBlockState(), 2 | 16);
+                for (int x = 1; x <= 2; x++) for (int y = 2; y <= 4; y++) level.setBlock(h.absolutePos(new BlockPos(4 + x, y, 10)), Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+                com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.dim(level), h.absolutePos(new BlockPos(5, 2, 10)), "him", "lit");
+                var a = steps1("enter_portal", "my portal", 1, "near_you"); a.addAll(steps1("blaze_rods", "", 6, "near_you"));
+                com.claudemod.director.ClaudeLife.command(c, mock[0], a, "go into the nether and get blaze rods", "replace");
+            }
+            if (t[0] > 10) {
+                String ln = c.lastSkillLine == null ? "" : c.lastSkillLine;
+                if (c.level() == level && ln.startsWith("blaze_rods") && !ln.contains("only in the Nether")) check(false, "portal: blaze_rods ran in the overworld: " + ln);
+                if (ln.contains("through portal")) wdSaid = ln;
+                if (c.level() == nether && !wdSaid.isEmpty()) { c.tasks.clear(); c.skillQueue.clear(); c.commandActive = false; BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(level, back.getX() + 0.5, back.getY(), back.getZ() + 0.5, 0, 0);
+                    for (int x = 0; x <= 3; x++) for (int y = 1; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(4 + x, y, 10)), Blocks.AIR.defaultBlockState(), 2 | 16);
+                    com.claudemod.entity.life.PortalMap.net(c).portals.clear(); pass(stage, t, "in the Nether, then \"" + wdSaid + "\""); }
+                else if (t[0] == 20 * 40) check(false, "portal: not through in 40 s (in " + c.level().dimension().location() + ", last " + ln + ", queue " + c.skillQueue + ")");
+            }
+            return true;
+        }
+    }
+    private static boolean st507(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        { // in the Nether with a fortress found, them in the overworld (live 10:47 World 15: "go_to fortress" failed as "they're in another world"): the place he knows in his own world; go_to them still says they're elsewhere
+            ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+            if (t[0] == 1) { lwReset(c); com.claudemod.entity.life.FortressScout.reset(c); }
+            if (t[0] == 5) {
+                BlockPos at = new BlockPos(0, 100, 0), fort = new BlockPos(30, 100, 10);
+                for (int x = -2; x <= 34; x++) for (int z = -2; z <= 12; z++) { nether.setBlock(new BlockPos(x, 99, z), Blocks.NETHERRACK.defaultBlockState(), 2); for (int y = 100; y <= 103; y++) nether.setBlock(new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+                c.teleportTo(nether, at.getX() + 0.5, at.getY(), at.getZ() + 0.5, 0, 0);
+                com.claudemod.entity.life.FortressScout.foundTest(c, fort);
+            }
+            if (t[0] == 15) {
+                check(c.level() == nether && mock[0].level() == level, "setup: him in " + c.level().dimension().location() + ", them in " + mock[0].level().dimension().location());
+                c.tasks.clear();
+                String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "go_to", "fortress", 1);
+                check(r != null && r.startsWith("heading to the fortress I found") && c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo), "go_to fortress in the Nether: \"" + r + "\" (tasks " + c.tasks + ")");
+                c.tasks.clear();
+                String r2 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "go_to", "you", 1);
+                check(r2 != null && r2.startsWith("failed: they're in another world"), "go_to them across worlds: \"" + r2 + "\"");
+                c.tasks.clear(); com.claudemod.entity.life.FortressScout.reset(c); BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(level, back.getX() + 0.5, back.getY(), back.getZ() + 0.5, 0, 0);
+                pass(stage, t, "\"" + r + "\"; them: \"" + r2 + "\"");
+            }
+            return true;
+        }
+    }
+    private static boolean st508(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        { // a ledge 10 over a lava lake, his walk's spot across it, no blocks to bridge with (live 10:53 World 15: the lava 18 under a Nether ledge passed the lip check as "water below", he walked off and burned with his whole kit): never off the ledge, never in the lava
+            BlockPos me = h.absolutePos(new BlockPos(4, 13, 7)), far = h.absolutePos(new BlockPos(15, 13, 7));
+            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); hzLow = 20f;
+                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 2; y <= 16; y++) { boolean ledge = x <= 7 && y <= 12, pillar = x == 15 && y <= 12; level.setBlock(h.absolutePos(new BlockPos(x, y, z)), ledge || pillar ? Blocks.STONE.defaultBlockState() : y == 2 ? Blocks.LAVA.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); } }
+                for (int x = 0; x < 16; x++) for (int y = 2; y <= 16; y++) { level.setBlock(h.absolutePos(new BlockPos(x, y, 0)), Blocks.GLASS.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, y, 15)), Blocks.GLASS.defaultBlockState(), 2); }
+                for (int z = 0; z < 16; z++) for (int y = 2; y <= 16; y++) level.setBlock(h.absolutePos(new BlockPos(0, y, z)), Blocks.GLASS.defaultBlockState(), 2); // (walled in: the lava side is the only edge)
+                BlockPos you = h.absolutePos(new BlockPos(2, 13, 3)); mock[0].teleportTo(you.getX() + 0.5, you.getY(), you.getZ() + 0.5);
+                c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+            if (t[0] > 10 && t[0] < 300) { c.getNavigation().stop(); c.getMoveControl().setWantedPosition(far.getX() + 0.5, far.getY(), far.getZ() + 0.5, 1.0); } // (steered straight at it with no path, as the walker's fallback does: live "slow walk ... path=0/1")
+            if (t[0] > 10) { hzLow = Math.min(hzLow, c.getHealth()); check(!c.isInLava() && c.getY() > me.getY() - 1.5, "lava lip: off the ledge at " + String.format("%.1f %.1f %.1f", c.getX(), c.getY(), c.getZ()) + " (in lava " + c.isInLava() + ")"); }
+            if (t[0] == 400) { c.tasks.clear(); c.dropCurrent = true; for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) for (int y = 2; y <= 16; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(back.getX() + 0.5, back.getY(), back.getZ() + 0.5); mock[0].teleportTo(back.getX() + 0.5, back.getY(), back.getZ() + 0.5); pass(stage, t, "20 s on the ledge over the lava, never off it, low " + hzLow); }
+            return true;
+        }
+    }
+    private static boolean st509(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        { // raw salmon on him, logs for fuel, no furnace (live 11:20 World 15: "can't cook the salmon yet ... eat it raw only if starving" at food 3): below full with nothing to cook in, eaten raw; at food 6 or less, eaten raw even with a furnace by him; raw chicken still waits
+            if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); }
+            if (t[0] == 5) {
+                c.getInventory().add(new ItemStack(Items.SALMON, 4)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 4));
+                c.getFoodData().setFoodLevel(16); c.setHealth(20f);
+                String a = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "eat", "", 1);
+                check(a != null && a.startsWith("eating the salmon raw"), "eat at food 16, nothing to cook in: \"" + a + "\"");
+                c.tasks.clear();
+                BlockPos fur = h.absolutePos(new BlockPos(6, 2, 6)); level.setBlock(fur, Blocks.FURNACE.defaultBlockState(), 3);
+                c.getFoodData().setFoodLevel(3); c.setHealth(19f);
+                String b = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "eat", "", 1);
+                check(b != null && b.startsWith("eating") && b.contains("salmon") && c.tasks.stream().anyMatch(q -> q instanceof Task.Eat), "eat at food 3 with a furnace by him: \"" + b + "\" (tasks " + c.tasks + ")");
+                c.tasks.clear(); level.setBlock(fur, Blocks.AIR.defaultBlockState(), 3);
+                c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.CHICKEN, 2)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 4)); c.getFoodData().setFoodLevel(10); c.setHealth(20f);
+                String ch = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "eat", "", 1);
+                check(ch == null || !ch.startsWith("eating the chicken raw"), "raw chicken eaten at food 10, health 20: \"" + ch + "\"");
+                c.tasks.clear(); c.getInventory().clearContent(); c.getFoodData().setFoodLevel(20);
+                pass(stage, t, "food 16: \"" + a + "\"; food 3 by a furnace: \"" + b + "\"; chicken: \"" + ch + "\"");
+            }
+            return true;
+        }
+    }
+    private static boolean st510(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        { // where he last stood survives a restart (live World 15: three restarts put him beside them, once out of his mine): his 10 s record gives his spot and world back; a spot filled in since gives nothing
+            if (t[0] == 1) scenarioReset(c);
+            if (t[0] == 5) { BlockPos me = h.absolutePos(new BlockPos(9, 2, 9)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+            if (t[0] == 20) {
+                check(c.onGround(), "setup: not on the ground at " + c.blockPosition().toShortString());
+                BlockPos at = c.blockPosition();
+                c.saveMine(mock[0]);
+                var spot = com.claudemod.entity.ClaudeSpawner.lastSpot(level.getServer(), mock[0]);
+                check(spot != null && spot[0] == c.level() && at.equals(spot[1]), "rejoin: his last spot " + (spot == null ? "none" : spot[1] + " in " + ((ServerLevel) spot[0]).dimension().location()) + " (he's at " + at.toShortString() + ")");
+                level.setBlock(at, Blocks.STONE.defaultBlockState(), 2);
+                var gone = com.claudemod.entity.ClaudeSpawner.lastSpot(level.getServer(), mock[0]);
+                level.setBlock(at, Blocks.AIR.defaultBlockState(), 2);
+                check(gone == null, "rejoin: a spot filled with stone still given back: " + (gone == null ? "-" : gone[1]));
+                pass(stage, t, "his last spot " + at.toShortString() + " kept for a rejoin; not when it's filled in");
+            }
+            return true;
+        }
+    }
+    private static boolean st511(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        { // far from his mine (live 11:51 World 15: "cook my raw salmon" for 2 while fed, a furnace's cobble from a fresh hole 130 off): the raws ride home; no fresh hole out here for a few cobble
+            if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); flatBox(h); }
+            if (t[0] == 5) {
+                c.getInventory().add(new ItemStack(Items.SALMON, 2)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 5)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 4)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getFoodData().setFoodLevel(20);
+                String a = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "cooked_salmon", 2);
+                check(a != null && a.startsWith("done:") && c.tasks.isEmpty(), "smelt 2 salmon, fed, far from a furnace: \"" + a + "\" (tasks " + c.tasks + ")");
+                c.tasks.clear(); c.skillQueue.clear();
+                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) for (int y = -11; y <= 0; y++) h.setBlock(new BlockPos(x, y, z), Blocks.DIRT); // (no stone showing anywhere: only a fresh hole would reach it)
+                c.stairStart = c.blockPosition().offset(130, 0, 0); c.mineFace = c.blockPosition().offset(130, -40, 0); c.mineDir = net.minecraft.core.Direction.EAST;
+                String b = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "cobblestone", 8);
+                boolean holes = c.tasks.stream().anyMatch(q -> q instanceof Task.Break);
+                check(b != null && !holes, "cobble 130 from his mine, no stone showing: \"" + b + "\" (tasks " + c.tasks + ")");
+                c.tasks.clear(); c.skillQueue.clear(); c.stairStart = null; c.mineFace = null; c.mineDir = null; c.getInventory().clearContent();
+                pass(stage, t, "smelt: \"" + a + "\"; cobble: \"" + b + "\"");
+            }
+            return true;
+        }
+    }
+    private static boolean st512(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        { // 11 raw iron, his own furnace 12 off under the same roof, smelt iron_ingot 2 (live 12:03 World 15: 2 of 11 smelted, in a new furnace notched into an ore hole, his nook's 6 about 20 off): all 11, at his own furnace
+            BlockPos me = h.absolutePos(new BlockPos(2, 2, 2)), fur = h.absolutePos(new BlockPos(13, 2, 9));
+            if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); flatBox(h);
+                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) level.setBlock(h.absolutePos(new BlockPos(x, 6, z)), Blocks.STONE.defaultBlockState(), 2); // (a roof: underground, where he'd put one down)
+                level.setBlock(fur, Blocks.FURNACE.defaultBlockState(), 3); c.myStations.add(fur); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+            if (t[0] == 5) {
+                c.getInventory().add(new ItemStack(Items.RAW_IRON, 11)); c.getInventory().add(new ItemStack(Items.COAL, 4)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE));
+                String a = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "iron_ingot", 2);
+                check(a != null && a.contains("all 11"), "smelt 2 of 11 raw iron: \"" + a + "\"");
+                var st2 = c.skillQueue.peekFirst(); check(st2 != null && st2.count() == 11, "smelt: the step back at 11: " + c.skillQueue);
+                c.skillQueue.clear();
+                String b = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "iron_ingot", 11);
+                boolean placed = false; for (BlockPos q : BlockPos.betweenClosed(me.offset(-4, -1, -4), me.offset(4, 3, 4))) if (level.getBlockState(q).is(Blocks.FURNACE)) placed = true;
+                check(b != null && b.contains("my furnace at " + fur.toShortString()) && !placed && c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().equals(fur)), "smelt with his own furnace 12 off: \"" + b + "\" (a new one by him " + placed + ", tasks " + c.tasks + ")");
+                c.tasks.clear(); c.skillQueue.clear(); c.myStations.remove(fur); level.setBlock(fur, Blocks.AIR.defaultBlockState(), 3);
+                BlockPos farF = me.offset(165, 0, 0); c.myStations.add(farF); // (his nook's furnaces, 165 off)
+                String d = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "iron_ingot", 11);
+                check(d != null && d.startsWith("done:") && d.contains("rides home") && c.tasks.isEmpty(), "smelt 165 from his furnaces: \"" + d + "\" (tasks " + c.tasks + ")");
+                c.myStations.remove(farF); c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
+                pass(stage, t, "\"" + a + "\"; then \"" + b + "\"; far: \"" + d + "\"");
+            }
+            return true;
+        }
+    }
+    private static boolean st513(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        { // the kit tiers (the user, 12:20: "iron or better is fine ... he needs a diamond pick ... for the dragon he should have full diamond"): in iron with a diamond pick before the Nether, no diamond armor, axe or shovel asked; with 6 blaze rods, full diamond
+            if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); }
+            if (t[0] == 5) {
+                for (net.minecraft.world.item.Item a : new net.minecraft.world.item.Item[] {Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS}) c.setItemSlot(((net.minecraft.world.item.ArmorItem) a).getEquipmentSlot(), new ItemStack(a));
+                for (ItemStack it : new ItemStack[] {new ItemStack(Items.DIAMOND_PICKAXE), new ItemStack(Items.IRON_SWORD), new ItemStack(Items.SHIELD), new ItemStack(Items.WATER_BUCKET), new ItemStack(Items.COOKED_BEEF, 20), new ItemStack(Items.TORCH, 64), new ItemStack(Items.COAL, 32), new ItemStack(Items.FLINT_AND_STEEL), new ItemStack(Items.WHITE_BED)}) c.getInventory().add(it);
+                var m = com.claudemod.director.Kit.missing(c, true);
+                java.util.Set<net.minecraft.world.item.Item> dia = java.util.Set.of(Items.DIAMOND_HELMET, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_BOOTS, Items.DIAMOND_AXE, Items.DIAMOND_SHOVEL);
+                check(m.keySet().stream().noneMatch(dia::contains), "Nether kit: diamond gear asked of a full iron kit with a diamond pick: " + m);
+                c.getInventory().add(new ItemStack(Items.BLAZE_ROD, 6));
+                var m2 = com.claudemod.director.Kit.missing(c, true);
+                check(m2.keySet().containsAll(dia), "dragon kit: full diamond not asked with 6 blaze rods: " + m2);
+                for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+                pass(stage, t, "Nether kit asks " + m + "; dragon kit " + m2.keySet().stream().filter(dia::contains).count() + " diamond pieces");
+            }
+            return true;
+        }
     }
 }
 

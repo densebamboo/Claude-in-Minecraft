@@ -224,6 +224,18 @@ public final class Watchdog {
         String fk = sk; String lacks = missing(result);
         int r = s.rung.containsKey("skill " + k) ? s.rung.get("skill " + k)[0] : 0;
         s.rung.put("skill " + k, new int[] {r + 1, g.tickCount});
+        if (r == 0 && "craft".equals(step.skill()) && lacks != null && gatherable(lacks) == null) { // the next way for a craft short of what it's made of: obtain it, the whole chain worked out (mine, smelt, then craft), not the bare craft again (live World 15: "craft iron_pickaxe -> missing iron_ingot" with raw iron and coal on him; "craft diamond_leggings -> missing diamond", 5 of 7)
+            g.skillQueue.addFirst(new Skills.Step("obtain", step.target(), Math.max(1, step.count())));
+            g.nextPlanTick = Math.min(g.nextPlanTick, g.tickCount);
+            ClaudeMod.LOGGER.info("[Claude watchdog] TRIP {}: \"{}\" {} times: obtain {} instead (its {} smelted, mined or made first) (Watchdog.skillRan)", sk, result, e[0], step.target(), lacks);
+            return;
+        }
+        if (r == 0 && lacks == null && (result.contains("no building blocks") || result.matches("(?s).*collect (logs|stone|cobblestone|cobble)( or (logs|stone|cobblestone))? first.*"))) { // ("build_here -> failed: no building blocks (collect logs or stone first)": the line says what to get)
+            g.skillQueue.addFirst(step); g.skillQueue.addFirst(new Skills.Step("collect", "cobblestone", 16));
+            g.nextPlanTick = Math.min(g.nextPlanTick, g.tickCount);
+            ClaudeMod.LOGGER.info("[Claude watchdog] TRIP {}: \"{}\" {} times: cobblestone first, then the step again (Watchdog.skillRan)", sk, result, e[0]);
+            return;
+        }
         if (r == 0 && lacks != null && gatherable(lacks) != null) { // the next way: get what it lacks first, then the step again
             String gat = gatherable(lacks);
             g.skillQueue.addFirst(step);

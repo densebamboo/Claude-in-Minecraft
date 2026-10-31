@@ -8008,6 +8008,26 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
+        if (stage[0] == 498) { // a craft short of what it's made of, twice the same: the next way is obtain (the chain: smelt, mine, then craft), not the bare craft again (live World 15: iron_pickaxe with raw iron on him, diamond_leggings with 5 of 7 diamonds); "no building blocks" gets cobble first
+            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.failCount.clear(); c.skillQueue.clear(); }
+            if (t[0] == 5) {
+                var st = new com.claudemod.entity.life.Skills.Step("craft", "iron_pickaxe", 1);
+                String r = "failed: to craft iron_pickaxe you are missing iron_ingot";
+                com.claudemod.entity.life.Watchdog.skillRan(c, st, r); check(c.skillQueue.isEmpty(), "craft: one failure acted on: " + c.skillQueue);
+                com.claudemod.entity.life.Watchdog.skillRan(c, st, r);
+                var q = new java.util.ArrayList<>(c.skillQueue);
+                check(!q.isEmpty() && q.get(0).skill().equals("obtain") && q.get(0).target().equals("iron_pickaxe"), "craft: the 2nd \"missing iron_ingot\" didn't go to obtain iron_pickaxe: " + q);
+                c.skillQueue.clear(); com.claudemod.entity.life.Watchdog.reset(c);
+                var bh = new com.claudemod.entity.life.Skills.Step("build_here", "", 1);
+                String rb = "failed: no building blocks (collect logs or stone first)";
+                com.claudemod.entity.life.Watchdog.skillRan(c, bh, rb); com.claudemod.entity.life.Watchdog.skillRan(c, bh, rb);
+                q = new java.util.ArrayList<>(c.skillQueue);
+                check(q.size() == 2 && q.get(0).skill().equals("collect") && q.get(1).equals(bh), "build: \"no building blocks\" twice didn't get cobble first: " + q);
+                c.skillQueue.clear(); com.claudemod.entity.life.Watchdog.reset(c);
+                pass(stage, t, "missing iron_ingot -> obtain iron_pickaxe; no building blocks -> collect, then the build");
+            }
+            return true;
+        }
         if (stage[0] == 497) { // a walk into a cell still solid, queued before the dig that opens it (live 04:43 World 15: a GoTo into the rock, its Break next in the queue, 32 stalls in a minute): the dig goes first, the walk waits behind it
             BlockPos me = h.absolutePos(new BlockPos(4, 3, 7)), into = h.absolutePos(new BlockPos(7, 3, 7));
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no");

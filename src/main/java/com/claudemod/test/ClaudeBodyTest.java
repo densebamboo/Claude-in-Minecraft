@@ -8006,7 +8006,7 @@ public final class ClaudeBodyTest {
     private static boolean exactStages(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (stage[0] == 383 || stage[0] == 384) return skytowerStages(stage, t, c, h, level, mock);
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
-        if (stage[0] >= 490 && stage[0] <= 493) return mineRecordStages(stage, t, c, h, level, mock);
+        if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] >= 279 && stage[0] <= 285) {
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Whereabouts.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.ExactSpot.reset(c); com.claudemod.director.Primitives.reset(c);
                 c.planning = false; c.failCount.clear(); c.commandResults.clear(); c.commandActive = false; c.lastSkillLine = ""; c.lastStep = null; c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600; esWaitT = -1; esMark = -1; esFake = ""; }
@@ -10234,7 +10234,7 @@ public final class ClaudeBodyTest {
         return true;
     }
 
-    // ---------------------------------------------------------------- his mine's record against the rock (stages 490-493, live 2026-10-31 01:42-02:05)
+    // ---------------------------------------------------------------- his mine's record against the rock (stages 491-492, live 2026-10-31 01:42-02:05)
     private static final BlockPos MR_ENT = new BlockPos(2, 13, 14);
     private static final BlockPos MR_RUN = new BlockPos(4, 6, 7);
     private static java.util.Set<BlockPos> mrAir = new java.util.HashSet<>(); private static BlockPos mrQuartz;
@@ -10252,18 +10252,9 @@ public final class ClaudeBodyTest {
         return b;
     }
     private static boolean mineRecordStages(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
-        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); com.claudemod.director.ClaudeLife.trailReset(c); com.claudemod.director.ClaudeLife.seenOre(c).clear(); c.commandActive = false; c.staying = false; c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("mine_model", "blueprint"); }
+        if (t[0] == 1) { wdRuns = 0; scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); com.claudemod.director.ClaudeLife.seenOre(c).clear(); c.commandActive = false; c.staying = false; c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("mine_model", "blueprint"); }
         BlockPos face = h.absolutePos(new BlockPos(2, 6, 7));
         switch (stage[0]) {
-            case 490 -> { // one rock row at the top of his stairs (a block put back in his entrance) doesn't cut his whole staircase off the record
-                if (t[0] == 5) {
-                    var b = mrMine(h, level, 8);
-                    for (int j = 0; j < 2; j++) level.setBlock(h.absolutePos(MR_ENT.east(j)), Blocks.STONE.defaultBlockState(), 2);
-                    b.trimToDug(level);
-                    check(b.segments.get(0).n == 8 && face.equals(b.face()), "stray row: stairs cut to " + b.segments.get(0).n + ", face " + (b.face() == null ? "-" : b.face().toShortString()) + " (want 8, " + face.toShortString() + "): " + b.lastTrimWhy);
-                    pass(stage, t, "a rock row at the entrance kept as a stray block: " + b.lastTrimWhy);
-                }
-            }
             case 491 -> { // the record as it was saved live (stairs cut to none, the run kept): regrown from the rock; the round patches nothing in his ways
                 if (t[0] == 5) {
                     var b = mrMine(h, level, 0);
@@ -10291,22 +10282,6 @@ public final class ClaudeBodyTest {
                     com.claudemod.director.ClaudeLife.noteSeenOre(c, nether);
                     check(!com.claudemod.director.ClaudeLife.seenOre(c).contains(mrQuartz), "other world: he remembered the Nether quartz from his overworld spot");
                     pass(stage, t, "the Nether's blocks at his mine: no trim (" + b.lastTrimWhy + "), no fixes, no ore remembered");
-                }
-            }
-            case 493 -> { // the round never seals a cell he walked through (live 02:03 andesite into his own tunnel's mouth, put back when the user broke it): his way out of the run stays open, a hole he never used is patched
-                BlockPos way = h.absolutePos(new BlockPos(6, 6, 6)), wayBeyond = h.absolutePos(new BlockPos(6, 6, 5)), hole = h.absolutePos(new BlockPos(10, 8, 6));
-                if (t[0] == 5) {
-                    var b = mrMine(h, level, 8); c.blueprint = b; com.claudemod.director.ClaudeLife.bpSync(c);
-                    for (BlockPos p : new BlockPos[] {way, way.above(), wayBeyond, wayBeyond.above(), hole}) level.setBlock(p, Blocks.AIR.defaultBlockState(), 2);
-                    c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
-                    c.teleportTo(wayBeyond.getX() + 0.5, wayBeyond.getY(), wayBeyond.getZ() + 0.5);
-                }
-                if (t[0] == 15) c.teleportTo(way.getX() + 0.5, way.getY(), way.getZ() + 0.5);
-                if (t[0] == 25) { BlockPos me = h.absolutePos(new BlockPos(8, 6, 7)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
-                if (t[0] > 25) {
-                    check(level.getBlockState(way).isAir() && level.getBlockState(way.above()).isAir(), "ways: the round sealed the cell he walked through at " + way.toShortString() + " (tasks " + c.tasks + ")");
-                    if (!level.getBlockState(hole).isAir()) { c.blueprint = null; c.tasks.clear(); pass(stage, t, "his way at " + way.toShortString() + " kept open, the hole at " + hole.toShortString() + " patched in " + (t[0] - 25) + " ticks"); }
-                    else check(t[0] < 900, "ways: the hole he never used at " + hole.toShortString() + " not patched in 45 s (tasks " + c.tasks + ")");
                 }
             }
             default -> { return false; }

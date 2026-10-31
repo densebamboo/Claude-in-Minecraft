@@ -199,7 +199,6 @@ public final class MineBlueprint {
     static boolean placed(net.minecraft.world.level.block.state.BlockState s) {
         return s.is(net.minecraft.world.level.block.Blocks.COBBLESTONE) || s.is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE) || s.is(net.minecraft.tags.BlockTags.PLANKS) || s.hasBlockEntity() || s.is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE) || s.getBlock() instanceof net.minecraft.world.level.block.FallingBlock; // (gravel or sand that fell into a dug row is not rock the mine never cut)
     }
-    public static boolean passableCell(ServerLevel level, BlockPos p) { return passable(level, p); }
     static boolean passable(ServerLevel level, BlockPos p) { return level.getBlockState(p).getCollisionShape(level, p).isEmpty() && level.getFluidState(p).isEmpty(); }
     public static boolean solid(ServerLevel level, BlockPos p) { return !level.getBlockState(p).getCollisionShape(level, p).isEmpty() && level.getFluidState(p).isEmpty(); }
     public static boolean ore(BlockState s) { return s.is(net.neoforged.neoforge.common.Tags.Blocks.ORES); }
@@ -371,24 +370,17 @@ public final class MineBlueprint {
     }
 
     /** Rows actually dug: the leading MAIN rows whose WALK cells are all open (a torch is open). The record never runs ahead of the world. */
-    /** The last trim's reading of the main line, for the log: the rows it counted dug, any stray rock rows it went past, where it stopped and why. */
+    /** The last trim's reading of the main line, for the log: the rows it counted dug, where it stopped and why, any regrow. */
     public String lastTrimWhy = "";
     private boolean rockRow(ServerLevel level, Row r) { for (BlockPos f : r.feet()) if (passable(level, f) || !level.getFluidState(f).isEmpty() || placed(level.getBlockState(f))) return false; return true; }
     private static String cells(ServerLevel level, Row r) { StringBuilder sb = new StringBuilder(); for (BlockPos f : r.feet()) sb.append(sb.length() == 0 ? "" : ", ").append(f.toShortString()).append(' ').append(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level.getBlockState(f).getBlock()).getPath()); return sb.toString(); }
-    /** Rock rows this many or fewer, with dug rows right past them, are a stray block in his stairs (a fill, gravel, the ground's own block someone put back), not the end of his mine. */
-    static final int STRAY_ROWS = 2;
     public int dugMainRows(ServerLevel level) {
         int n = 0; lastTrimWhy = "";
         List<Row> main = new ArrayList<>(); for (Row r : rows()) if (segments.get(r.segment()).kind != Kind.BRANCH && segments.get(r.segment()).kind != Kind.RUN) main.add(r);
         for (int mi = 0; mi < main.size(); mi++) {
             Row r = main.get(mi);
             boolean rock = rockRow(level, r);
-            if (rock) { // (live 01:42 one rock row at the entrance cut his whole staircase off the record: the face became the entrance, 50 blocks above him, and every dig_down and cobble walk went there)
-                int past = -1; for (int k = 1; k <= STRAY_ROWS && mi + k < main.size(); k++) if (!rockRow(level, main.get(mi + k))) { past = k; break; }
-                if (past > 0) { lastTrimWhy += "row " + mi + " (" + cells(level, r) + ") rock but row " + (mi + past) + " past it dug: a stray block, kept; "; n++; continue; }
-                lastTrimWhy += "stopped at row " + mi + " of " + main.size() + ": rock (" + cells(level, r) + ")";
-                return n;
-            }
+            if (rock) { lastTrimWhy += "stopped at row " + mi + " of " + main.size() + ": rock (" + cells(level, r) + ")"; return n; } // (a flight joined onto rock: the record stops there, stage 81)
             // (rock: undug = natural rock at his feet across the row (a flight joined onto rock); a block he put in a dug row (a patch, a chest) or gravel that fell in leaves it his (one stray block in the stairs at 109, -22, 64 cut every row and branch past it off the record, and the branch mouths got walled))
             for (BlockPos f : r.feet()) for (BlockPos c : new BlockPos[] {f, f.above()}) { // lava in the row or against it: the mine ends before it (a flow into his tunnel kept the face out past it: walked to, dug beside, two deaths at 220, -58, 64; the "lava ahead" turn takes it on from the last clean row)
                 if (level.getFluidState(c).is(net.minecraft.tags.FluidTags.LAVA)) { lastTrimWhy += "stopped at row " + mi + ": lava in it"; return n; }

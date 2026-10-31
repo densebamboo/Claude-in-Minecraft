@@ -211,29 +211,7 @@ public final class ClaudeLife {
                     g.tasks.stream().limit(4).map(t -> t instanceof Task.GoTo go ? "GoTo " + go.pos().toShortString() : t instanceof Task.Break b ? "Break " + b.pos().toShortString() : t instanceof Task.Place p ? "Place " + p.pos().toShortString() : t.getClass().getSimpleName()).toList());
     }
 
-    /** The cells his feet and head went through lately (every 5 ticks, 30 minutes, 4096 at most): his ways. The repair rounds never seal one (live 02:03 the round put andesite into his own tunnel's mouth, put it back when the user broke it, and he was shut in at hunger 6). */
-    private static java.util.Map<String, java.util.LinkedHashMap<BlockPos, Integer>> trail; // keyed by him and his world: the same x y z in the Nether is another cell
-    public static final int TRAIL_TICKS = 20 * 60 * 30;
-    static void noteTrail(ClaudeEntity g) {
-        if (g.tickCount % 5 != 0) return;
-        if (trail == null) trail = new java.util.HashMap<>();
-        var m = trail.computeIfAbsent(trailKey(g), k -> new java.util.LinkedHashMap<>(256, 0.75f, true) { @Override protected boolean removeEldestEntry(java.util.Map.Entry<BlockPos, Integer> e) { return size() > 4096; } });
-        BlockPos f = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); m.put(f, g.tickCount); m.put(f.above(), g.tickCount);
-    }
-    /** He walked through this cell (feet or head) within the last {@code ticks}, in this world. */
-    public static boolean walkedThrough(ClaudeEntity g, BlockPos p, int ticks) { if (trail == null) return false; var m = trail.get(trailKey(g)); Integer t = m == null ? null : m.get(p); return t != null && g.tickCount - t <= ticks && g.tickCount >= t; }
-    public static void trailReset(ClaudeEntity g) { if (trail != null) trail.keySet().removeIf(k -> k.startsWith(g.getUUID().toString())); }
-    private static String trailKey(ClaudeEntity g) { return g.getUUID() + "@" + g.level().dimension().location(); }
-    private static int trailSaidTick = -100000;
-    /** The round's patches into his ways dropped (open cells he walked through), said in the log at most every 30 s. */
-    private static void keepWaysOpen(ClaudeEntity g, ServerLevel level, List<Task> ts, String round) {
-        List<BlockPos> kept = new ArrayList<>();
-        ts.removeIf(t -> { if (!(t instanceof Task.Place p) || !MineBlueprint.passableCell(level, p.pos()) || !walkedThrough(g, p.pos(), TRAIL_TICKS)) return false; kept.add(p.pos()); return true; });
-        if (!kept.isEmpty() && g.tickCount - trailSaidTick > 20 * 30) { trailSaidTick = g.tickCount; ClaudeMod.LOGGER.info("[Claude life] {}: not patching {} open cell(s) he walked through (his way, not a hole): {} (ClaudeLife.keepWaysOpen)", round, kept.size(), kept.stream().limit(6).map(BlockPos::toShortString).toList()); }
-    }
-
     public static void tick(ClaudeEntity g, ServerPlayer player) {
-        noteTrail(g); // (his ways, in his own world)
         if (g.justRespawned) respawnTicks().put(g.getUUID(), g.tickCount); // (before anything below clears the flag)
         com.claudemod.entity.life.MindLog.flush(); // his conflict lines, said here (never from inside the logger)
         com.claudemod.entity.life.Whereabouts.tick(g, player); // where they are, as he sees, hears or was told it
@@ -10808,7 +10786,6 @@ public final class ClaudeLife {
         ts.removeIf(t -> t instanceof Task.Place p && (g.landingCells.contains(p.pos()) || obsWorking(p.pos()))); // his storage alcove, a landing, a bed nook: open on purpose, never walled (he walled off his own chest nook)
         ts.removeIf(t -> g.tasks.contains(t));
         ts.removeIf(t -> nookKeeps(g, level, t));
-        keepWaysOpen(g, level, ts, "the mine round");
         ts.removeIf(t -> t instanceof Task.Place p0 && sealHeld(g, level, p0.pos())); // (the vein and the drops behind a hole first: 12:14 his upkeep sealed 3 diamond ore and a diamond in)
         ts.removeIf(t -> t instanceof Task.Place p0 && planPutsBack(g, p0.pos())); // (their swap through his shell: the plan's own place_at patches it; his round patched it between the dig and its check, "the cobblestone is still there")
         if (ts.isEmpty()) return 0;
@@ -10865,7 +10842,6 @@ public final class ClaudeLife {
         ts.removeIf(t -> t instanceof Task.Break br && g.attempts.within(com.claudemod.entity.life.Attempts.Kind.BREAK, br.pos(), g.tickCount, 20 * 300)); // a dig he was just refused (ore past his pick, or behind it): not re-queued every 3 s
         ts.removeIf(t -> g.tasks.contains(t));
         ts.removeIf(t -> nookKeeps(g, level, t));
-        keepWaysOpen(g, level, ts, "the mine round");
         ts.removeIf(t -> t instanceof Task.Place p0 && sealHeld(g, level, p0.pos())); // (the vein and the drops behind a hole first: 12:14 his upkeep sealed 3 diamond ore and a diamond in)
         ts.removeIf(t -> t instanceof Task.Place p0 && planPutsBack(g, p0.pos())); // (their swap through his shell: the plan's own place_at patches it; his round patched it between the dig and its check, "the cobblestone is still there")
         { final var ts9 = ts; final var bp9 = b; ts9.removeIf(t9 -> t9 instanceof Task.Break b9 && bp9.isShell(b9.pos()) && !MineBlueprint.ore(level.getBlockState(b9.pos())) && ts9.stream().noneMatch(x9 -> x9 instanceof Task.Place p9 && p9.pos().equals(b9.pos())) && g.tasks.stream().noneMatch(x9 -> x9 instanceof Task.Place p9 && p9.pos().equals(b9.pos()))); } // a swap is a pair: its Place filtered out above (failed there lately), its Break goes too; alone the shell guard refused it every round (03:49 the arch at row 2, 6 refusals every 30 s)

@@ -8007,6 +8007,7 @@ public final class ClaudeBodyTest {
         if (stage[0] == 383 || stage[0] == 384) return skytowerStages(stage, t, c, h, level, mock);
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
+        if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
         if (stage[0] >= 279 && stage[0] <= 285) {
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Whereabouts.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.ExactSpot.reset(c); com.claudemod.director.Primitives.reset(c);
                 c.planning = false; c.failCount.clear(); c.commandResults.clear(); c.commandActive = false; c.lastSkillLine = ""; c.lastStep = null; c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600; esWaitT = -1; esMark = -1; esFake = ""; }
@@ -10285,6 +10286,54 @@ public final class ClaudeBodyTest {
                 }
             }
             default -> { return false; }
+        }
+        return true;
+    }
+
+    // ---------------------------------------------------------------- the Nether bridge as one plan (stage 493)
+    private static boolean bridgeStages(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (stage[0] != 493) return false;
+        if (t[0] == 5) { // from a portal facing south to a spot 40 east, 6 up, 25 south, a rock wall across leg 1: two legs, one pivot, the frame-wide floor + 2 rails, one staircase mid-leg, the tunnel shell; for a default frame (4) and their 5x5 highway frame
+            StringBuilder said = new StringBuilder();
+            for (int inner : new int[] {2, 3}) {
+                BlockPos P = h.absolutePos(new BlockPos(2, 20, 2));
+                int fw = inner + 2, fh = inner == 2 ? 5 : 5;
+                for (int x = -1; x <= inner; x++) for (int y = -1; y <= fh - 2; y++) { boolean edge = x == -1 || x == inner || y == -1 || y == fh - 2; if (edge) level.setBlock(P.offset(x, y, 0), Blocks.OBSIDIAN.defaultBlockState(), 2 | 16); }
+                for (int x = 0; x < inner; x++) for (int y = 0; y < fh - 2; y++) level.setBlock(P.offset(x, y, 0), Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16); // (the frame first, the portal without shape updates: a half-built frame pops a portal block)
+                for (int x = -6; x <= 6; x++) for (int y = -2; y <= 6; y++) for (int z = 10; z <= 12; z++) level.setBlock(P.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+                BlockPos dest = P.offset(40, 6, 25);
+                var axis = com.claudemod.entity.life.BridgeBlueprint.facingAxis(level, P);
+                check(axis == net.minecraft.core.Direction.Axis.Z, "bridge: the portal's facing read as " + axis + " (its plane spans x: it faces along z)");
+                int w = com.claudemod.entity.life.BridgeBlueprint.frameWidth(level, P);
+                check(w == fw, "bridge: the frame read as " + w + " wide (want " + fw + ")");
+                var b = com.claudemod.entity.life.BridgeBlueprint.plan(level, P, axis, dest, w);
+                check(b != null, "bridge: no plan");
+                check(b.leg1 == net.minecraft.core.Direction.SOUTH && b.leg2 == net.minecraft.core.Direction.EAST, "bridge: legs " + b.leg1 + " then " + b.leg2 + " (want south along the portal's facing, then east): " + b);
+                check(b.rows.stream().allMatch(r -> r.dir() == (r.leg() == 1 ? b.leg1 : b.leg2)) && b.rows.stream().map(r -> r.dir()).distinct().count() == 2, "bridge: more than one pivot: " + b);
+                check(b.pivot.getZ() == P.getZ() + 25, "bridge: the pivot at z " + b.pivot.getZ() + ", not the destination's z " + (P.getZ() + 25));
+                check(b.staircases() == 1, "bridge: " + b.staircases() + " staircases (want 1): " + b);
+                var stairs = b.rows.stream().filter(r -> r.stair()).toList();
+                check(stairs.size() == 6 && stairs.stream().allMatch(r -> r.leg() == 2 && r.k() >= com.claudemod.entity.life.BridgeBlueprint.MARGIN && r.k() <= 40 - com.claudemod.entity.life.BridgeBlueprint.MARGIN), "bridge: the staircase isn't 6 rows mid leg 2 clear of the ends: " + stairs);
+                var last = b.rows.get(b.rows.size() - 1);
+                check(last.centre().getY() == dest.getY() - 1 && last.centre().getX() == dest.getX(), "bridge: it ends at " + last.centre().toShortString() + " (want the floor under " + dest.toShortString() + ")");
+                int checked = 0;
+                for (var r : b.rows) {
+                    boolean corner = (r.leg() == 1 && r.k() > 25 - fw) || (r.leg() == 2 && r.k() < fw); if (corner) continue;
+                    var right = r.dir().getClockWise();
+                    int floors = 0; for (int o = b.lo() - 2; o <= b.hi() + 2; o++) if (b.roles.get(r.centre().relative(right, o)) == com.claudemod.entity.life.BridgeBlueprint.Role.FLOOR) floors++;
+                    check(floors == fw, "bridge: row " + r + " has " + floors + " floor cells across (want the frame's " + fw + ")");
+                    for (int o : b.railCols()) { var ro = b.roles.get(r.centre().relative(right, o).above()); check(ro == (r.tunnel() ? com.claudemod.entity.life.BridgeBlueprint.Role.WALL : com.claudemod.entity.life.BridgeBlueprint.Role.RAIL) || r.stair(), "bridge: row " + r + " rail column " + o + " is " + ro); }
+                    boolean inWall = r.leg() == 1 && r.k() >= 10 && r.k() <= 12;
+                    check(r.tunnel() == inWall, "bridge: row " + r + " tunnel " + r.tunnel() + " (the wall is rows 10-12 of leg 1)");
+                    if (r.tunnel()) { for (int o = b.lo(); o <= b.hi(); o++) check(b.roles.get(r.centre().relative(right, o).above(4)) == com.claudemod.entity.life.BridgeBlueprint.Role.ROOF, "bridge: tunnel row " + r + " has no roof at column " + o);
+                        for (int o : b.railCols()) for (int y = 1; y <= 3; y++) { var ro = b.roles.get(r.centre().relative(right, o).above(y)); check(ro == com.claudemod.entity.life.BridgeBlueprint.Role.WALL || (y == 3 && ro == com.claudemod.entity.life.BridgeBlueprint.Role.ROOF), "bridge: tunnel row " + r + " wall column " + o + " at +" + y + " is " + ro); } }
+                    checked++;
+                }
+                for (int x = -6; x <= 6; x++) for (int y = -2; y <= 6; y++) for (int z = 10; z <= 12; z++) level.setBlock(P.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                for (int x = -1; x <= inner; x++) for (int y = -1; y <= fh - 2; y++) level.setBlock(P.offset(x, y, 0), Blocks.AIR.defaultBlockState(), 2 | 16);
+                said.append(fw).append(" wide: ").append(b).append("; ").append(checked).append(" rows checked. ");
+            }
+            pass(stage, t, said.toString());
         }
         return true;
     }

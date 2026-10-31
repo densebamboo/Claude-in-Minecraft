@@ -40,6 +40,8 @@ public final class Watchdog {
         final Map<String, int[]> ends = new HashMap<>();     // action key -> {no-progress ends, first tick}
         final Map<String, int[]> rung = new HashMap<>();     // action key -> {rung reached, tick}
         final Map<String, int[]> skills = new HashMap<>();   // failed skill line -> {times, first tick}
+        final Map<String, Long> lastFeet = new HashMap<>();
+        final Map<String, double[]> lastEnd = new HashMap<>(); // dig/place key -> {blocks broken, items, best distance, tick} at its last end
         final Map<String, String> tried = new HashMap<>();   // action key -> the ways tried so far, for the line to them
         final Map<String, String> what = new HashMap<>();    // action key -> what failed and how, from its trip
         final java.util.Set<String> told = new java.util.HashSet<>();
@@ -94,6 +96,17 @@ public final class Watchdog {
      * ladder has queued the next way (or written it off). True: run it.
      */
     public static void noteBroken(ClaudeEntity g) { st(g).broken++; }
+    /** The task put itself back with something in front of it (a step out of the cell, a walk to a stand spot, a wait, the block in front): its own bounded retry, not the loop (the gate's nook move: a double chest's two cells and his feet, stepped round in 2 s). */
+    private static boolean meansFirst(ClaudeEntity g, Task t) { Task head = g.tasks.peek(); return head != null && !head.equals(t) && g.tasks.contains(t); }
+    /** The same dig or placement ended again with nothing gained since its last end: no block broken, no item got, not nearer its cell, and his feet in the same cell. Any of those, and its count starts over (the block in front cleared first, a nudge to a stand spot: progress). */
+    private static boolean repeatNoGain(St s, String k, ClaudeEntity g, Task t) {
+        double d = targetDist(g, t); int it = items(g); long feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()).asLong();
+        double[] last = s.lastEnd.get(k);
+        boolean same = last != null && last[0] == s.broken && last[1] == it && d > last[2] - 1.0 && g.tickCount - last[3] <= WINDOW && s.lastFeet.getOrDefault(k, Long.MIN_VALUE) == feet; // (standing where he stood: a step out of the cell first, a nudge to a stand spot, moves him; that's a means, not the loop)
+        s.lastEnd.put(k, new double[] {s.broken, it, Math.min(d, last != null && same ? last[2] : d), g.tickCount}); s.lastFeet.put(k, feet); // (the cell as a long, apart: a double loses it at these coordinates)
+        if (!same && last != null) s.ends.remove(k);
+        return true;
+    }
     private static int items(ClaudeEntity g) { int n = 0; for (int i = 0; i < g.inventory.items.getContainerSize(); i++) n += g.inventory.items.getItem(i).getCount(); return n; }
     public static boolean starting(ClaudeEntity g, Task t) {
         St s0 = st(g); s0.started = t; s0.startTick = g.tickCount; s0.startBroken = s0.broken; s0.startItems = items(g); s0.startDist = targetDist(g, t);
@@ -121,7 +134,8 @@ public final class Watchdog {
         int ran = mine ? g.tickCount - s.startTick : 0;
         boolean madeSome = mine && (s.broken != s.startBroken || items(g) != s.startItems);
         boolean counted = t instanceof Task.Leap
-                || t instanceof Task.GoTo && mine && ran > 3 && !madeSome && targetDist(g, t) > s.startDist - 1.0;
+                || t instanceof Task.GoTo && mine && ran > 3 && !madeSome && targetDist(g, t) > s.startDist - 1.0
+                || (t instanceof Task.Break || t instanceof Task.Place) && mine && !madeSome && !meansFirst(g, t) && repeatNoGain(s, k, g, t); // (a dig or a placement refused and re-queued with nothing broken, nothing got and no nearer since its last end: live 03:18 World 15, 270 refused digs and the watchdog never saw them)
         if (!counted) { if (t instanceof Task.GoTo || t instanceof Task.Leap) ClaudeMod.LOGGER.info("[Claude watchdog] {} ended short, not counted ({}) (Watchdog.ended)", k, !mine || ran <= 3 ? "ended at once: the walker's own refusal" : madeSome ? "broke or got something on the way" : "got nearer"); return; } // (the rung stays for MEMORY: it came good, but a fresh trip on it climbs on)
         int[] e = s.ends.get(k);
         if (e == null || g.tickCount - e[1] > WINDOW) { e = new int[] {0, g.tickCount}; s.ends.put(k, e); }

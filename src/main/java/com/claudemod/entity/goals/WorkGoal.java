@@ -1718,6 +1718,11 @@ public class WorkGoal extends Goal {
                     com.claudemod.ClaudeMod.LOGGER.info("[Claude life] can't break {}: {} at {} is in the way", pos.toShortString(), name(w), inWay.toShortString());
                     return exit("doBreak line 1550");
                 }
+                if (com.claudemod.entity.life.MineBlueprint.ore(w) && w.requiresCorrectToolForDrops() && g.inventory.find(s -> s.isCorrectToolForDrops(w)).isEmpty()) { // ore in front that needs a pick he hasn't got (stone in front without a pick still goes the re-tool way: a pick made on the spot): queuing it first only loops (live 03:18 World 15: copper in front of stone, wooden pick, 270 re-queues in 3 min)
+                    g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, g.tickCount);
+                    com.claudemod.ClaudeMod.LOGGER.info("[Claude life] can't break {}: {} at {} is in the way and needs a better pick than he has (WorkGoal.doBreak)", pos.toShortString(), name(w), inWay.toShortString());
+                    return exit("in the way: " + name(w) + " needs a better pick");
+                }
                 clearCrack();
                 if (com.claudemod.director.ClaudeLife.isTempStation(g, pos) && (w.is(net.minecraft.world.level.block.Blocks.COBBLESTONE) || w.is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE))) g.tasks.addFirst(new Task.Place(inWay.immutable(), w.getBlock().asItem())); // the patch goes back once the station's out
                 g.tasks.addFirst(new Task.Break(pos));

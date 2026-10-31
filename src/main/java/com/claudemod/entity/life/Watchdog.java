@@ -64,7 +64,7 @@ public final class Watchdog {
     public static BlockPos target(Task t) {
         return t instanceof Task.GoTo x ? x.pos() : t instanceof Task.Break x ? x.pos() : t instanceof Task.Place x ? x.pos() : t instanceof Task.Leap x ? x.land()
                 : t instanceof Task.UseDoor x ? x.pos() : t instanceof Task.Chest x ? x.pos() : t instanceof Task.Deposit x ? x.pos() : t instanceof Task.Till x ? x.pos()
-                : t instanceof Task.WallTorch x ? x.pos() : t instanceof Task.Replant x ? x.pos() : null;
+                : t instanceof Task.WallTorch x ? x.pos() : t instanceof Task.Replant x ? x.pos() : t instanceof Task.FurnaceTake x ? x.pos() : t instanceof Task.FurnaceLoad x ? x.pos() : null;
     }
     /** How far his feet are from the action's target; -1: no target (the clock's move measure applies). */
     public static double targetDist(ClaudeEntity g, Task t) { BlockPos p = t == null ? null : target(t); return p == null ? -1 : Math.sqrt(p.distToCenterSqr(g.position())); }

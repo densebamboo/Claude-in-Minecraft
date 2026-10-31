@@ -2720,6 +2720,7 @@ public final class ClaudeLife {
                 return "failed: can't make cover here: nothing to tower with and the ground can't be dug by hand; move onto dirt, or get some blocks";
             }
             case "gear_up": { // the cave kit (iron armor, iron sword, shield, food), or "basic" (a sword and food), in one trip
+                if (level.dimension() != net.minecraft.world.level.Level.OVERWORLD && !g.commandActive) { int meals = Kit.food(g); if (meals >= 4) return "done: through the portal now, the kit's behind me (" + meals + " meals on me): on with the trip"; } // (the kit is the overworld's: live 12:30 World 15 in the Nether its food line sent him "up my stairs and out of the mine for cow" 9 times in 2 s)
                 boolean full = !target.equals("basic");
                 var missing = Kit.missing(g, full);
                 String bowNote = full && g.inventory.count(s -> s.is(Items.BOW)) == 0 && !missing.containsKey(Items.BOW) ? bowWantNote(g, level) : null; // the bow: a want, no part of this kit (the user: the Nether wants it, the End needs it)

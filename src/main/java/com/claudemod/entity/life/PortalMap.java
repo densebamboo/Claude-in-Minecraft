@@ -228,7 +228,21 @@ public final class PortalMap {
     // ---- enter_portal: which portal their words mean; walk to it, relight it if a ghast put it out, step in
     private static Map<Integer, Integer> walkedTo; // portal id -> tick of the last walk (one walk per 2 min: no loop on one he can't reach)
     /** The step, or null to let enter_portal take the nearest lit one in reach (no words naming one, none known). */
+    public static void enterReset(ClaudeEntity g) { if (entering != null) entering.remove(g.getUUID()); }
+    private static Map<java.util.UUID, Object[]> entering; // {dimension he stepped in from, tick, portal id}: the step's done when the world changes, not when he steps in
     public static String enterStep(ClaudeEntity g, ServerLevel level, Skills.Step st, String target) {
+        if (entering == null) entering = new HashMap<>();
+        Object[] en = entering.get(g.getUUID());
+        if (en != null && g.tickCount - (int) en[1] > 20 * 60) { entering.remove(g.getUUID()); en = null; } // (a stale one: a death, a dropped plan; this is a fresh go)
+        if (en != null) { // he stepped in: through, still in it, or never got in (live 10:27 World 15: "stepping into portal #4" was taken for there, find_fortress ran in the overworld 5 s on)
+            String from = (String) en[0]; int since = g.tickCount - (int) en[1];
+            if (!from.equals(dim(level))) { entering.remove(g.getUUID()); ClaudeMod.LOGGER.info("[Claude portal] through portal #{}: in {} now ({} s) (PortalMap.enterStep)", en[2], dim(level), since / 20); return "done: through portal #" + en[2] + ", in the " + dim(level).replace("the_", "").replace('_', ' ') + " now"; }
+            boolean inIt = level.getBlockState(g.blockPosition()).is(net.minecraft.world.level.block.Blocks.NETHER_PORTAL) || level.getBlockState(g.blockPosition().above()).is(net.minecraft.world.level.block.Blocks.NETHER_PORTAL);
+            if (inIt && since < 20 * 15) { g.tasks.add(new Task.Wait(20, false)); g.skillQueue.addFirst(new Skills.Step(st.skill(), target, st.count(), st.where())); return "standing in portal #" + en[2] + ", waiting for it to take me (" + since / 20 + " s)"; } // (a player stands still in it 4 s)
+            entering.remove(g.getUUID());
+            ClaudeMod.LOGGER.info("[Claude portal] enter #{}: {} s on, still in the {} at {} and not in the portal (PortalMap.enterStep)", en[2], since / 20, from, g.blockPosition().toShortString());
+            return "failed: didn't get into portal #" + en[2] + " (I'm at " + g.blockPosition().toShortString() + ", still in the " + from.replace('_', ' ') + ")";
+        }
         String t = target == null ? "" : target.replace('_', ' ').trim();
         boolean named = !t.isEmpty() && !t.startsWith("@") && !t.matches("(the |a )?(nether )?portal|it|nearest|any");
         Portal p = resolve(g, t);
@@ -255,6 +269,7 @@ public final class PortalMap {
         }
         g.noteDoing("into portal #" + p.id + " at " + p.where() + ": " + linkTalk(g, p));
         g.tasks.add(new Task.GoTo(p.at, 0.3)); g.tasks.add(new Task.Wait(100, false));
+        entering.put(g.getUUID(), new Object[] {dim(level), g.tickCount, p.id}); g.skillQueue.addFirst(new Skills.Step(st.skill(), target, st.count(), st.where())); // (the check: through, or not)
         ClaudeMod.LOGGER.info("[Claude portal] enter \"{}\" -> #{} at {}: stepping in, {} (PortalMap.enterStep)", t, p.id, p.where(), linkTalk(g, p));
         return "stepping into portal #" + p.id + " at " + p.where() + " (" + linkTalk(g, p) + ")";
     }

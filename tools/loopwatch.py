@@ -20,6 +20,7 @@ while True:
         if age >= 600 and d not in ('Wait', 'FurnaceTake', 'Sleep', 'nothing') and time.time() - alerted.get('age' + d, 0) > 120:
             alerted['age' + d] = time.time(); print('SLOW: %s running %d s' % (d, age // 20), flush=True)
         continue
+    if '[Claude watchdog] TRIP' in line or '[Claude watchdog] telling them' in line: print('STUCK ' + line.strip()[line.find('[Claude watchdog]'):][:300], flush=True); continue  # the watchdog's verdict: one precise line per real stuck
     # (before the [Claude filter: client chat and death lines carry no "[Claude" tag, so they were dropped unseen)
     if 'CHAT]' in line and re.search(r'CHAT\] Claude (was|drowned|died|fell|burned|starved|blew|hit|suffocated|tried|went|froze|experienced)', line): print('DEATH ' + line.strip()[-200:], flush=True); continue
     if ('MinecraftServer/]: [Not Secure] <' in line or 'ChatComponent/]: [CHAT] <' in line) and '<Claude>' not in line: print('CHAT ' + line.strip()[line.find('<'):][:300], flush=True); continue

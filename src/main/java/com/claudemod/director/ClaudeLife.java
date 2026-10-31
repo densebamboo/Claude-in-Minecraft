@@ -1985,6 +1985,10 @@ public final class ClaudeLife {
                             pit.sort(Comparator.comparingDouble(b0 -> b0.distSqr(f0)));
                             { int haveC = g.inventory.count(x -> x.is(Items.COBBLESTONE) || x.is(Items.COBBLED_DEEPSLATE)); Integer t0 = g.attempts.counters.get("pitTick"), h0 = g.attempts.counters.get("pitHave"); if (t0 != null && h0 != null && g.tickCount - t0 < 20 * 60 && haveC <= h0) pit.clear(); g.attempts.counters.put("pitTick", g.tickCount); g.attempts.counters.put("pitHave", haveC); } // the last pick brought none in (stone by a cave below, "no way to it"): the staircase this time
                             pit.removeIf(b0 -> !touchesAir(level, b0)); // only stone he can actually get at (stone under dirt 5 down: "no way to it", six of them a second)
+                            BlockPos baseAt = g.blueprint != null && !g.blueprint.isEmpty() ? g.blueprint.entrance : g.stairStart != null ? g.stairStart : g.house != null ? g.house.centre() : null;
+                            boolean awayFromBase = baseAt != null && baseAt.distSqr(f0) > 48 * 48 && (g.house == null || g.house.centre().distSqr(f0) > 48 * 48);
+                            if (awayFromBase) pit.removeIf(b0 -> b0.distSqr(f0) > 4 * 4 || f0.getY() - b0.getY() > 2); // (out here only rock in reach where it shows: no digging down through the dirt to it)
+                            if (pit.isEmpty() && awayFromBase) return "failed: no stone showing here and my mine's " + (int) Math.sqrt(baseAt.distSqr(f0)) + " off: no fresh hole out here for " + count + " cobble, it waits till I'm back by my mine"; // (a hole dug far from his builds is litter: live 11:51 World 15, 130 from his mine for a furnace's 8)
                             if (pit.isEmpty()) { // none in the open: a little staircase down from his feet, like a player (the stone it reaches is the cobble)
                                 Direction sd = g.getDirection(); BlockPos sp = f0;
                                 for (int k = 1; k <= 6; k++) { sp = sp.relative(sd).below(); if (!level.getFluidState(sp).isEmpty() || !level.getFluidState(sp.above()).isEmpty()) break; g.tasks.add(new Task.Break(sp.above(2))); g.tasks.add(new Task.Break(sp.above())); g.tasks.add(new Task.Break(sp)); g.tasks.add(new Task.GoTo(sp, 0.8)); }
@@ -2908,6 +2912,9 @@ public final class ClaudeLife {
             case "smelt": {
                 Item item = item(target);
                 if (item == null) return "failed: no such item '" + target + "'";
+                { var fd = new ItemStack(item).get(net.minecraft.core.component.DataComponents.FOOD); // cooking a few raws while fed and carrying cooked food: they ride home to his furnaces (live 11:51 World 15: "cook my raw salmon" for 2, a furnace's cobble dug out of a fresh hole 130 from his mine)
+                  if (fd != null && !g.commandActive && g.getFoodData().getFoodLevel() >= 18 && Kit.food(g) > 0) { int raws = g.inventory.count(x -> x.get(net.minecraft.core.component.DataComponents.FOOD) != null && rawOrBad(level, x) && !x.is(Items.ROTTEN_FLESH) && !x.is(Items.SPIDER_EYE)); boolean furnaceBy = reachableFurnace(g, level, g.blockPosition(), 16) != null;
+                    if (raws < 8 && !furnaceBy) return "done: " + raws + " raw food isn't worth a furnace out here (fed, cooked food on me): it cooks at my furnaces back home"; } }
                 Item input = smeltInput(level, g, item);
                 if (input == null && Set.of(Items.COOKED_BEEF, Items.COOKED_PORKCHOP, Items.COOKED_MUTTON, Items.COOKED_CHICKEN).contains(item)) { // meat is meat: cook what he has
                     for (Item alt : List.of(Items.COOKED_BEEF, Items.COOKED_PORKCHOP, Items.COOKED_MUTTON, Items.COOKED_CHICKEN)) {

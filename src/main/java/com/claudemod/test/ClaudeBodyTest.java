@@ -8009,6 +8009,23 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
+        if (stage[0] == 511) { // far from his mine (live 11:51 World 15: "cook my raw salmon" for 2 while fed, a furnace's cobble from a fresh hole 130 off): the raws ride home; no fresh hole out here for a few cobble
+            if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); flatBox(h); }
+            if (t[0] == 5) {
+                c.getInventory().add(new ItemStack(Items.SALMON, 2)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 5)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 4)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getFoodData().setFoodLevel(20);
+                String a = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "cooked_salmon", 2);
+                check(a != null && a.startsWith("done:") && c.tasks.isEmpty(), "smelt 2 salmon, fed, far from a furnace: \"" + a + "\" (tasks " + c.tasks + ")");
+                c.tasks.clear(); c.skillQueue.clear();
+                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) for (int y = -11; y <= 0; y++) h.setBlock(new BlockPos(x, y, z), Blocks.DIRT); // (no stone showing anywhere: only a fresh hole would reach it)
+                c.stairStart = c.blockPosition().offset(130, 0, 0); c.mineFace = c.blockPosition().offset(130, -40, 0); c.mineDir = net.minecraft.core.Direction.EAST;
+                String b = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "cobblestone", 8);
+                boolean holes = c.tasks.stream().anyMatch(q -> q instanceof Task.Break);
+                check(b != null && !holes, "cobble 130 from his mine, no stone showing: \"" + b + "\" (tasks " + c.tasks + ")");
+                c.tasks.clear(); c.skillQueue.clear(); c.stairStart = null; c.mineFace = null; c.mineDir = null; c.getInventory().clearContent();
+                pass(stage, t, "smelt: \"" + a + "\"; cobble: \"" + b + "\"");
+            }
+            return true;
+        }
         if (stage[0] == 510) { // where he last stood survives a restart (live World 15: three restarts put him beside them, once out of his mine): his 10 s record gives his spot and world back; a spot filled in since gives nothing
             if (t[0] == 1) scenarioReset(c);
             if (t[0] == 5) { BlockPos me = h.absolutePos(new BlockPos(9, 2, 9)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }

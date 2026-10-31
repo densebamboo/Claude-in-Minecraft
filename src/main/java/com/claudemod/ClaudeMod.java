@@ -28,6 +28,7 @@ public class ClaudeMod {
         modEventBus.addListener(this::commonSetup);
         NeoForge.EVENT_BUS.register(this);
         NeoForge.EVENT_BUS.addListener(ClaudeCommands::register);
+        NeoForge.EVENT_BUS.addListener(com.claudemod.director.ClaudeLife::onTravel); // no Nether without a gold piece (every way in: escape, follow, enter_portal)
         NeoForge.EVENT_BUS.addListener(com.claudemod.entity.life.Perception::onSoundAt); // what he hears
         NeoForge.EVENT_BUS.addListener(com.claudemod.entity.life.Perception::onSoundFrom);
         NeoForge.EVENT_BUS.addListener(com.claudemod.entity.life.Whereabouts::onBreak); // a block they break in earshot (a level event, not a sound)

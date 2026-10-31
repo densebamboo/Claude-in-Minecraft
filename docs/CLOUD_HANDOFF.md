@@ -45,6 +45,7 @@ The hazard reflex layer (`WorkGoal.reflexes()`: fire, air and lava in every mode
    - A sprint-jump missed 5 times in 10 s.
    - "breaking the blocks now" while only re-planning a walk.
    - Repeated "craft furnace -> failed: missing cobblestone".
+   - Live 01:05: at 0.8 HP, on fire, with no food and hunger 16 (no regen), he kept walking a 21-step dig route across the Nether, spun beside lava and died in it. Low HP with no way to heal must stop the journey (food, out of fire, cover) before anything else.
 
    Read `docs/watchdog_notes.md` first: the local Big Picture notes (noticeStuck, its flaw, progress measures, the next-way ladder, stage ideas). `docs/drafts/patch_watchdog.py` (stage 474) is an UNTESTED draft: use it or not.
 2. **Overworld biome facts.** He now has his exact biome (the `YOUR BIOME` line in `ClaudeChat.truthFor` and `ClaudeLife.situation`) and Nether biome mobs (in `Persona`). Add overworld biome knowledge for planning: villages, mob spawns, resources, structures. Then a stage that asks him where to find X.

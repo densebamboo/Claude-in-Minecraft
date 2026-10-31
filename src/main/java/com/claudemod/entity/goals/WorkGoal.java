@@ -3998,6 +3998,7 @@ public class WorkGoal extends Goal {
             var path = g.getNavigation().createPath(q.immutable(), 0); if (path == null || !path.canReach()) continue;
             portal = q.immutable(); pd = dg;
         }
+        if (portal != null && lv.dimension() == net.minecraft.world.level.Level.OVERWORLD && !com.claudemod.director.ClaudeLife.hasGoldPiece(g)) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: not the portal at {}, no gold piece on him for the Nether side (WorkGoal.pickEscape)", portal.toShortString()); portal = null; } /* live 00:51: a creeper escape into the Nether with no gold, dead to piglins 5 min later */
         if (portal != null) { setEscape("portal", portal, null); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: the portal at {} ({} off, in sight, there with its 4 s to spare) from {} (WorkGoal.pickEscape)", portal.toShortString(), (int) pd, from); return; }
         // 2 a 1-wide gap he can see and gets to first: through it, then plugged or held
         java.util.List<BlockPos[]> gaps = new java.util.ArrayList<>();

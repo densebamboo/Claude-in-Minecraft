@@ -20,14 +20,15 @@ while True:
         if age >= 600 and d not in ('Wait', 'FurnaceTake', 'Sleep', 'nothing') and time.time() - alerted.get('age' + d, 0) > 120:
             alerted['age' + d] = time.time(); print('SLOW: %s running %d s' % (d, age // 20), flush=True)
         continue
-    if '[Claude' not in line or '[Claude where]' in line or '[Claude trace]' in line or 'den check' in line: continue
+    # (before the [Claude filter: client chat and death lines carry no "[Claude" tag, so they were dropped unseen)
+    if 'CHAT]' in line and re.search(r'CHAT\] Claude (was|drowned|died|fell|burned|starved|blew|hit|suffocated|tried|went|froze|experienced)', line): print('DEATH ' + line.strip()[-200:], flush=True); continue
     if ('MinecraftServer/]: [Not Secure] <' in line or 'ChatComponent/]: [CHAT] <' in line) and '<Claude>' not in line: print('CHAT ' + line.strip()[line.find('<'):][:300], flush=True); continue
+    if '[Claude' not in line or '[Claude where]' in line or '[Claude trace]' in line or 'den check' in line: continue
     if '[Claude -> ' in line: print('REPLY ' + line.strip()[line.find('[Claude -> '):][:300], flush=True); continue
     if 'its next round when he passes' in line or '[Claude mine] not patching' in line or 'nothing to pick up round' in line or 'waiting to land first' in line or 'ExactSpot.lessonHold' in line or 'their lesson ("")' in line or ('WorkGoal.walkTo' in line and 'TempLedger.leaving' in line) or ('dropping' in line and 'ClaudeLife.java:52' in line) or '[Claude ore] skipping' in line or '[Claude ore] saw' in line or '[Claude plan] rules:' in line: continue
     if '[Claude owner]' in line: print('OWNER ' + line.strip()[line.find('[Claude owner]'):][:400], flush=True); continue
     if '[Claude conflict]' in line and ('not walking back to it' in line or 'nothing to pick up' in line or 'waiting to land' in line or 'its next round when he passes' in line or 'his mine as he knows it' in line): continue
     if '[Claude conflict]' in line: print('CONFLICT ' + line.strip()[line.find('[Claude conflict]'):][:400], flush=True); continue
-    if 'CHAT]' in line and re.search(r'CHAT\] Claude (was|drowned|died|fell|burned|starved|blew|hit|suffocated|tried|went|froze|experienced)', line): print('DEATH ' + line.strip()[-200:], flush=True); continue
     if '[Claude litter]' in line:
         import re as _re, os as _os
         _m = _re.search(r'at (-?\d+, -?\d+, -?\d+) standing', line); _k = _m.group(1) if _m else line

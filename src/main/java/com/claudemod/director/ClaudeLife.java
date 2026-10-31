@@ -103,6 +103,10 @@ public final class ClaudeLife {
             g.skillQueue.add(new Skills.Step(darkOut ? "shelter" : "gear_up", "", 1));
             ClaudeMod.LOGGER.info("[Claude life] they're spectating and he's idle: {}", darkOut ? "night and not geared for it, under cover till first light" : "getting his own kit together (gear_up)");
         }
+        if (together && dist > 16 && g.tickCount % 200 == 7 && "yes".equals(g.pref("stay_close", "yes"))) { /* live 01:30: "following you" while he stood still and they went 2 -> 59 off, not one line why: the first condition that holds the walk back */
+            String why = player.isSpectator() && !"yes".equals(g.pref("follow_spectator", "no")) ? "they're spectating" : !g.skillQueue.isEmpty() ? "plan steps queued (" + g.skillQueue.peek().skill() + ")" : !waitingForAsk(g) ? "waiting on an answer to his ask" : g.commandActive ? "their order still active" + (g.lastStep == null ? "" : " (" + g.lastStep.skill() + ")") : !com.claudemod.entity.life.Whereabouts.current(g, player) ? "he doesn't see or hear them now (no fresh fix on where they are)" : !g.tasks.isEmpty() || g.currentTask != null ? "busy (" + (g.currentTask == null ? g.tasks.peek().getClass().getSimpleName() : g.currentTask.getClass().getSimpleName()) + ")" : null;
+            if (why != null) ClaudeMod.LOGGER.info("[Claude follow] {} blocks behind them and not walking: {} (ClaudeLife.runWork)", (int) dist, why);
+        }
         // Following them: only when he's not on a job for them (between plan steps he stays at his work).
         if (together && "yes".equals(g.pref("stay_close", "yes")) && (!player.isSpectator() || "yes".equals(g.pref("follow_spectator", "no"))) && g.skillQueue.isEmpty() && dist > 8 && waitingForAsk(g) && !g.commandActive) { // (a spectator is only watching: he walked 90 blocks back to one between jobs)
             BlockPos theirGround = com.claudemod.entity.life.Whereabouts.current(g, player) ? groundUnder(g, player) : null; // (keeping up with them while he has them in sight or earshot, or their word on where they are; lost track of, no digging after an old spot: he asks)
@@ -353,11 +357,12 @@ public final class ClaudeLife {
         if (g.tickCount % 100 == 47) lowFoodSay(g, player, onTheirOrder || g.staying);
         if (!onTheirOrder) homeUpkeep(g, player);
         if (g.tickCount % 40 == 29 && !onTheirOrder) mineDeathRepair(g, player.serverLevel()); // where he died in his mine: lit and walled the moment he's back by it
-        if (g.tickCount % 60 == 21 && !onTheirOrder) { if (bpMode(g)) bpIntegrity(g, player.serverLevel()); else mineIntegrity(g, player.serverLevel()); } // the user's rule: in his mine, if there's air, patch it, before anything else
+        if (g.tickCount % 60 == 21 && !onTheirOrder && g.level().dimension() == net.minecraft.world.level.Level.OVERWORLD) { if (bpMode(g)) bpIntegrity(g, player.serverLevel()); else mineIntegrity(g, player.serverLevel()); } // the user's rule: in his mine, if there's air, patch it, before anything else
         if (g.tickCount % 40 == 13 && !g.commandActive && !com.claudemod.entity.ClaudeSpawner.testing && !(g.currentTask instanceof Task.Attack) && !(g.currentTask instanceof Task.Flee) && !(g.currentTask instanceof Task.Break)
                 && ((g.currentTask == null && g.tasks.isEmpty()) || (g.lastStep != null && java.util.Set.of("string", "bone", "bone_meal", "arrow", "fishing_rod", "bow").contains(g.lastStep.target())))) { // the user: a distraction from the job in hand is a bug; only when idle, or when string/bones are the job (it broke off a walk to his mine for a skeleton) // the user: a player knows spiders and cobwebs mean string, skeletons bones and arrows, and takes them when they're about
             stringRound(g, player.serverLevel());
         }
+        if (g.tickCount % 20 == 9 && !com.claudemod.entity.ClaudeSpawner.testing) clearOnSight(g, player);
         if (g.tickCount % 200 == 37) { // an aquifer, not a leak: 25+ water plugs in 5 minutes (40 took 7 minutes of plugging at y13) and the water still coming (every cobble he dug went straight back into it for 10 minutes); a player gives that mine up and digs a fresh one on dry ground
             BlockPos nKey = new BlockPos(0, -30010, 0), tKey = new BlockPos(0, -30011, 0);
             if (g.tickCount - g.attempts.counters.getOrDefault("aquiferSince", -100000) > 20 * 300) { g.attempts.counters.put("aquiferSince", g.tickCount); g.attempts.counters.put("aquiferPlugs", 0); }
@@ -2061,6 +2066,7 @@ public final class ClaudeLife {
                 return "spotted " + found.size() + " " + target + " blocks nearby, going to mine " + queued + " (not in your inventory yet)";
             }
             case "dig_down": {
+                if (level.dimension() != net.minecraft.world.level.Level.OVERWORLD) return "failed: my mine's in the overworld, not here in " + level.dimension().location().getPath(); /* (see ownMine) */
                 if (bpMode(g)) return bpDigDown(g, player, level, st, target, count);
                 String tool = ensureToolFor(g, player, level, Blocks.STONE.defaultBlockState(), st);
                 if (tool != null) return tool;
@@ -2364,6 +2370,7 @@ public final class ClaudeLife {
                 return made == 0 ? "failed: liquid right there" : "digging a staircase down " + made + " steps (from " + at.toShortString() + " heading " + dir.getName() + (g.stairStart != null ? ", entrance " + g.stairStart.toShortString() : "") + ")";
             }
             case "strip_mine": {
+                if (level.dimension() != net.minecraft.world.level.Level.OVERWORLD) return "failed: my mine's in the overworld, not here in " + level.dimension().location().getPath(); /* (see ownMine) */
                 if (bpMode(g)) return bpStripMine(g, player, level, st, target, count);
                 if ((target.contains("cobble") || target.equals("stone") || target.equals("rock")) && g.inventory.count(s0 -> s0.is(ItemTags.STONE_TOOL_MATERIALS)) >= Math.max(1, count)) // rock: done once he has it (the ore check below doesn't know cobble: "strip_mine cobble x4" ran three full ribs with 125 cobble in his pack)
                     return "done: already have " + g.inventory.count(s0 -> s0.is(ItemTags.STONE_TOOL_MATERIALS)) + " cobblestone";
@@ -3606,7 +3613,16 @@ public final class ClaudeLife {
                 var drops = new ArrayList<>(level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, area,
                         i -> i.isAlive() && !g.isGift(i) && (want == null || i.getItem().is(want) || (target.contains("tool") && i.getItem().getItem() instanceof net.minecraft.world.item.TieredItem))));
                 if (drops.isEmpty() && Primitives.open(g)) { ClaudeMod.LOGGER.info("[Claude prim] pick_up: nothing left lying near him after the digs, it's on him already (ClaudeLife.runSkill)"); return "nothing left lying about to pick up (it's on me already)"; } // (the patch's own pickup took it before the patch went back)
-                if (drops.isEmpty()) return "failed: nothing " + (want == null ? "" : Crafting.name(want) + " ") + "lying on the ground near you or them";
+                if (drops.isEmpty()) { /* the user 01:30: "there were bows and arrows": the miss said nothing of what WAS there; every drop and stuck arrow round him and them, and why each was passed over */
+                    var wide = new net.minecraft.world.phys.AABB(g.blockPosition()).minmax(new net.minecraft.world.phys.AABB(player.blockPosition())).inflate(24);
+                    StringBuilder seen = new StringBuilder();
+                    for (var i : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, wide, net.minecraft.world.entity.Entity::isAlive))
+                        seen.append(String.format("%s x%d at %s (%.0f from him%s%s); ", Crafting.name(i.getItem().getItem()), i.getItem().getCount(), i.blockPosition().toShortString(), i.distanceTo(g), area.contains(i.position()) ? "" : ", outside the search", g.isGift(i) ? ", a gift he gave" : ""));
+                    for (var a : level.getEntitiesOfClass(net.minecraft.world.entity.projectile.AbstractArrow.class, wide, net.minecraft.world.entity.Entity::isAlive))
+                        seen.append(String.format("a stuck arrow entity at %s (pickup %s, %.0f from him: not an item drop, pick_up never looks at these); ", a.blockPosition().toShortString(), a.pickup, a.distanceTo(g)));
+                    ClaudeMod.LOGGER.info("[Claude skill] pick_up {}: nothing matched in the search ({} round {} and {}); what's about: {}", target, "16", g.blockPosition().toShortString(), c.toShortString(), seen.length() == 0 ? "no drops or arrows at all within 24" : seen);
+                    return "failed: nothing " + (want == null ? "" : Crafting.name(want) + " ") + "lying on the ground near you or them";
+                }
                 drops.sort(Comparator.comparingDouble(i -> i.distanceToSqr(g)));
                 int hops = 0;
                 for (var d : drops) {
@@ -8234,6 +8250,7 @@ public final class ClaudeLife {
 
     /** A cell of his own mine: its blueprint (stairs, rows, shell), the cells he dug, his base nook, a block above or below them too. Never a strange place to him. */
     public static boolean ownMine(ClaudeEntity g, BlockPos p) {
+        if (g.level().dimension() != net.minecraft.world.level.Level.OVERWORLD) return false; /* live 01:46: in the Nether he walked to his overworld mine's numbers, set a table "in a cell of one of his builds" and looped repairing row 0 of a mine that isn't there (and strip-mined for coal by a lava lake, 01:45): his mine, nook and builds are overworld places */
         for (BlockPos q : new BlockPos[] {p, p.below(), p.above()}) {
             if (g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.touches(q)) return true;
             if (isMineCell(g, q)) return true;
@@ -8245,7 +8262,7 @@ public final class ClaudeLife {
     /** Is this block part of the open space of his own mine (its staircase or main tunnel, at its width and height)? */
     /** Standing in his own mine (the stairs, the tunnel, a branch), or near its end. Not the queued-up end only: that runs ahead of him. */
     public static boolean inHisMine(ClaudeEntity g, BlockPos at) {
-        if (g.mineShape == null) return false;
+        if (g.mineShape == null || g.level().dimension() != net.minecraft.world.level.Level.OVERWORLD) return false; /* (overworld only, see ownMine) */
         if (isMineCell(g, at) || isMineCell(g, at.below()) || isMineCell(g, at.above())) return true;
         if (!g.mineCells.isEmpty()) return g.mineFace != null && at.distSqr(g.mineFace) <= 3 * 3; // he knows its real shape: in it, or not
         return g.mineFace != null && at.distSqr(g.mineFace) <= 16 * 16; // (an old mine he hasn't traced yet: roughly near it)
@@ -8919,6 +8936,7 @@ public final class ClaudeLife {
      */
     public static void onTravel(net.neoforged.neoforge.event.entity.EntityTravelToDimensionEvent e) {
         if (!(e.getEntity() instanceof ClaudeEntity g) || e.getDimension() != net.minecraft.world.level.Level.NETHER || g.level().dimension() != net.minecraft.world.level.Level.OVERWORLD || hasGoldPiece(g)) return;
+        if (!g.level().getBlockState(g.blockPosition()).is(Blocks.NETHER_PORTAL) && !g.level().getBlockState(g.blockPosition().above()).is(Blocks.NETHER_PORTAL)) return; /* only his own walk through a portal: a /tp (theirs, or a test's set-up) isn't his choice (stage 366 was cancelled into the overworld) */
         boolean theirs = g.commandActive || (g.getTarget() instanceof ServerPlayer lp && com.claudemod.entity.life.ExactSpot.lesson(g, lp));
         boolean say = g.tickCount - goldGateSaid.getOrDefault(g.getUUID(), -100000) > 20 * 60;
         if (theirs) {
@@ -12698,6 +12716,48 @@ public final class ClaudeLife {
         if (g.inventory.count(x -> x.is(Items.IRON_SWORD) || x.is(Items.DIAMOND_SWORD) || x.is(Items.NETHERITE_SWORD)) == 0) return null;
         if (Kit.food(g) < 4 || g.getHealth() < 14) return null;
         return string + " string, " + (noBow ? "no bow" : "no rod") + ", geared for the night";
+    }
+
+    private static java.util.Set<java.util.UUID> onSightSaid;
+    /**
+     * The user (01:37): "he needs to be more aggressive with mobs ... he should attack them if he sees them, minus zombie pigmen and
+     * piglins if he has gold on". A hostile in sight within 16 gets fought, like a player clearing round himself, when he's fit for it
+     * (the engagement rule, unfitForDrops: a proper weapon, health, food to heal on, no crowd unless armored, the night rule). Not while
+     * running, already fighting, mid-dig/build, jumping or held in a lesson. Endermen count (pearls are the objective).
+     */
+    /** Endermen are worth a fight only at the pearl stage (blaze rods or powder in hand, under 12 pearls and eyes) and geared: iron+ chest and sword, 4+ food, health 16+. */
+    public static boolean endermanTime(ClaudeEntity g) {
+        int blaze = g.inventory.count(x -> x.is(Items.BLAZE_ROD) || x.is(Items.BLAZE_POWDER)), pearls = g.inventory.count(x -> x.is(Items.ENDER_PEARL) || x.is(Items.ENDER_EYE));
+        if (blaze == 0 || pearls >= 12) return false;
+        var chest = g.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST);
+        boolean armor = chest.is(Items.IRON_CHESTPLATE) || chest.is(Items.DIAMOND_CHESTPLATE) || chest.is(Items.NETHERITE_CHESTPLATE);
+        boolean sword = g.inventory.count(x -> x.is(Items.IRON_SWORD) || x.is(Items.DIAMOND_SWORD) || x.is(Items.NETHERITE_SWORD)) > 0;
+        return armor && sword && Kit.food(g) >= 4 && g.getHealth() >= 16;
+    }
+    static void clearOnSight(ClaudeEntity g, ServerPlayer player) {
+        if (!(g.level() instanceof ServerLevel lv) || g.isSleeping() || g.isInWater() || g.isInLava()) return;
+        if (g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee || g.currentTask instanceof Task.Break || g.currentTask instanceof Task.Place || g.currentTask instanceof Task.Pillar || g.currentTask instanceof Task.Leap) return;
+        if (g.tasks.stream().anyMatch(t -> t instanceof Task.Attack || t instanceof Task.Flee)) return;
+        if (g.staying || com.claudemod.entity.life.ExactSpot.lesson(g, player)) return; // (their hold or their lesson: their step, not his fight)
+        boolean gold = false; for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() && g.getItemBySlot(sl).getItem() instanceof net.minecraft.world.item.ArmorItem a && a.getMaterial().is(net.minecraft.world.item.ArmorMaterials.GOLD)) gold = true;
+        final boolean goldOn = gold;
+        net.minecraft.world.entity.Mob prey = null; double pd = 16 * 16;
+        for (var m : com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(16, 5, 16), m -> m.isAlive() && g.hasLineOfSight(m))) {
+            if (!(m instanceof net.minecraft.world.entity.monster.Enemy)) continue;
+            if (m instanceof net.minecraft.world.entity.monster.ZombifiedPiglin) continue;
+            if (m instanceof net.minecraft.world.entity.monster.piglin.Piglin && goldOn) continue;
+            if (m instanceof net.minecraft.world.entity.monster.Ghast || m instanceof net.minecraft.world.entity.monster.Phantom) continue; // (out of a sword's reach: the bow or the fireball reflex)
+            if (m instanceof net.minecraft.world.entity.monster.EnderMan && !endermanTime(g)) continue; /* the user 01:40: endermen case by case: at the pearl stage and geared, yes; otherwise leave them be */
+            if (Math.abs(m.getY() - g.getY()) > 4) continue;
+            if (g.distanceToSqr(m) < pd) { pd = g.distanceToSqr(m); prey = m; }
+        }
+        if (prey == null) return;
+        String unfit = unfitForDrops(g, lv);
+        if (unfit == null && g.getHealth() < 12) unfit = "health " + (int) g.getHealth();
+        if (onSightSaid == null) onSightSaid = new java.util.HashSet<>();
+        if (unfit != null) { if (onSightSaid.add(prey.getUUID())) ClaudeMod.LOGGER.info("[Claude fight] a {} {} blocks off in sight: let be, not fit for it ({}) (ClaudeLife.clearOnSight)", prey.getType().getDescription().getString(), (int) Math.sqrt(pd), unfit); return; }
+        g.tasks.addFirst(new Task.Pickup(40)); g.tasks.addFirst(new Task.Attack(prey.getUUID(), 300));
+        ClaudeMod.LOGGER.info("[Claude fight] a {} {} blocks off in sight: after it (ClaudeLife.clearOnSight)", prey.getType().getDescription().getString(), (int) Math.sqrt(pd));
     }
 
     private static String unfitForDrops(ClaudeEntity g, ServerLevel level) {

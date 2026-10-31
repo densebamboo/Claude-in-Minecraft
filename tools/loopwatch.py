@@ -9,7 +9,7 @@ while True:
         time.sleep(0.3)
         try:
             import os
-            if os.path.getsize(path) < f.tell() or os.stat(path).st_size != os.fstat(f.fileno()).st_size: f = open(path, encoding='utf-8', errors='replace')  # a new log: shorter, or a different file under the same name (the game's relaunch rotated it; the old handle went silent through a death)
+            if os.path.getsize(path) < f.tell() or os.stat(path).st_ino != os.fstat(f.fileno()).st_ino: f = open(path, encoding='utf-8', errors='replace')  # a new log: shorter, or a different file under the same name by its file id (sizes differ for one file on Windows while it's written: that reopened and replayed old deaths)
         except OSError: pass
         continue
     m = re.search(r'doing (\w+)', line) if '[Claude where] (live' in line else None

@@ -52,7 +52,8 @@ The hazard reflex layer (`WorkGoal.reflexes()`: fire, air and lava in every mode
 3. **Procure distance.** It counts chest stock 290 blocks away, for example 4 cobbled deepslate, when he could mine 4 cobble with the pickaxe in his hand. The craft then fails before the fetch. Weigh the walk to a chest against gathering, and fetch before crafting.
 4. **Death recovery across dimensions.** "go get your stuff" with his drops in the Nether failed at once, and he then claimed "got my stuff back". Plan it through `PortalMap` (walk to portal, through, to the drops) and report the real outcome.
 5. **Spin on slopes.** Live logs show `[Claude move] spin ... (280-300 deg in 9-34 ticks)` on hills, even after the missed-jump fix (`ActionPath.missedHere`).
-6. **Portal highways milestone.** The data model is in `PortalMap` (`addWay`, `partnerSpot`). Build Nether tunnels and highways between portals, and place new portals on them.
+6. **Fire in the way is a move.** The user taught him this at 01:29: "you want to extinguish fire if its in your way". `ActionPath.hurts()` treats any fire cell as a no-go, so routes go round it. A player punches it out with one click. Make a fire cell a cheap "punch then walk" act (the fire reflex already punches with `gameMode.destroyBlock`). In the Nether there's no water: punch it out or cover it with cobble.
+7. **Portal highways milestone.** The data model is in `PortalMap` (`addWay`, `partnerSpot`). Build Nether tunnels and highways between portals, and place new portals on them.
 
 ## State at handoff (2026-10-31)
 

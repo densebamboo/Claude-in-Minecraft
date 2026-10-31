@@ -5143,6 +5143,7 @@ public class WorkGoal extends Goal {
      * (about a second) and loosed with a little lead on a moving target. True while he's doing that (no closing in).
      */
     private boolean shootAt(net.minecraft.world.entity.LivingEntity mob) {
+        if (mob instanceof net.minecraft.world.entity.monster.EnderMan) { if (g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW)) g.stopUsingItem(); return false; } /* vanilla: an enderman teleports out of every arrow; live 01:42 twelve arrows at one, two after he said "switching to the diamond sword" */
         ItemStack bow = g.inventory.find(s -> s.is(net.minecraft.world.item.Items.BOW));
         if (bow.isEmpty() || g.inventory.count(s -> s.is(net.minecraft.world.item.Items.ARROW)) == 0) { if (g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW)) g.stopUsingItem(); return false; }
         double d = g.distanceTo(mob);

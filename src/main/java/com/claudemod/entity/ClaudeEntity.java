@@ -322,6 +322,14 @@ public class ClaudeEntity extends ServerPlayer {
             }
         }
         Controls.apply(this, look, move, jump, nav);
+        if (tickCount % 2 == 0 && !level().isClientSide && !com.claudemod.director.ClaudeLife.endermanTime(this)) { /* the user 01:40: endermen are avoided unless it's the pearl stage and he's geared; a player never meets their eyes (vanilla's stare check: view within 0.025/dist of the eyes, in sight) */
+            net.minecraft.world.phys.Vec3 view = getViewVector(1.0F).normalize();
+            for (var em : level().getEntitiesOfClass(net.minecraft.world.entity.monster.EnderMan.class, getBoundingBox().inflate(64), e -> e.isAlive() && e.getTarget() != this)) {
+                net.minecraft.world.phys.Vec3 to = new net.minecraft.world.phys.Vec3(em.getX() - getX(), em.getEyeY() - getEyeY(), em.getZ() - getZ());
+                double d = to.length(); if (d < 1e-3) continue;
+                if (view.dot(to.normalize()) > 1.0 - 0.025 / d * 1.5 && hasLineOfSight(em)) { setXRot(Math.min(90f, Math.max(getXRot(), (float) Math.toDegrees(Math.atan2(em.getEyeY() - getEyeY(), Math.sqrt(to.x * to.x + to.z * to.z))) * -1f + 25f))); setYHeadRot(getYRot()); break; }
+            }
+        }
         super.tick();  // the light per-tick player stuff (block breaking progress, menus, criteria)
         doTick();      // the full player tick: movement physics, hunger, item pickup, using items
         // fall damage, the way the server applies it to a real player (from their movement packets): without this he never took a fall hit in two days of logs and walked off a 50-block drop into a cave
@@ -409,6 +417,11 @@ public class ClaudeEntity extends ServerPlayer {
         boolean took = super.hurt(source, amount);
         if (!level().isClientSide && amount >= 1.0f) { // every hit, mobs too, written once it's resolved (16:30: shield-blocked hits logged as damage)
             String res0 = blocked0 ? "blocked by his shield" : getHealth() < before0 ? "health " + (int) before0 + " -> " + (int) getHealth() : took ? "no harm" : "no harm (not taken)";
+            if (source.is(net.minecraft.tags.DamageTypeTags.IS_FIRE) || source.getMsgId().startsWith("explosion")) { /* the user 01:38: do ghast fireballs and soul fire set him alight like any player? his burn clock and the block he's in, on every fire hit */
+                net.minecraft.core.BlockPos fp = blockPosition();
+                String in = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level().getBlockState(fp).getBlock()).getPath(), under = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level().getBlockState(fp.below()).getBlock()).getPath();
+                res0 += " [burn ticks " + getRemainingFireTicks() + ", on fire " + isOnFire() + ", in " + in + " on " + under + "]";
+            }
             ClaudeMod.LOGGER.info("[Claude hurt] {} damage from {}{} at {} (health {} before, hunger {}): " + res0, String.format("%.1f", amount), source.getMsgId(), source.getEntity() == null ? "" : " (" + source.getEntity().getType().getDescription().getString() + (source.getEntity() instanceof net.minecraft.world.entity.Mob mb ? (mb.getTarget() == this ? ", on him" : ", not targeting him") : "") + ")", blockPosition().toShortString(), (int) getHealth(), getFoodData().getFoodLevel());
         }
         return took;

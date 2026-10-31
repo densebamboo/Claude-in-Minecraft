@@ -3578,12 +3578,13 @@ public final class ClaudeLife {
                     Item any = foodToEat(g, true);
                     if (any != null) { g.tasks.add(new Task.Eat(any)); return "eating the " + Crafting.name(any) + " raw: at " + (int) g.getHealth() + " health anything goes"; }
                 }
-                if (raw != null && !canCook && raw != Items.CHICKEN && (g.getFoodData().getFoodLevel() <= 14 || (g.getHealth() < 20 && g.getFoodData().getFoodLevel() < 18))) { // raw beef, pork, mutton: fine to eat as is when there's nothing to cook it in (cooked is just better); hurt, he needs the bar at 18 to heal at all
+                if (raw != null && raw != Items.CHICKEN && g.getFoodData().getFoodLevel() <= 6) { g.tasks.add(new Task.Eat(raw)); return "eating the " + Crafting.name(raw) + " raw: food " + g.getFoodData().getFoodLevel() + ", no sprint till I eat (cooking can wait)"; } // (live 11:20 World 15: food 3, safe raw salmon on him, "can't cook it yet")
+                if (raw != null && !canCook && raw != Items.CHICKEN && g.getFoodData().getFoodLevel() < 20) { // safe raw food (fish, beef, pork, mutton) with nothing to cook it in: eaten now, like a player; the user's rule: eat the moment hunger is below full // raw beef, pork, mutton: fine to eat as is when there's nothing to cook it in (cooked is just better); hurt, he needs the bar at 18 to heal at all
                     g.tasks.add(new Task.Eat(raw));
                     return "eating the " + Crafting.name(raw) + " raw: nothing to cook it in yet";
                 }
                 if (raw != null && !canCook) // don't loop on "cook it first" when there's nothing to cook it in
-                    return "failed: can't cook the " + Crafting.name(raw) + " yet: no furnace nearby and not 8 cobblestone to make one. Get cobblestone first; eat it raw only if starving";
+                    return "failed: can't cook the " + Crafting.name(raw) + " yet: no furnace nearby and not 8 cobblestone to make one" + (raw == Items.CHICKEN ? " (raw chicken can poison me: it waits for a furnace)" : "");
                 if (raw != null && g.getFoodData().getFoodLevel() < 18 && (g.isInWater() || g.failCount.getOrDefault("smelt", 0) >= 1 || g.failCount.getOrDefault("eat", 0) >= 1 || g.lastSkillLine != null && g.lastSkillLine.contains("nowhere to put a furnace"))) { // (out at sea there is no ground to cook on: 9708 of 9708 spots within 16 were water; the loop guard reset the smelt count, so the line itself counts) // the cooking just failed (no room for a furnace on a beach): a player eats the raw fish rather than going round "cook it first" (six times, hungry, 19 raw on him)
                     g.tasks.add(new Task.Eat(raw));
                     return "eating the " + Crafting.name(raw) + " raw: the cooking didn't work out here";

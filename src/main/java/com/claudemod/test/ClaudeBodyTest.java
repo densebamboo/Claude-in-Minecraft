@@ -8009,6 +8009,27 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
+        if (stage[0] == 509) { // raw salmon on him, logs for fuel, no furnace (live 11:20 World 15: "can't cook the salmon yet ... eat it raw only if starving" at food 3): below full with nothing to cook in, eaten raw; at food 6 or less, eaten raw even with a furnace by him; raw chicken still waits
+            if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); }
+            if (t[0] == 5) {
+                c.getInventory().add(new ItemStack(Items.SALMON, 4)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 4));
+                c.getFoodData().setFoodLevel(16); c.setHealth(20f);
+                String a = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "eat", "", 1);
+                check(a != null && a.startsWith("eating the salmon raw"), "eat at food 16, nothing to cook in: \"" + a + "\"");
+                c.tasks.clear();
+                BlockPos fur = h.absolutePos(new BlockPos(6, 2, 6)); level.setBlock(fur, Blocks.FURNACE.defaultBlockState(), 3);
+                c.getFoodData().setFoodLevel(3); c.setHealth(19f);
+                String b = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "eat", "", 1);
+                check(b != null && b.startsWith("eating") && b.contains("salmon") && c.tasks.stream().anyMatch(q -> q instanceof Task.Eat), "eat at food 3 with a furnace by him: \"" + b + "\" (tasks " + c.tasks + ")");
+                c.tasks.clear(); level.setBlock(fur, Blocks.AIR.defaultBlockState(), 3);
+                c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.CHICKEN, 2)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 4)); c.getFoodData().setFoodLevel(10); c.setHealth(20f);
+                String ch = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "eat", "", 1);
+                check(ch == null || !ch.startsWith("eating the chicken raw"), "raw chicken eaten at food 10, health 20: \"" + ch + "\"");
+                c.tasks.clear(); c.getInventory().clearContent(); c.getFoodData().setFoodLevel(20);
+                pass(stage, t, "food 16: \"" + a + "\"; food 3 by a furnace: \"" + b + "\"; chicken: \"" + ch + "\"");
+            }
+            return true;
+        }
         if (stage[0] == 508) { // a ledge 10 over a lava lake, his walk's spot across it, no blocks to bridge with (live 10:53 World 15: the lava 18 under a Nether ledge passed the lip check as "water below", he walked off and burned with his whole kit): never off the ledge, never in the lava
             BlockPos me = h.absolutePos(new BlockPos(4, 13, 7)), far = h.absolutePos(new BlockPos(15, 13, 7));
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); hzLow = 20f;

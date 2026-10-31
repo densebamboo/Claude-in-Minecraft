@@ -10344,6 +10344,7 @@ public final class ClaudeBodyTest {
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
             case 494: return st494(stage, t, c, h, level, mock);
+            case 518: return st518(stage, t, c, h, level, mock);
             case 517: return st517(stage, t, c, h, level, mock);
             case 516: return st516(stage, t, c, h, level, mock);
             case 515: return st515(stage, t, c, h, level, mock);
@@ -10430,6 +10431,22 @@ public final class ClaudeBodyTest {
         if (t[0] == 120) { if (hzMob != null) hzMob.discard(); hzMob = null; for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.projectile.LargeFireball.class, c.getBoundingBox().inflate(64))) e.discard(); c.getInventory().clearContent();
             check(com.claudemod.entity.goals.WorkGoal.fireballsHit >= 1 && hzLow >= 20, "fireball: hit back " + com.claudemod.entity.goals.WorkGoal.fireballsHit + " time(s), low " + hzLow);
             pass(stage, t, "the fireball hit back, never hurt"); }
+        return true;
+    }
+    private static boolean st518(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // iron gear on him and a smelt for iron nuggets (live 13:17 World 15: "smelting 2 iron_sword in 1 furnace at once" for a shield): his gear never goes in; no plan through it
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); }
+        if (t[0] == 5) {
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COAL, 8)); c.getInventory().add(new ItemStack(Items.FURNACE));
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "iron_nugget", 9);
+            check(r != null && r.startsWith("failed") && c.inventory.count(x -> x.is(Items.IRON_SWORD)) == 2, "smelt iron_nugget with iron gear on him: \"" + r + "\" (swords " + c.inventory.count(x -> x.is(Items.IRON_SWORD)) + ")");
+            var plan = com.claudemod.director.Procure.plan(c, level, Items.IRON_NUGGET, 9);
+            check(plan.steps().stream().noneMatch(st -> st.skill().equals("smelt") && st.target().equals("iron_nugget")), "procure: nuggets planned out of his gear: " + plan.steps());
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
+            BlockPos br = c.blockPosition().below(); var was = level.getBlockState(br); level.setBlock(br, Blocks.NETHER_BRICKS.defaultBlockState(), 2); // (on a fortress bridge, live 13:20: "still 19 blocks short")
+            check(com.claudemod.entity.life.FortressScout.onFortress(c), "fortress: nether bricks under him not read as on the fortress");
+            level.setBlock(br, was, 2);
+            pass(stage, t, "\"" + r + "\"; the plan: " + com.claudemod.director.Procure.describe(plan.steps()) + "; on bricks read as on the fortress");
+        }
         return true;
     }
     private static boolean st494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

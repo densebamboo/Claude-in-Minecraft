@@ -89,6 +89,7 @@ public final class ClaudeChat {
         if (me != null && me.lessonOpen != null && !me.lessonOpen.isBlank()) sb.append("LESSON OPEN (\"").append(me.lessonOpen).append("\"): you stay by them between its steps; it ends only when they say so (\"lesson over\", or set the goal \"lesson over: <their next job>\" when they clearly move you on).\n");
         if (me != null) { String dk = ClaudeLife.deathKitLines(me); if (!dk.isEmpty()) sb.append("YOUR LAST DEATHS (newest first; what you had on you is exact, answer from this):\n").append(dk); }
         if (me != null) sb.append("YOUR FEET vs THEIR BLOCK (exact): ").append(com.claudemod.entity.life.ExactSpot.feetTalk(me, player)).append(".\n");
+        if (me != null && com.claudemod.entity.life.FortressScout.onFortress(me)) sb.append("YOU ARE STANDING ON THE NETHER FORTRESS (nether bricks under your feet): never say you're short of it or still looking for it.\n");
         if (me != null) sb.append("YOUR BIOME (exact, what F3 shows you; never guess one from the ground): ").append(me.level().getBiome(me.blockPosition()).unwrapKey().map(k -> k.location().getPath().replace('_', ' ')).orElse("unknown")).append(".\n"); /* the user 00:04: "i dont think he understands biomes": "soul sand valley", then "warped forest", both wrong, guessed from the blocks */
         if (me != null) sb.append("LAVA (by ear, and the lava they pointed you to; never claim more): ").append(ClaudeLife.lavaTalk(me)).append(".\n");
         if (me != null) { // his far sight: what he has seen himself, by line of sight (FarSight)

@@ -59,6 +59,12 @@ public final class FortressScout {
     public static void reset(ClaudeEntity g) { if (states != null) states.remove(g.getUUID()); }
     public static List<Leg> legs(ClaudeEntity g) { return state(g).legs; }
     public static BlockPos found(ClaudeEntity g) { return state(g).found; }
+    /** On the fortress: a fortress block (nether bricks, its fence, its stairs) under his feet or the one below that. */
+    public static boolean onFortress(ClaudeEntity g) {
+        net.minecraft.core.BlockPos f = net.minecraft.core.BlockPos.containing(g.getX(), g.getY() - 0.2, g.getZ());
+        for (net.minecraft.core.BlockPos q : new net.minecraft.core.BlockPos[] {f, f.below()}) { var s = g.level().getBlockState(q); if (s.is(net.minecraft.world.level.block.Blocks.NETHER_BRICKS) || s.is(net.minecraft.world.level.block.Blocks.NETHER_BRICK_FENCE) || s.is(net.minecraft.world.level.block.Blocks.NETHER_BRICK_STAIRS) || s.is(net.minecraft.world.level.block.Blocks.NETHER_BRICK_SLAB)) return true; }
+        return false;
+    }
     /** (tests) */
     public static void foundTest(ClaudeEntity g, BlockPos p) { state(g).found = p == null ? null : p.immutable(); }
     public static int phase(ClaudeEntity g) { return state(g).phase; }

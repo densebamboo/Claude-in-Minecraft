@@ -8009,6 +8009,23 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
+        if (stage[0] == 510) { // where he last stood survives a restart (live World 15: three restarts put him beside them, once out of his mine): his 10 s record gives his spot and world back; a spot filled in since gives nothing
+            if (t[0] == 1) scenarioReset(c);
+            if (t[0] == 5) { BlockPos me = h.absolutePos(new BlockPos(9, 2, 9)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+            if (t[0] == 20) {
+                check(c.onGround(), "setup: not on the ground at " + c.blockPosition().toShortString());
+                BlockPos at = c.blockPosition();
+                c.saveMine(mock[0]);
+                var spot = com.claudemod.entity.ClaudeSpawner.lastSpot(level.getServer(), mock[0]);
+                check(spot != null && spot[0] == c.level() && at.equals(spot[1]), "rejoin: his last spot " + (spot == null ? "none" : spot[1] + " in " + ((ServerLevel) spot[0]).dimension().location()) + " (he's at " + at.toShortString() + ")");
+                level.setBlock(at, Blocks.STONE.defaultBlockState(), 2);
+                var gone = com.claudemod.entity.ClaudeSpawner.lastSpot(level.getServer(), mock[0]);
+                level.setBlock(at, Blocks.AIR.defaultBlockState(), 2);
+                check(gone == null, "rejoin: a spot filled with stone still given back: " + (gone == null ? "-" : gone[1]));
+                pass(stage, t, "his last spot " + at.toShortString() + " kept for a rejoin; not when it's filled in");
+            }
+            return true;
+        }
         if (stage[0] == 509) { // raw salmon on him, logs for fuel, no furnace (live 11:20 World 15: "can't cook the salmon yet ... eat it raw only if starving" at food 3): below full with nothing to cook in, eaten raw; at food 6 or less, eaten raw even with a furnace by him; raw chicken still waits
             if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); }
             if (t[0] == 5) {

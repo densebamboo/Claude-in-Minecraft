@@ -664,6 +664,7 @@ public class ClaudeEntity extends ServerPlayer {
     /** His mine in progress (his inventory and position are saved by the game, like any player's). */
     public void saveMine(ServerPlayer owner) {
         var mine = new net.minecraft.nbt.CompoundTag();
+        if (isAlive() && onGround()) { mine.putLong("lastPos", blockPosition().asLong()); mine.putString("lastDim", level().dimension().location().toString()); } // (where he is, every 10 s: a restart puts him back here, like any player logging in where he logged off)
         if (blueprint != null) mine.put("blueprint", blueprint.toNbt());
         com.claudemod.entity.life.BaseNook.saveAll(mine, nooks, nook); // (every nook of his; the current one under "nook" too)
         if (nookOld != null) mine.put("nookOld", nookOld.toNbt());

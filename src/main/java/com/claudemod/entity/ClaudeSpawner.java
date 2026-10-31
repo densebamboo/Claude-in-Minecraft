@@ -114,6 +114,11 @@ public final class ClaudeSpawner {
             if (home != level) { c.setServerLevel(home); level = home; ClaudeMod.LOGGER.info("[Claude] respawning in {}, not where they are", home.dimension().location()); }
         }
         boolean nearThem = saved.isPresent() && c.level() == level; // his save says where he is: he logs in there, like any player (the summon command exists for the rest)
+        ClaudeMod.LOGGER.info("[Claude] join: his player data {}{}, {} (ClaudeSpawner.join)", saved.isPresent() ? "found, at " + c.blockPosition().toShortString() : "not found", savedIn != null ? " in " + savedIn.dimension().location() : "", respawnOf != null ? "a respawn" : nearThem ? "logging in there" : "placing him");
+        if (!nearThem && respawnOf == null && !testing) { // no player data to log in at: where he last stood, from his own record (every 10 s), if that spot's still a safe stand (live World 15: three restarts put him beside them, once out of his mine at y 20)
+            var last = lastSpot(server, owner);
+            if (last != null) { ServerLevel ll = (ServerLevel) last[0]; BlockPos lp = (BlockPos) last[1]; if (ll != level) { c.setServerLevel(ll); level = ll; } c.moveTo(lp.getX() + 0.5, lp.getY(), lp.getZ() + 0.5, owner.getYRot(), 0); nearThem = true; ClaudeMod.LOGGER.info("[Claude] join: back where he last stood, {} in {} (his own record) (ClaudeSpawner.join)", lp.toShortString(), ll.dimension().location()); }
+        }
         if (!nearThem) {
             BlockPos spot = null;
             BlockPos bed = respawnOf != null ? respawnOf.getRespawnPosition() : null; // slept in a bed: he comes back there, like any player (not into the patrol camped on an AFK player at spawn: six deaths that way)
@@ -156,6 +161,18 @@ public final class ClaudeSpawner {
         ClaudeMod.LOGGER.info("[Claude] {} near {} at {}", respawnOf == null ? "joined" : "respawned",
                 owner.getGameProfile().getName(), c.blockPosition().toShortString());
         return c;
+    }
+
+    /** Where he last stood (his own record, saved every 10 s with his mine): {level, cell}, or null if there's none or it isn't a safe stand now (open for feet and head, no fluid, a floor). */
+    public static Object[] lastSpot(MinecraftServer server, ServerPlayer owner) {
+        var mine = com.claudemod.context.PlayerProfile.mine(owner);
+        if (mine == null || !mine.contains("lastPos") || !mine.contains("lastDim")) return null;
+        BlockPos lp = BlockPos.of(mine.getLong("lastPos"));
+        ServerLevel ll = server.getLevel(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, net.minecraft.resources.ResourceLocation.parse(mine.getString("lastDim"))));
+        if (ll == null) return null;
+        boolean safe = ll.getBlockState(lp).getCollisionShape(ll, lp).isEmpty() && ll.getBlockState(lp.above()).getCollisionShape(ll, lp.above()).isEmpty() && ll.getFluidState(lp).isEmpty() && ll.getFluidState(lp.above()).isEmpty() && ll.getBlockState(lp.below()).isFaceSturdy(ll, lp.below(), net.minecraft.core.Direction.UP);
+        if (!safe) { ClaudeMod.LOGGER.info("[Claude] join: where he last stood, {} in {}, isn't a safe stand now (ClaudeSpawner.lastSpot)", lp.toShortString(), ll.dimension().location()); return null; }
+        return new Object[] {ll, lp};
     }
 
     /** The world a saved player tag puts him in (its Dimension, as the game reads it for any player), or null. */

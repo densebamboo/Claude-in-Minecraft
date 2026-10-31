@@ -8009,6 +8009,19 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
+        if (stage[0] == 508) { // a ledge 10 over a lava lake, his walk's spot across it, no blocks to bridge with (live 10:53 World 15: the lava 18 under a Nether ledge passed the lip check as "water below", he walked off and burned with his whole kit): never off the ledge, never in the lava
+            BlockPos me = h.absolutePos(new BlockPos(4, 13, 7)), far = h.absolutePos(new BlockPos(15, 13, 7));
+            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); hzLow = 20f;
+                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 2; y <= 16; y++) { boolean ledge = x <= 7 && y <= 12, pillar = x == 15 && y <= 12; level.setBlock(h.absolutePos(new BlockPos(x, y, z)), ledge || pillar ? Blocks.STONE.defaultBlockState() : y == 2 ? Blocks.LAVA.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); } }
+                for (int x = 0; x < 16; x++) for (int y = 2; y <= 16; y++) { level.setBlock(h.absolutePos(new BlockPos(x, y, 0)), Blocks.GLASS.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, y, 15)), Blocks.GLASS.defaultBlockState(), 2); }
+                for (int z = 0; z < 16; z++) for (int y = 2; y <= 16; y++) level.setBlock(h.absolutePos(new BlockPos(0, y, z)), Blocks.GLASS.defaultBlockState(), 2); // (walled in: the lava side is the only edge)
+                BlockPos you = h.absolutePos(new BlockPos(2, 13, 3)); mock[0].teleportTo(you.getX() + 0.5, you.getY(), you.getZ() + 0.5);
+                c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+            if (t[0] > 10 && t[0] < 300) { c.getNavigation().stop(); c.getMoveControl().setWantedPosition(far.getX() + 0.5, far.getY(), far.getZ() + 0.5, 1.0); } // (steered straight at it with no path, as the walker's fallback does: live "slow walk ... path=0/1")
+            if (t[0] > 10) { hzLow = Math.min(hzLow, c.getHealth()); check(!c.isInLava() && c.getY() > me.getY() - 1.5, "lava lip: off the ledge at " + String.format("%.1f %.1f %.1f", c.getX(), c.getY(), c.getZ()) + " (in lava " + c.isInLava() + ")"); }
+            if (t[0] == 400) { c.tasks.clear(); c.dropCurrent = true; for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) for (int y = 2; y <= 16; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(back.getX() + 0.5, back.getY(), back.getZ() + 0.5); mock[0].teleportTo(back.getX() + 0.5, back.getY(), back.getZ() + 0.5); pass(stage, t, "20 s on the ledge over the lava, never off it, low " + hzLow); }
+            return true;
+        }
         if (stage[0] == 507) { // in the Nether with a fortress found, them in the overworld (live 10:47 World 15: "go_to fortress" failed as "they're in another world"): the place he knows in his own world; go_to them still says they're elsewhere
             ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
             if (t[0] == 1) { lwReset(c); com.claudemod.entity.life.FortressScout.reset(c); }

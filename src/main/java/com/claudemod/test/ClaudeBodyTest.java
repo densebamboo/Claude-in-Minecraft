@@ -10344,6 +10344,7 @@ public final class ClaudeBodyTest {
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
             case 494: return st494(stage, t, c, h, level, mock);
+            case 514: return st514(stage, t, c, h, level, mock);
             case 495: return st495(stage, t, c, h, level, mock);
             case 496: return st496(stage, t, c, h, level, mock);
             case 497: return st497(stage, t, c, h, level, mock);
@@ -10365,6 +10366,19 @@ public final class ClaudeBodyTest {
             case 513: return st513(stage, t, c, h, level, mock);
             default: return false;
         }
+    }
+    private static boolean st514(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // gear_up in the Nether with 12 meals (live 12:30 World 15: its food line went "out of the mine for cow", 9 times in 2 s): done, the trip goes on
+        ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); }
+        if (t[0] == 5) { for (int x = -2; x <= 2; x++) for (int z = -2; z <= 2; z++) { nether.setBlock(new BlockPos(x, 99, z), Blocks.NETHERRACK.defaultBlockState(), 2); for (int y = 100; y <= 102; y++) nether.setBlock(new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), 2); } c.teleportTo(nether, 0.5, 100, 0.5, 0, 0); }
+        if (t[0] == 15) {
+            c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 12)); c.getInventory().add(new ItemStack(Items.IRON_SWORD));
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "gear_up", "", 1);
+            check(c.level() == nether && r != null && r.startsWith("done:") && c.tasks.isEmpty(), "gear_up in the Nether, 12 meals: \"" + r + "\" (tasks " + c.tasks + ")");
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(level, back.getX() + 0.5, back.getY(), back.getZ() + 0.5, 0, 0);
+            pass(stage, t, "\"" + r + "\"");
+        }
+        return true;
     }
     private static boolean st494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         { // a new mine on a 2:1 slope falling south (live 03:16 World 15: down the hillside, a trench open to the sky): looking downhill, he heads into the hill, never down it

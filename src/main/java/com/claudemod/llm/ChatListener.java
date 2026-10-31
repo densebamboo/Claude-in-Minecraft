@@ -32,7 +32,8 @@ public final class ChatListener {
         com.claudemod.entity.life.Whereabouts.heardChat(player, rawMessage); // "i'm at 120 64 -30": where they are, told
         com.claudemod.director.Primitives.heard(player, rawMessage); // "the diamonds are at 10 -58 4": a spot he was told of (dig_at / place_at may aim there)
         var heard = ClaudeEntity.activeFor(player); // "it despawned": his own clock on his things answers that, exactly (gone: he agrees and stops; time left: he says how much)
-        if (heard.isPresent()) com.claudemod.entity.life.ExactSpot.heardEnd(heard.get(), rawMessage); // ("lesson over": the lesson he's in ends)
+        if (heard.isPresent()) com.claudemod.entity.life.ExactSpot.heardEnd(heard.get(), rawMessage);
+        if (heard.isPresent()) com.claudemod.entity.life.ExactSpot.heardStart(heard.get(), rawMessage); // ("treat this as a lesson": the lesson opens on their word, not the chat model's goal) // ("lesson over": the lesson he's in ends)
         if (heard.isPresent() && com.claudemod.entity.life.Consent.heard(heard.get(), player, rawMessage)) return; // "yes break it": their go-ahead for the hold he just said
         if (heard.isPresent() && com.claudemod.entity.life.Clocks.heardDespawn(heard.get(), player, rawMessage) != null) return;
         if (heard.isPresent() && com.claudemod.entity.life.CopyMode.heard(heard.get(), player, rawMessage)) return; // "watch me", "now you", "your turn": showing him, his go, his turn

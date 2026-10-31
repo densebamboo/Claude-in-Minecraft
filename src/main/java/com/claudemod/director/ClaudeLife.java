@@ -7984,7 +7984,9 @@ public final class ClaudeLife {
 
     static Item item(String t) {
         var it = BuiltInRegistries.ITEM.getOptional(net.minecraft.resources.ResourceLocation.withDefaultNamespace(t));
-        return it.isPresent() && it.get() != Items.AIR ? it.get() : null;
+        if (it.isPresent() && it.get() != Items.AIR) return it.get();
+        if (t != null && t.startsWith("gold_") && !t.equals("gold_ingot") && !t.equals("gold_nugget") && !t.equals("gold_block") && !t.equals("gold_ore")) return item("golden_" + t.substring(5)); /* the name players say: "gold boots" is golden_boots (live 01:14: "no such item 'gold_boots'") */
+        return null;
     }
 
     /** He can see some face of this block from where he stands (nothing solid in between), like a player looking around. */

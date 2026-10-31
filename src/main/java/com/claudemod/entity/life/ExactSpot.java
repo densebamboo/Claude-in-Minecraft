@@ -443,6 +443,14 @@ public final class ExactSpot {
     }
     static final Pattern LESSON_END = Pattern.compile("\\b(lesson('?s| is)? (over|done|finished)|end (the|this|of the) lesson|class('?s)? (dismissed|over)|that'?s (all|it) for (the|this|today'?s) lesson|you can go back to (work|mining|what you were doing|your stuff)|go back to (work|mining|your (own )?(work|stuff|mine))|we'?re done with the lesson)\\b");
     /** A goal of theirs: a lesson opens it, "lesson over" closes it; any other goal leaves an open lesson alone. */
+    static final Pattern LESSON_START = Pattern.compile("\\b(as an? lesson|lesson (mode|time)|this is an? lesson|(it'?s|a) lesson|let me (teach|show) you|i'?ll (teach|show) you|i'?m (gonna|going to) (teach|show) you|teach(ing)? you (how|to)|tutorial)\\b");
+    /** Their own line opens a lesson (live 01:11: "treat everything i tell you as a lesson" got "ok, lesson mode" but set no goal, so none opened and he left mid-lesson for the portal). */
+    public static void heardStart(ClaudeEntity g, String raw) {
+        String low = raw == null ? "" : raw.toLowerCase(Locale.ROOT);
+        if (!LESSON_START.matcher(low).find() || LESSON_END.matcher(low).find() || !lessonGoal("lesson: " + low)) return;
+        if (g.lessonOpen != null && !g.lessonOpen.isBlank()) return; // (one open already: its steps go on)
+        noteGoal(g, "lesson: " + raw.trim());
+    }
     public static void noteGoal(ClaudeEntity g, String goal) {
         if (goal == null || goal.isBlank()) return;
         String low = goal.toLowerCase(Locale.ROOT);

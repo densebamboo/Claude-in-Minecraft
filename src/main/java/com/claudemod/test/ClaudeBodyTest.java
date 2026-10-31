@@ -8008,6 +8008,23 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
+        if (stage[0] == 505) { // a full pack: 2 stacks of cobble and 2 of cobbled deepslate, 2 sugar, the rest fish (live 10:18 World 15: "nothing junk in it", the sugar dropped and picked back up every 7 s): stone past 2 stacks all told goes, the sugar stays
+            if (t[0] == 1) { scenarioReset(c); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard(); }
+            if (t[0] == 5) {
+                var inv = c.getInventory(); inv.clearContent();
+                inv.items.set(0, new ItemStack(Items.IRON_PICKAXE)); inv.selected = 0;
+                inv.items.set(1, new ItemStack(Items.COBBLESTONE, 64)); inv.items.set(2, new ItemStack(Items.COBBLESTONE, 64)); inv.items.set(3, new ItemStack(Items.COBBLED_DEEPSLATE, 64)); inv.items.set(4, new ItemStack(Items.COBBLED_DEEPSLATE, 46)); inv.items.set(5, new ItemStack(Items.SUGAR, 2));
+                for (int i = 6; i < inv.items.size() - 1; i++) inv.items.set(i, new ItemStack(Items.COD, 16));
+                com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+                int stone = c.inventory.count(x -> x.is(Items.COBBLESTONE) || x.is(Items.COBBLED_DEEPSLATE)), sugar = c.inventory.count(x -> x.is(Items.SUGAR)), free = 0; for (var st0 : inv.items) if (st0.isEmpty()) free++;
+                check(stone <= 128 && stone >= 64, "pack: stone " + stone + " after the clear-out (want 2 stacks all told)");
+                check(sugar == 2, "pack: the sugar went (" + sugar + " left) with surplus stone on him");
+                check(free >= 3, "pack: only " + free + " free slot(s) after it");
+                for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard();
+                inv.clearContent(); pass(stage, t, "surplus stone out (" + stone + " kept), sugar kept, " + free + " slots free");
+            }
+            return true;
+        }
         if (stage[0] == 503) { // a walk to a cell far below that cuts one step and is back up the next moment, again and again (live 09:48 World 15: 21 "stepping off" in 80 s, net nothing, every one "got nearer"): no gain on his best over the window, the third trips
             BlockPos A = h.absolutePos(new BlockPos(4, 2, 7)), goal = h.absolutePos(new BlockPos(4, -20, 7));
             var walk = new Task.GoTo(goal, 1.0);

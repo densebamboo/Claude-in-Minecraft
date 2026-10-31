@@ -3980,6 +3980,7 @@ public final class ClaudeLife {
                     else if (target.contains("farm") && g.farm != null) { placeAt = g.farm.outside(); placeName = "my farm"; }
                     else if ((target.contains("chest") || target.contains("storage") || target.contains("nook") || target.contains("stash")) && g.nook != null) { var n0 = nearestNook(g, g.blockPosition(), x -> true); placeAt = n0.mouth(); placeName = "my chests in the base nook at the y " + n0.origin.getY() + " level"; }
                     else if (target.contains("mine") && bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty()) { placeAt = g.blueprint.outside(); placeName = "my mine's entrance"; }
+                    else if (target.contains("fortress") && com.claudemod.entity.life.FortressScout.onFortress(g)) return "done: I'm on the fortress (nether bricks under me at " + g.blockPosition().toShortString() + ")"; // (arrival is the bricks under him, not one remembered brick: live 13:20 World 15 "still 19 blocks short" standing on its bridge)
                     else if (target.contains("fortress") && level.dimension() == net.minecraft.world.level.Level.NETHER && com.claudemod.entity.life.FortressScout.found(g) != null) { placeAt = com.claudemod.entity.life.FortressScout.found(g); placeName = "the fortress I found"; } // (the place he's seen, in this world)
                     else if (target.contains("portal")) { var pp = com.claudemod.entity.life.PortalMap.resolve(g, target.replace('_', ' ')); if (pp != null && pp.dim.equals(com.claudemod.entity.life.PortalMap.dim(level))) { placeAt = pp.at; placeName = "portal #" + pp.id; } }
                     if (placeAt != null) {
@@ -8609,7 +8610,7 @@ public final class ClaudeLife {
             boolean inputMatches = ing.test(new ItemStack(target));
             if (inputMatches && g.inventory.count(t -> t.is(target)) > 0) return target;
             if (resultMatches) {
-                ItemStack have = g.inventory.find(ing::test);
+                ItemStack have = g.inventory.find(x -> ing.test(x) && !x.isDamageableItem()); // (tools, weapons and armor never go in the furnace)
                 if (!have.isEmpty()) return have.getItem();
             }
         }
@@ -13058,7 +13059,8 @@ public final class ClaudeLife {
         if (g.inventory.count(s -> s.is(ItemTags.BEDS)) == 0 && Kit.woolForBed(g) != null)
             bedNote = "BED: you have 3+ " + Kit.woolForBed(g) + " wool, that IS a bed already (3 wool of one colour + 3 planks at a table): craft " + Kit.woolForBed(g) + "_bed now, no more sheep needed\n";
         String facing = "You stand at " + g.blockPosition().toShortString() + " facing " + g.getDirection().getName() + ": \"forward\" is " + g.getDirection().getName() + ", \"back\" " + g.getDirection().getOpposite().getName() + ", \"left\" " + g.getDirection().getCounterClockWise().getName() + ", \"right\" " + g.getDirection().getClockWise().getName() + "; " + player.getName().getString() + " faces " + player.getDirection().getName() + ".\n"; // (he asked "which way is forward" 3 times: his own facing wasn't in what he knows, 14:37)
-        String biomeNow = "YOUR BIOME (exact, what F3 shows you; never guess one from the ground): " + g.level().getBiome(g.blockPosition()).unwrapKey().map(k -> k.location().getPath().replace('_', ' ')).orElse("unknown") + ".\n"; /* the user: he should be able to tell which biome he is in (00:04: he planned an enderman hunt off a guessed biome) */
+        String onFort = com.claudemod.entity.life.FortressScout.onFortress(g) ? "YOU ARE STANDING ON THE NETHER FORTRESS (nether bricks under your feet): you're at the fortress, never say you're short of it.\n" : "";
+        String biomeNow = onFort + "YOUR BIOME (exact, what F3 shows you; never guess one from the ground): " + g.level().getBiome(g.blockPosition()).unwrapKey().map(k -> k.location().getPath().replace('_', ' ')).orElse("unknown") + ".\n"; /* the user: he should be able to tell which biome he is in (00:04: he planned an enderman hunt off a guessed biome) */
         return facing + biomeNow + urgent + own + bedNote + com.claudemod.entity.life.MindLog.recent() + com.claudemod.entity.life.OwnEvents.describe(g) + Primitives.describe(g) + dragonPath(g, (ServerLevel) g.level()) + com.claudemod.entity.life.Clocks.describe(g, (ServerLevel) g.level()) + Senses.describe(g) + nookLine(g, (ServerLevel) g.level()) + Structures.describe(g, (ServerLevel) g.level()) + com.claudemod.entity.life.FortressFight.mobFacts(g, g.playerGoal) + com.claudemod.entity.life.FortressScout.describe(g, (ServerLevel) g.level()) + com.claudemod.entity.life.TempLedger.describe(g, (ServerLevel) g.level())
                 + "your weapon: " + (weapon.isEmpty() ? "NONE (a stone sword is 2 cobblestone + 1 stick; make one before any fight, cave or dungeon, you won't fight bare-handed)" : Crafting.name(weapon.getItem())) + "\n"
                 + "where they are: " + com.claudemod.entity.life.Whereabouts.describe(g, player) + (com.claudemod.entity.life.Whereabouts.seesNow(g, player) ? "; they can see you: " + (g.targetIsFacingMe() ? "yes" : "no") : "") + "\n"

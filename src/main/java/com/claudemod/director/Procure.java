@@ -214,6 +214,7 @@ public final class Procure {
             for (var holder : level.getRecipeManager().getAllRecipesFor(RecipeType.SMELTING)) {
                 var r = holder.value();
                 if (!r.getResultItem(level.registryAccess()).is(item) || r.getIngredients().isEmpty()) continue;
+                if (java.util.Arrays.stream(r.getIngredients().get(0).getItems()).allMatch(net.minecraft.world.item.ItemStack::isDamageableItem)) continue; // (never his gear into the furnace: live 13:17 World 15 his iron swords smelted into nuggets for a shield)
                 Map<Item, Integer> snap = new HashMap<>(have);
                 int mark = steps.size();
                 String rr = needFurnace(deeper, depth + 1);

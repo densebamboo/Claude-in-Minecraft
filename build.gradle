@@ -64,8 +64,8 @@ neoForge {
         live {
             client()
             gameDirectory = file('C:/Users/lipid/curseforge/minecraft/Instances/Claude in Minecraft')
-            programArguments.addAll '--username', 'Fat_Herobrine', '--uuid', '6f551a3a275343aba2915faf62f17f57', '--quickPlaySingleplayer', 'New World (14)' // straight into the world (unattended runs)
-            jvmArguments.addAll '-Dclaude.hostSpectator=true', '-Dclaude.autoWorld=New World (14)', '-XX:+AllowEnhancedClassRedefinition', '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=127.0.0.1:5005', '-Xmx4G'
+            programArguments.addAll '--username', 'Fat_Herobrine', '--uuid', '6f551a3a275343aba2915faf62f17f57', '--quickPlaySingleplayer', 'New World (15)' // straight into the world (unattended runs)
+            jvmArguments.addAll '-Dclaude.hostSpectator=true', '-Dclaude.autoWorld=New World (15)', '-XX:+AllowEnhancedClassRedefinition', '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=127.0.0.1:5005', '-Xmx4G'
             logLevel = org.slf4j.event.Level.INFO // (debug logging floods the console and lags the game)
         }
 

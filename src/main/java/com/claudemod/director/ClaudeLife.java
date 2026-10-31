@@ -11039,6 +11039,8 @@ public final class ClaudeLife {
                 if (first < 0) continue; // all dug
                 BlockPos stop = rsU.get(first).first(); var ss = level.getBlockState(stop);
                 if (!level.getFluidState(stop).isEmpty() || ss.is(Blocks.COBBLESTONE) || ss.is(Blocks.COBBLED_DEEPSLATE) || lavaNear(g, level, stop)) continue; // ends at water, his plug or lava: not one to dig on
+                { boolean off = false; for (BlockPos f0 : rsU.get(first).feet()) for (BlockPos c0 : new BlockPos[] {f0, f0.above()}) if (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.REACH, c0, g.tickCount, 20 * 600) || g.attempts.within(com.claudemod.entity.life.Attempts.Kind.BREAK, c0, g.tickCount, 20 * 600)) off = true;
+                  if (off) { g.attempts.counters.put("branchDone:" + s0.start.asLong(), g.tickCount); ClaudeMod.LOGGER.info("[Claude life] blueprint: his branch at {} ends at {}: its next cell is written off (refused or tripped lately), not picked again (ClaudeLife.bpStripMine)", s0.start.toShortString(), stop.toShortString()); continue; } } // (live 05:12 World 15: the watchdog wrote off a deepslate cell and told them; "finishing my branch" picked it 4 more times)
                 bpWalkTo(g, s0.start.relative(s0.dir.getOpposite()));
                 int n2 = bpReconcile(g, level, first, last, false);
                 if (n2 == 0) continue;
@@ -11197,6 +11199,8 @@ public final class ClaudeLife {
                 if (first < 0) continue; // all dug
                 BlockPos stop = rsU.get(first).first(); var ss = level.getBlockState(stop);
                 if (!level.getFluidState(stop).isEmpty() || ss.is(Blocks.COBBLESTONE) || ss.is(Blocks.COBBLED_DEEPSLATE) || lavaNear(g, level, stop)) continue; // ends at water, his plug or lava: not one to dig on
+                { boolean off = false; for (BlockPos f0 : rsU.get(first).feet()) for (BlockPos c0 : new BlockPos[] {f0, f0.above()}) if (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.REACH, c0, g.tickCount, 20 * 600) || g.attempts.within(com.claudemod.entity.life.Attempts.Kind.BREAK, c0, g.tickCount, 20 * 600)) off = true;
+                  if (off) { g.attempts.counters.put("branchDone:" + s0.start.asLong(), g.tickCount); ClaudeMod.LOGGER.info("[Claude life] blueprint: his branch at {} ends at {}: its next cell is written off (refused or tripped lately), not picked again (ClaudeLife.bpStripMine)", s0.start.toShortString(), stop.toShortString()); continue; } } // (live 05:12 World 15: the watchdog wrote off a deepslate cell and told them; "finishing my branch" picked it 4 more times)
                 bpWalkTo(g, s0.start.relative(s0.dir.getOpposite()));
                 int n2 = bpReconcile(g, level, first, last, false);
                 if (n2 == 0) continue;

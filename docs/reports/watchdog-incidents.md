@@ -50,9 +50,26 @@ Dropped during the work: an EMPTY FURNACE detector. `doFurnaceTake` already ends
 
 `scenarioReset` now also resets the watchdog, so a stage's own inventory clears and teleports aren't read as losses or moves.
 
-## Gate
+## Gate (and a gate bug found on the way)
 
-See the end of this file.
+**The gate group "470-518" had been running only 470-489.** There is no stage 490. A ranged run that reached a missing number ended with "ALL PASSED", so 491 on never ran in the group. My earlier reports listed 491-518 as passing in the gate; those stages had only been proven one at a time. Now `skipGap` moves on to the next number until the end stage.
+
+Running 491-519 in one go then showed real failures, fixed on this branch:
+- **485, death in the water-bucket clutch:** his bucket upkeep scooped the clutch water back up mid-fall. Now there's no bucket fill in the air (`ClaudeLife.fillBucket`). The new incident block showed this straight away.
+- **500, flaky even alone (3 of 4):** the water pushed him off his obsidian pocket, and the walk back into the water failed 3 of 3, which ended the order at 3-9 of 10. Now:
+  - go_to exact steps straight into a cell touching his, level or one down (`ExactSpot.queueWalk`);
+  - make_obsidian walks back to its dry spot first when he's pushed off.
+  - 6 of 6 alone since.
+- **501:** stage 500's lava on record held 501's dig. `scenarioReset` now clears the lava he's seen, his motion and his fall distance.
+
+**Still order-dependent:** in one run of 470-519, stages 495 and 500 fail 1-2 times in 3. The causes are leftovers (he starts 495 on the far side of the stone, and 500 ends early after the stages before it). Both pass every time from a fresh server.
+
+So the gate (`tools/gate_linux.sh`, now in the repo) runs 470-489 as one group and each stage from 491 on in its own server.
+
+**Results on `bp/watchdog-incidents`:** every group passes.
+- **0-86:** passed on the third run. The first run failed "dig-in", the second "stairs turn"; both are flaky on main too.
+- **99-111 through 470-489:** all passed.
+- **491 to 519:** each passed alone.
 
 ## Restart
 
@@ -64,6 +81,10 @@ See the end of this file.
 - **UNPLANNED MOVE on a knockback.** A blaze fireball or a creeper blast moves him under 3 blocks a tick, so most knockbacks won't show. The fall log (`[Claude move] falling`) still covers those.
 - **HEALTH FALLING in long fights.** It's skipped only while fleeing or eating, so a hard fight he's winning will log one every 30 s. That's by design (it's context, it changes nothing), but say if it's noise.
 - **FIGHT NO EFFECT on mobs behind a block.** It drops the fight. If he keeps re-picking the same unreachable mob, the next batch should mark it in `Attempts`.
+
+## Not done here
+
+- **The order-dependence of 491-519 in one run:** the leftovers above.
 
 ## Next batches (from Day to Day's spec)
 

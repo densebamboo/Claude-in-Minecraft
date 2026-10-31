@@ -8008,6 +8008,21 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
+        if (stage[0] == 497) { // a walk into a cell still solid, queued before the dig that opens it (live 04:43 World 15: a GoTo into the rock, its Break next in the queue, 32 stalls in a minute): the dig goes first, the walk waits behind it
+            BlockPos me = h.absolutePos(new BlockPos(4, 3, 7)), into = h.absolutePos(new BlockPos(7, 3, 7));
+            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no");
+                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 2, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 3; y <= 8; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+                level.setBlock(into, Blocks.STONE.defaultBlockState(), 2); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+            if (t[0] == 10) { c.tasks.add(new Task.GoTo(into, 0.5)); c.tasks.add(new Task.Pickup(20)); c.tasks.add(new Task.Break(into)); }
+            if (t[0] == 13) {
+                boolean digFirst = c.currentTask instanceof Task.Break b0 && b0.pos().equals(into) || c.tasks.peek() instanceof Task.Break b1 && b1.pos().equals(into);
+                boolean walkAfter = c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().equals(into));
+                check(digFirst && walkAfter, "walk into rock: the walk to " + into.toShortString() + " ran before its own cell's dig (now " + c.currentTask + ", queue " + c.tasks + ")");
+            }
+            if (t[0] > 13 && level.getBlockState(into).isAir() && c.position().distanceTo(into.getBottomCenter()) < 1.0) { int at = t[0]; c.tasks.clear(); pass(stage, t, "its cell dug first, then the walk in, " + (at - 10) + " ticks"); }
+            else if (t[0] == 300) check(false, "walk into rock: not in the cell after 14 s: at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ", queue " + c.tasks + ", cell " + level.getBlockState(into));
+            return true;
+        }
         if (stage[0] == 496) { // collect cobblestone in his own mine never picks its wall (live 03:48 World 15: his shell stone queued, refused by doBreak, 0 got, the furnace craft looped)
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("mine_model", "blueprint"); }
             if (t[0] == 5) {

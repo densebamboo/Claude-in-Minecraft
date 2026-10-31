@@ -10165,17 +10165,18 @@ public final class ClaudeBodyTest {
                     wdEnd(c); pass(stage, t, "the same leap queued " + wdRuns + " times: tripped, written off, told " + wdTold + " time(s)");
                 }
             }
-            case 476 -> { // a walk that ends and is picked again, getting nowhere (live 23:56: a long-walk hop re-picking its own target every 2 s): the whole ladder, way round, then them told once, exactly
-                BlockPos me = h.absolutePos(new BlockPos(2, 2, 7)), goal = h.absolutePos(new BlockPos(12, 2, 7));
-                if (t[0] == 2) for (int x = 10; x <= 14; x++) for (int z = 5; z <= 9; z++) for (int y = 1; y <= 4; y++) if (!(x == 12 && z == 7 && (y == 2 || y == 3))) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.BARRIER.defaultBlockState(), 2); // (a spot sealed in barriers: no walk, dig or bridge gets there)
-                if (t[0] == 10) wdTo(c, me);
-                if (t[0] >= 10 && t[0] % 10 == 0 && c.tasks.isEmpty() && c.currentTask == null && wdTold == 0) { c.tasks.add(new Task.GoTo(goal, 0.5)); wdRuns++; }
-                if (wdTold >= 1 && wdRuns > 0) {
+            case 476 -> { // a walk that never gets nearer and keeps being picked again (live 23:56: a long-walk hop re-picking its own target every 2 s): the clock's whole ladder, his own way out, dropped, then them told once, exactly
+                BlockPos me = h.absolutePos(new BlockPos(2, 2, 7)), goal = h.absolutePos(new BlockPos(14, 2, 7));
+                if (t[0] == 10) { wdTo(c, me); c.playerGoal = "walk over there"; }
+                if (t[0] >= 10 && wdTold == 0) {
+                    if (c.tasks.isEmpty() && c.currentTask == null && t[0] % 10 == 0) { c.tasks.add(new Task.GoTo(goal, 0.5)); wdRuns++; } // (picked again each time it's dropped)
+                    if (t[0] % 30 == 0) wdTo(c, me); // (and he never gets anywhere with it)
+                }
+                if (wdTold >= 1) {
                     String said = com.claudemod.entity.life.Watchdog.lastTold(c);
-                    check(said.startsWith("stuck: ") && said.contains(goal.toShortString().replace(",", "")) || said.contains(goal.getX() + ""), "walk: the line to them doesn't say what failed: \"" + said + "\"");
-                    check(said.contains("tried"), "walk: the line doesn't say what he tried: \"" + said + "\"");
-                    int at = t[0]; wdEnd(c); pass(stage, t, "the same walk queued " + wdRuns + " times: told once in " + at / 20 + " s: \"" + said + "\"");
-                } else if (t[0] == 2400) check(false, "walk: the same unreachable walk queued " + wdRuns + " times in 2 min and them never told (trips " + com.claudemod.entity.life.Watchdog.trips(c) + ", rung " + com.claudemod.entity.life.Watchdog.rung(c, "walk to " + goal.toShortString()) + ")");
+                    check(said.startsWith("stuck: ") && said.contains("no nearer") && said.contains("tried"), "walk: the line to them doesn't say what failed and what's next: \"" + said + "\"");
+                    int at = t[0]; wdEnd(c); pass(stage, t, "the same walk picked " + wdRuns + " times: told once in " + (at - 10) / 20 + " s: \"" + said + "\"");
+                } else if (t[0] == 20 * 200) check(false, "walk: never nearer for 200 s, picked " + wdRuns + " times, and them never told (stuck level " + c.stuckLevel + ", strikes " + c.failCount + ")");
             }
             case 477 -> { // say-do: "breaking the blocks now" with only a walk queued is not said; with a dig queued it is; a later "i'll break it after" stands
                 if (t[0] == 10) {

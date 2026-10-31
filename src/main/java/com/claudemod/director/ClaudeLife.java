@@ -7388,7 +7388,7 @@ public final class ClaudeLife {
      * up) for 45s. Then he drops what isn't working and thinks again; still stuck after 2 minutes, he asks them for a hand.
      */
     private static java.util.Map<java.util.UUID, Integer> broken, progressBroken; // blocks he's broken, and the count at his last progress mark (static: fields added live start null)
-    public static void noteBroken(ClaudeEntity g) { if (broken == null) broken = new java.util.HashMap<>(); broken.merge(g.getUUID(), 1, Integer::sum); }
+    public static void noteBroken(ClaudeEntity g) { if (broken == null) broken = new java.util.HashMap<>(); broken.merge(g.getUUID(), 1, Integer::sum); com.claudemod.entity.life.Watchdog.noteBroken(g); }
 
     /**
      * Stuck on a task with a spot to it (a walk, a block to break or put): the way there planned over a player's moves with digging
@@ -7417,9 +7417,10 @@ public final class ClaudeLife {
         return true;
     }
 
+    private static java.util.Map<java.util.UUID, Object[]> progPin; // {key, target} of the action his way out (the 20 s escape plan) serves: its steps are measured against that, not as fresh actions
     private static java.util.Map<java.util.UUID, String> progKey; private static java.util.Map<java.util.UUID, Double> progBest; // the action he's measured on, and his best distance to its target (static: fields added live start null)
     private static void noticeStuck(ClaudeEntity g, ServerPlayer player) {
-        if (progKey == null) progKey = new java.util.HashMap<>(); if (progBest == null) progBest = new java.util.HashMap<>();
+        if (progKey == null) progKey = new java.util.HashMap<>(); if (progBest == null) progBest = new java.util.HashMap<>(); if (progPin == null) progPin = new java.util.HashMap<>();
         com.claudemod.entity.life.Watchdog.flush(g, player); // (a line the watchdog owes them)
         if (broken == null) broken = new java.util.HashMap<>();
         if (progressBroken == null) progressBroken = new java.util.HashMap<>();
@@ -7432,11 +7433,17 @@ public final class ClaudeLife {
         BlockPos at = g.blockPosition();
         double tgt = now == null ? -1 : com.claudemod.entity.life.Watchdog.targetDist(g, now); // the action's own measure: nearer its target (a walk's spot, a dig's block, a leap's landing)
         String nowKey = now == null ? null : com.claudemod.entity.life.Watchdog.key(now); if (nowKey == null && now != null) nowKey = now.toString();
+        Object[] pin = progPin.get(g.getUUID());
+        if (pin != null) { // his way out is under way: still measured on what it's for (each of its steps as a fresh action reset the clock: an escape every 20 s, forever, never on to the next way)
+            String pk = (String) pin[0]; boolean alive = pk.equals(nowKey) || g.tasks.stream().anyMatch(q -> pk.equals(com.claudemod.entity.life.Watchdog.key(q)));
+            if (alive && busy) { nowKey = pk; tgt = Math.sqrt(((BlockPos) pin[1]).distToCenterSqr(g.position())); } else { progPin.remove(g.getUUID()); pin = null; }
+        }
         boolean sameTask = progKey.containsKey(g.getUUID()) && java.util.Objects.equals(nowKey, progKey.get(g.getUUID())); // (nothing running with work queued: the same "nothing", the move measure)
         boolean closer = tgt >= 0 && sameTask && tgt < progBest.getOrDefault(g.getUUID(), Double.MAX_VALUE) - 1.0; // a block nearer than his best on it
         boolean moved = (tgt < 0 || !sameTask) && g.progressPos != null && at.distSqr(g.progressPos) > 3 * 3; // no target: the move measure; a new action: a fresh start
         if (busy && tgt >= 0 && sameTask && !closer && g.progressPos != null && at.distSqr(g.progressPos) > 3 * 3 && g.tickCount % 200 == 17) ClaudeMod.LOGGER.info("[Claude watchdog] moving but no nearer: {} best {} now {} (ClaudeLife.noticeStuck)", ClaudeChat.describe(g, now), String.format("%.1f", progBest.getOrDefault(g.getUUID(), -1.0)), String.format("%.1f", tgt));
         if (!busy || g.progressPos == null || !sameTask || closer || moved || items != g.progressItems || brk != progressBroken.getOrDefault(g.getUUID(), -1)) { // (a shuffle, a missed jump falling back, a hop that re-picks its own spot: moving, but no nearer, is no progress)
+            progPin.remove(g.getUUID()); // (real progress: the way out did its job, or it's a new job)
             progKey.put(g.getUUID(), nowKey); if (tgt >= 0) progBest.put(g.getUUID(), Math.min(tgt, sameTask ? progBest.getOrDefault(g.getUUID(), tgt) : tgt)); else progBest.remove(g.getUUID());
             g.progressPos = at; g.progressTick = g.tickCount; g.progressItems = items; progressBroken.put(g.getUUID(), brk);
             if (g.stuckLevel > 0) ClaudeMod.LOGGER.info("[Claude life] unstuck: moving again");
@@ -7447,7 +7454,9 @@ public final class ClaudeLife {
         String doing = now != null ? ClaudeChat.describe(g, now) : "his queued work";
         if (secs >= 20 && g.stuckLevel == 0) { // 20 s without progress: the way to what he's stuck on planned like a player gets out of a hole (dig, put blocks down, swim), in front of it; then on with it
             g.stuckLevel = 1;
+            BlockPos pinTo = now == null ? null : com.claudemod.entity.life.Watchdog.target(now); String pinKey = nowKey;
             if (escapeStuck(g, (ServerLevel) g.level(), now)) {
+                if (pinTo != null && pinKey != null) progPin.put(g.getUUID(), new Object[] {pinKey, pinTo});
                 g.stuckNote = "you were stuck at " + at.toShortString() + " " + doing + "; making your own way out (digging/climbing) and carrying on";
                 g.lastSkillLine = "stuck at " + at.toShortString() + " " + doing + " for " + secs + "s: making my own way out and on";
             }
@@ -7468,7 +7477,7 @@ public final class ClaudeLife {
                 clearTasks(g); g.skillQueue.clear(); dropCurrent(g);
                 g.nextPlanTick = g.tickCount;
                 ClaudeMod.LOGGER.info("[Claude life] stuck three times on {}: dropping the plan", stuckKey.substring(6));
-            } else { dropCurrent(g); if (now instanceof Task.GoTo || now instanceof Task.Break || now instanceof Task.Place) g.tasks.removeIf(t -> t.equals(now)); } // the stuck task goes, the rest of the job stays (clearing everything took the fix with it: the walk to the table, the eat)
+            } else { if (now instanceof Task.GoTo || now instanceof Task.Leap || pin != null) com.claudemod.entity.life.Watchdog.writtenOff(g, nowKey, doing + " at " + at.toShortString() + ", no nearer in " + secs + " s"); dropCurrent(g); if (now instanceof Task.GoTo || now instanceof Task.Break || now instanceof Task.Place) g.tasks.removeIf(t -> t.equals(now)); final String nk = nowKey; if (pin != null) { g.tasks.removeIf(t -> nk.equals(com.claudemod.entity.life.Watchdog.key(t))); progPin.remove(g.getUUID()); } } // the stuck task goes, the rest of the job stays (clearing everything took the fix with it: the walk to the table, the eat)
             g.lastSkillLine = "stuck at " + at.toShortString() + " " + doing + " for " + secs + "s; that doesn't work from here";
             if (g.lastStep != null && g.lastStep.skill().equals("recover_drops") && g.failCount.getOrDefault("recover_drops", 0) < 1) { // his things are still lying there: one more go (another way in) before giving them up
                 g.failCount.merge("recover_drops", 1, Integer::sum);

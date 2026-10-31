@@ -43,6 +43,8 @@ public final class Watchdog {
         final Map<String, String> tried = new HashMap<>();   // action key -> the ways tried so far, for the line to them
         final Map<String, String> what = new HashMap<>();    // action key -> what failed and how, from its trip
         final java.util.Set<String> told = new java.util.HashSet<>();
+        Task started; int startTick, startBroken, startItems; double startDist; // the action now running, as it began
+        int broken;                                          // blocks he's broken (ClaudeLife.noteBroken)
         String pending;                                      // a line to say on the next ClaudeLife tick (it has the player)
         String lastTold = "";                                // (stages read it)
         int trips;
@@ -91,11 +93,15 @@ public final class Watchdog {
      * WorkGoal is about to start this action. A tripped one (still in memory) isn't run as it was: false means drop it, the
      * ladder has queued the next way (or written it off). True: run it.
      */
+    public static void noteBroken(ClaudeEntity g) { st(g).broken++; }
+    private static int items(ClaudeEntity g) { int n = 0; for (int i = 0; i < g.inventory.items.getContainerSize(); i++) n += g.inventory.items.getItem(i).getCount(); return n; }
     public static boolean starting(ClaudeEntity g, Task t) {
+        St s0 = st(g); s0.started = t; s0.startTick = g.tickCount; s0.startBroken = s0.broken; s0.startItems = items(g); s0.startDist = targetDist(g, t);
         String k = key(t); if (k == null) return true;
         int r = rung(g, k); if (r == 0) return true;
         Boolean got = achieved(g, t); if (Boolean.TRUE.equals(got) && !(t instanceof Task.GoTo)) return true; // (already done: the task ends at once by itself)
         if (t instanceof Task.GoTo && r < 2) return true; // a walk on rung 1 runs behind its MAY_DIG way (that's the way)
+        if (r >= 3) { ClaudeMod.LOGGER.info("[Claude watchdog] {} picked again, written off and told: not run (Watchdog.starting)", k); return false; }
         ClaudeMod.LOGGER.info("[Claude watchdog] {} again after it tripped (rung {}): not run as it was, next way (Watchdog.starting)", k, r);
         climb(g, t, k, ClaudeChat_describe(g, t) + ": picked again after it kept failing");
         return false;
@@ -106,7 +112,17 @@ public final class Watchdog {
         String k = key(t); if (k == null) return;
         Boolean got = achieved(g, t); if (got == null) return;
         St s = st(g);
-        if (got) { s.ends.remove(k); return; } // (the rung stays for MEMORY: it came good, but a fresh trip on it climbs on)
+        if (got) { s.ends.remove(k); return; }
+        // Counted: a leap that came down off its landing (or wasn't taken), and a walk that ran and ended no nearer, nothing
+        // broken or picked up on the way. Not counted: digs and placements (their exits re-queue them by design: the block in
+        // front first, a nudge to a stand spot; the clock covers them), and a walk that ended at once (the walker turned it down
+        // itself: its own "skipped this time (n of 3)" and MindLog's conflict line cover those).
+        boolean mine = s.started == t;
+        int ran = mine ? g.tickCount - s.startTick : 0;
+        boolean madeSome = mine && (s.broken != s.startBroken || items(g) != s.startItems);
+        boolean counted = t instanceof Task.Leap
+                || t instanceof Task.GoTo && mine && ran > 3 && !madeSome && targetDist(g, t) > s.startDist - 1.0;
+        if (!counted) { if (t instanceof Task.GoTo || t instanceof Task.Leap) ClaudeMod.LOGGER.info("[Claude watchdog] {} ended short, not counted ({}) (Watchdog.ended)", k, !mine || ran <= 3 ? "ended at once: the walker's own refusal" : madeSome ? "broke or got something on the way" : "got nearer"); return; } // (the rung stays for MEMORY: it came good, but a fresh trip on it climbs on)
         int[] e = s.ends.get(k);
         if (e == null || g.tickCount - e[1] > WINDOW) { e = new int[] {0, g.tickCount}; s.ends.put(k, e); }
         e[0]++;
@@ -114,12 +130,23 @@ public final class Watchdog {
         if (e[0] >= REPEATS) { s.ends.remove(k); trip(g, t, k, e[0] + " times in " + Math.max(1, (g.tickCount - e[1]) / 20) + " s" + (why == null ? "" : " (" + why + ")")); }
     }
 
-    /** MindLog's [Claude conflict] (the same thing refused 3 times in 60 s): no progress on the action at that cell. */
+    /**
+     * MindLog's [Claude conflict] (the same thing refused 3 times in 60 s). Logged against the running action only: a refusal is
+     * one of his own rules holding him, and the next ways (digging to it, going round) would walk him through that rule (the gate:
+     * a follow walk held in place, written off, sent him off; a dig re-queued behind the block in front is progress).
+     */
     public static void conflict(ClaudeEntity g, BlockPos pos, String job) {
         Task t = g.currentTask; if (t == null || !pos.equals(target(t))) return;
-        String k = key(t); if (k == null || rung(g, k) > 0) return;
-        ClaudeMod.LOGGER.info("[Claude watchdog] {}: refused 3 times in 60 s ({}), counted as no progress (Watchdog.conflict)", k, job);
-        trip(g, t, k, "refused 3 times in 60 s (" + job + ")");
+        ClaudeMod.LOGGER.info("[Claude watchdog] conflict on the running action {}: {} (logged, not acted on) (Watchdog.conflict)", key(t), job);
+    }
+
+    /** The clock (ClaudeLife.noticeStuck, 45 s) dropped this action after his own way out didn't get him nearer: on the ladder at "gone round", so picking it again tells them. */
+    public static void writtenOff(ClaudeEntity g, String k, String what) {
+        if (k == null) return;
+        St s = st(g); s.trips++;
+        s.rung.put(k, new int[] {2, g.tickCount}); s.what.put(k, what);
+        s.tried.put(k, "the straight way, his own way out (digging, bridging, pillaring), dropping it for another");
+        ClaudeMod.LOGGER.info("[Claude watchdog] {}: written off by the clock ({}): picked again, they're told (Watchdog.writtenOff)", k, what);
     }
 
     private static void trip(ClaudeEntity g, Task t, String k, String how) {
@@ -145,6 +172,7 @@ public final class Watchdog {
         St s = st(g);
         int[] r = s.rung.get(k); if (r == null || g.tickCount - r[1] > MEMORY) r = new int[] {0, 0};
         r[0]++; r[1] = g.tickCount; s.rung.put(k, r);
+        if (r[0] > 3) r[0] = 3;
         String tried = s.tried.getOrDefault(k, "the straight way");
         if (r[0] == 1 && !(t instanceof Task.Leap) && com.claudemod.director.ClaudeLife.escapeStuck(g, (ServerLevel) g.level(), t)) {
             s.tried.put(k, tried + ", digging/bridging/pillaring to it");
@@ -156,13 +184,11 @@ public final class Watchdog {
             int n = 0; for (var it = g.tasks.iterator(); it.hasNext(); ) if (k.equals(key(it.next()))) { it.remove(); n++; }
             mark(g, t);
             s.tried.put(k, tried + (tried.contains("digging") ? "" : ", digging/bridging (no way found)") + ", going round");
-            g.nextPlanTick = Math.min(g.nextPlanTick, g.tickCount); // the planner picks another spot for the same job now
             ClaudeMod.LOGGER.info("[Claude watchdog] {}: rung 2, written off ({} queued copies dropped): the way round, another spot for the job (Watchdog.climb)", k, n);
             return;
         }
         tell(g, k, "stuck: " + s.what.getOrDefault(k, what) + "; tried " + s.tried.getOrDefault(k, tried) + ". moving on to something else, a hand there would help");
         for (var it = g.tasks.iterator(); it.hasNext(); ) if (k.equals(key(it.next()))) it.remove();
-        g.nextPlanTick = Math.min(g.nextPlanTick, g.tickCount);
     }
 
     // ---------------------------------------------------------------- the skill layer (ClaudeLife's plan steps)

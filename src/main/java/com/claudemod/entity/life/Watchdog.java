@@ -96,6 +96,14 @@ public final class Watchdog {
      * ladder has queued the next way (or written it off). True: run it.
      */
     public static void noteBroken(ClaudeEntity g) { st(g).broken++; }
+    /** A walk ended again no nearer than his best on that walk within the window (a step cut and climbed back is no gain; blocks broken on the way don't count for a walk). Nearer by a block, and its count starts over. */
+    private static boolean walkNoGain(St s, String k, ClaudeEntity g, Task t) {
+        double d = targetDist(g, t); double[] last = s.lastEnd.get(k);
+        boolean same = last != null && g.tickCount - last[3] <= WINDOW && d > last[2] - 1.0;
+        s.lastEnd.put(k, new double[] {0, 0, same ? Math.min(d, last[2]) : Math.min(d, s.startDist), g.tickCount});
+        if (!same && last != null) s.ends.remove(k);
+        return true;
+    }
     /** The task put itself back with something in front of it (a step out of the cell, a walk to a stand spot, a wait, the block in front): its own bounded retry, not the loop (the gate's nook move: a double chest's two cells and his feet, stepped round in 2 s). */
     private static boolean meansFirst(ClaudeEntity g, Task t) { Task head = g.tasks.peek(); return head != null && !head.equals(t) && g.tasks.contains(t); }
     /** The same dig or placement ended again with nothing gained since its last end: no block broken, no item got, not nearer its cell, and his feet in the same cell. Any of those, and its count starts over (the block in front cleared first, a nudge to a stand spot: progress). */
@@ -130,11 +138,11 @@ public final class Watchdog {
         // broken or picked up on the way. Not counted: digs and placements (their exits re-queue them by design: the block in
         // front first, a nudge to a stand spot; the clock covers them), and a walk that ended at once (the walker turned it down
         // itself: its own "skipped this time (n of 3)" and MindLog's conflict line cover those).
-        boolean mine = s.started == t;
+        boolean mine = t.equals(s.started); // (the same action, the record that started it: by value, as the keys are)
         int ran = mine ? g.tickCount - s.startTick : 0;
         boolean madeSome = mine && (s.broken != s.startBroken || items(g) != s.startItems);
         boolean counted = t instanceof Task.Leap
-                || t instanceof Task.GoTo && mine && ran > 3 && !madeSome && targetDist(g, t) > s.startDist - 1.0 && !meansFirst(g, t) && repeatNoGain(s, k, g, t) // (a leg that hands over to its own route's digs, blocks broken between legs and him nearer: progress; live 06:47 World 15 digging stairs home, 130 -> 113 off, tripped every few seconds)
+                || t instanceof Task.GoTo && mine && ran > 3 && !meansFirst(g, t) && walkNoGain(s, k, g, t) // (nearer than his best on that walk over the window, or it's no progress: a one-block step cut and undone the next moment isn't; live 09:48 World 15, 21 "stepping off" in 80 s, net nothing) // (a leg that hands over to its own route's digs, blocks broken between legs and him nearer: progress; live 06:47 World 15 digging stairs home, 130 -> 113 off, tripped every few seconds)
                 || (t instanceof Task.Break || t instanceof Task.Place) && mine && !madeSome && !meansFirst(g, t) && repeatNoGain(s, k, g, t); // (a dig or a placement refused and re-queued with nothing broken, nothing got and no nearer since its last end: live 03:18 World 15, 270 refused digs and the watchdog never saw them)
         if (!counted) { if (t instanceof Task.GoTo || t instanceof Task.Leap) ClaudeMod.LOGGER.info("[Claude watchdog] {} ended short, not counted ({}) (Watchdog.ended)", k, !mine || ran <= 3 ? "ended at once: the walker's own refusal" : madeSome ? "broke or got something on the way" : "got nearer"); return; } // (the rung stays for MEMORY: it came good, but a fresh trip on it climbs on)
         int[] e = s.ends.get(k);

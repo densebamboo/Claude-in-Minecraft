@@ -2931,6 +2931,11 @@ public final class ClaudeLife {
                 boolean hasFuel = !g.inventory.find(t -> t.is(Items.COAL) || t.is(Items.CHARCOAL) || t.is(ItemTags.LOGS) || t.is(ItemTags.PLANKS)).isEmpty();
                 if (!hasFuel) return "failed: no fuel (coal, charcoal, logs or planks)";
                 // no coal: a few logs into charcoal first (8 items a piece, against 1.5 for a log burnt as is), then the real batch
+                if (!g.commandActive && (input == Items.RAW_IRON || input == Items.RAW_GOLD || input == Items.RAW_COPPER) && reachableFurnace(g, level, g.blockPosition(), 16) == null && g.inventory.count(t -> t.is(Items.FURNACE)) == 0) { // far from all his furnaces: the raws ride home (live 12:06 World 15: 9 raw iron, a furnace's cobble dug out of a hole 165 from his nook's 6)
+                    BlockPos homeF = null; for (BlockPos f : g.myStations) if (f.distSqr(g.blockPosition()) > 40 * 40 && (!level.isLoaded(f) || level.getBlockState(f).is(Blocks.FURNACE)) && (homeF == null || f.distSqr(g.blockPosition()) < homeF.distSqr(g.blockPosition()))) homeF = f;
+                    if (homeF != null) return "done: the " + Crafting.name(input) + " rides home to my furnace at " + homeF.toShortString() + " (" + (int) Math.sqrt(homeF.distSqr(g.blockPosition())) + " off): no new furnace out here";
+                }
+                if (!g.commandActive && (input == Items.RAW_IRON || input == Items.RAW_GOLD || input == Items.RAW_COPPER) && g.inventory.count(t -> t.is(input)) > count) { int all0 = g.inventory.count(t -> t.is(input)); g.skillQueue.addFirst(new Skills.Step(st.skill(), st.target(), all0, st.where())); return "smelting all " + all0 + " " + Crafting.name(input) + " at once, not just " + count; } // the whole lot at once, like a player (live 12:03 World 15: 2 of 11 raw iron, for the craft's shortfall)
                 int toCook = Math.min(count, g.inventory.count(t -> t.is(input)));
                 boolean coal = g.inventory.count(t -> t.is(Items.COAL) || t.is(Items.CHARCOAL)) * 8 >= toCook;
                 if (!coal && toCook >= 3 && item != Items.CHARCOAL && input != Items.CHARCOAL && !input.builtInRegistryHolder().is(ItemTags.LOGS)
@@ -8144,6 +8149,8 @@ public final class ClaudeLife {
                 return "back to the mine's " + Crafting.name(block.asItem()) + " at " + mineStation.toShortString();
             }
         }
+        if (block == Blocks.FURNACE) { BlockPos mine0 = null; for (BlockPos f : g.myStations) if (level.isLoaded(f) && level.getBlockState(f).is(Blocks.FURNACE) && f.distSqr(g.blockPosition()) <= 40 * 40 && (g.attempts.any.get(f) == null || g.tickCount - g.attempts.any.get(f) > 20 * 60) && (mine0 == null || f.distSqr(g.blockPosition()) < mine0.distSqr(g.blockPosition()))) mine0 = f;
+            if (mine0 != null) { g.tasks.add(new Task.GoTo(mine0, 2.5)); g.stationWalkTick = g.tickCount; g.skillQueue.addFirst(st); ClaudeMod.LOGGER.info("[Claude life] {} {}: his own furnace at {} ({} off), not a new one here (ClaudeLife.goToStation)", st.skill(), st.target(), mine0.toShortString(), (int) Math.sqrt(mine0.distSqr(g.blockPosition()))); return "over to my furnace at " + mine0.toShortString(); } } // (a player walks 20 blocks to his furnaces: live 12:03 World 15 a new furnace notched into an ore hole in his mine wall, his nook's 6 about 20 off)
         if (canPlaceOwn && (g.tickCount - g.stationWalkTick < 20 * 60 || !level.canSeeSky(g.blockPosition())
                 || (g.mineFace != null && g.blockPosition().distSqr(g.mineFace) < 24 * 24))) return null;
         List<BlockPos> all = findAll(level, g.blockPosition(), STATION_SEARCH, b -> b.is(block), 12);

@@ -8009,6 +8009,29 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
+        if (stage[0] == 512) { // 11 raw iron, his own furnace 12 off under the same roof, smelt iron_ingot 2 (live 12:03 World 15: 2 of 11 smelted, in a new furnace notched into an ore hole, his nook's 6 about 20 off): all 11, at his own furnace
+            BlockPos me = h.absolutePos(new BlockPos(2, 2, 2)), fur = h.absolutePos(new BlockPos(13, 2, 9));
+            if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); flatBox(h);
+                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) level.setBlock(h.absolutePos(new BlockPos(x, 6, z)), Blocks.STONE.defaultBlockState(), 2); // (a roof: underground, where he'd put one down)
+                level.setBlock(fur, Blocks.FURNACE.defaultBlockState(), 3); c.myStations.add(fur); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+            if (t[0] == 5) {
+                c.getInventory().add(new ItemStack(Items.RAW_IRON, 11)); c.getInventory().add(new ItemStack(Items.COAL, 4)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE));
+                String a = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "iron_ingot", 2);
+                check(a != null && a.contains("all 11"), "smelt 2 of 11 raw iron: \"" + a + "\"");
+                var st2 = c.skillQueue.peekFirst(); check(st2 != null && st2.count() == 11, "smelt: the step back at 11: " + c.skillQueue);
+                c.skillQueue.clear();
+                String b = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "iron_ingot", 11);
+                boolean placed = false; for (BlockPos q : BlockPos.betweenClosed(me.offset(-4, -1, -4), me.offset(4, 3, 4))) if (level.getBlockState(q).is(Blocks.FURNACE)) placed = true;
+                check(b != null && b.contains("my furnace at " + fur.toShortString()) && !placed && c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().equals(fur)), "smelt with his own furnace 12 off: \"" + b + "\" (a new one by him " + placed + ", tasks " + c.tasks + ")");
+                c.tasks.clear(); c.skillQueue.clear(); c.myStations.remove(fur); level.setBlock(fur, Blocks.AIR.defaultBlockState(), 3);
+                BlockPos farF = me.offset(165, 0, 0); c.myStations.add(farF); // (his nook's furnaces, 165 off)
+                String d = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "iron_ingot", 11);
+                check(d != null && d.startsWith("done:") && d.contains("rides home") && c.tasks.isEmpty(), "smelt 165 from his furnaces: \"" + d + "\" (tasks " + c.tasks + ")");
+                c.myStations.remove(farF); c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
+                pass(stage, t, "\"" + a + "\"; then \"" + b + "\"; far: \"" + d + "\"");
+            }
+            return true;
+        }
         if (stage[0] == 511) { // far from his mine (live 11:51 World 15: "cook my raw salmon" for 2 while fed, a furnace's cobble from a fresh hole 130 off): the raws ride home; no fresh hole out here for a few cobble
             if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); flatBox(h); }
             if (t[0] == 5) {

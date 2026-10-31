@@ -346,6 +346,7 @@ public class WorkGoal extends Goal {
             current = g.tasks.poll();
             int dup = 0; while (current != null && !(current instanceof Task.Pillar) && current.equals(g.tasks.peek())) { Task nx = g.tasks.poll(); if (com.claudemod.entity.nav.Route.owns(g, nx) && !com.claudemod.entity.nav.Route.owns(g, current)) current = nx; dup++; } // (a route's own copy is the one kept: the other copy dropped took the route's end, and its old legs walked him back down, 12:31) // (two Pillar(-1)s are two towers to take down, not a copy: dropping one left a cobble block in his stair walkway) // the same task queued over and over (a route re-fired every few seconds): one copy is plenty
             if (dup > 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} duplicate copies of {} dropped from his queue", dup, current);
+            while (current != null && !com.claudemod.entity.life.Watchdog.starting(g, current)) current = g.tasks.poll(); /* the no-progress watchdog: an action that kept failing goes up its ladder, not round again */
             g.busy = current != null;
             ticks = 0; stuck = 0; lastDist = Double.MAX_VALUE; breakProgress = 0; bridged = 0;
             g.currentTask = current;
@@ -415,6 +416,7 @@ public class WorkGoal extends Goal {
         if (done && current instanceof Task.GoTo gt0 && Math.sqrt(g.blockPosition().distSqr(gt0.pos())) > gt0.within() + 4) // (any walk that ends 4+ off its spot, however long it ran: a silent end hid where 3 bed legs went, 12:53) // a walk that ended before it began, far from the spot: say so (go_to "49 64 164" ended in 2 ticks, silently, three plans running)
             com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] GoTo {} ended {} from {} (walk-fail {}, queue now {} first {}, why {})", gt0.pos().toShortString(), ticks <= 3 ? "at once" : "after " + ticks + " ticks, " + (int) Math.sqrt(g.blockPosition().distSqr(gt0.pos())) + " off it,", g.blockPosition().toShortString(), g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK).get(gt0.pos()), g.tasks.size(), g.tasks.peek(), exitWhy);
         if (done) {
+            try { com.claudemod.entity.life.Watchdog.ended(g, current, current instanceof Task.GoTo ? null : exitWhy); /* (exitWhy is only reset by the dig, place and leap: a walk would carry the last one's) */ } catch (RuntimeException e) { com.claudemod.ClaudeMod.LOGGER.warn("[Claude watchdog] ended() threw on {}", current, e); }
             clearCrack();
             current = null;
             g.currentTask = null;

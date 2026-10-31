@@ -401,6 +401,8 @@ public final class ClaudeChat {
     private static void rtAdd(java.util.List<String> fix, String s) { if (!fix.contains(s)) fix.add(s); }
     private static final java.util.regex.Pattern RT_JUMP = java.util.regex.Pattern.compile("\\b(?:jumping|leaping)\\b|\\b(?:dropping|hopping|jump|drop|hop) (?:down|off|over|across)\\b");
     private static final java.util.regex.Pattern RT_HEAD = java.util.regex.Pattern.compile("\\b(?:heading|going|walking|running|making my way|on my way)(?: (?:up|down|back|over|out|across))? (?:to|toward|towards|into) (?:the|that|this|your|my|you|them|it|those|a|an)\\b|\\bheading (?:up|down|over|back|out) (?:there|that way)\\b");
+    private static final java.util.regex.Pattern RT_BREAK = java.util.regex.Pattern.compile("\\b(?:breaking|digging|mining|tunnell?ing|chopping|clearing) (?:the |that |this |those |these |them|it|through|out|in|up|down|blocks?|stone|dirt|rock|wall|way)");
+    private static boolean rtBreaks(String sk) { for (String w : new String[] {"collect", "strip_mine", "dig", "start_mine", "carve", "make_obsidian", "harvest", "iron", "diamond", "stone", "explore_cave", "reshape_mine", "build_portal", "scoop_at", "blaze_rods"}) if (sk.contains(w)) return true; return false; }
     private static boolean rtWalks(String sk) { for (String w : new String[] {"go_to", "follow", "explore", "loot", "portal", "return", "recover", "retrieve", "village", "fortress", "scout", "drop_down", "sleep", "store", "treasure"}) if (sk.contains(w)) return true; return false; }
     /**
      * The move claims: "jumping / dropping down / jump off" is true only with a drop or jump queued or running, drop_down queued, or a
@@ -411,12 +413,15 @@ public final class ClaudeChat {
         boolean leapQ = ts.stream().anyMatch(t0 -> t0 instanceof com.claudemod.entity.life.Task.Leap) || skills.contains("drop_down");
         boolean walkQ = action.equals("come") || action.equals("follow") || skills.stream().anyMatch(ClaudeChat::rtWalks) || ts.stream().anyMatch(t0 -> t0 instanceof com.claudemod.entity.life.Task.GoTo gt && gt.pos().distSqr(g.blockPosition()) > 3 * 3);
         Boolean viaLeap = null;
+        boolean breakQ = ts.stream().anyMatch(t0 -> t0 instanceof com.claudemod.entity.life.Task.Break || t0 instanceof com.claudemod.entity.life.Task.ChopTree || t0 instanceof com.claudemod.entity.life.Task.FinishTree || t0 instanceof com.claudemod.entity.life.Task.MineVisibleOres || t0 instanceof com.claudemod.entity.life.Task.SealStep || t0 instanceof com.claudemod.entity.life.Task.CheckForCave || t0 instanceof com.claudemod.entity.life.Task.Pillar p0 && p0.steps() < 0)
+                || skills.stream().anyMatch(ClaudeChat::rtBreaks);
         for (String cl : RT_SPLIT.split(low)) {
             String c0 = cl.trim(); if (c0.isEmpty() || RT_NEG.matcher(c0).find()) continue;
             if (RT_JUMP.matcher(c0).find() && !leapQ) {
                 if (viaLeap == null) viaLeap = walkQ && com.claudemod.entity.nav.Leaps.routeLeaps(g, p, ts) != null;
                 if (!viaLeap) { String why = com.claudemod.entity.nav.Leaps.lastRefusal(g, 20 * 60); wrong.add("\"" + c0 + "\": nothing queued drops or jumps" + (why == null ? "" : " (last turned down: " + why + ")")); rtAdd(fix, why == null ? "not jumping (no drop or jump on my way)" : "not jumping: " + why); }
             }
+            if (!planning && RT_BREAK.matcher(c0).find() && !RT_LATER.matcher(c0).find() && !breakQ) { String st0 = com.claudemod.entity.life.Watchdog.stuckLine(g); wrong.add("\"" + c0 + "\": nothing queued breaks a block (queue " + q + ")" + (st0 == null ? "" : ", " + st0)); rtAdd(fix, st0 == null ? "not breaking anything yet" : "not breaking anything yet (" + st0 + ")"); } // (live: "breaking the blocks now" while he only re-planned a walk)
             if (!planning && RT_HEAD.matcher(c0).find() && !walkQ && !leapQ) { wrong.add("\"" + c0 + "\": no walk queued (queue " + q + ")"); rtAdd(fix, "not heading anywhere yet"); }
         }
     }

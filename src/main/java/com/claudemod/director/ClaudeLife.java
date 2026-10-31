@@ -176,6 +176,7 @@ public final class ClaudeLife {
                 g.skillQueue.clear();                    // the plan no longer holds; think again at once (a failure stood him idle 15 s each time; the plan gap, spinning() and planRepeats catch the loops)
                 g.nextPlanTick = result.startsWith("failed") ? Math.max(g.tickCount, g.planStartTick + PLAN_GAP_TICKS) : g.tickCount;
             }
+            try { com.claudemod.entity.life.Watchdog.skillRan(g, step, result); } catch (RuntimeException e) { ClaudeMod.LOGGER.warn("[Claude watchdog] skillRan threw on {}", line, e); } // the same failure again with nothing changed: the next way, then them told
             return;
         }
         if (!g.commandActive && g.lastStep != null && g.lastStep.skill().equals("strip_mine") && g.mineFace != null
@@ -7393,7 +7394,7 @@ public final class ClaudeLife {
      * Stuck on a task with a spot to it (a walk, a block to break or put): the way there planned over a player's moves with digging
      * allowed (ActionPath MAY_DIG: dig, put blocks down, pillar, swim), put in front of the task, which then goes on. True if found.
      */
-    static boolean escapeStuck(ClaudeEntity g, ServerLevel level, Task now) {
+    public static boolean escapeStuck(ClaudeEntity g, ServerLevel level, Task now) {
         BlockPos to = null; double within = 3.5;
         List<Task> look = new ArrayList<>(); if (now != null) look.add(now); look.addAll(g.tasks);
         for (Task t : look) {
@@ -7416,7 +7417,10 @@ public final class ClaudeLife {
         return true;
     }
 
+    private static java.util.Map<java.util.UUID, String> progKey; private static java.util.Map<java.util.UUID, Double> progBest; // the action he's measured on, and his best distance to its target (static: fields added live start null)
     private static void noticeStuck(ClaudeEntity g, ServerPlayer player) {
+        if (progKey == null) progKey = new java.util.HashMap<>(); if (progBest == null) progBest = new java.util.HashMap<>();
+        com.claudemod.entity.life.Watchdog.flush(g, player); // (a line the watchdog owes them)
         if (broken == null) broken = new java.util.HashMap<>();
         if (progressBroken == null) progressBroken = new java.util.HashMap<>();
         int brk = broken.getOrDefault(g.getUUID(), 0);
@@ -7426,7 +7430,14 @@ public final class ClaudeLife {
         boolean waiting = now instanceof Task.FurnaceTake || now instanceof Task.Wait || now instanceof Task.Eat || now instanceof Task.Flee || now instanceof Task.Attack || now instanceof Task.Fish;
         boolean busy = (now != null || !g.tasks.isEmpty()) && !g.staying && !waiting;
         BlockPos at = g.blockPosition();
-        if (!busy || g.progressPos == null || at.distSqr(g.progressPos) > 3 * 3 || items != g.progressItems || brk != progressBroken.getOrDefault(g.getUUID(), -1)) {
+        double tgt = now == null ? -1 : com.claudemod.entity.life.Watchdog.targetDist(g, now); // the action's own measure: nearer its target (a walk's spot, a dig's block, a leap's landing)
+        String nowKey = now == null ? null : com.claudemod.entity.life.Watchdog.key(now); if (nowKey == null && now != null) nowKey = now.toString();
+        boolean sameTask = progKey.containsKey(g.getUUID()) && java.util.Objects.equals(nowKey, progKey.get(g.getUUID())); // (nothing running with work queued: the same "nothing", the move measure)
+        boolean closer = tgt >= 0 && sameTask && tgt < progBest.getOrDefault(g.getUUID(), Double.MAX_VALUE) - 1.0; // a block nearer than his best on it
+        boolean moved = (tgt < 0 || !sameTask) && g.progressPos != null && at.distSqr(g.progressPos) > 3 * 3; // no target: the move measure; a new action: a fresh start
+        if (busy && tgt >= 0 && sameTask && !closer && g.progressPos != null && at.distSqr(g.progressPos) > 3 * 3 && g.tickCount % 200 == 17) ClaudeMod.LOGGER.info("[Claude watchdog] moving but no nearer: {} best {} now {} (ClaudeLife.noticeStuck)", ClaudeChat.describe(g, now), String.format("%.1f", progBest.getOrDefault(g.getUUID(), -1.0)), String.format("%.1f", tgt));
+        if (!busy || g.progressPos == null || !sameTask || closer || moved || items != g.progressItems || brk != progressBroken.getOrDefault(g.getUUID(), -1)) { // (a shuffle, a missed jump falling back, a hop that re-picks its own spot: moving, but no nearer, is no progress)
+            progKey.put(g.getUUID(), nowKey); if (tgt >= 0) progBest.put(g.getUUID(), Math.min(tgt, sameTask ? progBest.getOrDefault(g.getUUID(), tgt) : tgt)); else progBest.remove(g.getUUID());
             g.progressPos = at; g.progressTick = g.tickCount; g.progressItems = items; progressBroken.put(g.getUUID(), brk);
             if (g.stuckLevel > 0) ClaudeMod.LOGGER.info("[Claude life] unstuck: moving again");
             g.stuckLevel = 0; g.stuckNote = "";
@@ -7451,6 +7462,7 @@ public final class ClaudeLife {
             g.noteDoing("got stuck at " + at.toShortString() + " while " + doing + "; that way doesn't work from here, need another way (or help)");
             String stuckKey = "stuck:" + (g.lastStep == null ? "-" : g.lastStep.skill());
             int strikes = g.failCount.merge(stuckKey, 1, Integer::sum);
+            if (strikes == 2) com.claudemod.entity.life.Watchdog.tellOnce(g, stuckKey + " " + (nowKey == null ? "-" : nowKey), "stuck: " + doing + " at " + at.toShortString() + ", no nearer in " + secs + " s, twice now; trying another way"); // (the user: say exactly what failed; once, never waiting on an answer)
             if (strikes >= 3) { // three stucks on one step: the plan is wrong, think again
                 g.failCount.remove(stuckKey); g.failReason.put(g.lastStep == null ? "-" : g.lastStep.skill(), "stuck 3 times (" + doing + ")");
                 clearTasks(g); g.skillQueue.clear(); dropCurrent(g);

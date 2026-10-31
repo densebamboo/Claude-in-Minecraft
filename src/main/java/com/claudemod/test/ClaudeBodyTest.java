@@ -8008,6 +8008,22 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
+        if (stage[0] == 494) { // a new mine on a 2:1 slope falling south (live 03:16 World 15: down the hillside, a trench open to the sky): looking downhill, he heads into the hill, never down it
+            if (t[0] == 5) {
+                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { int top = 14 - z / 2; for (int y = -3; y <= 22; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y < top ? Blocks.STONE.defaultBlockState() : y == top ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+                BlockPos feet = h.absolutePos(new BlockPos(8, 14 - 8 / 2 + 1, 8));
+                var down = com.claudemod.director.ClaudeLife.mineHeading(c, level, feet, net.minecraft.core.Direction.SOUTH, false);
+                check(down != net.minecraft.core.Direction.SOUTH, "slope: looking downhill, the mine still heads down the slope");
+                check(down == net.minecraft.core.Direction.NORTH, "slope: heading " + down + " (want north, into the hill)");
+                var said = com.claudemod.director.ClaudeLife.mineHeading(c, level, feet, net.minecraft.core.Direction.SOUTH, true);
+                check(said != net.minecraft.core.Direction.SOUTH, "slope: their \"south\" took him down the open slope");
+                var flat = h.absolutePos(new BlockPos(8, 0, 8)); for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) for (int y = -3; y <= 22; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y < 1 ? Blocks.STONE.defaultBlockState() : y == 1 ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+                var onFlat = com.claudemod.director.ClaudeLife.mineHeading(c, level, h.absolutePos(new BlockPos(8, 2, 8)), net.minecraft.core.Direction.EAST, false);
+                check(onFlat == net.minecraft.core.Direction.EAST, "flat: heading " + onFlat + " (on flat ground the way they look is fine: east)");
+                pass(stage, t, "slope: into the hill (" + down + "), their south refused (" + said + "); flat: their east kept");
+            }
+            return true;
+        }
         if (stage[0] >= 279 && stage[0] <= 285) {
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Whereabouts.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.ExactSpot.reset(c); com.claudemod.director.Primitives.reset(c);
                 c.planning = false; c.failCount.clear(); c.commandResults.clear(); c.commandActive = false; c.lastSkillLine = ""; c.lastStep = null; c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600; esWaitT = -1; esMark = -1; esFake = ""; }

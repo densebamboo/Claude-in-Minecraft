@@ -10785,6 +10785,7 @@ public final class ClaudeLife {
         ts.removeIf(t -> t instanceof Task.Place p && (g.landingCells.contains(p.pos()) || obsWorking(p.pos()))); // his storage alcove, a landing, a bed nook: open on purpose, never walled (he walled off his own chest nook)
         ts.removeIf(t -> g.tasks.contains(t));
         ts.removeIf(t -> nookKeeps(g, level, t));
+        ts.removeIf(t -> t instanceof Task.Break br && (g.myStations.contains(br.pos()) || g.storageChests.contains(br.pos()))); /* his own station in a mine cell is part of his build: live 01:57 the round queued breaking his crafting table at -16 16 -82 every few seconds and doBreak refused it ("stations and storage stay put") */
         ts.removeIf(t -> t instanceof Task.Place p0 && sealHeld(g, level, p0.pos())); // (the vein and the drops behind a hole first: 12:14 his upkeep sealed 3 diamond ore and a diamond in)
         ts.removeIf(t -> t instanceof Task.Place p0 && planPutsBack(g, p0.pos())); // (their swap through his shell: the plan's own place_at patches it; his round patched it between the dig and its check, "the cobblestone is still there")
         if (ts.isEmpty()) return 0;
@@ -10841,6 +10842,7 @@ public final class ClaudeLife {
         ts.removeIf(t -> t instanceof Task.Break br && g.attempts.within(com.claudemod.entity.life.Attempts.Kind.BREAK, br.pos(), g.tickCount, 20 * 300)); // a dig he was just refused (ore past his pick, or behind it): not re-queued every 3 s
         ts.removeIf(t -> g.tasks.contains(t));
         ts.removeIf(t -> nookKeeps(g, level, t));
+        ts.removeIf(t -> t instanceof Task.Break br && (g.myStations.contains(br.pos()) || g.storageChests.contains(br.pos()))); /* his own station in a mine cell is part of his build: live 01:57 the round queued breaking his crafting table at -16 16 -82 every few seconds and doBreak refused it ("stations and storage stay put") */
         ts.removeIf(t -> t instanceof Task.Place p0 && sealHeld(g, level, p0.pos())); // (the vein and the drops behind a hole first: 12:14 his upkeep sealed 3 diamond ore and a diamond in)
         ts.removeIf(t -> t instanceof Task.Place p0 && planPutsBack(g, p0.pos())); // (their swap through his shell: the plan's own place_at patches it; his round patched it between the dig and its check, "the cobblestone is still there")
         { final var ts9 = ts; final var bp9 = b; ts9.removeIf(t9 -> t9 instanceof Task.Break b9 && bp9.isShell(b9.pos()) && !MineBlueprint.ore(level.getBlockState(b9.pos())) && ts9.stream().noneMatch(x9 -> x9 instanceof Task.Place p9 && p9.pos().equals(b9.pos())) && g.tasks.stream().noneMatch(x9 -> x9 instanceof Task.Place p9 && p9.pos().equals(b9.pos()))); } // a swap is a pair: its Place filtered out above (failed there lately), its Break goes too; alone the shell guard refused it every round (03:49 the arch at row 2, 6 refusals every 30 s)

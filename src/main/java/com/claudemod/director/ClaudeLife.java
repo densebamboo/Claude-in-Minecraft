@@ -8998,24 +8998,9 @@ public final class ClaudeLife {
      * killed him (00:56), then he followed them back in with a stone sword and died again (01:01). Their order or lesson: in,
      * warned once. Otherwise: the trip is off, he steps out and gets golden boots first.
      */
-    public static void onTravel(net.neoforged.neoforge.event.entity.EntityTravelToDimensionEvent e) {
+    public static void onTravel(net.neoforged.neoforge.event.entity.EntityTravelToDimensionEvent e) { // (the user, 2026-10-31 12:20: "1 gold piece is optional but not required and he could get that in the nether later": never turned back for gold; worn when he has it)
         if (!(e.getEntity() instanceof ClaudeEntity g) || e.getDimension() != net.minecraft.world.level.Level.NETHER || g.level().dimension() != net.minecraft.world.level.Level.OVERWORLD || hasGoldPiece(g)) return;
-        if (!g.level().getBlockState(g.blockPosition()).is(Blocks.NETHER_PORTAL) && !g.level().getBlockState(g.blockPosition().above()).is(Blocks.NETHER_PORTAL)) return; /* only his own walk through a portal: a /tp (theirs, or a test's set-up) isn't his choice (stage 366 was cancelled into the overworld) */
-        boolean theirs = g.commandActive || (g.getTarget() instanceof ServerPlayer lp && com.claudemod.entity.life.ExactSpot.lesson(g, lp));
-        boolean say = g.tickCount - goldGateSaid.getOrDefault(g.getUUID(), -100000) > 20 * 60;
-        if (theirs) {
-            if (say) { goldGateSaid.put(g.getUUID(), g.tickCount); ClaudeMod.LOGGER.info("[Claude life] into the Nether on their order with no gold piece: going, warned (ClaudeLife.onTravel)"); if (g.getTarget() instanceof ServerPlayer p) ClaudeChat.say(p, "going in, but i have no gold on: piglins will come for me", "nether with no gold"); }
-            return;
-        }
-        e.setCanceled(true);
-        BlockPos at = g.blockPosition(), off = null;
-        for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) { BlockPos q = at.relative(d); if (!g.level().getBlockState(q).is(Blocks.NETHER_PORTAL) && g.level().getBlockState(q).getCollisionShape(g.level(), q).isEmpty() && !g.level().getBlockState(q.below()).getCollisionShape(g.level(), q.below()).isEmpty()) { off = q; break; } }
-        if (off != null) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(off.getX() + 0.5, off.getY(), off.getZ() + 0.5, 1.0); }
-        if (say) {
-            goldGateSaid.put(g.getUUID(), g.tickCount);
-            g.skillQueue.addFirst(new Skills.Step("obtain", "golden_boots", 1, "near_you"));
-            ClaudeMod.LOGGER.info("[Claude life] not into the Nether with no gold piece: out of the portal{}, golden boots first (ClaudeLife.onTravel)", off == null ? "" : " to " + off.toShortString());
-        }
+        if (g.tickCount - goldGateSaid.getOrDefault(g.getUUID(), -100000) > 20 * 60) { goldGateSaid.put(g.getUUID(), g.tickCount); ClaudeMod.LOGGER.info("[Claude life] into the Nether with no gold piece: going (optional, the user's rule); piglins will turn on him, so they're kept clear of (ClaudeLife.onTravel)"); }
     }
     public static final java.util.Map<java.util.UUID, BlockPos> hisPortal = new java.util.HashMap<>(); // the portal he lit (overworld side)
     public static final java.util.Map<java.util.UUID, BlockPos> netherPortal = new java.util.HashMap<>(); /* the Nether-side portal he last came out of (live 00:07: "go back to the portal" -> "i dont have the portal's coords logged") */

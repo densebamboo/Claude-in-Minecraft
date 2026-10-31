@@ -10344,6 +10344,7 @@ public final class ClaudeBodyTest {
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
             case 494: return st494(stage, t, c, h, level, mock);
+            case 516: return st516(stage, t, c, h, level, mock);
             case 515: return st515(stage, t, c, h, level, mock);
             case 514: return st514(stage, t, c, h, level, mock);
             case 495: return st495(stage, t, c, h, level, mock);
@@ -10394,6 +10395,26 @@ public final class ClaudeBodyTest {
         if (t[0] == 14) { com.claudemod.entity.life.Perception.lookNow(c); com.claudemod.director.ClaudeLife.clearOnSightTest(c, mock[0]); check(c.tasks.stream().noneMatch(q -> q instanceof Task.Attack), "on sight: went at a zombie with a creeper beside it: " + c.tasks); c.tasks.clear(); if (hzMob != null) hzMob.discard(); hzMob = null; }
         if (t[0] == 18) { com.claudemod.entity.life.Perception.lookNow(c); com.claudemod.director.ClaudeLife.clearOnSightTest(c, mock[0]); boolean went = c.tasks.stream().anyMatch(q -> q instanceof Task.Attack); c.tasks.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
             check(went, "on sight: a lone zombie by day, geared, let be"); pass(stage, t, "creeper let be, a pair let be, a lone zombie taken on"); }
+        return true;
+    }
+    private static boolean st516(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // his own enter_portal with no gold piece (live 12:53 World 15: "not into the Nether with no gold piece: out of the portal, golden boots first"; the user: gold is optional): through
+        ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        if (t[0] == 1) { lwReset(c); c.getInventory().clearContent(); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); wdSaid = ""; }
+        if (t[0] == 10) {
+            esStart(c, h, level, mock, new BlockPos(5, 2, 7), new BlockPos(1, 2, 14));
+            for (int x = 0; x <= 3; x++) for (int y = 1; y <= 5; y++) if (x == 0 || x == 3 || y == 1 || y == 5) level.setBlock(h.absolutePos(new BlockPos(4 + x, y, 10)), Blocks.OBSIDIAN.defaultBlockState(), 2 | 16);
+            for (int x = 1; x <= 2; x++) for (int y = 2; y <= 4; y++) level.setBlock(h.absolutePos(new BlockPos(4 + x, y, 10)), Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.dim(level), h.absolutePos(new BlockPos(5, 2, 10)), "him", "lit");
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.commandActive = false;
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("enter_portal", "my portal", 1, "near_you"));
+        }
+        if (t[0] > 10) {
+            check(c.skillQueue.stream().noneMatch(q -> q.target().contains("golden")), "gold: turned back for golden boots: " + c.skillQueue);
+            if (c.level() == nether) { c.tasks.clear(); c.skillQueue.clear(); BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(level, back.getX() + 0.5, back.getY(), back.getZ() + 0.5, 0, 0);
+                for (int x = 0; x <= 3; x++) for (int y = 1; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(4 + x, y, 10)), Blocks.AIR.defaultBlockState(), 2 | 16);
+                com.claudemod.entity.life.PortalMap.net(c).portals.clear(); pass(stage, t, "into the Nether on his own plan with no gold piece"); }
+            else if (t[0] == 20 * 40) check(false, "gold: not through in 40 s on his own plan (last " + c.lastSkillLine + ", queue " + c.skillQueue + ")");
+        }
         return true;
     }
     private static boolean st494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

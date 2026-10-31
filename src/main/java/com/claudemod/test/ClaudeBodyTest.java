@@ -8008,6 +8008,22 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
+        if (stage[0] == 500) { // build_portal with lava down here and no obsidian (live 06:43 World 15: one obsidian per 16-20 s, pour and wait for the drain each block): the frame's 10 made the user's way, at a diamond pick's pace (9.4 s a block: 10 in 150 s with the moves)
+            if (t[0] == 1) { lwReset(c); com.claudemod.director.ClaudeLife.lavaSeen(c).clear(); com.claudemod.director.ClaudeLife.obsTestReset(c); com.claudemod.entity.life.Watchdog.reset(c); }
+            if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
+            if (t[0] == 10) {
+                esStart(c, h, level, mock, new BlockPos(3, 2, 7), new BlockPos(1, 2, 14));
+                for (int x = 8; x <= 10; x++) for (int z = 6; z <= 8; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.LAVA.defaultBlockState(), 3); level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), Blocks.LAVA.defaultBlockState(), 3); com.claudemod.director.ClaudeLife.lavaSeen(c).add(h.absolutePos(new BlockPos(x, 1, z)).immutable()); }
+                c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.WATER_BUCKET)); c.getInventory().add(new ItemStack(Items.BREAD, 4)); c.getInventory().add(new ItemStack(Items.FLINT_AND_STEEL));
+            }
+            if (t[0] == 20) { com.claudemod.director.ClaudeLife.obsTestPortalMaking(true); com.claudemod.director.ClaudeLife.command(c, mock[0], steps1("make_obsidian", "obsidian", 10, "near_you"), "the portal's obsidian", "replace"); } // (build_portal's own step, as it runs: make_obsidian with the portal's flag set)
+            if (t[0] > 20) {
+                int have = c.inventory.count(x -> x.is(Items.OBSIDIAN));
+                if (have >= 10) { int secs = (t[0] - 20) / 20; c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear(); c.commandActive = false; com.claudemod.director.ClaudeLife.obsTestReset(c); com.claudemod.director.ClaudeLife.obsTestPortalMaking(false); pass(stage, t, "the portal's 10 obsidian made in " + secs + " s (last: " + c.lastSkillLine + ")"); }
+                else if (t[0] > 20 + 20 * 150) { com.claudemod.director.ClaudeLife.obsTestPortalMaking(false); check(false, "portal obsidian: " + have + " of 10 in 150 s (a diamond pick's pace is 9.4 s a block): last " + c.lastSkillLine); }
+            }
+            return true;
+        }
         if (stage[0] == 499) { // at his furnace with his own pickups and a replant still queued (a tree just felled): those while it cooks, then the furnace; no new tree pushing them back (live 06:00 World 15: chop drops left, saplings never replanted)
             BlockPos fur = h.absolutePos(new BlockPos(5, 2, 7)), me = h.absolutePos(new BlockPos(6, 2, 7)), sap = h.absolutePos(new BlockPos(3, 2, 3)), tree = h.absolutePos(new BlockPos(12, 2, 12));
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.OAK_SAPLING, 2)); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(1000);

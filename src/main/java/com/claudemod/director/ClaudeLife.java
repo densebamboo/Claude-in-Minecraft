@@ -9635,7 +9635,7 @@ public final class ClaudeLife {
                 }
                 g.tasks.add(new Task.Pickup(20)); again.run(); return "picking up the obsidian at " + dp.toShortString() + " (" + have + " on me, try " + obsPickups + ")"; } } // (into the hole it fell in: the pickup alone never stepped down into one)
         if (have >= want) { obsClimbPlan = null; return null; }
-        if (obsMaking && !portalMaking) { String tq = com.claudemod.entity.life.LessonWords.technique(g, level, want, again); if (tq != null) return tq; } // the user's way: a pocket at the lava's level, his water in it, the obsidian it makes mined from in it, layer by layer
+        if (obsMaking || portalMaking) { String tq = com.claudemod.entity.life.LessonWords.technique(g, level, want, again); if (tq != null) return tq; } // (the portal's obsidian too: live 06:43 World 15 build_portal made it the old way, pour, drain, one block per 16-20 s, "the water draining off before the next block" 42 times in 74 s) // the user's way: a pocket at the lava's level, his water in it, the obsidian it makes mined from in it, layer by layer
         { String up = obsClimbStep(g, level, again); if (up != null) return up; }
         if (g.isInWater() && !level.getFluidState(g.blockPosition()).isSource() && obsSteps < 30 && com.claudemod.entity.life.LessonWords.draining(g, level)) { /* (a source never drains: the user's pocket, 15:52 he waited on it forever) */ obsSteps++; g.tasks.add(new Task.Wait(10, false)); again.run(); return "the water draining off before the next block"; } // (a flow pushes him off his spot, and mining stood in water makes the dig plug where the water comes in: his opening)
         // 4. lava he knows of out of sight (the plug his mine put in where a branch hit it): opened toward him, the head-high cell first, the water ready
@@ -9745,6 +9745,8 @@ public final class ClaudeLife {
     static final int LAVA_LEVEL = -55;
     private static java.util.Set<BlockPos> obsNoStand; static java.util.Set<BlockPos> obsNoStand() { if (obsNoStand == null) obsNoStand = new java.util.HashSet<>(); return obsNoStand; }
     /** A test's clean slate for the obsidian runs (the statics outlive a stage: a "nothing came of it" two stages back kept build_portal off the lava). */
+    /** (tests: the portal's obsidian run, as build_portal sets it going) */
+    public static void obsTestPortalMaking(boolean on) { portalMaking = on; }
     public static void obsTestReset(ClaudeEntity g) { portalSiteReset(g); obsMinedAt = null; obsWaterFirst = false; obsLost = 0; obsMinedN = 0; obsMaking = false; if (obsOwed != null) obsOwed.clear(); obsMeantLookAt = null; meantSaid = null; obsRouteTo = null; obsApproachFrom = null; obsDryAt = -100000; obsReset(); obsClimbPlan = null; obsClimbed().clear(); lavaHunts.remove(g.getUUID()); portalMaking = false; }
     private static java.util.Set<BlockPos> obsClimbed;
     static java.util.Set<BlockPos> obsClimbed() { if (obsClimbed == null) obsClimbed = new java.util.HashSet<>(); return obsClimbed; }

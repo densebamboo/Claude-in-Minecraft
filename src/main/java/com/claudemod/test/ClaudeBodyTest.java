@@ -8008,6 +8008,21 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
+        if (stage[0] == 499) { // at his furnace with his own pickups and a replant still queued (a tree just felled): those while it cooks, then the furnace; no new tree pushing them back (live 06:00 World 15: chop drops left, saplings never replanted)
+            BlockPos fur = h.absolutePos(new BlockPos(5, 2, 7)), me = h.absolutePos(new BlockPos(6, 2, 7)), sap = h.absolutePos(new BlockPos(3, 2, 3)), tree = h.absolutePos(new BlockPos(12, 2, 12));
+            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.OAK_SAPLING, 2)); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(1000);
+                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 2; y <= 12; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+                for (int y = 0; y < 5; y++) level.setBlock(tree.above(y), Blocks.OAK_LOG.defaultBlockState(), 2); for (int x = -2; x <= 2; x++) for (int z = -2; z <= 2; z++) for (int y = 3; y <= 5; y++) if (level.getBlockState(tree.offset(x, y, z)).isAir()) level.setBlock(tree.offset(x, y, z), Blocks.OAK_LEAVES.defaultBlockState().setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true), 2);
+                level.setBlock(fur, Blocks.FURNACE.defaultBlockState(), 3); c.myStations.add(fur);
+                if (level.getBlockEntity(fur) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fb) { fb.setItem(0, new ItemStack(Items.RAW_IRON, 16)); fb.setItem(1, new ItemStack(Items.COAL, 4)); }
+                c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+                var it = new net.minecraft.world.entity.item.ItemEntity(level, sap.getX() + 0.5, sap.getY() + 0.1, sap.getZ() + 0.5, new ItemStack(Items.OAK_LOG, 3), 0, 0, 0); level.addFreshEntity(it); }
+            if (t[0] == 40) { c.tasks.add(new Task.FurnaceTake(fur)); c.tasks.add(new Task.Pickup(100)); c.tasks.add(new Task.Replant(sap)); }
+            if (t[0] > 40 && (c.currentTask instanceof Task.ChopTree || c.tasks.stream().anyMatch(q -> q instanceof Task.ChopTree))) check(false, "furnace: a new tree taken on while his own pickup and replant waited: now " + c.currentTask + ", queue " + c.tasks);
+            if (t[0] > 40 && level.getBlockState(sap).is(Blocks.OAK_SAPLING)) { int at = t[0]; c.tasks.clear(); c.dropCurrent = true; c.myStations.remove(fur); level.setBlock(fur, Blocks.AIR.defaultBlockState(), 3); pass(stage, t, "his pickup and replant while it cooked, no new tree, " + (at - 40) + " ticks"); }
+            else if (t[0] == 900) check(false, "furnace: the sapling not back in 43 s (now " + c.currentTask + ", queue " + c.tasks + ")");
+            return true;
+        }
         if (stage[0] == 498) { // a craft short of what it's made of, twice the same: the next way is obtain (the chain: smelt, mine, then craft), not the bare craft again (live World 15: iron_pickaxe with raw iron on him, diamond_leggings with 5 of 7 diamonds); "no building blocks" gets cobble first
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.failCount.clear(); c.skillQueue.clear(); }
             if (t[0] == 5) {

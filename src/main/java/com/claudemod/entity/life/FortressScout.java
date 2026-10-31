@@ -59,6 +59,8 @@ public final class FortressScout {
     public static void reset(ClaudeEntity g) { if (states != null) states.remove(g.getUUID()); }
     public static List<Leg> legs(ClaudeEntity g) { return state(g).legs; }
     public static BlockPos found(ClaudeEntity g) { return state(g).found; }
+    /** (tests) */
+    public static void foundTest(ClaudeEntity g, BlockPos p) { state(g).found = p == null ? null : p.immutable(); }
     public static int phase(ClaudeEntity g) { return state(g).phase; }
     public static Direction heading(ClaudeEntity g) { return state(g).dir; }
     public static BlockPos legTo(ClaudeEntity g) { return state(g).legTo; }

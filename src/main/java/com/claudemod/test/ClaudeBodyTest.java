@@ -8009,6 +8009,28 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
+        if (stage[0] == 507) { // in the Nether with a fortress found, them in the overworld (live 10:47 World 15: "go_to fortress" failed as "they're in another world"): the place he knows in his own world; go_to them still says they're elsewhere
+            ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+            if (t[0] == 1) { lwReset(c); com.claudemod.entity.life.FortressScout.reset(c); }
+            if (t[0] == 5) {
+                BlockPos at = new BlockPos(0, 100, 0), fort = new BlockPos(30, 100, 10);
+                for (int x = -2; x <= 34; x++) for (int z = -2; z <= 12; z++) { nether.setBlock(new BlockPos(x, 99, z), Blocks.NETHERRACK.defaultBlockState(), 2); for (int y = 100; y <= 103; y++) nether.setBlock(new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+                c.teleportTo(nether, at.getX() + 0.5, at.getY(), at.getZ() + 0.5, 0, 0);
+                com.claudemod.entity.life.FortressScout.foundTest(c, fort);
+            }
+            if (t[0] == 15) {
+                check(c.level() == nether && mock[0].level() == level, "setup: him in " + c.level().dimension().location() + ", them in " + mock[0].level().dimension().location());
+                c.tasks.clear();
+                String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "go_to", "fortress", 1);
+                check(r != null && r.startsWith("heading to the fortress I found") && c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo), "go_to fortress in the Nether: \"" + r + "\" (tasks " + c.tasks + ")");
+                c.tasks.clear();
+                String r2 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "go_to", "you", 1);
+                check(r2 != null && r2.startsWith("failed: they're in another world"), "go_to them across worlds: \"" + r2 + "\"");
+                c.tasks.clear(); com.claudemod.entity.life.FortressScout.reset(c); BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(level, back.getX() + 0.5, back.getY(), back.getZ() + 0.5, 0, 0);
+                pass(stage, t, "\"" + r + "\"; them: \"" + r2 + "\"");
+            }
+            return true;
+        }
         if (stage[0] == 506) { // enter_portal then blaze_rods (live 10:27 World 15: "stepping into portal #4" taken for there, find_fortress and blaze_rods run in the overworld): done only once he's through; never a Nether step in the overworld
             ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
             if (t[0] == 1) { lwReset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); wdRuns = 0; wdSaid = ""; }

@@ -2217,6 +2217,7 @@ public final class ClaudeBodyTest {
         com.claudemod.entity.life.TempLedger.reset(c);
         com.claudemod.director.Errand.reset(c);
         com.claudemod.entity.life.PortalMap.enterReset(c);
+        com.claudemod.entity.life.Watchdog.reset(c); // (his last gear and spot: a stage's own resets aren't losses or moves)
         com.claudemod.director.Structures.testPieces().clear(); com.claudemod.director.ClaudeLife.gateReset(c); // (a stage's own structure pieces; the gear gate's memory)
     }
 
@@ -10344,6 +10345,7 @@ public final class ClaudeBodyTest {
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
             case 494: return st494(stage, t, c, h, level, mock);
+            case 519: return st519(stage, t, c, h, level, mock);
             case 518: return st518(stage, t, c, h, level, mock);
             case 517: return st517(stage, t, c, h, level, mock);
             case 516: return st516(stage, t, c, h, level, mock);
@@ -10431,6 +10433,42 @@ public final class ClaudeBodyTest {
         if (t[0] == 120) { if (hzMob != null) hzMob.discard(); hzMob = null; for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.projectile.LargeFireball.class, c.getBoundingBox().inflate(64))) e.discard(); c.getInventory().clearContent();
             check(com.claudemod.entity.goals.WorkGoal.fireballsHit >= 1 && hzLow >= 20, "fireball: hit back " + com.claudemod.entity.goals.WorkGoal.fireballsHit + " time(s), low " + hzLow);
             pass(stage, t, "the fireball hit back, never hurt"); }
+        return true;
+    }
+    private static int wiN; private static java.util.List<String> wiSeen = new java.util.ArrayList<>(); private static int wiFightT = -1;
+    private static boolean st519(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // the incident detectors (the user: "make the watchdog more robust ... so you can piece together more context"): a fight that lands nothing, gear gone, health falling, a step result straight back, a move nothing planned; each logged once with its context, the fight broken off
+        BlockPos me = h.absolutePos(new BlockPos(7, 2, 3));
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); flatBox(h); if (hzMob != null) hzMob.discard(); hzMob = null; wiSeen.clear(); wiFightT = -1; c.nextPlanTick = c.tickCount + 20 * 600;
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+        if (t[0] == 2) wiN = com.claudemod.entity.life.Watchdog.incidents;
+        if (com.claudemod.entity.life.Watchdog.incidents != wiN) { wiN = com.claudemod.entity.life.Watchdog.incidents; String k = com.claudemod.entity.life.Watchdog.lastIncident; wiSeen.add("t" + t[0] + " " + k); if (k.startsWith("FIGHT NO EFFECT") && wiFightT < 0) wiFightT = t[0]; }
+        if (t[0] == 10) { // a zombie he can't hurt, right by him, held still: every swing lands nothing
+            var z = EntityType.ZOMBIE.create(level); BlockPos zp = me.east(2); z.moveTo(zp.getX() + 0.5, zp.getY(), zp.getZ() + 0.5, 90, 0); z.setNoAi(true); z.setInvulnerable(true); z.setPersistenceRequired(); level.addFreshEntity(z); hzMob = z;
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.tasks.add(new Task.Attack(z.getUUID(), 20 * 60)); }
+        if (t[0] == 420) {
+            check(wiFightT > 0, "fight: 20 s swinging at a zombie that takes nothing, no FIGHT NO EFFECT (seen: " + wiSeen + ")");
+            check(wiFightT >= 10 + 20 * 15, "fight: called no effect after " + (wiFightT - 10) / 20 + " s (want 15+)");
+            check(wiSeen.stream().filter(x -> x.contains("FIGHT NO EFFECT")).count() == 1, "fight: no-effect said more than once: " + wiSeen);
+            if (hzMob != null) hzMob.discard(); hzMob = null; c.tasks.clear(); c.dropCurrent = true; }
+        if (t[0] == 430) c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+        if (t[0] == 470) { for (int i = 0; i < c.getInventory().getContainerSize(); i++) if (c.getInventory().getItem(i).is(Items.IRON_PICKAXE)) c.getInventory().setItem(i, ItemStack.EMPTY); }
+        if (t[0] == 500) check(wiSeen.stream().anyMatch(x -> x.contains("GEAR GONE: 1 iron_pickaxe")), "gear: his iron pick vanished, no GEAR GONE (seen: " + wiSeen + ")");
+        if (t[0] == 505) { var worn = new ItemStack(Items.IRON_SHOVEL); worn.setDamageValue(worn.getMaxDamage() - 3); c.getInventory().add(worn); } // (one about to wear out: its breaking is no loss)
+        if (t[0] == 545) for (int i = 0; i < c.getInventory().getContainerSize(); i++) if (c.getInventory().getItem(i).is(Items.IRON_SHOVEL)) c.getInventory().setItem(i, ItemStack.EMPTY);
+        if (t[0] == 550) c.setHealth(20f);
+        if (t[0] == 575) c.setHealth(13f);
+        if (t[0] == 610) { check(wiSeen.stream().noneMatch(x -> x.contains("iron_shovel")), "gear: a worn-out shovel breaking read as a loss: " + wiSeen);
+            check(wiSeen.stream().anyMatch(x -> x.contains("HEALTH FALLING")), "health: 20 -> 13 with no flee or eat, no HEALTH FALLING (seen: " + wiSeen + ")"); c.setHealth(20f); }
+        if (t[0] == 620) { com.claudemod.entity.life.Watchdog.quickReturn(c, "collect beef -> no beef in sight"); com.claudemod.entity.life.Watchdog.quickReturn(c, "craft bread -> crafted"); com.claudemod.entity.life.Watchdog.quickReturn(c, "collect beef -> no beef in sight");
+            check(wiSeen.stream().noneMatch(x -> x.contains("INSTANT REPEAT")), "quick: two lines in turn read as a repeat");
+            for (int i = 0; i < 3; i++) com.claudemod.entity.life.Watchdog.quickReturn(c, "collect beef -> no beef in sight");
+            check(wiSeen.stream().anyMatch(x -> x.contains("INSTANT REPEAT")) || com.claudemod.entity.life.Watchdog.lastIncident.startsWith("INSTANT REPEAT"), "quick: the same line 3 times in a tick, no INSTANT REPEAT"); }
+        if (t[0] == 640) c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 8.5); // (nothing of his moved him)
+        if (t[0] == 660) check(wiSeen.stream().anyMatch(x -> x.contains("UNPLANNED MOVE")), "move: 8 blocks in a tick, no UNPLANNED MOVE (seen: " + wiSeen + ")");
+        if (t[0] == 760) { com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); } // (his own catch-up move)
+        if (t[0] == 780) {
+            check(wiSeen.stream().filter(x -> x.contains("UNPLANNED MOVE")).count() == 1, "move: his own catch-up teleport read as unplanned: " + wiSeen);
+            pass(stage, t, wiSeen.size() + " incidents: " + wiSeen.stream().map(x -> x.length() > 70 ? x.substring(0, 70) + "..." : x).toList()); }
         return true;
     }
     private static boolean st518(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // iron gear on him and a smelt for iron nuggets (live 13:17 World 15: "smelting 2 iron_sword in 1 furnace at once" for a shield): his gear never goes in; no plan through it

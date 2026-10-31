@@ -180,6 +180,7 @@ public final class ClaudeLife {
                 g.skillQueue.clear();                    // the plan no longer holds; think again at once (a failure stood him idle 15 s each time; the plan gap, spinning() and planRepeats catch the loops)
                 g.nextPlanTick = result.startsWith("failed") ? Math.max(g.tickCount, g.planStartTick + PLAN_GAP_TICKS) : g.tickCount;
             }
+            try { com.claudemod.entity.life.Watchdog.quickReturn(g, line); } catch (RuntimeException e) { ClaudeMod.LOGGER.warn("[Claude watchdog] quickReturn threw", e); }
             try { com.claudemod.entity.life.Watchdog.skillRan(g, step, result); } catch (RuntimeException e) { ClaudeMod.LOGGER.warn("[Claude watchdog] skillRan threw on {}", line, e); } // the same failure again with nothing changed: the next way, then them told
             return;
         }
@@ -12636,6 +12637,7 @@ public final class ClaudeLife {
         BlockPos spot = spotNear(player.serverLevel(), player, min, max);
         if (spot == null) return false;
         g.getNavigation().stop();
+        com.claudemod.entity.life.Watchdog.teleported(g);
         g.teleportTo(spot.getX() + 0.5, spot.getY(), spot.getZ() + 0.5);
         return true;
     }

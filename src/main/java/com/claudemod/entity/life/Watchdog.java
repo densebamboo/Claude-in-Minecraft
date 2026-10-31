@@ -48,12 +48,19 @@ public final class Watchdog {
         Task started; int startTick, startBroken, startItems; double startDist; // the action now running, as it began
         int broken;                                          // blocks he's broken (ClaudeLife.noteBroken)
         String pending;                                      // a line to say on the next ClaudeLife tick (it has the player)
+        final java.util.ArrayDeque<double[]> samples = new java.util.ArrayDeque<>(); // {tick, x, y, z, health, food, fire ticks}, one a second, the last 60
+        double px = Double.NaN, py, pz; int pTick; Object pDim; int handOff = -100000; // (the last tick he was handing things over: give, a chest, a deposit)          // his position last tick (the silent-move check)
+        java.util.UUID atkTarget; int atkSince; float atkHp; // the fight under way: whom, since when, its health then
+        int lastFall = -100000, lastNoEffect = -100000, lastMove = -100000; // (each detector says so at most every 30 s)
+        java.util.Map<String, Integer> gear;                 // his important gear by item, a second ago
+        String quickLine; int quickTick, quickN;             // a skill line coming straight back
         String lastTold = ""; int lastTellTick = -1;                                // (stages read it)
         int trips;
     }
     private static final Map<UUID, St> ST = new HashMap<>();
     private static St st(ClaudeEntity g) { return ST.computeIfAbsent(g.getUUID(), k -> new St()); }
     public static void reset(ClaudeEntity g) { ST.remove(g.getUUID()); }
+    public static int incidents; public static String lastIncident = ""; // (stages read them)
     public static String lastTold(ClaudeEntity g) { St s = ST.get(g.getUUID()); return s == null ? "" : s.lastTold; }
     public static int trips(ClaudeEntity g) { St s = ST.get(g.getUUID()); return s == null ? 0 : s.trips; }
     public static int rung(ClaudeEntity g, String key) { St s = ST.get(g.getUUID()); int[] r = s == null ? null : s.rung.get(key); return r == null || g.tickCount - r[1] > MEMORY ? 0 : r[0]; }
@@ -175,6 +182,7 @@ public final class Watchdog {
         St s = st(g); s.trips++;
         String what = ClaudeChat_describe(g, t) + ": " + how;
         ClaudeMod.LOGGER.info("[Claude watchdog] TRIP {}: {}", k, what);
+        incident(g, "TRIP", k + ": " + what);
         s.what.put(k, what);
         mark(g, t);
         climb(g, t, k, what);
@@ -299,6 +307,102 @@ public final class Watchdog {
     }
 
     private static String ClaudeChat_describe(ClaudeEntity g, Task t) { try { return com.claudemod.director.ClaudeChat.describe(g, t); } catch (RuntimeException e) { return t.getClass().getSimpleName(); } }
+
+    // ---------------------------------------------------------------- the every-tick detectors (WorkGoal.reflexes: any state)
+
+    /** Important gear: iron or better tools, weapons and armor, a shield, a bow, flint and steel (the user's important-gear rule). One about to wear out isn't counted: its breaking is no loss to report. */
+    static boolean important(net.minecraft.world.item.ItemStack st) {
+        if (st.isEmpty()) return false;
+        String id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(st.getItem()).getPath();
+        if (st.isDamageableItem() && st.getMaxDamage() - st.getDamageValue() < st.getMaxDamage() / 10) return false;
+        if (st.isDamageableItem()) return id.startsWith("iron_") || id.startsWith("diamond_") || id.startsWith("netherite_") || id.equals("shield") || id.equals("bow") || id.equals("crossbow") || id.equals("flint_and_steel");
+        return false; // (diamonds, rods, pearls, eyes and buckets get used up in crafts and throws: no telling a loss from a use)
+    }
+    private static java.util.Map<String, Integer> gearOf(ClaudeEntity g) {
+        java.util.Map<String, Integer> m = new java.util.TreeMap<>();
+        for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { var st = g.inventory.items.getItem(i); if (important(st)) m.merge(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(st.getItem()).getPath(), st.getCount(), Integer::sum); }
+        for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) { var st = g.getItemBySlot(sl); if (sl.isArmor() && important(st)) m.merge(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(st.getItem()).getPath(), st.getCount(), Integer::sum); }
+        return m;
+    }
+
+    /** Every tick, from the hazard layer: what no single task watches. */
+    public static void tick(ClaudeEntity g) {
+        if (!g.isAlive()) return;
+        St s = st(g);
+        // 1. a move no planned move made: more than 3 blocks in one tick (a knock, a fall through, an unlogged teleport)
+        if (!Double.isNaN(s.px) && g.tickCount == s.pTick + 1 && g.level().dimension() == s.pDim) { // (a portal trip is a planned move)
+            double d = Math.sqrt(Math.pow(g.getX() - s.px, 2) + Math.pow(g.getY() - s.py, 2) + Math.pow(g.getZ() - s.pz, 2));
+            if (d > 3 && com.claudemod.entity.nav.Leaps.control(g) == null && g.tickCount - s.lastMove > 20 * 5) { s.lastMove = g.tickCount; incident(g, "UNPLANNED MOVE", String.format("%.1f blocks in one tick, from %.1f %.1f %.1f to %.1f %.1f %.1f, doing %s", d, s.px, s.py, s.pz, g.getX(), g.getY(), g.getZ(), g.currentTask == null ? "-" : g.currentTask.getClass().getSimpleName())); }
+        }
+        s.px = g.getX(); s.py = g.getY(); s.pz = g.getZ(); s.pTick = g.tickCount; s.pDim = g.level().dimension();
+        if (g.currentTask instanceof Task.Toss || g.currentTask instanceof Task.Chest || g.currentTask instanceof Task.Deposit) s.handOff = g.tickCount;
+        if (g.tickCount % 20 != 0) return;
+        s.samples.addLast(new double[] {g.tickCount, g.getX(), g.getY(), g.getZ(), g.getHealth(), g.getFoodData().getFoodLevel(), g.getRemainingFireTicks()});
+        while (s.samples.size() > 60) s.samples.pollFirst();
+        // 2. health falling 5+ in 10 s with no answer to it (not running, not eating)
+        double[] ten = null; for (double[] x : s.samples) if (g.tickCount - x[0] <= 20 * 10) { ten = x; break; }
+        if (ten != null && ten[4] - g.getHealth() >= 5 && !(g.currentTask instanceof Task.Flee) && !(g.currentTask instanceof Task.Eat) && g.tickCount - s.lastFall > 20 * 30) { s.lastFall = g.tickCount; incident(g, "HEALTH FALLING", String.format("%.0f -> %.0f in %d s, no flee or eat (doing %s, on fire %s, in lava %s)", ten[4], g.getHealth(), (g.tickCount - (int) ten[0]) / 20, g.currentTask == null ? "-" : g.currentTask.getClass().getSimpleName(), g.isOnFire(), g.isInLava())); }
+        // 3. a fight with no effect: 15 s in an attack, its target no worse off
+        if (g.currentTask instanceof Task.Attack a && g.level() instanceof ServerLevel sl && sl.getEntity(a.target()) instanceof net.minecraft.world.entity.LivingEntity foe) {
+            if (!a.target().equals(s.atkTarget)) { s.atkTarget = a.target(); s.atkSince = g.tickCount; s.atkHp = foe.getHealth(); }
+            else if (foe.getHealth() < s.atkHp) { s.atkHp = foe.getHealth(); s.atkSince = g.tickCount; }
+            else if (g.tickCount - s.atkSince > 20 * 15 && g.tickCount - s.lastNoEffect > 20 * 30) { s.lastNoEffect = g.tickCount; incident(g, "FIGHT NO EFFECT", "15 s attacking a " + foe.getType().getDescription().getString() + " " + String.format("%.1f", foe.distanceTo(g)) + " off, not a hit landed (it's at " + (int) foe.getHealth() + "): breaking it off"); g.dropCurrent = true; s.atkTarget = null; }
+        } else s.atkTarget = null;
+        // 4. important gear gone with no death (smelted, dropped, broken)
+        var now = gearOf(g);
+        if (s.gear != null && g.tickCount - s.handOff > 40) { java.util.List<String> lost = new java.util.ArrayList<>(); for (var e : s.gear.entrySet()) { int left = now.getOrDefault(e.getKey(), 0); if (left < e.getValue()) lost.add((e.getValue() - left) + " " + e.getKey()); } if (!lost.isEmpty()) incident(g, "GEAR GONE", String.join(", ", lost) + " (doing " + (g.currentTask == null ? "-" : g.currentTask.getClass().getSimpleName()) + ", step " + (g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target()) + ")"); }
+        s.gear = now;
+    }
+
+    /** A skill line coming straight back (under 1 s, 3 times running): it returns at once and is queued again (live 12:30 World 15 "collect beef" 9 times in 2 s). */
+    public static void quickReturn(ClaudeEntity g, String line) {
+        St s = st(g);
+        if (line.equals(s.quickLine) && g.tickCount - s.quickTick < 20) s.quickN++; else s.quickN = 1;
+        s.quickLine = line; s.quickTick = g.tickCount;
+        if (s.quickN == 3) incident(g, "INSTANT REPEAT", "the same step result 3 times inside a second each: " + line);
+    }
+
+    /** A move his own code made (the catch-up teleport): not an unplanned one. */
+    public static void teleported(ClaudeEntity g) { st(g).px = Double.NaN; }
+
+    /** A death: the incident with its last minute. */
+    public static void death(ClaudeEntity g, String how) { incident(g, "DEATH", how); }
+
+    /**
+     * One self-contained incident block (the user: "account for more scenarios so you can piece together more context"): where,
+     * how he's been, what he was doing and why, what's about him, his recent log. To the log, one [Claude incident] line pointing
+     * at it, and to saves/<world>/claude/incidents/<time>.txt.
+     */
+    public static void incident(ClaudeEntity g, String kind, String why) {
+        StringBuilder b = new StringBuilder();
+        var lv = g.level(); BlockPos at = g.blockPosition();
+        b.append("INCIDENT ").append(kind).append(": ").append(why).append('\n');
+        b.append("when: tick ").append(g.tickCount).append(", day time ").append(lv.getDayTime() % 24000).append('\n');
+        b.append("where: ").append(lv.dimension().location()).append(' ').append(at.toShortString()).append(", under him ").append(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(lv.getBlockState(at.below()).getBlock()).getPath()).append(g.isInLava() ? ", IN LAVA" : "").append(g.isOnFire() ? ", on fire" : "").append('\n');
+        St s = st(g); StringBuilder tr = new StringBuilder();
+        for (double[] x : s.samples) if (g.tickCount - x[0] <= 20 * 30) tr.append(String.format(" %ds: hp %.0f food %.0f fire %.0f at %.0f %.0f %.0f;", (int) (x[0] - g.tickCount) / 20, x[4], x[5], x[6], x[1], x[2], x[3]));
+        b.append("last 30 s:").append(tr.length() == 0 ? " -" : tr).append('\n');
+        b.append("goal: ").append(g.goal == null ? "-" : g.goal).append("; their goal: ").append(g.playerGoal == null ? "-" : g.playerGoal).append("; on their job: ").append(g.commandActive).append(g.staying ? "; STAYING (their hold)" : "").append('\n');
+        b.append("step: ").append(g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target()).append("; last line: ").append(g.lastSkillLine == null ? "-" : g.lastSkillLine).append("; plan: ").append(g.skillQueue).append('\n');
+        b.append("task: ").append(g.currentTask == null ? "-" : g.currentTask).append(" (age ").append(g.work == null ? "?" : g.work.taskAge()).append("t); queue ").append(g.tasks.size()).append(": ").append(g.tasks.stream().limit(6).toList()).append('\n');
+        StringBuilder mobs = new StringBuilder();
+        for (var m : Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(24), x -> x.isAlive() && x instanceof net.minecraft.world.entity.monster.Enemy)) mobs.append(' ').append(m.getType().getDescription().getString()).append(String.format(" %.0f off%s;", m.distanceTo(g), g.hasLineOfSight(m) ? " in sight" : ""));
+        b.append("hostiles known within 24:").append(mobs.length() == 0 ? " none" : mobs).append('\n');
+        b.append("watchdog: ").append(s.trips).append(" trip(s); tripped: ").append(s.rung.keySet()).append("; told: ").append(s.lastTold.isEmpty() ? "-" : s.lastTold).append('\n');
+        b.append(MindLog.recent());
+        String text = b.toString();
+        incidents++; lastIncident = kind + ": " + why;
+        String file = "-";
+        if (!com.claudemod.entity.ClaudeSpawner.testing && g.getServer() != null) {
+            try {
+                java.nio.file.Path dir = g.getServer().getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("claude").resolve("incidents");
+                java.nio.file.Files.createDirectories(dir);
+                java.nio.file.Path f = dir.resolve(java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + "-" + kind.toLowerCase().replace(' ', '_') + ".txt");
+                java.nio.file.Files.writeString(f, text); file = f.toString();
+            } catch (Exception e) { file = "unwritten (" + e.getClass().getSimpleName() + ")"; }
+        }
+        ClaudeMod.LOGGER.info("[Claude incident] {}: {} (file {})\n{}", kind, why, file, text);
+    }
 
     /** Self-check of the pure parts. */
     public static void main(String[] a) {

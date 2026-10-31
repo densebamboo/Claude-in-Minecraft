@@ -10775,6 +10775,8 @@ public final class ClaudeLife {
     }
 
     /** Queues the reconcile tasks for rows [from, to] (digs, then the shell row by row, then the torches), at the back or the front. The count queued. */
+    /** Ore whose drop needs a better pick than any he carries (copper for a wooden pick, diamond for stone). */
+    public static boolean pastHisPick(ClaudeEntity g, ServerLevel level, BlockPos p) { BlockState s = level.getBlockState(p); return MineBlueprint.ore(s) && s.requiresCorrectToolForDrops() && g.inventory.find(x -> x.isCorrectToolForDrops(s)).isEmpty(); }
     public static int bpReconcile(ClaudeEntity g, ServerLevel level, int from, int to, boolean front) {
         MineBlueprint b = g.blueprint; if (b == null || b.isEmpty()) return 0;
         List<Task> ts = b.reconcile(level, from, to);
@@ -10788,6 +10790,7 @@ public final class ClaudeLife {
         ts.removeIf(t -> nookKeeps(g, level, t));
         ts.removeIf(t -> t instanceof Task.Place p0 && sealHeld(g, level, p0.pos())); // (the vein and the drops behind a hole first: 12:14 his upkeep sealed 3 diamond ore and a diamond in)
         ts.removeIf(t -> t instanceof Task.Place p0 && planPutsBack(g, p0.pos())); // (their swap through his shell: the plan's own place_at patches it; his round patched it between the dig and its check, "the cobblestone is still there")
+        { int n0 = ts.size(); ts.removeIf(t -> t instanceof Task.Break br && pastHisPick(g, level, br.pos())); if (ts.size() < n0) nookSay(g, "pick" + g.tickCount / (20 * 60), "[Claude life] his mine plan: " + (n0 - ts.size()) + " ore dig(s) past his pick left for later (ClaudeLife.bpReconcile)"); } // (live 03:18 World 15: copper queued for a wooden pick, refused and re-queued for 3 minutes)
         if (ts.isEmpty()) return 0;
         for (Task t : ts) if (t instanceof Task.Place pl) g.attempts.any.remove(pl.pos()); // a placement that failed its 20 tries, or a walk to it, gets a fresh go each pass (a bridge floor over a cave took a few)
         if (front) { for (int i = ts.size() - 1; i >= 0; i--) g.tasks.addFirst(ts.get(i)); } else g.tasks.addAll(ts);

@@ -8008,6 +8008,25 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
+        if (stage[0] == 495) { // live 03:18 World 15: stone behind copper ore, a wooden pick, the dig re-queued by his mine round: never the copper queued, a few goes at most, then said once (it looped 270 times in 3 min)
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 7)), cu = h.absolutePos(new BlockPos(6, 3, 7)), st = h.absolutePos(new BlockPos(7, 3, 7));
+            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.WOODEN_PICKAXE)); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); wdRuns = 0; wdTold = 0; wdSaid = "";
+                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 2; y <= 8; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+                level.setBlock(cu, Blocks.COPPER_ORE.defaultBlockState(), 2); level.setBlock(st, Blocks.STONE.defaultBlockState(), 2); level.setBlock(st.below(), Blocks.STONE.defaultBlockState(), 2); level.setBlock(cu.below(), Blocks.STONE.defaultBlockState(), 2); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+            if (!com.claudemod.entity.life.Watchdog.lastTold(c).isEmpty() && !com.claudemod.entity.life.Watchdog.lastTold(c).equals(wdSaid)) { wdSaid = com.claudemod.entity.life.Watchdog.lastTold(c); wdTold++; }
+            check(!(c.currentTask instanceof Task.Break b0 && b0.pos().equals(cu)) && c.tasks.stream().noneMatch(q -> q instanceof Task.Break b1 && b1.pos().equals(cu)), "dig loop: the copper (past his wooden pick) queued: " + c.tasks);
+            if (t[0] >= 10 && t[0] % 10 == 0 && t[0] < 400 && c.tasks.isEmpty() && c.currentTask == null) { c.tasks.add(new Task.Break(st)); wdRuns++; } // (his mine round, putting the same dig back)
+            if (t[0] == 400) {
+                int starts = com.claudemod.entity.life.Watchdog.trips(c);
+                check(level.getBlockState(cu).is(Blocks.COPPER_ORE), "dig loop: the copper went with a wooden pick");
+                check(c.attempts.within(com.claudemod.entity.life.Attempts.Kind.BREAK, st, c.tickCount, 20 * 60), "dig loop: the stone behind the copper not on record as refused");
+                check(starts >= 1 && wdTold == 1, "dig loop: the same refused dig queued " + wdRuns + " times in 20 s; watchdog trips " + starts + ", told " + wdTold + " (\"" + wdSaid + "\")");
+                c.tasks.clear(); c.dropCurrent = true; com.claudemod.entity.life.Watchdog.reset(c);
+                for (BlockPos q : new BlockPos[] {cu, st, cu.below(), st.below()}) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2);
+                pass(stage, t, "copper never queued; the stone's dig tried, refused and written off; told once: \"" + wdSaid + "\"");
+            }
+            return true;
+        }
         if (stage[0] == 494) { // a new mine on a 2:1 slope falling south (live 03:16 World 15: down the hillside, a trench open to the sky): looking downhill, he heads into the hill, never down it
             if (t[0] == 5) {
                 for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { int top = 14 - z / 2; for (int y = -3; y <= 22; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y < top ? Blocks.STONE.defaultBlockState() : y == top ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }

@@ -1,0 +1,16 @@
+{
+  "claude.configuration.title": "Claude Configs",
+  "claude.configuration.section.claude.common.toml": "Claude",
+  "claude.configuration.section.claude.common.toml.title": "Claude",
+
+  "claude.configuration.enableLLM": "Enable Claude's AI",
+  "claude.configuration.anthropicApiKey": "Anthropic API Key",
+  "claude.configuration.chatModel": "Chat Model",
+  "claude.configuration.planModel": "Planning Model",
+  "claude.configuration.requestTimeoutMs": "Request Timeout (ms)",
+  "claude.configuration.enableSpawn": "Claude Joins Your World",
+  "claude.configuration.chatCooldownSeconds": "Chat Cooldown (s)",
+  "claude.configuration.debugLogging": "Debug Logging",
+
+  "entity.claude.claude": "Claude"
+}

@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.claudemod.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "ClaudeSkinMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -13,7 +13,7 @@ You are the **Big Picture** builder for the Claude-in-Minecraft mod. It's a NeoF
 
 1. Work on a branch per feature: `bp/<feature>`. Never push to `main`. Day to Day merges.
 2. Run the gate before you push: `bash tools/test_in_copy.sh` with `JAVA_TOOL_OPTIONS="-Dclaude.startStage=N -Dclaude.endStage=M"` per stage group. `bash tools/gate.sh` runs the main groups. Stages leak into each other, so run groups on their own.
-   - Known flaky: 31, 121, 116, 229 (fine alone). Stages 235-236 need 234 first.
+   - Known flaky: 31, 121, 116, 229 (fine alone), 396 (blaze fight, about 2 in 3), 388 (fortress doorway, about 1 in 2; the walk ends at doPlace). Stages 235-236 need 234 first.
    - On Linux the script uses `./gradlew` online and a copy at `$HOME/claude-mod-copies/test`.
 3. For each new behaviour, add a scenario stage in `src/main/java/com/claudemod/test/ClaudeBodyTest.java` that fails without your change. Real failures become permanent stages.
 4. Put a report in the branch, `docs/reports/<feature>.md`, with:

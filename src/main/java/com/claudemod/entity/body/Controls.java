@@ -145,6 +145,15 @@ public final class Controls {
         }
         look.apply(walk);
         net.minecraft.world.level.pathfinder.Path planned = nav.getPath(); net.minecraft.world.level.pathfinder.Node nextNode = planned != null && !planned.isDone() ? planned.getNextNode() : null;
+        if (walk != null && walk.lengthSqr() > 1e-4 && !p.isInLava()) { /* lava ahead is never a step: live 01:05 and 01:22 a spin by the Nether portal walked him into the same lava pocket at -10 70 -5 twice (the lip guard below only knew drops) */
+            Vec3 ld = walk.normalize();
+            for (double reach : new double[] {0.45, 0.9}) {
+                net.minecraft.core.BlockPos ah = net.minecraft.core.BlockPos.containing(p.getX() + ld.x * reach, p.getY() + 0.1, p.getZ() + ld.z * reach);
+                if (ah.equals(p.blockPosition())) continue;
+                boolean lavaAt = p.level().getFluidState(ah).is(net.minecraft.tags.FluidTags.LAVA) || p.level().getFluidState(ah.below()).is(net.minecraft.tags.FluidTags.LAVA) && p.level().getBlockState(ah.below()).getCollisionShape(p.level(), ah.below()).isEmpty();
+                if (lavaAt) { p.setSprinting(false); walk = null; if (p instanceof com.claudemod.entity.ClaudeEntity ce && ce.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] lava ahead at {}: not stepping (Controls.apply)", ah.toShortString()); break; }
+            }
+        }
         boolean safeStep = nextNode != null && nextNode.y >= p.getBlockY() - 3 && Math.abs(nextNode.x + 0.5 - p.getX()) <= 1.6 && Math.abs(nextNode.z + 0.5 - p.getZ()) <= 1.6; // his path's next step is right there and at most 3 down: the pathfinder already judged that fall; the lip check below cut across a corner of a hillside and had him shuffling at the edge (the user)
         if (!safeStep && walk != null && walk.lengthSqr() > 1e-4 && p.onGround() && !p.isInWater() && !jumpNow) { // the lip of a drop that would hurt (4+ blocks, no water below): no walking off it; the step-down rules cut a way instead (falls hurt him now, like anyone)
             Vec3 dir = walk.normalize();

@@ -10344,6 +10344,7 @@ public final class ClaudeBodyTest {
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
             case 494: return st494(stage, t, c, h, level, mock);
+            case 515: return st515(stage, t, c, h, level, mock);
             case 514: return st514(stage, t, c, h, level, mock);
             case 495: return st495(stage, t, c, h, level, mock);
             case 496: return st496(stage, t, c, h, level, mock);
@@ -10378,6 +10379,21 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(level, back.getX() + 0.5, back.getY(), back.getZ() + 0.5, 0, 0);
             pass(stage, t, "\"" + r + "\"");
         }
+        return true;
+    }
+    private static boolean st515(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // attack on sight (live 12:44 World 15: "a Creeper 15 blocks off in sight: after it", blown up at night with skeletons on him): never a creeper; never into two; a lone zombie, yes
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); flatBox(h); level.setDayTime(6000); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 5) {
+            for (net.minecraft.world.item.Item a : new net.minecraft.world.item.Item[] {Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS}) c.setItemSlot(((net.minecraft.world.item.ArmorItem) a).getEquipmentSlot(), new ItemStack(a));
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            BlockPos me = h.absolutePos(new BlockPos(3, 2, 7)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(-90f);
+            var cr = EntityType.CREEPER.create(level); BlockPos cp = h.absolutePos(new BlockPos(11, 2, 7)); cr.moveTo(cp.getX() + 0.5, cp.getY(), cp.getZ() + 0.5, 90, 0); cr.setNoAi(true); level.addFreshEntity(cr); hzMob = cr;
+        }
+        if (t[0] == 10) { com.claudemod.entity.life.Perception.lookNow(c); com.claudemod.director.ClaudeLife.clearOnSightTest(c, mock[0]); check(c.tasks.stream().noneMatch(q -> q instanceof Task.Attack), "on sight: went after a creeper: " + c.tasks); c.tasks.clear();
+            var z1 = EntityType.ZOMBIE.create(level); BlockPos zp = h.absolutePos(new BlockPos(11, 2, 9)); z1.moveTo(zp.getX() + 0.5, zp.getY(), zp.getZ() + 0.5, 90, 0); z1.setNoAi(true); level.addFreshEntity(z1); }
+        if (t[0] == 14) { com.claudemod.entity.life.Perception.lookNow(c); com.claudemod.director.ClaudeLife.clearOnSightTest(c, mock[0]); check(c.tasks.stream().noneMatch(q -> q instanceof Task.Attack), "on sight: went at a zombie with a creeper beside it: " + c.tasks); c.tasks.clear(); if (hzMob != null) hzMob.discard(); hzMob = null; }
+        if (t[0] == 18) { com.claudemod.entity.life.Perception.lookNow(c); com.claudemod.director.ClaudeLife.clearOnSightTest(c, mock[0]); boolean went = c.tasks.stream().anyMatch(q -> q instanceof Task.Attack); c.tasks.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+            check(went, "on sight: a lone zombie by day, geared, let be"); pass(stage, t, "creeper let be, a pair let be, a lone zombie taken on"); }
         return true;
     }
     private static boolean st494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

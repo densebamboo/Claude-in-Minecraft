@@ -12841,6 +12841,8 @@ public final class ClaudeLife {
         boolean sword = g.inventory.count(x -> x.is(Items.IRON_SWORD) || x.is(Items.DIAMOND_SWORD) || x.is(Items.NETHERITE_SWORD)) > 0;
         return armor && sword && Kit.food(g) >= 4 && g.getHealth() >= 16;
     }
+    /** (tests) */
+    public static void clearOnSightTest(ClaudeEntity g, ServerPlayer player) { clearOnSight(g, player); }
     static void clearOnSight(ClaudeEntity g, ServerPlayer player) {
         if (!(g.level() instanceof ServerLevel lv) || g.isSleeping() || g.isInWater() || g.isInLava()) return;
         if (g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee || g.currentTask instanceof Task.Break || g.currentTask instanceof Task.Place || g.currentTask instanceof Task.Pillar || g.currentTask instanceof Task.Leap) return;
@@ -12854,12 +12856,14 @@ public final class ClaudeLife {
             if (m instanceof net.minecraft.world.entity.monster.ZombifiedPiglin) continue;
             if (m instanceof net.minecraft.world.entity.monster.piglin.Piglin && goldOn) continue;
             if (m instanceof net.minecraft.world.entity.monster.Ghast || m instanceof net.minecraft.world.entity.monster.Phantom) continue; // (out of a sword's reach: the bow or the fireball reflex)
+            if (m instanceof net.minecraft.world.entity.monster.Creeper) continue; // never gone after: a creeper in melee is how a player dies (live 12:44 World 15 "after it", 26.8 damage at night with skeletons on him); one that closes in is the hazard layer's
             if (m instanceof net.minecraft.world.entity.monster.EnderMan && !endermanTime(g)) continue; /* the user 01:40: endermen case by case: at the pearl stage and geared, yes; otherwise leave them be */
             if (Math.abs(m.getY() - g.getY()) > 4) continue;
             if (g.distanceToSqr(m) < pd) { pd = g.distanceToSqr(m); prey = m; }
         }
         if (prey == null) return;
-        String unfit = unfitForDrops(g, lv);
+        int inSight = 0; for (var m : com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(16, 5, 16), m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy && !(m instanceof net.minecraft.world.entity.monster.ZombifiedPiglin) && g.hasLineOfSight(m))) inSight++;
+        String unfit = inSight >= 2 ? inSight + " hostiles in sight (crowds are left alone)" : unfitForDrops(g, lv); // (the user's engagement rule: on sight only one on its own)
         if (unfit == null && g.getHealth() < 12) unfit = "health " + (int) g.getHealth();
         if (onSightSaid == null) onSightSaid = new java.util.HashSet<>();
         if (unfit != null) { if (onSightSaid.add(prey.getUUID())) ClaudeMod.LOGGER.info("[Claude fight] a {} {} blocks off in sight: let be, not fit for it ({}) (ClaudeLife.clearOnSight)", prey.getType().getDescription().getString(), (int) Math.sqrt(pd), unfit); return; }

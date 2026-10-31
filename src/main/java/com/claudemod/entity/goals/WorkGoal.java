@@ -168,6 +168,7 @@ public class WorkGoal extends Goal {
         }
         surfacing = false;
         // In lava: out first, everything else waits (he stood 3 s in a lava flow finishing a Place and died, 09:02)
+        if (!g.isInLava() && g.onGround() && g.tickCount % 5 == 0 && g.level().getFluidState(g.blockPosition()).isEmpty()) { BlockPos f0 = g.blockPosition().immutable(); if (!f0.equals(dryCells.peekLast())) { dryCells.addLast(f0); if (dryCells.size() > 12) dryCells.pollFirst(); } } // (the cells he stood dry on lately: the way he came in, known good footing)
         if (g.isInLava()) {
             if (current != null) { clearCrack(); g.tasks.addFirst(current); current = null; g.currentTask = null; }
             var lv = g.level(); BlockPos me = g.blockPosition(), out = null; double bd = Double.MAX_VALUE;
@@ -175,10 +176,13 @@ public class WorkGoal extends Goal {
                 if (!lv.getFluidState(q).isEmpty() || !lv.getFluidState(q.above()).isEmpty()) continue;
                 if (!lv.getBlockState(q).getCollisionShape(lv, q).isEmpty() || !lv.getBlockState(q.above()).getCollisionShape(lv, q.above()).isEmpty()) continue;
                 if (!lv.getBlockState(q.below()).isFaceSturdy(lv, q.below(), Direction.UP)) continue;
-                double d = q.distSqr(me) + (lv.clip(new net.minecraft.world.level.ClipContext(g.getEyePosition(), Vec3.atCenterOf(q), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getType() == net.minecraft.world.phys.HitResult.Type.MISS ? 0 : 50); // (a wall between: last resort)
+                if (lavaOutBad.containsKey(q) && g.tickCount - lavaOutBad.get(q) < 20 * 4) continue; // (a step he couldn't make just now: another way out, never the same failing step till he burns: live 06:53 World 15)
+                double d = q.distSqr(me) + (dryCells.contains(q) ? -6 : 0) + (q.getY() < me.getY() ? 8 : 0) + (lv.clip(new net.minecraft.world.level.ClipContext(g.getEyePosition(), Vec3.atCenterOf(q), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getType() == net.minecraft.world.phys.HitResult.Type.MISS ? 0 : 50); // (a wall between: last resort)
                 if (d < bd) { bd = d; out = q.immutable(); }
             }
-            if (g.tickCount % 20 < 2) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}: getting out{}", me.toShortString(), out == null ? " (no dry cell near: jumping)" : " to " + out.toShortString());
+            if (out != null && !out.equals(lavaOut)) { lavaOut = out; lavaOutSince = g.tickCount; }
+            if (out != null && g.tickCount - lavaOutSince > 30) { lavaOutBad.put(out, g.tickCount); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}: 1.5 s and not onto {}: that way's no good, another (WorkGoal.reflexes)", me.toShortString(), out.toShortString()); lavaOut = null; }
+            if (g.tickCount % 20 < 2) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}: getting out{}", me.toShortString(), out == null ? " (no dry cell near: jumping)" : " to " + out.toShortString() + (dryCells.contains(out) ? " (where he came from)" : ""));
             g.getNavigation().stop();
             if (out != null) { g.getLookControl().faceNow(Vec3.atCenterOf(out)); /* (at once, then the walk: a turn over 4 ticks lost 4 of the ~22 a cell takes in lava drag) */ g.getMoveControl().setWantedPosition(out.getX() + 0.5, out.getY(), out.getZ() + 0.5, 1.3); g.getLookControl().setLookAt(out.getX() + 0.5, out.getY() + 1.0, out.getZ() + 0.5); g.setSprinting(true); }
             g.getJumpControl().jump();
@@ -1753,8 +1757,15 @@ public class WorkGoal extends Goal {
             boolean waterIn = false; for (Direction d : Direction.Plane.HORIZONTAL) { var wf = level.getFluidState(pos.relative(d)); if (wf.is(net.minecraft.tags.FluidTags.WATER)) waterIn = true; } // (a water source beside the opening runs in and makes the lava behind it obsidian: the user's pocket technique, 15:33 the dirt put back undid it)
             if (lv != null && !waterIn && !com.claudemod.director.ClaudeLife.isCastBlock(pos) && !com.claudemod.director.ClaudeLife.obsOpening(g, pos) && !com.claudemod.entity.life.Consent.theirWord(g, pos, "lava running in", "lava came in behind it at " + lv.toShortString(), lv)) {
                 ItemStack fill = g.inventory.find(com.claudemod.entity.life.ClaudeInventory::isBuildingBlock);
-                if (!fill.isEmpty()) g.tasks.addFirst(new Task.Place(pos.immutable(), fill.getItem())); // (next, before anything queued: the pickup walked him into the lava running in)
-                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] lava behind {} as it came out (at {}): {}", pos.toShortString(), lv.toShortString(), fill.isEmpty() ? "nothing to put back, stepping clear" : "the block straight back");
+                boolean plugged = false;
+                if (!fill.isEmpty() && g.hold(st0 -> st0.is(fill.getItem()))) { // the block straight back, this tick, from where he stands: a player's right click, no walk to a stand spot (live 06:53 World 15: the queued placement walked him to a step that never took while the lava came on, and he burned with his whole diamond kit)
+                    for (Direction d0 : Direction.values()) { BlockPos n0 = pos.relative(d0); if (n0.equals(lv) || lv.equals(pos)) continue; var ns0 = level.getBlockState(n0); if (ns0.getCollisionShape(level, n0).isEmpty() || !ns0.getFluidState().isEmpty()) continue;
+                        if (Vec3.atCenterOf(n0).add(d0.getOpposite().getStepX() * 0.5, d0.getOpposite().getStepY() * 0.5, d0.getOpposite().getStepZ() * 0.5).distanceTo(g.getEyePosition()) > 4.5) continue;
+                        if (g.useOn(n0, d0.getOpposite(), true) && !level.getBlockState(pos).getCollisionShape(level, pos).isEmpty()) { plugged = true; break; } }
+                }
+                if (plugged) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] lava behind {} as it came out (at {}): plugged at once with {} (WorkGoal.doBreak)", pos.toShortString(), lv.toShortString(), fill.getItem());
+                else if (!fill.isEmpty()) { g.tasks.addFirst(new Task.Place(pos.immutable(), fill.getItem())); net.minecraft.world.phys.Vec3 away0 = g.position().subtract(net.minecraft.world.phys.Vec3.atCenterOf(lv)).normalize(); BlockPos back = dryCells.isEmpty() ? null : dryCells.peekLast(); if (back != null && back.equals(g.blockPosition()) && dryCells.size() > 1) { var it0 = dryCells.descendingIterator(); it0.next(); back = it0.next(); } if (back != null && back.distSqr(lv) > g.blockPosition().distSqr(lv)) g.tasks.addFirst(new Task.GoTo(back, 0.5)); else g.tasks.addFirst(new Task.GoTo(BlockPos.containing(g.position().add(away0.scale(2))), 0.8)); } // (no clean click: back the way he came first, then the plug)
+                if (!plugged) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] lava behind {} as it came out (at {}): {}", pos.toShortString(), lv.toShortString(), fill.isEmpty() ? "nothing to put back, stepping clear" : "back the way he came, then the block back");
                 if (fill.isEmpty()) { net.minecraft.world.phys.Vec3 away = g.position().subtract(net.minecraft.world.phys.Vec3.atCenterOf(lv)).normalize().scale(3); g.tasks.addFirst(new Task.GoTo(BlockPos.containing(g.position().add(away)), 0.8)); }
                 com.claudemod.director.ClaudeLife.lavaBehind(g, pos, lv);
                 return exit("doBreak line 1576");
@@ -1874,6 +1885,7 @@ public class WorkGoal extends Goal {
         }
     }
     private boolean walkNoDig;
+    private final java.util.ArrayDeque<BlockPos> dryCells = new java.util.ArrayDeque<>(); private BlockPos lavaOut; private int lavaOutSince; private final java.util.Map<BlockPos, Integer> lavaOutBad = new java.util.HashMap<>(); // (the lava escape's memory)
     private final java.util.Map<BlockPos, Integer> placeRetries = new java.util.HashMap<>();
     private Vec3 stepOffTo;
     private BlockPos lastStepSide;

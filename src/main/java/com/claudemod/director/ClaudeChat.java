@@ -52,6 +52,11 @@ public final class ClaudeChat {
             for (String line : lines) {
                 String msg = line.trim();
                 if (msg.isEmpty()) continue;
+                if (msg.startsWith("/")) { /* the user (overnight 03:50): a way to hand him things from outside the game; a "/" line runs as a server command, logged */
+                    ClaudeMod.LOGGER.info("[Claude bridge] command: {}", msg);
+                    server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), msg.substring(1));
+                    continue;
+                }
                 ClaudeMod.LOGGER.info("[Claude bridge] <{}> {}", player.getGameProfile().getName(), msg);
                 player.sendSystemMessage(Component.literal("<" + player.getGameProfile().getName() + " (bridge)> " + msg));
                 com.claudemod.llm.ChatListener.respond(player, msg, true);

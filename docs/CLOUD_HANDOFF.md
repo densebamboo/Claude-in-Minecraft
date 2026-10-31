@@ -31,13 +31,26 @@ You are the **Big Picture** builder for the Claude-in-Minecraft mod. It's a NeoF
 
 ## Queue (take in order)
 
-The local Big Picture session is building the **no-progress watchdog, hazard reflex layer and say-do check**. Don't duplicate them. Take these:
+The hazard reflex layer (`WorkGoal.reflexes()`: fire, air and lava in every mode, stages 480-489) and the say-do check (stage 473) are on `main`. Build on them.
 
-1. **Overworld biome facts.** He now has his exact biome (the `YOUR BIOME` line in `ClaudeChat.truthFor` and `ClaudeLife.situation`) and Nether biome mobs (in `Persona`). Add overworld biome knowledge for planning: villages, mob spawns, resources, structures. Then a stage that asks him where to find X.
-2. **Procure distance.** It counts chest stock 290 blocks away, for example 4 cobbled deepslate, when he could mine 4 cobble with the pickaxe in his hand. The craft then fails before the fetch. Weigh the walk to a chest against gathering, and fetch before crafting.
-3. **Death recovery across dimensions.** "go get your stuff" with his drops in the Nether failed at once, and he then claimed "got my stuff back". Plan it through `PortalMap` (walk to portal, through, to the drops) and report the real outcome.
-4. **Spin on slopes.** Live logs show `[Claude move] spin ... (280-300 deg in 9-34 ticks)` on hills, even after the missed-jump fix (`ActionPath.missedHere`).
-5. **Burning in the overworld.** Water nearby or a water bucket (pour, then pick it back up). Coordinate with the hazard layer if it has landed on main.
+1. **No-progress watchdog.** This is the big one; the local session handed it over before starting. It is one layer under every skill and task:
+   - Each action declares its progress measure: distance closing, a block broken, an item gained, health back.
+   - The same action repeated with no progress gets marked failed in `Attempts`.
+   - Then he tries the next way: another route, dig, bridge, pillar, go round.
+   - Only then does he ask the user, saying exactly what failed.
+   - The `[Claude conflict]` lines (`MindLog.refused`) are existing signal.
+
+   Real cases, each a stage:
+   - The long-walk hop that re-picked its own target every 2 s (fixed on main by a one-off check; the watchdog must catch the general case).
+   - A sprint-jump missed 5 times in 10 s.
+   - "breaking the blocks now" while only re-planning a walk.
+   - Repeated "craft furnace -> failed: missing cobblestone".
+
+   Read `docs/watchdog_notes.md` first: the local Big Picture notes (noticeStuck, its flaw, progress measures, the next-way ladder, stage ideas). `docs/drafts/patch_watchdog.py` (stage 474) is an UNTESTED draft: use it or not.
+2. **Overworld biome facts.** He now has his exact biome (the `YOUR BIOME` line in `ClaudeChat.truthFor` and `ClaudeLife.situation`) and Nether biome mobs (in `Persona`). Add overworld biome knowledge for planning: villages, mob spawns, resources, structures. Then a stage that asks him where to find X.
+3. **Procure distance.** It counts chest stock 290 blocks away, for example 4 cobbled deepslate, when he could mine 4 cobble with the pickaxe in his hand. The craft then fails before the fetch. Weigh the walk to a chest against gathering, and fetch before crafting.
+4. **Death recovery across dimensions.** "go get your stuff" with his drops in the Nether failed at once, and he then claimed "got my stuff back". Plan it through `PortalMap` (walk to portal, through, to the drops) and report the real outcome.
+5. **Spin on slopes.** Live logs show `[Claude move] spin ... (280-300 deg in 9-34 ticks)` on hills, even after the missed-jump fix (`ActionPath.missedHere`).
 6. **Portal highways milestone.** The data model is in `PortalMap` (`addWay`, `partnerSpot`). Build Nether tunnels and highways between portals, and place new portals on them.
 
 ## State at handoff (2026-10-31)

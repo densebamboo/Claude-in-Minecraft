@@ -127,10 +127,11 @@ public class WorkGoal extends Goal {
     }
 
     private int fireSaid = -1000;
+    private final java.util.Map<BlockPos, Integer> hopsTried = new java.util.HashMap<>();
     private int bowAimTick; /* the last tick shootAt aimed: a draw nothing aims is let down */
-    @Override
-    public void tick() {
-        if (g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW) && g.tickCount - bowAimTick > 2) g.stopUsingItem(); /* the user: "walking super slow with his bow pulled back": the fight ended (target dead, out of sight, timed out, another job) with the draw still held, and a draw walks at 1/5 speed */
+    /** The hazard reflexes, first every tick in any roll: fire his box touches, air running low, lava. True: one acted this tick
+     *  (everything else waits). WorkGoal.tick runs it first; ClaudeEntity.brainTick runs it before FollowGoal (stage 489). */
+    public boolean reflexes() {
         if (!g.isInLava() && g.level() instanceof ServerLevel flv && BlockPos.betweenClosedStream(g.getBoundingBox().deflate(0.001)).anyMatch(p -> flv.getBlockState(p).is(net.minecraft.tags.BlockTags.FIRE))) { /* fire first, like air: live 00:12 he stood in Nether fire 27 hits while a stalled walk kept him there, 20 -> dead; only the blaze fight stepped off fire */
             BlockPos ff = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()), to = null; double best = Double.MAX_VALUE;
             if (g.tickCount % 4 == 0) { BlockPos fb = BlockPos.betweenClosedStream(g.getBoundingBox().deflate(0.001)).filter(p -> flv.getBlockState(p).is(net.minecraft.tags.BlockTags.FIRE)).map(BlockPos::immutable).findFirst().orElse(null); /* the user: "he doesnt know how to put out fire": one punch puts a fire block out, as for any player (a click every 4 ticks) */
@@ -139,11 +140,10 @@ public class WorkGoal extends Goal {
             if (to != null) {
                 g.getNavigation().stop(); g.setSprinting(true); g.getMoveControl().setWantedPosition(to.getX() + 0.5, to.getY(), to.getZ() + 0.5, 1.3);
                 if (g.tickCount - fireSaid > 60) { fireSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in fire at {}: off it to {} first (WorkGoal.tick)", ff.toShortString(), to.toShortString()); }
-                return;
+                return true;
             }
             if (g.tickCount - fireSaid > 60) { fireSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in fire at {}: no fire-free spot within 2 to step to, the job's own way out (WorkGoal.tick)", ff.toShortString()); }
         }
-        if (g.isSleeping()) return; // in bed: the job waits for morning (ticking on in bed timed the vein and its patches out)
         // Air first, like a player watching his bubbles: underwater and getting low, everything waits while he comes up to
         // breathe (and he stays up till he's got his breath back).
         boolean underwater = g.isEyeInFluid(net.minecraft.tags.FluidTags.WATER);
@@ -163,11 +163,10 @@ public class WorkGoal extends Goal {
                 else if (line.getType() == net.minecraft.world.phys.HitResult.Type.MISS) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(spot.getX() + 0.5, spot.getY(), spot.getZ() + 0.5, 1.0); }
                 if (spot.getY() >= g.getBlockY()) g.getJumpControl().jump(); // swim up only when the air is up: air below means letting himself sink to it (holding jump kept him floating at the top with his mine's air under him)
                 g.getLookControl().setLookAt(spot.getX() + 0.5, spot.getY() + 1.5, spot.getZ() + 0.5);
-                return;
+                return true;
             }
         }
         surfacing = false;
-        if (g.tickCount % 40 == 7 && (digInAt == null || digInTasks == null || !inDigInHole())) adoptPitCover(); // his hole from before a restart: its cover state died with it (or an old cover's record, somewhere else)
         // In lava: out first, everything else waits (he stood 3 s in a lava flow finishing a Place and died, 09:02)
         if (g.isInLava()) {
             if (current != null) { clearCrack(); g.tasks.addFirst(current); current = null; g.currentTask = null; }
@@ -181,10 +180,19 @@ public class WorkGoal extends Goal {
             }
             if (g.tickCount % 20 < 2) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}: getting out{}", me.toShortString(), out == null ? " (no dry cell near: jumping)" : " to " + out.toShortString());
             g.getNavigation().stop();
-            if (out != null) { g.getMoveControl().setWantedPosition(out.getX() + 0.5, out.getY(), out.getZ() + 0.5, 1.3); g.getLookControl().setLookAt(out.getX() + 0.5, out.getY() + 1.0, out.getZ() + 0.5); g.setSprinting(true); }
+            if (out != null) { g.getLookControl().faceNow(Vec3.atCenterOf(out)); /* (at once, then the walk: a turn over 4 ticks lost 4 of the ~22 a cell takes in lava drag) */ g.getMoveControl().setWantedPosition(out.getX() + 0.5, out.getY(), out.getZ() + 0.5, 1.3); g.getLookControl().setLookAt(out.getX() + 0.5, out.getY() + 1.0, out.getZ() + 0.5); g.setSprinting(true); }
             g.getJumpControl().jump();
-            return;
+            return true;
         }
+        return false;
+    }
+
+    @Override
+    public void tick() {
+        if (g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW) && g.tickCount - bowAimTick > 2) g.stopUsingItem(); /* the user: "walking super slow with his bow pulled back": the fight ended (target dead, out of sight, timed out, another job) with the draw still held, and a draw walks at 1/5 speed */
+        if (reflexes()) return; // fire, air, lava first (WorkGoal.reflexes; also run while he's only hanging out with them)
+        if (g.isSleeping()) return; // in bed: the job waits for morning (ticking on in bed timed the vein and its patches out)
+        if (g.tickCount % 40 == 7 && (digInAt == null || digInTasks == null || !inDigInHole())) adoptPitCover(); // his hole from before a restart: its cover state died with it (or an old cover's record, somewhere else)
         // On fire out of the lava with a water bucket on him: water at his feet puts it out, like a player (live 14:07: out of the lava at 17 health, he burned down to 9 with a water bucket in his pack); his fillBucket scoops it back up
         if (g.isOnFire() && !g.isInLava() && !g.isInWater() && g.tickCount % 10 == 3 && !g.level().dimensionType().ultraWarm()) {
             var lvF = g.level(); BlockPos feetF = g.blockPosition();
@@ -1005,12 +1013,13 @@ public class WorkGoal extends Goal {
                 if (m == null || m.distSqr(pos) <= 6 * 6) continue; /* (no ground that way, or the hop is the goal itself: live 23:56 "long walk to -450 49 57: hopping to -450 49 57 first" every 2 s) */
                 Integer failed = null;
                 for (var e : g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK).entrySet()) if (e.getKey().distSqr(m) <= 9 && g.tickCount - e.getValue() < 20 * 60) { failed = e.getValue(); break; }
+                if (failed == null) for (var e : hopsTried.entrySet()) if (e.getKey().distSqr(m) <= 9 && g.tickCount - e.getValue() < 20 * 60 && g.blockPosition().distSqr(e.getKey()) > 6 * 6) { failed = e.getValue(); break; } /* the same hop again within a minute, still far from it: it got him nowhere */
                 if (failed == null) { mid = m; break; }
             }
             if (mid == null) return false; // every way round's failed lately: let this walk give up the normal way
             g.tasks.addFirst(new Task.GoTo(pos, within));
             g.tasks.addFirst(new Task.GoTo(mid, 4));
-            g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK).put(mid.immutable(), g.tickCount); /* (the same hop picked again within a minute got him nowhere: the next round turns or lets the walk plan its way out) */
+            hopsTried.put(mid.immutable(), g.tickCount); /* (its own record: in Attempts WALK the walker skipped the fresh hop as "failed 0 s ago", stage 371) */
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] long walk to {} ({} blocks): hopping to {} first", pos.toShortString(), (int) hd, mid.toShortString());
             return true;
         }

@@ -1417,7 +1417,33 @@ public final class ClaudeLife {
      * and he isn't geared for it, food when hungry and carrying some, his kit (gear_up), his own mine (strip_mine), wood, a look
      * round. A step that failed three times running is passed over (the counter clears when he gets new stuff).
      */
+    /** Their words are only an acknowledgment ("valid", "ok", "nice", "bet", "fr"): never an order. */
+    public static boolean ackOnly(String raw) {
+        String t = raw == null ? "" : raw.toLowerCase().replaceAll("[^a-z ]", " ").replaceAll("\\s+", " ").trim();
+        return t.matches("((valid|ok|okay|k|kk|nice|bet|cool|thanks|thank you|thx|ty|lol|lmao|true|fr|facts|word|sweet|good|great|alright|aight|yep|yup|yeah|ya|mhm|gg|w|based|noted|got it|gotcha|perfect|awesome)( (bro|man|dude|lol|tho|then))?)( (valid|ok|okay|nice|bet|cool|lol|fr|good|great|thanks))*");
+    }
+    /** What a rule does before their fresh order, said up front ("eating first (hunger 6)"); null: their order runs first. */
+    public static String ruleAhead(ClaudeEntity g, ServerPlayer player) {
+        Order o = orders().get(g.getUUID()); if (o == null || g.playerGoal == null || !g.playerGoal.equals(o.goal())) return null;
+        boolean theirsEat = o.steps().stream().anyMatch(s -> s.skill().equals("eat")), theirsCover = o.steps().stream().anyMatch(s -> Set.of("shelter", "sleep").contains(s.skill()));
+        String night = nightOutsideNo(g, (ServerLevel) g.level(), g.blockPosition());
+        if (night != null && !theirsCover) return "getting under cover first (" + night + ")";
+        int food = g.getFoodData().getFoodLevel();
+        if (food <= 6 && !theirsEat && foodToEat(g, true) != null) return "eating first (hunger " + food + ")";
+        return null;
+    }
+    private static java.util.Set<String> holdSaid;
+    /** A running order of theirs held for cover or food: said once per order and reason (00:21: the diamonds waited on food, unsaid). */
+    static void holdNotice(ClaudeEntity g, ServerPlayer player) {
+        Order o = orders().get(g.getUUID()); if (o == null || g.playerGoal == null || !g.playerGoal.equals(o.goal()) || player == null) return;
+        String why = ruleAhead(g, player); if (why == null) return;
+        if (holdSaid == null) holdSaid = new java.util.HashSet<>(); if (holdSaid.size() > 200) holdSaid.clear();
+        if (!holdSaid.add(g.getUUID() + "|" + o.goal() + "|" + why.replaceAll("[0-9]", ""))) return;
+        ClaudeMod.LOGGER.info("[Claude plan] their order (\"{}\") held: {} (ClaudeLife.holdNotice)", o.goal(), why);
+        ClaudeChat.say(player, "holding off on " + o.goal().replaceAll("\\s*\\(their words.*$", "") + " a sec: " + why, "hold: " + why);
+    }
     public static Skills.Step ruleStep(ClaudeEntity g, ServerPlayer player) {
+        holdNotice(g, player);
         ServerLevel level = (ServerLevel) g.level();
         List<Skills.Step> c = new ArrayList<>();
         if (nightOutsideNo(g, level, g.blockPosition()) != null) c.add(new Skills.Step("shelter", "", 1));
@@ -12238,7 +12264,7 @@ public final class ClaudeLife {
                         + " (no step names, counts of what you're missing, or what failed along the way); honest about the result.");
         ClaudeApi.line(player, truth, turn).whenComplete((speech, err) -> player.server.execute(() -> {
             if (err != null) return;
-            ClaudeChat.say(player, ClaudeChat.moveTruth(g, player, speech.get("text").getAsString()), "report: " + results); // (16:32:19 "jumping off the ledge now" went out with nothing queued that jumps)
+            ClaudeChat.say(player, ClaudeChat.moveTruth(g, player, ClaudeChat.reportTruth(results, speech.get("text").getAsString())), "report: " + results); // (16:32:19 "jumping off the ledge now" went out with nothing queued that jumps)
         }));
     }
 

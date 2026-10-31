@@ -370,7 +370,7 @@ public class ClaudeEntity extends ServerPlayer {
         com.claudemod.entity.life.WatchBuild.tick(this);
         com.claudemod.entity.life.ExactSpot.tick(this);
         com.claudemod.entity.life.CopyMode.tick(this); // showing him: watching their hands // their trail as he sees it; a walk onto their cell stops short the tick they're in the way (no pushing) // watching them build: facing it, a spot that sees it, the look round after
-        if (follow.canUse()) { followRunning = true; follow.tick(); }
+        if (follow.canUse()) { followRunning = true; if (!work.reflexes()) follow.tick(); } // (fire, air, lava first while hanging out too: WorkGoal.reflexes)
         else if (followRunning) { followRunning = false; follow.stop(); }
     }
 

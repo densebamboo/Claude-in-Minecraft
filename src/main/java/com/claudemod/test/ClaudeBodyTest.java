@@ -2242,6 +2242,7 @@ public final class ClaudeBodyTest {
     }
 
     /** One planner step, as the model's JSON sends it. */
+    private static float hzLow = 20f; private static boolean hzFlag; private static net.minecraft.world.entity.Entity hzMob; // (hazard stages 480-488)
     private static com.google.gson.JsonArray steps1(String skill, String target, int count, String where) {
         var a = new com.google.gson.JsonArray(); var o = new com.google.gson.JsonObject();
         o.addProperty("skill", skill); o.addProperty("target", target); o.addProperty("count", count); o.addProperty("where", where); a.add(o); return a;
@@ -10064,6 +10065,65 @@ public final class ClaudeBodyTest {
                             com.claudemod.entity.life.PortalMap.net(c).portals.clear();
                             pass(stage, t, "walked to his unlit portal and relit it in " + t[0] + " ticks");
                         } else if (t[0] == 400) check(false, "relight: his portal still out after 20 s; tasks " + c.tasks + ", skills " + c.skillQueue);
+                    }
+                    case 480, 481, 482, 483, 484, 485, 486, 487, 488, 489 -> { // hazards, one each (the reflex layer's scenarios)
+                        int sn = stage[0];
+                        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.clearFire(); c.setAirSupply(c.getMaxAirSupply()); hzLow = 20f; hzFlag = false; if (hzMob != null) hzMob.discard(); hzMob = null;
+                            for (int x = 1; x <= 14; x++) for (int z = 1; z <= 14; z++) for (int y = 2; y <= 40; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2);
+                            for (int x = 1; x <= 14; x++) for (int z = 1; z <= 14; z++) level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); }
+                        if (t[0] > 10) hzLow = Math.min(hzLow, c.getHealth());
+                        BlockPos me = h.absolutePos(new BlockPos(7, 2, 7));
+                        if (t[0] == 10) {
+                            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+                            switch (sn) {
+                                case 480 -> { for (int x = 6; x <= 8; x++) for (int z = 6; z <= 8; z++) level.setBlock(h.absolutePos(new BlockPos(x, 2, z)), Blocks.FIRE.defaultBlockState(), 2); }
+                                case 481 -> { c.getInventory().add(new ItemStack(Items.WATER_BUCKET)); c.setRemainingFireTicks(200); }
+                                case 482, 489 -> { level.setBlock(me.below(), Blocks.LAVA.defaultBlockState(), 2); c.teleportTo(me.getX() + 0.5, me.getY() - 1, me.getZ() + 0.5); if (sn == 489) { c.setTarget(mock[0]); c.setRoll(ClaudeEntity.Roll.FRIENDLY); } } // (489: hanging out with them, FollowGoal running, no WorkGoal) // (one cell at his feet, as when he steps into one: lava drag is about a block a second for any player, so a spreading 3x3 pool can't be crossed in 3 s)
+                                case 483 -> { for (int x = 5; x <= 9; x++) for (int z = 5; z <= 9; z++) for (int y = 2; y <= 6; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), (x == 5 || x == 9 || z == 5 || z == 9) ? Blocks.STONE.defaultBlockState() : Blocks.WATER.defaultBlockState(), 2); c.setAirSupply(40); }
+                                case 484 -> { level.setBlock(me.above(), Blocks.STONE.defaultBlockState(), 2); level.setBlock(me, Blocks.AIR.defaultBlockState(), 2); }
+                                case 485 -> { c.getInventory().add(new ItemStack(Items.WATER_BUCKET)); c.teleportTo(me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5); }
+                                case 486 -> { c.getInventory().add(new ItemStack(Items.IRON_SWORD)); var gh = EntityType.GHAST.create(level); if (gh != null) { BlockPos gp = me.offset(0, 6, 14); gh.moveTo(gp.getX() + 0.5, gp.getY(), gp.getZ() + 0.5, 180, 0); gh.setNoAi(true); level.addFreshEntity(gh); hzMob = gh;
+                                    net.minecraft.world.phys.Vec3 dir = c.getEyePosition().subtract(gh.getEyePosition()).normalize(); var fb = new net.minecraft.world.entity.projectile.LargeFireball(level, gh, dir, 1); fb.setPos(gh.getX() + dir.x * 2, gh.getEyeY() + dir.y * 2, gh.getZ() + dir.z * 2); level.addFreshEntity(fb); } }
+                                case 487 -> { var cr = EntityType.CREEPER.create(level); if (cr != null) { BlockPos cp = me.offset(2, 0, 0); cr.moveTo(cp.getX() + 0.5, cp.getY(), cp.getZ() + 0.5, 90, 0); level.addFreshEntity(cr); cr.ignite(); hzMob = cr; } }
+                                case 488 -> { c.setHealth(6f); c.getFoodData().setFoodLevel(14); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8)); c.getInventory().add(new ItemStack(Items.IRON_SWORD));
+                                    for (int y = 2; y <= 4; y++) for (int x = 3; x <= 5; x++) level.setBlock(h.absolutePos(new BlockPos(x, y, 9)), Blocks.STONE.defaultBlockState(), 2);
+                                    var sk = EntityType.SKELETON.create(level); if (sk != null) { BlockPos sp = me.offset(0, 0, -6); sk.moveTo(sp.getX() + 0.5, sp.getY(), sp.getZ() + 0.5, 0, 0); sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW)); sk.setPersistenceRequired(); level.addFreshEntity(sk); sk.setTarget(c); hzMob = sk; } }
+                            }
+                        }
+                        if (t[0] > 10 && !c.isAlive()) { check(false, "hazard " + sn + ": he died (low " + hzLow + ")"); }
+                        switch (sn) {
+                            case 480 -> { if (t[0] == 70) { boolean inFire = BlockPos.betweenClosedStream(c.getBoundingBox().deflate(0.001)).anyMatch(p -> level.getBlockState(p).is(net.minecraft.tags.BlockTags.FIRE)); check(!inFire && hzLow >= 16, "fire: still in fire " + inFire + ", low " + hzLow); pass(stage, t, "out of the fire, low " + hzLow); } }
+                            case 481 -> { if (t[0] == 60) check(!c.isOnFire(), "burning: still alight 2.5 s on with a water bucket, low " + hzLow);
+                                if (t[0] == 160) { boolean water = BlockPos.betweenClosedStream(me.offset(-3, -1, -3), me.offset(3, 2, 3)).anyMatch(p -> level.getFluidState(p).isSource()); check(c.inventory.count(x -> x.is(Items.WATER_BUCKET)) == 1 && !water, "burning: the water not picked back up (bucket " + c.inventory.count(x -> x.is(Items.WATER_BUCKET)) + ", source left " + water + ")"); pass(stage, t, "poured, out, bucket back, low " + hzLow); } }
+                            case 482, 489 -> { if (t[0] == 45) { check(!c.isInLava() && c.isAlive(), "lava" + (sn == 489 ? " (following them)" : "") + ": still in it 1.75 s on (lava drag lets any player clear a cell in about 1.1 s), low " + hzLow); if (sn == 489) c.setRoll(ClaudeEntity.Roll.WORK); for (int x = 6; x <= 8; x++) for (int z = 6; z <= 8; z++) level.setBlock(h.absolutePos(new BlockPos(x, 2, z)), Blocks.AIR.defaultBlockState(), 2); c.clearFire(); pass(stage, t, "out of the lava, low " + hzLow); } }
+                            case 483 -> { if (t[0] == 200) { check(hzLow >= 18 && c.getAirSupply() > 100, "air: low " + hzLow + ", air " + c.getAirSupply()); pass(stage, t, "came up to breathe, low " + hzLow); } }
+                            case 484 -> { if (t[0] == 60) { check(!level.getBlockState(BlockPos.containing(c.getEyePosition())).isSuffocating(level, BlockPos.containing(c.getEyePosition())) && hzLow >= 18, "suffocation: eye still in a block, low " + hzLow); pass(stage, t, "out of the block, low " + hzLow); } }
+                            case 485 -> { if (t[0] == 160) { boolean water = BlockPos.betweenClosedStream(me.offset(-3, -1, -3), me.offset(3, 2, 3)).anyMatch(p -> level.getFluidState(p).isSource()); check(hzLow >= 16 && c.inventory.count(x -> x.is(Items.WATER_BUCKET)) == 1 && !water, "fall: low " + hzLow + ", bucket " + c.inventory.count(x -> x.is(Items.WATER_BUCKET)) + ", water left " + water); pass(stage, t, "MLG, low " + hzLow); } }
+                            case 486 -> { if (t[0] == 120) { check(hzLow >= 14, "ghast fireball: low " + hzLow); if (hzMob != null) hzMob.discard(); pass(stage, t, "fireball, low " + hzLow); } }
+                            case 487 -> { if (t[0] == 100) { check(hzLow >= 12, "creeper: low " + hzLow); pass(stage, t, "creeper, low " + hzLow); } }
+                            case 488 -> { if (t[0] > 20 && hzMob instanceof net.minecraft.world.entity.LivingEntity sk && sk.isAlive() && !sk.hasLineOfSight(c)) hzFlag = true;
+                                if (t[0] == 200) { check(c.isAlive() && hzFlag, "under fire at 6: line of sight broken " + hzFlag + ", low " + hzLow); if (hzMob != null) hzMob.discard(); pass(stage, t, "out of its sight, low " + hzLow); } }
+                        }
+                    }
+                    case 473 -> { // say-do: an acknowledgment isn't an order; a rule ahead of their order is said up front and once while held; a failed report never claims success
+                        if (t[0] == 1) { scenarioReset(c); }
+                        if (t[0] == 10) {
+                            check(com.claudemod.director.ClaudeLife.ackOnly("valid") && com.claudemod.director.ClaudeLife.ackOnly("ok bet") && !com.claudemod.director.ClaudeLife.ackOnly("ok go mine"), "ack: \"valid\"/\"ok bet\" not acknowledgments, or \"ok go mine\" taken for one");
+                            var rj = new com.google.gson.JsonObject(); rj.addProperty("text", "sticking with you; staying where i am"); rj.addProperty("action", "stay"); rj.addProperty("new_goal", ""); rj.addProperty("plan_change", "none"); rj.add("steps", new com.google.gson.JsonArray()); rj.add("standing", new com.google.gson.JsonArray());
+                            boolean stayingBefore = c.staying;
+                            String said = com.claudemod.llm.ChatListener.handle(mock[0], rj, "sticking with you; staying where i am", "valid");
+                            check(c.staying == stayingBefore && (said == null || !said.contains("stay")), "ack: \"valid\" made him stay, or said \"" + said + "\"");
+                            String rep = com.claudemod.director.ClaudeChat.reportTruth("[recover_drops -> failed: my drops are in the nether]", "got my stuff back at -17 66 -44, but the recover itself didn't really pan out");
+                            check(!rep.toLowerCase().contains("got my stuff back"), "report: a failed recover said as \"" + rep + "\"");
+                            String ok = com.claudemod.director.ClaudeChat.reportTruth("[collect coal -> done: 6 coal]", "got 6 coal");
+                            check("got 6 coal".equals(ok), "report: a good one changed to \"" + ok + "\"");
+                            c.getFoodData().setFoodLevel(6); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 4));
+                            com.claudemod.director.ClaudeLife.command(c, mock[0], steps1("collect", "cobblestone", 16, "near_you"), "get 16 cobble", "replace");
+                            String ahead = com.claudemod.director.ClaudeLife.ruleAhead(c, mock[0]);
+                            check(ahead != null && ahead.startsWith("eating first"), "ahead: hunger 6 with their order, said \"" + ahead + "\"");
+                            c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.playerGoal = "";
+                            pass(stage, t, "ack ignored (" + said + "), report \"" + rep + "\", ahead \"" + ahead + "\"");
+                        }
                     }
                     default -> { return false; }
         }

@@ -316,6 +316,23 @@ public final class ClaudeChat {
      * is rewritten from the queue, what he's really doing and plainly what he isn't, and logged. (15:50 "ok, i'm in the water now,
      * mining the obsidian from here" while the errand handed over 10 of the 11 on him.)
      */
+    /** The line with every comma/"but"/sentence piece matching `drop` taken out. */
+    public static String dropClauses(String line, String drop) {
+        if (line == null) return null; StringBuilder out = new StringBuilder();
+        for (String piece : line.split("(?<=[.,;!?])\\s+|\\s+(?=but\\b)")) if (!piece.toLowerCase().matches(drop)) out.append(out.length() > 0 ? " " : "").append(piece);
+        return out.toString().replaceAll("^(but|and)\\s+", "").replaceAll("[,;]\\s*$", "").trim();
+    }
+    /** A report after a failed step never claims the job worked (00:21 "got my stuff back ..., but the recover itself didn't really pan out"). */
+    public static String reportTruth(Object results, String text) {
+        String r = String.valueOf(results), low = r.toLowerCase();
+        boolean failed = low.contains("failed") || low.contains("-> failed") || low.contains("couldn't") || low.contains("didn't");
+        if (!failed || text == null) return text;
+        String claim = ".*\\b(got (it|them|my|your|the|everything|all)|done|all set|have it|got it back|back now|picked (it|them|everything) up|recovered)\\b.*";
+        String kept = dropClauses(text, "(?!.*\\b(didn'?t|couldn'?t|can'?t|not|no|failed|wasn'?t)\\b)" + claim);
+        if (!kept.equals(text)) com.claudemod.ClaudeMod.LOGGER.info("[Claude reply truth] report: \"{}\" said as \"{}\": a step failed ({}) (ClaudeChat.reportTruth)", text, kept, r.length() > 160 ? r.substring(0, 160) : r);
+        if (kept.isBlank()) { java.util.regex.Matcher m = java.util.regex.Pattern.compile("failed: ([^;\\]]{1,120})").matcher(r); return "that didn't work" + (m.find() ? ": " + m.group(1).trim() : ""); }
+        return kept;
+    }
     public static String replyTruth(ClaudeEntity g, ServerPlayer p, String text, com.google.gson.JsonObject reply) { return replyTruth(g, p, text, reply, ""); }
     public static String replyTruth(ClaudeEntity g, ServerPlayer p, String text, com.google.gson.JsonObject reply, String ask) {
         if (text == null || text.isBlank()) return text;

@@ -11,6 +11,7 @@ import com.claudemod.Config;
 import com.claudemod.director.ClaudeChat;
 import com.claudemod.director.ClaudeLife;
 import com.claudemod.entity.ClaudeEntity;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 import net.minecraft.server.level.ServerPlayer;
@@ -92,12 +93,18 @@ public final class ChatListener {
         var g0 = ClaudeEntity.activeFor(player);
         try {
             if (g0.isPresent()) { act(g0.get(), player, reply, rawMessage); line = ClaudeChat.moveTruth(g0.get(), player, ClaudeChat.replyTruth(g0.get(), player, text, reply, rawMessage), reply != null && reply.has("action") ? reply.get("action").getAsString() : "none"); } // (the checked line: possession claims only, rewrites that stay sentences, patch_reply_truth3)
+            if (g0.isPresent() && line != null && ClaudeLife.ackOnly(rawMessage)) { String kept = ClaudeChat.dropClauses(line, ".*\\b(stay|staying|sticking|following|follow|coming|on it|on my way|heading)\\b.*"); if (!kept.equals(line)) com.claudemod.ClaudeMod.LOGGER.info("[Claude reply] acknowledgment: \"{}\" said as \"{}\" (ChatListener.handle)", line, kept); line = kept.isBlank() ? null : kept; }
+            if (g0.isPresent() && line != null) { String ahead = ClaudeLife.ruleAhead(g0.get(), player); if (ahead != null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude reply] a rule runs before their order: \"{}\" said first (ChatListener.handle)", ahead); line = ahead + ", then " + (line.length() > 1 ? Character.toLowerCase(line.charAt(0)) + line.substring(1) : line); } }
         } finally { said = ClaudeChat.say(player, line, "chat: " + rawMessage); }
         return said;
     }
 
     /** Applies what the reply says to do: a job, standing instructions, the shared goal, follow/stay/come/fight. */
     private static void act(ClaudeEntity g, ServerPlayer player, JsonObject reply, String rawMessage) {
+        if (ClaudeLife.ackOnly(rawMessage) && (java.util.Set.of("stay", "follow", "come").contains(reply.get("action").getAsString()) || reply.getAsJsonArray("steps").size() > 0 || !reply.get("new_goal").getAsString().isBlank())) { // (00:22 "valid" -> "staying where i am")
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude reply] \"{}\" is an acknowledgment, not an order: action {} / goal \"{}\" / {} step(s) dropped (ChatListener.act)", rawMessage, reply.get("action").getAsString(), reply.get("new_goal").getAsString(), reply.getAsJsonArray("steps").size());
+            reply.addProperty("action", "none"); reply.addProperty("new_goal", ""); reply.add("steps", new JsonArray()); if (reply.has("standing")) reply.add("standing", new JsonArray());
+        }
         String goal = reply.get("new_goal").getAsString();
         String action = reply.get("action").getAsString();
         com.claudemod.ClaudeMod.LOGGER.info("[Claude reply] action={} change={} goal=\"{}\" steps={}", action, reply.get("plan_change").getAsString(), goal, reply.getAsJsonArray("steps"));

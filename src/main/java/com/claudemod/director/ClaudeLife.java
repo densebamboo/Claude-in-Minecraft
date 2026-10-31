@@ -5027,7 +5027,9 @@ public final class ClaudeLife {
             Direction facing = level.getBlockState(chest).getValue(net.minecraft.world.level.block.ChestBlock.FACING);
             var cols = new ArrayList<>(storageCols()); BlockPos a0 = cols.get(0), b0 = cols.get(1);
             Direction along = Direction.getNearest(b0.getX() - a0.getX(), 0, b0.getZ() - a0.getZ());
-            if (along.getAxis().isHorizontal()) baseStations(g, level, new BlockPos(a0.getX(), chest.getY(), a0.getZ()), new BlockPos(b0.getX(), chest.getY(), b0.getZ()), facing.getOpposite(), along);
+            final BlockPos chest0 = chest; boolean hisPair = cols.stream().anyMatch(c0 -> c0.getX() == chest0.getX() && c0.getZ() == chest0.getZ() && Math.abs(c0.getY() - chest0.getY()) <= 2); // (the pair's columns are this chest's own: live 09:48 World 15 the columns kept from another setup, with this chest's y, put his table and furnaces in rock 37 under him)
+            if (!hisPair) ClaudeMod.LOGGER.info("[Claude life] his base stations: the chest pair on record ({}, {}) isn't this stash at {}: no stations laid off it (ClaudeLife.stashLoot)", a0.toShortString(), b0.toShortString(), chest.toShortString());
+            if (hisPair && along.getAxis().isHorizontal()) baseStations(g, level, new BlockPos(a0.getX(), chest.getY(), a0.getZ()), new BlockPos(b0.getX(), chest.getY(), b0.getZ()), facing.getOpposite(), along);
         }
         ClaudeMod.LOGGER.info("[Claude life] dumping his loot in his stash chest at {} ({} free slots)", chest.toShortString(), free);
         return "putting my loot in the stash chest";
@@ -5037,8 +5039,14 @@ public final class ClaudeLife {
      * The rest of his base at the foot of the stairs, the way players lay one out: the crafting table set into the chests' wall right
      * after them, the furnace set into the wall across the tunnel from the chests. Only what's missing; crafted if he has the makings.
      */
+    /** (tests) */
+    public static void baseStationsTest(ClaudeEntity g, ServerLevel level, BlockPos a, BlockPos b, Direction side, Direction ahead) { baseStations(g, level, a, b, side, ahead); }
     private static void baseStations(ClaudeEntity g, ServerLevel level, BlockPos a, BlockPos b, Direction side, Direction ahead) {
         BlockPos base = a.relative(side.getOpposite()); // the tunnel cell in front of the first chest
+        if (!level.getBlockState(base).getCollisionShape(level, base).isEmpty() || !level.getFluidState(base).isEmpty() || g.blockPosition().distSqr(a) > 8 * 8) { // (only off a carved tunnel he's in: live 09:48 World 15 its cells sat in solid rock 37 under him, a table "placed" into stone and a walk down to it shuffling at the surface for minutes)
+            ClaudeMod.LOGGER.info("[Claude life] his base stations by the chests at {}: {} ({} off him): none laid from here (ClaudeLife.baseStations)", a.toShortString(), level.getBlockState(base).getCollisionShape(level, base).isEmpty() ? "he's not by them" : "the tunnel cell in front, " + base.toShortString() + ", is rock (no carved nook)", (int) Math.sqrt(g.blockPosition().distSqr(a)));
+            return;
+        }
         BlockPos table = b.relative(ahead); // next along the chests' wall
         for (BlockPos cand : new BlockPos[] {b.relative(ahead), a.relative(ahead), b.relative(ahead.getOpposite()), a.relative(ahead.getOpposite())}) { // beside the pair, never in a chest column (Fable: the columns come back from a set in no order, so "next along from b" could be column a, and the next storage row found the table in its way)
             boolean chestCol = (cand.getX() == a.getX() && cand.getZ() == a.getZ()) || (cand.getX() == b.getX() && cand.getZ() == b.getZ());

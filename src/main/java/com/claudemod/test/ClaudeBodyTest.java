@@ -8008,6 +8008,32 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
+        if (stage[0] == 503) { // a walk to a cell far below that cuts one step and is back up the next moment, again and again (live 09:48 World 15: 21 "stepping off" in 80 s, net nothing, every one "got nearer"): no gain on his best over the window, the third trips
+            BlockPos A = h.absolutePos(new BlockPos(4, 2, 7)), goal = h.absolutePos(new BlockPos(4, -20, 7));
+            var walk = new Task.GoTo(goal, 1.0);
+            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.nextPlanTick = c.tickCount + 20 * 600; wdRuns = 0; }
+            int ph = t[0] % 20;
+            if (t[0] >= 10 && t[0] < 10 + 20 * 4) {
+                if (ph == 10) { c.teleportTo(A.getX() + 0.5, A.getY(), A.getZ() + 0.5); com.claudemod.entity.life.Watchdog.starting(c, walk); }
+                if (ph == 16) { c.teleportTo(A.getX() + 0.5, A.getY() - 1, A.getZ() + 0.5); com.claudemod.entity.life.Watchdog.ended(c, walk, null); wdRuns++; } // (one step down, the leg over)
+            }
+            if (t[0] == 10 + 20 * 4) {
+                check(com.claudemod.entity.life.Watchdog.trips(c) >= 1, "walk: one step down and back up " + wdRuns + " times, never seen as no progress (trips " + com.claudemod.entity.life.Watchdog.trips(c) + ")");
+                c.teleportTo(A.getX() + 0.5, A.getY(), A.getZ() + 0.5); c.tasks.clear(); com.claudemod.entity.life.Watchdog.reset(c);
+                pass(stage, t, "a step cut and undone " + wdRuns + " times: tripped");
+            }
+            return true;
+        }
+        if (stage[0] == 504) { // his stash chests deep in solid rock, him far above (live 09:48 World 15: a table "placed" into stone 37 under him, a walk down to it at the surface for minutes): no base stations laid off them
+            if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE)); c.getInventory().add(new ItemStack(Items.FURNACE, 4)); }
+            if (t[0] == 5) {
+                BlockPos a = h.absolutePos(new BlockPos(6, -2, 7)), b = a.east(); // (in the stone under the platform)
+                c.tasks.clear(); com.claudemod.director.ClaudeLife.baseStationsTest(c, level, a, b, net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.EAST);
+                check(c.tasks.isEmpty(), "base stations: laid off chests in solid rock " + (c.getBlockY() - a.getY()) + " below him: " + c.tasks);
+                c.tasks.clear(); pass(stage, t, "no stations off chests in the rock below");
+            }
+            return true;
+        }
         if (stage[0] == 502) { // his furnace 3 off behind a wall, lava cells the nearest spots with a view of it (live 07:14 World 15: the view spot picked was lava, a walk at it every minute for 47 min, the furnace never opened): a dry spot, the batch out, never in the lava
             BlockPos fur = h.absolutePos(new BlockPos(5, 2, 7)), me = h.absolutePos(new BlockPos(9, 2, 7));
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); hzLow = 20f;

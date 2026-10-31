@@ -460,7 +460,7 @@ public class WorkGoal extends Goal {
     /** A spot to stand at to reach pos; mayStandIn: the cell itself when it's open (to dig there), never for a block that is to go in it. */
     private BlockPos standSpotBeside(BlockPos pos, boolean mayStandIn) {
         ServerLevel level = (ServerLevel) g.level();
-        if (mayStandIn && level.getBlockState(pos).getCollisionShape(level, pos).isEmpty()) return pos;
+        if (mayStandIn && level.getBlockState(pos).getCollisionShape(level, pos).isEmpty() && level.getFluidState(pos).isEmpty()) return pos;
         BlockPos best = null;
         double bestD = Double.MAX_VALUE;
         // right beside it first; then a step further out or a bit higher (a trunk sunk into a slope or snow), anywhere in reach
@@ -2078,6 +2078,8 @@ public class WorkGoal extends Goal {
             BlockPos p = p0.immutable();
             if (!level.getBlockState(p).getCollisionShape(level, p).isEmpty() || !level.getBlockState(p.above()).getCollisionShape(level, p.above()).isEmpty()
                     || !level.getBlockState(p.below()).isFaceSturdy(level, p.below(), Direction.UP)) continue;
+            if (!level.getFluidState(p).isEmpty() || !level.getFluidState(p.above()).isEmpty()) continue; // (lava has no collision box: live 07:14 World 15 a furnace's view spot was a lava cell, a walk at it every minute for 47 min)
+            if (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, p, g.tickCount, 20 * 120)) continue; // (a spot he couldn't get to lately: not picked again, the write-off holds)
             Vec3 eye = Vec3.atBottomCenterOf(p).add(0, 1.62, 0);
             if (eye.distanceTo(Vec3.atCenterOf(target)) > REACH - 0.3) continue;
             boolean seen = false; Vec3 c0 = Vec3.atCenterOf(target); // any face he'd see from there, the same test as the dig's own (centre only: the lapis over a head-height hole was "hidden" from right under it, and he stood 3 off for good, 05:02)

@@ -7452,7 +7452,8 @@ public final class ClaudeLife {
         int items = 0;
         for (int i = 0; i < g.inventory.items.getContainerSize(); i++) items += g.inventory.items.getItem(i).getCount();
         Task now = g.currentTask;
-        boolean waiting = now instanceof Task.FurnaceTake || now instanceof Task.Wait || now instanceof Task.Eat || now instanceof Task.Flee || now instanceof Task.Attack || now instanceof Task.Fish;
+        boolean atFurnace = now instanceof Task.FurnaceTake fq && Math.sqrt(fq.pos().distToCenterSqr(g.getEyePosition())) <= 5.0; // (waiting at it; on the way to it, a walk like any: live 07:14 World 15, 47 min "doing FurnaceTake" walking at a lava cell, never seen stuck)
+        boolean waiting = atFurnace || now instanceof Task.Wait || now instanceof Task.Eat || now instanceof Task.Flee || now instanceof Task.Attack || now instanceof Task.Fish;
         boolean busy = (now != null || !g.tasks.isEmpty()) && !g.staying && !waiting;
         BlockPos at = g.blockPosition();
         double tgt = now == null ? -1 : com.claudemod.entity.life.Watchdog.targetDist(g, now); // the action's own measure: nearer its target (a walk's spot, a dig's block, a leap's landing)

@@ -8008,6 +8008,21 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
+        if (stage[0] == 502) { // his furnace 3 off behind a wall, lava cells the nearest spots with a view of it (live 07:14 World 15: the view spot picked was lava, a walk at it every minute for 47 min, the furnace never opened): a dry spot, the batch out, never in the lava
+            BlockPos fur = h.absolutePos(new BlockPos(5, 2, 7)), me = h.absolutePos(new BlockPos(9, 2, 7));
+            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); hzLow = 20f;
+                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 2; y <= 8; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+                for (int z = 4; z <= 10; z++) for (int y = 2; y <= 4; y++) level.setBlock(h.absolutePos(new BlockPos(7, y, z)), Blocks.STONE.defaultBlockState(), 2); // (the wall between him and it)
+                for (int z = 5; z <= 9; z++) { level.setBlock(h.absolutePos(new BlockPos(6, 1, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(6, 2, z)), Blocks.LAVA.defaultBlockState(), 2); } // (lava on stone: the nearest cells that see it)
+                level.setBlock(fur, Blocks.FURNACE.defaultBlockState(), 3); c.myStations.add(fur);
+                if (level.getBlockEntity(fur) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fb) fb.setItem(2, new ItemStack(Items.COOKED_CHICKEN, 2));
+                c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+            if (t[0] == 10) c.tasks.add(new Task.FurnaceTake(fur));
+            if (t[0] > 10) { hzLow = Math.min(hzLow, c.getHealth()); check(!c.isInLava(), "furnace: he walked into the lava at " + c.blockPosition().toShortString());
+                if (c.inventory.count(x -> x.is(Items.COOKED_CHICKEN)) >= 2) { int at = t[0]; c.tasks.clear(); c.myStations.remove(fur); for (int z = 5; z <= 9; z++) level.setBlock(h.absolutePos(new BlockPos(6, 2, z)), Blocks.AIR.defaultBlockState(), 2); level.setBlock(fur, Blocks.AIR.defaultBlockState(), 3); pass(stage, t, "round the wall to a dry spot, the batch out in " + (at - 10) / 20 + " s, low " + hzLow); }
+                else if (t[0] == 600) check(false, "furnace: the batch not out in 30 s (at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ", queue " + c.tasks + ")"); }
+            return true;
+        }
         if (stage[0] == 501) { // his dig opens onto lava (live 06:53 World 15: the plug was queued as a walk to a stand spot, the step never took, the lava came on, he burned with the whole diamond kit): the block straight back the same tick, from where he stands; never in the lava
             BlockPos me = h.absolutePos(new BlockPos(4, 2, 7)), dig = h.absolutePos(new BlockPos(5, 2, 7)), lava = h.absolutePos(new BlockPos(6, 2, 7));
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); wdRuns = -1; hzLow = 20f;

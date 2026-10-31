@@ -8883,6 +8883,7 @@ public final class ClaudeLife {
     static void fillBucket(ClaudeEntity g, ServerLevel level) {
         if (portalSlots != null && !portalSlots.isEmpty()) return; // mid-cast the bucket's state is the cast's business
         if (g.inventory.count(s -> s.is(Items.BUCKET)) == 0 || g.inventory.count(s -> s.is(Items.WATER_BUCKET)) > 0 || g.isUsingItem() || g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee) return;
+        if (g.fallDistance > 0.5f || !g.onGround() && !g.isInWater()) return; // (in the air: the water under him is his clutch; scooped back mid-fall, he died of the 28-block fall with it in his bucket)
         BlockPos best = null; double bd = 4.0 * 4.0;
         for (BlockPos q : BlockPos.betweenClosed(g.blockPosition().offset(-3, -2, -3), g.blockPosition().offset(3, 1, 3))) {
             var f = level.getFluidState(q);

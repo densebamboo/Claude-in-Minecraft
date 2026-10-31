@@ -2029,6 +2029,7 @@ public final class ClaudeBodyTest {
                     }
                     default -> {
                         if (lateStages(stage, t, c, h, level, mock)) break; // (stages 94 and on: the switch above is at the JVM's size limit)
+                        if (skipGap(stage, t)) break;
                         ClaudeMod.LOGGER.info("[Claude test] ALL PASSED");
                         cleanup(c);
                         h.succeed();
@@ -2213,10 +2214,12 @@ public final class ClaudeBodyTest {
         c.house = null; c.nook = null; c.nooks.clear(); c.farm = null; c.blueprint = null; c.mineShape = null; c.mineCells.clear(); c.mineSpine.clear(); c.mineFace = null; c.stairStart = null;
         c.myStations.clear(); c.storageChests.clear(); c.lastGiven.clear(); c.staying = false; c.prefs.remove("stay_close"); c.playerGoal = "";
         c.setHealth(20f); c.getFoodData().setFoodLevel(20);
+        c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.fallDistance = 0; c.clearFire(); // (the last stage's fall or knock carried into the next: stage 495 began with him dropping onto his spot, seeing over the copper)
         com.claudemod.entity.life.ChestLedger.reset(c);
         com.claudemod.entity.life.TempLedger.reset(c);
         com.claudemod.director.Errand.reset(c);
         com.claudemod.entity.life.PortalMap.enterReset(c);
+        com.claudemod.director.ClaudeLife.lavaSeen(c).clear(); // (stage 500's pool on record held stage 501's dig: "part of the pool he knows")
         com.claudemod.entity.life.Watchdog.reset(c); // (his last gear and spot: a stage's own resets aren't losses or moves)
         com.claudemod.director.Structures.testPieces().clear(); com.claudemod.director.ClaudeLife.gateReset(c); // (a stage's own structure pieces; the gear gate's memory)
     }
@@ -7863,6 +7866,12 @@ public final class ClaudeBodyTest {
         }
     }
 
+    /** A gap in the stage numbers (490, 493) before the end stage: on to the next. It used to end the run there with "ALL PASSED", and 491 on never ran in a group. */
+    private static boolean skipGap(int[] stage, int[] t) {
+        if (stage[0] >= Integer.getInteger("claude.endStage", -1)) return false;
+        ClaudeMod.LOGGER.info("[Claude test] no stage {}: on to the next", stage[0]); stage[0]++; t[0] = 0; return true;
+    }
+
     private static void pass(int[] stage, int[] t, String what) {
         ClaudeMod.LOGGER.info("[Claude test] PASS stage {}: {}", stage[0], what);
         stage[0]++;
@@ -10438,9 +10447,8 @@ public final class ClaudeBodyTest {
     private static int wiN; private static java.util.List<String> wiSeen = new java.util.ArrayList<>(); private static int wiFightT = -1;
     private static boolean st519(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // the incident detectors (the user: "make the watchdog more robust ... so you can piece together more context"): a fight that lands nothing, gear gone, health falling, a step result straight back, a move nothing planned; each logged once with its context, the fight broken off
         BlockPos me = h.absolutePos(new BlockPos(7, 2, 3));
-        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); flatBox(h); if (hzMob != null) hzMob.discard(); hzMob = null; wiSeen.clear(); wiFightT = -1; c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); flatBox(h); if (hzMob != null) hzMob.discard(); hzMob = null; wiSeen.clear(); wiFightT = -1; wiN = com.claudemod.entity.life.Watchdog.incidents; c.nextPlanTick = c.tickCount + 20 * 600;
             com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
-        if (t[0] == 2) wiN = com.claudemod.entity.life.Watchdog.incidents;
         if (com.claudemod.entity.life.Watchdog.incidents != wiN) { wiN = com.claudemod.entity.life.Watchdog.incidents; String k = com.claudemod.entity.life.Watchdog.lastIncident; wiSeen.add("t" + t[0] + " " + k); if (k.startsWith("FIGHT NO EFFECT") && wiFightT < 0) wiFightT = t[0]; }
         if (t[0] == 10) { // a zombie he can't hurt, right by him, held still: every swing lands nothing
             var z = EntityType.ZOMBIE.create(level); BlockPos zp = me.east(2); z.moveTo(zp.getX() + 0.5, zp.getY(), zp.getZ() + 0.5, 90, 0); z.setNoAi(true); z.setInvulnerable(true); z.setPersistenceRequired(); level.addFreshEntity(z); hzMob = z;
@@ -10513,7 +10521,7 @@ public final class ClaudeBodyTest {
                 level.setBlock(cu, Blocks.COPPER_ORE.defaultBlockState(), 2); level.setBlock(st, Blocks.STONE.defaultBlockState(), 2); level.setBlock(st.below(), Blocks.STONE.defaultBlockState(), 2); level.setBlock(cu.below(), Blocks.STONE.defaultBlockState(), 2); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
             if (!com.claudemod.entity.life.Watchdog.lastTold(c).isEmpty() && !com.claudemod.entity.life.Watchdog.lastTold(c).equals(wdSaid)) { wdSaid = com.claudemod.entity.life.Watchdog.lastTold(c); wdTold++; }
             check(!(c.currentTask instanceof Task.Break b0 && b0.pos().equals(cu)) && c.tasks.stream().noneMatch(q -> q instanceof Task.Break b1 && b1.pos().equals(cu)), "dig loop: the copper (past his wooden pick) queued: " + c.tasks);
-            if (t[0] >= 10 && t[0] % 10 == 0 && t[0] < 400 && c.tasks.isEmpty() && c.currentTask == null) { c.tasks.add(new Task.Break(st)); wdRuns++; } // (his mine round, putting the same dig back)
+            if (t[0] >= 10 && t[0] % 10 == 0 && t[0] < 400 && c.tasks.isEmpty() && c.currentTask == null && c.onGround()) { c.tasks.add(new Task.Break(st)); wdRuns++; } // (his mine round, putting the same dig back)
             if (t[0] == 400) {
                 int starts = com.claudemod.entity.life.Watchdog.trips(c);
                 check(level.getBlockState(cu).is(Blocks.COPPER_ORE), "dig loop: the copper went with a wooden pick");

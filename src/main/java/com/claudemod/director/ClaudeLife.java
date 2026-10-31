@@ -523,6 +523,13 @@ public final class ClaudeLife {
         long tod0 = level.getDayTime() % 24000;
         if ((tod0 >= 11600 && g.getArmorValue() < 10) || nightOutsideNo(g, level, g.blockPosition()) != null) return; // dusk or the dark with no kit: no side trips (it pulled him out of his fresh cover at sundown for trees 84 blocks off)
         g.sideJobTick = g.tickCount;
+        { java.util.List<Task> own = new ArrayList<>(); for (Task q : g.tasks) if (q instanceof Task.Pickup || q instanceof Task.Replant || q instanceof Task.FinishTree || q instanceof Task.ChopTree || q instanceof Task.Break || q instanceof Task.Place || q instanceof Task.WallTorch) own.add(q);
+          if (!own.isEmpty()) { // his own work still queued (a felled tree's drops and its sapling): that, while it cooks, then the furnace; no new side job pushing it back every round (live 06:00 World 15: the pickups and the replant behind a new tree, round after round, the drops left to despawn)
+            g.tasks.removeIf(q -> q instanceof Task.FurnaceTake fq && fq.pos().equals(ft.pos()));
+            dropCurrent(g); g.tasks.add(ft);
+            ClaudeMod.LOGGER.info("[Claude life] while the furnace works: his own {} queued job(s) first (first: {}), then the furnace at {} (ClaudeLife.sideJobWhileCooking)", own.size(), own.get(0).getClass().getSimpleName(), ft.pos().toShortString());
+            return;
+          } }
         int left; { var tag = f.saveWithoutMetadata(level.registryAccess()); int total = Math.max(1, tag.getShort("CookTimeTotal")); left = (total - tag.getShort("CookTime") + (f.getItem(0).getCount() - 1) * total) / 20; } // seconds on the batch: the arrow and the count, as a player reads them
         int treeRange = (int) Math.max(20, Math.min(32, (left - 15) * com.claudemod.entity.life.Clocks.SPRINT / 2.5)); // as far as the batch leaves time for: there and back at a sprint plus the chopping (a fixed 20 left him watching 8 iron cook with trees 26 off)
         BlockPos tree = g.getBlockY() >= level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.getBlockX(), g.getBlockZ()) - 1 ? findNear(level, ft.pos(), treeRange, b -> b.is(BlockTags.LOGS)) : null;

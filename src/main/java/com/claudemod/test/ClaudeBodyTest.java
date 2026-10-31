@@ -2216,6 +2216,7 @@ public final class ClaudeBodyTest {
         com.claudemod.entity.life.ChestLedger.reset(c);
         com.claudemod.entity.life.TempLedger.reset(c);
         com.claudemod.director.Errand.reset(c);
+        com.claudemod.entity.life.PortalMap.enterReset(c);
         com.claudemod.director.Structures.testPieces().clear(); com.claudemod.director.ClaudeLife.gateReset(c); // (a stage's own structure pieces; the gear gate's memory)
     }
 
@@ -8008,6 +8009,28 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
+        if (stage[0] == 506) { // enter_portal then blaze_rods (live 10:27 World 15: "stepping into portal #4" taken for there, find_fortress and blaze_rods run in the overworld): done only once he's through; never a Nether step in the overworld
+            ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+            if (t[0] == 1) { lwReset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); wdRuns = 0; wdSaid = ""; }
+            if (t[0] == 10) {
+                esStart(c, h, level, mock, new BlockPos(5, 2, 7), new BlockPos(1, 2, 14));
+                for (int x = 0; x <= 3; x++) for (int y = 1; y <= 5; y++) if (x == 0 || x == 3 || y == 1 || y == 5) level.setBlock(h.absolutePos(new BlockPos(4 + x, y, 10)), Blocks.OBSIDIAN.defaultBlockState(), 2 | 16);
+                for (int x = 1; x <= 2; x++) for (int y = 2; y <= 4; y++) level.setBlock(h.absolutePos(new BlockPos(4 + x, y, 10)), Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+                com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.dim(level), h.absolutePos(new BlockPos(5, 2, 10)), "him", "lit");
+                var a = steps1("enter_portal", "my portal", 1, "near_you"); a.addAll(steps1("blaze_rods", "", 6, "near_you"));
+                com.claudemod.director.ClaudeLife.command(c, mock[0], a, "go into the nether and get blaze rods", "replace");
+            }
+            if (t[0] > 10) {
+                String ln = c.lastSkillLine == null ? "" : c.lastSkillLine;
+                if (c.level() == level && ln.startsWith("blaze_rods") && !ln.contains("only in the Nether")) check(false, "portal: blaze_rods ran in the overworld: " + ln);
+                if (ln.contains("through portal")) wdSaid = ln;
+                if (c.level() == nether && !wdSaid.isEmpty()) { c.tasks.clear(); c.skillQueue.clear(); c.commandActive = false; BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(level, back.getX() + 0.5, back.getY(), back.getZ() + 0.5, 0, 0);
+                    for (int x = 0; x <= 3; x++) for (int y = 1; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(4 + x, y, 10)), Blocks.AIR.defaultBlockState(), 2 | 16);
+                    com.claudemod.entity.life.PortalMap.net(c).portals.clear(); pass(stage, t, "in the Nether, then \"" + wdSaid + "\""); }
+                else if (t[0] == 20 * 40) check(false, "portal: not through in 40 s (in " + c.level().dimension().location() + ", last " + ln + ", queue " + c.skillQueue + ")");
+            }
+            return true;
+        }
         if (stage[0] == 505) { // a full pack: 2 stacks of cobble and 2 of cobbled deepslate, 2 sugar, the rest fish (live 10:18 World 15: "nothing junk in it", the sugar dropped and picked back up every 7 s): stone past 2 stacks all told goes, the sugar stays
             if (t[0] == 1) { scenarioReset(c); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard(); }
             if (t[0] == 5) {

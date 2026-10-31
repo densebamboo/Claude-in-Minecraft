@@ -3239,7 +3239,7 @@ public final class ClaudeLife {
                 g.tasks.add(new Task.Wait(100, false));
                 return "stepping into the portal at " + portal.toShortString();
             }
-            case "blaze_rods": return com.claudemod.entity.life.FortressFight.blazeRods(g, player, level, st); // obtain blaze_rod N: blazes fought from cover, the rods counted to N
+            case "blaze_rods": if (level.dimension() != net.minecraft.world.level.Level.NETHER) return "failed: blazes are only in the Nether: enter_portal first (I'm in the " + level.dimension().location().getPath() + ")"; return com.claudemod.entity.life.FortressFight.blazeRods(g, player, level, st); // (live 10:28 World 15: run in the overworld after the portal hadn't taken him) // obtain blaze_rod N: blazes fought from cover, the rods counted to N
             case "loot": { // a structure's chests the way a player does it: walk in, open what's in view with a click, take what's worth taking, leave the traps alone
                 String what = lootKind(g, level, target);
                 int phase = 0; // "@n": where he is in a routine with steps (re-queued the way fish re-queues craft)
@@ -13040,6 +13040,7 @@ public final class ClaudeLife {
         String urgent = "";
         if ((g.getHealth() <= 8 && g.getFoodData().getFoodLevel() < 18) || (g.getFoodData().getFoodLevel() <= 6 && foodToEat(g, true) == null)) /* (starving with nothing to eat is urgent at any health: food 3 and the plans went to the ruined portal and a 292-block lava walk) */
             urgent = "YOU ARE AT " + (int) g.getHealth() + "/20 HEALTH WITH FOOD " + g.getFoodData().getFoodLevel() + "/20: health only comes back with food at 18 or more. Nothing else comes first: eat what you have, or get food (obtain beef 8: raw meat is fine right now, no furnace trip), then the job. No mining, no caving, no building, no trip down the mine for cobble until then.\n";
+        if (player.isSpectator()) urgent += "THEY ARE SPECTATING: they can't fight, block, light or protect you, and mobs ignore them. Never plan to stay near them for safety or wait on them: at night your own cover (your mine, your house, a dug-in spot) is your safety.\n"; // (live 10:28 World 15: the night plan "keep near them through the night" with them in spectator, him out on the surface)
         var mine = ownDropsNear(g, (ServerLevel) g.level(), 48);
         String own = "";
         if (!mine.isEmpty()) {

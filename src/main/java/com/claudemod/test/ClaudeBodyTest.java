@@ -8008,6 +8008,21 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
+        if (stage[0] == 496) { // collect cobblestone in his own mine never picks its wall (live 03:48 World 15: his shell stone queued, refused by doBreak, 0 got, the furnace craft looped)
+            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("mine_model", "blueprint"); }
+            if (t[0] == 5) {
+                var b = mrMine(h, level, 8); c.blueprint = b; com.claudemod.director.ClaudeLife.bpSync(c);
+                BlockPos me = h.absolutePos(new BlockPos(8, 6, 7)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+                c.setHealth(8f); // (hurt with nothing to eat: the stone round him, not a trip down the mine: the path that queued his wall live)
+                String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "cobblestone", 4);
+                c.setHealth(20f);
+                var shell = c.tasks.stream().filter(q -> q instanceof Task.Break br && b.isShell(br.pos()) && !com.claudemod.entity.life.MineBlueprint.ore(level.getBlockState(br.pos()))).toList();
+                check(shell.isEmpty(), "collect in his mine: " + shell.size() + " dig(s) queued in his own mine's wall: " + shell + " (said: " + r + ")");
+                c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear(); c.blueprint = null;
+                pass(stage, t, "collect in his mine: none of its wall (" + r + ")");
+            }
+            return true;
+        }
         if (stage[0] == 495) { // live 03:18 World 15: stone behind copper ore, a wooden pick, the dig re-queued by his mine round: never the copper queued, a few goes at most, then said once (it looped 270 times in 3 min)
             BlockPos me = h.absolutePos(new BlockPos(4, 2, 7)), cu = h.absolutePos(new BlockPos(6, 3, 7)), st = h.absolutePos(new BlockPos(7, 3, 7));
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.WOODEN_PICKAXE)); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); wdRuns = 0; wdTold = 0; wdSaid = "";

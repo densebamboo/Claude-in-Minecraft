@@ -1910,6 +1910,7 @@ public final class ClaudeLife {
                 }
                 BlockPos from = center(g, player, st);
                 List<BlockPos> found = pointedTree != null ? new ArrayList<>(List.of(pointedTree)) : findAll(level, from, 24, want::test, 60);
+                { int n0 = found.size(); found.removeIf(q -> hisBuildKeeps(g, level, q)); if (found.size() < n0) ClaudeMod.LOGGER.info("[Claude skill] collect {}: {} of the {} near him are his build's own (mine wall, door cap, house): not those (ClaudeLife.runSkill)", target, n0 - found.size(), n0); }
                 found.removeIf(q -> isStorageSpot(g, q)); // his storage stays: "the chests" never means those ; if (g.house != null) found.removeIf(q -> g.house.isStructure(q)); // nor his house: its log posts are no tree
                 if (pointedTree == null) found.removeIf(b -> !touchesAir(level, b) || PlayerProfile.placedBy(player).contains(b));
                 if (pointedTree == null) found.removeIf(b -> level.getBlockState(b).is(BlockTags.LOGS) && (villageBuilding(g, b) // the user: a village's houses are no trees (he was taking their log posts for wood); a village he has seen
@@ -10775,6 +10776,17 @@ public final class ClaudeLife {
     }
 
     /** Queues the reconcile tasks for rows [from, to] (digs, then the shell row by row, then the torches), at the back or the front. The count queued. */
+    /**
+     * A cell of his own build that WorkGoal.doBreak always refuses to dig: his mine's shell (not ore, not a landing or a notch),
+     * the cap over the hole by his door, his house's own right block. A planner asks this before it queues a Break (live World 15:
+     * collect picked his mine's wall stone, 03:48, and the skytower's take-down his pit cap, 03:52: queued, refused, again).
+     */
+    public static boolean hisBuildKeeps(ClaudeEntity g, ServerLevel level, BlockPos p) {
+        BlockState s = level.getBlockState(p);
+        if (bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.isShell(p) && !MineBlueprint.ore(s) && !g.landingCells.contains(p) && !g.notches.contains(p)) return true;
+        if (com.claudemod.entity.life.PitGuard.isCap(g, p) && !s.isAir() && s.getFluidState().isEmpty()) return true;
+        return houseMode(g) && g.house != null && g.house.isStructure(p) && g.house.rightBlock(level, p, g.house.roleAt(p));
+    }
     /** Ore whose drop needs a better pick than any he carries (copper for a wooden pick, diamond for stone). */
     public static boolean pastHisPick(ClaudeEntity g, ServerLevel level, BlockPos p) { BlockState s = level.getBlockState(p); return MineBlueprint.ore(s) && s.requiresCorrectToolForDrops() && g.inventory.find(x -> x.isCorrectToolForDrops(s)).isEmpty(); }
     public static int bpReconcile(ClaudeEntity g, ServerLevel level, int from, int to, boolean front) {

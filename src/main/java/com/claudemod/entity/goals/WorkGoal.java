@@ -5125,7 +5125,7 @@ public class WorkGoal extends Goal {
         for (BlockPos q : hut) { up.add(new Task.Place(q, hutItem)); g.pillarBlocks.addFirst(q); }
         up.add(wait != null ? wait : new Task.Wait(600, false));
         for (int i = hut.size() - 1; i >= 0; i--) up.add(new Task.Break(hut.get(i)));
-        for (int k = towerH - 1; k >= 0; k--) up.add(new Task.Break(at.above(k).immutable()));
+        for (int k = towerH - 1; k >= 0; k--) { BlockPos q = at.above(k).immutable(); if (com.claudemod.director.ClaudeLife.hisBuildKeeps(g, level, q)) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] skytower take-down: {} is his build's own (his door's cap, his mine), it stays (WorkGoal.reanchorSkytower)", q.toShortString()); continue; } up.add(new Task.Break(q)); } // (live 03:52: the take-down queued his pit cap, refused 4 times)
         up.add(pick != null ? pick : new Task.Pickup(60));
         g.tasks.removeIf(x -> old.stream().anyMatch(y -> y == x));
         for (int i = up.size() - 1; i >= 1; i--) g.tasks.addFirst(up.get(i)); // (the Pillar itself is running)

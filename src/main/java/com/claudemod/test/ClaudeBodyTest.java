@@ -8005,6 +8005,7 @@ public final class ClaudeBodyTest {
 
     private static boolean exactStages(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (stage[0] == 383 || stage[0] == 384) return skytowerStages(stage, t, c, h, level, mock);
+        if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 279 && stage[0] <= 285) {
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Whereabouts.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.ExactSpot.reset(c); com.claudemod.director.Primitives.reset(c);
                 c.planning = false; c.failCount.clear(); c.commandResults.clear(); c.commandActive = false; c.lastSkillLine = ""; c.lastStep = null; c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600; esWaitT = -1; esMark = -1; esFake = ""; }
@@ -10126,6 +10127,108 @@ public final class ClaudeBodyTest {
                         }
                     }
                     default -> { return false; }
+        }
+        return true;
+    }
+
+    // ---------------------------------------------------------------- the no-progress watchdog (stages 474-479)
+    private static int wdRuns, wdTold; private static String wdSaid = "";
+    /** A clean stone floor, nothing above it, him and his memory fresh, no plans of his own. */
+    private static void wdStart(ClaudeEntity c, GameTestHelper h, ServerLevel level) {
+        scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.commandActive = false; c.commandResults.clear(); c.resumeAfterCommand = false; c.stashedTasks.clear(); c.staying = false; c.setShiftKeyDown(false); c.stopUsingItem(); c.getNavigation().stop(); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.getFoodData().setFoodLevel(20); // (stage 473's order and its hunger-6 "eating first" hold carried into 474: he stood shuffling on the spot) c.stuckLevel = 0; c.failCount.clear(); c.lastStep = null; c.getInventory().clearContent();
+        c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.playerGoal = ""; wdRuns = 0; wdTold = 0; wdSaid = "";
+        for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 2; y <= 8; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+    }
+    private static void wdTo(ClaudeEntity c, BlockPos p) { c.teleportTo(p.getX() + 0.5, p.getY(), p.getZ() + 0.5); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); }
+    private static void wdEnd(ClaudeEntity c) { c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear(); c.stuckLevel = 0; c.playerGoal = ""; com.claudemod.entity.life.Watchdog.reset(c); }
+    private static boolean watchdogStages(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) wdStart(c, h, level);
+        if (!com.claudemod.entity.life.Watchdog.lastTold(c).isEmpty() && !com.claudemod.entity.life.Watchdog.lastTold(c).equals(wdSaid)) { wdSaid = com.claudemod.entity.life.Watchdog.lastTold(c); wdTold++; }
+        switch (stage[0]) {
+            case 474 -> { // the clock's measure: a walk 14 off, knocked back to the start every 1 s (never inside 8 of it: the walker's own 20 s guard is for spots a few blocks off) (a missed jump falling back): moving, never nearer, is no progress (main: never seen stuck, he "kept moving")
+                BlockPos start = h.absolutePos(new BlockPos(1, 2, 7)), goal = h.absolutePos(new BlockPos(15, 2, 7));
+                if (t[0] == 10) { wdTo(c, start); c.playerGoal = "walk over there"; c.tasks.add(new Task.GoTo(goal, 0.5)); }
+                if (t[0] > 10 && t[0] % 20 == 0 && c.stuckLevel == 0) { wdTo(c, start); if (c.tasks.isEmpty() && c.currentTask == null) c.tasks.add(new Task.GoTo(goal, 0.5)); }
+                if (t[0] > 10 && c.stuckLevel >= 1) { int secs = (t[0] - 10) / 20; wdEnd(c); pass(stage, t, "no progress seen in " + secs + " s though he kept moving"); }
+                else if (t[0] == 560) check(false, "watchdog: knocked back every 1 s for 27 s and never seen stuck (task " + c.currentTask + ")");
+            }
+            case 475 -> { // the same leap again and again, never landing (live 00:13: a sprint-jump missed 5 times in 10 s): after 3 it trips, the landing's written off, it's never run a 4th time
+                BlockPos lip = h.absolutePos(new BlockPos(5, 2, 7)), land = h.absolutePos(new BlockPos(10, 3, 7));
+                var leap = new Task.Leap(lip, land, com.claudemod.entity.nav.Leaps.SPRINT_JUMP, 0, 0f);
+                if (t[0] == 2) { for (int x = 6; x <= 9; x++) for (int z = 0; z < 16; z++) for (int y = -3; y <= 1; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); level.setBlock(land.below(), Blocks.STONE.defaultBlockState(), 2); }
+                if (t[0] >= 10 && t[0] % 10 == 0 && c.tasks.isEmpty() && c.currentTask == null && t[0] < 300) { wdTo(c, lip); c.tasks.add(leap); wdRuns++; } // (a planner picking the same jump each time it ends)
+                if (t[0] == 300) {
+                    String k = com.claudemod.entity.life.Watchdog.key(leap);
+                    check(com.claudemod.entity.life.Watchdog.trips(c) >= 1 && com.claudemod.entity.life.Watchdog.rung(c, k) >= 2, "leap: " + wdRuns + " goes at the same leap, watchdog trips " + com.claudemod.entity.life.Watchdog.trips(c) + ", rung " + com.claudemod.entity.life.Watchdog.rung(c, k));
+                    check(c.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, land, c.tickCount, 20 * 60), "leap: its landing not written off in Attempts");
+                    check(wdTold <= 1, "leap: told them " + wdTold + " times");
+                    wdEnd(c); pass(stage, t, "the same leap queued " + wdRuns + " times: tripped, written off, told " + wdTold + " time(s)");
+                }
+            }
+            case 476 -> { // a walk that never gets nearer and keeps being picked again (live 23:56: a long-walk hop re-picking its own target every 2 s): the clock's whole ladder, his own way out, dropped, then them told once, exactly
+                BlockPos me = h.absolutePos(new BlockPos(1, 2, 7)), goal = h.absolutePos(new BlockPos(15, 2, 7));
+                if (t[0] == 10) { wdTo(c, me); c.playerGoal = "walk over there"; }
+                if (t[0] >= 10 && wdTold == 0) {
+                    if (c.tasks.isEmpty() && c.currentTask == null && t[0] % 10 == 0) { c.tasks.add(new Task.GoTo(goal, 0.5)); wdRuns++; } // (picked again each time it's dropped)
+                    if (t[0] % 20 == 0) wdTo(c, me); // (and he never gets anywhere with it)
+                }
+                if (wdTold >= 1) {
+                    String said = com.claudemod.entity.life.Watchdog.lastTold(c);
+                    check(said.startsWith("stuck: ") && said.contains("no nearer") && said.contains("tried"), "walk: the line to them doesn't say what failed and what's next: \"" + said + "\"");
+                    int at = t[0]; wdEnd(c); pass(stage, t, "the same walk picked " + wdRuns + " times: told once in " + (at - 10) / 20 + " s: \"" + said + "\"");
+                } else if (t[0] == 20 * 200) check(false, "walk: never nearer for 200 s, picked " + wdRuns + " times, and them never told (stuck level " + c.stuckLevel + ", strikes " + c.failCount + ")");
+            }
+            case 477 -> { // say-do: "breaking the blocks now" with only a walk queued is not said; with a dig queued it is; a later "i'll break it after" stands
+                if (t[0] == 10) {
+                    BlockPos far = h.absolutePos(new BlockPos(13, 2, 7));
+                    c.tasks.add(new Task.GoTo(far, 1.0));
+                    String a = com.claudemod.director.ClaudeChat.moveTruth(c, mock[0], "on it, breaking the blocks now");
+                    check(!a.contains("breaking the blocks"), "say-do: \"breaking the blocks now\" said with only a walk queued: \"" + a + "\"");
+                    String later = com.claudemod.director.ClaudeChat.moveTruth(c, mock[0], "i'll be breaking the wall after this walk");
+                    check(later.contains("breaking the wall"), "say-do: a later claim changed: \"" + later + "\"");
+                    c.tasks.clear(); c.tasks.add(new Task.Break(h.absolutePos(new BlockPos(8, 1, 7))));
+                    String b = com.claudemod.director.ClaudeChat.moveTruth(c, mock[0], "on it, breaking the blocks now");
+                    check(b.contains("breaking the blocks"), "say-do: a true \"breaking the blocks now\" changed to \"" + b + "\"");
+                    wdEnd(c); pass(stage, t, "walk only: \"" + a + "\"; dig queued: kept");
+                }
+            }
+            case 478 -> { // the same craft failure over and over (live: "craft furnace -> failed: missing cobblestone" again and again): the 2nd time it gets what it lacks first, the 3rd it's skipped and they're told once
+                if (t[0] == 10) {
+                    var st = new com.claudemod.entity.life.Skills.Step("craft", "furnace", 1);
+                    String r = "failed: to craft furnace you are missing cobblestone";
+                    com.claudemod.entity.life.Watchdog.skillRan(c, st, r);
+                    check(c.skillQueue.isEmpty(), "craft: one failure already acted on: " + c.skillQueue);
+                    com.claudemod.entity.life.Watchdog.skillRan(c, st, r);
+                    var q = new java.util.ArrayList<>(c.skillQueue);
+                    check(q.size() == 2 && q.get(0).skill().equals("collect") && q.get(0).target().equals("cobblestone") && q.get(1).equals(st), "craft: the 2nd identical failure didn't get the cobblestone first: " + q);
+                    c.skillQueue.clear();
+                    com.claudemod.entity.life.Watchdog.skillRan(c, st, r);
+                    check(c.failCount.getOrDefault("craft furnace", 0) >= 3, "craft: the 3rd failure not skipped (failCount " + c.failCount + ")");
+                    String said = com.claudemod.entity.life.Watchdog.lastTold(c);
+                    check(said.contains("craft furnace") && said.contains("cobblestone"), "craft: the line to them doesn't say what failed: \"" + said + "\"");
+                    com.claudemod.entity.life.Watchdog.skillRan(c, st, r); com.claudemod.entity.life.Watchdog.skillRan(c, st, r);
+                    check(com.claudemod.entity.life.Watchdog.lastTold(c).equals(said), "craft: told again");
+                    c.failCount.clear(); c.skillQueue.clear();
+                    com.claudemod.entity.life.Watchdog.skillRan(c, st, "crafted 1 furnace"); com.claudemod.entity.life.Watchdog.skillRan(c, st, r);
+                    check(c.skillQueue.isEmpty(), "craft: a success didn't clear the count: " + c.skillQueue);
+                    wdEnd(c); pass(stage, t, "gathered first, then skipped and told: \"" + said + "\"");
+                }
+            }
+            case 479 -> { // long legit work never trips: three obsidian blocks with a diamond pick (9.4 s each), then a walk round a wall
+                BlockPos me = h.absolutePos(new BlockPos(2, 2, 7)), goal = h.absolutePos(new BlockPos(13, 2, 7));
+                if (t[0] == 10) {
+                    for (int z = 0; z <= 12; z++) for (int y = 2; y <= 4; y++) level.setBlock(h.absolutePos(new BlockPos(7, y, z)), Blocks.STONE.defaultBlockState(), 2);
+                    for (int i = 0; i < 3; i++) level.setBlock(h.absolutePos(new BlockPos(4, 2, 6 + i)), Blocks.OBSIDIAN.defaultBlockState(), 2);
+                    wdTo(c, me); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16));
+                    for (int i = 0; i < 3; i++) c.tasks.add(new Task.Break(h.absolutePos(new BlockPos(4, 2, 6 + i))));
+                    c.tasks.add(new Task.GoTo(goal, 1.0));
+                }
+                if (t[0] > 10) { check(c.stuckLevel == 0 && com.claudemod.entity.life.Watchdog.trips(c) == 0, "long work: seen stuck (level " + c.stuckLevel + ", trips " + com.claudemod.entity.life.Watchdog.trips(c) + ") on " + c.currentTask + " at " + c.blockPosition().toShortString());
+                    boolean obs = false; for (int i = 0; i < 3; i++) obs |= level.getBlockState(h.absolutePos(new BlockPos(4, 2, 6 + i))).is(Blocks.OBSIDIAN);
+                    if (!obs && c.tasks.isEmpty() && c.currentTask == null && c.position().distanceTo(goal.getBottomCenter()) < 2.5) { int at = t[0]; wdEnd(c); pass(stage, t, "3 obsidian and the walk round in " + (at - 10) / 20 + " s, never seen stuck"); }
+                    else check(t[0] < 1800, "long work: not done in 90 s (obsidian left " + obs + ", at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ", queue " + c.tasks + ")"); }
+            }
+            default -> { return false; }
         }
         return true;
     }

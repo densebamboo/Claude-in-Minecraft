@@ -49,6 +49,7 @@ public final class MindLog {
         Integer t0 = g.attempts.counters.get(kt);
         if (t0 == null || g.tickCount - t0 > 20 * 60) { g.attempts.counters.put(kt, g.tickCount); g.attempts.counters.put(k, 0); }
         int n = g.attempts.counters.merge(k, 1, Integer::sum);
+        if (n == 3) Watchdog.conflict(g, pos, job); // (the watchdog's second signal: three refusals of the same thing)
         if (n == 3) com.claudemod.ClaudeMod.LOGGER.info("[Claude conflict] {} at {}: queued again and refused 3 times in {} s; step: {} ({}); refused by: {}",
                 job, pos.toShortString(), (g.tickCount - g.attempts.counters.get(kt)) / 20, g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target(), g.tasks.size() + " queued", lastAbout(pos.toShortString()));
     }

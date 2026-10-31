@@ -10854,6 +10854,36 @@ public final class ClaudeLife {
     }
 
     /** dig_down in blueprint mode: a fresh mine here, or more rows at the face; each row a step down where the rock allows it, flat where it doesn't; the shell patched row by row. */
+    /**
+     * A new mine's heading, like an expert picks it: the stairs go down under rock, never along a slope falling away (live 03:16
+     * World 15: a mine heading south down a grassy hillside broke out of it at every step, a trench open to the sky). Each way
+     * is scored by the rock over its first 8 stair rows (the roof and both side walls); a way whose roof is open from row 6 on
+     * (two rows' grace for the mouth on flat ground) is refused, as is one toward lava or water in the first 4. Their heading,
+     * else the way they look, breaks a tie (theirs, said, wins over a few blocks more cover but not over a refusal). Logged.
+     */
+    public static Direction mineHeading(ClaudeEntity g, ServerLevel level, BlockPos feet, Direction wish, boolean theirs) {
+        int h = 4, w = 2;
+        Direction best = null; int bestScore = Integer.MIN_VALUE; StringBuilder said = new StringBuilder();
+        Direction d = wish == null || wish.getAxis().isVertical() ? Direction.NORTH : wish;
+        for (int n = 0; n < 4; n++, d = d.getClockWise()) {
+            boolean wet = false, open = false; int cover = 0; String why = "";
+            for (int i = 1; i <= 8; i++) {
+                BlockPos q = feet.relative(d, i).below(i);
+                if (i <= 4 && (lavaNear(g, level, q) || !level.getFluidState(q).isEmpty() || !level.getFluidState(q.above()).isEmpty())) { wet = true; why = "lava or water at row " + i; }
+                BlockPos roof = q.above(h);
+                boolean roofed = MineBlueprint.solid(level, roof);
+                if (roofed) cover += 2;
+                for (BlockPos side : new BlockPos[] {q.relative(d.getClockWise(), w), q.relative(d.getCounterClockWise())}) for (int y = 1; y < h; y++) if (MineBlueprint.solid(level, side.above(y))) cover++;
+                if (i >= 6 && !roofed && !open) { open = true; if (why.isEmpty()) why = "no rock over row " + i + " (" + roof.toShortString() + ")"; }
+            }
+            int score = cover - (open ? 1000 : 0) - (wet ? 10000 : 0) + (d == wish ? (theirs ? 12 : 1) : 0);
+            said.append(d.getName()).append(' ').append(wet || open ? "refused: " + why : "cover " + cover).append("; ");
+            if (score > bestScore) { bestScore = score; best = d; }
+        }
+        ClaudeMod.LOGGER.info("[Claude life] mine heading from {}: {}-> {}{} (ClaudeLife.mineHeading)", feet.toShortString(), said, best.getName(), bestScore < -500 ? " (every way refused: the least bad; better somewhere flatter)" : "");
+        return best;
+    }
+
     static String bpDigDown(ClaudeEntity g, ServerPlayer player, ServerLevel level, Skills.Step st, String target, int count) {
         String tool = ensureToolFor(g, player, level, Blocks.STONE.defaultBlockState(), st); if (tool != null) return tool;
         upgradeToolFor(g, level, Blocks.STONE.defaultBlockState()); craftSwordIfCan(g, level);
@@ -10886,12 +10916,7 @@ public final class ClaudeLife {
                 Vec3 look = player != null && com.claudemod.entity.life.Whereabouts.seesNow(g, player) && player.distanceTo(g) < 16 ? player.getLookAngle() : g.getLookAngle(); // (the way they look: seen)
                 dir = Direction.getNearest(look.x, 0, look.z);
             }
-            for (int tries = 0; tries < 4; tries++) { // not toward lava or a lake within the first steps
-                boolean bad = false;
-                for (int i = 1; i <= 4 && !bad; i++) { BlockPos q = feet.relative(dir, i).below(i); if (lavaNear(g, level, q) || !level.getFluidState(q).isEmpty() || !level.getFluidState(q.above()).isEmpty()) bad = true; }
-                if (!bad) break;
-                dir = dir.getClockWise();
-            }
+            dir = mineHeading(g, level, feet, dir, !heading.isBlank()); // (rock over the stairs, never down a slope; not toward lava or a lake)
             b = bpStart(g, feet, dir); g.prefs.remove("new_mine"); g.prefs.remove("mine_heading");
             ClaudeMod.LOGGER.info("[Claude life] blueprint: a new mine at {} heading {} ({} wide, {} tall)", feet.toShortString(), dir.getName(), b.width, b.height);
         }

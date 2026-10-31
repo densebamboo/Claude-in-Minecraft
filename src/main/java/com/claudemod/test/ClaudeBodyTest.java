@@ -10135,7 +10135,7 @@ public final class ClaudeBodyTest {
     private static int wdRuns, wdTold; private static String wdSaid = "";
     /** A clean stone floor, nothing above it, him and his memory fresh, no plans of his own. */
     private static void wdStart(ClaudeEntity c, GameTestHelper h, ServerLevel level) {
-        scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.stuckLevel = 0; c.failCount.clear(); c.lastStep = null; c.getInventory().clearContent();
+        scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.commandActive = false; c.commandResults.clear(); c.resumeAfterCommand = false; c.stashedTasks.clear(); c.staying = false; c.setShiftKeyDown(false); c.stopUsingItem(); c.getNavigation().stop(); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.getFoodData().setFoodLevel(20); // (stage 473's order and its hunger-6 "eating first" hold carried into 474: he stood shuffling on the spot) c.stuckLevel = 0; c.failCount.clear(); c.lastStep = null; c.getInventory().clearContent();
         c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.playerGoal = ""; wdRuns = 0; wdTold = 0; wdSaid = "";
         for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 2; y <= 8; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
     }
@@ -10145,12 +10145,12 @@ public final class ClaudeBodyTest {
         if (t[0] == 1) wdStart(c, h, level);
         if (!com.claudemod.entity.life.Watchdog.lastTold(c).isEmpty() && !com.claudemod.entity.life.Watchdog.lastTold(c).equals(wdSaid)) { wdSaid = com.claudemod.entity.life.Watchdog.lastTold(c); wdTold++; }
         switch (stage[0]) {
-            case 474 -> { // the clock's measure: a walk 12 off, knocked back to the start every 1.5 s (a missed jump falling back): moving, never nearer, is no progress (main: never seen stuck, he "kept moving")
-                BlockPos start = h.absolutePos(new BlockPos(2, 2, 7)), goal = h.absolutePos(new BlockPos(14, 2, 7));
+            case 474 -> { // the clock's measure: a walk 14 off, knocked back to the start every 1 s (never inside 8 of it: the walker's own 20 s guard is for spots a few blocks off) (a missed jump falling back): moving, never nearer, is no progress (main: never seen stuck, he "kept moving")
+                BlockPos start = h.absolutePos(new BlockPos(1, 2, 7)), goal = h.absolutePos(new BlockPos(15, 2, 7));
                 if (t[0] == 10) { wdTo(c, start); c.playerGoal = "walk over there"; c.tasks.add(new Task.GoTo(goal, 0.5)); }
-                if (t[0] > 10 && t[0] % 30 == 0 && c.stuckLevel == 0) { wdTo(c, start); if (c.tasks.isEmpty() && c.currentTask == null) c.tasks.add(new Task.GoTo(goal, 0.5)); }
+                if (t[0] > 10 && t[0] % 20 == 0 && c.stuckLevel == 0) { wdTo(c, start); if (c.tasks.isEmpty() && c.currentTask == null) c.tasks.add(new Task.GoTo(goal, 0.5)); }
                 if (t[0] > 10 && c.stuckLevel >= 1) { int secs = (t[0] - 10) / 20; wdEnd(c); pass(stage, t, "no progress seen in " + secs + " s though he kept moving"); }
-                else if (t[0] == 560) check(false, "watchdog: knocked back every 1.5 s for 27 s and never seen stuck (task " + c.currentTask + ")");
+                else if (t[0] == 560) check(false, "watchdog: knocked back every 1 s for 27 s and never seen stuck (task " + c.currentTask + ")");
             }
             case 475 -> { // the same leap again and again, never landing (live 00:13: a sprint-jump missed 5 times in 10 s): after 3 it trips, the landing's written off, it's never run a 4th time
                 BlockPos lip = h.absolutePos(new BlockPos(5, 2, 7)), land = h.absolutePos(new BlockPos(10, 3, 7));
@@ -10166,11 +10166,11 @@ public final class ClaudeBodyTest {
                 }
             }
             case 476 -> { // a walk that never gets nearer and keeps being picked again (live 23:56: a long-walk hop re-picking its own target every 2 s): the clock's whole ladder, his own way out, dropped, then them told once, exactly
-                BlockPos me = h.absolutePos(new BlockPos(2, 2, 7)), goal = h.absolutePos(new BlockPos(14, 2, 7));
+                BlockPos me = h.absolutePos(new BlockPos(1, 2, 7)), goal = h.absolutePos(new BlockPos(15, 2, 7));
                 if (t[0] == 10) { wdTo(c, me); c.playerGoal = "walk over there"; }
                 if (t[0] >= 10 && wdTold == 0) {
                     if (c.tasks.isEmpty() && c.currentTask == null && t[0] % 10 == 0) { c.tasks.add(new Task.GoTo(goal, 0.5)); wdRuns++; } // (picked again each time it's dropped)
-                    if (t[0] % 30 == 0) wdTo(c, me); // (and he never gets anywhere with it)
+                    if (t[0] % 20 == 0) wdTo(c, me); // (and he never gets anywhere with it)
                 }
                 if (wdTold >= 1) {
                     String said = com.claudemod.entity.life.Watchdog.lastTold(c);

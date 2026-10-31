@@ -1,0 +1,82 @@
+- **Vanilla rules only** — Claude player must act 1:1 with a survival player, no rule bypasses
+- **Ship fast, polish later** — push passing fixes quickly; no long test-perfecting loops while he's stuck live
+- **Teach, don't fix** — fix his behaviour so he repairs things himself; no one-off scripted world repairs
+- **Ender dragon goal** — real bar: ask him anything, accurate and flawless; the dragon is the extreme test, nether/end skills do not exist yet
+- **Keep etiquette rules** — strip-mine and tree-chopping etiquette must survive any rewrite; Opus for the planner is fine
+- **Stage 31 slow** — was flaky: smoother treated water as walkway and projected fixes past the turn; fixed 2026-10-26, stage asserts it
+- **Expert player standard** — he must play with the expertise and judgement of an experienced Minecraft player; judge every fix against that
+- **Playtest backlog 2026-10-27** — sidetracking, death-recovery priority, unfinished mine frame/walls, exposed copper, multitasking, eating freeze
+- **Diamond rule** — diamonds are theirs while they asked for diamonds/diamond gear; otherwise he may make his own diamond gear
+- **Efficiency, not just bugs** — deaths, loops, wasted time and ANY failed/give-up line are all bugs; measure from the log, cut the biggest sink
+- **Navigation as action planning** — dig/place/swim are moves he plans with; build the ActionPath A* instead of more walkTo patches
+- **Trial chambers milestone** — wanted later: geared, chokepoint fighting, spawner/key/vault knowledge; until then he waits outside ungeared
+- **End-of-day bar 2026-10-27** — no deaths, self-fed, sleeps, iron armor + diamond tools, clean mine with torches/arch/stations; no stray blocks
+- **Base milestone** — foundational after wood+food (Stone Age): claimed plot, robust self-repairing house, farm, pen, planted trees; survival order food, water, shelter
+- **Night work rule** — no chopping/hunting at night unless lit area or iron+ gear with food; gate nightOutsideNo on surface skills
+- **Combat engagement rule** — no picking fights without food for regen; crowds left alone unless iron+food; self-defence unchanged
+- **Perception milestone** — seen (FOV + line of sight), heard, proximity; plus drip particles: lava/water above a ceiling block is seen from below (2026-10-30)
+- **Difficulty** — live world is Normal (zombie hit 3.0; the 19:28 drop was several hits); still size thresholds for 2–3 hits landing
+- **Cover proximity rule** — dig in / pillar only with distance enough to finish (tower 6+, hole 12+ from melee mobs); else keep running
+- **Autonomy with functions** — rules for everyday survival, skills as callable functions for specific asks (adopt_place etc.)
+- **Stash valuables rule** — valuables go in his chests by default; store skill auto-runs when carrying ore/ingots/diamonds near his storage
+- **Bedrock port idea** — later: body rewrite as a bedrock-protocol bot; planner/rules/skills carry over
+- **Player trace milestone** — record the user's play (events + position) and calibrate/model the bot from it; recorder first, relaunch needed
+- **Drops risk vs reward** — recover drops by worth against risk; valuable piles are near-mandatory, junk waits
+- **Mine integrity rule** — in his mine: ore gets mined, air gets patched, before going further; ore holes refilled
+- **Mine cavern rule** — branches only at ore levels (past one: back to its tunnel);  at a cavern go level across (floored, never cleaned up) then resume the stairs; reuse for nether tunnels
+- **Trip packing rule** — before a mining trip: 32+ logs, 20 cooked food (kit 16), 64 torches (restock at 6); back up for food under 6 meals; the kit never waives food (search + wheat patch instead)
+- **Armor piecemeal rule** — craft the best affordable iron piece as ingots come in, counting his chests; never wait for 24
+- **Storage is inventory** — chests/furnaces count in every plan and craft; all furnaces at once, load split; user-placed base blocks never clutter
+- **Sprint default** — sprint everywhere, sprint-jump on open ground; walk only for short/precise moves
+- **Resourceful food, fish, bow** — eat what's there (fish count); fishing skill and bow use wanted for nether/dragon
+- **Village milestone** — trading is a real route to food/tools/armor/pearls on the dragon path; user wants him really good at it; nothing built yet
+- **Automated farms goal** — far-future: he builds known farm designs from blueprints (pen, sugarcane, mob tower, iron farm, then redstone)
+- **Fix causes, not counters** — no 'died N times, abandon it' rules as fixes; fix what walked him in, the dark, the missing gear
+- **Advanced techniques bar** — he must know intermediate/advanced techniques and all speedrun tactics; technique catalogue with present/missing drives milestones
+- **Village usage rule** — villages used when nearby and useful or when asked; beds taken/claimed freely; golem iron when short; keep the village standing
+- **Eat below full** — eat the moment hunger < 20 for saturation; no night hunts to top up the kit
+- **Batch 1 done** — loot + villages live 2026-10-28, 7/8 stages; harness traps (dropCurrent, base origin, visibleBlock, 20-tick move goals)
+- **Mine blueprint built** — one blueprint model behind mine_model (blueprint|legacy), tests 77-81 pass 4/4 in the side copy; ships with the fresh-world restart
+- **Batch 2 portal done** — one-bucket portal cast works in the side copy; fix 6 handed to Opus; cast-vs-reflex traps and the pour geometry
+- **Mine arch shape** — the arch is the mine's shell (walls + roof) carried above ground over the entrance steps; open at the top, never walled shut or dug through
+- **Root fixes only** — fix the decision that caused it, never a symptom patch or a one-scenario escape; tp him to unstick
+- **No sensing through walls** — ore and furnace/chest use only with line of sight; seeing/using through walls is a bug
+- **House blueprint built** — starter house as one blueprint (83-85), chest facing fix, ChopTree chop rewrite (86); lacks stairs roof, panes, litter
+- **Stone picks for rock** — stone picks for ALL rock (deepslate too); iron/diamond pick only for ore that needs it; y-50 exception withdrawn 2026-10-30
+- **Mine base nook** — user spec: 2-wide opening, chests at back + 3rd junk row on top, bed beside chests into the rock, 2x3 furnaces opposite; sited after the stairs; misplaced ones get moved
+- **Clutter is a bug** — in the mine: place what the blueprint lacks; in the world: break what he left; fix the decision that left it
+- **Sapling groves rule** — groves round the mine/house (more when barren), replant debt, plant_saplings skill; stage 92 green, handed to Opus
+- **Farm and bucket rule** — FarmBlueprint (fenced, lit, centre water, gate toward home) + bucket-first kit; stage 93 green, handed to Opus; seed placement slow
+- **Walker as ActionPath built** — A* with NO_DIG/MAY_DIG + etiquette costs replaces the walker's dig/bridge fallbacks; stages 94-97, 61 green; ore approach on the planner too; next: typed Attempts, reflex filter, stairs roof
+- **Placed blocks rule** — movement blocks out in the world: dirt may stay (a hill), the rest comes back up; never a raised line over flat ground; in the mine placing is a patch
+- **Shuffle is a loop** — any shuffling/back-and-forth is a mini loop = bug; loop watcher on the live log
+- **Slow attempts are bugs** — anything taking longer than a player would (re-plugging water, 30s+ tasks) is a bug
+- **Attempts memory built** — g.attempts (typed failures, named counters, any view) replaces g.unreachable; stage 98 green; handed off
+- **Player scenarios** — overnight scenario testing via truthFor + command(); round 1 (places/body in truth, stage 99) done; storage-chest pickup bug sent to Day to Day
+- **Player pace rule** — a shuffle or anything slower than a player is a bug; stages assert player-pace time bounds, not just outcomes
+- **Night hold built** — one night-shelter state (holdingNight) instead of per-rule gates; stage 120; bed-in-hole sleep next
+- **Chat accuracy, litter, hiding** — wrong/misleading chat = bug; left temp blocks = litter bug; dig-in only early game; wasted time = bug
+- **Dragon path built** — away-from-home brain + dragon roadmap + lava memory live/handed; Nether skills not built yet; model trial: keep Sonnet
+- **Mine work order** — whole visible vein before any patch; patch every ore hole except the path; all in-reach work, then move on
+- **Exact causes and logging** — no "likely causes": prove from log/trace, add logging first if it can't
+- **Core concept** — body of a player (all limits, real senses), mind of an AI (every meta, exact timers, TAS precision)
+- **Objective-aware rules** — hazard rules hold by default but bend to the goal (lava plugged normally, kept and used when the portal needs it)
+- **North star** — body of a player, mind of an AI: every meta, exact clocks, TAS-precise moves, only a player's limits
+- **Silent path is a bug** — every queue/drop/skip/give-up logs what it saw and why, with method; add the log before guessing
+- **Chat misunderstandings to BP** — every chat misunderstanding goes to Big Picture as a feature; MindLog gives him his own debug log
+- **Conflict reporting** — [Claude conflict] line on 3rd refusal in 60 s (MindLog.refused); loopwatch flags CONFLICT; fix each at its cause
+- **Learned skills plan** — primitives (dig_at/place_at/...) now; later learned skills saved per bot outside the world, into every new world
+- **Where answers** — a shared landmark is enough; coordinates only for spots with no reference point
+- **Coaching workflow** — user coaches him step by step in chat when he struggles; misunderstandings → features, their demo → his learned skill
+- **Teaching mode built** — bucket prims, exact spot, relative moves, copy mode (buckets too), saved lesson state; never key long state off playerGoal
+- **Instruction beats safety** — while they instruct him (lesson/debug), their step beats his hazard holds; he may warn once
+- **Obsidian technique** — water pocket at lava level, mine what touches the water, no plugs, top layer first then one down
+- **Portal corners** — fill the frame corners: obsidian, cobbled deepslate, cobble, or crying obsidian
+- **Gold piece rule** — in the Nether he always wears one gold armor piece; best armor back when it breaks
+- **Fall damage judgement** — he computes fall damage (h-3, modifiers, safe landings) and takes drops with an HP margin; routes use them
+- **Parkour pathing** — gap jumps and sprint-jumps as ActionPath moves, cost by what is below; with survivable drops
+- **Structure intact rule** — keep fortresses and other structures intact; their blocks are very dear to dig, go round or bridge
+- **Blaze fight 396 open** — 396 flaky on main itself; fire/clock fix handed (2/3); stuck-in-fire cause unproven, log first
+- **Biome awareness** — he knows his exact biome (F3) and what spawns there; never guesses it from the ground
+- **Portal network goal** — portal memory as a travel network: all portals, links, state, highways, planned portal travel; Big Picture builds it
+- **Portal memory built** — PortalMap network (nodes, Nether-way edges, routes), stages 470-472; highways build on addWay

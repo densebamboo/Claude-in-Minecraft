@@ -279,13 +279,7 @@ public final class ClaudeLife {
             return;
         }
         mlg(g, ((ServerLevel) g.level())); // a bad fall with a water bucket on him: water under his feet before he lands
-        for (var fb : ((ServerLevel) g.level()).getEntitiesOfClass(net.minecraft.world.entity.projectile.LargeFireball.class, g.getBoundingBox().inflate(3.0))) { // a ghast's fireball coming at him, in reach and in sight: hit it back, as a player does (the user, 16:25: "when a ghast shoots a fireball at you, you need to hit it back")
-            if (fb.getDeltaMovement().dot(g.getEyePosition().subtract(fb.position())) <= 0 || !g.hasLineOfSight(fb)) continue;
-            g.getLookControl().setLookAt(fb); g.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, fb.position());
-            g.attack(fb); g.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
-            ClaudeMod.LOGGER.info("[Claude life] a ghast fireball at {} coming for him: hit it back", fb.blockPosition().toShortString());
-            break;
-        }
+        // (a ghast's fireball: hit back in WorkGoal.reflexes, the hazard layer, which runs in every state)
         com.claudemod.entity.life.PitGuard.tick(g, ((ServerLevel) g.level())); // a fall into a hole by his door: he closes its mouth
         if (g.tickCount % 40 == 7 || g.isInWater() && g.tickCount % 5 == 0) fillBucket(g, ((ServerLevel) g.level())); // (standing in the water he just threw under himself: scooped at once, before he walks off and leaves it flooding his stairs) // an empty bucket and water in reach: fill it (and take back the water he threw)
         if (g.tickCount % 100 == 0) equipArmor(g);

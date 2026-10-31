@@ -8008,6 +8008,21 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
+        if (stage[0] == 501) { // his dig opens onto lava (live 06:53 World 15: the plug was queued as a walk to a stand spot, the step never took, the lava came on, he burned with the whole diamond kit): the block straight back the same tick, from where he stands; never in the lava
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 7)), dig = h.absolutePos(new BlockPos(5, 2, 7)), lava = h.absolutePos(new BlockPos(6, 2, 7));
+            if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); wdRuns = -1; hzLow = 20f;
+                for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 2; y <= 8; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), (x >= 5 && x <= 9 && z >= 5 && z <= 9 && y <= 4) ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+                for (int x = 6; x <= 8; x++) for (int z = 6; z <= 8; z++) level.setBlock(h.absolutePos(new BlockPos(x, 2, z)), Blocks.LAVA.defaultBlockState(), 3); // (a hidden pocket right behind the stone he's to dig)
+                c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+            if (t[0] == 10) c.tasks.add(new Task.Break(dig));
+            if (t[0] > 10) { hzLow = Math.min(hzLow, c.getHealth()); check(!c.isInLava(), "lava release: he's in the lava at " + c.blockPosition().toShortString() + " (health " + c.getHealth() + ")");
+                boolean open = level.getBlockState(dig).getCollisionShape(level, dig).isEmpty();
+                if (open && wdRuns < 0) wdRuns = t[0];
+                if (level.getBlockState(dig).is(Blocks.COBBLESTONE) && (wdRuns > 0 || !open)) { int took = wdRuns > 0 ? t[0] - wdRuns : 0; /* (plugged in the very tick it opened: never seen open) */ check(took <= 3, "lava release: the hole took " + took + " ticks to plug (want the same tick: a right click)"); check(hzLow >= 20, "lava release: hurt, low " + hzLow); c.tasks.clear(); c.dropCurrent = true; for (int x = 6; x <= 8; x++) for (int z = 6; z <= 8; z++) level.setBlock(h.absolutePos(new BlockPos(x, 2, z)), Blocks.STONE.defaultBlockState(), 3); pass(stage, t, "the stone out and his cobble in its place " + took + " tick(s) after it opened, never hurt"); }
+                else if (t[0] == 400) check(false, "lava release: " + (wdRuns < 0 ? "the stone never dug" : "the hole onto the lava still open after " + (t[0] - wdRuns) + " ticks") + " (task " + c.currentTask + ", queue " + c.tasks + ")");
+            }
+            return true;
+        }
         if (stage[0] == 500) { // build_portal with lava down here and no obsidian (live 06:43 World 15: one obsidian per 16-20 s, pour and wait for the drain each block): the frame's 10 made the user's way, at a diamond pick's pace (9.4 s a block: 10 in 150 s with the moves)
             if (t[0] == 1) { lwReset(c); com.claudemod.director.ClaudeLife.lavaSeen(c).clear(); com.claudemod.director.ClaudeLife.obsTestReset(c); com.claudemod.entity.life.Watchdog.reset(c); }
             if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());

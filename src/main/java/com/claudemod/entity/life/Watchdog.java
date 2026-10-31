@@ -48,7 +48,7 @@ public final class Watchdog {
         Task started; int startTick, startBroken, startItems; double startDist; // the action now running, as it began
         int broken;                                          // blocks he's broken (ClaudeLife.noteBroken)
         String pending;                                      // a line to say on the next ClaudeLife tick (it has the player)
-        String lastTold = "";                                // (stages read it)
+        String lastTold = ""; int lastTellTick = -1;                                // (stages read it)
         int trips;
     }
     private static final Map<UUID, St> ST = new HashMap<>();
@@ -134,7 +134,7 @@ public final class Watchdog {
         int ran = mine ? g.tickCount - s.startTick : 0;
         boolean madeSome = mine && (s.broken != s.startBroken || items(g) != s.startItems);
         boolean counted = t instanceof Task.Leap
-                || t instanceof Task.GoTo && mine && ran > 3 && !madeSome && targetDist(g, t) > s.startDist - 1.0
+                || t instanceof Task.GoTo && mine && ran > 3 && !madeSome && targetDist(g, t) > s.startDist - 1.0 && !meansFirst(g, t) && repeatNoGain(s, k, g, t) // (a leg that hands over to its own route's digs, blocks broken between legs and him nearer: progress; live 06:47 World 15 digging stairs home, 130 -> 113 off, tripped every few seconds)
                 || (t instanceof Task.Break || t instanceof Task.Place) && mine && !madeSome && !meansFirst(g, t) && repeatNoGain(s, k, g, t); // (a dig or a placement refused and re-queued with nothing broken, nothing got and no nearer since its last end: live 03:18 World 15, 270 refused digs and the watchdog never saw them)
         if (!counted) { if (t instanceof Task.GoTo || t instanceof Task.Leap) ClaudeMod.LOGGER.info("[Claude watchdog] {} ended short, not counted ({}) (Watchdog.ended)", k, !mine || ran <= 3 ? "ended at once: the walker's own refusal" : madeSome ? "broke or got something on the way" : "got nearer"); return; } // (the rung stays for MEMORY: it came good, but a fresh trip on it climbs on)
         int[] e = s.ends.get(k);
@@ -269,7 +269,9 @@ public final class Watchdog {
     public static void tellOnce(ClaudeEntity g, String k, String line) { tell(g, k, line); }
     private static void tell(ClaudeEntity g, String k, String line) {
         St s = st(g);
-        if (!s.told.add(k)) { ClaudeMod.LOGGER.info("[Claude watchdog] {}: already told them once, not again (Watchdog.tell)", k); return; }
+        if (s.told.contains(k)) { ClaudeMod.LOGGER.info("[Claude watchdog] {}: already told them once, not again (Watchdog.tell)", k); return; }
+        if (g.tickCount - s.lastTellTick < 20 * 120 && s.lastTellTick > 0) { ClaudeMod.LOGGER.info("[Claude watchdog] {}: told them something {} s ago, not another line yet (at most one every 2 min): \"{}\" (Watchdog.tell)", k, (g.tickCount - s.lastTellTick) / 20, line); return; } // (live 06:47: 12 "stuck" lines in 2 minutes)
+        s.told.add(k); s.lastTellTick = g.tickCount;
         s.pending = line; s.lastTold = line;
         com.claudemod.director.ClaudeLife.lesson(g, line);
         ClaudeMod.LOGGER.info("[Claude watchdog] telling them: \"{}\" (Watchdog.tell)", line);

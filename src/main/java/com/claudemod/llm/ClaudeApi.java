@@ -111,7 +111,7 @@ public final class ClaudeApi {
     public static CompletableFuture<JsonObject> plan(ServerPlayer player, String turn, boolean simple) {
         // ponytail: simple job -> the cheap chat model plans it; anything tricky gets the reasoning model
         String model = simple ? Config.CHAT_MODEL.get() : Config.PLAN_MODEL.get();
-        if (capturing()) { String name = player.getGameProfile().getName(); capture("chattpl", requestBody(Persona.systemPrompt(name), Persona.CONVERSATION_GUIDE, contextFor(player, com.claudemod.director.ClaudeChat.truthFor(player), Persona.conversationTurn(name, "<<MSG>>", true)), SPEECH_SCHEMA, "medium", Config.CHAT_MODEL.get())); } // the chat request of this same moment, their words to be filled in
+        if (capturing()) { String name = player.getGameProfile().getName(); capture("chattpl", requestBody(Persona.systemPrompt(name), Persona.CONVERSATION_GUIDE, contextFor(player, com.claudemod.director.ClaudeChat.truthFor(player), Persona.conversationTurn(name, "<<MSG>>", true)), SPEECH_SCHEMA, "high", Config.CHAT_MODEL.get())); } // the chat request of this same moment, their words to be filled in
         ClaudeMod.LOGGER.info("[Claude plan] thinking with {} ({})", model, simple ? "simple job" : "needs reasoning");
         return complete(Persona.systemPrompt(player.getGameProfile().getName()), Persona.LIFE_GUIDE, contextFor(player, "", turn), PLAN_SCHEMA, simple ? "medium" : "high", model) // real planning thinks harder
                 .thenApply(text -> JsonParser.parseString(text).getAsJsonObject());
@@ -136,7 +136,7 @@ public final class ClaudeApi {
 
     /** One chat line Claude sends on his own (reports, remarks). Returns {text}. */
     public static CompletableFuture<JsonObject> line(ServerPlayer player, String truthBlock, String turn) {
-        return complete(Persona.systemPrompt(player.getGameProfile().getName()), contextFor(player, truthBlock, turn), LINE_SCHEMA, "medium", Config.CHAT_MODEL.get())
+        return complete(Persona.systemPrompt(player.getGameProfile().getName()), contextFor(player, truthBlock, turn), LINE_SCHEMA, "high", Config.CHAT_MODEL.get())
                 .thenApply(text -> JsonParser.parseString(text).getAsJsonObject());
     }
 
@@ -152,7 +152,7 @@ public final class ClaudeApi {
     }
 
     private static CompletableFuture<JsonObject> complete(ServerPlayer player, String truthBlock, String guide, String turn) {
-        return complete(Persona.systemPrompt(player.getGameProfile().getName()), guide, contextFor(player, truthBlock, turn), SPEECH_SCHEMA, "medium", Config.CHAT_MODEL.get())
+        return complete(Persona.systemPrompt(player.getGameProfile().getName()), guide, contextFor(player, truthBlock, turn), SPEECH_SCHEMA, "high", Config.CHAT_MODEL.get())
                 .thenApply(text -> JsonParser.parseString(text).getAsJsonObject());
     }
 

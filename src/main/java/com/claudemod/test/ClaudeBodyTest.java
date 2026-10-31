@@ -8006,6 +8006,7 @@ public final class ClaudeBodyTest {
     private static boolean exactStages(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (stage[0] == 383 || stage[0] == 384) return skytowerStages(stage, t, c, h, level, mock);
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
+        if (stage[0] >= 490 && stage[0] <= 493) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] >= 279 && stage[0] <= 285) {
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Whereabouts.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.ExactSpot.reset(c); com.claudemod.director.Primitives.reset(c);
                 c.planning = false; c.failCount.clear(); c.commandResults.clear(); c.commandActive = false; c.lastSkillLine = ""; c.lastStep = null; c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600; esWaitT = -1; esMark = -1; esFake = ""; }
@@ -10227,6 +10228,86 @@ public final class ClaudeBodyTest {
                     boolean obs = false; for (int i = 0; i < 3; i++) obs |= level.getBlockState(h.absolutePos(new BlockPos(4, 2, 6 + i))).is(Blocks.OBSIDIAN);
                     if (!obs && c.tasks.isEmpty() && c.currentTask == null && c.position().distanceTo(goal.getBottomCenter()) < 2.5) { int at = t[0]; wdEnd(c); pass(stage, t, "3 obsidian and the walk round in " + (at - 10) / 20 + " s, never seen stuck"); }
                     else check(t[0] < 1800, "long work: not done in 90 s (obsidian left " + obs + ", at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ", queue " + c.tasks + ")"); }
+            }
+            default -> { return false; }
+        }
+        return true;
+    }
+
+    // ---------------------------------------------------------------- his mine's record against the rock (stages 490-493, live 2026-10-31 01:42-02:05)
+    private static final BlockPos MR_ENT = new BlockPos(2, 13, 14);
+    private static final BlockPos MR_RUN = new BlockPos(4, 6, 7);
+    private static java.util.Set<BlockPos> mrAir = new java.util.HashSet<>(); private static BlockPos mrQuartz;
+    /** A block of stone with his mine cut in it: 8 stairs north (2 wide, 4 tall) from (2, 13, 14) down to y 6, then a run 8 east off the bottom (3 tall). The record: stairs x{@code stairsN} and the run. */
+    private static com.claudemod.entity.life.MineBlueprint mrMine(GameTestHelper h, ServerLevel level, int stairsN) {
+        for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) for (int y = 2; y <= 14; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.STONE.defaultBlockState(), 2);
+        mrAir.clear();
+        for (int k = 0; k < 8; k++) for (int j = 0; j < 2; j++) for (int y = 0; y < 4; y++) mrAir.add(h.absolutePos(new BlockPos(2 + j, 13 - k + y, 14 - k)));
+        for (int k = 0; k < 8; k++) for (int j = 0; j < 2; j++) for (int y = 0; y < 3; y++) mrAir.add(h.absolutePos(new BlockPos(4 + k, 6 + y, 7 + j)));
+        for (BlockPos p : mrAir) level.setBlock(p, Blocks.AIR.defaultBlockState(), 2);
+        var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(MR_ENT), net.minecraft.core.Direction.NORTH, 2, 4);
+        b.segments.get(0).n = stairsN;
+        b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.RUN, h.absolutePos(MR_RUN), net.minecraft.core.Direction.EAST, 8, null));
+        b.invalidate();
+        return b;
+    }
+    private static boolean mineRecordStages(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); com.claudemod.director.ClaudeLife.trailReset(c); com.claudemod.director.ClaudeLife.seenOre(c).clear(); c.commandActive = false; c.staying = false; c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("mine_model", "blueprint"); }
+        BlockPos face = h.absolutePos(new BlockPos(2, 6, 7));
+        switch (stage[0]) {
+            case 490 -> { // one rock row at the top of his stairs (a block put back in his entrance) doesn't cut his whole staircase off the record
+                if (t[0] == 5) {
+                    var b = mrMine(h, level, 8);
+                    for (int j = 0; j < 2; j++) level.setBlock(h.absolutePos(MR_ENT.east(j)), Blocks.STONE.defaultBlockState(), 2);
+                    b.trimToDug(level);
+                    check(b.segments.get(0).n == 8 && face.equals(b.face()), "stray row: stairs cut to " + b.segments.get(0).n + ", face " + (b.face() == null ? "-" : b.face().toShortString()) + " (want 8, " + face.toShortString() + "): " + b.lastTrimWhy);
+                    pass(stage, t, "a rock row at the entrance kept as a stray block: " + b.lastTrimWhy);
+                }
+            }
+            case 491 -> { // the record as it was saved live (stairs cut to none, the run kept): regrown from the rock; the round patches nothing in his ways
+                if (t[0] == 5) {
+                    var b = mrMine(h, level, 0);
+                    check(b.face() != null && b.face().getY() > face.getY() + 6, "setup: the broken record's face isn't up by the entrance: " + b.face());
+                    b.trimToDug(level);
+                    check(b.segments.get(0).n == 8 && face.equals(b.face()), "regrow: stairs " + b.segments.get(0).n + ", face " + (b.face() == null ? "-" : b.face().toShortString()) + " (want 8, " + face.toShortString() + "): " + b.lastTrimWhy);
+                    var ts = b.reconcile(level, 0, b.rows().size());
+                    var bad = ts.stream().filter(x -> x instanceof Task.Place p && mrAir.contains(p.pos())).toList();
+                    check(bad.isEmpty(), "regrow: the round would still fill his own stairs or run: " + bad);
+                    pass(stage, t, "stairs regrown 0 -> 8 from the rock, face at the bottom, nothing to fill in his ways (" + b.lastTrimWhy + ")");
+                }
+            }
+            case 492 -> { // another world's blocks at his mine's x y z are nothing of his: a trim read against the Nether keeps his record (live 01:42 a strip_mine in the Nether cut his overworld stairs to none), and ore "seen" through their world isn't remembered (01:46 Nether quartz in the overworld)
+                if (t[0] == 5) {
+                    ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+                    check(nether != null, "no Nether in the test server");
+                    var b = mrMine(h, level, 8);
+                    for (BlockPos p : mrAir) nether.setBlock(p, Blocks.AIR.defaultBlockState(), 2);
+                    for (int j = 0; j < 2; j++) for (int y = 0; y < 4; y++) nether.setBlock(h.absolutePos(MR_ENT.east(j).above(y)), Blocks.NETHERRACK.defaultBlockState(), 2); // (the Nether at his entrance: rock)
+                    boolean cut = b.trimToDug(nether);
+                    check(!cut && b.segments.get(0).n == 8, "other world: his stairs trimmed against the Nether to " + b.segments.get(0).n + " (" + b.lastTrimWhy + ")");
+                    check(b.reconcile(nether, 0, b.rows().size()).isEmpty(), "other world: fixes planned off the Nether's blocks");
+                    mrQuartz = h.absolutePos(new BlockPos(7, 7, 6)); nether.setBlock(mrQuartz, Blocks.NETHER_QUARTZ_ORE.defaultBlockState(), 2); // (in the Nether, in plain sight of where he stands in the overworld)
+                    BlockPos me = h.absolutePos(new BlockPos(6, 6, 7)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+                    com.claudemod.director.ClaudeLife.noteSeenOre(c, nether);
+                    check(!com.claudemod.director.ClaudeLife.seenOre(c).contains(mrQuartz), "other world: he remembered the Nether quartz from his overworld spot");
+                    pass(stage, t, "the Nether's blocks at his mine: no trim (" + b.lastTrimWhy + "), no fixes, no ore remembered");
+                }
+            }
+            case 493 -> { // the round never seals a cell he walked through (live 02:03 andesite into his own tunnel's mouth, put back when the user broke it): his way out of the run stays open, a hole he never used is patched
+                BlockPos way = h.absolutePos(new BlockPos(6, 6, 6)), wayBeyond = h.absolutePos(new BlockPos(6, 6, 5)), hole = h.absolutePos(new BlockPos(10, 8, 6));
+                if (t[0] == 5) {
+                    var b = mrMine(h, level, 8); c.blueprint = b; com.claudemod.director.ClaudeLife.bpSync(c);
+                    for (BlockPos p : new BlockPos[] {way, way.above(), wayBeyond, wayBeyond.above(), hole}) level.setBlock(p, Blocks.AIR.defaultBlockState(), 2);
+                    c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+                    c.teleportTo(wayBeyond.getX() + 0.5, wayBeyond.getY(), wayBeyond.getZ() + 0.5);
+                }
+                if (t[0] == 15) c.teleportTo(way.getX() + 0.5, way.getY(), way.getZ() + 0.5);
+                if (t[0] == 25) { BlockPos me = h.absolutePos(new BlockPos(8, 6, 7)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+                if (t[0] > 25) {
+                    check(level.getBlockState(way).isAir() && level.getBlockState(way.above()).isAir(), "ways: the round sealed the cell he walked through at " + way.toShortString() + " (tasks " + c.tasks + ")");
+                    if (!level.getBlockState(hole).isAir()) { c.blueprint = null; c.tasks.clear(); pass(stage, t, "his way at " + way.toShortString() + " kept open, the hole at " + hole.toShortString() + " patched in " + (t[0] - 25) + " ticks"); }
+                    else check(t[0] < 900, "ways: the hole he never used at " + hole.toShortString() + " not patched in 45 s (tasks " + c.tasks + ")");
+                }
             }
             default -> { return false; }
         }

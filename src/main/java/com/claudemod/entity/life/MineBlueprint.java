@@ -199,6 +199,7 @@ public final class MineBlueprint {
     static boolean placed(net.minecraft.world.level.block.state.BlockState s) {
         return s.is(net.minecraft.world.level.block.Blocks.COBBLESTONE) || s.is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE) || s.is(net.minecraft.tags.BlockTags.PLANKS) || s.hasBlockEntity() || s.is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE) || s.getBlock() instanceof net.minecraft.world.level.block.FallingBlock; // (gravel or sand that fell into a dug row is not rock the mine never cut)
     }
+    public static boolean passableCell(ServerLevel level, BlockPos p) { return passable(level, p); }
     static boolean passable(ServerLevel level, BlockPos p) { return level.getBlockState(p).getCollisionShape(level, p).isEmpty() && level.getFluidState(p).isEmpty(); }
     public static boolean solid(ServerLevel level, BlockPos p) { return !level.getBlockState(p).getCollisionShape(level, p).isEmpty() && level.getFluidState(p).isEmpty(); }
     public static boolean ore(BlockState s) { return s.is(net.neoforged.neoforge.common.Tags.Blocks.ORES); }
@@ -283,6 +284,7 @@ public final class MineBlueprint {
     public BlockPos lavaHit;
     public boolean keepLava; // his goal wants lava (the portal's obsidian): a branch that hits it ends one short, the source left behind the plug (ClaudeLife.objectiveSync) // where a branch last ran into lava (the plug takes that cell; the pool behind it stays, and he knows it's there)
     public List<Task> reconcile(ServerLevel level, int from, int to) {
+        if (level.dimension() != net.minecraft.world.level.Level.OVERWORLD) return new ArrayList<>(); // (his mine is in the overworld: another world's blocks at its x y z are nothing of his)
         boolean cut = false; // a branch that hits water or lava stops there: the source becomes its end wall (plugged by the shell patch below) and he moves on (the user: "plug the flow and move on"; he pushed a branch on into a flooded cave and drowned)
         for (Segment s : segments) {
             if (s.kind != Kind.BRANCH) continue;
@@ -334,7 +336,7 @@ public final class MineBlueprint {
                     (r == Role.FLOOR ? floor : r == Role.CEILING ? ceil : wall).add(place);
                 }
             }
-            if (i == 0) for (BlockPos f : row.feet()) for (int yy = 0; yy < row.height(); yy++) { BlockPos q = f.relative(segments.get(0).dir.getOpposite()).above(yy); if (solid(level, q) && placed(level.getBlockState(q))) dig.add(new Task.Break(q)); } // the doorway stays open: a block he put there (an old patch walled it) comes out; the ground's own rock is left
+            if (i == 0 && row.segment() == 0 && row.index() == 0 && segments.get(0).kind == Kind.STAIRS) for (BlockPos f : row.feet()) for (int yy = 0; yy < row.height(); yy++) { BlockPos q = f.relative(segments.get(0).dir.getOpposite()).above(yy); if (solid(level, q) && placed(level.getBlockState(q))) dig.add(new Task.Break(q)); } // the doorway stays open: a block he put there (an old patch walled it) comes out; the ground's own rock is left
             out.addAll(floor); out.addAll(dig); out.addAll(wall); out.addAll(ceil); // the floor first: a flat run across a cave gets its floor placed from the row before, never walked onto open air
             // torches: in the blueprint's slots, exactly there (torchSlots). On this same pass as the row's dig (the slot cell open, or dug above in this list), its wall patched first where it's missing (a cave beside it, ore mined out of it), never moved a row on; bright there or not (the user wants them even: the light check skipped slots by what lit them); a torch already in it, or a block off it, is its torch
             BlockPos slot = torchSlots().get(i);
@@ -369,19 +371,32 @@ public final class MineBlueprint {
     }
 
     /** Rows actually dug: the leading MAIN rows whose WALK cells are all open (a torch is open). The record never runs ahead of the world. */
+    /** The last trim's reading of the main line, for the log: the rows it counted dug, any stray rock rows it went past, where it stopped and why. */
+    public String lastTrimWhy = "";
+    private boolean rockRow(ServerLevel level, Row r) { for (BlockPos f : r.feet()) if (passable(level, f) || !level.getFluidState(f).isEmpty() || placed(level.getBlockState(f))) return false; return true; }
+    private static String cells(ServerLevel level, Row r) { StringBuilder sb = new StringBuilder(); for (BlockPos f : r.feet()) sb.append(sb.length() == 0 ? "" : ", ").append(f.toShortString()).append(' ').append(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level.getBlockState(f).getBlock()).getPath()); return sb.toString(); }
+    /** Rock rows this many or fewer, with dug rows right past them, are a stray block in his stairs (a fill, gravel, the ground's own block someone put back), not the end of his mine. */
+    static final int STRAY_ROWS = 2;
     public int dugMainRows(ServerLevel level) {
-        int n = 0;
-        for (Row r : rows()) {
-            if (segments.get(r.segment()).kind == Kind.BRANCH || segments.get(r.segment()).kind == Kind.RUN) continue;
-            boolean rock = true; // undug = natural rock at his feet across the row (a flight joined onto rock); a block he put in a dug row (a patch, a chest) or gravel that fell in leaves it his (one stray block in the stairs at 109, -22, 64 cut every row and branch past it off the record, and the branch mouths got walled)
-            for (BlockPos f : r.feet()) if (passable(level, f) || !level.getFluidState(f).isEmpty() || placed(level.getBlockState(f))) rock = false;
-            if (rock) return n;
+        int n = 0; lastTrimWhy = "";
+        List<Row> main = new ArrayList<>(); for (Row r : rows()) if (segments.get(r.segment()).kind != Kind.BRANCH && segments.get(r.segment()).kind != Kind.RUN) main.add(r);
+        for (int mi = 0; mi < main.size(); mi++) {
+            Row r = main.get(mi);
+            boolean rock = rockRow(level, r);
+            if (rock) { // (live 01:42 one rock row at the entrance cut his whole staircase off the record: the face became the entrance, 50 blocks above him, and every dig_down and cobble walk went there)
+                int past = -1; for (int k = 1; k <= STRAY_ROWS && mi + k < main.size(); k++) if (!rockRow(level, main.get(mi + k))) { past = k; break; }
+                if (past > 0) { lastTrimWhy += "row " + mi + " (" + cells(level, r) + ") rock but row " + (mi + past) + " past it dug: a stray block, kept; "; n++; continue; }
+                lastTrimWhy += "stopped at row " + mi + " of " + main.size() + ": rock (" + cells(level, r) + ")";
+                return n;
+            }
+            // (rock: undug = natural rock at his feet across the row (a flight joined onto rock); a block he put in a dug row (a patch, a chest) or gravel that fell in leaves it his (one stray block in the stairs at 109, -22, 64 cut every row and branch past it off the record, and the branch mouths got walled))
             for (BlockPos f : r.feet()) for (BlockPos c : new BlockPos[] {f, f.above()}) { // lava in the row or against it: the mine ends before it (a flow into his tunnel kept the face out past it: walked to, dug beside, two deaths at 220, -58, 64; the "lava ahead" turn takes it on from the last clean row)
-                if (level.getFluidState(c).is(net.minecraft.tags.FluidTags.LAVA)) return n;
-                for (net.minecraft.core.Direction d : net.minecraft.core.Direction.values()) if (level.getFluidState(c.relative(d)).is(net.minecraft.tags.FluidTags.LAVA)) return n;
+                if (level.getFluidState(c).is(net.minecraft.tags.FluidTags.LAVA)) { lastTrimWhy += "stopped at row " + mi + ": lava in it"; return n; }
+                for (net.minecraft.core.Direction d : net.minecraft.core.Direction.values()) if (level.getFluidState(c.relative(d)).is(net.minecraft.tags.FluidTags.LAVA)) { lastTrimWhy += "stopped at row " + mi + ": lava against it"; return n; }
             }
             n++;
         }
+        lastTrimWhy += "all " + main.size() + " main rows dug";
         return n;
     }
 
@@ -390,6 +405,7 @@ public final class MineBlueprint {
      * joined onto rock, a landing never cut, none of it is his mine. Run on load and before any use of the face. True if something went.
      */
     public boolean trimToDug(ServerLevel level) {
+        if (level.dimension() != net.minecraft.world.level.Level.OVERWORLD) { lastTrimWhy = "not trimmed: read against " + level.dimension().location() + ", his mine is in the overworld"; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] blueprint: {} (MineBlueprint.trimToDug)", lastTrimWhy); return false; } // (live 01:42 a strip_mine run in the Nether trimmed his overworld stairs against the netherrack at the same x y z: cut to none, saved, and his mine round sealed his own tunnel two hours on)
         boolean changed = false;
         // branches stay as planned: a branch partway dug is work in hand, finished by the upkeep when he's by it (trimming it to its dug length every new strip-mine round cut his diamond branch short and the patching walled its end); water or lava ends a branch in reconcile instead
         segments.removeIf(s -> (s.kind == Kind.BRANCH || s.kind == Kind.RUN) && s.n == 0);
@@ -410,7 +426,36 @@ public final class MineBlueprint {
             segments.removeIf(x -> x.kind == Kind.BRANCH && !mainFeet.contains(x.start.relative(x.dir.getOpposite())));
         }
         invalidate();
+        if (regrowMain(level)) changed = true;
         return changed;
+    }
+
+    /** A run or branch off no main row: the record lost the rows it hangs from (live 01:42: his stairs cut to none while his run 40 east and four branches at y 16 stayed, so the stairs' foot read as shell to patch and the face as the entrance). */
+    boolean orphaned() {
+        java.util.Set<BlockPos> mainFeet = new java.util.HashSet<>();
+        for (Row r : rows()) { Kind k = segments.get(r.segment()).kind; if (k != Kind.BRANCH && k != Kind.RUN) mainFeet.addAll(java.util.Arrays.asList(r.feet())); }
+        for (Segment x : segments) {
+            if ((x.kind != Kind.RUN && x.kind != Kind.BRANCH) || x.n == 0) continue;
+            boolean joined = mainFeet.contains(x.start.relative(x.dir.getOpposite())); // (as trimToDug joins a branch: the cell behind its first row is a main row's foot)
+            if (!joined && x.kind == Kind.BRANCH) { for (Segment y : segments) if (y != x && y.kind == Kind.RUN && y.n > 0) for (int k = 0; k < y.n && !joined; k++) { BlockPos c = y.start.relative(y.dir, k); if (Math.abs(c.getY() - x.start.getY()) <= 1 && Math.abs(c.getX() - x.start.getX()) + Math.abs(c.getZ() - x.start.getZ()) <= width + 1) joined = true; } } // (a branch off his run hangs from the run)
+            if (!joined) return true;
+        }
+        return false;
+    }
+    /** With a run or branch orphaned: the main line's last flight or flat taken on, row by row, as far as the rock shows it dug (never into rock or lava), until what hung off it joins again. True if it grew. */
+    public boolean regrowMain(ServerLevel level) {
+        Segment s = lastMain(); if (s == null || (s.kind != Kind.STAIRS && s.kind != Kind.FLAT) || !orphaned()) return false;
+        int si = segments.indexOf(s), n0 = s.n;
+        for (int k = 0; k < 320 && orphaned(); k++) {
+            s.n++; invalidate();
+            Row last = null; for (Row r : rows()) if (r.segment() == si && r.index() == s.n - 1) last = r;
+            boolean lava = false; if (last != null) for (BlockPos f : last.feet()) for (BlockPos c : new BlockPos[] {f, f.above()}) if (level.getFluidState(c).is(net.minecraft.tags.FluidTags.LAVA)) lava = true;
+            if (last == null || lava || rockRow(level, last) || !passable(level, last.first()) || !passable(level, last.first().above())) { s.n--; invalidate(); break; }
+        }
+        if (s.n == n0) return false;
+        lastTrimWhy += (lastTrimWhy.isEmpty() ? "" : "; ") + "his " + s.kind.name().toLowerCase() + " " + s.dir.getName() + " regrown " + n0 + " -> " + s.n + " rows from the rock (a run or branch hung off nothing" + (orphaned() ? ", still does" : ", joined again") + ")";
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude life] blueprint: {} (MineBlueprint.regrowMain)", lastTrimWhy);
+        return true;
     }
 
     /** The feet cells to walk, from row a to row b inclusive (either way), every third row and the last: a walk to the next cell ends where he stands. */

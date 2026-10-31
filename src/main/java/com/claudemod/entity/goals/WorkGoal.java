@@ -131,7 +131,15 @@ public class WorkGoal extends Goal {
     private int bowAimTick; /* the last tick shootAt aimed: a draw nothing aims is let down */
     /** The hazard reflexes, first every tick in any roll: fire his box touches, air running low, lava. True: one acted this tick
      *  (everything else waits). WorkGoal.tick runs it first; ClaudeEntity.brainTick runs it before FollowGoal (stage 489). */
+    public static int fireballsHit; // (stages read it)
     public boolean reflexes() {
+        if (g.level() instanceof ServerLevel fbl) for (var fb : fbl.getEntitiesOfClass(net.minecraft.world.entity.projectile.LargeFireball.class, g.getBoundingBox().inflate(5.0))) { // a ghast's fireball coming at him: hit it back, the hazard layer's first move in any state (the user, 13:00 World 15: "he never hit fireballs back at the ghast"; the old reflex sat in ClaudeLife.tick behind its early returns)
+            Vec3 to = g.getEyePosition().subtract(fb.position());
+            if (fb.getDeltaMovement().dot(to) <= 0 || !g.hasLineOfSight(fb)) continue;
+            g.getLookControl().setLookAt(fb); g.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, fb.position());
+            if (to.length() <= 3.0) { g.attack(fb); g.swing(net.minecraft.world.InteractionHand.MAIN_HAND); fireballsHit++; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] a ghast fireball at {}, {} off: hit it back (WorkGoal.reflexes)", fb.blockPosition().toShortString(), String.format("%.1f", to.length())); }
+            break;
+        }
         if (!g.isInLava() && g.level() instanceof ServerLevel flv && BlockPos.betweenClosedStream(g.getBoundingBox().deflate(0.001)).anyMatch(p -> flv.getBlockState(p).is(net.minecraft.tags.BlockTags.FIRE))) { /* fire first, like air: live 00:12 he stood in Nether fire 27 hits while a stalled walk kept him there, 20 -> dead; only the blaze fight stepped off fire */
             BlockPos ff = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()), to = null; double best = Double.MAX_VALUE;
             if (g.tickCount % 4 == 0) { BlockPos fb = BlockPos.betweenClosedStream(g.getBoundingBox().deflate(0.001)).filter(p -> flv.getBlockState(p).is(net.minecraft.tags.BlockTags.FIRE)).map(BlockPos::immutable).findFirst().orElse(null); /* the user: "he doesnt know how to put out fire": one punch puts a fire block out, as for any player (a click every 4 ticks) */

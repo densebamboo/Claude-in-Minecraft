@@ -10344,6 +10344,7 @@ public final class ClaudeBodyTest {
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
             case 494: return st494(stage, t, c, h, level, mock);
+            case 517: return st517(stage, t, c, h, level, mock);
             case 516: return st516(stage, t, c, h, level, mock);
             case 515: return st515(stage, t, c, h, level, mock);
             case 514: return st514(stage, t, c, h, level, mock);
@@ -10415,6 +10416,20 @@ public final class ClaudeBodyTest {
                 com.claudemod.entity.life.PortalMap.net(c).portals.clear(); pass(stage, t, "into the Nether on his own plan with no gold piece"); }
             else if (t[0] == 20 * 40) check(false, "gold: not through in 40 s on his own plan (last " + c.lastSkillLine + ", queue " + c.skillQueue + ")");
         }
+        return true;
+    }
+    private static boolean st517(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a ghast 14 off firing at him (the user, 13:00 World 15: "he never hit fireballs back at the ghast"): the fireball hit back, never hurt
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); flatBox(h); com.claudemod.entity.goals.WorkGoal.fireballsHit = 0; hzLow = 20f; if (hzMob != null) hzMob.discard(); hzMob = null; }
+        BlockPos me = h.absolutePos(new BlockPos(7, 2, 3));
+        if (t[0] == 10) {
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.hold(x -> x.is(Items.IRON_SWORD)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            var gh = EntityType.GHAST.create(level); BlockPos gp = me.offset(0, 6, 12); gh.moveTo(gp.getX() + 0.5, gp.getY(), gp.getZ() + 0.5, 180, 0); gh.setNoAi(true); level.addFreshEntity(gh); hzMob = gh;
+            net.minecraft.world.phys.Vec3 dir = c.getEyePosition().subtract(gh.getEyePosition()).normalize(); var fb = new net.minecraft.world.entity.projectile.LargeFireball(level, gh, dir, 1); fb.setPos(gh.getX() + dir.x * 2, gh.getEyeY() + dir.y * 2, gh.getZ() + dir.z * 2); level.addFreshEntity(fb);
+        }
+        if (t[0] > 10) hzLow = Math.min(hzLow, c.getHealth());
+        if (t[0] == 120) { if (hzMob != null) hzMob.discard(); hzMob = null; for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.projectile.LargeFireball.class, c.getBoundingBox().inflate(64))) e.discard(); c.getInventory().clearContent();
+            check(com.claudemod.entity.goals.WorkGoal.fireballsHit >= 1 && hzLow >= 20, "fireball: hit back " + com.claudemod.entity.goals.WorkGoal.fireballsHit + " time(s), low " + hzLow);
+            pass(stage, t, "the fireball hit back, never hurt"); }
         return true;
     }
     private static boolean st494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

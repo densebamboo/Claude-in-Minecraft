@@ -87,6 +87,7 @@ public final class PlayerActivityListener {
                 ? raw.substring(0, CHAT_MAX_CHARS) + "..."
                 : raw;
         log(p, new ActivityEvent.Chat(trimmed.replace("\"", "'"), System.currentTimeMillis()));
+        if (raw.matches("(?is)\\s*(bug|test)\\b.*|.*\\bbug[.!?]*\\s*")) { com.claudemod.ClaudeMod.LOGGER.info("[Claude chat] \"{}\" is a bug/test note for the devs, not an order: he doesn't plan or answer on it (PlayerActivityListener.onChat)", raw); return; } // the user 2026-11-01: "bug" was planned as "go to them and stay", wiping the dragon goal
         com.claudemod.llm.ClaudeApi.remember(p, p.getGameProfile().getName() + " (in chat)", raw);
         ChatListener.tryRespond(p, raw); // (their whole message: the 80-char cap is the activity log's; 15:22 "place a blo..." lost half a lesson step)
     }

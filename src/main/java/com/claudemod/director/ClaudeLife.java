@@ -1030,7 +1030,7 @@ public final class ClaudeLife {
             if (g.staying || (g.getTarget() instanceof ServerPlayer lp && com.claudemod.entity.life.ExactSpot.lesson(g, lp))) { nookSay(g, "bedlesson", "[Claude life] night: holding where they put him / their lesson is on: no walk to his bed (ClaudeLife.sleepIfNight)"); return; } // (a sleep trip took him out of the pocket mid-lesson, 15:13)
             if (g.commandActive && g.lastStep != null && (g.lastStep.skill().equals("go_to") || g.lastStep.skill().equals("follow"))) { nookSay(g, "bedorder", "[Claude life] night: their go_to/follow order (" + g.lastStep.skill() + " " + g.lastStep.target() + ") comes before his bed (ClaudeLife.sleepIfNight)"); return; } // (they called him over at night: 4 off their spot, the walk to his nook bed took him 17 back, 14:18)
             if (g.blockPosition().distSqr(bedAt) > 8 * 8) { // (8: by his nook bed at 6.1 off, the portal walk and "back to his bed" took turns, 14:12; 6: his house bed, his walk ended 4.2 off it by the door, 12:48; 4: his nook bed sits in the pocket, his walk ends 3.2 off it and "back to his bed" went out every 5 s, live 11:56)
-                noteNightBed(g, bedAt); g.tasks.addFirst(new Task.GoTo(bedAt, 1.5));
+                noteNightBed(g, bedAt); g.tasks.addFirst(new Task.Wait(200, false)); g.tasks.addFirst(new Task.GoTo(bedAt, 1.5)); // the wait holds the day queue behind the bed walk: it ended at once 3 off his bed and the stash walk took him 50 deep into the mine at night (01:18); by the bed, the next check holds it till morning
                 boolean quiet = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(10), m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy).isEmpty();
                 if (quiet && g.currentTask instanceof Task.Wait) dropCurrent(g); // sat waiting out the night 15 blocks from his bed: the wait gives way to the walk (nothing hostile close)
                 ClaudeMod.LOGGER.info("[Claude life] night: back to his bed at {}{}", bedAt.toShortString(), quiet && g.currentTask instanceof Task.Wait ? " (leaving the wait for it)" : "");
@@ -1774,8 +1774,8 @@ public final class ClaudeLife {
                             int legs = huntLegs().merge(g.getUUID(), 1, Integer::sum);
                             if (legs <= 8) { // one heading, kept leg after leg (a fresh random direction each leg just circled the same empty grass); 8 legs is ~350 blocks out
                                 Direction heading = huntDir().computeIfAbsent(g.getUUID(), k -> Direction.Plane.HORIZONTAL.getRandomDirection(g.getRandom()));
-                                if (theirSpot(g, player) != null && toThem(g, player) > 220) { // far enough out: the search sweeps round home, it doesn't march to the horizon (500 blocks out at 4 health, nothing found)
-                                    Direction home = Direction.getNearest(theirSpot(g, player).getX() - g.getX(), 0, theirSpot(g, player).getZ() - g.getZ());
+                                if (g.stairStart != null && Math.sqrt(g.stairStart.distSqr(g.blockPosition())) > 220) { // far enough out: the search sweeps round HIS home (the mine), it doesn't march to the horizon (500 blocks out at 4 health, nothing found); never round where the user stands
+                                    Direction home = Direction.getNearest(g.stairStart.getX() - g.getX(), 0, g.stairStart.getZ() - g.getZ());
                                     heading = heading == home.getOpposite() ? home.getClockWise() : home; // not straight back the way he came: the next line over
                                     huntDir().put(g.getUUID(), heading);
                                 }
@@ -2651,7 +2651,12 @@ public final class ClaudeLife {
             case "ender_pearls": { // the pearl stage (the user, 19:40): endermen on sight, from a 2-deep hole; pearls picked up; in the Nether, a warped forest is where they are
                 int have = g.inventory.count(x -> x.is(Items.ENDER_PEARL) || x.is(Items.ENDER_EYE)), want = st.count() > 1 ? st.count() : pearlsWanted(g);
                 if (have >= want) return "done: " + have + " pearls/eyes on me (" + want + " wanted)";
-                if (!endermanTime(g)) return "failed: not geared for endermen yet (iron chest and sword, 4+ meals, health 16+, a blaze rod first): " + have + "/" + want + " pearls";
+                if (!endermanTime(g)) { var ch = g.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST); java.util.List<String> miss = new ArrayList<>();
+                    if (g.inventory.count(x -> x.is(Items.BLAZE_ROD) || x.is(Items.BLAZE_POWDER)) + com.claudemod.entity.life.ChestLedger.count(g, level, Items.BLAZE_ROD) + com.claudemod.entity.life.ChestLedger.count(g, level, Items.BLAZE_POWDER) == 0) miss.add("no blaze rod yet");
+                    if (!(ch.is(Items.IRON_CHESTPLATE) || ch.is(Items.DIAMOND_CHESTPLATE) || ch.is(Items.NETHERITE_CHESTPLATE))) miss.add("no iron+ chestplate worn");
+                    if (g.inventory.count(x -> x.is(Items.IRON_SWORD) || x.is(Items.DIAMOND_SWORD) || x.is(Items.NETHERITE_SWORD)) == 0) miss.add("no iron+ sword");
+                    if (Kit.food(g) < 4) miss.add("under 4 meals"); if (g.getHealth() < 16) miss.add("health under 16");
+                    return "failed: not geared for endermen yet (" + String.join(", ", miss) + "): " + have + "/" + want + " pearls"; } // (it named every condition, not the missing one: the rods were in his chest, 01:35)
                 var em = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.EnderMan.class, g.getBoundingBox().inflate(32, 8, 32), m -> m.isAlive() && g.hasLineOfSight(m)).stream().min(Comparator.comparingDouble(m -> m.distanceToSqr(g))).orElse(null);
                 g.skillQueue.addFirst(st); // (on with it after this)
                 if (em != null) { g.tasks.add(new Task.Attack(em.getUUID(), 20 * 60)); g.tasks.add(new Task.Pickup(80)); ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: an enderman {} off in sight: after it ({}/{} pearls) (ClaudeLife ender_pearls)", (int) em.distanceTo(g), have, want); return "after the enderman " + (int) em.distanceTo(g) + " off (" + have + "/" + want + " pearls)"; }
@@ -2719,7 +2724,7 @@ public final class ClaudeLife {
                             || !below.isFaceSturdy(level, dest.below(), Direction.UP))) break;
                     dest = dest.below();
                 }
-                if (theirSpot(g, player) != null && Math.sqrt(dest.distSqr(theirSpot(g, player))) > FAR && !player.isSpectator()) return "failed: that is too far from them"; // (a spectator is only watching, and a job of theirs like "beat the dragon" goes where the wood is: no trees in 100 blocks and this kept him standing at spawn for minutes)
+                // (no cap on distance from them: he explores where the job takes him; the user, 2026-11-01: "he shouldnt be limited to my proximity at all" - 68 "too far from them" fails stalled the pearl hunt)
                 g.tasks.add(new Task.GoTo(dest, 4));
                 return "walking off to explore";
             }
@@ -4979,7 +4984,7 @@ public final class ClaudeLife {
         }
         { BlockPos work = null; java.util.List<Task> ahead = new java.util.ArrayList<>(); if (g.currentTask != null) ahead.add(g.currentTask); ahead.addAll(g.tasks); // a toss goes away from his work, like a player's: thrown at his feet, he walked back over it and his body took it all back up (live 11:10: the same 6 stacks thrown every 5 s)
           for (Task t : ahead) { if (t instanceof Task.Break b) work = b.pos(); else if (t instanceof Task.GoTo w) work = w.pos(); else if (t instanceof Task.Place pl) work = pl.pos(); if (work != null) break; }
-          if (work != null) { double dx = g.getX() - (work.getX() + 0.5), dz = g.getZ() - (work.getZ() + 0.5); if (dx * dx + dz * dz > 0.01) { g.setYRot((float) Math.toDegrees(Math.atan2(dz, dx)) - 90f); g.setXRot(-25f); ClaudeMod.LOGGER.info("[Claude life] junk thrown away from his work at {} (ClaudeLife.dumpJunk)", work.toShortString()); } } }
+          if (work != null && inv.items.stream().anyMatch(s0 -> !s0.isEmpty() && junkItem(s0))) { double dx = g.getX() - (work.getX() + 0.5), dz = g.getZ() - (work.getZ() + 0.5); if (dx * dx + dz * dz > 0.01) { g.setYRot((float) Math.toDegrees(Math.atan2(dz, dx)) - 90f); g.setXRot(-25f); ClaudeMod.LOGGER.info("[Claude life] junk thrown away from his work at {} (ClaudeLife.dumpJunk)", work.toShortString()); } } }
         java.util.Set<Item> junk = JUNK;
         java.util.Map<Item, Integer> kept = new java.util.HashMap<>();
         int n = 0;
@@ -5008,7 +5013,7 @@ public final class ClaudeLife {
                 int score = (it instanceof net.minecraft.world.item.BlockItem ? 0 : 1000) + st.getCount(); // spare blocks first, the smallest stack first
                 if (score < pickScore) { pickScore = score; pick = i; }
             }
-            if (pick >= 0 && inv.getFreeSlot() < 0) { var st = inv.items.get(pick); ClaudeMod.LOGGER.info("[Claude life] pack full and nothing junk in it: dropping the {} {} to make room", st.getCount(), Crafting.name(st.getItem())); var e = g.drop(st.copy(), false, true); if (e != null) g.markGift(e); inv.items.set(pick, ItemStack.EMPTY); } // (a bed couldn't be made for want of a slot for its table, three plans running)
+            if (pick >= 0 && inv.getFreeSlot() < 0) { var st = inv.items.get(pick); ClaudeMod.LOGGER.info("[Claude life] pack full and nothing junk in it: dropping the {} {} to make room", st.getCount(), Crafting.name(st.getItem())); var e = g.drop(st.copy(), false, true); if (e != null) { g.markGift(e); e.setPickUpDelay(6000); } inv.items.set(pick, ItemStack.EMPTY); } // (6000: till it despawns; the 2 s default let his own touch take it back while he stood there, so the 1 lily pad went out every 5 s, 01:32) // (a bed couldn't be made for want of a slot for its table, three plans running)
         }
     }
 
@@ -12884,6 +12889,7 @@ public final class ClaudeLife {
     public static int pearlsWanted(ClaudeEntity g) { return 14; }
     public static boolean endermanTime(ClaudeEntity g) {
         int blaze = g.inventory.count(x -> x.is(Items.BLAZE_ROD) || x.is(Items.BLAZE_POWDER)), pearls = g.inventory.count(x -> x.is(Items.ENDER_PEARL) || x.is(Items.ENDER_EYE));
+        if (blaze == 0 && g.level() instanceof net.minecraft.server.level.ServerLevel sl) blaze = com.claudemod.entity.life.ChestLedger.count(g, sl, Items.BLAZE_ROD) + com.claudemod.entity.life.ChestLedger.count(g, sl, Items.BLAZE_POWDER); // his chests count (the stash put both rods away and the pearl hunt refused on "no rod on me", 01:36)
         if (blaze == 0 || pearls >= pearlsWanted(g)) return false;
         var chest = g.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST);
         boolean armor = chest.is(Items.IRON_CHESTPLATE) || chest.is(Items.DIAMOND_CHESTPLATE) || chest.is(Items.NETHERITE_CHESTPLATE);

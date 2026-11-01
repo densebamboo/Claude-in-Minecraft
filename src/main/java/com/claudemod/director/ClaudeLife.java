@@ -2743,7 +2743,7 @@ public final class ClaudeLife {
                 int x = g.getBlockX() + dx, z = g.getBlockZ() + dz;
                 if (level.dimensionType().hasCeiling()) { // the Nether: every column's top is the bedrock roof (live 16:26: GoTo 49, 128, 37 on top of it, a minute of steps cut up toward it): ground at his own height, never above y 110
                     BlockPos nd = com.claudemod.entity.life.FortressScout.exploreSpot(g, level, a);
-                    if (nd == null) { ClaudeMod.LOGGER.info("[Claude skill] explore in {}: no ground to walk to from {} any way (lava too wide or rock) (ClaudeLife explore)", level.dimension().location().getPath(), g.blockPosition().toShortString()); return "failed: no ground to walk to from here any way (lava too wide or rock all round): bridge or tunnel first"; }
+                    if (nd == null) { ClaudeMod.LOGGER.info("[Claude skill] explore in {}: no ground in sight to walk to from {} any way (ClaudeLife explore)", level.dimension().location().getPath(), g.blockPosition().toShortString()); return "failed: no ground to walk to from here any way (lava too wide or rock all round): bridge or tunnel first"; }
                     g.exploreAngle = Math.atan2(nd.getZ() - g.getZ(), nd.getX() - g.getX());
                     ClaudeMod.LOGGER.info("[Claude skill] explore in {}: ground at {}, {} blocks off at about his height (y {}), never the roof (the heightmap there reads {}) (ClaudeLife explore)", level.dimension().location().getPath(), nd.toShortString(), (int) Math.sqrt(nd.distSqr(g.blockPosition())), g.getBlockY(), level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, nd.getX(), nd.getZ()));
                     g.tasks.add(new Task.GoTo(nd, 4));

@@ -167,7 +167,8 @@ public final class ClaudeLife {
                 PlayerProfile.noteDoing(player, "you went round in circles on '" + line + "': that way isn't working, do something different");
                 ClaudeMod.LOGGER.info("[Claude skill] round in circles on \"{}\": stopping that", line);
             }
-            boolean nightRefusal = result.startsWith("failed") && result.contains("it's night"); // a "not at night" is a wait, not a failure: by day the same step is the right one
+            boolean nightRefusal = result.startsWith("failed") && (result.contains("it's night") || result.contains("it's day,")); // (and the pearl hunt's "it's day": waits for dusk, 02:01 the watchdog asked them for help with it)
+            if (nightRefusal) g.failReason.put(step.skill(), result); // the planner still hears why, so it plans round the wait // a "not at night" is a wait, not a failure: by day the same step is the right one
             if ((result.startsWith("failed") || result.startsWith("done:")) && !nightRefusal) { // a "done" he keeps re-planning is a loop too
                 g.failCount.merge(failKey, 1, Integer::sum);
                 g.failReason.put(step.skill(), result);

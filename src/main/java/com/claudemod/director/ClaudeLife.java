@@ -1478,6 +1478,8 @@ public final class ClaudeLife {
         Order o = orders().get(g.getUUID()); // what they asked for and isn't finished comes before his own kit, mine and wood (a gear_up beef hunt walked him off their half-built house)
         if (o != null && g.playerGoal != null && !g.playerGoal.isBlank() && g.playerGoal.equals(o.goal())) {
             for (Skills.Step s : o.steps()) { if (g.failCount.getOrDefault(s.skill() + (s.target().isBlank() ? "" : " " + s.target()), 0) < 3) { c.add(s); ClaudeMod.LOGGER.info("[Claude plan] rules: their order ({}) isn't finished: {} next", o.goal(), s.skill() + (s.target().isBlank() ? "" : " " + s.target())); break; }
+                String fk = s.skill() + (s.target().isBlank() ? "" : " " + s.target()); // ponytail: live 13:13, one explore TRIP killed their pearl order for good (nothing ever cleared it): passed over 3 plans, then another go
+                if (g.failCount.merge(fk, 1, Integer::sum) >= 6) { g.failCount.remove(fk); ClaudeMod.LOGGER.info("[Claude plan] rules: their order's {} passed over 3 plans: another go next plan", s.skill()); }
                 ClaudeMod.LOGGER.info("[Claude plan] rules: their order's {} failed 3 times running: passed over", s.skill()); }
         }
         if (com.claudemod.entity.life.ExactSpot.lesson(g, player)) { // their lesson: cover, food and their order's steps above, then by them; never his own kit, mine or wood
@@ -2700,6 +2702,9 @@ public final class ClaudeLife {
                       return "my things from dying here are on this side at " + dl.at.toShortString() + ": getting them first"; } }
                 String here = level.getBiome(g.blockPosition()).unwrapKey().map(k -> k.location().getPath()).orElse("");
                 if (nether && !here.equals("warped_forest")) { g.skillQueue.addFirst(new Skills.Step("explore", "warped_forest", 1)); return "no enderman in sight: to a warped forest, where they are (" + have + "/" + want + " pearls)"; }
+                if (com.claudemod.entity.life.Perception.turningRound(g) || !com.claudemod.entity.life.Perception.lookedRound(g, 200)) { // ponytail: live 13:22, two endermen 5 off at his height and he walked on without turning round once: a look about first, as a player does
+                    if (!com.claudemod.entity.life.Perception.turningRound(g)) com.claudemod.entity.life.Perception.lookRound(g, null);
+                    g.tasks.add(new Task.Wait(34, false)); g.skillQueue.addFirst(st); return "no enderman in view: looking all round first (" + have + "/" + want + " pearls)"; }
                 g.skillQueue.addFirst(new Skills.Step("explore", "", 1)); // (through the forest, or the overworld at night: walking on, looking)
                 return "no enderman in sight: walking on, looking (" + have + "/" + want + " pearls)";
             }

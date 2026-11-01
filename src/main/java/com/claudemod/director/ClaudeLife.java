@@ -168,7 +168,7 @@ public final class ClaudeLife {
                 ClaudeMod.LOGGER.info("[Claude skill] round in circles on \"{}\": stopping that", line);
             }
             boolean nightRefusal = result.startsWith("failed") && (result.contains("it's night") || result.contains("it's day,")); // (and the pearl hunt's "it's day": waits for dusk, 02:01 the watchdog asked them for help with it)
-            if (nightRefusal) { g.failReason.put(step.skill(), result); long t = g.level().getDayTime() % 24000; int until = Math.max(200, (int) (result.contains("it's day,") ? 12542 - t : (24000 - t) % 24000)); g.attempts.counters.put("timeWait", g.tickCount + until); ClaudeMod.LOGGER.info("[Claude plan] {} waits on the time of day: no thinking ahead mid-work for {} s, till it changes (ClaudeLife.skillDone)", step.skill(), until / 20); } // (01:54 the pearl hunt refused by day re-planned every 10 s through the meanwhile walk) // the planner still hears why, so it plans round the wait // a "not at night" is a wait, not a failure: by day the same step is the right one
+            if (nightRefusal) { g.failReason.put(step.skill(), result); long t = g.level().getDayTime() % 24000; int until = Math.max(200, (int) (result.contains("it's day,") ? 12542 - t : (24000 - t) % 24000)); g.attempts.counters.put("timeWaitRefusals", g.tickCount < g.attempts.counters.getOrDefault("timeWait", 0) ? g.attempts.counters.getOrDefault("timeWaitRefusals", 0) + 1 : 1); g.attempts.counters.put("timeWait", g.tickCount + until); ClaudeMod.LOGGER.info("[Claude plan] {} waits on the time of day: no thinking ahead mid-work for {} s, till it changes (ClaudeLife.skillDone)", step.skill(), until / 20); } // (01:54 the pearl hunt refused by day re-planned every 10 s through the meanwhile walk) // the planner still hears why, so it plans round the wait // a "not at night" is a wait, not a failure: by day the same step is the right one
             if ((result.startsWith("failed") || result.startsWith("done:")) && !nightRefusal) { // a "done" he keeps re-planning is a loop too
                 g.failCount.merge(failKey, 1, Integer::sum);
                 g.failReason.put(step.skill(), result);
@@ -195,6 +195,11 @@ public final class ClaudeLife {
         // Nothing asked of him: he just hangs out with them (following above). No projects of his own.
         if (waitingForAsk(g) && theirSpot(g, player) != null) return; // (not knowing where they are: his own work, not standing waiting)
         if (g.tickCount < g.nextPlanTick) return;
+        if (!g.commandActive && g.tickCount < g.attempts.counters.getOrDefault("timeWait", 0) && g.attempts.counters.getOrDefault("timeWaitRefusals", 0) >= 2) { // refused by the clock twice in this wait: the planner only re-plans the same step (03:04-03:05 the pearl hunt by day: 3 plans, each walking him to his chest and the meanwhile mine back out, 43 blocks each way); his own work till the time changes
+            Skills.Step f = fillerStep(g, player);
+            String why = f == null ? null : g.failReason.getOrDefault(f.skill(), "");
+            if (f != null && !why.contains("it's day,") && !why.contains("it's night")) { g.skillQueue.add(f); if (g.tickCount % 200 < 20) ClaudeMod.LOGGER.info("[Claude plan] the clock holds his step ({} s left): {} meanwhile, no re-plan till then (ClaudeLife.runWork)", (g.attempts.counters.get("timeWait") - g.tickCount) / 20, f.skill() + (f.target().isBlank() ? "" : " " + f.target())); return; }
+        }
         startPlan(g, player);
         }
 

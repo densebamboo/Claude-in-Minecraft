@@ -8559,6 +8559,9 @@ public final class ClaudeBodyTest {
                                 level.setDayTime(1000); c.tasks.add(new Task.GoTo(h.absolutePos(new BlockPos(8, 10, 14)), 1.0)); pn299Phase = 5; pn299Mark = t[0]; // (4) morning: a walk to his door
                             }
                         }
+                        if (pn299Phase == 5 && t[0] > pn299Mark + 300 && com.claudemod.entity.life.PitGuard.caps(c).isEmpty()) { // (superseded, the user World 15 "why is there so much cobble and deepslate placed there": this hollow's mouth is 189 cells, natural ground, walked round and never capped; the cap-retry phases after this are for true holes, 6 cells or fewer)
+                            c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "the 189-cell hollow by his door: natural ground, walked round, not capped");
+                        }
                         if (pn299Phase == 5 && t[0] > pn299Mark) {
                             var caps = com.claudemod.entity.life.PitGuard.caps(c); var lights = com.claudemod.entity.life.PitGuard.lights(c);
                             boolean done = !caps.isEmpty() && caps.stream().allMatch(p -> !level.getBlockState(p).canBeReplaced()) && lights.stream().allMatch(p -> level.getBlockState(p).is(Blocks.TORCH) || level.getBlockState(p).is(Blocks.WALL_TORCH)) && c.currentTask == null && c.tasks.isEmpty();

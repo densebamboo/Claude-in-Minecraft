@@ -467,6 +467,13 @@ public final class ClaudeLife {
             g.planning = false;
             ClaudeMod.LOGGER.warn("[Claude] a plan asked for 45s ago never came back: going on without it");
         }
+        if (g.tickCount % 20 == 7 && g.currentTask instanceof Task.GoTo && g.getHealth() >= 14) { // the user 14:00: "any endermen he sees in general he should engage 1 at a time on his way there": the pearl hunt's walks (to the warped forest, exploring) give way to one in sight
+            boolean hunting = false; for (Skills.Step s0 : g.skillQueue) if ("ender_pearls".equals(s0.skill())) hunting = true;
+            if (hunting) { net.minecraft.world.entity.monster.EnderMan best = null;
+                for (net.minecraft.world.entity.monster.EnderMan m : g.level().getEntitiesOfClass(net.minecraft.world.entity.monster.EnderMan.class, g.getBoundingBox().inflate(24, 8, 24))) if (m.isAlive() && g.hasLineOfSight(m) && (best == null || m.distanceToSqr(g) < best.distanceToSqr(g))) best = m;
+                if (best != null) { clearTasks(g); dropCurrent(g); g.tasks.add(new Task.Attack(best.getUUID(), 20 * 60)); g.tasks.add(new Task.Pickup(80));
+                    ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: an enderman {} off in sight on the way: the walk waits, after it (ClaudeLife life tick)", (int) best.distanceTo(g)); } }
+        }
         if (g.getHealth() <= 4 && g.tickCount % 20 == 15 && !(g.currentTask instanceof Task.Attack) && !(g.currentTask instanceof Task.Flee) && !(g.currentTask instanceof Task.Eat)
                 && g.getFoodData().getFoodLevel() < 18 && (!g.tasks.isEmpty() || g.currentTask != null) && !(g.tasks.peek() instanceof Task.Eat) /* (a long task with nothing queued behind it counts: fishing at half a heart with 5 fish on him, never eating) */ && !(g.tasks.peek() instanceof Task.Attack) && !(g.tasks.peek() instanceof Task.Pickup)
                 && g.tickCount - g.foodHuntTick > 20 * 30) { // at a heart or two, no regen (food under 18): the job waits; eat, or go find something to eat
@@ -2681,11 +2688,11 @@ public final class ClaudeLife {
                 int have = g.inventory.count(x -> x.is(Items.ENDER_PEARL) || x.is(Items.ENDER_EYE)), want = st.count() > 1 ? st.count() : pearlsWanted(g);
                 if (have >= want) return "done: " + have + " pearls/eyes on me (" + want + " wanted)";
                 if (!endermanTime(g)) { var ch = g.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST); java.util.List<String> miss = new ArrayList<>();
-                    if (g.inventory.count(x -> x.is(Items.BLAZE_ROD) || x.is(Items.BLAZE_POWDER)) + com.claudemod.entity.life.ChestLedger.count(g, level, Items.BLAZE_ROD) + com.claudemod.entity.life.ChestLedger.count(g, level, Items.BLAZE_POWDER) == 0) miss.add("no blaze rod yet");
+                    if (g.inventory.count(x -> x.is(Items.BLAZE_ROD) || x.is(Items.BLAZE_POWDER)) + com.claudemod.entity.life.ChestLedger.count(g, level, Items.BLAZE_ROD) + com.claudemod.entity.life.ChestLedger.count(g, level, Items.BLAZE_POWDER) == 0) {} // ponytail: the user 14:00 sent him for pearls rod-less: the rods-first order is the roadmap's (endermanTime), not this skill's gate
                     if (!(ch.is(Items.IRON_CHESTPLATE) || ch.is(Items.DIAMOND_CHESTPLATE) || ch.is(Items.NETHERITE_CHESTPLATE))) miss.add("no iron+ chestplate worn");
                     if (g.inventory.count(x -> x.is(Items.IRON_SWORD) || x.is(Items.DIAMOND_SWORD) || x.is(Items.NETHERITE_SWORD)) == 0) miss.add("no iron+ sword");
                     if (Kit.food(g) < 4) miss.add("under 4 meals"); if (g.getHealth() < 16) miss.add("health under 16");
-                    return "failed: not geared for endermen yet (" + String.join(", ", miss) + "): " + have + "/" + want + " pearls"; } // (it named every condition, not the missing one: the rods were in his chest, 01:35)
+                    if (!miss.isEmpty()) return "failed: not geared for endermen yet (" + String.join(", ", miss) + "): " + have + "/" + want + " pearls"; } // (it named every condition, not the missing one: the rods were in his chest, 01:35)
                 var em = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.EnderMan.class, g.getBoundingBox().inflate(32, 8, 32), m -> m.isAlive() && g.hasLineOfSight(m)).stream().min(Comparator.comparingDouble(m -> m.distanceToSqr(g))).orElse(null);
                 if (em == null && level.dimension() == net.minecraft.world.level.Level.OVERWORLD && com.claudemod.director.ClaudeLife.dayHere(level) && !level.isThundering() && hisPortal.get(g.getUUID()) != null && Kit.missing(g, true).isEmpty()) { // the user: by day the Nether's warped forest has endermen; no waiting for dusk with a portal and the kit ready
                     g.skillQueue.addFirst(st); g.skillQueue.addFirst(new Skills.Step("enter_portal", "", 1));

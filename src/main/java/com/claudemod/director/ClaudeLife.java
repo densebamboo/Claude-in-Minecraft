@@ -4895,7 +4895,7 @@ public final class ClaudeLife {
     /** Stacks a junk chest would take: junk, and cobble past two stacks of a kind (kept for patching). */
     static int spareStacks(ClaudeEntity g) {
         java.util.Map<Item, Integer> kept = new java.util.HashMap<>(); int n = 0;
-        for (var st : g.getInventory().items) { if (st.isEmpty()) continue; if (cobbleItem(st)) { if (kept.merge(st.getItem(), 1, Integer::sum) > 2) n++; } else if (junkItem(st)) n++; }
+        for (var st : g.getInventory().items) { if (st.isEmpty() || com.claudemod.entity.goals.WorkGoal.keeps(st)) continue; if (cobbleItem(st)) { if (kept.merge(st.getItem(), 1, Integer::sum) > 2) n++; } else if (junkItem(st)) n++; } // (what Deposit keeps never counts: 06:27 a junk round every 10 s that stored 0)
         return n;
     }
 

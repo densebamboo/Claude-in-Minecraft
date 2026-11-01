@@ -4639,12 +4639,14 @@ public class WorkGoal extends Goal {
     }
 
 
-    // ---- endermen from a hole (the user's pearl stage): 2 down in a 1x1 hole, his head under the ground, an enderman (3 tall) can't reach in or follow; he hits its legs ----
+    // ---- endermen from a booth (the player's trick): they're 3 tall, he's 2. A 2-high space they can't stand in, roofed, walled round his head but one side; the opening leaves them 2 off (out of their reach, in his) ----
+    // ponytail: live 13:15, the old 2-deep 1x1 hole let them drop in (a 3-tall mob fits a 3-deep shaft) and he never landed a hit
     private BlockPos emHole; private int emSaid = -100;
-    private boolean inEmHole() {
+    private boolean inEmHole() { // (no cell touching him, at his feet or head, with 3 free above it: nowhere an enderman can stand and reach him)
         ServerLevel level = (ServerLevel) g.level(); BlockPos f = g.blockPosition();
-        if (!level.getBlockState(f.above(2)).getCollisionShape(level, f.above(2)).isEmpty()) return false;
-        for (Direction d : Direction.Plane.HORIZONTAL) for (int y = 0; y <= 1; y++) { BlockPos q = f.above(y).relative(d); if (level.getBlockState(q).getCollisionShape(level, q).isEmpty()) return false; }
+        if (!solidAt(level, f.above(2))) return false;
+        for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) for (int dy = -1; dy <= 1; dy++) { if (dx == 0 && dz == 0) continue; BlockPos q = f.offset(dx, dy, dz);
+            if (solidAt(level, q.below()) && !solidAt(level, q) && !solidAt(level, q.above()) && !solidAt(level, q.above(2))) return false; }
         return true;
     }
     private Boolean endermanHole(Task.Attack t, net.minecraft.world.entity.monster.EnderMan em) {
@@ -4653,7 +4655,7 @@ public class WorkGoal extends Goal {
         if (inEmHole()) {
             emHole = f.immutable(); g.getNavigation().stop(); g.setSprinting(false); equipWeapon();
             g.getLookControl().setLookAt(em.getX(), em.getY() + 0.6, em.getZ()); // (its legs: what reaches down to him)
-            if (d > 24) { if (g.tickCount - emSaid > 100) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman went off {} away: out of the hole (WorkGoal.endermanHole)", (int) d); } g.tasks.addFirst(new Task.Pillar(2)); return true; }
+            if (d > 24) { if (g.tickCount - emSaid > 100) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman went off {} away: out of the hole (WorkGoal.endermanHole)", (int) d); } return true; }
             if (g.getHealth() < 8) { var food = com.claudemod.director.ClaudeLife.foodToEat(g, false); if (food != null) { g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(food)); return true; } }
             if (canHitNow(em)) { g.getLookControl().setLookAt(em.getX(), em.getY() + 0.6, em.getZ()); g.attack(em); g.swing(InteractionHand.MAIN_HAND); }
             else if (em.getTarget() != g && d < 16) g.getLookControl().setLookAt(em.getX(), em.getEyeY(), em.getZ()); // (not angry yet: a look at its eyes brings it over, the player's way)
@@ -4662,13 +4664,18 @@ public class WorkGoal extends Goal {
         }
         if (d < 4 || !g.onGround()) return null; // (too close to dig in: the ordinary fight)
         if (em.getTarget() != g && d > 16) return null; // ponytail: live 13:12, dug in for a calm one 27 off that wandered away: close in first, dig in where a look at its eyes brings it
-        BlockPos b1 = f.below(), b2 = f.below(2);
-        for (BlockPos q : new BlockPos[] {b1, b2}) { var s0 = level.getBlockState(q); if (s0.getCollisionShape(level, q).isEmpty() || s0.getDestroySpeed(level, q) < 0 || s0.getDestroySpeed(level, q) > 4 || s0.hasBlockEntity()) return null; for (Direction dd : Direction.values()) if (!level.getFluidState(q.relative(dd)).isEmpty()) return null; }
-        if (level.getBlockState(f.below(3)).getCollisionShape(level, f.below(3)).isEmpty()) return null; // (a floor under the hole)
-        for (Direction dd : Direction.Plane.HORIZONTAL) for (BlockPos q : new BlockPos[] {b1.relative(dd), b2.relative(dd)}) if (level.getBlockState(q).getCollisionShape(level, q).isEmpty()) return null; // (its walls whole)
-        g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks)));
-        g.tasks.addFirst(new Task.Break(b2)); g.tasks.addFirst(new Task.Break(b1));
-        com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] an enderman {} off: 2 down into a hole at {} first (it can't reach in), then its legs (WorkGoal.endermanHole)", (int) d, f.toShortString());
+        Direction face = null; // (the opening faces it: he sees it come)
+        for (Direction dd : Direction.Plane.HORIZONTAL) { BlockPos t0 = f.below(), bb = t0.relative(dd.getOpposite()); boolean ok = true;
+            for (BlockPos q : new BlockPos[] {t0, bb}) { var s0 = level.getBlockState(q); if (!solidAt(level, q) || s0.getDestroySpeed(level, q) < 0 || s0.getDestroySpeed(level, q) > 4 || s0.hasBlockEntity() || !solidAt(level, q.below())) ok = false; for (Direction d2 : Direction.values()) if (!level.getFluidState(q.relative(d2)).isEmpty()) ok = false; }
+            if (ok && (face == null || em.position().subtract(g.position()).dot(net.minecraft.world.phys.Vec3.atLowerCornerOf(dd.getNormal())) > em.position().subtract(g.position()).dot(net.minecraft.world.phys.Vec3.atLowerCornerOf(face.getNormal())))) face = dd; }
+        if (face == null) return null;
+        BlockPos t0 = f.below(), bb = t0.relative(face.getOpposite()); // (t0 under him now, the 2-high front cell; bb his spot, one further back)
+        java.util.List<Task> build = new java.util.ArrayList<>(java.util.List.of(new Task.Break(t0), new Task.Break(bb), new Task.GoTo(bb, 0.4)));
+        for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) { BlockPos w = bb.above().offset(dx, 0, dz); if (w.equals(bb.above()) || w.equals(f)) continue; if (!solidAt(level, w)) build.add(new Task.Place(w.immutable(), scaffoldBlock().getItem())); }
+        for (BlockPos r : new BlockPos[] {bb.above(2), f.above()}) if (!solidAt(level, r)) build.add(new Task.Place(r.immutable(), scaffoldBlock().getItem()));
+        g.tasks.addFirst(new Task.Attack(t.target(), Math.max(400, t.maxTicks() - ticks)));
+        for (int k = build.size() - 1; k >= 0; k--) g.tasks.addFirst(build.get(k));
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] an enderman {} off: a 2-high booth at {} opening {} first ({} blocks to put down; it's 3 tall, can't stand in it), then hit it at the opening (WorkGoal.endermanHole)", (int) d, bb.toShortString(), face, build.size() - 3);
         return true;
     }
     private final java.util.Map<java.util.UUID, Integer> behindWall = new java.util.HashMap<>(); // (mobs let be behind a wall, when)
@@ -4681,7 +4688,7 @@ public class WorkGoal extends Goal {
             g.setSprinting(false);
             // it died: grab what it dropped (beef, leather...) before moving on, like a player would
             boolean died = e == null || (e instanceof net.minecraft.world.entity.LivingEntity l && !l.isAlive());
-            if (ticks > 1 && inEmHole()) { g.tasks.addFirst(new Task.Pillar(2)); if (died) g.tasks.addFirst(new Task.Pickup(40)); com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman's down: its pearl, then up out of the hole (WorkGoal.doAttack)"); }
+            if (died && ticks > 1 && inEmHole()) { g.tasks.addFirst(new Task.Pickup(40)); com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman's down: its pearl (the booth stays for the next) (WorkGoal.doAttack)"); }
             if (died && ticks > 1 && e != null) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] killed the {} at {} (WorkGoal.doAttack)", e.getType().getDescription().getString(), e.blockPosition().toShortString()); // (every kill on his log: his chat leads with it, MindLog.recent)
             if (died && ticks > 1 && e != null) { // what it left and where it falls: 0 rods off 5 blaze kills over a fortress, 05:59, the sweep saw no drops at all
                 BlockPos fl = e.blockPosition(); int dn = 0; while (dn < 64 && level.getBlockState(fl).isAir()) { fl = fl.below(); dn++; }

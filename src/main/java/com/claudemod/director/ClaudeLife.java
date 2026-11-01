@@ -7523,6 +7523,23 @@ public final class ClaudeLife {
      * Stuck on a task with a spot to it (a walk, a block to break or put): the way there planned over a player's moves with digging
      * allowed (ActionPath MAY_DIG: dig, put blocks down, pillar, swim), put in front of the task, which then goes on. True if found.
      */
+    /**
+     * A loop his body proved (ClaudeEntity.mtLoop: the 2nd shuffle or spin on one block) is "stuck" as the watchdog means it: level 1, the
+     * way out made at once, and the goal pinned so the new walk counts as the same job (the clock keeps running). Before: the escape
+     * alone, a new job each time, and the watchdog never saw him stuck (stage 474: knocked back every 1 s for 27 s, "never seen stuck").
+     */
+    public static void loopStuck(ClaudeEntity g, Task now, String where) {
+        if (progKey == null) progKey = new java.util.HashMap<>(); if (progBest == null) progBest = new java.util.HashMap<>(); if (progPin == null) progPin = new java.util.HashMap<>();
+        BlockPos at = g.blockPosition();
+        String doing = now != null ? ClaudeChat.describe(g, now) : "his queued work";
+        BlockPos pinTo = now == null ? null : com.claudemod.entity.life.Watchdog.target(now); String pinKey = progKey.get(g.getUUID());
+        if (g.stuckLevel == 0) g.stuckLevel = 1;
+        if (escapeStuck(g, (ServerLevel) g.level(), now)) {
+            if (pinTo != null && pinKey != null) progPin.put(g.getUUID(), new Object[] {pinKey, pinTo});
+            g.stuckNote = "you were going round in a loop at " + at.toShortString() + " " + doing + "; making your own way out and carrying on";
+            g.lastSkillLine = "looping at " + at.toShortString() + " " + doing + " (" + where + "): making my own way out and on";
+        }
+    }
     public static boolean escapeStuck(ClaudeEntity g, ServerLevel level, Task now) {
         BlockPos to = null; double within = 3.5;
         List<Task> look = new ArrayList<>(); if (now != null) look.add(now); look.addAll(g.tasks);
@@ -7601,7 +7618,7 @@ public final class ClaudeLife {
             g.noteDoing("got stuck at " + at.toShortString() + " while " + doing + "; that way doesn't work from here, need another way (or help)");
             String stuckKey = "stuck:" + (g.lastStep == null ? "-" : g.lastStep.skill());
             int strikes = g.failCount.merge(stuckKey, 1, Integer::sum);
-            if (strikes == 2) com.claudemod.entity.life.Watchdog.tellOnce(g, stuckKey + " " + (nowKey == null ? "-" : nowKey), "stuck: " + doing + " at " + at.toShortString() + ", no nearer in " + secs + " s, twice now; trying another way"); // (the user: say exactly what failed; once, never waiting on an answer)
+            if (strikes == 2) com.claudemod.entity.life.Watchdog.tellOnce(g, stuckKey + " " + (nowKey == null ? "-" : nowKey), "stuck: " + doing + " at " + at.toShortString() + ", no nearer in " + secs + " s, twice now; tried my own way out (dig, climb or round), trying another way"); // (the user: say exactly what failed; once, never waiting on an answer)
             if (strikes >= 3) { // three stucks on one step: the plan is wrong, think again
                 g.failCount.remove(stuckKey); g.failReason.put(g.lastStep == null ? "-" : g.lastStep.skill(), "stuck 3 times (" + doing + ")");
                 clearTasks(g); g.skillQueue.clear(); dropCurrent(g);

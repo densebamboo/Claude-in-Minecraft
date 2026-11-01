@@ -278,6 +278,8 @@ public class ClaudeEntity extends ServerPlayer {
     /** Cover now (a tower, or dug in and lidded): true if he could make some. */
     public boolean shelter() { return work.shelter(); }
     public boolean holdingNight() { return work.holdingNight(); }
+    /** Why the last cover attempt said no, if it said so this tick; else null. */
+    public String noCoverWhyNow() { return work.lastNoCoverTick == tickCount ? work.lastNoCoverWhy : null; }
     public boolean holdingCover() { return work.holdingCover(); }
     public boolean coverCell(BlockPos p) { return work.coverCell(p); }
     public java.util.List<com.claudemod.entity.life.Task> coverTasks() { return work.coverTasks(); }

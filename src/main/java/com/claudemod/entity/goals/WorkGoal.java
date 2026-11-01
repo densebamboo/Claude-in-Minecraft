@@ -4421,7 +4421,9 @@ public class WorkGoal extends Goal {
     }
     private java.util.Map<String, Integer> noCoverSaid; private int shooterHeld = -1, coverHitSaid = -1; // (lazy: fields added live start null)
     /** No cover here, and why: each reason said once a minute (the numbers in it aside), with the method's name. */
+    public String lastNoCoverWhy; public int lastNoCoverTick = -1; // (the shelter skill reports this, not a guess: "nothing to tower with" with 287 blocks on him when a creeper was the reason, live 11:47)
     private boolean noCover(String why) {
+        lastNoCoverWhy = why; lastNoCoverTick = g.tickCount;
         if (noCoverSaid == null || noCoverSaid.size() > 64) noCoverSaid = new java.util.HashMap<>();
         String k = why.replaceAll("[-0-9.]+", "#"); Integer at = noCoverSaid.get(k);
         if (at == null || g.tickCount - at >= 20 * 60) { noCoverSaid.put(k, g.tickCount); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no cover: {} (WorkGoal.digInFromArrows)", why); }

@@ -2690,7 +2690,7 @@ public final class ClaudeLife {
                 if (em != null) { g.tasks.add(new Task.Attack(em.getUUID(), 20 * 60)); g.tasks.add(new Task.Pickup(80)); ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: an enderman {} off in sight: after it ({}/{} pearls) (ClaudeLife ender_pearls)", (int) em.distanceTo(g), have, want); return "after the enderman " + (int) em.distanceTo(g) + " off (" + have + "/" + want + " pearls)"; }
                 boolean nether = level.dimension() == net.minecraft.world.level.Level.NETHER;
                 { var dl = g.getLastDeathLocation(); // his death pile on this side (the fortress kit: diamond pick, rods) first: frozen in its unloaded chunk, it waits for him
-                  if (dl.isPresent() && dl.get().dimension() == level.dimension() && g.skillQueue.stream().noneMatch(s0 -> s0.skill().equals("recover_drops")) && !(g.attempts.any.get(dl.get().pos()) instanceof Integer t1 && g.tickCount - t1 < 20 * 600)) {
+                  if (nether && dl.isPresent() && dl.get().dimension() == level.dimension() && !level.isPositionEntityTicking(dl.get().pos()) && g.skillQueue.stream().noneMatch(s0 -> s0.skill().equals("recover_drops")) && !(g.attempts.any.get(dl.get().pos()) instanceof Integer t1 && g.tickCount - t1 < 20 * 600)) {
                       g.attempts.any.put(dl.get().pos(), g.tickCount); g.skillQueue.addFirst(new Skills.Step("recover_drops", "", 1));
                       ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: his death spot {} is on this side: the pile first (ClaudeLife ender_pearls)", dl.get().pos().toShortString());
                       return "my things from my last death are on this side at " + dl.get().pos().toShortString() + ": getting them first"; } }
@@ -2767,6 +2767,8 @@ public final class ClaudeLife {
                     return "done: past the early game (armor " + g.getArmorValue() + "): no hole tonight; a bed if there's one, else on with the work"; // (the user: holes are for the early phases; hunted and hurt, the reflexes still take cover)
                 com.claudemod.entity.life.Perception.glance(g); // a look round before choosing the cover (zombies behind him make it a tower, not a hole)
                 if (g.shelter()) return "getting under cover here (out of reach, with a lid over me)";
+                { String why = g.noCoverWhyNow(); // a reason that isn't the ground or the blocks (a creeper close, a mob too near to finish it, in the air): that's the answer, not "nothing to tower with"
+                  if (why != null && !why.startsWith("no tower to be had") && !why.startsWith("underground with") && !why.startsWith("water ")) { ClaudeMod.LOGGER.info("[Claude skill] shelter: no cover right now: {} (ClaudeLife shelter)", why); return "done: no cover right now: " + why; } }
                 if (!level.canSeeSky(g.blockPosition().above()) && level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.getBlockX(), g.getBlockZ()) > g.getBlockY() + 6 && level.getBrightness(net.minecraft.world.level.LightLayer.SKY, g.blockPosition()) < 8) return "done: already inside the rock (his own tunnel, no sky over him): no walk out across the open for dirt"; // (a staircase he cut up inside a mountain sent him toward dirt 23 blocks off, across the slope, at night; 4 tries a tick)
                 // bare rock underfoot and nothing to build with: the nearest patch of dirt, grass or sand within 24 is where a player digs in (three soft blocks down, nothing hard under them)
                 BlockPos soft = null;
@@ -3757,7 +3759,7 @@ public final class ClaudeLife {
                 var around = new net.minecraft.world.phys.AABB(spot).inflate(12);
                 var drops = new ArrayList<>(level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, around, i -> i.isAlive() && !g.isGift(i)));
                 if (drops.isEmpty()) drops = new ArrayList<>(ownDropsNear(g, level, 64));
-                if (drops.isEmpty() && death.isPresent() && spot.equals(death.get().pos()) && g.blockPosition().distSqr(spot) > 48 * 48) { // far off, its chunk unloaded: the pile can't be seen from here, so go and look (the fortress pile read "nothing left" from 300 off)
+                if (drops.isEmpty() && death.isPresent() && spot.equals(death.get().pos()) && g.blockPosition().distSqr(spot) > 48 * 48 && !level.isPositionEntityTicking(spot)) { /* (a ticking chunk with nothing in it: the pile is gone) */ // far off, its chunk unloaded: the pile can't be seen from here, so go and look (the fortress pile read "nothing left" from 300 off)
                     g.tasks.add(new Task.GoTo(spot.immutable(), 6)); g.skillQueue.addFirst(new Skills.Step("recover_drops", "", 1));
                     ClaudeMod.LOGGER.info("[Claude life] recover_drops: his death spot {} is {} off, out of sight: walking there to look (ClaudeLife recover_drops)", spot.toShortString(), (int) Math.sqrt(g.blockPosition().distSqr(spot)));
                     return "walking to where I died at " + spot.toShortString() + " to look for my things"; } // drifted off in the water, or lying a way from where he fell: still his

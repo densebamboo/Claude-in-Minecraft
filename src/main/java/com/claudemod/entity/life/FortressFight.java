@@ -190,7 +190,7 @@ public final class FortressFight {
             if (!k.c().equals(me)) { var path = g.getNavigation().createPath(k.c(), 0); if (path == null || !path.canReach()) continue; }
             return new Cover(k.c(), k.front(), foe.blockPosition(), "wither", "a 2-high gap at " + k.c().toShortString() + " (no 3-high room on any side: its sword can't reach in), hitting it at " + k.front().toShortString() + " 2 off (" + cands.size() + " gaps looked at)", g.tickCount);
         }
-        ClaudeMod.LOGGER.info("[Claude fight] no 2-high gap within 10 to fight the wither skeleton from ({} out of its reach, none walkable): shield and crits in the open, off at 10 health (FortressFight.pickWither)", cands.size());
+        if (g.tickCount % 40 == 0) ClaudeMod.LOGGER.info("[Claude fight] no 2-high gap within 10 to fight the wither skeleton from ({} out of its reach, none walkable): shield and crits in the open, off at 10 health (FortressFight.pickWither)", cands.size()); // ponytail: said once per 2 s, it runs every tick (live 15:04: 2 lines a tick)
         return null;
     }
 

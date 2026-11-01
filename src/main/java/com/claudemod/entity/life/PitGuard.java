@@ -47,7 +47,7 @@ public final class PitGuard {
     static boolean down0(ClaudeEntity g, BlockPos seed) { return g.getBlockY() <= seed.getY() - 2 && across(g.blockPosition(), seed) <= 2; } // (down in it now: out of it is the job, the cap his way up)
 
     private static final class State {
-        BlockPos lastGround; float fall; BlockPos door; int noStoneSaid = -100000; BlockPos resumedFrom; int resumedLeft = -1;
+        BlockPos lastGround; float fall; boolean leapt; BlockPos door; int noStoneSaid = -100000; BlockPos resumedFrom; int resumedLeft = -1;
         final Set<BlockPos> caps = new LinkedHashSet<>(); // his build: the cells he set (or will set) in a hole's mouth
         final Set<BlockPos> hole = new HashSet<>(); // the hole's open cells under it: what he puts in there (his climb out) is the fill, his build too
         final List<long[]> skirts = new ArrayList<>(); // drop cells his routes went round: {pos, tick}
@@ -123,11 +123,12 @@ public final class PitGuard {
     public static void tick(ClaudeEntity g, ServerLevel level) {
         State s = st(g);
         if (g.tickCount % 200 == 37 && !ClaudeSpawner0.testing()) cleanup(g, level);
-        if (g.isInWater()) { s.fall = 0; return; } // (water breaks a fall)
-        if (!g.onGround()) { s.fall = Math.max(s.fall, g.fallDistance); return; }
-        float fell = s.fall; s.fall = 0;
+        if (g.isInWater()) { s.fall = 0; s.leapt = false; return; } // (water breaks a fall)
+        if (!g.onGround()) { s.fall = Math.max(s.fall, g.fallDistance); if (g.currentTask instanceof Task.Leap) s.leapt = true; return; }
+        float fell = s.fall; s.fall = 0; boolean leapt = s.leapt; s.leapt = false;
         BlockPos from = s.lastGround; s.lastGround = g.blockPosition().immutable();
-        if (fell >= 2.5f) fell(g, level, from, g.blockPosition().immutable(), fell);
+        if (fell >= 2.5f && leapt) ClaudeMod.LOGGER.info("[Claude life] dropped {} to {} by his own planned leap: low ground he chose, not a hole he fell in (PitGuard.tick)", (int) fell, g.blockPosition().toShortString()); // (08:50 a planned 6-down leap into the dip by his door capped 74 cells of natural ground)
+        else if (fell >= 2.5f) fell(g, level, from, g.blockPosition().immutable(), fell);
         if (g.tickCount % 20 == 7) hostileIn(g, level, s);
         if (g.tickCount % 10 == 3 && !s.caps.isEmpty()) for (BlockPos p : s.caps) if (!s.capIn().containsKey(p) && level.isLoaded(p) && !level.getBlockState(p).canBeReplaced()) s.capIn().put(p.immutable(), g.tickCount); // (when each went in: a cell that failed before one beside it went in has a face now)
         if (g.tickCount % 20 == 11 && !s.caps.isEmpty()) notNowQueued(g, level, s);

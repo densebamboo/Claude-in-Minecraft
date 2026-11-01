@@ -11228,12 +11228,14 @@ public final class ClaudeLife {
     }
 
     /** At an ore's level, his face deeper: a new pair off the level's tunnels, else a branch pushed on, else more of the level (a second tunnel); null: the level is done, the next one down. */
+    private static int noStairLevelSaid = -100000;
     public static String bpAtLevel(ClaudeEntity g, ServerLevel level, MineBlueprint b, int bestY, String ore) {
         List<MineBlueprint.Row> rs0 = b.rows();
         int levelY = Integer.MIN_VALUE; for (MineBlueprint.Row r0 : rs0) if (b.segments.get(r0.segment()).kind == MineBlueprint.Kind.FLAT && Math.abs(r0.first().getY() - bestY) <= 3 && (levelY == Integer.MIN_VALUE || Math.abs(r0.first().getY() - bestY) < Math.abs(levelY - bestY))) levelY = r0.first().getY(); // one level for all his branches: the flat stretch nearest the ore's y (a cave crossing at 18 and the tunnel at 16 both "near 16" had his iron branches at two heights)
         String line = bpAtLevelY(g, level, b, levelY, ore); if (line != null) return line;
-        for (int y : stairLevels(b, bestY)) if (y != levelY) { line = bpAtLevelY(g, level, b, y, ore); if (line != null) return line; } // his levels off the stairs, nearest the ore's y first
-        return bpNewLevel(g, level, b, bestY, ore, levelY);
+        // (no levels off the stairs, old or new: the user's rule, "branches only off a flat ore level, never off the staircase", World 15 12:10 and 14:46; the runs cut off it before stay as they are, nothing more dug from them. No flat level at the ore's y: the next level down takes the work, below)
+        if (levelY == Integer.MIN_VALUE && g.tickCount - noStairLevelSaid > 20 * 60) { noStairLevelSaid = g.tickCount; ClaudeMod.LOGGER.info("[Claude life] blueprint: no flat {} level near y {}: no level off his stairs (the user's rule); the work goes to his next level down (ClaudeLife.bpAtLevel)", ore, bestY); }
+        return null;
     }
 
     /** One level of his: a pair off its tunnel, a branch pushed on, or more of it (bpOpenRun); null when it has no room left. */

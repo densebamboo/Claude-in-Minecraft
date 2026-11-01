@@ -3337,6 +3337,15 @@ public final class ClaudeBodyTest {
                             BlockPos mockAt = h.absolutePos(new BlockPos(2, 14, 2)); mock[0].teleportTo(mockAt.getX() + 0.5, mockAt.getY(), mockAt.getZ() + 0.5);
                             c.setHealth(20); c.getFoodData().setFoodLevel(20); level.setDayTime(1000); c.tasks.clear(); c.attempts.clear(); c.dropCurrent = true;
                         }
+                        if (t[0] == 20 && c.blueprint != null) { // (superseded, the user's rule of 12:10 World 15: "branches only off a flat ore level, never off the staircase": the full level gets no new level off his stairs; the work goes to his next level down)
+                            var b = c.blueprint; int levelY = h.absolutePos(new BlockPos(0, 4, 0)).getY();
+                            String line = com.claudemod.director.ClaudeLife.bpAtLevel(c, level, b, levelY, "iron");
+                            boolean offStairs = false; for (var s0 : b.segments) if (s0.kind == com.claudemod.entity.life.MineBlueprint.Kind.RUN) { int ri = b.rowOf(s0.start.relative(s0.dir.getOpposite())); if (ri >= 0 && b.segments.get(b.rows().get(ri).segment()).kind == com.claudemod.entity.life.MineBlueprint.Kind.STAIRS) offStairs = true; }
+                            check(!offStairs, "stairs level: a level cut off his stairs: " + b);
+                            check(line == null || !line.contains("off my stairs"), "stairs level: a level off his stairs: " + line);
+                            c.tasks.clear(); c.skillQueue.clear(); c.blueprint = null;
+                            pass(stage, t, "the full iron level: nothing off the stairs (" + line + ")");
+                        }
                         if (t[0] > 12 && c.blueprint != null) {
                             var b = c.blueprint; int levelY = h.absolutePos(new BlockPos(0, 4, 0)).getY(); var KB = com.claudemod.entity.life.MineBlueprint.Kind.BRANCH;
                             check(b.face().equals(runFace), "stairs level: the face moved to " + b.face().toShortString() + " (was " + runFace.toShortString() + ")");

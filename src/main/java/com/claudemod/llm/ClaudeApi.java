@@ -208,6 +208,12 @@ public final class ClaudeApi {
         }
 
         return HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                .exceptionallyCompose(ex -> { // a timeout: once more, then the failure as before (Day to Day 22:02 and 22:03: two plans dropped on HttpTimeoutException)
+                    Throwable c = ex instanceof java.util.concurrent.CompletionException && ex.getCause() != null ? ex.getCause() : ex;
+                    if (!(c instanceof java.net.http.HttpTimeoutException)) return CompletableFuture.failedFuture(c);
+                    ClaudeMod.LOGGER.info("[Claude] the {} call timed out after {} ms: once more", kindOf(schema, effortLevel), Config.REQUEST_TIMEOUT_MS.get());
+                    return HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofString());
+                })
                 .thenApply(ClaudeApi::extractContent);
     }
 

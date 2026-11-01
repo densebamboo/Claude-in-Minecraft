@@ -2651,7 +2651,12 @@ public final class ClaudeLife {
             case "ender_pearls": { // the pearl stage (the user, 19:40): endermen on sight, from a 2-deep hole; pearls picked up; in the Nether, a warped forest is where they are
                 int have = g.inventory.count(x -> x.is(Items.ENDER_PEARL) || x.is(Items.ENDER_EYE)), want = st.count() > 1 ? st.count() : pearlsWanted(g);
                 if (have >= want) return "done: " + have + " pearls/eyes on me (" + want + " wanted)";
-                if (!endermanTime(g)) return "failed: not geared for endermen yet (iron chest and sword, 4+ meals, health 16+, a blaze rod first): " + have + "/" + want + " pearls";
+                if (!endermanTime(g)) { var ch = g.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST); java.util.List<String> miss = new ArrayList<>();
+                    if (g.inventory.count(x -> x.is(Items.BLAZE_ROD) || x.is(Items.BLAZE_POWDER)) == 0) miss.add("no blaze rod on me (a chest's don't count till I take it)");
+                    if (!(ch.is(Items.IRON_CHESTPLATE) || ch.is(Items.DIAMOND_CHESTPLATE) || ch.is(Items.NETHERITE_CHESTPLATE))) miss.add("no iron+ chestplate worn");
+                    if (g.inventory.count(x -> x.is(Items.IRON_SWORD) || x.is(Items.DIAMOND_SWORD) || x.is(Items.NETHERITE_SWORD)) == 0) miss.add("no iron+ sword");
+                    if (Kit.food(g) < 4) miss.add("under 4 meals"); if (g.getHealth() < 16) miss.add("health under 16");
+                    return "failed: not geared for endermen yet (" + String.join(", ", miss) + "): " + have + "/" + want + " pearls"; } // (it named every condition, not the missing one: the rods were in his chest, 01:35)
                 var em = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.EnderMan.class, g.getBoundingBox().inflate(32, 8, 32), m -> m.isAlive() && g.hasLineOfSight(m)).stream().min(Comparator.comparingDouble(m -> m.distanceToSqr(g))).orElse(null);
                 g.skillQueue.addFirst(st); // (on with it after this)
                 if (em != null) { g.tasks.add(new Task.Attack(em.getUUID(), 20 * 60)); g.tasks.add(new Task.Pickup(80)); ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: an enderman {} off in sight: after it ({}/{} pearls) (ClaudeLife ender_pearls)", (int) em.distanceTo(g), have, want); return "after the enderman " + (int) em.distanceTo(g) + " off (" + have + "/" + want + " pearls)"; }

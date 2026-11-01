@@ -4641,6 +4641,12 @@ public class WorkGoal extends Goal {
             boolean died = e == null || (e instanceof net.minecraft.world.entity.LivingEntity l && !l.isAlive());
             if (died && ticks > 1 && e instanceof net.minecraft.world.entity.monster.EnderMan && inEmHole()) { g.tasks.addFirst(new Task.Pillar(2)); g.tasks.addFirst(new Task.Pickup(40)); com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman's down: its pearl, then up out of the hole (WorkGoal.doAttack)"); }
             if (died && ticks > 1 && e != null) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] killed the {} at {} (WorkGoal.doAttack)", e.getType().getDescription().getString(), e.blockPosition().toShortString()); // (every kill on his log: his chat leads with it, MindLog.recent)
+            if (ticks > 1) { // his own arrows stuck round the fight: walked over and taken back, like a player does (01:47 26 shot, none picked up); the drops first
+                var mine = level.getEntitiesOfClass(net.minecraft.world.entity.projectile.AbstractArrow.class, g.getBoundingBox().inflate(16, 6, 16), a -> a.isAlive() && a.getOwner() == g && a.pickup == net.minecraft.world.entity.projectile.AbstractArrow.Pickup.ALLOWED && a.getDeltaMovement().lengthSqr() < 1e-4 && level.getFluidState(a.blockPosition()).isEmpty());
+                mine.sort(java.util.Comparator.comparingDouble(a -> -a.distanceToSqr(g))); // (addFirst: the nearest ends up first)
+                for (var a : mine) g.tasks.addFirst(new Task.GoTo(a.blockPosition(), 1.0));
+                if (!mine.isEmpty()) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] {} of his arrows stuck round the fight: picking them back up (WorkGoal.doAttack)", mine.size());
+            }
             if (died && ticks > 1 && !(g.tasks.peek() instanceof Task.Pickup)) g.tasks.addFirst(new Task.Pickup(80));
             return true;
         }

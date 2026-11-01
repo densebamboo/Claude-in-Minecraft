@@ -3036,7 +3036,7 @@ public final class ClaudeLife {
                 return smeltInParallel(g, player, level, st, furnace);
             }
             case "build_here": {
-                if (g.projectOrigin == null || Math.sqrt(g.projectOrigin.distSqr(center(g, player, st))) > 40) {
+                if (g.projectOrigin == null || Math.sqrt(g.projectOrigin.distSqr(center(g, player, st))) > 40 || Math.abs(g.projectOrigin.getY() - center(g, player, st).getY()) > 8) { // (a site 30 up the Nether roof was kept and walked to)
                     g.projectOrigin = flatSiteNear(level, center(g, player, st));
                     if (g.projectOrigin == null) return "failed: no flat spot here to build on";
                 }
@@ -12065,12 +12065,22 @@ public final class ClaudeLife {
     private static java.util.Map<java.util.UUID, Integer> farmTick() { if (farmTick == null) farmTick = new java.util.HashMap<>(); return farmTick; }
 
     private static BlockPos flatSiteNear(ServerLevel level, BlockPos center) {
+        // under a roof (the Nether, a cave) the heightmap is the ceiling: live 03:55 it sent build_here to y 128, 50 up through the fortress; there the floor near his own height counts
+        boolean roofed = level.dimensionType().hasCeiling() || !level.canSeeSky(center);
         for (int i = 0; i < 40; i++) {
             int x = center.getX() + level.random.nextInt(17) - 8, z = center.getZ() + level.random.nextInt(17) - 8;
-            int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+            int y = Integer.MIN_VALUE;
             boolean flat = true;
-            for (int dx = -2; dx <= 2 && flat; dx++) for (int dz = -2; dz <= 2 && flat; dz++) {
-                int h = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x + dx, z + dz);
+            for (int k = 0; k < 26 && flat; k++) {
+                int dx = k == 0 ? 0 : (k - 1) / 5 - 2, dz = k == 0 ? 0 : (k - 1) % 5 - 2;
+                int h = Integer.MIN_VALUE;
+                if (!roofed) h = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x + dx, z + dz);
+                else for (int yy = center.getY() + 3; yy >= center.getY() - 6; yy--) {
+                    BlockPos q = new BlockPos(x + dx, yy, z + dz);
+                    if (level.getBlockState(q.below()).blocksMotion() && level.getBlockState(q).isAir() && level.getBlockState(q.above()).isAir()) { h = yy; break; }
+                }
+                if (h == Integer.MIN_VALUE) { flat = false; break; }
+                if (k == 0) y = h;
                 if (Math.abs(h - y) > 1 || !level.getFluidState(new BlockPos(x + dx, h - 1, z + dz)).isEmpty()) flat = false;
             }
             if (flat) return new BlockPos(x, y, z);

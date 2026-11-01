@@ -10355,6 +10355,7 @@ public final class ClaudeBodyTest {
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
             case 494: return st494(stage, t, c, h, level, mock);
+            case 530: return st530(stage, t, c, h, level, mock);
             case 529: return st529(stage, t, c, h, level, mock);
             case 528: return st528(stage, t, c, h, level, mock);
             case 527: return st527(stage, t, c, h, level, mock);
@@ -10518,6 +10519,22 @@ public final class ClaudeBodyTest {
         if (clT > 0) { for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) for (int y = 2; y <= 22; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2);
             pass(stage, t, "15 up the netherrack in " + (clT - 10) + " ticks"); }
         else if (t[0] == 10 + 1200) check(false, "climb: not up the 15 in 60 s (at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ", queue " + c.tasks.size() + ")");
+        return true;
+    }
+    private static boolean st530(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // lava in a sealed pocket (World 15 22:08: no dry cell round him, 17 s in it and dead): out through the wall with no lava behind it
+        BlockPos me = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.tasks.clear(); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); hzLow = 20f; c.clearFire();
+            for (int x = 3; x <= 13; x++) for (int z = 3; z <= 13; z++) for (int y = 1; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.NETHERRACK.defaultBlockState(), 2);
+            for (int[] lv0 : new int[][] {{6, 8}, {8, 6}, {8, 10}}) for (int y = 2; y <= 3; y++) level.setBlock(h.absolutePos(new BlockPos(lv0[0], y, lv0[1])), Blocks.LAVA.defaultBlockState(), 2); // (lava behind three of his walls; the east one has rock behind it, then the open)
+            for (int x = 11; x <= 13; x++) for (int y = 2; y <= 3; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, 8)), Blocks.AIR.defaultBlockState(), 2);
+            level.setBlock(me.above(), Blocks.AIR.defaultBlockState(), 2); level.setBlock(me, Blocks.LAVA.defaultBlockState(), 2);
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+        if (t[0] > 1) hzLow = Math.min(hzLow, c.getHealth());
+        if (t[0] > 5 && !c.isInLava() && c.getBlockX() > me.getX() && c.isAlive()) {
+            check(hzLow >= 8, "pocket: out but down to " + hzLow);
+            for (int x = 3; x <= 13; x++) for (int z = 3; z <= 13; z++) for (int y = 1; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            c.clearFire(); c.setHealth(20f); pass(stage, t, "out of the sealed pocket east through the wall in " + t[0] + " ticks, low " + hzLow); }
+        else if (t[0] == 300 || !c.isAlive()) check(false, "pocket: still in the lava pocket (alive " + c.isAlive() + ", low " + hzLow + ", at " + c.blockPosition().toShortString() + ")");
         return true;
     }
     private static BlockPos dkStep;

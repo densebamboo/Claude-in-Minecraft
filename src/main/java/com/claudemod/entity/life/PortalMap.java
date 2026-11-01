@@ -76,6 +76,9 @@ public final class PortalMap {
     /** Each tick from ClaudeEntity.tick: the portal cell he stands in (the side he left from); every 2 s the portals he sees. */
     public static void tick(ClaudeEntity g) {
         Level lv = g.level(); BlockPos f = g.blockPosition();
+        if (entering != null && entering.containsKey(g.getUUID()) && dim(lv).equals(entering.get(g.getUUID())[0]) && (lv.getBlockState(f).is(Blocks.NETHER_PORTAL) || lv.getBlockState(f.above()).is(Blocks.NETHER_PORTAL))) { // stepped in to go through: still in it till it takes him, like a player (World 15 22:02: his own walk took him back out before the 4 s)
+            g.getNavigation().stop(); g.tasks.removeIf(t0 -> t0 instanceof Task.GoTo); var v = g.getDeltaMovement(); g.setDeltaMovement(v.x * 0.2, v.y, v.z * 0.2); g.setSprinting(false);
+        }
         if (lv.getBlockState(f).is(Blocks.NETHER_PORTAL) || lv.getBlockState(f.above()).is(Blocks.NETHER_PORTAL)) { Net n = net(g); n.lastInDim = dim(lv); n.lastIn = (lv.getBlockState(f).is(Blocks.NETHER_PORTAL) ? f : f.above()).immutable(); }
         if (g.tickCount % 100 == 3) walkSample(g);
         if (g.tickCount % 40 != 7 || !(lv instanceof ServerLevel level)) return;
@@ -270,7 +273,8 @@ public final class PortalMap {
             return "lit".equals(p.state) ? "relit my portal #" + p.id + " at " + p.where() : "failed: the frame of #" + p.id + " at " + p.where() + " didn't light (check it's whole and clear inside)";
         }
         g.noteDoing("into portal #" + p.id + " at " + p.where() + ": " + linkTalk(g, p));
-        g.tasks.add(new Task.GoTo(p.at, 0.3)); g.tasks.add(new Task.Wait(100, false));
+        BlockPos cell = p.at; { double bd = Double.MAX_VALUE; for (BlockPos q : BlockPos.betweenClosed(p.at.offset(-3, -1, -3), p.at.offset(3, 3, 3))) if (level.getBlockState(q).is(Blocks.NETHER_PORTAL) && !level.getBlockState(q.below()).is(Blocks.NETHER_PORTAL)) { double dd = q.distSqr(g.blockPosition()); if (dd < bd) { bd = dd; cell = q.immutable(); } } } // (a portal cell itself at its bottom row, nearest him: the frame's corner had him "not in the portal")
+        g.tasks.add(new Task.GoTo(cell, 0.3)); g.tasks.add(new Task.Wait(100, false));
         entering.put(g.getUUID(), new Object[] {dim(level), g.tickCount, p.id}); g.skillQueue.addFirst(new Skills.Step(st.skill(), target, st.count(), st.where())); // (the check: through, or not)
         ClaudeMod.LOGGER.info("[Claude portal] enter \"{}\" -> #{} at {}: stepping in, {} (PortalMap.enterStep)", t, p.id, p.where(), linkTalk(g, p));
         return "stepping into portal #" + p.id + " at " + p.where() + " (" + linkTalk(g, p) + ")";

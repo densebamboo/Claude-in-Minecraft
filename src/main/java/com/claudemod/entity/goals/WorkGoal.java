@@ -188,12 +188,30 @@ public class WorkGoal extends Goal {
                 if (!lv.getBlockState(q.below()).isFaceSturdy(lv, q.below(), Direction.UP)) continue;
                 if (lavaOutBad.containsKey(q) && g.tickCount - lavaOutBad.get(q) < 20 * 4) continue; // (a step he couldn't make just now: another way out, never the same failing step till he burns: live 06:53 World 15)
                 double d = q.distSqr(me) + (dryCells.contains(q) ? -6 : 0) + (q.getY() < me.getY() ? 8 : 0) + (lv.clip(new net.minecraft.world.level.ClipContext(g.getEyePosition(), Vec3.atCenterOf(q), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getType() == net.minecraft.world.phys.HitResult.Type.MISS ? 0 : 50); // (a wall between: last resort)
+                if (d >= 50 && q.distSqr(me) > 2) continue; // (behind a wall and not beside him: no way out at all, the wall dig below is; 1.5 s lost walking at one in a sealed pocket)
                 if (d < bd) { bd = d; out = q.immutable(); }
             }
             if (out != null && !out.equals(lavaOut)) { lavaOut = out; lavaOutSince = g.tickCount; }
             if (out != null && g.tickCount - lavaOutSince > 30) { lavaOutBad.put(out, g.tickCount); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}: 1.5 s and not onto {}: that way's no good, another (WorkGoal.reflexes)", me.toShortString(), out.toShortString()); lavaOut = null; }
             if (g.tickCount % 20 < 2) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}: getting out{}", me.toShortString(), out == null ? " (no dry cell near: jumping)" : " to " + out.toShortString() + (dryCells.contains(out) ? " (where he came from)" : ""));
             g.getNavigation().stop();
+            if (out == null && g.tickCount - lavaDigTick > 4) { // no dry cell round him (a sealed pocket the lava came into, World 15 22:08: 17 s and dead): out through the wall, the side with no lava behind it, like a player
+                BlockPos dig = null; int best = Integer.MAX_VALUE;
+                for (Direction d0 : Direction.Plane.HORIZONTAL) { BlockPos n = me.relative(d0);
+                    var ns = lv.getBlockState(n); var nh = lv.getBlockState(n.above());
+                    if (ns.getCollisionShape(lv, n).isEmpty() && nh.getCollisionShape(lv, n.above()).isEmpty()) continue; // (open: the walk above takes it)
+                    if (ns.getDestroySpeed(lv, n) < 0 || ns.getDestroySpeed(lv, n) > 3 || nh.getDestroySpeed(lv, n.above()) < 0 || nh.getDestroySpeed(lv, n.above()) > 3 || ns.hasBlockEntity() || nh.hasBlockEntity()) continue;
+                    if (!lv.getBlockState(n.below()).isFaceSturdy(lv, n.below(), Direction.UP)) continue;
+                    int lava = 0; for (BlockPos c0 : new BlockPos[] {n, n.above()}) for (Direction d1 : Direction.values()) { BlockPos q1 = c0.relative(d1); if (!q1.equals(me) && !q1.equals(me.above()) && !q1.equals(n) && !q1.equals(n.above()) && lv.getFluidState(q1).is(net.minecraft.tags.FluidTags.LAVA)) lava++; }
+                    if (lava < best) { best = lava; dig = n; } }
+                if (dig != null && best == 0 && g instanceof net.minecraft.server.level.ServerPlayer sp0) {
+                    lavaDigTick = g.tickCount; equipBestTool(lv.getBlockState(dig));
+                    float prog = Math.min(lv.getBlockState(dig).getDestroyProgress(g, lv, dig), lv.getBlockState(dig.above()).isAir() ? 1f : lv.getBlockState(dig.above()).getDestroyProgress(g, lv, dig.above()));
+                    if (prog < 0.1f) dig = null; // (more than 10 ticks a block with what he has: no quick way through here; a block a player can't cut in time is no way out)
+                    else for (BlockPos c0 : new BlockPos[] {dig, dig.above()}) if (!lv.getBlockState(c0).getCollisionShape(lv, c0).isEmpty()) sp0.gameMode.destroyBlock(c0); // (his pick's few ticks a block, at once: the move control has him moving meanwhile)
+                    if (dig != null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}, no dry cell round him: through the wall at {} (no lava behind it) (WorkGoal.reflexes)", me.toShortString(), dig.toShortString()); out = dig; }
+                }
+            }
             if (out != null) { g.getLookControl().faceNow(Vec3.atCenterOf(out)); /* (at once, then the walk: a turn over 4 ticks lost 4 of the ~22 a cell takes in lava drag) */ g.getMoveControl().setWantedPosition(out.getX() + 0.5, out.getY(), out.getZ() + 0.5, 1.3); g.getLookControl().setLookAt(out.getX() + 0.5, out.getY() + 1.0, out.getZ() + 0.5); g.setSprinting(true); }
             g.getJumpControl().jump();
             return true;
@@ -201,6 +219,7 @@ public class WorkGoal extends Goal {
         return false;
     }
 
+    private int lavaDigTick = -100;
     @Override
     public void tick() {
         if (g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW) && g.tickCount - bowAimTick > 2) g.stopUsingItem(); /* the user: "walking super slow with his bow pulled back": the fight ended (target dead, out of sight, timed out, another job) with the draw still held, and a draw walks at 1/5 speed */

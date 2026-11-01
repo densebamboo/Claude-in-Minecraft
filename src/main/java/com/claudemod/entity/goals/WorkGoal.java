@@ -1398,6 +1398,8 @@ public class WorkGoal extends Goal {
      */
     private boolean approach(BlockPos pos) {
         if (ticks == 1) approachTries = 0;
+        boolean bodyRefused = com.claudemod.entity.body.Controls.refusedLately(g, 10); // his body refused the vanilla path's step (2+ up, lava): it doesn't really reach, the planned way takes it (09:16 in a 2-deep hole at -9,75,9 he stood 10 s per block under a step he can't jump)
+        if (bodyRefused && !g.getNavigation().isDone()) g.getNavigation().stop();
         if (!g.getNavigation().isDone()) {
             lookWhereWalking(pos);
             return false;
@@ -1406,7 +1408,7 @@ public class WorkGoal extends Goal {
         if (++approachTries > 3) { g.attempts.of(com.claudemod.entity.life.Attempts.Kind.REACH).put(pos.immutable(), g.tickCount); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] gave up reaching {} (he's at {})", pos.toShortString(), g.blockPosition().toShortString()); return true; }
         BlockPos spot = standSpotBeside(pos); // never path "into" a solid block (vanilla would aim at the air above it)
         var path = g.getNavigation().createPath(spot, spot.equals(pos) ? (int) REACH - 1 : 1);
-        if (path != null && path.canReach()) {
+        if (path != null && path.canReach() && !bodyRefused) {
             g.getNavigation().moveTo(path, 0.9);
             return false;
         }

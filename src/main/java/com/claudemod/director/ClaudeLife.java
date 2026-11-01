@@ -244,6 +244,7 @@ public final class ClaudeLife {
         }
         if (g.level().dimension() != net.minecraft.world.level.Level.OVERWORLD) { // away from home (the Nether): his places (house, mine, farm, chests, beds) are overworld ones; no night rules (a bed set down here explodes), no following; the basics, then the work
             if (g.tickCount % 100 == 0) equipArmor(g);
+            if (g.tickCount % 100 == 0) dumpJunk(g); // ponytail: live 13:20, 320 netherrack and 0 free slots in the Nether: this branch never dumped, pickups and crafts failed
             if (g.tickCount % 20 == 10 && g.getFoodData().getFoodLevel() < 20 && !(g.currentTask instanceof Task.Eat) && g.tasks.stream().noneMatch(t0 -> t0 instanceof Task.Eat) && (g.getFoodData().getFoodLevel() <= 6 || !lavaEdge(g))) { Item f0 = foodToEat(g, true); if (f0 != null) g.tasks.addFirst(new Task.Eat(f0)); } // (the top-up waits off a lava edge: eating stands him still where a knock is the fall, World 15 13:41 on his 1-wide bridge)
             mlg(g, (ServerLevel) g.level());
             if (g.planning && g.tickCount - g.planStartTick > 20 * 45) g.planning = false;
@@ -5041,7 +5042,7 @@ public final class ClaudeLife {
         for (int i = 0; i < inv.items.size(); i++) {
             var st = inv.items.get(i);
             if (st.isEmpty() || i == inv.selected) continue;
-            boolean cobble = st.is(Items.COBBLESTONE) || st.is(Items.COBBLED_DEEPSLATE);
+            boolean cobble = st.is(Items.COBBLESTONE) || st.is(Items.COBBLED_DEEPSLATE) || st.is(Items.NETHERRACK); // (netherrack too: his Nether building block, booths and bridges)
             if (cobble && kept.merge(Items.COBBLESTONE, 1, Integer::sum) <= 2) continue; // two stacks of stone all told, cobble and cobbled deepslate together, as a player keeps (live 10:18 World 15: two of each, 238 stone in 4 slots, and the sugar dropped and picked back up every 7 s instead)
             if (!cobble && !junk.contains(st.getItem()) && !superseded(g, st, i)) continue;
             thrown.append(st.getCount()).append(' ').append(st.getItem()).append(' ');

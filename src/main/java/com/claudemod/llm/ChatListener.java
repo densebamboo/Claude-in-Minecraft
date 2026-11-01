@@ -33,6 +33,9 @@ public final class ChatListener {
         com.claudemod.director.Primitives.heard(player, rawMessage); // "the diamonds are at 10 -58 4": a spot he was told of (dig_at / place_at may aim there)
         var heard = ClaudeEntity.activeFor(player); // "it despawned": his own clock on his things answers that, exactly (gone: he agrees and stops; time left: he says how much)
         if (heard.isPresent()) com.claudemod.entity.life.ExactSpot.heardEnd(heard.get(), rawMessage);
+        var mine = com.claudemod.entity.life.Whereabouts.claudeOf(player); // (activeFor is empty while they spectate)
+        if (mine != null && rawMessage.matches("(?is).*\\b(skip|leave|forget|abandon|ditch|never ?mind)\\b.*\\b(drops?|piles?|stuff|things|items|loot)\\b.*")) // they said so: his pending death piles are given up
+            for (var d : com.claudemod.entity.life.DeathLog.of(mine)) if (d.pending()) com.claudemod.entity.life.DeathLog.abandon(mine, d, "they said to leave it");
         if (heard.isPresent()) com.claudemod.entity.life.ExactSpot.heardStart(heard.get(), rawMessage); // ("treat this as a lesson": the lesson opens on their word, not the chat model's goal) // ("lesson over": the lesson he's in ends)
         if (heard.isPresent() && com.claudemod.entity.life.Consent.heard(heard.get(), player, rawMessage)) return; // "yes break it": their go-ahead for the hold he just said
         if (heard.isPresent() && com.claudemod.entity.life.Clocks.heardDespawn(heard.get(), player, rawMessage) != null) return;

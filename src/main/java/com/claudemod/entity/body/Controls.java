@@ -148,7 +148,7 @@ public final class Controls {
               p.setJumping(lc.jump());
               return;
           } }
-        boolean jumpNow = jump.pressed();
+        boolean jumpNow = jump.pressed(); Vec3 backOff = null;
         Vec3 walk = nav.steer();
         double speed = nav.speed();
         if (nav.wantsJump()) jumpNow = true;
@@ -171,7 +171,7 @@ public final class Controls {
                 if (lavaAt && k != 0 && reach > 0.5) { walk = ld.subtract(sd.scale(k * 2.0)).normalize(); continue outer; } // (only his shoulder would touch it, further on: steered off that side, not stopped; walking a lava hole's edge stalled him dead)
                 if (lavaAt) {
                     p.setSprinting(false); walk = null;
-                    Vec3 v = p.getDeltaMovement(); if (reach < 1.0 && v.x * ld.x + v.z * ld.z > 0) p.setDeltaMovement(0, v.y, 0); // (and his slide stopped: the inputs off alone still carried him in)
+                    Vec3 v = p.getDeltaMovement(); if (reach < 1.0 && v.x * ld.x + v.z * ld.z > 0) backOff = ld.scale(-1); // (and his slide checked the player's way: the keys the other way, never a hand on his speed, 1:1)
                     if (p instanceof com.claudemod.entity.ClaudeEntity ce && ce.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] lava ahead at {}: not stepping (Controls.apply)", ah.toShortString());
                     break outer;
                 }
@@ -190,8 +190,9 @@ public final class Controls {
         { Vec3 v = p.getDeltaMovement(); double hv = Math.sqrt(v.x * v.x + v.z * v.z); // his own slide, whatever the walk says: a spin or a stall's recovery step carried him into lava past the guard on the walk's line (World 15 21:27, 115 48 -46)
           if (hv > 0.04 && !p.isInLava() && !p.isInWater()) { double vx = v.x / hv, vz = v.z / hv; boolean lv = false;
               for (double r : new double[] {0.35, 0.7, Math.min(2.0, 0.35 + hv * 5)}) { net.minecraft.core.BlockPos c0 = net.minecraft.core.BlockPos.containing(p.getX() + vx * r, p.getY() + 0.1, p.getZ() + vz * r); if (!c0.equals(p.blockPosition()) && lavaCell(p, c0)) { lv = true; break; } }
-              if (lv) { p.setDeltaMovement(0, Math.min(v.y, 0), 0); p.setSprinting(false); p.setJumping(false); jumpNow = false; if (walk != null && walk.x * vx + walk.z * vz > 0) walk = null;
+              if (lv) { backOff = new Vec3(-vx, 0, -vz); p.setSprinting(false); p.setJumping(false); jumpNow = false; if (walk != null && walk.x * vx + walk.z * vz > 0) walk = null;
                   if (p instanceof com.claudemod.entity.ClaudeEntity ce && ce.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] sliding toward lava at {}: stopped (Controls.apply)", p.blockPosition().toShortString()); } } }
+        if (backOff != null && walk == null) { walk = backOff; speed = 1.0; } // (back-pedalling off the lava's lip: what a player's keys do)
         boolean safeStep = nextNode != null && nextNode.y >= p.getBlockY() - 3 && Math.abs(nextNode.x + 0.5 - p.getX()) <= 1.6 && Math.abs(nextNode.z + 0.5 - p.getZ()) <= 1.6; // his path's next step is right there and at most 3 down: the pathfinder already judged that fall; the lip check below cut across a corner of a hillside and had him shuffling at the edge (the user)
         if (!safeStep && walk != null && walk.lengthSqr() > 1e-4 && p.onGround() && !p.isInWater()) { // (a jump too: a crit's hop at a fortress deck's edge carried him off it into the lava 31 down, World 15 22:48; leaps run on their own, above) // the lip of a drop that would hurt (4+ blocks, no water below): no walking off it; the step-down rules cut a way instead (falls hurt him now, like anyone)
             Vec3 dir = walk.normalize();

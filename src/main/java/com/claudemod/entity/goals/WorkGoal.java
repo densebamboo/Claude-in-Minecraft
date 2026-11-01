@@ -195,6 +195,12 @@ public class WorkGoal extends Goal {
             if (out != null && g.tickCount - lavaOutSince > 30) { lavaOutBad.put(out, g.tickCount); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}: 1.5 s and not onto {}: that way's no good, another (WorkGoal.reflexes)", me.toShortString(), out.toShortString()); lavaOut = null; }
             if (g.tickCount % 20 < 2) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}: getting out{}", me.toShortString(), out == null ? " (no dry cell near: jumping)" : " to " + out.toShortString() + (dryCells.contains(out) ? " (where he came from)" : ""));
             g.getNavigation().stop();
+            if (lavaDigAt != null && lavaDigAt.distSqr(me) > 4) lavaDigAt = null; // (a dig from another time in lava)
+            if (lavaDigAt != null) { // mining his way out, as a held click does
+                BlockPos cur = !lv.getBlockState(lavaDigAt.above()).getCollisionShape(lv, lavaDigAt.above()).isEmpty() ? lavaDigAt.above() : !lv.getBlockState(lavaDigAt).getCollisionShape(lv, lavaDigAt).isEmpty() ? lavaDigAt : null;
+                if (cur != null) { equipBestTool(lv.getBlockState(cur)); g.mineTick(cur); g.getNavigation().stop(); g.getJumpControl().jump(); return true; }
+                out = lavaDigAt; lavaDigAt = null;
+            }
             if (out == null && g.tickCount - lavaDigTick > 4) { // no dry cell round him (a sealed pocket the lava came into, World 15 22:08: 17 s and dead): out through the wall, the side with no lava behind it, like a player
                 BlockPos dig = null; int best = Integer.MAX_VALUE;
                 for (Direction d0 : Direction.Plane.HORIZONTAL) { BlockPos n = me.relative(d0);
@@ -208,7 +214,7 @@ public class WorkGoal extends Goal {
                     lavaDigTick = g.tickCount; equipBestTool(lv.getBlockState(dig));
                     float prog = Math.min(lv.getBlockState(dig).getDestroyProgress(g, lv, dig), lv.getBlockState(dig.above()).isAir() ? 1f : lv.getBlockState(dig.above()).getDestroyProgress(g, lv, dig.above()));
                     if (prog < 0.1f) dig = null; // (more than 10 ticks a block with what he has: no quick way through here; a block a player can't cut in time is no way out)
-                    else for (BlockPos c0 : new BlockPos[] {dig, dig.above()}) if (!lv.getBlockState(c0).getCollisionShape(lv, c0).isEmpty()) sp0.gameMode.destroyBlock(c0); // (his pick's few ticks a block, at once: the move control has him moving meanwhile)
+                    else { lavaDigAt = dig.immutable(); lavaDigTick = g.tickCount - 5; } // (mined at his pick's own pace, a tick at a time below: the player's way, 1:1)
                     if (dig != null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}, no dry cell round him: through the wall at {} (no lava behind it) (WorkGoal.reflexes)", me.toShortString(), dig.toShortString()); out = dig; }
                 }
             }
@@ -219,7 +225,7 @@ public class WorkGoal extends Goal {
         return false;
     }
 
-    private int lavaDigTick = -100;
+    private int lavaDigTick = -100; private BlockPos lavaDigAt;
     @Override
     public void tick() {
         if (g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW) && g.tickCount - bowAimTick > 2) g.stopUsingItem(); /* the user: "walking super slow with his bow pulled back": the fight ended (target dead, out of sight, timed out, another job) with the draw still held, and a draw walks at 1/5 speed */
@@ -5023,7 +5029,7 @@ public class WorkGoal extends Goal {
 
     /** Right click held on the shield in his off hand, facing the threat (a shield only stops what's in front of him). */
     private void shieldUp(net.minecraft.world.entity.LivingEntity threat) {
-        if (!g.isUsingItem() && !g.getCooldowns().isOnCooldown(net.minecraft.world.item.Items.SHIELD)) g.startUsingItem(InteractionHand.OFF_HAND); // (an axe hit disables it for 5 s, for him as for anyone)
+        if (!g.isUsingItem() && !g.getCooldowns().isOnCooldown(net.minecraft.world.item.Items.SHIELD) && g.getOffhandItem().is(net.minecraft.world.item.Items.SHIELD)) g.gameMode.useItem(g, (ServerLevel) g.level(), g.getOffhandItem(), InteractionHand.OFF_HAND); // (the game's own use: ShieldItem.use, its 5-tick raise; only a shield in his off hand, 1:1) // (an axe hit disables it for 5 s, for him as for anyone)
         g.getLookControl().setLookAt(threat);
     }
 

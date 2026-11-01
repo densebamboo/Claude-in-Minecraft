@@ -77,7 +77,7 @@ public final class PortalMap {
     public static void tick(ClaudeEntity g) {
         Level lv = g.level(); BlockPos f = g.blockPosition();
         if (entering != null && entering.containsKey(g.getUUID()) && dim(lv).equals(entering.get(g.getUUID())[0]) && (lv.getBlockState(f).is(Blocks.NETHER_PORTAL) || lv.getBlockState(f.above()).is(Blocks.NETHER_PORTAL))) { // stepped in to go through: still in it till it takes him, like a player (World 15 22:02: his own walk took him back out before the 4 s)
-            g.getNavigation().stop(); g.tasks.removeIf(t0 -> t0 instanceof Task.GoTo); var v = g.getDeltaMovement(); g.setDeltaMovement(v.x * 0.2, v.y, v.z * 0.2); g.setSprinting(false);
+            g.getNavigation().stop(); g.tasks.removeIf(t0 -> t0 instanceof Task.GoTo); g.getMoveControl().setWantedPosition(g.getX(), g.getY(), g.getZ(), 0); g.setSprinting(false); // (no keys held: he stands in it, the player's way)
         }
         if (lv.getBlockState(f).is(Blocks.NETHER_PORTAL) || lv.getBlockState(f.above()).is(Blocks.NETHER_PORTAL)) { Net n = net(g); n.lastInDim = dim(lv); n.lastIn = (lv.getBlockState(f).is(Blocks.NETHER_PORTAL) ? f : f.above()).immutable(); }
         if (g.tickCount % 100 == 3) walkSample(g);

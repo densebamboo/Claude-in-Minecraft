@@ -418,9 +418,11 @@ public class ClaudeEntity extends ServerPlayer {
         if (!level().isClientSide && source.getEntity() != null) com.claudemod.entity.life.Perception.felt(this, source.getEntity()); // a hit: he knows what did it, and turns to it
         if (!level().isClientSide && source.getEntity() instanceof net.minecraft.world.entity.Mob m && m instanceof net.minecraft.world.entity.monster.Enemy) urgentAttacker = m.getUUID(); // fight back (phantoms and slimes too, not just the Monster class)
         boolean blocked0 = !level().isClientSide && isDamageSourceBlocked(source); float before0 = getHealth();
+        net.minecraft.world.phys.Vec3 v0 = getDeltaMovement(); boolean marked0 = hurtMarked;
         boolean took = super.hurt(source, amount);
+        if (!level().isClientSide && !marked0 && !hurtMarked) setDeltaMovement(v0); // (a hit the game sends no motion for, a shield-blocked one: a real player's client never gets that push, so neither does he; his physics run server-side, 1:1 with a player's)
         if (!level().isClientSide && amount >= 1.0f) { // every hit, mobs too, written once it's resolved (16:30: shield-blocked hits logged as damage)
-            String res0 = blocked0 ? "blocked by his shield" : getHealth() < before0 ? "health " + (int) before0 + " -> " + (int) getHealth() : took ? "no harm" : "no harm (not taken)";
+            String res0 = blocked0 ? "blocked by his shield (taken " + took + ", health " + (int) before0 + " -> " + (int) getHealth() + ")" : getHealth() < before0 ? "health " + (int) before0 + " -> " + (int) getHealth() : took ? "no harm" : "no harm (not taken)";
             if (source.is(net.minecraft.tags.DamageTypeTags.IS_FIRE) || source.getMsgId().startsWith("explosion")) { /* the user 01:38: do ghast fireballs and soul fire set him alight like any player? his burn clock and the block he's in, on every fire hit */
                 net.minecraft.core.BlockPos fp = blockPosition();
                 String in = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level().getBlockState(fp).getBlock()).getPath(), under = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level().getBlockState(fp.below()).getBlock()).getPath();

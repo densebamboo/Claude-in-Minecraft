@@ -181,7 +181,7 @@ public final class NetherRoute {
                     if (!solid(px, py - 1, pz)) {
                         int k = 1; boolean lavaUnder = false;
                         while (k <= 6 && !solid(px, py - k, pz)) { if (lava(bs(px, py - k, pz))) { lavaUnder = true; break; } k++; }
-                        if (lavaUnder) { sec += 2 * PUT + LAVA_RISK; puts += 2; } // (over lava: 2 wide, and a knock off it is death)
+                        if (lavaUnder) { sec += 6 * PUT + LAVA_RISK; puts += 6; } // (over lava: a piece of highway, 4 wide and its 2 rails (ActionPath.crossingTasks), and a knock off it is death)
                         else if (k > 6) { sec += PUT + 1.0; puts++; } // (nothing under it for 6+: in the Nether a fall that far is lava or death, a careful bridge)
                         else if (k > 3 || i == steps) { sec += PUT; puts++; } // (a drop of 3 or less is walked down)
                     }

@@ -10369,6 +10369,7 @@ public final class ClaudeBodyTest {
             case 494: return st494(stage, t, c, h, level, mock);
             case 540: return st540(stage, t, c, h, level, mock);
             case 539: return st539(stage, t, c, h, level, mock);
+            case 541: return st541(stage, t, c, h, level, mock);
             case 538: return st538(stage, t, c, h, level, mock);
             case 537: return st537(stage, t, c, h, level, mock);
             case 536: return st536(stage, t, c, h, level, mock);
@@ -10702,6 +10703,42 @@ public final class ClaudeBodyTest {
     }
     private static boolean st540(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // the same hall with a bow and arrows: the blaze out of sword reach is shot, never waited on
         return bzHall(stage, t, c, level, mock, true);
+    }
+    private static int hwT = -1;
+    /** Stage 541's channel (the Nether, about 7000, 70, 7000): netherrack shores at floor 69, 12 of lava between (its top at 66), walled with bedrock. */
+    private static net.minecraft.world.level.block.state.BlockState hwBlock(int x, int y, int z) {
+        if (Math.abs(z) == 9 || x == -3 || x == 30 || y == 82) return Blocks.BEDROCK.defaultBlockState();
+        boolean shore = x <= 6 || x >= 19;
+        if (y <= 66) return shore ? Blocks.NETHERRACK.defaultBlockState() : Blocks.LAVA.defaultBlockState();
+        if (y <= 69 && shore) return Blocks.NETHERRACK.defaultBlockState();
+        return Blocks.AIR.defaultBlockState();
+    }
+    private static boolean st541(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a lava crossing is a piece of highway (the user, via Day to Day: "the same blueprint as the highway ... That way he can connect them cleanly later"; 01:26 a 1-wide bridge left as litter): 4 wide, railed, kept, on record as a segment
+        ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        final int ox = 7000, oz = 7000; BlockPos me = new BlockPos(ox + 3, 70, oz), far = new BlockPos(ox + 23, 70, oz);
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); hwT = -1; c.nextPlanTick = c.tickCount + 20 * 900; c.prefs.put("stay_close", "no"); com.claudemod.entity.life.PortalMap.net(c).segments.clear();
+            c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(nether, me.getX() + 0.5, 95, me.getZ() + 0.5, 0, 0); c.setNoGravity(true); }
+        if (t[0] >= 10 && t[0] < 10 + 34) { int x = t[0] - 10 - 3; for (int z = -9; z <= 9; z++) for (int y = 60; y <= 82; y++) nether.setBlock(new BlockPos(ox + x, y, oz + z), hwBlock(x, y, z), 2 | 16); }
+        if (t[0] == 50) { c.setNoGravity(false); c.teleportTo(nether, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, -90f, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.fallDistance = 0; c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); }
+        if (t[0] > 50) for (var m : nether.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(ox - 20, 0, oz - 20, ox + 50, 128, oz + 20))) m.discard();
+        if (t[0] == 60) c.tasks.add(new Task.GoTo(far, 1.0));
+        if (t[0] > 60 && hwT < 0 && c.getX() >= ox + 19 && c.onGround()) hwT = t[0];
+        if (hwT > 0 && t[0] == hwT + 20 * 15 || t[0] == 60 + 20 * 120) {
+            int rows = 0, full = 0, railed = 0, zc = c.getBlockZ() - oz; // (his line across: the floor round it)
+            for (int x = 7; x <= 18; x++) { rows++; int n = 0; for (int z = -4; z <= 4; z++) if (!nether.getBlockState(new BlockPos(ox + x, 69, oz + z)).isAir() && nether.getFluidState(new BlockPos(ox + x, 69, oz + z)).isEmpty()) n++; if (n >= 4) full++;
+                int r = 0; for (int z = -5; z <= 5; z++) if (nether.getBlockState(new BlockPos(ox + x, 70, oz + z)).is(Blocks.COBBLESTONE)) r++; if (r >= 2) railed++; }
+            var segs = com.claudemod.entity.life.PortalMap.net(c).segments;
+            check(hwT > 0, "crossing: not across the lava in 120 s (at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ")");
+            check(full >= rows - 1, "crossing: " + full + " of " + rows + " rows 4 wide (want all)");
+            check(railed >= rows - 2, "crossing: " + railed + " of " + rows + " rows railed both sides");
+            check(segs.size() == 1 && segs.get(0).width == 4, "crossing: the highway segment on record: " + segs.size() + (segs.isEmpty() ? "" : " " + segs.get(0).describe()));
+            String how = "across in " + (hwT - 60) / 20 + " s: " + full + "/" + rows + " rows 4 wide, " + railed + " railed, still standing 15 s on, " + (segs.isEmpty() ? "no segment" : segs.get(0).describe()) + ", " + c.inventory.count(x -> x.is(Items.COBBLESTONE)) + " cobble left";
+            c.tasks.clear(); c.dropCurrent = true; c.getInventory().clearContent(); com.claudemod.entity.life.PortalMap.net(c).segments.clear();
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0);
+            pass(stage, t, how);
+        }
+        return true;
     }
     private static int s535Done = -1; private static float s535Low = 20f;
     /** Stage 535's course (in the Nether, about 4000, 4000): the cell at (x, y, z) from its west end. */

@@ -182,7 +182,15 @@ public final class ActionPath {
         boolean dirt = scaffold == net.minecraft.world.item.Items.DIRT || scaffold == net.minecraft.world.item.Items.GRASS_BLOCK || scaffold == net.minecraft.world.item.Items.COARSE_DIRT || scaffold == net.minecraft.world.item.Items.ROOTED_DIRT;
         List<Task> out = new ArrayList<>(); List<BlockPos> takeBack = new ArrayList<>(); boolean tookBack = false; List<Object[]> restore = new ArrayList<>(); // restore: structure blocks dug (pos, state), put back once he's past
         BlockPos lastWalk = null, cur = from; int run = 0;
-        for (Act a : plan.acts()) {
+        java.util.Map<Integer, int[]> crossings = level == null ? java.util.Map.of() : crossings(plan.acts(), from, level); // act index of a crossing's first put -> {last act index}
+        List<Act> acts0 = plan.acts();
+        for (int ai = 0; ai < acts0.size(); ai++) { Act a = acts0.get(ai);
+            int[] cx = crossings.get(ai);
+            if (cx != null && dest != null) { // a straight run over lava: a piece of highway, to its spec (the user: "the same blueprint as the highway"; BridgeBlueprint), kept and on record
+                if (lastWalk != null) { out.add(new Task.GoTo(lastWalk, 0.9)); lastWalk = null; run = 0; }
+                BlockPos endWalk = ((Act.Walk) acts0.get(cx[0])).feet();
+                if (crossingTasks(out, acts0, ai, cx[0], cur, scaffold, level, cx[1])) { cur = endWalk; ai = cx[0]; continue; }
+            }
             if (a instanceof Act.Walk w) {
                 lastWalk = w.feet(); cur = w.feet();
                 if (!restore.isEmpty()) { final BlockPos at0 = cur; if (restore.stream().allMatch(o -> { BlockPos q = (BlockPos) o[0]; return !q.equals(at0) && !q.equals(at0.above()) && Math.abs(q.getX() - at0.getX()) + Math.abs(q.getZ() - at0.getZ()) >= 2; })) { // past the structure blocks he had to dig: each goes back as it was
@@ -227,6 +235,57 @@ public final class ActionPath {
         // (no pickup after: the block drops back down where he climbed from, and going back down for one cobble undid the climb, a loop; what's left on the list, a block still under him at the end, is the daylight chore's, as before)
         out.add(new Task.GoTo(dest, within));
         return out;
+    }
+
+    /** The crossings in a plan: runs of 3+ flat puts over lava in one straight line (a Put under the next Walk, each a step on the same way). Act index of the first Put -> {index of the run's last Walk, rows}. */
+    static java.util.Map<Integer, int[]> crossings(List<Act> acts, BlockPos from, ServerLevel level) {
+        java.util.Map<Integer, int[]> out = new HashMap<>(); BlockPos cur = from;
+        for (int i = 0; i < acts.size(); i++) {
+            Act a = acts.get(i);
+            if (a instanceof Act.Walk w) { cur = w.feet(); continue; }
+            if (!(a instanceof Act.Put p0) || i + 1 >= acts.size() || !(acts.get(i + 1) instanceof Act.Walk w0) || !p0.pos().equals(w0.feet().below()) || !lavaUnder(level, p0.pos()) || w0.feet().getY() != cur.getY()) continue;
+            Direction d = Direction.getNearest(w0.feet().getX() - cur.getX(), 0, w0.feet().getZ() - cur.getZ()); if (cur.relative(d).equals(w0.feet()) == false) continue;
+            int j = i, rows = 0; BlockPos at = cur;
+            while (j + 1 < acts.size() && acts.get(j) instanceof Act.Put pj && acts.get(j + 1) instanceof Act.Walk wj && pj.pos().equals(wj.feet().below()) && wj.feet().equals(at.relative(d))) { rows++; at = wj.feet(); j += 2; }
+            if (rows >= 3) { out.put(i, new int[] {j - 1, rows}); i = j - 1; cur = at; }
+        }
+        return out;
+    }
+    /** The highway's width here: the frame of his nearest Nether portal (its outer width; 4 a default frame, 5 their 5x5s), else 4. */
+    static int highwayWidth(ServerLevel level, BlockPos near) {
+        BlockPos best = null; double bd = Double.MAX_VALUE;
+        for (var pm : level.getPoiManager().findAll(h -> h.is(net.minecraft.world.entity.ai.village.poi.PoiTypes.NETHER_PORTAL), q -> true, near, 128, net.minecraft.world.entity.ai.village.poi.PoiManager.Occupancy.ANY).toList()) { double d = pm.distSqr(near); if (d < bd) { bd = d; best = pm; } }
+        int w = best == null ? -1 : com.claudemod.entity.life.BridgeBlueprint.frameWidth(level, best);
+        return w >= 3 && w <= 7 ? w : 4;
+    }
+    /** The rows of a crossing as his tasks: each row's floor (the highway's width, his way on it), its two rails at floor + 1 outside it, then onto the row; on a segment he built before, lined up with it. False when he's short of blocks for it (the 2-wide line is laid instead). */
+    static boolean crossingTasks(List<Task> out, List<Act> acts, int i0, int i1, BlockPos from, Item scaffold, ServerLevel level, int rows) {
+        com.claudemod.entity.ClaudeEntity g = null; for (var p : level.players()) if (p instanceof com.claudemod.entity.ClaudeEntity c0 && c0.blockPosition().distSqr(from) <= 9) g = c0;
+        if (g == null) return false;
+        BlockPos first = ((Act.Put) acts.get(i0)).pos(), last = ((Act.Put) acts.get(i1 - 1)).pos();
+        Direction d = Direction.getNearest(last.getX() - first.getX(), 0, last.getZ() - first.getZ()); Direction right = d.getClockWise();
+        int width = highwayWidth(level, from), lo = -(width / 2), hi = width - 1 - width / 2;
+        String dim = com.claudemod.entity.life.PortalMap.dim(level);
+        var seg = com.claudemod.entity.life.PortalMap.segmentFor(g, dim, first, d.getAxis());
+        int shift = 0; // (onto the line of the segment he built before: the same floor, never a parallel one)
+        if (seg != null && seg.width == width) { int across = d.getAxis() == Direction.Axis.X ? first.getZ() : first.getX(); int sgn = (right.getAxis() == Direction.Axis.X ? right.getStepX() : right.getStepZ()); shift = (seg.line() - across) * sgn; if (shift < lo || shift > hi) shift = 0; }
+        int blocks = 0; for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { var it = g.inventory.items.getItem(i); if (it.is(scaffold)) blocks += it.getCount(); }
+        int need = rows * (width + 2) + 2;
+        if (blocks < need) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] a lava crossing of {} rows at {}: the highway's {} wide with rails needs {} blocks, {} {} on him: 2 wide this time (ActionPath.crossingTasks)", rows, first.toShortString(), width, need, blocks, com.claudemod.entity.life.Crafting.name(scaffold)); return false; }
+        int[] order = new int[width]; { int k = 0; order[k++] = 0; for (int o = 1; k < width; o++) { if (o <= hi && k < width) order[k++] = o; if (-o >= lo && k < width) order[k++] = -o; } } // (from his way outward: each block against the one before)
+        String by = "ActionPath.crossing";
+        for (int i = i0; i <= i1; i += 2) {
+            BlockPos c = ((Act.Put) acts.get(i)).pos().relative(right, shift);
+            for (int o : order) { BlockPos q = c.relative(right, o); com.claudemod.entity.life.TempLedger.planBuild(g, q, by); out.add(new Task.Place(q.immutable(), scaffold)); }
+            for (int o : new int[] {lo - 1, hi + 1}) { BlockPos q = c.relative(right, o).above();
+                if (i == i0 && level.getBlockState(q.below()).canBeReplaced()) { com.claudemod.entity.life.TempLedger.planBuild(g, q.below(), by); out.add(new Task.Place(q.below().immutable(), scaffold)); } // (the first row's rail has nothing to go against: a block beside the floor under it, then the rail on that; each rail after goes against the one before)
+                com.claudemod.entity.life.TempLedger.planBuild(g, q, by); out.add(new Task.Place(q.immutable(), scaffold)); }
+            out.add(new Task.GoTo(((Act.Walk) acts.get(i + 1)).feet(), 0.6));
+        }
+        BlockPos a = first.relative(right, shift), b = last.relative(right, shift);
+        com.claudemod.entity.life.PortalMap.addSegment(g, dim, a, b, d.getAxis(), width);
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude route] a lava crossing of {} rows {} from {}: a piece of highway, {} wide with rails{} ({} blocks), kept (ActionPath.crossingTasks)", rows, d.getName(), first.toShortString(), width, seg != null ? ", on the line of the segment " + seg.describe() : "", need);
+        return true;
     }
 
     /** Lava in the cell or within 6 under it, nothing solid between: a bridge block there is over lava. */

@@ -82,8 +82,12 @@ public final class TempLedger {
             "ClaudeLife.refillNotch", "ClaudeLife.furnaceWallUpkeep", "ClaudeLife.smoothStairs", "ClaudeLife.turnLanding", "ClaudeLife.frameEntrance",
             "BaseNook.reconcile", "MineBlueprint.reconcile", "HouseBlueprint.reconcile", "FarmBlueprint.reconcile", "PitGuard.close", "PitGuard.resume",
             "WorkGoal.doMineVisibleOres", "WorkGoal.doBreak", "WorkGoal.doSealStep", "WorkGoal.blockWaterInflow");
+    private static Map<UUID, Map<BlockPos, String>> plannedBuild; // cells a plan of his lays out as a build before the walker queues their Places (a lava crossing: a piece of highway) (static: fields added live start null)
+    /** A cell a plan of his lays out as his build (the highway spec's crossing): the block he puts there stays. */
+    public static void planBuild(ClaudeEntity g, BlockPos p, String by) { if (plannedBuild == null) plannedBuild = new HashMap<>(); var m = plannedBuild.computeIfAbsent(g.getUUID(), k -> new java.util.LinkedHashMap<>()); m.put(p.immutable(), by); while (m.size() > 4096) m.remove(m.keySet().iterator().next()); }
     /** The build system whose Place put this block down (his job right now is that Place, its origin on record), or null. */
     static String buildOrigin(ClaudeEntity g, BlockPos pos) {
+        if (plannedBuild != null) { var m = plannedBuild.get(g.getUUID()); String by = m == null ? null : m.remove(pos); if (by != null) return by; }
         if (!(g.currentTask instanceof Task.Place pl) || !pl.pos().equals(pos)) return null;
         String o = ClaudeEntity.originOf(pl);
         return BUILD_SYSTEMS.contains(o.replaceAll(":\\d+$", "")) ? o : null;

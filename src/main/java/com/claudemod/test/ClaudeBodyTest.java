@@ -10366,6 +10366,7 @@ public final class ClaudeBodyTest {
     // ---------------------------------------------------------------- stages 494 on: one method each (exactStages is at the JVM's 64 KB limit)
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
+            case 546: return st546(stage, t, c, h, level, mock);
             case 544: return st544(stage, t, c, h, level, mock);
             case 543: return st543(stage, t, c, h, level, mock);
             case 542: return st542(stage, t, c, h, level, mock);
@@ -10812,6 +10813,28 @@ public final class ClaudeBodyTest {
             String how = "walled in out of the blaze's sight in " + (brHid - brT) / 20 + " s at " + c.blockPosition().toShortString() + ", alive 30 s on at health " + (int) c.getHealth() + " (low " + brLow + ")";
             if (brMob != null) brMob.discard(); brMob = null; c.tasks.clear(); c.dropCurrent = true; c.clearFire(); c.setHealth(20f); c.getInventory().clearContent();
             com.claudemod.entity.life.Watchdog.teleported(c); if (c.isAlive()) c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0);
+            pass(stage, t, how);
+        }
+        return true;
+    }
+    private static int ffT = -1, ffBack = -1; private static net.minecraft.world.entity.Mob ffMob; private static boolean ffFell;
+    private static boolean st546(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // footing at a lip in a fight (World 15 13:51: shooting a skeleton from a lip, knocked off 22 down): back from the lip the hit would throw him off, then the fight
+        BlockPos me = h.absolutePos(new BlockPos(9, 8, 6));
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); ffT = -1; ffBack = -1; ffFell = false; if (ffMob != null) ffMob.discard(); ffMob = null; c.tasks.clear(); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(6000);
+            c.getInventory().add(new ItemStack(Items.BOW)); c.getInventory().add(new ItemStack(Items.ARROW, 16)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            for (int x = 3; x <= 9; x++) for (int z = 3; z <= 9; z++) for (int y = 2; y <= 7; y++) h.setBlock(new BlockPos(x, y, z), Blocks.STONE); // (the platform: 6 up, its east lip at x 9)
+            for (int y = 2; y <= 7; y++) h.setBlock(new BlockPos(0, y, 6), Blocks.STONE); // (the skeleton's pillar, 9 west)
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(90f); }
+        if (t[0] == 10) { var sk = EntityType.SKELETON.create(level); BlockPos sp = h.absolutePos(new BlockPos(0, 8, 6)); sk.moveTo(sp.getX() + 0.5, sp.getY(), sp.getZ() + 0.5, -90, 0); sk.setNoAi(true); sk.setPersistenceRequired(); level.addFreshEntity(sk); ffMob = sk; ffT = t[0]; c.tasks.add(new Task.Attack(sk.getUUID(), 20 * 20)); }
+        if (ffT > 0) { if (c.getY() < me.getY() - 1.5) ffFell = true; if (ffBack < 0 && c.getX() < h.absolutePos(new BlockPos(8, 0, 0)).getX()) ffBack = t[0]; }
+        if (ffT > 0 && t[0] == ffT + 20 * 8) {
+            int shot = 16 - c.inventory.count(x -> x.is(Items.ARROW));
+            check(!ffFell, "footing: off the platform");
+            check(ffBack > 0 && ffBack - ffT <= 60, "footing: not back from the lip in 3 s (" + (ffBack < 0 ? "never" : (ffBack - ffT) + " ticks") + ", at " + String.format("%.2f", c.getX() - h.absolutePos(BlockPos.ZERO).getX()) + ")");
+            check(shot >= 1, "footing: never shot after (arrows shot " + shot + ")");
+            String how = "back from the lip in " + (ffBack - ffT) + " ticks, then " + shot + " arrow(s) at the skeleton, never off it";
+            if (ffMob != null) ffMob.discard(); ffMob = null; c.tasks.clear(); c.dropCurrent = true; c.getInventory().clearContent(); flatBox(h);
+            com.claudemod.entity.life.Watchdog.teleported(c); BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(back.getX() + 0.5, back.getY(), back.getZ() + 0.5);
             pass(stage, t, how);
         }
         return true;

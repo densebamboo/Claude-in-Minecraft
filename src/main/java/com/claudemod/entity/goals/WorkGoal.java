@@ -4714,6 +4714,7 @@ public class WorkGoal extends Goal {
             if (golemRetries++ < 6) { g.skillQueue.addFirst(new com.claudemod.entity.life.Skills.Step("village_iron", "", 1)); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] on the ground by the golem (the tower didn't go up): the tower again beside it"); return true; }
         }
         { Boolean cf = coverFight(t, mob); if (cf != null) return cf; }
+        { Boolean ft = fightFooting(mob); if (ft != null) return ft; } // (a lip behind him on the side a hit throws him: firm footing first; two Nether deaths in 4 min, World 15 13:48 and 13:51, knocked off mid-fight)
         if (mob instanceof net.minecraft.world.entity.monster.EnderMan em) { Boolean eh = endermanHole(t, em); if (eh != null) return eh; } // (the pearl stage: from a 2-deep hole it can't reach into) // a blaze or a wither skeleton: from cover, like an expert (FortressFight)
         // losing the fight: break off and get away, like a player would (fighting on at 3 hearts is how you die)
         if ((mob instanceof net.minecraft.world.entity.monster.Monster || mob instanceof net.minecraft.world.entity.animal.IronGolem) && shouldFlee(mob)) {
@@ -4885,6 +4886,45 @@ public class WorkGoal extends Goal {
     private int blazeRetreatTick = -1000; // ponytail: 10 s window from the retreat's start; fields added live start 0, which only matters in the first 10 s of a world
     private String cfMode = ""; private int cfPeekTick = -100, cfHopTick = -100, cfIdle; private boolean cfHealing; private java.util.UUID cfTarget;
     private int cfEmptyPeeks; // steps out to draw a lit blaze's shots that drew none
+    private BlockPos footingSaid; // (the footing move said once a spot)
+    /** A hit there throws him off: a drop of 4+ (or lava) within 2 blocks of {@code cell} the way {@code away} points, with no wall first. */
+    private boolean lipBehind(ServerLevel level, BlockPos cell, Vec3 away) {
+        for (int k = 1; k <= 2; k++) {
+            BlockPos c = BlockPos.containing(cell.getX() + 0.5 + away.x * k, cell.getY(), cell.getZ() + 0.5 + away.z * k);
+            if (c.equals(cell)) continue;
+            if (!level.getBlockState(c).getCollisionShape(level, c).isEmpty() || !level.getBlockState(c.above()).getCollisionShape(level, c.above()).isEmpty()) return false; // (a wall behind him: the hit stops there)
+            int depth = 0; BlockPos q = c.below();
+            while (depth < 40 && level.getBlockState(q).getCollisionShape(level, q).isEmpty()) { if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) return true; if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.WATER)) break; depth++; q = q.below(); }
+            if (level.getFluidState(c).is(net.minecraft.tags.FluidTags.LAVA) || depth >= 3) return true;
+        }
+        return false;
+    }
+    /**
+     * Footing for a fight, as a player keeps it (Day to Day, World 15 13:48 and 13:51: fighting an enderman, then shooting a skeleton
+     * from a lip while standing in fire, knocked off 17 and 22 down): a lip with a drop of 4+ or lava within 2 blocks behind him, the way
+     * a hit from this foe throws him, means a step first to the nearest cell (4 at most) with firm ground or a wall that way, and never
+     * fire under him; then the fight from there. Null: his footing's fine (or there's none better), the fight goes on.
+     */
+    private Boolean fightFooting(net.minecraft.world.entity.LivingEntity mob) {
+        if (!g.onGround() || g.isInWater()) return null;
+        ServerLevel level = (ServerLevel) g.level();
+        BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
+        Vec3 away = g.position().subtract(mob.position()).multiply(1, 0, 1); if (away.lengthSqr() < 1e-4) return null; away = away.normalize();
+        boolean fire = level.getBlockState(feet).is(net.minecraft.tags.BlockTags.FIRE);
+        if (!fire && !lipBehind(level, feet, away)) { footingSaid = null; return null; }
+        BlockPos best = null; double bd = Double.MAX_VALUE;
+        for (BlockPos q0 : BlockPos.betweenClosed(feet.offset(-4, -1, -4), feet.offset(4, 1, 4))) { BlockPos q = q0.immutable();
+            if (q.equals(feet) || !com.claudemod.entity.life.FortressFight.stand(level, q) || com.claudemod.entity.body.Controls.lavaCell(g, q)) continue;
+            Vec3 aw = Vec3.atBottomCenterOf(q).subtract(mob.position()).multiply(1, 0, 1); if (aw.lengthSqr() < 1e-4) continue; aw = aw.normalize();
+            if (lipBehind(level, q, aw)) continue;
+            double d = q.distSqr(feet) + (mob.distanceToSqr(Vec3.atBottomCenterOf(q)) < 2.5 * 2.5 ? 50 : 0); // (never into its arms for it)
+            if (d < bd) { bd = d; best = q; } }
+        if (best == null) { if (!feet.equals(footingSaid)) { footingSaid = feet; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] a lip behind him at {} the way the {} would throw him, and no firmer footing within 4: fighting on (WorkGoal.fightFooting)", feet.toShortString(), mob.getType().getDescription().getString()); } return null; }
+        if (!feet.equals(footingSaid)) { footingSaid = feet; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] {} at {} the way the {} would throw him: to firm footing at {} first, then the fight (WorkGoal.fightFooting)", fire ? "fire under him" : "a lip behind him", feet.toShortString(), mob.getType().getDescription().getString(), best.toShortString()); }
+        if (g.isUsingItem()) g.stopUsingItem();
+        g.setSprinting(false); cfMove(best, 1.0);
+        return false;
+    }
     private int airborneTick = -100;
     /** In the air with a walk to plan: said once a second, never planned from there (false: wait to land). */
     private boolean airborneSaid(BlockPos pos) { if (g.tickCount - airborneTick >= 20) { airborneTick = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] in the air at {} with the walk to {} to plan: planned once he's landed, never from a cell he isn't standing on (WorkGoal.walkTo)", String.format("%.1f %.1f %.1f", g.getX(), g.getY(), g.getZ()), pos.toShortString()); } return false; }

@@ -58,6 +58,7 @@ public final class Watchdog {
         int trips;
     }
     private static final Map<UUID, St> ST = new HashMap<>();
+    private static int now(ClaudeEntity g) { return g.getServer().getTickCount(); } // ponytail: his own tickCount restarts at 0 on every dimension change; this state outlives the entity
     private static St st(ClaudeEntity g) { return ST.computeIfAbsent(g.getUUID(), k -> new St()); }
     public static void reset(ClaudeEntity g) { ST.remove(g.getUUID()); }
     public static int incidents; public static String lastIncident = ""; // (stages read them)
@@ -65,7 +66,7 @@ public final class Watchdog {
     public static int trips(ClaudeEntity g) { St s = ST.get(g.getUUID()); return s == null ? 0 : s.trips; }
     /** That action written off by the watchdog (tripped, within its 2 minutes): its source should not queue it again. */
     public static boolean off(ClaudeEntity g, Task t) { String k = key(t); return k != null && rung(g, k) > 0; }
-    public static int rung(ClaudeEntity g, String key) { St s = ST.get(g.getUUID()); int[] r = s == null ? null : s.rung.get(key); return r == null || g.tickCount - r[1] > MEMORY ? 0 : r[0]; }
+    public static int rung(ClaudeEntity g, String key) { St s = ST.get(g.getUUID()); int[] r = s == null ? null : s.rung.get(key); return r == null || now(g) - r[1] > MEMORY ? 0 : r[0]; }
 
     // ---------------------------------------------------------------- the measures
 
@@ -108,8 +109,8 @@ public final class Watchdog {
     /** A walk ended again no nearer than his best on that walk within the window (a step cut and climbed back is no gain; blocks broken on the way don't count for a walk). Nearer by a block, and its count starts over. */
     private static boolean walkNoGain(St s, String k, ClaudeEntity g, Task t) {
         double d = targetDist(g, t); double[] last = s.lastEnd.get(k);
-        boolean same = last != null && g.tickCount - last[3] <= WINDOW && d > last[2] - 1.0;
-        s.lastEnd.put(k, new double[] {0, 0, same ? Math.min(d, last[2]) : Math.min(d, s.startDist), g.tickCount});
+        boolean same = last != null && now(g) - last[3] <= WINDOW && d > last[2] - 1.0;
+        s.lastEnd.put(k, new double[] {0, 0, same ? Math.min(d, last[2]) : Math.min(d, s.startDist), now(g)});
         if (!same && last != null) s.ends.remove(k);
         return true;
     }
@@ -119,14 +120,14 @@ public final class Watchdog {
     private static boolean repeatNoGain(St s, String k, ClaudeEntity g, Task t) {
         double d = targetDist(g, t); int it = items(g); long feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()).asLong();
         double[] last = s.lastEnd.get(k);
-        boolean same = last != null && last[0] == s.broken && last[1] == it && d > last[2] - 1.0 && g.tickCount - last[3] <= WINDOW && s.lastFeet.getOrDefault(k, Long.MIN_VALUE) == feet; // (standing where he stood: a step out of the cell first, a nudge to a stand spot, moves him; that's a means, not the loop)
-        s.lastEnd.put(k, new double[] {s.broken, it, Math.min(d, last != null && same ? last[2] : d), g.tickCount}); s.lastFeet.put(k, feet); // (the cell as a long, apart: a double loses it at these coordinates)
+        boolean same = last != null && last[0] == s.broken && last[1] == it && d > last[2] - 1.0 && now(g) - last[3] <= WINDOW && s.lastFeet.getOrDefault(k, Long.MIN_VALUE) == feet; // (standing where he stood: a step out of the cell first, a nudge to a stand spot, moves him; that's a means, not the loop)
+        s.lastEnd.put(k, new double[] {s.broken, it, Math.min(d, last != null && same ? last[2] : d), now(g)}); s.lastFeet.put(k, feet); // (the cell as a long, apart: a double loses it at these coordinates)
         if (!same && last != null) s.ends.remove(k);
         return true;
     }
     private static int items(ClaudeEntity g) { int n = 0; for (int i = 0; i < g.inventory.items.getContainerSize(); i++) n += g.inventory.items.getItem(i).getCount(); return n; }
     public static boolean starting(ClaudeEntity g, Task t) {
-        St s0 = st(g); s0.started = t; s0.startTick = g.tickCount; s0.startBroken = s0.broken; s0.startItems = items(g); s0.startDist = targetDist(g, t);
+        St s0 = st(g); s0.started = t; s0.startTick = now(g); s0.startBroken = s0.broken; s0.startItems = items(g); s0.startDist = targetDist(g, t);
         String k = key(t); if (k == null) return true;
         int r = rung(g, k); if (r == 0) return true;
         Boolean got = achieved(g, t); if (Boolean.TRUE.equals(got) && !(t instanceof Task.GoTo)) return true; // (already done: the task ends at once by itself)
@@ -148,17 +149,17 @@ public final class Watchdog {
         // front first, a nudge to a stand spot; the clock covers them), and a walk that ended at once (the walker turned it down
         // itself: its own "skipped this time (n of 3)" and MindLog's conflict line cover those).
         boolean mine = t.equals(s.started); // (the same action, the record that started it: by value, as the keys are)
-        int ran = mine ? g.tickCount - s.startTick : 0;
+        int ran = mine ? now(g) - s.startTick : 0;
         boolean madeSome = mine && (s.broken != s.startBroken || items(g) != s.startItems);
         boolean counted = t instanceof Task.Leap
                 || t instanceof Task.GoTo && mine && ran > 3 && !meansFirst(g, t) && walkNoGain(s, k, g, t) // (nearer than his best on that walk over the window, or it's no progress: a one-block step cut and undone the next moment isn't; live 09:48 World 15, 21 "stepping off" in 80 s, net nothing) // (a leg that hands over to its own route's digs, blocks broken between legs and him nearer: progress; live 06:47 World 15 digging stairs home, 130 -> 113 off, tripped every few seconds)
                 || (t instanceof Task.Break || t instanceof Task.Place) && mine && !madeSome && !meansFirst(g, t) && repeatNoGain(s, k, g, t); // (a dig or a placement refused and re-queued with nothing broken, nothing got and no nearer since its last end: live 03:18 World 15, 270 refused digs and the watchdog never saw them)
         if (!counted) { if (t instanceof Task.GoTo || t instanceof Task.Leap) ClaudeMod.LOGGER.info("[Claude watchdog] {} ended short, not counted ({}) (Watchdog.ended)", k, !mine || ran <= 3 ? "ended at once: the walker's own refusal" : madeSome ? "broke or got something on the way" : "got nearer"); return; } // (the rung stays for MEMORY: it came good, but a fresh trip on it climbs on)
         int[] e = s.ends.get(k);
-        if (e == null || g.tickCount - e[1] > WINDOW) { e = new int[] {0, g.tickCount}; s.ends.put(k, e); }
+        if (e == null || now(g) - e[1] > WINDOW) { e = new int[] {0, now(g)}; s.ends.put(k, e); }
         e[0]++;
-        ClaudeMod.LOGGER.info("[Claude watchdog] {} ended without getting there ({}): {} in {} s (Watchdog.ended)", k, why == null ? "no reason given" : why, e[0], (g.tickCount - e[1]) / 20);
-        if (e[0] >= REPEATS) { s.ends.remove(k); trip(g, t, k, e[0] + " times in " + Math.max(1, (g.tickCount - e[1]) / 20) + " s" + (why == null ? "" : " (" + why + ")")); }
+        ClaudeMod.LOGGER.info("[Claude watchdog] {} ended without getting there ({}): {} in {} s (Watchdog.ended)", k, why == null ? "no reason given" : why, e[0], (now(g) - e[1]) / 20);
+        if (e[0] >= REPEATS) { s.ends.remove(k); trip(g, t, k, e[0] + " times in " + Math.max(1, (now(g) - e[1]) / 20) + " s" + (why == null ? "" : " (" + why + ")")); }
     }
 
     /**
@@ -175,7 +176,7 @@ public final class Watchdog {
     public static void writtenOff(ClaudeEntity g, String k, String what) {
         if (k == null) return;
         St s = st(g); s.trips++;
-        s.rung.put(k, new int[] {2, g.tickCount}); s.what.put(k, what);
+        s.rung.put(k, new int[] {2, now(g)}); s.what.put(k, what);
         s.tried.put(k, "the straight way, his own way out (digging, bridging, pillaring), dropping it for another");
         ClaudeMod.LOGGER.info("[Claude watchdog] {}: written off by the clock ({}): picked again, they're told (Watchdog.writtenOff)", k, what);
     }
@@ -202,8 +203,8 @@ public final class Watchdog {
     /** One rung up the ladder for this action. */
     private static void climb(ClaudeEntity g, Task t, String k, String what) {
         St s = st(g);
-        int[] r = s.rung.get(k); if (r == null || g.tickCount - r[1] > MEMORY) r = new int[] {0, 0};
-        r[0]++; r[1] = g.tickCount; s.rung.put(k, r);
+        int[] r = s.rung.get(k); if (r == null || now(g) - r[1] > MEMORY) r = new int[] {0, 0};
+        r[0]++; r[1] = now(g); s.rung.put(k, r);
         if (r[0] > 3) r[0] = 3;
         String tried = s.tried.getOrDefault(k, "the straight way");
         if (r[0] == 1 && !(t instanceof Task.Leap) && com.claudemod.director.ClaudeLife.escapeStuck(g, (ServerLevel) g.level(), t)) {
@@ -234,14 +235,14 @@ public final class Watchdog {
         if (result.contains("it's night") || result.contains("it's day,")) return; // (a wait, not a failure)
         String k = sk + "|" + result.replaceAll("\\d+", "#"); // (counts in the line aren't a new failure)
         int[] e = s.skills.get(k);
-        if (e == null || g.tickCount - e[1] > SKILL_WINDOW) { e = new int[] {0, g.tickCount}; s.skills.put(k, e); }
+        if (e == null || now(g) - e[1] > SKILL_WINDOW) { e = new int[] {0, now(g)}; s.skills.put(k, e); }
         e[0]++;
-        ClaudeMod.LOGGER.info("[Claude watchdog] {} -> {}: {} time(s) in {} s (Watchdog.skillRan)", sk, result, e[0], (g.tickCount - e[1]) / 20);
+        ClaudeMod.LOGGER.info("[Claude watchdog] {} -> {}: {} time(s) in {} s (Watchdog.skillRan)", sk, result, e[0], (now(g) - e[1]) / 20);
         if (e[0] < SKILL_REPEATS) return;
         s.trips++;
         String fk = sk; String lacks = missing(result);
         int r = s.rung.containsKey("skill " + k) ? s.rung.get("skill " + k)[0] : 0;
-        s.rung.put("skill " + k, new int[] {r + 1, g.tickCount});
+        s.rung.put("skill " + k, new int[] {r + 1, now(g)});
         if (r == 0 && "craft".equals(step.skill()) && lacks != null && gatherable(lacks) == null) { // the next way for a craft short of what it's made of: obtain it, the whole chain worked out (mine, smelt, then craft), not the bare craft again (live World 15: "craft iron_pickaxe -> missing iron_ingot" with raw iron and coal on him; "craft diamond_leggings -> missing diamond", 5 of 7)
             g.skillQueue.addFirst(new Skills.Step("obtain", step.target(), Math.max(1, step.count())));
             g.nextPlanTick = Math.min(g.nextPlanTick, g.tickCount);
@@ -263,7 +264,7 @@ public final class Watchdog {
             return;
         }
         g.failCount.put(fk, 3); // (the plan runner skips a step at 3: the planner picks another way)
-        String line = sk.replace('_', ' ') + " keeps failing: " + result.substring(result.indexOf(':') + 1).trim() + " (" + e[0] + " times in " + Math.max(1, (g.tickCount - e[1]) / 20) + " s"
+        String line = sk.replace('_', ' ') + " keeps failing: " + result.substring(result.indexOf(':') + 1).trim() + " (" + e[0] + " times in " + Math.max(1, (now(g) - e[1]) / 20) + " s"
                 + (r > 0 ? ", got more " + gatherable(lacks) + " first and it still failed" : "") + "). doing something else for now, could you help with that?";
         ClaudeMod.LOGGER.info("[Claude watchdog] TRIP {}: \"{}\" {} times: skipped, the planner told, them told (Watchdog.skillRan)", sk, result, e[0]);
         tell(g, "skill " + sk, line);
@@ -288,8 +289,8 @@ public final class Watchdog {
     private static void tell(ClaudeEntity g, String k, String line) {
         St s = st(g);
         if (s.told.contains(k)) { ClaudeMod.LOGGER.info("[Claude watchdog] {}: already told them once, not again (Watchdog.tell)", k); return; }
-        if (g.tickCount - s.lastTellTick < 20 * 120 && s.lastTellTick > 0) { ClaudeMod.LOGGER.info("[Claude watchdog] {}: told them something {} s ago, not another line yet (at most one every 2 min): \"{}\" (Watchdog.tell)", k, (g.tickCount - s.lastTellTick) / 20, line); return; } // (live 06:47: 12 "stuck" lines in 2 minutes)
-        s.told.add(k); s.lastTellTick = g.tickCount;
+        if (now(g) - s.lastTellTick < 20 * 120 && s.lastTellTick > 0) { ClaudeMod.LOGGER.info("[Claude watchdog] {}: told them something {} s ago, not another line yet (at most one every 2 min): \"{}\" (Watchdog.tell)", k, (now(g) - s.lastTellTick) / 20, line); return; } // (live 06:47: 12 "stuck" lines in 2 minutes)
+        s.told.add(k); s.lastTellTick = now(g);
         s.pending = line; s.lastTold = line;
         com.claudemod.director.ClaudeLife.lesson(g, line);
         ClaudeMod.LOGGER.info("[Claude watchdog] telling them: \"{}\" (Watchdog.tell)", line);
@@ -332,35 +333,35 @@ public final class Watchdog {
         if (!g.isAlive()) return;
         St s = st(g);
         // 1. a move no planned move made: more than 3 blocks in one tick (a knock, a fall through, an unlogged teleport)
-        if (!Double.isNaN(s.px) && g.tickCount == s.pTick + 1 && g.level().dimension() == s.pDim) { // (a portal trip is a planned move)
+        if (!Double.isNaN(s.px) && now(g) == s.pTick + 1 && g.level().dimension() == s.pDim) { // (a portal trip is a planned move)
             double d = Math.sqrt(Math.pow(g.getX() - s.px, 2) + Math.pow(g.getY() - s.py, 2) + Math.pow(g.getZ() - s.pz, 2));
-            if (d > 3 && com.claudemod.entity.nav.Leaps.control(g) == null && g.tickCount - s.lastMove > 20 * 5) { s.lastMove = g.tickCount; incident(g, "UNPLANNED MOVE", String.format("%.1f blocks in one tick, from %.1f %.1f %.1f to %.1f %.1f %.1f, doing %s", d, s.px, s.py, s.pz, g.getX(), g.getY(), g.getZ(), g.currentTask == null ? "-" : g.currentTask.getClass().getSimpleName())); }
+            if (d > 3 && com.claudemod.entity.nav.Leaps.control(g) == null && now(g) - s.lastMove > 20 * 5) { s.lastMove = now(g); incident(g, "UNPLANNED MOVE", String.format("%.1f blocks in one tick, from %.1f %.1f %.1f to %.1f %.1f %.1f, doing %s", d, s.px, s.py, s.pz, g.getX(), g.getY(), g.getZ(), g.currentTask == null ? "-" : g.currentTask.getClass().getSimpleName())); }
         }
-        s.px = g.getX(); s.py = g.getY(); s.pz = g.getZ(); s.pTick = g.tickCount; s.pDim = g.level().dimension();
-        if (g.currentTask instanceof Task.Toss || g.currentTask instanceof Task.Chest || g.currentTask instanceof Task.Deposit) s.handOff = g.tickCount;
-        if (g.tickCount % 20 != 0) return;
-        s.samples.addLast(new double[] {g.tickCount, g.getX(), g.getY(), g.getZ(), g.getHealth(), g.getFoodData().getFoodLevel(), g.getRemainingFireTicks()});
+        s.px = g.getX(); s.py = g.getY(); s.pz = g.getZ(); s.pTick = now(g); s.pDim = g.level().dimension();
+        if (g.currentTask instanceof Task.Toss || g.currentTask instanceof Task.Chest || g.currentTask instanceof Task.Deposit) s.handOff = now(g);
+        if (now(g) % 20 != 0) return;
+        s.samples.addLast(new double[] {now(g), g.getX(), g.getY(), g.getZ(), g.getHealth(), g.getFoodData().getFoodLevel(), g.getRemainingFireTicks()});
         while (s.samples.size() > 60) s.samples.pollFirst();
         // 2. health falling 5+ in 10 s with no answer to it (not running, not eating)
-        double[] ten = null; for (double[] x : s.samples) if (g.tickCount - x[0] <= 20 * 10) { ten = x; break; }
-        if (ten != null && ten[4] - g.getHealth() >= 5 && !(g.currentTask instanceof Task.Flee) && !(g.currentTask instanceof Task.Eat) && g.tickCount - s.lastFall > 20 * 30) { s.lastFall = g.tickCount; incident(g, "HEALTH FALLING", String.format("%.0f -> %.0f in %d s, no flee or eat (doing %s, on fire %s, in lava %s)", ten[4], g.getHealth(), (g.tickCount - (int) ten[0]) / 20, g.currentTask == null ? "-" : g.currentTask.getClass().getSimpleName(), g.isOnFire(), g.isInLava())); }
+        double[] ten = null; for (double[] x : s.samples) if (now(g) - x[0] <= 20 * 10) { ten = x; break; }
+        if (ten != null && ten[4] - g.getHealth() >= 5 && !(g.currentTask instanceof Task.Flee) && !(g.currentTask instanceof Task.Eat) && now(g) - s.lastFall > 20 * 30) { s.lastFall = now(g); incident(g, "HEALTH FALLING", String.format("%.0f -> %.0f in %d s, no flee or eat (doing %s, on fire %s, in lava %s)", ten[4], g.getHealth(), (now(g) - (int) ten[0]) / 20, g.currentTask == null ? "-" : g.currentTask.getClass().getSimpleName(), g.isOnFire(), g.isInLava())); }
         // 3. a fight with no effect: 15 s in an attack, its target no worse off
         if (g.currentTask instanceof Task.Attack a && g.level() instanceof ServerLevel sl && sl.getEntity(a.target()) instanceof net.minecraft.world.entity.LivingEntity foe) {
-            if (!a.target().equals(s.atkTarget)) { s.atkTarget = a.target(); s.atkSince = g.tickCount; s.atkHp = foe.getHealth(); }
-            else if (foe.getHealth() < s.atkHp) { s.atkHp = foe.getHealth(); s.atkSince = g.tickCount; }
-            else if (g.tickCount - s.atkSince > 20 * 15 && g.tickCount - s.lastNoEffect > 20 * 30) { s.lastNoEffect = g.tickCount; incident(g, "FIGHT NO EFFECT", "15 s attacking a " + foe.getType().getDescription().getString() + " " + String.format("%.1f", foe.distanceTo(g)) + " off, not a hit landed (it's at " + (int) foe.getHealth() + "): breaking it off"); g.dropCurrent = true; s.atkTarget = null; }
+            if (!a.target().equals(s.atkTarget)) { s.atkTarget = a.target(); s.atkSince = now(g); s.atkHp = foe.getHealth(); }
+            else if (foe.getHealth() < s.atkHp) { s.atkHp = foe.getHealth(); s.atkSince = now(g); }
+            else if (now(g) - s.atkSince > 20 * 15 && now(g) - s.lastNoEffect > 20 * 30) { s.lastNoEffect = now(g); incident(g, "FIGHT NO EFFECT", "15 s attacking a " + foe.getType().getDescription().getString() + " " + String.format("%.1f", foe.distanceTo(g)) + " off, not a hit landed (it's at " + (int) foe.getHealth() + "): breaking it off"); g.dropCurrent = true; s.atkTarget = null; }
         } else s.atkTarget = null;
         // 4. important gear gone with no death (smelted, dropped, broken)
         var now = gearOf(g);
-        if (s.gear != null && g.tickCount - s.handOff > 40) { java.util.List<String> lost = new java.util.ArrayList<>(); for (var e : s.gear.entrySet()) { int left = now.getOrDefault(e.getKey(), 0); if (left < e.getValue()) lost.add((e.getValue() - left) + " " + e.getKey()); } if (!lost.isEmpty()) incident(g, "GEAR GONE", String.join(", ", lost) + " (doing " + (g.currentTask == null ? "-" : g.currentTask.getClass().getSimpleName()) + ", step " + (g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target()) + ")"); }
+        if (s.gear != null && now(g) - s.handOff > 40) { java.util.List<String> lost = new java.util.ArrayList<>(); for (var e : s.gear.entrySet()) { int left = now.getOrDefault(e.getKey(), 0); if (left < e.getValue()) lost.add((e.getValue() - left) + " " + e.getKey()); } if (!lost.isEmpty()) incident(g, "GEAR GONE", String.join(", ", lost) + " (doing " + (g.currentTask == null ? "-" : g.currentTask.getClass().getSimpleName()) + ", step " + (g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target()) + ")"); }
         s.gear = now;
     }
 
     /** A skill line coming straight back (under 1 s, 3 times running): it returns at once and is queued again (live 12:30 World 15 "collect beef" 9 times in 2 s). */
     public static void quickReturn(ClaudeEntity g, String line) {
         St s = st(g);
-        if (line.equals(s.quickLine) && g.tickCount - s.quickTick < 20) s.quickN++; else s.quickN = 1;
-        s.quickLine = line; s.quickTick = g.tickCount;
+        if (line.equals(s.quickLine) && now(g) - s.quickTick < 20) s.quickN++; else s.quickN = 1;
+        s.quickLine = line; s.quickTick = now(g);
         if (s.quickN == 3) incident(g, "INSTANT REPEAT", "the same step result 3 times inside a second each: " + line);
     }
 
@@ -379,10 +380,10 @@ public final class Watchdog {
         StringBuilder b = new StringBuilder();
         var lv = g.level(); BlockPos at = g.blockPosition();
         b.append("INCIDENT ").append(kind).append(": ").append(why).append('\n');
-        b.append("when: tick ").append(g.tickCount).append(", day time ").append(lv.getDayTime() % 24000).append('\n');
+        b.append("when: tick ").append(now(g)).append(", day time ").append(lv.getDayTime() % 24000).append('\n');
         b.append("where: ").append(lv.dimension().location()).append(' ').append(at.toShortString()).append(", under him ").append(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(lv.getBlockState(at.below()).getBlock()).getPath()).append(g.isInLava() ? ", IN LAVA" : "").append(g.isOnFire() ? ", on fire" : "").append('\n');
         St s = st(g); StringBuilder tr = new StringBuilder();
-        for (double[] x : s.samples) if (g.tickCount - x[0] <= 20 * 30) tr.append(String.format(" %ds: hp %.0f food %.0f fire %.0f at %.0f %.0f %.0f;", (int) (x[0] - g.tickCount) / 20, x[4], x[5], x[6], x[1], x[2], x[3]));
+        for (double[] x : s.samples) if (now(g) - x[0] <= 20 * 30) tr.append(String.format(" %ds: hp %.0f food %.0f fire %.0f at %.0f %.0f %.0f;", (int) (x[0] - now(g)) / 20, x[4], x[5], x[6], x[1], x[2], x[3]));
         b.append("last 30 s:").append(tr.length() == 0 ? " -" : tr).append('\n');
         b.append("goal: ").append(g.goal == null ? "-" : g.goal).append("; their goal: ").append(g.playerGoal == null ? "-" : g.playerGoal).append("; on their job: ").append(g.commandActive).append(g.staying ? "; STAYING (their hold)" : "").append('\n');
         b.append("step: ").append(g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target()).append("; last line: ").append(g.lastSkillLine == null ? "-" : g.lastSkillLine).append("; plan: ").append(g.skillQueue).append('\n');

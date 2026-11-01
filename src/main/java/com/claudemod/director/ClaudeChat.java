@@ -176,7 +176,7 @@ public final class ClaudeChat {
           .append(". Your tools wear out: say so if your pickaxe broke.\n");
         sb.append("YOUR INVENTORY: ").append(c.inventory.summary()).append(" (if they gave you something, it is here only if you picked it up).\n");
         sb.append("YOUR BODY: health ").append((int) Math.ceil(c.getHealth())).append("/20 (= ").append(Math.ceil(c.getHealth()) / 2.0).append(" hearts; say hearts only with this number), food ").append(c.getFoodData().getFoodLevel()).append("/20, armor ").append(c.getArmorValue())
-          .append("; it is ").append(level.isDay() ? "day" : "night").append(" (day ").append(level.getDayTime() / 24000 + 1).append(").\n");
+          .append("; it is ").append(level.dimensionType().hasFixedTime() ? "no day or night here (this dimension has none; waiting for light changes nothing)" : level.isDay() ? "day" : "night").append(" (day ").append(level.getDayTime() / 24000 + 1).append(").\n");
         sb.append(com.claudemod.entity.life.MindLog.recent()); // the user: he should have the same logging the debug has, so he has context
         sb.append(com.claudemod.entity.life.WatchBuild.describe(c)); // his learned builds by name and size; what he's watching or building
         sb.append(com.claudemod.entity.life.OwnEvents.describe(c));

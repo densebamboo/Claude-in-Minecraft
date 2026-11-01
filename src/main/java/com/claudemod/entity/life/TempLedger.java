@@ -156,7 +156,7 @@ public final class TempLedger {
         boolean hostile = !Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(12), m -> m.isAlive()).isEmpty();
         if (p.getX() == feet.getX() && p.getZ() == feet.getZ() && p.getY() < feet.getY()) return hostile || g.currentTask instanceof Task.Flee ? "nerd-pole" : "pillar";
         if (p.getY() <= feet.getY() - 1 && !solid(level, p.below())) return "bridge";
-        if (p.getY() > feet.getY() && Math.abs(p.getX() - feet.getX()) <= 1 && Math.abs(p.getZ() - feet.getZ()) <= 1) return hostile || g.holdingNight() || !level.isDay() ? "cover" : "scaffold";
+        if (p.getY() > feet.getY() && Math.abs(p.getX() - feet.getX()) <= 1 && Math.abs(p.getZ() - feet.getZ()) <= 1) return hostile || g.holdingNight() || !com.claudemod.director.ClaudeLife.dayHere(level) ? "cover" : "scaffold";
         if (p.getY() >= feet.getY() - 1 && p.getY() <= feet.getY()) return "step";
         return "scaffold";
     }
@@ -223,7 +223,7 @@ public final class TempLedger {
         switch (e.why) {
             case "craft table": return stepStart || g.lastStep == null || !java.util.Set.of("craft", "smelt", "obtain").contains(g.lastStep.skill()) || g.skillQueue.isEmpty() && g.tasks.isEmpty() && g.currentTask == null;
             case "furnace": return !(level.getBlockEntity(p) instanceof AbstractFurnaceBlockEntity f) || f.getItem(0).isEmpty() && f.getItem(2).isEmpty(); // nothing cooking, nothing to take out
-            case "light": return level.isDay() && !g.holdingNight();
+            case "light": return com.claudemod.director.ClaudeLife.dayHere(level) && !g.holdingNight();
             case "cover": case "nerd-pole":
                 if (g.holdingNight()) return false;
                 if (!Perception.known(g, net.minecraft.world.entity.monster.Monster.class, new net.minecraft.world.phys.AABB(p).inflate(16), m -> m.isAlive()).isEmpty()) return false;
@@ -305,13 +305,13 @@ public final class TempLedger {
         if (leaving(g, level)) return; // setting off past blocks of his he's done with: back up first ("clear before he leaves")
         if ((g.tickCount / 20) % 5 == 0 && idle(g, level)) { // every 5 s, idle: a batch of his blocks back up, or a tree he owes
             BlockPos under = g.blockPosition().below(); Entry ue = book(g).get(under);
-            if (ue != null && g.onGround() && his(level, ue) && doneWith(g, level, ue, false, true) && (level.isDay() || !level.canSeeSky(under))) { // up on a tower of his with nothing left to do up here: down it, the blocks back
+            if (ue != null && g.onGround() && his(level, ue) && doneWith(g, level, ue, false, true) && (com.claudemod.director.ClaudeLife.dayHere(level) || !level.canSeeSky(under))) { // up on a tower of his with nothing left to do up here: down it, the blocks back
                 g.tasks.add(new Task.Pillar(-1)); g.tasks.add(new Task.Pickup(60)); ue.triedAt = g.tickCount; ue.awayAfterTry = false; ue.now = line(g);
                 ClaudeMod.LOGGER.info("[Claude temp] up on his {} at {} with nothing to do up here: down it, the blocks back", ue.why, under.toShortString());
                 return;
             }
             int before = g.tasks.size(); tidy(g, level);
-            if (g.tasks.size() == before && level.isDay()) { BlockPos due = treeDue(g); if (due != null) {
+            if (g.tasks.size() == before && com.claudemod.director.ClaudeLife.dayHere(level)) { BlockPos due = treeDue(g); if (due != null) {
                 g.tasks.add(new Task.GoTo(due, 3)); g.tasks.add(new Task.ChopTree(due, 0)); g.tasks.add(new Task.Pickup(300));
                 ClaudeMod.LOGGER.info("[Claude temp] back by the tree he left at {}: finishing it", due.toShortString()); } }
         }
@@ -336,7 +336,7 @@ public final class TempLedger {
         java.util.function.Predicate<Entry> due = e -> level.isLoaded(e.pos) && e.pos.distSqr(me) <= 16 * 16 && e.pos.distSqr(to) > 24 * 24 && !e.why.equals("craft table") && !e.why.equals("furnace")
                 && !level.getBlockState(e.pos).canBeReplaced() && his(level, e)
                 && (Math.abs(e.pos.getY() - me.getY()) <= 1 || eye.distanceTo(net.minecraft.world.phys.Vec3.atCenterOf(e.pos)) <= 4.5 && e.pos.equals(level.clip(new net.minecraft.world.level.ClipContext(eye, net.minecraft.world.phys.Vec3.atCenterOf(e.pos), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getBlockPos())) // (in reach AND in sight: 02:2x a block 2 below behind the floor he stood on was queued, the walker refused every stand spot, a 3x CONFLICT)
-                && !(e.triedAt >= 0 && g.tickCount - e.triedAt < 40) && !(!level.isDay() && level.canSeeSky(e.pos) && !"light".equals(e.why))
+                && !(e.triedAt >= 0 && g.tickCount - e.triedAt < 40) && !(!com.claudemod.director.ClaudeLife.dayHere(level) && level.canSeeSky(e.pos) && !"light".equals(e.why))
                 && doneWith(g, level, e, false) && takeable(g, level, e)
                 && !e.pos.equals(me.below()) && !e.pos.equals(me) && legs.stream().noneMatch(l -> l.distSqr(e.pos) <= 2 * 2); // still on the way: the route's legs climb over it (01:40 he pillared up for the route, took the pillar down "leaving", fell, pillared again: a loop)
         Entry first = null;
@@ -364,7 +364,7 @@ public final class TempLedger {
         for (Entry e : book(g).values()) {
             if (!level.isLoaded(e.pos) || level.getBlockState(e.pos).canBeReplaced() || !his(level, e) || !doneWith(g, level, e, false) || !takeable(g, level, e)) continue;
             if (e.triedAt >= 0 && g.tickCount - e.triedAt < 40) continue; // just queued
-            if (!level.isDay() && level.canSeeSky(e.pos) && !"light".equals(e.why)) continue; // out in the open at night: it waits for daylight
+            if (!com.claudemod.director.ClaudeLife.dayHere(level) && level.canSeeSky(e.pos) && !"light".equals(e.why)) continue; // out in the open at night: it waits for daylight
             double d = e.pos.distSqr(g.blockPosition()); if (d < bd) { bd = d; best = e; }
         }
         if (best == null) return;

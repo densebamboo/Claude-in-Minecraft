@@ -229,7 +229,7 @@ public final class PitGuard {
     /** His old caps that were no hole's (a cluster of more than HOLE_MAX, or under 4 deep): taken back, a few at a time when he's idle (the user, World 15: "why is there so much cobble and deepslate placed there"). */
     private static int cleanTick = -100000;
     public static void cleanup(ClaudeEntity g, ServerLevel level) {
-        if (g.tickCount - cleanTick < 200 || g.currentTask != null || !g.tasks.isEmpty() || !g.skillQueue.isEmpty() || g.planning || !level.isDay()) return;
+        if (g.tickCount - cleanTick < 200 || g.currentTask != null || !g.tasks.isEmpty() || !g.skillQueue.isEmpty() || g.planning || !com.claudemod.director.ClaudeLife.dayHere(level)) return;
         cleanTick = g.tickCount;
         var bc = TempLedger.builtCells(g); List<BlockPos> mine = new ArrayList<>();
         for (var e : bc.entrySet()) if (e.getValue() != null && e.getValue().startsWith("PitGuard") && e.getKey().distSqr(g.blockPosition()) <= 32 * 32 && level.isLoaded(e.getKey())) { var st0 = level.getBlockState(e.getKey()); if (st0.is(net.minecraft.world.level.block.Blocks.COBBLESTONE) || st0.is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE)) mine.add(e.getKey()); }

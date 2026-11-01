@@ -50,7 +50,7 @@ public final class Senses {
           .append(", holding ").append(name(g.getItemBySlot(EquipmentSlot.MAINHAND).getItem()))
           .append(", armor ").append(g.getArmorValue())
           .append(level.getBrightness(LightLayer.SKY, o) == 0 ? ", underground" : ", on the surface")
-          .append(", y=").append(o.getY()).append(", ").append(level.isNight() ? "night" : "day").append('\n');
+          .append(", y=").append(o.getY()).append(", ").append(level.dimensionType().hasFixedTime() ? "no day or night here" : level.isNight() ? "night" : "day").append('\n');
         sb.append("inventory: ").append(g.inventory.summary()).append('\n');
         // his own stations (chests are extra inventory): where they are and what's in the chests
         StringBuilder st = new StringBuilder();

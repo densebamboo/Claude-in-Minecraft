@@ -4717,7 +4717,14 @@ public class WorkGoal extends Goal {
         }
         { Boolean cf = coverFight(t, mob); if (cf != null) return cf; }
         { Boolean ft = fightFooting(mob); if (ft != null) return ft; } // (a lip behind him on the side a hit throws him: firm footing first; two Nether deaths in 4 min, World 15 13:48 and 13:51, knocked off mid-fight)
-        if (mob instanceof net.minecraft.world.entity.monster.EnderMan em) { Boolean eh = endermanHole(t, em); if (eh != null) return eh; } // (the pearl stage: from a 2-deep hole it can't reach into) // a blaze or a wither skeleton: from cover, like an expert (FortressFight)
+        if (mob instanceof net.minecraft.world.entity.monster.EnderMan em) { Boolean eh = endermanHole(t, em); if (eh != null) return eh; }
+        if (mob instanceof net.minecraft.world.entity.monster.EnderMan em && em.getTarget() != g && ticks % 200 < 100 && g.distanceTo(em) < 32 && g.hasLineOfSight(em)
+                && !(em.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0)) { // ponytail: the user 14:20 "swing at them from distance to aggro": a calm one out of reach is called over, not chased (it teleports off a chase); 5 s of it, then 5 s closing in, by the task clock
+            g.getNavigation().stop(); g.setSprinting(false); equipWeapon(); g.getLookControl().setLookAt(em.getX(), em.getEyeY(), em.getZ()); // (vanilla: the look at its eyes is what angers it; the swing is the player's habit)
+            if (ticks % 10 == 0) g.swing(InteractionHand.MAIN_HAND);
+            if (ticks % 100 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] a calm enderman {} off: eyes on it and a swing to call it over (WorkGoal.doAttack)", (int) g.distanceTo(em));
+            return false;
+        } // (the pearl stage: from a 2-deep hole it can't reach into) // a blaze or a wither skeleton: from cover, like an expert (FortressFight)
         // losing the fight: break off and get away, like a player would (fighting on at 3 hearts is how you die)
         if ((mob instanceof net.minecraft.world.entity.monster.Monster || mob instanceof net.minecraft.world.entity.animal.IronGolem) && shouldFlee(mob)) {
             g.tasks.addFirst(new Task.Flee(160));

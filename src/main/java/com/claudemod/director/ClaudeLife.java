@@ -471,7 +471,7 @@ public final class ClaudeLife {
             boolean hunting = false; for (Skills.Step s0 : g.skillQueue) if ("ender_pearls".equals(s0.skill())) hunting = true;
             if (hunting) { net.minecraft.world.entity.monster.EnderMan best = null;
                 for (net.minecraft.world.entity.monster.EnderMan m : g.level().getEntitiesOfClass(net.minecraft.world.entity.monster.EnderMan.class, g.getBoundingBox().inflate(24, 8, 24))) if (m.isAlive() && (g.hasLineOfSight(m) || m.distanceTo(g) < 8) && (best == null || m.distanceToSqr(g) < best.distanceToSqr(g))) best = m;
-                if (best != null) { clearTasks(g); dropCurrent(g); g.tasks.add(new Task.Attack(best.getUUID(), 20 * 60)); g.tasks.add(new Task.Pickup(80));
+                if (best != null) { if (g.level() instanceof ServerLevel slv) com.claudemod.entity.life.HuntPatrol.saw(g, slv, best.blockPosition(), 1.0); clearTasks(g); dropCurrent(g); g.tasks.add(new Task.Attack(best.getUUID(), 20 * 60)); g.tasks.add(new Task.Pickup(80));
                     ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: an enderman {} off {} on the way: the walk waits, after it (ClaudeLife life tick)", (int) best.distanceTo(g), g.hasLineOfSight(best) ? "in sight" : "heard behind the blocks"); } } // ponytail: the user 14:22 "standing right next to an enderman and he's not hitting it": 3-5 off behind warped wart, heard only; a player that close steps round and hits it
         }
         if (g.getHealth() <= 4 && g.tickCount % 20 == 15 && !(g.currentTask instanceof Task.Attack) && !(g.currentTask instanceof Task.Flee) && !(g.currentTask instanceof Task.Eat)
@@ -2700,7 +2700,7 @@ public final class ClaudeLife {
                     return "day here: through my portal to a warped forest for endermen (" + have + "/" + want + " pearls)"; }
                 if (em == null && level.dimension() == net.minecraft.world.level.Level.OVERWORLD && com.claudemod.director.ClaudeLife.dayHere(level) && !level.isThundering()) { ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: day in the overworld at {}, none in sight: endermen spawn in the dark, the hunt waits for dusk (no Nether route: his portal {}, kit missing {}) (ClaudeLife ender_pearls)", g.blockPosition().toShortString(), hisPortal.get(g.getUUID()), Kit.missing(g, true)); return "failed: it's day, endermen spawn in the dark: the pearl hunt waits for dusk (or a warped forest): " + have + "/" + want + " pearls"; } // (01:41-01:49 he walked 900 blocks of daylight surface looking for one)
                 g.skillQueue.addFirst(st); // (on with it after this)
-                if (em != null) { g.tasks.add(new Task.Attack(em.getUUID(), 20 * 60)); g.tasks.add(new Task.Pickup(80)); ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: an enderman {} off in sight: after it ({}/{} pearls) (ClaudeLife ender_pearls)", (int) em.distanceTo(g), have, want); return "after the enderman " + (int) em.distanceTo(g) + " off (" + have + "/" + want + " pearls)"; }
+                if (em != null) { com.claudemod.entity.life.HuntPatrol.saw(g, level, em.blockPosition(), 1.0); g.tasks.add(new Task.Attack(em.getUUID(), 20 * 60)); g.tasks.add(new Task.Pickup(80)); ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: an enderman {} off in sight: after it ({}/{} pearls) (ClaudeLife ender_pearls)", (int) em.distanceTo(g), have, want); return "after the enderman " + (int) em.distanceTo(g) + " off (" + have + "/" + want + " pearls)"; }
                 boolean nether = level.dimension() == net.minecraft.world.level.Level.NETHER;
                 { var dl = com.claudemod.entity.life.DeathLog.next(g, level.dimension().location().getPath()); // his death pile on this side (the fortress kit: diamond pick, rods) first: frozen in its unloaded chunk, it waits for him
                   if (nether && dl != null && dl.dim.equals("the_nether") && !level.isPositionEntityTicking(dl.at) && g.skillQueue.stream().noneMatch(s0 -> s0.skill().equals("recover_drops")) && !(g.attempts.any.get(dl.at) instanceof Integer t1 && g.tickCount - t1 < 20 * 600)) {
@@ -2712,7 +2712,9 @@ public final class ClaudeLife {
                 if (com.claudemod.entity.life.Perception.turningRound(g) || !com.claudemod.entity.life.Perception.lookedRound(g, 200)) { // ponytail: live 13:22, two endermen 5 off at his height and he walked on without turning round once: a look about first, as a player does
                     if (!com.claudemod.entity.life.Perception.turningRound(g)) com.claudemod.entity.life.Perception.lookRound(g, null);
                     g.tasks.add(new Task.Wait(34, false)); g.skillQueue.addFirst(st); return "no enderman in view: looking all round first (" + have + "/" + want + " pearls)"; }
-                g.skillQueue.addFirst(new Skills.Step("explore", "", 1)); // (through the forest, or the overworld at night: walking on, looking)
+                { String[] pw = new String[1]; BlockPos pp = com.claudemod.entity.life.HuntPatrol.next(g, level, pw); // (the patrol: the best ground by what he's seen of it, his heading held; a bare explore flipped its targets each time, live 15:23)
+                  if (pp != null) { g.tasks.add(new Task.GoTo(pp, 2)); return "no enderman in sight: patrolling, " + pw[0] + " (" + have + "/" + want + " pearls)"; } }
+                g.skillQueue.addFirst(new Skills.Step("explore", "", 1)); // (no ground in sight for the patrol: the old walk on, looking)
                 return "no enderman in sight: walking on, looking (" + have + "/" + want + " pearls)";
             }
             case "explore": {

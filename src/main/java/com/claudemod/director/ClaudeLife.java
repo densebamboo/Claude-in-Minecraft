@@ -2652,7 +2652,7 @@ public final class ClaudeLife {
                 int have = g.inventory.count(x -> x.is(Items.ENDER_PEARL) || x.is(Items.ENDER_EYE)), want = st.count() > 1 ? st.count() : pearlsWanted(g);
                 if (have >= want) return "done: " + have + " pearls/eyes on me (" + want + " wanted)";
                 if (!endermanTime(g)) { var ch = g.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST); java.util.List<String> miss = new ArrayList<>();
-                    if (g.inventory.count(x -> x.is(Items.BLAZE_ROD) || x.is(Items.BLAZE_POWDER)) == 0) miss.add("no blaze rod on me (a chest's don't count till I take it)");
+                    if (g.inventory.count(x -> x.is(Items.BLAZE_ROD) || x.is(Items.BLAZE_POWDER)) + com.claudemod.entity.life.ChestLedger.count(g, level, Items.BLAZE_ROD) + com.claudemod.entity.life.ChestLedger.count(g, level, Items.BLAZE_POWDER) == 0) miss.add("no blaze rod yet");
                     if (!(ch.is(Items.IRON_CHESTPLATE) || ch.is(Items.DIAMOND_CHESTPLATE) || ch.is(Items.NETHERITE_CHESTPLATE))) miss.add("no iron+ chestplate worn");
                     if (g.inventory.count(x -> x.is(Items.IRON_SWORD) || x.is(Items.DIAMOND_SWORD) || x.is(Items.NETHERITE_SWORD)) == 0) miss.add("no iron+ sword");
                     if (Kit.food(g) < 4) miss.add("under 4 meals"); if (g.getHealth() < 16) miss.add("health under 16");
@@ -12889,6 +12889,7 @@ public final class ClaudeLife {
     public static int pearlsWanted(ClaudeEntity g) { return 14; }
     public static boolean endermanTime(ClaudeEntity g) {
         int blaze = g.inventory.count(x -> x.is(Items.BLAZE_ROD) || x.is(Items.BLAZE_POWDER)), pearls = g.inventory.count(x -> x.is(Items.ENDER_PEARL) || x.is(Items.ENDER_EYE));
+        if (blaze == 0 && g.level() instanceof net.minecraft.server.level.ServerLevel sl) blaze = com.claudemod.entity.life.ChestLedger.count(g, sl, Items.BLAZE_ROD) + com.claudemod.entity.life.ChestLedger.count(g, sl, Items.BLAZE_POWDER); // his chests count (the stash put both rods away and the pearl hunt refused on "no rod on me", 01:36)
         if (blaze == 0 || pearls >= pearlsWanted(g)) return false;
         var chest = g.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST);
         boolean armor = chest.is(Items.IRON_CHESTPLATE) || chest.is(Items.DIAMOND_CHESTPLATE) || chest.is(Items.NETHERITE_CHESTPLATE);

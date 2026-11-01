@@ -2312,7 +2312,7 @@ public class WorkGoal extends Goal {
             if (!exposed && !(ownMine && com.claudemod.director.ClaudeLife.seenOre(g).contains(p))) continue; // (ore he saw and then sealed behind his own patch: still his to fetch, the user)
             final BlockState ore = st;
             if (g.inventory.find(s -> s.isCorrectToolForDrops(ore)).isEmpty()) { if (p.distSqr(at) <= 36) com.claudemod.ClaudeMod.LOGGER.info("[Claude ore] skipping {} at {}: no pick for it yet", ore.getBlock().getName().getString(), p.toShortString()); continue; } // can't take it yet
-            if (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.BREAK, p, g.tickCount, 20 * 300)) continue; // (refused a moment ago, lava behind it or out of reach: not asked for again every sweep, 05:31)
+            if (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.BREAK, p, g.tickCount, 20 * 300) || g.attempts.within(com.claudemod.entity.life.Attempts.Kind.REACH, p, g.tickCount, 20 * 300)) continue; // (no way to it: doBreak drops it for 300 s, so not queued either; 05:2x a redstone 15 blocks off re-queued every few s) // (refused a moment ago, lava behind it or out of reach: not asked for again every sweep, 05:31)
             ores.add(p.immutable());
             if (ores.size() >= 24) break;
         }

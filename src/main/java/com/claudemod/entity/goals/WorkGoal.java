@@ -4664,12 +4664,13 @@ public class WorkGoal extends Goal {
         }
         if (d < 4 || !g.onGround()) return null; // (too close to dig in: the ordinary fight)
         if (em.getTarget() != g && d > 16) return null; // ponytail: live 13:12, dug in for a calm one 27 off that wandered away: close in first, dig in where a look at its eyes brings it
+        if (emHole != null && g.tasks.stream().anyMatch(x -> x instanceof Task.Place pl && pl.pos().closerThan(emHole, 3) || x instanceof Task.Break br && br.pos().closerThan(emHole, 3))) return null; // ponytail: live 13:17, a fresh Attack mid-build started booth after booth (35 queued, hit to 8 hp): one booth at a time, fight it as it comes meanwhile
         Direction face = null; // (the opening faces it: he sees it come)
         for (Direction dd : Direction.Plane.HORIZONTAL) { BlockPos t0 = f.below(), bb = t0.relative(dd.getOpposite()); boolean ok = true;
             for (BlockPos q : new BlockPos[] {t0, bb}) { var s0 = level.getBlockState(q); if (!solidAt(level, q) || s0.getDestroySpeed(level, q) < 0 || s0.getDestroySpeed(level, q) > 4 || s0.hasBlockEntity() || !solidAt(level, q.below())) ok = false; for (Direction d2 : Direction.values()) if (!level.getFluidState(q.relative(d2)).isEmpty()) ok = false; }
             if (ok && (face == null || em.position().subtract(g.position()).dot(net.minecraft.world.phys.Vec3.atLowerCornerOf(dd.getNormal())) > em.position().subtract(g.position()).dot(net.minecraft.world.phys.Vec3.atLowerCornerOf(face.getNormal())))) face = dd; }
         if (face == null) return null;
-        BlockPos t0 = f.below(), bb = t0.relative(face.getOpposite()); // (t0 under him now, the 2-high front cell; bb his spot, one further back)
+        BlockPos t0 = f.below(), bb = t0.relative(face.getOpposite()); emHole = bb.immutable(); // (t0 under him now, the 2-high front cell; bb his spot, one further back)
         java.util.List<Task> build = new java.util.ArrayList<>(java.util.List.of(new Task.Break(t0), new Task.Break(bb), new Task.GoTo(bb, 0.4)));
         for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) { BlockPos w = bb.above().offset(dx, 0, dz); if (w.equals(bb.above()) || w.equals(f)) continue; if (!solidAt(level, w)) build.add(new Task.Place(w.immutable(), scaffoldBlock().getItem())); }
         for (BlockPos r : new BlockPos[] {bb.above(2), f.above()}) if (!solidAt(level, r)) build.add(new Task.Place(r.immutable(), scaffoldBlock().getItem()));

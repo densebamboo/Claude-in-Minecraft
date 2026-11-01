@@ -4884,7 +4884,7 @@ public class WorkGoal extends Goal {
         boolean withered = g.hasEffect(net.minecraft.world.effect.MobEffects.WITHER);
         float hp = g.getHealth();
         var due = blaze ? com.claudemod.entity.life.FortressFight.volleyDue(g, level) : null; // a blaze lit 44+ in sight of him, or a fireball his way
-        if (g.tasks.peek() instanceof Task.Eat eatNext && due == null && (inCover || !blaze) && g.getFoodData().getFoodLevel() < 20) { // a meal queued behind this fight: it goes first, the fight after it (World 15 01:29: "next: [Eat]" 400+ ticks behind an Attack that kept renewing past its clock, 13 HP down to 1)
+        if (g.tasks.peek() instanceof Task.Eat eatNext && due == null && (inCover || (!blaze && level.getEntitiesOfClass(net.minecraft.world.entity.monster.WitherSkeleton.class, g.getBoundingBox().inflate(4), net.minecraft.world.entity.Entity::isAlive).isEmpty())) && g.getFoodData().getFoodLevel() < 20) { // (eating drops the shield: out of cover with a sword in reach it waits — World 15 02:04, a meal at hunger 19 with skeletons on him, shield down, 17 -> 0) // a meal queued behind this fight: it goes first, the fight after it (World 15 01:29: "next: [Eat]" 400+ ticks behind an Attack that kept renewing past its clock, 13 HP down to 1)
             g.tasks.pollFirst(); g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(eatNext);
             cfSay("eating first", "a meal was waiting behind the fight (hunger " + g.getFoodData().getFoodLevel() + ", health " + (int) hp + "), no volley due" + (inCover ? ", in cover" : ""));
             return true;

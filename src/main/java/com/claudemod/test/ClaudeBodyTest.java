@@ -10366,6 +10366,7 @@ public final class ClaudeBodyTest {
     // ---------------------------------------------------------------- stages 494 on: one method each (exactStages is at the JVM's 64 KB limit)
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
+            case 547: return st547(stage, t, c, h, level, mock);
             case 546: return st546(stage, t, c, h, level, mock);
             case 545: return st545(stage, t, c, h, level, mock);
             case 544: return st544(stage, t, c, h, level, mock);
@@ -10872,6 +10873,25 @@ public final class ClaudeBodyTest {
             if (ffMob != null) ffMob.discard(); ffMob = null; c.tasks.clear(); c.dropCurrent = true; c.getInventory().clearContent(); flatBox(h);
             com.claudemod.entity.life.Watchdog.teleported(c); BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(back.getX() + 0.5, back.getY(), back.getZ() + 0.5);
             pass(stage, t, how);
+        }
+        return true;
+    }
+    private static boolean st547(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // recovery into the place that killed him (World 15 12:40: back into the fortress with 0 meals, no pick, 0 blocks, fireballed): his Nether pile waits (its chunk unloaded, the despawn clock stopped), so gear first; kitted, through the portal for it
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.DeathLog.reset(c); c.attempts.counters.remove("recoverGear"); }
+        if (t[0] == 5) {
+            ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+            var fell = new java.util.ArrayList<net.minecraft.world.entity.item.ItemEntity>(); fell.add(new net.minecraft.world.entity.item.ItemEntity(nether, 12000.5, 70, 12000.5, new ItemStack(Items.DIAMOND_PICKAXE))); fell.add(new net.minecraft.world.entity.item.ItemEntity(nether, 12000.5, 70, 12000.5, new ItemStack(Items.BLAZE_ROD, 3)));
+            com.claudemod.entity.life.DeathLog.died(c, nether, new BlockPos(12000, 70, 12000), fell);
+            String r1 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
+            var q1 = c.skillQueue.peekFirst();
+            check(r1 != null && r1.contains("gear up first") && q1 != null && q1.skill().equals("gear_up"), "recovery: unready for the Nether pile, not geared first: \"" + r1 + "\" (queue " + c.skillQueue + ")");
+            c.skillQueue.clear(); c.attempts.counters.remove("recoverGear");
+            c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64));
+            String r2 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
+            var q2 = c.skillQueue.peekFirst();
+            check(r2 != null && r2.contains("through my portal") && q2 != null && q2.skill().equals("enter_portal"), "recovery: kitted, not off through the portal for it: \"" + r2 + "\" (queue " + c.skillQueue + ")");
+            c.skillQueue.clear(); c.getInventory().clearContent(); com.claudemod.entity.life.DeathLog.reset(c);
+            pass(stage, t, "unready: \"" + r1 + "\"; kitted: \"" + r2 + "\"");
         }
         return true;
     }

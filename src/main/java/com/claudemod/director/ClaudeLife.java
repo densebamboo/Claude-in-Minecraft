@@ -3766,6 +3766,21 @@ public final class ClaudeLife {
                 // his death checklist, not the game's last-death spot: a second death in the other dimension made him forget the fortress pile (11:53 "my drops are on this side")
                 String dimHere = level.dimension().location().getPath();
                 var dn = com.claudemod.entity.life.DeathLog.next(g, dimHere);
+                if (dn != null && !(dn.dim.equals(dimHere) && level.isPositionEntityTicking(dn.at))) { // the pile's chunk not loaded (the other dimension, or far off): its 5-min despawn clock is stopped, so no going back unready to the place that killed him (World 15 12:40: back into the fortress with 0 meals, no pick, 0 blocks, fireballed)
+                    boolean nether = dn.dim.contains("nether");
+                    boolean weapon = g.inventory.count(x -> (x.getItem() instanceof net.minecraft.world.item.SwordItem || x.getItem() instanceof net.minecraft.world.item.AxeItem) && !x.is(Items.WOODEN_SWORD) && !x.is(Items.WOODEN_AXE)) > 0;
+                    boolean pick = g.inventory.count(x -> x.getItem() instanceof net.minecraft.world.item.PickaxeItem && !x.is(Items.WOODEN_PICKAXE)) > 0;
+                    int meals = Kit.food(g), blocks = Kit.buildingBlocks(g);
+                    java.util.List<String> lack = new java.util.ArrayList<>();
+                    if (!weapon) lack.add("a sword or axe"); if (!pick) lack.add("a pickaxe"); if (meals < (nether ? 4 : 2)) lack.add((nether ? 4 : 2) + "+ meals (" + meals + ")"); if (nether && blocks < 32) lack.add("32+ blocks for bridges and cover (" + blocks + ")");
+                    Integer tried = g.attempts.counters.get("recoverGear"); int nowT = g.getServer() == null ? g.tickCount : g.getServer().getTickCount();
+                    if (!lack.isEmpty() && (tried == null || nowT - tried > 20 * 600 || nowT < tried)) {
+                        g.attempts.counters.put("recoverGear", nowT); // (one go at it every 10 min: a kit he can't finish never holds the pile up for good)
+                        g.skillQueue.addFirst(new Skills.Step("recover_drops", "", 1)); g.skillQueue.addFirst(new Skills.Step("gear_up", "", 1));
+                        ClaudeMod.LOGGER.info("[Claude life] recover_drops: his pile in {} at {} ({}) waits (its chunk isn't loaded, so its despawn clock is stopped); short of {}: gear_up first (ClaudeLife recover_drops)", dn.dim, dn.at.toShortString(), dn.what, String.join(", ", lack));
+                        return "my things at " + dn.at.toShortString() + " keep while nobody's near them, so i'll gear up first (short of " + String.join(", ", lack) + "), then go back for them";
+                    }
+                }
                 if (dn != null && !dn.dim.equals(dimHere)) {
                     g.skillQueue.addFirst(new Skills.Step("recover_drops", "", 1)); g.skillQueue.addFirst(new Skills.Step("enter_portal", "", 1));
                     ClaudeMod.LOGGER.info("[Claude life] recover_drops: his pending pile is in {} at {}: through his portal for it (ClaudeLife recover_drops)", dn.dim, dn.at.toShortString());

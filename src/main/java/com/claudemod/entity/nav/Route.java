@@ -83,11 +83,22 @@ public final class Route {
     public static List<Task> expand(ClaudeEntity g, ServerLevel level, BlockPos to, double within) {
         { List<Task> seen = alongRoutes(g, to); if (seen != null) return seen == MARK ? null : seen; } // (dropped: empty; his walker's: null; back on a route after other walks: the walk to its end, planned again from here) // (a leg behind him: dropped; a leg ahead of him: his walker's)
         BlockPos me = g.blockPosition();
-        if (level.dimensionType().hasCeiling() && Math.hypot(to.getX() - me.getX(), to.getZ() - me.getZ()) > FAR) { // the Nether: no sky, so none of the land plans below; the long way over columns (NetherRoute), its legs his walker plans in full
-            NetherRoute.Plan np = NetherRoute.plan(g, level, me, to);
+        BlockPos toDeck0 = level.dimensionType().hasCeiling() ? FortressEnds.deckNear(level, to) : null;
+        boolean intoFortress0 = toDeck0 != null && toDeck0.distSqr(to) <= 4 * 4 && !com.claudemod.entity.life.FortressScout.onFortress(g) && me.distSqr(to) > 4 * 4; // (into a fortress from off it, near or far: by its open end, the user's rule; a walk he plans himself would cut through its side)
+        if (level.dimensionType().hasCeiling() && (Math.hypot(to.getX() - me.getX(), to.getZ() - me.getZ()) > FAR || intoFortress0)) { // the Nether: no sky, so none of the land plans below; the long way over columns (NetherRoute), its legs his walker plans in full
+            BlockPos from = me, aim = to; List<BlockPos> pre = new ArrayList<>(), post = new ArrayList<>(); String via = ""; // (a fortress joined at its bridges' open ends, never through a side: the user, 2026-11-01)
+            BlockPos toDeck = toDeck0; boolean intoFortress = toDeck != null && toDeck.distSqr(to) <= 4 * 4;
+            boolean onFortress = com.claudemod.entity.life.FortressScout.onFortress(g);
+            if (onFortress && !intoFortress) { FortressEnds.End ex = FortressEnds.exit(level, me, to);
+                if (ex != null && ex.outside().distSqr(to) < me.distSqr(to)) { pre.add(ex.deck()); pre.add(ex.outside()); from = ex.outside(); via = "out by the fortress's open end at " + ex.deck().toShortString() + " (" + ex.out().getName() + "), then "; } }
+            if (!onFortress && intoFortress) { FortressEnds.End en = FortressEnds.entry(level, me, to);
+                if (en != null) { aim = en.outside(); post.add(en.outside()); post.add(en.deck()); via = "to the fortress's open end at " + en.deck().toShortString() + " (from the " + en.out().getName() + "), in along it; "; } }
+            if (!via.isEmpty()) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] to {}: {}never through its side (FortressEnds)", to.toShortString(), via);
+            NetherRoute.Plan np = from.distSqr(aim) <= 6 * 6 ? new NetherRoute.Plan(List.of(), false, 0, 0, 0, 0, 0, 0) : NetherRoute.plan(g, level, from, aim);
             if (np == null) return null;
-            List<BlockPos> nl = new ArrayList<>(np.legs()); List<Double> ns = new ArrayList<>(); for (int i = 0; i < nl.size(); i++) ns.add(1.5);
-            return finish(g, to, within, nl, ns, np.partial(), "across the Nether (" + (int) np.seconds() + " s: " + np.digs() + " dug, " + np.puts() + " put down, " + np.climb() + " up" + (np.partial() ? "; as far as the loaded land goes, planned again from there" : "") + ")");
+            List<BlockPos> nl = new ArrayList<>(pre); nl.addAll(np.legs()); if (!np.partial()) nl.addAll(post);
+            List<Double> ns = new ArrayList<>(); for (int i = 0; i < nl.size(); i++) ns.add(post.contains(nl.get(i)) || pre.contains(nl.get(i)) ? 0.9 : 1.5);
+            return finish(g, to, within, nl, ns, np.partial(), via + "across the Nether (" + (int) np.seconds() + " s: " + np.digs() + " dug, " + np.puts() + " put down, " + np.climb() + " up" + (np.partial() ? "; as far as the loaded land goes, planned again from there" : "") + ")");
         }
         MineBlueprint b = g.blueprint; boolean mine = b != null && !b.isEmpty();
         int meNook = -1, toNook = -1; // a nook's pocket (his nooks, the one being moved) hangs off its mouth row: in his mine, never "on the land" (from the old pocket under the grass: out by his door and round, 12 legs for 8 blocks)

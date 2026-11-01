@@ -303,10 +303,11 @@ public final class FortressFight {
         { // blazes he can't reach and nothing to shoot them with (World 15 01:27: 4 blazes hovering 7-14 off a hall, 5 min, 0 rods, not one swing): vanilla's blaze never closes on a player it sees (it hangs back and shoots; out of sight it drifts in 5 ticks and stops), so a sword gets one only at its spawner, where they appear within 4 of the cage
             boolean ranged = g.inventory.count(s0 -> s0.is(Items.BOW)) > 0 && g.inventory.count(s0 -> s0.is(Items.ARROW)) > 0;
             boolean reachable = false; for (Blaze b0 : bl) if (b0.getBoundingBox().minY <= g.getY() + 3.2 && b0.distanceTo(g) <= 14) reachable = true;
+            int nowT = g.getServer() == null ? g.tickCount : g.getServer().getTickCount(); // (server ticks: his own tickCount starts at 0 again after every portal trip, and a time kept from before it read as never passing)
             Integer since = outOfReach().get(g.getUUID());
             if (ranged || reachable || bl.isEmpty() || spawner != null && spawner.distSqr(g.blockPosition()) <= 8 * 8) outOfReach().remove(g.getUUID());
-            else if (since == null) outOfReach().put(g.getUUID(), g.tickCount);
-            else if (g.tickCount - since >= 20 * 15) {
+            else if (since == null || since > nowT) outOfReach().put(g.getUUID(), nowT);
+            else if (nowT - since >= 20 * 15) {
                 outOfReach().remove(g.getUUID());
                 BlockPos cage = spawner != null ? spawner : Perception.nearestSign(g, g.blockPosition(), 128, "a mob spawner");
                 String why = bl.size() + " blaze(s) out of reach 15 s (they hang back and shoot at a player they see) and no bow and arrows on me";

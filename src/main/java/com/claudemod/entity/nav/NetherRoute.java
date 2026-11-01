@@ -90,7 +90,7 @@ public final class NetherRoute {
         List<BlockPos> legs = new ArrayList<>(); int climb = 0;
         for (int i = 1; i < path.size(); i++) {
             Node a = path.get(i - 1), b = path.get(i); climb += Math.max(0, b.y - a.y);
-            boolean last = i == path.size() - 1, big = Math.abs(b.y - a.y) >= 5; // (a big climb or drop ends a leg there: one walk plans it whole)
+            boolean last = i == path.size() - 1, big = Math.abs(b.y - a.y) >= 5 || b.digs - a.digs >= 3; // (a big climb or drop ends a leg there: one walk plans it whole; so does a tunnel's every node: 12 across of tunnel, 24 cells dug, was past his walker's search and every leg "no way", stage 538)
             if (last || big || i % LEG_NODES == 0 || i + 1 < path.size() && Math.abs(path.get(i + 1).y - b.y) >= 5) {
                 BlockPos p = new BlockPos(b.x, b.y, b.z); if (legs.isEmpty() || !legs.get(legs.size() - 1).equals(p)) legs.add(p);
             }
@@ -169,15 +169,17 @@ public final class NetherRoute {
             if (dy > 1) sec += (dy - 1) * CLIMB; // steps cut up or a pillar
             if (dy < -3) sec += (-dy - 3) * DESCEND; // steps dug down, or a drop he can take
             boolean flat = Math.abs(dy) <= 3;
+            int prevPy = y;
             for (int i = 1; i <= steps; i++) {
                 double f = (double) i / steps;
                 int px = (int) Math.floor(x + 0.5 + (cx - x) * f), pz = (int) Math.floor(z + 0.5 + (cz - z) * f);
                 int py = dy > 0 ? Math.min(ny, y + (int) Math.ceil(dy * Math.min(1.0, f * 1.5))) : dy < 0 ? (int) Math.round(y + dy * f) : y; // (going up: the climb early, at the wall; going down: an even slope)
-                for (int hgt = 0; hgt <= 1; hgt++) {
-                    double d0 = dig(px, py + hgt, pz);
+                for (int yy = Math.min(prevPy, py); yy <= Math.max(prevPy, py) + 1; yy++) { // (every cell of height this step passes, feet to head: a steep step down sampled one cell a block and planned through bedrock under it, stage 545)
+                    double d0 = dig(px, yy, pz);
                     if (d0 < 0) return null;
                     if (d0 > 0) { sec += d0; digs++; }
                 }
+                prevPy = py;
                 if (dy > 0 && i == 1) { double d2 = dig(x, y + 2, z); if (d2 < 0 && solid(x, y + 2, z)) return null; } // (head room over him to step or pillar up)
                 if (flat || i == steps) { // what's under him on the way
                     if (!solid(px, py - 1, pz)) {

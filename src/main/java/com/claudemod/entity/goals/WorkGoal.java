@@ -4928,7 +4928,7 @@ public class WorkGoal extends Goal {
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
         Vec3 away = g.position().subtract(mob.position()).multiply(1, 0, 1); if (away.lengthSqr() < 1e-4) return null; away = away.normalize();
         boolean fire = level.getBlockState(feet).is(net.minecraft.tags.BlockTags.FIRE);
-        if (!fire && !lipBehind(level, feet, away)) { footingSaid = null; return null; }
+        if (!fire && (mob.distanceTo(g) > 4 || !lipBehind(level, feet, away))) { footingSaid = null; return null; } // ponytail: live 14:45 -36,50,-898: a lip "behind" him from an enderman 15 off; the approach stepped him back onto it, 4 shuffles a second. Only a mob in reach throws him
         BlockPos best = null; double bd = Double.MAX_VALUE;
         for (BlockPos q0 : BlockPos.betweenClosed(feet.offset(-4, -1, -4), feet.offset(4, 1, 4))) { BlockPos q = q0.immutable();
             if (q.equals(feet) || !com.claudemod.entity.life.FortressFight.stand(level, q) || com.claudemod.entity.body.Controls.lavaCell(g, q)) continue;

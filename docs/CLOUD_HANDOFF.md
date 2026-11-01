@@ -44,8 +44,8 @@ The checkpoints, in order:
 3. diamonds
 4. obsidian and a portal
 5. reach a fortress from his portal (done live 2026-11-01 01:26, World 15)
-6. **BLAZE RODS (current)**
-7. ender pearls
+6. blaze rods (done, 2026-11-01: the user, "he's capable of it at least")
+7. **ENDER PEARLS (current)**
 8. eyes of ender
 9. the stronghold (eye throws, triangulation)
 10. the End portal
@@ -55,7 +55,9 @@ The checkpoints, in order:
 
 **State 2026-11-01 (cloud):**
 - **Checkpoint 5 is done live.** The Nether planner (`NetherRoute`, `docs/reports/nether-route.md`) and World 15's own terrain as stages 536-538 (`docs/reports/w15-terrain.md`) are on main.
-- **Checkpoint 6** (`docs/reports/blaze-reach.md`): a bow shoots blazes out of sword reach; with no bow he goes to their spawner; no empty peeks; a waiting meal goes first. Live after that: proof he gets 7 rods.
+- **Checkpoint 6 is done** (`docs/reports/blaze-reach.md`): a bow shoots blazes out of sword reach; with no bow he goes to their spawner; hurt, he gets out of their sight or walls in where he stands (stages 539-544). The user calls it done: he's capable of it.
+- **Checkpoint 7, ender pearls, is current.** Day to Day's live work: the hunt by night in open biomes or by day in a warped forest (f5f1885), the enderman booth (19ccbcf), the eye guard (84f6172). Backlog items for it: the pearl-hunt spot order (warped forest when the Nether is reachable, else open biomes at night), arrows for the trip, and the charged-blaze peek loop for when he's back at a fortress.
+- **Open for the Nether planner** (backlog): NetherRoute and FortressEnds read blocks he's never seen.
 - **Crossings as highway pieces:** `docs/reports/highway-crossing.md`.
 
 **Reach a fortress (done; the notes as they were):**

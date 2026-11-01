@@ -785,6 +785,7 @@ public class WorkGoal extends Goal {
                 for (var m : enemiesNear(24)) {
                     if (!(m.distanceTo(g) < 8 || g.hasLineOfSight(m))) continue; // (what he can see or hear close by, nothing through walls)
                     threats.add(m.position());
+                    if (m instanceof net.minecraft.world.entity.monster.Blaze || m instanceof net.minecraft.world.entity.FlyingMob) continue; // fliers hover off the floor: they shoot, they don't block a way (06:07 four blazes over his own rods 4 off kept every pick_up walk from starting, rods left to despawn)
                     for (int i = path.getNextNodeIndex(); i < path.getNodeCount(); i++) if (path.getNode(i).asBlockPos().distSqr(m.blockPosition()) < 9) { onRoute++; break; }
                 }
                 int crowd = !armed() || weakKit() ? 1 : 2;

@@ -1622,6 +1622,7 @@ public final class ClaudeLife {
                 String sk = o.get("skill").getAsString();
                 if (sk.equals("recover")) { sk = com.claudemod.entity.life.OwnEvents.lastLeft(g, "") != null ? "recover_left" : "recover_drops"; ClaudeMod.LOGGER.info("[Claude plan] the plan's \"recover\" step read as {} (ClaudeLife.startPlan)", sk); }
                 if (!skills.contains(sk)) continue; // gated by stage/situation in code
+                if (sk.equals("sleep") && !g.level().isThundering() && g.level().getDayTime() % 24000 < 12542) { ClaudeMod.LOGGER.info("[Claude plan] the plan's sleep step dropped: beds work from dusk, it's {} now (the day isn't slept through; the steps after it wait for dusk themselves) (ClaudeLife.startPlan)", g.level().getDayTime() % 24000); continue; } // (01:52 \"wait out the day\" as a sleep at time 460: failed twice, the watchdog asked them for help)
                 g.skillQueue.add(new Skills.Step(sk, o.get("target").getAsString(), Math.max(1, Math.min(64, o.get("count").getAsInt())),
                         o.has("where") ? o.get("where").getAsString() : "near_you"));
             }

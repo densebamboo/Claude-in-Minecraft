@@ -2443,7 +2443,7 @@ public class WorkGoal extends Goal {
         if (digInAt != null && digInTasks != null && digInTasks.stream().anyMatch(x -> x == t)) { BlockPos hole = digInAt; items.removeIf(i -> (Math.abs(i.getBlockX() - hole.getX()) > 1 || Math.abs(i.getBlockZ() - hole.getZ()) > 1) && pickupSkipped(i, "the cover's own pickup takes only what's in the hole")); } // the cover's own pickup (the dirt for the lid): only what's in the hole (it walked him out of his half-dug hole at night to drops lying about)
         // (a full pack: nothing to be had: pickupSkip above)
         if (bp != null) items.removeIf(i -> !bp.touches(i.blockPosition()) && !com.claudemod.director.ClaudeLife.inHisNook(g, i.blockPosition()) && !airJoinedToMine(level, bp, i.blockPosition()) && pickupSkipped(i, "in his mine only drops in it, in his nook or in open air joined to it count")); // only what lies in the mine or in open air joined to it (an ore hole dug off his walkway, the drop a cell deeper in: it was invisible here and the patch sealed it in): a drop that drifted up through the rock lured him into cutting his way up through his own ceiling
-        if (items.isEmpty()) { if (ticks == 1 && (seen0 > 0 || g.tickCount - pickupEmptySaid > 100)) { pickupEmptySaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude pickup] nothing to pick up round {} ({} drop(s) in his sweep, all skipped as said) (WorkGoal.doPickup)", g.blockPosition().toShortString(), seen0); } return true; }
+        if (items.isEmpty()) { if ((seen0 > 0 || g.tickCount - pickupEmptySaid > 100)) { pickupEmptySaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude pickup] nothing to pick up round {} ({} drop(s) in his sweep, all skipped as said) (WorkGoal.doPickup)", g.blockPosition().toShortString(), seen0); } return true; }
         var nearest = items.stream().min(java.util.Comparator.comparingDouble(g::distanceToSqr)).get();
         g.getLookControl().setLookAt(nearest);
         if (ticks % 8 != 1) return false;
@@ -4634,6 +4634,7 @@ public class WorkGoal extends Goal {
             // it died: grab what it dropped (beef, leather...) before moving on, like a player would
             boolean died = e == null || (e instanceof net.minecraft.world.entity.LivingEntity l && !l.isAlive());
             if (died && ticks > 1 && e instanceof net.minecraft.world.entity.monster.EnderMan && inEmHole()) { g.tasks.addFirst(new Task.Pillar(2)); g.tasks.addFirst(new Task.Pickup(40)); com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman's down: its pearl, then up out of the hole (WorkGoal.doAttack)"); }
+            if (died && ticks > 1 && e != null) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] killed the {} at {} (WorkGoal.doAttack)", e.getType().getDescription().getString(), e.blockPosition().toShortString()); // (every kill on his log: his chat leads with it, MindLog.recent)
             if (died && ticks > 1 && !(g.tasks.peek() instanceof Task.Pickup)) g.tasks.addFirst(new Task.Pickup(80));
             return true;
         }

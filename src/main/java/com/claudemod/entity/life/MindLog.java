@@ -81,7 +81,11 @@ public final class MindLog {
     public static String recent() {
         synchronized (lines) {
             if (lines.isEmpty()) return "";
-            return "YOUR RECENT LOG (your own debug log, what you just did, what failed and why; trust it over guesses, e.g. a drop you \"left behind\" is still lying there):\n" + String.join("\n", lines) + "\n";
+            // the user 2026-11-01: he killed the enderman they'd pointed at, then asked "where's it at?": the kill sat mid-log and lost to the open order. Fights he just finished go first.
+            java.time.LocalTime cut = java.time.LocalTime.now().minusMinutes(3); StringBuilder done = new StringBuilder();
+            for (String l : lines) if (l.contains("[Claude fight]") && (l.contains("'s down") || l.contains("killed") || l.contains(" dead")) && l.length() > 8 && !java.time.LocalTime.parse(l.substring(0, 8)).isBefore(cut)) done.append(l).append("\n");
+            String head = done.length() == 0 ? "" : "JUST DONE (fights you finished in the last 3 minutes: that mob is DEAD, never ask where it is; tell them you got it):\n" + done;
+            return head + "YOUR RECENT LOG (your own debug log, what you just did, what failed and why; trust it over guesses, e.g. a drop you \"left behind\" is still lying there):\n" + String.join("\n", lines) + "\n";
         }
     }
 }

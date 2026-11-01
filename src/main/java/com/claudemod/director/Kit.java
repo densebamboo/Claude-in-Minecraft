@@ -86,6 +86,7 @@ public final class Kit {
         return g.inventory.count(s -> s.is(Items.BLAZE_ROD)) >= 6 || g.inventory.count(s -> s.is(Items.BLAZE_POWDER)) >= 12 || g.inventory.count(s -> s.is(Items.ENDER_EYE)) > 0 || g.level().dimension() == net.minecraft.world.level.Level.END;
     }
     /** What the kit still lacks (item -> count), in the order he'd make it. full: the whole cave kit; else just a sword and food. */
+    // (the Nether trip's diamond pick is for a portal's obsidian: with a lit portal on record it isn't in that kit; the user, 14:06 World 15: "he already had the portal so that's not the right reasoning to mine for diamonds")
     public static Map<Item, Integer> missing(ClaudeEntity g, boolean full) {
         // the first-day order every player knows: food (and wool for a bed, off the same animals) while it's light, a stone sword to carry,
         // a bed by nightfall, and only then the iron for the armor, sword and shield
@@ -146,7 +147,7 @@ public final class Kit {
             }
             if (!sword(g, true)) m.put(diamonds >= 2 ? Items.DIAMOND_SWORD : Items.IRON_SWORD, 1); // a water bucket: the one thing that undoes a fall, a lava pocket or a burning (3 ingots, after the sword)
             if (!shield(g)) m.put(Items.SHIELD, 1);
-            for (Item t : dragonKit ? java.util.List.of(Items.DIAMOND_PICKAXE, Items.DIAMOND_AXE, Items.DIAMOND_SHOVEL) : java.util.List.of(Items.DIAMOND_PICKAXE)) if (g.inventory.count(st -> st.is(t)) == 0) m.put(t, 1); // (the Nether trip: a diamond pick for the obsidian; the axe and shovel for the dragon kit) // then the diamond tools: the same trip as the iron, just deeper (y -58)
+            for (Item t : dragonKit ? java.util.List.of(Items.DIAMOND_PICKAXE, Items.DIAMOND_AXE, Items.DIAMOND_SHOVEL) : com.claudemod.entity.life.PortalMap.litPortal(g) ? java.util.List.<Item>of() : java.util.List.of(Items.DIAMOND_PICKAXE)) if (g.inventory.count(st -> st.is(t)) == 0) m.put(t, 1); // (the Nether trip: a diamond pick for the obsidian; the axe and shovel for the dragon kit) // then the diamond tools: the same trip as the iron, just deeper (y -58)
             // the bow and its quiver are a want, not this kit's gate (the user: wanted for the Nether, a must only before the End): in the kit when they're cheap, the string on him or in a chest a short walk off, the flint and feathers on him; never a spider hunt for the kit (live 13:05: gear_up's "fight spider 2" with none about, then a daylight explore for spiders while the portal waited)
             if (g.inventory.count(s -> s.is(Items.BOW)) == 0 && bowCheap(g)) m.put(Items.BOW, 1);
             int arrowsOn = g.inventory.count(s -> s.is(Items.ARROW));

@@ -54,6 +54,8 @@ public final class PortalMap {
 
     public static String dim(Level l) { return l.dimension().location().getPath(); }
     static ResourceKey<Level> key(String d) { return NETHER.equals(d) ? Level.NETHER : OW.equals(d) ? Level.OVERWORLD : Level.END; }
+    /** A lit portal of his on record in the overworld (his way to the Nether already stands). */
+    public static boolean litPortal(ClaudeEntity g) { for (Portal p : net(g).portals) if (OW.equals(p.dim) && "lit".equals(p.state)) return true; return false; }
     public static Portal byId(ClaudeEntity g, int id) { for (Portal p : net(g).portals) if (p.id == id) return p; return null; }
 
     /** The portal record at (or within 3 of) this cell in that dimension, made if new. */
@@ -178,9 +180,9 @@ public final class PortalMap {
         for (String kind : List.of("fortress", "bastion_remnant")) if (w.contains(kind.substring(0, 7))) { // the portal nearest the one he has seen (here, or its other side's)
             Perception.Sighting s = null; double sd = Double.MAX_VALUE;
             for (Perception.Sighting x : Perception.sightings(g)) if (x.id().equals(kind) && x.dim() == Level.NETHER) { double dd = x.saw().distSqr(me); if (dd < sd) { sd = dd; s = x; } }
-            if (s == null) return null;
+            if (s == null) { if (NETHER.equals(d)) return null; Portal lit0 = here.stream().filter(p -> "lit".equals(p.state)).min(near).orElse(null); if (lit0 != null) ClaudeMod.LOGGER.info("[Claude portal] \"{}\": no {} seen yet: the nearest lit portal to the Nether, #{} (PortalMap.resolve)", w, kind, lit0.id); return lit0; } // (no fortress seen yet: a way to the Nether, then the looking there)
             Portal best = null; double bd = Double.MAX_VALUE;
-            for (Portal p : here) { Portal nside = NETHER.equals(d) ? p : leadsTo(g, p); if (nside == null) continue; double dd = nside.at.distSqr(s.saw()); if (dd < bd) { bd = dd; best = p; } }
+            for (int pass = 0; pass < 2 && best == null; pass++) for (Portal p : here) { if (pass == 0 && !"lit".equals(p.state)) continue; Portal nside = NETHER.equals(d) ? p : leadsTo(g, p); if (nside == null) continue; double dd = nside.at.distSqr(s.saw()); if (dd < bd) { bd = dd; best = p; } } // (lit ones first: World 15 14:16, "fortress" picked an unlit ruined frame 191 off over his lit #4)
             return best;
         }
         if (w.matches(".*\\b(my|mine|his|your)\\b.*")) { Portal mine = here.stream().filter(p -> "him".equals(p.by)).min(near).orElse(null); if (mine != null) return mine; }

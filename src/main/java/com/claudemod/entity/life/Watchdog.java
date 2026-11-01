@@ -63,6 +63,8 @@ public final class Watchdog {
     public static int incidents; public static String lastIncident = ""; // (stages read them)
     public static String lastTold(ClaudeEntity g) { St s = ST.get(g.getUUID()); return s == null ? "" : s.lastTold; }
     public static int trips(ClaudeEntity g) { St s = ST.get(g.getUUID()); return s == null ? 0 : s.trips; }
+    /** That action written off by the watchdog (tripped, within its 2 minutes): its source should not queue it again. */
+    public static boolean off(ClaudeEntity g, Task t) { String k = key(t); return k != null && rung(g, k) > 0; }
     public static int rung(ClaudeEntity g, String key) { St s = ST.get(g.getUUID()); int[] r = s == null ? null : s.rung.get(key); return r == null || g.tickCount - r[1] > MEMORY ? 0 : r[0]; }
 
     // ---------------------------------------------------------------- the measures

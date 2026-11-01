@@ -239,6 +239,7 @@ public final class TempLedger {
           if (air >= 4) { e.blocked = "a drop of 4+ under it: it stays, the way back over the gap"; return false; } } /* live 00:05: the tidy at a new step queued his bridge over a 6 drop, the drop guard held it, and the hold asked the user "say 'yes, break it'" for a break nobody ordered */
         if (s.requiresCorrectToolForDrops() && g.inventory.find(t -> t.isCorrectToolForDrops(s)).isEmpty()) { e.blocked = "no tool that drops it"; return false; }
         if (!e.blocked.isEmpty() && !e.awayAfterTry) return false; // couldn't get it last time: again once he's been away and is back by it
+        if (Watchdog.off(g, new Task.Break(e.pos))) { if (!"written off".equals(e.blocked)) ClaudeMod.LOGGER.info("[Claude temp] his {} at {}: its take-up is written off by the watchdog (no way to it): left, not queued again (TempLedger.takeable)", e.item, e.pos.toShortString()); e.blocked = "written off"; return false; } // (World 15 13:50: a stray table re-queued every few seconds after the write-off, 32+ lines)
         return true;
     }
 

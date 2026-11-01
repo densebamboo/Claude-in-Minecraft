@@ -646,7 +646,7 @@ public class WorkGoal extends Goal {
             BlockPos gr = q.above(); if (Math.abs(gr.getY() - feet.getY()) > 2) continue; // (its foot on his own level: a walk there, then the tower)
             double dd = gr.distSqr(feet); if (dd < bd) { bd = dd; bestS = s0.immutable(); bestG = gr.immutable(); } }
         if (bestS == null) return false;
-        g.tasks.addFirst(new Task.GoTo(pos, 0.9)); g.tasks.addFirst(new Task.Pillar(bestS.getY() - bestG.getY())); g.tasks.addFirst(new Task.GoTo(bestG, 0.4));
+        g.tasks.addFirst(new Task.GoTo(pos, 0.9)); g.tasks.addFirst(new Task.Pillar(bestS.getY() - bestG.getY())); g.tasks.addFirst(new Task.GoTo(bestG, 0.7)); // (0.4 never settled there, a flaky stall)
         com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no way to {} the search found ({} up): a tower beside it, from {} up {} to {}, then onto it (WorkGoal.towerTo)", pos.toShortString(), up, bestG.toShortString(), bestS.getY() - bestG.getY(), bestS.toShortString());
         return true;
     }

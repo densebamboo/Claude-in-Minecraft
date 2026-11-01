@@ -10367,6 +10367,9 @@ public final class ClaudeBodyTest {
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
             case 494: return st494(stage, t, c, h, level, mock);
+            case 538: return st538(stage, t, c, h, level, mock);
+            case 537: return st537(stage, t, c, h, level, mock);
+            case 536: return st536(stage, t, c, h, level, mock);
             case 535: return st535(stage, t, c, h, level, mock);
             case 534: return st534(stage, t, c, h, level, mock);
             case 533: return st533(stage, t, c, h, level, mock);
@@ -10595,6 +10598,72 @@ public final class ClaudeBodyTest {
             BlockPos down = h.absolutePos(new BlockPos(4, 2, 8)); c.teleportTo(down.getX() + 0.5, down.getY(), down.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
             pass(stage, t, "the blaze out past the edge: he stayed on the deck 12 s"); }
         return true;
+    }
+    // ---- World 15's real Nether (testdata from the live save, 2026-11-01 00:55; tools/mca_extract.py cut the boxes): the fortress-reach stages 536-538 ----
+    private record W15(int x0, int y0, int z0, int x1, int y1, int z1, net.minecraft.world.level.block.state.BlockState[] pal, short[] arr) {
+        net.minecraft.world.level.block.state.BlockState at(int x, int y, int z) { return pal[arr[((x - x0) * (z1 - z0 + 1) + (z - z0)) * (y1 - y0 + 1) + (y - y0)] & 0xffff]; }
+    }
+    private static final java.util.Map<String, W15> W15S = new java.util.HashMap<>();
+    /** A box of World 15's Nether: its bounds, its block states, the cells (x, z, y order). */
+    private static W15 w15(ServerLevel level, String name) {
+        return W15S.computeIfAbsent(name, k -> {
+            try (var in = new java.io.DataInputStream(new java.io.BufferedInputStream(new java.util.zip.GZIPInputStream(ClaudeBodyTest.class.getResourceAsStream("/claude_testterrain/" + k + ".gz"))))) {
+                String[] b = w15Line(in).trim().split(" "); int n = Integer.parseInt(w15Line(in).trim());
+                var look = level.holderLookup(net.minecraft.core.registries.Registries.BLOCK);
+                var pal = new net.minecraft.world.level.block.state.BlockState[n];
+                for (int i = 0; i < n; i++) { String st = w15Line(in).trim(); pal[i] = net.minecraft.commands.arguments.blocks.BlockStateParser.parseForBlock(look, st, false).blockState(); }
+                int x0 = Integer.parseInt(b[0]), y0 = Integer.parseInt(b[1]), z0 = Integer.parseInt(b[2]), x1 = Integer.parseInt(b[3]), y1 = Integer.parseInt(b[4]), z1 = Integer.parseInt(b[5]);
+                short[] arr = new short[(x1 - x0 + 1) * (y1 - y0 + 1) * (z1 - z0 + 1)];
+                for (int i = 0; i < arr.length; i++) arr[i] = in.readShort();
+                return new W15(x0, y0, z0, x1, y1, z1, pal, arr);
+            } catch (Exception e) { throw new RuntimeException("World 15 terrain " + k + ": " + e, e); }
+        });
+    }
+    private static String w15Line(java.io.DataInputStream in) throws java.io.IOException { StringBuilder sb = new StringBuilder(); int ch; while ((ch = in.read()) != '\n' && ch >= 0) sb.append((char) ch); return sb.toString(); }
+    /** One x slice of the box into the test Nether at its real coordinates, walled and roofed with bedrock (the save's land past its edges plays no part). True once it's all in. */
+    private static boolean w15Slice(ServerLevel nether, W15 w, int i) {
+        int x = w.x0() - 1 + i; if (x > w.x1() + 1) return true;
+        for (int z = w.z0() - 1; z <= w.z1() + 1; z++) for (int y = w.y0(); y <= w.y1() + 1; y++) {
+            boolean wall = x < w.x0() || x > w.x1() || z < w.z0() || z > w.z1() || y > w.y1();
+            nether.setBlock(new BlockPos(x, y, z), wall ? Blocks.BEDROCK.defaultBlockState() : w.at(x, y, z), 2 | 16);
+        }
+        return false;
+    }
+    private static int w15Done = -1, w15Built = -1; private static float w15Low = 20f; private static String w15Route = "";
+    /** A fortress reach on World 15's own Nether: built a slice a tick, him dropped at {@code start} with the kit he had live, the walk to {@code deck}; done standing on fortress bricks within 30 of it, alive. */
+    private static boolean w15Reach(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, String box, BlockPos start, BlockPos deck, int secs, String what) {
+        ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        W15 w = w15(nether, box);
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); w15Done = -1; w15Built = -1; w15Low = 20f; w15Route = ""; c.nextPlanTick = c.tickCount + 20 * 900; c.prefs.put("stay_close", "no");
+            c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(nether, (w.x0() + w.x1()) / 2 + 0.5, 120, (w.z0() + w.z1()) / 2 + 0.5, 0, 0); c.setNoGravity(true); }
+        if (t[0] >= 20 && w15Built < 0 && w15Slice(nether, w, t[0] - 20)) w15Built = t[0];
+        if (w15Built > 0 && t[0] == w15Built + 20) { c.setNoGravity(false); c.teleportTo(nether, start.getX() + 0.5, start.getY(), start.getZ() + 0.5, 0, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.tasks.clear(); c.fallDistance = 0; c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); }
+        if (w15Built < 0 || t[0] < w15Built + 20) return true;
+        int t0 = w15Built + 40;
+        if (c.level() == nether) { w15Low = Math.min(w15Low, c.getHealth()); for (var m : nether.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(w.x0() - 32, 0, w.z0() - 32, w.x1() + 32, 128, w.z1() + 32))) m.discard(); } // (the route under test: no natural ghast or blaze on it)
+        if (t[0] == t0) c.tasks.add(new Task.GoTo(deck, 1.5));
+        if (t[0] > t0 && (t[0] - t0) % 200 == 0) w15Route += " " + c.blockPosition().toShortString().replace(" ", "");
+        if (t[0] > t0 && w15Done < 0 && c.level() == nether && c.onGround() && com.claudemod.entity.life.FortressScout.onFortress(c) && Math.hypot(c.getX() - deck.getX(), c.getZ() - deck.getZ()) <= 30) w15Done = t[0];
+        boolean dead = !c.isAlive() || c.level() != nether;
+        if (w15Done > 0 || dead || t[0] == t0 + 20 * secs) {
+            check(w15Done > 0 && !dead, what + ": not on the fortress in " + secs + " s (alive " + c.isAlive() + ", in " + c.level().dimension().location() + ", at " + c.blockPosition().toShortString() + ", low " + w15Low + ", task " + c.currentTask + ", queue " + c.tasks.size() + ", ticks " + c.tickCount + ", removed " + c.isRemoved() + ", entity-ticking " + nether.isPositionEntityTicking(c.blockPosition()) + ", in list " + (level.getServer().getPlayerList().getPlayer(c.getUUID()) == c) + "; every 10 s:" + w15Route + ")");
+            String how = what + ": on the fortress at " + c.blockPosition().toShortString() + " in " + (w15Done - t0) / 20 + " s, low " + w15Low + " HP, " + c.inventory.count(x -> x.is(Items.COBBLESTONE) || x.is(Items.COBBLED_DEEPSLATE)) + " cobble left; every 10 s:" + w15Route;
+            c.tasks.clear(); c.dropCurrent = true; c.clearFire(); c.setHealth(20f); c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); if (c.isAlive()) c.teleportTo(level, back.getX() + 0.5, back.getY(), back.getZ() + 0.5, 0, 0); com.claudemod.entity.life.Watchdog.teleported(c);
+            pass(stage, t, how);
+        }
+        return true;
+    }
+    private static boolean st536(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // World 15's lava-sea ledge 164 44 -7 to the far fortress's deck ~185 65 -14 (22:38 "no way at all"; the user's three routes: the left hill, the right hill, a staircase)
+        return w15Reach(stage, t, c, h, level, "w15_ledge", new BlockPos(164, 44, -7), new BlockPos(185, 65, -14), 240, "the ledge to the far deck");
+    }
+    private static boolean st537(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // World 15's bridge drop 188 68 -53 to the far fortress's deck
+        return w15Reach(stage, t, c, h, level, "w15_ledge", new BlockPos(188, 68, -53), new BlockPos(185, 65, -14), 240, "the bridge drop to the far deck");
+    }
+    private static boolean st538(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // World 15's basalt pocket 3 44 73 by portal #5 to the near fortress (-65..-100, deck ~-81 85 136)
+        return w15Reach(stage, t, c, h, level, "w15_pocket", new BlockPos(3, 44, 73), new BlockPos(-81, 85, 136), 420, "the basalt pocket to the near fortress");
     }
     private static int s535Done = -1; private static float s535Low = 20f;
     /** Stage 535's course (in the Nether, about 4000, 4000): the cell at (x, y, z) from its west end. */

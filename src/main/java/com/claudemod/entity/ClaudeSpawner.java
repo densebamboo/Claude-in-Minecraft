@@ -53,9 +53,15 @@ public final class ClaudeSpawner {
         return new GameProfile(UUIDUtil.createOfflinePlayerUUID(ClaudeEntity.NAME), ClaudeEntity.NAME);
     }
 
+    private static int frozenSaid = -100000;
     public static void onServerTick(ServerTickEvent.Post event) {
         MinecraftServer server = event.getServer();
         if (dead != null && server.getTickCount() >= respawnAt) respawn(server);
+        if (server.getTickCount() % 10 == 5) for (ServerPlayer p0 : server.getPlayerList().getPlayers()) { // his chunk tickets move in his own tick (ClaudeEntity.tick): teleported past them (a /tp, a test's drop), his chunk isn't entity-ticking, he never ticks again and they never move; from here they follow him (stage 537 World 15: frozen 240 s at 188, 68, -53 after the drop, 157 ticks)
+            if (!(p0 instanceof ClaudeEntity c0) || !c0.isAlive() || c0.serverLevel().isPositionEntityTicking(c0.blockPosition())) continue;
+            c0.serverLevel().getChunkSource().move(c0);
+            if (server.getTickCount() - frozenSaid > 200) { frozenSaid = server.getTickCount(); ClaudeMod.LOGGER.info("[Claude] his chunk at {} in {} isn't ticking (moved there past his chunk tickets): the tickets moved to him (ClaudeSpawner.onServerTick)", c0.blockPosition().toShortString(), c0.level().dimension().location().getPath()); }
+        }
         if (testing || server.getTickCount() < nextTick) return;
         nextTick = server.getTickCount() + CHECK_EVERY_TICKS;
 

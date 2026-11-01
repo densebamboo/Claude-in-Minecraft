@@ -209,7 +209,16 @@ public final class ActionPath {
             else if (a instanceof Act.Put p) {
                 boolean outside = level == null || level.canSeeSky(p.pos().above());
                 if (p.pos().equals(cur)) out.add(new Task.Pillar(1)); // the block goes under his own feet: that's a tower step (jump and place)
-                else out.add(new Task.Place(p.pos(), scaffold));
+                else {
+                    out.add(new Task.Place(p.pos(), scaffold));
+                    if (level != null && lavaUnder(level, p.pos())) { // over lava, 2 wide (the Nether bridge rule, as bridgeToward does it): a knock sideways lands on the bridge, not in the lava; the coarse Nether plan prices it so (stage 535's legs were 1 wide)
+                        Direction d = Direction.getNearest(p.pos().getX() - cur.getX(), 0, p.pos().getZ() - cur.getZ());
+                        for (Direction sd : new Direction[] {d.getClockWise(), d.getCounterClockWise()}) { BlockPos side = p.pos().relative(sd);
+                            if (!level.getBlockState(side).getCollisionShape(level, side).isEmpty()) break; // (a side already there)
+                            if (!level.getBlockState(side).canBeReplaced() || !level.getBlockState(side.above()).getCollisionShape(level, side.above()).isEmpty()) continue;
+                            out.add(new Task.Place(side.immutable(), scaffold)); break; }
+                    }
+                }
                 if (outside && !dirt) { com.claudemod.director.ClaudeLife.bridgeBlocks().add(p.pos().immutable()); if (p.pos().equals(cur) || p.pos().getY() >= cur.getY()) takeBack.add(p.pos().immutable()); } // (a tower step to climb by comes back the moment he's off it; a bridge waits till he's across: the daylight chore's) // out in the world only dirt may stay (a step up a hill): anything else is broken back up once he is past; in his mine a put is a patch
             }
         }
@@ -218,6 +227,12 @@ public final class ActionPath {
         // (no pickup after: the block drops back down where he climbed from, and going back down for one cobble undid the climb, a loop; what's left on the list, a block still under him at the end, is the daylight chore's, as before)
         out.add(new Task.GoTo(dest, within));
         return out;
+    }
+
+    /** Lava in the cell or within 6 under it, nothing solid between: a bridge block there is over lava. */
+    static boolean lavaUnder(ServerLevel level, BlockPos p) {
+        for (int k = 0; k <= 6; k++) { BlockPos q = p.below(k); if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) return true; if (k > 0 && !level.getBlockState(q).getCollisionShape(level, q).isEmpty()) return false; }
+        return false;
     }
 
     private record Move(BlockPos feet, double cost, List<Act> acts) {}

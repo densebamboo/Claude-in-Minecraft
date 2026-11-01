@@ -131,9 +131,15 @@ public final class FortressScout {
         for (int k : new int[] {d, d + 8, d + 16, d + 24, d + 32, d - 8, d - 16, d - 24, d - 32}) {
             if (k < 12) continue;
             BlockPos p = standAt(level, g.getBlockX() + (int) Math.round(Math.cos(a) * k), g.getBlockZ() + (int) Math.round(Math.sin(a) * k), g.getBlockY());
-            if (p != null) return p;
+            if (p != null && seen(g, level, p)) return p; // (only ground he can see: a pocket behind the rock is no target, live 2026-11-01 he dug to openings out of sight)
         }
         return null;
+    }
+    /** His eyes reach the spot's feet or head cell with nothing solid between (fluids see-through: the far shore of a lava lake counts). */
+    static boolean seen(ClaudeEntity g, ServerLevel level, BlockPos p) {
+        for (BlockPos c : new BlockPos[] {p, p.above()})
+            if (level.clip(new net.minecraft.world.level.ClipContext(g.getEyePosition(), Vec3.atCenterOf(c), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getType() == net.minecraft.world.phys.HitResult.Type.MISS) return true;
+        return false;
     }
     /** explore in the Nether: ground about 45 out his way (a little to either side, then across, then back), never the roof. */
     public static BlockPos exploreSpot(ClaudeEntity g, ServerLevel level, double a) {

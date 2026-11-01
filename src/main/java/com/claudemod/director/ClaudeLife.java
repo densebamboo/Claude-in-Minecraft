@@ -2648,14 +2648,53 @@ public final class ClaudeLife {
                 if (g.mineFace != null) g.tasks.add(new Task.GoTo(g.mineFace, 1.0)); // back to the tunnel afterwards
                 return "exploring a cave (" + route.size() + " spots), mining the ore that shows and lighting it";
             }
+            case "ender_pearls": { // the pearl stage (the user, 19:40): endermen on sight, from a 2-deep hole; pearls picked up; in the Nether, a warped forest is where they are
+                int have = g.inventory.count(x -> x.is(Items.ENDER_PEARL) || x.is(Items.ENDER_EYE)), want = st.count() > 1 ? st.count() : pearlsWanted(g);
+                if (have >= want) return "done: " + have + " pearls/eyes on me (" + want + " wanted)";
+                if (!endermanTime(g)) return "failed: not geared for endermen yet (iron chest and sword, 4+ meals, health 16+, a blaze rod first): " + have + "/" + want + " pearls";
+                var em = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.EnderMan.class, g.getBoundingBox().inflate(32, 8, 32), m -> m.isAlive() && g.hasLineOfSight(m)).stream().min(Comparator.comparingDouble(m -> m.distanceToSqr(g))).orElse(null);
+                g.skillQueue.addFirst(st); // (on with it after this)
+                if (em != null) { g.tasks.add(new Task.Attack(em.getUUID(), 20 * 60)); g.tasks.add(new Task.Pickup(80)); ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: an enderman {} off in sight: after it ({}/{} pearls) (ClaudeLife ender_pearls)", (int) em.distanceTo(g), have, want); return "after the enderman " + (int) em.distanceTo(g) + " off (" + have + "/" + want + " pearls)"; }
+                boolean nether = level.dimension() == net.minecraft.world.level.Level.NETHER;
+                String here = level.getBiome(g.blockPosition()).unwrapKey().map(k -> k.location().getPath()).orElse("");
+                if (nether && !here.equals("warped_forest")) { g.skillQueue.addFirst(new Skills.Step("explore", "warped_forest", 1)); return "no enderman in sight: to a warped forest, where they are (" + have + "/" + want + " pearls)"; }
+                g.skillQueue.addFirst(new Skills.Step("explore", "", 1)); // (through the forest, or the overworld at night: walking on, looking)
+                return "no enderman in sight: walking on, looking (" + have + "/" + want + " pearls)";
+            }
             case "explore": {
                 if (!"trees".equals(st.target()) && g.blueprint != null && !g.blueprint.isEmpty() && g.skillQueue.stream().anyMatch(s0 -> s0.skill().equals("strip_mine"))) { /* (the trip's wood search is not the surface walk for ore this skip is for: skipped, collect logs said "walking off" and stood there) */ ClaudeMod.LOGGER.info("[Claude skill] explore skipped: a strip_mine is queued and his mine is there to push (ore comes from the mine, not the surface)"); return "skipped exploring: my mine is where the ore is, on with it"; } // (the planner put explore before strip_mine iron at 02:21:54: he walked the surface for iron while his y16 branches waited)
                 boolean weakNow = g.inventory.count(x -> (x.getItem() instanceof net.minecraft.world.item.SwordItem && !x.is(Items.WOODEN_SWORD)) || (x.getItem() instanceof net.minecraft.world.item.AxeItem && !x.is(Items.WOODEN_AXE))) == 0
                         || g.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).isEmpty();
                 if (!level.isDay() && weakNow) return "failed: it's night and I've nothing proper to fight with or wear; no exploring the open now, shelter till morning and go at first light";
                 { String no = nightOutsideNo(g, level, g.blockPosition()); if (no != null) return no; }
+                final String want0 = st.target() == null || st.target().isBlank() || "trees".equals(st.target()) ? "" : com.claudemod.entity.life.Atlas.biomeName(st.target());
+                final String want = !want0.isEmpty() && level.registryAccess().registryOrThrow(net.minecraft.core.registries.Registries.BIOME).keySet().stream().anyMatch(k -> k.getPath().equals(want0)) ? want0 : ""; // (a target that's no biome: the plain look round)
+                if (want.isEmpty() && level.dimension() == net.minecraft.world.level.Level.NETHER && com.claudemod.entity.life.FortressScout.onFortress(g)) { // on a fortress: its own deck, never off it over the netherrack
+                    BlockPos sp = com.claudemod.entity.life.FortressFight.blazeSpawner(g, level, 24);
+                    if (sp != null) { ClaudeMod.LOGGER.info("[Claude skill] explore on the fortress: a blaze spawner in sight at {} (ClaudeLife explore)", sp.toShortString()); return "done: a blaze spawner in sight at " + sp.toShortString(); }
+                    BlockPos step = com.claudemod.entity.life.FortressScout.deckStep(g, level);
+                    if (step != null) { g.tasks.add(new Task.GoTo(step, 1.0)); return "along the fortress deck to " + step.toShortString() + ", looking for its spawner"; }
+                    ClaudeMod.LOGGER.info("[Claude skill] explore on the fortress at {}: every part of its deck in reach walked (ClaudeLife explore)", g.blockPosition().toShortString());
+                    return "done: walked all of this fortress's deck I can reach from here, no blaze spawner in sight";
+                }
+                if (!want.isEmpty()) { // a biome to find (the user: "find a warped forest"): in it, done; seen before, there; else fresh ground till it's in view
+                    String here = level.getBiome(g.blockPosition()).unwrapKey().map(k -> k.location().getPath()).orElse("");
+                    if (here.equals(want)) { ClaudeMod.LOGGER.info("[Claude skill] explore {}: in it at {} (ClaudeLife explore)", want, g.blockPosition().toShortString()); return "done: in the " + want.replace('_', ' ') + " at " + g.blockPosition().toShortString(); }
+                    BlockPos known = com.claudemod.entity.life.Atlas.find(g, level, want);
+                    if (known != null) {
+                        g.exploreAngle = Math.atan2(known.getZ() - g.getZ(), known.getX() - g.getX()); g.exploreTick = g.tickCount;
+                        BlockPos go = level.dimensionType().hasCeiling() ? com.claudemod.entity.life.FortressScout.exploreSpot(g, level, g.exploreAngle) : null;
+                        if (Math.sqrt(known.distSqr(g.blockPosition())) <= 40 || go == null) go = known;
+                        g.tasks.add(new Task.GoTo(go, go == known ? 0.8 : 3)); g.skillQueue.addFirst(st); // (and the check again once there; the last leg onto the spot itself: 3 short of it can be outside the biome's edge)
+                        ClaudeMod.LOGGER.info("[Claude skill] explore {}: seen it at {} ({} off): heading there by {} (ClaudeLife explore)", want, known.toShortString(), (int) Math.sqrt(known.distSqr(g.blockPosition())), go.toShortString());
+                        return "heading for the " + want.replace('_', ' ') + " I saw at " + known.toShortString();
+                    }
+                    g.exploreAngle = com.claudemod.entity.life.Atlas.freshHeading(g, level, g.exploreAngle); g.exploreTick = g.tickCount;
+                    g.skillQueue.addFirst(st); // (looked for again after this leg)
+                    ClaudeMod.LOGGER.info("[Claude skill] explore {}: not seen yet ({} cells covered here): off over fresh ground, heading {} deg (ClaudeLife explore)", want, com.claudemod.entity.life.Atlas.covered(g, level), (int) Math.toDegrees(g.exploreAngle));
+                }
                 // keep heading the same way as last time (a search, not a random walk), turning a little now and then
-                if (g.tickCount - g.exploreTick > 20 * 300) g.exploreAngle = level.random.nextDouble() * Math.PI * 2;
+                else if (g.tickCount - g.exploreTick > 20 * 300) g.exploreAngle = com.claudemod.entity.life.Atlas.freshHeading(g, level, level.random.nextDouble() * Math.PI * 2); // (fresh ground first: never the same walk twice)
                 else g.exploreAngle += (level.random.nextDouble() - 0.5) * 0.8;
                 g.exploreTick = g.tickCount;
                 double a = g.exploreAngle;
@@ -12833,9 +12872,11 @@ public final class ClaudeLife {
      * running, already fighting, mid-dig/build, jumping or held in a lesson. Endermen count (pearls are the objective).
      */
     /** Endermen are worth a fight only at the pearl stage (blaze rods or powder in hand, under 12 pearls and eyes) and geared: iron+ chest and sword, 4+ food, health 16+. */
+    /** Pearls (and eyes) the trip needs: 12 eyes for an empty portal frame and 2 spares for the throws that break (the user's pearl stage). */
+    public static int pearlsWanted(ClaudeEntity g) { return 14; }
     public static boolean endermanTime(ClaudeEntity g) {
         int blaze = g.inventory.count(x -> x.is(Items.BLAZE_ROD) || x.is(Items.BLAZE_POWDER)), pearls = g.inventory.count(x -> x.is(Items.ENDER_PEARL) || x.is(Items.ENDER_EYE));
-        if (blaze == 0 || pearls >= 12) return false;
+        if (blaze == 0 || pearls >= pearlsWanted(g)) return false;
         var chest = g.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST);
         boolean armor = chest.is(Items.IRON_CHESTPLATE) || chest.is(Items.DIAMOND_CHESTPLATE) || chest.is(Items.NETHERITE_CHESTPLATE);
         boolean sword = g.inventory.count(x -> x.is(Items.IRON_SWORD) || x.is(Items.DIAMOND_SWORD) || x.is(Items.NETHERITE_SWORD)) > 0;

@@ -60,6 +60,37 @@ public final class FortressScout {
     public static List<Leg> legs(ClaudeEntity g) { return state(g).legs; }
     public static BlockPos found(ClaudeEntity g) { return state(g).found; }
     /** On the fortress: a fortress block (nether bricks, its fence, its stairs) under his feet or the one below that. */
+    // ---- on the fortress: along its deck to the parts he hasn't walked (Day to Day 21:26 World 15: "find the spawner room" sent him off the fortress, 71 blocks over the netherrack) ----
+    private static java.util.Map<java.util.UUID, java.util.Set<Long>> deckSeen;
+    static java.util.Set<Long> deckSeen(ClaudeEntity g) { if (deckSeen == null) deckSeen = new java.util.HashMap<>(); return deckSeen.computeIfAbsent(g.getUUID(), k -> new java.util.HashSet<>()); }
+    static long deckKey(BlockPos p) { return BlockPos.asLong(p.getX() >> 2, p.getY() >> 2, p.getZ() >> 2); }
+    public static void deckReset(ClaudeEntity g) { if (deckSeen != null) deckSeen.remove(g.getUUID()); }
+    static boolean fortressFloor(net.minecraft.world.level.block.state.BlockState s) {
+        return s.is(net.minecraft.world.level.block.Blocks.NETHER_BRICKS) || s.is(net.minecraft.world.level.block.Blocks.NETHER_BRICK_STAIRS) || s.is(net.minecraft.world.level.block.Blocks.NETHER_BRICK_SLAB) || s.is(net.minecraft.world.level.block.Blocks.SOUL_SAND);
+    }
+    /** Where he stands on the fortress, the 4x4 patch counted as walked (every 2 s, Atlas.tick). */
+    public static void noteDeck(ClaudeEntity g) { if (onFortress(g)) deckSeen(g).add(deckKey(g.blockPosition())); }
+    /** The far end of the deck he hasn't walked: the unwalked cell furthest along the bricks he can walk from here (64 at most), or null. */
+    public static BlockPos deckStep(ClaudeEntity g, ServerLevel level) {
+        BlockPos start = g.blockPosition(); java.util.Set<Long> seen = deckSeen(g); seen.add(deckKey(start));
+        java.util.Map<BlockPos, Integer> dist = new java.util.HashMap<>(); java.util.ArrayDeque<BlockPos> q = new java.util.ArrayDeque<>();
+        dist.put(start, 0); q.add(start); BlockPos best = null; int bd = -1;
+        while (!q.isEmpty() && dist.size() < 4000) {
+            BlockPos f = q.poll(); int d0 = dist.get(f);
+            if (d0 > 64) continue;
+            if (d0 >= 6 && !seen.contains(deckKey(f)) && d0 > bd) { bd = d0; best = f; }
+            for (Direction dir : Direction.Plane.HORIZONTAL) for (int dy = -1; dy <= 1; dy++) {
+                BlockPos n = f.relative(dir).above(dy); if (dist.containsKey(n) || !level.isLoaded(n)) continue;
+                if (!level.getBlockState(n).getCollisionShape(level, n).isEmpty() || !level.getBlockState(n.above()).getCollisionShape(level, n.above()).isEmpty()) continue;
+                if (dy == 1 && !level.getBlockState(f.above(2)).getCollisionShape(level, f.above(2)).isEmpty()) continue;
+                if (!fortressFloor(level.getBlockState(n.below())) || !level.getFluidState(n).isEmpty()) continue;
+                dist.put(n.immutable(), d0 + 1); q.add(n.immutable());
+            }
+        }
+        if (best != null) ClaudeMod.LOGGER.info("[Claude scout] on the fortress at {}: along its deck to {} ({} steps, not walked yet; {} cells of deck in reach) (FortressScout.deckStep)", start.toShortString(), best.toShortString(), bd, dist.size());
+        return best;
+    }
+
     public static boolean onFortress(ClaudeEntity g) {
         net.minecraft.core.BlockPos f = net.minecraft.core.BlockPos.containing(g.getX(), g.getY() - 0.2, g.getZ());
         for (net.minecraft.core.BlockPos q : new net.minecraft.core.BlockPos[] {f, f.below()}) { var s = g.level().getBlockState(q); if (s.is(net.minecraft.world.level.block.Blocks.NETHER_BRICKS) || s.is(net.minecraft.world.level.block.Blocks.NETHER_BRICK_FENCE) || s.is(net.minecraft.world.level.block.Blocks.NETHER_BRICK_STAIRS) || s.is(net.minecraft.world.level.block.Blocks.NETHER_BRICK_SLAB)) return true; }

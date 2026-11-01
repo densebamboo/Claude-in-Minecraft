@@ -133,6 +133,7 @@ public class WorkGoal extends Goal {
      *  (everything else waits). WorkGoal.tick runs it first; ClaudeEntity.brainTick runs it before FollowGoal (stage 489). */
     public static int fireballsHit; // (stages read it)
     public boolean reflexes() {
+        try { com.claudemod.entity.life.Atlas.tick(g); } catch (Exception e) { com.claudemod.ClaudeMod.LOGGER.warn("[Claude atlas] tick: {}", e.toString()); }
         try { com.claudemod.entity.life.Watchdog.tick(g); } catch (RuntimeException e) { com.claudemod.ClaudeMod.LOGGER.warn("[Claude watchdog] tick threw", e); } // (the every-tick detectors: any state)
         if (g.level() instanceof ServerLevel fbl) for (var fb : fbl.getEntitiesOfClass(net.minecraft.world.entity.projectile.LargeFireball.class, g.getBoundingBox().inflate(5.0))) { // a ghast's fireball coming at him: hit it back, the hazard layer's first move in any state (the user, 13:00 World 15: "he never hit fireballs back at the ghast"; the old reflex sat in ClaudeLife.tick behind its early returns)
             Vec3 to = g.getEyePosition().subtract(fb.position());
@@ -2053,6 +2054,8 @@ public class WorkGoal extends Goal {
             int drop = first == -1 || first == 99 ? first : first - 1; // how far he'd actually fall: 0 is just level ground (another leaf)
             if (side.equals(lastStepSide) && g.tickCount - lastStepDecided < 60) continue; // tried this one a moment ago
             if (stepTries().getOrDefault(side, 0) >= 3) continue; // picked three times and never landed: that edge is no good
+            { boolean lv = com.claudemod.entity.body.Controls.lavaCell(g, side); for (int k = 1; k <= Math.max(1, drop) + 1 && !lv; k++) lv = level.getFluidState(side.below(k)).is(net.minecraft.tags.FluidTags.LAVA); BlockPos land0 = side.below(Math.max(0, drop)); for (Direction d2 : Direction.Plane.HORIZONTAL) if (!lv && com.claudemod.entity.body.Controls.lavaCell(g, land0.relative(d2))) lv = true;
+              if (lv) { if (g.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] getting down: not toward {}: lava in it, under it or beside where he'd land (WorkGoal)", side.toShortString()); continue; } } // (World 15 13:07 and 21:30: "stepping off toward 161, 50, -33 (1 block drop)" into lava, twice)
             if (drop == -1 || (drop >= 1 && drop <= 3)) {
                 if (!side.equals(lastStepSide)) stepTries().clear();
                 stepTries().merge(side.immutable(), 1, Integer::sum);
@@ -4544,6 +4547,38 @@ public class WorkGoal extends Goal {
         return true;
     }
 
+
+    // ---- endermen from a hole (the user's pearl stage): 2 down in a 1x1 hole, his head under the ground, an enderman (3 tall) can't reach in or follow; he hits its legs ----
+    private BlockPos emHole; private int emSaid = -100;
+    private boolean inEmHole() {
+        ServerLevel level = (ServerLevel) g.level(); BlockPos f = g.blockPosition();
+        if (!level.getBlockState(f.above(2)).getCollisionShape(level, f.above(2)).isEmpty()) return false;
+        for (Direction d : Direction.Plane.HORIZONTAL) for (int y = 0; y <= 1; y++) { BlockPos q = f.above(y).relative(d); if (level.getBlockState(q).getCollisionShape(level, q).isEmpty()) return false; }
+        return true;
+    }
+    private Boolean endermanHole(Task.Attack t, net.minecraft.world.entity.monster.EnderMan em) {
+        ServerLevel level = (ServerLevel) g.level(); BlockPos f = g.blockPosition();
+        double d = em.distanceTo(g);
+        if (inEmHole()) {
+            emHole = f.immutable(); g.getNavigation().stop(); g.setSprinting(false); equipWeapon();
+            g.getLookControl().setLookAt(em.getX(), em.getY() + 0.6, em.getZ()); // (its legs: what reaches down to him)
+            if (d > 24) { if (g.tickCount - emSaid > 100) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman went off {} away: out of the hole (WorkGoal.endermanHole)", (int) d); } g.tasks.addFirst(new Task.Pillar(2)); return true; }
+            if (g.getHealth() < 8) { var food = com.claudemod.director.ClaudeLife.foodToEat(g, false); if (food != null) { g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(food)); return true; } }
+            if (canHitNow(em)) { g.getLookControl().setLookAt(em.getX(), em.getY() + 0.6, em.getZ()); g.attack(em); g.swing(InteractionHand.MAIN_HAND); }
+            else if (em.getTarget() != g && d < 16) g.getLookControl().setLookAt(em.getX(), em.getEyeY(), em.getZ()); // (not angry yet: a look at its eyes brings it over, the player's way)
+            if (g.tickCount - emSaid > 200) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] in my hole at {}: the enderman {} off (health {}) (WorkGoal.endermanHole)", f.toShortString(), (int) d, (int) g.getHealth()); }
+            return false;
+        }
+        if (d < 4 || !g.onGround()) return null; // (too close to dig in: the ordinary fight)
+        BlockPos b1 = f.below(), b2 = f.below(2);
+        for (BlockPos q : new BlockPos[] {b1, b2}) { var s0 = level.getBlockState(q); if (s0.getCollisionShape(level, q).isEmpty() || s0.getDestroySpeed(level, q) < 0 || s0.getDestroySpeed(level, q) > 4 || s0.hasBlockEntity()) return null; for (Direction dd : Direction.values()) if (!level.getFluidState(q.relative(dd)).isEmpty()) return null; }
+        if (level.getBlockState(f.below(3)).getCollisionShape(level, f.below(3)).isEmpty()) return null; // (a floor under the hole)
+        for (Direction dd : Direction.Plane.HORIZONTAL) for (BlockPos q : new BlockPos[] {b1.relative(dd), b2.relative(dd)}) if (level.getBlockState(q).getCollisionShape(level, q).isEmpty()) return null; // (its walls whole)
+        g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks)));
+        g.tasks.addFirst(new Task.Break(b2)); g.tasks.addFirst(new Task.Break(b1));
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] an enderman {} off: 2 down into a hole at {} first (it can't reach in), then its legs (WorkGoal.endermanHole)", (int) d, f.toShortString());
+        return true;
+    }
     private final java.util.Map<java.util.UUID, Integer> behindWall = new java.util.HashMap<>(); // (mobs let be behind a wall, when)
     private boolean doAttack(Task.Attack t) {
         ServerLevel level = (ServerLevel) g.level();
@@ -4554,6 +4589,7 @@ public class WorkGoal extends Goal {
             g.setSprinting(false);
             // it died: grab what it dropped (beef, leather...) before moving on, like a player would
             boolean died = e == null || (e instanceof net.minecraft.world.entity.LivingEntity l && !l.isAlive());
+            if (died && ticks > 1 && e instanceof net.minecraft.world.entity.monster.EnderMan && inEmHole()) { g.tasks.addFirst(new Task.Pillar(2)); g.tasks.addFirst(new Task.Pickup(40)); com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman's down: its pearl, then up out of the hole (WorkGoal.doAttack)"); }
             if (died && ticks > 1 && !(g.tasks.peek() instanceof Task.Pickup)) g.tasks.addFirst(new Task.Pickup(80));
             return true;
         }
@@ -4567,7 +4603,8 @@ public class WorkGoal extends Goal {
             if (!mob.getUUID().equals(golemRetryFor)) { golemRetryFor = mob.getUUID(); golemRetries = 0; }
             if (golemRetries++ < 6) { g.skillQueue.addFirst(new com.claudemod.entity.life.Skills.Step("village_iron", "", 1)); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] on the ground by the golem (the tower didn't go up): the tower again beside it"); return true; }
         }
-        { Boolean cf = coverFight(t, mob); if (cf != null) return cf; } // a blaze or a wither skeleton: from cover, like an expert (FortressFight)
+        { Boolean cf = coverFight(t, mob); if (cf != null) return cf; }
+        if (mob instanceof net.minecraft.world.entity.monster.EnderMan em) { Boolean eh = endermanHole(t, em); if (eh != null) return eh; } // (the pearl stage: from a 2-deep hole it can't reach into) // a blaze or a wither skeleton: from cover, like an expert (FortressFight)
         // losing the fight: break off and get away, like a player would (fighting on at 3 hearts is how you die)
         if ((mob instanceof net.minecraft.world.entity.monster.Monster || mob instanceof net.minecraft.world.entity.animal.IronGolem) && shouldFlee(mob)) {
             g.tasks.addFirst(new Task.Flee(160));

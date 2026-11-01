@@ -2450,6 +2450,7 @@ public class WorkGoal extends Goal {
         return true;
     }
 
+    private int pickupBeat = -1000;
     private boolean doPickup(Task.Pickup t) {
         if (ticks > t.maxTicks()) { if (t == holdPickup) leaveHeld(); if (g.tasks.stream().noneMatch(x -> x instanceof Task.Pickup && x != t)) for (var i0 : g.level().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, g.getBoundingBox().inflate(8), i1 -> i1.isAlive() && !g.isGift(i1) && isOreDrop(i1.getItem()))) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the pickup ran out of time with {} still at {}", i0.getItem().getHoverName().getString(), i0.blockPosition().toShortString()); com.claudemod.entity.life.OwnEvents.left(g, i0, "the pickup ran out of time"); leaveOwn(i0); } return true; } // (valuables still lying there go on his book: "you didn't grab them all" finds them; only when no later Pickup is queued: 07:08 a 40-tick per-ore pickup ran out mid-fall and booked a diamond LEFT that the vein's own pickup right after would have got)
         if (falling()) { fallNote("a pickup"); return false; } // dropping (down the hole he just dug): what's reachable is judged from where he lands
@@ -2467,6 +2468,7 @@ public class WorkGoal extends Goal {
         if (bp != null) items.removeIf(i -> !bp.touches(i.blockPosition()) && !com.claudemod.director.ClaudeLife.inHisNook(g, i.blockPosition()) && !airJoinedToMine(level, bp, i.blockPosition()) && pickupSkipped(i, "in his mine only drops in it, in his nook or in open air joined to it count")); // only what lies in the mine or in open air joined to it (an ore hole dug off his walkway, the drop a cell deeper in: it was invisible here and the patch sealed it in): a drop that drifted up through the rock lured him into cutting his way up through his own ceiling
         if (items.isEmpty()) { if ((seen0 > 0 || g.tickCount - pickupEmptySaid > 100)) { pickupEmptySaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude pickup] nothing to pick up round {} ({} drop(s) in his sweep, all skipped as said) (WorkGoal.doPickup)", g.blockPosition().toShortString(), seen0); } return true; }
         var nearest = items.stream().min(java.util.Comparator.comparingDouble(g::distanceToSqr)).get();
+        if (g.tickCount - pickupBeat > 100) { pickupBeat = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude pickup] going for {} {} at {} from {} (task tick {}/{}, effort {}, nav {}, {} drop(s) left) (WorkGoal.doPickup)", nearest.getItem().getCount(), nearest.getItem().getHoverName().getString(), nearest.blockPosition().toShortString(), g.blockPosition().toShortString(), ticks, t.maxTicks(), pickupEffort, g.getNavigation().isDone() ? "idle" : "moving", items.size()); } // (07:29 a 45 s pickup logged nothing: which drop, which branch)
         g.getLookControl().setLookAt(nearest);
         if (ticks % 8 != 1) return false;
         BlockPos ip = nearest.blockPosition();

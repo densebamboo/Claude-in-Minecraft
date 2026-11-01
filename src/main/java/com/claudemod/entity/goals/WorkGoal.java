@@ -3738,7 +3738,8 @@ public class WorkGoal extends Goal {
         return s.isDamageableItem() || s.getItem() instanceof net.minecraft.world.item.BucketItem || s.get(net.minecraft.core.component.DataComponents.FOOD) != null
                 || s.is(net.minecraft.world.item.Items.TORCH) || s.is(net.minecraft.world.item.Items.CRAFTING_TABLE) || s.is(net.minecraft.world.item.Items.FURNACE)
                 || s.is(net.minecraft.world.item.Items.COAL) || s.is(net.minecraft.world.item.Items.CHARCOAL) || s.is(net.minecraft.world.item.Items.STICK)
-                || s.is(net.minecraft.tags.ItemTags.PLANKS) || s.is(net.minecraft.tags.ItemTags.LOGS); // (diamonds, iron and raw iron go IN the chest: the user's rule, valuables stay safe there and come back out for a craft)
+                || s.is(net.minecraft.tags.ItemTags.PLANKS) || s.is(net.minecraft.tags.ItemTags.LOGS)
+                || s.is(net.minecraft.world.item.Items.ARROW) || s.is(net.minecraft.world.item.Items.ENDER_PEARL) || s.is(net.minecraft.world.item.Items.ENDER_EYE); // ammo and the dragon run's pearls/eyes ride with him like torches (live 01:16 World 15: took 32 arrows, the stash put all 32 back) (diamonds, iron and raw iron go IN the chest: the user's rule, valuables stay safe there and come back out for a craft)
     }
 
     /** Chest order: 0 valuables, 1 ores and raw metal, 2 stone and dirt, 3 everything else. */

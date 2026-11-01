@@ -11114,7 +11114,7 @@ public final class ClaudeLife {
         }
         String ore = target.replace("_ore", "").replace("raw_", "").replace("deepslate_", "");
         Integer bestY = BEST_Y.get(ore); if (bestY == null) bestY = 16;
-        if (ore.equals("iron") && Kit.diamondStage(g)) bestY = BEST_Y.getOrDefault("diamond", -58); // (iron only: coal never generates below y 0, a coal job down there would dig forever) // the user: past the iron stage, the iron (and coal) for a bucket or a shield comes out of the diamond level's walls; no trip back up to y 16
+        // the user (2026-11-01): mining for iron specifically goes to the iron level's branches (y16), late game too; the old "iron off the diamond level's walls" rule had him strip y-58 for 4 iron and find none
         var oreBlock = BuiltInRegistries.BLOCK.get(net.minecraft.resources.ResourceLocation.withDefaultNamespace(ore + "_ore"));
         String tool = ensureToolFor(g, player, level, oreBlock == Blocks.AIR ? Blocks.STONE.defaultBlockState() : oreBlock.defaultBlockState(), st); if (tool != null) return tool;
         MineBlueprint b = g.blueprint;

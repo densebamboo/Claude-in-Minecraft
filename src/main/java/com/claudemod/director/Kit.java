@@ -108,6 +108,7 @@ public final class Kit {
         Item cookedRaw = null; // the cooked form of the raw meat he carries: cooking that is the job, not a hunt for some other animal
         for (Item[] rc : new Item[][]{{Items.PORKCHOP, Items.COOKED_PORKCHOP}, {Items.BEEF, Items.COOKED_BEEF}, {Items.MUTTON, Items.COOKED_MUTTON}, {Items.CHICKEN, Items.COOKED_CHICKEN}, {Items.RABBIT, Items.COOKED_RABBIT}, {Items.COD, Items.COOKED_COD}, {Items.SALMON, Items.COOKED_SALMON}})
             if (cookedRaw == null && g.inventory.count(st -> st.is(rc[0])) >= short0) cookedRaw = rc[1];
+        if (short0 > 0 && cookedRaw != null && f0 >= 10 && rawMeat < 8) { boolean furnaceBy = false; for (net.minecraft.core.BlockPos q : g.myStations) if (q.closerThan(g.blockPosition(), 16) && g.level().getBlockState(q).is(net.minecraft.world.level.block.Blocks.FURNACE)) furnaceBy = true; if (!furnaceBy) short0 = 0; } // (the smelt skill's own rule: a few raws ride home to his furnaces, never a furnace out here; live 03:17 the kit asked for 1 cooked chicken, smelt said "cooks at home", and gear_up asked again every few seconds)
         if (short0 > 0 && cookedRaw == null) { // a village's hay bales in sight: bread, 3 a bale, beats a hunt across the map (he walked 300 blocks for cows past a village's hay)
             int bales = ClaudeLife.villageHayInSight(g, (ServerLevel) g.level());
             if (bales > 0) { int bread = Math.min(short0, bales * 3); m.put(Items.BREAD, bread); short0 -= bread; }

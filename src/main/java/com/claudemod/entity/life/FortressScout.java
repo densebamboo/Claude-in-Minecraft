@@ -58,7 +58,11 @@ public final class FortressScout {
     static State state(ClaudeEntity g) { if (states == null) states = new HashMap<>(); return states.computeIfAbsent(g.getUUID(), k -> new State()); }
     public static void reset(ClaudeEntity g) { if (states != null) states.remove(g.getUUID()); }
     public static List<Leg> legs(ClaudeEntity g) { return state(g).legs; }
-    public static BlockPos found(ClaudeEntity g) { return state(g).found; }
+    public static BlockPos found(ClaudeEntity g) { // (this run's, else the one on his atlas: World 15, seen 3 times in a day and scouted for again after each restart)
+        BlockPos f = state(g).found; if (f == null && g.level() instanceof ServerLevel sl) f = Atlas.find(g, sl, "fortress");
+        if (f != null && g.level() instanceof ServerLevel sl2 && sl2.isLoaded(f)) { BlockPos deck = FortressFight.deckCell(sl2, f); if (deck != null) return deck; } // (its deck, never the brick seen from below)
+        return f;
+    }
     /** On the fortress: a fortress block (nether bricks, its fence, its stairs) under his feet or the one below that. */
     // ---- on the fortress: along its deck to the parts he hasn't walked (Day to Day 21:26 World 15: "find the spawner room" sent him off the fortress, 71 blocks over the netherrack) ----
     private static java.util.Map<java.util.UUID, java.util.Set<Long>> deckSeen;
@@ -227,9 +231,10 @@ public final class FortressScout {
         if (!st.target().startsWith("@")) { s.phase = 0; s.legTo = null; s.legFrom = null; } // a fresh ask: his notes on the ground scouted stay, a leg something else cut off doesn't
         if (s.phase == LOOK) finishLeg(g, level, s);
         var f = fortressSighting(g, level); BlockPos far = f == null ? landmarkBrick(g) : null;
+        if (f == null && far == null) { BlockPos rec = Atlas.find(g, level, "fortress"); if (rec != null) { s.found = rec; int d0 = (int) Math.sqrt(rec.distSqr(g.blockPosition())); ClaudeMod.LOGGER.info("[Claude scout] a nether fortress on his atlas at {} ({} off): no scouting for it (FortressScout.skill)", rec.toShortString(), d0); return "done: found a nether fortress: the one on my atlas at " + rec.toShortString() + ", " + d0 + " blocks off; blazes spawn at its spawners and in its halls"; } }
         if (f != null || far != null) {
             BlockPos at = f != null ? f.saw() : far;
-            s.found = at.immutable(); s.phase = 0;
+            s.found = at.immutable(); s.phase = 0; Atlas.note(g, level, "fortress", at); // (on his atlas: kept across a restart)
             int d = (int) Math.sqrt(at.distSqr(g.blockPosition()));
             String where = Perception.compassOf(Vec3.atCenterOf(at).subtract(g.position()));
             s.foundHow = (f != null && com.claudemod.director.Structures.signOf(f.id(), level.getBlockState(f.saw())) ? level.getBlockState(f.saw()).getBlock().getName().getString() : "nether brick") + " at " + at.toShortString() + ", " + d + " blocks " + where;

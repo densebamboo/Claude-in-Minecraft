@@ -3797,7 +3797,7 @@ public final class ClaudeLife {
                     return "walking to where I died at " + spot.toShortString() + " to look for my things"; } // drifted off in the water, or lying a way from where he fell: still his
                 if (drops.isEmpty() && g.playerGoal != null && g.playerGoal.toLowerCase().matches("(?s).*(recover|gear back|drops|death spot|old gear).*")) g.playerGoal = ""; // the drops are gone: so is that goal (it outlived every restart, "back. still on it: recover_drops" and the same question asked four times)
                 if (drops.isEmpty() && dn != null && level.isPositionEntityTicking(dn.at)) com.claudemod.entity.life.DeathLog.abandon(g, dn, "looked: nothing left there");
-                if (drops.isEmpty()) return "done: nothing of yours left on the ground" + (death.isPresent() ? " where you died" : "");
+                if (drops.isEmpty()) return "done: nothing of yours left on the ground" + (death.isPresent() ? " where you died" : "") + ": it despawned or someone took it, none of it came back to my pack"; // ponytail: live 15:06 the planner read the bare line as "my 40 stacks are already back in my pack"
                 // the user's rule: if it wasn't iron or better, it's not worth picking up (a stone-age pile 40 blocks down a cave had him circling the cave mouth for ten minutes, then dead in it)
                 boolean ironUp = drops.stream().anyMatch(d -> { String id = BuiltInRegistries.ITEM.getKey(d.getItem().getItem()).getPath();
                     return id.startsWith("iron_") || id.equals("raw_iron") || id.contains("diamond") || id.contains("netherite") || id.equals("emerald") || id.equals("shield") || id.equals("bow") || id.endsWith("_bed") || id.equals("ender_pearl") || id.equals("blaze_rod"); });

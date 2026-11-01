@@ -4845,7 +4845,10 @@ public class WorkGoal extends Goal {
             return false;
         } // up his own tower over something that can't get him: he waits for it to come back in reach (off the tower after it is into its reach)
         // Can he walk to it (up the hill, around)? Then sprint there.
-        if (com.claudemod.entity.body.Controls.refusedLately(g, 10) && g.onGround()) { walkTo(mob.blockPosition(), 2.0); return false; } // ponytail: live 14:42 -10,63,-930: the vanilla path's step 2 up refused by his body, re-taken every tick for 10 s+ under the enderman; the walk's own plan (ActionPath) takes over, like walkTo does
+        if (com.claudemod.entity.body.Controls.refusedLately(g, 10) && g.onGround()) { // ponytail: live 14:42 -10,63,-930: the vanilla path's step 2 up refused by his body, re-taken every tick for 10 s+ under an enderman on a ledge 4 up
+            g.getNavigation().stop(); g.setSprinting(false);
+            if (mob instanceof net.minecraft.world.entity.monster.EnderMan) { equipWeapon(); g.getLookControl().setLookAt(mob.getX(), mob.getEyeY(), mob.getZ()); return false; } // (bait: the stare angers it and it teleports down to him)
+            walkTo(mob.blockPosition(), 2.0); return false; } // (anything else: the walk's own plan)
         var path = g.getNavigation().createPath(mob, 1);
         if (path != null && path.canReach()) {
             g.setSprinting(true);

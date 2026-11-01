@@ -192,6 +192,7 @@ public final class ActionPath {
                 if (crossingTasks(out, acts0, ai, cx[0], cur, scaffold, level, cx[1])) { cur = endWalk; ai = cx[0]; continue; }
             }
             if (a instanceof Act.Walk w) {
+                BlockPos prevCell = cur;
                 lastWalk = w.feet(); cur = w.feet();
                 if (!restore.isEmpty()) { final BlockPos at0 = cur; if (restore.stream().allMatch(o -> { BlockPos q = (BlockPos) o[0]; return !q.equals(at0) && !q.equals(at0.above()) && Math.abs(q.getX() - at0.getX()) + Math.abs(q.getZ() - at0.getZ()) >= 2; })) { // past the structure blocks he had to dig: each goes back as it was
                     out.add(new Task.GoTo(lastWalk, 0.9)); lastWalk = null; run = 0;
@@ -205,6 +206,11 @@ public final class ActionPath {
                     off.sort((q1, q2) -> q2.getY() - q1.getY()); // top first, so the rest stay in reach
                     for (BlockPos q : off) out.add(new Task.Break(q)); // (left on the take-down list till it's really gone: a Break refused under his feet stays the chore's)
                     takeBack.removeAll(off); tookBack = true;
+                    continue;
+                }
+                if (prevCell != null && w.feet().getY() != prevCell.getY()) { // a step up or down: both its cells are his waypoints, so the vanilla path only ever fills in level ground between them (live 04:28: a 6-cell waypoint walked by vanilla nav took a node 2 up by the fortress, over and over, 8 min)
+                    if (run >= 1) out.add(new Task.GoTo(prevCell, 0.9));
+                    out.add(new Task.GoTo(w.feet(), 0.9)); lastWalk = null; run = 0;
                     continue;
                 }
                 if (++run >= 6) { out.add(new Task.GoTo(lastWalk, 0.9)); lastWalk = null; run = 0; }

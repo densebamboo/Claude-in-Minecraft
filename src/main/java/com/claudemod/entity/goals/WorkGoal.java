@@ -3194,6 +3194,9 @@ public class WorkGoal extends Goal {
                 boolean anchored = false;
                 for (Direction d : Direction.values()) { BlockState n = level.getBlockState(b.relative(d)); if (!n.isAir() && n.getFluidState().isEmpty() && !n.canBeReplaced()) { anchored = true; break; } }
                 if (anchored) {
+                    { var failed = g.attempts.of(com.claudemod.entity.life.Attempts.Kind.PLACE); boolean stale = false; // ponytail: live 14:28 -47,42,-885: the column's cells refused as "failed lately", the block put back in front, the column queued again: 4x a second in his fight
+                      for (BlockPos q = b; q.getY() < pos.getY() && !stale; q = q.above()) { Integer at = failed.get(q); stale = at != null && g.tickCount - at < 20 * 300; }
+                      if (stale) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not placing {} at {}: the column up to it from {} failed lately (WorkGoal.doPlace)", itemName(new ItemStack(t.item())), pos.toShortString(), b.toShortString()); g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, g.tickCount, g.blockPosition()); return exit("column below failed lately (doPlace)"); } }
                     g.tasks.addFirst(t);
                     for (BlockPos q = b; q.getY() < pos.getY(); q = q.above()) g.tasks.addFirst(new Task.Place(q.immutable(), t.item())); // (lowest first)
                     return exit("doPlace line 2674");

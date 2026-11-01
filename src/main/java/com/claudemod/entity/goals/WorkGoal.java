@@ -4998,13 +4998,14 @@ public class WorkGoal extends Goal {
             cfSay("eating first", "a meal was waiting behind the fight (hunger " + g.getFoodData().getFoodLevel() + ", health " + (int) hp + "), no volley due" + (inCover ? ", in cover" : ""));
             return true;
         }
-        if (blaze) { // a blaze at arm's length (inside 2 it touches for 6 and sets him alight): hit it and keep it 2.4+ off; never his back to it, hurt or not
+        boolean backing = hp <= 12 || (withered && hp <= 14) || (g.isOnFire() && hp <= 14) || (cfHealing && (hp < 18 || withered)); // hurt: back to cover to heal before anything else, the blaze at arm's length too (live 12:22: swinging at one at 3 hearts with 6 about, dead)
+        if (blaze && !backing) { // a blaze at arm's length (inside 2 it touches for 6 and sets him alight): hit it and keep it 2.4+ off; never his back to it, hurt or not
             net.minecraft.world.entity.monster.Blaze near = null; for (var b2 : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(4), net.minecraft.world.entity.Entity::isAlive)) if (b2.distanceTo(g) < 3.0 && g.hasLineOfSight(b2) && (near == null || b2.distanceTo(g) < near.distanceTo(g))) near = b2;
             if (near != null && near.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0) { cfClose(level, near, due, shield); return false; }
         }
-        if (hp <= 12 || (withered && hp <= 14) || (g.isOnFire() && hp <= 14) || (cfHealing && (hp < 18 || withered))) { // (an expert backs off with health to spare and heals all the way: food's plenty)
+        if (backing) { // (an expert backs off with health to spare and heals all the way: food's plenty)
             cfHealing = true;
-            if (!inCover && due != null && shield) { g.getNavigation().stop(); shieldUp(due); cfSay("shield up on the way back", "health " + (int) hp + ", a volley due: on the shield, not on his back"); return false; }
+            if (!inCover && due != null && shield) { shieldUp(due); cfMove(cv.cover(), 1.0); /* walking back behind the shield: stopping for every volley, 6 blazes always had one due and he never made the 3 steps (12:22) */ cfSay("shield up on the way back", "health " + (int) hp + ", a volley due: on the shield, not on his back"); return false; }
             if (!inCover) { shieldDown(); g.setSprinting(true); cfMove(cv.cover(), 1.3); cfSay("back into cover", "at " + String.format("%.2f,%.2f", g.getX(), g.getZ()) + ", health " + (int) hp + (withered ? ", Wither on" : "") + (g.isOnFire() ? ", burning" : "") + ": to " + cv.cover().toShortString()); return false; }
             g.getNavigation().stop(); g.setSprinting(false); g.getLookControl().setLookAt(mob);
             if (withered && g.inventory.count(s -> s.is(net.minecraft.world.item.Items.MILK_BUCKET)) > 0) { g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(net.minecraft.world.item.Items.MILK_BUCKET)); cfSay("milk", "Wither on at health " + (int) hp + ": the milk clears it"); return true; }

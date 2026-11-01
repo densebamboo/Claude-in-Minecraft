@@ -10637,7 +10637,7 @@ public final class ClaudeBodyTest {
         if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); w15Done = -1; w15Built = -1; w15Low = 20f; w15Route = ""; c.nextPlanTick = c.tickCount + 20 * 900; c.prefs.put("stay_close", "no");
             c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
             c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
-            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(nether, (w.x0() + w.x1()) / 2 + 0.5, 120, (w.z0() + w.z1()) / 2 + 0.5, 0, 0); c.setNoGravity(true); }
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(nether, (w.x0() + w.x1()) / 2 + 0.5, w.y1() + 6, (w.z0() + w.z1()) / 2 + 0.5, 0, 0); c.setNoGravity(true); } // (over its roof while it builds)
         if (t[0] >= 20 && w15Built < 0 && w15Slice(nether, w, t[0] - 20)) w15Built = t[0];
         if (w15Built > 0 && t[0] == w15Built + 20) { c.setNoGravity(false); c.teleportTo(nether, start.getX() + 0.5, start.getY(), start.getZ() + 0.5, 0, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.tasks.clear(); c.fallDistance = 0; c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); }
         if (w15Built < 0 || t[0] < w15Built + 20) return true;

@@ -29,7 +29,12 @@ Branch `bp/w15-terrain`, on top of main 94c12b9 (the Nether planner, `docs/repor
 
 ## Gate
 
-(below once the run finishes)
+Full Linux gate (now 491-538 one per server): 66 of 68 groups green on the first run. The two that weren't:
+
+- **0-86** "dig in: died": known-flaky on main. Green on the re-run.
+- **538**: he climbed into the box's own bedrock roof at y 101. The first cut stopped at y 100, but the real Nether goes up to about 127. Both boxes are now cut to y 127, and 538 passed 3 of 3 after that (199 s, low 18 HP).
+
+On the merge with main (up to 744954f), these are green: 535-538, 525, 533.
 
 ## Restart
 

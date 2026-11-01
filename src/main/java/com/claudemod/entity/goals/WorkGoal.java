@@ -2594,10 +2594,11 @@ public class WorkGoal extends Goal {
      * his mine from outside gets blocked for good; a source inside the mine gets blocked and mined straight back out, so
      * the walkway stays open. The water left inside then drains. True if he queued anything.
      */
+    private int waterOutTick = -100000;
     private boolean blockWaterInflow() {
         ServerLevel level = level();
         ItemStack plug = solidScaffold();
-        int n = 0;
+        int n = 0, skipped = 0;
         if (!plug.isEmpty()) for (BlockPos q0 : BlockPos.betweenClosed(g.blockPosition().offset(-6, -3, -6), g.blockPosition().offset(6, 4, 6))) {
             if (n >= 12 || !level.getFluidState(q0).is(net.minecraft.tags.FluidTags.WATER)) continue;
             BlockPos q = q0.immutable();
@@ -2607,9 +2608,20 @@ public class WorkGoal extends Goal {
             if (!inMine) for (Direction d : Direction.values()) if (com.claudemod.director.ClaudeLife.isMineCell(g, q.relative(d))) { entry = true; break; }
             if (!entry && !(inMine && level.getFluidState(q).isSource() && q.distSqr(g.blockPosition()) <= 16)) continue;
             if (inMine && g.blueprint != null && !g.blueprint.isEmpty()) { int qr = g.blueprint.rowOf(q), mr = g.blueprint.rowOf(g.blockPosition()); if (mr < 0) mr = g.blueprint.rowOf(g.blockPosition().above()); if (qr >= 0 && mr >= 0 && qr < mr) continue; } // never his way back: a walkway cell toward his entrance stays open (he walled himself into a water cell at 50, 18, 82 and drowned; a player walls the water out from the dry side)
+            if (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.PLACE, q, g.tickCount, 20 * 300) || com.claudemod.entity.life.Watchdog.off(g, new Task.Place(q, plug.getItem()))) { skipped++; continue; } // (a plug that failed there, or one the watchdog wrote off: not queued again every tick, 150 times in 5 min live)
             if (inMine) g.tasks.addFirst(new Task.Break(q));
             g.tasks.addFirst(new Task.Place(q, plug.getItem()));
             n++;
+        }
+        if (n == 0 && skipped > 0 && g.isInWater() && g.tickCount - waterOutTick > 20 * 10) { // every plug failed already: out of the water to dry ground, not standing in it re-queueing them
+            waterOutTick = g.tickCount; BlockPos dry = null; double bd = Double.MAX_VALUE;
+            for (BlockPos q0 : BlockPos.betweenClosed(g.blockPosition().offset(-5, -2, -5), g.blockPosition().offset(5, 2, 5))) {
+                if (!level.getFluidState(q0).isEmpty() || !level.getFluidState(q0.above()).isEmpty() || !level.getBlockState(q0).getCollisionShape(level, q0).isEmpty() || !level.getBlockState(q0.above()).getCollisionShape(level, q0.above()).isEmpty()) continue;
+                if (!level.getBlockState(q0.below()).isFaceSturdy(level, q0.below(), Direction.UP) || com.claudemod.entity.body.Controls.lavaCell(g, q0)) continue;
+                double dd = q0.distSqr(g.blockPosition()); if (dd < bd) { bd = dd; dry = q0.immutable(); }
+            }
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in water at {}: its {} plug(s) all failed or written off already: {} (WorkGoal.blockWaterInflow)", g.blockPosition().toShortString(), skipped, dry == null ? "no dry ground within 5, waiting it out" : "out to dry ground at " + dry.toShortString());
+            if (dry != null) { g.tasks.addFirst(new Task.GoTo(dry, 0.5)); return true; }
         }
         if (n > 0) g.attempts.counters.merge("aquiferPlugs", n, Integer::sum);
         if (n > 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in water at {}: blocking {} spots where it comes in", g.blockPosition().toShortString(), n);
@@ -2977,6 +2989,7 @@ public class WorkGoal extends Goal {
                 if ( !com.claudemod.entity.life.MineBlueprint.ore(qs) || g.blueprint.roleAt(q) == com.claudemod.entity.life.MineBlueprint.Role.WALK) continue; // (ore in his walls too: patched past, it was sealed in; only his walkway's own ore waits for the dig)
                 if (qs.requiresCorrectToolForDrops() && g.inventory.find(st -> st.isCorrectToolForDrops(qs)).isEmpty()) continue; // (no pick for it: the patch goes in)
                 final BlockPos qq = q.immutable();
+                if (com.claudemod.entity.life.Watchdog.off(g, new Task.Break(qq))) { com.claudemod.ClaudeMod.LOGGER.info("[Claude ore] {} at {} behind the hole at {}: its dig is written off (no way to break it from any spot he can get to): left in, the patch goes in (WorkGoal.doPlace)", qs.getBlock().getName().getString(), qq.toShortString(), pos.toShortString()); continue; } // (World 15 16:34: the ore re-found every few seconds, the hole never shut, 236 lines)
                 if (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.BREAK, qq, g.tickCount, 20 * 60) || g.attempts.within(com.claudemod.entity.life.Attempts.Kind.REACH, qq, g.tickCount, 20 * 60)) { com.claudemod.ClaudeMod.LOGGER.info("[Claude ore] {} at {} behind the hole at {}: its dig was refused a moment ago (WorkGoal.doPlace)", qs.getBlock().getName().getString(), qq.toShortString(), pos.toShortString()); refusedBehind++; continue; } // (05:02 the patch waited on a lapis he couldn't reach from there, 3 times a second)
                 g.tasks.removeIf(t0 -> t0 instanceof Task.Break b0 && b0.pos().equals(qq)); // (queued further back: it comes out now, before this patch seals it)
                 g.tasks.addFirst(t); g.tasks.addFirst(new Task.Pickup(40)); g.tasks.addFirst(new Task.Break(qq));
@@ -4514,6 +4527,7 @@ public class WorkGoal extends Goal {
         return true;
     }
 
+    private final java.util.Map<java.util.UUID, Integer> behindWall = new java.util.HashMap<>(); // (mobs let be behind a wall, when)
     private boolean doAttack(Task.Attack t) {
         ServerLevel level = (ServerLevel) g.level();
         var e = level.getEntity(t.target());
@@ -4526,6 +4540,7 @@ public class WorkGoal extends Goal {
             if (died && ticks > 1 && !(g.tasks.peek() instanceof Task.Pickup)) g.tasks.addFirst(new Task.Pickup(80));
             return true;
         }
+        { Integer bw = behindWall.get(mob.getUUID()); if (bw != null && g.tickCount - bw < 20 * 30 && !g.hasLineOfSight(mob)) return true; } // (one he let be behind a wall: whoever queues the fight again, it ends here while he still can't see it)
         if (ticks == 1) dropCloseSteps(); // (a closing-in step cut short by a new fight: stale, it would walk him to where the shooter was)
         if (ticks == 1 && mob instanceof net.minecraft.world.entity.animal.WaterAnimal && !level.getFluidState(mob.blockPosition().above(6)).isEmpty() && g.distanceTo(mob) > 3) { // (6 deep now, as the hunt picks them) // a fish deep down: no reaching it from the bank (100 s at half a heart swinging at cod he couldn't get to); the land animals come next
             g.attempts.any.put(mob.blockPosition().immutable(), g.tickCount);
@@ -4627,6 +4642,13 @@ public class WorkGoal extends Goal {
                 boolean theirs = g.getTarget() instanceof net.minecraft.server.level.ServerPlayer o
                         && (com.claudemod.context.PlayerProfile.placedBy(o).contains(inWay) || com.claudemod.director.ClaudeLife.protectedBlock(g, o, inWay));
                 if (!theirs && w.getDestroySpeed(g.level(), inWay) >= 0 && !w.hasBlockEntity() && !w.is(net.minecraft.tags.BlockTags.LOGS) && com.claudemod.director.Structures.intactKind(w) == null) { // (never a fortress's brick: round, or through its doorway) // (never a log: a cut through a trunk to hit a mob behind it left two birches with a log gone out of the middle; round the tree instead)
+                    boolean soft = w.is(net.minecraft.tags.BlockTags.LEAVES) || w.getDestroySpeed(g.level(), inWay) <= 0.6f; // (leaves over a chicken, dirt or sand: what a player knocks away for a mob; never rock between him and it)
+                    boolean shell = com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.isShell(inWay);
+                    if (!soft || shell || com.claudemod.entity.life.Watchdog.off(g, new Task.Break(inWay)) || g.attempts.within(com.claudemod.entity.life.Attempts.Kind.BREAK, inWay, g.tickCount, 20 * 60)) { // (World 15 16:44: digs through his own mine wall toward a mob behind it, each refused by the shell rule and asked for again every second, 235 lines)
+                        g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.REACH, mob.blockPosition(), g.tickCount); behindWall.put(mob.getUUID(), g.tickCount);
+                        com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the {} is behind {} at {} ({}): no fight through it, let be (WorkGoal.doAttack)", mob.getType().getDescription().getString(), name(w), inWay.toShortString(), shell ? "his mine's wall" : !soft ? "rock" : "its dig refused a moment ago");
+                        return true;
+                    }
                     g.tasks.addFirst(new Task.Attack(t.target(), Math.max(100, t.maxTicks() - ticks)));
                     g.tasks.addFirst(new Task.Break(inWay));
                     return true;

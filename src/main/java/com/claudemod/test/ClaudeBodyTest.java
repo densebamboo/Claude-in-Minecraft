@@ -10354,6 +10354,9 @@ public final class ClaudeBodyTest {
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
             case 494: return st494(stage, t, c, h, level, mock);
+            case 524: return st524(stage, t, c, h, level, mock);
+            case 523: return st523(stage, t, c, h, level, mock);
+            case 522: return st522(stage, t, c, h, level, mock);
             case 521: return st521(stage, t, c, h, level, mock);
             case 520: return st520(stage, t, c, h, level, mock);
             case 519: return st519(stage, t, c, h, level, mock);
@@ -10497,6 +10500,59 @@ public final class ClaudeBodyTest {
             for (int x = 0; x < 16; x++) for (int z = 0; z <= 9; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, 2, z)), Blocks.AIR.defaultBlockState(), 2); }
             pass(stage, t, "along the shore in " + (t[0] - 10) + " ticks, never in it, low " + hzLow); }
         else if (t[0] == 400) { check(false, "shore: not there in 20 s (at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ", in lava " + hzFlag + ")"); }
+        return true;
+    }
+    private static int rlPhase, rlT; private static boolean rlDug;
+    private static boolean st524(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // refusals back to their source (World 15: a fight digging through his mine wall 235 times, a written-off table re-queued 32+ times): the fight let be, the table left
+        BlockPos me = h.absolutePos(new BlockPos(4, 2, 5)), table = h.absolutePos(new BlockPos(3, 2, 9));
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.tasks.clear(); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); rlPhase = 0; rlDug = false; if (hzMob != null) hzMob.discard(); hzMob = null;
+            for (int z = 0; z < 16; z++) for (int y = 2; y <= 4; y++) level.setBlock(h.absolutePos(new BlockPos(6, y, z)), Blocks.STONE.defaultBlockState(), 2); // (rock between him and it)
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+        BlockPos wall = h.absolutePos(new BlockPos(6, 2, 5));
+        if (c.tasks.stream().anyMatch(x -> x instanceof Task.Break b && b.pos().getX() == wall.getX()) || c.currentTask instanceof Task.Break b0 && b0.pos().getX() == wall.getX()) rlDug = true;
+        if (t[0] == 10) { var z = EntityType.ZOMBIE.create(level); BlockPos zp = h.absolutePos(new BlockPos(8, 2, 5)); z.moveTo(zp.getX() + 0.5, zp.getY(), zp.getZ() + 0.5, 90, 0); z.setNoAi(true); z.setPersistenceRequired(); level.addFreshEntity(z); hzMob = z; c.tasks.add(new Task.Attack(z.getUUID(), 400)); }
+        if (t[0] == 60 && hzMob != null) c.tasks.add(new Task.Attack(hzMob.getUUID(), 400)); // (queued again, as his rounds do)
+        if (t[0] == 110) {
+            check(!rlDug, "fight: a dig queued through the rock toward the zombie behind it");
+            check(!(c.currentTask instanceof Task.Attack) && c.tasks.stream().noneMatch(x -> x instanceof Task.Attack), "fight: still on the fight through the rock: " + c.currentTask + " " + c.tasks);
+            if (hzMob != null) hzMob.discard(); hzMob = null; c.tasks.clear(); c.dropCurrent = true;
+            for (int z = 0; z < 16; z++) for (int y = 2; y <= 4; y++) level.setBlock(h.absolutePos(new BlockPos(6, y, z)), Blocks.AIR.defaultBlockState(), 2);
+            // the table: one of his temporary ones, walked off from, taken up
+            level.setBlock(table, Blocks.CRAFTING_TABLE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, table, Blocks.CRAFTING_TABLE.defaultBlockState(), Blocks.AIR.defaultBlockState()); c.tempStations.add(table); rlPhase = 1; rlT = t[0];
+        }
+        java.util.function.BooleanSupplier onTable = () -> c.tasks.stream().anyMatch(x -> x instanceof Task.Break b && b.pos().equals(table)) || c.currentTask instanceof Task.Break b1 && b1.pos().equals(table) || !level.getBlockState(table).is(Blocks.CRAFTING_TABLE);
+        if (rlPhase == 1 && onTable.getAsBoolean()) { rlPhase = 2; c.tasks.clear(); c.dropCurrent = true; com.claudemod.entity.life.TempLedger.reset(c); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard(); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            level.setBlock(table, Blocks.CRAFTING_TABLE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, table, Blocks.CRAFTING_TABLE.defaultBlockState(), Blocks.AIR.defaultBlockState()); c.tempStations.add(table);
+            com.claudemod.entity.life.Watchdog.writtenOff(c, "break " + table.toShortString(), "test: no way to it"); rlT = t[0]; }
+        if (rlPhase == 1 && t[0] - rlT > 600) check(false, "table: his temporary table never taken up (the control: without the write-off it should be)");
+        if (rlPhase == 2 && t[0] > rlT + 2) check(!onTable.getAsBoolean(), "table: written off and queued again: " + c.currentTask + " " + c.tasks);
+        if (rlPhase == 2 && t[0] - rlT >= 400) { level.setBlock(table, Blocks.AIR.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.reset(c); c.tempStations.clear(); pass(stage, t, "the fight through rock let be (no dig, queued again: ended); the table taken up, then written off and left 20 s"); }
+        return true;
+    }
+    private static int clT = -1;
+    private static boolean st522(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a drop in a 1-deep ore hole beside his tunnel (World 15 15:17, the first incident file: "no way at all" to it, left behind, a patch looped on a filled cell): picked up in under 3 s
+        BlockPos me = h.absolutePos(new BlockPos(4, 2, 5)), hole = h.absolutePos(new BlockPos(5, 1, 6));
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.tasks.clear(); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); clT = -1;
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) for (int y = -1; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), (y >= 2 && y <= 3 && z == 5 && x >= 1 && x <= 14) ? Blocks.AIR.defaultBlockState() : Blocks.DEEPSLATE.defaultBlockState(), 2); // (his 1x2 tunnel east-west in the rock)
+            level.setBlock(hole, Blocks.AIR.defaultBlockState(), 2); // (the ore's hole: one over and one down, its top the tunnel's wall: it meets the tunnel at an edge only, as live; a player digs the wall cell over it and steps down in)
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+        if (t[0] == 10) { var it = new net.minecraft.world.entity.item.ItemEntity(level, hole.getX() + 0.5, hole.getY() + 0.1, hole.getZ() + 0.5, new ItemStack(Items.RAW_GOLD)); it.setDeltaMovement(0, 0, 0); level.addFreshEntity(it); }
+        if (t[0] == 15) c.tasks.add(new Task.Pickup(200));
+        if (t[0] > 15 && clT < 0 && c.inventory.count(x -> x.is(Items.RAW_GOLD)) > 0) clT = t[0];
+        if (clT > 0 && t[0] >= clT + 5) { check(clT - 15 <= 60, "ore hole: picked up after " + (clT - 15) / 20.0 + " s (want under 3)"); pass(stage, t, "the raw gold out of the hole in " + (clT - 15) + " ticks"); }
+        else if (t[0] == 15 + 200) check(false, "ore hole: the raw gold never picked up (at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ", queue " + c.tasks + ")");
+        return true;
+    }
+    private static boolean st523(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // 5 below the spot he's walking to, a sheer hillside (World 15 16:09, his mine door 5 up: "ended at once" 38 times in 5 min): up it in under 10 s, by steps cut or blocks put down
+        BlockPos me = h.absolutePos(new BlockPos(3, 2, 8)), top = h.absolutePos(new BlockPos(9, 7, 8));
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.tasks.clear(); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); clT = -1;
+            for (int x = 7; x < 16; x++) for (int z = 0; z < 16; z++) for (int y = 2; y <= 6; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.STONE.defaultBlockState(), 2); // (the hill: 5 up, sheer, the whole width)
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+        if (t[0] == 10) c.tasks.add(new Task.GoTo(top, 1.0));
+        if (t[0] > 10 && clT < 0 && c.getBlockY() >= top.getY() && c.blockPosition().distSqr(top) <= 4) clT = t[0];
+        if (clT > 0) { for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) for (int y = 2; y <= 8; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2);
+            check(clT - 10 <= 200, "climb: up after " + (clT - 10) / 20.0 + " s (want under 10)"); pass(stage, t, "5 up in " + (clT - 10) + " ticks"); }
+        else if (t[0] == 10 + 400) check(false, "climb: not up the 5 in 20 s (at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ", queue " + c.tasks + ")");
         return true;
     }
     private static int wiN; private static java.util.List<String> wiSeen = new java.util.ArrayList<>(); private static int wiFightT = -1;

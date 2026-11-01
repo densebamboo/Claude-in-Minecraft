@@ -1256,6 +1256,7 @@ public final class ClaudeLife {
         if ("no".equals(g.pref("pick_up_stations", "yes"))) return; // (no 30-second limit: a chain of crafts ran past it and the table stayed out, litter at -194, 68, 110; the temp-station check below is what makes it his)
         BlockPos table = findNear(level, g.blockPosition(), 5, b -> b.is(Blocks.CRAFTING_TABLE));
         if (table == null || !g.tempStations.contains(table)) return;
+        if (com.claudemod.entity.life.Watchdog.off(g, new Task.Break(table))) return; // (written off: no way to it; not queued again)
         if (g.skillQueue.stream().anyMatch(st -> st.skill().equals("craft"))) return; // more crafting queued: it stays till that's done
         g.tasks.addFirst(new Task.Pickup(40));
         g.tasks.addFirst(new Task.Break(table.immutable()));
@@ -4898,6 +4899,9 @@ public final class ClaudeLife {
     public static void dumpJunkTest(ClaudeEntity g) { dumpJunk(g); }
     private static void dumpJunk(ClaudeEntity g) {
         var inv = g.getInventory();
+        if (g.level() instanceof ServerLevel slS && g.tickCount % 400 == 0 && spareStacks(g) >= 2 && g.blueprint != null && !g.blueprint.isEmpty() && inHisMine(g, g.blockPosition()) && g.currentTask == null && g.tasks.stream().noneMatch(t -> t instanceof Task.Deposit)) { // stone well past his 2 stacks with room left still: to the junk chest on his way (World 15 14:48: 331-404 cobbled deepslate, 5 slots free, never put away)
+            String r = junkChestRound(g, slS); if (r != null) { ClaudeMod.LOGGER.info("[Claude life] {} spare stacks of stone on him in his mine: {}", spareStacks(g), r); return; }
+        }
         { int free0 = 0; for (var st0 : inv.items) if (st0.isEmpty()) free0++; if (free0 >= 2) return; } // (room for a craft's two steps: one free slot and "could not make a crafting table: missing room" every 5 s, 05:11)
         if (g.commandActive && g.lastStep != null && (g.lastStep.skill().equals("go_to") || g.lastStep.skill().equals("follow")) && inv.getFreeSlot() >= 0) return; // on their go_to/follow: the junk waits till the pack is truly full (they called him over to teach him; a 17-block junk chest run went first, 14:25)
         if (g.currentTask instanceof Task.Deposit || g.tasks.stream().anyMatch(t -> t instanceof Task.Deposit)) return; // on his way to put it away: nothing on the floor meanwhile (the toss went while the walk to the chest was queued)
@@ -8639,6 +8643,10 @@ public final class ClaudeLife {
             for (var it = missing.keySet().iterator(); it.hasNext(); ) { Item m = it.next(); if (m.components().has(net.minecraft.core.component.DataComponents.FOOD) || new ItemStack(m).is(net.minecraft.tags.ItemTags.BEDS)) it.remove(); }
         }
         if (missing.isEmpty()) return null;
+        { boolean mineWork = (st.skill().contains("mine") || st.skill().equals("dig_down")) && inHisMine(g, g.blockPosition()); // (mining in his own mine: at his base, not a trip)
+          if (Kit.food(g) >= 6 && (!level.isDay() || mineWork)) { boolean had = missing.keySet().removeIf(m -> m.components().has(net.minecraft.core.component.DataComponents.FOOD)); // the user's rules: no night hunt to top up the kit, and with 6+ meals the mine work goes on (World 15 15:09: out of his mine at night for 11 beef with 8 on him)
+              if (had) ClaudeMod.LOGGER.info("[Claude life] kit food short before {} ({} meals on him): no top-up now ({}) (ClaudeLife.kitFirst)", st.skill(), Kit.food(g), !level.isDay() ? "it's night" : "mining in his own mine");
+              if (missing.isEmpty()) return null; } }
         g.gearTick = g.tickCount;
         Procure.Plan plan = Procure.planAll(g, level, missing);
         if (plan.problem() != null && Kit.food(g) >= 6) { // food short and no more to be had, but 6+ meals on him: the rest of the kit still comes first (under 6, food is the job: below)

@@ -4825,7 +4825,8 @@ public class WorkGoal extends Goal {
     // ---- fortress fights from cover (FortressFight; patch_blaze_loot.py) ----
     private String cfMode = ""; private int cfPeekTick = -100, cfHopTick = -100, cfIdle; private boolean cfHealing; private java.util.UUID cfTarget;
     private void cfSay(String mode, String why) { if (!mode.equals(cfMode)) { cfMode = mode; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] {}: {} (WorkGoal.coverFight)", mode, why); } }
-    private void cfMove(BlockPos to, double speed) { if (BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()).equals(to)) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(to.getX() + 0.5, to.getY(), to.getZ() + 0.5, speed); return; } g.getNavigation().moveTo(to.getX() + 0.5, to.getY(), to.getZ() + 0.5, speed); } // (in his own cell the path is "done" at once and never centres him: at() wants 0.35, so "back into cover" held him off-centre in sight, burning 13 -> 1, the Eat never reached)
+    // cfMove: the last step goes straight to the centre: the path calls itself done ~0.5 short, over the cell edge (01:30 he stood at -72.0, cover -73, burning 13 -> 1)
+    private void cfMove(BlockPos to, double speed) { if (Math.abs(g.getY() - to.getY()) < 0.6 && Math.hypot(g.getX() - to.getX() - 0.5, g.getZ() - to.getZ() - 0.5) < 1.6) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(to.getX() + 0.5, to.getY(), to.getZ() + 0.5, speed); return; } g.getNavigation().moveTo(to.getX() + 0.5, to.getY(), to.getZ() + 0.5, speed); } // (in his own cell the path is "done" at once and never centres him: at() wants 0.35, so "back into cover" held him off-centre in sight, burning 13 -> 1, the Eat never reached)
     /** The swing when charged, the hop first for the crit (a 2-high ceiling caps the hop; the fall still crits). True: swung or hopping. */
     private boolean cfSwing(net.minecraft.world.entity.LivingEntity mob) {
         if (g.getAttackStrengthScale(0.5f) < 0.95f) return false;
@@ -4883,7 +4884,7 @@ public class WorkGoal extends Goal {
         if (hp <= 12 || (withered && hp <= 14) || (g.isOnFire() && hp <= 14) || (cfHealing && (hp < 18 || withered))) { // (an expert backs off with health to spare and heals all the way: food's plenty)
             cfHealing = true;
             if (!inCover && due != null && shield) { g.getNavigation().stop(); shieldUp(due); cfSay("shield up on the way back", "health " + (int) hp + ", a volley due: on the shield, not on his back"); return false; }
-            if (!inCover) { shieldDown(); g.setSprinting(true); cfMove(cv.cover(), 1.3); cfSay("back into cover", "health " + (int) hp + (withered ? ", Wither on" : "") + (g.isOnFire() ? ", burning" : "") + ": to " + cv.cover().toShortString()); return false; }
+            if (!inCover) { shieldDown(); g.setSprinting(true); cfMove(cv.cover(), 1.3); cfSay("back into cover", "at " + String.format("%.2f,%.2f", g.getX(), g.getZ()) + ", health " + (int) hp + (withered ? ", Wither on" : "") + (g.isOnFire() ? ", burning" : "") + ": to " + cv.cover().toShortString()); return false; }
             g.getNavigation().stop(); g.setSprinting(false); g.getLookControl().setLookAt(mob);
             if (withered && g.inventory.count(s -> s.is(net.minecraft.world.item.Items.MILK_BUCKET)) > 0) { g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(net.minecraft.world.item.Items.MILK_BUCKET)); cfSay("milk", "Wither on at health " + (int) hp + ": the milk clears it"); return true; }
             net.minecraft.world.item.Item food = g.getFoodData().getFoodLevel() < 20 ? com.claudemod.director.ClaudeLife.foodToEat(g, hp <= 6) : null;

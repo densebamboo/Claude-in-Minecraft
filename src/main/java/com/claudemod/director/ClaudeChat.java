@@ -156,11 +156,13 @@ public final class ClaudeChat {
         sb.append("YOUR BODY'S SITUATION (trust this over anything else): ").append(c.isInWater() ? (c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER) ? "UNDERWATER" : "IN WATER, swimming/treading water") : "on land")
           .append(level.canSeeSky(c.blockPosition()) ? ", under open sky" : ", UNDERGROUND (no sky overhead)")
           .append(", at ").append(c.blockPosition().toShortString()).append(c.onGround() ? "" : ", not on solid ground").append(".\n"); // (he told them "nah not in water, just chopping acacia" from a flooded cave)
+        for (var e0 : new java.util.ArrayList<>(com.claudemod.entity.life.ChestLedger.book(c).keySet())) if (e0.distSqr(c.blockPosition()) <= 24 * 24 && level.isLoaded(e0)) com.claudemod.entity.life.ChestLedger.look(c, level, e0); // (his chests close by, read again as he answers: World 15 23:39 "19 in the one" when it held 23)
         { String chests = com.claudemod.entity.life.ChestLedger.describe(c, level, 8); // what's in his own chests as of his last look in each, from anywhere (the user: "does he know he have 7 diamonds", 190 off: he didn't)
-            sb.append("YOUR CHESTS (what was in each when you last looked inside: you know that exactly; what anyone did since you didn't see; raw_copper/raw_iron count as that metal): ").append(chests.isEmpty() ? "none with anything in them that you've seen" : chests).append(".\n"); }
+            sb.append("YOUR CHESTS (what was in each when you last looked inside: you know that exactly; what anyone did since you didn't see; raw_copper/raw_iron count as that metal): ").append(chests.isEmpty() ? "none with anything in them that you've seen" : chests).append(". Numbers you say come from these lines and YOUR TOTALS, each chest as written; if they question a number, check these lines again and answer with what they say (\"checked again: 23 in the one at x y z, 4 in the other, 27 in all\"), owning a slip of yours plainly and keeping a figure that was right; never just agree with a sum that doesn't match them.\n"); }
         { String er = com.claudemod.director.Errand.describe(c); if (er != null) sb.append("YOUR ERRAND FOR THEM (what you're handing over, keeping and making for them, exactly; say it like this if they ask): ").append(er).append('\n'); }
         if (!c.lastWhy.isBlank()) sb.append("WHY (your own reasoning for the current plan): ").append(c.lastWhy).append('\n');
         if (!c.stuckNote.isBlank()) sb.append("YOU ARE STUCK: ").append(c.stuckNote).append(". Be honest about it if they ask (don't say you're fine); say where you're stuck and ask for a hand if you need it.").append(System.lineSeparator());
+        sb.append("Bridging over a gap, digging through, towering or cutting steps up are your own ways of getting where you're going: you do them as part of the walk, never ask them whether you should (World 15: \"want me to bridge straight across?\").\n");
         sb.append("If they ask what you're doing: say what you're doing right now and why, in a sentence or two, like a friend would (\"chopping this acacia, need sticks for torches before we go down\"), not just the task name.\n");
         net.minecraft.core.BlockPos them = com.claudemod.entity.life.Whereabouts.spot(c, player); double dist = them == null ? -1 : Math.sqrt(them.distToCenterSqr(c.position()));
         // ponytail: he's a player, F3 is free; give him his coords so he can answer "where are you"
@@ -182,6 +184,8 @@ public final class ClaudeChat {
         sb.append(com.claudemod.entity.life.Clocks.describe(c, level)); // the timers, exact (he told them drops "vanish after 3 min": it's 5)
         sb.append("YOUR PLACES (yours; you know where they are): ").append(places(c, level)).append(".\n");
         sb.append("YOUR TOTALS (on you + in your chests; use these numbers for \"how many X do you have\"): ").append(totals(c, level)).append(".\n");
+        { String fz = com.claudemod.entity.life.Atlas.known(c, level, "fortress"); if (!fz.isEmpty()) sb.append("FORTRESSES YOU KNOW IN THIS WORLD (seen yourself or named to you; nearest first; the nearest is the one to go for): ").append(fz).append(".\n"); } // (World 15 23:51: \"no fortress in sight yet\" with one seen 94 off)
+        { int free = 0; for (int i = 0; i < c.inventory.items.getContainerSize(); i++) if (c.inventory.items.getItem(i).isEmpty()) free++; sb.append("YOUR PACK THIS MOMENT (read now; say counts from here and YOUR TOTALS, never from an older line of yours): ").append(free).append(" free slot(s)").append(free == 0 ? ", full" : "").append(".\n"); } // (World 15 00:08: "pack's full" with 13 free, "11 rods" with 10)
         return sb.toString();
     }
 
@@ -269,12 +273,16 @@ public final class ClaudeChat {
     }
 
     /** Posts a line in chat as <Claude>. Returns the line, or null if there was nothing to say. */
+    public static String lastOffer = ""; public static int lastOfferAt = -100000;
+    /** He offered to do something in the last minute ("want me to bridge straight across?"): a yes to it is an order. */
+    public static boolean offerOpen(net.minecraft.server.MinecraftServer server) { return !lastOffer.isEmpty() && server.getTickCount() - lastOfferAt < 20 * 60; }
     public static String say(ServerPlayer player, String raw, String reason) {
         if (raw == null || player.hasDisconnected()) return null;
         String line = raw.replace('\n', ' ').trim();
         while (line.length() >= 2 && (line.startsWith("\"") && line.endsWith("\""))) line = line.substring(1, line.length() - 1).trim();
         if (line.isEmpty() || line.equals("...")) return null;
         if (line.length() > 240) line = line.substring(0, 240);
+        if (line.toLowerCase().matches("(?s).*\\b(want me to|should i|shall i|do you want me to|you want me to)\\b.*\\?.*")) { lastOffer = line; lastOfferAt = player.server.getTickCount(); } // (an offer of his: their "yeah" next is the order, World 15 23:52)
         if (line.toLowerCase().matches("(?s).*\\b(in (my |the )?bed|sleeping( now)?|asleep|in bed now)\\b.*")) { // he never claims to be in bed unless he is ("already in bed at the house", twice, while he stood outside it)
             boolean sleeping = false;
             for (ServerPlayer sp : player.server.getPlayerList().getPlayers()) if (sp instanceof com.claudemod.entity.ClaudeEntity c && c.isSleeping()) sleeping = true;

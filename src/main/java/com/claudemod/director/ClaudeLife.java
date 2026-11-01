@@ -567,7 +567,7 @@ public final class ClaudeLife {
         int stamp = progressStamp(g);
         v[1] = g.tickCount - v[0] < 400 && v[2] == stamp ? v[1] + 1 : 0; // the same line again AND nothing changed since: a loop; with progress (moved, got something, broke something) it's just a long job
         v[0] = g.tickCount; v[2] = stamp;
-        return v[1] >= 5;
+        return v[1] >= (line.contains("spawner") && line.contains("waiting") ? 40 : 5); // (a wait at a spawner: it fires every 10-40 s and only with him in 16: 2 minutes of the same line is patience, not a loop; World 15 00:03, tripped at 20 s)
     }
 
     /** The nearest furnace he can actually get to: not one he just failed to reach (he'd only loop on it). */
@@ -4936,6 +4936,12 @@ public final class ClaudeLife {
 
     /** (tests) */
     public static void dumpJunkTest(ClaudeEntity g) { dumpJunk(g); }
+    /** Gear past use: armor worse than what he's wearing in its slot, or a third or later copy of the same tool (World 15 00:05: to the fortress with 0 free slots, two iron sets under his diamond, two of every tool). */
+    static boolean superseded(ClaudeEntity g, ItemStack st, int slot) {
+        if (st.getItem() instanceof net.minecraft.world.item.ArmorItem a) { var worn = g.getItemBySlot(a.getEquipmentSlot()); return worn.getItem() instanceof net.minecraft.world.item.ArmorItem w && w.getDefense() > a.getDefense(); }
+        if (st.isDamageableItem() && !(st.getItem() instanceof net.minecraft.world.item.ArmorItem)) { int before = 0; for (int i = 0; i < slot; i++) if (g.inventory.items.getItem(i).is(st.getItem())) before++; return before >= 2; }
+        return false;
+    }
     private static void dumpJunk(ClaudeEntity g) {
         var inv = g.getInventory();
         if (g.level() instanceof ServerLevel slS && g.tickCount % 400 == 0 && spareStacks(g) >= 2 && g.blueprint != null && !g.blueprint.isEmpty() && inHisMine(g, g.blockPosition()) && g.currentTask == null && g.tasks.stream().noneMatch(t -> t instanceof Task.Deposit)) { // stone well past his 2 stacks with room left still: to the junk chest on his way (World 15 14:48: 331-404 cobbled deepslate, 5 slots free, never put away)
@@ -4982,7 +4988,7 @@ public final class ClaudeLife {
             if (st.isEmpty() || i == inv.selected) continue;
             boolean cobble = st.is(Items.COBBLESTONE) || st.is(Items.COBBLED_DEEPSLATE);
             if (cobble && kept.merge(Items.COBBLESTONE, 1, Integer::sum) <= 2) continue; // two stacks of stone all told, cobble and cobbled deepslate together, as a player keeps (live 10:18 World 15: two of each, 238 stone in 4 slots, and the sugar dropped and picked back up every 7 s instead)
-            if (!cobble && !junk.contains(st.getItem())) continue;
+            if (!cobble && !junk.contains(st.getItem()) && !superseded(g, st, i)) continue;
             var e = g.drop(st.copy(), false, true);
             if (e != null) g.markGift(e); // a normal toss (vanilla pickup delay); he just doesn't go back for it
             inv.items.set(i, net.minecraft.world.item.ItemStack.EMPTY);

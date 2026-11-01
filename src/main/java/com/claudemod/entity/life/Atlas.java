@@ -53,6 +53,7 @@ public final class Atlas {
     public static void tick(ClaudeEntity g) {
         if (g.tickCount % 40 != 7 || !(g.level() instanceof ServerLevel l)) return;
         FortressScout.noteDeck(g);
+        if (g.tickCount % 200 == 7) for (Perception.Sighting s0 : Perception.landmarks(g)) if ((s0.id().contains("nether_brick") || s0.id().contains("fortress")) && s0.dim() == l.dimension()) note(g, l, "fortress", s0.nearestCell(g.getEyePosition())); // (a fortress seen far off: on his atlas; World 15 23:47 he saw one 94 off and scouted on for another)
         Book b = book(g); String d = dim(l);
         Set<Long> cov = b.covered.computeIfAbsent(d, k -> new HashSet<>());
         if (cov.size() < 20000) cov.add(cell(g.getBlockX(), g.getBlockZ()));
@@ -100,6 +101,14 @@ public final class Atlas {
         return best;
     }
 
+    /** "the fortress at -65, 68, 135 (94 off, south-west); ..." nearest first, for his chat and plans. */
+    public static String known(ClaudeEntity g, ServerLevel l, String kind) {
+        var m = book(g).places.get(dim(l)); if (m == null || !m.containsKey(kind)) return "";
+        List<BlockPos> spots = new ArrayList<>(m.get(kind)); spots.sort(java.util.Comparator.comparingDouble(q -> q.distSqr(g.blockPosition())));
+        StringBuilder sb = new StringBuilder();
+        for (BlockPos q : spots) sb.append(sb.length() == 0 ? "" : "; ").append(q.toShortString()).append(" (").append((int) Math.sqrt(q.distSqr(g.blockPosition()))).append(" off, ").append(Perception.compassOf(net.minecraft.world.phys.Vec3.atCenterOf(q).subtract(g.position()))).append(")");
+        return sb.toString();
+    }
     public static int covered(ClaudeEntity g, ServerLevel l) { Set<Long> c = book(g).covered.get(dim(l)); return c == null ? 0 : c.size(); }
 
     /** The heading with the least ground he's covered along it (48-160 out), sixteen ways round; ties: the one nearest {@code now}. */

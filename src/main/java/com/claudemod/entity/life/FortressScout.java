@@ -59,7 +59,7 @@ public final class FortressScout {
     public static void reset(ClaudeEntity g) { if (states != null) states.remove(g.getUUID()); }
     public static List<Leg> legs(ClaudeEntity g) { return state(g).legs; }
     public static BlockPos found(ClaudeEntity g) { // (this run's, else the one on his atlas: World 15, seen 3 times in a day and scouted for again after each restart)
-        BlockPos f = state(g).found; if (f == null && g.level() instanceof ServerLevel sl) f = Atlas.find(g, sl, "fortress");
+        BlockPos f = state(g).found; if (g.level() instanceof ServerLevel sl) { BlockPos a0 = Atlas.find(g, sl, "fortress"); if (a0 != null && (f == null || a0.distSqr(g.blockPosition()) < f.distSqr(g.blockPosition()))) f = a0; } // (the nearest he knows: World 15 23:55 one 94 off and him bound for one 200 off)
         if (f != null && g.level() instanceof ServerLevel sl2 && sl2.isLoaded(f)) { BlockPos deck = FortressFight.deckCell(sl2, f); if (deck != null) return deck; } // (its deck, never the brick seen from below)
         return f;
     }
@@ -231,6 +231,9 @@ public final class FortressScout {
         if (!st.target().startsWith("@")) { s.phase = 0; s.legTo = null; s.legFrom = null; } // a fresh ask: his notes on the ground scouted stay, a leg something else cut off doesn't
         if (s.phase == LOOK) finishLeg(g, level, s);
         var f = fortressSighting(g, level); BlockPos far = f == null ? landmarkBrick(g) : null;
+        if (f == null && far == null) { // a fortress named with its coords in his goal or their order ("the nether fortress at 185 64 -14"): on his atlas (World 15 23:52: scouting south for one the goal put east)
+            for (String w0 : new String[] {st.target(), g.playerGoal, g.goal}) { if (w0 == null) continue; var m0 = java.util.regex.Pattern.compile("fortress[^0-9-]{0,24}(-?\\d+)[ ,]+(-?\\d+)[ ,]+(-?\\d+)").matcher(w0.toLowerCase());
+                if (m0.find()) { BlockPos named = new BlockPos(Integer.parseInt(m0.group(1)), Integer.parseInt(m0.group(2)), Integer.parseInt(m0.group(3))); if (Atlas.find(g, level, "fortress") == null || Atlas.find(g, level, "fortress").distSqr(named) > 48 * 48) { Atlas.note(g, level, "fortress", named); ClaudeMod.LOGGER.info("[Claude scout] a nether fortress at {} named in \"{}\": on his atlas (FortressScout.skill)", named.toShortString(), w0); } break; } } }
         if (f == null && far == null) { BlockPos rec = Atlas.find(g, level, "fortress"); if (rec != null) { s.found = rec; int d0 = (int) Math.sqrt(rec.distSqr(g.blockPosition())); ClaudeMod.LOGGER.info("[Claude scout] a nether fortress on his atlas at {} ({} off): no scouting for it (FortressScout.skill)", rec.toShortString(), d0); return "done: found a nether fortress: the one on my atlas at " + rec.toShortString() + ", " + d0 + " blocks off; blazes spawn at its spawners and in its halls"; } }
         if (f != null || far != null) {
             BlockPos at = f != null ? f.saw() : far;

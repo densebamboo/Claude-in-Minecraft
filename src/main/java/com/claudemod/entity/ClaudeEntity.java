@@ -304,7 +304,7 @@ public class ClaudeEntity extends ServerPlayer {
     private int zeroHpTicks;
     @Override
     public void tick() {
-        if (isChangingDimension()) { hasChangedDimension(); com.claudemod.entity.life.PortalMap.arrived(this); com.claudemod.entity.life.ExactSpot.reset(this); /* a spot given in the other dimension means nothing here */
+        if (isChangingDimension()) { hasChangedDimension(); com.claudemod.entity.life.PortalMap.arrived(this); com.claudemod.entity.life.ExactSpot.reset(this); /* a spot given in the other dimension means nothing here */ stoppedTick = tickCount; /* ponytail: live 13:30, a plan asked for in the overworld landed after the tp into the Nether: go_to the overworld portal 70 68 65 there */
             if (level().getBlockState(blockPosition()).is(net.minecraft.world.level.block.Blocks.NETHER_PORTAL)) { /* where he came out: his way back */
                 if (level().dimension() == net.minecraft.world.level.Level.NETHER) ClaudeLife.netherPortal.put(getUUID(), blockPosition().immutable());
                 else if (level().dimension() == net.minecraft.world.level.Level.OVERWORLD) ClaudeLife.hisPortal.put(getUUID(), blockPosition().immutable());

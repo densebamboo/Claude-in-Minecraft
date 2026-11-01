@@ -12665,6 +12665,7 @@ public final class ClaudeLife {
         g.skillQueue.clear();
         dropCurrent(g);
         g.stoppedTick = g.tickCount; // a plan being thought up for the old job is stale
+        if (com.claudemod.entity.life.ExactSpot.target(g) != null || com.claudemod.entity.life.ExactSpot.approaching(g)) { com.claudemod.entity.life.ExactSpot.reset(g); ClaudeMod.LOGGER.info("[Claude command] their new order ends the walk onto an exact spot (ClaudeLife.orderFromWords)"); } // ponytail: live 13:32, the old go_to 70 68 65 job re-armed itself after their new order ("onto it again, try 2")
         g.commandActive = false;
         g.staying = false; // an order ends a "wait here", whatever the goal was before
         g.stuckNote = "";

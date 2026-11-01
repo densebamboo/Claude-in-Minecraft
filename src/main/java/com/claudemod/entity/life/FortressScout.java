@@ -129,7 +129,7 @@ public final class FortressScout {
     /** Ground about d out along yaw a (x = cos, z = sin): the far shore first when it's lava there (his blocks bridge it), then nearer. */
     public static BlockPos alongRay(ClaudeEntity g, ServerLevel level, double a, int d) {
         for (int k : new int[] {d, d + 8, d + 16, d + 24, d + 32, d - 8, d - 16, d - 24, d - 32}) {
-            if (k < 12) continue;
+            if (k < Math.min(12, d)) continue;
             BlockPos p = standAt(level, g.getBlockX() + (int) Math.round(Math.cos(a) * k), g.getBlockZ() + (int) Math.round(Math.sin(a) * k), g.getBlockY());
             if (p != null && seen(g, level, p)) return p; // (only ground he can see: a pocket behind the rock is no target, live 2026-11-01 he dug to openings out of sight)
         }
@@ -144,6 +144,7 @@ public final class FortressScout {
     /** explore in the Nether: ground about 45 out his way (a little to either side, then across, then back), never the roof. */
     public static BlockPos exploreSpot(ClaudeEntity g, ServerLevel level, double a) {
         for (double turn : new double[] {0, 0.5, -0.5, Math.PI / 2, -Math.PI / 2, Math.PI}) { BlockPos p = alongRay(g, level, a + turn, 45); if (p != null) return p; }
+        for (double turn : new double[] {0, Math.PI / 2, -Math.PI / 2, Math.PI}) { BlockPos p = alongRay(g, level, a + turn, 6); if (p != null) return p; } // ponytail: live 13:13, a warped forest's stems hid everything 12+ out: "no ground any way" on open ground; short legs then
         return null;
     }
     /** A leg's end: the ray's ground, then the highest open ground within 6 to either side of it (looking out over the open beats a hollow). */

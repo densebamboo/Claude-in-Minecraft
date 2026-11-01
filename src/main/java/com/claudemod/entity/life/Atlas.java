@@ -64,6 +64,8 @@ public final class Atlas {
             if (!l.isLoaded(p)) continue;
             if (r > 0 && !inView(g, l, p)) continue;
             BlockPos st = r == 0 ? me : ground(l, p); if (st == null) continue; // (a spot he can stand on: a biome seen over a lava sea or in the rock is no place to walk to)
+            var bk = l.getBiome(st).unwrapKey(); // ponytail: live 13:48, a 1-block warped sliver at an edge put on record, he stood 2 off it in another biome and looped: a patch only, the same biome 4 out all round
+            if (!bk.equals(l.getBiome(st.east(4)).unwrapKey()) || !bk.equals(l.getBiome(st.west(4)).unwrapKey()) || !bk.equals(l.getBiome(st.north(4)).unwrapKey()) || !bk.equals(l.getBiome(st.south(4)).unwrapKey())) continue;
             note(g, l, l.getBiome(st).unwrapKey().map(x -> x.location().getPath()).orElse(""), st);
         }
     }
@@ -97,6 +99,8 @@ public final class Atlas {
         var m = book(g).places.get(dim(l)); if (m == null) return null;
         List<BlockPos> spots = m.get(biome); if (spots == null) return null;
         BlockPos best = null; double bd = Double.MAX_VALUE;
+        var hk = l.getBiome(g.blockPosition()).unwrapKey(); String here = hk.isPresent() ? hk.get().location().getPath() : ""; // (no lambda: live hotswap)
+        for (var it = spots.iterator(); it.hasNext(); ) { BlockPos q = it.next(); if (!here.equals(biome) && q.distSqr(g.blockPosition()) <= 16) { it.remove(); ClaudeMod.LOGGER.info("[Claude atlas] {} at {}: stood by it and it's {} here, only a sliver: off the record (Atlas.find)", biome, q.toShortString(), here); } }
         for (BlockPos q : spots) { double dd = q.distSqr(g.blockPosition()); if (dd < bd) { bd = dd; best = q; } }
         return best;
     }

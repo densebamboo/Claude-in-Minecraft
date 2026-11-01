@@ -1478,6 +1478,8 @@ public final class ClaudeLife {
         Order o = orders().get(g.getUUID()); // what they asked for and isn't finished comes before his own kit, mine and wood (a gear_up beef hunt walked him off their half-built house)
         if (o != null && g.playerGoal != null && !g.playerGoal.isBlank() && g.playerGoal.equals(o.goal())) {
             for (Skills.Step s : o.steps()) { if (g.failCount.getOrDefault(s.skill() + (s.target().isBlank() ? "" : " " + s.target()), 0) < 3) { c.add(s); ClaudeMod.LOGGER.info("[Claude plan] rules: their order ({}) isn't finished: {} next", o.goal(), s.skill() + (s.target().isBlank() ? "" : " " + s.target())); break; }
+                String fk = s.skill() + (s.target().isBlank() ? "" : " " + s.target()); // ponytail: live 13:13, one explore TRIP killed their pearl order for good (nothing ever cleared it): passed over 3 plans, then another go
+                if (g.failCount.merge(fk, 1, Integer::sum) >= 6) { g.failCount.remove(fk); ClaudeMod.LOGGER.info("[Claude plan] rules: their order's {} passed over 3 plans: another go next plan", s.skill()); }
                 ClaudeMod.LOGGER.info("[Claude plan] rules: their order's {} failed 3 times running: passed over", s.skill()); }
         }
         if (com.claudemod.entity.life.ExactSpot.lesson(g, player)) { // their lesson: cover, food and their order's steps above, then by them; never his own kit, mine or wood
@@ -2700,6 +2702,9 @@ public final class ClaudeLife {
                       return "my things from dying here are on this side at " + dl.at.toShortString() + ": getting them first"; } }
                 String here = level.getBiome(g.blockPosition()).unwrapKey().map(k -> k.location().getPath()).orElse("");
                 if (nether && !here.equals("warped_forest")) { g.skillQueue.addFirst(new Skills.Step("explore", "warped_forest", 1)); return "no enderman in sight: to a warped forest, where they are (" + have + "/" + want + " pearls)"; }
+                if (com.claudemod.entity.life.Perception.turningRound(g) || !com.claudemod.entity.life.Perception.lookedRound(g, 200)) { // ponytail: live 13:22, two endermen 5 off at his height and he walked on without turning round once: a look about first, as a player does
+                    if (!com.claudemod.entity.life.Perception.turningRound(g)) com.claudemod.entity.life.Perception.lookRound(g, null);
+                    g.tasks.add(new Task.Wait(34, false)); g.skillQueue.addFirst(st); return "no enderman in view: looking all round first (" + have + "/" + want + " pearls)"; }
                 g.skillQueue.addFirst(new Skills.Step("explore", "", 1)); // (through the forest, or the overworld at night: walking on, looking)
                 return "no enderman in sight: walking on, looking (" + have + "/" + want + " pearls)";
             }
@@ -3619,8 +3624,10 @@ public final class ClaudeLife {
                                         && !(e instanceof net.minecraft.world.entity.NeutralMob nm && !nm.isAngryAt(g)) // (zombified piglins, endermen: neutral till angry at him; 16:30 one swing set a whole pack on him)
                                         && !(e instanceof net.minecraft.world.entity.monster.piglin.Piglin pg && !(pg.getTarget() == g))
                                     : BuiltInRegistries.ENTITY_TYPE.getKey(e.getType()).getPath().equals(target)));
+                if (mobs.isEmpty() && "enderman".equals(target)) { g.skillQueue.addFirst(new Skills.Step("ender_pearls", "ender_pearl", 12)); ClaudeMod.LOGGER.info("[Claude skill] fight enderman: none within 24, the pearl hunt looks for one (ClaudeLife fight)"); return "no enderman close: looking for one"; } // ponytail: live 13:38, fight enderman failed twice in a warped forest; a hunter looks round and walks on (ender_pearls does)
                 if (mobs.isEmpty()) return "failed: no " + (target.isBlank() ? "hostile mob" : target) + " within 24 blocks of you or them" + ("spider".equals(target) ? " (string: spiders come out at night, a mineshaft's cobwebs, my chests; get_string takes what's to hand: never a daylight hunt for spiders)" : "");
                 mobs.removeIf(e -> !g.hasLineOfSight(e) && (e.getY() < g.getY() - 3 || e.getY() > g.getY() + 3)); // one under the floor or up a shaft he can't see: not a fight he can get to (he'd stand there swinging at rock)
+                if (mobs.isEmpty() && "enderman".equals(target)) { g.skillQueue.addFirst(new Skills.Step("ender_pearls", "ender_pearl", 12)); ClaudeMod.LOGGER.info("[Claude skill] fight enderman: the ones about are behind rock, the pearl hunt looks for another (ClaudeLife fight)"); return "that enderman is behind rock: looking for another"; }
                 if (mobs.isEmpty()) return "failed: the only hostiles about are behind rock (under the floor or up a shaft), nothing he can get at";
                 // "this one" / "that cow": the one they're looking at comes first, then nearest to the spot
                 var looked = com.claudemod.entity.life.Whereabouts.seesNow(g, player) && g.distanceTo(player) <= 24 ? mobLookedAt(player, mobs) : null; // (their crosshair: only watching them)
@@ -5035,7 +5042,11 @@ public final class ClaudeLife {
         }
         { BlockPos work = null; java.util.List<Task> ahead = new java.util.ArrayList<>(); if (g.currentTask != null) ahead.add(g.currentTask); ahead.addAll(g.tasks); // a toss goes away from his work, like a player's: thrown at his feet, he walked back over it and his body took it all back up (live 11:10: the same 6 stacks thrown every 5 s)
           for (Task t : ahead) { if (t instanceof Task.Break b) work = b.pos(); else if (t instanceof Task.GoTo w) work = w.pos(); else if (t instanceof Task.Place pl) work = pl.pos(); if (work != null) break; }
-          if (work != null && inv.items.stream().anyMatch(s0 -> !s0.isEmpty() && junkItem(s0))) { double dx = g.getX() - (work.getX() + 0.5), dz = g.getZ() - (work.getZ() + 0.5); if (dx * dx + dz * dz > 0.01) { g.setYRot((float) Math.toDegrees(Math.atan2(dz, dx)) - 90f); g.setXRot(-25f); ClaudeMod.LOGGER.info("[Claude life] junk thrown away from his work at {} (ClaudeLife.dumpJunk)", work.toShortString()); } } }
+          if (work != null && inv.items.stream().anyMatch(s0 -> !s0.isEmpty() && junkItem(s0))) { double dx = g.getX() - (work.getX() + 0.5), dz = g.getZ() - (work.getZ() + 0.5); if (dx * dx + dz * dz > 0.01) { g.setYRot((float) Math.toDegrees(Math.atan2(dz, dx)) - 90f); g.setXRot(-25f); ClaudeMod.LOGGER.info("[Claude life] junk thrown away from his work at {} (ClaudeLife.dumpJunk)", work.toShortString()); } }
+          else if (work == null && inv.items.stream().anyMatch(s0 -> !s0.isEmpty() && junkItem(s0))) { // ponytail: live 13:24, idle in a Nether nook: 64 netherrack thrown at the rock every 5 s, landed at his feet, his body took it back; thrown the most open way instead
+            Direction best = null; int bestOpen = -1; BlockPos eye = BlockPos.containing(g.getEyePosition());
+            for (Direction d : Direction.Plane.HORIZONTAL) { int open = 0; for (int k = 1; k <= 4 && g.level().getBlockState(eye.relative(d, k)).getCollisionShape(g.level(), eye.relative(d, k)).isEmpty(); k++) open++; if (open > bestOpen) { bestOpen = open; best = d; } }
+            g.setYRot(best.toYRot()); g.setXRot(-25f); ClaudeMod.LOGGER.info("[Claude life] junk thrown the most open way, {} ({} clear) (ClaudeLife.dumpJunk)", best, bestOpen); } }
         java.util.Set<Item> junk = JUNK;
         java.util.Map<Item, Integer> kept = new java.util.HashMap<>();
         int n = 0; StringBuilder thrown = new StringBuilder();
@@ -8996,6 +9007,7 @@ public final class ClaudeLife {
     /** Falling with a water bucket: once the ground is within reach, water under his feet, the way a player MLGs a fall (and the fall does nothing). */
     static void mlg(ClaudeEntity g, ServerLevel level) {
         if (g.onGround() || g.isInWater() || g.fallDistance < 2.5f || g.getDeltaMovement().y > -0.3) return;
+        if (level.dimensionType().ultraWarm()) return; // ponytail: live 13:51, an MLG in the Nether: the water boils away, the 21-block fall took 19
         if (g.inventory.count(s -> s.is(Items.WATER_BUCKET)) == 0) return;
         BlockPos ground = null; int drop = 0;
         for (BlockPos q = g.blockPosition().below(); drop < 6; q = q.below(), drop++) {
@@ -12656,6 +12668,7 @@ public final class ClaudeLife {
         g.skillQueue.clear();
         dropCurrent(g);
         g.stoppedTick = g.tickCount; // a plan being thought up for the old job is stale
+        if (com.claudemod.entity.life.ExactSpot.target(g) != null || com.claudemod.entity.life.ExactSpot.approaching(g)) { com.claudemod.entity.life.ExactSpot.reset(g); ClaudeMod.LOGGER.info("[Claude command] their new order ends the walk onto an exact spot (ClaudeLife.orderFromWords)"); } // ponytail: live 13:32, the old go_to 70 68 65 job re-armed itself after their new order ("onto it again, try 2")
         g.commandActive = false;
         g.staying = false; // an order ends a "wait here", whatever the goal was before
         g.stuckNote = "";

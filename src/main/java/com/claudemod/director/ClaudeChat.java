@@ -451,7 +451,7 @@ public final class ClaudeChat {
             com.claudemod.entity.life.Task cur = g.dropCurrent ? null : g.currentTask;
             java.util.List<com.claudemod.entity.life.Task> ts = new java.util.ArrayList<>(g.tasks); if (cur != null) ts.add(cur);
             java.util.List<String> wrong = new java.util.ArrayList<>(), fix = new java.util.ArrayList<>();
-            rtMoves(g, p, low, q, skills, ts, action == null ? "none" : action, false, wrong, fix);
+            rtMoves(g, p, low, q, skills, ts, action == null ? "none" : action, g.planning || q.isEmpty() && ts.isEmpty() && g.nextPlanTick <= g.tickCount, wrong, fix); // ponytail: live 13:30/13:32, their order had just cleared the queue for a fresh plan: "heading to you now" came out "nothing queued; not heading anywhere"
             if (wrong.isEmpty()) return text;
             String now = !q.isEmpty() ? rtStep(q.get(0)) : cur != null ? describe(g, cur) : "nothing queued right now";
             String line = now + "; " + String.join(", ", fix);

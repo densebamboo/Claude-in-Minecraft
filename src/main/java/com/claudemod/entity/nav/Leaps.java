@@ -217,12 +217,13 @@ public final class Leaps {
     public static void reset(ClaudeEntity g) { RUN.remove(g.getUUID()); REFUSED.remove(g.getUUID()); CTL.remove(g.getUUID()); }
 
     static Direction dirOf(Task.Leap t) { return Direction.getNearest(t.land().getX() - t.from().getX(), 0, t.land().getZ() - t.from().getZ()); }
-    static int gapOf(Task.Leap t) { Direction d = dirOf(t); return Math.abs((t.land().getX() - t.from().getX()) * d.getStepX() + (t.land().getZ() - t.from().getZ()) * d.getStepZ()) - 1; }
+    static int gapOf(Task.Leap t) { return (int) Math.ceil(Math.hypot(t.land().getX() - t.from().getX(), t.land().getZ() - t.from().getZ()) - 1e-6) - 1; } // ponytail: a diagonal counts as the straight gap of its length rounded up (over 1 corner = 2.83 -> 2, over 2 = 4.24 -> 4)
 
     /** One tick of the leap: null while it runs, else how it ended (logged). His feet must be on the lip cell (WorkGoal walks him there first). */
     public static String tick(ClaudeEntity g, ServerLevel l, Task.Leap t) {
         St s = RUN.get(g.getUUID());
-        Direction d = dirOf(t); Vec3 dir = new Vec3(d.getStepX(), 0, d.getStepZ());
+        Direction d = dirOf(t); Vec3 dir = t.kind() == DROP ? new Vec3(d.getStepX(), 0, d.getStepZ()) : new Vec3(t.land().getX() - t.from().getX(), 0, t.land().getZ() - t.from().getZ()).normalize(); // (a jump runs along its own line: straight or diagonal)
+        float yaw = (float) Math.toDegrees(Math.atan2(-dir.x, dir.z));
         Vec3 c0 = Vec3.atBottomCenterOf(t.from());
         double along = (g.getX() - c0.x) * dir.x + (g.getZ() - c0.z) * dir.z, lat = (g.getX() - c0.x) * dir.z - (g.getZ() - c0.z) * dir.x;
         Vec3 side = new Vec3(dir.z, 0, -dir.x);
@@ -254,7 +255,7 @@ public final class Leaps {
             com.claudemod.ClaudeMod.LOGGER.info("[Claude leap] {} from {} to {}: {} (Leaps.tick)", kindName(t.kind()), t.from().toShortString(), t.land().toShortString(), s.plan);
         }
         int age = g.tickCount - s.t0;
-        g.setYRot(d.toYRot()); g.setYHeadRot(d.toYRot()); g.yBodyRot = d.toYRot(); g.setXRot(t.kind() == DROP ? 60 : 20); // facing straight along the row, eyes on the landing
+        g.setYRot(yaw); g.setYHeadRot(yaw); g.yBodyRot = yaw; g.setXRot(t.kind() == DROP ? 60 : 20); // facing straight along the row, eyes on the landing
         boolean sprint = t.kind() == SPRINT_JUMP;
         if (s.phase == 0) { // lined up: on the lip, at the back of it for a run, still for a moment (vanilla's 10-tick jump delay is past)
             double want = t.kind() == DROP ? 0.0 : -0.25;
@@ -274,8 +275,8 @@ public final class Leaps {
                 if (s.phase == 1) return null;
             } else {
                 double v = g.getDeltaMovement().x * dir.x + g.getDeltaMovement().z * dir.z;
-                int dy = t.land().getY() - t.from().getY(); double target = gapOf(t) + 1;
-                boolean edge = along + v + groundAcc(sprint) > 0.5 + 0.3 - 0.02; // the last tick his box still stands on the lip
+                int dy = t.land().getY() - t.from().getY(); double target = Math.hypot(t.land().getX() - t.from().getX(), t.land().getZ() - t.from().getZ());
+                boolean edge = along + v + groundAcc(sprint) > (0.5 + 0.3) / Math.max(Math.abs(dir.x), Math.abs(dir.z)) - 0.02; // the last tick his box still stands on the lip
                 boolean far = predictJump(along, v, sprint, dy, 1) >= target + 0.25; // jumping now already carries him past the landing's middle with the air to steer back: no need to run on (a 1-wide pillar after a sprint-jump's 3.5 blocks)
                 boolean jump = g.onGround() && (edge || far);
                 if (!g.onGround() && along > 0.3) { s.phase = 2; s.takeoff = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude leap] {} from {}: off the lip without the jump (along {}) (Leaps.tick)", kindName(t.kind()), t.from().toShortString(), String.format("%.2f", along)); }

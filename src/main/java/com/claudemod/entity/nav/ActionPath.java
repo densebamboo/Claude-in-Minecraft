@@ -481,6 +481,16 @@ public final class ActionPath {
                     out.add(new Move(t.immutable(), cost, acts));
                 }
             }
+            // diagonals (the user 14:10: "he should be able to path diagonally too. and jump diagonally"): a flat step to a corner cell, no digs or puts, both side cells open at feet and head
+            // so his box never catches the corner; tunnels stay straight (digs are 4-way only)
+            if (!swimming) for (int[] dd : new int[][] {{1, 1}, {1, -1}, {-1, 1}, {-1, -1}}) {
+                BlockPos t = feet.offset(dd[0], 0, dd[1]), s1 = feet.offset(dd[0], 0, 0), s2 = feet.offset(0, 0, dd[1]);
+                if (!passable(t) || !passable(t.above()) || !passable(s1) || !passable(s1.above()) || !passable(s2) || !passable(s2.above())) continue;
+                if (water(t) || !solid(t.below()) || tall(t.below()) || hurts(t) || hurts(s1) || hurts(s2) || door(s1) || door(s2)) continue;
+                double cost = 1.414 + failPenalty(t); if (mine(t)) cost *= 0.7;
+                double av = avoidCost(t); if (av < 0) continue; cost += av;
+                List<Act> acts = new ArrayList<>(); acts.add(new Act.Walk(t.immutable())); out.add(new Move(t.immutable(), cost, acts));
+            }
             // off an edge, 4 or more down (the user, 16:42: "he should be able to calculate fall damage and assess risk"): vanilla's fall worked out tick by tick (Leaps.fall:
             // water, a cobweb, a ladder or vine take all of it, hay and a bed some), its HP the move's price, taken only while what's left keeps his margin; never onto lava,
             // fire or magma, never a landing he can't see from the lip (16:31 he stood on his bridge 15 over them: "no way", 40 walks ended at once)
@@ -536,6 +546,51 @@ public final class ActionPath {
                             float jhp = water(land) || climbable(land) ? 0 : Leaps.damage(g, level, 1.2522f - dy, level.getBlockState(land.below())); // (the arc's top counts: coming down 2 is 1 HP, 3 is 2)
                             if (hp - hurtNow - jhp < margin) { refuse(what, Leaps.fmt(jhp) + " HP coming down, under the " + (int) margin + " he keeps"); continue; }
                             double cost = (i + 1) * 0.8 + 0.6 + (kind == Leaps.SPRINT_JUMP ? 0.4 : 0) + hpCost(jhp) + Leaps.missRisk(i, dy) * (hpCost(missHp) * 4 + missDepth * 2 + 4) + failPenalty(land);
+                            double av = avoidCost(land); if (av < 0) continue; cost += av;
+                            List<Act> acts = new ArrayList<>(); acts.add(new Act.Leap(feet.immutable(), land.immutable(), kind, Math.max(0, -dy), jhp, cost));
+                            out.add(new Move(land.immutable(), cost, acts));
+                        }
+                    }
+                }
+            }
+            // a jump over a gap on a diagonal (the user 14:10): over 1 corner cell is 2.83 centre to centre (a sprint-jump, like a straight 2), over 2 is 4.24 (like a straight 4, down only);
+            // every cell the box sweeps (the gap cells and the side cells between them) open 3 high for the arc
+            if (!swimming && solid(feet.below()) && !climbable(feet) && passable(feet.above(2))) {
+                boolean canSprint = g.getFoodData().getFoodLevel() > 6;
+                for (int[] dd : new int[][] {{1, 1}, {1, -1}, {-1, 1}, {-1, -1}}) {
+                    float missHp = 0; int missDepth = 0; String missWhy = null;
+                    for (int i = 1; i <= 2; i++) {
+                        boolean open = true;
+                        for (int k = 0; k <= i && open; k++) for (BlockPos q : new BlockPos[] {feet.offset(dd[0] * (k + 1), 0, dd[1] * k), feet.offset(dd[0] * k, 0, dd[1] * (k + 1)), feet.offset(dd[0] * k, 0, dd[1] * k)}) {
+                            if (k == 0 && q.equals(feet)) continue;
+                            if (!passable(q) || !passable(q.above()) || !passable(q.above(2)) || water(q) || climbable(q)) { open = false; break; } }
+                        if (!open) break;
+                        BlockPos gc = feet.offset(dd[0] * i, 0, dd[1] * i);
+                        if (solid(gc.below())) break; // ground on the diagonal: the diagonal walk, not a gap
+                        Leaps.Fall mf = fallAt(gc);
+                        if (!mf.ok()) missWhy = mf.why();
+                        else if (level.getBlockState(mf.land()).is(net.minecraft.world.level.block.Blocks.POWDER_SNOW)) missWhy = "powder snow";
+                        else { missHp = Math.max(missHp, mf.hp()); missDepth = Math.max(missDepth, mf.down()); }
+                        int eq = i == 1 ? 2 : 4;
+                        BlockPos col = feet.offset(dd[0] * (i + 1), 0, dd[1] * (i + 1));
+                        for (int dy = 1; dy >= -3; dy--) {
+                            int kind = Leaps.jumpKind(eq, dy, canSprint);
+                            if (kind < 0) continue;
+                            BlockPos land = col.above(dy);
+                            if (!passable(land) || !passable(land.above()) || water(land.above())) continue;
+                            if (dy == 1 && !passable(land.above(2))) continue;
+                            boolean clear = true; for (int k = dy + 1; k <= 1; k++) if (!passable(col.above(k))) { clear = false; break; }
+                            if (!clear) continue;
+                            if (!(solid(land.below()) || water(land) || climbable(land))) continue;
+                            if (!water(land) && hurts(land)) continue;
+                            String what = Leaps.kindName(kind) + " off " + feet.toShortString() + " diagonally over " + i + (dy > 0 ? " up 1" : dy < 0 ? " down " + -dy : "");
+                            if (missWhy != null) { refuse(what, "a miss falls onto " + missWhy); continue; }
+                            if (hp - hurtNow - missHp < margin) { refuse(what, "a miss is " + missDepth + " down, " + Leaps.fmt(missHp) + " HP"); continue; }
+                            if (!Leaps.seesOver(level, feet, feet.offset(dd[0], 0, dd[1]), land)) { refuse(what, "he can't see the landing"); continue; }
+                            if (missedHere(land)) { refuse(what, "he missed that landing in the last 2 min"); continue; }
+                            float jhp = water(land) || climbable(land) ? 0 : Leaps.damage(g, level, 1.2522f - dy, level.getBlockState(land.below()));
+                            if (hp - hurtNow - jhp < margin) { refuse(what, Leaps.fmt(jhp) + " HP coming down"); continue; }
+                            double cost = (i + 1) * 1.13 + 0.6 + (kind == Leaps.SPRINT_JUMP ? 0.4 : 0) + hpCost(jhp) + Leaps.missRisk(eq, dy) * (hpCost(missHp) * 4 + missDepth * 2 + 4) + failPenalty(land);
                             double av = avoidCost(land); if (av < 0) continue; cost += av;
                             List<Act> acts = new ArrayList<>(); acts.add(new Act.Leap(feet.immutable(), land.immutable(), kind, Math.max(0, -dy), jhp, cost));
                             out.add(new Move(land.immutable(), cost, acts));

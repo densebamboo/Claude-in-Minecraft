@@ -10364,6 +10364,9 @@ public final class ClaudeBodyTest {
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
             case 494: return st494(stage, t, c, h, level, mock);
+            case 533: return st533(stage, t, c, h, level, mock);
+            case 532: return st532(stage, t, c, h, level, mock);
+            case 531: return st531(stage, t, c, h, level, mock);
             case 530: return st530(stage, t, c, h, level, mock);
             case 529: return st529(stage, t, c, h, level, mock);
             case 528: return st528(stage, t, c, h, level, mock);
@@ -10544,6 +10547,48 @@ public final class ClaudeBodyTest {
             for (int x = 3; x <= 13; x++) for (int z = 3; z <= 13; z++) for (int y = 1; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
             c.clearFire(); c.setHealth(20f); pass(stage, t, "out of the sealed pocket east through the wall in " + t[0] + " ticks, low " + hzLow); }
         else if (t[0] == 300 || !c.isAlive()) check(false, "pocket: still in the lava pocket (alive " + c.isAlive() + ", low " + hzLow + ", at " + c.blockPosition().toShortString() + ")");
+        return true;
+    }
+    private static boolean st531(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // the pearl stage's end (the user, 19:40: "craft eyes once he has pearls and powder"): 3 pearls and 2 blaze rods: 3 eyes of ender, one powder left over
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 5) {
+            c.getInventory().add(new ItemStack(Items.ENDER_PEARL, 3)); c.getInventory().add(new ItemStack(Items.BLAZE_ROD, 2));
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "obtain", "ender_eye", 3);
+            for (int i = 0; i < 6 && !c.skillQueue.isEmpty(); i++) { var st0 = c.skillQueue.poll(); r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], st0.skill(), st0.target(), st0.count()); }
+            int eyes = c.inventory.count(x -> x.is(Items.ENDER_EYE));
+            check(eyes == 3, "eyes: " + eyes + " eyes of ender from 3 pearls and 2 rods (last: \"" + r + "\")");
+            c.getInventory().clearContent(); pass(stage, t, eyes + " eyes of ender (\"" + r + "\")");
+        }
+        return true;
+    }
+    private static boolean st532(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a deck 19 up and 18 across from a wide open ledge (World 15 22:38, the fortress from its lava-sea ledge: "no way at all", the search spent on the ledge's cheaper ways): up onto it
+        BlockPos me = h.absolutePos(new BlockPos(2, 2, 8)), deck = h.absolutePos(new BlockPos(20, 21, 8));
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.tasks.clear(); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); clT = -1;
+            for (int x = -12; x <= 32; x++) for (int z = -12; z <= 28; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.NETHERRACK.defaultBlockState(), 2); for (int y = 2; y <= 24; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = 19; x <= 21; x++) for (int z = 7; z <= 9; z++) level.setBlock(h.absolutePos(new BlockPos(x, 20, z)), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // (the deck, in the air)
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+        if (t[0] == 10) c.tasks.add(new Task.GoTo(deck, 1.0));
+        if (t[0] > 10 && clT < 0 && c.getBlockY() >= deck.getY() && c.blockPosition().distSqr(deck) <= 4) clT = t[0];
+        if (clT > 0) { for (int x = -12; x <= 32; x++) for (int z = -12; z <= 28; z++) for (int y = 1; y <= 24; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), (y == 1 && x >= 0 && x < 16 && z >= 0 && z < 16) ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            pass(stage, t, "19 up onto the deck in " + (clT - 10) + " ticks"); }
+        else if (t[0] == 10 + 1600) check(false, "deck climb: not up in 80 s (at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ")");
+        return true;
+    }
+    private static boolean st533(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a blaze out past a fortress deck's edge (World 15 22:48: the fight walked him off the deck into the lava 31 down): the fight never takes him off the deck
+        BlockPos me = h.absolutePos(new BlockPos(4, 12, 8));
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
+            c.tasks.clear(); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); hzLow = 20f; hzFlag = false; if (hzMob != null) hzMob.discard(); hzMob = null;
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.LAVA.defaultBlockState(), 2); for (int y = 2; y <= 16; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = 1; x <= 8; x++) for (int z = 7; z <= 9; z++) level.setBlock(h.absolutePos(new BlockPos(x, 11, z)), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // (the deck: 3 wide, 10 over the lava)
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+        if (t[0] == 10) { var bz = EntityType.BLAZE.create(level); BlockPos bp = h.absolutePos(new BlockPos(13, 12, 8)); bz.moveTo(bp.getX() + 0.5, bp.getY(), bp.getZ() + 0.5, 90, 0); bz.setNoAi(true); bz.setPersistenceRequired(); level.addFreshEntity(bz); hzMob = bz; c.tasks.add(new Task.Attack(bz.getUUID(), 300)); }
+        if (t[0] > 10) { if (c.getY() < me.getY() - 0.6) hzFlag = true; }
+        if (t[0] == 250) {
+            check(!hzFlag, "deck edge: off the deck in the fight (at " + c.blockPosition().toShortString() + ")");
+            if (hzMob != null) hzMob.discard(); hzMob = null; c.tasks.clear(); c.dropCurrent = true; c.clearFire();
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 2; y <= 16; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+            BlockPos down = h.absolutePos(new BlockPos(4, 2, 8)); c.teleportTo(down.getX() + 0.5, down.getY(), down.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            pass(stage, t, "the blaze out past the edge: he stayed on the deck 12 s"); }
         return true;
     }
     private static BlockPos dkStep;

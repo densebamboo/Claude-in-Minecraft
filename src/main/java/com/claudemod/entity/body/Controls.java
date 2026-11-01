@@ -193,7 +193,7 @@ public final class Controls {
               if (lv) { p.setDeltaMovement(0, Math.min(v.y, 0), 0); p.setSprinting(false); p.setJumping(false); jumpNow = false; if (walk != null && walk.x * vx + walk.z * vz > 0) walk = null;
                   if (p instanceof com.claudemod.entity.ClaudeEntity ce && ce.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] sliding toward lava at {}: stopped (Controls.apply)", p.blockPosition().toShortString()); } } }
         boolean safeStep = nextNode != null && nextNode.y >= p.getBlockY() - 3 && Math.abs(nextNode.x + 0.5 - p.getX()) <= 1.6 && Math.abs(nextNode.z + 0.5 - p.getZ()) <= 1.6; // his path's next step is right there and at most 3 down: the pathfinder already judged that fall; the lip check below cut across a corner of a hillside and had him shuffling at the edge (the user)
-        if (!safeStep && walk != null && walk.lengthSqr() > 1e-4 && p.onGround() && !p.isInWater() && !jumpNow) { // the lip of a drop that would hurt (4+ blocks, no water below): no walking off it; the step-down rules cut a way instead (falls hurt him now, like anyone)
+        if (!safeStep && walk != null && walk.lengthSqr() > 1e-4 && p.onGround() && !p.isInWater()) { // (a jump too: a crit's hop at a fortress deck's edge carried him off it into the lava 31 down, World 15 22:48; leaps run on their own, above) // the lip of a drop that would hurt (4+ blocks, no water below): no walking off it; the step-down rules cut a way instead (falls hurt him now, like anyone)
             Vec3 dir = walk.normalize();
             for (double reach : p.isSprinting() ? new double[] {0.7, 1.4} : new double[] {0.7}) { // at a sprint he covers the last block in three ticks: the lip has to be seen a block sooner, and the sprint dropped so he stops in time
                 net.minecraft.core.BlockPos ahead = net.minecraft.core.BlockPos.containing(p.getX() + dir.x * reach, p.getY(), p.getZ() + dir.z * reach);
@@ -201,7 +201,7 @@ public final class Controls {
                 int drop = 0; boolean water = false, lava = false; net.minecraft.core.BlockPos q = ahead.below();
                 while (drop < 40 && p.level().getBlockState(q).getCollisionShape(p.level(), q).isEmpty()) { var fq = p.level().getFluidState(q); if (!fq.isEmpty()) { if (fq.is(net.minecraft.tags.FluidTags.LAVA)) lava = true; else water = true; break; } drop++; q = q.below(); } // (only water is a landing: live 10:53 World 15 the lava lake 18 under a Nether ledge passed as "water below", he walked off it with his whole kit)
                 if (lava) { p.setSprinting(false); walk = null; if (p instanceof com.claudemod.entity.ClaudeEntity ce && ce.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] lava {} below the lip at {}: not stepping off (Controls.apply)", drop + 1, ahead.toShortString()); break; } // (the whole column: water at the bottom of a deep drop is a fine landing, like any player jumping into a pool)
-                if (drop >= 4 && !water) { if (reach > 1) { p.setSprinting(false); walk = walk.scale(0.3); } else walk = null; break; } // a block out: ease off; at the lip: stop
+                if (drop >= 4 && !water) { jumpNow = false; p.setJumping(false); if (reach > 1) { p.setSprinting(false); walk = walk.scale(0.3); } else walk = null; break; } // a block out: ease off; at the lip: stop
             }
         }
         if (walk != null && walk.lengthSqr() > 1e-4) {

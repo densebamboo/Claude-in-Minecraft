@@ -199,6 +199,10 @@ public final class ExactSpot {
         boolean theirs = "exact_them".equals(st.where());
         String tl = st.target() == null ? "" : st.target().toLowerCase(Locale.ROOT);
         Matcher m = XYZ.matcher(tl); BlockPos cell = m.find() ? new BlockPos(Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)), Integer.parseInt(m.group(3))) : null;
+        if (cell != null && g.level().isLoaded(cell) && !g.level().getBlockState(cell).getCollisionShape(g.level(), cell).isEmpty()) { // a solid block's coords (a fortress deck's top brick, World 15 22:38): standing on it is what's meant, the first standing room above it
+            BlockPos up = null; for (int k = 1; k <= 3 && up == null; k++) { BlockPos q = cell.above(k); if (g.level().getBlockState(q).getCollisionShape(g.level(), q).isEmpty() && g.level().getBlockState(q.above()).getCollisionShape(g.level(), q.above()).isEmpty()) up = q; }
+            if (up != null) { ClaudeMod.LOGGER.info("[Claude exact] {} is a solid {}: onto it, at {} (ExactSpot.start)", xyz(cell), g.level().getBlockState(cell).getBlock().getName().getString(), xyz(up)); cell = up.immutable(); }
+        }
         Matcher f = FACING.matcher(tl); Float yaw = null, pitch = null;
         if (f.find()) { try { yaw = Float.parseFloat(f.group(1)); pitch = Float.parseFloat(f.group(2)); } catch (NumberFormatException e) { } }
         Ask a = null;

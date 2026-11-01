@@ -1108,7 +1108,7 @@ public final class ClaudeLife {
                 g.tasks.addFirst(new Task.GoTo(stand != null ? stand : bed.immutable(), stand != null ? 0.5 : 1.0));
                 ClaudeMod.LOGGER.info("[Claude life] night: up to the bed at {} to lie down, from {} (ClaudeLife.sleepIfNight)", bed.toShortString(), stand == null ? "wherever he gets" : stand.toShortString()); } // (held by his bed 3-4 off, out of a player's reach of it: "can't sleep: TOO_FAR_AWAY" every 5 s, live 12:05)
             return; }
-        try { g.setRespawnPosition(level.dimension(), bed.immutable(), 0f, true, false); } catch (Exception e) { ClaudeMod.LOGGER.warn("[Claude life] couldn't set his respawn point at the bed: {}", e.toString()); } // his bed is where he comes back, like any player (sleeping alone didn't set it: he kept respawning into the patrol at spawn)
+        try { g.setRespawnPosition(g.level().dimension(), bed.immutable(), 0f, true, false); } catch (Exception e) { ClaudeMod.LOGGER.warn("[Claude life] couldn't set his respawn point at the bed: {}", e.toString()); } // his bed is where he comes back, like any player (sleeping alone didn't set it: he kept respawning into the patrol at spawn)
         ClaudeMod.LOGGER.info("[Claude life] night: in bed at {} till morning (respawn point set here)", bed.toShortString());
         g.noteDoing("slept the night in my bed");
     }

@@ -627,6 +627,30 @@ public class WorkGoal extends Goal {
         return true;
     }
 
+    /** The search's budget for a walk: 3000, and 400 more a block of climb past 4 (a 23-up climb out of a lava-sea ledge ran out at 3000 on the cheaper ways round: "no way at all", World 15 22:38). */
+    private static int climbBudget(BlockPos from, BlockPos to) { return 3000 + 400 * Math.max(0, to.getY() - from.getY() - 4); }
+
+    /** A spot 5+ up with no way the search found (a fortress deck over the open, World 15 22:38): the player's way, a tower beside it from the ground under its edge, then onto it. */
+    private boolean towerTo(BlockPos pos, BlockPos feet, ItemStack scaff) {
+        ServerLevel level = (ServerLevel) g.level(); int up = pos.getY() - feet.getY();
+        if (up < 5 || scaff.isEmpty() || scaff.getCount() < up + 2) return false;
+        BlockPos bestS = null, bestG = null; double bd = Double.MAX_VALUE;
+        for (BlockPos s1 : BlockPos.betweenClosed(pos.offset(-4, 0, -4), pos.offset(4, 0, 4))) { BlockPos s0 = s1.immutable(); // (a cell off the edge of what he's climbing onto: open, with a standing cell of it beside)
+            if (!level.getBlockState(s0).getCollisionShape(level, s0).isEmpty() || !level.getBlockState(s0.above()).getCollisionShape(level, s0.above()).isEmpty()) continue;
+            if (!level.getBlockState(s0.below()).getCollisionShape(level, s0.below()).isEmpty()) continue; // (on the deck itself: no tower there)
+            boolean edge = false; for (Direction d1 : Direction.Plane.HORIZONTAL) { BlockPos n1 = s0.relative(d1); if (level.getBlockState(n1).getCollisionShape(level, n1).isEmpty() && level.getBlockState(n1.above()).getCollisionShape(level, n1.above()).isEmpty() && level.getBlockState(n1.below()).isFaceSturdy(level, n1.below(), Direction.UP)) edge = true; }
+            if (!edge) continue;
+            BlockPos q = s0.below(); int k = 0; boolean ok = true;
+            while (k < up + 6 && level.getBlockState(q).getCollisionShape(level, q).isEmpty()) { if (!level.getFluidState(q).isEmpty()) { ok = false; break; } q = q.below(); k++; }
+            if (!ok || level.getBlockState(q).getCollisionShape(level, q).isEmpty() || !level.getFluidState(q.above()).isEmpty() || com.claudemod.entity.body.Controls.lavaCell(g, q.above())) continue;
+            BlockPos gr = q.above(); if (Math.abs(gr.getY() - feet.getY()) > 2) continue; // (its foot on his own level: a walk there, then the tower)
+            double dd = gr.distSqr(feet); if (dd < bd) { bd = dd; bestS = s0.immutable(); bestG = gr.immutable(); } }
+        if (bestS == null) return false;
+        g.tasks.addFirst(new Task.GoTo(pos, 0.9)); g.tasks.addFirst(new Task.Pillar(bestS.getY() - bestG.getY())); g.tasks.addFirst(new Task.GoTo(bestG, 0.4));
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no way to {} the search found ({} up): a tower beside it, from {} up {} to {}, then onto it (WorkGoal.towerTo)", pos.toShortString(), up, bestG.toShortString(), bestS.getY() - bestG.getY(), bestS.toShortString());
+        return true;
+    }
+
     private boolean walkTo(BlockPos pos, double within) {
         Integer failedAt = g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK).get(pos);
         if (failedAt != null && g.tickCount - failedAt < 20 * 60) { // couldn't get there a moment ago: don't burn another 8s
@@ -872,8 +896,8 @@ public class WorkGoal extends Goal {
             ItemStack scaff = scaffoldBlock();
             boolean dirtOnHim = !scaff.isEmpty() && (scaff.is(net.minecraft.world.item.Items.DIRT) || scaff.is(net.minecraft.world.item.Items.GRASS_BLOCK) || scaff.is(net.minecraft.world.item.Items.COARSE_DIRT) || scaff.is(net.minecraft.world.item.Items.ROOTED_DIRT));
             boolean outside = g.level().canSeeSky(feetCell.above()) && !com.claudemod.director.ClaudeLife.inHisMine(g, feetCell);
-            var plan = outside && !scaff.isEmpty() && !dirtOnHim ? com.claudemod.entity.nav.ActionPath.plan(g, (ServerLevel) g.level(), feetCell, pos, Math.max(within, 1.0), false, 3000, mode, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount) : null; // (the user: out in the world only dirt is put down and left; with none on him, a way without placing first)
-            if (plan == null) plan = com.claudemod.entity.nav.ActionPath.plan(g, (ServerLevel) g.level(), feetCell, pos, Math.max(within, 1.0), !scaff.isEmpty(), 3000, mode, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount);
+            var plan = outside && !scaff.isEmpty() && !dirtOnHim ? com.claudemod.entity.nav.ActionPath.plan(g, (ServerLevel) g.level(), feetCell, pos, Math.max(within, 1.0), false, climbBudget(feetCell, pos), mode, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount) : null; // (the user: out in the world only dirt is put down and left; with none on him, a way without placing first)
+            if (plan == null) plan = com.claudemod.entity.nav.ActionPath.plan(g, (ServerLevel) g.level(), feetCell, pos, Math.max(within, 1.0), !scaff.isEmpty(), climbBudget(feetCell, pos), mode, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount);
             java.util.List<BlockPos> nookCuts = new java.util.ArrayList<>();
             if (plan == null && mode == com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG && !com.claudemod.director.ClaudeLife.allNooks(g).isEmpty() && com.claudemod.director.ClaudeLife.nookErrand(g, pos)) { // (only a walk into his nook: a walk to them or anywhere else with no way but through it stands by, said below) // no way at all with his nook's shell kept: once more, cutting it only where nothing else gets there
                 var cutPlan = com.claudemod.entity.nav.ActionPath.plan(g, (ServerLevel) g.level(), feetCell, pos, Math.max(within, 1.0), !scaff.isEmpty(), 3000, com.claudemod.entity.nav.ActionPath.Mode.MAY_CUT_NOOK, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount);
@@ -891,6 +915,7 @@ public class WorkGoal extends Goal {
             if (plan != null) { // a way on foot the vanilla path missed (over a ledge, through an open door): its waypoints
                 var tasks = com.claudemod.entity.nav.ActionPath.tasks(plan, feetCell, net.minecraft.world.item.Items.COBBLESTONE, pos, within);
                 if (tasks.size() > 1) { for (int i = tasks.size() - 1; i >= 0; i--) g.tasks.addFirst(tasks.get(i)); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] route to {} found on foot ({} walks, {} waypoints)", pos.toShortString(), plan.walks(), tasks.size() - 1); return true; }
+            } else if (towerTo(pos, feetCell, scaff)) { return true;
             } else {
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no way to {} from {} ({}; blocks on him: {}): skipping it", pos.toShortString(), feetCell.toShortString(), mode, scaffoldBlock().getCount());
                 stuck = STUCK_LIMIT; // (the give-up below runs now: the spot off for a minute, the work tied to it skipped, no 8 s wait)

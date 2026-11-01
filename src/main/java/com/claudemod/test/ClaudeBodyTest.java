@@ -10367,6 +10367,7 @@ public final class ClaudeBodyTest {
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
             case 494: return st494(stage, t, c, h, level, mock);
+            case 534: return st534(stage, t, c, h, level, mock);
             case 533: return st533(stage, t, c, h, level, mock);
             case 532: return st532(stage, t, c, h, level, mock);
             case 531: return st531(stage, t, c, h, level, mock);
@@ -10592,6 +10593,23 @@ public final class ClaudeBodyTest {
             for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 2; y <= 16; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
             BlockPos down = h.absolutePos(new BlockPos(4, 2, 8)); c.teleportTo(down.getX() + 0.5, down.getY(), down.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
             pass(stage, t, "the blaze out past the edge: he stayed on the deck 12 s"); }
+        return true;
+    }
+    private static boolean st534(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // his old caps that were no hole's (World 15: 389 blocks by his door, "why is there so much cobble and deepslate placed there"): taken back; a true hole's cap stays
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.tasks.clear(); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(1000); }
+        if (t[0] == 5) {
+            var bc = com.claudemod.entity.life.TempLedger.builtCells(c);
+            for (int x = 6; x <= 10; x++) for (int z = 2; z <= 3; z++) { BlockPos p0 = h.absolutePos(new BlockPos(x, 2, z)); level.setBlock(p0, Blocks.COBBLESTONE.defaultBlockState(), 2); bc.put(p0.immutable(), "PitGuard.close:276"); } // (10 on flat ground: no hole's)
+            for (int y = -3; y <= 1; y++) for (int x = 12; x <= 13; x++) level.setBlock(h.absolutePos(new BlockPos(x, y, 12)), Blocks.AIR.defaultBlockState(), 2);
+            for (int x = 12; x <= 13; x++) { BlockPos p1 = h.absolutePos(new BlockPos(x, 2, 12)); level.setBlock(p1, Blocks.COBBLESTONE.defaultBlockState(), 2); bc.put(p1.immutable(), "PitGuard.close:276"); } // (2 over a 5-deep hole: a true cap)
+            com.claudemod.entity.life.PitGuard.cleanup(c, level);
+            long flat = c.tasks.stream().filter(x -> x instanceof Task.Break b && b.pos().getZ() <= h.absolutePos(new BlockPos(0, 0, 3)).getZ()).count();
+            long hole = c.tasks.stream().filter(x -> x instanceof Task.Break b && b.pos().getZ() == h.absolutePos(new BlockPos(0, 0, 12)).getZ()).count();
+            check(flat == 10, "cleanup: " + flat + " of the 10 flat-ground caps queued to take back");
+            check(hole == 0, "cleanup: the true hole's cap queued to take back (" + hole + ")");
+            c.tasks.clear(); for (BlockPos q : new java.util.ArrayList<>(bc.keySet())) if ("PitGuard.close:276".equals(bc.get(q))) bc.remove(q); flatBox(h);
+            pass(stage, t, "10 flat-ground caps to take back, the hole's 2 kept");
+        }
         return true;
     }
     private static BlockPos dkStep;

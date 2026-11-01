@@ -64,6 +64,15 @@ public final class Controls {
         }
     }
 
+    private static final java.util.Map<java.util.UUID, String> LAST_GROUND = new java.util.HashMap<>();
+    /** Something to stand on (a collision shape, water, a ladder or vine) at the cell or within {@code max} under it. */
+    static boolean groundUnder(Player p, net.minecraft.core.BlockPos cell, int max) {
+        var lv = p.level();
+        for (int k = 0; k <= max; k++) { var q = cell.below(k + 1); var c = cell.below(k);
+            if (!lv.getFluidState(c).isEmpty() && lv.getFluidState(c).is(net.minecraft.tags.FluidTags.WATER) || lv.getBlockState(c).is(net.minecraft.tags.BlockTags.CLIMBABLE)) return true;
+            if (!lv.getBlockState(q).getCollisionShape(lv, q).isEmpty()) return true; }
+        return false;
+    }
     /** Keys: walk straight at a point (a ledge step, a bridge block), when there's no path to follow. */
     public static final class Move {
         private final Player p;
@@ -72,6 +81,7 @@ public final class Controls {
         private int setTick = -100;
 
         public Move(Player p) { this.p = p; }
+        String debug() { return wanted == null ? "none" : String.format("%.2f %.2f %.2f set %d ticks ago", wanted.x, wanted.y, wanted.z, p.tickCount - setTick); }
 
         public void setWantedPosition(double x, double y, double z, double speed) {
             wanted = new Vec3(x, y, z);
@@ -137,7 +147,8 @@ public final class Controls {
         if (p instanceof com.claudemod.entity.ClaudeEntity ce0) { // a fall is never silent (live 10:53 World 15: 4.5 s with no line from a Nether ledge into a lava lake 18 down)
             if (p.onGround() || p.isInWater() || p.isInLava()) { if (FALLING.remove(p.getUUID()) != null && p.isInLava()) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] the fall ended in lava at {} (Controls.apply)", p.blockPosition().toShortString()); }
             else if (p.fallDistance > 3 && !FALLING.containsKey(p.getUUID()) && com.claudemod.entity.nav.Leaps.control(p) == null) { FALLING.put(p.getUUID(), p.blockPosition().immutable()); int depth = 0; net.minecraft.core.BlockPos q = p.blockPosition(); while (depth < 64 && p.level().getBlockState(q).getCollisionShape(p.level(), q).isEmpty() && p.level().getFluidState(q).isEmpty()) { depth++; q = q.below(); }
-                com.claudemod.ClaudeMod.LOGGER.info("[Claude move] falling at {} ({} so far, {} more to {} at {}), doing {} (Controls.apply)", p.blockPosition().toShortString(), String.format("%.1f", p.fallDistance), depth, net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(p.level().getBlockState(q).getBlock()).getPath(), q.toShortString(), ce0.currentTask == null ? "-" : ce0.currentTask.getClass().getSimpleName()); }
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude move] falling at {} ({} so far, {} more to {} at {}), doing {} (Controls.apply)", p.blockPosition().toShortString(), String.format("%.1f", p.fallDistance), depth, net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(p.level().getBlockState(q).getBlock()).getPath(), q.toShortString(), ce0.currentTask == null ? "-" : ce0.currentTask.getClass().getSimpleName());
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude move] the last tick on the ground before that fall: {} (Controls.apply)", LAST_GROUND.getOrDefault(p.getUUID(), "?")); }
         }
         p.xxa = 0; p.zza = 0;
         { var lc = com.claudemod.entity.nav.Leaps.control(p); // a drop or a jump running (Leaps.tick): its hands this tick, exactly, no lip guard, no auto sprint-jump, no path
@@ -169,6 +180,15 @@ public final class Controls {
                 if (ah.equals(p.blockPosition())) continue;
                 boolean lavaAt = lavaCell(p, ah);
                 if (lavaAt && k != 0 && reach > 0.5) { walk = ld.subtract(sd.scale(k * 2.0)).normalize(); continue outer; } // (only his shoulder would touch it, further on: steered off that side, not stopped; walking a lava hole's edge stalled him dead)
+                if (lavaAt && nextNode != null && Math.abs(nextNode.x - p.getBlockX()) == 1 && Math.abs(nextNode.z - p.getBlockZ()) == 1 && Math.abs(nextNode.y - p.getBlockY()) <= 1) { // a diagonal step whose corner is over lava: round the other corner, one straight step then the next, like a player (stage 538: the path's diagonal past a lava pool's corner and the guard's stop, 2 min stood still at -49 102 89)
+                    net.minecraft.core.BlockPos corner = null;
+                    for (net.minecraft.core.BlockPos cc : new net.minecraft.core.BlockPos[] {new net.minecraft.core.BlockPos(nextNode.x, p.getBlockY(), p.getBlockZ()), new net.minecraft.core.BlockPos(p.getBlockX(), p.getBlockY(), nextNode.z)}) {
+                        if (cc.equals(ah) || lavaCell(p, cc) || !p.level().getBlockState(cc).getCollisionShape(p.level(), cc).isEmpty() || !p.level().getBlockState(cc.above()).getCollisionShape(p.level(), cc.above()).isEmpty() || p.level().getBlockState(cc.below()).getCollisionShape(p.level(), cc.below()).isEmpty()) continue;
+                        corner = cc; break; }
+                    if (corner != null) { walk = new Vec3(corner.getX() + 0.5 - p.getX(), 0, corner.getZ() + 0.5 - p.getZ()); p.setSprinting(false);
+                        if (p instanceof com.claudemod.entity.ClaudeEntity ce && ce.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] the diagonal to {},{},{} cuts lava's corner at {}: round by {} (Controls.apply)", nextNode.x, nextNode.y, nextNode.z, ah.toShortString(), corner.toShortString());
+                        break outer; }
+                }
                 if (lavaAt) {
                     p.setSprinting(false); walk = null;
                     Vec3 v = p.getDeltaMovement(); if (reach < 1.0 && v.x * ld.x + v.z * ld.z > 0) p.setDeltaMovement(0, v.y, 0); // (and his slide stopped: the inputs off alone still carried him in)
@@ -192,7 +212,11 @@ public final class Controls {
               for (double r : new double[] {0.35, 0.7, Math.min(2.0, 0.35 + hv * 5)}) { net.minecraft.core.BlockPos c0 = net.minecraft.core.BlockPos.containing(p.getX() + vx * r, p.getY() + 0.1, p.getZ() + vz * r); if (!c0.equals(p.blockPosition()) && lavaCell(p, c0)) { lv = true; break; } }
               if (lv) { p.setDeltaMovement(0, Math.min(v.y, 0), 0); p.setSprinting(false); p.setJumping(false); jumpNow = false; if (walk != null && walk.x * vx + walk.z * vz > 0) walk = null;
                   if (p instanceof com.claudemod.entity.ClaudeEntity ce && ce.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] sliding toward lava at {}: stopped (Controls.apply)", p.blockPosition().toShortString()); } } }
-        boolean safeStep = nextNode != null && nextNode.y >= p.getBlockY() - 3 && Math.abs(nextNode.x + 0.5 - p.getX()) <= 1.6 && Math.abs(nextNode.z + 0.5 - p.getZ()) <= 1.6; // his path's next step is right there and at most 3 down: the pathfinder already judged that fall; the lip check below cut across a corner of a hillside and had him shuffling at the edge (the user)
+        if (nextNode != null && walk != null && p.onGround() && !p.onClimbable() && !p.level().getBlockState(new net.minecraft.core.BlockPos(nextNode.x, nextNode.y - 1, nextNode.z)).is(net.minecraft.tags.BlockTags.CLIMBABLE) && !p.level().getBlockState(new net.minecraft.core.BlockPos(nextNode.x, nextNode.y, nextNode.z)).is(net.minecraft.tags.BlockTags.CLIMBABLE) && nextNode.y > Math.floor(p.getY() + 0.01) + 1 && Math.abs(nextNode.x + 0.5 - p.getX()) <= 1.6 && Math.abs(nextNode.z + 0.5 - p.getZ()) <= 1.6) { // the path's next step is 2+ up: no jump makes that (1.25 at most); jumped at, the hop carried him off a 1-block bridge 18 up (stage 538: 15 HP). Stood still: the walk's own planner cuts steps or towers
+            walk = null; jumpNow = false; p.setJumping(false); p.setSprinting(false);
+            if (p instanceof com.claudemod.entity.ClaudeEntity ce1 && ce1.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] the path's next step at {},{},{} is {} up from {}: no jump makes that, not jumped at (Controls.apply)", nextNode.x, nextNode.y, nextNode.z, nextNode.y - (int) Math.floor(p.getY() + 0.01), p.blockPosition().toShortString());
+        }
+        boolean safeStep = nextNode != null && nextNode.y >= p.getBlockY() - 3 && Math.abs(nextNode.x + 0.5 - p.getX()) <= 1.6 && Math.abs(nextNode.z + 0.5 - p.getZ()) <= 1.6 && groundUnder(p, new net.minecraft.core.BlockPos(nextNode.x, nextNode.y, nextNode.z), 3); // (and ground really is under that step, 3 or less: stage 538, a node off a 2-cell pillar top passed as safe, 15 blocks of air under it, he walked off it to 5 HP) // his path's next step is right there and at most 3 down: the pathfinder already judged that fall; the lip check below cut across a corner of a hillside and had him shuffling at the edge (the user)
         if (!safeStep && walk != null && walk.lengthSqr() > 1e-4 && p.onGround() && !p.isInWater()) { // (a jump too: a crit's hop at a fortress deck's edge carried him off it into the lava 31 down, World 15 22:48; leaps run on their own, above) // the lip of a drop that would hurt (4+ blocks, no water below): no walking off it; the step-down rules cut a way instead (falls hurt him now, like anyone)
             Vec3 dir = walk.normalize();
             for (double reach : p.isSprinting() ? new double[] {0.7, 1.4} : new double[] {0.7}) { // at a sprint he covers the last block in three ticks: the lip has to be seen a block sooner, and the sprint dropped so he stops in time
@@ -204,6 +228,7 @@ public final class Controls {
                 if (drop >= 4 && !water) { jumpNow = false; p.setJumping(false); if (reach > 1) { p.setSprinting(false); walk = walk.scale(0.3); } else walk = null; break; } // a block out: ease off; at the lip: stop
             }
         }
+        if (p.onGround() && p instanceof com.claudemod.entity.ClaudeEntity) LAST_GROUND.put(p.getUUID(), String.format("at %.2f %.2f %.2f, v %.2f %.2f %.2f, walk %s, next node %s, sprint %s, jump %s, safeStep %s, move goal %s", p.getX(), p.getY(), p.getZ(), p.getDeltaMovement().x, p.getDeltaMovement().y, p.getDeltaMovement().z, walk == null ? "none" : String.format("%.2f %.2f", walk.x, walk.z), nextNode == null ? "none" : nextNode.x + "," + nextNode.y + "," + nextNode.z, p.isSprinting(), jumpNow, safeStep, move.debug())); // (what carried him off an edge: proved from this, not guessed)
         if (walk != null && walk.lengthSqr() > 1e-4) {
             double yaw = p.getYRot() * Mth.DEG_TO_RAD;
             double fx = -Math.sin(yaw), fz = Math.cos(yaw); // where he's facing

@@ -324,7 +324,9 @@ public final class TempLedger {
      * the climb's (taking it would undo the climb, the old loop). Stations have their own walk-off rule.
      */
     static boolean leaving(ClaudeEntity g, ServerLevel level) {
-        if (g.getHealth() < 10 || g.planning || g.holdingNight() || g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee || g.currentTask instanceof Task.Pillar) return false;
+        if (!g.onGround() || g.getHealth() < 10 || g.planning || g.holdingNight() || g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee || g.currentTask instanceof Task.Pillar) return false;
+        // (in the air his feet's cell is not over the block he stands on: 08:54 the pillar's jump still rising (y 81.9), its fresh step
+        // at -10,80,7 read as left behind, broken, put back by the route: a loop)
         boolean walkingNow = g.currentTask instanceof Task.GoTo;
         Task.GoTo go = walkingNow ? (Task.GoTo) g.currentTask : g.tasks.peek() instanceof Task.GoTo n ? n : null;
         if (go == null || book(g).isEmpty()) return false;

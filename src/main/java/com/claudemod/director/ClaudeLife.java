@@ -68,8 +68,8 @@ public final class ClaudeLife {
             if (bed != null) {
                 final BlockPos b = bed;
                 boolean toBed = (g.currentTask instanceof Task.GoTo go && go.pos().distSqr(b) <= 9) || g.tasks.stream().anyMatch(t -> t instanceof Task.GoTo go2 && go2.pos().distSqr(b) <= 9);
-                if (!toBed && g.blockPosition().distSqr(b) > 9) { clearTasks(g); dropCurrent(g); g.skillQueue.clear(); g.tasks.add(new Task.GoTo(b, 1.5)); ClaudeMod.LOGGER.info("[Claude life] night at {} health, food {}: to his bed at {} before anything else", (int) Math.ceil(g.getHealth()), g.getFoodData().getFoodLevel(), b.toShortString()); }
-                else if (g.blockPosition().distSqr(b) <= 9 && !g.skillQueue.isEmpty()) { g.skillQueue.clear(); clearTasks(g); }
+                if (!toBed && g.blockPosition().distSqr(b) > 8 * 8) { clearTasks(g); dropCurrent(g); g.skillQueue.clear(); g.tasks.add(new Task.GoTo(b, 1.5)); ClaudeMod.LOGGER.info("[Claude life] night at {} health, food {}: to his bed at {} before anything else", (int) Math.ceil(g.getHealth()), g.getFoodData().getFoodLevel(), b.toShortString()); }
+                else if (g.blockPosition().distSqr(b) <= 8 * 8 && !g.skillQueue.isEmpty()) { g.skillQueue.clear(); clearTasks(g); } // (8, sleepIfNight's own "by his bed": at 9 his nook-bed walk ends 3.2 off, refused, re-queued every tick at 1 health, World 15 02:23)
                 sleepIfNight(g, lv);
                 return;
             }
@@ -1029,8 +1029,9 @@ public final class ClaudeLife {
                     if (g.currentTask instanceof Task.GoTo cur) { g.tasks.addFirst(cur); dropCurrent(g); g.getNavigation().stop(); }
                     g.tasks.addFirst(new Task.Wait(200, false)); // (longer than the 5 s between his night checks: a 5 s wait ran out and the walk got going before the next one)
                     nookSay(g, "bedhold", "[Claude life] night: by his bed at " + bedAt.toShortString() + ", the walk to " + dest.toShortString() + " waits for the morning (ClaudeLife.sleepIfNight)");
+                    return;
                 }
-                return;
+                if (findNear(level, g.blockPosition(), 3, b -> b.is(BlockTags.BEDS)) == null) return; // (nothing held and the bed 3 off: on to the lying down below; returning here always stood him idle 3.2 off it at 1 health, World 15 02:25)
             }
             if (g.staying || (g.getTarget() instanceof ServerPlayer lp && com.claudemod.entity.life.ExactSpot.lesson(g, lp))) { nookSay(g, "bedlesson", "[Claude life] night: holding where they put him / their lesson is on: no walk to his bed (ClaudeLife.sleepIfNight)"); return; } // (a sleep trip took him out of the pocket mid-lesson, 15:13)
             if (g.commandActive && g.lastStep != null && (g.lastStep.skill().equals("go_to") || g.lastStep.skill().equals("follow"))) { nookSay(g, "bedorder", "[Claude life] night: their go_to/follow order (" + g.lastStep.skill() + " " + g.lastStep.target() + ") comes before his bed (ClaudeLife.sleepIfNight)"); return; } // (they called him over at night: 4 off their spot, the walk to his nook bed took him 17 back, 14:18)
@@ -1973,6 +1974,7 @@ public final class ClaudeLife {
                 }
                 boolean heUnder = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.getBlockX(), g.getBlockZ()) > g.getBlockY() + 3; // he's down in the ground
                 if (found.isEmpty() && wood && heUnder && (inHisMine(g, g.blockPosition()) || g.mineSpine.stream().anyMatch(sp -> sp.distSqr(g.blockPosition()) <= 48 * 48)) && routeOutOfMine(g, level) && !g.tasks.isEmpty()) { // up his own stairs, never digging a new way up
+                    { String dark = nightOutsideNo(g, level, level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.blockPosition())); if (dark != null) return dark; } // the night where the trip ends, up top: checked down here it read "underground, not the open", he went up, and his bed walked him back down, round and round (World 15 02:05)
                     g.skillQueue.addFirst(st); // and look for trees once he's up top
                     return "heading up my stairs and out of the mine for wood";
                 }
@@ -11690,7 +11692,8 @@ public final class ClaudeLife {
         int haveTier = -1;
         for (int i = 0; i < SWORDS.length; i++) { final Item s0 = SWORDS[i]; if (g.inventory.count(s -> s.is(s0)) > 0) { haveTier = SWORDS.length - 1 - i; break; } }
         // the best he could make from what he's carrying; nothing better than what he has means no table goes down for it
-        int canTier = g.inventory.count(s -> s.is(Items.IRON_INGOT)) >= 2 ? 2 : g.inventory.count(s -> s.is(ItemTags.STONE_TOOL_MATERIALS)) >= 2 ? 1
+        boolean handle = g.inventory.count(s -> s.is(Items.STICK)) > 0 || g.inventory.count(s -> s.is(ItemTags.PLANKS)) >= 2 || g.inventory.count(s -> s.is(ItemTags.LOGS)) > 0; // (a sword takes a stick: 3 iron and no wood walked him off his climb out for logs back down to his table every 10 s, the craft failing there, World 15 02:16)
+        int canTier = !handle ? -1 : g.inventory.count(s -> s.is(Items.IRON_INGOT)) >= 2 ? 2 : g.inventory.count(s -> s.is(ItemTags.STONE_TOOL_MATERIALS)) >= 2 ? 1
                 : g.inventory.count(s -> s.is(ItemTags.PLANKS)) + 4 * g.inventory.count(s -> s.is(ItemTags.LOGS)) >= 4 ? 0 : -1;
         if (canTier <= haveTier) return;
         // a sword takes a table: one goes down right here if he has none in reach, like a player (picked up again when he moves on)

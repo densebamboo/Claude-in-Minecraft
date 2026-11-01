@@ -5032,6 +5032,7 @@ public final class ClaudeLife {
         }
         boolean storable = false; for (var st0 : inv.items) if (!st0.isEmpty() && !cobbleItem(st0) && !junkItem(st0) && !com.claudemod.entity.goals.WorkGoal.keeps(st0)) storable = true; // (a pack of only cobble and junk: his stash takes none of it, a walk there for nothing)
         // his storage close by: it goes in there, not on the floor
+        if (storable && g.commandActive && g.lastStep != null && (g.lastStep.skill().equals("fight") || g.lastStep.skill().equals("ender_pearls"))) storable = false; // ponytail: the user 14:23 "he keeps digging up for enderman that are right next to him": on their fight/hunt the stash trip waits, the junk goes below instead
         if (storable) for (BlockPos p : g.storageChests) {
             if (p.distSqr(g.blockPosition()) > 32 * 32 || !g.level().isLoaded(p) || !(g.level().getBlockEntity(p) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box)) continue;
             boolean room = false;

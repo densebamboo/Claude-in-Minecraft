@@ -80,7 +80,7 @@ public final class ClaudeLife {
         if (together) followCaughtUp(g, player, dist); // (with them already: no cutting his way the last few blocks closer)
         boolean working = g.busy || !g.tasks.isEmpty();
         boolean autoMining = g.lastStep != null && g.lastStep.skill().equals("strip_mine") && g.mineFace != null && g.autoRibs < 6;
-        if (working && !g.planning && g.skillQueue.isEmpty() && !g.commandActive && !autoMining && g.tickCount >= g.nextPlanTick && !waitingForAsk(g)) {
+        if (working && !g.planning && g.skillQueue.isEmpty() && !g.commandActive && !autoMining && g.tickCount >= g.nextPlanTick && !waitingForAsk(g) && g.tickCount >= g.attempts.counters.getOrDefault("timeWait", 0)) {
             startPlan(g, player); // ready by the time this stretch of work is done, so he never stands there thinking
         }
         if (working) return;
@@ -168,7 +168,7 @@ public final class ClaudeLife {
                 ClaudeMod.LOGGER.info("[Claude skill] round in circles on \"{}\": stopping that", line);
             }
             boolean nightRefusal = result.startsWith("failed") && (result.contains("it's night") || result.contains("it's day,")); // (and the pearl hunt's "it's day": waits for dusk, 02:01 the watchdog asked them for help with it)
-            if (nightRefusal) g.failReason.put(step.skill(), result); // the planner still hears why, so it plans round the wait // a "not at night" is a wait, not a failure: by day the same step is the right one
+            if (nightRefusal) { g.failReason.put(step.skill(), result); long t = g.level().getDayTime() % 24000; int until = Math.max(200, (int) (result.contains("it's day,") ? 12542 - t : (24000 - t) % 24000)); g.attempts.counters.put("timeWait", g.tickCount + until); ClaudeMod.LOGGER.info("[Claude plan] {} waits on the time of day: no thinking ahead mid-work for {} s, till it changes (ClaudeLife.skillDone)", step.skill(), until / 20); } // (01:54 the pearl hunt refused by day re-planned every 10 s through the meanwhile walk) // the planner still hears why, so it plans round the wait // a "not at night" is a wait, not a failure: by day the same step is the right one
             if ((result.startsWith("failed") || result.startsWith("done:")) && !nightRefusal) { // a "done" he keeps re-planning is a loop too
                 g.failCount.merge(failKey, 1, Integer::sum);
                 g.failReason.put(step.skill(), result);

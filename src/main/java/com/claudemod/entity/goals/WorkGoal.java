@@ -4661,6 +4661,7 @@ public class WorkGoal extends Goal {
         if (inEmHole()) {
             emHole = f.immutable(); g.getNavigation().stop(); g.setSprinting(false); equipWeapon();
             g.getLookControl().setLookAt(em.getX(), em.getY() + 0.6, em.getZ()); // (its legs: what reaches down to him)
+            if (em.getTarget() != g && d >= 8) { if (g.tickCount - emSaid > 100) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman {} off isn't on him: out of the hole to bait it (WorkGoal.endermanHole)", (int) d); } return null; } // ponytail: live 14:46 -29,47,-882: waited in the nook for a calm one 15 off; cover only while one is engaged (the user 14:25), so out to bait it, back in when it comes
             if (d > 24) { if (g.tickCount - emSaid > 100) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman went off {} away: out of the hole (WorkGoal.endermanHole)", (int) d); } return true; }
             if (g.getHealth() < 8) { var food = com.claudemod.director.ClaudeLife.foodToEat(g, false); if (food != null) { g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(food)); return true; } }
             if (canHitNow(em)) { g.getLookControl().setLookAt(em.getX(), em.getY() + 0.6, em.getZ()); g.attack(em); g.swing(InteractionHand.MAIN_HAND); }

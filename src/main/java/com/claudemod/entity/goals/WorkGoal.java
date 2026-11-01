@@ -3512,7 +3512,7 @@ public class WorkGoal extends Goal {
                 n += taken.getCount() - left.getCount();
                 if (!left.isEmpty()) { ItemStack back = box.getItem(i).isEmpty() ? left : box.getItem(i).copyWithCount(box.getItem(i).getCount() + left.getCount()); box.setItem(i, back); break; } // no room for the rest: it stays in the chest
             }
-            if (n == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude chest] took no {} from {}: {} (WorkGoal.doChest)", t.leave().getDescription().getString(), pos.toShortString(), g.inventory.items.canAddItem(new ItemStack(t.leave())) ? "none in it" : "pockets full");
+            if (n == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude chest] took no {} from {}: {} (WorkGoal.doChest)", t.leave().getDescription().getString(), pos.toShortString(), g.inventory.hasRoomFor(new ItemStack(t.leave())) ? "none in it" : "pockets full");
             if (n > 0) g.noteDoing("took " + n + " " + t.leave().getDescription().getString() + " from my chest");
             if (n > 0) com.claudemod.entity.life.OwnEvents.took(g, t.leave(), n, pos);
         } else if (t.take()) {

@@ -13013,7 +13013,7 @@ public final class ClaudeLife {
         var spot = chestWith(g, level, Items.ARROW);
         if (spot != null && (spot.dist() <= Kit.STRING_WALK || hard)) {
             int take = Math.min(need, spot.count());
-            if (!g.inventory.items.canAddItem(new net.minecraft.world.item.ItemStack(Items.ARROW))) { String r = junkChestRound(g, level); ClaudeMod.LOGGER.info("[Claude life] get_arrows: pockets full, no room for arrows: {} first (ClaudeLife.getArrows)", r == null ? "no junk chest to empty into, taking what fits" : r); } // (live 01:14 World 15: 0 free slots, the take got nothing, the step re-ran every 0.6 s)
+            if (!g.inventory.hasRoomFor(new net.minecraft.world.item.ItemStack(Items.ARROW))) { String r = junkChestRound(g, level); ClaudeMod.LOGGER.info("[Claude life] get_arrows: pockets full, no room for arrows: {} first (ClaudeLife.getArrows)", r == null ? "no junk chest to empty into, taking what fits" : r); } // (live 01:14 World 15: 0 free slots, the take got nothing, the step re-ran every 0.6 s)
             g.tasks.add(new Task.GoTo(spot.pos(), 2)); g.tasks.add(new Task.Chest(spot.pos(), true, Items.ARROW, take)); g.skillQueue.addFirst(again);
             ClaudeMod.LOGGER.info("[Claude life] get_arrows: {} arrows in his chest at {}, {} blocks off by route{}: getting {} (ClaudeLife.getArrows)", spot.count(), spot.pos().toShortString(), spot.dist(), hard ? " (the bow row is the dragon run's next must: worth the walk)" : " (a short walk)", take);
             return "my arrows are in my chest at " + spot.pos().toShortString() + " (" + spot.dist() + " blocks off" + (hard ? "; the bow row is the dragon run's next must" : "") + "), getting " + take;

@@ -1541,7 +1541,7 @@ public final class ClaudeLife {
         if (g.inventory.count(s -> s.is(ItemTags.LOGS)) < 32 && nightOutsideNo(g, level, g.blockPosition()) == null && g.failCount.getOrDefault("collect logs", 0) < 3
                 && findNear(level, g.blockPosition(), 24, b -> b.is(BlockTags.LOGS)) != null) return new Skills.Step("collect", "logs", 4);
         { int waitLeft = g.attempts.counters.getOrDefault("timeWait", 0) - g.tickCount; // a clock wait long enough for the walk to his mine face and back plus a minute there: a player mines out the day (09:15 he stood 6 min by his house waiting on dusk for the pearl hunt, logs full, mine face ~180 blocks off)
-          if (waitLeft > 0 && g.mineFace != null && level.dimension() == net.minecraft.world.level.Level.OVERWORLD && g.failCount.getOrDefault("strip_mine iron_ore", 0) < 3
+          if (waitLeft > 0 && !(g.playerGoal != null && g.playerGoal.toLowerCase().contains("dragon") && Kit.missing(g, true).isEmpty()) /* the user: kitted, with iron in his chests, no need of more (11:30 he dug for it at y-58 while waiting) */ && g.mineFace != null && level.dimension() == net.minecraft.world.level.Level.OVERWORLD && g.failCount.getOrDefault("strip_mine iron_ore", 0) < 3
                   && !g.inventory.find(s -> s.getItem() instanceof net.minecraft.world.item.PickaxeItem).isEmpty()
                   && waitLeft > 2 * Math.sqrt(g.blockPosition().distSqr(g.mineFace)) / 5.0 * 20 + 60 * 20) return new Skills.Step("strip_mine", "iron_ore", 4); }
         return null;

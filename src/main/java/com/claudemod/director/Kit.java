@@ -233,7 +233,7 @@ public final class Kit {
         if (g.getItemBySlot(a.getEquipmentSlot()).getItem() instanceof ArmorItem w && w.getDefense() >= a.getDefense()) return true;
         return g.inventory.count(s -> s.getItem() instanceof ArmorItem w && w.getEquipmentSlot() == a.getEquipmentSlot() && w.getDefense() >= a.getDefense()) > 0;
     }
-    static int buildingBlocks(ClaudeEntity g) {
+    public static int buildingBlocks(ClaudeEntity g) {
         return g.inventory.count(s -> s.is(Items.COBBLESTONE) || s.is(Items.COBBLED_DEEPSLATE) || s.is(Items.DIRT) || s.is(Items.NETHERRACK) || s.is(Items.STONE) || s.is(Items.DEEPSLATE) || s.is(Items.BLACKSTONE) || s.is(Items.END_STONE) || s.is(net.minecraft.tags.ItemTags.PLANKS) || s.is(net.minecraft.tags.ItemTags.WOOL));
     }
     /** What he lacks for that place's bar, as a player says it ("most of an iron set", "a shield", "6 meals", "16 torches"); empty: he's geared for it. */

@@ -37,7 +37,13 @@ In the Nether he got "no way at all" from a ledge or a pocket by his portal. Two
 
 ## Gate
 
-(filled in below once the run finishes)
+Full Linux gate on 6249cf3: 61 of 64 groups green on the first run. The three that weren't:
+
+- **368-371** (`find_fortress`): a real bug this branch exposed, now fixed. A fortress spotted on a scouting leg's last steps was reported "after 0 leg(s)", with the leg never noted. `FortressScout.skill` now closes the leg (notes it) when a sighting comes in mid-walk. The group is green.
+- **470-489** (hazard 488, on the known-flaky list): green on the re-run.
+- **532** (deck climb): flaky, not this branch. He stalls 2 blocks from the tower's foot. It failed 6 of 19 here, and main's own code failed 2 of 6 with only this branch's test file swapped in, so it's timing-sensitive. Its failure line now dumps his motion and path, and it's in the backlog.
+
+After merging main (80628c9 through fca5d78, Day to Day's live fixes) these are green on the merge: 535, 368-371, 529, 523, 525.
 
 ## Restart
 

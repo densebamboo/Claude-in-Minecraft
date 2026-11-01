@@ -101,7 +101,18 @@ public final class Route {
             if (off > 4 || Math.abs(out.getY() - me.getY()) > 1) { // (under his door, down the cave beside it, is not at it: 5 below it at -18, 62, -29 the walker stalled at the foot of the wall, 04:52)
                 Surface s = surface(g, level, me, out);
                 if (s == null && off > FAR) return null;
-                if (s == null) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] no way over the land from {} to his mine's door at {} ({} below it): the legs to the door stay, the climb his walker's (Route.expand)", me.toShortString(), out.toShortString(), out.getY() - me.getY());
+                if (s == null && Math.abs(out.getY() - me.getY()) > 1 && off <= 24) { // (the climb to his door: planned here, steps cut or blocks put down, not handed to his walker, which turned a 5-up wall down at once 38 times in 5 min, World 15 16:09)
+                    var inv = g.inventory; net.minecraft.world.item.Item scaff = inv.count(x -> x.is(net.minecraft.world.item.Items.COBBLESTONE)) > 0 ? net.minecraft.world.item.Items.COBBLESTONE : inv.count(x -> x.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE)) > 0 ? net.minecraft.world.item.Items.COBBLED_DEEPSLATE : inv.count(x -> x.is(net.minecraft.world.item.Items.DIRT)) > 0 ? net.minecraft.world.item.Items.DIRT : null;
+                    var climb = ActionPath.plan(g, level, me, out, 1.5, scaff != null, 4000, ActionPath.Mode.MAY_DIG, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount);
+                    if (climb != null) {
+                        List<Task> up = new ArrayList<>(ActionPath.tasks(climb, me, scaff == null ? net.minecraft.world.item.Items.COBBLESTONE : scaff, out, 1.5, level));
+                        up.add(new Task.GoTo(to, within)); // (from the door: in and down, planned again there)
+                        com.claudemod.ClaudeMod.LOGGER.info("[Claude route] no way over the land from {} to his mine's door at {} ({} up): the climb planned ({} digs, {} blocks put down, {} walks), then in (Route.expand)", me.toShortString(), out.toShortString(), out.getY() - me.getY(), climb.digs(), climb.puts(), climb.walks());
+                        return up;
+                    }
+                    com.claudemod.ClaudeMod.LOGGER.info("[Claude route] no way over the land from {} to his mine's door at {} ({} up), and no climb to plan either (blocks on him: {}): his walker's (Route.expand)", me.toShortString(), out.toShortString(), out.getY() - me.getY(), scaff == null ? "none" : "yes");
+                }
+                else if (s == null) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] no way over the land from {} to his mine's door at {} ({} below it): the legs to the door stay, the climb his walker's (Route.expand)", me.toShortString(), out.toShortString(), out.getY() - me.getY());
                 else {
                     for (BlockPos p : s.legs) { legs.add(p); slack.add(1.5); }
                     if (s.partial) return finish(g, to, within, legs, slack, true, "to his mine's way in (as far as the plan goes: planned again from there)");

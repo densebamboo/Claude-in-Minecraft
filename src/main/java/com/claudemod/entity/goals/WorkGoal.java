@@ -1427,8 +1427,12 @@ public class WorkGoal extends Goal {
             if (!g.blueprint.isWalk(feet)) for (int k = 1; k <= 3; k++) if (g.blueprint.isWalk(feet.above(k)) && g.blueprint.roleAt(feet.above(k - 1)) == com.claudemod.entity.life.MineBlueprint.Role.FLOOR) { up = k; break; }
             if (up > 0 && !(current instanceof Task.Pillar) && !(g.tasks.peek() instanceof Task.Pillar) && !scaffoldBlock().isEmpty()) { g.tasks.addFirst(new Task.Pillar(up)); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in a hole under his tunnel floor at {}: up {} the way he'd climb out, the floor back under him", feet.toShortString(), up); return true; }
         }
-        if (to.horizontalDistance() < 1.0) return false;
         Direction dir = Direction.getNearest(to.x, 0, to.z);
+        if (to.horizontalDistance() < 1.0) { // (close by: which cell it's in decides, not the line; a drop in the hole beside his feet is under a block off, and that left raw gold behind, World 15 15:17)
+            BlockPos ic = BlockPos.containing(target); int ddx = ic.getX() - g.getBlockX(), ddz = ic.getZ() - g.getBlockZ();
+            if (Math.abs(ddx) + Math.abs(ddz) != 1) return false;
+            dir = Direction.getNearest(ddx, 0, ddz);
+        }
         BlockPos next = g.blockPosition().relative(dir);
         List<BlockPos> dig = new java.util.ArrayList<>();
         for (BlockPos b : new BlockPos[] {next.above(), next}) {

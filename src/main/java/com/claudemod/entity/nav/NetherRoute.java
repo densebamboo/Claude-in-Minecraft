@@ -177,6 +177,7 @@ public final class NetherRoute {
             double sec = len * WALK; int digs = 0, puts = 0;
             int dy = ny - y;
             if (dy > 1) sec += (dy - 1) * CLIMB; // steps cut up or a pillar
+            if (goal != null) { int below = goal.getY() - ny; double hz = Math.hypot(cx - goal.getX(), cz - goal.getZ()); if (below > 6 && hz < 2.0 * below) sec += (below - 6) * 0.25; } // (under the target with a long climb left: dear. A player gets up to its height where the ground holds him, never arrives under a fortress deck 37 short, pillaring into air he can't see; stage 538)
             if (dy < -3) sec += (-dy - 3) * DESCEND; // steps dug down, or a drop he can take
             boolean flat = Math.abs(dy) <= 3;
             int prevPy = y;

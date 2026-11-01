@@ -1774,8 +1774,8 @@ public final class ClaudeLife {
                             int legs = huntLegs().merge(g.getUUID(), 1, Integer::sum);
                             if (legs <= 8) { // one heading, kept leg after leg (a fresh random direction each leg just circled the same empty grass); 8 legs is ~350 blocks out
                                 Direction heading = huntDir().computeIfAbsent(g.getUUID(), k -> Direction.Plane.HORIZONTAL.getRandomDirection(g.getRandom()));
-                                if (theirSpot(g, player) != null && toThem(g, player) > 220) { // far enough out: the search sweeps round home, it doesn't march to the horizon (500 blocks out at 4 health, nothing found)
-                                    Direction home = Direction.getNearest(theirSpot(g, player).getX() - g.getX(), 0, theirSpot(g, player).getZ() - g.getZ());
+                                if (g.stairStart != null && Math.sqrt(g.stairStart.distSqr(g.blockPosition())) > 220) { // far enough out: the search sweeps round HIS home (the mine), it doesn't march to the horizon (500 blocks out at 4 health, nothing found); never round where the user stands
+                                    Direction home = Direction.getNearest(g.stairStart.getX() - g.getX(), 0, g.stairStart.getZ() - g.getZ());
                                     heading = heading == home.getOpposite() ? home.getClockWise() : home; // not straight back the way he came: the next line over
                                     huntDir().put(g.getUUID(), heading);
                                 }
@@ -2719,7 +2719,7 @@ public final class ClaudeLife {
                             || !below.isFaceSturdy(level, dest.below(), Direction.UP))) break;
                     dest = dest.below();
                 }
-                if (theirSpot(g, player) != null && Math.sqrt(dest.distSqr(theirSpot(g, player))) > FAR && !player.isSpectator()) return "failed: that is too far from them"; // (a spectator is only watching, and a job of theirs like "beat the dragon" goes where the wood is: no trees in 100 blocks and this kept him standing at spawn for minutes)
+                // (no cap on distance from them: he explores where the job takes him; the user, 2026-11-01: "he shouldnt be limited to my proximity at all" - 68 "too far from them" fails stalled the pearl hunt)
                 g.tasks.add(new Task.GoTo(dest, 4));
                 return "walking off to explore";
             }

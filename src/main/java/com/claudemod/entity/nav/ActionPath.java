@@ -387,7 +387,7 @@ public final class ActionPath {
                         boolean against = dy == 0 || solid(under.relative(d.getOpposite())) || solid(under.below()); // flat: against the block he stands on (his own last bridge block counts, the plan knows it is there); a drop: something in the world
                         if (!against) continue;
                         if (reserved.contains(under)) continue; // (another job's cell)
-                        cost += 3 + (lavaFloor ? 8 : 0); // (a block into the lava: dear, a way over land wins; 1 extra made a lava-sea bridge the route of choice) acts.add(new Act.Put(under.immutable()));
+                        cost += 3 + (lavaFloor ? 8 : 0); /* (a block into the lava: dear, a way over land wins; 1 extra made a lava-sea bridge the route of choice) */ acts.add(new Act.Put(under.immutable()));
                     }
                     if (dy < 0 && water(t)) cost += 1; // a drop into water: fine, a bit slower
                     if (mine(t)) cost *= 0.7; // his own tunnels: the way he knows

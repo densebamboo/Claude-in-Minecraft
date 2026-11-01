@@ -47,3 +47,10 @@ He burned to death at the fortress at -97,75,61, 0/7 rods. At 6 health and on fi
   - with no such cell, he runs (`Flee`).
 - **Stage 542:** a fortress deck with no cover within 10, a blaze hanging 9 up, and a wall 14 off. He starts at 6 health, burning. He's out of its sight in 5 s (21 steps round the wall's end), back to 20 health, alive at 30 s. 2 of 2. 539, 540, 533, 528 and 525 are green with it.
 - The tp that put him among the blazes at 6 health was a live-ops step, not a bot decision. The fence-top nav stall before it (10:03-10:08) is still open in the backlog.
+
+## Follow-up: nowhere out of their sight (World 15 12:06, a death)
+
+Six blazes in the open; he ran in their sight and died 20 -> 0. Day to Day's b4f71ed sends every blaze fight to the cover fight, but `blazeRetreat`'s last resort was still that run (`Flee`).
+
+- **Walled in where he stands.** With no cell out of every blaze's sight within 24 steps, he puts a block at feet and head on each open side, then one up on a wall and the roof against it: 10 at most. Then food, healing, and the fight. Running is left only for when he has too few blocks.
+- **Stage 543:** 542's deck with no wall, at 6 health and burning. Walled in out of sight in 3 s, back to 20, alive at 30 s. 2 of 2. 542, 539, 540, 533, 528 and 470-489 are green with it.

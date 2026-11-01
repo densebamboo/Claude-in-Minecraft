@@ -4914,8 +4914,29 @@ public class WorkGoal extends Goal {
             com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] health {}{}, no cover here and {} blaze(s) about: out of their sight to {} ({} steps), food, then the fight again (WorkGoal.blazeRetreat)", (int) g.getHealth(), g.isOnFire() ? ", burning" : "", blazes.size(), hide.toShortString(), dist.get(hide));
             cfMode = "out of their sight"; return true;
         }
+        { // nowhere out of their sight: cover made where he stands, a block at feet and head on each side and one over him (a blaze only shoots what it sees; running in their sight is what killed him, World 15 12:06, six blazes, 20 -> 0)
+            java.util.List<BlockPos> box = new java.util.ArrayList<>();
+            for (Direction dir : Direction.Plane.HORIZONTAL) { box.add(feet.relative(dir)); box.add(feet.relative(dir).above()); }
+            box.removeIf(c -> !level.getBlockState(c).canBeReplaced());
+            BlockPos roof = feet.above(2);
+            if (level.getBlockState(roof).canBeReplaced()) { // the roof has no face of its own to go against (the wall tops are diagonal to it): a block up on one wall first, then the roof against its side, as a player does
+                boolean faced = false; for (Direction dir : Direction.Plane.HORIZONTAL) if (!level.getBlockState(roof.relative(dir)).canBeReplaced()) faced = true;
+                if (!faced) { Direction toward = Direction.getNearest(blazes.get(0).getX() - g.getX(), 0, blazes.get(0).getZ() - g.getZ()); box.add(roof.relative(toward)); }
+                box.add(roof);
+            }
+            ItemStack blocks = scaffoldBlock();
+            if (!box.isEmpty() && blocks.getCount() >= box.size()) {
+                java.util.List<BlockPos> walls = new java.util.ArrayList<>(box.subList(0, box.size() - (box.contains(roof) ? (box.size() >= 2 && box.get(box.size() - 2).getY() == roof.getY() ? 2 : 1) : 0))); java.util.List<BlockPos> top = new java.util.ArrayList<>(box.subList(walls.size(), box.size()));
+                walls.sort(java.util.Comparator.comparingDouble((BlockPos c) -> c.getY()).thenComparingDouble(c -> { double m = Double.MAX_VALUE; for (var b : blazes) m = Math.min(m, b.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(c))); return m; })); // (feet level first, each head block on the one under it; the side they're on first)
+                box.clear(); box.addAll(walls); box.addAll(top); // (the roof's support, then the roof, last)
+                for (int i = box.size() - 1; i >= 0; i--) g.tasks.addFirst(new Task.Place(box.get(i).immutable(), blocks.getItem()));
+                g.getNavigation().stop(); shieldDown();
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] health {}{}, no cell out of {} blaze(s)' sight within 24 steps: walled in where he stands ({} {} at feet, head and over him), then food, then the fight (WorkGoal.blazeRetreat)", (int) g.getHealth(), g.isOnFire() ? ", burning" : "", blazes.size(), box.size(), com.claudemod.entity.life.Crafting.name(blocks.getItem()));
+                cfMode = "walling in"; return true;
+            }
+        }
         g.tasks.addFirst(new Task.Flee(20 * 10));
-        com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] health {}{}, no cover and no cell out of {} blaze(s)' sight within 24 steps: running (WorkGoal.blazeRetreat)", (int) g.getHealth(), g.isOnFire() ? ", burning" : "", blazes.size());
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] health {}{}, no cover, no cell out of {} blaze(s)' sight within 24 steps and too few blocks to wall in: running (WorkGoal.blazeRetreat)", (int) g.getHealth(), g.isOnFire() ? ", burning" : "", blazes.size());
         cfMode = "running"; return true;
     }
     private void cfSay(String mode, String why) { if (!mode.equals(cfMode)) { cfMode = mode; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] {}: {} (WorkGoal.coverFight)", mode, why); } }

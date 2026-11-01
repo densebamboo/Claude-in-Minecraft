@@ -11691,7 +11691,8 @@ public final class ClaudeLife {
         int haveTier = -1;
         for (int i = 0; i < SWORDS.length; i++) { final Item s0 = SWORDS[i]; if (g.inventory.count(s -> s.is(s0)) > 0) { haveTier = SWORDS.length - 1 - i; break; } }
         // the best he could make from what he's carrying; nothing better than what he has means no table goes down for it
-        int canTier = g.inventory.count(s -> s.is(Items.IRON_INGOT)) >= 2 ? 2 : g.inventory.count(s -> s.is(ItemTags.STONE_TOOL_MATERIALS)) >= 2 ? 1
+        boolean handle = g.inventory.count(s -> s.is(Items.STICK)) > 0 || g.inventory.count(s -> s.is(ItemTags.PLANKS)) >= 2 || g.inventory.count(s -> s.is(ItemTags.LOGS)) > 0; // (a sword takes a stick: 3 iron and no wood walked him off his climb out for logs back down to his table every 10 s, the craft failing there, World 15 02:16)
+        int canTier = !handle ? -1 : g.inventory.count(s -> s.is(Items.IRON_INGOT)) >= 2 ? 2 : g.inventory.count(s -> s.is(ItemTags.STONE_TOOL_MATERIALS)) >= 2 ? 1
                 : g.inventory.count(s -> s.is(ItemTags.PLANKS)) + 4 * g.inventory.count(s -> s.is(ItemTags.LOGS)) >= 4 ? 0 : -1;
         if (canTier <= haveTier) return;
         // a sword takes a table: one goes down right here if he has none in reach, like a player (picked up again when he moves on)

@@ -179,7 +179,7 @@ public final class Route {
         for (Active r : rs) {
             int ci = r.indexOf(cur), was = r.progress;
             boolean copy = ci < 0 && !owns(g, cur) && cur instanceof Task.GoTo cg0 && (r.legs.contains(cg0.pos()) || cg0.pos().equals(r.target)); // (a walker's copy of one of its legs: still on it; another route's own leg over the same cell is that route's, never this one's)
-            if (ci < 0 && !copy) { if (cur instanceof Task.GoTo && !r.off) { r.off = true; com.claudemod.ClaudeMod.LOGGER.info("[Claude route] off his route to {} for a walk to {} (its leg {} of {} passed): nothing of it counts till he's back on it (Route.alongRoutes)", r.target.toShortString(), to.toShortString(), r.progress + 1, r.order.size()); } continue; }
+            if (ci < 0 && !copy) { if (cur instanceof Task.GoTo && !r.off) { r.off = true; com.claudemod.ClaudeMod.LOGGER.info("[Claude route] off his route to {} for a walk to {} (its leg {} of {} passed): nothing of it counts till he's back on it (Route.alongRoutes); queue head {}", r.target.toShortString(), to.toShortString(), r.progress + 1, r.order.size(), g.tasks.stream().limit(14).map(q -> q instanceof Task.GoTo qg ? qg.pos().toShortString() + (r.indexOf(q) >= 0 ? "*" : "") : q.getClass().getSimpleName()).toList()); } continue; }
             if (r.off) { // back on it after other walks: measured again from where he rejoins
                 r.off = false; r.onSince = now;
                 double off = Math.sqrt(to.distSqr(here));

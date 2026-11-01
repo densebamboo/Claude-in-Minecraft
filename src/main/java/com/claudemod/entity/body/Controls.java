@@ -168,6 +168,7 @@ public final class Controls {
                 net.minecraft.core.BlockPos ah = net.minecraft.core.BlockPos.containing(p.getX() + ld.x * reach + sd.x * k, p.getY() + 0.1, p.getZ() + ld.z * reach + sd.z * k);
                 if (ah.equals(p.blockPosition())) continue;
                 boolean lavaAt = lavaCell(p, ah);
+                if (lavaAt && k != 0 && reach > 0.5) { walk = ld.subtract(sd.scale(k * 2.0)).normalize(); continue outer; } // (only his shoulder would touch it, further on: steered off that side, not stopped; walking a lava hole's edge stalled him dead)
                 if (lavaAt) {
                     p.setSprinting(false); walk = null;
                     Vec3 v = p.getDeltaMovement(); if (reach < 1.0 && v.x * ld.x + v.z * ld.z > 0) p.setDeltaMovement(0, v.y, 0); // (and his slide stopped: the inputs off alone still carried him in)

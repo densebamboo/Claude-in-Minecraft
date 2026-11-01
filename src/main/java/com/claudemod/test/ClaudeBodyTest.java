@@ -2220,7 +2220,7 @@ public final class ClaudeBodyTest {
         com.claudemod.director.Errand.reset(c);
         com.claudemod.entity.life.PortalMap.enterReset(c);
         com.claudemod.director.ClaudeLife.lavaSeen(c).clear(); // (stage 500's pool on record held stage 501's dig: "part of the pool he knows")
-        com.claudemod.entity.life.Atlas.reset(c); com.claudemod.entity.life.FortressScout.deckReset(c); com.claudemod.entity.life.Known.reset(c); // (what he's seen: each stage starts blind to the land it builds)
+        com.claudemod.entity.life.Atlas.reset(c); com.claudemod.entity.life.FortressScout.deckReset(c); com.claudemod.entity.life.Known.reset(c); // (what he's seen: each stage starts blind to the land it builds) com.claudemod.entity.life.HuntPatrol.reset(c);
         com.claudemod.entity.life.Watchdog.reset(c); // (his last gear and spot: a stage's own resets aren't losses or moves)
         com.claudemod.director.Structures.testPieces().clear(); com.claudemod.director.ClaudeLife.gateReset(c); // (a stage's own structure pieces; the gear gate's memory)
     }
@@ -10366,6 +10366,8 @@ public final class ClaudeBodyTest {
     // ---------------------------------------------------------------- stages 494 on: one method each (exactStages is at the JVM's 64 KB limit)
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
+            case 548: return st548(stage, t, c, h, level, mock);
+            case 547: return st547(stage, t, c, h, level, mock);
             case 546: return st546(stage, t, c, h, level, mock);
             case 545: return st545(stage, t, c, h, level, mock);
             case 544: return st544(stage, t, c, h, level, mock);
@@ -10872,6 +10874,42 @@ public final class ClaudeBodyTest {
             if (ffMob != null) ffMob.discard(); ffMob = null; c.tasks.clear(); c.dropCurrent = true; c.getInventory().clearContent(); flatBox(h);
             com.claudemod.entity.life.Watchdog.teleported(c); BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(back.getX() + 0.5, back.getY(), back.getZ() + 0.5);
             pass(stage, t, how);
+        }
+        return true;
+    }
+    private static boolean st547(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // recovery into the place that killed him (World 15 12:40: back into the fortress with 0 meals, no pick, 0 blocks, fireballed): his Nether pile waits (its chunk unloaded, the despawn clock stopped), so gear first; kitted, through the portal for it
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.DeathLog.reset(c); c.attempts.counters.remove("recoverGear"); }
+        if (t[0] == 5) {
+            ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+            var fell = new java.util.ArrayList<net.minecraft.world.entity.item.ItemEntity>(); fell.add(new net.minecraft.world.entity.item.ItemEntity(nether, 12000.5, 70, 12000.5, new ItemStack(Items.DIAMOND_PICKAXE))); fell.add(new net.minecraft.world.entity.item.ItemEntity(nether, 12000.5, 70, 12000.5, new ItemStack(Items.BLAZE_ROD, 3)));
+            com.claudemod.entity.life.DeathLog.died(c, nether, new BlockPos(12000, 70, 12000), fell);
+            String r1 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
+            var q1 = c.skillQueue.peekFirst();
+            check(r1 != null && r1.contains("gear up first") && q1 != null && q1.skill().equals("gear_up"), "recovery: unready for the Nether pile, not geared first: \"" + r1 + "\" (queue " + c.skillQueue + ")");
+            c.skillQueue.clear(); c.attempts.counters.remove("recoverGear");
+            c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64));
+            String r2 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
+            var q2 = c.skillQueue.peekFirst();
+            check(r2 != null && r2.contains("through my portal") && q2 != null && q2.skill().equals("enter_portal"), "recovery: kitted, not off through the portal for it: \"" + r2 + "\" (queue " + c.skillQueue + ")");
+            c.skillQueue.clear(); c.getInventory().clearContent(); com.claudemod.entity.life.DeathLog.reset(c);
+            pass(stage, t, "unready: \"" + r1 + "\"; kitted: \"" + r2 + "\"");
+        }
+        return true;
+    }
+    private static boolean st548(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // the pearl hunt's patrol (the user: "explore it while patroling, then intelligently patrol the most optimal area for hunting"; live 15:23 a bare explore flipped its targets): one heading held, then the ground where endermen were seen
+        final int ox = 20000, oy = 100, oz = 20000;
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(ox + 0.5, oy + 1, oz + 0.5); }
+        if (t[0] == 10) { for (int x = -40; x <= 40; x++) for (int z = -40; z <= 40; z++) { level.setBlock(new BlockPos(ox + x, oy, oz + z), Blocks.STONE.defaultBlockState(), 2 | 16); for (int y = oy + 1; y <= oy + 12; y++) level.setBlock(new BlockPos(ox + x, y, oz + z), Blocks.AIR.defaultBlockState(), 2 | 16); } c.teleportTo(ox + 0.5, oy + 1, oz + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); }
+        if (t[0] == 40) {
+            String[] w = new String[1]; java.util.List<Double> ang = new java.util.ArrayList<>(); java.util.List<String> said = new java.util.ArrayList<>();
+            for (int i = 0; i < 3; i++) { BlockPos p = com.claudemod.entity.life.HuntPatrol.next(c, level, w); check(p != null, "patrol: no point picked (" + w[0] + ")"); ang.add(Math.atan2(p.getZ() + 0.5 - c.getZ(), p.getX() + 0.5 - c.getX())); said.add(w[0]); }
+            for (int i = 1; i < 3; i++) check(Math.cos(ang.get(i) - ang.get(i - 1)) > 0, "patrol: the heading flipped (" + said + ")");
+            double back = ang.get(2) + Math.PI; BlockPos em = new BlockPos(ox + (int) Math.round(Math.cos(back) * 24), oy + 1, oz + (int) Math.round(Math.sin(back) * 24));
+            for (int i = 0; i < 3; i++) com.claudemod.entity.life.HuntPatrol.saw(c, level, em, 1.0);
+            BlockPos p = com.claudemod.entity.life.HuntPatrol.next(c, level, w); double a = Math.atan2(p.getZ() + 0.5 - c.getZ(), p.getX() + 0.5 - c.getX());
+            check(Math.cos(a - back) > Math.cos(Math.PI / 4), "patrol: not toward the endermen seen behind him (" + w[0] + ")");
+            com.claudemod.entity.life.HuntPatrol.reset(c); BlockPos home = h.absolutePos(new BlockPos(2, 2, 2)); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(home.getX() + 0.5, home.getY(), home.getZ() + 0.5);
+            pass(stage, t, "held its heading 3 picks (" + said.get(0) + "), then turned to the endermen: \"" + w[0] + "\"");
         }
         return true;
     }

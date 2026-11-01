@@ -398,6 +398,7 @@ public class WorkGoal extends Goal {
         try {
             done = switch (current) {
                 case Task.GoTo t -> { if (ticks == 1) exitWhy = null; if (g.staying && t.pos().distSqr(g.blockPosition()) > 2 * 2) { if (g.tickCount % 100 < 2 || ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] staying put where they said: the walk to {} ({}) waits (WorkGoal)", t.pos().toShortString(), com.claudemod.entity.ClaudeEntity.originOf(t)); yield true; } // (told to stay put, every chore of his own walks him off: a stash run, a torch run, his nook; one gate at the walk, their own go_to clears staying first, 15:03)
+                    if (g.onClimbable() && t.pos().getX() == g.getBlockX() && t.pos().getZ() == g.getBlockZ() && t.pos().getY() > g.getBlockY()) { g.getNavigation().stop(); g.getJumpControl().jump(); yield true; } // ponytail: live 14:50 -59,5x,-909: up a free-standing twisting vine a player holds jump; the walk never did, "couldn't get to" each cell of the planned climb
                     if (ticks == 1) { // a walk into a cell still solid, its dig queued behind the walk: the dig first, then the walk (live 04:43 World 15: a GoTo into the rock under him, its Break next in the queue, 32 stalls in a minute)
                         BlockPos tp = t.pos(); var lv0 = g.level(); java.util.List<Task> first = new java.util.ArrayList<>();
                         for (Task q0 : g.tasks) if (q0 instanceof Task.Break b0 && (b0.pos().equals(tp) || b0.pos().equals(tp.above())) && !lv0.getBlockState(b0.pos()).getCollisionShape(lv0, b0.pos()).isEmpty() && !first.contains(q0)) first.add(q0);
@@ -681,7 +682,7 @@ public class WorkGoal extends Goal {
         }
         BlockPos feetCell = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); // (on farmland or a slab his feet sit a little down into the block: the cell he is in, not the block under him)
         double d = Math.sqrt(feetCell.distSqr(pos));
-        if (!g.level().getBlockState(pos).getCollisionShape(g.level(), pos).isEmpty() && inReach(pos)) return true; // a walk to a block (a trunk, ore): in reach of it is there
+        if (!g.level().getBlockState(pos).getCollisionShape(g.level(), pos).isEmpty() && inReach(pos)) { if (g.tasks.peekFirst() instanceof Task.GoTo) com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] the walk to {} ends at once: {} is there, in reach, with more walks queued (a route cell not dug?) (WorkGoal.walkTo)", pos.toShortString(), g.level().getBlockState(pos).getBlock().getName().getString()); return true; } // a walk to a block (a trunk, ore): in reach of it is there // ponytail: live 15:35 a route walk into a cell planned dug vanished silently, 30 s stuck: logged to prove it
         if (walkSince.size() > 64) { walkSince.values().removeIf(t0 -> g.tickCount - t0 > 20 * 60); walkBest.keySet().retainAll(walkSince.keySet()); }
         if (walkTask != current) { walkTask = current; walkKept.clear(); walkFor = null; } // (each job's walks start their clocks afresh)
         if (!pos.equals(walkFor)) { // a walk to another spot inside the same job (the bed's step behind its foot, then the cell beside it): its own clocks, never the last spot's
@@ -4928,7 +4929,9 @@ public class WorkGoal extends Goal {
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
         Vec3 away = g.position().subtract(mob.position()).multiply(1, 0, 1); if (away.lengthSqr() < 1e-4) return null; away = away.normalize();
         boolean fire = level.getBlockState(feet).is(net.minecraft.tags.BlockTags.FIRE);
-        if (!fire && (mob.distanceTo(g) > 4 || !lipBehind(level, feet, away))) { footingSaid = null; return null; } // ponytail: live 14:45 -36,50,-898: a lip "behind" him from an enderman 15 off; the approach stepped him back onto it, 4 shuffles a second. Only a mob in reach throws him
+        boolean shooter = mob instanceof net.minecraft.world.entity.monster.RangedAttackMob || mob instanceof net.minecraft.world.entity.monster.Blaze || mob instanceof net.minecraft.world.entity.monster.Ghast; // (an arrow or fireball throws him from range: World 15 13:51, a skeleton's arrow off a lip, 22 down)
+        boolean throwsHim = shooter ? mob.distanceTo(g) <= 24 && g.hasLineOfSight(mob) : mob.distanceTo(g) <= 4; // (a melee mob only in reach: live 14:45 an enderman 15 off stepped him back and forth against the approach, 4 shuffles a second)
+        if (!fire && (!throwsHim || !lipBehind(level, feet, away))) { footingSaid = null; return null; } // ponytail: live 14:45 -36,50,-898: a lip "behind" him from an enderman 15 off; the approach stepped him back onto it, 4 shuffles a second. Only a mob in reach throws him
         BlockPos best = null; double bd = Double.MAX_VALUE;
         for (BlockPos q0 : BlockPos.betweenClosed(feet.offset(-4, -1, -4), feet.offset(4, 1, 4))) { BlockPos q = q0.immutable();
             if (q.equals(feet) || !com.claudemod.entity.life.FortressFight.stand(level, q) || com.claudemod.entity.body.Controls.lavaCell(g, q)) continue;

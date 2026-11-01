@@ -333,7 +333,7 @@ public class ClaudeEntity extends ServerPlayer {
             }
         }
         Controls.apply(this, look, move, jump, nav);
-        if (tickCount % 2 == 0 && !level().isClientSide) { boolean hunt = com.claudemod.director.ClaudeLife.endermanTime(this); net.minecraft.world.entity.monster.EnderMan free = null; boolean onMe = false; // ponytail: the user 13:30 "only engage 1 enderman at a time": in the hunt his eyes may meet only the nearest in sight, and none while one is on him (13:28: four stared at, four on him, dead in 2 s)
+        if (!level().isClientSide) { boolean hunt = com.claudemod.director.ClaudeLife.endermanTime(this); net.minecraft.world.entity.monster.EnderMan free = null; boolean onMe = false; // ponytail: the user 13:30 "only engage 1 enderman at a time": in the hunt his eyes may meet only the nearest in sight, and none while one is on him (13:28: four stared at, four on him, dead in 2 s; live 14:55: every tick, the look control re-aims each tick, so an every-2nd-tick guard left odd ticks staring, 10 on him, dead)
             if (hunt) for (var e : level().getEntitiesOfClass(net.minecraft.world.entity.monster.EnderMan.class, getBoundingBox().inflate(64))) { if (!e.isAlive()) continue; if (e.getTarget() == this) onMe = true; else if (hasLineOfSight(e) && (free == null || e.distanceToSqr(this) < free.distanceToSqr(this))) free = e; }
             if (onMe) free = null; /* the user 01:40: endermen are avoided unless it's the pearl stage and he's geared; a player never meets their eyes (vanilla's stare check: view within 0.025/dist of the eyes, in sight) */
             net.minecraft.world.phys.Vec3 view = getViewVector(1.0F).normalize();

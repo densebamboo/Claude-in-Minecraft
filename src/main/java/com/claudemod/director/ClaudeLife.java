@@ -245,7 +245,7 @@ public final class ClaudeLife {
         if (g.level().dimension() != net.minecraft.world.level.Level.OVERWORLD) { // away from home (the Nether): his places (house, mine, farm, chests, beds) are overworld ones; no night rules (a bed set down here explodes), no following; the basics, then the work
             if (g.tickCount % 100 == 0) equipArmor(g);
             if (g.tickCount % 100 == 0) dumpJunk(g); // ponytail: live 13:20, 320 netherrack and 0 free slots in the Nether: this branch never dumped, pickups and crafts failed
-            if (g.tickCount % 20 == 10 && g.getFoodData().getFoodLevel() < 20 && !(g.currentTask instanceof Task.Eat) && g.tasks.stream().noneMatch(t0 -> t0 instanceof Task.Eat) && (g.getFoodData().getFoodLevel() <= 6 || !lavaEdge(g))) { Item f0 = foodToEat(g, true); if (f0 != null) g.tasks.addFirst(new Task.Eat(f0)); } // (the top-up waits off a lava edge: eating stands him still where a knock is the fall, World 15 13:41 on his 1-wide bridge)
+            if (g.tickCount % 20 == 10 && g.getFoodData().getFoodLevel() < 20 && !(g.currentTask instanceof Task.Eat) && !(g.tasks.peekFirst() instanceof Task.Eat) && (g.getFoodData().getFoodLevel() <= 6 || !lavaEdge(g))) { Item f0 = foodToEat(g, true); if (f0 != null) g.tasks.addFirst(new Task.Eat(f0)); } // ponytail: live 15:36 an Eat queued at the END of a 18-leg route (recover_drops) blocked this the whole walk: food 20 -> 6, 63 beef in the pack, killed by a magma cube // (the top-up waits off a lava edge: eating stands him still where a knock is the fall, World 15 13:41 on his 1-wide bridge)
             mlg(g, (ServerLevel) g.level());
             if (g.planning && g.tickCount - g.planStartTick > 20 * 45) g.planning = false;
             if (g.tickCount % 200 == 3) logWhere(g, player, g.level() == player.level() ? g.distanceTo(player) : -1);
@@ -471,7 +471,7 @@ public final class ClaudeLife {
             boolean hunting = false; for (Skills.Step s0 : g.skillQueue) if ("ender_pearls".equals(s0.skill())) hunting = true;
             if (hunting) { net.minecraft.world.entity.monster.EnderMan best = null;
                 for (net.minecraft.world.entity.monster.EnderMan m : g.level().getEntitiesOfClass(net.minecraft.world.entity.monster.EnderMan.class, g.getBoundingBox().inflate(24, 8, 24))) if (m.isAlive() && (g.hasLineOfSight(m) || m.distanceTo(g) < 8) && (best == null || m.distanceToSqr(g) < best.distanceToSqr(g))) best = m;
-                if (best != null) { clearTasks(g); dropCurrent(g); g.tasks.add(new Task.Attack(best.getUUID(), 20 * 60)); g.tasks.add(new Task.Pickup(80));
+                if (best != null) { if (g.level() instanceof ServerLevel slv) com.claudemod.entity.life.HuntPatrol.saw(g, slv, best.blockPosition(), 1.0); clearTasks(g); dropCurrent(g); g.tasks.add(new Task.Attack(best.getUUID(), 20 * 60)); g.tasks.add(new Task.Pickup(80));
                     ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: an enderman {} off {} on the way: the walk waits, after it (ClaudeLife life tick)", (int) best.distanceTo(g), g.hasLineOfSight(best) ? "in sight" : "heard behind the blocks"); } } // ponytail: the user 14:22 "standing right next to an enderman and he's not hitting it": 3-5 off behind warped wart, heard only; a player that close steps round and hits it
         }
         if (g.getHealth() <= 4 && g.tickCount % 20 == 15 && !(g.currentTask instanceof Task.Attack) && !(g.currentTask instanceof Task.Flee) && !(g.currentTask instanceof Task.Eat)
@@ -2700,7 +2700,7 @@ public final class ClaudeLife {
                     return "day here: through my portal to a warped forest for endermen (" + have + "/" + want + " pearls)"; }
                 if (em == null && level.dimension() == net.minecraft.world.level.Level.OVERWORLD && com.claudemod.director.ClaudeLife.dayHere(level) && !level.isThundering()) { ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: day in the overworld at {}, none in sight: endermen spawn in the dark, the hunt waits for dusk (no Nether route: his portal {}, kit missing {}) (ClaudeLife ender_pearls)", g.blockPosition().toShortString(), hisPortal.get(g.getUUID()), Kit.missing(g, true)); return "failed: it's day, endermen spawn in the dark: the pearl hunt waits for dusk (or a warped forest): " + have + "/" + want + " pearls"; } // (01:41-01:49 he walked 900 blocks of daylight surface looking for one)
                 g.skillQueue.addFirst(st); // (on with it after this)
-                if (em != null) { g.tasks.add(new Task.Attack(em.getUUID(), 20 * 60)); g.tasks.add(new Task.Pickup(80)); ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: an enderman {} off in sight: after it ({}/{} pearls) (ClaudeLife ender_pearls)", (int) em.distanceTo(g), have, want); return "after the enderman " + (int) em.distanceTo(g) + " off (" + have + "/" + want + " pearls)"; }
+                if (em != null) { com.claudemod.entity.life.HuntPatrol.saw(g, level, em.blockPosition(), 1.0); g.tasks.add(new Task.Attack(em.getUUID(), 20 * 60)); g.tasks.add(new Task.Pickup(80)); ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: an enderman {} off in sight: after it ({}/{} pearls) (ClaudeLife ender_pearls)", (int) em.distanceTo(g), have, want); return "after the enderman " + (int) em.distanceTo(g) + " off (" + have + "/" + want + " pearls)"; }
                 boolean nether = level.dimension() == net.minecraft.world.level.Level.NETHER;
                 { var dl = com.claudemod.entity.life.DeathLog.next(g, level.dimension().location().getPath()); // his death pile on this side (the fortress kit: diamond pick, rods) first: frozen in its unloaded chunk, it waits for him
                   if (nether && dl != null && dl.dim.equals("the_nether") && !level.isPositionEntityTicking(dl.at) && g.skillQueue.stream().noneMatch(s0 -> s0.skill().equals("recover_drops")) && !(g.attempts.any.get(dl.at) instanceof Integer t1 && g.tickCount - t1 < 20 * 600)) {
@@ -2712,7 +2712,9 @@ public final class ClaudeLife {
                 if (com.claudemod.entity.life.Perception.turningRound(g) || !com.claudemod.entity.life.Perception.lookedRound(g, 200)) { // ponytail: live 13:22, two endermen 5 off at his height and he walked on without turning round once: a look about first, as a player does
                     if (!com.claudemod.entity.life.Perception.turningRound(g)) com.claudemod.entity.life.Perception.lookRound(g, null);
                     g.tasks.add(new Task.Wait(34, false)); g.skillQueue.addFirst(st); return "no enderman in view: looking all round first (" + have + "/" + want + " pearls)"; }
-                g.skillQueue.addFirst(new Skills.Step("explore", "", 1)); // (through the forest, or the overworld at night: walking on, looking)
+                { String[] pw = new String[1]; BlockPos pp = com.claudemod.entity.life.HuntPatrol.next(g, level, pw); // (the patrol: the best ground by what he's seen of it, his heading held; a bare explore flipped its targets each time, live 15:23)
+                  if (pp != null) { g.tasks.add(new Task.GoTo(pp, 2)); return "no enderman in sight: patrolling, " + pw[0] + " (" + have + "/" + want + " pearls)"; } }
+                g.skillQueue.addFirst(new Skills.Step("explore", "", 1)); // (no ground in sight for the patrol: the old walk on, looking)
                 return "no enderman in sight: walking on, looking (" + have + "/" + want + " pearls)";
             }
             case "explore": {
@@ -3766,6 +3768,21 @@ public final class ClaudeLife {
                 // his death checklist, not the game's last-death spot: a second death in the other dimension made him forget the fortress pile (11:53 "my drops are on this side")
                 String dimHere = level.dimension().location().getPath();
                 var dn = com.claudemod.entity.life.DeathLog.next(g, dimHere);
+                if (dn != null && !(dn.dim.equals(dimHere) && level.isPositionEntityTicking(dn.at))) { // the pile's chunk not loaded (the other dimension, or far off): its 5-min despawn clock is stopped, so no going back unready to the place that killed him (World 15 12:40: back into the fortress with 0 meals, no pick, 0 blocks, fireballed)
+                    boolean nether = dn.dim.contains("nether");
+                    boolean weapon = g.inventory.count(x -> (x.getItem() instanceof net.minecraft.world.item.SwordItem || x.getItem() instanceof net.minecraft.world.item.AxeItem) && !x.is(Items.WOODEN_SWORD) && !x.is(Items.WOODEN_AXE)) > 0;
+                    boolean pick = g.inventory.count(x -> x.getItem() instanceof net.minecraft.world.item.PickaxeItem && !x.is(Items.WOODEN_PICKAXE)) > 0;
+                    int meals = Kit.food(g), blocks = Kit.buildingBlocks(g);
+                    java.util.List<String> lack = new java.util.ArrayList<>();
+                    if (!weapon) lack.add("a sword or axe"); if (!pick) lack.add("a pickaxe"); if (meals < (nether ? 4 : 2)) lack.add((nether ? 4 : 2) + "+ meals (" + meals + ")"); if (nether && blocks < 32) lack.add("32+ blocks for bridges and cover (" + blocks + ")");
+                    Integer tried = g.attempts.counters.get("recoverGear"); int nowT = g.getServer() == null ? g.tickCount : g.getServer().getTickCount();
+                    if (!lack.isEmpty() && (tried == null || nowT - tried > 20 * 600 || nowT < tried)) {
+                        g.attempts.counters.put("recoverGear", nowT); // (one go at it every 10 min: a kit he can't finish never holds the pile up for good)
+                        g.skillQueue.addFirst(new Skills.Step("recover_drops", "", 1)); g.skillQueue.addFirst(new Skills.Step("gear_up", "", 1));
+                        ClaudeMod.LOGGER.info("[Claude life] recover_drops: his pile in {} at {} ({}) waits (its chunk isn't loaded, so its despawn clock is stopped); short of {}: gear_up first (ClaudeLife recover_drops)", dn.dim, dn.at.toShortString(), dn.what, String.join(", ", lack));
+                        return "my things at " + dn.at.toShortString() + " keep while nobody's near them, so i'll gear up first (short of " + String.join(", ", lack) + "), then go back for them";
+                    }
+                }
                 if (dn != null && !dn.dim.equals(dimHere)) {
                     g.skillQueue.addFirst(new Skills.Step("recover_drops", "", 1)); g.skillQueue.addFirst(new Skills.Step("enter_portal", "", 1));
                     ClaudeMod.LOGGER.info("[Claude life] recover_drops: his pending pile is in {} at {}: through his portal for it (ClaudeLife recover_drops)", dn.dim, dn.at.toShortString());
@@ -3797,7 +3814,7 @@ public final class ClaudeLife {
                     return "walking to where I died at " + spot.toShortString() + " to look for my things"; } // drifted off in the water, or lying a way from where he fell: still his
                 if (drops.isEmpty() && g.playerGoal != null && g.playerGoal.toLowerCase().matches("(?s).*(recover|gear back|drops|death spot|old gear).*")) g.playerGoal = ""; // the drops are gone: so is that goal (it outlived every restart, "back. still on it: recover_drops" and the same question asked four times)
                 if (drops.isEmpty() && dn != null && level.isPositionEntityTicking(dn.at)) com.claudemod.entity.life.DeathLog.abandon(g, dn, "looked: nothing left there");
-                if (drops.isEmpty()) return "done: nothing of yours left on the ground" + (death.isPresent() ? " where you died" : "");
+                if (drops.isEmpty()) return "done: nothing of yours left on the ground" + (death.isPresent() ? " where you died" : "") + ": it despawned or someone took it, none of it came back to my pack"; // ponytail: live 15:06 the planner read the bare line as "my 40 stacks are already back in my pack"
                 // the user's rule: if it wasn't iron or better, it's not worth picking up (a stone-age pile 40 blocks down a cave had him circling the cave mouth for ten minutes, then dead in it)
                 boolean ironUp = drops.stream().anyMatch(d -> { String id = BuiltInRegistries.ITEM.getKey(d.getItem().getItem()).getPath();
                     return id.startsWith("iron_") || id.equals("raw_iron") || id.contains("diamond") || id.contains("netherite") || id.equals("emerald") || id.equals("shield") || id.equals("bow") || id.endsWith("_bed") || id.equals("ender_pearl") || id.equals("blaze_rod"); });

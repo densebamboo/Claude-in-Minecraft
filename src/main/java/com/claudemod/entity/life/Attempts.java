@@ -55,6 +55,7 @@ public final class Attempts {
         Map<BlockPos, Integer> m = at.get(k);
         if (m.size() > 512) m.values().removeIf(t -> tick - t > 20 * 600); // (older than 10 minutes: nothing reads that far back)
         m.put(p.immutable(), tick);
+        if (k == Kind.WALK) com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] {} written off as a failed walk by {} (Attempts.fail)", p.toShortString(), StackWalker.getInstance().walk(f -> f.skip(1).filter(x -> !x.getClassName().endsWith("Attempts")).findFirst().map(x -> x.getClassName().replaceAll(".*\.", "") + "." + x.getMethodName() + ":" + x.getLineNumber()).orElse("?"))); // ponytail: live 15:38, a walk to his portal 96 off was skipped as "failed 0 s ago" with no line saying who wrote it off
     }
     public Integer last(Kind k, BlockPos p) { return at.get(k).get(p); }
     public boolean within(Kind k, BlockPos p, int now, int ticks) { Integer t = at.get(k).get(p); return t != null && now - t < ticks; }

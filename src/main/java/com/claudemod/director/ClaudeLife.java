@@ -9007,6 +9007,7 @@ public final class ClaudeLife {
     /** Falling with a water bucket: once the ground is within reach, water under his feet, the way a player MLGs a fall (and the fall does nothing). */
     static void mlg(ClaudeEntity g, ServerLevel level) {
         if (g.onGround() || g.isInWater() || g.fallDistance < 2.5f || g.getDeltaMovement().y > -0.3) return;
+        if (level.dimensionType().ultraWarm()) return; // ponytail: live 13:51, an MLG in the Nether: the water boils away, the 21-block fall took 19
         if (g.inventory.count(s -> s.is(Items.WATER_BUCKET)) == 0) return;
         BlockPos ground = null; int drop = 0;
         for (BlockPos q = g.blockPosition().below(); drop < 6; q = q.below(), drop++) {

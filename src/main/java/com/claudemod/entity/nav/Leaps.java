@@ -129,6 +129,7 @@ public final class Leaps {
                         if (on.is(Blocks.MAGMA_BLOCK) || on.is(BlockTags.CAMPFIRES) || on.is(Blocks.CACTUS) || on.is(Blocks.POINTED_DRIPSTONE) || on.is(Blocks.SWEET_BERRY_BUSH))
                             return new Fall(feet, (int) Math.round(y0 - feet.getY()), 99, onto, onto + " to land on at " + c.toShortString(), extra);
                         if (lava(l, feet) || l.getBlockState(feet).is(BlockTags.FIRE)) return new Fall(feet, (int) Math.round(y0 - feet.getY()), 99, "lava", "lava where he'd land, " + feet.toShortString(), extra);
+                        for (Direction d : Direction.Plane.HORIZONTAL) { BlockPos n = feet.relative(d); if (lava(l, n) || lava(l, n.below()) && l.getBlockState(n.below()).getCollisionShape(l, n.below()).isEmpty()) return new Fall(feet, (int) Math.round(y0 - feet.getY()), 99, "lava", "lava beside where he'd land, at " + n.toShortString() + " (a fall drifts; the landing's edge is no place to come down)", extra); } // (live 14:23 World 15: \"drop off 170, 37, 72 south\" onto the lava-sea shore, in the lava twice)
                         return new Fall(feet, (int) Math.round(y0 - feet.getY()), damage(g, l, fd, on), onto, null, extra);
                     }
                 }

@@ -40,7 +40,7 @@ public final class PlayerNav {
             probe.setPathfindingMalus(PathType.UNPASSABLE_RAIL, 0.0f);
             probe.setPathfindingMalus(PathType.DAMAGE_FIRE, -1.0f); // magma, fire, lava edges: never a route, however short (a player walks round)
             probe.setPathfindingMalus(PathType.DAMAGE_OTHER, -1.0f); // cactus, berry bushes, wither roses
-            probe.setPathfindingMalus(PathType.DANGER_FIRE, 4.0f); // beside fire: dear, not forbidden
+            probe.setPathfindingMalus(PathType.DANGER_FIRE, 8.0f); // beside fire or lava: dear, not forbidden (8, was 4: a route along a lava-sea shore beat a short way round, and a knock or a slip on it burned him)
             probe.setPathfindingMalus(PathType.POWDER_SNOW, -1.0f);
 
             probe.getNavigation().setCanFloat(true); // he swims across water like a player
@@ -166,6 +166,11 @@ public final class PlayerNav {
         var level = p.level(); int fy = (int) Math.floor(from.y + 0.01);
         double dx = to.x + 0.5 - from.x, dz = to.z + 0.5 - from.z, len = Math.sqrt(dx * dx + dz * dz);
         for (double s = 0.25; s < len; s += 0.25) {
+            for (int k = -1; k <= 1; k++) { // lava on the line at his feet or under them, his shoulders too: the corner cut goes through it, not round (a cut across a shore cell)
+                double sx = -dz / len * 0.3 * k, sz = dx / len * 0.3 * k;
+                BlockPos f = BlockPos.containing(from.x + dx * s / len + sx, fy, from.z + dz * s / len + sz);
+                if (level.getFluidState(f).is(net.minecraft.tags.FluidTags.LAVA) || level.getFluidState(f.below()).is(net.minecraft.tags.FluidTags.LAVA) && level.getBlockState(f.below()).getCollisionShape(level, f.below()).isEmpty()) return true;
+            }
             BlockPos q = BlockPos.containing(from.x + dx * s / len, fy - 1, from.z + dz * s / len);
             if (level.getBlockState(q).getCollisionShape(level, q).isEmpty() && level.getBlockState(q.below()).getCollisionShape(level, q.below()).isEmpty() && level.getFluidState(q).isEmpty()) return true;
         }

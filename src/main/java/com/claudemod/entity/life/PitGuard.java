@@ -37,11 +37,14 @@ import net.minecraft.world.level.block.state.BlockState;
  * when it's queued, he walks up to his door first (the planner's way out, or his walker's climb) and caps it from there.
  */
 public final class PitGuard {
+    static final class ClaudeSpawner0 { static boolean testing() { return com.claudemod.entity.ClaudeSpawner.testing; } }
     private PitGuard() {}
 
     public static final int NEAR = 8; // a fall or a skirt this near his door (blocks across)
     static final int SPAN = 12; // the mouth looked at this far round his door
     static final int MAX_CAP = 64; // a bigger mouth: the apron within 3 of his door only
+    static final int HOLE_MAX = 6; // a hole worth a cap: a mouth this small at most (more is the lie of the land)
+    static boolean down0(ClaudeEntity g, BlockPos seed) { return g.getBlockY() <= seed.getY() - 2 && across(g.blockPosition(), seed) <= 2; } // (down in it now: out of it is the job, the cap his way up)
 
     private static final class State {
         BlockPos lastGround; float fall; BlockPos door; int noStoneSaid = -100000; BlockPos resumedFrom; int resumedLeft = -1;
@@ -119,6 +122,7 @@ public final class PitGuard {
     /** Every tick: a fall noticed when he lands; a closing left half done picked up again. */
     public static void tick(ClaudeEntity g, ServerLevel level) {
         State s = st(g);
+        if (g.tickCount % 200 == 37 && !ClaudeSpawner0.testing()) cleanup(g, level);
         if (g.isInWater()) { s.fall = 0; return; } // (water breaks a fall)
         if (!g.onGround()) { s.fall = Math.max(s.fall, g.fallDistance); return; }
         float fell = s.fall; s.fall = 0;
@@ -221,6 +225,30 @@ public final class PitGuard {
         ClaudeMod.LOGGER.info("[Claude route] his way by his door skirts a drop at {} (a mouth of {} open cells): noted; skirted again and he closes it (PitGuard.skirted)", c.toShortString(), m.size());
     }
 
+    /** His old caps that were no hole's (a cluster of more than HOLE_MAX, or under 4 deep): taken back, a few at a time when he's idle (the user, World 15: "why is there so much cobble and deepslate placed there"). */
+    private static int cleanTick = -100000;
+    public static void cleanup(ClaudeEntity g, ServerLevel level) {
+        if (g.tickCount - cleanTick < 200 || g.currentTask != null || !g.tasks.isEmpty() || !g.skillQueue.isEmpty() || g.planning || !level.isDay()) return;
+        cleanTick = g.tickCount;
+        var bc = TempLedger.builtCells(g); List<BlockPos> mine = new ArrayList<>();
+        for (var e : bc.entrySet()) if (e.getValue() != null && e.getValue().startsWith("PitGuard") && e.getKey().distSqr(g.blockPosition()) <= 32 * 32 && level.isLoaded(e.getKey())) { var st0 = level.getBlockState(e.getKey()); if (st0.is(net.minecraft.world.level.block.Blocks.COBBLESTONE) || st0.is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE)) mine.add(e.getKey()); }
+        if (mine.isEmpty()) return;
+        Set<BlockPos> left = new HashSet<>(mine); List<BlockPos> take = new ArrayList<>();
+        while (!left.isEmpty() && take.size() < 16) {
+            BlockPos s0 = left.iterator().next(); List<BlockPos> cl = new ArrayList<>(); ArrayDeque<BlockPos> q = new ArrayDeque<>(); q.add(s0); left.remove(s0);
+            while (!q.isEmpty()) { BlockPos c = q.poll(); cl.add(c); for (Direction d : Direction.Plane.HORIZONTAL) for (int dy = -1; dy <= 1; dy++) { BlockPos n = c.relative(d).above(dy); if (left.remove(n)) q.add(n); } }
+            int deep = 0; for (BlockPos c : cl) { int k = 0; BlockPos q1 = c.below(); while (k < 8 && open(level, q1)) { k++; q1 = q1.below(); } deep = Math.max(deep, k); }
+            if (cl.size() <= HOLE_MAX && deep >= 4) continue; // (a true hole's cap: it stays)
+            cl.sort(Comparator.comparingDouble(c -> c.distSqr(g.blockPosition())));
+            for (BlockPos c : cl) { if (take.size() >= 16) break; take.add(c); }
+        }
+        if (take.isEmpty()) return;
+        for (BlockPos c : take) bc.remove(c); // (no build of his now: his to take back)
+        take.sort(Comparator.comparingInt((BlockPos c) -> -c.getY()));
+        g.tasks.add(new Task.Pickup(60)); for (int i = take.size() - 1; i >= 0; i--) g.tasks.addFirst(new Task.Break(take.get(i)));
+        ClaudeMod.LOGGER.info("[Claude life] {} of his old cap blocks by his door were no hole's (natural ground): taking them back, {} this round (PitGuard.cleanup)", mine.size(), take.size());
+    }
+
     /** The cells of the caps still open (not set yet). */
     static List<BlockPos> pending(ClaudeEntity g, ServerLevel level, State s) {
         List<BlockPos> out = new ArrayList<>();
@@ -255,7 +283,10 @@ public final class PitGuard {
                 if (theirs.contains(n)) { ClaudeMod.LOGGER.info("[Claude life] the hole at {} ({}): their block at {} in its walls, their build: left open (PitGuard.close)", seed.toShortString(), why, n.toShortString()); return; }
             }
         }
-        List<BlockPos> cells = new ArrayList<>(mouth); String part = "its whole mouth (" + mouth.size() + " cells)";
+        int depth = 0; { BlockPos q0 = seed; while (depth < 8 && open(level, q0)) { depth++; q0 = q0.below(); } }
+        if (!down0(g, seed) && (mouth.size() > HOLE_MAX || depth < 4 || low)) { // (natural ground: a slope, a dip or a drop he can step down: walked round, never capped; World 15: a 400-cell "mouth" by his door took 389 blocks of cobble, a grey blob the user took for a base)
+            ClaudeMod.LOGGER.info("[Claude life] the drop at {} ({}): a mouth of {} cells, {} deep{}: natural ground, walked round, not capped (PitGuard.close)", seed.toShortString(), why, mouth.size(), depth, low ? ", a walk back up out of it" : ""); return; }
+        List<BlockPos> cells = new ArrayList<>(mouth); String part = "its whole mouth (" + mouth.size() + " cells, " + depth + " deep)";
         if (low || cells.size() > MAX_CAP) { cells.removeIf(c -> across(c, door) > 3 && !byRoute(s, c)); part = "the apron within 3 of his door and the strip his routes cross (" + cells.size() + " of a mouth of " + mouth.size() + " cells" + (low ? "; low ground, " + (int) back + " blocks' walk back up from its bottom at " + bottom.toShortString() + ", but a hazard by his door" : "") + ")"; }
         int have = stone(g);
         if (!cells.isEmpty() && have == 0) { ClaudeMod.LOGGER.info("[Claude life] the hole at {} ({}): no cobble on him for its {} cells, left for when he has some; the light goes in (PitGuard.close)", seed.toShortString(), why, cells.size()); cells.clear(); }

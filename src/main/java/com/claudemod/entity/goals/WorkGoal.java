@@ -3512,6 +3512,7 @@ public class WorkGoal extends Goal {
                 n += taken.getCount() - left.getCount();
                 if (!left.isEmpty()) { ItemStack back = box.getItem(i).isEmpty() ? left : box.getItem(i).copyWithCount(box.getItem(i).getCount() + left.getCount()); box.setItem(i, back); break; } // no room for the rest: it stays in the chest
             }
+            if (n == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude chest] took no {} from {}: {} (WorkGoal.doChest)", t.leave().getDescription().getString(), pos.toShortString(), g.inventory.hasRoomFor(new ItemStack(t.leave())) ? "none in it" : "pockets full");
             if (n > 0) g.noteDoing("took " + n + " " + t.leave().getDescription().getString() + " from my chest");
             if (n > 0) com.claudemod.entity.life.OwnEvents.took(g, t.leave(), n, pos);
         } else if (t.take()) {
@@ -3737,7 +3738,8 @@ public class WorkGoal extends Goal {
         return s.isDamageableItem() || s.getItem() instanceof net.minecraft.world.item.BucketItem || s.get(net.minecraft.core.component.DataComponents.FOOD) != null
                 || s.is(net.minecraft.world.item.Items.TORCH) || s.is(net.minecraft.world.item.Items.CRAFTING_TABLE) || s.is(net.minecraft.world.item.Items.FURNACE)
                 || s.is(net.minecraft.world.item.Items.COAL) || s.is(net.minecraft.world.item.Items.CHARCOAL) || s.is(net.minecraft.world.item.Items.STICK)
-                || s.is(net.minecraft.tags.ItemTags.PLANKS) || s.is(net.minecraft.tags.ItemTags.LOGS); // (diamonds, iron and raw iron go IN the chest: the user's rule, valuables stay safe there and come back out for a craft)
+                || s.is(net.minecraft.tags.ItemTags.PLANKS) || s.is(net.minecraft.tags.ItemTags.LOGS)
+                || s.is(net.minecraft.world.item.Items.ARROW) || s.is(net.minecraft.world.item.Items.ENDER_PEARL) || s.is(net.minecraft.world.item.Items.ENDER_EYE); // ammo and the dragon run's pearls/eyes ride with him like torches (live 01:16 World 15: took 32 arrows, the stash put all 32 back) (diamonds, iron and raw iron go IN the chest: the user's rule, valuables stay safe there and come back out for a craft)
     }
 
     /** Chest order: 0 valuables, 1 ores and raw metal, 2 stone and dirt, 3 everything else. */
@@ -4823,14 +4825,16 @@ public class WorkGoal extends Goal {
     // ---- fortress fights from cover (FortressFight; patch_blaze_loot.py) ----
     private String cfMode = ""; private int cfPeekTick = -100, cfHopTick = -100, cfIdle; private boolean cfHealing; private java.util.UUID cfTarget;
     private void cfSay(String mode, String why) { if (!mode.equals(cfMode)) { cfMode = mode; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] {}: {} (WorkGoal.coverFight)", mode, why); } }
-    private void cfMove(BlockPos to, double speed) { g.getNavigation().moveTo(to.getX() + 0.5, to.getY(), to.getZ() + 0.5, speed); }
+    // cfMove: the last step goes straight to the centre: the path calls itself done ~0.5 short, over the cell edge (01:30 he stood at -72.0, cover -73, burning 13 -> 1)
+    private void cfMove(BlockPos to, double speed) { if (Math.abs(g.getY() - to.getY()) < 0.6 && Math.hypot(g.getX() - to.getX() - 0.5, g.getZ() - to.getZ() - 0.5) < 1.6) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(to.getX() + 0.5, to.getY(), to.getZ() + 0.5, speed); return; } g.getNavigation().moveTo(to.getX() + 0.5, to.getY(), to.getZ() + 0.5, speed); } // (in his own cell the path is "done" at once and never centres him: at() wants 0.35, so "back into cover" held him off-centre in sight, burning 13 -> 1, the Eat never reached)
     /** The swing when charged, the hop first for the crit (a 2-high ceiling caps the hop; the fall still crits). True: swung or hopping. */
     private boolean cfSwing(net.minecraft.world.entity.LivingEntity mob) {
         if (g.getAttackStrengthScale(0.5f) < 0.95f) return false;
         if (g.onGround() && !g.isInWater() && g.tickCount - cfHopTick > 14 && g.getHealth() > 6) { cfHopTick = g.tickCount; g.getJumpControl().jump(); return true; }
         if (!g.onGround() && g.getDeltaMovement().y > 0 && g.tickCount - cfHopTick <= 8) return true; // still going up: the crit wants the fall
         g.getLookControl().faceNow(mob.getBoundingBox().getCenter());
-        shieldDown(); g.attack(mob); g.swing(InteractionHand.MAIN_HAND);
+        shieldDown(); float hp0 = mob.getHealth(); g.attack(mob); g.swing(InteractionHand.MAIN_HAND);
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] swing at the {} {} off (eye {}): hp {} -> {}, invuln {}, his fall {} (WorkGoal.cfSwing)", BuiltInRegistries.ENTITY_TYPE.getKey(mob.getType()).getPath(), String.format("%.2f", mob.distanceTo(g)), String.format("%.2f", g.getEyePosition().distanceTo(mob.getBoundingBox().getCenter())), hp0, mob.getHealth(), mob.invulnerableTime, String.format("%.2f", g.fallDistance));
         if (!mob.isAlive()) g.noteDoing("killed a " + BuiltInRegistries.ENTITY_TYPE.getKey(mob.getType()).getPath());
         return true;
     }
@@ -4880,7 +4884,7 @@ public class WorkGoal extends Goal {
         if (hp <= 12 || (withered && hp <= 14) || (g.isOnFire() && hp <= 14) || (cfHealing && (hp < 18 || withered))) { // (an expert backs off with health to spare and heals all the way: food's plenty)
             cfHealing = true;
             if (!inCover && due != null && shield) { g.getNavigation().stop(); shieldUp(due); cfSay("shield up on the way back", "health " + (int) hp + ", a volley due: on the shield, not on his back"); return false; }
-            if (!inCover) { shieldDown(); g.setSprinting(true); cfMove(cv.cover(), 1.3); cfSay("back into cover", "health " + (int) hp + (withered ? ", Wither on" : "") + (g.isOnFire() ? ", burning" : "") + ": to " + cv.cover().toShortString()); return false; }
+            if (!inCover) { shieldDown(); g.setSprinting(true); cfMove(cv.cover(), 1.3); cfSay("back into cover", "at " + String.format("%.2f,%.2f", g.getX(), g.getZ()) + ", health " + (int) hp + (withered ? ", Wither on" : "") + (g.isOnFire() ? ", burning" : "") + ": to " + cv.cover().toShortString()); return false; }
             g.getNavigation().stop(); g.setSprinting(false); g.getLookControl().setLookAt(mob);
             if (withered && g.inventory.count(s -> s.is(net.minecraft.world.item.Items.MILK_BUCKET)) > 0) { g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(net.minecraft.world.item.Items.MILK_BUCKET)); cfSay("milk", "Wither on at health " + (int) hp + ": the milk clears it"); return true; }
             net.minecraft.world.item.Item food = g.getFoodData().getFoodLevel() < 20 ? com.claudemod.director.ClaudeLife.foodToEat(g, hp <= 6) : null;

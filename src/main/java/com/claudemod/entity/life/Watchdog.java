@@ -231,7 +231,7 @@ public final class Watchdog {
         String sk = step.skill() + (step.target() == null || step.target().isBlank() ? "" : " " + step.target());
         St s = st(g);
         if (!result.startsWith("failed")) { if (result.startsWith("done") || result.startsWith("crafted") || result.startsWith("smelted")) { s.skills.keySet().removeIf(x -> x.startsWith(sk + "|")); s.rung.keySet().removeIf(x -> x.startsWith("skill " + sk + "|")); } return; }
-        if (result.contains("it's night")) return; // (a wait, not a failure)
+        if (result.contains("it's night") || result.contains("it's day,")) return; // (a wait, not a failure)
         String k = sk + "|" + result.replaceAll("\\d+", "#"); // (counts in the line aren't a new failure)
         int[] e = s.skills.get(k);
         if (e == null || g.tickCount - e[1] > SKILL_WINDOW) { e = new int[] {0, g.tickCount}; s.skills.put(k, e); }

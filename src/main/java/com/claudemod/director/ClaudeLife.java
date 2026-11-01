@@ -167,7 +167,8 @@ public final class ClaudeLife {
                 PlayerProfile.noteDoing(player, "you went round in circles on '" + line + "': that way isn't working, do something different");
                 ClaudeMod.LOGGER.info("[Claude skill] round in circles on \"{}\": stopping that", line);
             }
-            boolean nightRefusal = result.startsWith("failed") && result.contains("it's night"); // a "not at night" is a wait, not a failure: by day the same step is the right one
+            boolean nightRefusal = result.startsWith("failed") && (result.contains("it's night") || result.contains("it's day,")); // (and the pearl hunt's "it's day": waits for dusk, 02:01 the watchdog asked them for help with it)
+            if (nightRefusal) g.failReason.put(step.skill(), result); // the planner still hears why, so it plans round the wait // a "not at night" is a wait, not a failure: by day the same step is the right one
             if ((result.startsWith("failed") || result.startsWith("done:")) && !nightRefusal) { // a "done" he keeps re-planning is a loop too
                 g.failCount.merge(failKey, 1, Integer::sum);
                 g.failReason.put(step.skill(), result);
@@ -529,6 +530,10 @@ public final class ClaudeLife {
         int treeRange = (int) Math.max(20, Math.min(32, (left - 15) * com.claudemod.entity.life.Clocks.SPRINT / 2.5)); // as far as the batch leaves time for: there and back at a sprint plus the chopping (a fixed 20 left him watching 8 iron cook with trees 26 off)
         BlockPos tree = g.getBlockY() >= level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.getBlockX(), g.getBlockZ()) - 1 ? findNear(level, ft.pos(), treeRange, b -> b.is(BlockTags.LOGS)) : null;
         int logs = tree == null ? 0 : (int) Math.max(3, Math.min(6, (left - 2 * com.claudemod.entity.life.Clocks.eta(ft.pos(), tree)) / 6)); // a log every ~6 s with the pickup: as many as the clock holds
+        boolean anyJob = (g.mineFace != null && !g.mineIsTunnel && inHisMine(g, g.blockPosition()) && g.blockPosition().distSqr(g.mineFace) <= 8 * 8)
+            || (tree != null && g.inventory.count(st -> st.is(net.minecraft.tags.ItemTags.LOGS)) < 64)
+            || (g.mineFace != null && g.blockPosition().distSqr(g.mineFace) <= 12 * 12) || !g.pillarBlocks.isEmpty();
+        if (!anyJob) return; // nothing nearby to do: keep waiting, queue untouched (clearing and re-adding it logged "dropping FurnaceTake" every 5 s, live 01:05 World 15)
         List<Task> rest = new ArrayList<>(g.tasks);
         clearTasks(g);
         String r = null;
@@ -1534,6 +1539,8 @@ public final class ClaudeLife {
         if (f0 == null || !f0.endsWith("@" + g.planStartTick)) return;
         String f = f0.substring(0, f0.lastIndexOf('@'));
         if (f.equals("shelter") || f.equals("eat")) return;
+        { Skills.Step s0 = g.skillQueue.peekFirst(); String why = s0 == null ? null : g.failReason.get(s0.skill()); boolean day = g.level().isDay();
+          if (why != null && why.startsWith("failed") && ((why.contains("it's day,") && day) || (why.contains("it's night") && !day))) { ClaudeMod.LOGGER.info("[Claude plan] the plan is in, but its {} still waits ({}): {} (meanwhile work) goes on (ClaudeLife.planLanded)", s0.skill(), day ? "day" : "night", f); return; } } // (live 01:17 World 15: pearls refused by day, meanwhile branch dug, plan landed and stopped it, pearls refused again: every 25 s)
         g.tasks.removeIf(t -> !(t instanceof Task.Pickup || t instanceof Task.FinishTree || t instanceof Task.Replant));
         if (g.currentTask instanceof Task.GoTo) dropCurrent(g);
         ClaudeMod.LOGGER.info("[Claude plan] the plan is in: {} (meanwhile work) stops there", f);
@@ -2658,6 +2665,7 @@ public final class ClaudeLife {
                     if (Kit.food(g) < 4) miss.add("under 4 meals"); if (g.getHealth() < 16) miss.add("health under 16");
                     return "failed: not geared for endermen yet (" + String.join(", ", miss) + "): " + have + "/" + want + " pearls"; } // (it named every condition, not the missing one: the rods were in his chest, 01:35)
                 var em = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.EnderMan.class, g.getBoundingBox().inflate(32, 8, 32), m -> m.isAlive() && g.hasLineOfSight(m)).stream().min(Comparator.comparingDouble(m -> m.distanceToSqr(g))).orElse(null);
+                if (em == null && level.dimension() == net.minecraft.world.level.Level.OVERWORLD && level.isDay() && !level.isThundering()) { ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: day in the overworld at {}, none in sight: endermen spawn in the dark, the hunt waits for dusk (ClaudeLife ender_pearls)", g.blockPosition().toShortString()); return "failed: it's day, endermen spawn in the dark: the pearl hunt waits for dusk (or a warped forest): " + have + "/" + want + " pearls"; } // (01:41-01:49 he walked 900 blocks of daylight surface looking for one)
                 g.skillQueue.addFirst(st); // (on with it after this)
                 if (em != null) { g.tasks.add(new Task.Attack(em.getUUID(), 20 * 60)); g.tasks.add(new Task.Pickup(80)); ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: an enderman {} off in sight: after it ({}/{} pearls) (ClaudeLife ender_pearls)", (int) em.distanceTo(g), have, want); return "after the enderman " + (int) em.distanceTo(g) + " off (" + have + "/" + want + " pearls)"; }
                 boolean nether = level.dimension() == net.minecraft.world.level.Level.NETHER;
@@ -4145,7 +4153,7 @@ public final class ClaudeLife {
         if (cobbleShort == 0 && logShort == 0 && cooked == null) return null;
         g.packTick = g.tickCount;
         g.skillQueue.addFirst(st);
-        if (cooked != null) g.skillQueue.addFirst(new Skills.Step("obtain", cooked, 20 - Math.min(20, meals))); // (20 for a trip: 12 ran out down there and every death that day started hungry)
+        if (cooked != null) { var ck = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.withDefaultNamespace(cooked)); g.skillQueue.addFirst(new Skills.Step("obtain", cooked, g.inventory.count(s -> s.is(ck)) + 20 - Math.min(20, meals))); } // obtain's count is a total of that item: the meals short on top of what he holds (20 - meals alone was "done: already have 5" and looped pack -> obtain -> replan, live 02:2x World 15) // (20 for a trip: 12 ran out down there and every death that day started hungry)
         if (cobbleShort > 0) g.skillQueue.addFirst(cobbleShort <= 8 ? new Skills.Step("collect", "stone", cobbleShort, "here") : new Skills.Step("collect", "cobblestone", cobbleShort)); // a handful (a spare pick's three) out of the rock by him; a real load from the mine
         if (logShort > 0) g.skillQueue.addFirst(new Skills.Step("collect", "logs", logShort + 12)); // wood first (the wooden pick, sticks); a dozen over, like a player at the trees: the tools and furnace made on the way ate into it and sent him 96 blocks back for 8 logs
         ClaudeMod.LOGGER.info("[Claude skill] packing for the trip: {} cobble short (need {}), {} logs short (need {}){}", cobbleShort, cobbleNeed, logShort, logNeed, cooked == null ? "" : ", and " + cooked + " from the animals about");
@@ -6801,6 +6809,7 @@ public final class ClaudeLife {
 
     /** Leaving for the surface from inside his mine: back up his own stairs and out the entrance, never through caves. */
     private static boolean routeOutOfMine(ClaudeEntity g, ServerLevel level) {
+        if (level.dimension() != net.minecraft.world.level.Level.OVERWORLD) return false; // his mine is in the overworld: in the Nether at -5,89,6 its spine coords sent a beef hunt walking to -5,82,6, refused 3x a second
         if (bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty()) return bpWalkTo(g, g.blueprint.entrance);
         if (g.stairStart != null && g.blockPosition().distSqr(g.stairStart) <= 3 * 3) return false; // at the entrance (under its arch) he's out: a walk to where he stands looped "out of the mine" until the hunt was skipped
         if (g.mineSpine.isEmpty() && g.stairStart != null && g.stairDir != null) traceStairs(g, level);
@@ -10886,6 +10895,8 @@ public final class ClaudeLife {
         ts.removeIf(t -> t instanceof Task.Place p0 && sealHeld(g, level, p0.pos())); // (the vein and the drops behind a hole first: 12:14 his upkeep sealed 3 diamond ore and a diamond in)
         ts.removeIf(t -> t instanceof Task.Place p0 && planPutsBack(g, p0.pos())); // (their swap through his shell: the plan's own place_at patches it; his round patched it between the dig and its check, "the cobblestone is still there")
         { int n0 = ts.size(); ts.removeIf(t -> t instanceof Task.Break br && pastHisPick(g, level, br.pos())); if (ts.size() < n0) nookSay(g, "pick" + g.tickCount / (20 * 60), "[Claude life] his mine plan: " + (n0 - ts.size()) + " ore dig(s) past his pick left for later (ClaudeLife.bpReconcile)"); } // (live 03:18 World 15: copper queued for a wooden pick, refused and re-queued for 3 minutes)
+        { int cut = -1; for (int i = 0; i < ts.size() && cut < 0; i++) if (ts.get(i) instanceof Task.Break br) for (Direction d : Direction.values()) if (level.getFluidState(br.pos().relative(d)).is(net.minecraft.tags.FluidTags.LAVA) && com.claudemod.entity.life.Perception.knowsLavaBody(g, level, br.pos().relative(d))) { cut = i; break; }
+          if (cut >= 0) { BlockPos held = ((Task.Break) ts.get(cut)).pos(); int n0 = ts.size(); for (int i = ts.size() - 1; i > cut; i--) if (ts.get(i) instanceof Task.Break) ts.remove(i); if (ts.size() < n0) nookSay(g, "lavaHold" + held.asLong(), "[Claude mine] " + (n0 - ts.size()) + " dig(s) past " + held.toShortString() + " wait: lava behind it, the plug first (ClaudeLife.bpReconcile)"); } } // (live 01:11 World 15: digs past a lava-held cell queued, blocked by it, re-queued: CONFLICT)
         if (ts.isEmpty()) return 0;
         for (Task t : ts) if (t instanceof Task.Place pl) g.attempts.any.remove(pl.pos()); // a placement that failed its 20 tries, or a walk to it, gets a fresh go each pass (a bridge floor over a cave took a few)
         if (front) { for (int i = ts.size() - 1; i >= 0; i--) g.tasks.addFirst(ts.get(i)); } else g.tasks.addAll(ts);
@@ -13005,6 +13016,7 @@ public final class ClaudeLife {
         var spot = chestWith(g, level, Items.ARROW);
         if (spot != null && (spot.dist() <= Kit.STRING_WALK || hard)) {
             int take = Math.min(need, spot.count());
+            if (!g.inventory.hasRoomFor(new net.minecraft.world.item.ItemStack(Items.ARROW))) { String r = junkChestRound(g, level); ClaudeMod.LOGGER.info("[Claude life] get_arrows: pockets full, no room for arrows: {} first (ClaudeLife.getArrows)", r == null ? "no junk chest to empty into, taking what fits" : r); } // (live 01:14 World 15: 0 free slots, the take got nothing, the step re-ran every 0.6 s)
             g.tasks.add(new Task.GoTo(spot.pos(), 2)); g.tasks.add(new Task.Chest(spot.pos(), true, Items.ARROW, take)); g.skillQueue.addFirst(again);
             ClaudeMod.LOGGER.info("[Claude life] get_arrows: {} arrows in his chest at {}, {} blocks off by route{}: getting {} (ClaudeLife.getArrows)", spot.count(), spot.pos().toShortString(), spot.dist(), hard ? " (the bow row is the dragon run's next must: worth the walk)" : " (a short walk)", take);
             return "my arrows are in my chest at " + spot.pos().toShortString() + " (" + spot.dist() + " blocks off" + (hard ? "; the bow row is the dragon run's next must" : "") + "), getting " + take;

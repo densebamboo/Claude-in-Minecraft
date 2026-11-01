@@ -222,6 +222,7 @@ public final class ClaudeLife {
 
     public static void tick(ClaudeEntity g, ServerPlayer player) {
         if (g.justRespawned) respawnTicks().put(g.getUUID(), g.tickCount); // (before anything below clears the flag)
+        if (g.tickCount % 100 == 47 && g.level() instanceof ServerLevel clockLevel) { com.claudemod.entity.life.Clocks.pile(g, clockLevel); com.claudemod.entity.life.DeathLog.tick(g, clockLevel); } // his pile's clock kept current, in every dimension: up top, since the Nether branch below returns early (his Nether piles were never looked at, so a despawned one stayed "pending": 12:22 "his drops are gone")
         com.claudemod.entity.life.MindLog.flush(); // his conflict lines, said here (never from inside the logger)
         com.claudemod.entity.life.Whereabouts.tick(g, player); // where they are, as he sees, hears or was told it
         if (g.isSleeping()) { // in bed: nothing else until morning (a hit wakes him, the game's own rule)
@@ -409,7 +410,6 @@ public final class ClaudeLife {
             if (stashLeft) { g.skillQueue.addFirst(new Skills.Step("retrieve_stash", "", 1)); ClaudeMod.LOGGER.info("[Claude life] in iron now: going for the stash he had to leave behind"); }
         }
         if (g.tickCount % 200 == 3) logWhere(g, player, dist); // where he is and what he's up to, every 10s (for reading the log)
-        if (g.tickCount % 100 == 47 && g.level() instanceof ServerLevel clockLevel) { com.claudemod.entity.life.Clocks.pile(g, clockLevel); com.claudemod.entity.life.DeathLog.tick(g, clockLevel); } // his pile's clock kept current (the last reading is what stands once its chunk unloads)
         sideJobWhileCooking(g, player);
         if (g.justRespawned || (g.recoverPending && g.tickCount % 100 == 0)) { // he died: his things are where he fell
             var death = g.getLastDeathLocation();

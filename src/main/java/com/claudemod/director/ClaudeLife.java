@@ -5040,7 +5040,11 @@ public final class ClaudeLife {
         }
         { BlockPos work = null; java.util.List<Task> ahead = new java.util.ArrayList<>(); if (g.currentTask != null) ahead.add(g.currentTask); ahead.addAll(g.tasks); // a toss goes away from his work, like a player's: thrown at his feet, he walked back over it and his body took it all back up (live 11:10: the same 6 stacks thrown every 5 s)
           for (Task t : ahead) { if (t instanceof Task.Break b) work = b.pos(); else if (t instanceof Task.GoTo w) work = w.pos(); else if (t instanceof Task.Place pl) work = pl.pos(); if (work != null) break; }
-          if (work != null && inv.items.stream().anyMatch(s0 -> !s0.isEmpty() && junkItem(s0))) { double dx = g.getX() - (work.getX() + 0.5), dz = g.getZ() - (work.getZ() + 0.5); if (dx * dx + dz * dz > 0.01) { g.setYRot((float) Math.toDegrees(Math.atan2(dz, dx)) - 90f); g.setXRot(-25f); ClaudeMod.LOGGER.info("[Claude life] junk thrown away from his work at {} (ClaudeLife.dumpJunk)", work.toShortString()); } } }
+          if (work != null && inv.items.stream().anyMatch(s0 -> !s0.isEmpty() && junkItem(s0))) { double dx = g.getX() - (work.getX() + 0.5), dz = g.getZ() - (work.getZ() + 0.5); if (dx * dx + dz * dz > 0.01) { g.setYRot((float) Math.toDegrees(Math.atan2(dz, dx)) - 90f); g.setXRot(-25f); ClaudeMod.LOGGER.info("[Claude life] junk thrown away from his work at {} (ClaudeLife.dumpJunk)", work.toShortString()); } }
+          else if (work == null && inv.items.stream().anyMatch(s0 -> !s0.isEmpty() && junkItem(s0))) { // ponytail: live 13:24, idle in a Nether nook: 64 netherrack thrown at the rock every 5 s, landed at his feet, his body took it back; thrown the most open way instead
+            Direction best = null; int bestOpen = -1; BlockPos eye = BlockPos.containing(g.getEyePosition());
+            for (Direction d : Direction.Plane.HORIZONTAL) { int open = 0; for (int k = 1; k <= 4 && g.level().getBlockState(eye.relative(d, k)).getCollisionShape(g.level(), eye.relative(d, k)).isEmpty(); k++) open++; if (open > bestOpen) { bestOpen = open; best = d; } }
+            g.setYRot(best.toYRot()); g.setXRot(-25f); ClaudeMod.LOGGER.info("[Claude life] junk thrown the most open way, {} ({} clear) (ClaudeLife.dumpJunk)", best, bestOpen); } }
         java.util.Set<Item> junk = JUNK;
         java.util.Map<Item, Integer> kept = new java.util.HashMap<>();
         int n = 0; StringBuilder thrown = new StringBuilder();

@@ -6809,6 +6809,7 @@ public final class ClaudeLife {
 
     /** Leaving for the surface from inside his mine: back up his own stairs and out the entrance, never through caves. */
     private static boolean routeOutOfMine(ClaudeEntity g, ServerLevel level) {
+        if (level.dimension() != net.minecraft.world.level.Level.OVERWORLD) return false; // his mine is in the overworld: in the Nether at -5,89,6 its spine coords sent a beef hunt walking to -5,82,6, refused 3x a second
         if (bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty()) return bpWalkTo(g, g.blueprint.entrance);
         if (g.stairStart != null && g.blockPosition().distSqr(g.stairStart) <= 3 * 3) return false; // at the entrance (under its arch) he's out: a walk to where he stands looped "out of the mine" until the hunt was skipped
         if (g.mineSpine.isEmpty() && g.stairStart != null && g.stairDir != null) traceStairs(g, level);

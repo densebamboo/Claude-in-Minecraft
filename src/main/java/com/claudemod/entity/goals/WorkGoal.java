@@ -4653,7 +4653,6 @@ public class WorkGoal extends Goal {
     private Boolean endermanHole(Task.Attack t, net.minecraft.world.entity.monster.EnderMan em) {
         ServerLevel level = (ServerLevel) g.level(); BlockPos f = g.blockPosition();
         double d = em.distanceTo(g);
-        if (g.getArmorValue() >= 15) { if (g.tickCount - emSaid > 200) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] an enderman {} off: armor {}, fights it in the open, no booth (WorkGoal.endermanHole)", (int) d, g.getArmorValue()); } return null; } // ponytail: live 13:38, full diamond and he boxed himself in cobble for one; geared players just fight it
         if (inEmHole()) {
             emHole = f.immutable(); g.getNavigation().stop(); g.setSprinting(false); equipWeapon();
             g.getLookControl().setLookAt(em.getX(), em.getY() + 0.6, em.getZ()); // (its legs: what reaches down to him)
@@ -4675,19 +4674,8 @@ public class WorkGoal extends Goal {
                 emHole = c.immutable(); g.tasks.addFirst(new Task.Attack(t.target(), Math.max(400, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.GoTo(c.immutable(), 0.4));
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] an enderman {} off: a natural 2-high nook at {} ({} under it), into it instead of building (WorkGoal.endermanHole)", (int) d, c.toShortString(), name(level.getBlockState(c.above(2))));
                 return true; } }
-        Direction face = null; // (the opening faces it: he sees it come)
-        for (Direction dd : Direction.Plane.HORIZONTAL) { BlockPos t0 = f.below(), bb = t0.relative(dd.getOpposite()); boolean ok = true;
-            for (BlockPos q : new BlockPos[] {t0, bb}) { var s0 = level.getBlockState(q); if (!solidAt(level, q) || s0.getDestroySpeed(level, q) < 0 || s0.getDestroySpeed(level, q) > 4 || s0.hasBlockEntity() || !solidAt(level, q.below())) ok = false; for (Direction d2 : Direction.values()) if (!level.getFluidState(q.relative(d2)).isEmpty()) ok = false; }
-            if (ok && (face == null || em.position().subtract(g.position()).dot(net.minecraft.world.phys.Vec3.atLowerCornerOf(dd.getNormal())) > em.position().subtract(g.position()).dot(net.minecraft.world.phys.Vec3.atLowerCornerOf(face.getNormal())))) face = dd; }
-        if (face == null) return null;
-        BlockPos t0 = f.below(), bb = t0.relative(face.getOpposite()); emHole = bb.immutable(); // (t0 under him now, the 2-high front cell; bb his spot, one further back)
-        java.util.List<Task> build = new java.util.ArrayList<>(java.util.List.of(new Task.Break(t0), new Task.Break(bb), new Task.GoTo(bb, 0.4)));
-        for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) { BlockPos w = bb.above().offset(dx, 0, dz); if (w.equals(bb.above()) || w.equals(f)) continue; if (!solidAt(level, w)) build.add(new Task.Place(w.immutable(), scaffoldBlock().getItem())); }
-        for (BlockPos r : new BlockPos[] {bb.above(2), f.above()}) if (!solidAt(level, r)) build.add(new Task.Place(r.immutable(), scaffoldBlock().getItem()));
-        g.tasks.addFirst(new Task.Attack(t.target(), Math.max(400, t.maxTicks() - ticks)));
-        for (int k = build.size() - 1; k >= 0; k--) g.tasks.addFirst(build.get(k));
-        com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] an enderman {} off: a 2-high booth at {} opening {} first ({} blocks to put down; it's 3 tall, can't stand in it), then hit it at the opening (WorkGoal.endermanHole)", (int) d, bb.toShortString(), face, build.size() - 3);
-        return true;
+        if (g.tickCount - emSaid > 200) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] an enderman {} off: no natural 2-high cover within 8, fighting it in the open (WorkGoal.endermanHole)", (int) d); }
+        return null; // ponytail: the user 13:41 "natural cover ... if not, he keeps fighting": no booth building
     }
     private final java.util.Map<java.util.UUID, Integer> behindWall = new java.util.HashMap<>(); // (mobs let be behind a wall, when)
     private boolean doAttack(Task.Attack t) {

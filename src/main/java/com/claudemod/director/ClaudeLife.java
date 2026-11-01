@@ -530,6 +530,10 @@ public final class ClaudeLife {
         int treeRange = (int) Math.max(20, Math.min(32, (left - 15) * com.claudemod.entity.life.Clocks.SPRINT / 2.5)); // as far as the batch leaves time for: there and back at a sprint plus the chopping (a fixed 20 left him watching 8 iron cook with trees 26 off)
         BlockPos tree = g.getBlockY() >= level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.getBlockX(), g.getBlockZ()) - 1 ? findNear(level, ft.pos(), treeRange, b -> b.is(BlockTags.LOGS)) : null;
         int logs = tree == null ? 0 : (int) Math.max(3, Math.min(6, (left - 2 * com.claudemod.entity.life.Clocks.eta(ft.pos(), tree)) / 6)); // a log every ~6 s with the pickup: as many as the clock holds
+        boolean anyJob = (g.mineFace != null && !g.mineIsTunnel && inHisMine(g, g.blockPosition()) && g.blockPosition().distSqr(g.mineFace) <= 8 * 8)
+            || (tree != null && g.inventory.count(st -> st.is(net.minecraft.tags.ItemTags.LOGS)) < 64)
+            || (g.mineFace != null && g.blockPosition().distSqr(g.mineFace) <= 12 * 12) || !g.pillarBlocks.isEmpty();
+        if (!anyJob) return; // nothing nearby to do: keep waiting, queue untouched (clearing and re-adding it logged "dropping FurnaceTake" every 5 s, live 01:05 World 15)
         List<Task> rest = new ArrayList<>(g.tasks);
         clearTasks(g);
         String r = null;
@@ -4147,7 +4151,7 @@ public final class ClaudeLife {
         if (cobbleShort == 0 && logShort == 0 && cooked == null) return null;
         g.packTick = g.tickCount;
         g.skillQueue.addFirst(st);
-        if (cooked != null) g.skillQueue.addFirst(new Skills.Step("obtain", cooked, 20 - Math.min(20, meals))); // (20 for a trip: 12 ran out down there and every death that day started hungry)
+        if (cooked != null) { var ck = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.withDefaultNamespace(cooked)); g.skillQueue.addFirst(new Skills.Step("obtain", cooked, g.inventory.count(s -> s.is(ck)) + 20 - Math.min(20, meals))); } // obtain's count is a total of that item: the meals short on top of what he holds (20 - meals alone was "done: already have 5" and looped pack -> obtain -> replan, live 02:2x World 15) // (20 for a trip: 12 ran out down there and every death that day started hungry)
         if (cobbleShort > 0) g.skillQueue.addFirst(cobbleShort <= 8 ? new Skills.Step("collect", "stone", cobbleShort, "here") : new Skills.Step("collect", "cobblestone", cobbleShort)); // a handful (a spare pick's three) out of the rock by him; a real load from the mine
         if (logShort > 0) g.skillQueue.addFirst(new Skills.Step("collect", "logs", logShort + 12)); // wood first (the wooden pick, sticks); a dozen over, like a player at the trees: the tools and furnace made on the way ate into it and sent him 96 blocks back for 8 logs
         ClaudeMod.LOGGER.info("[Claude skill] packing for the trip: {} cobble short (need {}), {} logs short (need {}){}", cobbleShort, cobbleNeed, logShort, logNeed, cooked == null ? "" : ", and " + cooked + " from the animals about");

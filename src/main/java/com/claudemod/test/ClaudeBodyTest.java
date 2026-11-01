@@ -2220,6 +2220,7 @@ public final class ClaudeBodyTest {
         com.claudemod.director.Errand.reset(c);
         com.claudemod.entity.life.PortalMap.enterReset(c);
         com.claudemod.director.ClaudeLife.lavaSeen(c).clear(); // (stage 500's pool on record held stage 501's dig: "part of the pool he knows")
+        com.claudemod.entity.life.Atlas.reset(c); com.claudemod.entity.life.FortressScout.deckReset(c);
         com.claudemod.entity.life.Watchdog.reset(c); // (his last gear and spot: a stage's own resets aren't losses or moves)
         com.claudemod.director.Structures.testPieces().clear(); com.claudemod.director.ClaudeLife.gateReset(c); // (a stage's own structure pieces; the gear gate's memory)
     }
@@ -10354,6 +10355,9 @@ public final class ClaudeBodyTest {
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
             case 494: return st494(stage, t, c, h, level, mock);
+            case 528: return st528(stage, t, c, h, level, mock);
+            case 527: return st527(stage, t, c, h, level, mock);
+            case 526: return st526(stage, t, c, h, level, mock);
             case 525: return st525(stage, t, c, h, level, mock);
             case 524: return st524(stage, t, c, h, level, mock);
             case 523: return st523(stage, t, c, h, level, mock);
@@ -10501,6 +10505,56 @@ public final class ClaudeBodyTest {
             for (int x = 0; x < 16; x++) for (int z = 0; z <= 9; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, 2, z)), Blocks.AIR.defaultBlockState(), 2); }
             pass(stage, t, "along the shore in " + (t[0] - 10) + " ticks, never in it, low " + hzLow); }
         else if (t[0] == 400) { check(false, "shore: not there in 20 s (at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ", in lava " + hzFlag + ")"); }
+        return true;
+    }
+    private static BlockPos dkStep;
+    private static boolean st528(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // on a fortress, along its deck (Day to Day 21:26 World 15: "find the spawner room" walked him off the fortress): the far end of the bricks he hasn't walked, never off them
+        BlockPos me = h.absolutePos(new BlockPos(2, 2, 2)), end = h.absolutePos(new BlockPos(13, 2, 13));
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); dkStep = null;
+            for (int z = 2; z <= 13; z++) h.setBlock(new BlockPos(2, 1, z), Blocks.NETHER_BRICKS); for (int x = 2; x <= 13; x++) h.setBlock(new BlockPos(x, 1, 13), Blocks.NETHER_BRICKS); // (an L of deck in the grass)
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+        if (t[0] == 5) {
+            check(com.claudemod.entity.life.FortressScout.onFortress(c), "deck: on the bricks, not read as on the fortress");
+            dkStep = com.claudemod.entity.life.FortressScout.deckStep(c, level);
+            check(dkStep != null && level.getBlockState(dkStep.below()).is(Blocks.NETHER_BRICKS), "deck: the step " + dkStep + " is off the bricks");
+            check(dkStep != null && dkStep.distSqr(end) <= 9, "deck: the step " + dkStep + " isn't the deck's far end " + end.toShortString());
+            if (dkStep != null) c.tasks.add(new Task.GoTo(dkStep, 1.0));
+        }
+        if (t[0] > 5 && dkStep != null && c.blockPosition().distSqr(dkStep) <= 2 && c.currentTask == null) { for (int z = 0; z < 16; z++) for (int x = 0; x < 16; x++) h.setBlock(new BlockPos(x, 1, z), Blocks.GRASS_BLOCK); pass(stage, t, "along the deck to its far end " + dkStep.toShortString() + " in " + (t[0] - 5) + " ticks"); }
+        else if (t[0] == 400) check(false, "deck: not at its far end in 20 s (at " + c.blockPosition().toShortString() + ")");
+        return true;
+    }
+    private static boolean emHoleSeen;
+    private static boolean st527(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // the pearl stage's fight (the user, 19:40): an enderman at him, fought from a 2-deep hole (it can't reach in): dead, one hit taken at most, out of the hole after
+        BlockPos me = h.absolutePos(new BlockPos(4, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SHOVEL)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
+            c.tasks.clear(); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); hzLow = 20f; emHoleSeen = false; if (hzMob != null) hzMob.discard(); hzMob = null;
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+        if (t[0] == 10) { var em = EntityType.ENDERMAN.create(level); BlockPos ep = h.absolutePos(new BlockPos(12, 2, 8)); em.moveTo(ep.getX() + 0.5, ep.getY(), ep.getZ() + 0.5, 90, 0); em.setPersistenceRequired(); level.addFreshEntity(em); em.setTarget(c); hzMob = em; c.tasks.add(new Task.Attack(em.getUUID(), 20 * 60)); }
+        if (t[0] > 10) { hzLow = Math.min(hzLow, c.getHealth()); if (c.getBlockY() <= me.getY() - 2) emHoleSeen = true; if (hzMob instanceof net.minecraft.world.entity.LivingEntity l0 && l0.isAlive() && l0.getTarget() != c && l0 instanceof net.minecraft.world.entity.monster.EnderMan e0) e0.setTarget(c); }
+        if (t[0] > 10 && hzMob != null && !hzMob.isAlive()) {
+            if (c.getBlockY() >= me.getY() && c.currentTask == null && c.tasks.isEmpty() || t[0] > 1400) {
+                check(emHoleSeen, "enderman: never down in a hole for it");
+                check(hzLow >= 13, "enderman: low " + hzLow + " (more than one hit taken)");
+                check(c.getBlockY() >= me.getY(), "enderman: still down the hole after (at y " + c.getBlockY() + ")");
+                hzMob = null; pass(stage, t, "the enderman down from his hole, low " + hzLow + ", out after, pearls " + c.inventory.count(x -> x.is(Items.ENDER_PEARL))); }
+        }
+        else if (t[0] == 1400) check(false, "enderman: still alive after 70 s (health " + (hzMob instanceof net.minecraft.world.entity.LivingEntity l1 ? l1.getHealth() : -1) + ", his low " + hzLow + ", in a hole " + emHoleSeen + ")");
+        return true;
+    }
+    private static String exLine = "";
+    private static boolean st526(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // explore for a biome (the user, 19:35: "find a warped forest"; the pearl stage's first step): seen, on his atlas, walked to, done there
+        BlockPos me = h.absolutePos(new BlockPos(2, 2, 8)), a = h.absolutePos(new BlockPos(10, -4, 0)), b = h.absolutePos(new BlockPos(15, 12, 15));
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.tasks.clear(); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); exLine = "";
+            level.getServer().getCommands().performPrefixedCommand(level.getServer().createCommandSourceStack().withSuppressedOutput().withLevel(level), "fillbiome " + a.getX() + " " + a.getY() + " " + a.getZ() + " " + b.getX() + " " + b.getY() + " " + b.getZ() + " minecraft:warped_forest");
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+        if (t[0] == 3) check(com.claudemod.entity.life.Atlas.biomeName("the Warped Forest").equals("warped_forest"), "atlas: \"the Warped Forest\" read as " + com.claudemod.entity.life.Atlas.biomeName("the Warped Forest"));
+        if (t[0] == 60) { check(com.claudemod.entity.life.Atlas.find(c, level, "warped_forest") != null, "atlas: the warped forest 8 off in view, not on his atlas"); exLine = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "explore", "warped_forest", 1); }
+        if (t[0] > 60 && t[0] % 20 == 0 && c.tasks.isEmpty() && c.currentTask == null && !exLine.startsWith("done")) exLine = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "explore", "warped_forest", 1);
+        if (exLine.startsWith("done")) { check(level.getBiome(c.blockPosition()).unwrapKey().map(k -> k.location().getPath()).orElse("").equals("warped_forest"), "explore: done but not in it (" + c.blockPosition().toShortString() + ")");
+            level.getServer().getCommands().performPrefixedCommand(level.getServer().createCommandSourceStack().withSuppressedOutput().withLevel(level), "fillbiome " + a.getX() + " " + a.getY() + " " + a.getZ() + " " + b.getX() + " " + b.getY() + " " + b.getZ() + " minecraft:plains");
+            c.skillQueue.clear(); pass(stage, t, "\"" + exLine + "\" (" + (t[0] - 60) + " ticks)"); }
+        else if (t[0] == 600) check(false, "explore: not in the warped forest in 27 s: last \"" + exLine + "\"");
         return true;
     }
     private static int nsPhase, nsT, nsCobble;

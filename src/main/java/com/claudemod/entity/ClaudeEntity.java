@@ -621,6 +621,7 @@ public class ClaudeEntity extends ServerPlayer {
         }
         if (mine != null && mine.contains("deaths")) ClaudeLife.loadDeathSpots(this, mine.getLongArray("deaths"));
         if (mine != null && mine.contains("whereabouts")) com.claudemod.entity.life.Whereabouts.load(this, mine.getCompound("whereabouts"));
+        if (mine != null && mine.contains("atlas")) com.claudemod.entity.life.Atlas.load(this, mine.getCompound("atlas"));
         if (mine != null && mine.contains("seenOre")) for (long l0 : mine.getLongArray("seenOre")) ClaudeLife.seenOre(this).add(BlockPos.of(l0));
         if (mine != null && mine.contains("lava")) ClaudeLife.loadLavaMemory(this, mine.getLongArray("lava"));
         if (mine != null && mine.contains("netherPortal")) ClaudeLife.netherPortal.put(getUUID(), BlockPos.of(mine.getLong("netherPortal")));
@@ -708,6 +709,7 @@ public class ClaudeEntity extends ServerPlayer {
         mine.putLongArray("landings", landingCells.stream().mapToLong(BlockPos::asLong).toArray());
         mine.putLongArray("lava", ClaudeLife.lavaMemory(this));
         { BlockPos np = ClaudeLife.netherPortal.get(getUUID()); if (np != null) mine.putLong("netherPortal", np.asLong()); } mine.put("portalMap", com.claudemod.entity.life.PortalMap.save(this)); // the lava he saw and his portal: the dragon run's memory across a relaunch
+        mine.put("atlas", com.claudemod.entity.life.Atlas.save(this)); // the biomes he has seen, the ground he has covered
         mine.put("whereabouts", com.claudemod.entity.life.Whereabouts.save(this)); // where people were last seen, kept across a relaunch
         mine.putLongArray("seenOre", ClaudeLife.seenOre(this).stream().mapToLong(BlockPos::asLong).toArray()); // ore he saw (and maybe sealed behind a patch), kept across a relaunch
         mine.putLongArray("deaths", ClaudeLife.deathSpotsFor(this)); // where he's died: the den rules need it across a relaunch

@@ -281,6 +281,7 @@ public final class FortressFight {
         BlockPos spawner = blazeSpawner(g, level, 20);
         if (bl.isEmpty() && spawner == null) {
             // none in view: walk the fortress he has seen, piece by piece (each piece once a while), looking
+            if (FortressScout.onFortress(g)) { BlockPos step = FortressScout.deckStep(g, level); if (step != null) { run[3]++; g.tasks.add(new Task.GoTo(step, 1.0)); g.skillQueue.addFirst(again); return "no blaze in view: along the fortress deck to " + step.toShortString() + " to look (" + have + "/" + goal + " rods)"; } } // (on its deck: along it, never back down to a box's middle)
             BlockPos best = null; double bd = Double.MAX_VALUE;
             for (var s : Perception.sightings(g)) {
                 if (s.dim() != level.dimension() || !s.id().contains("fortress")) continue;

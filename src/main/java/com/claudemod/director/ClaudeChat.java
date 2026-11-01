@@ -54,6 +54,7 @@ public final class ClaudeChat {
                 if (msg.isEmpty()) continue;
                 if (msg.startsWith("/")) { /* the user (overnight 03:50): a way to hand him things from outside the game; a "/" line runs as a server command, logged */
                     ClaudeMod.LOGGER.info("[Claude bridge] command: {}", msg);
+                    for (ServerPlayer sp0 : server.getPlayerList().getPlayers()) if (sp0 instanceof ClaudeEntity ce0) com.claudemod.entity.life.Watchdog.teleported(ce0); // (a /tp from outside is no unplanned move of his: World 15 21:26, logged as one)
                     server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), msg.substring(1));
                     continue;
                 }

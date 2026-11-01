@@ -737,7 +737,7 @@ public class WorkGoal extends Goal {
             g.setYRot(yaw); g.yBodyRot = yaw; g.yHeadRot = yaw;
             g.getMoveControl().setWantedPosition(next.x, next.y, next.z, 1.0);
         }
-        if (g.isInWater() && pos.getY() < g.getBlockY() - 1 && g.level().getFluidState(pos).is(net.minecraft.tags.FluidTags.WATER) && d > within) { // under the water: dive straight for it like a player (the body comes up for air by itself)
+        if (g.isInWater() && pos.getY() < g.getBlockY() && g.level().getFluidState(pos).is(net.minecraft.tags.FluidTags.WATER) && d > within) { // under the water (one below his floating feet counts: 10:36 he bobbed over -43,61,132 for minutes, "path none", then swam to shore and jumped back in): dive straight for it like a player (the body comes up for air by itself)
             Vec3 to = Vec3.atCenterOf(pos);
             g.getNavigation().stop();
             g.getLookControl().setLookAt(to.x, to.y, to.z, 30, 30);

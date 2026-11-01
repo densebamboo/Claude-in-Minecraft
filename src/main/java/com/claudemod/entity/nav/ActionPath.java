@@ -356,6 +356,7 @@ public final class ActionPath {
             if (level.getFluidState(p).is(net.minecraft.tags.FluidTags.LAVA)) return false;
             return s.getCollisionShape(level, p).isEmpty() || climbable(p) || (door(p) && doorOpen(p));
         }
+        boolean tall(BlockPos p) { return !closed.contains(p) && level.getBlockState(p).getCollisionShape(level, p).max(Direction.Axis.Y) > 1.0; }
         boolean water(BlockPos p) { return level.getFluidState(p).is(net.minecraft.tags.FluidTags.WATER); }
         boolean solid(BlockPos p) { return closed.contains(p) || !level.getBlockState(p).getCollisionShape(level, p).isEmpty(); }
         final java.util.Map<BlockPos, Boolean> lavaBodyMemo = new java.util.HashMap<>(); // (a pool's cells, once per plan)
@@ -462,6 +463,7 @@ public final class ActionPath {
                     if (!ok || hurts(t, lavaFloor)) continue; // (magma underfoot, a cactus, fire: a player goes round)
                     // something under his feet there: a solid block, water to swim in, a ladder; else a block put down (a bridge, a step), if he can
                     BlockPos under = t.below();
+                    if (tall(under) && (dy > 0 || !passable(t.above(2)))) continue; // (a fence or wall is 1.5 high: no jump gets onto one from a block lower, and on top his head is in the cell above)
                     if (!solid(under) && !water(t) && !climbable(t)) {
                         if (dy != 0 || !canPlace) continue; // (a block put down is a flat bridge or a tower step, never a step down into a drop: the body can't set one from up there)
                         if (!lavaFloor && (solid(under.below()) || water(under.below()))) continue; // the user: a block put down for movement is for real terrain (a gap, a drop), never a raised line over flat ground or a causeway over water he can swim

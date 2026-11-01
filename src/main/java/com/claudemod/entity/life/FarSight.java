@@ -95,6 +95,7 @@ public final class FarSight {
             int si = ch.getSectionIndex(y); if (si < 0 || si >= secs.length) continue;
             LevelChunkSection sec = secs[si];
             if (sec.hasOnlyAir()) { // out of this 16-cube in one go: the cell just past where the ray leaves it
+                if (MARK != null) MARK.wholeSection(x, y, z); // (seen through, all of it: his memory of the world, Known)
                 int bx = x & ~15, by = y & ~15, bz = z & ~15;
                 double ex = sx > 0 ? (bx + 16 - from.x) / dx : sx < 0 ? (bx - from.x) / dx : Double.MAX_VALUE;
                 double ey = sy > 0 ? (by + 16 - from.y) / dy : sy < 0 ? (by - from.y) / dy : Double.MAX_VALUE;
@@ -108,6 +109,7 @@ public final class FarSight {
                 continue;
             }
             BlockState s = sec.getBlockState(x & 15, y & 15, z & 15);
+            if (MARK != null) MARK.cell(x, y, z); // (a cell his eye reached: known, whatever it is)
             if (s.isAir()) continue;
             if (s.getFluidState().is(FluidTags.LAVA)) return new Ray(new BlockPos(x, y, z), s, t, LAVA);
             if (s.getBlock() instanceof LiquidBlock) continue; // (water: see-through)
@@ -309,7 +311,12 @@ public final class FarSight {
     static Vec3 dirOf(Vec3 f, Vec3 r, Vec3 u, double a, double b) { return f.scale(Math.cos(a)).add(r.scale(Math.sin(a))).scale(Math.cos(b)).add(u.scale(Math.sin(b))).normalize(); }
 
     /** A look over his screen: the coarse fan (each 3 s) or the dense one (a careful look). Returns the rays cast. */
+    static Known.Marker MARK; // (while one of his scans runs: what its rays reach goes on his memory)
     public static int scan(ClaudeEntity g, ServerLevel level, boolean dense) {
+        MARK = Known.marker(g, level);
+        try { return scan0(g, level, dense); } finally { MARK = null; }
+    }
+    static int scan0(ClaudeEntity g, ServerLevel level, boolean dense) {
         long t0 = System.nanoTime();
         View v = view(g);
         if (passed != null && g.tickCount % 1200 < SCAN_EVERY) passed(g).clear(); // (a minute on: the weak ones looked at again)

@@ -2220,7 +2220,7 @@ public final class ClaudeBodyTest {
         com.claudemod.director.Errand.reset(c);
         com.claudemod.entity.life.PortalMap.enterReset(c);
         com.claudemod.director.ClaudeLife.lavaSeen(c).clear(); // (stage 500's pool on record held stage 501's dig: "part of the pool he knows")
-        com.claudemod.entity.life.Atlas.reset(c); com.claudemod.entity.life.FortressScout.deckReset(c);
+        com.claudemod.entity.life.Atlas.reset(c); com.claudemod.entity.life.FortressScout.deckReset(c); com.claudemod.entity.life.Known.reset(c); // (what he's seen: each stage starts blind to the land it builds)
         com.claudemod.entity.life.Watchdog.reset(c); // (his last gear and spot: a stage's own resets aren't losses or moves)
         com.claudemod.director.Structures.testPieces().clear(); com.claudemod.director.ClaudeLife.gateReset(c); // (a stage's own structure pieces; the gear gate's memory)
     }
@@ -10838,7 +10838,7 @@ public final class ClaudeBodyTest {
             c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
             com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(nether, me.getX() + 0.5, 100, me.getZ() + 0.5, 0, 0); c.setNoGravity(true); }
         if (t[0] >= 10 && t[0] < 10 + 136) { int x = t[0] - 10 - 10; for (int z = -20; z <= 20; z++) for (int y = 60; y <= 85; y++) nether.setBlock(new BlockPos(ox + x, y, oz + z), feBlock(x, y, z), 2 | 16); }
-        if (t[0] == 150) { c.setNoGravity(false); c.teleportTo(nether, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.fallDistance = 0; c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); feBricks = feCount(nether, ox, oz); }
+        if (t[0] == 150) { c.setNoGravity(false); c.teleportTo(nether, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.fallDistance = 0; c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); feBricks = feCount(nether, ox, oz);  { var mk = com.claudemod.entity.life.Known.marker(c, nether); for (int x = 22; x <= 112; x++) for (int z = -4; z <= 4; z++) for (int y = 68; y <= 75; y++) mk.cell(ox + x, y, oz + z); } } // (the corridor and the cave at its end, seen on his way here: a fortress he heads for is one he's seen)
         if (t[0] > 150) for (var m : nether.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(ox - 20, 0, oz - 30, ox + 135, 128, oz + 30))) m.discard();
         if (t[0] == 160) c.tasks.add(new Task.GoTo(deck, 1.5));
         if (t[0] > 160 && feT < 0 && c.onGround() && c.blockPosition().distSqr(deck) <= 3 * 3) feT = t[0];

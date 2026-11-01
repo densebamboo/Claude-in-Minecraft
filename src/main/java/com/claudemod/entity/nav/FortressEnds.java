@@ -64,19 +64,22 @@ public final class FortressEnds {
         return out;
     }
 
+    /** An end he knows of: its last deck cell or the cell outside it seen (Known); an end behind rock he never saw isn't his to aim for. */
+    static boolean seen(com.claudemod.entity.ClaudeEntity g, ServerLevel level, End e) { return com.claudemod.entity.life.Known.knows(g, level, e.deck()) || com.claudemod.entity.life.Known.knows(g, level, e.outside()); }
+
     /** The way into the fortress whose deck holds {@code to}: the end nearest {@code from} (straight line), or null (no deck there, or no end). */
-    public static End entry(ServerLevel level, BlockPos from, BlockPos to) {
+    public static End entry(com.claudemod.entity.ClaudeEntity g, ServerLevel level, BlockPos from, BlockPos to) {
         BlockPos d0 = deckNear(level, to); if (d0 == null) return null;
         End best = null; double bd = Double.MAX_VALUE;
-        for (End e : ends(level, d0)) { double d = e.outside().distSqr(from); if (d < bd) { bd = d; best = e; } }
+        for (End e : ends(level, d0)) { if (!seen(g, level, e)) continue; double d = e.outside().distSqr(from); if (d < bd) { bd = d; best = e; } }
         return best;
     }
 
     /** The way out of the fortress he stands on toward {@code to}: the end nearest it, or null. */
-    public static End exit(ServerLevel level, BlockPos me, BlockPos to) {
+    public static End exit(com.claudemod.entity.ClaudeEntity g, ServerLevel level, BlockPos me, BlockPos to) {
         BlockPos d0 = deckNear(level, me); if (d0 == null) return null;
         End best = null; double bd = Double.MAX_VALUE;
-        for (End e : ends(level, d0)) { double d = e.outside().distSqr(to); if (d < bd) { bd = d; best = e; } }
+        for (End e : ends(level, d0)) { if (!seen(g, level, e)) continue; double d = e.outside().distSqr(to); if (d < bd) { bd = d; best = e; } }
         return best;
     }
 }

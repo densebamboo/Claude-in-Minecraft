@@ -48,7 +48,7 @@ public final class NetherRoute {
     /** The way from {@code from} to within reach of {@code to}, or null when the loaded land holds none in the budget. */
     public static Plan plan(ClaudeEntity g, ServerLevel level, BlockPos from, BlockPos to) {
         long t0 = System.nanoTime();
-        Reader r = new Reader(g, level);
+        Reader r = new Reader(g, level); r.goal = to;
         PriorityQueue<Node> open = new PriorityQueue<>((a, b) -> Double.compare(a.f, b.f));
         Map<Long, Double> best = new HashMap<>();
         Node start = new Node(from.getX(), from.getY(), from.getZ(), 0, h(from.getX(), from.getY(), from.getZ(), to), null, 0, 0);
@@ -58,7 +58,7 @@ public final class NetherRoute {
             Node n = open.poll();
             Double was = best.get(key(n.x, n.y, n.z)); if (was != null && was < n.g - 1e-9) continue;
             double hz = Math.hypot(n.x - to.getX(), n.z - to.getZ());
-            if (hz <= 8 && Math.abs(n.y - to.getY()) <= 6 && r.stand(n.x, n.y, n.z)) return done(n, false, expanded, t0, from, to);
+            if (hz <= 8 && Math.abs(n.y - to.getY()) <= 6 && r.stand(n.x, n.y, n.z)) return done(n, false, expanded, t0, from, to, r);
             double hn = h(n.x, n.y, n.z, to); if (r.stand(n.x, n.y, n.z) && hn < nearH) { nearH = hn; near = n; }
             for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) {
                 if (dx == 0 && dz == 0) continue;
@@ -78,15 +78,21 @@ public final class NetherRoute {
         }
         if (near != start && (edge || open.isEmpty() || expanded >= BUDGET) && Math.hypot(near.x - to.getX(), near.z - to.getZ()) < Math.hypot(from.getX() - to.getX(), from.getZ() - to.getZ()) - 12) {
             com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: {} (searched {} nodes): as far as {} for now, planned again from there (NetherRoute.plan)", from.toShortString(), to.toShortString(), edge ? "the land past it isn't loaded" : "no whole way in the budget", expanded, new BlockPos(near.x, near.y, near.z).toShortString());
-            return done(near, true, expanded, t0, from, to);
+            return done(near, true, expanded, t0, from, to, r);
         }
         com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: no way in the loaded land ({} nodes searched, {} ms){} (NetherRoute.plan)", from.toShortString(), to.toShortString(), expanded, (System.nanoTime() - t0) / 1000000, edge ? "; the land runs out short of it" : "");
         return null;
     }
 
-    private static Plan done(Node end, boolean partial, int nodes, long t0, BlockPos from, BlockPos to) {
+    private static Plan done(Node end, boolean partial, int nodes, long t0, BlockPos from, BlockPos to, Reader r) {
         List<Node> path = new ArrayList<>(); for (Node k = end; k != null; k = k.from) path.add(k);
         java.util.Collections.reverse(path);
+        { // a way that runs through land he's never seen (planned as rock): only its first stretch, then planned again from there with what he's seen by then, as a player goes a way, looks, and goes on (stage 538: one long plan through unseen rock, never planned again, 420 s)
+            int cut = -1; for (int i = 1; i < path.size(); i++) { Node b = path.get(i); if (!com.claudemod.entity.life.Known.knows(r.g, r.level, b.x, b.y, b.z) && Math.hypot(b.x - from.getX(), b.z - from.getZ()) > 24) { cut = i; break; } }
+            if (cut > 0 && cut < path.size() - 1) { while (path.size() > cut) path.remove(path.size() - 1); end = path.get(path.size() - 1); partial = true; }
+        }
+        { StringBuilder nb = new StringBuilder(); for (int i = 0; i < path.size() && i < 40; i++) { Node b = path.get(i); nb.append(i == 0 ? "" : " ").append(b.x).append(',').append(b.y).append(',').append(b.z).append(com.claudemod.entity.life.Known.knows(r.g, r.level, b.x, b.y, b.z) ? "" : "?").append('(').append((int) b.g).append(')'); }
+          com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: its nodes (x,y,z, ? unseen, (s so far)): {} (NetherRoute.plan)", from.toShortString(), to.toShortString(), nb); } // (Day to Day 14:48: a way over the warped canopy, 38 up; the nodes prove why next time)
         List<BlockPos> legs = new ArrayList<>(); int climb = 0;
         for (int i = 1; i < path.size(); i++) {
             Node a = path.get(i - 1), b = path.get(i); climb += Math.max(0, b.y - a.y);
@@ -116,7 +122,10 @@ public final class NetherRoute {
         Reader(ClaudeEntity g, ServerLevel level) { this.g = g; this.level = level; this.minY = level.getMinBuildHeight() + 1; this.blocks = com.claudemod.director.Kit.buildingBlocks(g); this.maxY = Math.min(118, Math.min(level.getMaxBuildHeight(), level.getMinBuildHeight() + level.getLogicalHeight()) - 3); } // (never up by the bedrock roof)
         LevelChunk chunk(int x, int z) { long k = ((long) (x >> 4) << 32) ^ ((z >> 4) & 0xffffffffL); return chunks.computeIfAbsent(k, kk -> level.getChunkSource().getChunkNow(x >> 4, z >> 4)); }
         boolean loaded(int x, int z) { return chunk(x, z) != null; }
-        BlockState bs(int x, int y, int z) { LevelChunk c = chunk(x, z); return c == null || y < minY - 1 || y > maxY + 3 ? Blocks.BEDROCK.defaultBlockState() : c.getBlockState(new BlockPos(x, y, z)); }
+        BlockPos goal; int unknownReads; // (the walk's end: he knows where he's going; the cells he planned on as rock unseen)
+        BlockState bs(int x, int y, int z) { LevelChunk c = chunk(x, z); if (c == null || y < minY - 1 || y > maxY + 3) return Blocks.BEDROCK.defaultBlockState();
+            if (!com.claudemod.entity.life.Known.knows(g, level, x, y, z) && (goal == null || Math.abs(x - goal.getX()) > 2 || Math.abs(y - goal.getY()) > 2 || Math.abs(z - goal.getZ()) > 2)) { unknownReads++; return Blocks.NETHERRACK.defaultBlockState(); } // (never seen: planned as rock, as a player assumes; caves and lava found as he digs. The no-sensing-through-walls rule)
+            return c.getBlockState(new BlockPos(x, y, z)); }
         boolean lava(BlockState s) { return s.getFluidState().is(FluidTags.LAVA); }
         boolean solid(int x, int y, int z) { BlockState s = bs(x, y, z); return !s.getCollisionShape(level, new BlockPos(x, y, z)).isEmpty(); }
         boolean bad(BlockState s) { return lava(s) || s.is(BlockTags.FIRE) || s.is(Blocks.MAGMA_BLOCK) || s.is(Blocks.BEDROCK); }
@@ -131,10 +140,11 @@ public final class NetherRoute {
         int[] heights(int x, int y, int z) {
             long k = key(x, y, z); int[] c = standCache.get(k); if (c != null) return c;
             List<Integer> up = new ArrayList<>(), down = new ArrayList<>();
-            for (int d = 0; d <= 32 && (up.size() < 3 || down.size() < 3); d++) {
-                if (up.size() < 3 && y + d <= maxY && stand(x, y + d, z)) up.add(y + d);
+            for (int d = 0; d <= 16 && (up.size() < 3 || down.size() < 3); d++) { // (8 up, 16 down at most a step: a climb of 30 in one leg was past his walker's search, every leg "no way", stage 538 under the fortress)
+                if (d <= 8 && up.size() < 3 && y + d <= maxY && stand(x, y + d, z)) up.add(y + d);
                 if (d > 0 && down.size() < 3 && y - d >= minY && stand(x, y - d, z)) down.add(y - d);
             }
+            for (int kk : new int[] {4, 8}) if (!up.contains(y + kk) && y + kk <= maxY && !lava(bs(x, y + kk, z)) && !lava(bs(x, y + kk + 1, z))) up.add(y + kk); // (a pillar's way up a face with nothing to stand on yet: a stair of short climbs)
             List<Integer> all = new ArrayList<>(up); all.addAll(down);
             if (!all.contains(y) && !lava(bs(x, y, z)) && !lava(bs(x, y + 1, z)) && bs(x, y, z).getDestroySpeed(level, BlockPos.ZERO) >= 0 && bs(x, y + 1, z).getDestroySpeed(level, BlockPos.ZERO) >= 0) all.add(y);
             c = all.stream().mapToInt(Integer::intValue).toArray(); standCache.put(k, c); return c;

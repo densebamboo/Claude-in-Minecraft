@@ -93,6 +93,7 @@ public final class Perception {
         if (now % 20 == 2) scanFluids(g, level); // (the lava and water he can see, each second)
         if (now % 20 == 9) drips(g, level); // (the drips he can see under a block with lava or water on it, each second: the client's own particles)
         if (now % 20 == 12) scanStructures(g, level); // (the structures he can see, each second)
+        if (now % 20 == 11) Known.near(g, level); // (what's at arm's length: known)
         if (now % FarSight.SCAN_EVERY == 23) FarSight.scan(g, level, false); // (far off, every 3 s: his rays out to 320, the Nether's fog at 96)
         if (now % 20 == 7) scanSigns(g, level); // (the hazard blocks he can see, each second)
         if (now % 20 == 17) earLava(g, level); // (the lava he can hear, each second: the client's own sampling)

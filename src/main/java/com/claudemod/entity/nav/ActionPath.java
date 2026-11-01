@@ -537,7 +537,7 @@ public final class ActionPath {
                             if (dy == 1 && !passable(land.above(2))) continue; // the arc's top over a landing one up
                             boolean clear = true; for (int k = dy + 1; k <= 1; k++) if (!passable(col.above(k))) { clear = false; break; } // the cells he comes down through at the landing
                             if (!clear) continue;
-                            if (!(solid(land.below()) || water(land) || climbable(land))) continue;
+                            if (!(solid(land.below()) || water(land))) continue; // ponytail: live 14:30, twisting vines -49,40..41,-889: a jump "landed" mid-vine, he slid off to the nylium and jumped again every 4 s; no standing mid-vine, so a vine landing needs ground under it like any other
                             if (!water(land) && hurts(land)) continue;
                             String what = Leaps.kindName(kind) + " off " + feet.toShortString() + " " + d.getName() + " over " + i + (dy > 0 ? " up 1" : dy < 0 ? " down " + -dy : "");
                             if (missWhy != null) { refuse(what, "a miss falls onto " + missWhy + ": a bridge instead"); continue; }
@@ -582,7 +582,7 @@ public final class ActionPath {
                             if (dy == 1 && !passable(land.above(2))) continue;
                             boolean clear = true; for (int k = dy + 1; k <= 1; k++) if (!passable(col.above(k))) { clear = false; break; }
                             if (!clear) continue;
-                            if (!(solid(land.below()) || water(land) || climbable(land))) continue;
+                            if (!(solid(land.below()) || water(land))) continue; // ponytail: live 14:30, twisting vines -49,40..41,-889: a jump "landed" mid-vine, he slid off to the nylium and jumped again every 4 s; no standing mid-vine, so a vine landing needs ground under it like any other
                             if (!water(land) && hurts(land)) continue;
                             String what = Leaps.kindName(kind) + " off " + feet.toShortString() + " diagonally over " + i + (dy > 0 ? " up 1" : dy < 0 ? " down " + -dy : "");
                             if (missWhy != null) { refuse(what, "a miss falls onto " + missWhy); continue; }

@@ -12407,7 +12407,9 @@ public final class ClaudeLife {
             }
             return;
         }
-        if (food > 6 && g.getHealth() > 14 && g.skillQueue.stream().anyMatch(s -> s.skill().equals("eat") || s.skill().equals("smelt"))) return; // (a queued "smelt raw_iron" kept him at 12 health, hunger 8, 8 cod on him: hurt, he eats now) // (hurt: he eats now, health only comes back on a full stomach; 6 health at hunger 14 with four meals on him) // (at 6 or under he eats what he has now: a queued smelt kept him at hunger 4 with a meal in his pocket)
+        Item ready = foodToEat(g, food <= 6);
+        if ((ready == null || rawOrBad(g.serverLevel(), new ItemStack(ready))) /* cooked food on him: eaten now; a queued "smelt cooked_beef" held 12 meals back from 17 down to 7 on a 140-block climb (09:45) */
+                && food > 6 && g.getHealth() > 14 && g.skillQueue.stream().anyMatch(s -> s.skill().equals("eat") || s.skill().equals("smelt"))) return; // (a queued "smelt raw_iron" kept him at 12 health, hunger 8, 8 cod on him: hurt, he eats now) // (hurt: he eats now, health only comes back on a full stomach; 6 health at hunger 14 with four meals on him) // (at 6 or under he eats what he has now: a queued smelt kept him at hunger 4 with a meal in his pocket)
         Item eat = foodToEat(g, food <= 6);
         if (eat != null) { g.tasks.addFirst(new Task.Eat(eat)); return; } // right after what he's doing now
         if (!g.busy && g.tasks.isEmpty() && cookable(g, g.serverLevel()) != null) { g.skillQueue.addFirst(new Skills.Step("eat", "", 1)); return; } // cooks, then eats

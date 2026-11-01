@@ -28,6 +28,9 @@ Each line is a live report from Day to Day (World 15, 2026-10-31/11-01) not on t
 - Blaze attacks "over at once: gone": log why each attack ends (out of reach or sight, despawned).
 - The long-walk hop chooser alternates between two targets (23:55, a pair that never makes net progress).
 - "bridge across" or "bridging now" should make a bridge task, not more walking.
+- A water clutch onto leaves waterlogs the leaf (Day to Day, World 15 00:38:18: "falling (4 blocks so far): water bucket under his feet on -14, 75, -10", a leaves block). `ClaudeLife.mlg` takes the first block with a hitbox as the ground; a bucket clicked on a waterloggable block fills that block, so no water lands and the fall isn't broken. He was in a fight, so `fillBucket` skipped, and the leaf stayed waterlogged (litter) with his bucket empty till 00:50.
+  - mlg: never aim at a waterloggable block (leaves, slabs, stairs): a full plain top face, or no clutch;
+  - a clutch's water is a pending pickup that outlives a fight (taken back right after, like temp blocks).
 - Pack: make room before a pickup goal (stash superseded gear). Part done: superseded gear goes when the pack is full.
 - Chat inventory: "pack's full" and "11 rods" from stale lines (part done: a live free-slot line). The `[Claude pack]` log should come from the same read.
 - The gold level as a flat landing in stairs that already pass it (new mines are fine; old mid-stair runs are no longer used).

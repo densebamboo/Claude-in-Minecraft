@@ -10599,6 +10599,7 @@ public final class ClaudeBodyTest {
     private static int s535Done = -1; private static float s535Low = 20f;
     /** Stage 535's course (in the Nether, about 4000, 4000): the cell at (x, y, z) from its west end. */
     private static net.minecraft.world.level.block.state.BlockState s535Block(int x, int y, int z) {
+        if (Math.abs(z) == 21 || x == -7 || x == 111 || y == 99) return Blocks.BEDROCK.defaultBlockState(); // (walled in and roofed: the course is the whole world, never the seed's own Nether beside it)
         if (y <= 31) return Blocks.LAVA.defaultBlockState(); // the lava sea, under all of it
         if (x >= -4 && x <= 8 && z >= -5 && z <= 5 && y <= 52) return x >= 1 && x <= 3 && z >= -1 && z <= 1 && y >= 44 && y <= 46 ? Blocks.AIR.defaultBlockState() : Blocks.BASALT.defaultBlockState(); // the basalt pocket by his portal (World 15, 3 44 73): shut in on every side
         if (x >= -4 && x <= 8 && z >= -20 && z <= -6 && y <= 43) return Blocks.NETHERRACK.defaultBlockState(); // ground south of the pocket
@@ -10616,14 +10617,14 @@ public final class ClaudeBodyTest {
             c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
             c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS));
             com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(nether, me.getX() + 0.5, 110, me.getZ() + 0.5, 0, 0); c.setNoGravity(true); }
-        if (t[0] >= 20 && t[0] < 20 + 117) { int x = t[0] - 20 - 6; for (int z = -20; z <= 20; z++) for (int y = 28; y <= 99; y++) nether.setBlock(new BlockPos(ox + x, y, oz + z), s535Block(x, y, z), 2); } // (a slice a tick: x -6 to 110)
+        if (t[0] >= 20 && t[0] < 20 + 119) { int x = t[0] - 20 - 7; for (int z = -21; z <= 21; z++) for (int y = 28; y <= 99; y++) nether.setBlock(new BlockPos(ox + x, y, oz + z), s535Block(x, y, z), 2); } // (a slice a tick: x -7 to 111)
         if (t[0] == 140) { c.setNoGravity(false); c.teleportTo(nether, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.tasks.clear(); c.fallDistance = 0; c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); }
         if (t[0] > 140 && c.level() == nether) {
             s535Low = Math.min(s535Low, c.getHealth());
             for (var m : nether.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(ox - 40, 0, oz - 60, ox + 150, 128, oz + 60))) m.discard(); // (the course's own test: no natural ghast or strider on it)
         }
         if (t[0] == 160) c.tasks.add(new Task.GoTo(deck, 1.5));
-        if (t[0] > 160 && s535Done < 0 && c.level() == nether && c.getY() >= 75.5 && c.getX() >= ox + 85 && Math.abs(c.getZ() - oz - 0.5) <= 3) s535Done = t[0];
+        if (t[0] > 160 && s535Done < 0 && c.level() == nether && c.onGround() && com.claudemod.entity.life.FortressScout.onFortress(c)) s535Done = t[0];
         boolean dead = !c.isAlive() || c.level() != nether;
         if (s535Done > 0 || dead || t[0] == 160 + 20 * 300) {
             check(s535Done > 0 && !dead, "fortress reach: not on the deck in 300 s (alive " + c.isAlive() + ", at " + c.blockPosition().toShortString() + ", low " + s535Low + ", task " + c.currentTask + ", queue " + c.tasks.size() + ")");

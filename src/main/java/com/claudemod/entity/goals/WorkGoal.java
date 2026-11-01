@@ -4666,7 +4666,7 @@ public class WorkGoal extends Goal {
             return false;
         }
         if (d < 4 || !g.onGround()) return null; // (too close to dig in: the ordinary fight)
-        if (em.getTarget() != g && d > 16) return null; // ponytail: live 13:12, dug in for a calm one 27 off that wandered away: close in first, dig in where a look at its eyes brings it
+        if (em.getTarget() != g) return null; // ponytail: the user 14:25 "only do the covering trick when he has an enderman engaged on him. bait them, then go to the cover" (the bait: doAttack's look and swing, or a hit in reach); live 13:12, dug in for a calm one 27 off that wandered away: close in first, dig in where a look at its eyes brings it
         if (emHole != null && g.tasks.stream().anyMatch(x -> x instanceof Task.Place pl && pl.pos().closerThan(emHole, 3) || x instanceof Task.Break br && br.pos().closerThan(emHole, 3))) return null; // ponytail: live 13:17, a fresh Attack mid-build started booth after booth (35 queued, hit to 8 hp): one booth at a time, fight it as it comes meanwhile
         for (int r = 1; r <= 8; r++) for (int dx = -r; dx <= r; dx++) for (int dz = -r; dz <= r; dz++) { if (Math.max(Math.abs(dx), Math.abs(dz)) != r) continue; // ponytail: the user "use the trees rather than building": a 2-high nook under a fungus cap / overhang first, nearest ring out
             for (int dy = -2; dy <= 2; dy++) { BlockPos c = f.offset(dx, dy, dz);

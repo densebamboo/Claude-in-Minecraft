@@ -695,6 +695,7 @@ public class WorkGoal extends Goal {
         if (ticks <= 1 && pendingStepUp != null) { // the step he just cut: up onto it now, before any path can pull him back off the edge
             stepUpTo = Vec3.atBottomCenterOf(pendingStepUp); stepUpTick = g.tickCount; pendingStepUp = null;
         }
+        if (ticks <= 1) { walkSince.remove(pos); walkBest.remove(pos); } // ponytail: the task's (re)start restarts the 20 s clock; live 15:52 a GoTo resumed after 20 s in cover kept its pre-cover best distance and gave up at once 7 off (time on other tasks never counts)
         Double bestD = walkBest.get(pos);
         if (bestD == null || d < bestD - 0.5) { walkBest.put(pos.immutable(), d); walkSince.put(pos.immutable(), g.tickCount); } // getting closer: the clock starts over
         int since = walkSince.computeIfAbsent(pos.immutable(), k -> g.tickCount);

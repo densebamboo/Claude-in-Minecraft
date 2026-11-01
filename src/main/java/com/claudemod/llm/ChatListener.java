@@ -102,7 +102,8 @@ public final class ChatListener {
 
     /** Applies what the reply says to do: a job, standing instructions, the shared goal, follow/stay/come/fight. */
     private static void act(ClaudeEntity g, ServerPlayer player, JsonObject reply, String rawMessage) {
-        if (ClaudeLife.ackOnly(rawMessage) && (java.util.Set.of("stay", "follow", "come").contains(reply.get("action").getAsString()) || reply.getAsJsonArray("steps").size() > 0 || !reply.get("new_goal").getAsString().isBlank())) { // (00:22 "valid" -> "staying where i am")
+        if (ClaudeLife.ackOnly(rawMessage) && ClaudeChat.offerOpen(player.server)) { com.claudemod.ClaudeMod.LOGGER.info("[Claude reply] \"{}\" answers his offer \"{}\": an order, its steps kept (ChatListener.act)", rawMessage, ClaudeChat.lastOffer); ClaudeChat.lastOffer = ""; }
+        else if (ClaudeLife.ackOnly(rawMessage) && (java.util.Set.of("stay", "follow", "come").contains(reply.get("action").getAsString()) || reply.getAsJsonArray("steps").size() > 0 || !reply.get("new_goal").getAsString().isBlank())) { // (00:22 "valid" -> "staying where i am")
             com.claudemod.ClaudeMod.LOGGER.info("[Claude reply] \"{}\" is an acknowledgment, not an order: action {} / goal \"{}\" / {} step(s) dropped (ChatListener.act)", rawMessage, reply.get("action").getAsString(), reply.get("new_goal").getAsString(), reply.getAsJsonArray("steps").size());
             reply.addProperty("action", "none"); reply.addProperty("new_goal", ""); reply.add("steps", new JsonArray()); if (reply.has("standing")) reply.add("standing", new JsonArray());
         }

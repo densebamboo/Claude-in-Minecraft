@@ -199,6 +199,8 @@ public final class ClaudeLife {
             Skills.Step f = fillerStep(g, player);
             String why = f == null ? null : g.failReason.getOrDefault(f.skill(), "");
             if (f != null && !why.contains("it's day,") && !why.contains("it's night")) { g.skillQueue.add(f); if (g.tickCount % 200 < 20) ClaudeMod.LOGGER.info("[Claude plan] the clock holds his step ({} s left): {} meanwhile, no re-plan till then (ClaudeLife.runWork)", (g.attempts.counters.get("timeWait") - g.tickCount) / 20, f.skill() + (f.target().isBlank() ? "" : " " + f.target())); return; }
+            if (g.tickCount % 200 < 20) ClaudeMod.LOGGER.info("[Claude plan] the clock holds his step ({} s left), no work meanwhile ({}): waiting, no re-plan till then (ClaudeLife.runWork)", (g.attempts.counters.get("timeWait") - g.tickCount) / 20, f == null ? "no filler" : f.skill() + " is clock-held too");
+            return; // (08:31 the pearl hunt by day with no filler: re-planned every 9 s, the same 2 steps each time)
         }
         startPlan(g, player);
         }
@@ -5003,19 +5005,20 @@ public final class ClaudeLife {
           if (work != null && inv.items.stream().anyMatch(s0 -> !s0.isEmpty() && junkItem(s0))) { double dx = g.getX() - (work.getX() + 0.5), dz = g.getZ() - (work.getZ() + 0.5); if (dx * dx + dz * dz > 0.01) { g.setYRot((float) Math.toDegrees(Math.atan2(dz, dx)) - 90f); g.setXRot(-25f); ClaudeMod.LOGGER.info("[Claude life] junk thrown away from his work at {} (ClaudeLife.dumpJunk)", work.toShortString()); } } }
         java.util.Set<Item> junk = JUNK;
         java.util.Map<Item, Integer> kept = new java.util.HashMap<>();
-        int n = 0;
+        int n = 0; StringBuilder thrown = new StringBuilder();
         for (int i = 0; i < inv.items.size(); i++) {
             var st = inv.items.get(i);
             if (st.isEmpty() || i == inv.selected) continue;
             boolean cobble = st.is(Items.COBBLESTONE) || st.is(Items.COBBLED_DEEPSLATE);
             if (cobble && kept.merge(Items.COBBLESTONE, 1, Integer::sum) <= 2) continue; // two stacks of stone all told, cobble and cobbled deepslate together, as a player keeps (live 10:18 World 15: two of each, 238 stone in 4 slots, and the sugar dropped and picked back up every 7 s instead)
             if (!cobble && !junk.contains(st.getItem()) && !superseded(g, st, i)) continue;
+            thrown.append(st.getCount()).append(' ').append(st.getItem()).append(' ');
             var e = g.drop(st.copy(), false, true);
             if (e != null) g.markGift(e); // a normal toss (vanilla pickup delay); he just doesn't go back for it
             inv.items.set(i, net.minecraft.world.item.ItemStack.EMPTY);
             n++;
         }
-        if (n > 0) ClaudeMod.LOGGER.info("[Claude life] inventory full: threw out {} stacks of junk", n);
+        if (n > 0) ClaudeMod.LOGGER.info("[Claude life] inventory full: threw out {} stacks of junk: {}", n, thrown.toString().trim());
         if (n == 0 && inv.getFreeSlot() < 0) { // nothing on the junk list and still no room (a craft can't even make its table): the least use of what he carries goes, like a player emptying a slot
             int pick = -1; int pickScore = Integer.MAX_VALUE;
             for (int i = 0; i < inv.items.size(); i++) {

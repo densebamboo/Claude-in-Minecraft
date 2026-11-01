@@ -73,7 +73,8 @@ public final class Procure {
         fight("spider", Items.SPIDER_EYE); fight("skeleton", Items.BONE); fight("zombie", Items.ROTTEN_FLESH);
         SOURCES.put(Items.STRING, new Source("get_string", "string", -1, null));
         SOURCES.put(Items.ARROW, new Source("get_arrows", "arrow", -1, null)); // the same shape: his chest, a skeleton he senses and is fit for, flint and feathers crafted, else it waits (never "fight skeleton 24" by day) // what's to hand (a cobweb in sight, a spider he senses and is fit for, his chest a short walk off), else it waits: never a fight queued with no spider about, never a daylight hunt (live 13:05)
-        fight("creeper", Items.GUNPOWDER); fight("enderman", Items.ENDER_PEARL); fight("slime", Items.SLIME_BALL);
+        fight("creeper", Items.GUNPOWDER); fight("slime", Items.SLIME_BALL);
+        SOURCES.put(Items.ENDER_PEARL, new Source("ender_pearls", "ender_pearl", -1, null)); // the pearl hunt (gear check, dusk wait, search): "fight enderman" only looked 24 blocks round, 01:55
         SOURCES.put(Items.BLAZE_ROD, new Source("blaze_rods", "blaze_rod", -1, null)); // a fortress's blazes, fought from cover (FortressFight.blazeRods)
         SOURCES.put(Items.NETHER_WART, new Source("loot", "fortress", -1, null)); // a fortress's ripe wart, with its chests
         notYet("the nether (build_portal, then enter_portal: past the portal there's no nether work yet)", Items.NETHERRACK, Items.QUARTZ, Items.GLOWSTONE_DUST,
@@ -89,7 +90,7 @@ public final class Procure {
         if (!SOURCES.containsKey(Items.CHICKEN)) hunt("chicken", Items.CHICKEN, Items.FEATHER);
         if (SOURCES.get(Items.STRING) == null || !"get_string".equals(SOURCES.get(Items.STRING).skill())) SOURCES.put(Items.STRING, new Source("get_string", "string", -1, null)); // (live: the static block doesn't re-run on a hot push)
         if (SOURCES.get(Items.ARROW) == null || !"get_arrows".equals(SOURCES.get(Items.ARROW).skill())) SOURCES.put(Items.ARROW, new Source("get_arrows", "arrow", -1, null));
-        if (SOURCES.get(Items.BLAZE_ROD) == null || !"blaze_rods".equals(SOURCES.get(Items.BLAZE_ROD).skill())) { SOURCES.put(Items.BLAZE_ROD, new Source("blaze_rods", "blaze_rod", -1, null)); SOURCES.put(Items.NETHER_WART, new Source("loot", "fortress", -1, null)); } // (live: the static block doesn't re-run on a hot push)
+        if (SOURCES.get(Items.BLAZE_ROD) == null || !"blaze_rods".equals(SOURCES.get(Items.BLAZE_ROD).skill())) { SOURCES.put(Items.BLAZE_ROD, new Source("blaze_rods", "blaze_rod", -1, null)); SOURCES.put(Items.NETHER_WART, new Source("loot", "fortress", -1, null)); } if (SOURCES.get(Items.ENDER_PEARL) == null || !"ender_pearls".equals(SOURCES.get(Items.ENDER_PEARL).skill())) SOURCES.put(Items.ENDER_PEARL, new Source("ender_pearls", "ender_pearl", -1, null)); // (live: the static block doesn't re-run on a hot push)
         Solver s = new Solver(g, level);
         for (Map.Entry<Item, Integer> e : wants.entrySet()) {
             String problem = s.need(e.getKey(), e.getValue(), Set.of(), 0);

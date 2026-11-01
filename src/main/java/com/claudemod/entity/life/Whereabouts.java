@@ -184,6 +184,7 @@ public final class Whereabouts {
     /** For his prompts: where they are as he knows it, and how he knows. */
     public static String describe(ClaudeEntity g, Player p) {
         if (p == null) return "nobody's playing with you right now";
+        if (p.isSpectator()) return "they're in spectator mode (the tab list shows it): invisible to you, so you can't see them and don't know where they are; never say how far off they are, never offer to come to them"; // ponytail: live 13:05 "you can see me?" got "you're 55 blocks off, coming to you"
         Spot s = of(g, p);
         if (seesNow(g, p)) {
             double d = g.distanceTo(p);

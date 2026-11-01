@@ -10354,6 +10354,8 @@ public final class ClaudeBodyTest {
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
             case 494: return st494(stage, t, c, h, level, mock);
+            case 521: return st521(stage, t, c, h, level, mock);
+            case 520: return st520(stage, t, c, h, level, mock);
             case 519: return st519(stage, t, c, h, level, mock);
             case 518: return st518(stage, t, c, h, level, mock);
             case 517: return st517(stage, t, c, h, level, mock);
@@ -10442,6 +10444,59 @@ public final class ClaudeBodyTest {
         if (t[0] == 120) { if (hzMob != null) hzMob.discard(); hzMob = null; for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.projectile.LargeFireball.class, c.getBoundingBox().inflate(64))) e.discard(); c.getInventory().clearContent();
             check(com.claudemod.entity.goals.WorkGoal.fireballsHit >= 1 && hzLow >= 20, "fireball: hit back " + com.claudemod.entity.goals.WorkGoal.fireballsHit + " time(s), low " + hzLow);
             pass(stage, t, "the fireball hit back, never hurt"); }
+        return true;
+    }
+    private static boolean st520(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // lava in the planners (the Nether shore deaths, World 15 13:41 and 14:23): never a free "dig" through a lava cell, never a drop beside lava, never a sprint-jump at it
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 5) {
+            StringBuilder said = new StringBuilder();
+            // (a) a wall across his way, its one gap with lava at head height: no way through the gap (it read as a 0 s dig)
+            for (int x = 0; x < 16; x++) for (int y = 2; y <= 3; y++) h.setBlock(new BlockPos(x, y, 6), Blocks.STONE);
+            BlockPos gap = h.absolutePos(new BlockPos(3, 2, 6)); level.setBlock(gap, Blocks.AIR.defaultBlockState(), 2); level.setBlock(gap.above(), Blocks.LAVA.defaultBlockState(), 2);
+            BlockPos from = h.absolutePos(new BlockPos(3, 2, 3)), to = h.absolutePos(new BlockPos(3, 2, 10));
+            var plan = com.claudemod.entity.nav.ActionPath.plan(c, level, from, to, 1.0, false, 6000, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, null, c.tickCount);
+            check(plan == null || plan.acts().stream().noneMatch(a -> a instanceof com.claudemod.entity.nav.ActionPath.Act.Dig d && level.getFluidState(d.pos()).is(net.minecraft.tags.FluidTags.LAVA)), "lava gap: the plan \"digs\" a lava cell: " + (plan == null ? null : plan.acts()));
+            check(plan == null || plan.acts().stream().noneMatch(a -> a instanceof com.claudemod.entity.nav.ActionPath.Act.Walk w && (w.feet().equals(gap) || w.feet().above().equals(gap.above()))), "lava gap: the plan walks under the lava: " + (plan == null ? null : plan.acts()));
+            said.append("wall with a lava gap: ").append(plan == null ? "no way" : plan.digs() + " dig(s), " + plan.walks() + " walk(s), not through it").append("; ");
+            for (int x = 0; x < 16; x++) for (int y = 2; y <= 3; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, 6)), Blocks.AIR.defaultBlockState(), 2);
+            // (b) a drop off a 4-high block: onto plain floor fine; with lava beside the landing, turned down
+            for (int y = 2; y <= 5; y++) h.setBlock(new BlockPos(8, y, 8), Blocks.STONE);
+            BlockPos col = h.absolutePos(new BlockPos(9, 6, 8));
+            var plain = com.claudemod.entity.nav.Leaps.fall(c, level, col, col.getY(), 0);
+            check(plain.hp() < 20 && plain.why() == null, "drop: onto plain floor turned down: " + plain);
+            BlockPos lv = h.absolutePos(new BlockPos(10, 1, 8)); level.setBlock(lv, Blocks.LAVA.defaultBlockState(), 2);
+            var shore = com.claudemod.entity.nav.Leaps.fall(c, level, col, col.getY(), 0);
+            check(shore.hp() >= 99 && shore.why() != null && shore.why().contains("beside"), "drop: lava beside the landing not turned down: " + shore);
+            level.setBlock(lv, Blocks.GRASS_BLOCK.defaultBlockState(), 2);
+            for (int y = 2; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(8, y, 8)), Blocks.AIR.defaultBlockState(), 2);
+            said.append("drop: plain ").append(plain.hp()).append(" hp, by lava \"").append(shore.why()).append("\"; ");
+            // (c) the sprint-jump: lava 3 out on his line is no open ground
+            BlockPos me = h.absolutePos(new BlockPos(3, 2, 3)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            var east = new net.minecraft.world.phys.Vec3(1, 0, 0);
+            boolean open0 = com.claudemod.entity.body.Controls.openGround(c, east);
+            BlockPos lv2 = h.absolutePos(new BlockPos(6, 1, 3)); level.setBlock(lv2, Blocks.LAVA.defaultBlockState(), 2);
+            boolean open1 = com.claudemod.entity.body.Controls.openGround(c, east);
+            level.setBlock(lv2, Blocks.GRASS_BLOCK.defaultBlockState(), 2);
+            check(open0 && !open1, "sprint-jump: open ground " + open0 + " with no lava, " + open1 + " with lava 3 out");
+            said.append("sprint-jump: open ").append(open0).append(", by lava ").append(open1);
+            pass(stage, t, said.toString());
+        }
+        return true;
+    }
+    private static boolean st521(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a walk along a lava river's shore (the lava-sea shore, World 15 14:23: in the lava twice and burned): there, at a run, never in it, never on fire
+        BlockPos me = h.absolutePos(new BlockPos(1, 2, 5)), goal = h.absolutePos(new BlockPos(14, 2, 5));
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); flatBox(h); hzLow = 20f; hzFlag = false; c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no");
+            for (int x = 0; x < 16; x++) for (int z = 6; z <= 9; z++) level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.LAVA.defaultBlockState(), 2); // (the river: lava for floor, his shore row z 5 beside it)
+            for (int x = 0; x < 16; x++) for (int z = 0; z <= 2; z++) level.setBlock(h.absolutePos(new BlockPos(x, 2, z)), Blocks.STONE.defaultBlockState(), 2); // (a wall behind: the shore is the way)
+            for (int x = 6; x <= 8; x++) for (int z = 4; z <= 5; z++) level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.LAVA.defaultBlockState(), 2); // (a notch of lava into the shore: round it on the one row left, z 3, its corners to cut)
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+        if (t[0] == 10) c.tasks.add(new Task.GoTo(goal, 0.8));
+        if (t[0] > 10) { hzLow = Math.min(hzLow, c.getHealth()); if (c.isInLava() || c.isOnFire()) hzFlag = true; }
+        if (t[0] > 10 && c.blockPosition().distSqr(goal) <= 2 && c.currentTask == null) {
+            check(!hzFlag && hzLow >= 20, "shore: in the lava or on fire on the way (low " + hzLow + ")");
+            for (int x = 0; x < 16; x++) for (int z = 0; z <= 9; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, 2, z)), Blocks.AIR.defaultBlockState(), 2); }
+            pass(stage, t, "along the shore in " + (t[0] - 10) + " ticks, never in it, low " + hzLow); }
+        else if (t[0] == 400) { check(false, "shore: not there in 20 s (at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ", in lava " + hzFlag + ")"); }
         return true;
     }
     private static int wiN; private static java.util.List<String> wiSeen = new java.util.ArrayList<>(); private static int wiFightT = -1;

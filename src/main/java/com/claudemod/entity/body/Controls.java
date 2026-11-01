@@ -95,10 +95,17 @@ public final class Controls {
     }
 
     /** Open ground for a sprint-jump: headroom (not a 2-high branch), no wall and no 2+ drop in the next three blocks (a one-block step is what the jump is for). */
-    static boolean openGround(Player p, Vec3 dir) {
+    /** Lava at his feet level in that cell, or as its floor (lava under an open cell). */
+    public static boolean lavaCell(Player p, net.minecraft.core.BlockPos c) {
+        var l = p.level();
+        return l.getFluidState(c).is(net.minecraft.tags.FluidTags.LAVA) || l.getFluidState(c.below()).is(net.minecraft.tags.FluidTags.LAVA) && l.getBlockState(c.below()).getCollisionShape(l, c.below()).isEmpty();
+    }
+
+    public static boolean openGround(Player p, Vec3 dir) {
         var lvl = p.level();
-        for (int i = 0; i <= 3; i++) {
+        for (int i = 0; i <= 4; i++) { // (4: a sprint-jump lands 3-4 out)
             var c = net.minecraft.core.BlockPos.containing(p.getX() + dir.x * i, p.getY(), p.getZ() + dir.z * i);
+            if (lavaCell(p, c) || lavaCell(p, c.relative(net.minecraft.core.Direction.getNearest(-dir.z, 0, dir.x))) || lavaCell(p, c.relative(net.minecraft.core.Direction.getNearest(dir.z, 0, -dir.x)))) return false; // lava on the line or beside it: walked, never jumped (the jump's landing and its slide are past the lava guard)
             if (lvl.getBlockState(c.below()).is(net.minecraft.world.level.block.Blocks.FARMLAND) || lvl.getBlockState(c).getBlock() instanceof net.minecraft.world.level.block.CropBlock) return false; // a farm is walked, never jumped across (a landing tramples farmland)
             if (!lvl.getBlockState(c.above(2)).getCollisionShape(lvl, c.above(2)).isEmpty()) return false;
             if (i > 0 && !lvl.getBlockState(c.above()).getCollisionShape(lvl, c.above()).isEmpty()) return false;
@@ -153,11 +160,21 @@ public final class Controls {
         net.minecraft.world.level.pathfinder.Path planned = nav.getPath(); net.minecraft.world.level.pathfinder.Node nextNode = planned != null && !planned.isDone() ? planned.getNextNode() : null;
         if (walk != null && walk.lengthSqr() > 1e-4 && !p.isInLava()) { /* lava ahead is never a step: live 01:05 and 01:22 a spin by the Nether portal walked him into the same lava pocket at -10 70 -5 twice (the lip guard below only knew drops) */
             Vec3 ld = walk.normalize();
-            for (double reach : new double[] {0.45, 0.9}) {
-                net.minecraft.core.BlockPos ah = net.minecraft.core.BlockPos.containing(p.getX() + ld.x * reach, p.getY() + 0.1, p.getZ() + ld.z * reach);
+            double hv = Math.sqrt(p.getDeltaMovement().x * p.getDeltaMovement().x + p.getDeltaMovement().z * p.getDeltaMovement().z);
+            double[] reaches = p.isSprinting() || hv > 0.2 ? new double[] {0.45, 0.9, 1.4} : new double[] {0.45, 0.9}; // (at a sprint he slides a block on: 0.9 was seen too late)
+            Vec3 sd = new Vec3(-ld.z, 0, ld.x).scale(0.3); // his shoulders, either side
+            outer:
+            for (double reach : reaches) for (int k = -1; k <= 1; k++) {
+                net.minecraft.core.BlockPos ah = net.minecraft.core.BlockPos.containing(p.getX() + ld.x * reach + sd.x * k, p.getY() + 0.1, p.getZ() + ld.z * reach + sd.z * k);
                 if (ah.equals(p.blockPosition())) continue;
-                boolean lavaAt = p.level().getFluidState(ah).is(net.minecraft.tags.FluidTags.LAVA) || p.level().getFluidState(ah.below()).is(net.minecraft.tags.FluidTags.LAVA) && p.level().getBlockState(ah.below()).getCollisionShape(p.level(), ah.below()).isEmpty();
-                if (lavaAt) { p.setSprinting(false); walk = null; if (p instanceof com.claudemod.entity.ClaudeEntity ce && ce.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] lava ahead at {}: not stepping (Controls.apply)", ah.toShortString()); break; }
+                boolean lavaAt = lavaCell(p, ah);
+                if (lavaAt && k != 0 && reach > 0.5) { walk = ld.subtract(sd.scale(k * 2.0)).normalize(); continue outer; } // (only his shoulder would touch it, further on: steered off that side, not stopped; walking a lava hole's edge stalled him dead)
+                if (lavaAt) {
+                    p.setSprinting(false); walk = null;
+                    Vec3 v = p.getDeltaMovement(); if (reach < 1.0 && v.x * ld.x + v.z * ld.z > 0) p.setDeltaMovement(0, v.y, 0); // (and his slide stopped: the inputs off alone still carried him in)
+                    if (p instanceof com.claudemod.entity.ClaudeEntity ce && ce.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] lava ahead at {}: not stepping (Controls.apply)", ah.toShortString());
+                    break outer;
+                }
             }
         }
         if (walk != null && walk.lengthSqr() > 1e-4 && p.onGround() && !p.isInWater() && !p.isInLava()) { // lava anywhere under the open cell ahead: never a step, whatever the path says (live 10:53 World 15: a path's next node 2 down off a Nether ledge, "safe" to the path, the lake 18 under it)

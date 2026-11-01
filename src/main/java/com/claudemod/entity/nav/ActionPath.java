@@ -312,6 +312,7 @@ public final class ActionPath {
         double digSeconds(BlockPos p) {
             if (closed.contains(p)) return -1;
             BlockState s = level.getBlockState(p);
+            if (level.getFluidState(p).is(net.minecraft.tags.FluidTags.LAVA)) return -1; // lava has no collision: it read as a free 0 s "dig" for the cell he steps into, his head's cell and the cells he drops through (the Nether shore deaths)
             if (s.getCollisionShape(level, p).isEmpty()) return 0;
             if (g.coverCell(p)) { coverLeft++; return -1; } // the cover he's making or in: never a way through it (live 04:42 a route back into his box dug out its west wall)
             if (mode == Mode.NO_DIG) return -1;

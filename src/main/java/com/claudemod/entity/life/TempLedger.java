@@ -324,14 +324,15 @@ public final class TempLedger {
         boolean walkingNow = g.currentTask instanceof Task.GoTo;
         Task.GoTo go = walkingNow ? (Task.GoTo) g.currentTask : g.tasks.peek() instanceof Task.GoTo n ? n : null;
         if (go == null || book(g).isEmpty()) return false;
-        BlockPos dest = go.pos(); for (Task q : g.tasks) { if (q instanceof Task.GoTo gq) dest = gq.pos(); else break; } // (a route's legs: where the last of them ends)
+        BlockPos dest = go.pos(); List<BlockPos> legs = new ArrayList<>(); legs.add(go.pos()); for (Task q : g.tasks) { if (q instanceof Task.GoTo gq) { dest = gq.pos(); legs.add(gq.pos()); } else if (!(q instanceof Task.Pillar) && !(q instanceof Task.Leap)) break; } // (a route's legs: where the last of them ends; its pillar/leap moves are part of it)
         if (!Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(12), m -> m.isAlive()).isEmpty()) return false;
         BlockPos me = g.blockPosition(); net.minecraft.world.phys.Vec3 eye = g.getEyePosition(); final BlockPos to = dest;
         java.util.function.Predicate<Entry> due = e -> level.isLoaded(e.pos) && e.pos.distSqr(me) <= 16 * 16 && e.pos.distSqr(to) > 24 * 24 && !e.why.equals("craft table") && !e.why.equals("furnace")
                 && !level.getBlockState(e.pos).canBeReplaced() && his(level, e)
                 && (Math.abs(e.pos.getY() - me.getY()) <= 1 || eye.distanceTo(net.minecraft.world.phys.Vec3.atCenterOf(e.pos)) <= 4.5)
                 && !(e.triedAt >= 0 && g.tickCount - e.triedAt < 40) && !(!level.isDay() && level.canSeeSky(e.pos) && !"light".equals(e.why))
-                && doneWith(g, level, e, false) && takeable(g, level, e);
+                && doneWith(g, level, e, false) && takeable(g, level, e)
+                && !e.pos.equals(me.below()) && !e.pos.equals(me) && legs.stream().noneMatch(l -> l.distSqr(e.pos) <= 2 * 2); // still on the way: the route's legs climb over it (01:40 he pillared up for the route, took the pillar down "leaving", fell, pillared again: a loop)
         Entry first = null;
         for (Entry e : book(g).values()) if (due.test(e) && (first == null || e.pos.distSqr(me) < first.pos.distSqr(me))) first = e;
         if (first == null) return false;

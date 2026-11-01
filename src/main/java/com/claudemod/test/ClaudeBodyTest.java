@@ -10354,6 +10354,7 @@ public final class ClaudeBodyTest {
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
             case 494: return st494(stage, t, c, h, level, mock);
+            case 525: return st525(stage, t, c, h, level, mock);
             case 524: return st524(stage, t, c, h, level, mock);
             case 523: return st523(stage, t, c, h, level, mock);
             case 522: return st522(stage, t, c, h, level, mock);
@@ -10500,6 +10501,40 @@ public final class ClaudeBodyTest {
             for (int x = 0; x < 16; x++) for (int z = 0; z <= 9; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, 2, z)), Blocks.AIR.defaultBlockState(), 2); }
             pass(stage, t, "along the shore in " + (t[0] - 10) + " ticks, never in it, low " + hzLow); }
         else if (t[0] == 400) { check(false, "shore: not there in 20 s (at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ", in lava " + hzFlag + ")"); }
+        return true;
+    }
+    private static int nsPhase, nsT, nsCobble;
+    private static boolean st525(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // the Nether bridge rules (World 15 13:41, knocked off a 1-wide bridge over the lava sea by a blaze): no bridging out over lava under a shooter's eye; over lava, 2 wide; no top-up meal at a lava edge; a fortress piece's deck, not its roof
+        BlockPos me = h.absolutePos(new BlockPos(2, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.tasks.clear(); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); nsPhase = 0; if (hzMob != null) hzMob.discard(); hzMob = null;
+            for (int x = 4; x <= 7; x++) for (int z = 0; z < 16; z++) { for (int y = -3; y <= 1; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y <= -2 ? Blocks.LAVA.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); } // (a trench 4 across, lava 3 down)
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+        java.util.function.IntSupplier over = () -> { int n = 0; for (int x = 4; x <= 7; x++) for (int z = 0; z < 16; z++) for (int y = -1; y <= 1; y++) if (!level.getBlockState(h.absolutePos(new BlockPos(x, y, z))).isAir() && level.getFluidState(h.absolutePos(new BlockPos(x, y, z))).isEmpty()) n++; return n; };
+        if (t[0] == 5) { // (c) and (d): the units
+            check(com.claudemod.director.ClaudeLife.lavaEdge(c) == false, "lava edge: 2 off the trench read as its edge");
+            BlockPos edge = h.absolutePos(new BlockPos(3, 2, 8)); c.teleportTo(edge.getX() + 0.5, edge.getY(), edge.getZ() + 0.5);
+            check(com.claudemod.director.ClaudeLife.lavaEdge(c), "lava edge: on the trench's lip not read as a lava edge");
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            for (int x = 10; x <= 14; x++) for (int z = 10; z <= 14; z++) { h.setBlock(new BlockPos(x, 1, z), Blocks.NETHER_BRICKS); h.setBlock(new BlockPos(x, 5, z), Blocks.NETHER_BRICKS); if (x == 10 || x == 14 || z == 10 || z == 14) for (int y = 2; y <= 4; y++) h.setBlock(new BlockPos(x, y, z), Blocks.NETHER_BRICKS); }
+            BlockPos deck = com.claudemod.entity.life.FortressFight.deckCellTest(level, h.absolutePos(new BlockPos(12, 3, 12)));
+            check(deck != null && deck.getY() == h.absolutePos(new BlockPos(0, 2, 0)).getY(), "deck: " + deck + " for a brick room (want its floor, not the roof)");
+            for (int x = 10; x <= 14; x++) for (int z = 10; z <= 14; z++) for (int y = 1; y <= 5; y++) h.setBlock(new BlockPos(x, y, z), y == 1 ? Blocks.GRASS_BLOCK : Blocks.AIR);
+        }
+        if (t[0] == 10) { // (a): a blaze across the lava, in his sight; his fight with it never puts a block out over the lava
+            var bz = EntityType.BLAZE.create(level); BlockPos bp = h.absolutePos(new BlockPos(10, 4, 8)); bz.moveTo(bp.getX() + 0.5, bp.getY(), bp.getZ() + 0.5, 90, 0); bz.setNoAi(true); bz.setPersistenceRequired(); level.addFreshEntity(bz); hzMob = bz;
+            c.tasks.add(new Task.Attack(bz.getUUID(), 160)); nsPhase = 1; nsT = t[0]; }
+        if (nsPhase == 1 && t[0] - nsT >= 100) {
+            check(over.getAsInt() == 0, "blaze: " + over.getAsInt() + " block(s) put out over the lava with the blaze on him");
+            if (hzMob != null) hzMob.discard(); hzMob = null; c.tasks.clear(); c.dropCurrent = true;
+            var it = new net.minecraft.world.entity.item.ItemEntity(level, h.absolutePos(new BlockPos(9, 2, 8)).getX() + 0.5, h.absolutePos(new BlockPos(9, 2, 8)).getY(), h.absolutePos(new BlockPos(9, 2, 8)).getZ() + 0.5, new ItemStack(Items.DIAMOND)); it.setDeltaMovement(0, 0, 0); level.addFreshEntity(it);
+            c.tasks.add(new Task.Pickup(400)); nsPhase = 2; nsT = t[0]; }
+        if (nsPhase == 2 && (c.inventory.count(x -> x.is(Items.DIAMOND)) > 0 || t[0] - nsT > 400)) { // (b): no shooter: over to it, the bridge 2 wide
+            int rows = 0, wide = 0;
+            for (int x = 4; x <= 7; x++) { int n = 0; for (int z = 0; z < 16; z++) if (!level.getBlockState(h.absolutePos(new BlockPos(x, 1, z))).isAir()) n++; if (n > 0) rows++; if (n >= 2) wide++; }
+            check(c.inventory.count(x -> x.is(Items.DIAMOND)) > 0, "bridge: the diamond across the lava never fetched (rows " + rows + ")");
+            check(rows >= 3 && wide >= rows - 1, "bridge: over the lava " + rows + " row(s), " + wide + " of them 2 wide (want 2 wide)");
+            for (int x = 4; x <= 7; x++) for (int z = 0; z < 16; z++) for (int y = -3; y <= 1; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.STONE.defaultBlockState(), 2);
+            pass(stage, t, "no bridge under the blaze's eye; the diamond fetched over a bridge " + wide + "/" + rows + " rows 2 wide; lava edge and deck right"); }
         return true;
     }
     private static int rlPhase, rlT; private static boolean rlDug;

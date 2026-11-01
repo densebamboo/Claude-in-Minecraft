@@ -1004,6 +1004,7 @@ public final class ClaudeLife {
         if (g.isSleeping() || sleepTripOn(g)) return; // asleep already, or the sleep skill has the night in hand (its bed, its walk)
         if (!level.isNight() || g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee || g.commandActive && g.currentTask != null && g.getHealth() > 10) return;
         { String notNow = sleepNotNow(g); if (notNow != null) { nookSay(g, "bedawake", "[Claude life] night: no bed for him now: " + notNow + "; the order goes on (ClaudeLife.sleepIfNight)"); return; } } // (the user 17:35: mid-order, "you dont need to sleep rn im not sleeping")
+        if (level.dimension() == net.minecraft.world.level.Level.OVERWORLD && g.playerGoal != null && g.playerGoal.toLowerCase().contains("dragon") && endermanTime(g) && g.inventory.count(x -> x.is(Items.ENDER_PEARL) || x.is(Items.ENDER_EYE)) < pearlsWanted(g)) { nookSay(g, "pearlnight", "[Claude life] night: staying up for endermen, not to bed (pearls short, geared for them) (ClaudeLife.sleepIfNight)"); return; } // the user: sleeping skips the endermen's night on the dragon run
         { String up = upForString(g, level); if (up != null) { nookSay(g, "stringnight", "[Claude life] night: staying up for spiders, not to bed (" + up + ") (ClaudeLife.sleepIfNight)"); return; } } /* the user: he shouldn't sleep if he needs spiders for string; the night is when they spawn */
         if (g.inventory.count(s -> s.is(ItemTags.BEDS)) == 0) {
             BlockPos his = null; // his bed left standing somewhere near (a base, last night's spot): go to it
@@ -1482,12 +1483,13 @@ public final class ClaudeLife {
             return c.get(c.size() - 1);
         }
         boolean dragonGoal = g.playerGoal != null && g.playerGoal.toLowerCase().contains("dragon");
-        if (dragonGoal && Kit.missing(g, true).isEmpty()) ClaudeMod.LOGGER.info("[Claude plan] rules: the kit's done (the bow's a want, no part of it): no gear_up (ClaudeLife.ruleStep)");
+        boolean kitDone = dragonGoal && Kit.missing(g, true).isEmpty();
+        if (kitDone) ClaudeMod.LOGGER.info("[Claude plan] rules: the kit's done (the bow's a want, no part of it): no gear_up (ClaudeLife.ruleStep)");
         else c.add(new Skills.Step("gear_up", "", 1));
         Skills.Step dragonStep = dragonGoal ? dragonNext(g, level) : null; // the run's next step (the portal once the kit's done; the bow once it's the must)
         if (dragonStep != null) { c.add(dragonStep); ClaudeMod.LOGGER.info("[Claude plan] rules: the dragon path's next step: {} (ClaudeLife.ruleStep)", dragonStep.skill() + (dragonStep.target().isBlank() ? "" : " " + dragonStep.target())); }
         boolean pick = !g.inventory.find(s -> s.getItem() instanceof net.minecraft.world.item.PickaxeItem).isEmpty();
-        if (pick && ((g.blueprint != null && !g.blueprint.isEmpty()) || g.mineFace != null)) c.add(new Skills.Step("strip_mine", "iron_ore", 4));
+        if (pick && !kitDone && ((g.blueprint != null && !g.blueprint.isEmpty()) || g.mineFace != null)) c.add(new Skills.Step("strip_mine", "iron_ore", 4)); // (kitted out on the dragon run: iron is no step of it; 11:10 he went down his mine for 4 iron with diamond armor on and the Nether next)
         c.add(new Skills.Step("collect", "logs", 8));
         c.add(new Skills.Step("explore", "", 1));
         for (Skills.Step s : c) if (g.failCount.getOrDefault(s.skill() + (s.target().isBlank() ? "" : " " + s.target()), 0) < 3) return s;
@@ -2679,10 +2681,19 @@ public final class ClaudeLife {
                     if (Kit.food(g) < 4) miss.add("under 4 meals"); if (g.getHealth() < 16) miss.add("health under 16");
                     return "failed: not geared for endermen yet (" + String.join(", ", miss) + "): " + have + "/" + want + " pearls"; } // (it named every condition, not the missing one: the rods were in his chest, 01:35)
                 var em = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.EnderMan.class, g.getBoundingBox().inflate(32, 8, 32), m -> m.isAlive() && g.hasLineOfSight(m)).stream().min(Comparator.comparingDouble(m -> m.distanceToSqr(g))).orElse(null);
+                if (em == null && level.dimension() == net.minecraft.world.level.Level.OVERWORLD && level.isDay() && !level.isThundering() && hisPortal.get(g.getUUID()) != null && Kit.missing(g, true).isEmpty()) { // the user: by day the Nether's warped forest has endermen; no waiting for dusk with a portal and the kit ready
+                    g.skillQueue.addFirst(st); g.skillQueue.addFirst(new Skills.Step("enter_portal", "", 1));
+                    ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: day in the overworld, kit ready: through his portal at {} to a warped forest, not waiting for dusk (ClaudeLife ender_pearls)", hisPortal.get(g.getUUID()).toShortString());
+                    return "day here: through my portal to a warped forest for endermen (" + have + "/" + want + " pearls)"; }
                 if (em == null && level.dimension() == net.minecraft.world.level.Level.OVERWORLD && level.isDay() && !level.isThundering()) { ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: day in the overworld at {}, none in sight: endermen spawn in the dark, the hunt waits for dusk (ClaudeLife ender_pearls)", g.blockPosition().toShortString()); return "failed: it's day, endermen spawn in the dark: the pearl hunt waits for dusk (or a warped forest): " + have + "/" + want + " pearls"; } // (01:41-01:49 he walked 900 blocks of daylight surface looking for one)
                 g.skillQueue.addFirst(st); // (on with it after this)
                 if (em != null) { g.tasks.add(new Task.Attack(em.getUUID(), 20 * 60)); g.tasks.add(new Task.Pickup(80)); ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: an enderman {} off in sight: after it ({}/{} pearls) (ClaudeLife ender_pearls)", (int) em.distanceTo(g), have, want); return "after the enderman " + (int) em.distanceTo(g) + " off (" + have + "/" + want + " pearls)"; }
                 boolean nether = level.dimension() == net.minecraft.world.level.Level.NETHER;
+                { var dl = g.getLastDeathLocation(); // his death pile on this side (the fortress kit: diamond pick, rods) first: frozen in its unloaded chunk, it waits for him
+                  if (dl.isPresent() && dl.get().dimension() == level.dimension() && g.skillQueue.stream().noneMatch(s0 -> s0.skill().equals("recover_drops")) && !(g.attempts.any.get(dl.get().pos()) instanceof Integer t1 && g.tickCount - t1 < 20 * 600)) {
+                      g.attempts.any.put(dl.get().pos(), g.tickCount); g.skillQueue.addFirst(new Skills.Step("recover_drops", "", 1));
+                      ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: his death spot {} is on this side: the pile first (ClaudeLife ender_pearls)", dl.get().pos().toShortString());
+                      return "my things from my last death are on this side at " + dl.get().pos().toShortString() + ": getting them first"; } }
                 String here = level.getBiome(g.blockPosition()).unwrapKey().map(k -> k.location().getPath()).orElse("");
                 if (nether && !here.equals("warped_forest")) { g.skillQueue.addFirst(new Skills.Step("explore", "warped_forest", 1)); return "no enderman in sight: to a warped forest, where they are (" + have + "/" + want + " pearls)"; }
                 g.skillQueue.addFirst(new Skills.Step("explore", "", 1)); // (through the forest, or the overworld at night: walking on, looking)
@@ -3745,7 +3756,11 @@ public final class ClaudeLife {
                 BlockPos spot = spot0;
                 var around = new net.minecraft.world.phys.AABB(spot).inflate(12);
                 var drops = new ArrayList<>(level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, around, i -> i.isAlive() && !g.isGift(i)));
-                if (drops.isEmpty()) drops = new ArrayList<>(ownDropsNear(g, level, 64)); // drifted off in the water, or lying a way from where he fell: still his
+                if (drops.isEmpty()) drops = new ArrayList<>(ownDropsNear(g, level, 64));
+                if (drops.isEmpty() && death.isPresent() && spot.equals(death.get().pos()) && g.blockPosition().distSqr(spot) > 48 * 48) { // far off, its chunk unloaded: the pile can't be seen from here, so go and look (the fortress pile read "nothing left" from 300 off)
+                    g.tasks.add(new Task.GoTo(spot.immutable(), 6)); g.skillQueue.addFirst(new Skills.Step("recover_drops", "", 1));
+                    ClaudeMod.LOGGER.info("[Claude life] recover_drops: his death spot {} is {} off, out of sight: walking there to look (ClaudeLife recover_drops)", spot.toShortString(), (int) Math.sqrt(g.blockPosition().distSqr(spot)));
+                    return "walking to where I died at " + spot.toShortString() + " to look for my things"; } // drifted off in the water, or lying a way from where he fell: still his
                 if (drops.isEmpty() && g.playerGoal != null && g.playerGoal.toLowerCase().matches("(?s).*(recover|gear back|drops|death spot|old gear).*")) g.playerGoal = ""; // the drops are gone: so is that goal (it outlived every restart, "back. still on it: recover_drops" and the same question asked four times)
                 if (drops.isEmpty()) return "done: nothing of yours left on the ground" + (death.isPresent() ? " where you died" : "");
                 // the user's rule: if it wasn't iron or better, it's not worth picking up (a stone-age pile 40 blocks down a cave had him circling the cave mouth for ten minutes, then dead in it)
@@ -11130,7 +11145,7 @@ public final class ClaudeLife {
         }
         String ore = target.replace("_ore", "").replace("raw_", "").replace("deepslate_", "");
         Integer bestY = BEST_Y.get(ore); if (bestY == null) bestY = 16;
-        if (ore.equals("iron") && Kit.diamondStage(g)) bestY = BEST_Y.getOrDefault("diamond", -58); // (iron only: coal never generates below y 0, a coal job down there would dig forever) // the user: past the iron stage, the iron (and coal) for a bucket or a shield comes out of the diamond level's walls; no trip back up to y 16
+        // the user (2026-11-01): mining for iron specifically goes to the iron level's branches (y16), late game too; the old "iron off the diamond level's walls" rule had him strip y-58 for 4 iron and find none
         var oreBlock = BuiltInRegistries.BLOCK.get(net.minecraft.resources.ResourceLocation.withDefaultNamespace(ore + "_ore"));
         String tool = ensureToolFor(g, player, level, oreBlock == Blocks.AIR ? Blocks.STONE.defaultBlockState() : oreBlock.defaultBlockState(), st); if (tool != null) return tool;
         MineBlueprint b = g.blueprint;
@@ -12866,7 +12881,7 @@ public final class ClaudeLife {
         return new String[][] {
             {missing.isEmpty() ? "x" : "", (Kit.netherDone(g) ? "the dragon kit: full diamond armor and tools, a shield, a bucket" : "the Nether kit: armor iron or better, the diamond pick, a sword, a shield, a bucket (a gold piece if he has one; never a wait for diamond armor)") + (missing.isEmpty() ? "" : " (missing " + Kit.describe(missing) + ")"), "gear_up", "gear_up"},
             {portalUp ? "x" : "", "a nether portal" + (portal != null ? " (yours at " + portal.toShortString() + ")" : ""), "build_portal (it finds lava itself: one you saw, else it explores; obsidian you carry goes in as it is)", "build_portal"},
-            {prep ? "x" : "", "Nether prep: a gold armor piece on (piglins leave you be; 4 gold ingots make boots), 16+ food, 64 blocks to bridge and wall with, flint and steel to relight the portal; a bow and arrows go too if you have them (wanted, not needed: a ghast's fireball can be hit back, blazes fought from cover; " + bows + " bow(s), " + arrows + " arrows now)" + (prep ? "" : " (you have: " + (gold ? "gold armor, " : "no gold armor, ") + food + " food, " + blocks + " blocks, " + (fns > 0 ? "flint and steel" : "no flint and steel") + ")"), "obtain golden_boots (gold: strip_mine gold_ore, best at y -16), obtain the food, collect cobblestone", ""},
+            {prep ? "x" : "", "Nether prep: a gold armor piece on (piglins leave you be; 4 gold ingots make boots), 16+ food, 64 blocks to bridge and wall with, flint and steel to relight the portal; a bow and arrows go too if you have them (wanted, not needed: a ghast's fireball can be hit back, blazes fought from cover; " + bows + " bow(s), " + arrows + " arrows now)" + (prep ? "" : " (you have: " + (gold ? "gold armor, " : "no gold armor, ") + food + " food, " + blocks + " blocks, " + (fns > 0 ? "flint and steel" : "no flint and steel") + ")"), "obtain golden_boots (gold: strip_mine gold_ore, best at y -16), obtain the food, collect cobblestone", prep ? "" : !gold ? "obtain golden_boots 1" : fns == 0 ? "obtain flint_and_steel 1" : blocks < 64 ? "obtain cobblestone " + (64 - blocks) : food < 16 ? "obtain " + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(Kit.foodChoice(g)).getPath() + " " + (16 - food) : ""}, // (no rule step here sent him strip-mining iron at 11:10, kit done, rods in hand: the rules' mine default won)
             {eyes >= 12 || rods >= 7 ? "x" : "", "blaze rods: 7 (" + rods + " now), off a nether fortress's blazes", "find_fortress (in the Nether: it picks the heading itself, legs along the ground, a look over the open from each end; once there: obtain blaze_rod 7, the blazes fought from cover, and loot fortress for its chests and ripe wart)", away && com.claudemod.entity.life.FortressScout.found(g) == null ? "find_fortress" : ""},
             {eyes >= 12 || pearls + eyes >= 12 ? "x" : "", "ender pearls: 12 (" + pearls + " now), bartered from piglins for gold or off endermen", "there's no skill for bartering or endermen yet (fight enderman works in the overworld at night)", ""},
             {eyes >= 12 ? "x" : "", "eyes of ender: 12 (" + eyes + " now; a blaze powder and a pearl each)", "craft ender_eye", ""},

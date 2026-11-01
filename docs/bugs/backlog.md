@@ -50,6 +50,7 @@ Each line is a live report from Day to Day (World 15, 2026-10-31/11-01) not on t
 - A stage for the eat-first gate in coverFight (c4b8460 fixed it after a death at 02:04: it let him eat out of cover with wither skeletons on him; mine, from bp/blaze-lure): a wither skeleton 3 off and a meal queued: he doesn't eat till he's in cover.
 - Silent path: ensureCraftingTable's GoTo insert has no log line (Day to Day, 822f677: it was queued ahead of his stairs route every 100 ticks, found only with jdb).
 - Food: he starved from 13 to 1 HP walking 196 blocks to chickens with 0 meals (Day to Day, e792837). Food planning before a mine trip let him reach food 0; the trip packing rule (20 cooked, back up under 6 meals) isn't holding.
+- smelt answers "done: cooks at home" for a refusal (its field rule: fed, under 8 raws, no furnace near), which reads as a success; gear_up asked again and looped 70 s (Day to Day, 2d0d59d). A refusal should say so ("waiting:"/"failed:"), as with the clock waits.
 - Pack: make room before a pickup goal (stash superseded gear). Part done: superseded gear goes when the pack is full.
 - Chat inventory: "pack's full" and "11 rods" from stale lines (part done: a live free-slot line). The `[Claude pack]` log should come from the same read.
 - The gold level as a flat landing in stairs that already pass it (new mines are fine; old mid-stair runs are no longer used).

@@ -43,8 +43,8 @@ The checkpoints, in order:
 2. iron gear
 3. diamonds
 4. obsidian and a portal
-5. **REACH A FORTRESS from his portal (current)**
-6. blaze rods
+5. reach a fortress from his portal (done live 2026-11-01 01:26, World 15)
+6. **BLAZE RODS (current)**
 7. ender pearls
 8. eyes of ender
 9. the stronghold (eye throws, triangulation)
@@ -53,7 +53,12 @@ The checkpoints, in order:
 
 1-4 work live. 6 worked live once he was teleported onto a fortress: 14 rods on 2026-11-01 00:07.
 
-**Reach a fortress: the gap is the route planner itself.**
+**State 2026-11-01 (cloud):**
+- **Checkpoint 5 is done live.** The Nether planner (`NetherRoute`, `docs/reports/nether-route.md`) and World 15's own terrain as stages 536-538 (`docs/reports/w15-terrain.md`) are on main.
+- **Checkpoint 6** (`docs/reports/blaze-reach.md`): a bow shoots blazes out of sword reach; with no bow he goes to their spawner; no empty peeks; a waiting meal goes first. Live after that: proof he gets 7 rods.
+- **Crossings as highway pieces:** `docs/reports/highway-crossing.md`.
+
+**Reach a fortress (done; the notes as they were):**
 - **What fails:** from a Nether ledge or a basalt pocket by his portal, `ActionPath` reports "no way at all" and lists only drops.
 - **Why:** `WorkGoal.walkTo` plans only within 28 blocks (budget `climbBudget`), and Route's land plan is overworld-minded.
 - **What's needed:** a long-range Nether planner that plans mixed routes over 100-300 blocks:

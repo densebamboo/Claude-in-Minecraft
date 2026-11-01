@@ -2453,6 +2453,8 @@ public class WorkGoal extends Goal {
         if (!i.isAlive()) return "gone";
         if (g.isGift(i)) return "given up on (no way to it), or theirs";
         if (com.claudemod.entity.life.OwnEvents.waiting(g, i)) return "his own, behind his wall: recover_left goes back for it";
+        if (!g.inventory.hasRoomFor(i.getItem()) && (isOreDrop(i.getItem()) || i.getItem().is(net.minecraft.world.item.Items.ENDER_PEARL) || i.getItem().is(net.minecraft.world.item.Items.BLAZE_ROD) || i.getItem().is(net.minecraft.world.item.Items.ENDER_EYE) || i.getItem().is(net.minecraft.world.item.Items.OBSIDIAN)))
+            com.claudemod.director.ClaudeLife.makeRoom(g); // ponytail: live 14:07, 3 pearls on his death pile skipped for a pack full of netherrack and spare kit; a player tosses junk for what he came for
         if (!g.inventory.hasRoomFor(i.getItem())) return "no room for it in his pack";
         BlockPos ip = i.blockPosition();
         if (g.level().getBlockState(ip).isCollisionShapeFullBlock(g.level(), ip)) return "inside a block";

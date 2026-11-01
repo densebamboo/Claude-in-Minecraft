@@ -4979,7 +4979,7 @@ public final class ClaudeLife {
         }
         { BlockPos work = null; java.util.List<Task> ahead = new java.util.ArrayList<>(); if (g.currentTask != null) ahead.add(g.currentTask); ahead.addAll(g.tasks); // a toss goes away from his work, like a player's: thrown at his feet, he walked back over it and his body took it all back up (live 11:10: the same 6 stacks thrown every 5 s)
           for (Task t : ahead) { if (t instanceof Task.Break b) work = b.pos(); else if (t instanceof Task.GoTo w) work = w.pos(); else if (t instanceof Task.Place pl) work = pl.pos(); if (work != null) break; }
-          if (work != null) { double dx = g.getX() - (work.getX() + 0.5), dz = g.getZ() - (work.getZ() + 0.5); if (dx * dx + dz * dz > 0.01) { g.setYRot((float) Math.toDegrees(Math.atan2(dz, dx)) - 90f); g.setXRot(-25f); ClaudeMod.LOGGER.info("[Claude life] junk thrown away from his work at {} (ClaudeLife.dumpJunk)", work.toShortString()); } } }
+          if (work != null && inv.items.stream().anyMatch(s0 -> !s0.isEmpty() && junkItem(s0))) { double dx = g.getX() - (work.getX() + 0.5), dz = g.getZ() - (work.getZ() + 0.5); if (dx * dx + dz * dz > 0.01) { g.setYRot((float) Math.toDegrees(Math.atan2(dz, dx)) - 90f); g.setXRot(-25f); ClaudeMod.LOGGER.info("[Claude life] junk thrown away from his work at {} (ClaudeLife.dumpJunk)", work.toShortString()); } } }
         java.util.Set<Item> junk = JUNK;
         java.util.Map<Item, Integer> kept = new java.util.HashMap<>();
         int n = 0;
@@ -5008,7 +5008,7 @@ public final class ClaudeLife {
                 int score = (it instanceof net.minecraft.world.item.BlockItem ? 0 : 1000) + st.getCount(); // spare blocks first, the smallest stack first
                 if (score < pickScore) { pickScore = score; pick = i; }
             }
-            if (pick >= 0 && inv.getFreeSlot() < 0) { var st = inv.items.get(pick); ClaudeMod.LOGGER.info("[Claude life] pack full and nothing junk in it: dropping the {} {} to make room", st.getCount(), Crafting.name(st.getItem())); var e = g.drop(st.copy(), false, true); if (e != null) g.markGift(e); inv.items.set(pick, ItemStack.EMPTY); } // (a bed couldn't be made for want of a slot for its table, three plans running)
+            if (pick >= 0 && inv.getFreeSlot() < 0) { var st = inv.items.get(pick); ClaudeMod.LOGGER.info("[Claude life] pack full and nothing junk in it: dropping the {} {} to make room", st.getCount(), Crafting.name(st.getItem())); var e = g.drop(st.copy(), false, true); if (e != null) { g.markGift(e); e.setPickUpDelay(6000); } inv.items.set(pick, ItemStack.EMPTY); } // (6000: till it despawns; the 2 s default let his own touch take it back while he stood there, so the 1 lily pad went out every 5 s, 01:32) // (a bed couldn't be made for want of a slot for its table, three plans running)
         }
     }
 

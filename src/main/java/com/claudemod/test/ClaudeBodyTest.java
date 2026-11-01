@@ -10201,7 +10201,7 @@ public final class ClaudeBodyTest {
                 }
                 if (wdTold >= 1) {
                     String said = com.claudemod.entity.life.Watchdog.lastTold(c);
-                    check(said.startsWith("stuck: ") && said.contains("no nearer") && said.contains("tried"), "walk: the line to them doesn't say what failed and what's next: \"" + said + "\"");
+                    check(said.startsWith("stuck: ") && (said.contains("no nearer") || said.contains(" times in ")) && said.contains("tried") && (said.contains("trying another way") || said.contains("moving on")), "walk: the line to them doesn't say what failed and what's next: \"" + said + "\""); // (either watchdog path may speak first: the no-progress clock's "no nearer ... tried ..., trying another way", or since the diagonal steps (79f2651) the repeat detector's "N times in M s; tried ... moving on to something else"; both say what failed, what was tried and what's next)
                     int at = t[0]; wdEnd(c); pass(stage, t, "the same walk picked " + wdRuns + " times: told once in " + (at - 10) / 20 + " s: \"" + said + "\"");
                 } else if (t[0] == 20 * 200) check(false, "walk: never nearer for 200 s, picked " + wdRuns + " times, and them never told (stuck level " + c.stuckLevel + ", strikes " + c.failCount + ")");
             }

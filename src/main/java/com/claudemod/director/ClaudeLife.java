@@ -2755,7 +2755,14 @@ public final class ClaudeLife {
                 int dx = (int) (Math.cos(a) * 45), dz = (int) (Math.sin(a) * 45);
                 int x = g.getBlockX() + dx, z = g.getBlockZ() + dz;
                 if (level.dimensionType().hasCeiling()) { // the Nether: every column's top is the bedrock roof (live 16:26: GoTo 49, 128, 37 on top of it, a minute of steps cut up toward it): ground at his own height, never above y 110
-                    BlockPos nd = com.claudemod.entity.life.FortressScout.exploreSpot(g, level, a);
+                    BlockPos nd = null;
+                    if (level.getBiome(g.blockPosition()).is(net.minecraft.world.level.biome.Biomes.WARPED_FOREST)) { // a sweep of the forest: each leg ~20 out toward the ground he's walked least, staying in it
+                        a = g.exploreAngle = com.claudemod.entity.life.Atlas.freshHeading(g, level, g.exploreAngle);
+                        nd = com.claudemod.entity.life.FortressScout.alongRay(g, level, a, 20);
+                        if (nd != null && !level.getBiome(nd).is(net.minecraft.world.level.biome.Biomes.WARPED_FOREST)) nd = null;
+                        if (nd != null) ClaudeMod.LOGGER.info("[Claude skill] explore: sweeping the warped forest, {} cells walked, the least-walked way is {} deg, to {} (ClaudeLife explore)", com.claudemod.entity.life.Atlas.covered(g, level), (int) Math.toDegrees(a), nd.toShortString());
+                    }
+                    if (nd == null) nd = com.claudemod.entity.life.FortressScout.exploreSpot(g, level, a);
                     if (nd == null) { ClaudeMod.LOGGER.info("[Claude skill] explore in {}: no ground in sight to walk to from {} any way (ClaudeLife explore)", level.dimension().location().getPath(), g.blockPosition().toShortString()); return "failed: no ground to walk to from here any way (lava too wide or rock all round): bridge or tunnel first"; }
                     g.exploreAngle = Math.atan2(nd.getZ() - g.getZ(), nd.getX() - g.getX());
                     ClaudeMod.LOGGER.info("[Claude skill] explore in {}: ground at {}, {} blocks off at about his height (y {}), never the roof (the heightmap there reads {}) (ClaudeLife explore)", level.dimension().location().getPath(), nd.toShortString(), (int) Math.sqrt(nd.distSqr(g.blockPosition())), g.getBlockY(), level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, nd.getX(), nd.getZ()));

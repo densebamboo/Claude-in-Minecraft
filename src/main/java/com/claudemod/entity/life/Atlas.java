@@ -119,8 +119,14 @@ public final class Atlas {
     public static double freshHeading(ClaudeEntity g, ServerLevel l, double now) {
         Set<Long> cov = book(g).covered.getOrDefault(dim(l), Set.of());
         double best = now; int bc = Integer.MAX_VALUE; double bTurn = Double.MAX_VALUE;
+        boolean sweep = l.dimensionType().hasCeiling() && l.getBiome(g.blockPosition()).is(net.minecraft.world.level.biome.Biomes.WARPED_FOREST); // ponytail: the user 14:15, "mapping out the warped biome and covering as much ground as possible" on the pearl hunt; a flag here, not a new method, for the live hotswap
         for (int k = 0; k < 16; k++) {
             double a = k * Math.PI / 8; int n = 0;
+            if (sweep) { // a warped forest hunt: near ground, and only ways that stay in the forest
+                BlockPos at = FortressScout.alongRay(g, l, a, 20);
+                if (at == null || !l.getBiome(at).is(net.minecraft.world.level.biome.Biomes.WARPED_FOREST)) n += 100;
+                for (int r = 16; r <= 64; r += 8) if (cov.contains(cell(g.getBlockX() + (int) (Math.cos(a) * r), g.getBlockZ() + (int) (Math.sin(a) * r)))) n++;
+            } else
             for (int r = 48; r <= 160; r += 16) if (cov.contains(cell(g.getBlockX() + (int) (Math.cos(a) * r), g.getBlockZ() + (int) (Math.sin(a) * r)))) n++;
             double turn = Math.abs(Math.atan2(Math.sin(a - now), Math.cos(a - now)));
             if (n < bc || n == bc && turn < bTurn) { bc = n; best = a; bTurn = turn; }

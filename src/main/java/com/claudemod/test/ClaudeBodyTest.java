@@ -10355,6 +10355,7 @@ public final class ClaudeBodyTest {
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
             case 494: return st494(stage, t, c, h, level, mock);
+            case 529: return st529(stage, t, c, h, level, mock);
             case 528: return st528(stage, t, c, h, level, mock);
             case 527: return st527(stage, t, c, h, level, mock);
             case 526: return st526(stage, t, c, h, level, mock);
@@ -10505,6 +10506,18 @@ public final class ClaudeBodyTest {
             for (int x = 0; x < 16; x++) for (int z = 0; z <= 9; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, 2, z)), Blocks.AIR.defaultBlockState(), 2); }
             pass(stage, t, "along the shore in " + (t[0] - 10) + " ticks, never in it, low " + hzLow); }
         else if (t[0] == 400) { check(false, "shore: not there in 20 s (at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ", in lava " + hzFlag + ")"); }
+        return true;
+    }
+    private static boolean st529(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a vantage 15 up a netherrack cliff, 12 across (World 15 21:00: "no way to 24, 84, 19 from 4, 69, 19 (MAY_DIG; blocks on him: 64)", 300 slow-walk lines): up there, by steps cut or blocks put down
+        BlockPos me = h.absolutePos(new BlockPos(2, 2, 8)), top = h.absolutePos(new BlockPos(13, 17, 8));
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.tasks.clear(); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); clT = -1;
+            for (int x = 6; x < 16; x++) for (int z = 0; z < 16; z++) for (int y = 2; y <= 22; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y <= 16 ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); // (the cliff: 15 up, sheer, netherrack)
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+        if (t[0] == 10) c.tasks.add(new Task.GoTo(top, 1.0));
+        if (t[0] > 10 && clT < 0 && c.getBlockY() >= top.getY() && c.blockPosition().distSqr(top) <= 9) clT = t[0];
+        if (clT > 0) { for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) for (int y = 2; y <= 22; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2);
+            pass(stage, t, "15 up the netherrack in " + (clT - 10) + " ticks"); }
+        else if (t[0] == 10 + 1200) check(false, "climb: not up the 15 in 60 s (at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ", queue " + c.tasks.size() + ")");
         return true;
     }
     private static BlockPos dkStep;

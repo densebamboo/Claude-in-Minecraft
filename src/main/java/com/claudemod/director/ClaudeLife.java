@@ -409,7 +409,7 @@ public final class ClaudeLife {
             if (stashLeft) { g.skillQueue.addFirst(new Skills.Step("retrieve_stash", "", 1)); ClaudeMod.LOGGER.info("[Claude life] in iron now: going for the stash he had to leave behind"); }
         }
         if (g.tickCount % 200 == 3) logWhere(g, player, dist); // where he is and what he's up to, every 10s (for reading the log)
-        if (g.tickCount % 100 == 47 && g.level() instanceof ServerLevel clockLevel) com.claudemod.entity.life.Clocks.pile(g, clockLevel); // his pile's clock kept current (the last reading is what stands once its chunk unloads)
+        if (g.tickCount % 100 == 47 && g.level() instanceof ServerLevel clockLevel) { com.claudemod.entity.life.Clocks.pile(g, clockLevel); com.claudemod.entity.life.DeathLog.tick(g, clockLevel); } // his pile's clock kept current (the last reading is what stands once its chunk unloads)
         sideJobWhileCooking(g, player);
         if (g.justRespawned || (g.recoverPending && g.tickCount % 100 == 0)) { // he died: his things are where he fell
             var death = g.getLastDeathLocation();
@@ -1150,7 +1150,10 @@ public final class ClaudeLife {
         ownDrops().values().removeIf(t -> g.tickCount - t > 20 * 60 * 6); // (despawned long ago anyway)
         if (n > 0) ClaudeMod.LOGGER.info("[Claude life] {} of his piles on the ground where he died: he knows they're his", n);
         if (n > 0) com.claudemod.entity.life.Clocks.pile(g, level); // his clock on them starts now
+        com.claudemod.entity.life.DeathLog.died(g, level, g.blockPosition(), level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, g.getBoundingBox().inflate(6), i -> i.isAlive() && i.getAge() <= 2));
     }
+    /** His last deaths as remembered ({game time, line}), newest first: seeds his death checklist. */
+    public static java.util.List<String[]> deathKitsOf(java.util.UUID id) { var q = deathKits.get(id); return q == null ? java.util.List.of() : new java.util.ArrayList<>(q); }
 
     /** His own things lying about within r blocks (alive, not something he gave away). */
     public static List<net.minecraft.world.entity.item.ItemEntity> ownDropsNear(ClaudeEntity g, ServerLevel level, double r) {
@@ -2689,11 +2692,11 @@ public final class ClaudeLife {
                 g.skillQueue.addFirst(st); // (on with it after this)
                 if (em != null) { g.tasks.add(new Task.Attack(em.getUUID(), 20 * 60)); g.tasks.add(new Task.Pickup(80)); ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: an enderman {} off in sight: after it ({}/{} pearls) (ClaudeLife ender_pearls)", (int) em.distanceTo(g), have, want); return "after the enderman " + (int) em.distanceTo(g) + " off (" + have + "/" + want + " pearls)"; }
                 boolean nether = level.dimension() == net.minecraft.world.level.Level.NETHER;
-                { var dl = g.getLastDeathLocation(); // his death pile on this side (the fortress kit: diamond pick, rods) first: frozen in its unloaded chunk, it waits for him
-                  if (nether && dl.isPresent() && dl.get().dimension() == level.dimension() && !level.isPositionEntityTicking(dl.get().pos()) && g.skillQueue.stream().noneMatch(s0 -> s0.skill().equals("recover_drops")) && !(g.attempts.any.get(dl.get().pos()) instanceof Integer t1 && g.tickCount - t1 < 20 * 600)) {
-                      g.attempts.any.put(dl.get().pos(), g.tickCount); g.skillQueue.addFirst(new Skills.Step("recover_drops", "", 1));
-                      ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: his death spot {} is on this side: the pile first (ClaudeLife ender_pearls)", dl.get().pos().toShortString());
-                      return "my things from my last death are on this side at " + dl.get().pos().toShortString() + ": getting them first"; } }
+                { var dl = com.claudemod.entity.life.DeathLog.next(g, level.dimension().location().getPath()); // his death pile on this side (the fortress kit: diamond pick, rods) first: frozen in its unloaded chunk, it waits for him
+                  if (nether && dl != null && dl.dim.equals("the_nether") && !level.isPositionEntityTicking(dl.at) && g.skillQueue.stream().noneMatch(s0 -> s0.skill().equals("recover_drops")) && !(g.attempts.any.get(dl.at) instanceof Integer t1 && g.tickCount - t1 < 20 * 600)) {
+                      g.attempts.any.put(dl.at, g.tickCount); g.skillQueue.addFirst(new Skills.Step("recover_drops", "", 1));
+                      ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: his pending death pile {} is on this side: the pile first (ClaudeLife ender_pearls)", dl.at.toShortString());
+                      return "my things from dying here are on this side at " + dl.at.toShortString() + ": getting them first"; } }
                 String here = level.getBiome(g.blockPosition()).unwrapKey().map(k -> k.location().getPath()).orElse("");
                 if (nether && !here.equals("warped_forest")) { g.skillQueue.addFirst(new Skills.Step("explore", "warped_forest", 1)); return "no enderman in sight: to a warped forest, where they are (" + have + "/" + want + " pearls)"; }
                 g.skillQueue.addFirst(new Skills.Step("explore", "", 1)); // (through the forest, or the overworld at night: walking on, looking)
@@ -3738,8 +3741,15 @@ public final class ClaudeLife {
             case "recover_left": return com.claudemod.entity.life.OwnEvents.recover(g, level, st, target); // what he left behind himself (a drop the sweep had "no way to"): back for it, dug out like a player (03:32: "you didnt grab all your diamonds")
             case "recover_drops": {
                 // His own things, after he died: go where he fell, pick it all up, and KEEP it.
-                var death = g.getLastDeathLocation();
-                BlockPos spot0 = death.isPresent() && death.get().dimension() == level.dimension() ? death.get().pos() : g.blockPosition();
+                // his death checklist, not the game's last-death spot: a second death in the other dimension made him forget the fortress pile (11:53 "my drops are on this side")
+                String dimHere = level.dimension().location().getPath();
+                var dn = com.claudemod.entity.life.DeathLog.next(g, dimHere);
+                if (dn != null && !dn.dim.equals(dimHere)) {
+                    g.skillQueue.addFirst(new Skills.Step("recover_drops", "", 1)); g.skillQueue.addFirst(new Skills.Step("enter_portal", "", 1));
+                    ClaudeMod.LOGGER.info("[Claude life] recover_drops: his pending pile is in {} at {}: through his portal for it (ClaudeLife recover_drops)", dn.dim, dn.at.toShortString());
+                    return "my things from dying in the " + dn.dim.replace('_', ' ') + " are still at " + dn.at.toShortString() + ": through my portal for them"; }
+                java.util.Optional<BlockPos> death = java.util.Optional.ofNullable(dn == null ? null : dn.at);
+                BlockPos spot0 = death.orElse(g.blockPosition());
                 // died twice: the last spot may hold only junk while the iron lies where he died before (the second death made him forget a pile with 21 raw iron): the nearest pile of his that's iron or better is the spot
                 boolean ironHere = false;
                 for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(spot0).inflate(12))) {
@@ -3759,11 +3769,12 @@ public final class ClaudeLife {
                 var around = new net.minecraft.world.phys.AABB(spot).inflate(12);
                 var drops = new ArrayList<>(level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, around, i -> i.isAlive() && !g.isGift(i)));
                 if (drops.isEmpty()) drops = new ArrayList<>(ownDropsNear(g, level, 64));
-                if (drops.isEmpty() && death.isPresent() && spot.equals(death.get().pos()) && g.blockPosition().distSqr(spot) > 48 * 48 && !level.isPositionEntityTicking(spot)) { /* (a ticking chunk with nothing in it: the pile is gone) */ // far off, its chunk unloaded: the pile can't be seen from here, so go and look (the fortress pile read "nothing left" from 300 off)
+                if (drops.isEmpty() && death.isPresent() && spot.equals(death.get()) && g.blockPosition().distSqr(spot) > 48 * 48 && !level.isPositionEntityTicking(spot)) { /* (a ticking chunk with nothing in it: the pile is gone) */ // far off, its chunk unloaded: the pile can't be seen from here, so go and look (the fortress pile read "nothing left" from 300 off)
                     g.tasks.add(new Task.GoTo(spot.immutable(), 6)); g.skillQueue.addFirst(new Skills.Step("recover_drops", "", 1));
                     ClaudeMod.LOGGER.info("[Claude life] recover_drops: his death spot {} is {} off, out of sight: walking there to look (ClaudeLife recover_drops)", spot.toShortString(), (int) Math.sqrt(g.blockPosition().distSqr(spot)));
                     return "walking to where I died at " + spot.toShortString() + " to look for my things"; } // drifted off in the water, or lying a way from where he fell: still his
                 if (drops.isEmpty() && g.playerGoal != null && g.playerGoal.toLowerCase().matches("(?s).*(recover|gear back|drops|death spot|old gear).*")) g.playerGoal = ""; // the drops are gone: so is that goal (it outlived every restart, "back. still on it: recover_drops" and the same question asked four times)
+                if (drops.isEmpty() && dn != null && level.isPositionEntityTicking(dn.at)) com.claudemod.entity.life.DeathLog.abandon(g, dn, "looked: nothing left there");
                 if (drops.isEmpty()) return "done: nothing of yours left on the ground" + (death.isPresent() ? " where you died" : "");
                 // the user's rule: if it wasn't iron or better, it's not worth picking up (a stone-age pile 40 blocks down a cave had him circling the cave mouth for ten minutes, then dead in it)
                 boolean ironUp = drops.stream().anyMatch(d -> { String id = BuiltInRegistries.ITEM.getKey(d.getItem().getItem()).getPath();
@@ -6269,7 +6280,7 @@ public final class ClaudeLife {
         deathKiller.put(g.getUUID(), who + (g.getArmorValue() >= 10 && armed ? "" : " (ungeared: armor " + g.getArmorValue() + (armed ? "" : ", no proper weapon") + ")"));
     }
     /** The stages' reset: no deaths, no repairs on record. */
-    public static void deathTestReset(ClaudeEntity g) { deathKits.remove(g.getUUID()); deathSpots(g).clear(); mineDeaths(g).clear(); if (deathKiller != null) deathKiller.remove(g.getUUID()); }
+    public static void deathTestReset(ClaudeEntity g) { com.claudemod.entity.life.DeathLog.reset(g); deathKits.remove(g.getUUID()); deathSpots(g).clear(); mineDeaths(g).clear(); if (deathKiller != null) deathKiller.remove(g.getUUID()); }
     public static java.util.List<String> lessonsOf(ClaudeEntity g) { return lessons(g); }
 
     private static MineBlueprint bpOf(ClaudeEntity g) { return bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() ? g.blueprint : null; }

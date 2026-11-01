@@ -141,6 +141,7 @@ public final class Clocks {
             n++; sb.append("  your ").append(BuiltInRegistries.BLOCK.getKey(level.getBlockState(f).getBlock()).getPath()).append(" at ").append(f.toShortString()).append(": ").append(one).append(".\n");
         }
         int awake = g.getStats().getValue(net.minecraft.stats.Stats.CUSTOM.get(net.minecraft.stats.Stats.TIME_SINCE_REST));
+        sb.append(DeathLog.describe(g, level)); // (planner and chat both read this block)
         if (awake >= 24000) sb.append("  awake ").append(String.format("%.1f", awake / 24000.0)).append(" days since you last slept (phantoms come from 3).\n"); // ponytail: crops/saplings growth not on the clocks yet
         return sb.toString();
     }

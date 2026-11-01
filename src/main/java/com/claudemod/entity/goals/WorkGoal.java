@@ -896,7 +896,8 @@ public class WorkGoal extends Goal {
         if (com.claudemod.entity.body.Controls.refusedLately(g, 10) && routeReaches) { routeReaches = false; com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] his body refused the path's step on the walk to {} (2+ up, or lava): the path doesn't really reach, the walk's own plan takes it (WorkGoal.walkTo)", pos.toShortString()); } // (live 2026-11-01, 3 times: the probe's path 2 up by a fortress, he stood till the 20 s give-up; 03:53 a vanilla path over a lava drop ActionPath had turned down)
         boolean deepWater = g.isInWater() && !com.claudemod.entity.body.Controls.wading(g);
         if ((ticks == 2 && !routeReaches || stuck == 20 || stuck > 20 && stuck % 200 == 20) && d >= 2 && d <= 28 && !walkNoDig && !routeReaches && !deepWater && !(inHole() && g.isInWater()) // (a dry hole: planned like any walk, MAY_DIG; a flooded one stays the cutter's)
-                && g.tickCount - plannedAt().getOrDefault(pos.immutable(), -100000) > 60) { // (3 s between plans for one spot: a loop guard, not a wait)
+                && g.tickCount - plannedAt().getOrDefault(pos.immutable(), -100000) > 60 // (3 s between plans for one spot: a loop guard, not a wait)
+                && (g.onGround() || g.isInWater() || g.onClimbable() || airborneSaid(pos))) { // (in the air: planned once he's landed; a plan from mid-air started its leap from a cell he wasn't standing on, live 10:36, 5 min of bobbing)
             plannedAt().put(pos.immutable(), g.tickCount); if (plannedAt().size() > 64) plannedAt().clear();
             long t0 = System.nanoTime();
             var mode = mayDig(pos) ? com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG : com.claudemod.entity.nav.ActionPath.Mode.NO_DIG;
@@ -4870,6 +4871,9 @@ public class WorkGoal extends Goal {
     // ---- fortress fights from cover (FortressFight; patch_blaze_loot.py) ----
     private String cfMode = ""; private int cfPeekTick = -100, cfHopTick = -100, cfIdle; private boolean cfHealing; private java.util.UUID cfTarget;
     private int cfEmptyPeeks; // steps out to draw a lit blaze's shots that drew none
+    private int airborneTick = -100;
+    /** In the air with a walk to plan: said once a second, never planned from there (false: wait to land). */
+    private boolean airborneSaid(BlockPos pos) { if (g.tickCount - airborneTick >= 20) { airborneTick = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] in the air at {} with the walk to {} to plan: planned once he's landed, never from a cell he isn't standing on (WorkGoal.walkTo)", String.format("%.1f %.1f %.1f", g.getX(), g.getY(), g.getZ()), pos.toShortString()); } return false; }
     /**
      * Hurt in a blaze fight with no cover by him (World 15 10:09: "in the open: the ordinary fight" four times at 6 health, on fire, dead a minute on):
      * a blaze only shoots what it sees, so the nearest cell he can walk to (16 at most) (24 steps at most) that no blaze within 24 sees, then food, then the fight

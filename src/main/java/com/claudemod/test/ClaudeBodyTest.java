@@ -10818,34 +10818,34 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static int feT = -1, feBricks = -1;
-    /** Stage 545's rock (the Nether, about 9000, 70, 9000): netherrack, a fortress corridor in it along x 30..70 (floor 69, walls z = +-3, roof 74), open at its west end into a cave, shut at its east end; his pocket 15 south of its side. */
+    /** Stage 545's rock (the Nether, about 9000, 70, 9000): netherrack, a fortress corridor in it along x 30..110 (floor 69, walls z = +-3, roof 74), open at its west end into a cave, shut at its east end; his pocket 15 south of its side. */
     private static net.minecraft.world.level.block.state.BlockState feBlock(int x, int y, int z) {
-        if (Math.abs(z) == 20 || x == -10 || x == 80 || y == 85 || y == 60) return Blocks.BEDROCK.defaultBlockState();
-        boolean corridorX = x >= 30 && x <= 70;
+        if (Math.abs(z) == 20 || x == -10 || x == 125 || y == 85 || y == 60) return Blocks.BEDROCK.defaultBlockState();
+        boolean corridorX = x >= 30 && x <= 110;
         if (corridorX && Math.abs(z) <= 3 && y >= 69 && y <= 74) { boolean inside = Math.abs(z) <= 2 && y >= 70 && y <= 73; return inside ? Blocks.AIR.defaultBlockState() : Blocks.NETHER_BRICKS.defaultBlockState(); }
-        if (x == 71 && Math.abs(z) <= 3 && y >= 69 && y <= 74) return Blocks.NETHER_BRICKS.defaultBlockState(); // (its east end, shut)
+        if (x == 111 && Math.abs(z) <= 3 && y >= 69 && y <= 74) return Blocks.NETHER_BRICKS.defaultBlockState(); // (its east end, shut)
         if (x >= 24 && x <= 29 && Math.abs(z) <= 4 && y >= 70 && y <= 73) return Blocks.AIR.defaultBlockState(); // the cave at its open end
         if (x >= 24 && x <= 29 && Math.abs(z) <= 4 && y == 69) return Blocks.NETHERRACK.defaultBlockState();
-        if (x >= 40 && x <= 41 && z >= 14 && z <= 15 && y >= 70 && y <= 71) return Blocks.AIR.defaultBlockState(); // his pocket
+        if (x >= 100 && x <= 101 && z >= 14 && z <= 15 && y >= 70 && y <= 71) return Blocks.AIR.defaultBlockState(); // his pocket, 70 from the open end: one brick through the side is the quicker way, the end the user's
         return Blocks.NETHERRACK.defaultBlockState();
     }
-    private static int feCount(ServerLevel n, int ox, int oz) { int k = 0; for (int x = 29; x <= 72; x++) for (int z = -4; z <= 4; z++) for (int y = 68; y <= 75; y++) if (n.getBlockState(new BlockPos(ox + x, y, oz + z)).is(Blocks.NETHER_BRICKS)) k++; return k; }
-    private static boolean st545(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // into a fortress by its open end (the user, 2026-11-01: "his tunnels to and from the nether fortress should connect to the open ends of the fortress bridges"): a corridor buried in netherrack, him 15 south of its side; there with not one of its bricks broken
+    private static int feCount(ServerLevel n, int ox, int oz) { int k = 0; for (int x = 29; x <= 112; x++) for (int z = -4; z <= 4; z++) for (int y = 68; y <= 75; y++) if (n.getBlockState(new BlockPos(ox + x, y, oz + z)).is(Blocks.NETHER_BRICKS)) k++; return k; }
+    private static boolean st545(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // into a fortress by its open end, 70 off, though one brick through its side is the quicker way (the user, 2026-11-01: "his tunnels to and from the nether fortress should connect to the open ends of the fortress bridges"): a corridor buried in netherrack, him 15 south of its side; there with not one of its bricks broken
         ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
-        final int ox = 9000, oz = 9000; BlockPos me = new BlockPos(ox + 40, 70, oz + 14), deck = new BlockPos(ox + 60, 70, oz);
+        final int ox = 9000, oz = 9000; BlockPos me = new BlockPos(ox + 100, 70, oz + 14), deck = new BlockPos(ox + 105, 70, oz);
         if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); feT = -1; feBricks = -1; c.nextPlanTick = c.tickCount + 20 * 900; c.prefs.put("stay_close", "no");
             c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
             com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(nether, me.getX() + 0.5, 100, me.getZ() + 0.5, 0, 0); c.setNoGravity(true); }
-        if (t[0] >= 10 && t[0] < 10 + 91) { int x = t[0] - 10 - 10; for (int z = -20; z <= 20; z++) for (int y = 60; y <= 85; y++) nether.setBlock(new BlockPos(ox + x, y, oz + z), feBlock(x, y, z), 2 | 16); }
-        if (t[0] == 110) { c.setNoGravity(false); c.teleportTo(nether, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.fallDistance = 0; c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); feBricks = feCount(nether, ox, oz); }
-        if (t[0] > 110) for (var m : nether.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(ox - 20, 0, oz - 30, ox + 90, 128, oz + 30))) m.discard();
-        if (t[0] == 120) c.tasks.add(new Task.GoTo(deck, 1.5));
-        if (t[0] > 120 && feT < 0 && c.onGround() && c.blockPosition().distSqr(deck) <= 3 * 3) feT = t[0];
-        if (feT > 0 || t[0] == 120 + 20 * 120) {
+        if (t[0] >= 10 && t[0] < 10 + 136) { int x = t[0] - 10 - 10; for (int z = -20; z <= 20; z++) for (int y = 60; y <= 85; y++) nether.setBlock(new BlockPos(ox + x, y, oz + z), feBlock(x, y, z), 2 | 16); }
+        if (t[0] == 150) { c.setNoGravity(false); c.teleportTo(nether, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.fallDistance = 0; c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); feBricks = feCount(nether, ox, oz); }
+        if (t[0] > 150) for (var m : nether.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(ox - 20, 0, oz - 30, ox + 135, 128, oz + 30))) m.discard();
+        if (t[0] == 160) c.tasks.add(new Task.GoTo(deck, 1.5));
+        if (t[0] > 160 && feT < 0 && c.onGround() && c.blockPosition().distSqr(deck) <= 3 * 3) feT = t[0];
+        if (feT > 0 || t[0] == 160 + 20 * 180) {
             int now = feCount(nether, ox, oz);
-            check(feT > 0, "fortress end: not at the deck in 120 s (at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ")");
+            check(feT > 0, "fortress end: not at the deck in 180 s (at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ")");
             check(now == feBricks, "fortress end: " + (feBricks - now) + " of its bricks broken (in through its side, not its open end)");
-            String how = "in by the open end, at the deck in " + (feT - 120) / 20 + " s, " + feBricks + " bricks all standing";
+            String how = "in by the open end, at the deck in " + (feT - 160) / 20 + " s, " + feBricks + " bricks all standing";
             c.tasks.clear(); c.dropCurrent = true; c.getInventory().clearContent();
             com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0);
             pass(stage, t, how);

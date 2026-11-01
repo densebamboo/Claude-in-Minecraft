@@ -49,6 +49,7 @@ public final class FortressEnds {
         }
         for (BlockPos f : seen.keySet()) for (Direction d : Direction.Plane.HORIZONTAL) {
             BlockPos n = f.relative(d); if (seen.containsKey(n) || seen.containsKey(n.above()) || seen.containsKey(n.below())) continue; // (the deck goes on that way)
+            if (ActionPath.structureBlock(level, n) || ActionPath.structureBlock(level, n.above())) continue; // (its own wall there: a shut end, not an open one; natural rock or air beyond is open, a tunnel joins it)
             int behind = 0; for (int k = 1; k <= 8 && seen.containsKey(f.relative(d.getOpposite(), k)); k++) behind++;
             if (behind < 6) continue;
             Direction across = d.getClockWise(); int w = 1;

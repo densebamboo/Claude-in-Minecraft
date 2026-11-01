@@ -133,6 +133,7 @@ public final class FortressFight {
      * he waits in the corner, steps out to draw or strike, steps back in before the volley. Walls on more sides (a doorway's
      * jamb, a corner) and 4-12 off the spawner are better; the nearest of those he can walk to.
      */
+    private static long noCoverLogged;
     static Cover pickBlaze(ClaudeEntity g, ServerLevel level, LivingEntity foe) {
         BlockPos spawner = blazeSpawner(g, level, 20);
         List<Vec3> eyes = new ArrayList<>(); List<Blaze> bl = blazesNear(g, level, g.blockPosition(), 24); if (foe instanceof Blaze b0 && !bl.contains(b0)) bl.add(b0);
@@ -163,7 +164,7 @@ public final class FortressFight {
             return new Cover(k.c(), k.peek(), spawner != null ? spawner : foe.blockPosition(), "blaze",
                     shape + " at " + k.c().toShortString() + " out of sight of " + bl.size() + " blaze(s)" + (spawner != null ? " and the spawner at " + spawner.toShortString() : "") + ", stepping out to " + k.peek().toShortString() + " (" + (int) k.da() + " off, " + cands.size() + " spots looked at)", g.tickCount);
         }
-        ClaudeMod.LOGGER.info("[Claude fight] no cover from the blazes within 10 ({} spots out of sight, none walkable or with a step that sees them) (FortressFight.pickBlaze)", cands.size());
+        if (level.getGameTime() - noCoverLogged >= 100) { noCoverLogged = level.getGameTime(); ClaudeMod.LOGGER.info("[Claude fight] no cover from the blazes within 10 ({} spots out of sight, none walkable or with a step that sees them) (FortressFight.pickBlaze)", cands.size()); } // ponytail: once per 5 s, one shared clock (it is asked every tick, 20 lines a second live)
         return null;
     }
 

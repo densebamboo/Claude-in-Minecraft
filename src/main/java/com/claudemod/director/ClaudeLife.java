@@ -12361,6 +12361,7 @@ public final class ClaudeLife {
         // cooked first; raw meat once he's properly hungry (a player doesn't starve waiting for a furnace); the bad stuff only when starving
         boolean hungry = starving || g.getFoodData().getFoodLevel() <= 10 || g.getHealth() < 10 || (g.getHealth() <= 14 && g.getFoodData().getFoodLevel() < 18); // (12 health with 9 raw cod on him hovered at hunger 8-10 for 15 minutes: no regen ever) // (hurt: raw is fine now, health only comes back on a full stomach; half a heart sat 2 minutes beside raw salmon waiting for a furnace)
         boolean desperate = fallback == Items.CHICKEN ? starving || g.getHealth() < 8 : starving && g.getFoodData().getFoodLevel() <= 6 || g.getHealth() < 8; // (raw chicken only risks Hunger: "starving" will do; poison and rotten flesh only at hunger 6 or less) // (the bad stuff only when really starving: 16:08 a spider eye at hunger 7, full health, from a caller passing "true") // at a few hearts with nothing better, rotten flesh is food (health only comes back on a full stomach)
+        if (best == null && raw == null && (fallback == Items.ROTTEN_FLESH || fallback == Items.CHICKEN) && g.getHealth() < g.getMaxHealth() && g.getFoodData().getFoodLevel() < 18) desperate = true; // hurt with nothing else: below hunger 18 no health ever comes back, and their Hunger effect only nibbles at it (live 12:08-12:11: 9 health, hunger 17, 12 rotten flesh, "healing" 3 min beside 5 blazes)
         return best != null ? best : hungry && raw != null ? raw : desperate ? fallback : null;
     }
 

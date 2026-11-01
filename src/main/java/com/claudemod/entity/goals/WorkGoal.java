@@ -627,6 +627,9 @@ public class WorkGoal extends Goal {
         return true;
     }
 
+    /** The search's budget for a walk: 3000, and 400 more a block of climb past 4 (a 23-up climb out of a lava-sea ledge ran out at 3000 on the cheaper ways round: "no way at all", World 15 22:38). */
+    private static int climbBudget(BlockPos from, BlockPos to) { return 3000 + 400 * Math.max(0, to.getY() - from.getY() - 4); }
+
     private boolean walkTo(BlockPos pos, double within) {
         Integer failedAt = g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK).get(pos);
         if (failedAt != null && g.tickCount - failedAt < 20 * 60) { // couldn't get there a moment ago: don't burn another 8s
@@ -872,8 +875,8 @@ public class WorkGoal extends Goal {
             ItemStack scaff = scaffoldBlock();
             boolean dirtOnHim = !scaff.isEmpty() && (scaff.is(net.minecraft.world.item.Items.DIRT) || scaff.is(net.minecraft.world.item.Items.GRASS_BLOCK) || scaff.is(net.minecraft.world.item.Items.COARSE_DIRT) || scaff.is(net.minecraft.world.item.Items.ROOTED_DIRT));
             boolean outside = g.level().canSeeSky(feetCell.above()) && !com.claudemod.director.ClaudeLife.inHisMine(g, feetCell);
-            var plan = outside && !scaff.isEmpty() && !dirtOnHim ? com.claudemod.entity.nav.ActionPath.plan(g, (ServerLevel) g.level(), feetCell, pos, Math.max(within, 1.0), false, 3000, mode, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount) : null; // (the user: out in the world only dirt is put down and left; with none on him, a way without placing first)
-            if (plan == null) plan = com.claudemod.entity.nav.ActionPath.plan(g, (ServerLevel) g.level(), feetCell, pos, Math.max(within, 1.0), !scaff.isEmpty(), 3000, mode, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount);
+            var plan = outside && !scaff.isEmpty() && !dirtOnHim ? com.claudemod.entity.nav.ActionPath.plan(g, (ServerLevel) g.level(), feetCell, pos, Math.max(within, 1.0), false, climbBudget(feetCell, pos), mode, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount) : null; // (the user: out in the world only dirt is put down and left; with none on him, a way without placing first)
+            if (plan == null) plan = com.claudemod.entity.nav.ActionPath.plan(g, (ServerLevel) g.level(), feetCell, pos, Math.max(within, 1.0), !scaff.isEmpty(), climbBudget(feetCell, pos), mode, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount);
             java.util.List<BlockPos> nookCuts = new java.util.ArrayList<>();
             if (plan == null && mode == com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG && !com.claudemod.director.ClaudeLife.allNooks(g).isEmpty() && com.claudemod.director.ClaudeLife.nookErrand(g, pos)) { // (only a walk into his nook: a walk to them or anywhere else with no way but through it stands by, said below) // no way at all with his nook's shell kept: once more, cutting it only where nothing else gets there
                 var cutPlan = com.claudemod.entity.nav.ActionPath.plan(g, (ServerLevel) g.level(), feetCell, pos, Math.max(within, 1.0), !scaff.isEmpty(), 3000, com.claudemod.entity.nav.ActionPath.Mode.MAY_CUT_NOOK, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount);

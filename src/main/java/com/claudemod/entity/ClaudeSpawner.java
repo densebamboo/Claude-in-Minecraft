@@ -80,6 +80,7 @@ public final class ClaudeSpawner {
     }
 
     /** He died: respawn in a moment (his things stay where he fell, like any player's). */
+    public static boolean pendingRespawn(ClaudeEntity c) { return dead == c; }
     static void respawnSoon(ClaudeEntity c) {
         dead = c;
         respawnAt = c.getServer() == null ? 0 : c.getServer().getTickCount() + RESPAWN_DELAY_TICKS;
@@ -127,6 +128,8 @@ public final class ClaudeSpawner {
                 for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) { BlockPos q = bed.relative(d); if (level.getBlockState(q).getCollisionShape(level, q).isEmpty() && level.getBlockState(q.above()).getCollisionShape(level, q.above()).isEmpty() && !level.getBlockState(q.below()).getCollisionShape(level, q.below()).isEmpty()) { spot = q; break; } }
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude] respawning at his bed at {}", bed.toShortString());
             } else if (respawnOf != null && !testing) { // no bed set: the world spawn, like any player (the user's rule; "near them" put him in their mine's pool 90 blocks from spawn with nothing on him)
+                if (bed != null) ClaudeMod.LOGGER.info("[Claude] his respawn point {} in {} has no bed there now ({}): the overworld's spawn (ClaudeSpawner.join)", bed.toShortString(), respawnOf.getRespawnDimension().location(), level.isLoaded(bed) ? level.getBlockState(bed).getBlock().getName().getString() : "not loaded");
+                if (level != server.overworld()) { level = server.overworld(); c.setServerLevel(level); } // (the world spawn is the overworld's, always: World 15 22:50 he came back in the Nether at 0, 83, 0)
                 BlockPos ws = level.getSharedSpawnPos();
                 spot = level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, ws);
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude] no bed: respawning at the world spawn {}", spot.toShortString());

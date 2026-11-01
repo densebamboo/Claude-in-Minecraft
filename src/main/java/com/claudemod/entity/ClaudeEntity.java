@@ -299,6 +299,7 @@ public class ClaudeEntity extends ServerPlayer {
 
     // ------------------------------------------------------------------ ticking: brain, then hands, then real player physics
 
+    private int zeroHpTicks;
     @Override
     public void tick() {
         if (isChangingDimension()) { hasChangedDimension(); com.claudemod.entity.life.PortalMap.arrived(this); com.claudemod.entity.life.ExactSpot.reset(this); /* a spot given in the other dimension means nothing here */
@@ -307,6 +308,9 @@ public class ClaudeEntity extends ServerPlayer {
                 else if (level().dimension() == net.minecraft.world.level.Level.OVERWORLD) ClaudeLife.hisPortal.put(getUUID(), blockPosition().immutable());
                 ClaudeMod.LOGGER.info("[Claude life] came out of the portal at {} in {}: noted as his way back", blockPosition().toShortString(), level().dimension().location().getPath()); } } /* a real client confirms its arrival in the new dimension at once; with no client the flag stayed set and isInvulnerableTo was true for everything (live 18:12: ghast fireballs, fire, arrows "not taken" all over the Nether) */
         com.claudemod.entity.life.PortalMap.tick(this); // (after the arrival above: the side he left is still the one he stood in last)
+        if (!level().isClientSide && getHealth() <= 0 && !ClaudeSpawner.pendingRespawn(this)) { // health 0 and no death under way: it ends in one (World 15 22:48: "health 0 ... no harm (not taken)" in lava, no death event, then the server hung)
+            if (++zeroHpTicks > 60) { zeroHpTicks = 0; ClaudeMod.LOGGER.warn("[Claude] health 0 for 3 s with no death under way at {}: dying now (ClaudeEntity.tick)", blockPosition().toShortString()); try { die(damageSources().generic()); } catch (Throwable e) { ClaudeMod.LOGGER.error("[Claude] the forced death failed: {}", e.toString()); ClaudeSpawner.respawnSoon(this); } }
+        } else zeroHpTicks = 0;
         if (getServer() != null && getServer().getTickCount() % 10 == 0) {
             connection.resetPosition();
             serverLevel().getChunkSource().move(this); // he loads the chunks around him, like any player
@@ -430,7 +434,7 @@ public class ClaudeEntity extends ServerPlayer {
     /** Dies like a player: death message, his things drop where he fell, then he respawns (see ClaudeSpawner). */
     @Override
     public void die(DamageSource source) {
-        try { com.claudemod.entity.life.Watchdog.death(this, "died to " + source.getMsgId() + (source.getEntity() == null ? "" : " (" + source.getEntity().getType().getDescription().getString() + ")") + " at " + blockPosition().toShortString()); } catch (RuntimeException e) { com.claudemod.ClaudeMod.LOGGER.warn("[Claude watchdog] death report threw", e); }
+        try { com.claudemod.entity.life.Watchdog.death(this, "died to " + source.getMsgId() + (source.getEntity() == null ? "" : " (" + source.getEntity().getType().getDescription().getString() + ")") + " at " + blockPosition().toShortString()); } catch (Throwable e) { com.claudemod.ClaudeMod.LOGGER.warn("[Claude watchdog] death report threw", e); }
         ClaudeLife.noteDeath(this, source); // what did it and how he stood, for the respawned body's reading of the spot
         ClaudeLife.lesson(this, "died to " + source.getMsgId() + (source.getEntity() == null ? "" : " (" + source.getEntity().getType().getDescription().getString() + ")")
                 + " while " + (currentTask == null ? "idle" : currentTask.getClass().getSimpleName().toLowerCase()) + (lastStep == null ? "" : " on " + lastStep.skill())

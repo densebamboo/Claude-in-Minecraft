@@ -10531,7 +10531,7 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); hzLow = 20f; emHoleSeen = false; if (hzMob != null) hzMob.discard(); hzMob = null;
             com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
         if (t[0] == 10) { var em = EntityType.ENDERMAN.create(level); BlockPos ep = h.absolutePos(new BlockPos(12, 2, 8)); em.moveTo(ep.getX() + 0.5, ep.getY(), ep.getZ() + 0.5, 90, 0); em.setPersistenceRequired(); level.addFreshEntity(em); em.setTarget(c); hzMob = em; c.tasks.add(new Task.Attack(em.getUUID(), 20 * 60)); }
-        if (t[0] > 10) { hzLow = Math.min(hzLow, c.getHealth()); if (c.getBlockY() <= me.getY() - 2) emHoleSeen = true; if (hzMob instanceof net.minecraft.world.entity.LivingEntity l0 && l0.isAlive() && l0.getTarget() != c && l0 instanceof net.minecraft.world.entity.monster.EnderMan e0) e0.setTarget(c); }
+        if (t[0] > 10) { hzLow = Math.min(hzLow, c.getHealth()); if (c.getBlockY() <= me.getY() - 2) emHoleSeen = true; if (hzMob instanceof net.minecraft.world.entity.monster.EnderMan e0 && e0.isAlive() && e0.getTarget() != c) e0.setTarget(c); }
         if (t[0] > 10 && hzMob != null && !hzMob.isAlive()) {
             if (c.getBlockY() >= me.getY() && c.currentTask == null && c.tasks.isEmpty() || t[0] > 1400) {
                 check(emHoleSeen, "enderman: never down in a hole for it");
@@ -10544,7 +10544,7 @@ public final class ClaudeBodyTest {
     }
     private static String exLine = "";
     private static boolean st526(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // explore for a biome (the user, 19:35: "find a warped forest"; the pearl stage's first step): seen, on his atlas, walked to, done there
-        BlockPos me = h.absolutePos(new BlockPos(2, 2, 8)), a = h.absolutePos(new BlockPos(10, -4, 0)), b = h.absolutePos(new BlockPos(15, 12, 15));
+        BlockPos me = h.absolutePos(new BlockPos(2, 2, 8)), a = h.absolutePos(new BlockPos(8, -4, 0)), b = h.absolutePos(new BlockPos(15, 12, 15)); // (from 8: biomes are kept in 4-block cells, so the patch edge moves with where the box sits)
         if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.tasks.clear(); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); exLine = "";
             level.getServer().getCommands().performPrefixedCommand(level.getServer().createCommandSourceStack().withSuppressedOutput().withLevel(level), "fillbiome " + a.getX() + " " + a.getY() + " " + a.getZ() + " " + b.getX() + " " + b.getY() + " " + b.getZ() + " minecraft:warped_forest");
             com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }

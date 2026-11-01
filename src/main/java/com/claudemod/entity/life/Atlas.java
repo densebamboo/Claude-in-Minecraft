@@ -62,8 +62,17 @@ public final class Atlas {
             BlockPos p = me.offset((int) Math.round(Math.cos(a) * r), 0, (int) Math.round(Math.sin(a) * r));
             if (!l.isLoaded(p)) continue;
             if (r > 0 && !inView(g, l, p)) continue;
-            note(g, l, l.getBiome(p).unwrapKey().map(x -> x.location().getPath()).orElse(""), p);
+            BlockPos st = r == 0 ? me : ground(l, p); if (st == null) continue; // (a spot he can stand on: a biome seen over a lava sea or in the rock is no place to walk to)
+            note(g, l, l.getBiome(st).unwrapKey().map(x -> x.location().getPath()).orElse(""), st);
         }
+    }
+
+    /** Standing room in that column near its height (8 up to 16 down): a sturdy top, two clear cells, no fluid. */
+    static BlockPos ground(ServerLevel l, BlockPos p) {
+        for (int dy = 8; dy >= -16; dy--) { BlockPos f = p.above(dy);
+            if (!l.getBlockState(f).getCollisionShape(l, f).isEmpty() || !l.getBlockState(f.above()).getCollisionShape(l, f.above()).isEmpty() || !l.getFluidState(f).isEmpty()) continue;
+            if (l.getBlockState(f.below()).isFaceSturdy(l, f.below(), net.minecraft.core.Direction.UP) && l.getFluidState(f.below()).isEmpty()) return f.immutable(); }
+        return null;
     }
 
     /** Open air on the line from his eyes to that spot (a wall or the rock between: not seen). */

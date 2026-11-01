@@ -4661,6 +4661,7 @@ public class WorkGoal extends Goal {
             return false;
         }
         if (d < 4 || !g.onGround()) return null; // (too close to dig in: the ordinary fight)
+        if (em.getTarget() != g && d > 16) return null; // ponytail: live 13:12, dug in for a calm one 27 off that wandered away: close in first, dig in where a look at its eyes brings it
         BlockPos b1 = f.below(), b2 = f.below(2);
         for (BlockPos q : new BlockPos[] {b1, b2}) { var s0 = level.getBlockState(q); if (s0.getCollisionShape(level, q).isEmpty() || s0.getDestroySpeed(level, q) < 0 || s0.getDestroySpeed(level, q) > 4 || s0.hasBlockEntity()) return null; for (Direction dd : Direction.values()) if (!level.getFluidState(q.relative(dd)).isEmpty()) return null; }
         if (level.getBlockState(f.below(3)).getCollisionShape(level, f.below(3)).isEmpty()) return null; // (a floor under the hole)
@@ -4680,7 +4681,7 @@ public class WorkGoal extends Goal {
             g.setSprinting(false);
             // it died: grab what it dropped (beef, leather...) before moving on, like a player would
             boolean died = e == null || (e instanceof net.minecraft.world.entity.LivingEntity l && !l.isAlive());
-            if (died && ticks > 1 && e instanceof net.minecraft.world.entity.monster.EnderMan && inEmHole()) { g.tasks.addFirst(new Task.Pillar(2)); g.tasks.addFirst(new Task.Pickup(40)); com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman's down: its pearl, then up out of the hole (WorkGoal.doAttack)"); }
+            if (ticks > 1 && inEmHole()) { g.tasks.addFirst(new Task.Pillar(2)); if (died) g.tasks.addFirst(new Task.Pickup(40)); com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman's down: its pearl, then up out of the hole (WorkGoal.doAttack)"); }
             if (died && ticks > 1 && e != null) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] killed the {} at {} (WorkGoal.doAttack)", e.getType().getDescription().getString(), e.blockPosition().toShortString()); // (every kill on his log: his chat leads with it, MindLog.recent)
             if (died && ticks > 1 && e != null) { // what it left and where it falls: 0 rods off 5 blaze kills over a fortress, 05:59, the sweep saw no drops at all
                 BlockPos fl = e.blockPosition(); int dn = 0; while (dn < 64 && level.getBlockState(fl).isAir()) { fl = fl.below(); dn++; }

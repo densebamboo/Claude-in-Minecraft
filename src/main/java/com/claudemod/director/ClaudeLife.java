@@ -12280,7 +12280,9 @@ public final class ClaudeLife {
             ItemStack s = g.inventory.items.getItem(i);
             var food = s.get(net.minecraft.core.component.DataComponents.FOOD);
             if (food == null) continue;
-            boolean bad = s.is(Items.ROTTEN_FLESH) || s.is(Items.SPIDER_EYE) || s.is(Items.POISONOUS_POTATO) || s.is(Items.PUFFERFISH) || s.is(Items.CHICKEN); // (sick-making: only when starving)
+            // pufferfish: Poison II for 60 s always ends at 1 health, so he never eats it (01:41 it took him 8 -> 0.6 hiding from zombies); spider eye / poisonous potato cost ~4 health, so only with health to spare
+            if (s.is(Items.PUFFERFISH) || (s.is(Items.SPIDER_EYE) || s.is(Items.POISONOUS_POTATO)) && g.getHealth() <= 10) continue;
+            boolean bad = s.is(Items.ROTTEN_FLESH) || s.is(Items.SPIDER_EYE) || s.is(Items.POISONOUS_POTATO) || s.is(Items.CHICKEN); // (sick-making: only when starving)
             if (bad) { if (food.nutrition() > fallbackN) { fallbackN = food.nutrition(); fallback = s.getItem(); } }
             else if (rawOrBad(level, s)) { if (food.nutrition() > rawN) { rawN = food.nutrition(); raw = s.getItem(); } } // raw beef, pork, fish: fine, cooked is just better
             else if (food.nutrition() > bestN) { bestN = food.nutrition(); best = s.getItem(); }

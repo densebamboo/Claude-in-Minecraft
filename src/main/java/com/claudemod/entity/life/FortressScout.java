@@ -59,7 +59,7 @@ public final class FortressScout {
     public static void reset(ClaudeEntity g) { if (states != null) states.remove(g.getUUID()); }
     public static List<Leg> legs(ClaudeEntity g) { return state(g).legs; }
     public static BlockPos found(ClaudeEntity g) { // (this run's, else the one on his atlas: World 15, seen 3 times in a day and scouted for again after each restart)
-        BlockPos f = state(g).found; if (f == null && g.level() instanceof ServerLevel sl) f = Atlas.find(g, sl, "fortress");
+        BlockPos f = state(g).found; if (g.level() instanceof ServerLevel sl) { BlockPos a0 = Atlas.find(g, sl, "fortress"); if (a0 != null && (f == null || a0.distSqr(g.blockPosition()) < f.distSqr(g.blockPosition()))) f = a0; } // (the nearest he knows: World 15 23:55 one 94 off and him bound for one 200 off)
         if (f != null && g.level() instanceof ServerLevel sl2 && sl2.isLoaded(f)) { BlockPos deck = FortressFight.deckCell(sl2, f); if (deck != null) return deck; } // (its deck, never the brick seen from below)
         return f;
     }

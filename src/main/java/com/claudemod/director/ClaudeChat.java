@@ -184,6 +184,8 @@ public final class ClaudeChat {
         sb.append(com.claudemod.entity.life.Clocks.describe(c, level)); // the timers, exact (he told them drops "vanish after 3 min": it's 5)
         sb.append("YOUR PLACES (yours; you know where they are): ").append(places(c, level)).append(".\n");
         sb.append("YOUR TOTALS (on you + in your chests; use these numbers for \"how many X do you have\"): ").append(totals(c, level)).append(".\n");
+        { String fz = com.claudemod.entity.life.Atlas.known(c, level, "fortress"); if (!fz.isEmpty()) sb.append("FORTRESSES YOU KNOW IN THIS WORLD (seen yourself or named to you; nearest first; the nearest is the one to go for): ").append(fz).append(".\n"); } // (World 15 23:51: \"no fortress in sight yet\" with one seen 94 off)
+        { int free = 0; for (int i = 0; i < c.inventory.items.getContainerSize(); i++) if (c.inventory.items.getItem(i).isEmpty()) free++; sb.append("YOUR PACK THIS MOMENT (read now; say counts from here and YOUR TOTALS, never from an older line of yours): ").append(free).append(" free slot(s)").append(free == 0 ? ", full" : "").append(".\n"); } // (World 15 00:08: "pack's full" with 13 free, "11 rods" with 10)
         return sb.toString();
     }
 

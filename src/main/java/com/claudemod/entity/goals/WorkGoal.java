@@ -4926,6 +4926,13 @@ public class WorkGoal extends Goal {
             }
             ItemStack blocks = scaffoldBlock();
             if (!box.isEmpty() && blocks.getCount() >= box.size()) {
+                net.minecraft.world.phys.AABB body = g.getBoundingBox().deflate(0.01);
+                boolean inAWallCell = false; for (BlockPos c : box) if (body.intersects(new net.minecraft.world.phys.AABB(c))) inAWallCell = true;
+                if (inAWallCell) { // his body (0.6 wide) over a wall cell's edge: the middle of his own block first, then the walls round him (World 15 12:22: walls queued in the cells he stood across, "where he's standing" every time, dead in place)
+                    g.getNavigation().stop(); g.setSprinting(false); g.getMoveControl().setWantedPosition(feet.getX() + 0.5, feet.getY(), feet.getZ() + 0.5, 0.6);
+                    cfSay("to the middle of his block", "walling in at " + feet.toShortString() + ": his body's over a wall cell's edge (" + String.format("%.2f %.2f", g.getX(), g.getZ()) + ")");
+                    return false;
+                }
                 java.util.List<BlockPos> walls = new java.util.ArrayList<>(box.subList(0, box.size() - (box.contains(roof) ? (box.size() >= 2 && box.get(box.size() - 2).getY() == roof.getY() ? 2 : 1) : 0))); java.util.List<BlockPos> top = new java.util.ArrayList<>(box.subList(walls.size(), box.size()));
                 walls.sort(java.util.Comparator.comparingDouble((BlockPos c) -> c.getY()).thenComparingDouble(c -> { double m = Double.MAX_VALUE; for (var b : blazes) m = Math.min(m, b.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(c))); return m; })); // (feet level first, each head block on the one under it; the side they're on first)
                 box.clear(); box.addAll(walls); box.addAll(top); // (the roof's support, then the roof, last)

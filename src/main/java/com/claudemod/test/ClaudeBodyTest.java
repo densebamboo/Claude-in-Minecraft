@@ -10366,6 +10366,7 @@ public final class ClaudeBodyTest {
     // ---------------------------------------------------------------- stages 494 on: one method each (exactStages is at the JVM's 64 KB limit)
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
+            case 544: return st544(stage, t, c, h, level, mock);
             case 543: return st543(stage, t, c, h, level, mock);
             case 542: return st542(stage, t, c, h, level, mock);
             case 494: return st494(stage, t, c, h, level, mock);
@@ -10784,6 +10785,30 @@ public final class ClaudeBodyTest {
         if (brT > 0 && (!c.isAlive() || t[0] == brT + 20 * 30)) {
             check(c.isAlive(), "blaze box: died (low " + brLow + ", at " + c.blockPosition().toShortString() + ")");
             check(brHid > 0 && brHid - brT <= 20 * 15, "blaze box: not walled in out of the blaze's sight in 15 s (" + (brHid < 0 ? "never" : (brHid - brT) / 20 + " s") + ", at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ")");
+            String how = "walled in out of the blaze's sight in " + (brHid - brT) / 20 + " s at " + c.blockPosition().toShortString() + ", alive 30 s on at health " + (int) c.getHealth() + " (low " + brLow + ")";
+            if (brMob != null) brMob.discard(); brMob = null; c.tasks.clear(); c.dropCurrent = true; c.clearFire(); c.setHealth(20f); c.getInventory().clearContent();
+            com.claudemod.entity.life.Watchdog.teleported(c); if (c.isAlive()) c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0);
+            pass(stage, t, how);
+        }
+        return true;
+    }
+    private static boolean st544(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // 543 standing across his block's corner (World 15 12:22: the walls queued in the cells he stood across, refused every time, dead in place); the same, with nowhere out of its sight within 24 steps (World 15 12:06: six blazes in the open, he ran and died 20 -> 0): walled in where he stands, healed, alive. Was: (World 15 10:09: "in the open: the ordinary fight" at 6 health, burned to death): out of its sight, healed, alive
+        ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        final int ox = 8000, oy = 69, oz = 8000; BlockPos me = new BlockPos(ox, oy + 1, oz);
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); brT = -1; brHid = -1; brLow = 20f; if (brMob != null) brMob.discard(); brMob = null; c.nextPlanTick = c.tickCount + 20 * 900; c.prefs.put("stay_close", "no");
+            c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(nether, me.getX() + 0.5, oy + 30, me.getZ() + 0.5, 0, 0); c.setNoGravity(true); }
+        if (t[0] >= 10 && t[0] < 10 + 37) { int x = t[0] - 10 - 12; for (int z = -10; z <= 10; z++) for (int y = oy - 3; y <= oy + 16; y++) { boolean wall = x == -12 || x == 24 || Math.abs(z) == 10 || y == oy + 16;
+            boolean cover = false; // (a wall 4 high, 14 off: the far side out of the blaze's sight, past the 10 his cover search looks)
+            nether.setBlock(new BlockPos(ox + x, y, oz + z), wall ? Blocks.BEDROCK.defaultBlockState() : y < oy ? Blocks.LAVA.defaultBlockState() : y == oy ? Blocks.NETHER_BRICKS.defaultBlockState() : cover ? Blocks.NETHER_BRICKS.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2 | 16); } }
+        if (t[0] == 50) { c.setNoGravity(false); c.teleportTo(nether, me.getX() + 0.88, me.getY(), me.getZ() + 0.88, -90f, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.fallDistance = 0; c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+            var bz = EntityType.BLAZE.create(nether); bz.moveTo(ox - 6 + 0.5, oy + 9, oz + 0.5, -90, 0); bz.setNoAi(true); bz.setPersistenceRequired(); nether.addFreshEntity(bz); brMob = bz;
+            c.setHealth(6f); c.getFoodData().setFoodLevel(14); c.setRemainingFireTicks(100); brT = t[0]; c.tasks.add(new Task.Attack(bz.getUUID(), 20 * 60)); }
+        if (brT > 0 && c.level() == nether) { brLow = Math.min(brLow, c.getHealth()); for (var m : nether.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(ox - 30, 0, oz - 30, ox + 40, 128, oz + 30), m0 -> m0 != brMob)) m.discard();
+            if (brHid < 0 && c.isAlive() && brMob != null && !com.claudemod.entity.life.FortressFight.sees(nether, brMob, BlockPos.containing(c.getX(), c.getY() + 0.2, c.getZ()))) brHid = t[0]; }
+        if (brT > 0 && (!c.isAlive() || t[0] == brT + 20 * 30)) {
+            check(c.isAlive(), "blaze box, off-centre: died (low " + brLow + ", at " + c.blockPosition().toShortString() + ")");
+            check(brHid > 0 && brHid - brT <= 20 * 15, "blaze box, off-centre: not walled in out of the blaze's sight in 15 s (" + (brHid < 0 ? "never" : (brHid - brT) / 20 + " s") + ", at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ")");
             String how = "walled in out of the blaze's sight in " + (brHid - brT) / 20 + " s at " + c.blockPosition().toShortString() + ", alive 30 s on at health " + (int) c.getHealth() + " (low " + brLow + ")";
             if (brMob != null) brMob.discard(); brMob = null; c.tasks.clear(); c.dropCurrent = true; c.clearFire(); c.setHealth(20f); c.getInventory().clearContent();
             com.claudemod.entity.life.Watchdog.teleported(c); if (c.isAlive()) c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0);

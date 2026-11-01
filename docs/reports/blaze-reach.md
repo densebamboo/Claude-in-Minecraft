@@ -54,3 +54,10 @@ Six blazes in the open; he ran in their sight and died 20 -> 0. Day to Day's b4f
 
 - **Walled in where he stands.** With no cell out of every blaze's sight within 24 steps, he puts a block at feet and head on each open side, then one up on a wall and the roof against it: 10 at most. Then food, healing, and the fight. Running is left only for when he has too few blocks.
 - **Stage 543:** 542's deck with no wall, at 6 health and burning. Walled in out of sight in 3 s, back to 20, alive at 30 s. 2 of 2. 542, 539, 540, 533, 528 and 470-489 are green with it.
+
+## Follow-up: walls in his own cells (World 15 12:22, a death)
+
+The wall-in queued Places in the cells his body stood across. He's 0.6 wide, so near a block's edge he's in two cells. doPlace refused "where he's standing" every time, and he died in place.
+
+- When his body overlaps any wall cell, he goes to the middle of his own block first, then walls in.
+- **Stage 544:** 543 starting at x/z + 0.88 across his block's corner. Centred, then walled in. 2 of 2; 543 and 542 green.

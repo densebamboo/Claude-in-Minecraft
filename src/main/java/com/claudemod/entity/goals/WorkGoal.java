@@ -3086,7 +3086,7 @@ public class WorkGoal extends Goal {
                 } else { sentFor().put(pos.immutable(), g.tickCount); g.tasks.addFirst(t); g.tasks.addFirst(new Task.GoTo(in, 1.2)); return exit("(to the cell beside it: the nudge above does the last step) (doPlace 2599)"); } // (to the cell beside it: the nudge above does the last step)
             }
             if (in != null) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the walk back into his mine at {} failed: patching {} from where he is", in.toShortString(), pos.toShortString());
-        }
+        } // ponytail: live 13:17, his overworld mine blueprint ran on Nether patches: ore "through the hole" queued, refused as their build, 3x/s loop
         if (ticks == 1 && com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.roleAt(pos) != com.claudemod.entity.life.MineBlueprint.Role.WALK) { // (any ore-hole patch, not only his shell: the end of his branch at 16,-57,-205 has no role, and 3 diamonds went in behind it, 04:10) // the user: mine all ore, then patch: ore now showing through this hole (the vein went on behind the block he took) comes out first
             int refusedBehind = 0; java.util.List<BlockPos> behind0 = veinBehind(g, level, pos); // (live 12:14: the vein went on past the hole's own faces, the patch sealed 3 diamond ore and a drop in)
             for (BlockPos q : behind0) { // faces into the hole and its pocket only: a block touching the hole by a corner shows no face into it (03:31 a corner iron "through the hole" had him breaking the torch's wall over and over to aim at it)

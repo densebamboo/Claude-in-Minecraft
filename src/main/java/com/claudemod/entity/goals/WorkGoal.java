@@ -2168,7 +2168,7 @@ public class WorkGoal extends Goal {
             Vec3 eye = Vec3.atBottomCenterOf(p).add(0, 1.62, 0);
             if (eye.distanceTo(Vec3.atCenterOf(target)) > REACH - 0.3) continue;
             boolean seen = false; Vec3 c0 = Vec3.atCenterOf(target); // any face he'd see from there, the same test as the dig's own (centre only: the lapis over a head-height hole was "hidden" from right under it, and he stood 3 off for good, 05:02)
-            for (Vec3 aim : new Vec3[] {c0, c0.add(0.45, 0, 0), c0.add(-0.45, 0, 0), c0.add(0, 0.45, 0), c0.add(0, -0.45, 0), c0.add(0, 0, 0.45), c0.add(0, 0, -0.45)}) {
+            for (Vec3 aim : aims(c0)) {
                 var hit = level.clip(new net.minecraft.world.level.ClipContext(eye, aim, net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g));
                 if (hit.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK || hit.getBlockPos().equals(target)) { seen = true; break; }
             }
@@ -2182,12 +2182,21 @@ public class WorkGoal extends Goal {
     private BlockPos sightCheckedFor;
 
     /** The first other block between his eyes and the target, if any (what a player's crosshair would hit: vines and grass count). */
+    /** Where a player can aim on a block: the middle, each face's middle, and each face's edges (his own wall torch hid every face middle of the furnace under it, 05:40 World 15: a player aims past the torch at the face's lower edge). */
+    private static Vec3[] aims(Vec3 c) {
+        java.util.List<Vec3> out = new java.util.ArrayList<>(); out.add(c);
+        for (Direction d : Direction.values()) {
+            Vec3 f = c.add(d.getStepX() * 0.45, d.getStepY() * 0.45, d.getStepZ() * 0.45); out.add(f);
+            for (Direction e : Direction.values()) if (e.getAxis() != d.getAxis()) out.add(f.add(e.getStepX() * 0.35, e.getStepY() * 0.35, e.getStepZ() * 0.35));
+        }
+        return out.toArray(new Vec3[0]);
+    }
+
     private BlockPos blockInTheWay(ServerLevel level, BlockPos target) {
         // a player can hit any face he can see: only "in the way" if every face (and the middle) is hidden
         BlockPos first = null;
         Vec3 c = Vec3.atCenterOf(target);
-        Vec3[] aims = {c, c.add(0.45, 0, 0), c.add(-0.45, 0, 0), c.add(0, 0.45, 0), c.add(0, -0.45, 0), c.add(0, 0, 0.45), c.add(0, 0, -0.45)};
-        for (Vec3 aim : aims) {
+        for (Vec3 aim : aims(c)) {
             var hit = level.clip(new net.minecraft.world.level.ClipContext(g.getEyePosition(), aim,
                     net.minecraft.world.level.ClipContext.Block.OUTLINE, net.minecraft.world.level.ClipContext.Fluid.NONE, g));
             if (hit.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK) return null;

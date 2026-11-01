@@ -67,6 +67,7 @@ public final class NetherRoute {
                 for (int ny : r.heights(cx, n.y, cz)) {
                     double[] c = r.move(n.x, n.y, n.z, cx, ny, cz);
                     if (c == null) continue;
+                    if (n.puts + c[2] > r.blocks) continue; // (blocks he hasn't got: no bridge, no pillar)
                     double ng = n.g + c[0];
                     long k = key(cx, ny, cz); Double b0 = best.get(k);
                     if (b0 != null && b0 <= ng) continue;
@@ -108,10 +109,11 @@ public final class NetherRoute {
     /** The world as the plan reads it: loaded chunks only, each column's standing heights and each block's dig time kept for the plan. */
     static final class Reader {
         final ClaudeEntity g; final ServerLevel level; final int minY, maxY;
+        final int blocks; // what he carries to put down: a way needing more isn't his
         final Map<Long, LevelChunk> chunks = new HashMap<>();
         final Map<Long, int[]> standCache = new HashMap<>();
         final Map<BlockState, Double> digCache = new HashMap<>();
-        Reader(ClaudeEntity g, ServerLevel level) { this.g = g; this.level = level; this.minY = level.getMinBuildHeight() + 1; this.maxY = Math.min(118, Math.min(level.getMaxBuildHeight(), level.getMinBuildHeight() + level.getLogicalHeight()) - 3); } // (never up by the bedrock roof)
+        Reader(ClaudeEntity g, ServerLevel level) { this.g = g; this.level = level; this.minY = level.getMinBuildHeight() + 1; this.blocks = com.claudemod.director.Kit.buildingBlocks(g); this.maxY = Math.min(118, Math.min(level.getMaxBuildHeight(), level.getMinBuildHeight() + level.getLogicalHeight()) - 3); } // (never up by the bedrock roof)
         LevelChunk chunk(int x, int z) { long k = ((long) (x >> 4) << 32) ^ ((z >> 4) & 0xffffffffL); return chunks.computeIfAbsent(k, kk -> level.getChunkSource().getChunkNow(x >> 4, z >> 4)); }
         boolean loaded(int x, int z) { return chunk(x, z) != null; }
         BlockState bs(int x, int y, int z) { LevelChunk c = chunk(x, z); return c == null || y < minY - 1 || y > maxY + 3 ? Blocks.BEDROCK.defaultBlockState() : c.getBlockState(new BlockPos(x, y, z)); }
@@ -188,6 +190,7 @@ public final class NetherRoute {
                     for (net.minecraft.core.Direction d : net.minecraft.core.Direction.Plane.HORIZONTAL) if (lava(bs(px + d.getStepX(), py, pz + d.getStepZ())) || lava(bs(px + d.getStepX(), py - 1, pz + d.getStepZ()))) { sec += SHORE_RISK; break; } // (lava beside the way: slower, careful steps)
                 }
             }
+            if (dy > 1 && digs == 0) puts += dy - 1; // (nothing cut for the climb: a pillar, one block a step up)
             if (bad(bs(cx, ny - 1, cz)) && !lava(bs(cx, ny - 1, cz))) return null; // (never onto magma or fire)
             if (dy < -3) { // a sheer fall into that column (nothing to cut steps in): its damage against what he keeps (Leaps.margin)
                 boolean sheer = true; for (int yy = ny + 1; yy <= y; yy++) if (solid(cx, yy, cz)) { sheer = false; break; }

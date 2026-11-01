@@ -36,3 +36,14 @@ Needs one: new fields in WorkGoal and FortressFight, and a new method on Percept
 - `no more peeks`
 - `eating first`
 - He has 2 arrows now (the livestock volleys before f789f29). Restocking for the trip is in the backlog: 10 flint and 8 feathers are in his chest at -1,16,76.
+
+## Follow-up: hurt with no cover (World 15 10:09, a death)
+
+He burned to death at the fortress at -97,75,61, 0/7 rods. At 6 health and on fire, `coverFight` found no cover and handed him to "the ordinary fight" four times. With no cover there was no retreat rule at all.
+
+- **`WorkGoal.blazeRetreat`:** in a blaze fight with no cover, at 12 health or less (14 or less while burning):
+  - he goes to the nearest cell he can walk to, 24 steps at most, that no blaze within 24 sees (`FortressFight.sees`, now public). A blaze only shoots what it sees;
+  - there he eats, heals, and the fight resumes after;
+  - with no such cell, he runs (`Flee`).
+- **Stage 542:** a fortress deck with no cover within 10, a blaze hanging 9 up, and a wall 14 off. He starts at 6 health, burning. He's out of its sight in 5 s (21 steps round the wall's end), back to 20 health, alive at 30 s. 2 of 2. 539, 540, 533, 528 and 525 are green with it.
+- The tp that put him among the blazes at 6 health was a live-ops step, not a bot decision. The fence-top nav stall before it (10:03-10:08) is still open in the backlog.

@@ -4867,6 +4867,47 @@ public class WorkGoal extends Goal {
     // ---- fortress fights from cover (FortressFight; patch_blaze_loot.py) ----
     private String cfMode = ""; private int cfPeekTick = -100, cfHopTick = -100, cfIdle; private boolean cfHealing; private java.util.UUID cfTarget;
     private int cfEmptyPeeks; // steps out to draw a lit blaze's shots that drew none
+    /**
+     * Hurt in a blaze fight with no cover by him (World 15 10:09: "in the open: the ordinary fight" four times at 6 health, on fire, dead a minute on):
+     * a blaze only shoots what it sees, so the nearest cell he can walk to (16 at most) (24 steps at most) that no blaze within 24 sees, then food, then the fight
+     * again once he's healed. Already out of their sight: stood there healing. No such cell: running (Flee). Null: nothing to do here.
+     */
+    private Boolean blazeRetreat(Task.Attack t, net.minecraft.world.entity.LivingEntity mob) {
+        ServerLevel level = (ServerLevel) g.level();
+        var blazes = level.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(24), net.minecraft.world.entity.Entity::isAlive);
+        if (blazes.isEmpty()) return null;
+        BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
+        java.util.function.Predicate<BlockPos> hidden = c -> { for (var b : blazes) if (com.claudemod.entity.life.FortressFight.sees(level, b, c)) return false; return true; };
+        if (hidden.test(feet)) {
+            g.getNavigation().stop(); g.setSprinting(false); shieldDown(); g.getLookControl().setLookAt(mob);
+            net.minecraft.world.item.Item food = g.getFoodData().getFoodLevel() < 20 ? com.claudemod.director.ClaudeLife.foodToEat(g, g.getHealth() <= 6) : null;
+            if (food != null) { g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(food)); cfSay("eating out of their sight", "health " + (int) g.getHealth() + ", hunger " + g.getFoodData().getFoodLevel() + ", no blaze sees " + feet.toShortString() + ": " + BuiltInRegistries.ITEM.getKey(food).getPath()); return true; }
+            cfSay("healing out of their sight", "health " + (int) g.getHealth() + " at " + feet.toShortString() + ", no blaze sees it");
+            if (ticks >= t.maxTicks() - 1) ticks = 2; // (the fight's clock waits while he heals)
+            return false;
+        }
+        java.util.Map<BlockPos, Integer> dist = new java.util.HashMap<>(); java.util.ArrayDeque<BlockPos> q = new java.util.ArrayDeque<>(); dist.put(feet, 0); q.add(feet); BlockPos hide = null;
+        while (!q.isEmpty() && dist.size() < 2000 && hide == null) {
+            BlockPos f = q.poll(); int d0 = dist.get(f);
+            if (d0 > 0 && hidden.test(f)) { hide = f; break; }
+            if (d0 >= 24) continue; // (24 steps: about 5 s at a sprint, round a wall's end)
+            for (Direction dir : Direction.Plane.HORIZONTAL) for (int dy = -1; dy <= 1; dy++) {
+                BlockPos n = f.relative(dir).above(dy); if (dist.containsKey(n) || !com.claudemod.entity.life.FortressFight.stand(level, n)) continue;
+                if (dy == 1 && !level.getBlockState(f.above(2)).getCollisionShape(level, f.above(2)).isEmpty()) continue;
+                if (com.claudemod.entity.body.Controls.lavaCell(g, n)) continue;
+                dist.put(n.immutable(), d0 + 1); q.add(n.immutable());
+            }
+        }
+        g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks)));
+        if (hide != null) {
+            g.tasks.addFirst(new Task.GoTo(hide, 0.5));
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] health {}{}, no cover here and {} blaze(s) about: out of their sight to {} ({} steps), food, then the fight again (WorkGoal.blazeRetreat)", (int) g.getHealth(), g.isOnFire() ? ", burning" : "", blazes.size(), hide.toShortString(), dist.get(hide));
+            cfMode = "out of their sight"; return true;
+        }
+        g.tasks.addFirst(new Task.Flee(20 * 10));
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] health {}{}, no cover and no cell out of {} blaze(s)' sight within 24 steps: running (WorkGoal.blazeRetreat)", (int) g.getHealth(), g.isOnFire() ? ", burning" : "", blazes.size());
+        cfMode = "running"; return true;
+    }
     private void cfSay(String mode, String why) { if (!mode.equals(cfMode)) { cfMode = mode; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] {}: {} (WorkGoal.coverFight)", mode, why); } }
     // cfMove: the last step goes straight to the centre: the path calls itself done ~0.5 short, over the cell edge (01:30 he stood at -72.0, cover -73, burning 13 -> 1)
     private void cfMove(BlockPos to, double speed) { if (Math.abs(g.getY() - to.getY()) < 0.6 && Math.hypot(g.getX() - to.getX() - 0.5, g.getZ() - to.getZ() - 0.5) < 1.6) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(to.getX() + 0.5, to.getY(), to.getZ() + 0.5, speed); return; } g.getNavigation().moveTo(to.getX() + 0.5, to.getY(), to.getZ() + 0.5, speed); } // (in his own cell the path is "done" at once and never centres him: at() wants 0.35, so "back into cover" held him off-centre in sight, burning 13 -> 1, the Eat never reached)
@@ -4905,6 +4946,7 @@ public class WorkGoal extends Goal {
         if (ticks == 1 && !mob.getUUID().equals(cfTarget)) { cfTarget = mob.getUUID(); cfMode = ""; cfIdle = 0; } // (a fight carried on past its clock keeps its counters)
         if (ticks >= t.maxTicks() - 1 && cfIdle < 20 * 20 && mob.distanceTo(g) < 24) { ticks = 2; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the {} is still on: the same fight goes on from cover past its {} s (WorkGoal.coverFight)", mob.getType().getDescription().getString(), t.maxTicks() / 20); } // (in place: a new task left a tick with no fight, and self-defence armed a second, plain one on the blaze) // (a fight from cover is slow by design: its clock running out left him idle in the gap and the follow rule walked him out)
         var cv = com.claudemod.entity.life.FortressFight.coverFor(g, level, mob);
+        if (cv == null && blaze && (g.getHealth() <= 12 || g.isOnFire() && g.getHealth() <= 14)) { Boolean r = blazeRetreat(t, mob); if (r != null) return r; } // (hurt, no cover: out of their sight first, never the open fight; World 15 10:09 burned to death "in the open" at 6)
         if (cv == null) { if (ticks == 1) cfSay("in the open", "no cover for this " + mob.getType().getDescription().getString() + " here: the ordinary fight, shield and crits"); return null; }
         equipWeapon();
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());

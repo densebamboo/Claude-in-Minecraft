@@ -108,7 +108,7 @@ public final class FortressFight {
         java.util.Set<Blaze> known = new java.util.HashSet<>(Perception.known(g, Blaze.class, new AABB(at).inflate(r), Entity::isAlive));
         return level.getEntitiesOfClass(Blaze.class, new AABB(at).inflate(r), b -> b.isAlive() && (known.contains(b) || b.distanceTo(g) <= 16 || g.hasLineOfSight(b)));
     }
-    static boolean sees(ServerLevel level, LivingEntity mob, BlockPos cell) {
+    public static boolean sees(ServerLevel level, LivingEntity mob, BlockPos cell) {
         Vec3 from = mob.getEyePosition();
         return clear(level, from, eyeOf(cell), mob) || clear(level, from, new Vec3(cell.getX() + 0.5, cell.getY() + 0.9, cell.getZ() + 0.5), mob);
     }

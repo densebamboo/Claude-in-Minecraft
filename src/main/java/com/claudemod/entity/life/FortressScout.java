@@ -229,8 +229,8 @@ public final class FortressScout {
         State s = state(g);
         if (level.dimension() != net.minecraft.world.level.Level.NETHER) return "failed: fortresses are only in the Nether: enter_portal first";
         if (!st.target().startsWith("@")) { s.phase = 0; s.legTo = null; s.legFrom = null; } // a fresh ask: his notes on the ground scouted stay, a leg something else cut off doesn't
-        if (s.phase == LOOK) finishLeg(g, level, s);
         var f = fortressSighting(g, level); BlockPos far = f == null ? landmarkBrick(g) : null;
+        if (s.phase == LOOK || s.phase == WALK && (f != null || far != null)) finishLeg(g, level, s); // (seen on the way, before the leg's end: the leg is still noted, with the fortress in it; it read "after 0 leg(s)" with the bricks in view from the leg's last steps)
         if (f == null && far == null) { // a fortress named with its coords in his goal or their order ("the nether fortress at 185 64 -14"): on his atlas (World 15 23:52: scouting south for one the goal put east)
             for (String w0 : new String[] {st.target(), g.playerGoal, g.goal}) { if (w0 == null) continue; var m0 = java.util.regex.Pattern.compile("fortress[^0-9-]{0,24}(-?\\d+)[ ,]+(-?\\d+)[ ,]+(-?\\d+)").matcher(w0.toLowerCase());
                 if (m0.find()) { BlockPos named = new BlockPos(Integer.parseInt(m0.group(1)), Integer.parseInt(m0.group(2)), Integer.parseInt(m0.group(3))); if (Atlas.find(g, level, "fortress") == null || Atlas.find(g, level, "fortress").distSqr(named) > 48 * 48) { Atlas.note(g, level, "fortress", named); ClaudeMod.LOGGER.info("[Claude scout] a nether fortress at {} named in \"{}\": on his atlas (FortressScout.skill)", named.toShortString(), w0); } break; } } }

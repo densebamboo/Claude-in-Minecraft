@@ -10576,7 +10576,7 @@ public final class ClaudeBodyTest {
         if (t[0] > 10 && clT < 0 && c.getBlockY() >= deck.getY() && c.blockPosition().distSqr(deck) <= 4) clT = t[0];
         if (clT > 0) { for (int x = -12; x <= 32; x++) for (int z = -12; z <= 28; z++) for (int y = 1; y <= 24; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), (y == 1 && x >= 0 && x < 16 && z >= 0 && z < 16) ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
             pass(stage, t, "19 up onto the deck in " + (clT - 10) + " ticks"); }
-        else if (t[0] == 10 + 1600) check(false, "deck climb: not up in 80 s (at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ")");
+        else if (t[0] == 10 + 1600) check(false, "deck climb: not up in 80 s (at " + c.blockPosition().toShortString() + ", task " + c.currentTask + "; pos " + String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ()) + " v " + c.getDeltaMovement() + " onGround " + c.onGround() + " nav done " + c.getNavigation().isDone() + " path " + (c.getNavigation().getPath() == null ? "none" : c.getNavigation().getPath().getEndNode() + " reach " + c.getNavigation().getPath().canReach()) + ")");
         return true;
     }
     private static boolean st533(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a blaze out past a fortress deck's edge (World 15 22:48: the fight walked him off the deck into the lava 31 down): the fight never takes him off the deck

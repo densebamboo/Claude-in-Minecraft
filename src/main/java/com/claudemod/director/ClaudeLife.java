@@ -1973,6 +1973,7 @@ public final class ClaudeLife {
                 }
                 boolean heUnder = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.getBlockX(), g.getBlockZ()) > g.getBlockY() + 3; // he's down in the ground
                 if (found.isEmpty() && wood && heUnder && (inHisMine(g, g.blockPosition()) || g.mineSpine.stream().anyMatch(sp -> sp.distSqr(g.blockPosition()) <= 48 * 48)) && routeOutOfMine(g, level) && !g.tasks.isEmpty()) { // up his own stairs, never digging a new way up
+                    { String dark = nightOutsideNo(g, level, level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.blockPosition())); if (dark != null) return dark; } // the night where the trip ends, up top: checked down here it read "underground, not the open", he went up, and his bed walked him back down, round and round (World 15 02:05)
                     g.skillQueue.addFirst(st); // and look for trees once he's up top
                     return "heading up my stairs and out of the mine for wood";
                 }

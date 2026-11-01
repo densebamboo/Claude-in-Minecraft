@@ -328,12 +328,14 @@ public class ClaudeEntity extends ServerPlayer {
             }
         }
         Controls.apply(this, look, move, jump, nav);
-        if (tickCount % 2 == 0 && !level().isClientSide && !com.claudemod.director.ClaudeLife.endermanTime(this)) { /* the user 01:40: endermen are avoided unless it's the pearl stage and he's geared; a player never meets their eyes (vanilla's stare check: view within 0.025/dist of the eyes, in sight) */
+        if (tickCount % 2 == 0 && !level().isClientSide) { boolean hunt = com.claudemod.director.ClaudeLife.endermanTime(this); net.minecraft.world.entity.monster.EnderMan free = null; boolean onMe = false; // ponytail: the user 13:30 "only engage 1 enderman at a time": in the hunt his eyes may meet only the nearest in sight, and none while one is on him (13:28: four stared at, four on him, dead in 2 s)
+            if (hunt) for (var e : level().getEntitiesOfClass(net.minecraft.world.entity.monster.EnderMan.class, getBoundingBox().inflate(64))) { if (!e.isAlive()) continue; if (e.getTarget() == this) onMe = true; else if (hasLineOfSight(e) && (free == null || e.distanceToSqr(this) < free.distanceToSqr(this))) free = e; }
+            if (onMe) free = null; /* the user 01:40: endermen are avoided unless it's the pearl stage and he's geared; a player never meets their eyes (vanilla's stare check: view within 0.025/dist of the eyes, in sight) */
             net.minecraft.world.phys.Vec3 view = getViewVector(1.0F).normalize();
             for (var em : level().getEntitiesOfClass(net.minecraft.world.entity.monster.EnderMan.class, getBoundingBox().inflate(64), e -> e.isAlive() && e.getTarget() != this)) {
                 net.minecraft.world.phys.Vec3 to = new net.minecraft.world.phys.Vec3(em.getX() - getX(), em.getEyeY() - getEyeY(), em.getZ() - getZ());
-                double d = to.length(); if (d < 1e-3) continue;
-                if (view.dot(to.normalize()) > 1.0 - 0.025 / d * 1.5 && hasLineOfSight(em)) { setXRot(Math.min(90f, Math.max(getXRot(), (float) Math.toDegrees(Math.atan2(em.getEyeY() - getEyeY(), Math.sqrt(to.x * to.x + to.z * to.z))) * -1f + 25f))); setYHeadRot(getYRot()); break; }
+                double d = to.length(); if (d < 1e-3 || em == free) continue;
+                if (view.dot(to.normalize()) > 1.0 - 0.025 / d * 1.5 && hasLineOfSight(em)) { if (hunt && tickCount % 40 == 0) ClaudeMod.LOGGER.info("[Claude fight] eyes off the enderman {} off: one at a time ({}) (ClaudeEntity.tick)", (int) d, onMe ? "one is on me" : "after the nearest"); setXRot(Math.min(90f, Math.max(getXRot(), (float) Math.toDegrees(Math.atan2(em.getEyeY() - getEyeY(), Math.sqrt(to.x * to.x + to.z * to.z))) * -1f + 25f))); setYHeadRot(getYRot()); break; }
             }
         }
         super.tick();  // the light per-tick player stuff (block breaking progress, menus, criteria)

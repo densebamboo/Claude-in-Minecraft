@@ -1532,7 +1532,7 @@ public final class ClaudeLife {
     /** The rule work worth starting while the planner thinks and safe to break off when the plan lands: cover in the dark, food, his own mine's next blocks, wood by day (never the kit: it crafts and puts stations down). */
     static Skills.Step fillerStep(ClaudeEntity g, ServerPlayer player) {
         Skills.Step r = ruleStep(g, player);
-        if (Set.of("shelter", "eat", "strip_mine").contains(r.skill())) return r;
+        if (Set.of("shelter", "eat").contains(r.skill()) || (r.skill().equals("strip_mine") && inHisMine(g, g.blockPosition()))) return r; // (his mine only from inside it: 06:24 a 200-block walk to it was started and dropped by the landing plan every 6 s)
         ServerLevel level = (ServerLevel) g.level();
         if (g.inventory.count(s -> s.is(ItemTags.LOGS)) < 32 && nightOutsideNo(g, level, g.blockPosition()) == null && g.failCount.getOrDefault("collect logs", 0) < 3
                 && findNear(level, g.blockPosition(), 24, b -> b.is(BlockTags.LOGS)) != null) return new Skills.Step("collect", "logs", 4);

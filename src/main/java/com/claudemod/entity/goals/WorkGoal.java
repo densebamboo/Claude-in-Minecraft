@@ -355,6 +355,9 @@ public class WorkGoal extends Goal {
                 healUp();
                 return;
             }
+            if (foe instanceof net.minecraft.world.entity.monster.Blaze && g.tickCount - blazeRetreatTick < 200 && !(current instanceof Task.Attack)) { // walking out of their sight: a fireball doesn't turn him back to fight (each hit re-armed the fight, the fight re-queued the walk; he stood on a fence burning 13 -> 0, World 15 12:40)
+                sdSay("blazewalk", "[Claude fight] hit by a Blaze while getting out of their sight (health {}): still going, the fight comes after (WorkGoal.tick)", (int) g.getHealth()); g.urgentAttacker = null; return;
+            }
             if (g.tickCount - lastFightTick().getOrDefault(g.urgentAttacker, -100000) < 20) { sdSay("rearm", "[Claude life] hit by the {} again {} ticks after squaring up to it, doing {}: no new fight armed this tick (WorkGoal.tick)", foe.getType().getDescription().getString(), g.tickCount - lastFightTick().get(g.urgentAttacker), current == null ? "nothing" : current.getClass().getSimpleName()); g.urgentAttacker = null; return; } // (the same fight re-armed every 5 ticks: once a second is plenty)
             lastFightTick().put(g.urgentAttacker, g.tickCount);
             boolean retreat = shouldFlee(foe) && g.getHealth() < 10 && !diggingIn(); // (never the escape itself: it threw away the tower he'd just queued and three husks killed him) // running at a few hearts: the job he was on is where the mobs are; it isn't resumed after the run (the queue walked him back to two zombies at 5 health)
@@ -394,7 +397,7 @@ public class WorkGoal extends Goal {
         boolean done;
         try {
             done = switch (current) {
-                case Task.GoTo t -> { if (g.staying && t.pos().distSqr(g.blockPosition()) > 2 * 2) { if (g.tickCount % 100 < 2 || ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] staying put where they said: the walk to {} ({}) waits (WorkGoal)", t.pos().toShortString(), com.claudemod.entity.ClaudeEntity.originOf(t)); yield true; } // (told to stay put, every chore of his own walks him off: a stash run, a torch run, his nook; one gate at the walk, their own go_to clears staying first, 15:03)
+                case Task.GoTo t -> { if (ticks == 1) exitWhy = null; if (g.staying && t.pos().distSqr(g.blockPosition()) > 2 * 2) { if (g.tickCount % 100 < 2 || ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] staying put where they said: the walk to {} ({}) waits (WorkGoal)", t.pos().toShortString(), com.claudemod.entity.ClaudeEntity.originOf(t)); yield true; } // (told to stay put, every chore of his own walks him off: a stash run, a torch run, his nook; one gate at the walk, their own go_to clears staying first, 15:03)
                     if (ticks == 1) { // a walk into a cell still solid, its dig queued behind the walk: the dig first, then the walk (live 04:43 World 15: a GoTo into the rock under him, its Break next in the queue, 32 stalls in a minute)
                         BlockPos tp = t.pos(); var lv0 = g.level(); java.util.List<Task> first = new java.util.ArrayList<>();
                         for (Task q0 : g.tasks) if (q0 instanceof Task.Break b0 && (b0.pos().equals(tp) || b0.pos().equals(tp.above())) && !lv0.getBlockState(b0.pos()).getCollisionShape(lv0, b0.pos()).isEmpty() && !first.contains(q0)) first.add(q0);
@@ -4872,6 +4875,7 @@ public class WorkGoal extends Goal {
     }
 
     // ---- fortress fights from cover (FortressFight; patch_blaze_loot.py) ----
+    private int blazeRetreatTick = -1000; // ponytail: 10 s window from the retreat's start; fields added live start 0, which only matters in the first 10 s of a world
     private String cfMode = ""; private int cfPeekTick = -100, cfHopTick = -100, cfIdle; private boolean cfHealing; private java.util.UUID cfTarget;
     private int cfEmptyPeeks; // steps out to draw a lit blaze's shots that drew none
     private int airborneTick = -100;
@@ -4911,6 +4915,7 @@ public class WorkGoal extends Goal {
         g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks)));
         if (hide != null) {
             g.tasks.addFirst(new Task.GoTo(hide, 0.5));
+            blazeRetreatTick = g.tickCount;
             com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] health {}{}, no cover here and {} blaze(s) about: out of their sight to {} ({} steps), food, then the fight again (WorkGoal.blazeRetreat)", (int) g.getHealth(), g.isOnFire() ? ", burning" : "", blazes.size(), hide.toShortString(), dist.get(hide));
             cfMode = "out of their sight"; return true;
         }

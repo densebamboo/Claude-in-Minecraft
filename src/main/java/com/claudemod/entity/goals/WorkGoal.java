@@ -1937,11 +1937,12 @@ public class WorkGoal extends Goal {
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
         if (!com.claudemod.entity.nav.Leaps.running(g, t) && !feet.equals(t.from())) {
             if (ticks > 20 * 15) { com.claudemod.ClaudeMod.LOGGER.info("[Claude leap] 15 s and not on the lip {} (he's at {}): leaving the {} (WorkGoal.doLeap)", t.from().toShortString(), feet.toShortString(), com.claudemod.entity.nav.Leaps.kindName(t.kind())); return exit("not on the lip in 15 s"); }
-            boolean beside = feet.getY() == t.from().getY() && Math.abs(feet.getX() - t.from().getX()) + Math.abs(feet.getZ() - t.from().getZ()) == 1 && com.claudemod.entity.life.PlaceAim.standable((ServerLevel) g.level(), t.from());
+            boolean overhang = feet.equals(t.from().above()) && com.claudemod.entity.life.PlaceAim.standable((ServerLevel) g.level(), t.from()); // on the edge of the block beside it, his column over the lip one down (08:42 at -10,82,8 over -10,81,8: the walk said "there", the leap gave up, 5 min of it)
+            boolean beside = overhang || feet.getY() == t.from().getY() && Math.abs(feet.getX() - t.from().getX()) + Math.abs(feet.getZ() - t.from().getZ()) == 1 && com.claudemod.entity.life.PlaceAim.standable((ServerLevel) g.level(), t.from());
             if (beside) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(t.from().getX() + 0.5, t.from().getY(), t.from().getZ() + 0.5, 0.5); return false; } // the lip right beside him: a step onto it (the walk's own "there" is a cell off)
             if (!walkTo(t.from(), 0.5)) return false;
             feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
-            if (!feet.equals(t.from())) { com.claudemod.ClaudeMod.LOGGER.info("[Claude leap] the walk to the lip {} ended at {}: leaving the {} (WorkGoal.doLeap)", t.from().toShortString(), feet.toShortString(), com.claudemod.entity.nav.Leaps.kindName(t.kind())); return exit("the walk to the lip ended off it"); }
+            if (!feet.equals(t.from())) { com.claudemod.ClaudeMod.LOGGER.info("[Claude leap] the walk to the lip {} ended at {} (y {}; lip cell {}, under it {}): leaving the {} (WorkGoal.doLeap)", t.from().toShortString(), feet.toShortString(), String.format("%.2f", g.getY()), g.level().getBlockState(t.from()), g.level().getBlockState(t.from().below()), com.claudemod.entity.nav.Leaps.kindName(t.kind())); return exit("the walk to the lip ended off it"); }
         }
         g.getNavigation().stop();
         String r = com.claudemod.entity.nav.Leaps.tick(g, (ServerLevel) g.level(), t);

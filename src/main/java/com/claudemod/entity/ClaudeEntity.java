@@ -343,6 +343,17 @@ public class ClaudeEntity extends ServerPlayer {
 
     // ---- movement trace (the user: see where he stalls, shuffles or spins while walking; one "[Claude move]" line per event) ----
     private net.minecraft.world.phys.Vec3 mtLastPos, mtLastDir; private float mtLastYaw; private int mtStall, mtFlips, mtFlipStart, mtSpinStart; private double mtSpin; private int mtQuietUntil;
+    private BlockPos mtLoopAt; private int mtLoopN; // shuffles/spins on one block: the 2nd is proof the walk isn't working (static rules: fields added live start null)
+    /** A shuffle or spin is no progress; the 2nd on the same block hands over to his own way out at once (the 20 s clock wasted 40 s at -303,87,-63). */
+    private void mtLoop(com.claudemod.entity.life.Task.GoTo go, net.minecraft.world.level.pathfinder.Node nx) {
+        BlockPos b = blockPosition();
+        if (!b.equals(mtLoopAt)) { mtLoopAt = b; mtLoopN = 0; }
+        if (++mtLoopN < 2 || go == null) return;
+        mtLoopN = 0;
+        String nodeBlocks = nx == null ? "none" : level().getBlockState(new BlockPos(nx.x, nx.y - 1, nx.z)).getBlock().getName().getString() + " under / " + level().getBlockState(new BlockPos(nx.x, nx.y, nx.z)).getBlock().getName().getString() + " / " + level().getBlockState(new BlockPos(nx.x, nx.y + 1, nx.z)).getBlock().getName().getString() + " head";
+        ClaudeMod.LOGGER.info("[Claude move] looping at {} on the walk to {}: node {} is {}; above him {}: his own way instead (ClaudeEntity.mtLoop)", b.toShortString(), go.pos().toShortString(), nx == null ? "none" : nx.x + "," + nx.y + "," + nx.z, nodeBlocks, level().getBlockState(b.above(2)).getBlock().getName().getString());
+        com.claudemod.director.ClaudeLife.escapeStuck(this, (net.minecraft.server.level.ServerLevel) level(), currentTask);
+    }
     private void traceMovement() {
         if (!isAlive() || isSleeping() || level().isClientSide) return;
         boolean walking = work != null && (currentTask instanceof com.claudemod.entity.life.Task.GoTo || (nav.getPath() != null && !nav.isDone()));
@@ -356,12 +367,12 @@ public class ClaudeEntity extends ServerPlayer {
         if (h < 0.03 && onGround()) { if (++mtStall == 10 && tickCount > mtQuietUntil) { ClaudeMod.LOGGER.info("[Claude move] stall at {} doing {} to {} next node {} (y {})", where, doing, to, node, String.format("%.2f", getY())); mtQuietUntil = tickCount + 20; } } else mtStall = 0;
         // reversal: the way he moves flips back on itself, 3 times within 2 s
         if (h > 0.05) { net.minecraft.world.phys.Vec3 dir = new net.minecraft.world.phys.Vec3(d.x / h, 0, d.z / h);
-            if (mtLastDir != null && dir.dot(mtLastDir) < -0.5) { if (tickCount - mtFlipStart > 40) { mtFlipStart = tickCount; mtFlips = 0; } if (++mtFlips == 3 && tickCount > mtQuietUntil) { ClaudeMod.LOGGER.info("[Claude move] shuffle at {} doing {} to {} next node {}", where, doing, to, node); mtQuietUntil = tickCount + 40; } }
+            if (mtLastDir != null && dir.dot(mtLastDir) < -0.5) { if (tickCount - mtFlipStart > 40) { mtFlipStart = tickCount; mtFlips = 0; } if (++mtFlips == 3 && tickCount > mtQuietUntil) { ClaudeMod.LOGGER.info("[Claude move] shuffle at {} doing {} to {} next node {}", where, doing, to, node); mtQuietUntil = tickCount + 40;  mtLoop(currentTask instanceof com.claudemod.entity.life.Task.GoTo g0 ? g0 : null, nx); } }
             mtLastDir = dir; }
         // spin: more than 270 degrees of turning within 2 s while walking
         mtSpin += Math.abs(net.minecraft.util.Mth.wrapDegrees(getYRot() - mtLastYaw));
         if (tickCount - mtSpinStart > 40) { mtSpinStart = tickCount; mtSpin = 0; }
-        else if (mtSpin > 270 && tickCount > mtQuietUntil) { ClaudeMod.LOGGER.info("[Claude move] spin at {} doing {} to {} next node {} ({} deg in {} ticks)", where, doing, to, node, (int) mtSpin, tickCount - mtSpinStart); mtSpin = 0; mtSpinStart = tickCount; mtQuietUntil = tickCount + 40; }
+        else if (mtSpin > 270 && tickCount > mtQuietUntil) { ClaudeMod.LOGGER.info("[Claude move] spin at {} doing {} to {} next node {} ({} deg in {} ticks)", where, doing, to, node, (int) mtSpin, tickCount - mtSpinStart); mtSpin = 0; mtSpinStart = tickCount; mtQuietUntil = tickCount + 40;  mtLoop(currentTask instanceof com.claudemod.entity.life.Task.GoTo g0 ? g0 : null, nx); }
         mtLastPos = pos; mtLastYaw = getYRot();
     }
 

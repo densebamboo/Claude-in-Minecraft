@@ -1380,6 +1380,12 @@ public class WorkGoal extends Goal {
         if (pos.getY() > g.getBlockY() && g.onGround()) g.getJumpControl().jump();
     }
 
+    /** doBreak keeps it as his build (a station, his pit cap): off his tidy lists, so nothing queues it again (09:15 TempLedger.tidy, tidyLitter and PitGuard.cleanup re-queued his crafting table and the door-pit cap every 5 s, each refused). */
+    private void keptAsBuild(BlockPos pos) {
+        if (com.claudemod.entity.life.TempLedger.book(g).remove(pos) != null | g.pillarBlocks.remove(pos))
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude temp] {} kept as his build: off his tidy lists (WorkGoal.keptAsBuild)", pos.toShortString());
+    }
+
     private boolean inReach(BlockPos pos) {
         return g.getEyePosition().distanceTo(Vec3.atCenterOf(pos)) <= 4.25; // 4.25 to the centre: every face he clicks stays inside the 4.75 his hands allow (4.0 left a mine-wall hole "out of reach" that a player reaches with a step)
     }
@@ -1688,6 +1694,7 @@ public class WorkGoal extends Goal {
         if (com.claudemod.entity.life.PitGuard.isCap(g, pos) && !state.isAir() && state.getFluidState().isEmpty() && !com.claudemod.entity.life.Consent.theirWord(g, pos, "pit cap", "the mouth of the hole by his door he closed", null)) { // the hole by his door he closed (and the fill under it): his build
             com.claudemod.director.ClaudeLife.bridgeBlocks().remove(pos);
             if (ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not breaking {}: the mouth of the hole by his door he closed (or its fill), his build (WorkGoal.doBreak, queued by {})", pos.toShortString(), com.claudemod.entity.ClaudeEntity.originOf(current));
+            keptAsBuild(pos);
             return exit("his cap stays (doBreak)");
         }
         { String kept0 = com.claudemod.entity.life.Consent.keptBlock(g, pos); if (kept0 != null && !state.isAir()) { if (ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude consent] not breaking {} at {}: {} (WorkGoal.doBreak, queued by {})", name(state), pos.toShortString(), kept0, com.claudemod.entity.ClaudeEntity.originOf(current)); return exit("their block stays (Consent.keptBlock)"); } } // (what their word had him put there: no take-back, no tidy, no other job's dig)
@@ -1734,7 +1741,7 @@ public class WorkGoal extends Goal {
                 com.claudemod.director.ClaudeLife.takeUpStation(pos); g.myStations.remove(pos); g.notches.remove(pos); g.tempStations.remove(pos);
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] his own {} at {} stands in his {} (WorkGoal.doBreak): taking it up, back in his pack", name(state), pos.toShortString(), inPocket ? "base nook's pocket (its walkway)" : "mine's walkway");
                 g.tasks.addFirst(new Task.Pickup(40));
-            } else { if (ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not breaking the {} at {} (WorkGoal.doBreak): stations and storage stay put (his own: {}, in his walkway: {}, in his nook: {})", name(state), pos.toShortString(), his0, bpS != null && bpS.isWalk(pos), com.claudemod.director.ClaudeLife.inHisNook(g, pos)); return true; }
+            } else { if (ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not breaking the {} at {} (WorkGoal.doBreak): stations and storage stay put (his own: {}, in his walkway: {}, in his nook: {})", name(state), pos.toShortString(), his0, bpS != null && bpS.isWalk(pos), com.claudemod.director.ClaudeLife.inHisNook(g, pos)); keptAsBuild(pos); return true; }
         } // stations and storage stay put (except his own temporary ones, and his own taken up on purpose)
         if (g.getTarget() instanceof net.minecraft.server.level.ServerPlayer owner
                 && com.claudemod.director.ClaudeLife.protectedBlock(g, owner, pos) && !com.claudemod.entity.life.Consent.theirWord(g, pos, "their build", "part of their build", null)) { if (ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not breaking {}: it's part of their build", pos.toShortString()); return true; }

@@ -115,6 +115,14 @@ public final class Controls {
         return l.getFluidState(c).is(net.minecraft.tags.FluidTags.LAVA) || l.getFluidState(c.below()).is(net.minecraft.tags.FluidTags.LAVA) && l.getBlockState(c.below()).getCollisionShape(l, c.below()).isEmpty();
     }
 
+    // ponytail: live 15:27, a fight's sideways slide (v -0.28 while the walk said +0.15) carried him off a ledge 35 over the lava sea; the slide guard saw lava only 1 down
+    static boolean hurtingDrop(Player p, net.minecraft.core.BlockPos c) {
+        var l = p.level(); if (!l.getBlockState(c).getCollisionShape(l, c).isEmpty()) return false;
+        int d = 0; var q = c.below();
+        while (d < 40 && l.getBlockState(q).getCollisionShape(l, q).isEmpty()) { var f = l.getFluidState(q); if (!f.isEmpty()) return f.is(net.minecraft.tags.FluidTags.LAVA); d++; q = q.below(); }
+        return d >= 4; // (the walk-line lip rule: 4+ open, no water at the bottom)
+    }
+
     public static boolean openGround(Player p, Vec3 dir) {
         var lvl = p.level();
         for (int i = 0; i <= 4; i++) { // (4: a sprint-jump lands 3-4 out)
@@ -213,7 +221,7 @@ public final class Controls {
         }
         { Vec3 v = p.getDeltaMovement(); double hv = Math.sqrt(v.x * v.x + v.z * v.z); // his own slide, whatever the walk says: a spin or a stall's recovery step carried him into lava past the guard on the walk's line (World 15 21:27, 115 48 -46)
           if (hv > 0.04 && !p.isInLava() && !p.isInWater()) { double vx = v.x / hv, vz = v.z / hv; boolean lv = false;
-              for (double r : new double[] {0.35, 0.7, Math.min(2.0, 0.35 + hv * 5)}) { net.minecraft.core.BlockPos c0 = net.minecraft.core.BlockPos.containing(p.getX() + vx * r, p.getY() + 0.1, p.getZ() + vz * r); if (!c0.equals(p.blockPosition()) && lavaCell(p, c0)) { lv = true; break; } }
+              for (double r : new double[] {0.35, 0.7, Math.min(2.0, 0.35 + hv * 5)}) { net.minecraft.core.BlockPos c0 = net.minecraft.core.BlockPos.containing(p.getX() + vx * r, p.getY() + 0.1, p.getZ() + vz * r); if (!c0.equals(p.blockPosition()) && (lavaCell(p, c0) || hurtingDrop(p, c0))) { lv = true; break; } }
               if (lv) { p.setDeltaMovement(0, Math.min(v.y, 0), 0); p.setSprinting(false); p.setJumping(false); jumpNow = false; if (walk != null && walk.x * vx + walk.z * vz > 0) walk = null;
                   if (p instanceof com.claudemod.entity.ClaudeEntity ce && ce.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] sliding toward lava at {}: stopped (Controls.apply)", p.blockPosition().toShortString()); } } }
         if (nextNode != null && walk != null && p.onGround() && !p.onClimbable() && !p.level().getBlockState(new net.minecraft.core.BlockPos(nextNode.x, nextNode.y - 1, nextNode.z)).is(net.minecraft.tags.BlockTags.CLIMBABLE) && !p.level().getBlockState(new net.minecraft.core.BlockPos(nextNode.x, nextNode.y, nextNode.z)).is(net.minecraft.tags.BlockTags.CLIMBABLE) && nextNode.y - p.getY() > 1.25 && /* (his real height: off 82.88, a top of 84 is a 1.1 jump, World 15 04:4x) */  Math.abs(nextNode.x + 0.5 - p.getX()) <= 1.6 && Math.abs(nextNode.z + 0.5 - p.getZ()) <= 1.6) { // the path's next step is 2+ up: no jump makes that (1.25 at most); jumped at, the hop carried him off a 1-block bridge 18 up (stage 538: 15 HP). Stood still: the walk's own planner cuts steps or towers

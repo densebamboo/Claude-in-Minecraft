@@ -1101,13 +1101,13 @@ public class WorkGoal extends Goal {
                 if (failed == null) for (var e : hopsTried.entrySet()) if (e.getKey().distSqr(m) <= 9 && g.tickCount - e.getValue() < 20 * 60 && g.blockPosition().distSqr(e.getKey()) > 6 * 6) { failed = e.getValue(); break; } /* the same hop again within a minute, still far from it: it got him nowhere */
                 if (failed == null) { mid = m; break; }
             }
-            if (mid == null) return false; // every way round's failed lately: let this walk give up the normal way
+            if (mid != null) { // (none: every way round's failed lately, so fall through to the count below and the normal give-up; a return here held stuck at 40 forever, live 13:01 Nether)
             g.tasks.addFirst(new Task.GoTo(pos, within));
             g.tasks.addFirst(new Task.GoTo(mid, 4));
             hopsTried.put(mid.immutable(), g.tickCount); /* (its own record: in Attempts WALK the walker skipped the fresh hop as "failed 0 s ago", stage 371) */
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] long walk to {} ({} blocks): hopping to {} first", pos.toShortString(), (int) hd, mid.toShortString());
             return true;
-        }
+        } }
         { var np = g.getNavigation().getPath(); if (np != null && np == walkPath && np.getNextNodeIndex() > walkNode && !np.isDone()) { stuck = 0; lastDist = Math.min(lastDist, d); } walkPath = np; walkNode = np == null ? -1 : np.getNextNodeIndex(); } // on along his route counts as headway (round his house to its door the line to the bed gets no shorter for seconds)
         if (d < lastDist - 0.5) { lastDist = d; stuck = 0; } else if (++stuck > STUCK_LIMIT) {
             // Can't get to this spot: skip just the work tied to it (up to the next walk), keep the rest of the job,

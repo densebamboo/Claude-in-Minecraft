@@ -1539,6 +1539,8 @@ public final class ClaudeLife {
         if (f0 == null || !f0.endsWith("@" + g.planStartTick)) return;
         String f = f0.substring(0, f0.lastIndexOf('@'));
         if (f.equals("shelter") || f.equals("eat")) return;
+        { Skills.Step s0 = g.skillQueue.peekFirst(); String why = s0 == null ? null : g.failReason.get(s0.skill()); boolean day = g.level().isDay();
+          if (why != null && why.startsWith("failed") && ((why.contains("it's day,") && day) || (why.contains("it's night") && !day))) { ClaudeMod.LOGGER.info("[Claude plan] the plan is in, but its {} still waits ({}): {} (meanwhile work) goes on (ClaudeLife.planLanded)", s0.skill(), day ? "day" : "night", f); return; } } // (live 01:17 World 15: pearls refused by day, meanwhile branch dug, plan landed and stopped it, pearls refused again: every 25 s)
         g.tasks.removeIf(t -> !(t instanceof Task.Pickup || t instanceof Task.FinishTree || t instanceof Task.Replant));
         if (g.currentTask instanceof Task.GoTo) dropCurrent(g);
         ClaudeMod.LOGGER.info("[Claude plan] the plan is in: {} (meanwhile work) stops there", f);

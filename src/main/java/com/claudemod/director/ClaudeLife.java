@@ -3747,7 +3747,7 @@ public final class ClaudeLife {
                 if (dn != null && !dn.dim.equals(dimHere)) {
                     g.skillQueue.addFirst(new Skills.Step("recover_drops", "", 1)); g.skillQueue.addFirst(new Skills.Step("enter_portal", "", 1));
                     ClaudeMod.LOGGER.info("[Claude life] recover_drops: his pending pile is in {} at {}: through his portal for it (ClaudeLife recover_drops)", dn.dim, dn.at.toShortString());
-                    return "my things from dying in the " + dn.dim.replace('_', ' ') + " are still at " + dn.at.toShortString() + ": through my portal for them"; }
+                    return "my things from dying in the " + dn.dim.replace("the_", "").replace('_', ' ') + " are still at " + dn.at.toShortString() + ": through my portal for them"; }
                 java.util.Optional<BlockPos> death = java.util.Optional.ofNullable(dn == null ? null : dn.at);
                 BlockPos spot0 = death.orElse(g.blockPosition());
                 // died twice: the last spot may hold only junk while the iron lies where he died before (the second death made him forget a pile with 21 raw iron): the nearest pile of his that's iron or better is the spot

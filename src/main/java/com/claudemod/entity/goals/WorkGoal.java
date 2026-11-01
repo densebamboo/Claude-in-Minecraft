@@ -4824,6 +4824,7 @@ public class WorkGoal extends Goal {
 
     // ---- fortress fights from cover (FortressFight; patch_blaze_loot.py) ----
     private String cfMode = ""; private int cfPeekTick = -100, cfHopTick = -100, cfIdle; private boolean cfHealing; private java.util.UUID cfTarget;
+    private int cfEmptyPeeks; // steps out to draw a lit blaze's shots that drew none
     private void cfSay(String mode, String why) { if (!mode.equals(cfMode)) { cfMode = mode; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] {}: {} (WorkGoal.coverFight)", mode, why); } }
     // cfMove: the last step goes straight to the centre: the path calls itself done ~0.5 short, over the cell edge (01:30 he stood at -72.0, cover -73, burning 13 -> 1)
     private void cfMove(BlockPos to, double speed) { if (Math.abs(g.getY() - to.getY()) < 0.6 && Math.hypot(g.getX() - to.getX() - 0.5, g.getZ() - to.getZ() - 0.5) < 1.6) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(to.getX() + 0.5, to.getY(), to.getZ() + 0.5, speed); return; } g.getNavigation().moveTo(to.getX() + 0.5, to.getY(), to.getZ() + 0.5, speed); } // (in his own cell the path is "done" at once and never centres him: at() wants 0.35, so "back into cover" held him off-centre in sight, burning 13 -> 1, the Eat never reached)
@@ -4877,6 +4878,11 @@ public class WorkGoal extends Goal {
         boolean withered = g.hasEffect(net.minecraft.world.effect.MobEffects.WITHER);
         float hp = g.getHealth();
         var due = blaze ? com.claudemod.entity.life.FortressFight.volleyDue(g, level) : null; // a blaze lit 44+ in sight of him, or a fireball his way
+        if (g.tasks.peek() instanceof Task.Eat eatNext && due == null && (inCover || !blaze) && g.getFoodData().getFoodLevel() < 20) { // a meal queued behind this fight: it goes first, the fight after it (World 15 01:29: "next: [Eat]" 400+ ticks behind an Attack that kept renewing past its clock, 13 HP down to 1)
+            g.tasks.pollFirst(); g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(eatNext);
+            cfSay("eating first", "a meal was waiting behind the fight (hunger " + g.getFoodData().getFoodLevel() + ", health " + (int) hp + "), no volley due" + (inCover ? ", in cover" : ""));
+            return true;
+        }
         if (blaze) { // a blaze at arm's length (inside 2 it touches for 6 and sets him alight): hit it and keep it 2.4+ off; never his back to it, hurt or not
             net.minecraft.world.entity.monster.Blaze near = null; for (var b2 : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(4), net.minecraft.world.entity.Entity::isAlive)) if (b2.distanceTo(g) < 3.0 && g.hasLineOfSight(b2) && (near == null || b2.distanceTo(g) < near.distanceTo(g))) near = b2;
             if (near != null && near.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0) { cfClose(level, near, due, shield); return false; }
@@ -4905,9 +4911,12 @@ public class WorkGoal extends Goal {
         var bz = (net.minecraft.world.entity.monster.Blaze) mob;
         int pending = -1; for (var b2 : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(32), net.minecraft.world.entity.Entity::isAlive)) pending = Math.max(pending, com.claudemod.entity.life.FortressFight.chargeAge(g, b2));
         if (due != null && shield) { g.getNavigation().stop(); g.setSprinting(false); shieldUp(due); cfSay("shield up", "a volley due from the blaze " + (int) due.distanceTo(g) + " off: on the shield, then in"); return false; }
-        if (!shield && pending >= 44) { // no shield and a volley waiting: out of its sight, and its shots drawn one at a time from the cover's edge
+        if (g.hurtTime > 0 || due != null) cfEmptyPeeks = 0; // (a shot came: the peeks draw them)
+        if (cfEmptyPeeks >= 3 && g.tickCount - cfPeekTick > 20 * 10) cfEmptyPeeks = 0;
+        if (!shield && pending >= 44 && cfEmptyPeeks >= 3) cfSay("no more peeks", "3 steps out drew no shot (a blaze lit with no sight of him stays lit): on with the fight, not out and back");
+        if (!shield && pending >= 44 && cfEmptyPeeks < 3) { // no shield and a volley waiting: out of its sight, and its shots drawn one at a time from the cover's edge (World 15 01:34: 23 peeks a minute at a blaze lit 999 ticks, no shot drawn: after 3 empty ones, 10 s of the rest of the fight)
             if (!inCover && !(g.tickCount - cfPeekTick <= 3)) { g.setSprinting(true); cfMove(cv.cover(), 1.3); cfSay("ducking into cover", "a blaze lit " + pending + " ticks: its volley comes the moment it sees him"); return false; }
-            if (pending >= 60 && g.tickCount - cfPeekTick > 16) { cfPeekTick = g.tickCount; cfMove(cv.peek(), 1.0); cfSay("drawing its shots", "a step out to " + cv.peek().toShortString() + " and back: each shot wants its sight of him"); return false; }
+            if (pending >= 60 && g.tickCount - cfPeekTick > 16) { cfPeekTick = g.tickCount; cfEmptyPeeks++; cfMove(cv.peek(), 1.0); cfSay("drawing its shots", "a step out to " + cv.peek().toShortString() + " and back: each shot wants its sight of him"); return false; }
             if (g.tickCount - cfPeekTick > 3 && !inCover) cfMove(cv.cover(), 1.2);
             return false;
         }
@@ -4929,7 +4938,8 @@ public class WorkGoal extends Goal {
             cfSay("closing in", "the blaze is " + (age < 0 ? "quiet" : "lit " + age + " ticks") + ", " + (int) mob.distanceTo(g) + " off" + (shield ? ", shield ready" : ""));
             return false;
         }
-        // out of reach (floating high) or no time: at the cover's edge, in its sight, it comes down or lights up and the clock starts
+        // out of reach (floating high) or no time: a bow and arrows on him: shot from where he stands while it's quiet (vanilla's blaze hangs back from a player it sees: it never comes to a sword); drawing a bow and holding a shield up can't both be done, so the volley's blocked first (above) and the shot taken between
+        if (!low || mob.distanceTo(g) > 14) { boolean drawingBow = g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW); if (g.hasLineOfSight(mob) && (age < 0 || drawingBow)) { if (shootAt(mob)) { cfIdle = 0; cfSay("shooting it", "the blaze is " + (low ? "" : "up ") + "out of sword reach, " + (int) mob.distanceTo(g) + " off and quiet: arrows"); return false; } } }
         BlockPos wait = shield ? cv.peek() : (age >= 0 ? cv.cover() : cv.peek());
         if (!com.claudemod.entity.life.FortressFight.at(g, wait)) cfMove(wait, 1.1); else g.getNavigation().stop();
         if (++cfIdle > 20 * 45) { cfSay("it stays out of reach", "45 s and the blaze never came in reach: done with this one"); return true; }

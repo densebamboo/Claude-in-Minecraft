@@ -49,6 +49,8 @@ public final class FortressFight {
     private static Map<UUID, Integer> riskSaid; // per bot: when the risk was said for this rod run
     private static Map<UUID, Integer> riskSaid() { if (riskSaid == null) riskSaid = new HashMap<>(); return riskSaid; }
     private static Map<UUID, int[]> runs; // per bot: {goal rods, passes with no rod gained, rods at the last pass, walks}
+    private static Map<UUID, Integer> outOfReach; // when the blazes in view were last all out of his reach, with nothing to shoot them with (static: fields added live start null)
+    private static Map<UUID, Integer> outOfReach() { if (outOfReach == null) outOfReach = new HashMap<>(); return outOfReach; }
     private static Map<UUID, int[]> runs() { if (runs == null) runs = new HashMap<>(); return runs; }
 
     public static void reset(ClaudeEntity g) { covers().remove(g.getUUID()); runs().remove(g.getUUID()); riskSaid().remove(g.getUUID()); }
@@ -296,6 +298,31 @@ public final class FortressFight {
             g.skillQueue.addFirst(again);
             ClaudeMod.LOGGER.info("[Claude fight] no blaze in view: walking the fortress to its piece at {} to look (FortressFight.blazeRods)", best.toShortString());
             return "no blaze in view: walking the fortress to " + best.toShortString() + " to look for them (" + have + "/" + goal + " rods)";
+        }
+        { // blazes he can't reach and nothing to shoot them with (World 15 01:27: 4 blazes hovering 7-14 off a hall, 5 min, 0 rods, not one swing): vanilla's blaze never closes on a player it sees (it hangs back and shoots; out of sight it drifts in 5 ticks and stops), so a sword gets one only at its spawner, where they appear within 4 of the cage
+            boolean ranged = g.inventory.count(s0 -> s0.is(Items.BOW)) > 0 && g.inventory.count(s0 -> s0.is(Items.ARROW)) > 0;
+            boolean reachable = false; for (Blaze b0 : bl) if (b0.getBoundingBox().minY <= g.getY() + 3.2 && b0.distanceTo(g) <= 14) reachable = true;
+            Integer since = outOfReach().get(g.getUUID());
+            if (ranged || reachable || bl.isEmpty() || spawner != null && spawner.distSqr(g.blockPosition()) <= 8 * 8) outOfReach().remove(g.getUUID());
+            else if (since == null) outOfReach().put(g.getUUID(), g.tickCount);
+            else if (g.tickCount - since >= 20 * 15) {
+                outOfReach().remove(g.getUUID());
+                BlockPos cage = spawner != null ? spawner : Perception.nearestSign(g, g.blockPosition(), 128, "a mob spawner");
+                String why = bl.size() + " blaze(s) out of reach 15 s (they hang back and shoot at a player they see) and no bow and arrows on me";
+                if (cage != null) {
+                    BlockPos by = null; double bd0 = Double.MAX_VALUE; // (a cell beside the cage he can stand in: fresh blazes appear within 4 of it, in sword reach)
+                    for (BlockPos q : BlockPos.betweenClosed(cage.offset(-3, -2, -3), cage.offset(3, 1, 3))) { if (q.distSqr(cage) < 2 * 2 || !stand(level, q)) continue; double dq = q.distSqr(g.blockPosition()); if (dq < bd0) { bd0 = dq; by = q.immutable(); } }
+                    if (by != null) { g.tasks.add(new Task.GoTo(by, 1.0)); g.skillQueue.addFirst(again);
+                        ClaudeMod.LOGGER.info("[Claude fight] {}: to the blaze spawner at {}, beside it at {}; new ones appear within 4 of it, in reach (FortressFight.blazeRods)", why, cage.toShortString(), by.toShortString());
+                        return "the blazes here stay out of my reach and i've no bow: to their spawner at " + cage.toShortString() + ", where new ones appear right by me (" + have + "/" + goal + " rods)"; }
+                }
+                if (FortressScout.onFortress(g)) { BlockPos step = FortressScout.deckStep(g, level); if (step != null) { g.tasks.add(new Task.GoTo(step, 1.0)); g.skillQueue.addFirst(again);
+                    ClaudeMod.LOGGER.info("[Claude fight] {}, no spawner known: along the deck to {} for the spawner room (FortressFight.blazeRods)", why, step.toShortString());
+                    return "the blazes here stay out of my reach and i've no bow: looking along the fortress for their spawner (" + have + "/" + goal + " rods)"; } }
+                ClaudeMod.LOGGER.info("[Claude fight] {}, no spawner known and no deck left to look along: a bow is what this needs (FortressFight.blazeRods)", why);
+                runs().remove(g.getUUID());
+                return "failed: the blazes stay out of sword reach, I know of no spawner to fight them at, and I've no bow and arrows (a bow, or their spawner, is what this needs)";
+            }
         }
         if (bl.size() >= 4 && g.getHealth() <= 12 && spawner != null) { // swarming and he's losing: a spawner only works with a player within 16 (torches don't stop a blaze spawner: blazes spawn in any light), so out of its range and heal
             g.skillQueue.addFirst(again); g.tasks.add(new Task.Flee(20 * 12));

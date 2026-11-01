@@ -523,6 +523,8 @@ public final class Perception {
     static Map<BlockPos, String> seenSigns(ClaudeEntity g) { if (signsSeen == null) signsSeen = new HashMap<>(); return signsSeen.computeIfAbsent(g.getUUID(), k -> new HashMap<>()); }
     static Map<BlockPos, String> heardSigns(ClaudeEntity g) { if (signsHeard == null) signsHeard = new HashMap<>(); return signsHeard.computeIfAbsent(g.getUUID(), k -> new HashMap<>()); }
     /** The hazard he knows at this cell (seen there, or heard from about there), or null. */
+    /** (tests) A sign he saw earlier: on his record as if seen. */
+    public static void noteSignTest(ClaudeEntity g, BlockPos p, String what) { seenSigns(g).put(p.immutable(), what); }
     public static String signAt(ClaudeEntity g, BlockPos p) { String s = seenSigns(g).get(p); return s != null ? s : heardSigns(g).get(p); }
     /** The nearest sign of {@code what} ("the deep dark", "a trial chamber"...) he has seen or heard within r of p, or null. */
     public static BlockPos nearestSign(ClaudeEntity g, BlockPos p, int r, String what) {

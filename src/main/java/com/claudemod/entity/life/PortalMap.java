@@ -294,8 +294,8 @@ public final class PortalMap {
         double d = Math.sqrt(p.at.distSqr(g.blockPosition()));
         if (d > 3.5) {
             if (walkedTo == null) walkedTo = new HashMap<>();
-            Integer last = walkedTo.get(p.id); if (last != null && g.tickCount - last < 20 * 120 && d > 6) return "failed: couldn't get to portal #" + p.id + " at " + p.where() + " (" + (int) d + " off) on the last try";
-            walkedTo.put(p.id, g.tickCount);
+            Integer last = walkedTo.get(p.id); if (last != null && g.getServer().getTickCount() - last < 20 * 120 && d > 6) return "failed: couldn't get to portal #" + p.id + " at " + p.where() + " (" + (int) d + " off) on the last try";
+            walkedTo.put(p.id, g.getServer().getTickCount()); // ponytail: server ticks, his own tickCount restarts at 0 on every dimension change
             g.tasks.add(new Task.GoTo(p.at, 2)); g.skillQueue.addFirst(new Skills.Step(st.skill(), target, st.count(), st.where()));
             ClaudeMod.LOGGER.info("[Claude portal] enter \"{}\" -> #{} at {} ({}, {} off): walking there (PortalMap.enterStep)", t, p.id, p.where(), p.state, (int) d);
             return "walking to portal #" + p.id + " at " + p.where() + " (" + linkTalk(g, p) + ")";

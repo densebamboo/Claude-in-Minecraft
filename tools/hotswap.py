@@ -35,7 +35,8 @@ def main():
         return
     # The game loads the mod from the deployed jar, not build/classes: a class that jar doesn't have can't
     # "load fresh", so pushing the classes that use it crashes the game (Task$Fish, 2026-10-28). Restart instead.
-    if os.path.exists(DEPLOYED):
+    # ponytail: runLive loads build/classes (every class is there), so LIVE_CLASSES=1 skips the jar check
+    if os.path.exists(DEPLOYED) and not os.environ.get("LIVE_CLASSES"):
         import zipfile
         have = {n[:-6].replace("/", ".") for n in zipfile.ZipFile(DEPLOYED).namelist() if n.endswith(".class")}
         new = [name for name, _ in changed if name not in have]

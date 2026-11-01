@@ -577,7 +577,7 @@ public final class ClaudeLife {
         int stamp = progressStamp(g);
         v[1] = g.tickCount - v[0] < 400 && v[2] == stamp ? v[1] + 1 : 0; // the same line again AND nothing changed since: a loop; with progress (moved, got something, broke something) it's just a long job
         v[0] = g.tickCount; v[2] = stamp;
-        return v[1] >= (line.contains("spawner") && line.contains("waiting") ? 40 : 5); // (a wait at a spawner: it fires every 10-40 s and only with him in 16: 2 minutes of the same line is patience, not a loop; World 15 00:03, tripped at 20 s)
+        return v[1] >= ((line.contains("spawner") || line.contains("blaze")) && line.contains("waiting") ? 40 : 5); // (a wait at a spawner: it fires every 10-40 s and only with him in 16: 2 minutes of the same line is patience, not a loop; World 15 00:03, tripped at 20 s)
     }
 
     /** The nearest furnace he can actually get to: not one he just failed to reach (he'd only loop on it). */

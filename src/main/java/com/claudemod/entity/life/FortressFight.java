@@ -329,7 +329,12 @@ public final class FortressFight {
             ClaudeMod.LOGGER.info("[Claude fight] {} blazes out and health {}: backing out past the spawner's 16 blocks to heal (it stops spawning without a player in range) (FortressFight.blazeRods)", bl.size(), (int) g.getHealth());
             return "too many blazes (" + bl.size() + ") at health " + (int) g.getHealth() + ": backing out of the spawner's range to heal, then back in";
         }
-        LivingEntity foe = bl.isEmpty() ? null : bl.stream().min(java.util.Comparator.comparingDouble(b -> b.distanceToSqr(g))).get();
+        LivingEntity foe = bl.stream().filter(g::hasLineOfSight).min(java.util.Comparator.comparingDouble(b -> b.distanceToSqr(g))).orElse(null); // (one he can see: World 15 04:01, the nearest was behind basalt, the attack let it be at once and he re-picked it 5 times standing still)
+        if (foe == null && !bl.isEmpty()) { // all of them behind rock: out of sight a blaze drifts in and stops, so he holds here till one comes round into view
+            g.tasks.add(new Task.Wait(40, false)); g.skillQueue.addFirst(again);
+            ClaudeMod.LOGGER.info("[Claude fight] rods {}/{}: {} blaze(s) about, none in sight (all behind rock): waiting for one to come into view (FortressFight.blazeRods)", have, goal, bl.size());
+            return "blaze rods " + have + "/" + goal + ": " + bl.size() + " blaze(s) behind the rock, waiting for one to come into sight";
+        }
         Cover c = foe != null ? coverFor(g, level, foe) : null;
         if (foe == null) { // only the spawner: wait by it, out of sight, for the next blazes (it spawns 1-4 every 10-40 s with him within 16)
             var fake = net.minecraft.world.entity.EntityType.BLAZE.create(level);

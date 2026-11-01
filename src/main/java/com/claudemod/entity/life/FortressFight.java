@@ -236,6 +236,18 @@ public final class FortressFight {
     }
 
     /** "obtain blaze_rod N": find blazes (a spawner he can see, or blazes in view), fight from cover, count the rods, stop at N. */
+    /** Where to stand on the fortress piece round {@code c}: the nether brick with two clear cells over it nearest the piece's middle (its floor or deck, not the lava under it). */
+    public static BlockPos deckCellTest(ServerLevel level, BlockPos c) { return deckCell(level, c); }
+    static BlockPos deckCell(ServerLevel level, BlockPos c) {
+        BlockPos best = null; double bs = -Double.MAX_VALUE;
+        for (BlockPos q : BlockPos.betweenClosed(c.offset(-12, -10, -12), c.offset(12, 14, 12))) {
+            if (!level.isLoaded(q) || !level.getBlockState(q).is(net.minecraft.world.level.block.Blocks.NETHER_BRICKS)) continue;
+            BlockPos f = q.above(); if (!level.getBlockState(f).getCollisionShape(level, f).isEmpty() || !level.getBlockState(f.above()).getCollisionShape(level, f.above()).isEmpty() || !level.getFluidState(f).isEmpty()) continue;
+            double score = -f.distSqr(c); if (score > bs) { bs = score; best = f.immutable(); } // (nearest its middle: its floor or deck, not a corridor's roof, the highest bricks)
+        }
+        return best;
+    }
+
     public static String blazeRods(ClaudeEntity g, ServerPlayer player, ServerLevel level, Skills.Step st) {
         String target = st.target().toLowerCase();
         int have = rods(g);
@@ -278,7 +290,8 @@ public final class FortressFight {
             if (best == null && com.claudemod.director.Structures.testPiece != null && !g.attempts.within(Attempts.Kind.WALK, com.claudemod.director.Structures.testPiece, g.tickCount, 20 * 300)) best = com.claudemod.director.Structures.testPiece;
             if (best == null) { ClaudeMod.LOGGER.info("[Claude fight] no blaze or blaze spawner in view, every fortress piece he has seen walked lately (FortressFight.blazeRods)"); runs().remove(g.getUUID()); return "failed: no blaze or blaze spawner in view, and no part of the fortress i've seen left to look in (find the fortress's spawner room first)"; }
             g.attempts.fail(Attempts.Kind.WALK, best, g.tickCount); run[3]++;
-            g.tasks.add(new Task.GoTo(best, 3));
+            BlockPos deck = deckCell(level, best); // (onto its deck, the bricks he can stand on: the box's middle is in its wall or under it, and the route there went by the lava sea)
+            g.tasks.add(new Task.GoTo(deck != null ? deck : best, deck != null ? 1.5 : 3));
             g.skillQueue.addFirst(again);
             ClaudeMod.LOGGER.info("[Claude fight] no blaze in view: walking the fortress to its piece at {} to look (FortressFight.blazeRods)", best.toShortString());
             return "no blaze in view: walking the fortress to " + best.toShortString() + " to look for them (" + have + "/" + goal + " rods)";

@@ -235,7 +235,7 @@ public final class ClaudeLife {
         }
         if (g.level().dimension() != net.minecraft.world.level.Level.OVERWORLD) { // away from home (the Nether): his places (house, mine, farm, chests, beds) are overworld ones; no night rules (a bed set down here explodes), no following; the basics, then the work
             if (g.tickCount % 100 == 0) equipArmor(g);
-            if (g.tickCount % 20 == 10 && g.getFoodData().getFoodLevel() < 20 && !(g.currentTask instanceof Task.Eat) && g.tasks.stream().noneMatch(t0 -> t0 instanceof Task.Eat)) { Item f0 = foodToEat(g, true); if (f0 != null) g.tasks.addFirst(new Task.Eat(f0)); }
+            if (g.tickCount % 20 == 10 && g.getFoodData().getFoodLevel() < 20 && !(g.currentTask instanceof Task.Eat) && g.tasks.stream().noneMatch(t0 -> t0 instanceof Task.Eat) && (g.getFoodData().getFoodLevel() <= 6 || !lavaEdge(g))) { Item f0 = foodToEat(g, true); if (f0 != null) g.tasks.addFirst(new Task.Eat(f0)); } // (the top-up waits off a lava edge: eating stands him still where a knock is the fall, World 15 13:41 on his 1-wide bridge)
             mlg(g, (ServerLevel) g.level());
             if (g.planning && g.tickCount - g.planStartTick > 20 * 45) g.planning = false;
             if (g.tickCount % 200 == 3) logWhere(g, player, g.level() == player.level() ? g.distanceTo(player) : -1);
@@ -12639,6 +12639,15 @@ public final class ClaudeLife {
         if (g.currentRoll() != Roll.WORK) { g.stashedTasks.clear(); g.setRoll(Roll.WORK); }
         g.urgentAttacker = mobs.get(0).getUUID(); // the executor fights it before anything else
         ClaudeMod.LOGGER.info("[Claude life] fighting a {} for them", BuiltInRegistries.ENTITY_TYPE.getKey(mobs.get(0).getType()).getPath());
+    }
+
+    /** Beside an open drop to lava (a bridge or a shore over it): no place to stand still and eat. */
+    public static boolean lavaEdge(ClaudeEntity g) {
+        var l = g.level(); BlockPos f = g.blockPosition();
+        for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) { if (dx == 0 && dz == 0) continue; BlockPos c = f.offset(dx, 0, dz);
+            if (!l.getBlockState(c).getCollisionShape(l, c).isEmpty()) continue;
+            for (int k = 0; k <= 12; k++) { BlockPos q = c.below(k); if (l.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) return true; if (!l.getBlockState(q).getCollisionShape(l, q).isEmpty()) break; } }
+        return false;
     }
 
     /** Moves him somewhere 40-60 blocks from the player, on the ground, out of their line of sight. */

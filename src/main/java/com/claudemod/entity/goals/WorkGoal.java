@@ -1564,7 +1564,15 @@ public class WorkGoal extends Goal {
         if (!level.getBlockState(next).getCollisionShape(level, next).isEmpty()
                 || !level.getBlockState(next.above()).getCollisionShape(level, next.above()).isEmpty()) return false; // a wall, not a gap
         BlockPos gapFloor = next.below();
-        if (level.getFluidState(gapFloor).is(net.minecraft.tags.FluidTags.WATER) && level.canSeeSky(gapFloor.above())) { g.setShiftKeyDown(false); return false; } // open water: a player swims it (he laid 40-block dirt causeways across the sea)
+        if (level.getFluidState(gapFloor).is(net.minecraft.tags.FluidTags.WATER) && level.canSeeSky(gapFloor.above())) { g.setShiftKeyDown(false); return false; }
+        boolean overLava = false; for (int k = 1; k <= 12 && !overLava; k++) { BlockPos q = next.below(k); if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) overLava = true; else if (!level.getBlockState(q).getCollisionShape(level, q).isEmpty()) break; }
+        net.minecraft.world.entity.Mob shooter = null;
+        if (overLava) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(48), m -> m.isAlive() && (m instanceof net.minecraft.world.entity.monster.Blaze || m instanceof net.minecraft.world.entity.monster.Ghast || m instanceof net.minecraft.world.entity.monster.RangedAttackMob) && g.hasLineOfSight(m))) { shooter = m; break; }
+        if (shooter != null) { // the Nether bridge rule: never out over lava with a shooter on him (a fireball's knock is the fall: World 15 13:41)
+            g.setShiftKeyDown(false);
+            if (g.tickCount - lavaBridgeSaid > 40) { lavaBridgeSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not bridging out over the lava toward {}: a {} {} off has him in sight (WorkGoal.bridgeToward)", BlockPos.containing(target).toShortString(), shooter.getType().getDescription().getString(), (int) shooter.distanceTo(g)); }
+            return false;
+        } // open water: a player swims it (he laid 40-block dirt causeways across the sea)
         // Crouch-bridging like a player: sneak (the game won't let a sneaking player walk off an edge), place a
         // block against the side of the one he's standing on, shuffle onto it.
         g.getNavigation().stop();
@@ -1587,14 +1595,19 @@ public class WorkGoal extends Goal {
             BlockPos under = g.blockPosition().below(); // what he stands on: click its side facing the gap
             if (!g.useOn(under, dir)) return false;
             if (level.canSeeSky(floor.above())) com.claudemod.director.ClaudeLife.bridgeBlocks().add(floor.immutable()); // out in the open: taken down after
-            if (bridged == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] bridging toward {} from {}", BlockPos.containing(target).toShortString(), g.blockPosition().toShortString());
+            if (bridged == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] bridging toward {} from {}{}", BlockPos.containing(target).toShortString(), g.blockPosition().toShortString(), overLava ? " (over lava: 2 wide)" : "");
             bridged++;
+            if (overLava) { // over lava, 2 wide: a knock sideways lands on the bridge, not in the lava (the Nether bridge rule)
+                for (Direction sd : new Direction[] {dir.getClockWise(), dir.getCounterClockWise()}) { BlockPos side = floor.relative(sd);
+                    if (level.getBlockState(side).isFaceSturdy(level, side, Direction.UP)) break; // (a side already there)
+                    if (level.getBlockState(side).canBeReplaced() && g.hold(block) && g.useOn(floor, sd)) { if (level.canSeeSky(side.above())) com.claudemod.director.ClaudeLife.bridgeBlocks().add(side.immutable()); break; } }
+            }
         }
         g.getMoveControl().setWantedPosition(next.getX() + 0.5, next.getY(), next.getZ() + 0.5, 1.0); // sneaking makes it slow
         return true;
     }
 
-    private int bridgeCrouchTick = -100;
+    private int bridgeCrouchTick = -100, lavaBridgeSaid = -100;
 
     /** Stand back up once he's stopped bridging for a moment. */
     private void maybeStandUp() {
@@ -4684,7 +4697,7 @@ public class WorkGoal extends Goal {
         // No way to it on foot, and it shoots, or it's down a drop: never edge toward it (he chased a skeleton to the lip of a
         // mineshaft and went down it, 6 from the fall, then shot dead). Out of its sight, and it comes to him; a melee mob down
         // a drop can't get at him either
-        boolean shoots = mob instanceof net.minecraft.world.entity.monster.RangedAttackMob;
+        boolean shoots = mob instanceof net.minecraft.world.entity.monster.RangedAttackMob || mob instanceof net.minecraft.world.entity.monster.Blaze || mob instanceof net.minecraft.world.entity.monster.Ghast; // (a blaze and a ghast shoot too, though not RangedAttackMobs in the game's code: a blaze was chased by a 1-wide bridge over the lava sea, World 15 13:41)
         if ((shoots && !(dy > 1.5 && horiz < 3.0)) || dy <= -4) {
             g.setSprinting(false);
             if (shoots) { int cl = closeOnShooter(mob, t); if (cl == 1) return false; if (cl == 2) return true; } // the expert closes in: a crossbow piglin holds 5-8 off and never comes round (live 16:23, 25 arrows while he "waited" for it)

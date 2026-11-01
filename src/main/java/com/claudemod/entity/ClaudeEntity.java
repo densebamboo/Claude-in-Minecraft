@@ -303,6 +303,11 @@ public class ClaudeEntity extends ServerPlayer {
 
     private int zeroHpTicks;
     @Override
+    public boolean hasLineOfSight(net.minecraft.world.entity.Entity e) { // ponytail: the user 14:25 "he should be able to see past transparent blocks": vanilla's COLLIDER clip stops at glass/leaves/fences; his eyes use Perception.clear (eye to eye) like everything else he sees
+        if (e.level() != level() || e.distanceToSqr(this) > 128 * 128 || !(level() instanceof net.minecraft.server.level.ServerLevel sl)) return super.hasLineOfSight(e);
+        return com.claudemod.entity.life.Perception.clear(sl, getEyePosition(), e.getEyePosition());
+    }
+    @Override
     public void tick() {
         if (isChangingDimension()) { hasChangedDimension(); com.claudemod.entity.life.PortalMap.arrived(this); com.claudemod.entity.life.ExactSpot.reset(this); /* a spot given in the other dimension means nothing here */ if (!level().getBlockState(blockPosition()).is(net.minecraft.world.level.block.Blocks.NETHER_PORTAL) && !level().getBlockState(blockPosition().above()).is(net.minecraft.world.level.block.Blocks.NETHER_PORTAL)) { tasks.clear(); com.claudemod.director.ClaudeLife.dropCurrent(this); nav.stop(); for (var it = skillQueue.iterator(); it.hasNext(); ) if ("enter_portal".equals(it.next().skill())) it.remove(); ClaudeMod.LOGGER.info("[Claude life] moved to {} not by a portal: the walks and portal steps planned in the other world dropped, re-planning here (ClaudeEntity.tick)", level().dimension().location().getPath()); } /* ponytail: live 13:55, respawned in the overworld, recover_drops queued enter_portal + its overworld route; a /tp into the Nether kept it, he pillared to y 80 and died in lava */ stoppedTick = tickCount; /* ponytail: live 13:30, a plan asked for in the overworld landed after the tp into the Nether: go_to the overworld portal 70 68 65 there */
             if (level().getBlockState(blockPosition()).is(net.minecraft.world.level.block.Blocks.NETHER_PORTAL)) { /* where he came out: his way back */

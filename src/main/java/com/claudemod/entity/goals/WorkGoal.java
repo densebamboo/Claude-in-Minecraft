@@ -4832,7 +4832,8 @@ public class WorkGoal extends Goal {
         if (g.onGround() && !g.isInWater() && g.tickCount - cfHopTick > 14 && g.getHealth() > 6) { cfHopTick = g.tickCount; g.getJumpControl().jump(); return true; }
         if (!g.onGround() && g.getDeltaMovement().y > 0 && g.tickCount - cfHopTick <= 8) return true; // still going up: the crit wants the fall
         g.getLookControl().faceNow(mob.getBoundingBox().getCenter());
-        shieldDown(); g.attack(mob); g.swing(InteractionHand.MAIN_HAND);
+        shieldDown(); float hp0 = mob.getHealth(); g.attack(mob); g.swing(InteractionHand.MAIN_HAND);
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] swing at the {} {} off (eye {}): hp {} -> {}, invuln {}, his fall {} (WorkGoal.cfSwing)", BuiltInRegistries.ENTITY_TYPE.getKey(mob.getType()).getPath(), String.format("%.2f", mob.distanceTo(g)), String.format("%.2f", g.getEyePosition().distanceTo(mob.getBoundingBox().getCenter())), hp0, mob.getHealth(), mob.invulnerableTime, String.format("%.2f", g.fallDistance));
         if (!mob.isAlive()) g.noteDoing("killed a " + BuiltInRegistries.ENTITY_TYPE.getKey(mob.getType()).getPath());
         return true;
     }

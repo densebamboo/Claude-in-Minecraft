@@ -4880,7 +4880,7 @@ public class WorkGoal extends Goal {
     private int cfEmptyPeeks; // steps out to draw a lit blaze's shots that drew none
     private int airborneTick = -100;
     /** In the air with a walk to plan: said once a second, never planned from there (false: wait to land). */
-    private boolean airborneSaid(BlockPos pos) { if (g.tickCount - airborneTick >= 20) { airborneTick = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] in the air at {} with the walk to {} to plan: planned once he's landed, never from a cell he isn't standing on (WorkGoal.walkTo)", String.format("%.1f %.1f %.1f", g.getX(), g.getY(), g.getZ()), pos.toShortString()); } return false; }
+    private boolean airborneSaid(BlockPos pos) { int nowT = g.getServer() == null ? g.tickCount : g.getServer().getTickCount(); if (nowT - airborneTick >= 20 || nowT < airborneTick) { airborneTick = nowT; com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] in the air at {} with the walk to {} to plan: planned once he's landed, never from a cell he isn't standing on (WorkGoal.walkTo)", String.format("%.1f %.1f %.1f", g.getX(), g.getY(), g.getZ()), pos.toShortString()); } return false; }
     /**
      * Hurt in a blaze fight with no cover by him (World 15 10:09: "in the open: the ordinary fight" four times at 6 health, on fire, dead a minute on):
      * a blaze only shoots what it sees, so the nearest cell he can walk to (16 at most) (24 steps at most) that no blaze within 24 sees, then food, then the fight

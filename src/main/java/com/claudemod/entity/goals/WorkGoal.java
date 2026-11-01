@@ -682,7 +682,7 @@ public class WorkGoal extends Goal {
         }
         BlockPos feetCell = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); // (on farmland or a slab his feet sit a little down into the block: the cell he is in, not the block under him)
         double d = Math.sqrt(feetCell.distSqr(pos));
-        if (!g.level().getBlockState(pos).getCollisionShape(g.level(), pos).isEmpty() && inReach(pos)) return true; // a walk to a block (a trunk, ore): in reach of it is there
+        if (!g.level().getBlockState(pos).getCollisionShape(g.level(), pos).isEmpty() && inReach(pos)) { if (g.tasks.peekFirst() instanceof Task.GoTo) com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] the walk to {} ends at once: {} is there, in reach, with more walks queued (a route cell not dug?) (WorkGoal.walkTo)", pos.toShortString(), g.level().getBlockState(pos).getBlock().getName().getString()); return true; } // a walk to a block (a trunk, ore): in reach of it is there // ponytail: live 15:35 a route walk into a cell planned dug vanished silently, 30 s stuck: logged to prove it
         if (walkSince.size() > 64) { walkSince.values().removeIf(t0 -> g.tickCount - t0 > 20 * 60); walkBest.keySet().retainAll(walkSince.keySet()); }
         if (walkTask != current) { walkTask = current; walkKept.clear(); walkFor = null; } // (each job's walks start their clocks afresh)
         if (!pos.equals(walkFor)) { // a walk to another spot inside the same job (the bed's step behind its foot, then the cell beside it): its own clocks, never the last spot's

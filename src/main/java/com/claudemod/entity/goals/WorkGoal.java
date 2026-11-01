@@ -5313,6 +5313,8 @@ public class WorkGoal extends Goal {
     private boolean shootAt(net.minecraft.world.entity.LivingEntity mob) {
         if (mob instanceof net.minecraft.world.entity.monster.EnderMan) { if (g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW)) g.stopUsingItem(); return false; } /* vanilla: an enderman teleports out of every arrow; live 01:42 twelve arrows at one, two after he said "switching to the diamond sword" */
         ItemStack bow = g.inventory.find(s -> s.is(net.minecraft.world.item.Items.BOW));
+        // livestock is walked up to and hit, like a player does: arrows are kept for blazes, endermen and the dragon (01:47 thirteen arrows at a pig 26 off, at full health)
+        if (!(mob instanceof net.minecraft.world.entity.monster.Enemy) && !lureShot) { if (g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW)) g.stopUsingItem(); return false; }
         if (bow.isEmpty() || g.inventory.count(s -> s.is(net.minecraft.world.item.Items.ARROW)) == 0) { if (g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW)) g.stopUsingItem(); return false; }
         double d = g.distanceTo(mob);
         double minRange = mob instanceof net.minecraft.world.entity.monster.Creeper ? 5.0 : lureShot ? 2.0 : 6.0; // (a shot to draw a golem to his tower: close is fine, it can't reach him)

@@ -10367,6 +10367,7 @@ public final class ClaudeBodyTest {
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
             case 494: return st494(stage, t, c, h, level, mock);
+            case 535: return st535(stage, t, c, h, level, mock);
             case 534: return st534(stage, t, c, h, level, mock);
             case 533: return st533(stage, t, c, h, level, mock);
             case 532: return st532(stage, t, c, h, level, mock);
@@ -10593,6 +10594,44 @@ public final class ClaudeBodyTest {
             for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 2; y <= 16; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
             BlockPos down = h.absolutePos(new BlockPos(4, 2, 8)); c.teleportTo(down.getX() + 0.5, down.getY(), down.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
             pass(stage, t, "the blaze out past the edge: he stayed on the deck 12 s"); }
+        return true;
+    }
+    private static int s535Done = -1; private static float s535Low = 20f;
+    /** Stage 535's course (in the Nether, about 4000, 4000): the cell at (x, y, z) from its west end. */
+    private static net.minecraft.world.level.block.state.BlockState s535Block(int x, int y, int z) {
+        if (y <= 31) return Blocks.LAVA.defaultBlockState(); // the lava sea, under all of it
+        if (x >= -4 && x <= 8 && z >= -5 && z <= 5 && y <= 52) return x >= 1 && x <= 3 && z >= -1 && z <= 1 && y >= 44 && y <= 46 ? Blocks.AIR.defaultBlockState() : Blocks.BASALT.defaultBlockState(); // the basalt pocket by his portal (World 15, 3 44 73): shut in on every side
+        if (x >= -4 && x <= 8 && z >= -20 && z <= -6 && y <= 43) return Blocks.NETHERRACK.defaultBlockState(); // ground south of the pocket
+        if (x >= 9 && x <= 40 && z >= -20 && z <= -15 && y <= 43) return Blocks.NETHERRACK.defaultBlockState(); // the shore round the lava sea, 6 wide
+        if (x >= 41 && x <= 64 && y <= (x <= 48 ? 43 : 67)) return Blocks.NETHERRACK.defaultBlockState(); // the hill: a foot at 44, then a sheer 24-up cliff
+        if (x >= 85 && x <= 110 && z >= -2 && z <= 2 && y == 75) return Blocks.NETHER_BRICKS.defaultBlockState(); // the fortress deck, 76 to stand on, over the lava gap
+        if ((x == 90 || x == 102) && z == 0 && y < 75) return Blocks.NETHER_BRICKS.defaultBlockState(); // its piers
+        return Blocks.AIR.defaultBlockState();
+    }
+    private static boolean st535(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // checkpoint 5, reach a fortress from his portal (the current major; World 15: from the basalt pocket by portal #5 and the lava-sea ledge, "no way at all"): sealed in at his portal's level, a lava sea with a shore round it, a 24-up cliff, a lava gap and a deck 8 higher, 94 off: onto the deck unaided, alive
+        ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        final int ox = 4000, oz = 4000;
+        BlockPos me = new BlockPos(ox + 2, 44, oz), deck = new BlockPos(ox + 96, 76, oz);
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); s535Done = -1; s535Low = 20f; c.nextPlanTick = c.tickCount + 20 * 900; c.prefs.put("stay_close", "no");
+            c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(nether, me.getX() + 0.5, 110, me.getZ() + 0.5, 0, 0); c.setNoGravity(true); }
+        if (t[0] >= 20 && t[0] < 20 + 117) { int x = t[0] - 20 - 6; for (int z = -20; z <= 20; z++) for (int y = 28; y <= 99; y++) nether.setBlock(new BlockPos(ox + x, y, oz + z), s535Block(x, y, z), 2); } // (a slice a tick: x -6 to 110)
+        if (t[0] == 140) { c.setNoGravity(false); c.teleportTo(nether, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.tasks.clear(); c.fallDistance = 0; c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); }
+        if (t[0] > 140 && c.level() == nether) {
+            s535Low = Math.min(s535Low, c.getHealth());
+            for (var m : nether.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(ox - 40, 0, oz - 60, ox + 150, 128, oz + 60))) m.discard(); // (the course's own test: no natural ghast or strider on it)
+        }
+        if (t[0] == 160) c.tasks.add(new Task.GoTo(deck, 1.5));
+        if (t[0] > 160 && s535Done < 0 && c.level() == nether && c.getY() >= 75.5 && c.getX() >= ox + 85 && Math.abs(c.getZ() - oz - 0.5) <= 3) s535Done = t[0];
+        boolean dead = !c.isAlive() || c.level() != nether;
+        if (s535Done > 0 || dead || t[0] == 160 + 20 * 300) {
+            check(s535Done > 0 && !dead, "fortress reach: not on the deck in 300 s (alive " + c.isAlive() + ", at " + c.blockPosition().toShortString() + ", low " + s535Low + ", task " + c.currentTask + ", queue " + c.tasks.size() + ")");
+            String how = "on the deck at " + c.blockPosition().toShortString() + " in " + (s535Done - 160) / 20 + " s, low " + s535Low + " HP, " + c.inventory.count(x -> x.is(Items.COBBLESTONE)) + " cobble left";
+            c.tasks.clear(); c.dropCurrent = true; c.clearFire(); c.setHealth(20f); c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); if (c.isAlive()) c.teleportTo(level, back.getX() + 0.5, back.getY(), back.getZ() + 0.5, 0, 0); com.claudemod.entity.life.Watchdog.teleported(c);
+            pass(stage, t, how);
+        }
         return true;
     }
     private static boolean st534(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // his old caps that were no hole's (World 15: 389 blocks by his door, "why is there so much cobble and deepslate placed there"): taken back; a true hole's cap stays

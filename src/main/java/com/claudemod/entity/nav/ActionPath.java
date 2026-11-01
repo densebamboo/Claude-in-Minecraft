@@ -257,7 +257,8 @@ public final class ActionPath {
             this.hp = Leaps.health(g); this.margin = Leaps.margin(g);
             this.maxPuts = !canPlace ? 0 : g.inventory.count(s -> s.is(net.minecraft.world.item.Items.DIRT) || s.is(net.minecraft.world.item.Items.GRASS_BLOCK) || s.is(net.minecraft.world.item.Items.COBBLESTONE)
                     || s.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE) || s.is(net.minecraft.world.item.Items.ANDESITE) || s.is(net.minecraft.world.item.Items.DIORITE) || s.is(net.minecraft.world.item.Items.GRANITE)
-                    || s.is(net.minecraft.world.item.Items.TUFF) || s.is(net.minecraft.world.item.Items.DEEPSLATE) || s.is(net.minecraft.world.item.Items.STONE) || s.is(net.minecraft.world.item.Items.CALCITE)); // (what scaffoldBlock picks from)
+                    || s.is(net.minecraft.world.item.Items.TUFF) || s.is(net.minecraft.world.item.Items.DEEPSLATE) || s.is(net.minecraft.world.item.Items.STONE) || s.is(net.minecraft.world.item.Items.CALCITE)
+                    || s.is(net.minecraft.world.item.Items.NETHERRACK) || s.is(net.minecraft.world.item.Items.BLACKSTONE)); // (what scaffoldBlock picks from: netherrack and blackstone too, or a Nether way with only those on him planned no block put down)
             this.owner = g.getTarget() instanceof net.minecraft.server.level.ServerPlayer p ? p : null;
             this.bp = com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty();
             this.house = com.claudemod.director.ClaudeLife.houseMode(g) && g.house != null;

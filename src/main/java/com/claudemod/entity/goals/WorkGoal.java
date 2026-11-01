@@ -158,15 +158,18 @@ public class WorkGoal extends Goal {
         // breathe (and he stays up till he's got his breath back).
         boolean underwater = g.isEyeInFluid(net.minecraft.tags.FluidTags.WATER);
         if ((underwater && g.getAirSupply() < 120) || (surfacing && g.getAirSupply() < 280 && g.isInWater())) {
+            BlockPos roofNow = BlockPos.containing(g.getEyePosition()).above();
+            boolean diggingRoof = current instanceof Task.Break cb0 && cb0.pos().equals(roofNow); // his dig up for air, under way: never put back and its crack wiped (each tick it was, restarting a 25x-slow underwater dig from zero: drowned under it, World 15 10:30 -44 59 134)
             if (!surfacing) {
                 surfacing = true;
-                if (current != null) { clearCrack(); g.tasks.addFirst(current); current = null; g.currentTask = null; }
+                if (current != null && !diggingRoof) { clearCrack(); g.tasks.addFirst(current); current = null; g.currentTask = null; }
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] low on air ({}) at {}: coming up to breathe", g.getAirSupply(), g.blockPosition().toShortString());
             }
             BlockPos spot = breathingSpot();
             BlockPos roofOverEyes = BlockPos.containing(g.getEyePosition()).above();
-            if (g.tasks.peek() instanceof Task.Break rb && rb.pos().equals(roofOverEyes) && current == null) { // the roof: dug through below, this tick (returning here every tick left the dig queued and him drowning under it)
+            if (diggingRoof || (g.tasks.peek() instanceof Task.Break rb && rb.pos().equals(roofOverEyes) && current == null)) { // the roof: dug through below, this tick (returning here every tick left the dig queued and him drowning under it)
                 g.getNavigation().stop(); g.getJumpControl().jump();
+                if (g.tickCount % 20 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] digging the roof at {} for air (air {}, {})", roofOverEyes.toShortString(), g.getAirSupply(), diggingRoof ? "under way" : "starting");
             } else {
                 var line = g.level().clip(new net.minecraft.world.level.ClipContext(g.getEyePosition(), Vec3.atCenterOf(spot.above()), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g));
                 if (line.getType() != net.minecraft.world.phys.HitResult.Type.MISS && g.tickCount % 10 == 0) g.getNavigation().moveTo(spot.getX() + 0.5, spot.getY(), spot.getZ() + 0.5, 1.0); // round a corner: the route, not a swim into the wall
@@ -176,7 +179,7 @@ public class WorkGoal extends Goal {
                 return true;
             }
         }
-        surfacing = false;
+        if (!(surfacing && current == null && g.tasks.peek() instanceof Task.Break rb1 && rb1.pos().equals(BlockPos.containing(g.getEyePosition()).above())) && !(surfacing && current instanceof Task.Break cb1 && cb1.pos().equals(BlockPos.containing(g.getEyePosition()).above()))) surfacing = false; // (still surfacing while the roof dig runs below: not a fresh start, no re-queue, every tick)
         // In lava: out first, everything else waits (he stood 3 s in a lava flow finishing a Place and died, 09:02)
         if (!g.isInLava() && g.onGround() && g.tickCount % 5 == 0 && g.level().getFluidState(g.blockPosition()).isEmpty()) { BlockPos f0 = g.blockPosition().immutable(); if (!f0.equals(dryCells.peekLast())) { dryCells.addLast(f0); if (dryCells.size() > 12) dryCells.pollFirst(); } } // (the cells he stood dry on lately: the way he came in, known good footing)
         if (g.isInLava()) {

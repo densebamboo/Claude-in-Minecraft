@@ -65,6 +65,10 @@ public final class Controls {
     }
 
     private static final java.util.Map<java.util.UUID, String> LAST_GROUND = new java.util.HashMap<>();
+    private static java.util.Map<java.util.UUID, Integer> refused; // when his body last refused the path's own step (2+ up, lava ahead or below) (static: fields added live start null)
+    static void refusedStep(Player p) { if (refused == null) refused = new java.util.HashMap<>(); refused.put(p.getUUID(), p.tickCount); }
+    /** His body refused the path's step within the last {@code ticks}: the path doesn't really reach, whatever it says (the walk's own planner takes it). */
+    public static boolean refusedLately(Player p, int ticks) { Integer t = refused == null ? null : refused.get(p.getUUID()); return t != null && p.tickCount - t <= ticks && p.tickCount >= t; }
     /** Something to stand on (a collision shape, water, a ladder or vine) at the cell or within {@code max} under it. */
     static boolean groundUnder(Player p, net.minecraft.core.BlockPos cell, int max) {
         var lv = p.level();
@@ -190,7 +194,7 @@ public final class Controls {
                         break outer; }
                 }
                 if (lavaAt) {
-                    p.setSprinting(false); walk = null;
+                    p.setSprinting(false); walk = null; refusedStep(p);
                     Vec3 v = p.getDeltaMovement(); if (reach < 1.0 && v.x * ld.x + v.z * ld.z > 0) p.setDeltaMovement(0, v.y, 0); // (and his slide stopped: the inputs off alone still carried him in)
                     if (p instanceof com.claudemod.entity.ClaudeEntity ce && ce.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] lava ahead at {}: not stepping (Controls.apply)", ah.toShortString());
                     break outer;
@@ -213,7 +217,7 @@ public final class Controls {
               if (lv) { p.setDeltaMovement(0, Math.min(v.y, 0), 0); p.setSprinting(false); p.setJumping(false); jumpNow = false; if (walk != null && walk.x * vx + walk.z * vz > 0) walk = null;
                   if (p instanceof com.claudemod.entity.ClaudeEntity ce && ce.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] sliding toward lava at {}: stopped (Controls.apply)", p.blockPosition().toShortString()); } } }
         if (nextNode != null && walk != null && p.onGround() && !p.onClimbable() && !p.level().getBlockState(new net.minecraft.core.BlockPos(nextNode.x, nextNode.y - 1, nextNode.z)).is(net.minecraft.tags.BlockTags.CLIMBABLE) && !p.level().getBlockState(new net.minecraft.core.BlockPos(nextNode.x, nextNode.y, nextNode.z)).is(net.minecraft.tags.BlockTags.CLIMBABLE) && nextNode.y > Math.floor(p.getY() + 0.01) + 1 && Math.abs(nextNode.x + 0.5 - p.getX()) <= 1.6 && Math.abs(nextNode.z + 0.5 - p.getZ()) <= 1.6) { // the path's next step is 2+ up: no jump makes that (1.25 at most); jumped at, the hop carried him off a 1-block bridge 18 up (stage 538: 15 HP). Stood still: the walk's own planner cuts steps or towers
-            walk = null; jumpNow = false; p.setJumping(false); p.setSprinting(false);
+            walk = null; jumpNow = false; p.setJumping(false); p.setSprinting(false); refusedStep(p);
             if (p instanceof com.claudemod.entity.ClaudeEntity ce1 && ce1.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] the path's next step at {},{},{} is {} up from {}: no jump makes that, not jumped at (Controls.apply)", nextNode.x, nextNode.y, nextNode.z, nextNode.y - (int) Math.floor(p.getY() + 0.01), p.blockPosition().toShortString());
         }
         boolean safeStep = nextNode != null && nextNode.y >= p.getBlockY() - 3 && Math.abs(nextNode.x + 0.5 - p.getX()) <= 1.6 && Math.abs(nextNode.z + 0.5 - p.getZ()) <= 1.6 && groundUnder(p, new net.minecraft.core.BlockPos(nextNode.x, nextNode.y, nextNode.z), 3); // (and ground really is under that step, 3 or less: stage 538, a node off a 2-cell pillar top passed as safe, 15 blocks of air under it, he walked off it to 5 HP) // his path's next step is right there and at most 3 down: the pathfinder already judged that fall; the lip check below cut across a corner of a hillside and had him shuffling at the edge (the user)
@@ -224,7 +228,7 @@ public final class Controls {
                 if (ahead.equals(p.blockPosition()) || !p.level().getBlockState(ahead).getCollisionShape(p.level(), ahead).isEmpty()) continue;
                 int drop = 0; boolean water = false, lava = false; net.minecraft.core.BlockPos q = ahead.below();
                 while (drop < 40 && p.level().getBlockState(q).getCollisionShape(p.level(), q).isEmpty()) { var fq = p.level().getFluidState(q); if (!fq.isEmpty()) { if (fq.is(net.minecraft.tags.FluidTags.LAVA)) lava = true; else water = true; break; } drop++; q = q.below(); } // (only water is a landing: live 10:53 World 15 the lava lake 18 under a Nether ledge passed as "water below", he walked off it with his whole kit)
-                if (lava) { p.setSprinting(false); walk = null; if (p instanceof com.claudemod.entity.ClaudeEntity ce && ce.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] lava {} below the lip at {}: not stepping off (Controls.apply)", drop + 1, ahead.toShortString()); break; } // (the whole column: water at the bottom of a deep drop is a fine landing, like any player jumping into a pool)
+                if (lava) { p.setSprinting(false); walk = null; refusedStep(p); if (p instanceof com.claudemod.entity.ClaudeEntity ce && ce.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] lava {} below the lip at {}: not stepping off (Controls.apply)", drop + 1, ahead.toShortString()); break; } // (the whole column: water at the bottom of a deep drop is a fine landing, like any player jumping into a pool)
                 if (drop >= 4 && !water) { jumpNow = false; p.setJumping(false); if (reach > 1) { p.setSprinting(false); walk = walk.scale(0.3); } else walk = null; break; } // a block out: ease off; at the lip: stop
             }
         }

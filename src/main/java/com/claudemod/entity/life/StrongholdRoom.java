@@ -103,7 +103,7 @@ public final class StrongholdRoom {
             if (lit.distSqr(f) <= 5 * 5) return "done: at the lit end portal, " + lit.toShortString();
             BlockPos in = PortalMap.endWayIn(g);
             if (level.isLoaded(lit)) look(g, level, r);
-            if (in != null && in.distSqr(f) > 2 * 2 && r.known.isEmpty() && in.distSqr(f) <= 40 * 40) { r.going = null; g.tasks.add(new Task.GoTo(in, 0.5)); g.skillQueue.addFirst(again); return "back to the lit end portal: in by my way in at " + in.toShortString(); } // (outside it still: in by his own hole, not a new one)
+            if (in != null && in.distSqr(f) > 2 * 2 && reach(g, r).size() <= 1 && in.distSqr(f) <= 40 * 40) { r.going = null; g.tasks.add(new Task.GoTo(in, 0.5)); g.skillQueue.addFirst(again); return "back to the lit end portal: in by my way in at " + in.toShortString(); } // (outside it still: in by his own hole, not a new one)
             if (in != null && in.distSqr(f) > 40 * 40) { r.going = null; Vec3 dv = Vec3.atCenterOf(in).subtract(g.position()); double len = dv.length(), leg = Math.min(len, 96); BlockPos step = len <= 96 ? in : BlockPos.containing(g.getX() + dv.x / len * leg, g.getY() + dv.y / len * leg, g.getZ() + dv.z / len * leg);
                 g.tasks.add(new Task.GoTo(step, len <= 96 ? 1.0 : 3.0)); g.skillQueue.addFirst(again); return "back to the lit end portal: to my way into its stronghold at " + in.toShortString() + ", " + (int) len + " to go"; }
             if (level.isLoaded(lit)) { BlockPos best = null; for (long k : r.known) { BlockPos q = BlockPos.of(k); if (q.distSqr(lit) <= 4 * 4 && (best == null || q.distSqr(lit) < best.distSqr(lit))) best = q; }

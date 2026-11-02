@@ -15,14 +15,14 @@ When `WorkGoal.pickEscape` had no portal or 1-wide gap, it ran 16 blocks out on 
   - The end is the first cell he can stand in from 7 above to 5 below. Before, it was 4 above, so a basin's rim was never an end.
   - An end tried in the last 30 s is skipped, and so is a heading through a mob within 3.
 - **The check:** the walk planner must reach the end (`createPath(...).canReach()`), with at most 12 tries.
-  - A walk longer than 1.5 times the straight distance plus 4 is kept only as a fallback. `escapeBlocked` measures straight-line distance, so a walk that first winds away reads as "no closer". In stage 558 the south rim, 11 off, was a 26-block walk by the ramp, and he was called blocked on it.
+  - A walk longer than 1.5 times the straight distance plus 4 is kept only as a fallback. `escapeBlocked` measures straight-line distance, so a walk that first winds away reads as "no closer". In stage 560 the south rim, 11 off, was a 26-block walk by the ramp, and he was called blocked on it.
   - A walk that doesn't reach its end still counts if it brings him at least 6 blocks closer. A run only has to get him well along: in stage 488 the end was off a fenced test platform, and the run broke the skeleton's sight on the way. The live death came from runs that made no headway at all.
   - With none of these, he runs straight out as before.
 - **Logs:**
   - `escape: run end X has a walk to it (... with none: [...]; ... winding: [...])`;
   - `escape: no run end he can walk to (N tried, ...; skipped N with nowhere to stand, N tried lately, N through a mob)`.
 
-## Stage 558
+## Stage 560
 
 - **The setup:** an 11-wide Nether basin with walls 6 high, and the only way out a ramp up the east wall. Six angry zombified piglins stand 4 north. He's at 12 HP with an iron sword and chestplate.
 - **Passes** when he's out over the rim within 30 s, alive, on his first escape pick.

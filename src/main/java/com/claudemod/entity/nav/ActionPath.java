@@ -346,7 +346,7 @@ public final class ActionPath {
             reserved.addAll(com.claudemod.director.ClaudeLife.replantDue());
         }
 
-        boolean door(BlockPos p) { BlockState s = level.getBlockState(p); return (s.getBlock() instanceof DoorBlock && !s.is(net.minecraft.world.level.block.Blocks.IRON_DOOR)) || s.getBlock() instanceof FenceGateBlock; }
+        boolean door(BlockPos p) { BlockState s = level.getBlockState(p); return (s.getBlock() instanceof DoorBlock && (!s.is(net.minecraft.world.level.block.Blocks.IRON_DOOR) || s.getValue(DoorBlock.OPEN))) || s.getBlock() instanceof FenceGateBlock; } // (an iron door only while it's open: its button pressed; stage 559, the walk through it was planned as a wall)
         boolean doorOpen(BlockPos p) { BlockState s = level.getBlockState(p); return s.getBlock() instanceof DoorBlock ? s.getValue(DoorBlock.OPEN) : s.getBlock() instanceof FenceGateBlock && s.getValue(FenceGateBlock.OPEN); }
         boolean climbable(BlockPos p) { return level.getBlockState(p).is(BlockTags.CLIMBABLE); }
         final java.util.Set<BlockPos> closed = CLOSED;

@@ -3090,7 +3090,7 @@ public class WorkGoal extends Goal {
                 if (in.getY() == g.getBlockY() && Math.hypot(g.getX() - (in.getX() + 0.5), g.getZ() - (in.getZ() + 0.5)) <= 1.6) { // a cell off: a nudge in (a walk to the cell beside spins on the spot)
                     if (stepOutFor != t) { stepOutFor = t; stepOutAt = ticks; }
                     if (ticks - stepOutAt <= 60) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(in.getX() + 0.5, in.getY(), in.getZ() + 0.5, 0.6); return false; }
-                } else { sentFor().put(pos.immutable(), g.tickCount); g.tasks.addFirst(t); g.tasks.addFirst(new Task.GoTo(in, 1.2)); return exit("(to the cell beside it: the nudge above does the last step) (doPlace 2599)"); } // (to the cell beside it: the nudge above does the last step)
+                } else if (!(sentFor().get(pos) instanceof Integer sent0 && g.tickCount - sent0 < 40)) { sentFor().put(pos.immutable(), g.tickCount); g.tasks.addFirst(t); g.tasks.addFirst(new Task.GoTo(in, 1.2)); return exit("(to the cell beside it: the nudge above does the last step) (doPlace 2599)"); } // ponytail: a walk back that came back short within 2 s isn't sent again (live 22:50: from the rock over his roof, 10 sends a second for 15 s) // (to the cell beside it: the nudge above does the last step)
             }
             if (in != null) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the walk back into his mine at {} failed: patching {} from where he is", in.toShortString(), pos.toShortString());
         }
@@ -3785,10 +3785,10 @@ public class WorkGoal extends Goal {
     /** Tools, weapons, armor, food, torches, fuel and what he crafts with stay on him (diamonds and iron too: the pick needs them). */
     public static boolean keeps(ItemStack s) {
         return s.isDamageableItem() || s.getItem() instanceof net.minecraft.world.item.BucketItem || s.get(net.minecraft.core.component.DataComponents.FOOD) != null
-                || s.is(net.minecraft.world.item.Items.TORCH) || s.is(net.minecraft.world.item.Items.CRAFTING_TABLE) || s.is(net.minecraft.world.item.Items.FURNACE)
+                || s.is(net.minecraft.world.item.Items.TORCH) || s.is(net.minecraft.world.item.Items.CRAFTING_TABLE) || s.is(net.minecraft.world.item.Items.FURNACE) || s.is(net.minecraft.world.item.Items.CHEST)
                 || s.is(net.minecraft.world.item.Items.COAL) || s.is(net.minecraft.world.item.Items.CHARCOAL) || s.is(net.minecraft.world.item.Items.STICK)
                 || s.is(net.minecraft.tags.ItemTags.PLANKS) || s.is(net.minecraft.tags.ItemTags.LOGS)
-                || s.is(net.minecraft.world.item.Items.ARROW) || s.is(net.minecraft.world.item.Items.ENDER_PEARL) || s.is(net.minecraft.world.item.Items.ENDER_EYE); // ammo and the dragon run's pearls/eyes ride with him like torches (live 01:16 World 15: took 32 arrows, the stash put all 32 back) (diamonds, iron and raw iron go IN the chest: the user's rule, valuables stay safe there and come back out for a craft)
+                || s.is(net.minecraft.world.item.Items.ARROW) || s.is(net.minecraft.world.item.Items.ENDER_PEARL) || s.is(net.minecraft.world.item.Items.ENDER_EYE); // ammo and the dragon run's pearls/eyes ride with him like torches (live 01:16 World 15: took 32 arrows, the stash put all 32 back) (diamonds, iron and raw iron go IN the chest: the user's rule, valuables stay safe there and come back out for a craft) // ponytail: chests ride with him too: stashed, he had none left for a junk chest in the tunnel wall and threw 6 stacks of deepslate on his mine floor (live 22:27)
     }
 
     /** Chest order: 0 valuables, 1 ores and raw metal, 2 stone and dirt, 3 everything else. */

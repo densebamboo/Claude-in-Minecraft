@@ -208,6 +208,7 @@ public final class EyeHunt {
 
     /** The staircase ended away from where the eye went down (the old straight one ran 71 blocks off it, live 00:24): back to the spot, a fresh spiral from there. Once only (steps reset; the spot is kept). */
     static boolean restartAtSpot(ClaudeEntity g, Hunt h, BlockPos f, String why) {
+        if (h.spot == null && h.digAt != null) h.spot = h.digAt.immutable(); // (the staircase began at the eye's spot; h.spot stays null when his pickup reflex took the eye first, and the restart never fired, live 00:26)
         if (h.spot == null || horiz(Vec3.atCenterOf(f), Vec3.atCenterOf(h.spot)) <= 6) return false;
         ClaudeMod.LOGGER.info("[Claude eye] staircase at {} stopped ({}), {} off the eye's spot {}: back there for a spiral down (EyeHunt)", f.toShortString(), why, (int) horiz(Vec3.atCenterOf(f), Vec3.atCenterOf(h.spot)), h.spot.toShortString());
         h.digAt = null; h.steps = 0; return true;

@@ -5758,6 +5758,7 @@ public final class ClaudeLife {
             }
             if (!done.isEmpty()) ClaudeMod.LOGGER.info("[Claude nook] gap(s) in {}'s shell patched from inside: {} ({}) (ClaudeLife.nookBuild)", n, done, Crafting.name(plug));
         }
+        { boolean work = false; for (Task t3 : tasks) if (!(t3 instanceof Task.GoTo)) { work = true; break; } if (!work) tasks.clear(); } // ponytail: walks alone are no round (the lava filter above left the Break's GoTo behind: live World 16 08:18-08:43 and 10:30-10:50, "his base: the bed (1 task(s))" every pass pulled him back down 120 blocks of stairs)
         if (tasks.isEmpty()) return null;
         for (BlockPos c : n.chestCells()) { g.myStations.add(c); if (!g.storageChests.contains(c)) g.storageChests.add(c); }
         for (BlockPos c : n.junkChestCells()) { g.myStations.add(c); g.storageChests.remove(c); if (!isJunkChest(g, c)) { String list = g.pref("junk_chests", ""); g.prefs.put("junk_chests", (list.isEmpty() ? "" : list + ";") + c.getX() + " " + c.getY() + " " + c.getZ()); ClaudeMod.LOGGER.info("[Claude chest] the nook's top row at {} is his junk chest (ClaudeLife.nookBuild)", c.toShortString()); } }

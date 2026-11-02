@@ -10366,6 +10366,7 @@ public final class ClaudeBodyTest {
     // ---------------------------------------------------------------- stages 494 on: one method each (exactStages is at the JVM's 64 KB limit)
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
+            case 553: return st553(stage, t, c, h, level, mock);
             case 552: return st552(stage, t, c, h, level, mock);
             case 551: return st551(stage, t, c, h, level, mock);
             case 550: return st550(stage, t, c, h, level, mock);
@@ -10999,6 +11000,31 @@ public final class ClaudeBodyTest {
         if (wcT > 0 && t[0] == wcT + 100) { wcMob.discard(); wcMob = null; wcFree = t[0]; }
         if (wcFree > 0 && Math.abs(c.getX() - me.getX()) > 3) { int took = t[0] - wcFree; c.tasks.clear(); c.dropCurrent = true; c.getInventory().clearContent(); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0); pass(stage, t, "waited 5 s in his walls with the mob on him, out and walking " + took / 20 + " s after it went"); }
         else if (wcFree > 0 && t[0] == wcFree + 20 * 15) check(false, "cover: not walking 15 s after the hoglin went (at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ")");
+        return true;
+    }
+    private static int wsT = -1; private static float wsLow = 20f; private static java.util.List<net.minecraft.world.entity.Mob> wsMobs = new java.util.ArrayList<>();
+    private static boolean st553(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // two wither skeletons in the open (World 15 19:00: no 2-high gap, fought in the open, ran at 6 health, dead): 3 up a pillar, both killed, alive
+        ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        final int ox = 15000, oy = 69, oz = 15000; BlockPos me = new BlockPos(ox, oy + 1, oz);
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); wsT = -1; wsLow = 20f; for (var m0 : wsMobs) m0.discard(); wsMobs.clear(); c.nextPlanTick = c.tickCount + 20 * 900; c.prefs.put("stay_close", "no");
+            c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.GOLDEN_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(nether, me.getX() + 0.5, oy + 20, me.getZ() + 0.5, 0, 0); c.setNoGravity(true); }
+        if (t[0] == 10) { for (int x = -16; x <= 16; x++) for (int z = -16; z <= 16; z++) { boolean wall = Math.abs(x) == 16 || Math.abs(z) == 16; nether.setBlock(new BlockPos(ox + x, oy, oz + z), Blocks.NETHER_BRICKS.defaultBlockState(), 2 | 16); for (int y = oy + 1; y <= oy + 10; y++) nether.setBlock(new BlockPos(ox + x, y, oz + z), wall || y == oy + 10 ? Blocks.BEDROCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2 | 16); }
+            c.setNoGravity(false); c.teleportTo(nether, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.fallDistance = 0; }
+        if (t[0] == 30) { for (int k = 0; k < 2; k++) { var ws = EntityType.WITHER_SKELETON.create(nether); ws.moveTo(ox + 6.5, oy + 1, oz + 0.5 + k * 2, 90, 0); ws.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); ws.setPersistenceRequired(); nether.addFreshEntity(ws); ws.setTarget(c); wsMobs.add(ws); }
+            wsT = t[0]; c.tasks.add(new Task.Attack(wsMobs.get(0).getUUID(), 20 * 60)); }
+        if (wsT > 0 && c.level() == nether) { wsLow = Math.min(wsLow, c.getHealth()); for (var m : nether.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(ox - 30, 0, oz - 30, ox + 30, 128, oz + 30), m0 -> !wsMobs.contains(m0))) m.discard();
+            if (c.tasks.isEmpty() && c.currentTask == null) for (var m0 : wsMobs) if (m0.isAlive()) { c.tasks.add(new Task.Attack(m0.getUUID(), 20 * 60)); break; } }
+        boolean bothDead = wsT > 0 && wsMobs.stream().noneMatch(net.minecraft.world.entity.Entity::isAlive);
+        if (wsT > 0 && (bothDead || !c.isAlive() || t[0] == wsT + 20 * 90)) {
+            check(c.isAlive(), "wither skeletons: he died (low " + wsLow + ")");
+            check(bothDead, "wither skeletons: not both killed in 90 s (alive " + wsMobs.stream().filter(net.minecraft.world.entity.Entity::isAlive).count() + ", at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ")");
+            String how = "both wither skeletons killed in " + (t[0] - wsT) / 20 + " s, low " + wsLow + " HP, ended " + String.format("%.1f", c.getY() - oy - 1) + " up";
+            for (var m0 : wsMobs) m0.discard(); wsMobs.clear(); c.tasks.clear(); c.dropCurrent = true; c.removeAllEffects(); c.setHealth(20f); c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            com.claudemod.entity.life.Watchdog.teleported(c); if (c.isAlive()) c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0);
+            pass(stage, t, how);
+        }
         return true;
     }
     private static int s535Done = -1; private static float s535Low = 20f;

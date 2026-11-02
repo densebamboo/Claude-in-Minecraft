@@ -1707,6 +1707,11 @@ public final class ClaudeLife {
         String target = st.target().toLowerCase().replace("minecraft:", "").trim().replace(' ', '_');
         int count = st.count();
         { String lw = com.claudemod.entity.life.LessonWords.orderStep(g, player, st); if (lw != null) return lw; } // in their lesson: N dug by him now (never his chest or pack), the job held to the pocket, a walk of their line onto the place it named
+        if (java.util.Set.of("explore", "ender_pearls", "find_fortress", "blaze_rods").contains(st.skill()) && (g.hasEffect(net.minecraft.world.effect.MobEffects.WITHER) || g.getHealth() < 14 && !level.getEntitiesOfClass(net.minecraft.world.entity.monster.WitherSkeleton.class, g.getBoundingBox().inflate(24), net.minecraft.world.entity.Entity::isAlive).isEmpty())) { // (withered, or hurt with wither skeletons about: no walking on into the next one till it's worn off and he's healed; World 15 19:00:04 he explored on withered at 15 and met two more)
+            g.skillQueue.addFirst(st); g.tasks.add(new Task.Wait(40, false));
+            ClaudeMod.LOGGER.info("[Claude life] {} waits: {} at health {} (ClaudeLife.runSkill)", st.skill(), g.hasEffect(net.minecraft.world.effect.MobEffects.WITHER) ? "withered" : "wither skeletons about", (int) g.getHealth());
+            return "waiting: " + (g.hasEffect(net.minecraft.world.effect.MobEffects.WITHER) ? "the Wither on me" : "hurt with wither skeletons about") + " (health " + (int) g.getHealth() + "): healing before I go on";
+        }
         switch (st.skill()) {
             case "ask": {
                 // Something only they can say (their stuff, an order with a few readings): asked, and the plan goes on; their answer corrects him (holding for it stood him 7 minutes over 3 logs)

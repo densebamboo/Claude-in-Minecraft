@@ -4019,6 +4019,7 @@ public class WorkGoal extends Goal {
         if (com.claudemod.entity.life.FortressFight.coverMob(foe) && g.getHealth() > 6 && foe instanceof net.minecraft.world.entity.LivingEntity lf && com.claudemod.entity.life.FortressFight.coverFor(g, (ServerLevel) g.level(), lf) != null) { fightOdds = "from cover"; return false; } // a blaze or wither skeleton with cover at hand: the cover fight backs into it itself (running in the open from fireballs is how it goes wrong)
         if (g.tickCount < cornerUntil && !(foe instanceof net.minecraft.world.entity.monster.Creeper)) return false; // cornered a moment ago: fight, no more running into the wall
         if (foe instanceof net.minecraft.world.entity.monster.Blaze) { fightOdds = "blazes: no outrunning them in the open; fought, out of their sight when hurt (coverFight, blazeRetreat)"; return false; } // (live 12:06: the crowd rule ran him from 6 blazes with no gap to break their sight, 20 -> 0 in 7 s, their backs to them all the way)
+        if (foe instanceof net.minecraft.world.entity.monster.WitherSkeleton) { fightOdds = "wither skeletons: as fast as him, no outrunning them on foot; fought from a 2-high gap or 3 up a pillar (coverFight)"; return false; } // (World 15 19:00:10: he ran from 2 at 6 health, they kept pace, dead in a second)
         if (foe instanceof net.minecraft.world.entity.monster.EnderMan) { fightOdds = "endermen: no outrunning a teleporter; fought (endermanHole for cover)"; return false; } // ponytail: live 18:43 death, he ran from 3 angry endermen and took 7 a hit from behind, 20 -> 0 in 24 s without one swing back
         if (foe instanceof net.minecraft.world.entity.monster.Creeper c && c.distanceTo(g) < 5 && ((c.getSwellDir() > 0 && !canHitNow(c)) || !armed() || g.getHealth() <= 10)) return true; // hissing and he can't hit it right now (or can't fight it): run
         int n = hostilesNear(10).size();
@@ -4919,6 +4920,34 @@ public class WorkGoal extends Goal {
     private int blazeRetreatTick = -1000; // ponytail: 10 s window from the retreat's start; fields added live start 0, which only matters in the first 10 s of a world
     private String cfMode = ""; private int cfPeekTick = -100, cfHopTick = -100, cfIdle; private boolean cfHealing; private java.util.UUID cfTarget;
     private int cfEmptyPeeks; // steps out to draw a lit blaze's shots that drew none
+    /**
+     * A wither skeleton with no 2-high gap about (World 15 19:00:01, "no 2-high gap within 10 ... shield and crits in the open"; two more
+     * at 19:00:09, dead): 3 up a pillar where he stands. Vanilla's mob melee reaches only its own attack box, its body widened sideways at
+     * the same height, so with his feet 3 over its feet it can't touch him while his reach (3) gets its head. Up there he stands still,
+     * hits it when it's in reach, eats and waits the Wither out; never steps off to chase. Null: not for this fight (no blocks, no head room).
+     */
+    private Boolean witherPillar(Task.Attack t, net.minecraft.world.entity.LivingEntity mob) {
+        if (!(mob instanceof net.minecraft.world.entity.monster.WitherSkeleton)) return null;
+        ServerLevel level = (ServerLevel) g.level();
+        double up = g.getY() - mob.getY();
+        if (up >= 2.9 && g.onGround()) { // on top: out of its reach
+            g.getNavigation().stop(); g.setSprinting(false); g.getLookControl().setLookAt(mob);
+            if (mob.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0 && canHit(mob)) { if (cfSwing(mob)) cfSay("hitting it from the pillar", String.format("%.1f", up) + " over it: it can't reach him, he reaches its head"); return false; }
+            net.minecraft.world.item.Item food = g.getFoodData().getFoodLevel() < 20 ? com.claudemod.director.ClaudeLife.foodToEat(g, g.getHealth() <= 6) : null;
+            if (food != null && g.getHealth() < 20) { g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(food)); cfSay("eating on the pillar", "health " + (int) g.getHealth()); return true; }
+            if (ticks >= t.maxTicks() - 1) ticks = 2; // (the fight's clock waits while it comes back into reach)
+            cfSay("waiting on the pillar", "the wither skeleton " + (int) mob.distanceTo(g) + " off, " + String.format("%.1f", up) + " under him: it comes to his foot and gets hit there");
+            return false;
+        }
+        if (mob.distanceTo(g) > 8 || !g.onGround()) return null; // (far off: the ordinary approach; in the air: not now)
+        ItemStack blocks = scaffoldBlock();
+        BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
+        boolean room = true; for (int k = 2; k <= 4; k++) if (!level.getBlockState(feet.above(k)).getCollisionShape(level, feet.above(k)).isEmpty()) room = false;
+        if (blocks.getCount() < 3 || !room) { cfSay("in the open", "no 2-high gap and " + (blocks.getCount() < 3 ? "too few blocks" : "no head room") + " for a pillar: shield and crits"); return null; }
+        g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Pillar(3));
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] a wither skeleton {} off and no 2-high gap: 3 up a pillar at {} (its reach stops under his feet), then the fight from the top (WorkGoal.witherPillar)", (int) mob.distanceTo(g), feet.toShortString());
+        cfMode = "up the pillar"; return true;
+    }
     private BlockPos footingSaid; // (the footing move said once a spot)
     /** A hit there throws him off: a drop of 4+ (or lava) within 2 blocks of {@code cell} the way {@code away} points, with no wall first. */
     private boolean lipBehind(ServerLevel level, BlockPos cell, Vec3 away) {
@@ -5073,6 +5102,7 @@ public class WorkGoal extends Goal {
         if (ticks >= t.maxTicks() - 1 && cfIdle < 20 * 20 && mob.distanceTo(g) < 24) { ticks = 2; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the {} is still on: the same fight goes on from cover past its {} s (WorkGoal.coverFight)", mob.getType().getDescription().getString(), t.maxTicks() / 20); } // (in place: a new task left a tick with no fight, and self-defence armed a second, plain one on the blaze) // (a fight from cover is slow by design: its clock running out left him idle in the gap and the follow rule walked him out)
         var cv = com.claudemod.entity.life.FortressFight.coverFor(g, level, mob);
         if (cv == null && blaze && (g.getHealth() <= 12 || g.isOnFire() && g.getHealth() <= 14)) { Boolean r = blazeRetreat(t, mob); if (r != null) return r; } // (hurt, no cover: out of their sight first, never the open fight; World 15 10:09 burned to death "in the open" at 6)
+        if (cv == null && !blaze) { Boolean wp = witherPillar(t, mob); if (wp != null) return wp; } // (no 2-high gap for a wither skeleton: 3 up a pillar beside it, never the open fight; World 15 19:00, two of them in the open, dead)
         if (cv == null) { if (ticks == 1) cfSay("in the open", "no cover for this " + mob.getType().getDescription().getString() + " here: the ordinary fight, shield and crits"); return null; }
         if (!(g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW))) equipWeapon(); // ponytail: live 18:56 "shooting it" x4 and arrows stayed 57: the sword swapped in every tick and cut each draw
 

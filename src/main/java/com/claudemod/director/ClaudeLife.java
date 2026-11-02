@@ -2741,8 +2741,7 @@ public final class ClaudeLife {
                     BlockPos known = com.claudemod.entity.life.Atlas.find(g, level, want);
                     if (known != null) {
                         g.exploreAngle = Math.atan2(known.getZ() - g.getZ(), known.getX() - g.getX()); g.exploreTick = g.tickCount;
-                        BlockPos go = level.dimensionType().hasCeiling() ? com.claudemod.entity.life.FortressScout.exploreSpot(g, level, g.exploreAngle) : null;
-                        if (Math.sqrt(known.distSqr(g.blockPosition())) <= 40 || go == null) go = known;
+                        BlockPos go = known; // ponytail: straight for the spot, the walk's NetherRoute tunnels/bridges the long way; a 45-out visible spot swung east/west of a wall forever (live 16:52, 37 <-> 83)
                         g.tasks.add(new Task.GoTo(go, go == known ? 0.8 : 3)); g.skillQueue.addFirst(st); // (and the check again once there; the last leg onto the spot itself: 3 short of it can be outside the biome's edge)
                         ClaudeMod.LOGGER.info("[Claude skill] explore {}: seen it at {} ({} off): heading there by {} (ClaudeLife explore)", want, known.toShortString(), (int) Math.sqrt(known.distSqr(g.blockPosition())), go.toShortString());
                         return "heading for the " + want.replace('_', ' ') + " I saw at " + known.toShortString();

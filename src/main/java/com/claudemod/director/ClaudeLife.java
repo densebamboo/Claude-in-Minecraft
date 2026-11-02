@@ -1705,6 +1705,13 @@ public final class ClaudeLife {
         ServerLevel level = (ServerLevel) g.level(); // his world (the Nether, if he's there), never theirs
         if (g.level() != player.level() && ("near_them".equals(st.where()) || java.util.Set.of("follow", "give", "return_drops").contains(st.skill()) || st.skill().equals("go_to") && goToThem(st.target(), player))) // (go_to a place of his own world goes on: live 10:47 World 15 "go_to fortress" in the Nether failed as "they're in another world")
             return "failed: they're in another world (" + player.level().dimension().location().getPath() + "), I'm in " + g.level().dimension().location().getPath() + ": that needs us in the same world (back through the portal, or them coming over)";
+        if (level.dimension() == net.minecraft.world.level.Level.END) { // the End: nothing of the Overworld's here (live 03:55: "collect logs x51" walked him off a pillar top under the dragon's breath)
+            boolean drops = java.util.Set.of("recover_drops").contains(st.skill()) || "collect".equals(st.skill()) && java.util.Set.of("dropped_items", "drops", "items", "my_stuff", "stuff", "loot", "my_items", "my_things", "things", "gear").contains(st.target().toLowerCase());
+            if (!drops && java.util.Set.of("collect", "strip_mine", "gear_up", "dig_down", "explore_cave", "build_my_place", "plant_saplings", "ender_pearls", "find_stronghold", "light_end_portal").contains(st.skill())) {
+                ClaudeMod.LOGGER.info("[Claude skill] {} {} in the End: refused, nothing of the Overworld's here (ClaudeLife.runSkill)", st.skill(), st.target()); return "failed: no " + st.skill() + " in the End: the dragon's what's here (fight_dragon)"; }
+            if (drops && level.getDragons().stream().anyMatch(net.minecraft.world.entity.Entity::isAlive) && g.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).isEmpty()) { // (his things up by the towers, the dragon alive, him without a chestplate: live 03:55 he climbed back for them in leggings and boots and died again)
+                ClaudeMod.LOGGER.info("[Claude skill] {} in the End with the dragon alive and no chestplate on: refused (ClaudeLife.runSkill)", st.skill()); return "failed: my things are out by the dragon and I've no chestplate on: not going for them under it like this"; }
+        }
         com.claudemod.entity.life.TempLedger.stepStart(g, level, st.skill()); // done crafting and off to something else: what he put down round him for it comes back up first, like a player (his table above all: the bed's and the furnace's tables stood as litter all over a new world)
         String target = st.target().toLowerCase().replace("minecraft:", "").trim().replace(' ', '_');
         int count = st.count();
@@ -8534,6 +8541,7 @@ public final class ClaudeLife {
     /** Is this block part of the open space of his own mine (its staircase or main tunnel, at its width and height)? */
     /** Standing in his own mine (the stairs, the tunnel, a branch), or near its end. Not the queued-up end only: that runs ahead of him. */
     public static boolean inHisMine(ClaudeEntity g, BlockPos at) {
+        if (g.level().dimension() != net.minecraft.world.level.Level.OVERWORLD) return false; // (his mine is in the Overworld: its cells read in the End sent him to its stairs from a pillar top, live 03:55)
         if (g.mineShape == null || g.level().dimension() != net.minecraft.world.level.Level.OVERWORLD) return false; /* (overworld only, see ownMine) */
         if (isMineCell(g, at) || isMineCell(g, at.below()) || isMineCell(g, at.above())) return true;
         if (!g.mineCells.isEmpty()) return g.mineFace != null && at.distSqr(g.mineFace) <= 3 * 3; // he knows its real shape: in it, or not
@@ -8548,6 +8556,7 @@ public final class ClaudeLife {
     }
 
     public static boolean isMineCell(ClaudeEntity g, BlockPos q) {
+        if (g.level().dimension() != net.minecraft.world.level.Level.OVERWORLD) return false; // (his mine is in the Overworld)
         if (g.landingCells.contains(q) || g.mineCells.contains(q)) return true; // what he actually dug (turns, landings and all)
         if (g.mineShape == null) return false;
         int width = g.mineShape.width, tall = Math.max(3, g.mineShape.height);
@@ -11056,6 +11065,7 @@ public final class ClaudeLife {
 
     /** Walks his mine along its rows (every third row and the last) from the row nearest him to the row nearest dest. False when there's no mine to walk. */
     public static boolean bpWalkTo(ClaudeEntity g, BlockPos dest) {
+        if (g.level().dimension() != net.minecraft.world.level.Level.OVERWORLD) return false; // (his mine is in the Overworld)
         MineBlueprint b = g.blueprint; if (b == null || b.isEmpty() || dest == null) return false;
         int from = b.nearestRow(g.blockPosition()), to = b.nearestRow(dest);
         if (from < 0 || to < 0) return false;

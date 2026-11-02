@@ -1031,7 +1031,7 @@ public class WorkGoal extends Goal {
                 }
             }
             // a spot down in (or in the wall of) his own mine, and he's up top: the stairs are the way, never a fresh hole in the grass over it
-            if (g.mineShape != null && !com.claudemod.director.ClaudeLife.inHisMine(g, g.blockPosition())
+            if (g.mineShape != null && g.level().dimension() == net.minecraft.world.level.Level.OVERWORLD && !com.claudemod.director.ClaudeLife.inHisMine(g, g.blockPosition())
                     && (g.level().canSeeSky(g.blockPosition().above()) || g.mineSpine.stream().noneMatch(sp -> sp.distSqr(g.blockPosition()) <= 12 * 12)) // underground near his stairs (a crater under them, his bed pocket) he's not "up top": from there it's a walk, not a trip out and in by the entrance (40 blocks up and back, at night, empty-handed)
                     && (com.claudemod.director.ClaudeLife.inHisMine(g, pos) || com.claudemod.director.ClaudeLife.touchesMine(g, pos)
                         || (!g.level().canSeeSky(pos) && g.mineSpine.stream().anyMatch(sp -> sp.distSqr(pos) <= 10 * 10))) // (underground by his mine, on its record or not: his stairs are the way down; a chest off a branch the record had lost had him cutting a new stairway down from the grass)

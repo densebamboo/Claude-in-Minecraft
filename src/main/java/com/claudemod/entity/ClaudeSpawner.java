@@ -62,6 +62,24 @@ public final class ClaudeSpawner {
             c0.serverLevel().getChunkSource().move(c0);
             if (server.getTickCount() - frozenSaid > 200) { frozenSaid = server.getTickCount(); ClaudeMod.LOGGER.info("[Claude] his chunk at {} in {} isn't ticking (moved there past his chunk tickets): the tickets moved to him (ClaudeSpawner.onServerTick)", c0.blockPosition().toShortString(), c0.level().dimension().location().getPath()); }
         }
+        for (ServerPlayer pw : List.copyOf(server.getPlayerList().getPlayers())) { // the End's exit portal: vanilla takes him out of the End and waits for his client to finish the credits (ServerPlayer.showEndCredits, wonGame); only its PERFORM_RESPAWN puts him in the overworld, and he has no client (live 04:15 World 15: removed, silent, "where are you" unanswered). Do its step here: bed or world spawn, everything kept
+            if (!(pw instanceof ClaudeEntity cw) || !cw.wonGame) continue;
+            ServerPlayer owner = null;
+            for (ServerPlayer po : server.getPlayerList().getPlayers()) if (!(po instanceof ClaudeEntity)) { owner = po; break; }
+            if (owner == null) break; // (nobody to play with: the check below logs him off, saved where he was)
+            cw.wonGame = false;
+            ServerLevel ow = server.overworld();
+            BlockPos bed = cw.getRespawnPosition();
+            net.minecraft.world.phys.Vec3 to = null;
+            if (bed != null && cw.getRespawnDimension() == net.minecraft.world.level.Level.OVERWORLD && ow.getBlockState(bed).getBlock() instanceof net.minecraft.world.level.block.BedBlock)
+                to = net.minecraft.world.level.block.BedBlock.findStandUpPosition(net.minecraft.world.entity.EntityType.PLAYER, ow, bed, ow.getBlockState(bed).getValue(net.minecraft.world.level.block.BedBlock.FACING), cw.getYRot()).orElse(null);
+            if (to == null) to = net.minecraft.world.phys.Vec3.atBottomCenterOf(ow.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, ow.getSharedSpawnPos()));
+            ClaudeMod.LOGGER.info("[Claude] through the End's exit portal: home to {} in the overworld (his bed {}), everything kept, like a player after the credits (ClaudeSpawner.onServerTick)", BlockPos.containing(to).toShortString(), bed == null ? "none" : bed.toShortString());
+            cw.setServerLevel(ow);
+            cw.moveTo(to.x, to.y, to.z, cw.getYRot(), 0);
+            server.getPlayerList().remove(cw); // saves him there with his things
+            join(server, owner, null); // logs back in from that save
+        }
         if (testing || server.getTickCount() < nextTick) return;
         nextTick = server.getTickCount() + CHECK_EVERY_TICKS;
 

@@ -114,6 +114,7 @@ public final class FortressScout {
         if (!feet.getCollisionShape(level, p).isEmpty() || !head.getCollisionShape(level, p.above()).isEmpty()) return false;
         if (!level.getFluidState(p).isEmpty() || !level.getFluidState(p.above()).isEmpty() || !level.getFluidState(u).isEmpty()) return false;
         if (feet.is(BlockTags.FIRE) || under.is(Blocks.MAGMA_BLOCK) || under.is(Blocks.BEDROCK)) return false;
+        if (under.is(BlockTags.WART_BLOCKS) || under.is(BlockTags.LOGS) || under.is(BlockTags.LEAVES) || under.is(Blocks.SHROOMLIGHT)) return false; // ponytail: a fungus or tree top is no ground to head for (live 20:1x: in the warped forest the canopy was what he saw, he pillared up to it again and again)
         return under.isFaceSturdy(level, u, Direction.UP);
     }
     /** Over (x, z): the cell he can stand in nearest his own height (16 up to 24 down), never above MAX_Y; null over lava or solid rock. */

@@ -4905,6 +4905,7 @@ public class WorkGoal extends Goal {
             g.getJumpControl().jump();
             return false;
         }
+        if (dy > 2.5 && mob instanceof net.minecraft.world.entity.monster.EnderMan) { g.getNavigation().stop(); g.getLookControl().setLookAt(mob); return false; } // ponytail: an enderman up a tree comes down to him once looked at (it teleports to its target); never pillar after it (live 20:09 -88,74,-890: 6 up a warped stem for one 8 up). The fight clock ends it if it never comes
         if (dy > 1.5 && horiz < 3.0 && !mob.getUUID().equals(lastPillarMob) && g.onGround()) {
             lastPillarMob = mob.getUUID();
             g.setSprinting(false);

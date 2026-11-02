@@ -262,10 +262,11 @@ public final class DragonFight {
         int up = feet.getY() - (s.base == null ? feet.getY() : s.base.getY());
         boolean atVantage = Math.abs(feet.getX() - s.vantage.getX()) <= 1 && Math.abs(feet.getZ() - s.vantage.getZ()) <= 1;
         if (!atVantage && up > 2 && s.base != null) return down(g, s, "to a clear shot elsewhere");
+        g.tasks.removeIf(t -> t instanceof Task.GoTo || t instanceof Task.Pillar || t instanceof Task.Leap); // (an old shot spot's walk and leap left queued: live 03:45, at the new spot, then 62 back to the old one and pillared there)
         if (!atVantage) { s.base = null; again(g, true); g.tasks.addFirst(new Task.GoTo(s.vantage, 0.8)); say(g, s, "to a clear shot", "the crystal at " + c.blockPosition().toShortString() + " from " + s.vantage.toShortString() + (s.vantageUp > 0 ? ", " + s.vantageUp + " up a pillar" : "")); return true; }
         if (s.base == null) s.base = feet.immutable();
         int need = s.vantageUp - (feet.getY() - s.base.getY());
-        if (need > 0) { g.tasks.add(new Task.Pillar(need)); again(g, false); say(g, s, "pillaring for a clear shot", need + " up at " + feet.toShortString() + " to see the crystal at " + c.blockPosition().toShortString()); return true; }
+        if (need > 0) { g.tasks.addFirst(new Task.Pillar(need)); again(g, false); say(g, s, "pillaring for a clear shot", need + " up at " + feet.toShortString() + " to see the crystal at " + c.blockPosition().toShortString()); return true; }
         s.vantage = null; return false; // (there and still no line: look again)
     }
 

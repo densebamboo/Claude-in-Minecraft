@@ -146,6 +146,8 @@ public final class Leaps {
         Fall f = fall(g, l, col, col.getY(), 0);
         if (!f.ok()) return f;
         if (l.getBlockState(f.land()).is(Blocks.POWDER_SNOW)) return new Fall(f.land(), f.down(), f.hp(), f.onto(), "powder snow where he'd land (no damage, but it freezes him and holds him in)", f.extraSec());
+        if (f.hp() > 0 && f.down() >= 6 && f.down() <= 60 && !l.dimensionType().ultraWarm() && g.inventory.count(s -> s.is(net.minecraft.world.item.Items.WATER_BUCKET)) > 0 && l.getBlockState(f.land().below()).isFaceSturdy(l, f.land().below(), net.minecraft.core.Direction.UP))
+            f = new Fall(f.land(), f.down(), 0f, "a water bucket clutch on " + f.onto(), null, f.extraSec()); // (the user: he can bucket clutch: his fall reflex puts the water under him, his bucket reflex takes it back)
         float left = health(g) - hurtSoFar - f.hp();
         if (left < margin(g)) return new Fall(f.land(), f.down(), f.hp(), f.onto(), (hurtSoFar > 0 ? (int) (health(g) - hurtSoFar) + " HP left after the drops before it, " : "") + (int) Math.max(0, left) + " after: under the " + (int) margin(g) + " I keep", f.extraSec());
         if (!seesOver(l, lip, col, f.land())) return new Fall(f.land(), f.down(), f.hp(), f.onto(), "he can't see the landing from the lip", f.extraSec());

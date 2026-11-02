@@ -9097,7 +9097,7 @@ public final class ClaudeLife {
     }
 
     /** An empty bucket and a water source within reach: fill it (a right-click on the water), like a player topping up before the mine; also takes back the water he threw under himself. */
-    static void fillBucket(ClaudeEntity g, ServerLevel level) {
+    public static void fillBucket(ClaudeEntity g, ServerLevel level) {
         if (portalSlots != null && !portalSlots.isEmpty()) return; // mid-cast the bucket's state is the cast's business
         if (g.inventory.count(s -> s.is(Items.BUCKET)) == 0 || g.isUsingItem() /* (a full one on him too is no reason to leave it: two buckets, the clutch's water stayed at -82,64,65 with his empty one in his pack, the user: "grab your water lol", live 00:02) */ || g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee) return;
         if (g.fallDistance > 0.5f || !g.onGround() && !g.isInWater()) return; // (in the air: the water under him is his clutch; scooped back mid-fall, he died of the 28-block fall with it in his bucket)

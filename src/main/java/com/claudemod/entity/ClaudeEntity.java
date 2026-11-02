@@ -338,9 +338,19 @@ public class ClaudeEntity extends ServerPlayer {
             if (hunt) for (var e : level().getEntitiesOfClass(net.minecraft.world.entity.monster.EnderMan.class, getBoundingBox().inflate(64))) { if (!e.isAlive()) continue; if (e.getTarget() == this) onMe = true; else if (hasLineOfSight(e) && (free == null || e.distanceToSqr(this) < free.distanceToSqr(this))) free = e; }
             if (onMe) free = null; /* the user 01:40: endermen are avoided unless it's the pearl stage and he's geared; a player never meets their eyes (vanilla's stare check: view within 0.025/dist of the eyes, in sight) */
             net.minecraft.world.phys.Vec3 view = getViewVector(1.0F).normalize();
+            java.util.List<net.minecraft.world.entity.monster.EnderMan> ems = level().getEntitiesOfClass(net.minecraft.world.entity.monster.EnderMan.class, getBoundingBox().inflate(64)); int angry = 0; for (var e : ems) if (e.isAlive() && e.getTarget() == this) angry++;
+            for (var em : ems) { if (!em.isAlive() || em.getTarget() != this || em.getPersistentData().getBoolean("claudeAngry")) continue; // ponytail: the user 18:55 "why did he aggro 3 or 4 enderman at once": each new anger logged once with its cause (hit by him / his gaze / neither), tag kept in the mob's own data (no new field, hotswap-safe)
+                em.getPersistentData().putBoolean("claudeAngry", true);
+                net.minecraft.world.phys.Vec3 to = new net.minecraft.world.phys.Vec3(em.getX() - getX(), em.getEyeY() - getEyeY(), em.getZ() - getZ()); double d = Math.max(1e-3, to.length()), dot = view.dot(to.normalize());
+                ClaudeMod.LOGGER.info("[Claude fight] an Enderman {} off turned on him: {}; his gaze {} deg off its eyes (stare cone {} deg), in sight {}, {} angry at him in 64, hunt {}, task {} (ClaudeEntity.tick)", (int) d,
+                        em.getLastHurtByMob() == this ? "he hit it" : dot > 1.0 - 0.025 / d ? "he looked it in the eyes" : "not hit, not stared at by the check now (stared a tick earlier, or something else)",
+                        String.format("%.1f", Math.toDegrees(Math.acos(Math.min(1, dot)))), String.format("%.1f", Math.toDegrees(Math.acos(1 - 0.025 / d))), hasLineOfSight(em),
+                        angry, hunt, tasks.isEmpty() ? "none" : tasks.peek().getClass().getSimpleName());
+            }
             for (var em : level().getEntitiesOfClass(net.minecraft.world.entity.monster.EnderMan.class, getBoundingBox().inflate(64), e -> e.isAlive() && e.getTarget() != this)) {
                 net.minecraft.world.phys.Vec3 to = new net.minecraft.world.phys.Vec3(em.getX() - getX(), em.getEyeY() - getEyeY(), em.getZ() - getZ());
                 double d = to.length(); if (d < 1e-3 || em == free) continue;
+                if (em.getPersistentData().getBoolean("claudeAngry")) em.getPersistentData().remove("claudeAngry"); // calm again: the next anger logs anew
                 if (view.dot(to.normalize()) > 1.0 - 0.025 / d * 1.5 && hasLineOfSight(em)) { if (hunt && tickCount % 40 == 0) ClaudeMod.LOGGER.info("[Claude fight] eyes off the enderman {} off: one at a time ({}) (ClaudeEntity.tick)", (int) d, onMe ? "one is on me" : "after the nearest"); setXRot(Math.min(90f, Math.max(getXRot(), (float) Math.toDegrees(Math.atan2(em.getEyeY() - getEyeY(), Math.sqrt(to.x * to.x + to.z * to.z))) * -1f + 25f))); setYHeadRot(getYRot()); break; }
             }
         }

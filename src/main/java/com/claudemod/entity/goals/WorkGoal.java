@@ -4850,8 +4850,8 @@ public class WorkGoal extends Goal {
         // Can he walk to it (up the hill, around)? Then sprint there.
         if (com.claudemod.entity.body.Controls.refusedLately(g, 10) && g.onGround()) { // ponytail: live 14:42 -10,63,-930: the vanilla path's step 2 up refused by his body, re-taken every tick for 10 s+ under an enderman on a ledge 4 up
             g.getNavigation().stop(); g.setSprinting(false);
-            if (mob instanceof net.minecraft.world.entity.monster.EnderMan) { equipWeapon(); g.getLookControl().setLookAt(mob.getX(), mob.getEyeY(), mob.getZ()); return false; } // (bait: the stare angers it and it teleports down to him)
-            walkTo(mob.blockPosition(), 2.0); return false; } // (anything else: the walk's own plan)
+            if (mob instanceof net.minecraft.world.entity.monster.EnderMan em0 && em0.getTarget() != g) { equipWeapon(); g.getLookControl().setLookAt(mob.getX(), mob.getEyeY(), mob.getZ()); return false; } // (bait: the stare angers it and it teleports down to him)
+            walkTo(mob.blockPosition(), 2.0); return false; } // (anything else, and an enderman already angry at him (the stare baits only a calm one; live 16:33 stared 15 s at one on him 3 up, fight_no_effect): the walk's own plan)
         var path = g.getNavigation().createPath(mob, 1);
         if (path != null && path.canReach()) {
             g.setSprinting(true);

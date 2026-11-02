@@ -333,7 +333,7 @@ public final class DragonFight {
     static boolean dragon(ClaudeEntity g, ServerLevel level, St s, EnderDragon d, int ticks) {
         var phase = d.getPhaseManager().getCurrentPhase();
         var ph = phase.getPhase();
-        boolean landing = ph == net.minecraft.world.entity.boss.enderdragon.phases.EnderDragonPhase.LANDING_APPROACH || ph == net.minecraft.world.entity.boss.enderdragon.phases.EnderDragonPhase.LANDING;
+        boolean landing = ph == net.minecraft.world.entity.boss.enderdragon.phases.EnderDragonPhase.LANDING; // (its approach is flight: arrows, not a wait by the fountain; live 03:59 the approach lasted 45 s+ and he stood with his sword out)
         Vec3 head = d.head.getBoundingBox().getCenter();
         BlockPos mid = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING, BlockPos.ZERO);
         if (phase.isSitting() || landing) { // on the fountain (or coming down onto it): its head with the sword, crits between (arrows bounce off a perched dragon)

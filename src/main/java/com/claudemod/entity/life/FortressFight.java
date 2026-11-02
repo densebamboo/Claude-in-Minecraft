@@ -333,6 +333,24 @@ public final class FortressFight {
             ClaudeMod.LOGGER.info("[Claude fight] {} blazes out and health {}: backing out past the spawner's 16 blocks to heal (it stops spawning without a player in range) (FortressFight.blazeRods)", bl.size(), (int) g.getHealth());
             return "too many blazes (" + bl.size() + ") at health " + (int) g.getHealth() + ": backing out of the spawner's range to heal, then back in";
         }
+        { // rods on the ground in sight: picked up between volleys (stage 556, live blazes: 16 killed, mostly by arrow 10-20 off, the rods lay on the deck out of the kill's 8-block sweep and he fought on: 2 of 3 in 180 s)
+            var due = volleyDue(g, level);
+            int rodsAbout = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, g.getBoundingBox().inflate(24, 8, 24), x -> x.isAlive() && x.getItem().is(Items.BLAZE_ROD)).size();
+            if (rodsAbout > 0 && (due != null || g.getHealth() < 10)) ClaudeMod.LOGGER.info("[Claude fight] rods {}/{}: {} rod(s) on the ground within 24, not now: {} (FortressFight.blazeRods)", have, goal, rodsAbout, due != null ? "a volley due from the " + due.getType().getDescription().getString() + " " + (int) due.distanceTo(g) + " off" : "health " + (int) g.getHealth());
+            if (due == null && g.getHealth() >= 10) {
+                net.minecraft.world.entity.item.ItemEntity rod = null;
+                for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, g.getBoundingBox().inflate(24, 8, 24), x -> x.isAlive() && x.getItem().is(Items.BLAZE_ROD) && level.getFluidState(x.blockPosition()).isEmpty())) {
+                    if (!clear(level, g.getEyePosition(), it.position().add(0, 0.15, 0), g) && it.distanceTo(g) > 4) continue; // (a line from his eyes: the rod's own cell is air, a block-sight check never passes)
+                    if (rod == null || it.distanceToSqr(g) < rod.distanceToSqr(g)) rod = it; }
+                if (rod == null && rodsAbout > 0) ClaudeMod.LOGGER.info("[Claude fight] rods {}/{}: {} rod(s) on the ground within 24, none in sight on dry ground (FortressFight.blazeRods)", have, goal, rodsAbout);
+                if (rod != null) { var path = g.getNavigation().createPath(rod.blockPosition(), 1);
+                    if (path == null || !path.canReach()) ClaudeMod.LOGGER.info("[Claude fight] rods {}/{}: the rod {} off at {} has no walk to it (FortressFight.blazeRods)", have, goal, (int) rod.distanceTo(g), rod.blockPosition().toShortString());
+                    if (path != null && path.canReach()) {
+                        g.tasks.add(new Task.GoTo(rod.blockPosition(), 1.0)); g.tasks.add(new Task.Pickup(60)); g.skillQueue.addFirst(again);
+                        ClaudeMod.LOGGER.info("[Claude fight] rods {}/{}: a rod on the ground {} off at {}, no volley due: picking it up first (FortressFight.blazeRods)", have, goal, (int) rod.distanceTo(g), rod.blockPosition().toShortString());
+                        return "blaze rods " + have + "/" + goal + ": picking up a rod " + (int) rod.distanceTo(g) + " off between volleys"; } }
+            }
+        }
         LivingEntity foe = bl.stream().filter(g::hasLineOfSight).min(java.util.Comparator.comparingDouble(b -> b.distanceToSqr(g))).orElse(null); // (one he can see: World 15 04:01, the nearest was behind basalt, the attack let it be at once and he re-picked it 5 times standing still)
         if (foe == null && !bl.isEmpty()) { // all of them behind rock: out of sight a blaze drifts in and stops, so he holds here till one comes round into view
             g.tasks.add(new Task.Wait(40, false)); g.skillQueue.addFirst(again);

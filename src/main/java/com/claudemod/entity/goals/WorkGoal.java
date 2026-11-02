@@ -4730,7 +4730,7 @@ public class WorkGoal extends Goal {
                 for (var a : mine) g.tasks.addFirst(new Task.GoTo(a.blockPosition(), 1.0));
                 if (!mine.isEmpty()) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] {} of his arrows stuck round the fight: picking them back up (WorkGoal.doAttack)", mine.size());
             }
-            net.minecraft.world.entity.Mob still = died ? level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(16), m0 -> m0 != e && m0.isAlive() && m0.getTarget() == g && m0 instanceof net.minecraft.world.entity.monster.Enemy).stream().findFirst().orElse(null) : null;
+            net.minecraft.world.entity.Mob still = died ? level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(8), m0 -> m0 != e && m0.isAlive() && m0.getTarget() == g && m0 instanceof net.minecraft.world.entity.monster.Enemy && !(m0 instanceof net.minecraft.world.entity.monster.RangedAttackMob) && !(m0 instanceof net.minecraft.world.entity.monster.Blaze) && !(m0 instanceof net.minecraft.world.entity.monster.Ghast)).stream().findFirst().orElse(null) : null;
             if (still != null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the drops wait: a {} {} off is still on him (WorkGoal.doAttack)", still.getType().getDescription().getString(), (int) still.distanceTo(g)); g.tasks.addFirst(new Task.Attack(still.getUUID(), Math.max(400, t.maxTicks()))); return true; } // ponytail: stage 553, the pickup after the first wither skeleton dug through his hole's wall for a drop and the second came in by it
             if (died && ticks > 1 && !(g.tasks.peek() instanceof Task.Pickup)) g.tasks.addFirst(new Task.Pickup(80));
             return true;

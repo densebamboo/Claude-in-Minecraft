@@ -155,6 +155,7 @@ public final class EyeHunt {
 
     static String throwEye(ClaudeEntity g, ServerLevel level, Hunt h, Skills.Step again, String which) {
         if (!g.onGround()) { g.tasks.add(new Task.Wait(10, false)); g.skillQueue.addFirst(again); return "landing first, then the throw"; }
+        if (!level.canSeeSky(g.blockPosition().above())) { BlockPos up = surface(level, g.blockPosition()); g.tasks.add(new Task.GoTo(up, 2.0)); g.skillQueue.addFirst(again); ClaudeMod.LOGGER.info("[Claude eye] {} from under a roof at {}: up to open sky at {} first, where he can watch it fly (EyeHunt)", which, g.blockPosition().toShortString(), up.toShortString()); return "up to the surface first, an eye's thrown under open sky"; } // (the user: "he threw an eye from inside of his mine")
         g.getNavigation().stop();
         if (!g.hold(s -> s.is(Items.ENDER_EYE))) return "failed: couldn't get an eye in hand";
         g.setXRot(-20f);

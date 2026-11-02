@@ -5257,7 +5257,9 @@ public class WorkGoal extends Goal {
         // a blaze: its glow is the clock (lit 60 ticks, then 3 shots 6 apart, only while it sees him; then 100 quiet)
         var bz = (net.minecraft.world.entity.monster.Blaze) mob;
         int pending = -1; for (var b2 : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(32), net.minecraft.world.entity.Entity::isAlive)) pending = Math.max(pending, com.claudemod.entity.life.FortressFight.chargeAge(g, b2));
-        if (due != null && shield) { g.getNavigation().stop(); g.setSprinting(false); shieldUp(due); cfSay("shield up", "a volley due from the blaze " + (int) due.distanceTo(g) + " off: on the shield, then in"); return false; }
+        if (due != null && shield) { g.setSprinting(false); shieldUp(due);
+            if (!inCover) { cfMove(cv.cover(), 1.0); cfSay("shield up into cover", "a volley due from the blaze " + (int) due.distanceTo(g) + " off: on the shield, walking to " + cv.cover().toShortString()); return false; } // (stage 556: 5 blazes took turns, one always due, and he stood shielding in the open 15 off his cover for 2 minutes)
+            g.getNavigation().stop(); cfSay("shield up", "a volley due from the blaze " + (int) due.distanceTo(g) + " off: on the shield, then in"); return false; }
         if (g.hurtTime > 0 || due != null) cfEmptyPeeks = 0; // (a shot came: the peeks draw them)
         if (cfEmptyPeeks >= 3 && g.tickCount - cfPeekTick > 20 * 10) cfEmptyPeeks = 0;
         if (!shield && pending >= 44 && cfEmptyPeeks >= 3) cfSay("no more peeks", "3 steps out drew no shot (a blaze lit with no sight of him stays lit): on with the fight, not out and back");

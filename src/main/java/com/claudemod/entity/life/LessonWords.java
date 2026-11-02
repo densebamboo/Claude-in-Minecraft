@@ -321,6 +321,7 @@ public final class LessonWords {
             if (driftLogged == null) driftLogged = new HashMap<>();
             Integer l0 = driftLogged.get(g.getUUID()); if (l0 == null || g.tickCount - l0 > 100) { driftLogged.put(g.getUUID(), g.tickCount); ClaudeMod.LOGGER.info("[Claude lesson] breaking from {}: no walk for it (in reach from the cell), his navigation stopped (LessonWords.tickHold)", xyz(c)); }
         }
+        if (g.currentTask instanceof Task.Break) return; // ponytail: mining from the water he stands still, facing the block; the move control's step back to the cell's middle turned his body every tick against the break's look (the user 13:03 "spazzing out ... he should be facing the obsidian")
         double dx = c.getX() + 0.5 - g.getX(), dz = c.getZ() + 0.5 - g.getZ(), d2 = dx * dx + dz * dz;
         if (Math.abs(g.getY() - c.getY()) > 1.2 || d2 > 1.6 * 1.6 || d2 < 0.12 * 0.12) return;
         g.getMoveControl().setWantedPosition(c.getX() + 0.5, g.getY(), c.getZ() + 0.5, 1.0); // (full input: in water a half step's 0.01 a tick loses to the current's 0.014)
@@ -647,7 +648,7 @@ public final class LessonWords {
         BlockPos e = k.pocket(), f = ExactSpot.feet(g);
         var fe = level.getFluidState(e);
         if (fe.is(FluidTags.WATER) && fe.isSource()) {
-            if (f.equals(e)) { markOwn(g, e); return null; } // (in it: fromPlace from here)
+            if (f.equals(e) || (f.getY() == e.getY() && Math.abs(f.getX() - e.getX()) <= 1 && Math.abs(f.getZ() - e.getZ()) <= 1 && level.getFluidState(f).is(FluidTags.WATER))) { markOwn(g, e); return null; } // (in it: fromPlace from here) // ponytail: the user 13:0x "he doesn't have to stand directly in the source block, just stand still in the flowing water": a cell beside it in its water is in it too, no step back each block
             markOwn(g, e); again.run(); if (stepIn(g, e)) return "back into my water at " + xyz(e) + " (" + String.format("%.1f", Math.sqrt(Math.pow(e.getX() + 0.5 - g.getX(), 2) + Math.pow(e.getZ() + 0.5 - g.getZ(), 2))) + " off, step " + stepIns.get(g.getUUID()) + ")"; if (!ExactSpot.feet(g).equals(k.from())) { g.tasks.add(new Task.GoTo(k.from(), 0.4)); ClaudeMod.LOGGER.info("[Claude obsidian] pushed off my pocket at {} to {}: back to my dry spot {} beside it first, then the step in (LessonWords.technique)", xyz(e), xyz(f), xyz(k.from())); return "back to my spot by the pocket at " + xyz(k.from()); } // (the water pushed him 2 off or onto the grass a cell up: the walk into the water itself failed there 3 of 3 and ended the order at 3-6 of 10; from the dry spot, the way he first went in, the step in works)
             g.skillQueue.addFirst(new Skills.Step("go_to", xyz(e), 1, "exact"));
             ClaudeMod.LOGGER.info("[Claude obsidian] the water's in the pocket at {}: in there (LessonWords.technique)", xyz(e));

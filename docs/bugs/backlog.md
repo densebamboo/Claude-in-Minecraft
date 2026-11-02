@@ -96,3 +96,6 @@ Each line is a live report from Day to Day (World 15, 2026-10-31/11-01) not on t
   - death recovery under the important-gear rule;
   - lavaTheyMean misfiring;
   - the nook layout spec.
+
+- **Stage 527 fails on main (dd81175 on):** the single enderman sits 2 below him and 4 off, in sight. He stands idle out of reach for 70 s ("still alive after 70 s, health 40, his low 20, in a hole false"; nav idle at attack ticks 100 and 300). It's from the recent enderman-approach changes in doAttack (drop-in at 4-6 below, back-off, stand-and-wait). Seen 2026-11-02 04:23 on main itself.
+- **Stage 555: the cover tunnel variant isn't staged.** The arena has no rock in reach, so only the capped hole is proven against endermen. Add a run with a netherrack wall within 6.

@@ -2433,6 +2433,7 @@ public final class ClaudeLife {
                 if (bpMode(g)) { // ponytail: ore mined for the craft queued next stays on till the count is in (bag + his chests); one pass then the craft failed "missing diamond" 3x and asked them for help (live 22:28)
                     Item want = oreDrop(target); boolean forCraft = want != null && !st.where().equals("looked_at") && !g.skillQueue.isEmpty() && g.skillQueue.peekFirst().skill().equals("craft");
                     if (forCraft && haveFor(g, level, want) >= Math.max(1, count)) return "done: already have " + haveFor(g, level, want) + " " + Crafting.name(want);
+                    if (want != null) ClaudeMod.LOGGER.info("[Claude skill] strip_mine {} x{}: have {} (bag+chests), forCraft {}, where {}, queue {} (ClaudeLife strip_mine)", target, count, haveFor(g, level, want), forCraft, st.where(), g.skillQueue);
                     String r = bpStripMine(g, player, level, st, target, count);
                     if (forCraft && !r.startsWith("failed") && !r.startsWith("done") && !g.skillQueue.contains(st)) { g.skillQueue.addFirst(st); ClaudeMod.LOGGER.info("[Claude skill] strip_mine {}: {} of {} {} so far, the step stays on before the craft", target, haveFor(g, level, want), count, Crafting.name(want)); }
                     return r;

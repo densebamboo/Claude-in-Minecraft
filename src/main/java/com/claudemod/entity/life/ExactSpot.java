@@ -284,6 +284,11 @@ public final class ExactSpot {
         }
         j.waitStart = -1;
         BlockPos f = feet(g); int dy = f.getY() - j.cell.getY();
+        if (Math.abs(f.getX() - j.cell.getX()) <= 1 && Math.abs(f.getZ() - j.cell.getZ()) <= 1 && (dy == 0 || dy == 1) && !f.equals(j.cell)) { // ponytail: the way over into a cell beside him needs its column clear from his feet to his head; a block there is dug first, like a player (live World 16 11:16-12:58: the obsidian pocket 750, -55, 67 with rock at 750, -53, 67 over its edge, "couldn't get onto" every time, the planner scooped the water, two freezes)
+            ServerLevel lv = (ServerLevel) g.level();
+            for (int y = j.cell.getY() + 1; y <= f.getY() + 1; y++) { BlockPos q = new BlockPos(j.cell.getX(), y, j.cell.getZ());
+                if (!lv.getBlockState(q).getCollisionShape(lv, q).isEmpty() && lv.getBlockState(q).getDestroySpeed(lv, q) >= 0) { g.tasks.add(new Task.Break(q)); ClaudeMod.LOGGER.info("[Claude exact] {} stands in the way over into {} ({}): dug first, then the step (ExactSpot.queueWalk)", xyz(q), xyz(j.cell), lv.getBlockState(q).getBlock().getName().getString()); return; } }
+        }
         if (j.tries <= 2 && Math.abs(f.getX() - j.cell.getX()) <= 1 && Math.abs(f.getZ() - j.cell.getZ()) <= 1 && (dy == 0 || dy == 1) && LessonWords.stepIn(g, j.cell)) return; // (a cell touching his, level or one down: a step, not the walker; it "couldn't get to" water on stone one down and across, 4 tries, and the order ended)
         g.tasks.add(j.walk = new Task.GoTo(j.cell, ON));
     }

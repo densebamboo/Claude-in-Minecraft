@@ -1856,6 +1856,11 @@ public class WorkGoal extends Goal {
                     com.claudemod.ClaudeMod.LOGGER.info("[Claude life] can't break {}: {} at {} is in the way and needs a better pick than he has (WorkGoal.doBreak)", pos.toShortString(), name(w), inWay.toShortString());
                     return exit("in the way: " + name(w) + " needs a better pick");
                 }
+                if (com.claudemod.entity.nav.ActionPath.structureBlock(level, inWay) && !com.claudemod.entity.nav.ActionPath.structureDigOk(level, inWay) && !com.claudemod.entity.life.TempLedger.built(g, inWay) && !(g.lastStep != null && g.lastStep.skill().equals("light_end_portal"))) { // the intact rule refuses it anyway (live 01:09, a stronghold brick queued 3x a second as "in the way")
+                    g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, g.tickCount);
+                    com.claudemod.ClaudeMod.LOGGER.info("[Claude life] can't break {}: {} at {} is in the way, a structure's own block kept intact (WorkGoal.doBreak)", pos.toShortString(), name(w), inWay.toShortString());
+                    return exit("in the way: a structure's own block");
+                }
                 clearCrack();
                 if (com.claudemod.director.ClaudeLife.isTempStation(g, pos) && (w.is(net.minecraft.world.level.block.Blocks.COBBLESTONE) || w.is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE))) g.tasks.addFirst(new Task.Place(inWay.immutable(), w.getBlock().asItem())); // the patch goes back once the station's out
                 if (shellOverOre) g.tasks.addFirst(new Task.Place(inWay.immutable(), inWay.getY() < 0 && g.inventory.count(s0 -> s0.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE)) > 0 ? net.minecraft.world.item.Items.COBBLED_DEEPSLATE : net.minecraft.world.item.Items.COBBLESTONE)); // his wall back once the ore's out (its own vein-behind check waits for the rest)

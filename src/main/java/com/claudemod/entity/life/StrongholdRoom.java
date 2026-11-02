@@ -103,7 +103,7 @@ public final class StrongholdRoom {
         BlockPos f = feet(g);
         BlockPos lit = PortalMap.endPortal(g);
         if (lit != null && level.getBlockState(lit).is(Blocks.END_PORTAL) || lit != null && !level.isLoaded(lit)) { // lit already (by him, before a restart too): back to it — through his way in and its corridors, the portal itself the guide
-            if (lit.distSqr(f) <= 5 * 5) return "done: at the lit end portal, " + lit.toShortString();
+            if (lit.distSqr(f) <= 5 * 5 || lit.distSqr(f) <= 8 * 8 && sees(g, level, Vec3.atCenterOf(lit), lit)) return "done: at the lit end portal, " + lit.toShortString(); // (in its room, it in sight: live 01:42, 5.4 off on the floor under the frames read as not there, then "out of eyes")
             List<BlockPos> tr = PortalMap.endTrail(g);
             if (tr.size() >= 2) { // the way he walked there: the nearest point of it, then on along it toward the portal
                 int i = 0; double bd = Double.MAX_VALUE; for (int k = 0; k < tr.size(); k++) { double dd = tr.get(k).distSqr(f); if (dd < bd) { bd = dd; i = k; } }

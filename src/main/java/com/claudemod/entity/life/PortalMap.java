@@ -60,7 +60,7 @@ public final class PortalMap {
         public int line() { return across(a); }
         public String describe() { return width + " wide along " + axis.getName() + " from " + a.toShortString() + " to " + b.toShortString(); }
     }
-    public static final class Net { public final List<Portal> portals = new ArrayList<>(); public final List<Edge> edges = new ArrayList<>(); public final List<Segment> segments = new ArrayList<>(); int next = 1; String lastInDim; BlockPos lastIn; int lastArrival = -1, lastEntered = -1; public BlockPos endPortal, endWayIn; } // (the lit End portal and his way into its stronghold: kept apart from the Nether network, which reads every Overworld portal as a Nether one)
+    public static final class Net { public final List<Portal> portals = new ArrayList<>(); public final List<Edge> edges = new ArrayList<>(); public final List<Segment> segments = new ArrayList<>(); int next = 1; String lastInDim; BlockPos lastIn; int lastArrival = -1, lastEntered = -1; public BlockPos endPortal, endWayIn; public List<BlockPos> endTrail = new ArrayList<>(); } // (the lit End portal and his way into its stronghold: kept apart from the Nether network, which reads every Overworld portal as a Nether one)
 
     private static Map<UUID, Net> nets; // (static: fields added live start null)
     public static Net net(ClaudeEntity g) { if (nets == null) nets = new HashMap<>(); return nets.computeIfAbsent(g.getUUID(), k -> new Net()); }
@@ -251,6 +251,9 @@ public final class PortalMap {
         n.endPortal = portal.immutable(); if (wayIn != null) n.endWayIn = wayIn.immutable();
         if (news) ClaudeMod.LOGGER.info("[Claude portal] the End portal, lit, at {}; the way into its stronghold {} (PortalMap.noteEnd)", portal.toShortString(), n.endWayIn == null ? "unknown" : n.endWayIn.toShortString());
     }
+    /** The way he walked to the lit End portal, from his way in to the portal (loops cut): his route back. */
+    public static List<BlockPos> endTrail(ClaudeEntity g) { return net(g).endTrail; }
+    public static void noteEndTrail(ClaudeEntity g, List<BlockPos> trail) { if (trail == null || trail.size() < 2) return; Net n = net(g); n.endTrail = new ArrayList<>(trail); ClaudeMod.LOGGER.info("[Claude portal] the way to the End portal: {} points from {} to {} (PortalMap.noteEndTrail)", trail.size(), trail.get(0).toShortString(), trail.get(trail.size() - 1).toShortString()); }
     public static String endTruth(ClaudeEntity g) { Net n = net(g); return n.endPortal == null ? "the End portal: none lit that you know of" : "the End portal: lit, at " + n.endPortal.toShortString() + " in the Overworld" + (n.endWayIn == null ? "" : ", the way in: your hole into its stronghold at " + n.endWayIn.toShortString()) + " (light_end_portal walks you back to it; fight_dragon goes in)"; }
     public static String truthLine(ClaudeEntity g) {
         Net n = net(g); if (n.portals.isEmpty()) return "none known (you remember every portal you use, light or see)" + (n.endPortal == null ? "" : "; " + endTruth(g));
@@ -334,7 +337,7 @@ public final class PortalMap {
         for (Portal p : n.portals) { CompoundTag c = new CompoundTag(); c.putInt("id", p.id); c.putString("dim", p.dim); c.putLong("at", p.at.asLong()); c.putString("state", p.state); c.putString("by", p.by); c.putLong("seen", p.seen); c.putInt("link", p.link); c.putBoolean("walked", p.linkWalked); c.putString("name", p.name); ps.add(c); }
         for (Edge e : n.edges) { CompoundTag c = new CompoundTag(); c.putInt("a", e.a); c.putInt("b", e.b); c.putString("kind", e.kind); c.putInt("y", e.y); c.putInt("len", e.length); c.putBoolean("cov", e.covered); c.putBoolean("lit", e.lit); es.add(c); }
         ListTag ss = new ListTag(); for (Segment s : n.segments) { CompoundTag c = new CompoundTag(); c.putString("dim", s.dim); c.putLong("a", s.a.asLong()); c.putLong("b", s.b.asLong()); c.putString("axis", s.axis.getName()); c.putInt("w", s.width); ss.add(c); } t.put("segments", ss);
-        t.put("portals", ps); t.put("edges", es); t.putInt("next", n.next); t.putInt("arrival", n.lastArrival); if (n.endPortal != null) t.putLong("endPortal", n.endPortal.asLong()); if (n.endWayIn != null) t.putLong("endWayIn", n.endWayIn.asLong()); return t;
+        t.put("portals", ps); t.put("edges", es); t.putInt("next", n.next); t.putInt("arrival", n.lastArrival); if (n.endPortal != null) t.putLong("endPortal", n.endPortal.asLong()); if (n.endWayIn != null) t.putLong("endWayIn", n.endWayIn.asLong()); if (!n.endTrail.isEmpty()) t.putLongArray("endTrail", n.endTrail.stream().mapToLong(BlockPos::asLong).toArray()); return t;
     }
     public static void load(ClaudeEntity g, CompoundTag t) {
         Net n = net(g); n.portals.clear(); n.edges.clear(); n.segments.clear();
@@ -342,7 +345,7 @@ public final class PortalMap {
         for (Tag x : t.getList("portals", Tag.TAG_COMPOUND)) { CompoundTag c = (CompoundTag) x; Portal p = new Portal(); p.id = c.getInt("id"); p.dim = c.getString("dim"); p.at = BlockPos.of(c.getLong("at")); p.state = c.getString("state"); p.by = c.getString("by"); p.seen = c.getLong("seen"); p.link = c.getInt("link"); p.linkWalked = c.getBoolean("walked"); p.name = c.getString("name"); n.portals.add(p); }
         for (Tag x : t.getList("edges", Tag.TAG_COMPOUND)) { CompoundTag c = (CompoundTag) x; Edge e = new Edge(); e.a = c.getInt("a"); e.b = c.getInt("b"); e.kind = c.getString("kind"); e.y = c.getInt("y"); e.length = c.getInt("len"); e.covered = c.getBoolean("cov"); e.lit = c.getBoolean("lit"); n.edges.add(e); }
         n.next = Math.max(1, t.getInt("next")); n.lastArrival = t.contains("arrival") ? t.getInt("arrival") : -1;
-        n.endPortal = t.contains("endPortal") ? BlockPos.of(t.getLong("endPortal")) : null; n.endWayIn = t.contains("endWayIn") ? BlockPos.of(t.getLong("endWayIn")) : null;
+        n.endPortal = t.contains("endPortal") ? BlockPos.of(t.getLong("endPortal")) : null; n.endWayIn = t.contains("endWayIn") ? BlockPos.of(t.getLong("endWayIn")) : null; n.endTrail = new ArrayList<>(); for (long l : t.getLongArray("endTrail")) n.endTrail.add(BlockPos.of(l));
         ClaudeMod.LOGGER.info("[Claude portal] {} portal(s), {} way(s) back from his saved state (PortalMap.load)", n.portals.size(), n.edges.size());
     }
     /** The stopgap's two saved spots folded in once (a world saved before this). */

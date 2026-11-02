@@ -355,6 +355,9 @@ public class WorkGoal extends Goal {
                 healUp();
                 return;
             }
+            if (g.tickCount - wsDugTick < 100 && !(current instanceof Task.Attack) && wsDug != null && (current instanceof Task.Place || current instanceof Task.Break || current instanceof Task.GoTo go0 && go0.pos().equals(wsDug))) { // making cover (WorkGoal.tallCover): a hit doesn't turn him back to the open fight (stage 555: the re-arm cleared the build mid-way, the next hit knocked him off it)
+                sdSay("coverbuild", "[Claude fight] hit by a {} while making cover (health {}): still at it, the fight from it after (WorkGoal.tick)", foe.getType().getDescription().getString(), (int) g.getHealth()); g.urgentAttacker = null; return;
+            }
             if (foe instanceof net.minecraft.world.entity.monster.Blaze && g.tickCount - blazeRetreatTick < 200 && !(current instanceof Task.Attack)) { // walking out of their sight: a fireball doesn't turn him back to fight (each hit re-armed the fight, the fight re-queued the walk; he stood on a fence burning 13 -> 0, World 15 12:40)
                 sdSay("blazewalk", "[Claude fight] hit by a Blaze while getting out of their sight (health {}): still going, the fight comes after (WorkGoal.tick)", (int) g.getHealth()); g.urgentAttacker = null; return;
             }
@@ -3114,6 +3117,7 @@ public class WorkGoal extends Goal {
         final java.util.Set<BlockPos> pocket0 = pocketBehind(g, level, pos); // (a drop a cell or two deeper in the pocket is sealed in all the same: 12:14 a diamond behind the patch)
         var inside = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(pos).inflate(5),
                 i -> i.isAlive() && (i.position().distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(pos)) <= 2.6 * 2.6 || pocket0.contains(i.blockPosition())) && !g.isGift(i) && g.inventory.hasRoomFor(i.getItem()) && (bpIn == null || bpIn.touches(i.blockPosition()) || airJoinedToMine(level, bpIn, i.blockPosition())));
+        if (!inside.isEmpty() && wsDug != null && g.tickCount - wsDugTick < 100 && pos.closerThan(wsDug, 5)) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} by a block of the cover he's making at {}: the cover first, the drop after the fight (WorkGoal.doPlace)", inside.get(0).getItem().getHoverName().getString(), pos.toShortString()); inside = java.util.List.of(); } // ponytail: stage 555, a pearl in the post's cell held the build (a pickup, then "into the hole for it") with two endermen on him: 20 -> 5
         boolean wetBy = !level.getFluidState(pos).isEmpty(); for (Direction d : Direction.values()) if (!level.getFluidState(pos.relative(d)).isEmpty()) wetBy = true; // a plug against lava or water: it goes in first (the flow won't wait; the drop is after, or the lava's)
         { String hk = "hold:" + pos.asLong(); Integer held = g.attempts.counters.get(hk); // held for this drop a moment ago and it's still there: the pickup couldn't get it; it's left (logged) and the block goes in (04:33 a furnace held 6 times in 30 s for a drop the pickup never went for)
           if (!inside.isEmpty() && !wetBy && held != null && g.tickCount - held < 20 * 30 && com.claudemod.director.ClaudeLife.dropsWorth(inside) >= 15) { // a valuable pile is never sealed in (live 11:36: 3 diamonds in his branch's floor holes, the patch went over them after a 2.5 s hold): he steps down into the hole for it; can't: the hole stays open
@@ -4680,7 +4684,7 @@ public class WorkGoal extends Goal {
             if (em.getTarget() == g && ticks > 200 && !g.hasLineOfSight(em)) { // (live 19:48 -53,45,-893: one 2 up, 6 off, out of sight 30 s, never came: any height, not only 3+)
             com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman on me sits {} below/above out of sight at {} for 10 s+, no way to me: leaving it, on with the hunt (WorkGoal.endermanHole)", (int) (em.getY() - g.getY()), em.blockPosition().toShortString()); return true; } // ponytail: live 19:23 -29,47,-882: one 7 down in a cave under him, angry, 60 s+ of waiting; a player leaves it (it teleports to him if it can)
             if (d > 24) { if (g.tickCount - emSaid > 100) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman went off {} away: out of the hole (WorkGoal.endermanHole)", (int) d); } return true; }
-            if (g.getHealth() < (angryAt >= 2 ? 14 : 8)) { var food = com.claudemod.director.ClaudeLife.foodToEat(g, false); // (two on him: heal early, in cover, the user 20:13 "2 at once is okay if he can manage it, not if he keeps dying") if (food != null) { g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(food)); return true; } }
+            if (g.getHealth() < (angryAt >= 2 ? 14 : 8)) { var food = com.claudemod.director.ClaudeLife.foodToEat(g, false); /* two on him: heal early, in cover (the user 20:13 "2 at once is okay if he can manage it, not if he keeps dying") */ if (food != null) { g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(food)); return true; } }
             if (canHitNow(em)) { g.getLookControl().setLookAt(em.getX(), em.getY() + 0.6, em.getZ()); g.attack(em); g.swing(InteractionHand.MAIN_HAND); }
             else if (em.getTarget() != g && d < 16) g.getLookControl().setLookAt(em.getX(), em.getEyeY(), em.getZ()); // (not angry yet: a look at its eyes brings it over, the player's way)
             if (g.tickCount - emSaid > 200) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] in my hole at {}: the enderman {} off (health {}) (WorkGoal.endermanHole)", f.toShortString(), (int) d, (int) g.getHealth()); }
@@ -4990,7 +4994,7 @@ public class WorkGoal extends Goal {
      * feet, 4 blocks). Null: no cover to make here, the caller's fight goes on.
      */
     private Boolean tallCover(Task.Attack t, net.minecraft.world.entity.LivingEntity mob, boolean cap) {
-        String who = mob.getType().getDescription().getString().toLowerCase(java.util.Locale.ROOT);
+        String who = mob.getType().getDescription().getString().toLowerCase(java.util.Locale.ROOT), aWho = ("aeiou".indexOf(who.charAt(0)) >= 0 ? "an " : "a ") + who;
         ServerLevel level = (ServerLevel) g.level();
         if (Boolean.getBoolean("claude.debugWither") && g.tickCount % 5 == 0) for (var w : level.getEntitiesOfClass(net.minecraft.world.entity.monster.WitherSkeleton.class, g.getBoundingBox().inflate(4))) com.claudemod.ClaudeMod.LOGGER.info("[Claude wither] me {} {} {} ground {} | ws {} {} {} ground {} reachBox {} (WorkGoal.witherHole)", String.format("%.2f", g.getX()), String.format("%.2f", g.getY()), String.format("%.2f", g.getZ()), g.onGround(), String.format("%.2f", w.getX()), String.format("%.2f", w.getY()), String.format("%.2f", w.getZ()), w.onGround(), w.isWithinMeleeAttackRange(g));
         if (inCappedHole()) {
@@ -5040,11 +5044,11 @@ public class WorkGoal extends Goal {
                 dig.add(new Task.Break(f.below().immutable())); dig.add(new Task.Break(f.below(2).immutable()));
                 in = f.below(2).immutable(); capped = true; how = "a 2-deep hole at " + f.toShortString() + " capped two above the floor (a 3-block post on the " + d.getName() + " rim)"; break; }
         }
-        if (in == null) { if (g.tickCount - wsDugSaid > 100) { wsDugSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] a {} {} off and no 2-high gap: no rock within 6 to tunnel into and no ground for a capped hole (fluid, bedrock, falling blocks, open round it, or under 3 blocks), the open fight" + (cap ? "" : " (no capped hole: one foe and health to spare)") + " (WorkGoal.tallCover)", who, (int) mob.distanceTo(g)); } return null; }
+        if (in == null) { if (g.tickCount - wsDugSaid > 100) { wsDugSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] {} {} off and no 2-high gap: no rock within 6 to tunnel into and no ground for a capped hole (fluid, bedrock, falling blocks, open round it, or under 3 blocks), the open fight" + (cap ? "" : " (no capped hole: one foe and health to spare)") + " (WorkGoal.tallCover)", aWho, (int) mob.distanceTo(g)); } return null; }
         g.getNavigation().stop(); g.xxa = 0; g.zza = 0; wsDug = in; wsDugTick = g.tickCount;
-        g.tasks.addFirst(new Task.Attack(t.target(), Math.max(400, t.maxTicks() - ticks))); if (!capped) g.tasks.addFirst(new Task.GoTo(in, 0.3));
+        g.tasks.addFirst(new Task.Attack(t.target(), Math.max(400, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.GoTo(in, 0.3)); // (a hit mid-build knocks him off the spot: back to it, into the hole)
         for (int i = dig.size() - 1; i >= 0; i--) g.tasks.addFirst(dig.get(i));
-        com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] a {} {} off and no 2-high gap: making cover, {}; he stands at {}, out of its reach, it in his (WorkGoal.tallCover)", who, (int) mob.distanceTo(g), how, in.toShortString());
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] {} {} off and no 2-high gap: making cover, {}; he stands at {}, out of its reach, it in his (WorkGoal.tallCover)", aWho, (int) mob.distanceTo(g), how, in.toShortString());
         cfMode = "digging a gap"; return true;
     }
     private BlockPos footingSaid; // (the footing move said once a spot)

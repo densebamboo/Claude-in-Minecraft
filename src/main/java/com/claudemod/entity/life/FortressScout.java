@@ -132,6 +132,7 @@ public final class FortressScout {
         for (int k : new int[] {d, d + 8, d + 16, d + 24, d + 32, d - 8, d - 16, d - 24, d - 32}) {
             if (k < Math.min(12, d)) continue;
             BlockPos p = standAt(level, g.getBlockX() + (int) Math.round(Math.cos(a) * k), g.getBlockZ() + (int) Math.round(Math.sin(a) * k), g.getBlockY());
+            if (p != null && HuntPatrol.book(g, level).walked.get(HuntPatrol.cell(p.getX(), p.getZ())) instanceof Long t && HuntPatrol.now(g) - t < 20 * 120 && HuntPatrol.now(g) >= t) continue; // ponytail: ground he walked in the last 2 min is no new ground (live 21:22, inside his own dug tunnel both ends were all he saw: patrol and explore flipped between them; now nothing's in sight, and explore's nook branch digs out)
             if (p != null && seen(g, level, p)) return p; // (only ground he can see: a pocket behind the rock is no target, live 2026-11-01 he dug to openings out of sight)
         }
         return null;

@@ -5086,7 +5086,7 @@ public class WorkGoal extends Goal {
             if (q.equals(feet) || !com.claudemod.entity.life.FortressFight.stand(level, q) || com.claudemod.entity.body.Controls.lavaCell(g, q)) continue;
             Vec3 aw = Vec3.atBottomCenterOf(q).subtract(mob.position()).multiply(1, 0, 1); if (aw.lengthSqr() < 1e-4) continue; aw = aw.normalize();
             if (lipBehind(level, q, aw)) continue;
-            double d = q.distSqr(feet) + (mob.distanceToSqr(Vec3.atBottomCenterOf(q)) < 2.5 * 2.5 ? 50 : 0); // (never into its arms for it)
+            double d = shooter ? q.distSqr(feet) + mob.distanceToSqr(Vec3.atBottomCenterOf(q)) : q.distSqr(feet) + (mob.distanceToSqr(Vec3.atBottomCenterOf(q)) < 2.5 * 2.5 ? 50 : 0); // (never into its arms for it) ponytail: a shooter's footing is toward it, the step is the approach (live 21:51 20,43,-320: a skeleton 5 off shot him back onto the lip 6 times in 15 s, each step back away from it, 18 -> 10)
             if (d < bd) { bd = d; best = q; } }
         if (best == null) { if (!feet.equals(footingSaid)) { footingSaid = feet; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] a lip behind him at {} the way the {} would throw him, and no firmer footing within 4: fighting on (WorkGoal.fightFooting)", feet.toShortString(), mob.getType().getDescription().getString()); } return null; }
         if (!feet.equals(footingSaid)) { footingSaid = feet; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] {} at {} the way the {} would throw him: to firm footing at {} first, then the fight (WorkGoal.fightFooting)", fire ? "fire under him" : "a lip behind him", feet.toShortString(), mob.getType().getDescription().getString(), best.toShortString()); }

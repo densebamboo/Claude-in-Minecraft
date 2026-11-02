@@ -4730,7 +4730,7 @@ public class WorkGoal extends Goal {
                 for (var a : mine) g.tasks.addFirst(new Task.GoTo(a.blockPosition(), 1.0));
                 if (!mine.isEmpty()) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] {} of his arrows stuck round the fight: picking them back up (WorkGoal.doAttack)", mine.size());
             }
-            net.minecraft.world.entity.Mob still = died ? level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(16), m0 -> m0 != e && m0.isAlive() && m0.getTarget() == g && m0 instanceof net.minecraft.world.entity.monster.Enemy).stream().findFirst().orElse(null) : null;
+            net.minecraft.world.entity.Mob still = died ? level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(8), m0 -> m0 != e && m0.isAlive() && m0.getTarget() == g && m0 instanceof net.minecraft.world.entity.monster.Enemy && !(m0 instanceof net.minecraft.world.entity.monster.RangedAttackMob) && !(m0 instanceof net.minecraft.world.entity.monster.Blaze) && !(m0 instanceof net.minecraft.world.entity.monster.Ghast)).stream().findFirst().orElse(null) : null;
             if (still != null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the drops wait: a {} {} off is still on him (WorkGoal.doAttack)", still.getType().getDescription().getString(), (int) still.distanceTo(g)); g.tasks.addFirst(new Task.Attack(still.getUUID(), Math.max(400, t.maxTicks()))); return true; } // ponytail: stage 553, the pickup after the first wither skeleton dug through his hole's wall for a drop and the second came in by it
             if (died && ticks > 1 && !(g.tasks.peek() instanceof Task.Pickup)) g.tasks.addFirst(new Task.Pickup(80));
             return true;
@@ -5086,7 +5086,7 @@ public class WorkGoal extends Goal {
             if (q.equals(feet) || !com.claudemod.entity.life.FortressFight.stand(level, q) || com.claudemod.entity.body.Controls.lavaCell(g, q)) continue;
             Vec3 aw = Vec3.atBottomCenterOf(q).subtract(mob.position()).multiply(1, 0, 1); if (aw.lengthSqr() < 1e-4) continue; aw = aw.normalize();
             if (lipBehind(level, q, aw)) continue;
-            double d = shooter ? q.distSqr(feet) + mob.distanceToSqr(Vec3.atBottomCenterOf(q)) : q.distSqr(feet) + (mob.distanceToSqr(Vec3.atBottomCenterOf(q)) < 2.5 * 2.5 ? 50 : 0); // (never into its arms for it) ponytail: a shooter's footing is toward it, the step is the approach (live 21:51 20,43,-320: a skeleton 5 off shot him back onto the lip 6 times in 15 s, each step back away from it, 18 -> 10)
+            double d = q.distSqr(feet) + (mob.distanceToSqr(Vec3.atBottomCenterOf(q)) < 2.5 * 2.5 ? 50 : 0); // (never into its arms for it)
             if (d < bd) { bd = d; best = q; } }
         if (best == null) { if (!feet.equals(footingSaid)) { footingSaid = feet; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] a lip behind him at {} the way the {} would throw him, and no firmer footing within 4: fighting on (WorkGoal.fightFooting)", feet.toShortString(), mob.getType().getDescription().getString()); } return null; }
         if (!feet.equals(footingSaid)) { footingSaid = feet; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] {} at {} the way the {} would throw him: to firm footing at {} first, then the fight (WorkGoal.fightFooting)", fire ? "fire under him" : "a lip behind him", feet.toShortString(), mob.getType().getDescription().getString(), best.toShortString()); }

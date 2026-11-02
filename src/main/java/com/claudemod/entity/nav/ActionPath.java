@@ -469,7 +469,7 @@ public final class ActionPath {
                         if (!lavaFloor && (solid(under.below()) || water(under.below()))) continue; // the user: a block put down for movement is for real terrain (a gap, a drop), never a raised line over flat ground or a causeway over water he can swim
                         boolean against = dy == 0 || solid(under.relative(d.getOpposite())) || solid(under.below()); // flat: against the block he stands on (his own last bridge block counts, the plan knows it is there); a drop: something in the world
                         if (!against) continue;
-                        if (reserved.contains(under)) continue; // (another job's cell)
+                        if (reserved.contains(under) || !level.getBlockState(under).canBeReplaced()) continue; // (another job's cell; ponytail: a block goes only where vanilla lets one in: never into twisting vines, live 16:24 refused 3 times in 9 s)
                         { Integer pf = g.attempts.of(com.claudemod.entity.life.Attempts.Kind.PLACE).get(under); if (pf != null && now - pf < 20 * 300) continue; } // ponytail: the body's own place memory (WorkGoal.doPlace refuses for 5 min), so the plan and the body agree; live 14:22, the body refused this put (no face he can reach) and the plan made the same put 3 times in 9 s: a put that failed lately is off the plan, the way round instead
                         cost += 3 + (lavaFloor ? 8 : 0); /* (a block into the lava: dear, a way over land wins; 1 extra made a lava-sea bridge the route of choice) */ acts.add(new Act.Put(under.immutable()));
                     }
@@ -627,7 +627,7 @@ public final class ActionPath {
                 boolean ok = true;
                 if (!passable(head)) { double sec = digSeconds(head); if (sec < 0) ok = false; else { cost += 1.5 + sec * 2; acts.add(new Act.Dig(head.immutable())); } }
                 if (ok && !passable(up)) ok = false;
-                if (reserved.contains(feet)) ok = false; // (another job's cell: the stump a sapling is for)
+                if (reserved.contains(feet) || !level.getBlockState(feet).canBeReplaced()) ok = false; // (another job's cell: the stump a sapling is for; a vine he hangs in takes no block)
                 if (ok) { acts.add(new Act.Put(feet.immutable())); acts.add(new Act.Walk(up.immutable())); out.add(new Move(up.immutable(), cost + failPenalty(up), acts)); }
             }
             return out;

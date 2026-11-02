@@ -239,6 +239,7 @@ public final class TempLedger {
 
     static boolean takeable(ClaudeEntity g, ServerLevel level, Entry e) {
         BlockState s = level.getBlockState(e.pos);
+        { var m = level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(e.pos).inflate(8), x -> x.isAlive() && x.getTarget() == g); if (!m.isEmpty()) { ClaudeMod.LOGGER.info("[Claude temp] his {} at {} stays up for now: a {} after him {} off (TempLedger.takeable)", e.item, e.pos.toShortString(), m.get(0).getType().getDescription().getString(), (int) Math.sqrt(m.get(0).blockPosition().distSqr(e.pos))); return false; } } // ponytail: live 2026-11-01, off to explore he took his cover and gap plug down with 4 hoglins after him 7 off; a player keeps the wall till they're gone
         { int air = 0; while (air < 4 && level.getBlockState(e.pos.below(air + 1)).getCollisionShape(level, e.pos.below(air + 1)).isEmpty()) air++;
           if (air >= 4) { e.blocked = "a drop of 4+ under it: it stays, the way back over the gap"; return false; } } /* live 00:05: the tidy at a new step queued his bridge over a 6 drop, the drop guard held it, and the hold asked the user "say 'yes, break it'" for a break nobody ordered */
         { boolean open = false; for (Direction d : Direction.values()) { BlockPos n = e.pos.relative(d); if (level.getBlockState(n).getCollisionShape(level, n).isEmpty()) { open = true; break; } }

@@ -10366,6 +10366,7 @@ public final class ClaudeBodyTest {
     // ---------------------------------------------------------------- stages 494 on: one method each (exactStages is at the JVM's 64 KB limit)
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
+            case 555: return st555(stage, t, c, h, level, mock);
             case 553: return st553(stage, t, c, h, level, mock);
             case 552: return st552(stage, t, c, h, level, mock);
             case 551: return st551(stage, t, c, h, level, mock);
@@ -11022,6 +11023,36 @@ public final class ClaudeBodyTest {
             check(bothDead, "wither skeletons: not both killed in 90 s (alive " + wsMobs.stream().filter(net.minecraft.world.entity.Entity::isAlive).count() + ", at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ")");
             String how = "both wither skeletons killed in " + (t[0] - wsT) / 20 + " s, low " + wsLow + " HP, ended " + String.format("%.1f", c.getY() - oy - 1) + " up";
             for (var m0 : wsMobs) m0.discard(); wsMobs.clear(); c.tasks.clear(); c.dropCurrent = true; c.removeAllEffects(); c.setHealth(20f); c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            com.claudemod.entity.life.Watchdog.teleported(c); if (c.isAlive()) c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0);
+            pass(stage, t, how);
+        }
+        return true;
+    }
+    private static int emT = -1; private static float emLow = 20f; private static String emCalmWhy = null; private static java.util.List<net.minecraft.world.entity.monster.EnderMan> emPair = new java.util.ArrayList<>(); private static net.minecraft.world.entity.monster.EnderMan emCalm;
+    private static boolean st555(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // two endermen on him at once in the Nether, no natural cover (the user 20:13 "2 endermen at once is okay if he can manage it, but not if he keeps dying"; live 20:12 -60,38,-880, 20 -> 10 in a second): both killed, alive, and a calm third one 20 off never angered by his eyes
+        ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        final int ox = 18000, oy = 69, oz = 18000; BlockPos me = new BlockPos(ox, oy + 1, oz);
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); emT = -1; emLow = 20f; emCalmWhy = null; for (var m0 : emPair) m0.discard(); emPair.clear(); if (emCalm != null) emCalm.discard(); emCalm = null; c.nextPlanTick = c.tickCount + 20 * 900; c.prefs.put("stay_close", "no");
+            c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(nether, me.getX() + 0.5, oy + 20, me.getZ() + 0.5, 0, 0); c.setNoGravity(true); }
+        if (t[0] == 10) { for (int x = -24; x <= 24; x++) for (int z = -24; z <= 24; z++) { boolean wall = Math.abs(x) == 24 || Math.abs(z) == 24; for (int y = oy - 4; y <= oy; y++) nether.setBlock(new BlockPos(ox + x, y, oz + z), Blocks.NETHERRACK.defaultBlockState(), 2 | 16); for (int y = oy + 1; y <= oy + 12; y++) nether.setBlock(new BlockPos(ox + x, y, oz + z), wall || y == oy + 12 ? Blocks.BEDROCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2 | 16); }
+            c.setNoGravity(false); c.teleportTo(nether, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 90, 20); com.claudemod.entity.life.Watchdog.teleported(c); c.fallDistance = 0; }
+        if (t[0] == 30) { for (int k = 0; k < 2; k++) { var em = EntityType.ENDERMAN.create(nether); em.moveTo(ox + 8.5, oy + 1, oz + 0.5 + (k == 0 ? -3 : 3), 90, 0); em.setPersistenceRequired(); nether.addFreshEntity(em); em.setTarget(c); emPair.add(em); }
+            emCalm = EntityType.ENDERMAN.create(nether); emCalm.moveTo(ox - 19.5, oy + 1, oz + 0.5, -90, 0); emCalm.setPersistenceRequired(); nether.addFreshEntity(emCalm);
+            emT = t[0]; c.tasks.add(new Task.Attack(emPair.get(0).getUUID(), 20 * 60)); }
+        if (emT > 0 && c.level() == nether) { emLow = Math.min(emLow, c.getHealth());
+            for (var m : nether.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(ox - 30, 0, oz - 30, ox + 30, 128, oz + 30), m0 -> !emPair.contains(m0) && m0 != emCalm)) m.discard();
+            for (var m0 : emPair) if (m0.isAlive() && m0.getTarget() != c) m0.setTarget(c); // (both stay on him: the pair fight)
+            if (emCalm != null && emCalm.isAlive() && emCalm.getTarget() == c && emCalmWhy == null) emCalmWhy = emCalm.getLastHurtByMob() == c ? "hit" : "eyes";
+            if (c.tasks.isEmpty() && c.currentTask == null) for (var m0 : emPair) if (m0.isAlive()) { c.tasks.add(new Task.Attack(m0.getUUID(), 20 * 60)); break; } }
+        boolean bothDead = emT > 0 && emPair.stream().noneMatch(net.minecraft.world.entity.Entity::isAlive);
+        if (emT > 0 && (bothDead || !c.isAlive() || t[0] == emT + 20 * 120)) {
+            check(c.isAlive(), "enderman pair: he died (low " + emLow + ")");
+            check(bothDead, "enderman pair: not both killed in 120 s (alive " + emPair.stream().filter(net.minecraft.world.entity.Entity::isAlive).count() + ", at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ", low " + emLow + ")");
+            check(!"eyes".equals(emCalmWhy), "enderman pair: the calm third one 20 off turned on him (his eyes, not a hit)");
+            String how = "both endermen killed in " + (t[0] - emT) / 20 + " s, low " + emLow + " HP, the third one " + (emCalmWhy == null ? "calm" : "angry (" + emCalmWhy + ")");
+            for (var m0 : emPair) m0.discard(); emPair.clear(); if (emCalm != null) emCalm.discard(); emCalm = null; c.tasks.clear(); c.dropCurrent = true; c.setHealth(20f); c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
             com.claudemod.entity.life.Watchdog.teleported(c); if (c.isAlive()) c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0);
             pass(stage, t, how);
         }

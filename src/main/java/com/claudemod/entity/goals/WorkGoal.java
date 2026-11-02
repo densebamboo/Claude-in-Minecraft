@@ -5544,7 +5544,7 @@ public class WorkGoal extends Goal {
      */
     private boolean canHit(net.minecraft.world.entity.LivingEntity mob) {
         Vec3 eye = g.getEyePosition();
-        for (Vec3 to : new Vec3[] {mob.getBoundingBox().getCenter(), mob.getEyePosition()}) {
+        for (Vec3 to : new Vec3[] {mob.getBoundingBox().getCenter(), mob.getEyePosition(), mob.position().add(0, 0.4, 0)}) { // ponytail: a player hits any part of it; its legs too (live 20:12:06: an enderman hitting him under a wart block "behind rock, let be", 3 hits in 1 s)
             var hit = g.level().clip(new net.minecraft.world.level.ClipContext(eye, to, net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g));
             if (hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS) return true;
         }

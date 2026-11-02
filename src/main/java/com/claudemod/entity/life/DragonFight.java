@@ -250,7 +250,7 @@ public final class DragonFight {
             if (s.base != null && fe.getY() - s.base.getY() > 2) return down(g, s, "to the caged crystal at " + c.blockPosition().toShortString()); return cage(g, level, s, c); } // (off his shooting pillar first: a cage is climbed from its tower's foot) // (an opened cage: shot like the rest, from a spot in line with its gap)
         // none in sight: a spot on the island with a clear line to it, from the ground or a few blocks up a pillar there (a tall tower's rim hides its crystal from close by), the cheapest walk and climb
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
-        if (s.vantage == null || ticks % 600 == 0) {
+        if (s.vantage == null || ticks % 600 == 0 || s.vantage.distSqr(g.blockPosition()) > 200 * 200) { // (the Overworld's frame spot carried into the End: live 03:43, "a clear shot from -859, 22, 1687")
             s.vantage = null; double bd = Double.MAX_VALUE;
             for (int r = 16; r <= 64; r += 6) for (int a = 0; a < 24; a++) { double ang = a * Math.PI / 12; int x = (int) Math.floor(c.getX() + Math.cos(ang) * r), z = (int) Math.floor(c.getZ() + Math.sin(ang) * r);
                 BlockPos top = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING, new BlockPos(x, 0, z)); if (!level.getBlockState(top.below()).is(Blocks.END_STONE)) continue;

@@ -10366,6 +10366,7 @@ public final class ClaudeBodyTest {
     // ---------------------------------------------------------------- stages 494 on: one method each (exactStages is at the JVM's 64 KB limit)
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
+            case 549: return st549(stage, t, c, h, level, mock);
             case 548: return st548(stage, t, c, h, level, mock);
             case 547: return st547(stage, t, c, h, level, mock);
             case 546: return st546(stage, t, c, h, level, mock);
@@ -10910,6 +10911,22 @@ public final class ClaudeBodyTest {
             check(Math.cos(a - back) > Math.cos(Math.PI / 4), "patrol: not toward the endermen seen behind him (" + w[0] + ")");
             com.claudemod.entity.life.HuntPatrol.reset(c); BlockPos home = h.absolutePos(new BlockPos(2, 2, 2)); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(home.getX() + 0.5, home.getY(), home.getZ() + 0.5);
             pass(stage, t, "held its heading 3 picks (" + said.get(0) + "), then turned to the endermen: \"" + w[0] + "\"");
+        }
+        return true;
+    }
+    private static int chT = -1; private static net.minecraft.world.entity.Mob chMob;
+    private static boolean st549(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // seeing isn't hitting (after 7345d37 he sees through glass, leaves and fences; his arrows don't): a skeleton behind a glass wall is seen, never shot at
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); chT = -1; if (chMob != null) chMob.discard(); chMob = null; c.tasks.clear(); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(6000);
+            c.getInventory().add(new ItemStack(Items.BOW)); c.getInventory().add(new ItemStack(Items.ARROW, 16)); c.getInventory().add(new ItemStack(Items.IRON_SWORD));
+            for (int z = 0; z < 16; z++) for (int y = 2; y <= 8; y++) h.setBlock(new BlockPos(8, y, z), Blocks.GLASS); // (a glass wall across the box)
+            BlockPos me = h.absolutePos(new BlockPos(3, 2, 8)); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(-90f); }
+        if (t[0] == 10) { var sk = EntityType.SKELETON.create(level); BlockPos sp = h.absolutePos(new BlockPos(12, 2, 8)); sk.moveTo(sp.getX() + 0.5, sp.getY(), sp.getZ() + 0.5, 90, 0); sk.setNoAi(true); sk.setPersistenceRequired(); level.addFreshEntity(sk); chMob = sk; chT = t[0]; c.tasks.add(new Task.Attack(sk.getUUID(), 20 * 10)); }
+        if (chT > 0 && t[0] == chT + 20 * 5) {
+            int shot = 16 - c.inventory.count(x -> x.is(Items.ARROW));
+            check(c.hasLineOfSight(chMob), "seeing: he doesn't see the skeleton through the glass (the visual line of sight)");
+            check(shot == 0, "hitting: " + shot + " arrow(s) loosed at a skeleton behind glass");
+            if (chMob != null) chMob.discard(); chMob = null; c.tasks.clear(); c.dropCurrent = true; c.getInventory().clearContent(); flatBox(h);
+            pass(stage, t, "the skeleton behind the glass seen, not shot at (0 arrows in 5 s)");
         }
         return true;
     }

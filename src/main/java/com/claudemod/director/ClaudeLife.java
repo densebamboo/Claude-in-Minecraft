@@ -96,6 +96,7 @@ public final class ClaudeLife {
         if (g.tickCount % 100 == 80 && g.tasks.isEmpty() && g.currentTask == null && g.skillQueue.isEmpty() && !g.planning) fetchOwnDrops(g, (ServerLevel) g.level());
         // Nothing to do: the cover blocks he left about (towers, huts, lids) come down, like a player tidying up after a scare
         if (g.tickCount % 100 == 60 && g.tasks.isEmpty() && g.currentTask == null && g.skillQueue.isEmpty() && !g.planning && !g.pillarBlocks.isEmpty()) tidyLitter(g, ((ServerLevel) g.level()));
+        if (g.tickCount % 2400 == 0 && !g.failCount.isEmpty() && g.tasks.isEmpty() && g.currentTask == null && !((ServerLevel) g.level()).dimensionType().hasSkyLight()) { ClaudeMod.LOGGER.info("[Claude skill] idle under no sky with steps skipped {}: another go (no dawn down here clears them)", g.failCount.keySet()); g.failCount.clear(); } // ponytail: the dawn clear never comes in the Nether/End; live 17:16 idle in the warped forest, ender_pearls skipped for good
         // They're only watching (spectator): nobody to follow, so no standing at spawn waiting for an order; the everyday basics instead, like any player on his own
         if (home && player.isSpectator() && g.tickCount % 200 == 40 && (g.playerGoal == null || !g.playerGoal.toLowerCase().contains("dragon")) && g.skillQueue.isEmpty() && g.tasks.isEmpty() && g.currentTask == null && !g.commandActive && !g.planning && !g.staying && !(g.lastStep != null && g.lastStep.skill().equals("build_my_place") && g.house != null && !g.house.complete(((ServerLevel) g.level())))) { // (his house half-built: that goes on, a gear-up trip doesn't spend its table and bed)
             boolean darkOut = nightOutsideNo(g, ((ServerLevel) g.level()), g.blockPosition()) != null; // (gear_up's first step refused at night and he re-ran it every 10 s, never sheltering)
@@ -2741,8 +2742,7 @@ public final class ClaudeLife {
                     BlockPos known = com.claudemod.entity.life.Atlas.find(g, level, want);
                     if (known != null) {
                         g.exploreAngle = Math.atan2(known.getZ() - g.getZ(), known.getX() - g.getX()); g.exploreTick = g.tickCount;
-                        BlockPos go = level.dimensionType().hasCeiling() ? com.claudemod.entity.life.FortressScout.exploreSpot(g, level, g.exploreAngle) : null;
-                        if (Math.sqrt(known.distSqr(g.blockPosition())) <= 40 || go == null) go = known;
+                        BlockPos go = known; // ponytail: straight for the spot, the walk's NetherRoute tunnels/bridges the long way; a 45-out visible spot swung east/west of a wall forever (live 16:52, 37 <-> 83)
                         g.tasks.add(new Task.GoTo(go, go == known ? 0.8 : 3)); g.skillQueue.addFirst(st); // (and the check again once there; the last leg onto the spot itself: 3 short of it can be outside the biome's edge)
                         ClaudeMod.LOGGER.info("[Claude skill] explore {}: seen it at {} ({} off): heading there by {} (ClaudeLife explore)", want, known.toShortString(), (int) Math.sqrt(known.distSqr(g.blockPosition())), go.toShortString());
                         return "heading for the " + want.replace('_', ' ') + " I saw at " + known.toShortString();
@@ -2767,6 +2767,7 @@ public final class ClaudeLife {
                         if (nd != null) ClaudeMod.LOGGER.info("[Claude skill] explore: sweeping the warped forest, {} cells walked, the least-walked way is {} deg, to {} (ClaudeLife explore)", com.claudemod.entity.life.Atlas.covered(g, level), (int) Math.toDegrees(a), nd.toShortString());
                     }
                     if (nd == null) nd = com.claudemod.entity.life.FortressScout.exploreSpot(g, level, a);
+                    if (nd == null) { nd = g.blockPosition().offset((int) (Math.cos(a) * 20), 0, (int) (Math.sin(a) * 20)); ClaudeMod.LOGGER.info("[Claude skill] explore in {}: no ground in sight from {} (a nook, rock round him): on {} deg at his height to {}, the walk digs its way (ClaudeLife explore)", level.dimension().location().getPath(), g.blockPosition().toShortString(), (int) Math.toDegrees(a), nd.toShortString()); } // ponytail: live 17:15, shut in his enderman nook he "failed" explore twice; a player just digs out his way
                     if (nd == null) { ClaudeMod.LOGGER.info("[Claude skill] explore in {}: no ground in sight to walk to from {} any way (ClaudeLife explore)", level.dimension().location().getPath(), g.blockPosition().toShortString()); return "failed: no ground to walk to from here any way (lava too wide or rock all round): bridge or tunnel first"; }
                     g.exploreAngle = Math.atan2(nd.getZ() - g.getZ(), nd.getX() - g.getX());
                     ClaudeMod.LOGGER.info("[Claude skill] explore in {}: ground at {}, {} blocks off at about his height (y {}), never the roof (the heightmap there reads {}) (ClaudeLife explore)", level.dimension().location().getPath(), nd.toShortString(), (int) Math.sqrt(nd.distSqr(g.blockPosition())), g.getBlockY(), level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, nd.getX(), nd.getZ()));

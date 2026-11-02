@@ -214,6 +214,8 @@ public final class Controls {
             for (double reach : p.isSprinting() ? new double[] {0.7, 1.4} : new double[] {0.7}) {
                 net.minecraft.core.BlockPos ah0 = net.minecraft.core.BlockPos.containing(p.getX() + ld0.x * reach, p.getY(), p.getZ() + ld0.z * reach);
                 if (ah0.equals(p.blockPosition()) || !p.level().getBlockState(ah0).getCollisionShape(p.level(), ah0).isEmpty()) continue;
+                if (nextNode != null && nextNode.y == p.getBlockY() && Math.abs(nextNode.x - p.getBlockX()) == 1 && Math.abs(nextNode.z - p.getBlockZ()) == 1 && groundUnder(p, new net.minecraft.core.BlockPos(nextNode.x, nextNode.y, nextNode.z), 1)
+                        && ((ah0.getX() == nextNode.x && ah0.getZ() == p.getBlockZ()) || (ah0.getZ() == nextNode.z && ah0.getX() == p.getBlockX()))) continue; // ponytail: a flat diagonal to a floored node: his box stays over the two floors, the corner cell is no step (live 17:06, froze at -83 78 -919 over lava 10 down)
                 int dn = 0; net.minecraft.core.BlockPos q0 = ah0.below(); boolean lv0 = false;
                 while (dn < 48 && p.level().getBlockState(q0).getCollisionShape(p.level(), q0).isEmpty()) { if (p.level().getFluidState(q0).is(net.minecraft.tags.FluidTags.LAVA)) { lv0 = true; break; } if (!p.level().getFluidState(q0).isEmpty()) break; dn++; q0 = q0.below(); }
                 if (lv0) { p.setSprinting(false); walk = null; if (p instanceof com.claudemod.entity.ClaudeEntity ce && ce.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] lava {} below the open cell at {}: not stepping off (Controls.apply)", dn + 1, ah0.toShortString()); break; }

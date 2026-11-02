@@ -87,6 +87,8 @@ public final class NetherRoute {
     private static Plan done(Node end, boolean partial, int nodes, long t0, BlockPos from, BlockPos to) {
         List<Node> path = new ArrayList<>(); for (Node k = end; k != null; k = k.from) path.add(k);
         java.util.Collections.reverse(path);
+        { StringBuilder nb = new StringBuilder(); for (int i = 0; i < path.size() && i < 40; i++) { Node b = path.get(i); nb.append(i == 0 ? "" : " ").append(b.x).append(',').append(b.y).append(',').append(b.z).append('(').append((int) b.g).append(')'); }
+          com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: its nodes (x,y,z, (s so far)): {} (NetherRoute.plan)", from.toShortString(), to.toShortString(), nb); } // (Day to Day 14:48: a way over the warped canopy, 38 up; the nodes prove why next time)
         List<BlockPos> legs = new ArrayList<>(); int climb = 0;
         for (int i = 1; i < path.size(); i++) {
             Node a = path.get(i - 1), b = path.get(i); climb += Math.max(0, b.y - a.y);

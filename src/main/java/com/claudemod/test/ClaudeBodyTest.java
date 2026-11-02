@@ -10366,6 +10366,7 @@ public final class ClaudeBodyTest {
     // ---------------------------------------------------------------- stages 494 on: one method each (exactStages is at the JVM's 64 KB limit)
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
+            case 551: return st551(stage, t, c, h, level, mock);
             case 550: return st550(stage, t, c, h, level, mock);
             case 549: return st549(stage, t, c, h, level, mock);
             case 548: return st548(stage, t, c, h, level, mock);
@@ -10964,6 +10965,24 @@ public final class ClaudeBodyTest {
     private static boolean st550(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a lit blaze behind a wall, low, no shield (World 15: "waiting at cover: lit 999" and "drawing its shots" loops): out of reach, so to the spawner, never peeking all night
         return bzCharged(stage, t, c, level, mock, false);
     }
+    private static boolean st551(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // build state keyed by dimension (Day to Day: protectedBlock and projectOrigin ignored it; an overworld build's coordinates refused his digs in the Nether)
+        ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.projectOrigin = null; c.projectDim = null; }
+        if (t[0] == 5) { BlockPos o = h.absolutePos(new BlockPos(8, 2, 8)); c.projectOrigin = o; c.projectDim = "overworld";
+            boolean ow = com.claudemod.director.ClaudeLife.protectedBlock(c, mock[0], o.above());
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(nether, o.getX() + 0.5, 120, o.getZ() + 0.5, 0, 0); c.setNoGravity(true); fhOw = ow; }
+        if (t[0] == 15) { BlockPos o = c.projectOrigin;
+            boolean ne = com.claudemod.director.ClaudeLife.protectedBlock(c, mock[0], o.above());
+            c.projectDim = "the_nether"; boolean ne2 = com.claudemod.director.ClaudeLife.protectedBlock(c, mock[0], o.above());
+            check(fhOw, "build dims: his overworld build's cell not kept in the overworld");
+            check(!ne, "build dims: his overworld build's coordinates kept in the Nether");
+            check(ne2, "build dims: a build made in the Nether not kept there");
+            c.projectOrigin = null; c.projectDim = null; c.setNoGravity(false); BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(level, back.getX() + 0.5, back.getY(), back.getZ() + 0.5, 0, 0); com.claudemod.entity.life.Watchdog.teleported(c);
+            pass(stage, t, "an overworld build kept in the overworld only; a Nether build kept in the Nether");
+        }
+        return true;
+    }
+    private static boolean fhOw;
     private static int s535Done = -1; private static float s535Low = 20f;
     /** Stage 535's course (in the Nether, about 4000, 4000): the cell at (x, y, z) from its west end. */
     private static net.minecraft.world.level.block.state.BlockState s535Block(int x, int y, int z) {

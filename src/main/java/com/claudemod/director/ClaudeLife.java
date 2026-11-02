@@ -3084,8 +3084,8 @@ public final class ClaudeLife {
                 return smeltInParallel(g, player, level, st, furnace);
             }
             case "build_here": {
-                if (g.projectOrigin == null || Math.sqrt(g.projectOrigin.distSqr(center(g, player, st))) > 40 || Math.abs(g.projectOrigin.getY() - center(g, player, st).getY()) > 8) { // (a site 30 up the Nether roof was kept and walked to)
-                    g.projectOrigin = flatSiteNear(level, center(g, player, st));
+                if (g.projectOrigin == null || g.projectDim != null && !g.projectDim.equals(com.claudemod.entity.life.PortalMap.dim(level)) || Math.sqrt(g.projectOrigin.distSqr(center(g, player, st))) > 40 || Math.abs(g.projectOrigin.getY() - center(g, player, st).getY()) > 8) { // (a site 30 up the Nether roof was kept and walked to)
+                    g.projectOrigin = flatSiteNear(level, center(g, player, st)); g.projectDim = com.claudemod.entity.life.PortalMap.dim(level);
                     if (g.projectOrigin == null) return "failed: no flat spot here to build on";
                 }
                 Direction front = Direction.getNearest(theirOr(g, player).getX() - g.projectOrigin.getX(), 0, theirOr(g, player).getZ() - g.projectOrigin.getZ());
@@ -8199,8 +8199,10 @@ public final class ClaudeLife {
 
     /** True if breaking this block would damage his own builds (players' builds are handled by their skills). */
     public static boolean protectedBlock(ClaudeEntity g, ServerPlayer player, BlockPos p) {
-        if (houseMode(g) && g.house != null && g.house.touches(p) && !PlayerProfile.placedBy(player).contains(p)) return false; // his own house: the pass swaps wrong blocks and clears the room (the base origin's zone is the house now)
-        for (BlockPos o : new BlockPos[] {g.projectOrigin, PlayerProfile.baseOrigin(player)}) {
+        boolean overworld = g.level().dimension() == net.minecraft.world.level.Level.OVERWORLD; // (his house and their base are overworld places; a build's origin is in its own dimension: coordinates alone matched Nether cells and refused his digs there, Day to Day)
+        if (overworld && houseMode(g) && g.house != null && g.house.touches(p) && !PlayerProfile.placedBy(player).contains(p)) return false; // his own house: the pass swaps wrong blocks and clears the room (the base origin's zone is the house now)
+        BlockPos proj = g.projectOrigin != null && (g.projectDim == null ? overworld : g.projectDim.equals(com.claudemod.entity.life.PortalMap.dim(g.level()))) ? g.projectOrigin : null;
+        for (BlockPos o : new BlockPos[] {proj, overworld ? PlayerProfile.baseOrigin(player) : null}) {
             if (o != null && Math.abs(p.getX() - o.getX()) <= 2 && Math.abs(p.getZ() - o.getZ()) <= 2
                     && p.getY() >= o.getY() - 1 && p.getY() <= o.getY() + 3) return true;
         }

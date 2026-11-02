@@ -209,6 +209,7 @@ public class ClaudeEntity extends ServerPlayer {
     public boolean isGift(net.minecraft.world.entity.item.ItemEntity e) { return gifts.contains(e.getUUID()); }
     public void unGift(net.minecraft.world.entity.item.ItemEntity e) { gifts.remove(e.getUUID()); } // a drop he gave up on, his to get again (recover_left)
     public BlockPos projectOrigin = null; // a build he is doing away from his own place
+    public String projectDim = null; // the dimension that build is in (an overworld origin read as a Nether cell refused his digs there, Day to Day)
     // his mine in progress: mining continues from its face instead of starting new holes
     public Direction tunnelDir = null;
     public BlockPos mineFace = null;
@@ -752,7 +753,7 @@ public class ClaudeEntity extends ServerPlayer {
         mineFace = old.mineFace; mineDir = old.mineDir; mineIsTunnel = old.mineIsTunnel; tunnelDir = old.tunnelDir;
         blueprint = old.blueprint; house = old.house; nook = old.nook; if (old.nooks != null) { nooks = new java.util.ArrayList<>(old.nooks); } farm = old.farm;
         mineTunnelBlocks = old.mineTunnelBlocks; stairStart = old.stairStart; stairDir = old.stairDir; mineShape = old.mineShape;
-        projectOrigin = old.projectOrigin;
+        projectOrigin = old.projectOrigin; projectDim = old.projectDim;
         tempStations.addAll(old.tempStations);
         // everything he knows carries over a death, like a player's memory: his stations, storage, mines, the ore he saw, the patches he owes
         myStations.addAll(old.myStations);

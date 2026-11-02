@@ -11121,6 +11121,10 @@ public final class ClaudeBodyTest {
             for (var m : nether.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(ox - 40, 0, oz - 40, ox + 80, 128, oz + 40))) m.discard(); nether.setBlock(cage, Blocks.AIR.defaultBlockState(), 2);
             c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.clearFire(); c.setHealth(20f); c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
             com.claudemod.entity.life.Watchdog.teleported(c); if (c.isAlive()) c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0);
+            pass(stage, t, how);
+        }
+        return true;
+    }
     private static int shT = -1; private static float shLow = 20f; private static BlockPos shRoom;
     private static boolean st557(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // the stronghold's small half (the user via Day to Day): eyes thrown and watched, two headings crossed, walked, an eye down, a staircase to its stone bricks. The test world is superflat with no stronghold (generator FlatLevelSource, probe 557 before): a stone hill 260 off with a stone-brick room in it, and EyeHunt.testStronghold standing in for vanilla's lookup (the eye itself is vanilla's)
         final int ox = 20000, oz = 20000, gy = -60; BlockPos me = new BlockPos(ox, gy, oz), top = new BlockPos(ox + 250, gy + 12, oz + 70); shRoom = new BlockPos(top.getX(), gy + 4, top.getZ());

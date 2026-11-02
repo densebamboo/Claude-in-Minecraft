@@ -57,6 +57,15 @@ The checkpoints, in order:
 - **Checkpoint 5 is done live.** The Nether planner (`NetherRoute`, `docs/reports/nether-route.md`) and World 15's own terrain as stages 536-538 (`docs/reports/w15-terrain.md`) are on main.
 - **Checkpoint 6 is done** (`docs/reports/blaze-reach.md`): a bow shoots blazes out of sword reach; with no bow he goes to their spawner; hurt, he gets out of their sight or walls in where he stands (stages 539-544). The user calls it done: he's capable of it.
 - **Checkpoint 7, ender pearls, is current.** Day to Day's live work: the hunt by night in open biomes or by day in a warped forest (f5f1885), natural 2-high cover within 8 for the enderman fight, else the open fight (faefbdd; the cobble booth is gone, the user: "if he can find natural cover ... good. if not, he keeps fighting"), the eye guard (84f6172). Backlog items for it: the pearl-hunt spot order (warped forest when the Nether is reachable, else open biomes at night), arrows for the trip, and the charged-blaze peek loop for when he's back at a fortress.
+- **The combat major (wither skeletons, blazes, endermen; the user via Day to Day): two of three are done.**
+  - **Wither skeletons (docs/reports/wither-cover.md, stage 553):** with no 2-high gap, he digs cover: a 2-high tunnel into rock within 6, else a 2-deep hole capped two above the floor.
+  - **The enderman pair (docs/reports/enderman-pair.md, stages 554 and 555):**
+    - The same cover; the capped hole (4 blocks) only with two angry or at 12 HP or less, because the user's 13:41 rule is no booth building.
+    - He heals in cover below 14 HP with two angry.
+    - The gaze guard remembers an angry enderman for 10 s.
+    - The pearl hunt lets be an enderman gone after 3 times in 2 minutes.
+  - **Next: blazes.** Cover and bow at an expert pace, magma cubes not landing hits while he's shielded, and no burning down. Includes a stage with live, shooting blazes.
+  - **Stage 527 fails on main itself** (in the backlog).
 - **Open for the Nether planner** (backlog): NetherRoute and FortressEnds read blocks he's never seen.
 - **Crossings as highway pieces:** `docs/reports/highway-crossing.md`.
 

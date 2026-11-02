@@ -11055,6 +11055,11 @@ public final class ClaudeBodyTest {
             check(!"eyes".equals(emCalmWhy), "enderman pair: the calm third one 20 off turned on him (his eyes, not a hit)");
             String how = "both endermen killed in " + (t[0] - emT) / 20 + " s, low " + emLow + " HP, the third one " + (emCalmWhy == null ? "calm" : "angry (" + emCalmWhy + ")");
             for (var m0 : emPair) m0.discard(); emPair.clear(); if (emCalm != null) emCalm.discard(); emCalm = null; c.tasks.clear(); c.dropCurrent = true; c.setHealth(20f); c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            com.claudemod.entity.life.Watchdog.teleported(c); if (c.isAlive()) c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0);
+            pass(stage, t, how);
+        }
+        return true;
+    }
     private static int s554T = -1, s554Picks = 0; private static boolean s554Was = false, s554LetBe = false; private static net.minecraft.world.entity.monster.EnderMan s554Em;
     private static boolean st554(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // an enderman in sight he can't get at (Day to Day live 19:29-19:37: one 4 down a pit, the hunt picked it 8 times in 7 min): picked 3 times at most, then let be
         ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

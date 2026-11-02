@@ -340,27 +340,28 @@ public final class DragonFight {
             if (g.isUsingItem()) g.stopUsingItem();
             equipBlade(g);
             Vec3 at = phase.isSitting() ? head : new Vec3(mid.getX() + 0.5, mid.getY() + 1, mid.getZ() + 0.5);
-            net.minecraft.world.entity.Entity hit = null; double best = 3.0 * 3.0;
-            if (phase.isSitting()) for (var part : d.getSubEntities()) { double dd = part.getBoundingBox().distanceToSqr(g.getEyePosition()); if (part == d.head ? dd <= best : dd < best - 1.0 && d.head.getBoundingBox().distanceToSqr(g.getEyePosition()) > 9.0) { if (part == d.head || hit == null) { hit = part; best = dd; } } }
             g.getLookControl().setLookAt(at.x, at.y, at.z);
-            if (hit == null) { // to it: beside the head, out of the fountain's bedrock
-                Vec3 off = g.position().subtract(at).multiply(1, 0, 1); if (off.lengthSqr() < 0.01) off = new Vec3(1, 0, 0);
-                Vec3 to = at.add(off.normalize().scale(phase.isSitting() ? 3.0 : 6.0)); /* (3 off its head's middle: out of its touch, the head in his reach) */
-                double far = Math.sqrt(g.position().distanceToSqr(to.x, g.getY(), to.z));
-                if (far > 1.0) { if (far > 12) g.getNavigation().moveTo(to.x, g.getY(), to.z, 1.3); else { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(to.x, g.getY(), to.z, 1.3); } g.setSprinting(true); }
-                say(g, s, phase.isSitting() ? "to its head" : "to the fountain", (phase.isSitting() ? "the dragon perched, its head " : "the dragon coming down, the fountain ") + String.format("%.1f", Math.sqrt(g.position().distanceToSqr(at))) + " off");
+            boolean charged = g.getAttackStrengthScale(0.5f) >= 0.95f;
+            double hd = Math.sqrt(d.head.getBoundingBox().distanceToSqr(g.getEyePosition()));
+            if (phase.isSitting() && hd <= 2.9) { // its head in reach: the head (full damage; its body takes a quarter)
+                g.getNavigation().stop(); g.setSprinting(false);
+                if (hd < 1.8) { Vec3 back = g.position().subtract(head).multiply(1, 0, 1); if (back.lengthSqr() < 0.01) back = new Vec3(1, 0, 0); Vec3 to = g.position().add(back.normalize().scale(1.2)); g.getMoveControl().setWantedPosition(to.x, g.getY(), to.z, 1.0); } // (its head hurts what's within a block of it)
+                if (charged) { float hp = d.getHealth(); g.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, head); g.attack(d.head); g.swing(InteractionHand.MAIN_HAND); ClaudeMod.LOGGER.info("[Claude dragon] a hit on its head: {} -> {} ({} off) (DragonFight)", hp, d.getHealth(), String.format("%.1f", hd)); }
+                say(g, s, "hitting its head", "the dragon perched, health " + (int) d.getHealth());
                 return false;
             }
-            g.getNavigation().stop(); g.setSprinting(false);
-            double hd = Math.sqrt(d.head.getBoundingBox().distanceToSqr(g.getEyePosition())), nk = Math.sqrt(d.getSubEntities()[1].getBoundingBox().distanceToSqr(g.getEyePosition()));
-            if (Math.min(hd, nk) < 1.8) { Vec3 back = g.position().subtract(head).multiply(1, 0, 1); if (back.lengthSqr() < 0.01) back = new Vec3(1, 0, 0); Vec3 to = g.position().add(back.normalize().scale(1.2)); g.getMoveControl().setWantedPosition(to.x, g.getY(), to.z, 1.0); } // (its head and neck hurt what's within a block of them: kept 1.8+ off, in his reach of 3)
-            boolean charged = g.getAttackStrengthScale(0.5f) >= 0.95f;
-            g.setSprinting(false); // (a sprinting hit is never a crit)
-            if (charged) { // (no jump for a crit: a crit's bonus never reaches the dragon, its parts aren't living things; the swing on the charge is the fastest damage)
-                float hp = d.getHealth(); g.attack(hit); g.swing(InteractionHand.MAIN_HAND);
-                ClaudeMod.LOGGER.info("[Claude dragon] a {}hit on its {}: {} -> {} (DragonFight)", !g.onGround() && g.fallDistance > 0 ? "crit " : "", hit == d.head ? "head" : "body", hp, d.getHealth());
-            }
-            say(g, s, "hitting it", "the dragon perched, health " + (int) d.getHealth());
+            // to a spot where its head is in his reach and out of its touch (eyes 1.9-2.8 from its head), the nearest on the ground round it
+            BlockPos spot = null; double bs = Double.MAX_VALUE;
+            if (phase.isSitting()) for (int dx = -4; dx <= 4; dx++) for (int dz = -4; dz <= 4; dz++) { BlockPos top = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING, BlockPos.containing(head.x + dx, 0, head.z + dz));
+                if (top.getY() > head.y + 1 || !level.getFluidState(top).isEmpty()) continue; Vec3 eye = new Vec3(top.getX() + 0.5, top.getY() + 1.62, top.getZ() + 0.5); double e = Math.sqrt(d.head.getBoundingBox().distanceToSqr(eye)); if (e < 1.9 || e > 2.8) continue;
+                boolean inBody = false; for (var part : d.getSubEntities()) if (part.getBoundingBox().inflate(0.3).contains(eye)) inBody = true; if (inBody) continue;
+                double dd = eye.distanceToSqr(g.getEyePosition()); if (dd < bs) { bs = dd; spot = top.immutable(); } }
+            net.minecraft.world.entity.Entity body = null; if (phase.isSitting() && charged) for (var part : d.getSubEntities()) if (part != d.head && part.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0) body = part;
+            if (body != null && (spot == null || ticks % 2 == 0)) { float hp = d.getHealth(); g.attack(body); g.swing(InteractionHand.MAIN_HAND); ClaudeMod.LOGGER.info("[Claude dragon] a hit on its body: {} -> {} (its head {} off, {} above his eyes; {}) (DragonFight)", hp, d.getHealth(), String.format("%.1f", hd), String.format("%.1f", d.head.getBoundingBox().minY - g.getEyeY()), spot == null ? "no spot on the ground reaches its head" : "on his way to " + spot.toShortString()); }
+            Vec3 to = spot != null ? Vec3.atBottomCenterOf(spot) : at.add(g.position().subtract(at).multiply(1, 0, 1).normalize().scale(phase.isSitting() ? 3.0 : 6.0));
+            double far = Math.sqrt(g.position().distanceToSqr(to.x, g.getY(), to.z));
+            if (far > 0.4) { if (far > 12) g.getNavigation().moveTo(to.x, to.y, to.z, 1.3); else { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(to.x, to.y, to.z, 1.2); } g.setSprinting(far > 3); }
+            say(g, s, phase.isSitting() ? "to its head" : "to the fountain", (phase.isSitting() ? "the dragon perched, its head " + String.format("%.1f", hd) + " off" + (spot == null ? ", no spot reaches it" : ", to " + spot.toShortString()) : "the dragon coming down, the fountain " + String.format("%.1f", Math.sqrt(g.position().distanceToSqr(at))) + " off"));
             return false;
         }
         // flying: arrows when it's in range and in sight; else waiting near the fountain (it comes down there), out of its path

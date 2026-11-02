@@ -11130,8 +11130,11 @@ public final class ClaudeBodyTest {
                 check(in != null, "stronghold: no spot on the start piece's walls with air behind it");
                 if (in == null) { in = new BlockPos(sp.minX() - 1, sp.minY() + 1, sp.minZ() + 2); out = net.minecraft.core.Direction.WEST; }
                 for (BlockPos q : new BlockPos[] {in, in.above(), in.relative(out), in.relative(out).above()}) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2 | 16);
+                if (stage[0] == 559) { // (559: his staircase dug down onto the start piece's ROOF, the brick his floor: live 2026-11-02 -864,36,1679)
+                    BlockPos r0 = new BlockPos((sp.minX() + sp.maxX()) / 2, sp.maxY() + 1, (sp.minZ() + sp.maxZ()) / 2); in = r0; out = net.minecraft.core.Direction.EAST;
+                    for (int yy = 0; yy <= 2; yy++) level.setBlock(r0.above(yy), Blocks.AIR.defaultBlockState(), 2 | 16); }
                 BlockPos top = in; // his staircase: 3 steps up away from the wall, and he starts on the top one (live 2026-11-02: he'd stepped 3 up it and the bricks weren't beside him)
-                for (int k = 2; k <= 4; k++) { top = in.relative(out, k).above(k - 1); for (int yy = 0; yy <= 2; yy++) level.setBlock(top.above(yy), Blocks.AIR.defaultBlockState(), 2 | 16); }
+                for (int k = stage[0] == 559 ? 1 : 2; k <= 4; k++) { top = in.relative(out, k).above(stage[0] == 559 ? k : k - 1); for (int yy = 0; yy <= 2; yy++) level.setBlock(top.above(yy), Blocks.AIR.defaultBlockState(), 2 | 16); }
                 c.setNoGravity(false); c.teleportTo(top.getX() + 0.5, top.getY(), top.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.fallDistance = 0; s558T = t[0] + 10; } }
         if (s558T > 0 && t[0] == s558T) c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("light_end_portal", "", 1));
         if (s558T > 0 && t[0] > s558T) { s558Low = Math.min(s558Low, c.getHealth()); if (t[0] % 40 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, c.getBoundingBox().inflate(48), m -> !(m instanceof net.minecraft.world.entity.monster.Silverfish))) m.discard();

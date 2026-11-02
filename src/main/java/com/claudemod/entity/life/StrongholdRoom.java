@@ -55,7 +55,11 @@ public final class StrongholdRoom {
         if (!open(level, p) || !open(level, p.above())) return false;
         BlockPos f = p.below(); BlockState fs = level.getBlockState(f);
         if (fs.getCollisionShape(level, f).isEmpty() || !level.getFluidState(f).isEmpty()) return false;
-        return strongholdFloor(fs);
+        if (!strongholdFloor(fs)) return false;
+        for (int k = 2; k <= 12; k++) { BlockPos u = p.above(k); BlockState us = level.getBlockState(u); // and its roof is the stronghold's too: his own staircase dug down onto its bricks has the rock over it (live 2026-11-02, -864,36,1679: his steps read as its inside, no hole made)
+            if (us.getCollisionShape(level, u).isEmpty() && level.getFluidState(u).isEmpty()) continue;
+            return strongholdFloor(us) || us.is(Blocks.BOOKSHELF) || us.is(Blocks.COBWEB); }
+        return false;
     }
     /** Seen: the line from his eyes to that point meets nothing first, or meets that very block. */
     static boolean sees(ClaudeEntity g, ServerLevel level, Vec3 to, BlockPos block) {
@@ -182,10 +186,22 @@ public final class StrongholdRoom {
         if (EyeHunt.strongholdBlock(level.getBlockState(below))) {
             int drop = 0; BlockPos q = below.below(); while (drop < 8 && open(level, q)) { q = q.below(); drop++; }
             if (drop >= 1 && drop <= 5 && level.getFluidState(q).isEmpty() && level.getFluidState(q.above()).isEmpty()) {
-                r.holes++; g.tasks.add(new Task.Break(below.immutable())); g.skillQueue.addFirst(again);
+                r.holes++; g.tasks.add(new Task.Break(below.immutable())); g.tasks.add(new Task.GoTo(q.above().immutable(), 0.6)); g.skillQueue.addFirst(again);
                 ClaudeMod.LOGGER.info("[Claude stronghold] its roof under him at {}, a {}-block drop to its floor: in (StrongholdRoom.breakIn)", below.toShortString(), drop);
                 return "breaking into the stronghold through its roof (a " + drop + "-block drop)";
             }
+        }
+        // its roof under him but solid below it (a pillar, a staircase): the roof brick beside him with room under it, the rock over it cleared, down through it
+        if (EyeHunt.strongholdBlock(level.getBlockState(below)) || strongholdFloor(level.getBlockState(below))) for (Direction d : Direction.Plane.HORIZONTAL) {
+            BlockPos nb = below.relative(d); if (!EyeHunt.strongholdBlock(level.getBlockState(nb)) && !strongholdFloor(level.getBlockState(nb))) continue;
+            int drop = 0; BlockPos q = nb.below(); while (drop < 8 && open(level, q)) { q = q.below(); drop++; }
+            if (drop < 1 || drop > 5 || !level.getFluidState(q).isEmpty() || !level.getFluidState(q.above()).isEmpty()) continue;
+            BlockPos side = f.relative(d);
+            for (BlockPos c : new BlockPos[] {side.above(), side}) if (!open(level, c)) { if (level.getBlockState(c).getDestroySpeed(level, c) < 0 || EyeHunt.strongholdBlock(level.getBlockState(c))) { side = null; break; } g.tasks.add(new Task.Break(c.immutable())); }
+            if (side == null) continue;
+            r.holes++; g.tasks.add(new Task.Break(nb.immutable())); g.tasks.add(new Task.GoTo(q.above().immutable(), 0.6)); g.skillQueue.addFirst(again); // (to the floor under the hole: the walker never walks onto air, it plans the drop)
+            ClaudeMod.LOGGER.info("[Claude stronghold] its roof under him at {} is solid below; beside it at {} a {}-block drop: the rock over it cleared, down through it (StrongholdRoom.breakIn)", below.toShortString(), nb.toShortString(), drop);
+            return "breaking into the stronghold through its roof beside me (a " + drop + "-block drop)";
         }
         // the bricks are beside him but not where he can get in: a step along them
         for (Direction d : Direction.Plane.HORIZONTAL) { BlockPos a = f.relative(d);

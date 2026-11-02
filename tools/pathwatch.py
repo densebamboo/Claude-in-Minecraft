@@ -5,7 +5,7 @@ path = sys.argv[1]
 f = open(path, encoding='utf-8', errors='replace'); f.seek(0, 2)
 pts = collections.deque()  # (t, x, y, z, doing)
 alerted = {}
-WHERE = re.compile(r'^\[\S+ (\d+):(\d+):(\d+)\.\d+\].*\[Claude where\] \(live build\) at (\S+) (-?\d+), (-?\d+), (-?\d+).*?doing (\w+)')
+WHERE = re.compile(r'^\[\S+ (\d+):(\d+):(\d+)\.\d+\].*\[Claude where\] \(live build\) at (?:([a-z_]+) )?(-?\d+), (-?\d+), (-?\d+).*?doing (\w+)')
 IDLE_OK = ('Wait', 'Sleep', 'FurnaceTake', 'Fish', 'Dragon')
 def say(k, msg, gap=300):
     now = time.time()
@@ -20,7 +20,7 @@ while True:
         continue
     m = WHERE.search(line)
     if not m: continue
-    h, mi, s, dim, x, y, z, doing = m.groups()
+    h, mi, s, dim, x, y, z, doing = m.groups(); dim = dim or "overworld"
     t = int(h) * 3600 + int(mi) * 60 + int(s); x, y, z = int(x), int(y), int(z)
     if pts and (pts[-1][5] != dim or t < pts[-1][0]): pts.clear()
     pts.append((t, x, y, z, doing, dim))

@@ -163,6 +163,7 @@ public final class TempLedger {
 
     /** The place event: he put a block down. */
     public static void placed(ClaudeEntity g, ServerLevel level, BlockPos pos, BlockState placed, BlockState replaced) {
+        if (DragonFight.active(g)) return; // (in the End fight nothing he puts down is litter)
         { String by = buildOrigin(g, pos); if (by != null) { // a build system of his put it there: his build (live: secureBedroom's walls booked "cover"/"step", tidied back out, walled again, round and round)
             var bc = builtCells(g); bc.remove(pos); bc.put(pos.immutable(), by); while (bc.size() > 4096) bc.remove(bc.keySet().iterator().next());
             if (book(g).remove(pos) != null) trace(g, "temp_left", new Entry(pos.immutable(), name(placed), "build", level.getGameTime(), before(g), line(g)), null);
@@ -253,6 +254,7 @@ public final class TempLedger {
     /** At the start of a step that isn't crafting or smelting: what he put down round him for the last one comes back up first. */
     private static final Map<UUID, String> lastSkill = new HashMap<>();
     public static int stepStart(ClaudeEntity g, ServerLevel level, String skill) {
+        if (DragonFight.active(g)) return 0;
         String was = lastSkill.put(g.getUUID(), skill);
         if (java.util.Set.of("craft", "smelt", "obtain").contains(skill)) return 0;
         if (skill.equals(was) && !"craft".equals(was)) return 0; // the same job going on (its next step): what it put down may still be its own
@@ -271,6 +273,7 @@ public final class TempLedger {
 
     /** Every second: what's gone, what he can't get to, the idle tidy, the litter report. */
     public static void tick(ClaudeEntity g, ServerLevel level) {
+        if (DragonFight.active(g)) return; // (the End fight: his pillars stay up, the user: they needn't be cleaned up; their take-down queued 159 breaks on him)
         var book = book(g); if (book.isEmpty() && owedTrees(g).isEmpty()) return;
         BlockPos me = g.blockPosition();
         for (var it = book.values().iterator(); it.hasNext(); ) {

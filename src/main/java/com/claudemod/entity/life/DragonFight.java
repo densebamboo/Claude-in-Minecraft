@@ -30,11 +30,13 @@ import java.util.*;
  * ground), then the dragon: arrows while it flies, sword hits on its head while it perches on the fountain, out of its breath.
  */
 public final class DragonFight {
-    static final class St { final Set<UUID> opened = new HashSet<>(); UUID target; String doing = ""; int said; BlockPos vantage, base, cageBase; int pillarUp, vantageUp, sinceShot; boolean waterTried; }
+    static final class St { final Set<UUID> opened = new HashSet<>(); String dim; UUID target; String doing = ""; int said; BlockPos vantage, base, cageBase; int pillarUp, vantageUp, sinceShot; boolean waterTried; }
     private static Map<UUID, St> sts; // (static: fields added live start null)
     static St st(ClaudeEntity g) { if (sts == null) sts = new HashMap<>(); return sts.computeIfAbsent(g.getUUID(), k -> new St()); }
     /** The fight back in his queue, once (an old copy dropped): at the front, or after what's queued. */
     public static void again(ClaudeEntity g, boolean front) { g.tasks.removeIf(t -> t instanceof Task.Dragon); if (front) g.tasks.addFirst(new Task.Dragon(20 * 60 * 30)); else g.tasks.add(new Task.Dragon(20 * 60 * 30)); }
+    /** His End fight is on (started, and he's in the End). */
+    public static boolean active(ClaudeEntity g) { return sts != null && sts.containsKey(g.getUUID()) && g.level().dimension() == Level.END; }
     public static void reset(ClaudeEntity g) { if (sts != null) sts.remove(g.getUUID()); }
     /** The fight is on (started, in the End, the dragon alive) and his queue is empty: pick it back up. */
     public static boolean resume(ClaudeEntity g) { if (sts == null || !sts.containsKey(g.getUUID()) || g.level().dimension() != Level.END) return false; var lv = (ServerLevel) g.level(); if (lv.getDragons().stream().noneMatch(EnderDragon::isAlive)) return false; if (g.tickCount % 100 == 0) ClaudeMod.LOGGER.info("[Claude dragon] the fight's still on and his queue was emptied: back to it (DragonFight.resume)"); return true; }
@@ -99,6 +101,7 @@ public final class DragonFight {
     private static com.claudemod.entity.goals.WorkGoal wg; // (the goal ticking this fight: told of each draw)
     public static boolean tick(ClaudeEntity g, com.claudemod.entity.goals.WorkGoal goal, int ticks) { wg = goal;
         ServerLevel level = (ServerLevel) g.level(); St s = st(g);
+        if (!level.dimension().location().getPath().equals(s.dim)) { String was = s.dim; s.dim = level.dimension().location().getPath(); s.vantage = null; s.base = null; s.cageBase = null; if (was != null) ClaudeMod.LOGGER.info("[Claude dragon] in the {} now: spots and pillars from the {} forgotten (DragonFight)", s.dim, was); } // (live: the Overworld frame spot carried into the End)
         if (level.dimension() != Level.END) { // at the portal: straight into it
             BlockPos p = nearestPortalBlock(level, g.blockPosition(), 6);
             if (p == null || ticks > 400) { int portal = 0, frames = 0, eyed = 0; for (BlockPos q : BlockPos.betweenClosed(g.blockPosition().offset(-12, -6, -12), g.blockPosition().offset(12, 6, 12))) { var bs = level.getBlockState(q); if (bs.is(Blocks.END_PORTAL)) portal++; if (bs.is(Blocks.END_PORTAL_FRAME)) { frames++; if (bs.getValue(net.minecraft.world.level.block.EndPortalFrameBlock.HAS_EYE)) eyed++; } }
@@ -133,25 +136,28 @@ public final class DragonFight {
         if (dragon == null && (fight == null || fight.hasPreviouslyKilledDragon())) { if (g.isUsingItem()) g.stopUsingItem(); ClaudeMod.LOGGER.info("[Claude dragon] the dragon is dead (DragonFight.tick)"); return true; }
         // breath: out of its cloud
         for (AreaEffectCloud c : level.getEntitiesOfClass(AreaEffectCloud.class, g.getBoundingBox().inflate(5), a -> a.getParticle().getType() == ParticleTypes.DRAGON_BREATH)) {
-            if (c.position().distanceTo(g.position()) > c.getRadius() + 1.0) continue; // (not on him: no need to run)
+            if (c.position().distanceTo(g.position()) > c.getRadius() + 2.0) continue; // (not on him or about to be: no need to run)
             BlockPos to = outOf(level, g, c);
             if (g.isUsingItem()) g.stopUsingItem(); g.setSprinting(true);
             if (to != null) g.getNavigation().moveTo(to.getX() + 0.5, to.getY(), to.getZ() + 0.5, 1.3);
-            else if (g.onGround() && upHisPillar(g, s, 4) && count(g, x -> x.is(Items.WATER_BUCKET)) > 0) { // up his pillar with the water bucket: off its side, out of the cloud in one move, the clutch landing him
-                if (s.base == null) { s.base = s.cageBase; s.cageBase = null; } if (down(g, s, "the dragon's breath on him up his pillar")) return true; }
+            else if (g.onGround() && (upHisPillar(g, s, 4) || onColumn(level, g)) && count(g, x -> x.is(Items.WATER_BUCKET)) > 0) { // up his pillar with the water bucket: off its side, out of the cloud in one move, the clutch landing him
+                if (s.base == null) s.base = s.cageBase != null ? s.cageBase : columnFoot(level, g); s.cageBase = null; if (down(g, s, "the dragon's breath on him up his pillar")) return true; }
+            else if (g.onGround() && onColumn(level, g)) { // up a column, no water to land in: two down his own blocks, never higher (up again stacks it)
+                BlockPos f = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); again(g, true); g.tasks.addFirst(new Task.Break(f.below(2).immutable())); g.tasks.addFirst(new Task.Break(f.below().immutable()));
+                say(g, s, "down out of the breath", "up a column at " + f.toShortString() + " with no water: two blocks down, under the cloud"); return true; }
             else if (g.onGround() && !headRoom(level, g)) { // nowhere to step and no room overhead, or up his own pillar already (up again stacks it): down two (his pillar's blocks), under the disc
                 BlockPos f = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); BlockPos b1 = f.below(), b2 = f.below(2);
                 if (level.getBlockState(b1).getDestroySpeed(level, b1) >= 0 && level.getBlockState(b1).getDestroySpeed(level, b1) < 10 && level.getBlockState(b2).getDestroySpeed(level, b2) >= 0 && level.getBlockState(b2).getDestroySpeed(level, b2) < 10 && !level.getBlockState(b2.below()).getCollisionShape(level, b2.below()).isEmpty()) {
                     again(g, true); g.tasks.addFirst(new Task.Break(b2.immutable())); g.tasks.addFirst(new Task.Break(b1.immutable())); if (s.cageBase != null && s.cageBase.getY() > b2.getY()) s.cageBase = null;
                     say(g, s, "down out of the breath", "nowhere to step and no room overhead at " + f.toShortString() + ": two blocks down, under the cloud"); return true; } }
-            else if (count(g, DragonFight::block) > 0 && g.onGround()) { // nowhere to step (a pillar top, a pocket): up two blocks, over its cloud (it's a disc half a block thick)
+            else if (count(g, DragonFight::block) > 0 && g.onGround() && !onColumn(level, g)) { // nowhere to step (a pocket): up two blocks, over its cloud (it's a disc half a block thick)
                 again(g, true); if (s.base == null && s.cageBase == null) s.base = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); g.tasks.addFirst(new Task.Pillar(2)); /* (the escape's own pillar: noted, so he comes back down it) */
                 say(g, s, "up out of the breath", "nowhere to step at " + g.blockPosition().toShortString() + ": two blocks up, over the cloud"); return true; }
             say(g, s, "out of the breath", "a dragon's breath cloud " + String.format("%.1f", c.distanceTo(g)) + " off, radius " + String.format("%.1f", c.getRadius()));
             return false;
         }
         // his clutch water first: an empty bucket and water in reach (the bow drawn at once left it behind, and the next fall had none)
-        if (g.onGround() || g.isInWater()) { boolean empty = count(g, x -> x.is(Items.BUCKET)) > 0 && count(g, x -> x.is(Items.WATER_BUCKET)) == 0;
+        if (g.onGround() || g.isInWater()) { boolean empty = count(g, x -> x.is(Items.BUCKET)) > 0; /* (any empty bucket: a full one beside it is no reason to leave his water, live 03:48) */
             if (empty) { boolean near = false; for (BlockPos q : BlockPos.betweenClosed(g.blockPosition().offset(-3, -2, -3), g.blockPosition().offset(3, 1, 3))) if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.WATER) && level.getFluidState(q).isSource()) { near = true; break; }
                 if (near) { if (g.isUsingItem()) g.stopUsingItem(); g.getNavigation().stop(); com.claudemod.director.ClaudeLife.fillBucket(g, level); say(g, s, "my water back", "the clutch's water scooped up before anything else"); return false; } } }
         // hurt: eat (a meal on hand) before anything else
@@ -184,8 +190,12 @@ public final class DragonFight {
     /** The hitter is the dragon (its body, a part of it, its fireball or breath) and his End fight is on. */
     public static boolean dragonsHit(ClaudeEntity g, UUID who) { if (sts == null || !sts.containsKey(g.getUUID()) || g.level().dimension() != Level.END) return false; var e = ((ServerLevel) g.level()).getEntity(who); return e instanceof EnderDragon || e instanceof net.minecraft.world.entity.boss.EnderDragonPart || e instanceof net.minecraft.world.entity.projectile.DragonFireball || e instanceof AreaEffectCloud; }
     /** In the End, a breath cloud on him (within its radius and a block). */
-    public static boolean breathOn(ClaudeEntity g) { if (g.level().dimension() != Level.END) return false; for (AreaEffectCloud c : g.level().getEntitiesOfClass(AreaEffectCloud.class, g.getBoundingBox().inflate(8), a -> a.getParticle().getType() == ParticleTypes.DRAGON_BREATH)) if (c.position().distanceTo(g.position()) <= c.getRadius() + 1.0) return true; return false; }
+    public static boolean breathOn(ClaudeEntity g) { if (g.level().dimension() != Level.END) return false; for (AreaEffectCloud c : g.level().getEntitiesOfClass(AreaEffectCloud.class, g.getBoundingBox().inflate(8), a -> a.getParticle().getType() == ParticleTypes.DRAGON_BREATH)) if (c.position().distanceTo(g.position()) <= c.getRadius() + 2.0) return true; return false; } // (a block wider than the cloud: he steers off it before he's in it, live 03:45 walked into two)
     static boolean upHisPillar(ClaudeEntity g, St s, int by) { BlockPos fe = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); for (BlockPos pb : new BlockPos[] {s.cageBase, s.base}) if (pb != null && fe.getY() - pb.getY() >= by && Math.abs(fe.getX() - pb.getX()) <= 1 && Math.abs(fe.getZ() - pb.getZ()) <= 1) return true; return false; }
+    /** Standing on a one-block column (nothing beside the block under him): a pillar top, his or not. */
+    static boolean onColumn(ServerLevel level, ClaudeEntity g) { BlockPos u = BlockPos.containing(g.getX(), g.getY() - 0.2, g.getZ()); if (level.getBlockState(u).getCollisionShape(level, u).isEmpty()) return false; for (Direction d : Direction.Plane.HORIZONTAL) { BlockPos n = u.relative(d); if (!level.getBlockState(n).getCollisionShape(level, n).isEmpty() || !level.getBlockState(n.below()).getCollisionShape(level, n.below()).isEmpty()) return false; } return true; }
+    /** Where his column stands: the first cell over solid ground that isn't his cobblestone, down from his feet. */
+    static BlockPos columnFoot(ServerLevel level, ClaudeEntity g) { BlockPos q = BlockPos.containing(g.getX(), g.getY() - 0.2, g.getZ()); while (q.getY() > level.getMinBuildHeight() + 1 && level.getBlockState(q).is(Blocks.COBBLESTONE)) q = q.below(); return q.above(); }
     static boolean headRoom(ServerLevel level, ClaudeEntity g) { BlockPos f = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); for (int k = 2; k <= 3; k++) if (!level.getBlockState(f.above(k)).getCollisionShape(level, f.above(k)).isEmpty()) return false; return true; }
     /** The nearest cell he can walk to, out of the cloud by a block and a half (searched over the ground round him, never "straight away" into rock or void). */
     static BlockPos outOf(ServerLevel level, ClaudeEntity g, AreaEffectCloud c) {
@@ -221,10 +231,9 @@ public final class DragonFight {
             if (!lv.getBlockState(side).getCollisionShape(lv, side).isEmpty() || !lv.getBlockState(side.above()).getCollisionShape(lv, side.above()).isEmpty()) continue;
             var fall = com.claudemod.entity.nav.Leaps.drop(g, lv, feet, side, 0);
             if (!fall.ok()) continue;
-            g.tasks.add(new Task.Leap(feet, fall.land(), com.claudemod.entity.nav.Leaps.DROP, fall.down(), fall.hp())); again(g, false); s.base = null;
+            again(g, true); g.tasks.addFirst(new Task.Leap(feet, fall.land(), com.claudemod.entity.nav.Leaps.DROP, fall.down(), fall.hp())); s.base = null; // (the drop first, the fight straight after it: its first act is scooping the clutch water)
             say(g, s, "off my pillar", fall.down() + " down off its side at " + feet.toShortString() + " (" + fall.onto() + "), " + why); return true; }
-        for (int k = 1; k <= n; k++) g.tasks.add(new Task.Break(feet.below(k)));
-        again(g, false); s.base = null;
+        again(g, true); for (int k = n; k >= 1; k--) g.tasks.addFirst(new Task.Break(feet.below(k))); s.base = null; // (no water to land in: down his pillar block by block, first)
         say(g, s, "down my pillar", n + " blocks down from " + feet.toShortString() + ", " + why);
         return true;
     }

@@ -12793,6 +12793,11 @@ public final class ClaudeLife {
      * his next plan was "stay with Fat_Herobrine and keep out of his way", go_to and follow, "where'd you go?" with them 2 off).
      */
     public static void theyStopped(ClaudeEntity g, String words) {
+        if (words != null && words.toLowerCase().matches(".*\\b(stop moving|stand still|stay still|hold still|don'?t move|do not move|freeze|stay (there|here|put))\\b.*")) { // a stop for his body, not the job: he stands where he is ("literally stop moving": he went on chopping logs, live 00:48)
+            stopAll(g); stay(g);
+            ClaudeMod.LOGGER.info("[Claude command] they said \"{}\": standing still where he is till they say otherwise (ClaudeLife.theyStopped)", words);
+            return;
+        }
         stopAll(g);
         stopHolds().put(g.getUUID(), new int[] {g.tickCount, 0, 0});
         stopWords().put(g.getUUID(), words == null ? "stop" : words.trim());

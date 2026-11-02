@@ -1826,7 +1826,7 @@ public class WorkGoal extends Goal {
                         if (clear.distSqr(g.blockPosition()) <= 2 && clear.getY() == g.getBlockY()) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(clear.getX() + 0.5, clear.getY(), clear.getZ() + 0.5, 0.6); return false; } // the cell beside him: a nudge (a walk to it "arrives" at once and never gets there; 45 s stuck on a one-block walk)
                         g.tasks.addFirst(new Task.Break(pos));
                         g.tasks.addFirst(new Task.GoTo(clear, 0.5));
-                        return exit("doBreak line 1546");
+                        return exit("doBreak line 1546: " + name(w) + " at " + inWay.toShortString() + " in the way, going round to " + clear.toShortString() + " to see it");
                     }
                     if (clear != null && clear.equals(g.blockPosition()) && (Math.abs(g.getX() - (clear.getX() + 0.5)) > 0.15 || Math.abs(g.getZ() - (clear.getZ() + 0.5)) > 0.15) && ticks < 40) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(clear.getX() + 0.5, clear.getY(), clear.getZ() + 0.5, 0.5); return false; } // (his own cell sees it from its middle; he stood off to the side: a step to the middle, never "refused" from the edge, 05:49 a diamond sealed in so)
                     g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, g.tickCount); // (on record: his mine check re-queued it every 3 s behind a redstone ore his stone pick can't take)

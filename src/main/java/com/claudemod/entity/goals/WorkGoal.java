@@ -760,7 +760,7 @@ public class WorkGoal extends Goal {
             g.getNavigation().stop(); g.getMoveControl().setWantedPosition(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0.5);
             return false;
         }
-        if ((d <= within || (chain && d <= 2.0)) && !onLeavesAbove) {
+        if ((d <= within || (chain && d <= 2.0 && pos.getY() <= feetCell.getY())) && !onLeavesAbove) { // ponytail: live 19:40 -58,79,-901: a route's 1-up step 1.4 off counted as reached in a chain, so the next leg was 2 up and refused, a loop for minutes; a step up is only reached by stepping up
             if (!chain) g.getNavigation().stop();
             return true;
         }
@@ -932,7 +932,7 @@ public class WorkGoal extends Goal {
             }
             if (plan != null) { // a way on foot the vanilla path missed (over a ledge, through an open door): its waypoints
                 var tasks = com.claudemod.entity.nav.ActionPath.tasks(plan, feetCell, net.minecraft.world.item.Items.COBBLESTONE, pos, within);
-                if (tasks.size() > 1) { for (int i = tasks.size() - 1; i >= 0; i--) g.tasks.addFirst(tasks.get(i)); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] route to {} found on foot ({} walks, {} waypoints)", pos.toShortString(), plan.walks(), tasks.size() - 1); return true; }
+                if (tasks.size() > 1) { for (int i = tasks.size() - 1; i >= 0; i--) g.tasks.addFirst(tasks.get(i)); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] route to {} found on foot ({} walks, {} waypoints): acts {} -> {} (WorkGoal.walkTo)", pos.toShortString(), plan.walks(), tasks.size() - 1, plan.acts(), tasks); return true; }
             } else if (towerTo(pos, feetCell, scaff)) { return true;
             } else {
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no way to {} from {} ({}; blocks on him: {}): skipping it", pos.toShortString(), feetCell.toShortString(), mode, scaffoldBlock().getCount());

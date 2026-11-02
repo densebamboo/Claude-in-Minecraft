@@ -195,7 +195,7 @@ public final class Controls {
                 net.minecraft.core.BlockPos ah = net.minecraft.core.BlockPos.containing(p.getX() + ld.x * reach + sd.x * k, p.getY() + 0.1, p.getZ() + ld.z * reach + sd.z * k);
                 if (ah.equals(p.blockPosition())) continue;
                 boolean lavaAt = lavaCell(p, ah);
-                if (lavaAt && k != 0 && reach > 0.5) { walk = ld.subtract(sd.scale(k * 2.0)).normalize(); continue outer; } // (only his shoulder would touch it, further on: steered off that side, not stopped; walking a lava hole's edge stalled him dead)
+                if (lavaAt && k != 0) { walk = ld.subtract(sd.scale(k * 2.0)).normalize(); continue outer; } // (only his shoulder would touch it: steered off that side, not stopped; walking a lava hole's edge stalled him dead) // ponytail: live 19:13 -153,51,-956: a shoulder hit at reach 0.45 stopped him dead 40+ s, the lava beside him not ahead
                 if (lavaAt && nextNode != null && Math.abs(nextNode.x - p.getBlockX()) == 1 && Math.abs(nextNode.z - p.getBlockZ()) == 1 && Math.abs(nextNode.y - p.getBlockY()) <= 1) { // a diagonal step whose corner is over lava: round the other corner, one straight step then the next, like a player (stage 538: the path's diagonal past a lava pool's corner and the guard's stop, 2 min stood still at -49 102 89)
                     net.minecraft.core.BlockPos corner = null;
                     for (net.minecraft.core.BlockPos cc : new net.minecraft.core.BlockPos[] {new net.minecraft.core.BlockPos(nextNode.x, p.getBlockY(), p.getBlockZ()), new net.minecraft.core.BlockPos(p.getBlockX(), p.getBlockY(), nextNode.z)}) {

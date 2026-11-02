@@ -30,10 +30,14 @@ import java.util.*;
  * ground), then the dragon: arrows while it flies, sword hits on its head while it perches on the fountain, out of its breath.
  */
 public final class DragonFight {
-    static final class St { UUID target; String doing = ""; int said; BlockPos vantage, base; int pillarUp, vantageUp, sinceShot; boolean waterTried; }
+    static final class St { final Set<UUID> opened = new HashSet<>(); UUID target; String doing = ""; int said; BlockPos vantage, base, cageBase; int pillarUp, vantageUp, sinceShot; boolean waterTried; }
     private static Map<UUID, St> sts; // (static: fields added live start null)
     static St st(ClaudeEntity g) { if (sts == null) sts = new HashMap<>(); return sts.computeIfAbsent(g.getUUID(), k -> new St()); }
+    /** The fight back in his queue, once (an old copy dropped): at the front, or after what's queued. */
+    public static void again(ClaudeEntity g, boolean front) { g.tasks.removeIf(t -> t instanceof Task.Dragon); if (front) g.tasks.addFirst(new Task.Dragon(20 * 60 * 30)); else g.tasks.add(new Task.Dragon(20 * 60 * 30)); }
     public static void reset(ClaudeEntity g) { if (sts != null) sts.remove(g.getUUID()); }
+    /** The fight is on (started, in the End, the dragon alive) and his queue is empty: pick it back up. */
+    public static boolean resume(ClaudeEntity g) { if (sts == null || !sts.containsKey(g.getUUID()) || g.level().dimension() != Level.END) return false; var lv = (ServerLevel) g.level(); if (lv.getDragons().stream().noneMatch(EnderDragon::isAlive)) return false; if (g.tickCount % 100 == 0) ClaudeMod.LOGGER.info("[Claude dragon] the fight's still on and his queue was emptied: back to it (DragonFight.resume)"); return true; }
 
     static int count(ClaudeEntity g, java.util.function.Predicate<ItemStack> p) { return g.inventory.count(p); }
     static boolean block(ItemStack s) { return s.is(Items.COBBLESTONE) || s.is(Items.COBBLED_DEEPSLATE) || s.is(Items.END_STONE) || s.is(Items.NETHERRACK) || s.is(Items.DIRT) || s.is(Items.STONE); }
@@ -41,19 +45,20 @@ public final class DragonFight {
     // ------------------------------------------------------------------ the skill (Overworld): kit, the portal, in
     public static String skill(ClaudeEntity g, ServerPlayer player, ServerLevel level, Skills.Step st) {
         Skills.Step again = new Skills.Step("fight_dragon", st.target(), st.count(), st.where());
-        if (level.dimension() == Level.END) { reset(g); g.tasks.add(new Task.Dragon(20 * 60 * 30)); return "in the End: the crystals first, then the dragon"; }
+        if (level.dimension() == Level.END) { reset(g); again(g, false); return "in the End: the crystals first, then the dragon"; }
         if (level.dimension() != Level.OVERWORLD) return "failed: the End portal is in the Overworld (I'm in the " + level.dimension().location().getPath() + ")";
         // the kit (the expert's): a bow and arrows for the crystals and the dragon in flight, blocks to pillar, food, a sword
         int arrows = count(g, s -> s.is(Items.ARROW)), blocks = count(g, DragonFight::block), food = com.claudemod.director.Kit.food(g);
         boolean bow = count(g, s -> s.is(Items.BOW)) > 0, blade = count(g, s -> s.getItem() instanceof net.minecraft.world.item.SwordItem || s.getItem() instanceof net.minecraft.world.item.AxeItem) > 0;
         List<String> miss = new ArrayList<>();
-        if (!bow) miss.add("a bow"); if (arrows < 32) miss.add((32 - arrows) + " more arrows"); if (blocks < 48) miss.add((48 - blocks) + " more blocks to pillar"); if (food < 8) miss.add("food (" + food + " meals, 8 wanted)"); if (!blade) miss.add("a sword");
+        if (!bow) miss.add("a bow"); if (arrows < 32) miss.add((32 - arrows) + " more arrows"); if (blocks < 48) miss.add((48 - blocks) + " more blocks to pillar"); if (food < 8) miss.add("food (" + food + " meals, 8 wanted)"); if (!blade) miss.add("a sword"); boolean stonePick = count(g, x -> x.is(Items.STONE_PICKAXE)) > 0; if (!stonePick) miss.add("a stone pickaxe (his pillars come down block by block: stone picks for rock)");
         if (!miss.isEmpty()) {
             ClaudeMod.LOGGER.info("[Claude dragon] the kit is short: {} (DragonFight.skill)", String.join(", ", miss));
             g.skillQueue.addFirst(again);
             if (!bow) { g.skillQueue.addFirst(new Skills.Step("obtain", "bow", 1)); return "packing for the dragon: a bow first"; }
             if (arrows < 32) { g.skillQueue.addFirst(new Skills.Step("obtain", "arrow", 64 - arrows)); return "packing for the dragon: arrows (" + arrows + " on me)"; }
             if (blocks < 48) { g.skillQueue.addFirst(new Skills.Step("obtain", "cobblestone", 64 - blocks)); return "packing for the dragon: blocks to pillar (" + blocks + " on me)"; }
+            if (!stonePick) { g.skillQueue.addFirst(new Skills.Step("obtain", "stone_pickaxe", 1)); return "packing for the dragon: a stone pickaxe for the pillars"; }
             g.skillQueue.pollFirst(); return "failed: short for the dragon: " + String.join(", ", miss);
         }
         String armor = armorLine(g);
@@ -68,7 +73,7 @@ public final class DragonFight {
             g.skillQueue.remove(again); at = nearestPortalBlock(level, g.blockPosition(), 8);
             if (at == null) return "failed: at the End portal and no portal block in reach (" + r + ")";
         }
-        reset(g); g.tasks.add(new Task.Dragon(20 * 60 * 30));
+        reset(g); again(g, false);
         ClaudeMod.LOGGER.info("[Claude dragon] into the End portal at {}: {} arrows, {} blocks, {} meals, {} (DragonFight.skill)", at.toShortString(), arrows, blocks, food, armor);
         return "into the End: " + arrows + " arrows, " + blocks + " blocks, " + food + " meals, " + armor;
     }
@@ -83,17 +88,43 @@ public final class DragonFight {
 
     // ------------------------------------------------------------------ the fight (ticked by WorkGoal)
     static void say(ClaudeEntity g, St s, String doing, String detail) { if (!doing.equals(s.doing) || g.tickCount - s.said > 200) { s.doing = doing; s.said = g.tickCount; ClaudeMod.LOGGER.info("[Claude dragon] {}: {} (DragonFight)", doing, detail); } }
-    static boolean sees(ClaudeEntity g, Vec3 from, Vec3 to) { return g.level().clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, g)).getType() == HitResult.Type.MISS; }
+    static boolean sees(ClaudeEntity g, Vec3 from, Vec3 to) {
+        if (g.level().clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, g)).getType() != HitResult.Type.MISS) return false;
+        Vec3 d = to.subtract(from); int n = (int) Math.ceil(d.length() * 4); BlockPos last = null; // (iron bars: the thin panes let a sight line through their gaps, an arrow hits them; a cage blocks the shot)
+        for (int k = 1; k < n; k++) { BlockPos q = BlockPos.containing(from.add(d.scale((double) k / n))); if (q.equals(last)) continue; last = q; if (g.level().getBlockState(q).is(Blocks.IRON_BARS)) return false; }
+        return true;
+    }
 
     /** One tick of the fight; true: it's over (the dragon dead, or nothing more he can do from here). */
-    public static boolean tick(ClaudeEntity g, int ticks) {
+    private static com.claudemod.entity.goals.WorkGoal wg; // (the goal ticking this fight: told of each draw)
+    public static boolean tick(ClaudeEntity g, com.claudemod.entity.goals.WorkGoal goal, int ticks) { wg = goal;
         ServerLevel level = (ServerLevel) g.level(); St s = st(g);
         if (level.dimension() != Level.END) { // at the portal: straight into it
             BlockPos p = nearestPortalBlock(level, g.blockPosition(), 6);
-            if (p == null || ticks > 200) { ClaudeMod.LOGGER.info("[Claude dragon] no End portal block within 6 of {} (DragonFight.tick)", g.blockPosition().toShortString()); return true; }
-            g.getNavigation().stop(); g.getMoveControl().setWantedPosition(p.getX() + 0.5, p.getY(), p.getZ() + 0.5, 1.0);
-            if (g.horizontalCollision && g.onGround()) g.getJumpControl().jump();
-            say(g, s, "into the portal", "stepping onto the End portal at " + p.toShortString());
+            if (p == null || ticks > 400) { int portal = 0, frames = 0, eyed = 0; for (BlockPos q : BlockPos.betweenClosed(g.blockPosition().offset(-12, -6, -12), g.blockPosition().offset(12, 6, 12))) { var bs = level.getBlockState(q); if (bs.is(Blocks.END_PORTAL)) portal++; if (bs.is(Blocks.END_PORTAL_FRAME)) { frames++; if (bs.getValue(net.minecraft.world.level.block.EndPortalFrameBlock.HAS_EYE)) eyed++; } }
+                ClaudeMod.LOGGER.info("[Claude dragon] no End portal block within 6 of {} after {} ticks (within 12: {} portal blocks, {} frames, {} with eyes; in it now {}) (DragonFight.tick)", g.blockPosition().toShortString(), ticks, portal, frames, eyed, level.getBlockState(g.blockPosition()).getBlock().getName().getString()); return true; }
+            { BlockPos under = BlockPos.containing(g.getX(), g.getY() - 0.2, g.getZ()); // on a frame by the portal already: straight in
+              if (level.getBlockState(under).is(Blocks.END_PORTAL) || level.getBlockState(BlockPos.containing(g.getX(), g.getY() + 0.1, g.getZ())).is(Blocks.END_PORTAL)) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(under.getX() + 0.5, under.getY(), under.getZ() + 0.5, 1.0); return false; } // (over it already, half on the frame: on, not back)
+              if (level.getBlockState(under).is(Blocks.END_PORTAL_FRAME)) for (Direction d : Direction.Plane.HORIZONTAL) if (level.getBlockState(under.relative(d)).is(Blocks.END_PORTAL)) { BlockPos in = under.relative(d);
+                  if (ticks % 10 == 0) ClaudeMod.LOGGER.info("[Claude dragon] stepping in: at {} on ground {} v {} (DragonFight)", String.format("%.2f %.2f %.2f", g.getX(), g.getY(), g.getZ()), g.onGround(), String.format("%.2f %.2f %.2f", g.getDeltaMovement().x, g.getDeltaMovement().y, g.getDeltaMovement().z));
+                  float yaw = (float) (Math.toDegrees(Math.atan2(in.getZ() + 0.5 - g.getZ(), in.getX() + 0.5 - g.getX())) - 90.0); g.setYRot(yaw); g.yHeadRot = yaw; g.yBodyRot = yaw; g.getLookControl().setLookAt(in.getX() + 0.5, in.getY(), in.getZ() + 0.5);
+                  g.getNavigation().stop(); g.getMoveControl().setWantedPosition(in.getX() + 0.5, in.getY(), in.getZ() + 0.5, 1.0); if (g.onGround() && ticks % 10 == 5) g.getJumpControl().jump(); /* (a hop off the frame, forward: over its lip into the portal) */ say(g, s, "into the portal", "off the frame at " + under.toShortString() + " into the End portal at " + in.toShortString()); return false; } }
+            // up on the platform beside a frame (by its stairs: a cell the path reaches), onto that frame, then across into the portal
+            if (s.base == null || !level.getBlockState(s.base).is(Blocks.END_PORTAL_FRAME) || ticks % 100 == 1) { s.base = null; s.vantage = null; double bd = Double.MAX_VALUE;
+                for (BlockPos q : BlockPos.betweenClosed(p.offset(-4, -1, -4), p.offset(4, 1, 4))) { if (!level.getBlockState(q).is(Blocks.END_PORTAL_FRAME)) continue; BlockPos up = q.above(); if (!level.getBlockState(up).getCollisionShape(level, up).isEmpty() || !level.getBlockState(up.above()).getCollisionShape(level, up.above()).isEmpty()) continue;
+                    boolean byPortal = false; for (Direction d : Direction.Plane.HORIZONTAL) if (level.getBlockState(q.relative(d)).is(Blocks.END_PORTAL)) byPortal = true; if (!byPortal) continue;
+                    { var tp = g.getNavigation().createPath(up, 0); double dd = up.distSqr(g.blockPosition()); if (tp != null && tp.canReach() && dd < bd) { bd = dd; s.base = q.immutable(); s.vantage = up.immutable(); } } // (the frame's own top, if the path gets there)
+                    for (Direction d : Direction.Plane.HORIZONTAL) { BlockPos n = q.relative(d); if (level.getBlockState(n).is(Blocks.END_PORTAL_FRAME) || level.getBlockState(n).is(Blocks.END_PORTAL)) continue;
+                        if (!level.getBlockState(n).getCollisionShape(level, n).isEmpty() || !level.getBlockState(n.above()).getCollisionShape(level, n.above()).isEmpty() || level.getBlockState(n.below()).getCollisionShape(level, n.below()).isEmpty()) continue;
+                        double dd = n.distSqr(g.blockPosition()); if (dd >= bd) continue; var path = g.getNavigation().createPath(n, 0); if (ticks % 100 == 1) ClaudeMod.LOGGER.info("[Claude dragon] beside the frame {}: {} over {}, path {} (DragonFight)", q.toShortString(), n.toShortString(), net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level.getBlockState(n.below()).getBlock()).getPath(), path == null ? "none" : path.canReach() ? "reaches" : "short"); if (path == null || !path.canReach()) continue; bd = dd; s.base = q.immutable(); s.vantage = n.immutable(); } } }
+            if (s.base == null) { say(g, s, "no way onto the portal", "no frame by the portal with a platform cell beside it that I can walk to"); return ticks > 400; }
+            BlockPos frame = s.base, side = s.vantage; BlockPos into = p; for (Direction d : Direction.Plane.HORIZONTAL) if (level.getBlockState(frame.relative(d)).is(Blocks.END_PORTAL)) into = frame.relative(d);
+            boolean onFrame = level.getBlockState(BlockPos.containing(g.getX(), g.getY() - 0.2, g.getZ())).is(Blocks.END_PORTAL_FRAME);
+            boolean atSide = Math.abs(g.getX() - (side.getX() + 0.5)) < 0.8 && Math.abs(g.getZ() - (side.getZ() + 0.5)) < 0.8 && Math.abs(g.getY() - side.getY()) < 0.6;
+            if (!onFrame && !atSide) { if (g.getNavigation().isDone() || ticks % 40 == 1) g.getNavigation().moveTo(side.getX() + 0.5, side.getY(), side.getZ() + 0.5, 1.0); say(g, s, "to the portal", "up to " + side.toShortString() + " beside the frame at " + frame.toShortString()); return false; }
+            if (!onFrame) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(frame.getX() + 0.5, frame.getY() + 1, frame.getZ() + 0.5, 0.8); if (g.onGround()) g.getJumpControl().jump(); say(g, s, "onto the frame", "up onto the frame at " + frame.toShortString()); return false; }
+            g.getNavigation().stop(); g.getMoveControl().setWantedPosition(into.getX() + 0.5, into.getY(), into.getZ() + 0.5, 1.0);
+            say(g, s, "into the portal", "off the frame into the End portal at " + into.toShortString());
             return false;
         }
         var fight = level.getDragonFight();
@@ -102,23 +133,28 @@ public final class DragonFight {
         if (dragon == null && (fight == null || fight.hasPreviouslyKilledDragon())) { if (g.isUsingItem()) g.stopUsingItem(); ClaudeMod.LOGGER.info("[Claude dragon] the dragon is dead (DragonFight.tick)"); return true; }
         // breath: out of its cloud
         for (AreaEffectCloud c : level.getEntitiesOfClass(AreaEffectCloud.class, g.getBoundingBox().inflate(5), a -> a.getParticle().getType() == ParticleTypes.DRAGON_BREATH)) {
-            Vec3 away = g.position().subtract(c.position()).multiply(1, 0, 1); if (away.lengthSqr() < 0.01) away = new Vec3(1, 0, 0);
-            Vec3 to = g.position().add(away.normalize().scale(c.getRadius() + 2.5));
-            if (g.isUsingItem()) g.stopUsingItem(); g.setSprinting(true); g.getNavigation().stop(); g.getMoveControl().setWantedPosition(to.x, g.getY(), to.z, 1.3);
+            if (c.position().distanceTo(g.position()) > c.getRadius() + 1.0) continue; // (not on him: no need to run)
+            BlockPos to = outOf(level, g, c);
+            if (g.isUsingItem()) g.stopUsingItem(); g.setSprinting(true);
+            if (to != null) g.getNavigation().moveTo(to.getX() + 0.5, to.getY(), to.getZ() + 0.5, 1.3);
+            else if (count(g, DragonFight::block) > 0 && g.onGround()) { // nowhere to step (a pillar top, a pocket): up two blocks, over its cloud (it's a disc half a block thick)
+                again(g, true); g.tasks.addFirst(new Task.Pillar(2));
+                say(g, s, "up out of the breath", "nowhere to step at " + g.blockPosition().toShortString() + ": two blocks up, over the cloud"); return true; }
             say(g, s, "out of the breath", "a dragon's breath cloud " + String.format("%.1f", c.distanceTo(g)) + " off, radius " + String.format("%.1f", c.getRadius()));
             return false;
         }
         // hurt: eat (a meal on hand) before anything else
         if (g.getHealth() <= 10 && g.onGround() && g.getFoodData().getFoodLevel() < 20) { var food = com.claudemod.director.ClaudeLife.foodToEat(g, g.getHealth() <= 6);
-            if (food != null) { if (g.isUsingItem()) g.stopUsingItem(); g.tasks.addFirst(new Task.Dragon(20 * 60 * 30)); g.tasks.addFirst(new Task.Eat(food)); say(g, s, "eating", "health " + (int) g.getHealth()); return true; } }
+            if (food != null) { if (g.isUsingItem()) g.stopUsingItem(); again(g, true); g.tasks.addFirst(new Task.Eat(food)); say(g, s, "eating", "health " + (int) g.getHealth()); return true; } }
         // off the spawn platform: onto the main island (end stone, toward its middle)
         double fromMid = Math.sqrt(g.getX() * g.getX() + g.getZ() * g.getZ());
         BlockPos under = BlockPos.containing(g.getX(), g.getY() - 0.5, g.getZ());
-        if (fromMid > 70 || level.getBlockState(under).is(Blocks.OBSIDIAN) && fromMid > 40) {
+        boolean island = level.getBlockState(under).is(Blocks.END_STONE) || block(new ItemStack(level.getBlockState(under).getBlock().asItem())) && fromMid < 130; // (on end stone, or his own blocks on it)
+        if (!island && g.onGround() && fromMid > 30) {
             if (!g.onGround()) return false;
             BlockPos land = islandEdge(level, g);
             if (land == null) { say(g, s, "no island", "no end stone toward the middle from " + g.blockPosition().toShortString()); return false; }
-            g.tasks.addFirst(new Task.Dragon(20 * 60 * 30)); g.tasks.addFirst(new Task.GoTo(land, 1.0));
+            again(g, true); g.tasks.addFirst(new Task.GoTo(land, 1.0));
             say(g, s, "onto the island", "from " + g.blockPosition().toShortString() + " to end stone at " + land.toShortString() + ", " + (int) Math.sqrt(land.distSqr(g.blockPosition())) + " off");
             return true;
         }
@@ -129,6 +165,21 @@ public final class DragonFight {
         // the dragon
         if (dragon != null) return dragon(g, level, s, dragon, ticks);
         return false;
+    }
+
+    /** The hitter is the dragon (its body, a part of it, its fireball or breath) and his End fight is on. */
+    public static boolean dragonsHit(ClaudeEntity g, UUID who) { if (sts == null || !sts.containsKey(g.getUUID()) || g.level().dimension() != Level.END) return false; var e = ((ServerLevel) g.level()).getEntity(who); return e instanceof EnderDragon || e instanceof net.minecraft.world.entity.boss.EnderDragonPart || e instanceof net.minecraft.world.entity.projectile.DragonFireball || e instanceof AreaEffectCloud; }
+    /** In the End, a breath cloud on him (within its radius and a block). */
+    public static boolean breathOn(ClaudeEntity g) { if (g.level().dimension() != Level.END) return false; for (AreaEffectCloud c : g.level().getEntitiesOfClass(AreaEffectCloud.class, g.getBoundingBox().inflate(8), a -> a.getParticle().getType() == ParticleTypes.DRAGON_BREATH)) if (c.position().distanceTo(g.position()) <= c.getRadius() + 1.0) return true; return false; }
+    /** The nearest cell he can walk to, out of the cloud by a block and a half (searched over the ground round him, never "straight away" into rock or void). */
+    static BlockPos outOf(ServerLevel level, ClaudeEntity g, AreaEffectCloud c) {
+        BlockPos f = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); ArrayDeque<BlockPos> q = new ArrayDeque<>(); Set<Long> seen = new HashSet<>(); q.add(f); seen.add(f.asLong());
+        while (!q.isEmpty()) { BlockPos p = q.poll();
+            if (Vec3.atCenterOf(p).distanceTo(c.position()) > c.getRadius() + 1.5) return p;
+            for (Direction d : Direction.Plane.HORIZONTAL) for (int dy = -1; dy <= 1; dy++) { BlockPos n = p.relative(d).offset(0, dy, 0);
+                if (n.distSqr(f) > 12 * 12 || !seen.add(n.asLong())) continue;
+                if (level.getBlockState(n).getCollisionShape(level, n).isEmpty() && level.getBlockState(n.above()).getCollisionShape(level, n.above()).isEmpty() && !level.getBlockState(n.below()).getCollisionShape(level, n.below()).isEmpty()) q.add(n); } }
+        return null;
     }
 
     /** The nearest end stone top toward the island's middle from where he stands (the walker bridges the gap). */
@@ -150,7 +201,7 @@ public final class DragonFight {
     static boolean down(ClaudeEntity g, St s, String why) {
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); int n = feet.getY() - s.base.getY();
         for (int k = 1; k <= n; k++) g.tasks.add(new Task.Break(feet.below(k)));
-        g.tasks.add(new Task.Dragon(20 * 60 * 30)); s.base = null;
+        again(g, false); s.base = null;
         say(g, s, "down my pillar", n + " blocks down from " + feet.toShortString() + ", " + why);
         return true;
     }
@@ -170,25 +221,25 @@ public final class DragonFight {
         }
         if (g.isUsingItem() && g.getUseItem().is(Items.BOW)) g.stopUsingItem();
         if (!g.onGround()) return false;
-        EndCrystal c = crystals.stream().min(Comparator.comparingDouble(x -> x.distanceToSqr(g))).orElse(null);
-        if (caged(level, c)) return cage(g, level, s, c);
+        EndCrystal c = crystals.stream().min(Comparator.comparingDouble((EndCrystal x) -> caged(level, x) ? 1 : 0).thenComparingDouble(x -> x.distanceToSqr(g))).orElse(null); // (the open ones first: a cage means a pillar under the dragon's fire)
+        if (caged(level, c) && !s.opened.contains(c.getUUID())) return cage(g, level, s, c); // (an opened cage: shot like the rest, from a spot in line with its gap)
         // none in sight: a spot on the island with a clear line to it, from the ground or a few blocks up a pillar there (a tall tower's rim hides its crystal from close by), the cheapest walk and climb
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
         if (s.vantage == null || ticks % 600 == 0) {
             s.vantage = null; double bd = Double.MAX_VALUE;
             for (int r = 16; r <= 64; r += 6) for (int a = 0; a < 24; a++) { double ang = a * Math.PI / 12; int x = (int) Math.floor(c.getX() + Math.cos(ang) * r), z = (int) Math.floor(c.getZ() + Math.sin(ang) * r);
                 BlockPos top = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING, new BlockPos(x, 0, z)); if (!level.getBlockState(top.below()).is(Blocks.END_STONE)) continue;
-                for (int k = 0; k <= 16; k += 2) { Vec3 e = new Vec3(top.getX() + 0.5, top.getY() + k + 1.62, top.getZ() + 0.5); if (seenPoint(g, e, c) == null) continue;
-                    double cost = Math.sqrt(top.distSqr(feet)) + k * 4; if (cost < bd) { bd = cost; s.vantage = top.immutable(); s.vantageUp = k; } break; } }
+                for (int k = 0; k <= (s.opened.contains(c.getUUID()) ? 28 : 16); k += 2) { Vec3 e = new Vec3(top.getX() + 0.5, top.getY() + k + 1.62, top.getZ() + 0.5); if (e.distanceTo(c.position()) > 68 || seenPoint(g, e, c) == null) continue; /* (in bow range from there: the shot itself wants 72 or less) */
+                    double cost = Math.sqrt(top.distSqr(feet)) + Math.abs(r - 28) * 1.2 + k * 4; /* (about 28 off: near enough to land the arrows, out of the blast) */ if (cost < bd) { bd = cost; s.vantage = top.immutable(); s.vantageUp = k; } break; } }
         }
         if (s.vantage == null) { say(g, s, "no clear shot", "the crystal at " + c.blockPosition().toShortString() + ": no spot on the island 16-64 off with a clear line to it, even 16 up"); return false; }
         int up = feet.getY() - (s.base == null ? feet.getY() : s.base.getY());
         boolean atVantage = Math.abs(feet.getX() - s.vantage.getX()) <= 1 && Math.abs(feet.getZ() - s.vantage.getZ()) <= 1;
         if (!atVantage && up > 2 && s.base != null) return down(g, s, "to a clear shot elsewhere");
-        if (!atVantage) { s.base = null; g.tasks.addFirst(new Task.Dragon(20 * 60 * 30)); g.tasks.addFirst(new Task.GoTo(s.vantage, 0.8)); say(g, s, "to a clear shot", "the crystal at " + c.blockPosition().toShortString() + " from " + s.vantage.toShortString() + (s.vantageUp > 0 ? ", " + s.vantageUp + " up a pillar" : "")); return true; }
+        if (!atVantage) { s.base = null; again(g, true); g.tasks.addFirst(new Task.GoTo(s.vantage, 0.8)); say(g, s, "to a clear shot", "the crystal at " + c.blockPosition().toShortString() + " from " + s.vantage.toShortString() + (s.vantageUp > 0 ? ", " + s.vantageUp + " up a pillar" : "")); return true; }
         if (s.base == null) s.base = feet.immutable();
         int need = s.vantageUp - (feet.getY() - s.base.getY());
-        if (need > 0) { g.tasks.add(new Task.Pillar(need)); g.tasks.add(new Task.Dragon(20 * 60 * 30)); say(g, s, "pillaring for a clear shot", need + " up at " + feet.toShortString() + " to see the crystal at " + c.blockPosition().toShortString()); return true; }
+        if (need > 0) { g.tasks.add(new Task.Pillar(need)); again(g, false); say(g, s, "pillaring for a clear shot", need + " up at " + feet.toShortString() + " to see the crystal at " + c.blockPosition().toShortString()); return true; }
         s.vantage = null; return false; // (there and still no line: look again)
     }
 
@@ -197,55 +248,74 @@ public final class DragonFight {
         BlockPos cb = c.blockPosition();
         List<BlockPos> bars = new ArrayList<>(); for (BlockPos q : BlockPos.betweenClosed(cb.offset(-2, -1, -2), cb.offset(2, 3, 2))) if (level.getBlockState(q).is(Blocks.IRON_BARS)) bars.add(q.immutable());
         Vec3 eye = g.getEyePosition();
-        List<BlockPos> inReach = new ArrayList<>(); for (BlockPos b : bars) if (Vec3.atCenterOf(b).distanceTo(eye) <= 4.4) inReach.add(b);
+        Vec3 mine = g.position().subtract(c.position()).multiply(1, 0, 1); List<BlockPos> inReach = new ArrayList<>(); for (BlockPos b : bars) { Vec3 bv = Vec3.atCenterOf(b).subtract(c.position()).multiply(1, 0, 1); if (Vec3.atCenterOf(b).distanceTo(eye) <= 4.4 && bv.dot(mine) > 0.6 * bv.length() * mine.length()) inReach.add(b); } // (the side of the cage facing him: the shot from the ground comes through that gap; the rest stays)
         if (!inReach.isEmpty() && g.getY() > cb.getY() - 4) { // at the cage: its bars (every one in reach: the shot from the ground needs a clear way in)
             for (BlockPos b : inReach) g.tasks.add(new Task.Break(b));
-            g.tasks.add(new Task.Dragon(20 * 60 * 30));
+            again(g, false);
             say(g, s, "breaking the cage", inReach.size() + " bars in reach of " + bars.size() + " round the crystal at " + cb.toShortString());
             return true;
         }
-        if (g.getY() > cb.getY() - 4) { // up here and no bar in reach: the cage is open enough; down his pillar
-            int n = (int) Math.floor(g.getY()) - (s.base == null ? (int) g.getY() - 1 : s.base.getY());
+        if (g.getY() > cb.getY() - 4 && Math.abs(g.getX() - cb.getX()) <= 5 && Math.abs(g.getZ() - cb.getZ()) <= 5) { s.opened.add(c.getUUID()); s.vantage = null; // up here and no bar in reach: the cage is open enough; down his pillar
+            int n = (int) Math.floor(g.getY()) - (s.cageBase == null ? (int) g.getY() - 1 : s.cageBase.getY()); s.cageBase = null;
             for (int k = 1; k <= n; k++) g.tasks.add(new Task.Break(BlockPos.containing(g.getX(), g.getY() - 0.5, g.getZ()).below(k - 1)));
-            g.tasks.add(new Task.Dragon(20 * 60 * 30));
+            again(g, false);
             say(g, s, "down the pillar", n + " blocks down from " + g.blockPosition().toShortString() + ", the cage open");
             return true;
         }
+        BlockPos fe = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
+        if (s.cageBase != null && fe.getY() > s.cageBase.getY() && Math.abs(fe.getX() - s.cageBase.getX()) <= 1 && Math.abs(fe.getZ() - s.cageBase.getZ()) <= 1) { // part way up his pillar: on up to the cage
+            int more = cb.getY() - fe.getY() - 1; if (more > 0) { g.tasks.add(new Task.Pillar(more)); again(g, false); say(g, s, "pillaring up", "on up " + more + " to the cage at " + cb.toShortString()); return true; } }
         // to the foot of its tower, then up
         BlockPos foot = null; double bd = Double.MAX_VALUE;
-        for (int r = 2; r <= 7 && foot == null; r++) for (Direction d : Direction.Plane.HORIZONTAL) { BlockPos col = new BlockPos(cb.getX() + d.getStepX() * r, 0, cb.getZ() + d.getStepZ() * r);
-            BlockPos top = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING, col); if (top.getY() > cb.getY() - 6 || !level.getBlockState(top.below()).is(Blocks.END_STONE)) continue; // (outside the tower: end stone, low)
-            if (!level.getBlockState(new BlockPos(cb.getX() + d.getStepX() * (r - 1), top.getY() + 1, cb.getZ() + d.getStepZ() * (r - 1))).is(Blocks.OBSIDIAN)) continue; // (right beside its obsidian)
+        for (int r = 2; r <= 8 && foot == null; r++) for (int a = 0; a < 16; a++) { double ang = a * Math.PI / 8; BlockPos col = new BlockPos((int) Math.floor(cb.getX() + 0.5 + Math.cos(ang) * r), 0, (int) Math.floor(cb.getZ() + 0.5 + Math.sin(ang) * r));
+            BlockPos top = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING, col); while (!level.getFluidState(top.below()).isEmpty() && top.getY() > level.getMinBuildHeight() + 2) top = top.below(); if (top.getY() > cb.getY() - 6 || !level.getBlockState(top.below()).is(Blocks.END_STONE)) continue; // (outside the tower: end stone, low; through a puddle's water to the stone under it)
+            boolean beside = false; for (Direction d : Direction.Plane.HORIZONTAL) if (level.getBlockState(top.relative(d).above()).is(Blocks.OBSIDIAN)) beside = true; if (!beside) continue; // (right against its obsidian)
             double dd = top.distSqr(g.blockPosition()); if (dd < bd) { bd = dd; foot = top.immutable(); } }
+        if (foot == null) { StringBuilder sb = new StringBuilder(); for (int r = 2; r <= 8; r += 2) for (int a = 0; a < 16; a += 4) { double ang = a * Math.PI / 8; BlockPos col = new BlockPos((int) Math.floor(cb.getX() + 0.5 + Math.cos(ang) * r), 0, (int) Math.floor(cb.getZ() + 0.5 + Math.sin(ang) * r)); BlockPos top = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING, col); sb.append(top.toShortString()).append(' ').append(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level.getBlockState(top.below()).getBlock()).getPath()).append("; "); }
+            ClaudeMod.LOGGER.info("[Claude dragon] the tower at {}: round it {} (DragonFight.cage)", cb.toShortString(), sb); }
         if (foot == null) { say(g, s, "no foot to the tower", "the caged crystal at " + cb.toShortString() + ": no end stone beside its tower"); return false; }
-        if (foot.distSqr(BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ())) > 2) { g.tasks.addFirst(new Task.Dragon(20 * 60 * 30)); g.tasks.addFirst(new Task.GoTo(foot, 0.4)); say(g, s, "to the caged crystal's tower", "its foot at " + foot.toShortString()); return true; }
-        s.base = foot;
+        if (foot.distSqr(BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ())) > 2) { again(g, true); g.tasks.addFirst(new Task.GoTo(foot, 0.4)); say(g, s, "to the caged crystal's tower", "its foot at " + foot.toShortString()); return true; }
+        s.cageBase = foot;
         int up = cb.getY() - foot.getY() - 1;
-        g.tasks.add(new Task.Pillar(up)); g.tasks.add(new Task.Dragon(20 * 60 * 30));
+        g.tasks.add(new Task.Pillar(up)); again(g, false);
         say(g, s, "pillaring up", up + " blocks beside the tower to the cage at " + cb.toShortString());
         return true;
     }
 
     static boolean dragon(ClaudeEntity g, ServerLevel level, St s, EnderDragon d, int ticks) {
         var phase = d.getPhaseManager().getCurrentPhase();
+        var ph = phase.getPhase();
+        boolean landing = ph == net.minecraft.world.entity.boss.enderdragon.phases.EnderDragonPhase.LANDING_APPROACH || ph == net.minecraft.world.entity.boss.enderdragon.phases.EnderDragonPhase.LANDING;
         Vec3 head = d.head.getBoundingBox().getCenter();
-        if (phase.isSitting()) { // on the fountain: its head with the sword, crits between
+        BlockPos mid = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING, BlockPos.ZERO);
+        if (phase.isSitting() || landing) { // on the fountain (or coming down onto it): its head with the sword, crits between (arrows bounce off a perched dragon)
             if (g.isUsingItem()) g.stopUsingItem();
             equipBlade(g);
-            double reach = d.head.getBoundingBox().distanceToSqr(g.getEyePosition());
-            g.getLookControl().setLookAt(head.x, head.y, head.z);
-            if (reach > 2.9 * 2.9) { Vec3 to = head.add(g.position().subtract(head).multiply(1, 0, 1).normalize().scale(2.2)); g.getNavigation().stop(); g.getMoveControl().setWantedPosition(to.x, g.getY(), to.z, 1.2); g.setSprinting(true); say(g, s, "to its head", "the dragon perched, its head " + String.format("%.1f", Math.sqrt(reach)) + " off"); return false; }
-            g.getNavigation().stop(); g.setSprinting(false);
-            boolean charged = g.getAttackStrengthScale(0.5f) >= 0.95f;
-            if (charged && g.onGround() && !g.isInWater()) { g.getJumpControl().jump(); return false; } // (a crit: the hit lands falling)
-            if (charged && !g.onGround() && g.getDeltaMovement().y < 0 || charged && g.isInWater()) {
-                float hp = d.getHealth(); g.attack(d.head); g.swing(InteractionHand.MAIN_HAND);
-                ClaudeMod.LOGGER.info("[Claude dragon] a hit on its head: {} -> {} (DragonFight)", hp, d.getHealth());
+            Vec3 at = phase.isSitting() ? head : new Vec3(mid.getX() + 0.5, mid.getY() + 1, mid.getZ() + 0.5);
+            net.minecraft.world.entity.Entity hit = null; double best = 3.0 * 3.0;
+            if (phase.isSitting()) for (var part : d.getSubEntities()) { double dd = part.getBoundingBox().distanceToSqr(g.getEyePosition()); if (part == d.head ? dd <= best : dd < best - 1.0 && d.head.getBoundingBox().distanceToSqr(g.getEyePosition()) > 9.0) { if (part == d.head || hit == null) { hit = part; best = dd; } } }
+            g.getLookControl().setLookAt(at.x, at.y, at.z);
+            if (hit == null) { // to it: beside the head, out of the fountain's bedrock
+                Vec3 off = g.position().subtract(at).multiply(1, 0, 1); if (off.lengthSqr() < 0.01) off = new Vec3(1, 0, 0);
+                Vec3 to = at.add(off.normalize().scale(phase.isSitting() ? 3.0 : 6.0)); /* (3 off its head's middle: out of its touch, the head in his reach) */
+                double far = Math.sqrt(g.position().distanceToSqr(to.x, g.getY(), to.z));
+                if (far > 1.0) { if (far > 12) g.getNavigation().moveTo(to.x, g.getY(), to.z, 1.3); else { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(to.x, g.getY(), to.z, 1.3); } g.setSprinting(true); }
+                say(g, s, phase.isSitting() ? "to its head" : "to the fountain", (phase.isSitting() ? "the dragon perched, its head " : "the dragon coming down, the fountain ") + String.format("%.1f", Math.sqrt(g.position().distanceToSqr(at))) + " off");
+                return false;
             }
-            say(g, s, "hitting its head", "the dragon perched at " + d.blockPosition().toShortString() + ", health " + (int) d.getHealth());
+            g.getNavigation().stop(); g.setSprinting(false);
+            double hd = Math.sqrt(d.head.getBoundingBox().distanceToSqr(g.getEyePosition())), nk = Math.sqrt(d.getSubEntities()[1].getBoundingBox().distanceToSqr(g.getEyePosition()));
+            if (Math.min(hd, nk) < 1.8) { Vec3 back = g.position().subtract(head).multiply(1, 0, 1); if (back.lengthSqr() < 0.01) back = new Vec3(1, 0, 0); Vec3 to = g.position().add(back.normalize().scale(1.2)); g.getMoveControl().setWantedPosition(to.x, g.getY(), to.z, 1.0); } // (its head and neck hurt what's within a block of them: kept 1.8+ off, in his reach of 3)
+            boolean charged = g.getAttackStrengthScale(0.5f) >= 0.95f;
+            g.setSprinting(false); // (a sprinting hit is never a crit)
+            if (charged) { // (no jump for a crit: a crit's bonus never reaches the dragon, its parts aren't living things; the swing on the charge is the fastest damage)
+                float hp = d.getHealth(); g.attack(hit); g.swing(InteractionHand.MAIN_HAND);
+                ClaudeMod.LOGGER.info("[Claude dragon] a {}hit on its {}: {} -> {} (DragonFight)", !g.onGround() && g.fallDistance > 0 ? "crit " : "", hit == d.head ? "head" : "body", hp, d.getHealth());
+            }
+            say(g, s, "hitting it", "the dragon perched, health " + (int) d.getHealth());
             return false;
         }
-        // flying: arrows when it's in range and in sight, else waiting near the fountain out of its path
+        // flying: arrows when it's in range and in sight; else waiting near the fountain (it comes down there), out of its path
         double dist = d.distanceTo(g);
         if (dist <= 56 && sees(g, g.getEyePosition(), head) && g.onGround()) {
             if (shoot(g, head, d.getDeltaMovement())) ClaudeMod.LOGGER.info("[Claude dragon] an arrow at the dragon, {} off, health {} (DragonFight)", (int) dist, (int) d.getHealth());
@@ -253,8 +323,8 @@ public final class DragonFight {
             return false;
         }
         if (g.isUsingItem() && g.getUseItem().is(Items.BOW)) g.stopUsingItem();
-        double fromMid = Math.sqrt(g.getX() * g.getX() + g.getZ() * g.getZ());
-        if (fromMid > 22 && g.onGround()) { Vec3 to = new Vec3(g.getX(), 0, g.getZ()).normalize().scale(14); BlockPos t = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING, BlockPos.containing(to.x, 0, to.z)); g.tasks.addFirst(new Task.Dragon(20 * 60 * 30)); g.tasks.addFirst(new Task.GoTo(t, 2.0)); say(g, s, "to the fountain", "waiting for the dragon near the middle"); return true; }
+        double fromMid = Math.sqrt((g.getX() - mid.getX()) * (g.getX() - mid.getX()) + (g.getZ() - mid.getZ()) * (g.getZ() - mid.getZ()));
+        if ((fromMid > 12 || fromMid < 4) && g.onGround()) { Vec3 dir = new Vec3(g.getX() - mid.getX(), 0, g.getZ() - mid.getZ()); if (dir.lengthSqr() < 0.01) dir = new Vec3(1, 0, 0); Vec3 to = dir.normalize().scale(8).add(mid.getX(), 0, mid.getZ()); BlockPos t = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING, BlockPos.containing(to.x, 0, to.z)); again(g, true); g.tasks.addFirst(new Task.GoTo(t, 1.5)); say(g, s, "near the fountain", "waiting 8 off it for the dragon to come down"); return true; }
         say(g, s, "waiting", "the dragon " + (int) dist + " off, out of a clear shot");
         return false;
     }
@@ -270,10 +340,12 @@ public final class DragonFight {
     static boolean shoot(ClaudeEntity g, Vec3 target, Vec3 vel) {
         if (count(g, s -> s.is(Items.ARROW)) == 0 || count(g, s -> s.is(Items.BOW)) == 0) return false;
         g.getNavigation().stop(); g.setSprinting(false);
+        if (wg != null) wg.bowAimed();
         boolean drawing = g.isUsingItem() && g.getUseItem().is(Items.BOW);
         if (!drawing) { g.hold(g.inventory.find(x -> x.is(Items.BOW))); g.startUsingItem(InteractionHand.MAIN_HAND); return false; }
         Vec3 from = g.getEyePosition().add(0, -0.1, 0);
         float[] yp = aim(from, target, vel);
+        if (g.tickCount % 20 == 0) ClaudeMod.LOGGER.info("[Claude dragon] drawing: {} ticks, aim {} at {} (DragonFight.shoot)", g.getTicksUsingItem(), yp == null ? "none" : (int) yp[0] + "/" + (int) yp[1], BlockPos.containing(target).toShortString());
         if (yp == null) { g.stopUsingItem(); return false; }
         g.setYRot(yp[0]); g.setXRot(yp[1]); g.yHeadRot = yp[0]; g.yBodyRot = yp[0];
         if (g.getTicksUsingItem() >= 20) { g.releaseUsingItem(); g.swing(InteractionHand.MAIN_HAND); return true; }
@@ -284,9 +356,11 @@ public final class DragonFight {
         Vec3 t = target;
         for (int it = 0; it < 3; it++) { // the lead: where it'll be when the arrow gets there
             double dx = t.x - from.x, dz = t.z - from.z, h = Math.sqrt(dx * dx + dz * dz), dy = t.y - from.y;
-            double lo = -80, hi = 45, ok = Double.NaN; int ticksAt = 0;
-            for (int i = 0; i < 40; i++) { double mid = (lo + hi) / 2; double[] r = fly(Math.toRadians(mid), h); if (Double.isNaN(r[0])) { lo = mid; continue; } if (r[0] < dy) lo = mid; else { hi = mid; ok = mid; ticksAt = (int) r[1]; } }
-            if (Double.isNaN(ok)) return null;
+            double lo = Double.NaN, hi = Double.NaN, ok = Double.NaN; int ticksAt = 0;
+            for (double a = -80; a <= 85; a += 1) { double[] r = fly(Math.toRadians(a), h); if (!Double.isNaN(r[0]) && r[0] >= dy) { hi = a; lo = a - 1; break; } } // (the flattest arc that gets there: scanned up, then narrowed)
+            if (Double.isNaN(hi)) return null;
+            for (int i = 0; i < 20; i++) { double mid = (lo + hi) / 2; double[] r = fly(Math.toRadians(mid), h); if (Double.isNaN(r[0]) || r[0] < dy) lo = mid; else hi = mid; }
+            ok = hi; ticksAt = (int) fly(Math.toRadians(ok), h)[1];
             if (it == 2 || vel.lengthSqr() < 1e-6) { float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0); return new float[] {yaw, (float) -ok}; }
             t = target.add(vel.scale(ticksAt));
         }

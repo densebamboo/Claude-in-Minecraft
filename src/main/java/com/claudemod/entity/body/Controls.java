@@ -112,13 +112,14 @@ public final class Controls {
     /** Open ground for a sprint-jump: headroom (not a 2-high branch), no wall and no 2+ drop in the next three blocks (a one-block step is what the jump is for). */
     /** Lava at his feet level in that cell, or as its floor (lava under an open cell). */
     public static boolean lavaCell(Player p, net.minecraft.core.BlockPos c) {
+        if (p.level().getBlockState(c).is(net.minecraft.world.level.block.Blocks.END_PORTAL)) return false; // (an End portal over its pool: the portal takes him first)
         var l = p.level();
         return l.getFluidState(c).is(net.minecraft.tags.FluidTags.LAVA) || l.getFluidState(c.below()).is(net.minecraft.tags.FluidTags.LAVA) && l.getBlockState(c.below()).getCollisionShape(l, c.below()).isEmpty();
     }
 
     // ponytail: live 15:27, a fight's sideways slide (v -0.28 while the walk said +0.15) carried him off a ledge 35 over the lava sea; the slide guard saw lava only 1 down
     static boolean hurtingDrop(Player p, net.minecraft.core.BlockPos c) {
-        var l = p.level(); if (!l.getBlockState(c).getCollisionShape(l, c).isEmpty()) return false;
+        var l = p.level(); if (l.getBlockState(c).is(net.minecraft.world.level.block.Blocks.END_PORTAL) || l.getBlockState(c.below()).is(net.minecraft.world.level.block.Blocks.END_PORTAL)) return false; /* (into an End portal: no drop, the End) */ if (!l.getBlockState(c).getCollisionShape(l, c).isEmpty()) return false;
         int d = 0; var q = c.below();
         while (d < 40 && l.getBlockState(q).getCollisionShape(l, q).isEmpty()) { var f = l.getFluidState(q); if (!f.isEmpty()) return f.is(net.minecraft.tags.FluidTags.LAVA); d++; q = q.below(); }
         return d >= 4; // (the walk-line lip rule: 4+ open, no water at the bottom)
@@ -219,6 +220,7 @@ public final class Controls {
             for (double reach : p.isSprinting() ? new double[] {0.7, 1.4} : new double[] {0.7}) {
                 net.minecraft.core.BlockPos ah0 = net.minecraft.core.BlockPos.containing(p.getX() + ld0.x * reach, p.getY(), p.getZ() + ld0.z * reach);
                 if (ah0.equals(p.blockPosition()) || !p.level().getBlockState(ah0).getCollisionShape(p.level(), ah0).isEmpty()) continue;
+                if (p.level().getBlockState(ah0).is(net.minecraft.world.level.block.Blocks.END_PORTAL) || p.level().getBlockState(ah0.below()).is(net.minecraft.world.level.block.Blocks.END_PORTAL)) continue; // (an End portal: stepping into it takes him to the End before any lava under it; fight_dragon's way in)
                 if (nextNode != null && nextNode.y == p.getBlockY() && Math.abs(nextNode.x - p.getBlockX()) == 1 && Math.abs(nextNode.z - p.getBlockZ()) == 1 && groundUnder(p, new net.minecraft.core.BlockPos(nextNode.x, nextNode.y, nextNode.z), 1)
                         && ((ah0.getX() == nextNode.x && ah0.getZ() == p.getBlockZ()) || (ah0.getZ() == nextNode.z && ah0.getX() == p.getBlockX()))) continue; // ponytail: a flat diagonal to a floored node: his box stays over the two floors, the corner cell is no step (live 17:06, froze at -83 78 -919 over lava 10 down)
                 int dn = 0; net.minecraft.core.BlockPos q0 = ah0.below(); boolean lv0 = false;
@@ -257,6 +259,7 @@ public final class Controls {
                 if (safeStep && nextNode.x != p.getBlockX() && nextNode.z != p.getBlockZ() && dir.dot(new Vec3(nextNode.x + 0.5 - p.getX(), 0, nextNode.z + 0.5 - p.getZ()).normalize()) > 0.9
                         && ((ahead.getX() == nextNode.x && ahead.getZ() == p.getBlockZ()) || (ahead.getZ() == nextNode.z && ahead.getX() == p.getBlockX()))) continue; // ponytail: live 14:09, a safe diagonal step 3 down off a pillar top: his box brushes the two side columns on the way, their deep drop froze him at the lip for a minute; heading for the node, they are part of that step
                 if (ahead.equals(p.blockPosition()) || !p.level().getBlockState(ahead).getCollisionShape(p.level(), ahead).isEmpty()) continue;
+                if (p.level().getBlockState(ahead).is(net.minecraft.world.level.block.Blocks.END_PORTAL) || p.level().getBlockState(ahead.below()).is(net.minecraft.world.level.block.Blocks.END_PORTAL)) continue; // (an End portal: no lip to fall off, the End)
                 int drop = 0; boolean water = false, lava = false; net.minecraft.core.BlockPos q = ahead.below();
                 while (drop < 40 && p.level().getBlockState(q).getCollisionShape(p.level(), q).isEmpty()) { var fq = p.level().getFluidState(q); if (!fq.isEmpty()) { if (fq.is(net.minecraft.tags.FluidTags.LAVA)) lava = true; else water = true; break; } drop++; q = q.below(); } // (only water is a landing: live 10:53 World 15 the lava lake 18 under a Nether ledge passed as "water below", he walked off it with his whole kit)
                 if (lava) { p.setSprinting(false); walk = null; refusedStep(p); if (p instanceof com.claudemod.entity.ClaudeEntity ce && ce.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] lava {} below the lip at {}: not stepping off (Controls.apply)", drop + 1, ahead.toShortString()); break; } // (the whole column: water at the bottom of a deep drop is a fine landing, like any player jumping into a pool)

@@ -10369,6 +10369,7 @@ public final class ClaudeBodyTest {
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
+            case 564:
             case 562:
             case 559:
             case 558: return st558(stage, t, c, h, level, mock);
@@ -11174,6 +11175,15 @@ public final class ClaudeBodyTest {
         if (s558T > 0 && t[0] == s558T) c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("light_end_portal", "", 1));
         if (s558T > 0 && t[0] > s558T) { if (stage[0] == 562 && t[0] == s558T + 1) com.claudemod.entity.life.PortalMap.load(c, new net.minecraft.nbt.CompoundTag()); s558Low = Math.min(s558Low, c.getHealth()); if (t[0] % 40 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, c.getBoundingBox().inflate(48), m -> !(m instanceof net.minecraft.world.entity.monster.Silverfish))) m.discard();
             boolean lit = false; if (s558Room != null && t[0] % 20 == 0) for (BlockPos q : BlockPos.betweenClosed(s558Room.minX(), s558Room.minY(), s558Room.minZ(), s558Room.maxX(), s558Room.maxY(), s558Room.maxZ())) if (level.getBlockState(q).is(Blocks.END_PORTAL)) { lit = true; break; }
+            if (stage[0] == 564 && lit && s562Back < 0) { // lit: the dragon kit topped up, then fight_dragon from right there takes him through
+                c.getInventory().add(new ItemStack(Items.BOW)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.ARROW, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+                s562Back = t[0]; c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("fight_dragon", "", 1)); return true; }
+            if (stage[0] == 564 && s562Back > 0) { boolean inEnd = c.level().dimension() == net.minecraft.world.level.Level.END;
+                if (inEnd || t[0] == s562Back + 20 * 120 || !c.isAlive()) { check(inEnd, "fight_dragon: not through the End portal in 120 s (at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ", last " + c.lastSkillLine + ")");
+                    String how = "the portal lit, then fight_dragon took him into the End in " + (t[0] - s562Back) / 20 + " s"; s562Back = -1;
+                    c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; com.claudemod.entity.life.DragonFight.reset(c); c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+                    com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0); pass(stage, t, how); }
+                return true; }
             if (stage[0] == 562 && s562Back < 0 && lit && com.claudemod.entity.life.PortalMap.endPortal(c) == null && t[0] < s558T + 20 * 600) return true; // (his own look notes it, a skill call after the last eye)
             if (stage[0] == 562 && lit && s562Back < 0) { // the restart: his memory through a save and load, his map of seen cells gone, back at his staircase's top; then "light_end_portal" again walks him back to it
                 var tag = com.claudemod.entity.life.PortalMap.save(c); com.claudemod.entity.life.PortalMap.load(c, tag); com.claudemod.entity.life.StrongholdRoom.reset(c); com.claudemod.entity.life.EyeHunt.reset(c);
@@ -11207,15 +11217,27 @@ public final class ClaudeBodyTest {
             c.setNoGravity(false); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0); pass(stage, t, "probe"); }
         return true;
     }
-    private static int s563T = -1; private static float s563Low = 20f;
+    private static int s563T = -1; private static float s563Low = 20f; private static java.util.UUID s563Keep;
     private static boolean st563(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // the End fight (the user: bow and melee): on the real test End (its island, ten crystals, two caged, the dragon fight running), from the spawn platform, the expert's kit
         ServerLevel end = level.getServer().getLevel(net.minecraft.world.level.Level.END);
         if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); s563T = -1; s563Low = 20f; c.nextPlanTick = c.tickCount + 20 * 3600; c.prefs.put("stay_close", "no"); c.commandActive = false; com.claudemod.entity.life.DragonFight.reset(c);
-            for (var it : new net.minecraft.world.item.Item[] {Items.DIAMOND_SWORD, Items.BOW, Items.DIAMOND_PICKAXE, Items.WATER_BUCKET}) c.getInventory().add(new ItemStack(it));
+            for (var it : new net.minecraft.world.item.Item[] {Items.DIAMOND_SWORD, Items.BOW, Items.DIAMOND_PICKAXE, Items.STONE_PICKAXE, Items.WATER_BUCKET}) c.getInventory().add(new ItemStack(it));
             c.getInventory().add(new ItemStack(Items.ARROW, 64)); c.getInventory().add(new ItemStack(Items.ARROW, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 32));
             c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.DIAMOND_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.DIAMOND_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.DIAMOND_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.DIAMOND_BOOTS));
             for (BlockPos q : BlockPos.betweenClosed(98, 48, -2, 102, 48, 2)) end.setBlock(q, Blocks.OBSIDIAN.defaultBlockState(), 2 | 16); // (the spawn platform, as the portal makes it)
+            { var ds = end.getDragons(); for (int i = 1; i < ds.size(); i++) ds.get(i).discard(); if (!ds.isEmpty()) ds.get(0).setHealth(ds.get(0).getMaxHealth()); } // (one dragon: earlier runs in this world left more)
             com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(end, 100.5, 49, 0.5, 90, 0); c.fallDistance = 0; }
+        if (t[0] == 11) { for (int cx = -6; cx <= 6; cx++) for (int cz = -6; cz <= 6; cz++) end.getChunk(cx, cz); for (var cr0 : end.getEntitiesOfClass(net.minecraft.world.entity.boss.enderdragon.EndCrystal.class, new net.minecraft.world.phys.AABB(-100, 0, -100, 100, 256, 100))) cr0.discard(); } // (every crystal from earlier runs gone)
+        if (t[0] == 12) for (var sp : net.minecraft.world.level.levelgen.feature.SpikeFeature.getSpikesForLevel(end)) { // the crystals and cages as vanilla sets them (earlier runs in this world shot, doubled and caged some): all cleared, then one each
+            end.getChunk(sp.getCenterX() >> 4, sp.getCenterZ() >> 4); BlockPos top = new BlockPos(sp.getCenterX(), sp.getHeight(), sp.getCenterZ());
+            for (var cr0 : end.getEntitiesOfClass(net.minecraft.world.entity.boss.enderdragon.EndCrystal.class, new net.minecraft.world.phys.AABB(top).inflate(6))) cr0.discard();
+            for (BlockPos q : BlockPos.betweenClosed(top.offset(-3, 0, -3), top.offset(3, 4, 3))) if (end.getBlockState(q).is(Blocks.IRON_BARS)) end.setBlock(q, Blocks.AIR.defaultBlockState(), 2);
+            end.setBlock(top, Blocks.BEDROCK.defaultBlockState(), 3); end.setBlock(top.above(), Blocks.FIRE.defaultBlockState(), 3);
+            var cr = new net.minecraft.world.entity.boss.enderdragon.EndCrystal(end, top.getX() + 0.5, top.getY() + 1, top.getZ() + 0.5); cr.setShowBottom(true); end.addFreshEntity(cr);
+            if (sp.isGuarded()) for (int x = -2; x <= 2; x++) for (int z = -2; z <= 2; z++) for (int y = 0; y <= 3; y++) if (Math.abs(x) == 2 || Math.abs(z) == 2 || y == 3) end.setBlock(top.offset(x, y, z), Blocks.IRON_BARS.defaultBlockState(), 3); }
+        if (s563T < 0 || t[0] % 20 == 0) { var ds = end.getDragons(); if (ds.size() > 1) { if (s563Keep == null || ds.stream().noneMatch(d0 -> d0.getUUID().equals(s563Keep))) s563Keep = ds.get(0).getUUID(); for (var d0 : ds) if (!d0.getUUID().equals(s563Keep)) d0.discard(); } else if (ds.size() == 1) s563Keep = ds.get(0).getUUID(); } // (one dragon: the fight respawns one when it can't find its own in an unloaded chunk)
+        if (t[0] == 16 && end.getDragons().stream().noneMatch(net.minecraft.world.entity.Entity::isAlive)) { var nd = net.minecraft.world.entity.EntityType.ENDER_DRAGON.create(end); if (nd != null) { nd.getPhaseManager().setPhase(net.minecraft.world.entity.boss.enderdragon.phases.EnderDragonPhase.HOLDING_PATTERN); nd.moveTo(0, 128, 0, end.random.nextFloat() * 360f, 0f); end.addFreshEntity(nd); com.claudemod.ClaudeMod.LOGGER.info("[Claude test] a fresh dragon (an earlier run killed this world's)"); } }
+        if (t[0] == 15) { var ds = end.getDragons(); java.util.UUID keep = ds.isEmpty() ? null : ds.get(0).getUUID(); for (var d0 : ds) if (!d0.getUUID().equals(keep)) d0.discard(); com.claudemod.ClaudeMod.LOGGER.info("[Claude test] dragons in the End: {}, one kept", ds.size()); }
         if (t[0] == 20) { s563T = t[0]; c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("fight_dragon", "", 1)); }
         if (s563T > 0) { s563Low = Math.min(s563Low, c.getHealth());
             int crystals = end.getEntitiesOfClass(net.minecraft.world.entity.boss.enderdragon.EndCrystal.class, new net.minecraft.world.phys.AABB(-80, 60, -80, 80, 200, 80)).size();

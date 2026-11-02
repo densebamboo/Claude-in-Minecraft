@@ -316,6 +316,7 @@ public class WorkGoal extends Goal {
             if (dug) { current = null; g.currentTask = null; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] phantoms out at night (health {}): under cover till morning", (int) g.getHealth()); }
             else if (current != null) { g.tasks.pollFirst(); }
         }
+        if (g.urgentAttacker != null && com.claudemod.entity.life.DragonFight.dragonsHit(g, g.urgentAttacker)) g.urgentAttacker = null; // (the dragon's hits are the End fight's to answer: arrows in flight, the sword on the perch; "fighting back" chased it round the island)
         // Digging in already (in his hole, or at it): a hit doesn't stop him, like a player he keeps digging
         boolean byCover = digInAt != null && Math.abs(g.getBlockX() - digInAt.getX()) <= 3 && Math.abs(g.getBlockZ() - digInAt.getZ()) <= 3 && Math.abs(g.getBlockY() - digInAt.getY()) <= Math.max(4, digInRise + 2); // (an arrow's knockback puts him a block or two off his box: still making it)
         if (g.urgentAttacker != null && diggingIn() && (inDigInHole() || byCover)) { var inHole = ((ServerLevel) g.level()).getEntity(g.urgentAttacker); if (!(inHole instanceof net.minecraft.world.entity.LivingEntity) || inHole.distanceTo(g) > 2.5) { if (!inDigInHole() && coverHitSaid != digInTick) { coverHitSaid = digInTick; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] hit off his cover's middle at {} by a {} {} off: back into it and on with it, not a fight (WorkGoal.tick)", digInAt.toShortString(), inHole == null ? "?" : inHole.getType().getDescription().getString(), inHole == null ? "?" : (int) inHole.distanceTo(g)); } else if (inDigInHole()) sdSay("cover", "[Claude life] hit while digging in at {} by a {} {} off (more than 2.5: not in the hole with him): digging on, not a fight (WorkGoal.tick)", digInAt == null ? "?" : digInAt.toShortString(), inHole == null ? "mob gone" : inHole.getType().getDescription().getString(), inHole == null ? "?" : (int) inHole.distanceTo(g)); g.urgentAttacker = null; } } // (knocked two off his box by the first arrow, he went to fight the skeleton at 9 and lost 18 health) // one hitting him from right beside him (a gap in the unfinished walls) gets fought: he stood in "wait" in full iron and took 20 zombie hits, 11 -> 0
@@ -384,6 +385,7 @@ public class WorkGoal extends Goal {
         }
         g.busy = current != null;
         if (current == null) {
+            if (g.tasks.isEmpty() && g.skillQueue.isEmpty() && com.claudemod.entity.life.DragonFight.resume(g)) g.tasks.add(new Task.Dragon(20 * 60 * 30)); // (the End fight on and the dragon alive: a cleared queue never ends it)
             nearestFirst();
             current = g.tasks.poll();
             int dup = 0; while (current != null && !(current instanceof Task.Pillar) && current.equals(g.tasks.peek())) { Task nx = g.tasks.poll(); if (com.claudemod.entity.nav.Route.owns(g, nx) && !com.claudemod.entity.nav.Route.owns(g, current)) current = nx; dup++; } // (a route's own copy is the one kept: the other copy dropped took the route's end, and its old legs walked him back down, 12:31) // (two Pillar(-1)s are two towers to take down, not a copy: dropping one left a cobble block in his stair walkway) // the same task queued over and over (a route re-fired every few seconds): one copy is plenty
@@ -398,6 +400,7 @@ public class WorkGoal extends Goal {
         ticks++;
         maybeStandUp();
         boolean done;
+        if (!(current instanceof Task.Dragon) && !(current instanceof Task.Pillar) && com.claudemod.entity.life.DragonFight.breathOn(g)) { g.tasks.addFirst(current); com.claudemod.entity.life.DragonFight.again(g, true); com.claudemod.ClaudeMod.LOGGER.info("[Claude dragon] the dragon's breath on him during {}: out of it first, that after (WorkGoal)", current.getClass().getSimpleName()); current = null; return; } // (in the End: its breath outranks a pillar, a walk, a dig)
         try {
             done = switch (current) {
                 case Task.GoTo t -> { if (ticks == 1) exitWhy = null; if (g.staying && t.pos().distSqr(g.blockPosition()) > 2 * 2) { if (g.tickCount % 100 < 2 || ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] staying put where they said: the walk to {} ({}) waits (WorkGoal)", t.pos().toShortString(), com.claudemod.entity.ClaudeEntity.originOf(t)); yield true; } // (told to stay put, every chore of his own walks him off: a stash run, a torch run, his nook; one gate at the walk, their own go_to clears staying first, 15:03)
@@ -447,7 +450,7 @@ public class WorkGoal extends Goal {
                 case Task.CheckForCave t -> doCheckForCave();
                 case Task.Fish t -> doFish(t);
                 case Task.Leap t -> doLeap(t);
-                case Task.Dragon t -> com.claudemod.entity.life.DragonFight.tick(g, ticks) || ticks >= t.maxTicks();
+                case Task.Dragon t -> com.claudemod.entity.life.DragonFight.tick(g, this, ticks) || ticks >= t.maxTicks();
             };
         } catch (RuntimeException e) {
             done = true; // a step that throws (block changed under him, etc.) is just skipped
@@ -5732,6 +5735,8 @@ public class WorkGoal extends Goal {
         }
         return false;
     }
+    /** A draw someone else aims (the End fight's shots): kept, not cut as a stray draw (line ~228). */
+    public void bowAimed() { bowAimTick = g.tickCount; }
     private boolean shootAt(net.minecraft.world.entity.LivingEntity mob) {
         if (mob instanceof net.minecraft.world.entity.monster.EnderMan) { if (g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW)) g.stopUsingItem(); return false; } /* vanilla: an enderman teleports out of every arrow; live 01:42 twelve arrows at one, two after he said "switching to the diamond sword" */
         ItemStack bow = g.inventory.find(s -> s.is(net.minecraft.world.item.Items.BOW));

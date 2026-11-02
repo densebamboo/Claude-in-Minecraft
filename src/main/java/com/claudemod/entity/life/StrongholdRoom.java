@@ -89,6 +89,8 @@ public final class StrongholdRoom {
         long start = feet(g).asLong(); seen.put(start, start); q.add(start);
         while (!q.isEmpty()) { long c = q.poll(); BlockPos p = BlockPos.of(c);
             for (Direction d : Direction.Plane.HORIZONTAL) for (int dy = -1; dy <= 1; dy++) { long n = p.relative(d).offset(0, dy, 0).asLong();
+                if (!seen.containsKey(n) && r.known.contains(n) && !shutIron(level, BlockPos.of(n))) { seen.put(n, c); q.add(n); } }
+            for (int dx = -1; dx <= 1; dx += 2) for (int dz = -1; dz <= 1; dz += 2) { long n = p.offset(dx, 0, dz).asLong(); // (a diagonal step on the level: round a frame ring's open corner, as a player steps it)
                 if (!seen.containsKey(n) && r.known.contains(n) && !shutIron(level, BlockPos.of(n))) { seen.put(n, c); q.add(n); } } }
         return seen;
     }

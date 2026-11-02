@@ -16,7 +16,8 @@ When `WorkGoal.pickEscape` had no portal or 1-wide gap, it ran 16 blocks out on 
   - An end tried in the last 30 s is skipped, and so is a heading through a mob within 3.
 - **The check:** the walk planner must reach the end (`createPath(...).canReach()`), with at most 12 tries.
   - A walk longer than 1.5 times the straight distance plus 4 is kept only as a fallback. `escapeBlocked` measures straight-line distance, so a walk that first winds away reads as "no closer". In stage 558 the south rim, 11 off, was a 26-block walk by the ramp, and he was called blocked on it.
-  - With none reachable, he runs straight out as before.
+  - A walk that doesn't reach its end still counts if it brings him at least 6 blocks closer. A run only has to get him well along: in stage 488 the end was off a fenced test platform, and the run broke the skeleton's sight on the way. The live death came from runs that made no headway at all.
+  - With none of these, he runs straight out as before.
 - **Logs:**
   - `escape: run end X has a walk to it (... with none: [...]; ... winding: [...])`;
   - `escape: no run end he can walk to (N tried, ...; skipped N with nowhere to stand, N tried lately, N through a mob)`.
@@ -30,6 +31,7 @@ When `WorkGoal.pickEscape` had no portal or 1-wide gap, it ran 16 blocks out on 
   - The first version of the fix still failed it, for two reasons proven from the logs:
     - the 4-up stand search gave up after 1 try;
     - then a winding walk to the south rim was taken.
+- **Stage 488 (a skeleton 6 off, break its sight):** the first full gate failed it. Only full walks counted then, so every end off the fenced platform was refused, and the run he took kept him in its sight (low 1). With partial walks allowed, it's green again.
 
 ## Restart
 

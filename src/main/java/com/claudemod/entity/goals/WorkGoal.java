@@ -4758,7 +4758,7 @@ public class WorkGoal extends Goal {
         if (incoming(mob)) shieldUp(mob); else shieldDown();
         // In reach like a player (3 blocks from his eyes to its hitbox, clear line): hit it, even up a ledge;
         // the knockback can knock it off the edge to him.
-        boolean inReach = mob.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0 && g.hasLineOfSight(mob);
+        boolean inReach = mob.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0 && canHit(mob);
         if (inReach) {
             chaseBest = Double.MAX_VALUE; chaseBestTick = ticks; // (in reach: the chase starts over once it runs off again)
             g.setSprinting(false);
@@ -5097,7 +5097,7 @@ public class WorkGoal extends Goal {
         if (!blaze) { // a wither skeleton: into the gap, and it comes to its edge, in his reach and out of its own
             if (!inCover) { if (mob.distanceTo(g) < 3.2 && shield) shieldUp(mob); else shieldDown(); g.setSprinting(!g.isUsingItem()); cfMove(cv.cover(), g.isUsingItem() ? 1.0 : 1.3); cfSay("into the gap", cv.how()); return false; }
             g.getNavigation().stop(); g.setSprinting(false); shieldDown(); g.getLookControl().setLookAt(mob);
-            if (mob.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0 && g.hasLineOfSight(mob)) { cfIdle = 0; if (cfSwing(mob)) cfSay("hitting it from the gap", "it's " + String.format("%.1f", mob.distanceTo(g)) + " off and can't reach in; crits between swings"); return false; }
+            if (mob.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0 && canHit(mob)) { cfIdle = 0; if (cfSwing(mob)) cfSay("hitting it from the gap", "it's " + String.format("%.1f", mob.distanceTo(g)) + " off and can't reach in; crits between swings"); return false; }
             if (++cfIdle > 20 * 20) { cfSay("it isn't coming", "20 s in the gap and the wither skeleton stays " + (int) mob.distanceTo(g) + " off: done waiting"); return true; }
             cfSay("waiting in the gap", "it can't reach in; it comes to " + cv.peek().toShortString() + " and gets hit there");
             return false;
@@ -5117,7 +5117,7 @@ public class WorkGoal extends Goal {
         }
         shieldDown();
         g.getLookControl().setLookAt(mob);
-        if (mob.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0 && g.hasLineOfSight(mob)) { cfClose(level, bz, due, shield); return false; }
+        if (mob.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0 && canHit(mob)) { cfClose(level, bz, due, shield); return false; }
         int age = com.claudemod.entity.life.FortressFight.chargeAge(g, bz);
         boolean low = mob.getBoundingBox().minY <= g.getY() + 3.2; // a swing from the floor reaches it
         boolean time = shield || age < 0 || age < 24; // quiet, or lit just now: time to get there and back before the shots
@@ -5134,7 +5134,7 @@ public class WorkGoal extends Goal {
             return false;
         }
         // out of reach (floating high) or no time: a bow and arrows on him: shot from where he stands while it's quiet (vanilla's blaze hangs back from a player it sees: it never comes to a sword); drawing a bow and holding a shield up can't both be done, so the volley's blocked first (above) and the shot taken between
-        if (!low || mob.distanceTo(g) > 14) { boolean drawingBow = g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW); if (g.hasLineOfSight(mob) && (age < 0 || drawingBow)) { if (shootAt(mob)) { cfIdle = 0; cfSay("shooting it", "the blaze is " + (low ? "" : "up ") + "out of sword reach, " + (int) mob.distanceTo(g) + " off and quiet: arrows"); return false; } } }
+        if (!low || mob.distanceTo(g) > 14) { boolean drawingBow = g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW); if (canHit(mob) && (age < 0 || drawingBow)) { if (shootAt(mob)) { cfIdle = 0; cfSay("shooting it", "the blaze is " + (low ? "" : "up ") + "out of sword reach, " + (int) mob.distanceTo(g) + " off and quiet: arrows"); return false; } } }
         BlockPos wait = shield ? cv.peek() : (age >= 0 ? cv.cover() : cv.peek());
         if (!com.claudemod.entity.life.FortressFight.at(g, wait)) cfMove(wait, 1.1); else g.getNavigation().stop();
         if (++cfIdle > 20 * 45) { cfSay("it stays out of reach", "45 s and the blaze never came in reach: done with this one"); return true; }
@@ -5515,6 +5515,19 @@ public class WorkGoal extends Goal {
      * Like a player with a bow: a hostile 6+ blocks off (a creeper 5+) with a clear line gets shot, the bow drawn to full
      * (about a second) and loosed with a little lead on a moving target. True while he's doing that (no closing in).
      */
+    /**
+     * An arrow or a swing gets there: a collision ray from his eye to its body's middle or its eye (glass, leaves, fences and walls stop
+     * it, as they stop a player's crosshair and his arrows). Seeing (hasLineOfSight, Perception.clear since 7345d37) looks past them;
+     * hitting doesn't: he drew at a skeleton behind a fence and hit the fence.
+     */
+    private boolean canHit(net.minecraft.world.entity.LivingEntity mob) {
+        Vec3 eye = g.getEyePosition();
+        for (Vec3 to : new Vec3[] {mob.getBoundingBox().getCenter(), mob.getEyePosition()}) {
+            var hit = g.level().clip(new net.minecraft.world.level.ClipContext(eye, to, net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g));
+            if (hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS) return true;
+        }
+        return false;
+    }
     private boolean shootAt(net.minecraft.world.entity.LivingEntity mob) {
         if (mob instanceof net.minecraft.world.entity.monster.EnderMan) { if (g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW)) g.stopUsingItem(); return false; } /* vanilla: an enderman teleports out of every arrow; live 01:42 twelve arrows at one, two after he said "switching to the diamond sword" */
         ItemStack bow = g.inventory.find(s -> s.is(net.minecraft.world.item.Items.BOW));
@@ -5524,7 +5537,7 @@ public class WorkGoal extends Goal {
         double d = g.distanceTo(mob);
         double minRange = mob instanceof net.minecraft.world.entity.monster.Creeper ? 5.0 : lureShot ? 2.0 : 6.0; // (a shot to draw a golem to his tower: close is fine, it can't reach him)
         boolean drawing = g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW);
-        if (d < minRange - (drawing ? 1.0 : 0) || d > 28 || !g.hasLineOfSight(mob) || g.isInWater()) { if (drawing) g.stopUsingItem(); return false; }
+        if (d < minRange - (drawing ? 1.0 : 0) || d > 28 || !canHit(mob) || g.isInWater()) { if (drawing) g.stopUsingItem(); return false; }
         g.getNavigation().stop(); // stood still to shoot, like a player
         g.setSprinting(false);
         bowAimTick = g.tickCount;

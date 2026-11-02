@@ -137,6 +137,11 @@ public final class DragonFight {
             BlockPos to = outOf(level, g, c);
             if (g.isUsingItem()) g.stopUsingItem(); g.setSprinting(true);
             if (to != null) g.getNavigation().moveTo(to.getX() + 0.5, to.getY(), to.getZ() + 0.5, 1.3);
+            else if (g.onGround() && !headRoom(level, g)) { // nowhere to step and no room overhead to pillar: down two (his pillar's blocks), under the disc
+                BlockPos f = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); BlockPos b1 = f.below(), b2 = f.below(2);
+                if (level.getBlockState(b1).getDestroySpeed(level, b1) >= 0 && level.getBlockState(b1).getDestroySpeed(level, b1) < 10 && level.getBlockState(b2).getDestroySpeed(level, b2) >= 0 && level.getBlockState(b2).getDestroySpeed(level, b2) < 10 && !level.getBlockState(b2.below()).getCollisionShape(level, b2.below()).isEmpty()) {
+                    again(g, true); g.tasks.addFirst(new Task.Break(b2.immutable())); g.tasks.addFirst(new Task.Break(b1.immutable())); if (s.cageBase != null && s.cageBase.getY() > b2.getY()) s.cageBase = null;
+                    say(g, s, "down out of the breath", "nowhere to step and no room overhead at " + f.toShortString() + ": two blocks down, under the cloud"); return true; } }
             else if (count(g, DragonFight::block) > 0 && g.onGround()) { // nowhere to step (a pillar top, a pocket): up two blocks, over its cloud (it's a disc half a block thick)
                 again(g, true); g.tasks.addFirst(new Task.Pillar(2));
                 say(g, s, "up out of the breath", "nowhere to step at " + g.blockPosition().toShortString() + ": two blocks up, over the cloud"); return true; }
@@ -171,6 +176,7 @@ public final class DragonFight {
     public static boolean dragonsHit(ClaudeEntity g, UUID who) { if (sts == null || !sts.containsKey(g.getUUID()) || g.level().dimension() != Level.END) return false; var e = ((ServerLevel) g.level()).getEntity(who); return e instanceof EnderDragon || e instanceof net.minecraft.world.entity.boss.EnderDragonPart || e instanceof net.minecraft.world.entity.projectile.DragonFireball || e instanceof AreaEffectCloud; }
     /** In the End, a breath cloud on him (within its radius and a block). */
     public static boolean breathOn(ClaudeEntity g) { if (g.level().dimension() != Level.END) return false; for (AreaEffectCloud c : g.level().getEntitiesOfClass(AreaEffectCloud.class, g.getBoundingBox().inflate(8), a -> a.getParticle().getType() == ParticleTypes.DRAGON_BREATH)) if (c.position().distanceTo(g.position()) <= c.getRadius() + 1.0) return true; return false; }
+    static boolean headRoom(ServerLevel level, ClaudeEntity g) { BlockPos f = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); for (int k = 2; k <= 3; k++) if (!level.getBlockState(f.above(k)).getCollisionShape(level, f.above(k)).isEmpty()) return false; return true; }
     /** The nearest cell he can walk to, out of the cloud by a block and a half (searched over the ground round him, never "straight away" into rock or void). */
     static BlockPos outOf(ServerLevel level, ClaudeEntity g, AreaEffectCloud c) {
         BlockPos f = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); ArrayDeque<BlockPos> q = new ArrayDeque<>(); Set<Long> seen = new HashSet<>(); q.add(f); seen.add(f.asLong());
@@ -222,7 +228,7 @@ public final class DragonFight {
         if (g.isUsingItem() && g.getUseItem().is(Items.BOW)) g.stopUsingItem();
         if (!g.onGround()) return false;
         EndCrystal c = crystals.stream().min(Comparator.comparingDouble((EndCrystal x) -> caged(level, x) ? 1 : 0).thenComparingDouble(x -> x.distanceToSqr(g))).orElse(null); // (the open ones first: a cage means a pillar under the dragon's fire)
-        if (caged(level, c) && !s.opened.contains(c.getUUID())) return cage(g, level, s, c); // (an opened cage: shot like the rest, from a spot in line with its gap)
+        if (caged(level, c) && !s.opened.contains(c.getUUID())) { BlockPos fe = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); if (s.base != null && fe.getY() - s.base.getY() > 2) return down(g, s, "to the caged crystal at " + c.blockPosition().toShortString()); return cage(g, level, s, c); } // (off his shooting pillar first: a cage is climbed from its tower's foot) // (an opened cage: shot like the rest, from a spot in line with its gap)
         // none in sight: a spot on the island with a clear line to it, from the ground or a few blocks up a pillar there (a tall tower's rim hides its crystal from close by), the cheapest walk and climb
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
         if (s.vantage == null || ticks % 600 == 0) {
@@ -275,6 +281,8 @@ public final class DragonFight {
             ClaudeMod.LOGGER.info("[Claude dragon] the tower at {}: round it {} (DragonFight.cage)", cb.toShortString(), sb); }
         if (foot == null) { say(g, s, "no foot to the tower", "the caged crystal at " + cb.toShortString() + ": no end stone beside its tower"); return false; }
         if (foot.distSqr(BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ())) > 2) { again(g, true); g.tasks.addFirst(new Task.GoTo(foot, 0.4)); say(g, s, "to the caged crystal's tower", "its foot at " + foot.toShortString()); return true; }
+        if (g.getHealth() < 16 && g.getFoodData().getFoodLevel() < 20) { var food = com.claudemod.director.ClaudeLife.foodToEat(g, false); if (food != null) { again(g, true); g.tasks.addFirst(new Task.Eat(food)); say(g, s, "eating before the climb", "health " + (int) g.getHealth()); return true; } }
+        if (g.isUsingItem()) g.stopUsingItem();
         s.cageBase = foot;
         int up = cb.getY() - foot.getY() - 1;
         g.tasks.add(new Task.Pillar(up)); again(g, false);

@@ -13069,7 +13069,7 @@ public final class ClaudeLife {
      */
     /** Endermen are worth a fight only at the pearl stage (blaze rods or powder in hand, under 12 pearls and eyes) and geared: iron+ chest and sword, 4+ food, health 16+. */
     /** Pearls (and eyes) the trip needs: 12 eyes for an empty portal frame and 2 spares for the throws that break (the user's pearl stage). */
-    public static int pearlsWanted(ClaudeEntity g) { return 14; }
+    public static int pearlsWanted(ClaudeEntity g) { return com.claudemod.entity.life.PortalMap.endPortal(g) != null ? 0 : 14; } // (the End portal lit: the eyes are in its frames, no pearl hunt; live 01:06, ender_pearls x12 straight after "portal's lit")
     public static boolean endermanTime(ClaudeEntity g) {
         int blaze = g.inventory.count(x -> x.is(Items.BLAZE_ROD) || x.is(Items.BLAZE_POWDER)), pearls = g.inventory.count(x -> x.is(Items.ENDER_PEARL) || x.is(Items.ENDER_EYE));
         if (blaze == 0 && g.level() instanceof net.minecraft.server.level.ServerLevel sl) blaze = com.claudemod.entity.life.ChestLedger.count(g, sl, Items.BLAZE_ROD) + com.claudemod.entity.life.ChestLedger.count(g, sl, Items.BLAZE_POWDER); // his chests count (the stash put both rods away and the pearl hunt refused on "no rod on me", 01:36)

@@ -32,7 +32,7 @@ public final class StrongholdRoom {
         final Set<BlockPos> frames = new HashSet<>();
         final Map<Long, Integer> presses = new HashMap<>(); // button presses per iron door
         final Set<UUID> ownFish = new HashSet<>(); // silverfish that came out of the walls by him (a block he broke, a fight's call): no sign of the spawner
-        BlockPos spawner, going, door, lastGo, lastFrom, doorFrom; int goes, eyesIn, holes, clears, inTries;
+        BlockPos spawner, going, door, lastGo, lastFrom, doorFrom, wayIn; int goes, eyesIn, holes, clears, inTries;
     }
     private static Map<UUID, Run> runs; // (static: fields added live start null)
     static Run run(ClaudeEntity g) { if (runs == null) runs = new HashMap<>(); return runs.computeIfAbsent(g.getUUID(), k -> new Run()); }
@@ -74,6 +74,7 @@ public final class StrongholdRoom {
         BlockPos f = feet(g);
         for (BlockPos q : BlockPos.betweenClosed(f.offset(-16, -7, -16), f.offset(16, 5, 16))) {
             BlockState s = level.getBlockState(q);
+            if (s.is(Blocks.END_PORTAL) && (PortalMap.endPortal(g) == null || !PortalMap.endPortal(g).closerThan(q, 6))) PortalMap.noteEnd(g, q, r.wayIn != null ? r.wayIn : EyeHunt.found(g)); // (seen lit: remembered, saved)
             if (s.is(Blocks.END_PORTAL_FRAME) && !r.frames.contains(q) && sees(g, level, Vec3.atCenterOf(q).add(0, 0.3, 0), q)) r.frames.add(q.immutable());
             else if (s.is(Blocks.SPAWNER) && r.spawner == null && sees(g, level, Vec3.atCenterOf(q), q)) { r.spawner = q.immutable(); ClaudeMod.LOGGER.info("[Claude stronghold] a spawner in sight at {} (StrongholdRoom.look)", r.spawner.toShortString()); }
             else if (!r.known.contains(q.asLong()) && !s.is(Blocks.IRON_DOOR) && standable(level, q) && sees(g, level, Vec3.atCenterOf(q), null)) r.known.add(q.asLong()); // (an iron door is never on the map as a way: shut, it's a wall till its button)
@@ -97,6 +98,17 @@ public final class StrongholdRoom {
         Skills.Step again = new Skills.Step("light_end_portal", st.target(), st.count(), st.where());
         if (++r.goes > 600) return "failed: 600 goes in the stronghold and the portal isn't lit (" + r.known.size() + " cells seen, " + r.frames.size() + " frames)";
         BlockPos f = feet(g);
+        BlockPos lit = PortalMap.endPortal(g);
+        if (lit != null && level.getBlockState(lit).is(Blocks.END_PORTAL) || lit != null && !level.isLoaded(lit)) { // lit already (by him, before a restart too): back to it — through his way in and its corridors, the portal itself the guide
+            if (lit.distSqr(f) <= 5 * 5) return "done: at the lit end portal, " + lit.toShortString();
+            BlockPos in = PortalMap.endWayIn(g);
+            if (level.isLoaded(lit)) look(g, level, r);
+            if (in != null && in.distSqr(f) > 2 * 2 && r.known.isEmpty() && in.distSqr(f) <= 40 * 40) { r.going = null; g.tasks.add(new Task.GoTo(in, 0.5)); g.skillQueue.addFirst(again); return "back to the lit end portal: in by my way in at " + in.toShortString(); } // (outside it still: in by his own hole, not a new one)
+            if (in != null && in.distSqr(f) > 40 * 40) { r.going = null; Vec3 dv = Vec3.atCenterOf(in).subtract(g.position()); double len = dv.length(), leg = Math.min(len, 96); BlockPos step = len <= 96 ? in : BlockPos.containing(g.getX() + dv.x / len * leg, g.getY() + dv.y / len * leg, g.getZ() + dv.z / len * leg);
+                g.tasks.add(new Task.GoTo(step, len <= 96 ? 1.0 : 3.0)); g.skillQueue.addFirst(again); return "back to the lit end portal: to my way into its stronghold at " + in.toShortString() + ", " + (int) len + " to go"; }
+            if (level.isLoaded(lit)) { BlockPos best = null; for (long k : r.known) { BlockPos q = BlockPos.of(k); if (q.distSqr(lit) <= 4 * 4 && (best == null || q.distSqr(lit) < best.distSqr(lit))) best = q; }
+                if (best != null && reach(g, r).containsKey(best.asLong())) { r.going = best; g.tasks.add(new Task.GoTo(best, 0.5)); g.skillQueue.addFirst(again); return "back to the lit end portal: on to " + best.toShortString(); } }
+        }
         if (r.going != null && r.going.equals(r.lastGo) && f.equals(r.lastFrom)) { r.failed.add(r.going.asLong()); ClaudeMod.LOGGER.info("[Claude stronghold] the walk to {} ended with him still at {}: another way (StrongholdRoom)", r.going.toShortString(), f.toShortString()); }
         if (r.going != null) { r.lastGo = r.going; r.lastFrom = f; }
         if (r.going != null) { if (r.going.distSqr(f) > 2.5 * 2.5 || r.going.distSqr(f) <= 1 && !r.known.contains(r.going.asLong()) && !sees(g, level, Vec3.atCenterOf(r.going), null)) { r.failed.add(r.going.asLong()); ClaudeMod.LOGGER.info("[Claude stronghold] didn't get to {} (stopped at {}): another way (StrongholdRoom)", r.going.toShortString(), f.toShortString()); } r.going = null; }
@@ -105,6 +117,7 @@ public final class StrongholdRoom {
             BlockPos to = from == null ? a : (a.distSqr(from) >= b.distSqr(from) ? a : b);
             if (open(level, to) && open(level, to.above())) { r.doorFrom = null; g.tasks.add(new Task.GoTo(to.immutable(), 0.4)); g.skillQueue.addFirst(again); ClaudeMod.LOGGER.info("[Claude stronghold] standing in the doorway at {}: out to {} (StrongholdRoom)", f.toShortString(), to.toShortString()); return "out of the doorway to " + to.toShortString(); } } }
         look(g, level, r);
+        if (r.wayIn == null && r.known.contains(f.asLong())) r.wayIn = f.immutable(); // (the first stronghold cell he stood on: his way in, kept with the lit portal)
         if (!r.frames.isEmpty() || r.spawner != null) { String rm = room(g, level, r, again); if (rm != null) return rm; } // (a stronghold's one spawner is the portal room's: in there)
         if (r.door != null) { BlockPos d = r.door; r.door = null; String s = ironDoor(g, level, r, d, again); if (s != null) return s; }
         var reach = reach(g, r);
@@ -146,6 +159,7 @@ public final class StrongholdRoom {
      * out of the walls by him (in a stronghold the only other source is the portal room's spawner). The latest of the two.
      */
     static Vec3 cue(ClaudeEntity g, ServerLevel level, Run r) {
+        if (PortalMap.endPortal(g) != null && PortalMap.endPortal(g).distSqr(g.blockPosition()) < 96 * 96) return Vec3.atCenterOf(PortalMap.endPortal(g)); // (he lit it: he knows where it is)
         for (var sf : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Silverfish.class, g.getBoundingBox().inflate(6), net.minecraft.world.entity.Entity::isAlive)) r.ownFish.add(sf.getUUID()); // (on him: out of a block he broke, or called from the walls by a fight)
         if (r.ownFish.size() > 256) r.ownFish.clear();
         var lava = Perception.lavaHeardNear(g, g.position(), 48, 20 * 600);
@@ -178,7 +192,7 @@ public final class StrongholdRoom {
             BlockPos in = a.relative(d); boolean inside = open(level, in) || open(level, in.above());
             if (!inside) continue; // (the wall's other side is stone too: not the way in)
             for (BlockPos c : new BlockPos[] {b, a}) if (!open(level, c)) g.tasks.add(new Task.Break(c.immutable()));
-            r.holes++; g.tasks.add(new Task.GoTo(a.immutable(), 0.4)); g.skillQueue.addFirst(again); // (and into the hole: its floor is the stronghold's, his pocket's isn't)
+            r.holes++; r.wayIn = a.immutable(); g.tasks.add(new Task.GoTo(a.immutable(), 0.4)); g.skillQueue.addFirst(again); // (and into the hole: its floor is the stronghold's, his pocket's isn't)
             ClaudeMod.LOGGER.info("[Claude stronghold] a hole in its wall at {} going {}: in (StrongholdRoom.breakIn)", a.toShortString(), d.getName());
             return "breaking into the stronghold: a hole in its wall going " + d.getName();
         }
@@ -186,7 +200,7 @@ public final class StrongholdRoom {
         if (EyeHunt.strongholdBlock(level.getBlockState(below))) {
             int drop = 0; BlockPos q = below.below(); while (drop < 8 && open(level, q)) { q = q.below(); drop++; }
             if (drop >= 1 && drop <= 5 && level.getFluidState(q).isEmpty() && level.getFluidState(q.above()).isEmpty()) {
-                r.holes++; g.tasks.add(new Task.Break(below.immutable())); g.tasks.add(new Task.GoTo(q.above().immutable(), 0.6)); g.skillQueue.addFirst(again);
+                r.holes++; r.wayIn = below.immutable(); g.tasks.add(new Task.Break(below.immutable())); g.tasks.add(new Task.GoTo(q.above().immutable(), 0.6)); g.skillQueue.addFirst(again);
                 ClaudeMod.LOGGER.info("[Claude stronghold] its roof under him at {}, a {}-block drop to its floor: in (StrongholdRoom.breakIn)", below.toShortString(), drop);
                 return "breaking into the stronghold through its roof (a " + drop + "-block drop)";
             }
@@ -199,7 +213,7 @@ public final class StrongholdRoom {
             BlockPos side = f.relative(d);
             for (BlockPos c : new BlockPos[] {side.above(), side}) if (!open(level, c)) { if (level.getBlockState(c).getDestroySpeed(level, c) < 0 || EyeHunt.strongholdBlock(level.getBlockState(c))) { side = null; break; } g.tasks.add(new Task.Break(c.immutable())); }
             if (side == null) continue;
-            r.holes++; g.tasks.add(new Task.Break(nb.immutable())); g.tasks.add(new Task.GoTo(q.above().immutable(), 0.6)); g.skillQueue.addFirst(again); // (to the floor under the hole: the walker never walks onto air, it plans the drop)
+            r.holes++; r.wayIn = nb.immutable(); g.tasks.add(new Task.Break(nb.immutable())); g.tasks.add(new Task.GoTo(q.above().immutable(), 0.6)); g.skillQueue.addFirst(again); // (to the floor under the hole: the walker never walks onto air, it plans the drop)
             ClaudeMod.LOGGER.info("[Claude stronghold] its roof under him at {} is solid below; beside it at {} a {}-block drop: the rock over it cleared, down through it (StrongholdRoom.breakIn)", below.toShortString(), nb.toShortString(), drop);
             return "breaking into the stronghold through its roof beside me (a " + drop + "-block drop)";
         }
@@ -278,6 +292,7 @@ public final class StrongholdRoom {
         if (empty.isEmpty() && r.frames.size() >= 12) {
             BlockPos portal = null; for (BlockPos p : r.frames) for (BlockPos q : BlockPos.betweenClosed(p.offset(-4, -1, -4), p.offset(4, 1, 4))) if (level.getBlockState(q).is(Blocks.END_PORTAL)) { portal = q.immutable(); break; }
             if (portal == null) return "failed: all 12 frames have eyes and no portal opened (" + r.frames.size() + " frames seen)";
+            PortalMap.noteEnd(g, portal, r.wayIn != null ? r.wayIn : EyeHunt.found(g));
             ClaudeMod.LOGGER.info("[Claude stronghold] the end portal is lit at {}: {} eyes of mine in, {} left (StrongholdRoom)", portal.toShortString(), r.eyesIn, eyes);
             return "done: the end portal is lit at " + portal.toShortString() + " (" + r.eyesIn + " eyes put in, " + eyes + " left)";
         }

@@ -10367,6 +10367,8 @@ public final class ClaudeBodyTest {
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
             case 560: return st560(stage, t, c, h, level, mock);
+            case 561: return st561(stage, t, c, h, level, mock);
+            case 562:
             case 559:
             case 558: return st558(stage, t, c, h, level, mock);
             case 557: return st557(stage, t, c, h, level, mock);
@@ -11126,7 +11128,7 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
-    private static net.minecraft.world.level.levelgen.structure.StructureStart shStart; private static int s558T = -1, s558Fill = -1; private static float s558Low = 20f; private static net.minecraft.world.level.levelgen.structure.BoundingBox s558Room;
+    private static net.minecraft.world.level.levelgen.structure.StructureStart shStart; private static int s558T = -1, s558Fill = -1; private static float s558Low = 20f; private static net.minecraft.world.level.levelgen.structure.BoundingBox s558Room; private static BlockPos s562Start; private static int s562Back = -1;
     /** A real vanilla stronghold at (x, z), made the way /place structure makes one (the flat test world generates none); placed by placeStart. */
     static net.minecraft.world.level.levelgen.structure.StructureStart genStronghold(ServerLevel level, int x, int z) {
         var st = level.registryAccess().registryOrThrow(net.minecraft.core.registries.Registries.STRUCTURE).getOrThrow(net.minecraft.world.level.levelgen.structure.BuiltinStructures.STRONGHOLD);
@@ -11167,10 +11169,22 @@ public final class ClaudeBodyTest {
                     for (int yy = 0; yy <= 2; yy++) level.setBlock(r0.above(yy), Blocks.AIR.defaultBlockState(), 2 | 16); }
                 BlockPos top = in; // his staircase: 3 steps up away from the wall, and he starts on the top one (live 2026-11-02: he'd stepped 3 up it and the bricks weren't beside him)
                 for (int k = stage[0] == 559 ? 1 : 2; k <= 4; k++) { top = in.relative(out, k).above(stage[0] == 559 ? k : k - 1); for (int yy = 0; yy <= 2; yy++) level.setBlock(top.above(yy), Blocks.AIR.defaultBlockState(), 2 | 16); }
-                c.setNoGravity(false); c.teleportTo(top.getX() + 0.5, top.getY(), top.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.fallDistance = 0; s558T = t[0] + 10; } }
+                c.setNoGravity(false); c.teleportTo(top.getX() + 0.5, top.getY(), top.getZ() + 0.5); s562Start = top.immutable(); s562Back = -1; com.claudemod.entity.life.Watchdog.teleported(c); c.fallDistance = 0; s558T = t[0] + 10; } }
         if (s558T > 0 && t[0] == s558T) c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("light_end_portal", "", 1));
-        if (s558T > 0 && t[0] > s558T) { s558Low = Math.min(s558Low, c.getHealth()); if (t[0] % 40 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, c.getBoundingBox().inflate(48), m -> !(m instanceof net.minecraft.world.entity.monster.Silverfish))) m.discard();
+        if (s558T > 0 && t[0] > s558T) { if (stage[0] == 562 && t[0] == s558T + 1) com.claudemod.entity.life.PortalMap.load(c, new net.minecraft.nbt.CompoundTag()); s558Low = Math.min(s558Low, c.getHealth()); if (t[0] % 40 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, c.getBoundingBox().inflate(48), m -> !(m instanceof net.minecraft.world.entity.monster.Silverfish))) m.discard();
             boolean lit = false; if (s558Room != null && t[0] % 20 == 0) for (BlockPos q : BlockPos.betweenClosed(s558Room.minX(), s558Room.minY(), s558Room.minZ(), s558Room.maxX(), s558Room.maxY(), s558Room.maxZ())) if (level.getBlockState(q).is(Blocks.END_PORTAL)) { lit = true; break; }
+            if (stage[0] == 562 && s562Back < 0 && lit && com.claudemod.entity.life.PortalMap.endPortal(c) == null && t[0] < s558T + 20 * 600) return true; // (his own look notes it, a skill call after the last eye)
+            if (stage[0] == 562 && lit && s562Back < 0) { // the restart: his memory through a save and load, his map of seen cells gone, back at his staircase's top; then "light_end_portal" again walks him back to it
+                var tag = com.claudemod.entity.life.PortalMap.save(c); com.claudemod.entity.life.PortalMap.load(c, tag); com.claudemod.entity.life.StrongholdRoom.reset(c); com.claudemod.entity.life.EyeHunt.reset(c);
+                check(com.claudemod.entity.life.PortalMap.endPortal(c) != null, "end portal: not remembered through a save and load");
+                c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(s562Start.getX() + 0.5, s562Start.getY(), s562Start.getZ() + 0.5);
+                s562Back = t[0]; c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("light_end_portal", "", 1)); return true; }
+            if (stage[0] == 562 && s562Back > 0) { BlockPos ep = com.claudemod.entity.life.PortalMap.endPortal(c); boolean back = ep != null && c.blockPosition().distSqr(ep) <= 6 * 6;
+                if (back || t[0] == s562Back + 20 * 300 || !c.isAlive()) { check(back, "end portal: not back at it in 300 s after the restart (at " + c.blockPosition().toShortString() + ", portal " + ep + ", last " + c.lastSkillLine + ")");
+                    String how = "the portal lit, remembered through a save and load, walked back to it in " + (t[0] - s562Back) / 20 + " s";
+                    c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); s562Back = -1;
+                    com.claudemod.entity.life.Watchdog.teleported(c); if (c.isAlive()) c.teleportTo(mock[0].getX(), mock[0].getY(), mock[0].getZ()); pass(stage, t, how); }
+                return true; }
             if (lit || !c.isAlive() || t[0] == s558T + 20 * 600) {
                 check(c.isAlive(), "end portal: he died (low " + s558Low + ")");
                 check(lit, "end portal: not lit in 600 s (at " + c.blockPosition().toShortString() + ", room " + s558Room + ", " + com.claudemod.entity.life.StrongholdRoom.known(c) + " cells seen, " + com.claudemod.entity.life.StrongholdRoom.eyesIn(c) + " eyes in, task " + c.currentTask + ", last " + c.lastSkillLine + ")");
@@ -11179,6 +11193,17 @@ public final class ClaudeBodyTest {
                 com.claudemod.entity.life.Watchdog.teleported(c); if (c.isAlive()) c.teleportTo(mock[0].getX(), mock[0].getY(), mock[0].getZ());
                 pass(stage, t, how);
             } }
+        return true;
+    }
+    private static boolean st561(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // probe: the test server's End
+        ServerLevel end = level.getServer().getLevel(net.minecraft.world.level.Level.END);
+        if (t[0] == 1) { check(end != null, "no End level"); if (end == null) { pass(stage, t, "no end"); return true; }
+            scenarioReset(c); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(end, 100.5, 70, 0.5, 0, 0); c.setNoGravity(true); }
+        if (t[0] == 200) { var fight = end.getDragonFight(); var dragons = end.getDragons(); var crystals = end.getEntitiesOfClass(net.minecraft.world.entity.boss.enderdragon.EndCrystal.class, new net.minecraft.world.phys.AABB(-60, 0, -60, 60, 140, 60));
+            int top = end.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, 0, 0), plat = 0; for (BlockPos q : BlockPos.betweenClosed(98, 47, -2, 102, 49, 2)) if (end.getBlockState(q).is(Blocks.OBSIDIAN)) plat++;
+            StringBuilder sb = new StringBuilder(); for (var cr : crystals) sb.append(cr.blockPosition().toShortString()).append(end.getBlockState(cr.blockPosition().above(2)).is(Blocks.IRON_BARS) || end.getBlockState(cr.blockPosition().north()).is(Blocks.IRON_BARS) ? " caged" : "").append("; ");
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude test] end probe: fight {} dragons {} crystals {} [{}] island top at 0,0: {} platform obsidian {} he in {} at {}", fight != null, dragons.size(), crystals.size(), sb, top, plat, c.level().dimension().location(), c.blockPosition().toShortString());
+            c.setNoGravity(false); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0); pass(stage, t, "probe"); }
         return true;
     }
     private static int shT = -1; private static float shLow = 20f; private static BlockPos shRoom;

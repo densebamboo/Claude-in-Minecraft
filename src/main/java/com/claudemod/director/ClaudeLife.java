@@ -2430,7 +2430,13 @@ public final class ClaudeLife {
             }
             case "strip_mine": {
                 if (level.dimension() != net.minecraft.world.level.Level.OVERWORLD) return "failed: my mine's in the overworld, not here in " + level.dimension().location().getPath(); /* (see ownMine) */
-                if (bpMode(g)) return bpStripMine(g, player, level, st, target, count);
+                if (bpMode(g)) { // ponytail: ore mined for the craft queued next stays on till the count is in (bag + his chests); one pass then the craft failed "missing diamond" 3x and asked them for help (live 22:28)
+                    Item want = oreDrop(target); boolean forCraft = want != null && !st.where().equals("looked_at") && !g.skillQueue.isEmpty() && g.skillQueue.peekFirst().skill().equals("craft");
+                    if (forCraft && haveFor(g, level, want) >= Math.max(1, count)) return "done: already have " + haveFor(g, level, want) + " " + Crafting.name(want);
+                    String r = bpStripMine(g, player, level, st, target, count);
+                    if (forCraft && !r.startsWith("failed") && !r.startsWith("done") && !g.skillQueue.contains(st)) { g.skillQueue.addFirst(st); ClaudeMod.LOGGER.info("[Claude skill] strip_mine {}: {} of {} {} so far, the step stays on before the craft", target, haveFor(g, level, want), count, Crafting.name(want)); }
+                    return r;
+                }
                 if ((target.contains("cobble") || target.equals("stone") || target.equals("rock")) && g.inventory.count(s0 -> s0.is(ItemTags.STONE_TOOL_MATERIALS)) >= Math.max(1, count)) // rock: done once he has it (the ore check below doesn't know cobble: "strip_mine cobble x4" ran three full ribs with 125 cobble in his pack)
                     return "done: already have " + g.inventory.count(s0 -> s0.is(ItemTags.STONE_TOOL_MATERIALS)) + " cobblestone";
                 // already carrying what this was for (raw iron for iron ore, diamonds for diamond ore...): done, on to the next step

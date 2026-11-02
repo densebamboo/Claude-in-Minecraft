@@ -151,9 +151,12 @@ public final class DragonFight {
             return false;
         }
         // his clutch water first: an empty bucket and water in reach (the bow drawn at once left it behind, and the next fall had none)
-        if (g.onGround() || g.isInWater()) { boolean empty = count(g, x -> x.is(Items.BUCKET)) > 0 && count(g, x -> x.is(Items.WATER_BUCKET)) == 0;
+        if (g.onGround() || g.isInWater()) { boolean empty = count(g, x -> x.is(Items.BUCKET)) > 0; // (any empty bucket: with one full and one empty the second clutch's water was never scooped, live 03:48)
             if (empty) { boolean near = false; for (BlockPos q : BlockPos.betweenClosed(g.blockPosition().offset(-3, -2, -3), g.blockPosition().offset(3, 1, 3))) if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.WATER) && level.getFluidState(q).isSource()) { near = true; break; }
-                if (near) { if (g.isUsingItem()) g.stopUsingItem(); g.getNavigation().stop(); com.claudemod.director.ClaudeLife.fillBucket(g, level); say(g, s, "my water back", "the clutch's water scooped up before anything else"); return false; } } }
+                if (near) { if (g.isUsingItem()) g.stopUsingItem(); g.getNavigation().stop(); com.claudemod.director.ClaudeLife.fillBucket(g, level); say(g, s, "my water back", "the clutch's water scooped up before anything else"); return false; }
+                if (g.tickCount % 20 == 0 && g.level().dimension() == Level.END) { BlockPos w = null; // (the End has no water of its own: any source near is his clutch's, left behind by a breath escape)
+                    for (BlockPos q : BlockPos.betweenClosed(g.blockPosition().offset(-16, -24, -16), g.blockPosition().offset(16, 8, 16))) if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.WATER) && level.getFluidState(q).isSource() && (w == null || q.distSqr(g.blockPosition()) < w.distSqr(g.blockPosition()))) w = q.immutable();
+                    if (w != null && !breathOn(g)) { again(g, true); g.tasks.removeIf(t -> t instanceof Task.GoTo || t instanceof Task.Pillar || t instanceof Task.Leap); g.tasks.addFirst(new Task.GoTo(w, 2.0)); say(g, s, "to my water", "an empty bucket and my clutch's water at " + w.toShortString() + ", " + (int) Math.sqrt(w.distSqr(g.blockPosition())) + " off"); return true; } } } }
         // hurt: eat (a meal on hand) before anything else
         if (g.getHealth() <= 10 && g.onGround() && g.getFoodData().getFoodLevel() < 20) { var food = com.claudemod.director.ClaudeLife.foodToEat(g, g.getHealth() <= 6);
             if (food != null) { if (g.isUsingItem()) g.stopUsingItem(); again(g, true); g.tasks.addFirst(new Task.Eat(food)); say(g, s, "eating", "health " + (int) g.getHealth()); return true; } }

@@ -185,17 +185,17 @@ public class WorkGoal extends Goal {
         if (g.isInLava()) {
             if (current != null) { clearCrack(); g.tasks.addFirst(current); current = null; g.currentTask = null; }
             var lv = g.level(); BlockPos me = g.blockPosition(), out = null; double bd = Double.MAX_VALUE;
-            for (BlockPos q : BlockPos.betweenClosed(me.offset(-3, -1, -3), me.offset(3, 1, 3))) {
+            for (BlockPos q : BlockPos.betweenClosed(me.offset(-6, -1, -6), me.offset(6, 1, 6))) { // ponytail: 6 out, not 3 (live 19:53 World 15: fell into a Nether lava lake, no dry cell within 3, he only jumped till he died)
                 if (!lv.getFluidState(q).isEmpty() || !lv.getFluidState(q.above()).isEmpty()) continue;
                 if (!lv.getBlockState(q).getCollisionShape(lv, q).isEmpty() || !lv.getBlockState(q.above()).getCollisionShape(lv, q.above()).isEmpty()) continue;
                 if (!lv.getBlockState(q.below()).isFaceSturdy(lv, q.below(), Direction.UP)) continue;
                 if (lavaOutBad.containsKey(q) && g.tickCount - lavaOutBad.get(q) < 20 * 4) continue; // (a step he couldn't make just now: another way out, never the same failing step till he burns: live 06:53 World 15)
-                double d = q.distSqr(me) + (dryCells.contains(q) ? -6 : 0) + (q.getY() < me.getY() ? 8 : 0) + (lv.clip(new net.minecraft.world.level.ClipContext(g.getEyePosition(), Vec3.atCenterOf(q), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getType() == net.minecraft.world.phys.HitResult.Type.MISS ? 0 : 50); // (a wall between: last resort)
-                if (d >= 50 && q.distSqr(me) > 2) continue; // (behind a wall and not beside him: no way out at all, the wall dig below is; 1.5 s lost walking at one in a sealed pocket)
+                double d = q.distSqr(me) + (dryCells.contains(q) ? -6 : 0) + (q.getY() < me.getY() ? 8 : 0) + (lv.clip(new net.minecraft.world.level.ClipContext(g.getEyePosition(), Vec3.atCenterOf(q), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getType() == net.minecraft.world.phys.HitResult.Type.MISS ? 0 : 1000); // (a wall between: last resort)
+                if (d >= 1000 && q.distSqr(me) > 2) continue; // (behind a wall and not beside him: no way out at all, the wall dig below is; 1.5 s lost walking at one in a sealed pocket)
                 if (d < bd) { bd = d; out = q.immutable(); }
             }
             if (out != null && !out.equals(lavaOut)) { lavaOut = out; lavaOutSince = g.tickCount; }
-            if (out != null && g.tickCount - lavaOutSince > 30) { lavaOutBad.put(out, g.tickCount); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}: 1.5 s and not onto {}: that way's no good, another (WorkGoal.reflexes)", me.toShortString(), out.toShortString()); lavaOut = null; }
+            if (out != null && g.tickCount - lavaOutSince > 30 + 15 * (int) Math.sqrt(out.distSqr(me))) { lavaOutBad.put(out, g.tickCount); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}: 1.5 s and not onto {}: that way's no good, another (WorkGoal.reflexes)", me.toShortString(), out.toShortString()); lavaOut = null; }
             if (g.tickCount % 20 < 2) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}: getting out{}", me.toShortString(), out == null ? " (no dry cell near: jumping)" : " to " + out.toShortString() + (dryCells.contains(out) ? " (where he came from)" : ""));
             g.getNavigation().stop();
             if (out == null && g.tickCount - lavaDigTick > 4) { // no dry cell round him (a sealed pocket the lava came into, World 15 22:08: 17 s and dead): out through the wall, the side with no lava behind it, like a player
@@ -4675,7 +4675,8 @@ public class WorkGoal extends Goal {
             if (em.getTarget() != g && d >= 8) { if (g.tickCount - emSaid > 100) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman {} off isn't on him: out of the hole to bait it (WorkGoal.endermanHole)", (int) d); } return null; } // ponytail: live 14:46 -29,47,-882: waited in the nook for a calm one 15 off; cover only while one is engaged (the user 14:25), so out to bait it, back in when it comes
             if (em.getTarget() == g && !emHitSpot(level, f)) { if (g.tickCount - emSaid > 100) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] my hole at {} has nowhere an enderman can stand in my reach: out to fight it (WorkGoal.endermanHole)", f.toShortString()); } return null; }
             if (em.getTarget() == g && ticks > 200 && em.getY() < g.getY() - 3 && g.hasLineOfSight(em)) { if (g.tickCount - emSaid > 100) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman on me is {} below in sight for 10 s+ and can't climb to me: out of the hole to go down to it (WorkGoal.endermanHole)", (int) (g.getY() - em.getY())); } return null; } // ponytail: live 19:33 -32,62,-910, one 4 below in a pit, in sight, angry: the wait (and FIGHT NO EFFECT, re-picked) looped 5 min; the fight's drop-in takes it
-            if (em.getTarget() == g && ticks > 200 && Math.abs(em.getY() - g.getY()) > 3 && !g.hasLineOfSight(em)) { com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman on me sits {} below/above out of sight at {} for 10 s+, no way to me: leaving it, on with the hunt (WorkGoal.endermanHole)", (int) (em.getY() - g.getY()), em.blockPosition().toShortString()); return true; } // ponytail: live 19:23 -29,47,-882: one 7 down in a cave under him, angry, 60 s+ of waiting; a player leaves it (it teleports to him if it can)
+            if (em.getTarget() == g && ticks > 200 && !g.hasLineOfSight(em)) { // (live 19:48 -53,45,-893: one 2 up, 6 off, out of sight 30 s, never came: any height, not only 3+)
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman on me sits {} below/above out of sight at {} for 10 s+, no way to me: leaving it, on with the hunt (WorkGoal.endermanHole)", (int) (em.getY() - g.getY()), em.blockPosition().toShortString()); return true; } // ponytail: live 19:23 -29,47,-882: one 7 down in a cave under him, angry, 60 s+ of waiting; a player leaves it (it teleports to him if it can)
             if (d > 24) { if (g.tickCount - emSaid > 100) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman went off {} away: out of the hole (WorkGoal.endermanHole)", (int) d); } return true; }
             if (g.getHealth() < 8) { var food = com.claudemod.director.ClaudeLife.foodToEat(g, false); if (food != null) { g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(food)); return true; } }
             if (canHitNow(em)) { g.getLookControl().setLookAt(em.getX(), em.getY() + 0.6, em.getZ()); g.attack(em); g.swing(InteractionHand.MAIN_HAND); }
@@ -4691,6 +4692,7 @@ public class WorkGoal extends Goal {
                 if (!solidAt(level, c.below()) || solidAt(level, c) || solidAt(level, c.above()) || !solidAt(level, c.above(2)) || !level.getFluidState(c).isEmpty()) continue;
                 boolean open = false; for (int ex = -1; ex <= 1 && !open; ex++) for (int ez = -1; ez <= 1 && !open; ez++) for (int ey = -1; ey <= 1 && !open; ey++) { if (ex == 0 && ez == 0) continue; BlockPos q = c.offset(ex, ey, ez); if (solidAt(level, q.below()) && !solidAt(level, q) && !solidAt(level, q.above()) && !solidAt(level, q.above(2))) open = true; }
                 if (open || !emHitSpot(level, c)) continue;
+                { var ep = em.getNavigation().createPath(c, 2); if (ep == null || !ep.canReach()) continue; } // ponytail: the user 20:2x "only works if they can path up to you": its own 3-high walk to a cell 2 off the nook, else it never comes (it teleports about, or waits out of reach)
                 emHole = c.immutable(); g.tasks.addFirst(new Task.Attack(t.target(), Math.max(400, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.GoTo(c.immutable(), 0.4));
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] an enderman {} off: a natural 2-high nook at {} ({} under it), into it instead of building (WorkGoal.endermanHole)", (int) d, c.toShortString(), name(level.getBlockState(c.above(2))));
                 return true; } }
@@ -4907,6 +4909,7 @@ public class WorkGoal extends Goal {
             g.getJumpControl().jump();
             return false;
         }
+        if (dy > 2.5 && horiz < 3.0 && mob instanceof net.minecraft.world.entity.monster.EnderMan) { g.getNavigation().stop(); g.getLookControl().setLookAt(mob); return false; } // ponytail: an enderman up a tree comes down to him once looked at (it teleports to its target); never pillar after it (live 20:09 -88,74,-890: 6 up a warped stem for one 8 up). The fight clock ends it if it never comes
         if (dy > 1.5 && horiz < 3.0 && !mob.getUUID().equals(lastPillarMob) && g.onGround()) {
             lastPillarMob = mob.getUUID();
             g.setSprinting(false);
@@ -4916,6 +4919,11 @@ public class WorkGoal extends Goal {
         }
         // Otherwise get as close as walking allows, then bridge the rest of the way.
         if (pathGetsCloser(path, mob.position())) { g.setSprinting(true); g.getNavigation().moveTo(path, 1.3); return false; }
+        if (mob instanceof net.minecraft.world.entity.monster.EnderMan && dy > 2.5 && horiz < 16) { // ponytail: an angry enderman up a ledge it can't walk down from teleports to a target 16+ off (vanilla customServerAiStep): back off and it comes (live 20:21, 6 up 6 off, he stood 3 fight clocks under it)
+            Vec3 aw = g.position().subtract(mob.position()).multiply(1, 0, 1); if (aw.lengthSqr() < 1e-4) aw = new Vec3(1, 0, 0); aw = aw.normalize().scale(18 - horiz);
+            if (g.getNavigation().isDone()) { g.setSprinting(true); g.getNavigation().moveTo(g.getX() + aw.x, g.getY(), g.getZ() + aw.z, 1.3); if (g.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman is {} up on a ledge it can't walk down from, {} off: backing off past 16 so it teleports to him (WorkGoal.doAttack)", (int) dy, (int) horiz); }
+            return false;
+        }
         g.setSprinting(false);
         bridgeToward(mob.position());
         return false;
@@ -5045,7 +5053,7 @@ public class WorkGoal extends Goal {
         Vec3 away = g.position().subtract(mob.position()).multiply(1, 0, 1); if (away.lengthSqr() < 1e-4) return null; away = away.normalize();
         boolean fire = level.getBlockState(feet).is(net.minecraft.tags.BlockTags.FIRE);
         boolean shooter = mob instanceof net.minecraft.world.entity.monster.RangedAttackMob || mob instanceof net.minecraft.world.entity.monster.Blaze || mob instanceof net.minecraft.world.entity.monster.Ghast; // (an arrow or fireball throws him from range: World 15 13:51, a skeleton's arrow off a lip, 22 down)
-        boolean throwsHim = shooter ? mob.distanceTo(g) <= 24 && g.hasLineOfSight(mob) : mob.distanceTo(g) <= 4; // (a melee mob only in reach: live 14:45 an enderman 15 off stepped him back and forth against the approach, 4 shuffles a second)
+        boolean throwsHim = shooter ? mob.distanceTo(g) <= 24 && g.hasLineOfSight(mob) : mob.distanceTo(g) <= (footingSaid != null ? 6 : 4); // ponytail: 4 to start, 6 to finish the step (live 20:07 -119,76,-936: an enderman at the edge of 4 flipped it on and off, the approach stepped him back onto the lip 7 times in 2 s). (a melee mob only in reach: live 14:45 an enderman 15 off stepped him back and forth against the approach, 4 shuffles a second)
         if (!fire && (!throwsHim || !lipBehind(level, feet, away))) { footingSaid = null; return null; } // ponytail: live 14:45 -36,50,-898: a lip "behind" him from an enderman 15 off; the approach stepped him back onto it, 4 shuffles a second. Only a mob in reach throws him
         BlockPos best = null; double bd = Double.MAX_VALUE;
         for (BlockPos q0 : BlockPos.betweenClosed(feet.offset(-4, -1, -4), feet.offset(4, 1, 4))) { BlockPos q = q0.immutable();
@@ -5640,7 +5648,7 @@ public class WorkGoal extends Goal {
      */
     private boolean canHit(net.minecraft.world.entity.LivingEntity mob) {
         Vec3 eye = g.getEyePosition();
-        for (Vec3 to : new Vec3[] {mob.getBoundingBox().getCenter(), mob.getEyePosition()}) {
+        for (Vec3 to : new Vec3[] {mob.getBoundingBox().getCenter(), mob.getEyePosition(), mob.position().add(0, 0.4, 0)}) { // ponytail: a player hits any part of it; its legs too (live 20:12:06: an enderman hitting him under a wart block "behind rock, let be", 3 hits in 1 s)
             var hit = g.level().clip(new net.minecraft.world.level.ClipContext(eye, to, net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g));
             if (hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS) return true;
         }

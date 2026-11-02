@@ -6855,6 +6855,7 @@ public final class ClaudeLife {
             int inChests = com.claudemod.entity.life.ChestLedger.count(g, level, bi); // (his ledger: the same chests the search above uses)
             if (onHim + inChests < need) return null;
         }
+        if (best.distSqr(g.blockPosition()) > 64 * 64 && !g.tasks.isEmpty()) { ClaudeMod.LOGGER.info("[Claude life] off to his chest at {} ({} off): the work queued here waits for when he passes again: dropped {} (ClaudeLife.fromMyChests)", best.toShortString(), (int) Math.sqrt(best.distSqr(g.blockPosition())), g.tasks); g.tasks.clear(); } // (a nook round queued at 234,-58,237 rode along: diamonds in hand at home, he walked 358 blocks back down for it before the craft, live 23:46)
         g.tasks.add(new Task.GoTo(best, 2)); // (only now: queued before the check, a walk to the chest went ahead even when the fetch was called off)
         g.tasks.add(new Task.Chest(best, true, bi, Math.max(1, need - onHim))); // what the job needs, less what's on him already
         g.skillQueue.addFirst(st);

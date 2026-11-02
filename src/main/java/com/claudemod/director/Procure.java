@@ -96,7 +96,11 @@ public final class Procure {
             String problem = s.need(e.getKey(), e.getValue(), Set.of(), 0);
             if (problem != null) return new Plan(List.of(), problem);
         }
-        return new Plan(merge(s.steps), null, s.fromChests(g));
+        List<Skills.Step> out = merge(s.steps);
+        // strip_mine reads its count as the total held (bag + chests), the solver gives the shortfall: "strip_mine diamond_ore 1" with 4 held said "done" and the helmet craft failed (live 23:14)
+        out.replaceAll(st -> !st.skill().equals("strip_mine") ? st : new Skills.Step(st.skill(), st.target(), st.count() + SOURCES.entrySet().stream()
+                .filter(e -> "strip_mine".equals(e.getValue().skill()) && st.target().equals(e.getValue().target())).mapToInt(e -> s.start.getOrDefault(e.getKey(), 0)).sum()));
+        return new Plan(out, null, s.fromChests(g));
     }
 
     /** "collect logs 3, craft stick 2, craft wooden_pickaxe 1" */

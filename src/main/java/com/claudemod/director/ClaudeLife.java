@@ -8702,6 +8702,7 @@ public final class ClaudeLife {
         }
         if (Crafting.needsTable(level, target)) { // a table standing within 24 (his house's, one he set down a moment ago): walk to it, never another one down (the user: three tables littered 40 blocks from his house's)
             BlockPos far = findNear(level, g.blockPosition(), 24, b -> b.is(Blocks.CRAFTING_TABLE));
+            if (far == null) far = g.myStations.stream().filter(p -> p.distSqr(g.blockPosition()) <= 64 * 64 && level.isLoaded(p) && level.getBlockState(p).is(Blocks.CRAFTING_TABLE)).min(java.util.Comparator.comparingDouble(p -> p.distSqr(g.blockPosition()))).orElse(null); // his own table further down his tunnel: he knows it's there (a pick broke 32 off his mine's table: 15 s of "could not make a crafting table" with 2 planks, live 23:16)
             if (far != null && far.distSqr(g.blockPosition()) > 5 * 5 && (g.attempts.any.get(far.above(700)) == null || g.tickCount - g.attempts.any.get(far.above(700)) > 20 * 60)) { g.attempts.any.put(far.above(700).immutable(), g.tickCount); g.tasks.addFirst(new Task.GoTo(far, 2.0)); return false; }
         }
         BlockPos near = findNear(level, g.blockPosition(), 5, b -> b.is(Blocks.CRAFTING_TABLE));

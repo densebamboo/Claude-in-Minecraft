@@ -760,7 +760,7 @@ public class WorkGoal extends Goal {
             g.getNavigation().stop(); g.getMoveControl().setWantedPosition(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0.5);
             return false;
         }
-        if ((d <= within || (chain && d <= 2.0)) && !onLeavesAbove) {
+        if ((d <= within || (chain && d <= 2.0 && pos.getY() <= feetCell.getY())) && !onLeavesAbove) { // ponytail: live 19:40 -58,79,-901: a route's 1-up step 1.4 off counted as reached in a chain, so the next leg was 2 up and refused, a loop for minutes; a step up is only reached by stepping up
             if (!chain) g.getNavigation().stop();
             return true;
         }
@@ -932,7 +932,7 @@ public class WorkGoal extends Goal {
             }
             if (plan != null) { // a way on foot the vanilla path missed (over a ledge, through an open door): its waypoints
                 var tasks = com.claudemod.entity.nav.ActionPath.tasks(plan, feetCell, net.minecraft.world.item.Items.COBBLESTONE, pos, within);
-                if (tasks.size() > 1) { for (int i = tasks.size() - 1; i >= 0; i--) g.tasks.addFirst(tasks.get(i)); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] route to {} found on foot ({} walks, {} waypoints)", pos.toShortString(), plan.walks(), tasks.size() - 1); return true; }
+                if (tasks.size() > 1) { for (int i = tasks.size() - 1; i >= 0; i--) g.tasks.addFirst(tasks.get(i)); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] route to {} found on foot ({} walks, {} waypoints): acts {} -> {} (WorkGoal.walkTo)", pos.toShortString(), plan.walks(), tasks.size() - 1, plan.acts(), tasks); return true; }
             } else if (towerTo(pos, feetCell, scaff)) { return true;
             } else {
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no way to {} from {} ({}; blocks on him: {}): skipping it", pos.toShortString(), feetCell.toShortString(), mode, scaffoldBlock().getCount());
@@ -4674,6 +4674,7 @@ public class WorkGoal extends Goal {
             g.getLookControl().setLookAt(em.getX(), em.getY() + 0.6, em.getZ()); // (its legs: what reaches down to him)
             if (em.getTarget() != g && d >= 8) { if (g.tickCount - emSaid > 100) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman {} off isn't on him: out of the hole to bait it (WorkGoal.endermanHole)", (int) d); } return null; } // ponytail: live 14:46 -29,47,-882: waited in the nook for a calm one 15 off; cover only while one is engaged (the user 14:25), so out to bait it, back in when it comes
             if (em.getTarget() == g && !emHitSpot(level, f)) { if (g.tickCount - emSaid > 100) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] my hole at {} has nowhere an enderman can stand in my reach: out to fight it (WorkGoal.endermanHole)", f.toShortString()); } return null; }
+            if (em.getTarget() == g && ticks > 200 && em.getY() < g.getY() - 3 && g.hasLineOfSight(em)) { if (g.tickCount - emSaid > 100) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman on me is {} below in sight for 10 s+ and can't climb to me: out of the hole to go down to it (WorkGoal.endermanHole)", (int) (g.getY() - em.getY())); } return null; } // ponytail: live 19:33 -32,62,-910, one 4 below in a pit, in sight, angry: the wait (and FIGHT NO EFFECT, re-picked) looped 5 min; the fight's drop-in takes it
             if (em.getTarget() == g && ticks > 200 && Math.abs(em.getY() - g.getY()) > 3 && !g.hasLineOfSight(em)) { com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman on me sits {} below/above out of sight at {} for 10 s+, no way to me: leaving it, on with the hunt (WorkGoal.endermanHole)", (int) (em.getY() - g.getY()), em.blockPosition().toShortString()); return true; } // ponytail: live 19:23 -29,47,-882: one 7 down in a cave under him, angry, 60 s+ of waiting; a player leaves it (it teleports to him if it can)
             if (d > 24) { if (g.tickCount - emSaid > 100) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman went off {} away: out of the hole (WorkGoal.endermanHole)", (int) d); } return true; }
             if (g.getHealth() < 8) { var food = com.claudemod.director.ClaudeLife.foodToEat(g, false); if (food != null) { g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(food)); return true; } }
@@ -4741,6 +4742,7 @@ public class WorkGoal extends Goal {
         { Boolean cf = coverFight(t, mob); if (cf != null) return cf; }
         { Boolean ft = fightFooting(mob); if (ft != null) return ft; } // (a lip behind him on the side a hit throws him: firm footing first; two Nether deaths in 4 min, World 15 13:48 and 13:51, knocked off mid-fight)
         if (mob instanceof net.minecraft.world.entity.monster.EnderMan em) { Boolean eh = endermanHole(t, em); if (eh != null) return eh; }
+        if (mob instanceof net.minecraft.world.entity.monster.EnderMan && ((net.minecraft.world.entity.monster.EnderMan) mob).getTarget() == g && mob.getY() - g.getY() <= -4 && mob.getY() - g.getY() >= -6 && Math.hypot(mob.getX() - g.getX(), mob.getZ() - g.getZ()) < 4 && g.getHealth() > 10 && !g.level().getFluidState(mob.blockPosition()).is(net.minecraft.tags.FluidTags.LAVA)) { equipWeapon(); g.setSprinting(false); g.getMoveControl().setWantedPosition(mob.getX(), mob.getY(), mob.getZ(), 1.0); if (g.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the Enderman is on me {} below in a pit it can't climb out of, {} across: dropping in to it ({} fall damage) (WorkGoal.doAttack)", (int) (g.getY() - mob.getY()), (int) Math.hypot(mob.getX() - g.getX(), mob.getZ() - g.getZ()), Math.max(0, (int) (g.getY() - mob.getY()) - 3)); return false; } // ponytail: live 19:29, staring brought an angry one nowhere (it can't climb 4) and he swung at air 15 s, over and over; a player drops in. Straight line, so only short (horiz<4); add a lava check on the way if it ever walks him over a lip into lava
         if (mob instanceof net.minecraft.world.entity.monster.EnderMan em && em.getTarget() != g && ticks % 200 < 100 && g.distanceTo(em) < 32 && g.hasLineOfSight(em)
                 && !(em.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0)) { // ponytail: the user 14:20 "swing at them from distance to aggro": a calm one out of reach is called over, not chased (it teleports off a chase); 5 s of it, then 5 s closing in, by the task clock
             g.getNavigation().stop(); g.setSprinting(false); equipWeapon(); g.getLookControl().setLookAt(em.getX(), em.getEyeY(), em.getZ()); // (vanilla: the look at its eyes is what angers it; the swing is the player's habit)

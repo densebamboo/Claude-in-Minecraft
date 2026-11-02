@@ -1341,6 +1341,9 @@ public class WorkGoal extends Goal {
             if (!bs.getFluidState().isEmpty()) return null; // water or lava up there: not this way
             if (bs.getCollisionShape(level, b).isEmpty()) continue;
             if (bs.getDestroySpeed(level, b) < 0 || bs.hasBlockEntity()) return null;
+            if (com.claudemod.entity.nav.ActionPath.structureBlock(level, b) && !com.claudemod.entity.nav.ActionPath.structureDigOk(level, b) && !com.claudemod.entity.life.TempLedger.built(g, b)) { // the intact rule refuses it in doBreak anyway (live 01:06, a step cut into the stronghold's wall 3x every 4 s)
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no step up from {} toward {}: {} is a structure's own block, kept intact (WorkGoal.digStepUp)", feet.toShortString(), dest.toShortString(), b.toShortString());
+                g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.STEP_UP, feet, g.tickCount); return null; }
             if (bs.requiresCorrectToolForDrops() && g.inventory.find(st -> st.isCorrectToolForDrops(bs)).isEmpty()) return null; // no tool that takes it (stone with bare hands: 23 s a step, nothing dropping, up a cliff after a death): not this way
             dig.add(b);
         }

@@ -337,7 +337,7 @@ public final class TempLedger {
         java.util.function.Predicate<Entry> due = e -> level.isLoaded(e.pos) && e.pos.distSqr(me) <= 16 * 16 && e.pos.distSqr(to) > 24 * 24 && !e.why.equals("craft table") && !e.why.equals("furnace")
                 && !level.getBlockState(e.pos).canBeReplaced() && his(level, e)
                 && (Math.abs(e.pos.getY() - me.getY()) <= 1 || eye.distanceTo(net.minecraft.world.phys.Vec3.atCenterOf(e.pos)) <= 4.5 && e.pos.equals(level.clip(new net.minecraft.world.level.ClipContext(eye, net.minecraft.world.phys.Vec3.atCenterOf(e.pos), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getBlockPos())) // (in reach AND in sight: 02:2x a block 2 below behind the floor he stood on was queued, the walker refused every stand spot, a 3x CONFLICT)
-                && !(e.triedAt >= 0 && g.tickCount - e.triedAt < 40) && !(!com.claudemod.director.ClaudeLife.dayHere(level) && level.canSeeSky(e.pos) && !"light".equals(e.why))
+                && !(e.triedAt >= 0 && g.tickCount - e.triedAt < 40) && !g.attempts.within(Attempts.Kind.BREAK, e.pos, g.tickCount, 20 * 60) /* its break failed (a structure block in the way, live 01:30): not re-queued every 2 s */ && !(!com.claudemod.director.ClaudeLife.dayHere(level) && level.canSeeSky(e.pos) && !"light".equals(e.why))
                 && doneWith(g, level, e, false) && takeable(g, level, e)
                 && !e.pos.equals(me.below()) && !e.pos.equals(me) && legs.stream().noneMatch(l -> l.distSqr(e.pos) <= 2 * 2); // still on the way: the route's legs climb over it (01:40 he pillared up for the route, took the pillar down "leaving", fell, pillared again: a loop)
         Entry first = null;

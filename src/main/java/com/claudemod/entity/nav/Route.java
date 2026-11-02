@@ -223,7 +223,8 @@ public final class Route {
         for (Active r : rs) { // a walk of some other job's to a cell of a route he's on
             if (!r.legs.contains(to) || r.off) continue; // (a route he's off: its cells are just cells)
             int li = r.legIndex(to);
-            if (li >= 0 && li <= r.progress) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] the walk to {} is a leg behind him on his route to {} (he's at {}, walking it): dropped, not walked back to (Route.alongRoutes)", to.toShortString(), r.target.toShortString(), here.toShortString()); return List.of(); }
+            if (li >= 0 && li <= r.progress && to.distSqr(here) > 4) { // ponytail: a passed leg right beside him is a step back onto his route, not a walk back (live 20:0x: his own 3-step climb began on one; dropping it left the 2-up step, stalled)
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude route] the walk to {} is a leg behind him on his route to {} (he's at {}, walking it): dropped, not walked back to (Route.alongRoutes)", to.toShortString(), r.target.toShortString(), here.toShortString()); return List.of(); }
             return MARK; // ahead of him on it: his walker's, as the leg itself
         }
         return null;

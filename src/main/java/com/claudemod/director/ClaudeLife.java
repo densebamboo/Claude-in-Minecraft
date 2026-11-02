@@ -3354,6 +3354,7 @@ public final class ClaudeLife {
                 g.skillQueue.addFirst(new Skills.Step(st.skill(), "@1", count, st.where()));
                 return "lighting the frame at " + pcell(1, 0).toShortString();
             }
+            case "find_stronghold": return com.claudemod.entity.life.EyeHunt.skill(g, player, level, st); // the Overworld: eyes thrown and watched, two headings crossed, walked, thrown till one goes down, a staircase down to the stone bricks
             case "find_fortress": return com.claudemod.entity.life.FortressScout.skill(g, player, level, st); // the Nether: he picks the heading (the structure grid), legs along the ground, a look round from each end, each leg noted
             case "enter_portal": { { String rp = com.claudemod.entity.life.PortalMap.enterStep(g, level, st, target); if (rp != null) return rp; } // their words: home / back / fortress / my portal (PortalMap.resolve); an unlit one relit // into a lit portal: stand in it 4 s, the game does the rest; both coordinate pairs noted
                 BlockPos portal = findNear(level, g.blockPosition(), 24, b -> b.is(Blocks.NETHER_PORTAL));
@@ -12970,7 +12971,7 @@ public final class ClaudeLife {
             {eyes >= 12 || pearls + eyes >= 12 ? "x" : "", "ender pearls: 12 (" + pearls + " now), bartered from piglins for gold or off endermen", "there's no skill for bartering or endermen yet (fight enderman works in the overworld at night)", ""},
             {eyes >= 12 ? "x" : "", "eyes of ender: 12 (" + eyes + " now; a blaze powder and a pearl each)", "craft ender_eye", ""},
             {endBow ? "x" : "", "a bow and 32 arrows on you, a MUST before the End: the crystals on the pillars are shot down (" + bowsOn + " bow(s) and " + arrowsOn + " arrows on you" + (bows > bowsOn || arrows > arrowsOn ? ", " + (bows - bowsOn) + " bow(s) and " + (arrows - arrowsOn) + " arrows in your chests" : "") + ")", (bowsOn > 0 ? "" : "obtain bow (" + (bows > 0 ? "yours is in a chest; " : "") + "string: " + strHow + "), ") + "obtain arrow 32 (" + Math.max(1, 32 - arrowsOn) + " more: your chests, skeletons at night, or flint from gravel and feathers off chickens)", endBow ? "" : bowsOn == 0 ? "obtain bow 1" : "obtain arrow 32"},
-            {"", "the stronghold: throw an eye and follow it; the end portal room is under the ground there", "there's no skill for throwing eyes yet", ""},
+            {"", "the stronghold: throw an eye and follow it; the end portal room is under the ground there", "find_stronghold (in the Overworld: eyes thrown and watched, two headings crossed, walked to, thrown till one goes down, a staircase dug to its stone bricks; it stops there, the portal room is not found yet)", "find_stronghold"},
             {"", "the End: the frame filled, in, the crystals first (with the bow), then the dragon", "there's no skill for the End yet", ""},
         };
     }

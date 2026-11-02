@@ -2740,6 +2740,7 @@ public final class ClaudeLife {
                     String here = level.getBiome(g.blockPosition()).unwrapKey().map(k -> k.location().getPath()).orElse("");
                     if (here.equals(want)) { ClaudeMod.LOGGER.info("[Claude skill] explore {}: in it at {} (ClaudeLife explore)", want, g.blockPosition().toShortString()); return "done: in the " + want.replace('_', ' ') + " at " + g.blockPosition().toShortString(); }
                     BlockPos known = com.claudemod.entity.life.Atlas.find(g, level, want);
+                    if (known != null && g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, known, g.tickCount, 20 * 60)) { ClaudeMod.LOGGER.info("[Claude skill] explore {}: the walk to the one I saw at {} failed this minute: fresh ground instead (ClaudeLife explore)", want, known.toShortString()); known = null; } // ponytail: live 19:22 -34,62,-901: no way there, re-headed for it every tick (walkTo's skip ended it at once), the watchdog tripped
                     if (known != null) {
                         g.exploreAngle = Math.atan2(known.getZ() - g.getZ(), known.getX() - g.getX()); g.exploreTick = g.tickCount;
                         BlockPos go = known; // ponytail: straight for the spot, the walk's NetherRoute tunnels/bridges the long way; a 45-out visible spot swung east/west of a wall forever (live 16:52, 37 <-> 83)

@@ -5074,7 +5074,8 @@ public class WorkGoal extends Goal {
         var cv = com.claudemod.entity.life.FortressFight.coverFor(g, level, mob);
         if (cv == null && blaze && (g.getHealth() <= 12 || g.isOnFire() && g.getHealth() <= 14)) { Boolean r = blazeRetreat(t, mob); if (r != null) return r; } // (hurt, no cover: out of their sight first, never the open fight; World 15 10:09 burned to death "in the open" at 6)
         if (cv == null) { if (ticks == 1) cfSay("in the open", "no cover for this " + mob.getType().getDescription().getString() + " here: the ordinary fight, shield and crits"); return null; }
-        equipWeapon();
+        if (!(g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW))) equipWeapon(); // ponytail: live 18:56 "shooting it" x4 and arrows stayed 57: the sword swapped in every tick and cut each draw
+
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
         boolean inCover = com.claudemod.entity.life.FortressFight.at(g, cv.cover());
         boolean shield = g.getItemBySlot(EquipmentSlot.OFFHAND).is(net.minecraft.world.item.Items.SHIELD) && !g.getCooldowns().isOnCooldown(net.minecraft.world.item.Items.SHIELD);

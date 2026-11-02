@@ -183,7 +183,7 @@ public final class Route {
         for (var it = rs.iterator(); it.hasNext(); ) { // a route whose end he's stood at since it was planned (whatever walk took him there): done
             Active r = it.next(); if (r.indexOf(cur) >= 0) continue;
             Integer w = tr == null ? null : tr.get(r.target);
-            if (w == null || w < r.at) continue;
+            if (w == null || w < r.at || w > now) continue; // (w > now: a mark from his last life, the tick clock restarts on respawn: live 16:58 a fresh route to where he died was dropped as walked)
             final Active rr = r; int before = g.tasks.size(); g.tasks.removeIf(q -> rr.indexOf(q) >= 0); it.remove();
             com.claudemod.ClaudeMod.LOGGER.info("[Claude route] he's been at the end of his route to {} since it was planned ({} s ago, on another walk): its {} walk(s) left off his queue (Route.alongRoutes)", r.target.toShortString(), (now - w) / 20, before - g.tasks.size());
         }

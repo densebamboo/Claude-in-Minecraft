@@ -10366,6 +10366,7 @@ public final class ClaudeBodyTest {
     // ---------------------------------------------------------------- stages 494 on: one method each (exactStages is at the JVM's 64 KB limit)
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
+            case 552: return st552(stage, t, c, h, level, mock);
             case 551: return st551(stage, t, c, h, level, mock);
             case 550: return st550(stage, t, c, h, level, mock);
             case 549: return st549(stage, t, c, h, level, mock);
@@ -10983,6 +10984,23 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static boolean fhOw;
+    private static int wcT = -1, wcFree = -1; private static net.minecraft.world.entity.Mob wcMob;
+    private static boolean st552(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // walled in with a mob on him (Day to Day: hoglins about, explore re-planned out through his walls every second): he waits in cover, then walks once it's gone
+        ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        final int ox = 14000, oy = 69, oz = 14000; BlockPos me = new BlockPos(ox, oy + 1, oz);
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); wcT = -1; wcFree = -1; if (wcMob != null) wcMob.discard(); wcMob = null; c.nextPlanTick = c.tickCount + 20 * 900; c.prefs.put("stay_close", "no");
+            c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(nether, me.getX() + 0.5, oy + 20, me.getZ() + 0.5, 0, 0); c.setNoGravity(true); }
+        if (t[0] == 10) { for (int x = -30; x <= 50; x++) for (int z = -12; z <= 12; z++) { nether.setBlock(new BlockPos(ox + x, oy, oz + z), Blocks.NETHERRACK.defaultBlockState(), 2 | 16); for (int y = oy + 1; y <= oy + 8; y++) nether.setBlock(new BlockPos(ox + x, y, oz + z), Blocks.AIR.defaultBlockState(), 2 | 16); }
+            for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) for (int y = 1; y <= 2; y++) nether.setBlock(me.relative(d).above(y - 1), Blocks.COBBLESTONE.defaultBlockState(), 2); nether.setBlock(me.above(2), Blocks.COBBLESTONE.defaultBlockState(), 2);
+            c.setNoGravity(false); c.teleportTo(nether, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.fallDistance = 0; }
+        if (t[0] == 30) { var hg = EntityType.ZOMBIFIED_PIGLIN.create(nether); hg.moveTo(ox - 6 + 0.5, oy + 1, oz + 0.5, 0, 0); hg.setNoAi(true); hg.setPersistenceRequired(); nether.addFreshEntity(hg); hg.setTarget(c); wcMob = hg; wcT = t[0]; c.tasks.add(new Task.GoTo(new BlockPos(ox + 40, oy + 1, oz), 1.5)); }
+        if (wcT > 0 && wcMob != null && wcMob.isAlive() && t[0] < wcT + 100) { check(c.blockPosition().equals(me) && !nether.getBlockState(me.east()).isAir(), "cover: out of his walls with the mob on him (at " + c.blockPosition().toShortString() + ", east wall " + nether.getBlockState(me.east()).getBlock().getName().getString() + ")"); if (wcMob instanceof net.minecraft.world.entity.Mob mm && mm.getTarget() != c) mm.setTarget(c); }
+        if (wcT > 0 && t[0] == wcT + 100) { wcMob.discard(); wcMob = null; wcFree = t[0]; }
+        if (wcFree > 0 && Math.abs(c.getX() - me.getX()) > 3) { int took = t[0] - wcFree; c.tasks.clear(); c.dropCurrent = true; c.getInventory().clearContent(); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0); pass(stage, t, "waited 5 s in his walls with the mob on him, out and walking " + took / 20 + " s after it went"); }
+        else if (wcFree > 0 && t[0] == wcFree + 20 * 15) check(false, "cover: not walking 15 s after the hoglin went (at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ")");
+        return true;
+    }
     private static int s535Done = -1; private static float s535Low = 20f;
     /** Stage 535's course (in the Nether, about 4000, 4000): the cell at (x, y, z) from its west end. */
     private static net.minecraft.world.level.block.state.BlockState s535Block(int x, int y, int z) {

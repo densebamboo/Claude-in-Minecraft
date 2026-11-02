@@ -83,6 +83,12 @@ public final class Route {
     public static List<Task> expand(ClaudeEntity g, ServerLevel level, BlockPos to, double within) {
         { List<Task> seen = alongRoutes(g, to); if (seen != null) return seen == MARK ? null : seen; } // (dropped: empty; his walker's: null; back on a route after other walks: the walk to its end, planned again from here) // (a leg behind him: dropped; a leg ahead of him: his walker's)
         BlockPos me = g.blockPosition();
+        if (level.dimensionType().hasCeiling() && walledIn(g, level)) { // walled in with a mob on him: the walk waits in his cover, never planned out through his own walls each second (Day to Day: hoglins about, explore warped_forest re-planned every second, each leg failing at once)
+            net.minecraft.world.entity.Mob on = null; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(16), m0 -> m0.isAlive() && m0.getTarget() == g)) on = m;
+            if (on != null) { long now = level.getGameTime(); Long said = coverSaid.get(g.getUUID());
+                if (said == null || now - said > 200 || now < said) { coverSaid.put(g.getUUID(), now); com.claudemod.ClaudeMod.LOGGER.info("[Claude route] to {}: walled in at {} with the {} {} off on him: waiting in cover, the walk after (Route.expand)", to.toShortString(), me.toShortString(), on.getType().getDescription().getString(), (int) on.distanceTo(g)); }
+                return new ArrayList<>(List.of(new Task.Wait(40, false), new Task.GoTo(to, within))); }
+        }
         BlockPos toDeck0 = level.dimensionType().hasCeiling() ? FortressEnds.deckNear(level, to) : null;
         boolean intoFortress0 = toDeck0 != null && toDeck0.distSqr(to) <= 4 * 4 && !com.claudemod.entity.life.FortressScout.onFortress(g) && me.distSqr(to) > 4 * 4; // (into a fortress from off it, near or far: by its open end, the user's rule; a walk he plans himself would cut through its side)
         if (level.dimensionType().hasCeiling() && (Math.hypot(to.getX() - me.getX(), to.getZ() - me.getZ()) > FAR || intoFortress0)) { // the Nether: no sky, so none of the land plans below; the long way over columns (NetherRoute), its legs his walker plans in full
@@ -242,6 +248,14 @@ public final class Route {
         active.put(g.getUUID(), a); List<Active> rs = routes.computeIfAbsent(g.getUUID(), k -> new ArrayList<>()); rs.add(a); while (rs.size() > 8) rs.remove(0);
         com.claudemod.ClaudeMod.LOGGER.info("[Claude route] to {} ({} blocks off): {} legs, {}", to.toShortString(), (int) Math.sqrt(g.blockPosition().distSqr(to)), out.size(), why);
         return out;
+    }
+
+    private static final Map<UUID, Long> coverSaid = new HashMap<>();
+    /** Every side of him shut at feet and head (a wall-in, a nook, his box). */
+    static boolean walledIn(ClaudeEntity g, ServerLevel level) {
+        BlockPos f = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
+        for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) for (BlockPos q : new BlockPos[] {f.relative(d), f.relative(d).above()}) if (level.getBlockState(q).getCollisionShape(level, q).isEmpty()) return false;
+        return true;
     }
 
     /** Below the ground's top there by more than 3 (a cave, his mine), as far as the loaded land says; unloaded: not. */

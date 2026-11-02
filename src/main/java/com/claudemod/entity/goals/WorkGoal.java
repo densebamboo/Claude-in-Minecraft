@@ -4914,6 +4914,7 @@ public class WorkGoal extends Goal {
             }
             g.getNavigation().stop();
             if (shoots) return false; // out of its sight (or nowhere better): wait for it to come round, the fight's clock ends it
+            if (mob instanceof net.minecraft.world.entity.monster.EnderMan) { g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.GoTo(mob.blockPosition(), 3)); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the Enderman is {} below, out of sight, no way down on foot: digging down to it at {}, then the fight again", (int) -dy, mob.blockPosition().toShortString()); return true; } // ponytail: live 21:26/21:27 he left two endermen 12 and 8 below (one had hit him) mid pearl hunt; a player stairs down to the pearl
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the {} is {} below with no way down on foot: leaving it", mob.getType().getDescription().getString(), (int) -dy);
             return true;
         }

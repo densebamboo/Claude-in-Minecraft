@@ -205,6 +205,16 @@ public final class ExactSpot {
             BlockPos up = null; for (int k = 1; k <= 3 && up == null; k++) { BlockPos q = cell.above(k); if (g.level().getBlockState(q).getCollisionShape(g.level(), q).isEmpty() && g.level().getBlockState(q.above()).getCollisionShape(g.level(), q.above()).isEmpty()) up = q; }
             if (up != null) { ClaudeMod.LOGGER.info("[Claude exact] {} is a solid {}: onto it, at {} (ExactSpot.start)", xyz(cell), g.level().getBlockState(cell).getBlock().getName().getString(), xyz(up)); cell = up.immutable(); }
         }
+        if (cell != null && g.level().isLoaded(cell) && g.level().getBlockState(cell).is(net.minecraft.world.level.block.Blocks.END_PORTAL)) { // the portal itself: a player stands by its frames, never on it by a go_to (live 01:37, sent onto -862 21 1685 from his memory of it)
+            BlockPos best = null;
+            for (BlockPos q : BlockPos.betweenClosed(cell.offset(-4, -1, -4), cell.offset(4, 1, 4))) {
+                net.minecraft.world.level.block.state.BlockState s = g.level().getBlockState(q), b = g.level().getBlockState(q.below());
+                if (!s.getCollisionShape(g.level(), q).isEmpty() || s.is(net.minecraft.world.level.block.Blocks.END_PORTAL) || !g.level().getBlockState(q.above()).getCollisionShape(g.level(), q.above()).isEmpty()) continue;
+                if (b.is(net.minecraft.world.level.block.Blocks.END_PORTAL) || b.getCollisionShape(g.level(), q.below()).isEmpty() || b.is(net.minecraft.world.level.block.Blocks.LAVA)) continue;
+                if (best == null || q.distSqr(g.blockPosition()) < best.distSqr(g.blockPosition())) best = q.immutable();
+            }
+            if (best != null) { ClaudeMod.LOGGER.info("[Claude exact] {} is the End portal itself: beside its frames, at {} (ExactSpot.start)", xyz(cell), xyz(best)); cell = best; }
+        }
         Matcher f = FACING.matcher(tl); Float yaw = null, pitch = null;
         if (f.find()) { try { yaw = Float.parseFloat(f.group(1)); pitch = Float.parseFloat(f.group(2)); } catch (NumberFormatException e) { } }
         Ask a = null;

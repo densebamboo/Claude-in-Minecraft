@@ -127,3 +127,9 @@ Each line is a live report from Day to Day (World 15, 2026-10-31/11-01) not on t
 
 - Stages 385-389 and 450-451 (drops, walk-jump, sprint-jump) fail on main as well: "walk-jump over 1: down in the gap (kinds run [])", "sprint-jump over 2, up 1: down in the gap". Not from bp/dragon. Find what broke the jump moves.
 - The chat-accuracy item from Day to Day: asked "go to the portal room", he said the room isn't in what he's walked and asked for coordinates, with the portal on file. He should say he knows where it is but has no route down since the restart (the route is remembered now: endTrail).
+
+## Home after the dragon (2026-11-02, World 15)
+
+- **go_to home loop:** about 04:22, back from the End, he re-ran `go_to home` while 1-3 blocks from his house at -36, 69, 0 ("heading to my house ... (1 blocks)"; 3 conflicts in 45 s). At the house, go_to home should come back "done:", and the planner shouldn't pick it again.
+- **Can't reach his beds:** `sleep` failed twice with "no way on foot to my bed at -1, 16, 78; ... -1, -58, 169" (watchdog TRIP, then asked the user for help). Both beds are probably in his mine nook; find why the walker has no route from the house to them.
+- **Live goal from before eb01117:** the "go home through the end portal" goal and its order stay open in this save. They clear when the user gives a new order.

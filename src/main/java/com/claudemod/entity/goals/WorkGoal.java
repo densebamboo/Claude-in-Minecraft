@@ -1744,7 +1744,7 @@ public class WorkGoal extends Goal {
             com.claudemod.ClaudeMod.LOGGER.warn("[Claude life] a job wanted the bed at {} broken (step {}): refused", pos.toShortString(), g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target());
             return exit("doBreak line 1475");
         }
-        if ((state.hasBlockEntity() || state.is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE)) && !state.is(net.minecraft.tags.BlockTags.BEDS)
+        if ((state.hasBlockEntity() || state.is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE)) && !state.is(net.minecraft.tags.BlockTags.BEDS) && !state.is(net.minecraft.world.level.block.Blocks.SPAWNER) // (a spawner is no station: stage 558, the portal room's silverfish spawner was kept "as storage")
                 && !com.claudemod.director.ClaudeLife.isTempStation(g, pos) && !com.claudemod.director.ClaudeLife.stationPickup(pos) && !com.claudemod.entity.life.Consent.theirWord(g, pos, "station", "a station or storage", null)) {
             var bpS = com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() ? g.blueprint : null;
             boolean his0 = g.myStations.contains(pos) || g.notches.contains(pos) || com.claudemod.entity.life.TempLedger.has(g, pos);

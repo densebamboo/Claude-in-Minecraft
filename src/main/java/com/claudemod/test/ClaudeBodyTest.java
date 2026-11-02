@@ -10366,6 +10366,8 @@ public final class ClaudeBodyTest {
     // ---------------------------------------------------------------- stages 494 on: one method each (exactStages is at the JVM's 64 KB limit)
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
+            case 559:
+            case 558: return st558(stage, t, c, h, level, mock);
             case 557: return st557(stage, t, c, h, level, mock);
             case 555: return st555(stage, t, c, h, level, mock);
             case 553: return st553(stage, t, c, h, level, mock);
@@ -11090,6 +11092,56 @@ public final class ClaudeBodyTest {
             com.claudemod.entity.life.Watchdog.teleported(c); if (c.isAlive()) c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0);
             pass(stage, t, how);
         }
+        return true;
+    }
+    private static net.minecraft.world.level.levelgen.structure.StructureStart shStart; private static int s558T = -1, s558Fill = -1; private static float s558Low = 20f; private static net.minecraft.world.level.levelgen.structure.BoundingBox s558Room;
+    /** A real vanilla stronghold at (x, z), made the way /place structure makes one (the flat test world generates none); placed by placeStart. */
+    static net.minecraft.world.level.levelgen.structure.StructureStart genStronghold(ServerLevel level, int x, int z) {
+        var st = level.registryAccess().registryOrThrow(net.minecraft.core.registries.Registries.STRUCTURE).getOrThrow(net.minecraft.world.level.levelgen.structure.BuiltinStructures.STRONGHOLD);
+        var gen = level.getChunkSource().getGenerator();
+        var start = st.generate(level.registryAccess(), gen, gen.getBiomeSource(), level.getChunkSource().randomState(), level.getStructureManager(), level.getSeed(), new net.minecraft.world.level.ChunkPos(new BlockPos(x, 0, z)), 0, level, b -> true);
+        return start.isValid() ? start : null;
+    }
+    static void placeStart(ServerLevel level, net.minecraft.world.level.levelgen.structure.StructureStart start) {
+        var gen = level.getChunkSource().getGenerator(); var bb = start.getBoundingBox();
+        net.minecraft.world.level.ChunkPos.rangeClosed(new net.minecraft.world.level.ChunkPos(bb.minX() >> 4, bb.minZ() >> 4), new net.minecraft.world.level.ChunkPos(bb.maxX() >> 4, bb.maxZ() >> 4)).forEach(cp -> {
+            level.getChunk(cp.x, cp.z);
+            start.placeInChunk(level, level.structureManager(), gen, level.getRandom(), new net.minecraft.world.level.levelgen.structure.BoundingBox(cp.getMinBlockX(), level.getMinBuildHeight(), cp.getMinBlockZ(), cp.getMaxBlockX(), level.getMaxBuildHeight(), cp.getMaxBlockZ()), cp); });
+    }
+    private static boolean st558(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // the stronghold's other half (the user via Day to Day): from beside its bricks in, its corridors to the portal room, the spawner, the frames filled, the portal lit. A real vanilla stronghold (its maze, doors, spawner and frames as the game makes them) set in solid stone
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); s558T = -1; s558Low = 20f; c.nextPlanTick = c.tickCount + 20 * 1800; c.prefs.put("stay_close", "no"); c.commandActive = false; com.claudemod.entity.life.StrongholdRoom.reset(c);
+            c.getInventory().add(new ItemStack(Items.ENDER_EYE, 12)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.TORCH, 32));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS));
+            com.claudemod.entity.life.Watchdog.teleported(c); int sx = stage[0] == 559 ? 31000 : 24000; c.teleportTo(sx + 0.5, 120, sx + 0.5); c.setNoGravity(true); // (559: the same on another stronghold, another maze)
+            shStart = genStronghold(level, sx, sx); check(shStart != null, "stronghold: no valid start"); s558Fill = 0;
+            if (shStart != null) { s558Room = null; for (var pc : shStart.getPieces()) if (pc.getClass().getSimpleName().equals("PortalRoom")) s558Room = pc.getBoundingBox();
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude test] stronghold: {} pieces in {}, the start {}, the portal room {}", shStart.getPieces().size(), shStart.getBoundingBox(), shStart.getPieces().get(0).getBoundingBox(), s558Room); } }
+        if (shStart == null) return true;
+        var bb = shStart.getBoundingBox();
+        if (s558Fill >= 0) { int y = bb.minY() - 3 + s558Fill; // solid stone round it, a layer a tick (in the flat world it stands in the air)
+            for (int x = bb.minX() - 3; x <= bb.maxX() + 3; x++) for (int z = bb.minZ() - 3; z <= bb.maxZ() + 3; z++) level.setBlock(new BlockPos(x, y, z), Blocks.STONE.defaultBlockState(), 2 | 16);
+            if (++s558Fill > bb.maxY() - bb.minY() + 6) { s558Fill = -1; placeStart(level, shStart);
+                var sp = shStart.getPieces().get(0).getBoundingBox(); BlockPos in = null; // his own staircase's end: a pocket in the stone against the start piece's wall, with its corridor's air behind the wall, as find_stronghold leaves him
+                net.minecraft.core.Direction out = null;
+                for (net.minecraft.core.Direction od : net.minecraft.core.Direction.Plane.HORIZONTAL) for (int wy = sp.minY() + 1; wy < sp.maxY() - 1 && in == null; wy++) for (int k = 1; k < 4 && in == null; k++) { // a wall cell of the start piece, its outside face
+                    BlockPos w = switch (od) { case WEST -> new BlockPos(sp.minX(), wy, sp.minZ() + k); case EAST -> new BlockPos(sp.maxX(), wy, sp.minZ() + k); case NORTH -> new BlockPos(sp.minX() + k, wy, sp.minZ()); default -> new BlockPos(sp.minX() + k, wy, sp.maxZ()); };
+                    BlockPos inside = w.relative(od.getOpposite()), o = w.relative(od);
+                    if (level.getBlockState(inside).isAir() && level.getBlockState(inside.above()).isAir() && !level.getBlockState(inside.below()).isAir() && level.getBlockState(o).is(Blocks.STONE) && level.getBlockState(o.above()).is(Blocks.STONE) && level.getBlockState(o.below()).is(Blocks.STONE)) { in = o; out = od; } }
+                check(in != null, "stronghold: no spot on the start piece's walls with air behind it");
+                if (in == null) { in = new BlockPos(sp.minX() - 1, sp.minY() + 1, sp.minZ() + 2); out = net.minecraft.core.Direction.WEST; }
+                for (BlockPos q : new BlockPos[] {in, in.above(), in.relative(out), in.relative(out).above()}) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2 | 16);
+                c.setNoGravity(false); c.teleportTo(in.getX() + 0.5, in.getY(), in.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.fallDistance = 0; s558T = t[0] + 10; } }
+        if (s558T > 0 && t[0] == s558T) c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("light_end_portal", "", 1));
+        if (s558T > 0 && t[0] > s558T) { s558Low = Math.min(s558Low, c.getHealth()); if (t[0] % 40 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, c.getBoundingBox().inflate(48), m -> !(m instanceof net.minecraft.world.entity.monster.Silverfish))) m.discard();
+            boolean lit = false; if (s558Room != null && t[0] % 20 == 0) for (BlockPos q : BlockPos.betweenClosed(s558Room.minX(), s558Room.minY(), s558Room.minZ(), s558Room.maxX(), s558Room.maxY(), s558Room.maxZ())) if (level.getBlockState(q).is(Blocks.END_PORTAL)) { lit = true; break; }
+            if (lit || !c.isAlive() || t[0] == s558T + 20 * 600) {
+                check(c.isAlive(), "end portal: he died (low " + s558Low + ")");
+                check(lit, "end portal: not lit in 600 s (at " + c.blockPosition().toShortString() + ", room " + s558Room + ", " + com.claudemod.entity.life.StrongholdRoom.known(c) + " cells seen, " + com.claudemod.entity.life.StrongholdRoom.eyesIn(c) + " eyes in, task " + c.currentTask + ", last " + c.lastSkillLine + ")");
+                String how = "the end portal lit in " + (t[0] - s558T) / 20 + " s, " + com.claudemod.entity.life.StrongholdRoom.eyesIn(c) + " eyes in, " + com.claudemod.entity.life.StrongholdRoom.known(c) + " cells seen, low " + s558Low;
+                c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.getInventory().clearContent(); c.setHealth(20f); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+                com.claudemod.entity.life.Watchdog.teleported(c); if (c.isAlive()) c.teleportTo(mock[0].getX(), mock[0].getY(), mock[0].getZ());
+                pass(stage, t, how);
+            } }
         return true;
     }
     private static int shT = -1; private static float shLow = 20f; private static BlockPos shRoom;

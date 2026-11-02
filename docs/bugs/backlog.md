@@ -106,3 +106,13 @@ Each line is a live report from Day to Day (World 15, 2026-10-31/11-01) not on t
   - A shield-blocked fireball still logs him on fire.
   - Missed fireballs light the deck, and he walks into the fire ("inFire").
   - Kills over the lava drop their rods into it.
+
+## From Day to Day, 2026-11-01/02 (tabled by the user: dragon path first)
+
+- **Stronghold travel via the Nether:** find_stronghold walked a 1,416-block estimate across ocean at ~3.4 b/s. Past ~300 blocks an expert divides by 8, goes through his portal (PortalMap) and builds an exit portal near the estimate.
+- **Water travel:** no boat or sprint-swim; the walker crosses ocean as a land plan holding jump. Boat ~8 b/s, sprint-swim ~5.6.
+- **Sea-floor dig:** EyeHunt.dig turns from any cut cell touching fluid, so under an ocean every way fails. Needs a dry shaft (walls placed round it) or the stronghold's edge under land.
+- **Chat accuracy, chests:** asked why he didn't use closer chests, he said "hauling the stash, pack full"; the trip was queued for the kit's charcoal from logs in his home chest. Answer from the reason the trip was queued.
+- **Chat accuracy, armor:** "want me to swap the gold helmet out?" while wearing diamond (gold in his pack). ClaudeChat GT_ARMOR accepts worn OR carried; swap/take-off/wearing wording needs the worn slot.
+- **Re-light dark branches:** he mined a branch at y=-58 with 0 torches; light_up is player-relative and fails with the user flying. Torch his own mine's unlit cells by the blueprint (maybe in bpIntegrity).
+- **Shield at a creeper:** 00:17, escaping a night crowd in diamond, shield down, a creeper did 24.6 raw (17 -> 6). Within ~3 and no room to run: turn and block. Also the escape loop: 6 short "run's end reached, them still on him" hops in 17 s dragged the crowd along.

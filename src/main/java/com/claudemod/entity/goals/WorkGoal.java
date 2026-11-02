@@ -4720,6 +4720,8 @@ public class WorkGoal extends Goal {
                 for (var a : mine) g.tasks.addFirst(new Task.GoTo(a.blockPosition(), 1.0));
                 if (!mine.isEmpty()) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] {} of his arrows stuck round the fight: picking them back up (WorkGoal.doAttack)", mine.size());
             }
+            net.minecraft.world.entity.Mob still = died ? level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(16), m0 -> m0 != e && m0.isAlive() && m0.getTarget() == g && m0 instanceof net.minecraft.world.entity.monster.Enemy).stream().findFirst().orElse(null) : null;
+            if (still != null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the drops wait: a {} {} off is still on him (WorkGoal.doAttack)", still.getType().getDescription().getString(), (int) still.distanceTo(g)); g.tasks.addFirst(new Task.Attack(still.getUUID(), Math.max(400, t.maxTicks()))); return true; } // ponytail: stage 553, the pickup after the first wither skeleton dug through his hole's wall for a drop and the second came in by it
             if (died && ticks > 1 && !(g.tasks.peek() instanceof Task.Pickup)) g.tasks.addFirst(new Task.Pickup(80));
             return true;
         }
@@ -4923,31 +4925,97 @@ public class WorkGoal extends Goal {
     private int cfEmptyPeeks; // steps out to draw a lit blaze's shots that drew none
     /**
      * A wither skeleton with no 2-high gap about (World 15 19:00:01, "no 2-high gap within 10 ... shield and crits in the open"; two more
-     * at 19:00:09, dead): 3 up a pillar where he stands. Vanilla's mob melee reaches only its own attack box, its body widened sideways at
-     * the same height, so with his feet 3 over its feet it can't touch him while his reach (3) gets its head. Up there he stands still,
-     * hits it when it's in reach, eats and waits the Wither out; never steps off to chase. Null: not for this fight (no blocks, no head room).
+     * at 19:00:09, dead): he makes cover. A wither skeleton is 2.4 tall and its melee reaches only its attack box (its body widened
+     * 0.83 sideways, at its own height). Where there's rock within 6: a 2-high tunnel 2 long into it at ground level, the gap the cover
+     * fight wants (FortressFight.pickWither); it can't come in, from 2 in he's out of its box and it's in his reach (3). Else a 2-deep
+     * hole at his feet with a cap two above the floor over it, set on a 3-block post at the rim: his head is under the floor, out of
+     * its box; it can't drop in (the cap stops a 2.4-tall body in that column); it sees him through the open cells at floor level (an
+     * unseen target is dropped after 3 s) and comes to the rim, where he hits its legs. In the hole he stands still: no crit hop (it
+     * lifts his head into reach).
+     * Tried first:
+     * - 3 up a pillar: they stood 5 off, out of his reach, and a hit while he built it knocked him off.
+     * - An open 1x1 hole 2 deep (stage 553): entities don't block each other, and one walked over the hole and dropped in on him.
+     * - An L under the floor (a shaft and a side tunnel): from the surface it can't see in, so it forgot him and walked off.
+     * Null: not for this fight.
      */
-    private Boolean witherPillar(Task.Attack t, net.minecraft.world.entity.LivingEntity mob) {
+    private BlockPos wsDug; private int wsDugTick = -100000, wsDugSaid = -1000;
+    private boolean diggable(ServerLevel level, BlockPos c) {
+        var st = level.getBlockState(c);
+        if (st.getCollisionShape(level, c).isEmpty() || st.getDestroySpeed(level, c) < 0 || st.getDestroySpeed(level, c) > 5 || st.getBlock() instanceof net.minecraft.world.level.block.FallingBlock || !level.getFluidState(c).isEmpty()) return false;
+        for (var d : net.minecraft.core.Direction.values()) if (!level.getFluidState(c.relative(d)).isEmpty()) return false; // (no lava or water let in)
+        return true;
+    }
+    /** In a capped hole: his head under the floor, rock round him at his feet and head, two cells over his head open, the cap over those. */
+    private boolean inCappedHole() {
+        if (!g.onGround()) return false;
+        ServerLevel level = (ServerLevel) g.level(); BlockPos f = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
+        if (solidAt(level, f.above(2)) || solidAt(level, f.above(3)) || !solidAt(level, f.above(4))) return false;
+        for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) { if (dx == 0 && dz == 0) continue; if (!solidAt(level, f.offset(dx, 0, dz)) || !solidAt(level, f.offset(dx, 1, dz))) return false; }
+        return true;
+    }
+    private boolean firmFloor(ServerLevel level, BlockPos c) { return solidAt(level, c) && !level.getBlockState(c).is(net.minecraft.world.level.block.Blocks.MAGMA_BLOCK); }
+    /** The 2-long tunnel off {@code f} (the cell it stands in) along {@code d}: both cells solid rock to dig, a solid roof and floor, rock beside them. */
+    private boolean tunnelOk(ServerLevel level, BlockPos f, net.minecraft.core.Direction d) {
+        for (int k = 1; k <= 2; k++) { BlockPos x = f.relative(d, k);
+            if (!diggable(level, x) || !diggable(level, x.above()) || !solidAt(level, x.above(2)) || level.getBlockState(x.above(2)).getBlock() instanceof net.minecraft.world.level.block.FallingBlock || !firmFloor(level, x.below())) return false;
+            for (var side : new net.minecraft.core.Direction[] {d.getClockWise(), d.getCounterClockWise()}) if (!solidAt(level, x.relative(side)) || !solidAt(level, x.above().relative(side))) return false; }
+        return !solidAt(level, f.relative(d, 3)) ? false : solidAt(level, f.relative(d, 3).above()); // (shut at its end too)
+    }
+    private Boolean witherHole(Task.Attack t, net.minecraft.world.entity.LivingEntity mob) {
         if (!(mob instanceof net.minecraft.world.entity.monster.WitherSkeleton)) return null;
         ServerLevel level = (ServerLevel) g.level();
-        double up = g.getY() - mob.getY();
-        if (up >= 2.9 && g.onGround()) { // on top: out of its reach
-            g.getNavigation().stop(); g.setSprinting(false); g.getLookControl().setLookAt(mob);
-            if (mob.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0 && canHit(mob)) { if (cfSwing(mob)) cfSay("hitting it from the pillar", String.format("%.1f", up) + " over it: it can't reach him, he reaches its head"); return false; }
-            net.minecraft.world.item.Item food = g.getFoodData().getFoodLevel() < 20 ? com.claudemod.director.ClaudeLife.foodToEat(g, g.getHealth() <= 6) : null;
-            if (food != null && g.getHealth() < 20) { g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(food)); cfSay("eating on the pillar", "health " + (int) g.getHealth()); return true; }
-            if (ticks >= t.maxTicks() - 1) ticks = 2; // (the fight's clock waits while it comes back into reach)
-            cfSay("waiting on the pillar", "the wither skeleton " + (int) mob.distanceTo(g) + " off, " + String.format("%.1f", up) + " under him: it comes to his foot and gets hit there");
+        if (Boolean.getBoolean("claude.debugWither") && g.tickCount % 5 == 0) for (var w : level.getEntitiesOfClass(net.minecraft.world.entity.monster.WitherSkeleton.class, g.getBoundingBox().inflate(4))) com.claudemod.ClaudeMod.LOGGER.info("[Claude wither] me {} {} {} ground {} | ws {} {} {} ground {} reachBox {} (WorkGoal.witherHole)", String.format("%.2f", g.getX()), String.format("%.2f", g.getY()), String.format("%.2f", g.getZ()), g.onGround(), String.format("%.2f", w.getX()), String.format("%.2f", w.getY()), String.format("%.2f", w.getZ()), w.onGround(), w.isWithinMeleeAttackRange(g));
+        if (inCappedHole()) {
+            g.getNavigation().stop(); g.setSprinting(false); g.setJumping(false); g.xxa = 0; g.zza = 0; equipWeapon(); shieldDown();
+            g.getLookControl().setLookAt(mob.getX(), mob.getY() + 0.3, mob.getZ()); // (its legs: what he reaches over the rim)
+            if (canHitNow(mob)) { float hp0 = mob.getHealth(); g.getLookControl().faceNow(new Vec3(mob.getX(), mob.getY() + 0.3, mob.getZ())); g.attack(mob); g.swing(InteractionHand.MAIN_HAND);
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] from my hole: hit the wither skeleton at the rim, hp {} -> {} (WorkGoal.witherHole)", hp0, mob.getHealth());
+                if (!mob.isAlive()) g.noteDoing("killed a wither_skeleton"); return false; }
+            boolean withered = g.hasEffect(net.minecraft.world.effect.MobEffects.WITHER);
+            if (withered && g.inventory.count(x -> x.is(net.minecraft.world.item.Items.MILK_BUCKET)) > 0 && g.getHealth() <= 12) { g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(net.minecraft.world.item.Items.MILK_BUCKET)); cfSay("milk in the hole", "Wither on at health " + (int) g.getHealth()); return true; }
+            net.minecraft.world.item.Item food = g.getFoodData().getFoodLevel() < 20 && g.getHealth() < 20 ? com.claudemod.director.ClaudeLife.foodToEat(g, g.getHealth() <= 6) : null;
+            if (food != null) { g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(food)); cfSay("eating in the hole", "health " + (int) g.getHealth()); return true; }
+            if (ticks >= t.maxTicks() - 1 && mob.distanceTo(g) < 24) ticks = 2; // (the fight's clock waits while it comes to the rim)
+            if (mob.distanceTo(g) > 24) return true; // (it went off: done here)
+            if (++cfIdle > 20 * 30) { cfSay("it isn't coming", "30 s in the hole and the wither skeleton stays " + (int) mob.distanceTo(g) + " off: done waiting"); return true; }
+            cfSay("waiting in the hole", "the wither skeleton " + (int) mob.distanceTo(g) + " off: it can't reach under the floor or drop in past the cap; it comes to the rim and gets hit there");
             return false;
         }
-        if (mob.distanceTo(g) > 8 || !g.onGround()) return null; // (far off: the ordinary approach; in the air: not now)
-        ItemStack blocks = scaffoldBlock();
-        BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
-        boolean room = true; for (int k = 2; k <= 4; k++) if (!level.getBlockState(feet.above(k)).getCollisionShape(level, feet.above(k)).isEmpty()) room = false;
-        if (blocks.getCount() < 3 || !room) { cfSay("in the open", "no 2-high gap and " + (blocks.getCount() < 3 ? "too few blocks" : "no head room") + " for a pillar: shield and crits"); return null; }
-        g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Pillar(3));
-        com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] a wither skeleton {} off and no 2-high gap: 3 up a pillar at {} (its reach stops under his feet), then the fight from the top (WorkGoal.witherPillar)", (int) mob.distanceTo(g), feet.toShortString());
-        cfMode = "up the pillar"; return true;
+        if (mob.distanceTo(g) > 12 || !g.onGround() || !g.hasLineOfSight(mob)) return null; // (far off or unseen: the ordinary approach)
+        if (g.tasks.stream().anyMatch(x -> x instanceof Task.Break)) return null; // (already digging it)
+        BlockPos f = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
+        if (wsDug != null && wsDug.closerThan(f, 4) && g.tickCount - wsDugTick < 20 * 30) return null; // (dug one here just now: it's the cover fight's to use, no second)
+        java.util.List<Task> dig = new java.util.ArrayList<>(); BlockPos in = null; String how = null;
+        // a wall within 6: a tunnel 2 long from a cell it can stand in
+        outer:
+        for (int r = 0; r <= 6; r++) for (int dx = -r; dx <= r; dx++) for (int dz = -r; dz <= r; dz++) { if (Math.max(Math.abs(dx), Math.abs(dz)) != r) continue;
+            for (int dy = -1; dy <= 1; dy++) { BlockPos s0 = f.offset(dx, dy, dz);
+                if (!com.claudemod.entity.life.FortressFight.stand(level, s0)) continue;
+                if (!(level.getBlockState(s0.above(2)).getCollisionShape(level, s0.above(2)).isEmpty())) continue; // (it stands there too: 3 open)
+                for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) { if (!tunnelOk(level, s0, d)) continue;
+                    if (!s0.equals(f)) { var path = g.getNavigation().createPath(s0, 0); if (path == null || !path.canReach()) continue; dig.add(new Task.GoTo(s0.immutable(), 0.4)); }
+                    BlockPos m = s0.relative(d), c = s0.relative(d, 2); dig.add(new Task.Break(m.above())); dig.add(new Task.Break(m)); dig.add(new Task.Break(c.above())); dig.add(new Task.Break(c.immutable()));
+                    in = c.immutable(); how = "a 2-high tunnel into the rock at " + s0.toShortString() + " going " + d.getName(); break outer; } } }
+        boolean capped = false;
+        if (in == null) { // the capped hole at his feet
+            ItemStack blocks = scaffoldBlock();
+            boolean ok = blocks.getCount() >= 4 && diggable(level, f.below()) && diggable(level, f.below(2)) && firmFloor(level, f.below(3)) && !solidAt(level, f.above()) && !solidAt(level, f.above(2)) && !solidAt(level, f.above(3));
+            for (int dx = -1; dx <= 1 && ok; dx++) for (int dz = -1; dz <= 1 && ok; dz++) { if (dx == 0 && dz == 0) continue; if (!solidAt(level, f.offset(dx, -2, dz)) || !solidAt(level, f.offset(dx, -1, dz))) ok = false; } // (rock round both cells: a hole, not a ledge)
+            if (ok) for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) { BlockPos post = f.relative(d);
+                if (solidAt(level, post) || solidAt(level, post.above()) || solidAt(level, post.above(2)) || !solidAt(level, post.below())) continue; // (a rim cell to set the post on)
+                if (level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, new net.minecraft.world.phys.AABB(post).expandTowards(0, 1, 0), e -> e != g).size() > 0) continue;
+                net.minecraft.world.item.Item it = blocks.getItem();
+                dig.add(new Task.Place(post.immutable(), it)); dig.add(new Task.Place(post.above().immutable(), it)); dig.add(new Task.Place(post.above(2).immutable(), it));
+                dig.add(new Task.Place(f.above(2).immutable(), it)); // (the cap first, over his head while he still stands on the floor: from the hole the dug blocks' drops sat in its cell and the face was out of his place logic's view, stage 553)
+                dig.add(new Task.Break(f.below().immutable())); dig.add(new Task.Break(f.below(2).immutable()));
+                in = f.below(2).immutable(); capped = true; how = "a 2-deep hole at " + f.toShortString() + " capped two above the floor (a 3-block post on the " + d.getName() + " rim)"; break; }
+        }
+        if (in == null) { if (g.tickCount - wsDugSaid > 100) { wsDugSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] a wither skeleton {} off and no 2-high gap: no rock within 6 to tunnel into and no ground for a capped hole (fluid, bedrock, falling blocks, open round it, or under 3 blocks), the open fight (WorkGoal.witherHole)", (int) mob.distanceTo(g)); } return null; }
+        g.getNavigation().stop(); g.xxa = 0; g.zza = 0; wsDug = in; wsDugTick = g.tickCount;
+        g.tasks.addFirst(new Task.Attack(t.target(), Math.max(400, t.maxTicks() - ticks))); if (!capped) g.tasks.addFirst(new Task.GoTo(in, 0.3));
+        for (int i = dig.size() - 1; i >= 0; i--) g.tasks.addFirst(dig.get(i));
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] a wither skeleton {} off and no 2-high gap: making cover, {}; he stands at {}, out of its reach, it in his (WorkGoal.witherHole)", (int) mob.distanceTo(g), how, in.toShortString());
+        cfMode = "digging a gap"; return true;
     }
     private BlockPos footingSaid; // (the footing move said once a spot)
     /** A hit there throws him off: a drop of 4+ (or lava) within 2 blocks of {@code cell} the way {@code away} points, with no wall first. */
@@ -5103,7 +5171,7 @@ public class WorkGoal extends Goal {
         if (ticks >= t.maxTicks() - 1 && cfIdle < 20 * 20 && mob.distanceTo(g) < 24) { ticks = 2; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the {} is still on: the same fight goes on from cover past its {} s (WorkGoal.coverFight)", mob.getType().getDescription().getString(), t.maxTicks() / 20); } // (in place: a new task left a tick with no fight, and self-defence armed a second, plain one on the blaze) // (a fight from cover is slow by design: its clock running out left him idle in the gap and the follow rule walked him out)
         var cv = com.claudemod.entity.life.FortressFight.coverFor(g, level, mob);
         if (cv == null && blaze && (g.getHealth() <= 12 || g.isOnFire() && g.getHealth() <= 14)) { Boolean r = blazeRetreat(t, mob); if (r != null) return r; } // (hurt, no cover: out of their sight first, never the open fight; World 15 10:09 burned to death "in the open" at 6)
-        if (cv == null && !blaze) { Boolean wp = witherPillar(t, mob); if (wp != null) return wp; } // (no 2-high gap for a wither skeleton: 3 up a pillar beside it, never the open fight; World 15 19:00, two of them in the open, dead)
+        if (cv == null && !blaze) { Boolean wp = witherHole(t, mob); if (wp != null) return wp; } // (no 2-high gap for a wither skeleton: he digs a 2-high gap, never the open fight; World 15 19:00, two of them in the open, dead)
         if (cv == null) { if (ticks == 1) cfSay("in the open", "no cover for this " + mob.getType().getDescription().getString() + " here: the ordinary fight, shield and crits"); return null; }
         if (!(g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW))) equipWeapon(); // ponytail: live 18:56 "shooting it" x4 and arrows stayed 57: the sword swapped in every tick and cut each draw
 

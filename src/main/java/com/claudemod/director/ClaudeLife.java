@@ -5108,6 +5108,7 @@ public final class ClaudeLife {
           else if (work == null && inv.items.stream().anyMatch(s0 -> !s0.isEmpty() && junkItem(s0) && !s0.is(Items.NETHERRACK))) { // ponytail: live 13:24, idle in a Nether nook: 64 netherrack thrown at the rock every 5 s, landed at his feet, his body took it back; thrown the most open way instead
             Direction best = null; int bestOpen = -1; BlockPos eye = BlockPos.containing(g.getEyePosition());
             for (Direction d : Direction.Plane.HORIZONTAL) { int open = 0; for (int k = 1; k <= 4 && g.level().getBlockState(eye.relative(d, k)).getCollisionShape(g.level(), eye.relative(d, k)).isEmpty(); k++) open++; if (open > bestOpen) { bestOpen = open; best = d; } }
+            if (bestOpen < 2) { if (g.tickCount % 600 < 100) ClaudeMod.LOGGER.info("[Claude life] inventory full but nowhere to throw here ({} clear): the junk stays on him till he's somewhere open (ClaudeLife.dumpJunk)", bestOpen); return; } // (1 clear cell on his stronghold stair: it landed at his feet, his body took it back, a throw every 5 s, live 00:33)
             g.setYRot(best.toYRot()); g.setXRot(-25f); ClaudeMod.LOGGER.info("[Claude life] junk thrown the most open way, {} ({} clear) (ClaudeLife.dumpJunk)", best, bestOpen); } }
         java.util.Set<Item> junk = JUNK;
         java.util.Map<Item, Integer> kept = new java.util.HashMap<>();

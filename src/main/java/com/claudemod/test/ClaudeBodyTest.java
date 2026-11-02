@@ -10366,6 +10366,7 @@ public final class ClaudeBodyTest {
     // ---------------------------------------------------------------- stages 494 on: one method each (exactStages is at the JVM's 64 KB limit)
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
+            case 556: return st556(stage, t, c, h, level, mock);
             case 555: return st555(stage, t, c, h, level, mock);
             case 553: return st553(stage, t, c, h, level, mock);
             case 554: return st554(stage, t, c, h, level, mock);
@@ -11086,6 +11087,38 @@ public final class ClaudeBodyTest {
             check(s554LetBe, "unreachable enderman: never let be (" + s554Picks + " picks, at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ")");
             String how = "the enderman out of reach gone after " + s554Picks + " times, then let be";
             if (s554Em != null) s554Em.discard(); s554Em = null; c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.setHealth(20f); c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            com.claudemod.entity.life.Watchdog.teleported(c); if (c.isAlive()) c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0);
+            pass(stage, t, how);
+        }
+        return true;
+    }
+    private static int blT = -1, blFire = 0; private static float blLow = 20f;
+    private static boolean st556(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live, shooting blazes (backlog: every blaze stage before used frozen ones, setNoAi, so no fireball ever re-armed a fight or cut a retreat): a brick hall over lava with pillars, a live blaze spawner at its end and two blazes up; 3 rods, alive, at an expert's pace
+        ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        final int ox = 19000, oy = 69, oz = 19000; BlockPos me = new BlockPos(ox + 2, oy + 1, oz), cage = new BlockPos(ox + 30, oy + 1, oz);
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); blT = -1; blFire = 0; blLow = 20f; c.nextPlanTick = c.tickCount + 20 * 900; c.prefs.put("stay_close", "no"); c.commandActive = false;
+            c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.BOW)); c.getInventory().add(new ItemStack(Items.ARROW, 32)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(nether, me.getX() + 0.5, oy + 30, me.getZ() + 0.5, 0, 0); c.setNoGravity(true); }
+        if (t[0] >= 10 && t[0] < 10 + 49) { int x = t[0] - 10 - 4; for (int z = -8; z <= 8; z++) for (int y = oy - 4; y <= oy + 20; y++) { boolean wall = x == -4 || x == 44 || Math.abs(z) == 8 || y == oy + 20;
+                boolean pillar = (x == 8 || x == 16 || x == 24) && Math.abs(z) == 3 && y > oy && y <= oy + 3; // (a fortress room's pillars: cover from their sight)
+                nether.setBlock(new BlockPos(ox + x, y, oz + z), wall ? Blocks.BEDROCK.defaultBlockState() : y < oy ? Blocks.LAVA.defaultBlockState() : (y == oy && Math.abs(z) <= 4 && x >= 0 && x <= 40) || pillar ? Blocks.NETHER_BRICKS.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2 | 16); } }
+        if (t[0] == 60) {
+            for (var it0 : nether.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new net.minecraft.world.phys.AABB(ox - 40, 0, oz - 40, ox + 80, 128, oz + 40), e -> !(e instanceof net.minecraft.world.entity.player.Player))) it0.discard(); // (a run before in this world: its blazes and rods)
+            nether.setBlock(cage, Blocks.SPAWNER.defaultBlockState(), 2); if (nether.getBlockEntity(cage) instanceof net.minecraft.world.level.block.entity.SpawnerBlockEntity sb) sb.setEntityId(EntityType.BLAZE, nether.getRandom());
+            com.claudemod.entity.life.Perception.noteSignTest(c, cage, "a mob spawner");
+            c.setNoGravity(false); c.teleportTo(nether, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, -90f, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.fallDistance = 0; c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+            for (int k = 0; k < 2; k++) { var bz = EntityType.BLAZE.create(nether); bz.moveTo(ox + 14.5, oy + 4, oz + 0.5 + (k == 0 ? -2 : 2), -90, 0); bz.setPersistenceRequired(); nether.addFreshEntity(bz); } }
+        if (t[0] == 70) { blT = t[0]; c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("blaze_rods", "", 3, "near_you")); }
+        if (blT > 0 && c.level() == nether) { blLow = Math.min(blLow, c.getHealth()); if (c.isOnFire()) blFire++;
+            for (var m : nether.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(ox - 40, 0, oz - 40, ox + 80, 128, oz + 40), m0 -> !(m0 instanceof net.minecraft.world.entity.monster.Blaze))) m.discard(); }
+        int rods = c.inventory.count(x -> x.is(Items.BLAZE_ROD));
+        if (blT > 0 && (rods >= 3 || !c.isAlive() || t[0] == blT + 20 * 180)) {
+            check(c.isAlive(), "live blazes: he died (low " + blLow + ", " + blFire / 20 + " s on fire)");
+            check(rods >= 3, "live blazes: " + rods + " rods in 180 s (at " + c.blockPosition().toShortString() + ", low " + blLow + ", task " + c.currentTask + ", last " + c.lastSkillLine + ")");
+            String how = rods + " rods in " + (t[0] - blT) / 20 + " s, low " + blLow + " HP, " + blFire / 20 + " s on fire";
+            for (var m : nether.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(ox - 40, 0, oz - 40, ox + 80, 128, oz + 40))) m.discard(); nether.setBlock(cage, Blocks.AIR.defaultBlockState(), 2);
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.clearFire(); c.setHealth(20f); c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
             com.claudemod.entity.life.Watchdog.teleported(c); if (c.isAlive()) c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0);
             pass(stage, t, how);
         }

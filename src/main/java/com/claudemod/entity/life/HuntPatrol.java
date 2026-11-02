@@ -54,7 +54,7 @@ public final class HuntPatrol {
         BlockPos best = null; double bs = -1e9, bestA = 0; String bwhy = "";
         for (int i = 0; i < 12; i++) {
             double a = i * Math.PI / 6;
-            for (int d : new int[] {24, 16, 32}) {
+            for (int d : new int[] {24, 16, 32, 48}) {
                 BlockPos p = FortressScout.alongRay(g, level, a, d); if (p == null) continue;
                 double score = 0; StringBuilder w = new StringBuilder();
                 double hunt = 0; for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) { double[] h = b.hunt.get(cell(p.getX() + dx * CELL, p.getZ() + dz * CELL)); if (h != null) hunt += weight(h, now) * (dx == 0 && dz == 0 ? 1.0 : 0.4); }
@@ -65,7 +65,7 @@ public final class HuntPatrol {
                 if (b.heading != null) { double turn = Math.cos(a - b.heading); score += 1.5 * turn; if (turn > 0.7) w.append("on his heading; "); }
                 score -= Math.abs(d - 24) * 0.02;
                 if (score > bs) { bs = score; best = p; bestA = a; bwhy = w + String.format("score %.1f", score); }
-                break; // (the first standable spot along this way)
+                if (!fresh) break; // (the first standable spot along this way; ponytail: a just-walked one looks further out instead, live 20:5x a N-S corridor, both nearest ends walked, he flipped between them)
             }
         }
         if (best == null) { why[0] = "no ground in sight to walk to"; return null; }

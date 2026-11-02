@@ -77,6 +77,7 @@ public final class ClaudeSpawner {
             ClaudeMod.LOGGER.info("[Claude] through the End's exit portal: home to {} in the overworld (his bed {}), everything kept, like a player after the credits (ClaudeSpawner.onServerTick)", BlockPos.containing(to).toShortString(), bed == null ? "none" : bed.toShortString());
             cw.setServerLevel(ow);
             cw.moveTo(to.x, to.y, to.z, cw.getYRot(), 0);
+            if (cw.playerGoal != null && cw.playerGoal.toLowerCase().matches("(?s).*\\b(portal|home|end|dragon)\\b.*")) { ClaudeMod.LOGGER.info("[Claude] their goal \"{}\" is done: he's home through the exit portal (ClaudeSpawner.onServerTick)", cw.playerGoal); cw.playerGoal = "done: beat the dragon and came home through the End's exit portal"; cw.goal = ""; } // (arriving home is that step finishing: live 04:20 he logged back in "still on it: go home through the end portal")
             server.getPlayerList().remove(cw); // saves him there with his things
             join(server, owner, null); // logs back in from that save
         }

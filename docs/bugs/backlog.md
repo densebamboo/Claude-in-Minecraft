@@ -116,3 +116,9 @@ Each line is a live report from Day to Day (World 15, 2026-10-31/11-01) not on t
 - **Chat accuracy, armor:** "want me to swap the gold helmet out?" while wearing diamond (gold in his pack). ClaudeChat GT_ARMOR accepts worn OR carried; swap/take-off/wearing wording needs the worn slot.
 - **Re-light dark branches:** he mined a branch at y=-58 with 0 torches; light_up is player-relative and fails with the user flying. Torch his own mine's unlit cells by the blueprint (maybe in bpIntegrity).
 - **Shield at a creeper:** 00:17, escaping a night crowd in diamond, shield down, a creeper did 24.6 raw (17 -> 6). Within ~3 and no room to run: turn and block. Also the escape loop: 6 short "run's end reached, them still on him" hops in 17 s dragged the crowd along.
+
+## Stronghold, after the live portal (2026-11-02)
+
+- Stage 559 now starts him on a staircase dug onto the start piece's roof. He gets in through the roof beside him, then explores too long and times out (2,000-2,600 cells). The hearing cues reach too short from there.
+- 560 (a long walk out of a 2-deep hole) passes without any fix: it doesn't reproduce the live 2-up path-node refusal (00:42 on his spiral staircase, 1,878-block walk). The waypoint fix is on the unpushed branch bp/path-2up (stash) until a stage reproduces it.
+- From Day to Day: a new order doesn't clear the old step's queued walk (190 queued moves survived several orders). StrongholdRoom broke two iron doors after pressing their button and going through. After success, the command layer logged "steps ran out with a failure".

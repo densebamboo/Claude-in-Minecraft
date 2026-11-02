@@ -256,6 +256,12 @@ public final class PortalMap {
     public static void noteEndTrail(ClaudeEntity g, List<BlockPos> trail) { if (trail == null || trail.size() < 2) return; Net n = net(g); n.endTrail = new ArrayList<>(trail); ClaudeMod.LOGGER.info("[Claude portal] the way to the End portal: {} points from {} to {} (PortalMap.noteEndTrail)", trail.size(), trail.get(0).toShortString(), trail.get(trail.size() - 1).toShortString()); }
     public static String endTruth(ClaudeEntity g) { Net n = net(g); return n.endPortal == null ? "the End portal: none lit that you know of" : "the End portal: lit, at " + n.endPortal.toShortString() + " in the Overworld" + (n.endWayIn == null ? "" : ", the way in: your hole into its stronghold at " + n.endWayIn.toShortString()) + " (light_end_portal walks you back to it; fight_dragon goes in)"; }
     public static String truthLine(ClaudeEntity g) {
+        if (g.level().dimension() == net.minecraft.world.level.Level.END && g.level() instanceof net.minecraft.server.level.ServerLevel sl) { // the way home from the End: its exit portal (live 04:12, "go through the portal" planned as follow / go_to them)
+            BlockPos mid = sl.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, BlockPos.ZERO); BlockPos ep = null;
+            for (BlockPos q : BlockPos.betweenClosed(mid.offset(-4, -8, -4), mid.offset(4, 4, 4))) if (sl.getBlockState(q).is(net.minecraft.world.level.block.Blocks.END_PORTAL)) { ep = q.immutable(); break; }
+            return ep != null ? "THE END'S EXIT PORTAL is open on the fountain at " + ep.toShortString() + " (the dragon is dead): enter_portal walks you into it and home; \"go through the portal\" / \"go home\" here means enter_portal, never follow or go_to"
+                    : "the End's exit portal on the fountain is closed while the dragon lives";
+        }
         Net n = net(g); if (n.portals.isEmpty()) return "none known (you remember every portal you use, light or see)" + (n.endPortal == null ? "" : "; " + endTruth(g));
         String d = dim(g.level()); BlockPos me = g.blockPosition(); long now = g.level().getGameTime(); BlockPos h = home(g);
         List<Portal> ps = new ArrayList<>(n.portals); ps.sort(Comparator.comparing((Portal p) -> !p.dim.equals(d)).thenComparingDouble(p -> p.at.distSqr(me)));

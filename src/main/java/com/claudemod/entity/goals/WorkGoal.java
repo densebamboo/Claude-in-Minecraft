@@ -4669,6 +4669,8 @@ public class WorkGoal extends Goal {
     private Boolean endermanHole(Task.Attack t, net.minecraft.world.entity.monster.EnderMan em) {
         ServerLevel level = (ServerLevel) g.level(); BlockPos f = g.blockPosition();
         double d = em.distanceTo(g);
+        if (inCappedHole()) return tallCover(t, em, true); // (his own capped hole: the fight from it)
+        int angryAt = level.getEntitiesOfClass(net.minecraft.world.entity.monster.EnderMan.class, g.getBoundingBox().inflate(24), x -> x.isAlive() && x.getTarget() == g).size();
         if (inEmHole()) {
             emHole = f.immutable(); g.getNavigation().stop(); g.setSprinting(false); equipWeapon();
             g.getLookControl().setLookAt(em.getX(), em.getY() + 0.6, em.getZ()); // (its legs: what reaches down to him)
@@ -4678,7 +4680,7 @@ public class WorkGoal extends Goal {
             if (em.getTarget() == g && ticks > 200 && !g.hasLineOfSight(em)) { // (live 19:48 -53,45,-893: one 2 up, 6 off, out of sight 30 s, never came: any height, not only 3+)
             com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman on me sits {} below/above out of sight at {} for 10 s+, no way to me: leaving it, on with the hunt (WorkGoal.endermanHole)", (int) (em.getY() - g.getY()), em.blockPosition().toShortString()); return true; } // ponytail: live 19:23 -29,47,-882: one 7 down in a cave under him, angry, 60 s+ of waiting; a player leaves it (it teleports to him if it can)
             if (d > 24) { if (g.tickCount - emSaid > 100) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman went off {} away: out of the hole (WorkGoal.endermanHole)", (int) d); } return true; }
-            if (g.getHealth() < 8) { var food = com.claudemod.director.ClaudeLife.foodToEat(g, false); if (food != null) { g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(food)); return true; } }
+            if (g.getHealth() < (angryAt >= 2 ? 14 : 8)) { var food = com.claudemod.director.ClaudeLife.foodToEat(g, false); // (two on him: heal early, in cover, the user 20:13 "2 at once is okay if he can manage it, not if he keeps dying") if (food != null) { g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(food)); return true; } }
             if (canHitNow(em)) { g.getLookControl().setLookAt(em.getX(), em.getY() + 0.6, em.getZ()); g.attack(em); g.swing(InteractionHand.MAIN_HAND); }
             else if (em.getTarget() != g && d < 16) g.getLookControl().setLookAt(em.getX(), em.getEyeY(), em.getZ()); // (not angry yet: a look at its eyes brings it over, the player's way)
             if (g.tickCount - emSaid > 200) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] in my hole at {}: the enderman {} off (health {}) (WorkGoal.endermanHole)", f.toShortString(), (int) d, (int) g.getHealth()); }
@@ -4695,7 +4697,8 @@ public class WorkGoal extends Goal {
                 emHole = c.immutable(); g.tasks.addFirst(new Task.Attack(t.target(), Math.max(400, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.GoTo(c.immutable(), 0.4));
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] an enderman {} off: a natural 2-high nook at {} ({} under it), into it instead of building (WorkGoal.endermanHole)", (int) d, c.toShortString(), name(level.getBlockState(c.above(2))));
                 return true; } }
-        if (g.tickCount - emSaid > 200) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] an enderman {} off: no natural 2-high cover within 8, fighting it in the open (WorkGoal.endermanHole)", (int) d); }
+        { Boolean dug = tallCover(t, em, angryAt >= 2 || g.getHealth() <= 12); if (dug != null) return dug; } // ponytail: the user 20:13 "2 endermen at once is okay if he can manage it, but not if he keeps dying"; live 20:12 -60,38,-880, "no natural 2-high cover within 8" twice, 20 -> 10 in a second: a tunnel dug into the rock (no building), the capped hole (4 blocks) only with two on him or hurt
+        if (g.tickCount - emSaid > 200) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] an enderman {} off: no natural 2-high cover within 8 and none to dig, fighting it in the open (WorkGoal.endermanHole)", (int) d); }
         return null; // ponytail: the user 13:41 "natural cover ... if not, he keeps fighting": no booth building
     }
     private int unseenSince = -1;
@@ -4957,6 +4960,12 @@ public class WorkGoal extends Goal {
         for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) { if (dx == 0 && dz == 0) continue; if (!solidAt(level, f.offset(dx, 0, dz)) || !solidAt(level, f.offset(dx, 1, dz))) return false; }
         return true;
     }
+    /** The mob can walk to {@code c} (its own pathfinder, the way it will come). */
+    private boolean mobPaths(net.minecraft.world.entity.LivingEntity mob, BlockPos c) {
+        if (!(mob instanceof net.minecraft.world.entity.Mob m)) return true;
+        if (m.blockPosition().closerThan(c, 1.5)) return true;
+        var path = m.getNavigation().createPath(c, 1); return path != null && path.canReach();
+    }
     private boolean firmFloor(ServerLevel level, BlockPos c) { return solidAt(level, c) && !level.getBlockState(c).is(net.minecraft.world.level.block.Blocks.MAGMA_BLOCK); }
     /** The 2-long tunnel off {@code f} (the cell it stands in) along {@code d}: both cells solid rock to dig, a solid roof and floor, rock beside them. */
     private boolean tunnelOk(ServerLevel level, BlockPos f, net.minecraft.core.Direction d) {
@@ -4967,22 +4976,31 @@ public class WorkGoal extends Goal {
     }
     private Boolean witherHole(Task.Attack t, net.minecraft.world.entity.LivingEntity mob) {
         if (!(mob instanceof net.minecraft.world.entity.monster.WitherSkeleton)) return null;
+        return tallCover(t, mob, true);
+    }
+    /**
+     * Cover from a mob too tall for a 2-high space (a wither skeleton 2.4, an enderman 2.9): in a capped hole, the fight from it; else,
+     * with it within 12 and in sight, the cover made (a 2-high tunnel into rock within 6, or with {@code cap} the capped hole at his
+     * feet, 4 blocks). Null: no cover to make here, the caller's fight goes on.
+     */
+    private Boolean tallCover(Task.Attack t, net.minecraft.world.entity.LivingEntity mob, boolean cap) {
+        String who = mob.getType().getDescription().getString().toLowerCase(java.util.Locale.ROOT);
         ServerLevel level = (ServerLevel) g.level();
         if (Boolean.getBoolean("claude.debugWither") && g.tickCount % 5 == 0) for (var w : level.getEntitiesOfClass(net.minecraft.world.entity.monster.WitherSkeleton.class, g.getBoundingBox().inflate(4))) com.claudemod.ClaudeMod.LOGGER.info("[Claude wither] me {} {} {} ground {} | ws {} {} {} ground {} reachBox {} (WorkGoal.witherHole)", String.format("%.2f", g.getX()), String.format("%.2f", g.getY()), String.format("%.2f", g.getZ()), g.onGround(), String.format("%.2f", w.getX()), String.format("%.2f", w.getY()), String.format("%.2f", w.getZ()), w.onGround(), w.isWithinMeleeAttackRange(g));
         if (inCappedHole()) {
             g.getNavigation().stop(); g.setSprinting(false); g.setJumping(false); g.xxa = 0; g.zza = 0; equipWeapon(); shieldDown();
             g.getLookControl().setLookAt(mob.getX(), mob.getY() + 0.3, mob.getZ()); // (its legs: what he reaches over the rim)
             if (canHitNow(mob)) { float hp0 = mob.getHealth(); g.getLookControl().faceNow(new Vec3(mob.getX(), mob.getY() + 0.3, mob.getZ())); g.attack(mob); g.swing(InteractionHand.MAIN_HAND);
-                com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] from my hole: hit the wither skeleton at the rim, hp {} -> {} (WorkGoal.witherHole)", hp0, mob.getHealth());
-                if (!mob.isAlive()) g.noteDoing("killed a wither_skeleton"); return false; }
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] from my hole: hit the {} at the rim, hp {} -> {} (WorkGoal.tallCover)", who, hp0, mob.getHealth());
+                if (!mob.isAlive()) g.noteDoing("killed a " + BuiltInRegistries.ENTITY_TYPE.getKey(mob.getType()).getPath()); return false; }
             boolean withered = g.hasEffect(net.minecraft.world.effect.MobEffects.WITHER);
             if (withered && g.inventory.count(x -> x.is(net.minecraft.world.item.Items.MILK_BUCKET)) > 0 && g.getHealth() <= 12) { g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(net.minecraft.world.item.Items.MILK_BUCKET)); cfSay("milk in the hole", "Wither on at health " + (int) g.getHealth()); return true; }
             net.minecraft.world.item.Item food = g.getFoodData().getFoodLevel() < 20 && g.getHealth() < 20 ? com.claudemod.director.ClaudeLife.foodToEat(g, g.getHealth() <= 6) : null;
             if (food != null) { g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(food)); cfSay("eating in the hole", "health " + (int) g.getHealth()); return true; }
             if (ticks >= t.maxTicks() - 1 && mob.distanceTo(g) < 24) ticks = 2; // (the fight's clock waits while it comes to the rim)
             if (mob.distanceTo(g) > 24) return true; // (it went off: done here)
-            if (++cfIdle > 20 * 30) { cfSay("it isn't coming", "30 s in the hole and the wither skeleton stays " + (int) mob.distanceTo(g) + " off: done waiting"); return true; }
-            cfSay("waiting in the hole", "the wither skeleton " + (int) mob.distanceTo(g) + " off: it can't reach under the floor or drop in past the cap; it comes to the rim and gets hit there");
+            if (++cfIdle > 20 * 30) { cfSay("it isn't coming", "30 s in the hole and the " + who + " stays " + (int) mob.distanceTo(g) + " off: done waiting"); return true; }
+            cfSay("waiting in the hole", "the " + who + " " + (int) mob.distanceTo(g) + " off: it can't reach under the floor or drop in past the cap; it comes to the rim and gets hit there");
             return false;
         }
         if (mob.distanceTo(g) > 12 || !g.onGround() || !g.hasLineOfSight(mob)) return null; // (far off or unseen: the ordinary approach)
@@ -4997,28 +5015,30 @@ public class WorkGoal extends Goal {
                 if (!com.claudemod.entity.life.FortressFight.stand(level, s0)) continue;
                 if (!(level.getBlockState(s0.above(2)).getCollisionShape(level, s0.above(2)).isEmpty())) continue; // (it stands there too: 3 open)
                 for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) { if (!tunnelOk(level, s0, d)) continue;
+                    if (!mobPaths(mob, s0)) continue; // (the user 20:2x: cover "only works if ... they can path up to you": it walks to the mouth)
                     if (!s0.equals(f)) { var path = g.getNavigation().createPath(s0, 0); if (path == null || !path.canReach()) continue; dig.add(new Task.GoTo(s0.immutable(), 0.4)); }
                     BlockPos m = s0.relative(d), c = s0.relative(d, 2); dig.add(new Task.Break(m.above())); dig.add(new Task.Break(m)); dig.add(new Task.Break(c.above())); dig.add(new Task.Break(c.immutable()));
                     in = c.immutable(); how = "a 2-high tunnel into the rock at " + s0.toShortString() + " going " + d.getName(); break outer; } } }
         boolean capped = false;
-        if (in == null) { // the capped hole at his feet
+        if (in == null && cap) { // the capped hole at his feet
             ItemStack blocks = scaffoldBlock();
             boolean ok = blocks.getCount() >= 4 && diggable(level, f.below()) && diggable(level, f.below(2)) && firmFloor(level, f.below(3)) && !solidAt(level, f.above()) && !solidAt(level, f.above(2)) && !solidAt(level, f.above(3));
             for (int dx = -1; dx <= 1 && ok; dx++) for (int dz = -1; dz <= 1 && ok; dz++) { if (dx == 0 && dz == 0) continue; if (!solidAt(level, f.offset(dx, -2, dz)) || !solidAt(level, f.offset(dx, -1, dz))) ok = false; } // (rock round both cells: a hole, not a ledge)
             if (ok) for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) { BlockPos post = f.relative(d);
                 if (solidAt(level, post) || solidAt(level, post.above()) || solidAt(level, post.above(2)) || !solidAt(level, post.below())) continue; // (a rim cell to set the post on)
                 if (level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, new net.minecraft.world.phys.AABB(post).expandTowards(0, 1, 0), e -> e != g).size() > 0) continue;
+                boolean rim = false; for (var d2 : net.minecraft.core.Direction.Plane.HORIZONTAL) if (d2 != d && mobPaths(mob, f.relative(d2))) rim = true; if (!rim) continue; // (it walks to a rim cell, where he reaches its legs)
                 net.minecraft.world.item.Item it = blocks.getItem();
                 dig.add(new Task.Place(post.immutable(), it)); dig.add(new Task.Place(post.above().immutable(), it)); dig.add(new Task.Place(post.above(2).immutable(), it));
                 dig.add(new Task.Place(f.above(2).immutable(), it)); // (the cap first, over his head while he still stands on the floor: from the hole the dug blocks' drops sat in its cell and the face was out of his place logic's view, stage 553)
                 dig.add(new Task.Break(f.below().immutable())); dig.add(new Task.Break(f.below(2).immutable()));
                 in = f.below(2).immutable(); capped = true; how = "a 2-deep hole at " + f.toShortString() + " capped two above the floor (a 3-block post on the " + d.getName() + " rim)"; break; }
         }
-        if (in == null) { if (g.tickCount - wsDugSaid > 100) { wsDugSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] a wither skeleton {} off and no 2-high gap: no rock within 6 to tunnel into and no ground for a capped hole (fluid, bedrock, falling blocks, open round it, or under 3 blocks), the open fight (WorkGoal.witherHole)", (int) mob.distanceTo(g)); } return null; }
+        if (in == null) { if (g.tickCount - wsDugSaid > 100) { wsDugSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] a {} {} off and no 2-high gap: no rock within 6 to tunnel into and no ground for a capped hole (fluid, bedrock, falling blocks, open round it, or under 3 blocks), the open fight" + (cap ? "" : " (no capped hole: one foe and health to spare)") + " (WorkGoal.tallCover)", who, (int) mob.distanceTo(g)); } return null; }
         g.getNavigation().stop(); g.xxa = 0; g.zza = 0; wsDug = in; wsDugTick = g.tickCount;
         g.tasks.addFirst(new Task.Attack(t.target(), Math.max(400, t.maxTicks() - ticks))); if (!capped) g.tasks.addFirst(new Task.GoTo(in, 0.3));
         for (int i = dig.size() - 1; i >= 0; i--) g.tasks.addFirst(dig.get(i));
-        com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] a wither skeleton {} off and no 2-high gap: making cover, {}; he stands at {}, out of its reach, it in his (WorkGoal.witherHole)", (int) mob.distanceTo(g), how, in.toShortString());
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] a {} {} off and no 2-high gap: making cover, {}; he stands at {}, out of its reach, it in his (WorkGoal.tallCover)", who, (int) mob.distanceTo(g), how, in.toShortString());
         cfMode = "digging a gap"; return true;
     }
     private BlockPos footingSaid; // (the footing move said once a spot)

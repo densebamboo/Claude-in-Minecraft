@@ -10366,6 +10366,7 @@ public final class ClaudeBodyTest {
     // ---------------------------------------------------------------- stages 494 on: one method each (exactStages is at the JVM's 64 KB limit)
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
+            case 558: return st558(stage, t, c, h, level, mock);
             case 555: return st555(stage, t, c, h, level, mock);
             case 553: return st553(stage, t, c, h, level, mock);
             case 554: return st554(stage, t, c, h, level, mock);
@@ -11086,6 +11087,37 @@ public final class ClaudeBodyTest {
             check(s554LetBe, "unreachable enderman: never let be (" + s554Picks + " picks, at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ")");
             String how = "the enderman out of reach gone after " + s554Picks + " times, then let be";
             if (s554Em != null) s554Em.discard(); s554Em = null; c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.setHealth(20f); c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            com.claudemod.entity.life.Watchdog.teleported(c); if (c.isAlive()) c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0);
+            pass(stage, t, how);
+        }
+        return true;
+    }
+    private static int bsT = -1, bsPicks0 = 0, bsOut = -1; private static float bsLow = 20f; private static java.util.List<java.util.UUID> bsIds = new java.util.ArrayList<>();
+    private static boolean st558(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // an escape out of a Nether basin (Day to Day, live 22:03: 7 magma cubes round him in a basin, three runs in a row to ends up its walls, "no closer in 2.5 s" each, dead): walls 6 high but for a ramp east; six angry piglins north; he runs out up the ramp
+        ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        final int ox = 21000, oy = 70, oz = 21000; BlockPos me = new BlockPos(ox, oy + 1, oz);
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); bsT = -1; bsOut = -1; bsLow = 20f; bsIds.clear(); c.nextPlanTick = c.tickCount + 20 * 900; c.prefs.put("stay_close", "no"); c.commandActive = false;
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(nether, me.getX() + 0.5, oy + 30, me.getZ() + 0.5, 0, 0); c.setNoGravity(true); }
+        if (t[0] == 10) { for (int x = -14; x <= 14; x++) for (int z = -14; z <= 14; z++) for (int y = oy - 2; y <= oy + 12; y++) {
+                boolean floor = y <= oy, basin = Math.abs(x) <= 5 && Math.abs(z) <= 5, wall = !basin && y <= oy + 6;
+                boolean ramp = x >= 6 && x <= 11 && (z == 0 || z == 1) && y <= oy + (x - 5); // (the one way out: a ramp up the east wall, 1 up a block)
+                boolean rampAir = x >= 6 && x <= 11 && (z == 0 || z == 1) && y > oy + (x - 5);
+                nether.setBlock(new BlockPos(ox + x, y, oz + z), (floor || (wall && !rampAir) || ramp) ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2 | 16); }
+            for (var m : nether.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new net.minecraft.world.phys.AABB(me).inflate(40), e -> !(e instanceof net.minecraft.world.entity.player.Player))) m.discard();
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS));
+            c.setNoGravity(false); c.teleportTo(nether, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 180f, 0f); com.claudemod.entity.life.Watchdog.teleported(c); c.fallDistance = 0; c.setHealth(12f); }
+        if (t[0] == 20) { for (int i = 0; i < 6; i++) { var zp = EntityType.ZOMBIFIED_PIGLIN.create(nether); zp.moveTo(ox + i - 2.5, oy + 1, oz - 4.5, 0, 0); zp.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.GOLDEN_SWORD)); zp.setPersistenceRequired(); nether.addFreshEntity(zp); zp.setPersistentAngerTarget(c.getUUID()); zp.startPersistentAngerTimer(); zp.setTarget(c); bsIds.add(zp.getUUID()); if (i == 0) c.urgentAttacker = zp.getUUID(); }
+            bsPicks0 = c.work.escapePicks; bsT = t[0]; }
+        if (bsT > 0 && c.level() == nether) { bsLow = Math.min(bsLow, c.getHealth()); for (var m : nether.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(me).inflate(40), m0 -> !bsIds.contains(m0.getUUID()))) m.discard();
+            if (bsOut < 0 && c.getY() >= oy + 6.5) bsOut = t[0]; }
+        if (bsT > 0 && (bsOut > 0 || !c.isAlive() || t[0] == bsT + 20 * 30)) {
+            check(c.isAlive(), "basin: he died (low " + bsLow + ", " + (c.work.escapePicks - bsPicks0) + " escape picks)");
+            check(bsOut > 0, "basin: not out of it in 30 s (at " + c.blockPosition().toShortString() + ", " + (c.work.escapePicks - bsPicks0) + " escape picks, low " + bsLow + ", task " + c.currentTask + ")");
+            check(c.work.escapePicks - bsPicks0 <= 1, "basin: " + (c.work.escapePicks - bsPicks0) + " escape picks, the first not one he could walk to (the live death: three runs up the walls)");
+            String how = "out up the ramp in " + (bsOut - bsT) / 20.0 + " s, " + (c.work.escapePicks - bsPicks0) + " escape pick(s), low " + bsLow;
+            for (var m : nether.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(me).inflate(40))) m.discard(); bsIds.clear();
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.urgentAttacker = null; c.setHealth(20f); c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
             com.claudemod.entity.life.Watchdog.teleported(c); if (c.isAlive()) c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0);
             pass(stage, t, how);
         }

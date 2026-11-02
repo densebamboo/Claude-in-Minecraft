@@ -185,17 +185,17 @@ public class WorkGoal extends Goal {
         if (g.isInLava()) {
             if (current != null) { clearCrack(); g.tasks.addFirst(current); current = null; g.currentTask = null; }
             var lv = g.level(); BlockPos me = g.blockPosition(), out = null; double bd = Double.MAX_VALUE;
-            for (BlockPos q : BlockPos.betweenClosed(me.offset(-3, -1, -3), me.offset(3, 1, 3))) {
+            for (BlockPos q : BlockPos.betweenClosed(me.offset(-6, -1, -6), me.offset(6, 1, 6))) { // ponytail: 6 out, not 3 (live 19:53 World 15: fell into a Nether lava lake, no dry cell within 3, he only jumped till he died)
                 if (!lv.getFluidState(q).isEmpty() || !lv.getFluidState(q.above()).isEmpty()) continue;
                 if (!lv.getBlockState(q).getCollisionShape(lv, q).isEmpty() || !lv.getBlockState(q.above()).getCollisionShape(lv, q.above()).isEmpty()) continue;
                 if (!lv.getBlockState(q.below()).isFaceSturdy(lv, q.below(), Direction.UP)) continue;
                 if (lavaOutBad.containsKey(q) && g.tickCount - lavaOutBad.get(q) < 20 * 4) continue; // (a step he couldn't make just now: another way out, never the same failing step till he burns: live 06:53 World 15)
-                double d = q.distSqr(me) + (dryCells.contains(q) ? -6 : 0) + (q.getY() < me.getY() ? 8 : 0) + (lv.clip(new net.minecraft.world.level.ClipContext(g.getEyePosition(), Vec3.atCenterOf(q), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getType() == net.minecraft.world.phys.HitResult.Type.MISS ? 0 : 50); // (a wall between: last resort)
-                if (d >= 50 && q.distSqr(me) > 2) continue; // (behind a wall and not beside him: no way out at all, the wall dig below is; 1.5 s lost walking at one in a sealed pocket)
+                double d = q.distSqr(me) + (dryCells.contains(q) ? -6 : 0) + (q.getY() < me.getY() ? 8 : 0) + (lv.clip(new net.minecraft.world.level.ClipContext(g.getEyePosition(), Vec3.atCenterOf(q), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getType() == net.minecraft.world.phys.HitResult.Type.MISS ? 0 : 1000); // (a wall between: last resort)
+                if (d >= 1000 && q.distSqr(me) > 2) continue; // (behind a wall and not beside him: no way out at all, the wall dig below is; 1.5 s lost walking at one in a sealed pocket)
                 if (d < bd) { bd = d; out = q.immutable(); }
             }
             if (out != null && !out.equals(lavaOut)) { lavaOut = out; lavaOutSince = g.tickCount; }
-            if (out != null && g.tickCount - lavaOutSince > 30) { lavaOutBad.put(out, g.tickCount); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}: 1.5 s and not onto {}: that way's no good, another (WorkGoal.reflexes)", me.toShortString(), out.toShortString()); lavaOut = null; }
+            if (out != null && g.tickCount - lavaOutSince > 30 + 15 * (int) Math.sqrt(out.distSqr(me))) { lavaOutBad.put(out, g.tickCount); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}: 1.5 s and not onto {}: that way's no good, another (WorkGoal.reflexes)", me.toShortString(), out.toShortString()); lavaOut = null; }
             if (g.tickCount % 20 < 2) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}: getting out{}", me.toShortString(), out == null ? " (no dry cell near: jumping)" : " to " + out.toShortString() + (dryCells.contains(out) ? " (where he came from)" : ""));
             g.getNavigation().stop();
             if (out == null && g.tickCount - lavaDigTick > 4) { // no dry cell round him (a sealed pocket the lava came into, World 15 22:08: 17 s and dead): out through the wall, the side with no lava behind it, like a player

@@ -9,6 +9,9 @@ mkdir -p "$OUT/incidents"; FEED="$OUT/feed.txt"; : >> "$FEED"
 python -u "$T/loopwatch.py" "$LOG" >> "$FEED" & echo $! >> "$OUT/pids.txt"
 python -u "$T/pathwatch.py" "$LOG" >> "$FEED" & echo $! >> "$OUT/pids.txt"
 echo $$ >> "$OUT/pids.txt"
+# every line the user would call a bug, straight from the log (failures, give-ups, refusals, spins, stalls, hurt, litter,
+# exposed ore, conflicts, his chat admitting trouble); the findings dedup below keeps it to one line per shape
+( tail -F -n0 "$LOG" 2>/dev/null | grep --line-buffered -aiE '\[Claude [a-z ]+\].*(fail|gave up|give up|giving up|couldn.t|can.t |cannot|no way|stuck|round in circles|skipping|skipped|dropped|refus|ended without|ended short|spin at|stall at|slow walk|conflict|claimed by two|hurt|damage|took [0-9.]+|low health|falling at|litter|left .* behind|left standing|exposed|unlit|wasted|again and again|over and over|timed out|too long|no route)|<Claude> .*(stuck|loop|can.t|couldn.t|sorry|my bad|oops|help)' --line-buffered | sed -uE 's/^\[[^]]*\] \[[^]]*\] \[[^]]*\]: //; s/^/BUG /' >> "$FEED" ) & echo $! >> "$OUT/pids.txt"
 # incidents: the user's "bug", deaths, crashes -> a log snapshot
 ( tail -F -n0 "$LOG" 2>/dev/null | grep --line-buffered -aiE '<Fat_Herobrine> .*\bbug\b|died|was slain|was killed|fell |burned|drowned|Exception|Crash' | while read -r l; do
     k=$(echo "$l" | grep -qi bug && echo bug || (echo "$l" | grep -qiE 'Exception|Crash' && echo crash || echo death))

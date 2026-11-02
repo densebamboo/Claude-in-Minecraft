@@ -524,12 +524,12 @@ public final class LessonWords {
         // the next block: obsidian in reach that his eyes see from the water cell, never the floor under him or anything lower (his water would run down into it: 15:59 "i told you not to mine the ones below you"); one the water runs into once it's out first (the user: "you want to make sure the water can flow into the block youre about to break too"), then the nearest; kept till it's out
         BlockPos o = commit().get(u);
         Vec3 eye = g.getEyePosition();
-        if (o != null && !(level.getBlockState(o).is(Blocks.OBSIDIAN) && Vec3.atCenterOf(o).distanceTo(eye) <= 4.5)) { commit().remove(u); o = null; }
+        if (o != null && !(level.getBlockState(o).is(Blocks.OBSIDIAN) && Vec3.atCenterOf(o).distanceTo(eye) <= 4.25)) { commit().remove(u); o = null; }
         boolean oFlows = o != null && flowsInto(level, o);
         if (o == null || !oFlows) {
             BlockPos best = null; double bs = Double.MAX_VALUE; boolean bestFlows = false;
             for (BlockPos q : BlockPos.betweenClosed(cell.offset(-5, 0, -5), cell.offset(5, 0, 5))) { // (his layer only: the whole of it first, the user's way)
-                if (!level.getBlockState(q).is(Blocks.OBSIDIAN) || Vec3.atCenterOf(q).distanceTo(eye) > 4.5) continue;
+                if (!level.getBlockState(q).is(Blocks.OBSIDIAN) || Vec3.atCenterOf(q).distanceTo(eye) > 4.25) continue; // (4.25: the dig layer's inReach; 4.5 here picked 747,-55,64 that doBreak then refused, a loop, 13:05)
                 if (!com.claudemod.director.ClaudeLife.canSee(g, level, q)) continue;
                 if (level.getFluidState(q.above()).is(FluidTags.LAVA)) { String k = "lavaover:" + q.toShortString(); if (!k.equals(logOnce().get(u))) { logOnce().put(u, k); ClaudeMod.LOGGER.info("[Claude lesson] not the obsidian at {}: lava over it would pour into the hole (LessonWords.fromPlace)", xyz(q)); } continue; }
                 boolean fl = flowsInto(level, q);

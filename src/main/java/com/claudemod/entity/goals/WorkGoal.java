@@ -4212,7 +4212,7 @@ public class WorkGoal extends Goal {
         if (known != null) { Vec3 tp = Vec3.atCenterOf(known.at).subtract(g.position()).multiply(1, 0, 1); if (tp.lengthSqr() > 1e-4) { tp = tp.normalize(); if (tp.dot(away) > -0.2) { heads.add(tp); portalNote = ", toward his portal at " + known.at.toShortString() + " (" + (int) kd + " off)"; } else portalNote = ", his portal at " + known.at.toShortString() + " is through them"; } }
         for (int r : new int[] {0, 30, -30, 60, -60, 90, -90, 120, -120, 150, -150, 180}) { double a = Math.toRadians(r); heads.add(new Vec3(base.x * Math.cos(a) - base.z * Math.sin(a), 0, base.x * Math.sin(a) + base.z * Math.cos(a))); }
         BlockPos end = null; int tried = 0; java.util.List<String> nos = new java.util.ArrayList<>();
-        int noStand = 0, recent = 0, thru = 0; BlockPos winding = null; Vec3 windDir = null; java.util.List<String> windy = new java.util.ArrayList<>();
+        int noStand = 0, recent = 0, thru = 0; boolean partial = false; BlockPos winding = null; Vec3 windDir = null; java.util.List<String> windy = new java.util.ArrayList<>();
         search:
         for (Vec3 hd : heads) for (int dist : new int[] {16, 10, 22}) {
             if (tried >= 12) break search;
@@ -4222,12 +4222,17 @@ public class WorkGoal extends Goal {
             if (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, e1, now, 20 * 30)) { recent++; continue; }
             boolean through = false; for (var m : mobs) { Vec3 tm = m.position().subtract(g.position()).multiply(1, 0, 1); if (tm.length() < 3 && tm.normalize().dot(hd) > 0.8) through = true; }
             if (through) { thru++; continue; }
-            tried++; var path = g.getNavigation().createPath(e1, 1);
-            if (path == null || !path.canReach()) { if (nos.size() < 4) nos.add(e1.toShortString()); continue; }
-            double straight = Math.sqrt(e1.distSqr(feet)), walk = 0; for (int n = 1; n < path.getNodeCount(); n++) walk += Math.sqrt(path.getNode(n).asBlockPos().distSqr(path.getNode(n - 1).asBlockPos()));
+            tried++; var path = g.getNavigation().createPath(e1, 1); double straight = Math.sqrt(e1.distSqr(feet)), walk = 0;
+            if (path == null || path.getNodeCount() == 0) { if (nos.size() < 4) nos.add(e1.toShortString()); continue; }
+            for (int n = 1; n < path.getNodeCount(); n++) walk += Math.sqrt(path.getNode(n).asBlockPos().distSqr(path.getNode(n - 1).asBlockPos()));
+            if (!path.canReach()) { // (a run needn't reach its end, only get him well along: stage 488's run off a fenced platform broke the skeleton's sight on the way. The live death was runs with no headway at all)
+                double gain = straight - Math.sqrt(path.getEndNode().asBlockPos().distSqr(e1));
+                if (gain < 6) { if (nos.size() < 4) nos.add(e1.toShortString() + " (" + (int) gain + " nearer at most)"); continue; }
+                straight = gain; }
             if (walk > straight * 1.5 + 4) { if (winding == null) { winding = e1.immutable(); windDir = hd; } if (windy.size() < 4) windy.add(e1.toShortString() + " (" + (int) walk + " walked for " + (int) straight + ")"); continue; } // (a walk that winds away first reads as "no closer" to escapeBlocked's straight-line check, so it's only a fallback)
-            end = e1.immutable(); fleeDir = hd; break search;
+            end = e1.immutable(); fleeDir = hd; partial = !path.canReach(); break search;
         }
+        if (end != null && partial) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: no walk all the way to {}, but one that gets him well along it (WorkGoal.pickEscape)", end.toShortString());
         if (end == null && winding != null) { end = winding; fleeDir = windDir; }
         if (end == null) { fleeDir = base; end = BlockPos.containing(g.position().add(fleeDir.scale(16))); for (int k = 0; k <= 6; k++) { if (standable(lv, end.above(4 - k))) { end = end.above(4 - k); break; } }
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: no run end he can walk to ({} tried, no walk to {}; skipped {} with nowhere to stand, {} tried lately, {} through a mob){}: straight out on the best heading (WorkGoal.pickEscape)", tried, nos, noStand, recent, thru, portalNote); }

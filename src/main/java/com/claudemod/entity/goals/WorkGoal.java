@@ -1826,6 +1826,7 @@ public class WorkGoal extends Goal {
                         if (clear.distSqr(g.blockPosition()) <= 2 && clear.getY() == g.getBlockY()) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(clear.getX() + 0.5, clear.getY(), clear.getZ() + 0.5, 0.6); return false; } // the cell beside him: a nudge (a walk to it "arrives" at once and never gets there; 45 s stuck on a one-block walk)
                         g.tasks.addFirst(new Task.Break(pos));
                         g.tasks.addFirst(new Task.GoTo(clear, 0.5));
+                        g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.REACH, clear, g.tickCount); // tried once: standing on it next time is fine, being sent to it again is not
                         return exit("doBreak line 1546: " + name(w) + " at " + inWay.toShortString() + " in the way, going round to " + clear.toShortString() + " to see it");
                     }
                     if (clear != null && clear.equals(g.blockPosition()) && (Math.abs(g.getX() - (clear.getX() + 0.5)) > 0.15 || Math.abs(g.getZ() - (clear.getZ() + 0.5)) > 0.15) && ticks < 40) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(clear.getX() + 0.5, clear.getY(), clear.getZ() + 0.5, 0.5); return false; } // (his own cell sees it from its middle; he stood off to the side: a step to the middle, never "refused" from the edge, 05:49 a diamond sealed in so)
@@ -2187,7 +2188,7 @@ public class WorkGoal extends Goal {
             if (!level.getBlockState(p).getCollisionShape(level, p).isEmpty() || !level.getBlockState(p.above()).getCollisionShape(level, p.above()).isEmpty()
                     || !level.getBlockState(p.below()).isFaceSturdy(level, p.below(), Direction.UP)) continue;
             if (!level.getFluidState(p).isEmpty() || !level.getFluidState(p.above()).isEmpty()) continue; // (lava has no collision box: live 07:14 World 15 a furnace's view spot was a lava cell, a walk at it every minute for 47 min)
-            if (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, p, g.tickCount, 20 * 120)) continue; // (a spot he couldn't get to lately: not picked again, the write-off holds)
+            if (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, p, g.tickCount, 20 * 120) || !p.equals(g.blockPosition()) && g.attempts.within(com.claudemod.entity.life.Attempts.Kind.REACH, p, g.tickCount, 20 * 120)) continue; // (REACH: a view spot he was sent to and didn't stand on; a walk that ends at once is never a WALK failure, and -39,-14,113 was picked again and again, live 23:5x) // (a spot he couldn't get to lately: not picked again, the write-off holds)
             Vec3 eye = Vec3.atBottomCenterOf(p).add(0, 1.62, 0);
             if (eye.distanceTo(Vec3.atCenterOf(target)) > REACH - 0.3) continue;
             boolean seen = false; Vec3 c0 = Vec3.atCenterOf(target); // any face he'd see from there, the same test as the dig's own (centre only: the lapis over a head-height hole was "hidden" from right under it, and he stood 3 off for good, 05:02)

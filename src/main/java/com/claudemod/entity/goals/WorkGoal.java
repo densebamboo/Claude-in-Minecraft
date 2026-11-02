@@ -778,6 +778,12 @@ public class WorkGoal extends Goal {
             return true;
         }
         boolean bridging = g.tickCount - bridgeCrouchTick < 20;
+        if (!bridging && com.claudemod.entity.nav.ActionPath.planned(current) && !g.isInWater() && (!g.level().getBlockState(pos.below()).getCollisionShape(g.level(), pos.below()).isEmpty() || !g.level().getFluidState(pos).isEmpty() || g.level().getBlockState(pos).is(net.minecraft.tags.BlockTags.CLIMBABLE)) && Math.abs(g.getX() - (pos.getX() + 0.5)) <= 2.2 && Math.abs(g.getZ() - (pos.getZ() + 0.5)) <= 2.2 && Math.abs(pos.getY() - g.getY()) <= 3.5) { // a cell of his own plan, next to him: walked straight at, the vanilla path never asked (it made its own nodes: 2 up, over open air, past lava his plan had turned down)
+            g.getNavigation().stop(); routeReaches = true;
+            g.getMoveControl().setWantedPosition(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 1.0);
+            if (g.onGround() && pos.getY() > g.getY() + 0.5 && Math.hypot(g.getX() - (pos.getX() + 0.5), g.getZ() - (pos.getZ() + 0.5)) < 1.4) g.getJumpControl().jump(); // (a step up: jumped, as a player does)
+            return false;
+        }
         if (!bridging && (ticks % 20 == 1 || g.getNavigation().isDone())) {
             // Vanilla pathing turns a solid target (a log, ore in a wall) into "the first air above it": the treetop.
             // Aim for an open spot beside it instead.

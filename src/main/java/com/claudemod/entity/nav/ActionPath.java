@@ -187,7 +187,7 @@ public final class ActionPath {
         for (int ai = 0; ai < acts0.size(); ai++) { Act a = acts0.get(ai);
             int[] cx = crossings.get(ai);
             if (cx != null && dest != null) { // a straight run over lava: a piece of highway, to its spec (the user: "the same blueprint as the highway"; BridgeBlueprint), kept and on record
-                if (lastWalk != null) { out.add(new Task.GoTo(lastWalk, 0.9)); lastWalk = null; run = 0; }
+                if (lastWalk != null) { out.add(planned(lastWalk, 0.9)); lastWalk = null; run = 0; }
                 BlockPos endWalk = ((Act.Walk) acts0.get(cx[0])).feet();
                 if (crossingTasks(out, acts0, ai, cx[0], cur, scaffold, level, cx[1])) { cur = endWalk; ai = cx[0]; continue; }
             }
@@ -195,28 +195,28 @@ public final class ActionPath {
                 BlockPos prevCell = cur;
                 lastWalk = w.feet(); cur = w.feet();
                 if (!restore.isEmpty()) { final BlockPos at0 = cur; if (restore.stream().allMatch(o -> { BlockPos q = (BlockPos) o[0]; return !q.equals(at0) && !q.equals(at0.above()) && Math.abs(q.getX() - at0.getX()) + Math.abs(q.getZ() - at0.getZ()) >= 2; })) { // past the structure blocks he had to dig: each goes back as it was
-                    out.add(new Task.GoTo(lastWalk, 0.9)); lastWalk = null; run = 0;
+                    out.add(planned(lastWalk, 0.9)); lastWalk = null; run = 0;
                     for (Object[] o : restore) { BlockState st0 = (BlockState) o[1]; out.add(new Task.Place((BlockPos) o[0], st0.getBlock().asItem(), null, st0)); }
                     com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} structure block(s) dug for the way ({}): put back from {} once past (ActionPath.tasks)", restore.size(), restore.stream().map(o -> ((BlockPos) o[0]).toShortString()).toList(), at0.toShortString());
                     restore.clear(); continue; } }
                 final BlockPos at = cur; List<BlockPos> off = new ArrayList<>();
                 if (!takeBack.isEmpty() && takeBack.stream().noneMatch(q -> at.equals(q) || at.equals(q.above())) && takeBack.stream().anyMatch(q -> at.distSqr(q) <= 3 * 3)) { net.minecraft.world.phys.Vec3 eye = net.minecraft.world.phys.Vec3.atBottomCenterOf(at).add(0, 1.62, 0); for (BlockPos q : takeBack) if (eye.distanceTo(net.minecraft.world.phys.Vec3.atCenterOf(q)) <= 4.0) off.add(q); } // (in reach from the ledge only: the rest of a tall tower stays the take-down chore's; going back down for it undid the climb)
                 if (!off.isEmpty()) { // stepped off the tower that got him up, still right by it (on the ledge): back out now, top first, while it's in view below him
-                    out.add(new Task.GoTo(lastWalk, 0.9)); lastWalk = null; run = 0; // (if that ends with him still on the tower's edge, the Break refuses to cut it from under him: it stays on the take-down list)
+                    out.add(planned(lastWalk, 0.9)); lastWalk = null; run = 0; // (if that ends with him still on the tower's edge, the Break refuses to cut it from under him: it stays on the take-down list)
                     off.sort((q1, q2) -> q2.getY() - q1.getY()); // top first, so the rest stay in reach
                     for (BlockPos q : off) out.add(new Task.Break(q)); // (left on the take-down list till it's really gone: a Break refused under his feet stays the chore's)
                     takeBack.removeAll(off); tookBack = true;
                     continue;
                 }
                 if (prevCell != null && w.feet().getY() != prevCell.getY()) { // a step up or down: both its cells are his waypoints, so the vanilla path only ever fills in level ground between them (live 04:28: a 6-cell waypoint walked by vanilla nav took a node 2 up by the fortress, over and over, 8 min)
-                    if (run >= 1) out.add(new Task.GoTo(prevCell, 0.9));
-                    out.add(new Task.GoTo(w.feet(), 0.9)); lastWalk = null; run = 0;
+                    if (run >= 1) out.add(planned(prevCell, 0.9));
+                    out.add(planned(w.feet(), 0.9)); lastWalk = null; run = 0;
                     continue;
                 }
-                if (++run >= 6) { out.add(new Task.GoTo(lastWalk, 0.9)); lastWalk = null; run = 0; }
+                out.add(planned(lastWalk, 0.9)); lastWalk = null; run = 0; // (every cell of the plan its own waypoint, walked straight at by his body: the vanilla path between waypoints made its own nodes, a step 2 up, a node over open air; World 15 17:37, off a corner into a 43-deep shaft)
                 continue;
             }
-            if (lastWalk != null) { out.add(new Task.GoTo(lastWalk, 0.9)); lastWalk = null; run = 0; }
+            if (lastWalk != null) { out.add(planned(lastWalk, 0.9)); lastWalk = null; run = 0; }
             if (a instanceof Act.Leap l) { out.add(new Task.Leap(l.from(), l.land(), l.kind(), l.down(), l.hp())); cur = l.land(); continue; }
             if (a instanceof Act.Dig d) { out.add(new Task.Break(d.pos())); if (level != null && structureBlock(level, d.pos())) { restore.add(new Object[] {d.pos().immutable(), level.getBlockState(d.pos())}); STRUCT_OK.put(d.pos().immutable(), level.getGameTime()); } }
             else if (a instanceof Act.Door d) out.add(new Task.UseDoor(d.pos(), true));
@@ -236,7 +236,7 @@ public final class ActionPath {
                 if (outside && !dirt) { com.claudemod.director.ClaudeLife.bridgeBlocks().add(p.pos().immutable()); if (p.pos().equals(cur) || p.pos().getY() >= cur.getY()) takeBack.add(p.pos().immutable()); } // (a tower step to climb by comes back the moment he's off it; a bridge waits till he's across: the daylight chore's) // out in the world only dirt may stay (a step up a hill): anything else is broken back up once he is past; in his mine a put is a patch
             }
         }
-        if (lastWalk != null) { out.add(new Task.GoTo(lastWalk, 0.9)); lastWalk = null; }
+        if (lastWalk != null) { out.add(planned(lastWalk, 0.9)); lastWalk = null; }
         if (!restore.isEmpty()) { for (Object[] o : restore) { BlockState st0 = (BlockState) o[1]; out.add(new Task.Place((BlockPos) o[0], st0.getBlock().asItem(), null, st0)); } com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} structure block(s) dug for the way ({}): put back at the way's end (ActionPath.tasks)", restore.size(), restore.stream().map(o -> ((BlockPos) o[0]).toShortString()).toList()); }
         // (no pickup after: the block drops back down where he climbed from, and going back down for one cobble undid the climb, a loop; what's left on the list, a block still under him at the end, is the daylight chore's, as before)
         out.add(new Task.GoTo(dest, within));
@@ -293,6 +293,11 @@ public final class ActionPath {
         com.claudemod.ClaudeMod.LOGGER.info("[Claude route] a lava crossing of {} rows {} from {}: a piece of highway, {} wide with rails{} ({} blocks), kept (ActionPath.crossingTasks)", rows, d.getName(), first.toShortString(), width, seg != null ? ", on the line of the segment " + seg.describe() : "", need);
         return true;
     }
+
+    private static final java.util.Set<Task> PLANNED = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+    /** A waypoint of a plan of his: the cell ActionPath checked (footing, lava, drops), walked straight at, never re-routed by the vanilla path. */
+    static Task.GoTo planned(BlockPos p, double within) { Task.GoTo t = new Task.GoTo(p.immutable(), within); synchronized (PLANNED) { if (PLANNED.size() > 20000) PLANNED.clear(); PLANNED.add(t); } return t; }
+    public static boolean planned(Task t) { synchronized (PLANNED) { return t != null && PLANNED.contains(t); } }
 
     /** Lava in the cell or within 6 under it, nothing solid between: a bridge block there is over lava. */
     static boolean lavaUnder(ServerLevel level, BlockPos p) {

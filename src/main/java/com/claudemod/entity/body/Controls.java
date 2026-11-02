@@ -65,6 +65,7 @@ public final class Controls {
     }
 
     private static final java.util.Map<java.util.UUID, String> LAST_GROUND = new java.util.HashMap<>();
+    private static final java.util.Set<java.util.UUID> MAGMA_SNEAK = new java.util.HashSet<>(); // (the sneak the magma guard put on, taken off once he's off it)
     private static java.util.Map<java.util.UUID, Integer> refused; // when his body last refused the path's own step (2+ up, lava ahead or below) (static: fields added live start null)
     static void refusedStep(Player p) { if (refused == null) refused = new java.util.HashMap<>(); refused.put(p.getUUID(), p.tickCount); }
     /** His body refused the path's step within the last {@code ticks}: the path doesn't really reach, whatever it says (the walk's own planner takes it). */
@@ -162,6 +163,9 @@ public final class Controls {
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude move] falling at {} ({} so far, {} more to {} at {}), doing {} (Controls.apply)", p.blockPosition().toShortString(), String.format("%.1f", p.fallDistance), depth, net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(p.level().getBlockState(q).getBlock()).getPath(), q.toShortString(), ce0.currentTask == null ? "-" : ce0.currentTask.getClass().getSimpleName());
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude move] the last tick on the ground before that fall: {} (Controls.apply)", LAST_GROUND.getOrDefault(p.getUUID(), "?")); }
         }
+        { boolean onMagma = p.onGround() && p.level().getBlockState(p.blockPosition().below()).is(net.minecraft.world.level.block.Blocks.MAGMA_BLOCK); // (vanilla: magma never hurts a player sneaking on it; World 15 stage 538 he stood in a magma pit till he died)
+          if (onMagma && !p.isShiftKeyDown()) { p.setShiftKeyDown(true); MAGMA_SNEAK.add(p.getUUID()); if (p instanceof com.claudemod.entity.ClaudeEntity ce2 && ce2.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] on magma at {}: sneaking, it doesn't burn a sneaking player (Controls.apply)", p.blockPosition().toShortString()); }
+          else if (!onMagma && MAGMA_SNEAK.remove(p.getUUID()) && p.isShiftKeyDown()) p.setShiftKeyDown(false); }
         p.xxa = 0; p.zza = 0;
         { var lc = com.claudemod.entity.nav.Leaps.control(p); // a drop or a jump running (Leaps.tick): its hands this tick, exactly, no lip guard, no auto sprint-jump, no path
           if (lc != null) {

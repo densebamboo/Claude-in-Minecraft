@@ -99,3 +99,10 @@ Each line is a live report from Day to Day (World 15, 2026-10-31/11-01) not on t
 
 - **Stage 527 fails on main (dd81175 on):** the single enderman sits 2 below him and 4 off, in sight. He stands idle out of reach for 70 s ("still alive after 70 s, health 40, his low 20, in a hole false"; nav idle at attack ticks 100 and 300). It's from the recent enderman-approach changes in doAttack (drop-in at 4-6 below, back-off, stand-and-wait). Seen 2026-11-02 04:23 on main itself.
 - **Stage 555: the cover tunnel variant isn't staged.** The arena has no rock in reach, so only the capped hole is proven against endermen. Add a run with a netherrack wall within 6.
+
+- **Live blazes, stage 556 (branch bp/blaze-live, not on main):** a pillared brick hall over lava, a live spawner, two live blazes, 3 rods within 180 s. Results vary widely: 0-15 kills a run; 1 of 7 runs passed (3 rods in 103 s, no damage). What the logs show:
+  - Most kills are by arrow 10-20 off, so the rod is outside the kill's 8-block sweep. Fixed on main: picked up between volleys.
+  - Some runs land no swing at all: "closing in" toward a blaze 6 off that keeps its distance, while the shield is up for each volley.
+  - A shield-blocked fireball still logs him on fire.
+  - Missed fireballs light the deck, and he walks into the fire ("inFire").
+  - Kills over the lava drop their rods into it.

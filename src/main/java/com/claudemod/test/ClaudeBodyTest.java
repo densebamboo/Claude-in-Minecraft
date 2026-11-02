@@ -10366,6 +10366,7 @@ public final class ClaudeBodyTest {
     // ---------------------------------------------------------------- stages 494 on: one method each (exactStages is at the JVM's 64 KB limit)
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
+            case 557: return st557(stage, t, c, h, level, mock);
             case 556: return st556(stage, t, c, h, level, mock);
             case 555: return st555(stage, t, c, h, level, mock);
             case 553: return st553(stage, t, c, h, level, mock);
@@ -11120,6 +11121,28 @@ public final class ClaudeBodyTest {
             for (var m : nether.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(ox - 40, 0, oz - 40, ox + 80, 128, oz + 40))) m.discard(); nether.setBlock(cage, Blocks.AIR.defaultBlockState(), 2);
             c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.clearFire(); c.setHealth(20f); c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
             com.claudemod.entity.life.Watchdog.teleported(c); if (c.isAlive()) c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0);
+    private static int shT = -1; private static float shLow = 20f; private static BlockPos shRoom;
+    private static boolean st557(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // the stronghold's small half (the user via Day to Day): eyes thrown and watched, two headings crossed, walked, an eye down, a staircase to its stone bricks. The test world is superflat with no stronghold (generator FlatLevelSource, probe 557 before): a stone hill 260 off with a stone-brick room in it, and EyeHunt.testStronghold standing in for vanilla's lookup (the eye itself is vanilla's)
+        final int ox = 20000, oz = 20000, gy = -60; BlockPos me = new BlockPos(ox, gy, oz), top = new BlockPos(ox + 250, gy + 12, oz + 70); shRoom = new BlockPos(top.getX(), gy + 4, top.getZ());
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); shT = -1; shLow = 20f; c.nextPlanTick = c.tickCount + 20 * 1800; c.prefs.put("stay_close", "no"); c.commandActive = false; com.claudemod.entity.life.EyeHunt.reset(c);
+            c.getInventory().add(new ItemStack(Items.ENDER_EYE, 4)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5); c.setNoGravity(true); }
+        if (t[0] >= 5 && t[0] < 5 + 12) { int k = t[0] - 5, half = 20 - k; // a stepped stone hill, one layer a tick (the ground he digs into: bedrock is 4 down in the flat world)
+            for (int x = -half; x <= half; x++) for (int z = -half; z <= half; z++) level.setBlock(new BlockPos(top.getX() + x, gy + k, top.getZ() + z), Blocks.STONE.defaultBlockState(), 2 | 16); }
+        if (t[0] == 20) { for (int x = -7; x <= 7; x++) for (int z = -7; z <= 7; z++) for (int y = 0; y <= 4; y++) { boolean shell = Math.abs(x) == 7 || Math.abs(z) == 7 || y == 0 || y == 4; level.setBlock(shRoom.offset(x, y - 2, z), shell ? Blocks.STONE_BRICKS.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2 | 16); } // (the stronghold: a stone-brick room 15 wide, its ceiling 7 under the hill's top)
+            com.claudemod.entity.life.EyeHunt.testStronghold = g0 -> shRoom;
+            c.setNoGravity(false); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.fallDistance = 0; }
+        if (t[0] == 30) { shT = t[0]; c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("find_stronghold", "", 1)); }
+        if (shT > 0) { shLow = Math.min(shLow, c.getHealth()); if (t[0] % 40 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        BlockPos found = com.claudemod.entity.life.EyeHunt.found(c);
+        if (shT > 0 && (found != null || !c.isAlive() || t[0] == shT + 20 * 600)) {
+            com.claudemod.entity.life.EyeHunt.testStronghold = null;
+            check(c.isAlive(), "stronghold: he died (low " + shLow + ")");
+            check(found != null, "stronghold: no stone bricks reached in 600 s (" + com.claudemod.entity.life.EyeHunt.throwCount(c) + " throws, at " + c.blockPosition().toShortString() + ", " + (int) Math.sqrt(c.blockPosition().distSqr(shRoom)) + " from the room, task " + c.currentTask + ", last " + c.lastSkillLine + ")");
+            check(found == null || found.closerThan(shRoom, 12), "stronghold: stopped at stone bricks " + found + ", not the room's (" + shRoom.toShortString() + ")");
+            String how = "the room's bricks at " + (found == null ? "?" : found.toShortString()) + " after " + com.claudemod.entity.life.EyeHunt.throwCount(c) + " throws, " + (t[0] - shT) / 20 + " s, " + c.inventory.count(x -> x.is(Items.ENDER_EYE)) + " of 4 eyes left";
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.getInventory().clearContent(); c.setHealth(20f);
+            com.claudemod.entity.life.Watchdog.teleported(c); if (c.isAlive()) c.teleportTo(mock[0].getX(), mock[0].getY(), mock[0].getZ());
             pass(stage, t, how);
         }
         return true;

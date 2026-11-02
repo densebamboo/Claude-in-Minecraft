@@ -222,6 +222,7 @@ public final class ClaudeLife {
     }
 
     public static void tick(ClaudeEntity g, ServerPlayer player) {
+        { String ongoing = g.prefs.get("ongoing_job"); if (ongoing != null && g.tickCount % 20 == 15) { var um = java.util.regex.Pattern.compile("until ([0-9]+) (.+)$").matcher(ongoing.toLowerCase()); boolean uf = um.find(); Item ui = uf ? itemNamedIn(um.group(2)) : null; if (ui == null && uf) ui = itemNamedIn(um.group(2).replaceAll("s( |$)", "$1")); if (ui != null && g.inventory.items.countItem(ui) >= Integer.parseInt(um.group(1))) { ClaudeMod.LOGGER.info("[Claude plan] their job \"{}\" is done: {} {} on him (ClaudeLife tick)", ongoing, g.inventory.items.countItem(ui), Crafting.name(ui)); g.prefs.remove("ongoing_job"); g.playerGoal = "done: " + ongoing; } } } // ponytail: a job with a count ends at the count; live 22:0x 12 pearls on him and "fight hostile next" kept firing
         if (g.justRespawned) respawnTicks().put(g.getUUID(), g.tickCount); // (before anything below clears the flag)
         if (g.tickCount % 100 == 47 && g.level() instanceof ServerLevel clockLevel) { com.claudemod.entity.life.Clocks.pile(g, clockLevel); com.claudemod.entity.life.DeathLog.tick(g, clockLevel); } // his pile's clock kept current, in every dimension: up top, since the Nether branch below returns early (his Nether piles were never looked at, so a despawned one stayed "pending": 12:22 "his drops are gone")
         com.claudemod.entity.life.MindLog.flush(); // his conflict lines, said here (never from inside the logger)
@@ -2429,7 +2430,13 @@ public final class ClaudeLife {
             }
             case "strip_mine": {
                 if (level.dimension() != net.minecraft.world.level.Level.OVERWORLD) return "failed: my mine's in the overworld, not here in " + level.dimension().location().getPath(); /* (see ownMine) */
-                if (bpMode(g)) return bpStripMine(g, player, level, st, target, count);
+                if (bpMode(g)) { // ponytail: ore mined for the craft queued next stays on till the count is in (bag + his chests); one pass then the craft failed "missing diamond" 3x and asked them for help (live 22:28)
+                    Item want = oreDrop(target); boolean forCraft = want != null && !st.where().equals("looked_at") && !g.skillQueue.isEmpty() && g.skillQueue.peekFirst().skill().equals("craft");
+                    if (forCraft && haveFor(g, level, want) >= Math.max(1, count)) return "done: already have " + haveFor(g, level, want) + " " + Crafting.name(want);
+                    String r = bpStripMine(g, player, level, st, target, count);
+                    if (forCraft && !r.startsWith("failed") && !r.startsWith("done") && !g.skillQueue.contains(st)) { g.skillQueue.addFirst(st); ClaudeMod.LOGGER.info("[Claude skill] strip_mine {}: {} of {} {} so far, the step stays on before the craft", target, haveFor(g, level, want), count, Crafting.name(want)); }
+                    return r;
+                }
                 if ((target.contains("cobble") || target.equals("stone") || target.equals("rock")) && g.inventory.count(s0 -> s0.is(ItemTags.STONE_TOOL_MATERIALS)) >= Math.max(1, count)) // rock: done once he has it (the ore check below doesn't know cobble: "strip_mine cobble x4" ran three full ribs with 125 cobble in his pack)
                     return "done: already have " + g.inventory.count(s0 -> s0.is(ItemTags.STONE_TOOL_MATERIALS)) + " cobblestone";
                 // already carrying what this was for (raw iron for iron ore, diamonds for diamond ore...): done, on to the next step
@@ -3353,6 +3360,7 @@ public final class ClaudeLife {
                 g.skillQueue.addFirst(new Skills.Step(st.skill(), "@1", count, st.where()));
                 return "lighting the frame at " + pcell(1, 0).toShortString();
             }
+            case "find_stronghold": return com.claudemod.entity.life.EyeHunt.skill(g, player, level, st); // the Overworld: eyes thrown and watched, two headings crossed, walked, thrown till one goes down, a staircase down to the stone bricks
             case "find_fortress": return com.claudemod.entity.life.FortressScout.skill(g, player, level, st); // the Nether: he picks the heading (the structure grid), legs along the ground, a look round from each end, each leg noted
             case "enter_portal": { { String rp = com.claudemod.entity.life.PortalMap.enterStep(g, level, st, target); if (rp != null) return rp; } // their words: home / back / fortress / my portal (PortalMap.resolve); an unlit one relit // into a lit portal: stand in it 4 s, the game does the rest; both coordinate pairs noted
                 BlockPos portal = findNear(level, g.blockPosition(), 24, b -> b.is(Blocks.NETHER_PORTAL));
@@ -4133,6 +4141,7 @@ public final class ClaudeLife {
                     else if (target.contains("fortress") && com.claudemod.entity.life.FortressScout.onFortress(g)) return "done: I'm on the fortress (nether bricks under me at " + g.blockPosition().toShortString() + ")"; // (arrival is the bricks under him, not one remembered brick: live 13:20 World 15 "still 19 blocks short" standing on its bridge)
                     else if (target.contains("fortress") && level.dimension() == net.minecraft.world.level.Level.NETHER && com.claudemod.entity.life.FortressScout.found(g) != null) { placeAt = com.claudemod.entity.life.FortressScout.found(g); placeName = "the fortress I found"; } // (the place he's seen, in this world)
                     else if (target.contains("portal")) { var pp = com.claudemod.entity.life.PortalMap.resolve(g, target.replace('_', ' ')); if (pp != null && pp.dim.equals(com.claudemod.entity.life.PortalMap.dim(level))) { placeAt = pp.at; placeName = "portal #" + pp.id; } }
+                    if (placeAt != null && placeName.startsWith("my") && level.dimension() != net.minecraft.world.level.Level.OVERWORLD) { var hp = com.claudemod.entity.life.PortalMap.resolve(g, "home"); ClaudeMod.LOGGER.info("[Claude skill] go_to {}: {} is in the overworld, he's in {}: via the portal home {} (ClaudeLife go_to)", target, placeName, level.dimension().location().getPath(), hp == null ? "none known" : "#" + hp.id); if (hp == null) return "failed: " + placeName + " is in the overworld and I know no portal back from here"; placeName = "portal #" + hp.id + ", the way back to " + placeName; placeAt = hp.at; } // ponytail: his places are overworld ones; live 21:44 "go to chests" in the Nether walked 1056 blocks to the overworld coords there
                     if (placeAt != null) {
                         boolean down = bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.touches(g.blockPosition()) && !placeName.startsWith("my chests");
                         if (down) bpWalkTo(g, g.blueprint.entrance); // up his mine by its rows first, never a new hole up
@@ -5014,19 +5023,20 @@ public final class ClaudeLife {
         if (have < 2 && g.inventory.count(t -> t.is(ItemTags.PLANKS)) + 4 * g.inventory.count(t -> t.is(ItemTags.LOGS)) >= 8 * (2 - have)) { boolean tbl = ensureCraftingTable(g, level, Items.CHEST); Crafting.craft(level, g.inventory, Items.CHEST, 2 - have, tbl); have = g.inventory.count(t -> t.is(Items.CHEST)); }
         if (have < 2) return null;
         List<MineBlueprint.Row> rs = b.rows(); List<Integer> near = new ArrayList<>();
-        for (int i = 0; i + 1 < rs.size(); i++) { MineBlueprint.Kind k = b.segments.get(rs.get(i).segment()).kind; if ((k == MineBlueprint.Kind.FLAT || k == MineBlueprint.Kind.RUN) && rs.get(i).feet().length >= 2 && rs.get(i + 1).segment() == rs.get(i).segment() && rs.get(i).first().distSqr(me) <= 16 * 16) near.add(i); }
+        for (int i = 0; i + 1 < rs.size(); i++) { MineBlueprint.Kind k = b.segments.get(rs.get(i).segment()).kind; if ((k == MineBlueprint.Kind.BRANCH || (k == MineBlueprint.Kind.FLAT || k == MineBlueprint.Kind.RUN) && rs.get(i).feet().length >= 2) && rs.get(i + 1).segment() == rs.get(i).segment() && rs.get(i).first().distSqr(me) <= 16 * 16) near.add(i); }
         near.sort(java.util.Comparator.comparingDouble(i -> rs.get(i).first().distSqr(me)));
+        String why = "";
         for (int i : near) {
             MineBlueprint.Row r = rs.get(i), r2 = rs.get(i + 1); Direction d = r.dir();
             Direction wall = "left".equals(b.torchSide) ? d.getClockWise() : d.getCounterClockWise(); // the wall without torches
             BlockPos col = wall == d.getClockWise() ? r.feet()[r.feet().length - 1] : r.feet()[0], col2 = wall == d.getClockWise() ? r2.feet()[r2.feet().length - 1] : r2.feet()[0];
-            if (java.util.stream.Stream.of(col, col.above(), col2, col2.above()).anyMatch(f -> MineBlueprint.solid(level, f))) continue; // (rows not dug yet)
+            if (java.util.stream.Stream.of(col, col.above(), col2, col2.above()).anyMatch(f -> MineBlueprint.solid(level, f))) { why = "row not dug at " + col.toShortString(); continue; } // (rows not dug yet)
             BlockPos a = col.relative(wall), a2 = col2.relative(wall);
             boolean ok = true;
             for (BlockPos q : new BlockPos[] {a, a2, a.above(), a2.above()}) {
                 var qs = level.getBlockState(q);
-                if (!b.isShell(q) || !MineBlueprint.solid(level, q) || qs.hasBlockEntity() || MineBlueprint.ore(qs) || qs.getDestroySpeed(level, q) < 0 || g.landingCells.contains(q) || g.notches.contains(q) || anyNookTouches(g, q) || lavaNear(g, level, q)) { ok = false; break; }
-                for (Direction h : new Direction[] {d, d.getOpposite(), wall, Direction.UP}) { BlockPos n0 = q.relative(h); if (n0.equals(a) || n0.equals(a2) || n0.equals(a.above()) || n0.equals(a2.above())) continue; if (b.isWalk(n0) || !level.getFluidState(n0).isEmpty() || level.getBlockState(n0).is(Blocks.WALL_TORCH)) { ok = false; break; } } // (never into a branch mouth, water, or a torch's wall)
+                if (!b.isShell(q) || !MineBlueprint.solid(level, q) || qs.hasBlockEntity() || MineBlueprint.ore(qs) || qs.getDestroySpeed(level, q) < 0 || g.landingCells.contains(q) || g.notches.contains(q) || anyNookTouches(g, q) || lavaNear(g, level, q)) { ok = false; why = q.toShortString() + (!b.isShell(q) ? " not shell" : !MineBlueprint.solid(level, q) ? " not solid" : qs.hasBlockEntity() ? " block entity" : MineBlueprint.ore(qs) ? " ore" : g.landingCells.contains(q) ? " landing" : g.notches.contains(q) ? " notch" : anyNookTouches(g, q) ? " nook" : " other"); break; }
+                for (Direction h : new Direction[] {d, d.getOpposite(), wall, Direction.UP}) { BlockPos n0 = q.relative(h); if (n0.equals(a) || n0.equals(a2) || n0.equals(a.above()) || n0.equals(a2.above())) continue; if (b.isWalk(n0) || !level.getFluidState(n0).isEmpty() || level.getBlockState(n0).is(Blocks.WALL_TORCH)) { ok = false; why = n0.toShortString() + " beside is walk/fluid/torch"; break; } } // (never into a branch mouth, water, or a torch's wall)
                 if (!ok) break;
             }
             if (!ok) continue;
@@ -5040,6 +5050,7 @@ public final class ClaudeLife {
             ClaudeMod.LOGGER.info("[Claude life] pack full of cobble and junk: a junk chest set into the {} wall at {} and {}", wall.getName(), a.toShortString(), a2.toShortString());
             return "setting a junk chest into the tunnel wall at " + a.toShortString() + " for the spare cobble";
         }
+        ClaudeMod.LOGGER.info("[Claude chest] no wall for a junk chest from {}: {} tunnel row(s) within 16 (flat/run/branch, dug), all refused, last: {} (ClaudeLife.junkChestRound)", me.toShortString(), near.size(), why); // ponytail: silent null had him walk to the stash every 20 s with 7 stacks of deepslate (22:42); branch rows count since then (deep in a branch, 0 rows in 16)
         return null;
     }
 
@@ -12968,7 +12979,7 @@ public final class ClaudeLife {
             {eyes >= 12 || pearls + eyes >= 12 ? "x" : "", "ender pearls: 12 (" + pearls + " now), bartered from piglins for gold or off endermen", "there's no skill for bartering or endermen yet (fight enderman works in the overworld at night)", ""},
             {eyes >= 12 ? "x" : "", "eyes of ender: 12 (" + eyes + " now; a blaze powder and a pearl each)", "craft ender_eye", ""},
             {endBow ? "x" : "", "a bow and 32 arrows on you, a MUST before the End: the crystals on the pillars are shot down (" + bowsOn + " bow(s) and " + arrowsOn + " arrows on you" + (bows > bowsOn || arrows > arrowsOn ? ", " + (bows - bowsOn) + " bow(s) and " + (arrows - arrowsOn) + " arrows in your chests" : "") + ")", (bowsOn > 0 ? "" : "obtain bow (" + (bows > 0 ? "yours is in a chest; " : "") + "string: " + strHow + "), ") + "obtain arrow 32 (" + Math.max(1, 32 - arrowsOn) + " more: your chests, skeletons at night, or flint from gravel and feathers off chickens)", endBow ? "" : bowsOn == 0 ? "obtain bow 1" : "obtain arrow 32"},
-            {"", "the stronghold: throw an eye and follow it; the end portal room is under the ground there", "there's no skill for throwing eyes yet", ""},
+            {"", "the stronghold: throw an eye and follow it; the end portal room is under the ground there", "find_stronghold (in the Overworld: eyes thrown and watched, two headings crossed, walked to, thrown till one goes down, a staircase dug to its stone bricks; it stops there, the portal room is not found yet)", "find_stronghold"},
             {"", "the End: the frame filled, in, the crystals first (with the bow), then the dragon", "there's no skill for the End yet", ""},
         };
     }

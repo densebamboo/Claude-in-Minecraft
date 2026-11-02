@@ -4879,6 +4879,7 @@ public class WorkGoal extends Goal {
         boolean shoots = mob instanceof net.minecraft.world.entity.monster.RangedAttackMob || mob instanceof net.minecraft.world.entity.monster.Blaze || mob instanceof net.minecraft.world.entity.monster.Ghast; // (a blaze and a ghast shoot too, though not RangedAttackMobs in the game's code: a blaze was chased by a 1-wide bridge over the lava sea, World 15 13:41)
         if ((shoots && !(dy > 1.5 && horiz < 3.0)) || dy <= -4) {
             g.setSprinting(false);
+            if (mob instanceof net.minecraft.world.entity.monster.EnderMan && g.hasLineOfSight(mob)) { g.getNavigation().stop(); equipWeapon(); g.getLookControl().setLookAt(mob.getX(), mob.getEyeY(), mob.getZ()); if (g.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the Enderman is {} below with no way down on foot: staring it up to him", (int) -dy); return false; } // ponytail: live 18:40, he left an enderman 5 below and the pearl hunt picked it again each second; a player stares and it teleports to them (an angry one comes anyway); the fight's clock ends it
             if (shoots) { int cl = closeOnShooter(mob, t); if (cl == 1) return false; if (cl == 2) return true; } // the expert closes in: a crossbow piglin holds 5-8 off and never comes round (live 16:23, 25 arrows while he "waited" for it)
             if (shoots && g.hasLineOfSight(mob)) {
                 BlockPos cover = coverFrom(mob);

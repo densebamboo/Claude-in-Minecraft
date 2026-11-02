@@ -4916,6 +4916,11 @@ public class WorkGoal extends Goal {
         }
         // Otherwise get as close as walking allows, then bridge the rest of the way.
         if (pathGetsCloser(path, mob.position())) { g.setSprinting(true); g.getNavigation().moveTo(path, 1.3); return false; }
+        if (mob instanceof net.minecraft.world.entity.monster.EnderMan && dy > 2.5 && horiz < 16) { // ponytail: an angry enderman up a ledge it can't walk down from teleports to a target 16+ off (vanilla customServerAiStep): back off and it comes (live 20:21, 6 up 6 off, he stood 3 fight clocks under it)
+            Vec3 aw = g.position().subtract(mob.position()).multiply(1, 0, 1); if (aw.lengthSqr() < 1e-4) aw = new Vec3(1, 0, 0); aw = aw.normalize().scale(18 - horiz);
+            if (g.getNavigation().isDone()) { g.setSprinting(true); g.getNavigation().moveTo(g.getX() + aw.x, g.getY(), g.getZ() + aw.z, 1.3); if (g.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman is {} up on a ledge it can't walk down from, {} off: backing off past 16 so it teleports to him (WorkGoal.doAttack)", (int) dy, (int) horiz); }
+            return false;
+        }
         g.setSprinting(false);
         bridgeToward(mob.position());
         return false;

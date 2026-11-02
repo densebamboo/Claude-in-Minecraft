@@ -58,9 +58,9 @@ public final class HuntPatrol {
                 BlockPos p = FortressScout.alongRay(g, level, a, d); if (p == null) continue;
                 double score = 0; StringBuilder w = new StringBuilder();
                 double hunt = 0; for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) { double[] h = b.hunt.get(cell(p.getX() + dx * CELL, p.getZ() + dz * CELL)); if (h != null) hunt += weight(h, now) * (dx == 0 && dz == 0 ? 1.0 : 0.4); }
-                if (hunt > 0.05) { score += 4 * hunt; w.append(String.format("endermen there %.1f; ", hunt)); }
-                Long last = b.walked.get(cell(p.getX(), p.getZ()));
-                if (last != null && now - last < 20 * 120 && now >= last) { score -= 4; w.append("walked ").append((now - last) / 20).append(" s ago; "); }
+                Long last = b.walked.get(cell(p.getX(), p.getZ())); boolean fresh = last != null && now - last < 20 * 120 && now >= last;
+                if (hunt > 0.05 && !fresh) { score += 4 * hunt; w.append(String.format("endermen there %.1f; ", hunt)); } // ponytail: ground he walked in the last 2 min was seen empty, so old sightings there don't pull him back (the -44/-70 pacing)
+                if (fresh) { score -= 4; w.append("walked ").append((now - last) / 20).append(" s ago; "); }
                 int bio = biomeScore(level, p); score += bio; if (bio != 0) w.append(level.getBiome(p).unwrapKey().map(k -> k.location().getPath()).orElse("?")).append(' ').append(bio > 0 ? "+" : "").append(bio).append("; ");
                 if (b.heading != null) { double turn = Math.cos(a - b.heading); score += 1.5 * turn; if (turn > 0.7) w.append("on his heading; "); }
                 score -= Math.abs(d - 24) * 0.02;

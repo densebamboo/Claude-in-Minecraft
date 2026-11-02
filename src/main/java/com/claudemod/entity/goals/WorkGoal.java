@@ -4691,6 +4691,7 @@ public class WorkGoal extends Goal {
                 if (!solidAt(level, c.below()) || solidAt(level, c) || solidAt(level, c.above()) || !solidAt(level, c.above(2)) || !level.getFluidState(c).isEmpty()) continue;
                 boolean open = false; for (int ex = -1; ex <= 1 && !open; ex++) for (int ez = -1; ez <= 1 && !open; ez++) for (int ey = -1; ey <= 1 && !open; ey++) { if (ex == 0 && ez == 0) continue; BlockPos q = c.offset(ex, ey, ez); if (solidAt(level, q.below()) && !solidAt(level, q) && !solidAt(level, q.above()) && !solidAt(level, q.above(2))) open = true; }
                 if (open || !emHitSpot(level, c)) continue;
+                { var ep = em.getNavigation().createPath(c, 2); if (ep == null || !ep.canReach()) continue; } // ponytail: the user 20:2x "only works if they can path up to you": its own 3-high walk to a cell 2 off the nook, else it never comes (it teleports about, or waits out of reach)
                 emHole = c.immutable(); g.tasks.addFirst(new Task.Attack(t.target(), Math.max(400, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.GoTo(c.immutable(), 0.4));
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] an enderman {} off: a natural 2-high nook at {} ({} under it), into it instead of building (WorkGoal.endermanHole)", (int) d, c.toShortString(), name(level.getBlockState(c.above(2))));
                 return true; } }

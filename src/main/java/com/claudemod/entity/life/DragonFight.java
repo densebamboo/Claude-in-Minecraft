@@ -292,6 +292,7 @@ public final class DragonFight {
         BlockPos fe = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
         int want = cb.getY() - 2; // his feet's height for the hit
         boolean onPillar = s.cageBase != null && Math.abs(fe.getX() - s.cageBase.getX()) <= 1 && Math.abs(fe.getZ() - s.cageBase.getZ()) <= 1 && fe.getY() > s.cageBase.getY();
+        if (!onPillar && g.onGround() && fe.getY() >= cb.getY() - 4 && fe.getY() <= cb.getY() + 1 && Math.abs(fe.getX() - cb.getX()) <= 4 && Math.abs(fe.getZ() - cb.getZ()) <= 4) { s.cageBase = columnFoot(level, g); onPillar = true; } // (up by the cage already, his pillar's record lost: worked from where he stands, never back down to its foot; live 04:0x at -39,81,-1)
         if (onPillar && fe.getY() > want + 1) { for (int k = 1; k <= fe.getY() - want; k++) g.tasks.add(new Task.Break(fe.below(k))); again(g, false); say(g, s, "down to the hitting height", (fe.getY() - want) + " down to just under the cage at " + cb.toShortString()); return true; } // (above it: back down his pillar, not off it)
         if (onPillar && fe.getY() >= want) {
             Vec3 eye = g.getEyePosition(); AABB bb = c.getBoundingBox();

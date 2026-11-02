@@ -695,6 +695,7 @@ public class WorkGoal extends Goal {
         if (ticks <= 1 && pendingStepUp != null) { // the step he just cut: up onto it now, before any path can pull him back off the edge
             stepUpTo = Vec3.atBottomCenterOf(pendingStepUp); stepUpTick = g.tickCount; pendingStepUp = null;
         }
+        if (ticks <= 1) { walkSince.remove(pos); walkBest.remove(pos); } // ponytail: the task's (re)start restarts the 20 s clock; live 15:52 a GoTo resumed after 20 s in cover kept its pre-cover best distance and gave up at once 7 off (time on other tasks never counts)
         Double bestD = walkBest.get(pos);
         if (bestD == null || d < bestD - 0.5) { walkBest.put(pos.immutable(), d); walkSince.put(pos.immutable(), g.tickCount); } // getting closer: the clock starts over
         int since = walkSince.computeIfAbsent(pos.immutable(), k -> g.tickCount);
@@ -5551,7 +5552,8 @@ public class WorkGoal extends Goal {
         if (g.getTicksUsingItem() >= 20) { // full draw: loose it (the game fires along his look, takes the arrow and wears the bow, as for any player)
             g.releaseUsingItem();
             g.swing(InteractionHand.MAIN_HAND);
-            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] shot at a {} {} blocks off", mob.getType().getDescription().getString(), (int) d);
+            var hitB = g.level().clip(new net.minecraft.world.level.ClipContext(g.getEyePosition(), aim, net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)); Vec3 want = aim.subtract(g.getEyePosition());
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] shot at a {} {} blocks off (look {}/{} vs aim {}/{}, its v {}, {}) ", mob.getType().getDescription().getString(), (int) d, (int) g.getYRot(), (int) g.getXRot(), (int) Math.toDegrees(Math.atan2(-want.x, want.z)), (int) -Math.toDegrees(Math.atan2(want.y, want.horizontalDistance())), String.format("%.2f %.2f", vel.x, vel.z), hitB.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK ? "a block in the line at " + hitB.getBlockPos().toShortString() : "line clear"); // ponytail: live 15:46, ~21 arrows at a skeleton 10 off, none landed: log the aim to prove why
         }
         return true;
     }

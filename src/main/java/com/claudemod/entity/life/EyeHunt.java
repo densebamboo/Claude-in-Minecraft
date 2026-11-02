@@ -186,6 +186,7 @@ public final class EyeHunt {
             ClaudeMod.LOGGER.info("[Claude eye] stone bricks at {} ({}), {} steps down from {}: the stronghold. Stopping here (EyeHunt)", h.found.toShortString(), level.getBlockState(q).getBlock().getName().getString(), h.steps, h.digAt.toShortString());
             return "done: broke into the stronghold, " + level.getBlockState(q).getBlock().getName().getString().toLowerCase() + " at " + h.found.toShortString() + " (" + h.steps + " steps down)";
         }
+        if ((h.steps > 80 || f.getY() <= level.getMinBuildHeight() + 5) && restartAtSpot(g, h, f, "no bricks in " + h.steps + " steps")) { g.skillQueue.addFirst(again); return "back to the eye's spot to dig down there"; }
         if (h.steps > 80 || f.getY() <= level.getMinBuildHeight() + 5) return "failed: " + h.steps + " steps down and no stone bricks (at " + f.toShortString() + ")";
         for (int turn = 0; turn < 4; turn++) {
             Direction d = h.dig; BlockPos next = f.relative(d).below();
@@ -200,6 +201,14 @@ public final class EyeHunt {
             if (h.steps % 8 == 1) ClaudeMod.LOGGER.info("[Claude eye] staircase step {} going {}, down to y {} (EyeHunt)", h.steps, d.getName(), next.getY());
             return "digging a staircase down to the stronghold (step " + h.steps + ", y " + next.getY() + ")";
         }
+        if (restartAtSpot(g, h, f, "fluid or bedrock every way")) { g.skillQueue.addFirst(again); return "fluid all round here: back to the eye's spot to dig down there"; }
         return "failed: fluid or bedrock round the staircase at " + f.toShortString() + " every way";
+    }
+
+    /** The staircase ended away from where the eye went down (the old straight one ran 71 blocks off it, live 00:24): back to the spot, a fresh spiral from there. Once only (steps reset; the spot is kept). */
+    static boolean restartAtSpot(ClaudeEntity g, Hunt h, BlockPos f, String why) {
+        if (h.spot == null || horiz(Vec3.atCenterOf(f), Vec3.atCenterOf(h.spot)) <= 6) return false;
+        ClaudeMod.LOGGER.info("[Claude eye] staircase at {} stopped ({}), {} off the eye's spot {}: back there for a spiral down (EyeHunt)", f.toShortString(), why, (int) horiz(Vec3.atCenterOf(f), Vec3.atCenterOf(h.spot)), h.spot.toShortString());
+        h.digAt = null; h.steps = 0; return true;
     }
 }

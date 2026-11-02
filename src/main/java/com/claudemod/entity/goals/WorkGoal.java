@@ -828,6 +828,19 @@ public class WorkGoal extends Goal {
         }
         lookWhereWalking(pos);
         if (ticks % 10 == 3) openDoorAhead(pos);
+        // A cobweb in his cells or the next one on the way: cut with the sword like a player, never waded through (live 01:05, stuck in the stronghold's webs)
+        if (inReach(pos) || d > 0.8) {
+            BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
+            Vec3 to = Vec3.atCenterOf(pos).subtract(g.position()); to = new Vec3(to.x, 0, to.z);
+            BlockPos ahead = to.lengthSqr() < 0.01 ? feet : feet.relative(Direction.getNearest(to.x, 0, to.z));
+            for (BlockPos w : new BlockPos[]{feet, feet.above(), ahead, ahead.above()})
+                if (g.level().getBlockState(w).is(net.minecraft.world.level.block.Blocks.COBWEB)) {
+                    com.claudemod.ClaudeMod.LOGGER.info("[Claude life] a cobweb at {} on his way to {}: cutting it (WorkGoal.walkTo)", w.toShortString(), pos.toShortString());
+                    g.tasks.addFirst(new Task.GoTo(pos, within));
+                    g.tasks.addFirst(new Task.Break(w.immutable()));
+                    return true;
+                }
+        }
         // stuck swimming in a flooded bit of his mine: block where the water comes in, then carry on
         if (g.isInWater() && !com.claudemod.entity.body.Controls.wading(g) && stuck == 30 && g.mineShape != null) {
             g.tasks.addFirst(new Task.GoTo(pos, within));

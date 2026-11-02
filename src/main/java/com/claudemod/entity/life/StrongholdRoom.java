@@ -107,7 +107,11 @@ public final class StrongholdRoom {
             if (in != null && in.distSqr(f) > 40 * 40 && lit.distSqr(f) > lit.distSqr(in)) { r.going = null; /* (only when the way in is nearer the portal than he is: live 01:34, 11 from the portal, 47 from the way in, sent back out to it and round again) */ Vec3 dv = Vec3.atCenterOf(in).subtract(g.position()); double len = dv.length(), leg = Math.min(len, 96); BlockPos step = len <= 96 ? in : BlockPos.containing(g.getX() + dv.x / len * leg, g.getY() + dv.y / len * leg, g.getZ() + dv.z / len * leg);
                 g.tasks.add(new Task.GoTo(step, len <= 96 ? 1.0 : 3.0)); g.skillQueue.addFirst(again); return "back to the lit end portal: to my way into its stronghold at " + in.toShortString() + ", " + (int) len + " to go"; }
             if (level.isLoaded(lit)) { BlockPos best = null; for (long k : r.known) { BlockPos q = BlockPos.of(k); if (q.distSqr(lit) <= 4 * 4 && (best == null || q.distSqr(lit) < best.distSqr(lit))) best = q; }
-                if (best != null && reach(g, r).containsKey(best.asLong())) { r.going = best; g.tasks.add(new Task.GoTo(best, 0.5)); g.skillQueue.addFirst(again); return "back to the lit end portal: on to " + best.toShortString(); } }
+                LinkedHashMap<Long, Long> rch = best == null ? null : reach(g, r);
+                if (best != null && rch.containsKey(best.asLong())) { // along his own map in legs of 8 (one long walk was refused by the walker every tick, live 01:36)
+                    java.util.List<Long> chain = new java.util.ArrayList<>(); for (long c = best.asLong(); ; c = rch.get(c)) { chain.add(c); if (rch.get(c) == c) break; }
+                    BlockPos leg = BlockPos.of(chain.get(Math.max(0, chain.size() - 1 - 8))); if (leg.equals(f)) leg = best;
+                    r.going = leg; g.tasks.add(new Task.GoTo(leg, 0.5)); g.skillQueue.addFirst(again); return "back to the lit end portal: on to " + best.toShortString(); } }
         }
         if (r.going != null && r.going.equals(r.lastGo) && f.equals(r.lastFrom)) { r.failed.add(r.going.asLong()); ClaudeMod.LOGGER.info("[Claude stronghold] the walk to {} ended with him still at {}: another way (StrongholdRoom)", r.going.toShortString(), f.toShortString()); }
         if (r.going != null) { r.lastGo = r.going; r.lastFrom = f; }

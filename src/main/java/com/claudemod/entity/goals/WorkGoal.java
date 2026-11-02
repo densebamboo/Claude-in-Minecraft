@@ -4815,7 +4815,7 @@ public class WorkGoal extends Goal {
         }
         // Close but something's between them (a chicken under a tree, behind a block): clear it, like a player
         // knocking the leaves away to get at it. Never their builds.
-        if (g.distanceTo(mob) < 5.5 && !g.hasLineOfSight(mob)) {
+        if (g.distanceTo(mob) < 5.5 && !canHit(mob)) { /* (can't hit it from here: leaves, glass or a fence between; seeing it is not reaching it) */
             BlockPos inWay = blockInTheWay((ServerLevel) g.level(), BlockPos.containing(mob.getBoundingBox().getCenter()));
             if (inWay != null) {
                 BlockState w = g.level().getBlockState(inWay);

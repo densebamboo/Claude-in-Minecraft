@@ -3757,6 +3757,7 @@ public final class ClaudeLife {
                         if (s.getCollisionShape(level, q).isEmpty()) continue;
                         if (s.getDestroySpeed(level, q) < 0 || s.hasBlockEntity() || !s.getFluidState().isEmpty()) continue;
                         if (PlayerProfile.placedBy(player).contains(q) || protectedBlock(g, player, q)) continue;
+                        if (com.claudemod.entity.nav.ActionPath.structureBlock(level, q) && !com.claudemod.entity.nav.ActionPath.structureDigOk(level, q) && !com.claudemod.entity.life.TempLedger.built(g, q)) continue; // a structure's own block stays (live 01:40, 48 stronghold bricks queued and refused)
                         if (!level.getBlockState(q.above()).getFluidState().isEmpty()) continue; // water above: leave the ceiling
                         dig.add(q.immutable());
                     }

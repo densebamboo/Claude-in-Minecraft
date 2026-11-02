@@ -3379,7 +3379,16 @@ public final class ClaudeLife {
             case "light_end_portal": return com.claudemod.entity.life.StrongholdRoom.skill(g, player, level, st); // the stronghold from its bricks: in, its corridors walked by sight to the portal room, the spawner broken, the frames filled
             case "find_stronghold": return com.claudemod.entity.life.EyeHunt.skill(g, player, level, st); // the Overworld: eyes thrown and watched, two headings crossed, walked, thrown till one goes down, a staircase down to the stone bricks
             case "find_fortress": return com.claudemod.entity.life.FortressScout.skill(g, player, level, st); // the Nether: he picks the heading (the structure grid), legs along the ground, a look round from each end, each leg noted
-            case "enter_portal": { { String rp = com.claudemod.entity.life.PortalMap.enterStep(g, level, st, target); if (rp != null) return rp; } // their words: home / back / fortress / my portal (PortalMap.resolve); an unlit one relit // into a lit portal: stand in it 4 s, the game does the rest; both coordinate pairs noted
+            case "enter_portal": {
+                if (level.dimension() == net.minecraft.world.level.Level.END) { // the End's way home: the exit portal on the fountain in the middle, open once the dragon's dead (live 04:07, "go through the portal" read as a follow)
+                    BlockPos mid0 = level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, BlockPos.ZERO); BlockPos ep = null;
+                    for (BlockPos q : BlockPos.betweenClosed(mid0.offset(-4, -8, -4), mid0.offset(4, 4, 4))) if (level.getBlockState(q).is(Blocks.END_PORTAL) && (ep == null || q.distSqr(g.blockPosition()) < ep.distSqr(g.blockPosition()))) ep = q.immutable();
+                    if (ep == null) return "failed: the exit portal on the fountain isn't open (the dragon's still alive)";
+                    if (ep.distSqr(g.blockPosition()) <= 1) return "done: in the exit portal at " + ep.toShortString();
+                    g.tasks.add(new Task.GoTo(ep, 0.4)); g.skillQueue.addFirst(st);
+                    return "to the exit portal on the fountain at " + ep.toShortString() + ", " + (int) Math.sqrt(ep.distSqr(g.blockPosition())) + " off";
+                }
+                { String rp = com.claudemod.entity.life.PortalMap.enterStep(g, level, st, target); if (rp != null) return rp; } // their words: home / back / fortress / my portal (PortalMap.resolve); an unlit one relit // into a lit portal: stand in it 4 s, the game does the rest; both coordinate pairs noted
                 BlockPos portal = findNear(level, g.blockPosition(), 24, b -> b.is(Blocks.NETHER_PORTAL));
                 if (portal == null) { /* the portal he lit and saved (hisPortal): 33 blocks off it, "no lit portal within 24", and the planner went to mine iron for a bucket to cast a new one (live 18:08) */
                     BlockPos hp = level.dimension() == net.minecraft.world.level.Level.OVERWORLD ? hisPortal.get(g.getUUID()) : level.dimension() == net.minecraft.world.level.Level.NETHER ? netherPortal.get(g.getUUID()) : null;

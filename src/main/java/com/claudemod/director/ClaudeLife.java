@@ -2676,6 +2676,10 @@ public final class ClaudeLife {
                 return "strip mining a " + dug + " block tunnel at y=" + y + " for " + ore;
             }
             case "explore_cave": {
+                // Inside a stronghold the "cave" is its corridors: walked by its own skill, never mined (live 01:00, the planner picked explore_cave from the corridor floor)
+                if (level.dimension() == net.minecraft.world.level.Level.OVERWORLD && com.claudemod.entity.nav.ActionPath.structureBlock(level, g.blockPosition().below())
+                        && net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level.getBlockState(g.blockPosition().below()).getBlock()).getPath().contains("stone_bricks"))
+                    return com.claudemod.entity.life.StrongholdRoom.skill(g, player, level, st);
                 // The fast way: find a cave, walk in, mine what shows, light it up.
                 BlockPos cave = findCave(level, center(g, player, st), 24);
                 if (cave == null) return "failed: no cave nearby (dig_down or explore to find one, or strip_mine instead)";

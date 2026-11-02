@@ -3031,7 +3031,8 @@ public final class ClaudeLife {
                     if (got != null) return got;
                     return "failed: you have nothing that smelts into or from " + target;
                 }
-                boolean hasFuel = !g.inventory.find(t -> (t.is(Items.COAL) || t.is(Items.CHARCOAL) || t.is(ItemTags.LOGS) || t.is(ItemTags.PLANKS)) && !t.is(ItemTags.NON_FLAMMABLE_WOOD)).isEmpty() /* ponytail: crimson/warped wood is no fuel */;
+                boolean hasFuel = !g.inventory.find(t -> (t.is(Items.COAL) || t.is(Items.CHARCOAL) || t.is(ItemTags.LOGS) || t.is(ItemTags.PLANKS) || t.is(Items.STICK)) && !t.is(ItemTags.NON_FLAMMABLE_WOOD)).isEmpty() /* ponytail: crimson/warped wood is no fuel */;
+                if (!hasFuel && g.inventory.count(t -> t.is(ItemTags.NON_FLAMMABLE_WOOD)) > 0) { g.skillQueue.addFirst(st); g.skillQueue.addFirst(new Skills.Step("craft", "stick", Math.min(64, Math.max(4, g.inventory.count(t -> t.is(input)) * 2)))); return "no fuel but nether wood: sticks out of it first (they burn, the wood doesn't)"; } // the user 16:50
                 if (!hasFuel) return "failed: no fuel (coal, charcoal, logs or planks)";
                 // no coal: a few logs into charcoal first (8 items a piece, against 1.5 for a log burnt as is), then the real batch
                 if (!g.commandActive && (input == Items.RAW_IRON || input == Items.RAW_GOLD || input == Items.RAW_COPPER) && reachableFurnace(g, level, g.blockPosition(), 16) == null && g.inventory.count(t -> t.is(Items.FURNACE)) == 0) { // far from all his furnaces: the raws ride home (live 12:06 World 15: 9 raw iron, a furnace's cobble dug out of a hole 165 from his nook's 6)
@@ -8891,7 +8892,7 @@ public final class ClaudeLife {
         if (g.lastStep != null && Set.of("craft", "gear_up", "smelt").contains(g.lastStep.skill()) && g.currentTask != null) return; // mid-craft right now: after it
         // (a smelt step waiting at the end of "mine 27 ore, then smelt 27" used to switch this off for the whole trip: 21 raw iron on him, no armor, dead)
         java.util.function.Predicate<ItemStack> iron = s -> s.is(Items.IRON_INGOT) || s.is(Items.RAW_IRON); // raw iron is a furnace away from an ingot: a player counts it (he had 14 raw on him and "no iron for armor")
-        boolean fuel = g.inventory.count(s -> (s.is(Items.COAL) || s.is(Items.CHARCOAL) || s.is(ItemTags.LOGS) || s.is(ItemTags.PLANKS)) && !s.is(ItemTags.NON_FLAMMABLE_WOOD)) > 0;
+        boolean fuel = g.inventory.count(s -> s.is(Items.COAL) || s.is(Items.CHARCOAL) || s.is(ItemTags.LOGS) || s.is(ItemTags.PLANKS) || s.is(Items.STICK)) > 0;
         int ingots = g.inventory.count(s -> s.is(Items.IRON_INGOT) || fuel && s.is(Items.RAW_IRON)); // (raw only with fuel to smelt it: 17:16 "6 iron on hand: making an iron sword now" with 2 raw, no fuel, the rest 228 blocks off, looped and starved their order)
         for (BlockPos p : g.myStations) {
             if (!level.isLoaded(p) || p.distSqr(g.blockPosition()) > 48 * 48) continue;
@@ -12479,7 +12480,7 @@ public final class ClaudeLife {
 
     /** Raw food he carries that cooks into something good, if he has fuel to cook it with. */
     private static Item cookable(ClaudeEntity g, ServerLevel level) {
-        boolean fuel = !g.inventory.find(t -> (t.is(Items.COAL) || t.is(Items.CHARCOAL) || t.is(ItemTags.LOGS) || t.is(ItemTags.PLANKS)) && !t.is(ItemTags.NON_FLAMMABLE_WOOD)).isEmpty() /* ponytail: crimson/warped wood is no fuel */;
+        boolean fuel = !g.inventory.find(t -> t.is(Items.COAL) || t.is(Items.CHARCOAL) || t.is(ItemTags.LOGS) || t.is(ItemTags.PLANKS) || t.is(Items.STICK)).isEmpty(); // (nether wood counts: it goes in as sticks)
         if (!fuel) return null;
         ItemStack raw = g.inventory.find(s -> s.get(net.minecraft.core.component.DataComponents.FOOD) != null && rawOrBad(level, s)
                 && !s.is(Items.ROTTEN_FLESH) && !s.is(Items.SPIDER_EYE) && !s.is(Items.POISONOUS_POTATO) && !s.is(Items.PUFFERFISH));

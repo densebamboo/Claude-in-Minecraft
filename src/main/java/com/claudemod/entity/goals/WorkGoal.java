@@ -3911,14 +3911,15 @@ public class WorkGoal extends Goal {
         ItemStack fuel = g.inventory.find(s -> s.is(net.minecraft.world.item.Items.COAL) || s.is(net.minecraft.world.item.Items.CHARCOAL));
         int need = (total + 7) / 8;
         if (total <= 4 && fuelSlot.isEmpty()) { // a short batch (the load split over a row of furnaces): wood, a coal's eight would mostly burn away empty
-            ItemStack planks = g.inventory.find(s -> s.is(net.minecraft.tags.ItemTags.PLANKS));
+            ItemStack planks = g.inventory.find(s -> s.is(net.minecraft.tags.ItemTags.PLANKS) && !s.is(net.minecraft.tags.ItemTags.NON_FLAMMABLE_WOOD));
             if (!planks.isEmpty() && planks.getCount() * 3 / 2 >= total) { fuel = planks; need = (total * 2 + 2) / 3; }
         }
-        if (fuel.isEmpty()) { fuel = g.inventory.find(s -> s.is(net.minecraft.tags.ItemTags.PLANKS)); need = (total * 2 + 2) / 3; } // planks before whole logs
+        if (fuel.isEmpty()) { fuel = g.inventory.find(s -> s.is(net.minecraft.tags.ItemTags.PLANKS) && !s.is(net.minecraft.tags.ItemTags.NON_FLAMMABLE_WOOD)); need = (total * 2 + 2) / 3; } // planks before whole logs
         if (fuel.isEmpty() || (fuel.is(net.minecraft.tags.ItemTags.PLANKS) && fuel.getCount() < need - fuelSlot.getCount() && fuelSlot.isEmpty())) { // (3 planks for 7 iron burnt out halfway, the rest raw in there for good: logs when the planks won't cover it)
-            ItemStack logs = g.inventory.find(s -> s.is(net.minecraft.tags.ItemTags.LOGS));
+            ItemStack logs = g.inventory.find(s -> s.is(net.minecraft.tags.ItemTags.LOGS_THAT_BURN));
             if (!logs.isEmpty() || fuel.isEmpty()) { fuel = logs; need = (total * 2 + 2) / 3; }
         }
+        if (fuel.isEmpty()) { fuel = g.inventory.find(s -> s.is(net.minecraft.world.item.Items.STICK)); need = total * 2; } // ponytail: the user 16:50, crimson/warped wood never burns but its sticks do (half an item each): the Nether's fuel
         if (!fuel.isEmpty() && (fuelSlot.isEmpty() || ItemStack.isSameItemSameComponents(fuelSlot, fuel))) {
             int add = Math.max(0, Math.min(need - fuelSlot.getCount(), fuel.getCount()));
             if (add > 0) {

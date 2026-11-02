@@ -42,4 +42,4 @@ while True:
     walked = sum(math.dist(a[1:4], b[1:4]) for a, b in zip(pts, list(pts)[1:]))
     net = math.dist(pts[0][1:4], (x, y, z))
     if walked >= 30 and net < 0.35 * walked:
-        say('zig%d,%d' % (x // 16, z // 16), 'ZIGZAG %s walked %d blocks, got %d from start, at %s %d, %d, %d doing %s' % (stamp, walked, net, dim, x, y, z, ','.join(sorted({p[4] for p in pts}))))
+        say('zig', 'ZIGZAG %s walked %d blocks, got %d from start, at %s %d, %d, %d doing %s' % (stamp, walked, net, dim, x, y, z, ','.join(sorted({p[4] for p in pts}))))

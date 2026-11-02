@@ -194,6 +194,7 @@ public final class EyeHunt {
             if (!ok) { h.dig = h.dig.getClockWise(); continue; }
             for (BlockPos c : cut) if (!level.getBlockState(c).isAir()) g.tasks.add(new Task.Break(c.immutable()));
             g.tasks.add(new Task.GoTo(next.immutable(), 0.3)); h.steps++; g.skillQueue.addFirst(again);
+            if (h.steps % 5 == 0) for (Direction side : new Direction[]{d.getClockWise(), d.getCounterClockWise()}) { BlockPos w = f.relative(d).relative(side); if (level.getBlockState(w).isFaceSturdy(level, w, side.getOpposite())) { g.tasks.add(new Task.WallTorch(f.relative(d).immutable(), side)); break; } } // a torch every 5 steps on the side wall, like a player's stairs (the user: "torches for sure")
             if (h.steps % 8 == 1) ClaudeMod.LOGGER.info("[Claude eye] staircase step {} going {}, down to y {} (EyeHunt)", h.steps, d.getName(), next.getY());
             return "digging a staircase down to the stronghold (step " + h.steps + ", y " + next.getY() + ")";
         }

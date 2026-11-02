@@ -25,7 +25,25 @@ public final class HuntPatrol {
     static final class Book { final Map<Long, Long> walked = new HashMap<>(); final Map<Long, double[]> hunt = new HashMap<>(); Double heading; } // hunt: {weight, server tick it was last added to}
     private static Map<UUID, Map<String, Book>> books; // (static: fields added live start null)
     static Book book(ClaudeEntity g, ServerLevel level) { if (books == null) books = new HashMap<>(); return books.computeIfAbsent(g.getUUID(), k -> new HashMap<>()).computeIfAbsent(PortalMap.dim(level), k -> new Book()); }
-    public static void reset(ClaudeEntity g) { if (books != null) books.remove(g.getUUID()); }
+    public static void reset(ClaudeEntity g) { if (books != null) books.remove(g.getUUID()); if (picks != null) picks.remove(g.getUUID()); }
+
+    /**
+     * The endermen he's gone after and not killed (Day to Day, live 19:29-19:37: an angry one 4 down a pit, in sight; 15 s of swings at
+     * air, the watchdog broke the fight off, and the hunt picked the same one again, 8 times in 7 minutes). Picked 3 times in 2 minutes
+     * and still alive: let be for 2 minutes, as a player gives up on one he can't get at and looks for another.
+     */
+    private static Map<UUID, Map<UUID, java.util.ArrayDeque<Long>>> picks;
+    private static java.util.ArrayDeque<Long> picksOf(ClaudeEntity g, UUID em) { if (picks == null) picks = new HashMap<>(); return picks.computeIfAbsent(g.getUUID(), k -> new HashMap<>()).computeIfAbsent(em, k -> new java.util.ArrayDeque<>()); }
+    static final long PICK_WINDOW = 20L * 120, LET_BE = 20L * 120;
+    /** He goes after this one now. */
+    public static void picked(ClaudeEntity g, UUID em) { var q = picksOf(g, em); q.addLast(now(g)); while (q.size() > 8) q.pollFirst(); }
+    /** Let be: picked 3+ times within 2 minutes, the last of them under 2 minutes ago. */
+    public static boolean letBe(ClaudeEntity g, UUID em) {
+        if (picks == null || !picks.containsKey(g.getUUID())) return false;
+        var q = picks.get(g.getUUID()).get(em); if (q == null || q.size() < 3) return false;
+        long now = now(g), last = q.peekLast(); int recent = 0; for (long t : q) if (last - t <= PICK_WINDOW) recent++;
+        return recent >= 3 && now - last < LET_BE && now >= last;
+    }
     static long cell(int x, int z) { return ((long) Math.floorDiv(x, CELL) << 32) ^ (Math.floorDiv(z, CELL) & 0xffffffffL); }
     static long now(ClaudeEntity g) { return g.getServer() == null ? g.tickCount : g.getServer().getTickCount(); } // (server ticks: his own restart after a portal)
 

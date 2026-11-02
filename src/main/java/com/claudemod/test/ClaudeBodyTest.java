@@ -10366,6 +10366,7 @@ public final class ClaudeBodyTest {
     // ---------------------------------------------------------------- stages 494 on: one method each (exactStages is at the JVM's 64 KB limit)
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
+            case 554: return st554(stage, t, c, h, level, mock);
             case 552: return st552(stage, t, c, h, level, mock);
             case 551: return st551(stage, t, c, h, level, mock);
             case 550: return st550(stage, t, c, h, level, mock);
@@ -10999,6 +11000,37 @@ public final class ClaudeBodyTest {
         if (wcT > 0 && t[0] == wcT + 100) { wcMob.discard(); wcMob = null; wcFree = t[0]; }
         if (wcFree > 0 && Math.abs(c.getX() - me.getX()) > 3) { int took = t[0] - wcFree; c.tasks.clear(); c.dropCurrent = true; c.getInventory().clearContent(); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0); pass(stage, t, "waited 5 s in his walls with the mob on him, out and walking " + took / 20 + " s after it went"); }
         else if (wcFree > 0 && t[0] == wcFree + 20 * 15) check(false, "cover: not walking 15 s after the hoglin went (at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ")");
+        return true;
+    }
+    private static int s554T = -1, s554Picks = 0; private static boolean s554Was = false, s554LetBe = false; private static net.minecraft.world.entity.monster.EnderMan s554Em;
+    private static boolean st554(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // an enderman in sight he can't get at (Day to Day live 19:29-19:37: one 4 down a pit, the hunt picked it 8 times in 7 min): picked 3 times at most, then let be
+        ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        final int ox = 17000, oy = 69, oz = 17000; BlockPos me = new BlockPos(ox + 2, oy + 1, oz);
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); s554T = -1; s554Picks = 0; s554Was = false; s554LetBe = false; if (s554Em != null) s554Em.discard(); s554Em = null; c.nextPlanTick = c.tickCount + 20 * 900; c.prefs.put("stay_close", "no"); com.claudemod.entity.life.HuntPatrol.reset(c);
+            c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8)); // (no blocks, no bucket: no way down the bedrock pit)
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(nether, me.getX() + 0.5, oy + 20, me.getZ() + 0.5, 0, 0); c.setNoGravity(true); }
+        if (t[0] == 10) { for (int x = -10; x <= 14; x++) for (int z = -10; z <= 10; z++) { boolean wall = x == -10 || x == 14 || Math.abs(z) == 10; boolean pit = x >= 3 && x <= 7 && Math.abs(z) <= 2;
+                for (int y = oy - 9; y <= oy + 10; y++) { boolean solid = wall || y == oy + 10 || y == oy - 9 || (y <= oy && !pit) || (pit && y == oy - 8);
+                    nether.setBlock(new BlockPos(ox + x, y, oz + z), solid ? Blocks.BEDROCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2 | 16); } }
+            c.setNoGravity(false); c.teleportTo(nether, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, -90, 60); com.claudemod.entity.life.Watchdog.teleported(c); c.fallDistance = 0; }
+        if (t[0] == 30) { s554Em = EntityType.ENDERMAN.create(nether); s554Em.moveTo(ox + 5.5, oy - 7, oz + 0.5, 0, 0); s554Em.setNoAi(true); s554Em.setPersistenceRequired(); nether.addFreshEntity(s554Em);
+            s554T = t[0]; c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("ender_pearls", "ender_pearl", 12)); }
+        if (s554T > 0 && c.level() == nether) {
+            for (var m : nether.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(ox - 30, 0, oz - 30, ox + 30, 128, oz + 30), m0 -> m0 != s554Em)) m.discard();
+            boolean on = c.currentTask instanceof Task.Attack a && a.target().equals(s554Em.getUUID());
+            if (on && !s554Was) s554Picks++; s554Was = on;
+            if (com.claudemod.entity.life.HuntPatrol.letBe(c, s554Em.getUUID())) s554LetBe = true;
+        }
+        if (s554T > 0 && (!c.isAlive() || t[0] == s554T + 20 * 180)) {
+            check(c.isAlive(), "unreachable enderman: he died");
+            check(s554Picks <= 3, "unreachable enderman: gone after " + s554Picks + " times in 180 s (3 at most, then let be)");
+            check(s554LetBe, "unreachable enderman: never let be (" + s554Picks + " picks, at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ")");
+            String how = "the enderman out of reach gone after " + s554Picks + " times, then let be";
+            if (s554Em != null) s554Em.discard(); s554Em = null; c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.setHealth(20f); c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            com.claudemod.entity.life.Watchdog.teleported(c); if (c.isAlive()) c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0);
+            pass(stage, t, how);
+        }
         return true;
     }
     private static int s535Done = -1; private static float s535Low = 20f;

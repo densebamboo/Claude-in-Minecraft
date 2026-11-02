@@ -4949,7 +4949,7 @@ public class WorkGoal extends Goal {
         Vec3 away = g.position().subtract(mob.position()).multiply(1, 0, 1); if (away.lengthSqr() < 1e-4) return null; away = away.normalize();
         boolean fire = level.getBlockState(feet).is(net.minecraft.tags.BlockTags.FIRE);
         boolean shooter = mob instanceof net.minecraft.world.entity.monster.RangedAttackMob || mob instanceof net.minecraft.world.entity.monster.Blaze || mob instanceof net.minecraft.world.entity.monster.Ghast; // (an arrow or fireball throws him from range: World 15 13:51, a skeleton's arrow off a lip, 22 down)
-        boolean throwsHim = shooter ? mob.distanceTo(g) <= 24 && g.hasLineOfSight(mob) : mob.distanceTo(g) <= 4; // (a melee mob only in reach: live 14:45 an enderman 15 off stepped him back and forth against the approach, 4 shuffles a second)
+        boolean throwsHim = shooter ? mob.distanceTo(g) <= 24 && g.hasLineOfSight(mob) : mob.distanceTo(g) <= (footingSaid != null ? 6 : 4); // ponytail: 4 to start, 6 to finish the step (live 20:07 -119,76,-936: an enderman at the edge of 4 flipped it on and off, the approach stepped him back onto the lip 7 times in 2 s). (a melee mob only in reach: live 14:45 an enderman 15 off stepped him back and forth against the approach, 4 shuffles a second)
         if (!fire && (!throwsHim || !lipBehind(level, feet, away))) { footingSaid = null; return null; } // ponytail: live 14:45 -36,50,-898: a lip "behind" him from an enderman 15 off; the approach stepped him back onto it, 4 shuffles a second. Only a mob in reach throws him
         BlockPos best = null; double bd = Double.MAX_VALUE;
         for (BlockPos q0 : BlockPos.betweenClosed(feet.offset(-4, -1, -4), feet.offset(4, 1, 4))) { BlockPos q = q0.immutable();

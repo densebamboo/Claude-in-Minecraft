@@ -13088,7 +13088,8 @@ public final class ClaudeLife {
         }
         if (prey == null) return;
         int inSight = 0; for (var m : com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(16, 5, 16), m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy && !(m instanceof net.minecraft.world.entity.monster.ZombifiedPiglin) && g.hasLineOfSight(m))) inSight++;
-        String unfit = inSight >= 2 ? inSight + " hostiles in sight (crowds are left alone)" : unfitForDrops(g, lv); // (the user's engagement rule: on sight only one on its own)
+        boolean crowdFit = g.getArmorValue() >= 15 && Kit.food(g) >= 6 && g.getHealth() >= 14; // (the user's rule: crowds are left alone unless iron+ and food; in diamond with 41 meals he let a skeleton and zombies be, ran in 3 s hops for 17 s and met a creeper, 24.6 damage, live 00:17)
+        String unfit = inSight >= 2 && !crowdFit ? inSight + " hostiles in sight (crowds are left alone without iron+ armor and food)" : unfitForDrops(g, lv); // (the user's engagement rule: on sight only one on its own)
         if (unfit == null && g.getHealth() < 12) unfit = "health " + (int) g.getHealth();
         if (onSightSaid == null) onSightSaid = new java.util.HashSet<>();
         if (unfit != null) { if (onSightSaid.add(prey.getUUID())) ClaudeMod.LOGGER.info("[Claude fight] a {} {} blocks off in sight: let be, not fit for it ({}) (ClaudeLife.clearOnSight)", prey.getType().getDescription().getString(), (int) Math.sqrt(pd), unfit); return; }

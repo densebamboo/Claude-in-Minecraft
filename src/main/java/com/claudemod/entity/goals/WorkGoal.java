@@ -3911,14 +3911,15 @@ public class WorkGoal extends Goal {
         ItemStack fuel = g.inventory.find(s -> s.is(net.minecraft.world.item.Items.COAL) || s.is(net.minecraft.world.item.Items.CHARCOAL));
         int need = (total + 7) / 8;
         if (total <= 4 && fuelSlot.isEmpty()) { // a short batch (the load split over a row of furnaces): wood, a coal's eight would mostly burn away empty
-            ItemStack planks = g.inventory.find(s -> s.is(net.minecraft.tags.ItemTags.PLANKS));
+            ItemStack planks = g.inventory.find(s -> s.is(net.minecraft.tags.ItemTags.PLANKS) && !s.is(net.minecraft.tags.ItemTags.NON_FLAMMABLE_WOOD));
             if (!planks.isEmpty() && planks.getCount() * 3 / 2 >= total) { fuel = planks; need = (total * 2 + 2) / 3; }
         }
-        if (fuel.isEmpty()) { fuel = g.inventory.find(s -> s.is(net.minecraft.tags.ItemTags.PLANKS)); need = (total * 2 + 2) / 3; } // planks before whole logs
+        if (fuel.isEmpty()) { fuel = g.inventory.find(s -> s.is(net.minecraft.tags.ItemTags.PLANKS) && !s.is(net.minecraft.tags.ItemTags.NON_FLAMMABLE_WOOD)); need = (total * 2 + 2) / 3; } // planks before whole logs
         if (fuel.isEmpty() || (fuel.is(net.minecraft.tags.ItemTags.PLANKS) && fuel.getCount() < need - fuelSlot.getCount() && fuelSlot.isEmpty())) { // (3 planks for 7 iron burnt out halfway, the rest raw in there for good: logs when the planks won't cover it)
-            ItemStack logs = g.inventory.find(s -> s.is(net.minecraft.tags.ItemTags.LOGS));
+            ItemStack logs = g.inventory.find(s -> s.is(net.minecraft.tags.ItemTags.LOGS_THAT_BURN));
             if (!logs.isEmpty() || fuel.isEmpty()) { fuel = logs; need = (total * 2 + 2) / 3; }
         }
+        if (fuel.isEmpty()) { fuel = g.inventory.find(s -> s.is(net.minecraft.world.item.Items.STICK)); need = total * 2; } // ponytail: the user 16:50, crimson/warped wood never burns but its sticks do (half an item each): the Nether's fuel
         if (!fuel.isEmpty() && (fuelSlot.isEmpty() || ItemStack.isSameItemSameComponents(fuelSlot, fuel))) {
             int add = Math.max(0, Math.min(need - fuelSlot.getCount(), fuel.getCount()));
             if (add > 0) {
@@ -4657,6 +4658,12 @@ public class WorkGoal extends Goal {
             if (solidAt(level, q.below()) && !solidAt(level, q) && !solidAt(level, q.above()) && !solidAt(level, q.above(2))) return false; }
         return true;
     }
+    private boolean emHitSpot(ServerLevel level, BlockPos c) { // ponytail: live 16:44 -53,45,-893: a nook with no cell 2 off an enderman can stand in; it stood 4 off, out of reach, and he waited in it 30 s+
+        for (int ex = -2; ex <= 2; ex++) for (int ez = -2; ez <= 2; ez++) { if (Math.max(Math.abs(ex), Math.abs(ez)) != 2) continue;
+            BlockPos mid = c.offset(Integer.signum(ex), 1, Integer.signum(ez)); if (solidAt(level, mid)) continue; // (his swing goes out at head height)
+            for (int ey = -1; ey <= 1; ey++) { BlockPos q = c.offset(ex, ey, ez); if (solidAt(level, q.below()) && !solidAt(level, q) && !solidAt(level, q.above()) && !solidAt(level, q.above(2))) return true; } }
+        return false;
+    }
     private Boolean endermanHole(Task.Attack t, net.minecraft.world.entity.monster.EnderMan em) {
         ServerLevel level = (ServerLevel) g.level(); BlockPos f = g.blockPosition();
         double d = em.distanceTo(g);
@@ -4664,6 +4671,7 @@ public class WorkGoal extends Goal {
             emHole = f.immutable(); g.getNavigation().stop(); g.setSprinting(false); equipWeapon();
             g.getLookControl().setLookAt(em.getX(), em.getY() + 0.6, em.getZ()); // (its legs: what reaches down to him)
             if (em.getTarget() != g && d >= 8) { if (g.tickCount - emSaid > 100) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman {} off isn't on him: out of the hole to bait it (WorkGoal.endermanHole)", (int) d); } return null; } // ponytail: live 14:46 -29,47,-882: waited in the nook for a calm one 15 off; cover only while one is engaged (the user 14:25), so out to bait it, back in when it comes
+            if (em.getTarget() == g && !emHitSpot(level, f)) { if (g.tickCount - emSaid > 100) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] my hole at {} has nowhere an enderman can stand in my reach: out to fight it (WorkGoal.endermanHole)", f.toShortString()); } return null; }
             if (d > 24) { if (g.tickCount - emSaid > 100) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the enderman went off {} away: out of the hole (WorkGoal.endermanHole)", (int) d); } return true; }
             if (g.getHealth() < 8) { var food = com.claudemod.director.ClaudeLife.foodToEat(g, false); if (food != null) { g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(food)); return true; } }
             if (canHitNow(em)) { g.getLookControl().setLookAt(em.getX(), em.getY() + 0.6, em.getZ()); g.attack(em); g.swing(InteractionHand.MAIN_HAND); }
@@ -4678,7 +4686,7 @@ public class WorkGoal extends Goal {
             for (int dy = -2; dy <= 2; dy++) { BlockPos c = f.offset(dx, dy, dz);
                 if (!solidAt(level, c.below()) || solidAt(level, c) || solidAt(level, c.above()) || !solidAt(level, c.above(2)) || !level.getFluidState(c).isEmpty()) continue;
                 boolean open = false; for (int ex = -1; ex <= 1 && !open; ex++) for (int ez = -1; ez <= 1 && !open; ez++) for (int ey = -1; ey <= 1 && !open; ey++) { if (ex == 0 && ez == 0) continue; BlockPos q = c.offset(ex, ey, ez); if (solidAt(level, q.below()) && !solidAt(level, q) && !solidAt(level, q.above()) && !solidAt(level, q.above(2))) open = true; }
-                if (open) continue;
+                if (open || !emHitSpot(level, c)) continue;
                 emHole = c.immutable(); g.tasks.addFirst(new Task.Attack(t.target(), Math.max(400, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.GoTo(c.immutable(), 0.4));
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] an enderman {} off: a natural 2-high nook at {} ({} under it), into it instead of building (WorkGoal.endermanHole)", (int) d, c.toShortString(), name(level.getBlockState(c.above(2))));
                 return true; } }

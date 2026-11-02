@@ -246,6 +246,7 @@ public final class ClaudeLife {
             if (g.tickCount % 100 == 0) equipArmor(g);
             if (g.tickCount % 100 == 0) dumpJunk(g); // ponytail: live 13:20, 320 netherrack and 0 free slots in the Nether: this branch never dumped, pickups and crafts failed
             if (g.tickCount % 20 == 10 && g.getFoodData().getFoodLevel() < 20 && !(g.currentTask instanceof Task.Eat) && !(g.tasks.peekFirst() instanceof Task.Eat) && (g.getFoodData().getFoodLevel() <= 6 || !lavaEdge(g))) { Item f0 = foodToEat(g, true); if (f0 != null) g.tasks.addFirst(new Task.Eat(f0)); } // ponytail: live 15:36 an Eat queued at the END of a 18-leg route (recover_drops) blocked this the whole walk: food 20 -> 6, 63 beef in the pack, killed by a magma cube // (the top-up waits off a lava edge: eating stands him still where a knock is the fall, World 15 13:41 on his 1-wide bridge)
+            if (g.tickCount % 20 == 11 && foodToEat(g, true) == null) eatIfHungry(g, player); // ponytail: the user 16:50, nothing to eat in the Nether: hoglins in the crimson forest, cooked into porkchops (this branch never ran the hunt)
             mlg(g, (ServerLevel) g.level());
             if (g.planning && g.tickCount - g.planStartTick > 20 * 45) g.planning = false;
             if (g.tickCount % 200 == 3) logWhere(g, player, g.level() == player.level() ? g.distanceTo(player) : -1);
@@ -1721,8 +1722,9 @@ public final class ClaudeLife {
                     return runSkill(g, player, new Skills.Step("recover_drops", "", 1, st.where()));
                 }
                 // meat, leather, wool, feathers come from animals: hunt them instead of looking for blocks
-                String animal = java.util.Map.ofEntries(java.util.Map.entry("beef", "cow"), java.util.Map.entry("leather", "cow"), java.util.Map.entry("porkchop", "pig"), java.util.Map.entry("mutton", "sheep"), java.util.Map.entry("wool", "sheep"),
+                String animal0 = java.util.Map.ofEntries(java.util.Map.entry("beef", "cow"), java.util.Map.entry("leather", "cow"), java.util.Map.entry("porkchop", "pig"), java.util.Map.entry("mutton", "sheep"), java.util.Map.entry("wool", "sheep"),
                         java.util.Map.entry("chicken", "chicken"), java.util.Map.entry("feather", "chicken"), java.util.Map.entry("rabbit", "rabbit"), java.util.Map.entry("salmon", "salmon"), java.util.Map.entry("cod", "cod")).get(target.endsWith("_wool") ? "wool" : target.replace("raw_", "").replace("cooked_", ""));
+                String animal = "pig".equals(animal0) && level.dimensionType().ultraWarm() ? "hoglin" : animal0; // the Nether's pork
                 if (animal != null) {
                     if (g.getHealth() > 6) { String no = nightOutsideNo(g, level, g.blockPosition()); boolean upTop0 = level.canSeeSky(g.blockPosition()) || g.getBlockY() >= level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.getBlockX(), g.getBlockZ()) - 8;
                         if (no == null && !com.claudemod.director.ClaudeLife.dayHere(level) && g.getArmorValue() < 10 && !upTop0) no = "failed: it's night and I'm down my mine with no armor; the hunt waits for first light (out the top in the dark is where the skeletons are)";
@@ -1736,10 +1738,10 @@ public final class ClaudeLife {
                     java.util.function.ToDoubleFunction<net.minecraft.world.entity.Entity> walk0 = pe -> walkMemo.computeIfAbsent(pe.getUUID(), k0 -> preyWalk(g, level, pe));
                     if (Set.of("beef", "porkchop", "mutton", "chicken", "salmon", "cod").contains(product0)) { // the user: it's "collect food", any food source counts; the nearest one wins (chickens beside him while he walked off looking for cod)
                         net.minecraft.world.entity.Entity best = null; double bd = Double.MAX_VALUE; List<net.minecraft.world.entity.animal.Animal> land0 = new ArrayList<>();
-                        for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.animal.Animal.class, area)) if (e.isAlive() && !e.isBaby() && (e instanceof net.minecraft.world.entity.animal.Cow || e instanceof net.minecraft.world.entity.animal.Pig || e instanceof net.minecraft.world.entity.animal.Sheep || e instanceof net.minecraft.world.entity.animal.Chicken) && (Math.abs(e.getBlockY() - g.getBlockY()) <= 6 || e.getBlockY() >= level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, e.getBlockX(), e.getBlockZ()) - 3) ) land0.add(e); land0.sort(Comparator.comparingDouble(g::distanceToSqr)); int looked0 = 0; for (var e : land0) { if (looked0++ >= 8 || best != null && g.distanceTo(e) - 3 >= Math.sqrt(bd)) break; double w = walk0.applyAsDouble(e); if (w >= 0 && w * w < bd) { bd = w * w; best = e; } } // the nearest by the walk to it, not the straight line (a sheep 57 across up a mountain was "the nearest") // (up top or at his own level only: a chicken in a cave 60 down had him cutting stairs to it from the surface)
+                        for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.animal.Animal.class, area)) if (e.isAlive() && !e.isBaby() && (e instanceof net.minecraft.world.entity.animal.Cow || e instanceof net.minecraft.world.entity.animal.Pig || e instanceof net.minecraft.world.entity.animal.Sheep || e instanceof net.minecraft.world.entity.animal.Chicken || e instanceof net.minecraft.world.entity.monster.hoglin.Hoglin) && (Math.abs(e.getBlockY() - g.getBlockY()) <= 6 || e.getBlockY() >= level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, e.getBlockX(), e.getBlockZ()) - 3) ) land0.add(e); land0.sort(Comparator.comparingDouble(g::distanceToSqr)); int looked0 = 0; for (var e : land0) { if (looked0++ >= 8 || best != null && g.distanceTo(e) - 3 >= Math.sqrt(bd)) break; double w = walk0.applyAsDouble(e); if (w >= 0 && w * w < bd) { bd = w * w; best = e; } } // the nearest by the walk to it, not the straight line (a sheep 57 across up a mountain was "the nearest") // (up top or at his own level only: a chicken in a cave 60 down had him cutting stairs to it from the surface)
                         for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.animal.AbstractFish.class, area)) if (e.isAlive() && (e instanceof net.minecraft.world.entity.animal.Salmon || e instanceof net.minecraft.world.entity.animal.Cod) && shallowFish(level, e) && g.distanceToSqr(e) * 9 < bd && (g.attempts.counters.getOrDefault("fishFail", -100000) < g.tickCount - 20 * 300)) { bd = g.distanceToSqr(e) * 9; best = e; } // fish only when no land animal is within three times the distance, and not again for 5 min after a hunt that brought none (2.5 min after salmon out in the river: none, then the same hunt again)
                         if (best != null) {
-                            String p0 = best instanceof net.minecraft.world.entity.animal.Cow ? "beef" : best instanceof net.minecraft.world.entity.animal.Pig ? "porkchop" : best instanceof net.minecraft.world.entity.animal.Sheep ? "mutton" : best instanceof net.minecraft.world.entity.animal.Chicken ? "chicken" : best instanceof net.minecraft.world.entity.animal.Salmon ? "salmon" : "cod";
+                            String p0 = best instanceof net.minecraft.world.entity.animal.Cow ? "beef" : best instanceof net.minecraft.world.entity.animal.Pig || best instanceof net.minecraft.world.entity.monster.hoglin.Hoglin ? "porkchop" : best instanceof net.minecraft.world.entity.animal.Sheep ? "mutton" : best instanceof net.minecraft.world.entity.animal.Chicken ? "chicken" : best instanceof net.minecraft.world.entity.animal.Salmon ? "salmon" : "cod";
                             if (!p0.equals(product0)) {
                                 String want = target.startsWith("cooked_") ? "cooked_" + p0 : p0;
                                 { var q0 = new ArrayList<>(g.skillQueue); g.skillQueue.clear(); for (Skills.Step s1 : q0) g.skillQueue.add(s1.skill().equals("smelt") && s1.target().equals("cooked_" + product0) ? new Skills.Step("smelt", "cooked_" + p0, s1.count(), s1.where()) : s1); } // the cooking that follows goes with the swap (mutton came in, "smelt cooked_salmon" failed with nothing to smelt)
@@ -3029,7 +3031,7 @@ public final class ClaudeLife {
                     if (got != null) return got;
                     return "failed: you have nothing that smelts into or from " + target;
                 }
-                boolean hasFuel = !g.inventory.find(t -> t.is(Items.COAL) || t.is(Items.CHARCOAL) || t.is(ItemTags.LOGS) || t.is(ItemTags.PLANKS)).isEmpty();
+                boolean hasFuel = !g.inventory.find(t -> (t.is(Items.COAL) || t.is(Items.CHARCOAL) || t.is(ItemTags.LOGS) || t.is(ItemTags.PLANKS)) && !t.is(ItemTags.NON_FLAMMABLE_WOOD)).isEmpty() /* ponytail: crimson/warped wood is no fuel */;
                 if (!hasFuel) return "failed: no fuel (coal, charcoal, logs or planks)";
                 // no coal: a few logs into charcoal first (8 items a piece, against 1.5 for a log burnt as is), then the real batch
                 if (!g.commandActive && (input == Items.RAW_IRON || input == Items.RAW_GOLD || input == Items.RAW_COPPER) && reachableFurnace(g, level, g.blockPosition(), 16) == null && g.inventory.count(t -> t.is(Items.FURNACE)) == 0) { // far from all his furnaces: the raws ride home (live 12:06 World 15: 9 raw iron, a furnace's cobble dug out of a hole 165 from his nook's 6)
@@ -8889,7 +8891,7 @@ public final class ClaudeLife {
         if (g.lastStep != null && Set.of("craft", "gear_up", "smelt").contains(g.lastStep.skill()) && g.currentTask != null) return; // mid-craft right now: after it
         // (a smelt step waiting at the end of "mine 27 ore, then smelt 27" used to switch this off for the whole trip: 21 raw iron on him, no armor, dead)
         java.util.function.Predicate<ItemStack> iron = s -> s.is(Items.IRON_INGOT) || s.is(Items.RAW_IRON); // raw iron is a furnace away from an ingot: a player counts it (he had 14 raw on him and "no iron for armor")
-        boolean fuel = g.inventory.count(s -> s.is(Items.COAL) || s.is(Items.CHARCOAL) || s.is(ItemTags.LOGS) || s.is(ItemTags.PLANKS)) > 0;
+        boolean fuel = g.inventory.count(s -> (s.is(Items.COAL) || s.is(Items.CHARCOAL) || s.is(ItemTags.LOGS) || s.is(ItemTags.PLANKS)) && !s.is(ItemTags.NON_FLAMMABLE_WOOD)) > 0;
         int ingots = g.inventory.count(s -> s.is(Items.IRON_INGOT) || fuel && s.is(Items.RAW_IRON)); // (raw only with fuel to smelt it: 17:16 "6 iron on hand: making an iron sword now" with 2 raw, no fuel, the rest 228 blocks off, looped and starved their order)
         for (BlockPos p : g.myStations) {
             if (!level.isLoaded(p) || p.distSqr(g.blockPosition()) > 48 * 48) continue;
@@ -12477,7 +12479,7 @@ public final class ClaudeLife {
 
     /** Raw food he carries that cooks into something good, if he has fuel to cook it with. */
     private static Item cookable(ClaudeEntity g, ServerLevel level) {
-        boolean fuel = !g.inventory.find(t -> t.is(Items.COAL) || t.is(Items.CHARCOAL) || t.is(ItemTags.LOGS) || t.is(ItemTags.PLANKS)).isEmpty();
+        boolean fuel = !g.inventory.find(t -> (t.is(Items.COAL) || t.is(Items.CHARCOAL) || t.is(ItemTags.LOGS) || t.is(ItemTags.PLANKS)) && !t.is(ItemTags.NON_FLAMMABLE_WOOD)).isEmpty() /* ponytail: crimson/warped wood is no fuel */;
         if (!fuel) return null;
         ItemStack raw = g.inventory.find(s -> s.get(net.minecraft.core.component.DataComponents.FOOD) != null && rawOrBad(level, s)
                 && !s.is(Items.ROTTEN_FLESH) && !s.is(Items.SPIDER_EYE) && !s.is(Items.POISONOUS_POTATO) && !s.is(Items.PUFFERFISH));
@@ -12513,13 +12515,14 @@ public final class ClaudeLife {
                 && !s.is(Items.SPIDER_EYE) && !s.is(Items.POISONOUS_POTATO) && !s.is(Items.PUFFERFISH)).isEmpty();
         if (anyFood || g.tickCount - g.foodHuntTick < 20 * 60 || g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee) return;
         // badly hurt, or monsters about: chasing a chicken around now is how you die. Stay put and let it calm down first.
-        if (!com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(16), m -> m.isAlive()).isEmpty()) return; // (monsters about: not now)
+        if (!com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(16), m -> m.isAlive() && !((m instanceof net.minecraft.world.entity.NeutralMob || m instanceof net.minecraft.world.entity.monster.piglin.AbstractPiglin) && m.getTarget() != g)).isEmpty()) return; // (monsters about: not now; zombified piglins and gold-calmed piglins not after him don't count, or the Nether never hunts)
         if (food > 10 && g.getHealth() > 12) return; // a bit peckish isn't worth dropping the job for
         // badly hurt with nothing to eat and no mobs about: food is the only way health comes back, so a cow is the job now, not the mine
         var animals = g.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.animal.Animal.class, g.getBoundingBox().inflate(32, 12, 32),
                 a -> a.isAlive() && !a.isBaby() && (a instanceof net.minecraft.world.entity.animal.Cow || a instanceof net.minecraft.world.entity.animal.Pig
                         || a instanceof net.minecraft.world.entity.animal.Chicken || a instanceof net.minecraft.world.entity.animal.Sheep
-                        || (a instanceof net.minecraft.world.entity.animal.Rabbit && food <= 6))); // (rabbits run rings round you: only if starving)
+                        || (a instanceof net.minecraft.world.entity.animal.Rabbit && food <= 6)
+                        || (a instanceof net.minecraft.world.entity.monster.hoglin.Hoglin && g.getArmorValue() >= 15 && g.getHealth() > 10))); // the user: Nether food is hoglin pork (iron+ armor and 5 hearts: they hit for up to 8) // (rabbits run rings round you: only if starving)
         g.foodHuntTick = g.tickCount;
         if (animals.isEmpty()) return;
         var prey = animals.stream().min(java.util.Comparator.comparingDouble(g::distanceToSqr)).get();

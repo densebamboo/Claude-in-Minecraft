@@ -447,6 +447,7 @@ public class WorkGoal extends Goal {
                 case Task.CheckForCave t -> doCheckForCave();
                 case Task.Fish t -> doFish(t);
                 case Task.Leap t -> doLeap(t);
+                case Task.Dragon t -> com.claudemod.entity.life.DragonFight.tick(g, ticks) || ticks >= t.maxTicks();
             };
         } catch (RuntimeException e) {
             done = true; // a step that throws (block changed under him, etc.) is just skipped

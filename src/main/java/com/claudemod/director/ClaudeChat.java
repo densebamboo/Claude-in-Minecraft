@@ -248,6 +248,7 @@ public final class ClaudeChat {
                 yield "fighting a " + (e == null ? "mob" : net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(e.getType()).getPath());
             }
             case com.claudemod.entity.life.Task.Pickup p -> "picking up the drops around him";
+            case com.claudemod.entity.life.Task.Dragon d -> "fighting the ender dragon (the crystals first, then the dragon)";
             case com.claudemod.entity.life.Task.FinishTree f -> "checking the tree is chopped all the way, no floating logs left";
             case com.claudemod.entity.life.Task.ChopTree ct -> "chopping the tree at " + ct.base().toShortString() + " down whole";
             case com.claudemod.entity.life.Task.SealStep f -> "sealing off a cave the mine broke into, so the mine stays closed";

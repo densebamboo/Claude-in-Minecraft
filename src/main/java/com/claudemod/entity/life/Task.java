@@ -58,4 +58,6 @@ public sealed interface Task {
     record Wait(int ticks, boolean atPlayer) implements Task {}
     /** Fish with a rod like a player: cast at the water, wait for the bite, reel in; until {@code catches} or the time runs out. */
     record Fish(BlockPos water, int catches, int maxTicks) implements Task {}
+    /** The End fight, ticked every tick (DragonFight.tick): the crystals, then the dragon. */
+    record Dragon(int maxTicks) implements Task {}
 }

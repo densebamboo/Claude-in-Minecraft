@@ -3368,6 +3368,7 @@ public final class ClaudeLife {
                 g.skillQueue.addFirst(new Skills.Step(st.skill(), "@1", count, st.where()));
                 return "lighting the frame at " + pcell(1, 0).toShortString();
             }
+            case "fight_dragon": return com.claudemod.entity.life.DragonFight.skill(g, player, level, st); // the kit, back to the lit End portal, in; in the End the crystals (bow; caged ones by pillar) then the dragon (bow in flight, sword on the perch)
             case "light_end_portal": return com.claudemod.entity.life.StrongholdRoom.skill(g, player, level, st); // the stronghold from its bricks: in, its corridors walked by sight to the portal room, the spawner broken, the frames filled
             case "find_stronghold": return com.claudemod.entity.life.EyeHunt.skill(g, player, level, st); // the Overworld: eyes thrown and watched, two headings crossed, walked, thrown till one goes down, a staircase down to the stone bricks
             case "find_fortress": return com.claudemod.entity.life.FortressScout.skill(g, player, level, st); // the Nether: he picks the heading (the structure grid), legs along the ground, a look round from each end, each leg noted
@@ -12997,7 +12998,7 @@ public final class ClaudeLife {
             {eyes >= 12 ? "x" : "", "eyes of ender: 12 (" + eyes + " now; a blaze powder and a pearl each)", "craft ender_eye", ""},
             {endBow ? "x" : "", "a bow and 32 arrows on you, a MUST before the End: the crystals on the pillars are shot down (" + bowsOn + " bow(s) and " + arrowsOn + " arrows on you" + (bows > bowsOn || arrows > arrowsOn ? ", " + (bows - bowsOn) + " bow(s) and " + (arrows - arrowsOn) + " arrows in your chests" : "") + ")", (bowsOn > 0 ? "" : "obtain bow (" + (bows > 0 ? "yours is in a chest; " : "") + "string: " + strHow + "), ") + "obtain arrow 32 (" + Math.max(1, 32 - arrowsOn) + " more: your chests, skeletons at night, or flint from gravel and feathers off chickens)", endBow ? "" : bowsOn == 0 ? "obtain bow 1" : "obtain arrow 32"},
             {"", "the stronghold: throw an eye and follow it; the end portal room is under the ground there", "find_stronghold (in the Overworld: eyes thrown and watched, two headings crossed, walked to, thrown till one goes down, a staircase dug to its stone bricks; it stops there), then light_end_portal (in through one hole, its corridors walked to the portal room, the spawner broken, an eye in every empty frame)", "find_stronghold"},
-            {"", "the End: the frame filled, in, the crystals first (with the bow), then the dragon", "there's no skill for the End yet", ""},
+            {"", "the End: the frame filled, in, the crystals first (with the bow), then the dragon", "fight_dragon (the kit checked, back to the lit portal, in; the crystals with the bow, the caged ones by pillar; the dragon: arrows in flight, sword crits on the perch)", com.claudemod.entity.life.PortalMap.endPortal(g) != null ? "fight_dragon" : ""},
         };
     }
 

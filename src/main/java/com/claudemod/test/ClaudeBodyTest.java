@@ -10367,6 +10367,7 @@ public final class ClaudeBodyTest {
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
             case 560: return st560(stage, t, c, h, level, mock);
+            case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
             case 562:
             case 559:
@@ -11204,6 +11205,30 @@ public final class ClaudeBodyTest {
             StringBuilder sb = new StringBuilder(); for (var cr : crystals) sb.append(cr.blockPosition().toShortString()).append(end.getBlockState(cr.blockPosition().above(2)).is(Blocks.IRON_BARS) || end.getBlockState(cr.blockPosition().north()).is(Blocks.IRON_BARS) ? " caged" : "").append("; ");
             com.claudemod.ClaudeMod.LOGGER.info("[Claude test] end probe: fight {} dragons {} crystals {} [{}] island top at 0,0: {} platform obsidian {} he in {} at {}", fight != null, dragons.size(), crystals.size(), sb, top, plat, c.level().dimension().location(), c.blockPosition().toShortString());
             c.setNoGravity(false); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0); pass(stage, t, "probe"); }
+        return true;
+    }
+    private static int s563T = -1; private static float s563Low = 20f;
+    private static boolean st563(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // the End fight (the user: bow and melee): on the real test End (its island, ten crystals, two caged, the dragon fight running), from the spawn platform, the expert's kit
+        ServerLevel end = level.getServer().getLevel(net.minecraft.world.level.Level.END);
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); s563T = -1; s563Low = 20f; c.nextPlanTick = c.tickCount + 20 * 3600; c.prefs.put("stay_close", "no"); c.commandActive = false; com.claudemod.entity.life.DragonFight.reset(c);
+            for (var it : new net.minecraft.world.item.Item[] {Items.DIAMOND_SWORD, Items.BOW, Items.DIAMOND_PICKAXE, Items.WATER_BUCKET}) c.getInventory().add(new ItemStack(it));
+            c.getInventory().add(new ItemStack(Items.ARROW, 64)); c.getInventory().add(new ItemStack(Items.ARROW, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 32));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.DIAMOND_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.DIAMOND_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.DIAMOND_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.DIAMOND_BOOTS));
+            for (BlockPos q : BlockPos.betweenClosed(98, 48, -2, 102, 48, 2)) end.setBlock(q, Blocks.OBSIDIAN.defaultBlockState(), 2 | 16); // (the spawn platform, as the portal makes it)
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(end, 100.5, 49, 0.5, 90, 0); c.fallDistance = 0; }
+        if (t[0] == 20) { s563T = t[0]; c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("fight_dragon", "", 1)); }
+        if (s563T > 0) { s563Low = Math.min(s563Low, c.getHealth());
+            int crystals = end.getEntitiesOfClass(net.minecraft.world.entity.boss.enderdragon.EndCrystal.class, new net.minecraft.world.phys.AABB(-80, 60, -80, 80, 200, 80)).size();
+            boolean dead = end.getDragons().stream().noneMatch(net.minecraft.world.entity.Entity::isAlive) && end.getDragonFight() != null && end.getDragonFight().hasPreviouslyKilledDragon();
+            if (t[0] % 600 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude test] dragon fight at {} s: {} crystals, dragon {}, he at {} health {}, task {}", (t[0] - s563T) / 20, crystals, end.getDragons().stream().map(d -> (int) d.getHealth() + "").toList(), c.blockPosition().toShortString(), (int) c.getHealth(), c.currentTask);
+            if (dead || !c.isAlive() || t[0] == s563T + 20 * 900) {
+                check(c.isAlive(), "dragon: he died (low " + s563Low + ", " + crystals + " crystals left)");
+                check(dead, "dragon: not dead in 900 s (" + crystals + " crystals left, dragon " + end.getDragons().stream().map(d -> (int) d.getHealth() + "").toList() + ", he at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ", last " + c.lastSkillLine + ")");
+                String how = "the dragon dead in " + (t[0] - s563T) / 20 + " s, low " + s563Low + ", " + c.inventory.count(x -> x.is(Items.ARROW)) + " arrows left";
+                c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); c.setHealth(20f);
+                com.claudemod.entity.life.Watchdog.teleported(c); if (c.isAlive()) c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0);
+                pass(stage, t, how);
+            } }
         return true;
     }
     private static int shT = -1; private static float shLow = 20f; private static BlockPos shRoom;

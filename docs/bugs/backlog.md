@@ -204,3 +204,14 @@ Each line is a live report from Day to Day (World 15, 2026-10-31/11-01) not on t
   Root fixes: make_obsidian takes the nearest known or heard lava; no kit detours for a 2-item job; the nook's queued round doesn't interleave with a running skill.
   Fixed now: reach 4.25 in fromPlace (the loop on 747,-55,64). Watcher: SLOWGOAL (same planner goal 5+ min) now alerts at once, along with STILL and ZIGZAG.
   - Cost of that "explore" (13:14-13:17): it took him up his mine to the surface and about 150 blocks away. Then make_obsidian sent him back to the lava at 758,-56,68 (156 blocks), by way of the mine entrance 483,67,58 (184 blocks, 22 legs). That's 6+ minutes of walking for lava he was standing beside. Fixed for the next plan in Persona: make_obsidian finds its own lava, never explore before it.
+
+## Multiplayer server support (feature, user 2026-11-02)
+Today the mod runs server-side only. No client mod is needed: he's a ServerPlayer, with no registries or packets. Every call to Claude uses the server's key in config/claude-common.toml. But he's built for one human: ClaudeSpawner takes the first non-bot player as "his" player. Needed for a real server:
+- **Per-player identity:** who asked for what, orders queued and attributed per player, chat context per speaker, and replies addressed to them. A second player's order must not overwrite the first's (playerGoal, lessons, pins, teaching mode).
+- **Ownership and permissions:** whose items, chests, diamonds and builds are whose (the diamond rule, stash, "theirs" vs his). A configurable owner or op list decides who can give him orders, who can only chat, and who is ignored. Admin-only skills (tp, give) get gated.
+- **Following and helping:** choose whom to follow or help (the owner by default, or whoever gave the active order) instead of real.get(0). Owner logs off: carry on alone or pick the next owner, without the target jumping between players.
+- **Cost controls on a shared key:** per-player rate limits, a daily token/$ budget, a config toggle for who may trigger LLM calls, and planner calls throttled when many players talk. Log usage per player.
+- **Chat routing:** answer only when addressed (name, @Claude, /claude) on busy servers; optional whisper replies. "bug" notes are per player.
+- **Spawn and presence:** join and leave rules on a dedicated server (his saved position, not beside whoever joined first). One bot per server, or optionally one per owner.
+- **Dedicated-server check:** no client-only classes reached on a dedicated server (ClaudeModClient stays Dist.CLIENT). Config docs for server admins. A vanilla client joining is verified.
+- **Shared-world etiquette:** don't mine or break other players' builds or claimed areas. Respect protection plugins and claims if present.

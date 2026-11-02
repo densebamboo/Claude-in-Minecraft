@@ -2703,7 +2703,7 @@ public final class ClaudeLife {
                         lastTorch = wp;
                     }
                 }
-                if (g.mineFace != null) g.tasks.add(new Task.GoTo(g.mineFace, 1.0)); // back to the tunnel afterwards
+                if (g.mineFace != null && g.mineFace.distSqr(g.blockPosition()) < 128 * 128) g.tasks.add(new Task.GoTo(g.mineFace, 1.0)); // back to the tunnel afterwards, when it's this cave's tunnel (live 01:14: a cave by the stronghold queued the 1800-block walk home)
                 return "exploring a cave (" + route.size() + " spots), mining the ore that shows and lighting it";
             }
             case "ender_pearls": { // the pearl stage (the user, 19:40): endermen on sight, from a 2-deep hole; pearls picked up; in the Nether, a warped forest is where they are

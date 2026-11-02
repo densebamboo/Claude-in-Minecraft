@@ -6,6 +6,8 @@ f = open(path, encoding='utf-8', errors='replace'); f.seek(0, 2)
 pts = collections.deque()  # (t, x, y, z, doing)
 alerted = {}
 WHERE = re.compile(r'^\[\S+ (\d+):(\d+):(\d+)\.\d+\].*\[Claude where\] \(live build\) at (?:([a-z_]+) )?(-?\d+), (-?\d+), (-?\d+).*?doing (\w+)')
+GOAL = re.compile(r'^\[\S+ (\d+):(\d+):(\d+)\.\d+\].*\[Claude plan\] goal: ([^|]{0,90})')
+goal = [None, 0]  # the planner's goal and when it first showed
 IDLE_OK = ('Wait', 'Sleep', 'FurnaceTake', 'Fish', 'Dragon')
 def say(k, msg, gap=300):
     now = time.time()
@@ -17,6 +19,12 @@ while True:
         try:
             if os.path.getsize(path) < f.tell(): f = open(path, encoding='utf-8', errors='replace'); pts.clear()
         except OSError: pass
+        continue
+    g = GOAL.search(line)
+    if g:  # time sink: the same goal re-planned for 5+ min means he isn't getting it done (a player would have)
+        gt = int(g[1]) * 3600 + int(g[2]) * 60 + int(g[3]); txt = g[4].strip()
+        if txt != goal[0] or gt < goal[1]: goal[0], goal[1] = txt, gt
+        elif gt - goal[1] >= 300: say('goal' + txt[:40], 'SLOWGOAL %s:%s:%s %d min on "%s"' % (g[1], g[2], g[3], (gt - goal[1]) // 60, txt), 300)
         continue
     m = WHERE.search(line)
     if not m: continue

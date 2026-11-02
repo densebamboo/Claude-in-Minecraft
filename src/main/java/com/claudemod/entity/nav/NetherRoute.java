@@ -90,8 +90,8 @@ public final class NetherRoute {
         List<BlockPos> legs = new ArrayList<>(); int climb = 0;
         for (int i = 1; i < path.size(); i++) {
             Node a = path.get(i - 1), b = path.get(i); climb += Math.max(0, b.y - a.y);
-            boolean last = i == path.size() - 1, big = Math.abs(b.y - a.y) >= 5 || b.digs - a.digs >= 3; // (a big climb or drop ends a leg there: one walk plans it whole; so does a tunnel's every node: 12 across of tunnel, 24 cells dug, was past his walker's search and every leg "no way", stage 538)
-            if (last || big || i % LEG_NODES == 0 || i + 1 < path.size() && Math.abs(path.get(i + 1).y - b.y) >= 5) {
+            boolean last = i == path.size() - 1, big = Math.abs(b.y - a.y) >= 2 || b.digs - a.digs >= 3; // (a climb or drop of 2+ ends a leg there, its foot a leg end too: one walk plans its steps or pillar whole (Day to Day 15:04:48: a leg 3 above the one before, his body refused the jump, 6 s shuffling); so does a tunnel's every node: 12 across of tunnel, 24 cells dug, was past his walker's search and every leg "no way", stage 538)
+            if (last || big || i % LEG_NODES == 0 || i + 1 < path.size() && Math.abs(path.get(i + 1).y - b.y) >= 2) {
                 BlockPos p = new BlockPos(b.x, b.y, b.z); if (legs.isEmpty() || !legs.get(legs.size() - 1).equals(p)) legs.add(p);
             }
         }
@@ -113,6 +113,12 @@ public final class NetherRoute {
         final Map<Long, LevelChunk> chunks = new HashMap<>();
         final Map<Long, int[]> standCache = new HashMap<>();
         final Map<BlockState, Double> digCache = new HashMap<>();
+        java.util.List<BlockPos> failedLegs; // (his walk failures of the last 2 min: Attempts WALK)
+        boolean failedNear(int x, int y, int z) {
+            if (failedLegs == null) { failedLegs = new java.util.ArrayList<>(); var m = g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK); if (m != null) for (var e : m.entrySet()) if (g.tickCount - e.getValue() < 20 * 120 && g.tickCount >= e.getValue()) failedLegs.add(e.getKey()); }
+            for (BlockPos f : failedLegs) if (Math.abs(f.getX() - x) <= 3 && Math.abs(f.getZ() - z) <= 3 && Math.abs(f.getY() - y) <= 3) return true;
+            return false;
+        }
         Reader(ClaudeEntity g, ServerLevel level) { this.g = g; this.level = level; this.minY = level.getMinBuildHeight() + 1; this.blocks = com.claudemod.director.Kit.buildingBlocks(g); this.maxY = Math.min(118, Math.min(level.getMaxBuildHeight(), level.getMinBuildHeight() + level.getLogicalHeight()) - 3); } // (never up by the bedrock roof)
         LevelChunk chunk(int x, int z) { long k = ((long) (x >> 4) << 32) ^ ((z >> 4) & 0xffffffffL); return chunks.computeIfAbsent(k, kk -> level.getChunkSource().getChunkNow(x >> 4, z >> 4)); }
         boolean loaded(int x, int z) { return chunk(x, z) != null; }
@@ -194,6 +200,7 @@ public final class NetherRoute {
             }
             if (dy > 1 && digs == 0) puts += dy - 1; // (nothing cut for the climb: a pillar, one block a step up)
             if (bad(bs(cx, ny - 1, cz)) && !lava(bs(cx, ny - 1, cz))) return null; // (never onto magma or fire)
+            if (failedNear(cx, ny, cz)) sec += 20; // (a leg that ended there failed in the last 2 min: the way round it, never the same spot again; live -303,87,-63, a 40 s shuffle re-planned onto the node that failed)
             if (dy < -3) { // a sheer fall into that column (nothing to cut steps in): its damage against what he keeps (Leaps.margin)
                 boolean sheer = true; for (int yy = ny + 1; yy <= y; yy++) if (solid(cx, yy, cz)) { sheer = false; break; }
                 if (sheer) { float hp = -dy - 3; if (Leaps.health(g) - hp < Leaps.margin(g)) return null; sec += 1 + hp * 1.5; }

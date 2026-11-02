@@ -898,7 +898,7 @@ public class WorkGoal extends Goal {
         // One planner (navigation-as-action-planning): the moment the vanilla path doesn't reach, or after a second without getting
         // nearer, the way is planned over moves (walk, jump, drop, swim, climb, a door, a block put down, and in MAY_DIG a block dug)
         // with the etiquette in the costs, once per spot per 3 s. No way at all: the walk ends now, one line, the spot off for a minute.
-        if (com.claudemod.entity.body.Controls.refusedLately(g, 10) && routeReaches) { routeReaches = false; com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] his body refused the path's step on the walk to {} (2+ up, or lava): the path doesn't really reach, the walk's own plan takes it (WorkGoal.walkTo)", pos.toShortString()); } // (live 2026-11-01, 3 times: the probe's path 2 up by a fortress, he stood till the 20 s give-up; 03:53 a vanilla path over a lava drop ActionPath had turned down)
+        if (com.claudemod.entity.body.Controls.refusedLately(g, 10) && routeReaches) { routeReaches = false; if (!pos.equals(refusedSaidFor)) { refusedSaidFor = pos.immutable(); com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] his body refused the path's step on the walk to {} (2+ up, or lava): the path doesn't really reach, the walk's own plan takes it (WorkGoal.walkTo)", pos.toShortString()); } } // (said once a walk: it was 4 a second, Day to Day) // (live 2026-11-01, 3 times: the probe's path 2 up by a fortress, he stood till the 20 s give-up; 03:53 a vanilla path over a lava drop ActionPath had turned down)
         boolean deepWater = g.isInWater() && !com.claudemod.entity.body.Controls.wading(g);
         if ((ticks == 2 && !routeReaches || stuck == 20 || stuck > 20 && stuck % 200 == 20) && d >= 2 && d <= 28 && !walkNoDig && !routeReaches && !deepWater && !(inHole() && g.isInWater()) // (a dry hole: planned like any walk, MAY_DIG; a flooded one stays the cutter's)
                 && g.tickCount - plannedAt().getOrDefault(pos.immutable(), -100000) > 60 // (3 s between plans for one spot: a loop guard, not a wait)
@@ -4955,6 +4955,7 @@ public class WorkGoal extends Goal {
         return false;
     }
     private int airborneTick = -100;
+    private BlockPos refusedSaidFor; // (the walk the refused-step line was last said for)
     /** In the air with a walk to plan: said once a second, never planned from there (false: wait to land). */
     private boolean airborneSaid(BlockPos pos) { int nowT = g.getServer() == null ? g.tickCount : g.getServer().getTickCount(); if (nowT - airborneTick >= 20 || nowT < airborneTick) { airborneTick = nowT; com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] in the air at {} with the walk to {} to plan: planned once he's landed, never from a cell he isn't standing on (WorkGoal.walkTo)", String.format("%.1f %.1f %.1f", g.getX(), g.getY(), g.getZ()), pos.toShortString()); } return false; }
     /**

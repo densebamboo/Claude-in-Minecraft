@@ -36,7 +36,8 @@ public final class HuntPatrol {
     }
     static double weight(double[] h, long now) { double age = Math.max(0, now - h[1]) / (20.0 * 60 * 10); return h[0] * Math.pow(0.5, age); }
     /** Each call: the ground he's on is walked now. */
-    public static void walked(ClaudeEntity g, ServerLevel level) { book(g, level).walked.put(cell(g.getBlockX(), g.getBlockZ()), now(g)); }
+    public static void walked(ClaudeEntity g, ServerLevel level) { Book b = book(g, level); long t = now(g); b.walked.put(cell(g.getBlockX(), g.getBlockZ()), t);
+        for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) { double[] h = b.hunt.get(cell(g.getBlockX() + dx * CELL, g.getBlockZ() + dz * CELL)); if (h != null) { h[0] = weight(h, t) * 0.5; h[1] = t; } } } // ponytail: called only with no enderman in sight: ground seen empty pulls less (the user 20:2x "pacing back and forth in the same area": the kills at -49..-75,-880 kept pulling him back, east-west 8 times in 30 s)
 
     static int biomeScore(ServerLevel level, BlockPos p) {
         String b = level.getBiome(p).unwrapKey().map(k -> k.location().getPath()).orElse("");

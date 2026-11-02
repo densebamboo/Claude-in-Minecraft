@@ -155,6 +155,7 @@ public final class EyeHunt {
 
     static String throwEye(ClaudeEntity g, ServerLevel level, Hunt h, Skills.Step again, String which) {
         if (!g.onGround()) { g.tasks.add(new Task.Wait(10, false)); g.skillQueue.addFirst(again); return "landing first, then the throw"; }
+        if (!level.canSeeSky(g.blockPosition().above())) { BlockPos up = surface(level, g.blockPosition()); g.tasks.add(new Task.GoTo(up, 2.0)); g.skillQueue.addFirst(again); ClaudeMod.LOGGER.info("[Claude eye] {} from under a roof at {}: up to open sky at {} first, where he can watch it fly (EyeHunt)", which, g.blockPosition().toShortString(), up.toShortString()); return "up to the surface first, an eye's thrown under open sky"; } // (the user: "he threw an eye from inside of his mine")
         g.getNavigation().stop();
         if (!g.hold(s -> s.is(Items.ENDER_EYE))) return "failed: couldn't get an eye in hand";
         g.setXRot(-20f);
@@ -185,6 +186,8 @@ public final class EyeHunt {
             ClaudeMod.LOGGER.info("[Claude eye] stone bricks at {} ({}), {} steps down from {}: the stronghold. Stopping here (EyeHunt)", h.found.toShortString(), level.getBlockState(q).getBlock().getName().getString(), h.steps, h.digAt.toShortString());
             return "done: broke into the stronghold, " + level.getBlockState(q).getBlock().getName().getString().toLowerCase() + " at " + h.found.toShortString() + " (" + h.steps + " steps down)";
         }
+        if (h.steps > 0 && horiz(Vec3.atCenterOf(f), Vec3.atCenterOf(h.digAt)) > 6 + 3 && restartAtSpot(g, h, f, "he's away from his staircase")) { g.skillQueue.addFirst(again); return "back to the eye's spot to dig down there"; } // (the planner's "explore" took him 90 blocks off up a new stair; the next run dug on from there)
+        if ((h.steps > 80 || f.getY() <= level.getMinBuildHeight() + 5) && restartAtSpot(g, h, f, "no bricks in " + h.steps + " steps")) { g.skillQueue.addFirst(again); return "back to the eye's spot to dig down there"; }
         if (h.steps > 80 || f.getY() <= level.getMinBuildHeight() + 5) return "failed: " + h.steps + " steps down and no stone bricks (at " + f.toShortString() + ")";
         for (int turn = 0; turn < 4; turn++) {
             Direction d = h.dig; BlockPos next = f.relative(d).below();
@@ -194,9 +197,20 @@ public final class EyeHunt {
             if (!ok) { h.dig = h.dig.getClockWise(); continue; }
             for (BlockPos c : cut) if (!level.getBlockState(c).isAir()) g.tasks.add(new Task.Break(c.immutable()));
             g.tasks.add(new Task.GoTo(next.immutable(), 0.3)); h.steps++; g.skillQueue.addFirst(again);
+            if (h.steps % 3 == 0) h.dig = h.dig.getClockWise(); // a square spiral round the spot, 3 steps a side, 12 down a turn: straight on, he'd be 50 blocks off the eye's spot by y 20 (the user: "shouldn't he wrap?")
+            if (h.steps % 5 == 0) for (Direction side : new Direction[]{d.getClockWise(), d.getCounterClockWise()}) { BlockPos w = f.relative(d).relative(side); if (level.getBlockState(w).isFaceSturdy(level, w, side.getOpposite())) { g.tasks.add(new Task.WallTorch(f.relative(d).immutable(), side)); break; } } // a torch every 5 steps on the side wall, like a player's stairs (the user: "torches for sure")
             if (h.steps % 8 == 1) ClaudeMod.LOGGER.info("[Claude eye] staircase step {} going {}, down to y {} (EyeHunt)", h.steps, d.getName(), next.getY());
             return "digging a staircase down to the stronghold (step " + h.steps + ", y " + next.getY() + ")";
         }
+        if (restartAtSpot(g, h, f, "fluid or bedrock every way")) { g.skillQueue.addFirst(again); return "fluid all round here: back to the eye's spot to dig down there"; }
         return "failed: fluid or bedrock round the staircase at " + f.toShortString() + " every way";
+    }
+
+    /** The staircase ended away from where the eye went down (the old straight one ran 71 blocks off it, live 00:24): back to the spot, a fresh spiral from there. Once only (steps reset; the spot is kept). */
+    static boolean restartAtSpot(ClaudeEntity g, Hunt h, BlockPos f, String why) {
+        if (h.spot == null && h.digAt != null) h.spot = h.digAt.immutable(); // (the staircase began at the eye's spot; h.spot stays null when his pickup reflex took the eye first, and the restart never fired, live 00:26)
+        if (h.spot == null || horiz(Vec3.atCenterOf(f), Vec3.atCenterOf(h.spot)) <= 6) return false;
+        ClaudeMod.LOGGER.info("[Claude eye] staircase at {} stopped ({}), {} off the eye's spot {}: back there for a spiral down (EyeHunt)", f.toShortString(), why, (int) horiz(Vec3.atCenterOf(f), Vec3.atCenterOf(h.spot)), h.spot.toShortString());
+        h.digAt = null; h.steps = 0; return true;
     }
 }

@@ -290,6 +290,7 @@ public final class OwnEvents {
             if (back != null) { String w = back.what; return "done: got back what I'd left (" + name(w) + " at " + xyz(back.at) + ": " + back.resolved + "), " + g.inventory.count(s -> id(s.getItem()).equals(w)) + " on me now"; }
             return "done: my book shows no " + (target.isBlank() ? "" : name(target) + " ") + "of mine left lying anywhere";
         }
+        if (e.dim != level.dimension() && (e.what.equals("cobblestone") || e.what.equals("cobbled_deepslate") || BuiltInRegistries.ITEM.stream().anyMatch(i -> id(i).equals(e.what) && com.claudemod.director.ClaudeLife.junkItem(new ItemStack(i))))) { e.resolved = "junk in another world: not worth the trip"; return "done: the " + name(e.what) + " I left at " + xyz(e.at) + " is junk in another world (" + e.dim.location().getPath() + "): not worth the trip"; } // (a "failed" kept it in their order, re-picked every second for 25 s, live 23:38)
         if (e.dim != level.dimension()) return "failed: the " + name(e.what) + " I left at " + xyz(e.at) + " is in another world (" + e.dim.location().getPath() + ")";
         ItemEntity it = level.getEntity(e.entity) instanceof ItemEntity ie && ie.isAlive() ? ie : null;
         if (it == null) for (ItemEntity x : level.getEntitiesOfClass(ItemEntity.class, new net.minecraft.world.phys.AABB(e.at).inflate(2), x -> x.isAlive() && id(x.getItem().getItem()).equals(e.what))) { it = x; break; }

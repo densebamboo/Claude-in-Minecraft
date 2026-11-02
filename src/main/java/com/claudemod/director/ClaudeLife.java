@@ -1652,6 +1652,7 @@ public final class ClaudeLife {
                 String sk = o.get("skill").getAsString();
                 if (sk.equals("recover")) { sk = com.claudemod.entity.life.OwnEvents.lastLeft(g, "") != null ? "recover_left" : "recover_drops"; ClaudeMod.LOGGER.info("[Claude plan] the plan's \"recover\" step read as {} (ClaudeLife.startPlan)", sk); }
                 if (!skills.contains(sk)) continue; // gated by stage/situation in code
+                if (sk.equals("take_from_chest") && o.get("target").getAsString().matches("^-?\\d+[ _,]+-?\\d+[ _,]+-?\\d+[ _,]+.+")) { String t0 = o.get("target").getAsString(); o.addProperty("target", t0.replaceFirst("^-?\\d+[ _,]+-?\\d+[ _,]+-?\\d+[ _,]+", "")); ClaudeMod.LOGGER.info("[Claude plan] take_from_chest target \"{}\" read as \"{}\" (the chest is his to find) (ClaudeLife.startPlan)", t0, o.get("target").getAsString()); } // (the planner put the chest's coords in it: "-1 -58 167 blaze_powder" failed as an unknown item, live 23:58)
                 if (sk.equals("sleep") && !g.level().isThundering() && g.level().getDayTime() % 24000 < 12542) { ClaudeMod.LOGGER.info("[Claude plan] the plan's sleep step dropped: beds work from dusk, it's {} now (the day isn't slept through; the steps after it wait for dusk themselves) (ClaudeLife.startPlan)", g.level().getDayTime() % 24000); continue; } // (01:52 \"wait out the day\" as a sleep at time 460: failed twice, the watchdog asked them for help)
                 g.skillQueue.add(new Skills.Step(sk, o.get("target").getAsString(), Math.max(1, Math.min(64, o.get("count").getAsInt())),
                         o.has("where") ? o.get("where").getAsString() : "near_you"));
@@ -2433,6 +2434,7 @@ public final class ClaudeLife {
                 if (bpMode(g)) { // ponytail: ore mined for the craft queued next stays on till the count is in (bag + his chests); one pass then the craft failed "missing diamond" 3x and asked them for help (live 22:28)
                     Item want = oreDrop(target); boolean forCraft = want != null && !st.where().equals("looked_at") && !g.skillQueue.isEmpty() && g.skillQueue.peekFirst().skill().equals("craft");
                     if (forCraft && haveFor(g, level, want) >= Math.max(1, count)) return "done: already have " + haveFor(g, level, want) + " " + Crafting.name(want);
+                    if (want != null) ClaudeMod.LOGGER.info("[Claude skill] strip_mine {} x{}: have {} (bag+chests), forCraft {}, where {}, queue {} (ClaudeLife strip_mine)", target, count, haveFor(g, level, want), forCraft, st.where(), g.skillQueue);
                     String r = bpStripMine(g, player, level, st, target, count);
                     if (forCraft && !r.startsWith("failed") && !r.startsWith("done") && !g.skillQueue.contains(st)) { g.skillQueue.addFirst(st); ClaudeMod.LOGGER.info("[Claude skill] strip_mine {}: {} of {} {} so far, the step stays on before the craft", target, haveFor(g, level, want), count, Crafting.name(want)); }
                     return r;
@@ -2736,6 +2738,7 @@ public final class ClaudeLife {
                 return "no enderman in sight: walking on, looking (" + have + "/" + want + " pearls)";
             }
             case "explore": {
+                if (st.target().contains("stronghold") && com.claudemod.entity.life.EyeHunt.found(g) != null) { ClaudeMod.LOGGER.info("[Claude skill] explore stronghold: he's at its bricks ({}), and walking its corridors isn't a skill of his yet: holding there, no surface wander (ClaudeLife explore)", com.claudemod.entity.life.EyeHunt.found(g).toShortString()); return "done: I'm at the stronghold's bricks at " + com.claudemod.entity.life.EyeHunt.found(g).toShortString() + "; finding the portal room inside isn't something I can do yet, so I'm holding here"; } // (the plain explore walked him back up the stairs from the bricks, live 00:31)
                 if (!"trees".equals(st.target()) && g.blueprint != null && !g.blueprint.isEmpty() && g.skillQueue.stream().anyMatch(s0 -> s0.skill().equals("strip_mine"))) { /* (the trip's wood search is not the surface walk for ore this skip is for: skipped, collect logs said "walking off" and stood there) */ ClaudeMod.LOGGER.info("[Claude skill] explore skipped: a strip_mine is queued and his mine is there to push (ore comes from the mine, not the surface)"); return "skipped exploring: my mine is where the ore is, on with it"; } // (the planner put explore before strip_mine iron at 02:21:54: he walked the surface for iron while his y16 branches waited)
                 boolean weakNow = g.inventory.count(x -> (x.getItem() instanceof net.minecraft.world.item.SwordItem && !x.is(Items.WOODEN_SWORD)) || (x.getItem() instanceof net.minecraft.world.item.AxeItem && !x.is(Items.WOODEN_AXE))) == 0
                         || g.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).isEmpty();
@@ -5106,6 +5109,7 @@ public final class ClaudeLife {
           else if (work == null && inv.items.stream().anyMatch(s0 -> !s0.isEmpty() && junkItem(s0) && !s0.is(Items.NETHERRACK))) { // ponytail: live 13:24, idle in a Nether nook: 64 netherrack thrown at the rock every 5 s, landed at his feet, his body took it back; thrown the most open way instead
             Direction best = null; int bestOpen = -1; BlockPos eye = BlockPos.containing(g.getEyePosition());
             for (Direction d : Direction.Plane.HORIZONTAL) { int open = 0; for (int k = 1; k <= 4 && g.level().getBlockState(eye.relative(d, k)).getCollisionShape(g.level(), eye.relative(d, k)).isEmpty(); k++) open++; if (open > bestOpen) { bestOpen = open; best = d; } }
+            if (bestOpen < 2) { if (g.tickCount % 600 < 100) ClaudeMod.LOGGER.info("[Claude life] inventory full but nowhere to throw here ({} clear): the junk stays on him till he's somewhere open (ClaudeLife.dumpJunk)", bestOpen); return; } // (1 clear cell on his stronghold stair: it landed at his feet, his body took it back, a throw every 5 s, live 00:33)
             g.setYRot(best.toYRot()); g.setXRot(-25f); ClaudeMod.LOGGER.info("[Claude life] junk thrown the most open way, {} ({} clear) (ClaudeLife.dumpJunk)", best, bestOpen); } }
         java.util.Set<Item> junk = JUNK;
         java.util.Map<Item, Integer> kept = new java.util.HashMap<>();
@@ -5315,7 +5319,7 @@ public final class ClaudeLife {
         return g.nooks;
     }
     public static boolean anyNookTouches(ClaudeEntity g, BlockPos p) { for (var n : allNooks(g)) if (n.touches(p)) return true; return false; }
-    public static boolean anyNookChest(ClaudeEntity g, BlockPos p) { for (var n : allNooks(g)) if (n.chestCells().contains(p)) return true; return false; }
+    public static boolean anyNookChest(ClaudeEntity g, BlockPos p) { for (var n : allNooks(g)) if (n.allChestCells().contains(p)) return true; return false; } // (the junk row too: an unregistered junk-row chest read as a left-behind stash, retrieve_stash hauled its 1608 cobble home and the junk round carried it straight back, live 23:27)
     public static boolean nookWalkCell(ClaudeEntity g, BlockPos p) { for (var n : allNooks(g)) if (n.roleAt(p) == com.claudemod.entity.life.BaseNook.Role.WALK) return true; return false; }
     /** Orders of theirs that are about his base (its round is the order then, never held up by it). */
     static final java.util.Set<String> BASE_ORDERS = java.util.Set.of("store", "retrieve_stash", "stash", "set_up_storage", "build_base", "base", "nook", "deposit");
@@ -6855,6 +6859,7 @@ public final class ClaudeLife {
             int inChests = com.claudemod.entity.life.ChestLedger.count(g, level, bi); // (his ledger: the same chests the search above uses)
             if (onHim + inChests < need) return null;
         }
+        if (best.distSqr(g.blockPosition()) > 64 * 64 && !g.tasks.isEmpty()) { ClaudeMod.LOGGER.info("[Claude life] off to his chest at {} ({} off): the work queued here waits for when he passes again: dropped {} (ClaudeLife.fromMyChests)", best.toShortString(), (int) Math.sqrt(best.distSqr(g.blockPosition())), g.tasks); g.tasks.clear(); } // (a nook round queued at 234,-58,237 rode along: diamonds in hand at home, he walked 358 blocks back down for it before the craft, live 23:46)
         g.tasks.add(new Task.GoTo(best, 2)); // (only now: queued before the check, a walk to the chest went ahead even when the fetch was called off)
         g.tasks.add(new Task.Chest(best, true, bi, Math.max(1, need - onHim))); // what the job needs, less what's on him already
         g.skillQueue.addFirst(st);
@@ -8703,6 +8708,7 @@ public final class ClaudeLife {
         }
         if (Crafting.needsTable(level, target)) { // a table standing within 24 (his house's, one he set down a moment ago): walk to it, never another one down (the user: three tables littered 40 blocks from his house's)
             BlockPos far = findNear(level, g.blockPosition(), 24, b -> b.is(Blocks.CRAFTING_TABLE));
+            if (far == null) far = g.myStations.stream().filter(p -> p.distSqr(g.blockPosition()) <= 64 * 64 && level.isLoaded(p) && level.getBlockState(p).is(Blocks.CRAFTING_TABLE)).min(java.util.Comparator.comparingDouble(p -> p.distSqr(g.blockPosition()))).orElse(null); // his own table further down his tunnel: he knows it's there (a pick broke 32 off his mine's table: 15 s of "could not make a crafting table" with 2 planks, live 23:16)
             if (far != null && far.distSqr(g.blockPosition()) > 5 * 5 && (g.attempts.any.get(far.above(700)) == null || g.tickCount - g.attempts.any.get(far.above(700)) > 20 * 60)) { g.attempts.any.put(far.above(700).immutable(), g.tickCount); g.tasks.addFirst(new Task.GoTo(far, 2.0)); return false; }
         }
         BlockPos near = findNear(level, g.blockPosition(), 5, b -> b.is(Blocks.CRAFTING_TABLE));
@@ -9087,7 +9093,7 @@ public final class ClaudeLife {
     /** An empty bucket and a water source within reach: fill it (a right-click on the water), like a player topping up before the mine; also takes back the water he threw under himself. */
     static void fillBucket(ClaudeEntity g, ServerLevel level) {
         if (portalSlots != null && !portalSlots.isEmpty()) return; // mid-cast the bucket's state is the cast's business
-        if (g.inventory.count(s -> s.is(Items.BUCKET)) == 0 || g.inventory.count(s -> s.is(Items.WATER_BUCKET)) > 0 || g.isUsingItem() || g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee) return;
+        if (g.inventory.count(s -> s.is(Items.BUCKET)) == 0 || g.isUsingItem() /* (a full one on him too is no reason to leave it: two buckets, the clutch's water stayed at -82,64,65 with his empty one in his pack, the user: "grab your water lol", live 00:02) */ || g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee) return;
         if (g.fallDistance > 0.5f || !g.onGround() && !g.isInWater()) return; // (in the air: the water under him is his clutch; scooped back mid-fall, he died of the 28-block fall with it in his bucket)
         BlockPos best = null; double bd = 4.0 * 4.0;
         for (BlockPos q : BlockPos.betweenClosed(g.blockPosition().offset(-3, -2, -3), g.blockPosition().offset(3, 1, 3))) {
@@ -13085,7 +13091,8 @@ public final class ClaudeLife {
         }
         if (prey == null) return;
         int inSight = 0; for (var m : com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(16, 5, 16), m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy && !(m instanceof net.minecraft.world.entity.monster.ZombifiedPiglin) && g.hasLineOfSight(m))) inSight++;
-        String unfit = inSight >= 2 ? inSight + " hostiles in sight (crowds are left alone)" : unfitForDrops(g, lv); // (the user's engagement rule: on sight only one on its own)
+        boolean crowdFit = g.getArmorValue() >= 15 && Kit.food(g) >= 6 && g.getHealth() >= 14; // (the user's rule: crowds are left alone unless iron+ and food; in diamond with 41 meals he let a skeleton and zombies be, ran in 3 s hops for 17 s and met a creeper, 24.6 damage, live 00:17)
+        String unfit = inSight >= 2 && !crowdFit ? inSight + " hostiles in sight (crowds are left alone without iron+ armor and food)" : unfitForDrops(g, lv); // (the user's engagement rule: on sight only one on its own)
         if (unfit == null && g.getHealth() < 12) unfit = "health " + (int) g.getHealth();
         if (onSightSaid == null) onSightSaid = new java.util.HashSet<>();
         if (unfit != null) { if (onSightSaid.add(prey.getUUID())) ClaudeMod.LOGGER.info("[Claude fight] a {} {} blocks off in sight: let be, not fit for it ({}) (ClaudeLife.clearOnSight)", prey.getType().getDescription().getString(), (int) Math.sqrt(pd), unfit); return; }

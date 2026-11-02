@@ -3090,7 +3090,7 @@ public class WorkGoal extends Goal {
                 if (in.getY() == g.getBlockY() && Math.hypot(g.getX() - (in.getX() + 0.5), g.getZ() - (in.getZ() + 0.5)) <= 1.6) { // a cell off: a nudge in (a walk to the cell beside spins on the spot)
                     if (stepOutFor != t) { stepOutFor = t; stepOutAt = ticks; }
                     if (ticks - stepOutAt <= 60) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(in.getX() + 0.5, in.getY(), in.getZ() + 0.5, 0.6); return false; }
-                } else { sentFor().put(pos.immutable(), g.tickCount); g.tasks.addFirst(t); g.tasks.addFirst(new Task.GoTo(in, 1.2)); return exit("(to the cell beside it: the nudge above does the last step) (doPlace 2599)"); } // (to the cell beside it: the nudge above does the last step)
+                } else if (!(sentFor().get(pos) instanceof Integer sent0 && g.tickCount - sent0 < 40)) { sentFor().put(pos.immutable(), g.tickCount); g.tasks.addFirst(t); g.tasks.addFirst(new Task.GoTo(in, 1.2)); return exit("(to the cell beside it: the nudge above does the last step) (doPlace 2599)"); } // ponytail: a walk back that came back short within 2 s isn't sent again (live 22:50: from the rock over his roof, 10 sends a second for 15 s) // (to the cell beside it: the nudge above does the last step)
             }
             if (in != null) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the walk back into his mine at {} failed: patching {} from where he is", in.toShortString(), pos.toShortString());
         }

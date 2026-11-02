@@ -267,6 +267,7 @@ public final class PortalMap {
     }
 
     // ---- enter_portal: which portal their words mean; walk to it, relight it if a ghast put it out, step in
+    private static Map<Integer, Double> walkedFrom; // portal id -> how far off that walk began
     private static Map<Integer, Integer> walkedTo; // portal id -> tick of the last walk (one walk per 2 min: no loop on one he can't reach)
     /** The step, or null to let enter_portal take the nearest lit one in reach (no words naming one, none known). */
     public static void enterReset(ClaudeEntity g) { if (entering != null) entering.remove(g.getUUID()); }
@@ -294,8 +295,9 @@ public final class PortalMap {
         double d = Math.sqrt(p.at.distSqr(g.blockPosition()));
         if (d > 3.5) {
             if (walkedTo == null) walkedTo = new HashMap<>();
-            Integer last = walkedTo.get(p.id); if (last != null && g.getServer().getTickCount() - last < 20 * 120 && d > 6) return "failed: couldn't get to portal #" + p.id + " at " + p.where() + " (" + (int) d + " off) on the last try";
-            walkedTo.put(p.id, g.getServer().getTickCount()); // ponytail: server ticks, his own tickCount restarts at 0 on every dimension change
+            if (walkedFrom == null) walkedFrom = new HashMap<>(); // ponytail: live 17:4x, a walk 96 -> 18 off read as "couldn't get there" and the step tripped: only a try that got him no nearer counts
+            Integer last = walkedTo.get(p.id); Double from = walkedFrom.get(p.id); if (last != null && g.getServer().getTickCount() - last < 20 * 120 && d > 6 && (from == null || d > from - 4)) return "failed: couldn't get to portal #" + p.id + " at " + p.where() + " (" + (int) d + " off) on the last try";
+            walkedFrom.put(p.id, d); walkedTo.put(p.id, g.getServer().getTickCount()); // ponytail: server ticks, his own tickCount restarts at 0 on every dimension change
             g.tasks.add(new Task.GoTo(p.at, 2)); g.skillQueue.addFirst(new Skills.Step(st.skill(), target, st.count(), st.where()));
             ClaudeMod.LOGGER.info("[Claude portal] enter \"{}\" -> #{} at {} ({}, {} off): walking there (PortalMap.enterStep)", t, p.id, p.where(), p.state, (int) d);
             return "walking to portal #" + p.id + " at " + p.where() + " (" + linkTalk(g, p) + ")";

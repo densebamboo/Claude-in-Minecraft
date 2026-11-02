@@ -2127,6 +2127,7 @@ public final class ClaudeLife {
             }
             case "dig_down": {
                 if (level.dimension() != net.minecraft.world.level.Level.OVERWORLD) return "failed: my mine's in the overworld, not here in " + level.dimension().location().getPath(); /* (see ownMine) */
+                if (g.mineFace != null && g.mineFace.distSqr(g.blockPosition()) > 256 * 256) { ClaudeMod.LOGGER.info("[Claude skill] dig_down: his mine's face {} is {} off: not a walk home for \"down\" (ClaudeLife dig_down)", g.mineFace.toShortString(), (int) Math.sqrt(g.mineFace.distSqr(g.blockPosition()))); return "failed: dig_down is my home mine, " + (int) Math.sqrt(g.mineFace.distSqr(g.blockPosition())) + " blocks off; down here is go_to the spot (my staircase's there) or the job's own skill"; } // ("go back down" at the stronghold: dig_down walked him 1891 blocks toward his home mine, live 00:56)
                 if (bpMode(g)) return bpDigDown(g, player, level, st, target, count);
                 String tool = ensureToolFor(g, player, level, Blocks.STONE.defaultBlockState(), st);
                 if (tool != null) return tool;
@@ -2675,6 +2676,10 @@ public final class ClaudeLife {
                 return "strip mining a " + dug + " block tunnel at y=" + y + " for " + ore;
             }
             case "explore_cave": {
+                // Inside a stronghold the "cave" is its corridors: walked by its own skill, never mined (live 01:00, the planner picked explore_cave from the corridor floor)
+                if (level.dimension() == net.minecraft.world.level.Level.OVERWORLD && com.claudemod.entity.nav.ActionPath.structureBlock(level, g.blockPosition().below())
+                        && net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level.getBlockState(g.blockPosition().below()).getBlock()).getPath().contains("stone_bricks"))
+                    return com.claudemod.entity.life.StrongholdRoom.skill(g, player, level, st);
                 // The fast way: find a cave, walk in, mine what shows, light it up.
                 BlockPos cave = findCave(level, center(g, player, st), 24);
                 if (cave == null) return "failed: no cave nearby (dig_down or explore to find one, or strip_mine instead)";

@@ -828,6 +828,19 @@ public class WorkGoal extends Goal {
         }
         lookWhereWalking(pos);
         if (ticks % 10 == 3) openDoorAhead(pos);
+        // A cobweb in his cells or the next one on the way: cut with the sword like a player, never waded through (live 01:05, stuck in the stronghold's webs)
+        if (inReach(pos) || d > 0.8) {
+            BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
+            Vec3 to = Vec3.atCenterOf(pos).subtract(g.position()); to = new Vec3(to.x, 0, to.z);
+            BlockPos ahead = to.lengthSqr() < 0.01 ? feet : feet.relative(Direction.getNearest(to.x, 0, to.z));
+            for (BlockPos w : new BlockPos[]{feet, feet.above(), ahead, ahead.above()})
+                if (g.level().getBlockState(w).is(net.minecraft.world.level.block.Blocks.COBWEB)) {
+                    com.claudemod.ClaudeMod.LOGGER.info("[Claude life] a cobweb at {} on his way to {}: cutting it (WorkGoal.walkTo)", w.toShortString(), pos.toShortString());
+                    g.tasks.addFirst(new Task.GoTo(pos, within));
+                    g.tasks.addFirst(new Task.Break(w.immutable()));
+                    return true;
+                }
+        }
         // stuck swimming in a flooded bit of his mine: block where the water comes in, then carry on
         if (g.isInWater() && !com.claudemod.entity.body.Controls.wading(g) && stuck == 30 && g.mineShape != null) {
             g.tasks.addFirst(new Task.GoTo(pos, within));
@@ -1328,6 +1341,9 @@ public class WorkGoal extends Goal {
             if (!bs.getFluidState().isEmpty()) return null; // water or lava up there: not this way
             if (bs.getCollisionShape(level, b).isEmpty()) continue;
             if (bs.getDestroySpeed(level, b) < 0 || bs.hasBlockEntity()) return null;
+            if (com.claudemod.entity.nav.ActionPath.structureBlock(level, b) && !com.claudemod.entity.nav.ActionPath.structureDigOk(level, b) && !com.claudemod.entity.life.TempLedger.built(g, b)) { // the intact rule refuses it in doBreak anyway (live 01:06, a step cut into the stronghold's wall 3x every 4 s)
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no step up from {} toward {}: {} is a structure's own block, kept intact (WorkGoal.digStepUp)", feet.toShortString(), dest.toShortString(), b.toShortString());
+                g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.STEP_UP, feet, g.tickCount); return null; }
             if (bs.requiresCorrectToolForDrops() && g.inventory.find(st -> st.isCorrectToolForDrops(bs)).isEmpty()) return null; // no tool that takes it (stone with bare hands: 23 s a step, nothing dropping, up a cliff after a death): not this way
             dig.add(b);
         }
@@ -1699,7 +1715,7 @@ public class WorkGoal extends Goal {
         if (ticks == 1 && com.claudemod.director.ClaudeLife.bridgeBlocks().contains(pos)) com.claudemod.ClaudeMod.LOGGER.info("[Claude temp] taking back {}: he is at {} {} {} onGround {} box {} (WorkGoal.doBreak)", pos.toShortString(), String.format("%.2f", g.getX()), String.format("%.2f", g.getY()), String.format("%.2f", g.getZ()), g.onGround(), g.getBoundingBox());
         if (com.claudemod.director.ClaudeLife.bridgeBlocks().contains(pos) && level.getBlockState(pos).isAir()) { com.claudemod.director.ClaudeLife.bridgeBlocks().remove(pos); return exit("doBreak line 1446"); }
         BlockState state = level.getBlockState(pos);
-        if (!state.isAir() && com.claudemod.entity.nav.ActionPath.structureBlock(level, pos) && !com.claudemod.entity.nav.ActionPath.structureDigOk(level, pos) && !com.claudemod.entity.life.TempLedger.built(g, pos) && !com.claudemod.entity.life.Consent.theirWord(g, pos, "structure", "a structure's own block", null)) { // the user, 17:08: "generally you wanna keep the nether fortress intact" (16:42-16:45 the fortress lost 11 nether bricks to his walks and digs, none of them logged): only a planned way with no way round breaks one (and puts it back), or their own dig_at
+        if (!state.isAir() && com.claudemod.entity.nav.ActionPath.structureBlock(level, pos) && !com.claudemod.entity.nav.ActionPath.structureDigOk(level, pos) && !com.claudemod.entity.life.TempLedger.built(g, pos) && !(g.lastStep != null && g.lastStep.skill().equals("light_end_portal")) /* (the portal-room skill's own breaks: its one way in, a stuck door; the roof brick under him was refused 3x a second, live 00:57) */ && !com.claudemod.entity.life.Consent.theirWord(g, pos, "structure", "a structure's own block", null)) { // the user, 17:08: "generally you wanna keep the nether fortress intact" (16:42-16:45 the fortress lost 11 nether bricks to his walks and digs, none of them logged): only a planned way with no way round breaks one (and puts it back), or their own dig_at
             if (ticks == 1) { com.claudemod.ClaudeMod.LOGGER.info("[Claude dig] not breaking the {} at {}: a structure's own block, kept intact (only a planned way with no way round breaks one, and puts it back) (WorkGoal.doBreak, queued by {})", net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath(), pos.toShortString(), com.claudemod.entity.ClaudeEntity.originOf(current)); com.claudemod.entity.life.MindLog.refused(g, pos, "breaking a structure block [kept intact] queued by " + com.claudemod.entity.ClaudeEntity.originOf(current)); }
             return exit("a structure's own block, kept intact (doBreak)");
         }
@@ -4205,10 +4221,39 @@ public class WorkGoal extends Goal {
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: the 1-wide gap at {} ({} off, in sight, none of them nearer it), held from {} on its far side, from {} (WorkGoal.pickEscape)", gaps.get(i)[0].toShortString(), (int) Math.sqrt(gaps.get(i)[0].distSqr(feet)), gaps.get(i)[1].toShortString(), from);
             return;
         }
-        // 3 a run: 16 out on the best heading, kept
-        fleeDir = fleeHeading(mobs);
-        BlockPos end = BlockPos.containing(g.position().add(fleeDir.scale(16)));
-        for (int k = 0; k <= 6; k++) { if (standable(lv, end.above(4 - k))) { end = end.above(4 - k); break; } }
+        // 3 a run: 16 out on the best heading he can walk (Day to Day, live 22:03 in a Nether basin: three runs in a row to ends 10-16 off up the basin's walls, "no closer in 2.5 s" each, 7 magma cubes round him, dead; his portal was 75 off). His known portal first when it isn't toward them, then the best heading turned 30 degrees at a time; each end must have a walk to it
+        Vec3 base = fleeHeading(mobs), away = g.position().subtract(crowd).multiply(1, 0, 1); away = away.lengthSqr() < 1e-4 ? base : away.normalize();
+        java.util.List<Vec3> heads = new java.util.ArrayList<>(); String portalNote = "";
+        com.claudemod.entity.life.PortalMap.Portal known = null; double kd = 128;
+        for (var p0 : com.claudemod.entity.life.PortalMap.net(g).portals) { if (!com.claudemod.entity.life.PortalMap.dim(lv).equals(p0.dim) || p0.at == null || "gone".equals(p0.state)) continue; double d0 = Math.sqrt(p0.at.distSqr(feet)); if (d0 < kd) { kd = d0; known = p0; } }
+        if (known != null) { Vec3 tp = Vec3.atCenterOf(known.at).subtract(g.position()).multiply(1, 0, 1); if (tp.lengthSqr() > 1e-4) { tp = tp.normalize(); if (tp.dot(away) > -0.2) { heads.add(tp); portalNote = ", toward his portal at " + known.at.toShortString() + " (" + (int) kd + " off)"; } else portalNote = ", his portal at " + known.at.toShortString() + " is through them"; } }
+        for (int r : new int[] {0, 30, -30, 60, -60, 90, -90, 120, -120, 150, -150, 180}) { double a = Math.toRadians(r); heads.add(new Vec3(base.x * Math.cos(a) - base.z * Math.sin(a), 0, base.x * Math.sin(a) + base.z * Math.cos(a))); }
+        BlockPos end = null; int tried = 0; java.util.List<String> nos = new java.util.ArrayList<>();
+        int noStand = 0, recent = 0, thru = 0; boolean partial = false; BlockPos winding = null; Vec3 windDir = null; java.util.List<String> windy = new java.util.ArrayList<>();
+        search:
+        for (Vec3 hd : heads) for (int dist : new int[] {16, 10, 22}) {
+            if (tried >= 12) break search;
+            BlockPos e0 = BlockPos.containing(g.position().add(hd.scale(dist))); BlockPos e1 = null;
+            for (int k = 0; k <= 12; k++) { if (standable(lv, e0.above(7 - k))) { e1 = e0.above(7 - k); break; } } // (7 up: a basin's or a valley's rim is an end too, if there's a walk up to it)
+            if (e1 == null) { noStand++; continue; }
+            if (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, e1, now, 20 * 30)) { recent++; continue; }
+            boolean through = false; for (var m : mobs) { Vec3 tm = m.position().subtract(g.position()).multiply(1, 0, 1); if (tm.length() < 3 && tm.normalize().dot(hd) > 0.8) through = true; }
+            if (through) { thru++; continue; }
+            tried++; var path = g.getNavigation().createPath(e1, 1); double straight = Math.sqrt(e1.distSqr(feet)), walk = 0;
+            if (path == null || path.getNodeCount() == 0) { if (nos.size() < 4) nos.add(e1.toShortString()); continue; }
+            for (int n = 1; n < path.getNodeCount(); n++) walk += Math.sqrt(path.getNode(n).asBlockPos().distSqr(path.getNode(n - 1).asBlockPos()));
+            if (!path.canReach()) { // (a run needn't reach its end, only get him well along: stage 488's run off a fenced platform broke the skeleton's sight on the way. The live death was runs with no headway at all)
+                double gain = straight - Math.sqrt(path.getEndNode().asBlockPos().distSqr(e1));
+                if (gain < 6) { if (nos.size() < 4) nos.add(e1.toShortString() + " (" + (int) gain + " nearer at most)"); continue; }
+                straight = gain; }
+            if (walk > straight * 1.5 + 4) { if (winding == null) { winding = e1.immutable(); windDir = hd; } if (windy.size() < 4) windy.add(e1.toShortString() + " (" + (int) walk + " walked for " + (int) straight + ")"); continue; } // (a walk that winds away first reads as "no closer" to escapeBlocked's straight-line check, so it's only a fallback)
+            end = e1.immutable(); fleeDir = hd; partial = !path.canReach(); break search;
+        }
+        if (end != null && partial) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: no walk all the way to {}, but one that gets him well along it (WorkGoal.pickEscape)", end.toShortString());
+        if (end == null && winding != null) { end = winding; fleeDir = windDir; }
+        if (end == null) { fleeDir = base; end = BlockPos.containing(g.position().add(fleeDir.scale(16))); for (int k = 0; k <= 6; k++) { if (standable(lv, end.above(4 - k))) { end = end.above(4 - k); break; } }
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: no run end he can walk to ({} tried, no walk to {}; skipped {} with nowhere to stand, {} tried lately, {} through a mob){}: straight out on the best heading (WorkGoal.pickEscape)", tried, nos, noStand, recent, thru, portalNote); }
+        else if (!nos.isEmpty() || !windy.isEmpty() || !portalNote.isEmpty()) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: run end {} has a walk to it{} ({} with none: {}; {} winding: {}) (WorkGoal.pickEscape)", end.toShortString(), portalNote, nos.size(), nos, windy.size(), windy);
         setEscape("run", end.immutable(), null);
         com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: running {} to {} (no portal or 1-wide gap he gets to first; {} gap(s) looked at) from {} (WorkGoal.pickEscape)", com.claudemod.entity.life.Perception.compassOf(fleeDir), end.toShortString(), gaps.size(), from);
     }

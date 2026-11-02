@@ -300,6 +300,7 @@ public final class ClaudeLife {
         if (g.tickCount % 20 == 0 && g.urgentAttacker == null) guard(g, player);
         if (g.tickCount % 20 == 10) eatIfHungry(g, player);
         String ongoing = g.prefs.get("ongoing_job"); // an open-ended job they gave him: it stays the goal until they end it
+        if (ongoing != null && g.tickCount % 20 == 15) { var um = java.util.regex.Pattern.compile("until ([0-9]+) (.+)$").matcher(ongoing.toLowerCase()); boolean uf = um.find(); Item ui = uf ? itemNamedIn(um.group(2)) : null; if (ui == null && uf) ui = itemNamedIn(um.group(2).replaceAll("s( |$)", "$1")); if (ui != null && g.inventory.items.countItem(ui) >= Integer.parseInt(um.group(1))) { ClaudeMod.LOGGER.info("[Claude plan] their job \"{}\" is done: {} {} on him (ClaudeLife tick)", ongoing, g.inventory.items.countItem(ui), Crafting.name(ui)); g.prefs.remove("ongoing_job"); g.playerGoal = "done: " + ongoing; ongoing = null; } } // ponytail: a job with a count ends at the count; live 22:0x 12 pearls on him and "fight hostile next" kept firing
         if (ongoing != null && !g.commandActive && !g.playerGoal.startsWith("ONGOING")) g.playerGoal = "ONGOING until they say stop: " + ongoing;
         if (g.tickCount % 10 == 5) pickUpTempStations(g, ((ServerLevel) g.level()));
         g.ensureLiveFields();

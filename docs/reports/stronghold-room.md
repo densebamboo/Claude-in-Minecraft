@@ -52,3 +52,11 @@ Needs a restart: a new class (StrongholdRoom) and a new skill.
 - He starts at the bricks at -864,34,1678. In a real stronghold the walls have caves and water behind them, and the corridors have infested stone and more silverfish.
 - He has 10 eyes. If the room has fewer than 2 frames already filled, he'll stop with "N empty frames and I have 10 eyes".
 - A long exploration (559's problem). Watch for the time to the room and for "no way on" lines.
+
+## Second merge (559)
+
+- **Hearing as the guide:** silverfish he hears more than 8 off, other than ones seen by him, now steer the edges he picks, along with heard lava. 559 went from 1 in 4 green to **3 of 3** (31-115 s when he hears the room early; 482-551 s when he hears it late).
+- **Finding the bricks himself** (live 2026-11-02: three steps up his own staircase, "no wall beside me"). Bricks he knows of (find_stronghold's, or his seen signs) or sees now: down beside them. With none known or in sight: down the open steps round him, then look again. Holes (cap 3) and tries (cap 10) are counted apart. 558 and 559 now start him 3 steps up his own staircase.
+- **The last frame out of reach:** he retries the written-off spots and looks round the room again before giving up.
+- **Still open:** the slow 559 runs (8-9 min) explore far before he hears the room. Hearing carries 16 blocks for lava. And the bricks he found aren't saved across a restart (his seen signs aren't saved); walking down his steps covers the live case.
+- **Green on the final code:** 557 (131 s), 558 (87 s), 559 3/3.

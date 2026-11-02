@@ -163,7 +163,7 @@ public final class DragonFight {
         // off the spawn platform: onto the main island (end stone, toward its middle)
         double fromMid = Math.sqrt(g.getX() * g.getX() + g.getZ() * g.getZ());
         BlockPos under = BlockPos.containing(g.getX(), g.getY() - 0.5, g.getZ());
-        boolean island = level.getBlockState(under).is(Blocks.END_STONE) || block(new ItemStack(level.getBlockState(under).getBlock().asItem())) && fromMid < 130; // (on end stone, or his own blocks on it)
+        boolean island = level.getBlockState(under).is(Blocks.END_STONE) || block(new ItemStack(level.getBlockState(under).getBlock().asItem())) && fromMid < 130 || fromMid < 90 && !level.getBlockState(under).getCollisionShape(level, under).isEmpty(); // (on anything solid over the main island: a tower's obsidian, a chest: live 03:51, up by a cage read as off the island, 10 refused walks a second) // (on end stone, or his own blocks on it)
         if (!island && g.onGround() && fromMid > 30) {
             if (!g.onGround()) return false;
             BlockPos land = islandEdge(level, g);

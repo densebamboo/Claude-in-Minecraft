@@ -487,7 +487,7 @@ public final class ActionPath {
             if (!swimming) for (int[] dd : new int[][] {{1, 1}, {1, -1}, {-1, 1}, {-1, -1}}) {
                 BlockPos t = feet.offset(dd[0], 0, dd[1]), s1 = feet.offset(dd[0], 0, 0), s2 = feet.offset(0, 0, dd[1]);
                 if (!passable(t) || !passable(t.above()) || !passable(s1) || !passable(s1.above()) || !passable(s2) || !passable(s2.above())) continue;
-                if (water(t) || !solid(t.below()) || tall(t.below()) || hurts(t) || hurts(s1) || hurts(s2) || door(s1) || door(s2)) continue;
+                if (water(t) || !solid(t.below()) || !solid(s1.below()) || !solid(s2.below()) || tall(t.below()) || hurts(t) || hurts(s1) || hurts(s2) || door(s1) || door(s2)) continue; // (ground under the corners too: his body won't cut a corner over a drop, live 17:03 lava 9 below)
                 double cost = 1.414 + failPenalty(t); if (mine(t)) cost *= 0.7;
                 double av = avoidCost(t); if (av < 0) continue; cost += av;
                 List<Act> acts = new ArrayList<>(); acts.add(new Act.Walk(t.immutable())); out.add(new Move(t.immutable(), cost, acts));

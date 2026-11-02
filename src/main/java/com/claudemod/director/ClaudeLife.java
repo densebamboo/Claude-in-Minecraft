@@ -5314,7 +5314,7 @@ public final class ClaudeLife {
         return g.nooks;
     }
     public static boolean anyNookTouches(ClaudeEntity g, BlockPos p) { for (var n : allNooks(g)) if (n.touches(p)) return true; return false; }
-    public static boolean anyNookChest(ClaudeEntity g, BlockPos p) { for (var n : allNooks(g)) if (n.chestCells().contains(p)) return true; return false; }
+    public static boolean anyNookChest(ClaudeEntity g, BlockPos p) { for (var n : allNooks(g)) if (n.allChestCells().contains(p)) return true; return false; } // (the junk row too: an unregistered junk-row chest read as a left-behind stash, retrieve_stash hauled its 1608 cobble home and the junk round carried it straight back, live 23:27)
     public static boolean nookWalkCell(ClaudeEntity g, BlockPos p) { for (var n : allNooks(g)) if (n.roleAt(p) == com.claudemod.entity.life.BaseNook.Role.WALK) return true; return false; }
     /** Orders of theirs that are about his base (its round is the order then, never held up by it). */
     static final java.util.Set<String> BASE_ORDERS = java.util.Set.of("store", "retrieve_stash", "stash", "set_up_storage", "build_base", "base", "nook", "deposit");

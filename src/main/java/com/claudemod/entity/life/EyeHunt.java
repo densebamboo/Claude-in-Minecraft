@@ -186,6 +186,7 @@ public final class EyeHunt {
             ClaudeMod.LOGGER.info("[Claude eye] stone bricks at {} ({}), {} steps down from {}: the stronghold. Stopping here (EyeHunt)", h.found.toShortString(), level.getBlockState(q).getBlock().getName().getString(), h.steps, h.digAt.toShortString());
             return "done: broke into the stronghold, " + level.getBlockState(q).getBlock().getName().getString().toLowerCase() + " at " + h.found.toShortString() + " (" + h.steps + " steps down)";
         }
+        if (h.steps > 0 && horiz(Vec3.atCenterOf(f), Vec3.atCenterOf(h.digAt)) > 6 + 3 && restartAtSpot(g, h, f, "he's away from his staircase")) { g.skillQueue.addFirst(again); return "back to the eye's spot to dig down there"; } // (the planner's "explore" took him 90 blocks off up a new stair; the next run dug on from there)
         if ((h.steps > 80 || f.getY() <= level.getMinBuildHeight() + 5) && restartAtSpot(g, h, f, "no bricks in " + h.steps + " steps")) { g.skillQueue.addFirst(again); return "back to the eye's spot to dig down there"; }
         if (h.steps > 80 || f.getY() <= level.getMinBuildHeight() + 5) return "failed: " + h.steps + " steps down and no stone bricks (at " + f.toShortString() + ")";
         for (int turn = 0; turn < 4; turn++) {

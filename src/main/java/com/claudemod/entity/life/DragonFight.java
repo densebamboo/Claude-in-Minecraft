@@ -365,9 +365,16 @@ public final class DragonFight {
         }
         // flying: arrows when it's in range and in sight; else waiting near the fountain (it comes down there), out of its path
         double dist = d.distanceTo(g);
-        if (dist <= 56 && sees(g, g.getEyePosition(), head) && g.onGround()) {
+        boolean clear = sees(g, g.getEyePosition(), head);
+        if (dist <= 56 && clear && g.onGround()) {
             if (shoot(g, head, d.getDeltaMovement())) ClaudeMod.LOGGER.info("[Claude dragon] an arrow at the dragon, {} off, health {} (DragonFight)", (int) dist, (int) d.getHealth());
             say(g, s, "shooting the dragon", "flying, " + (int) dist + " off, health " + (int) d.getHealth());
+            return false;
+        }
+        if (dist <= 80 && g.onGround() && count(g, x -> x.is(Items.ARROW)) > 0) { // the bow stays drawn, tracking its lead, while it's out of line or range a moment: loosed the moment it's back (live 04:00, the draw restarted every few ticks, 0 arrows loosed)
+            if (!(g.isUsingItem() && g.getUseItem().is(Items.BOW))) { g.getNavigation().stop(); g.hold(g.inventory.find(x -> x.is(Items.BOW))); g.startUsingItem(InteractionHand.MAIN_HAND); }
+            float[] yp = aim(g.getEyePosition().add(0, -0.1, 0), head, d.getDeltaMovement()); if (yp != null) { g.setYRot(yp[0]); g.setXRot(yp[1]); g.yHeadRot = yp[0]; g.yBodyRot = yp[0]; }
+            say(g, s, "bow drawn", "the dragon " + (int) dist + " off, " + (clear ? "out of range" : "out of line") + ": loosing when it's clear");
             return false;
         }
         if (g.isUsingItem() && g.getUseItem().is(Items.BOW)) g.stopUsingItem();

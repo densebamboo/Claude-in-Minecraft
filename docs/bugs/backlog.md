@@ -122,3 +122,8 @@ Each line is a live report from Day to Day (World 15, 2026-10-31/11-01) not on t
 - Stage 559 now starts him on a staircase dug onto the start piece's roof. He gets in through the roof beside him, then explores too long and times out (2,000-2,600 cells). The hearing cues reach too short from there.
 - 560 (a long walk out of a 2-deep hole) passes without any fix: it doesn't reproduce the live 2-up path-node refusal (00:42 on his spiral staircase, 1,878-block walk). The waypoint fix is on the unpushed branch bp/path-2up (stash) until a stage reproduces it.
 - From Day to Day: a new order doesn't clear the old step's queued walk (190 queued moves survived several orders). StrongholdRoom broke two iron doors after pressing their button and going through. After success, the command layer logged "steps ran out with a failure".
+
+## Found while gating fight_dragon (2026-11-02)
+
+- Stages 385-389 and 450-451 (drops, walk-jump, sprint-jump) fail on main as well: "walk-jump over 1: down in the gap (kinds run [])", "sprint-jump over 2, up 1: down in the gap". Not from bp/dragon. Find what broke the jump moves.
+- The chat-accuracy item from Day to Day: asked "go to the portal room", he said the room isn't in what he's walked and asked for coordinates, with the portal on file. He should say he knows where it is but has no route down since the restart (the route is remembered now: endTrail).

@@ -302,8 +302,10 @@ public final class FortressFight {
         }
         { // blazes he can't reach and nothing to shoot them with (World 15 01:27: 4 blazes hovering 7-14 off a hall, 5 min, 0 rods, not one swing): vanilla's blaze never closes on a player it sees (it hangs back and shoots; out of sight it drifts in 5 ticks and stops), so a sword gets one only at its spawner, where they appear within 4 of the cage
             boolean ranged = g.inventory.count(s0 -> s0.is(Items.BOW)) > 0 && g.inventory.count(s0 -> s0.is(Items.ARROW)) > 0;
-            boolean reachable = false; for (Blaze b0 : bl) if (b0.getBoundingBox().minY <= g.getY() + 3.2 && b0.distanceTo(g) <= 14) reachable = true;
+            boolean shieldOn = g.getOffhandItem().is(Items.SHIELD) || g.inventory.count(s0 -> s0.is(Items.SHIELD)) > 0;
+            boolean reachable = false; for (Blaze b0 : bl) if (b0.getBoundingBox().minY <= g.getY() + 3.2 && b0.distanceTo(g) <= 14 && (shieldOn || !(b0.isOnFire() && !b0.hasLineOfSight(g)))) reachable = true; // (lit and out of his sight, no shield: vanilla's blaze stays charged till it sees him, its volley the moment it does, so he can't close on it unhit; it counts as out of reach. World 15: "waiting at cover: lit 999" and "drawing its shots" loops at -98 75 61)
             int nowT = g.getServer() == null ? g.tickCount : g.getServer().getTickCount(); // (server ticks: his own tickCount starts at 0 again after every portal trip, and a time kept from before it read as never passing)
+            if (Boolean.getBoolean("claude.debugBlazes")) for (Blaze b0 : bl) ClaudeMod.LOGGER.info("[Claude debug] blaze {} at {} lit {} sees him {} minY {} his y {} dist {}", b0.getId(), b0.blockPosition().toShortString(), b0.isOnFire(), b0.hasLineOfSight(g), String.format("%.1f", b0.getBoundingBox().minY), String.format("%.1f", g.getY()), String.format("%.1f", b0.distanceTo(g)));
             Integer since = outOfReach().get(g.getUUID());
             if (ranged || reachable || bl.isEmpty() || spawner != null && spawner.distSqr(g.blockPosition()) <= 8 * 8) outOfReach().remove(g.getUUID());
             else if (since == null || since > nowT) outOfReach().put(g.getUUID(), nowT);

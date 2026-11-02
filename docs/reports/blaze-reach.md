@@ -61,3 +61,11 @@ The wall-in queued Places in the cells his body stood across. He's 0.6 wide, so 
 
 - When his body overlaps any wall cell, he goes to the middle of his own block first, then walls in.
 - **Stage 544:** 543 starting at x/z + 0.88 across his block's corner. Centred, then walled in. 2 of 2; 543 and 542 green.
+
+## Follow-up: the charged blaze out of sight (the peek/wait loop)
+
+Live: "waiting at cover: lit 999" and "drawing its shots" over and over at -98 75 61. Vanilla's blaze charges at its volley's first step, and that step only advances while it sees its target. So a blaze that charged and lost sight of him stays lit indefinitely, its shots due the moment it sees him.
+
+- **`FortressFight.blazeRods`:** with no shield, a blaze that's lit and can't see him counts as out of reach. Closing on it means taking the whole volley. So the 15 s out-of-reach rule sends him to the spawner (or along the deck for it). With a shield it stays reachable: the volley goes on the shield, then he closes during its quiet 5 s.
+- A `-Dclaude.debugBlazes=true` line lists each blaze the rule sees (lit, sees him, height, distance).
+- **Stage 550:** 539's hall, its blaze low but lit behind a wall, no shield. To the spawner in 25 s, 2 of 2. Two unlit copies of the stage's blaze appeared at its spot in early runs (cause not found); the stage keeps only its own.

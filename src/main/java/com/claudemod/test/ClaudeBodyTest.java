@@ -10366,6 +10366,7 @@ public final class ClaudeBodyTest {
     // ---------------------------------------------------------------- stages 494 on: one method each (exactStages is at the JVM's 64 KB limit)
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
+            case 550: return st550(stage, t, c, h, level, mock);
             case 549: return st549(stage, t, c, h, level, mock);
             case 548: return st548(stage, t, c, h, level, mock);
             case 547: return st547(stage, t, c, h, level, mock);
@@ -10706,6 +10707,36 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    private static boolean bzCharged(int[] stage, int[] t, ClaudeEntity c, ServerLevel level, ServerPlayer[] mock, boolean bow) {
+        ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        final int ox = 6000, oy = 69, oz = 6000; BlockPos me = new BlockPos(ox + 2, oy + 1, oz), cage = new BlockPos(ox + 30, oy + 1, oz);
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); bzT = -1; bzLow = 20f; if (bzMob != null) bzMob.discard(); bzMob = null; c.nextPlanTick = c.tickCount + 20 * 900; c.prefs.put("stay_close", "no"); c.commandActive = false;
+            c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); if (bow) { c.getInventory().add(new ItemStack(Items.BOW)); c.getInventory().add(new ItemStack(Items.ARROW, 32)); }
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(nether, me.getX() + 0.5, oy + 30, me.getZ() + 0.5, 0, 0); c.setNoGravity(true); }
+        if (t[0] >= 10 && t[0] < 10 + 49) { int x = t[0] - 10 - 4; for (int z = -8; z <= 8; z++) for (int y = oy - 4; y <= oy + 20; y++) { boolean wall = x == -4 || x == 44 || Math.abs(z) == 8 || y == oy + 20; nether.setBlock(new BlockPos(ox + x, y, oz + z), wall ? Blocks.BEDROCK.defaultBlockState() : y < oy ? Blocks.LAVA.defaultBlockState() : y == oy && Math.abs(z) <= 4 && x >= 0 && x <= 40 ? Blocks.NETHER_BRICKS.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2 | 16); } }
+        if (t[0] == 60) {
+            nether.setBlock(cage, Blocks.SPAWNER.defaultBlockState(), 2); if (nether.getBlockEntity(cage) instanceof net.minecraft.world.level.block.entity.SpawnerBlockEntity sb) sb.setEntityId(EntityType.BLAZE, nether.getRandom());
+            com.claudemod.entity.life.Perception.noteSignTest(c, cage, "a mob spawner"); // (seen on his way in: it's on his record)
+            c.setNoGravity(false); c.teleportTo(nether, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, -90f, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.fallDistance = 0; c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+            var bz = EntityType.BLAZE.create(nether); bz.moveTo(ox + 9.5, oy + 1.5, oz + 0.5, -90, 0); bz.setNoAi(true); bz.setPersistenceRequired(); nether.addFreshEntity(bz); bzMob = bz;
+            try { var mt = net.minecraft.world.entity.monster.Blaze.class.getDeclaredMethod("setCharged", boolean.class); mt.setAccessible(true); mt.invoke(bz, true); } catch (Exception e) { check(false, "charged blaze: can't light it (" + e + ")"); } // (lit, its volley due the moment it sees him)
+            for (int z = -4; z <= 4; z++) for (int y = oy + 1; y <= oy + 4; y++) nether.setBlock(new BlockPos(ox + 6, y, oz + z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); } // (a wall between: it can't see him, he can't see it)
+        if (t[0] == 70) c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("blaze_rods", "", 3, "near_you"));
+        if (t[0] > 60 && c.level() == nether) { bzLow = Math.min(bzLow, c.getHealth()); for (var m : nether.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(ox - 40, 0, oz - 40, ox + 80, 128, oz + 40), m0 -> m0 != bzMob)) m.discard(); } // (only the stage's own lit blaze: two unlit copies turned up at its spot, cause not found, and an unlit one counts as in reach)
+        boolean done = bow ? bzMob != null && (bzMob.getHealth() < bzMob.getMaxHealth() || !bzMob.isAlive()) : c.blockPosition().distSqr(cage) <= 4 * 4;
+        if (t[0] > 70 && bzT < 0 && done) bzT = t[0];
+        int limit = bow ? 20 * 30 : 20 * 50;
+        if (bzT > 0 || !c.isAlive() || t[0] == 70 + limit) {
+            check(bzT > 0 && c.isAlive(), (bow ? "blaze bow: the hanging blaze never hit in 30 s" : "charged blaze: not to the spawner in 50 s (lit, out of sight, no shield: out of reach)") + " (at " + c.blockPosition().toShortString() + ", low " + bzLow + ", task " + c.currentTask + ", last " + c.lastSkillLine + ")");
+            String how = (bow ? "the blaze out of reach shot (health " + (bzMob == null ? "?" : (int) bzMob.getHealth()) + ")" : "to the spawner at " + c.blockPosition().toShortString()) + " in " + (bzT - 70) / 20 + " s, low " + bzLow + "; last line \"" + c.lastSkillLine + "\"";
+            if (bzMob != null) bzMob.discard(); bzMob = null; for (var m : nether.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(ox - 40, 0, oz - 40, ox + 80, 128, oz + 40))) m.discard(); nether.setBlock(cage, Blocks.AIR.defaultBlockState(), 2);
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.clearFire(); c.setHealth(20f); c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            com.claudemod.entity.life.Watchdog.teleported(c); if (c.isAlive()) c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0);
+            pass(stage, t, how);
+        }
+        return true;
+    }
     private static boolean st539(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // checkpoint 6, blaze rods (World 15 01:27: 4 blazes hanging 7-14 off a hall, 5 min, 0 rods, no swing; no bow on him): to the spawner he knows of, where they appear in reach
         return bzHall(stage, t, c, level, mock, false);
     }
@@ -10929,6 +10960,9 @@ public final class ClaudeBodyTest {
             pass(stage, t, "the skeleton behind the glass seen, not shot at (0 arrows in 5 s)");
         }
         return true;
+    }
+    private static boolean st550(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a lit blaze behind a wall, low, no shield (World 15: "waiting at cover: lit 999" and "drawing its shots" loops): out of reach, so to the spawner, never peeking all night
+        return bzCharged(stage, t, c, level, mock, false);
     }
     private static int s535Done = -1; private static float s535Low = 20f;
     /** Stage 535's course (in the Nether, about 4000, 4000): the cell at (x, y, z) from its west end. */

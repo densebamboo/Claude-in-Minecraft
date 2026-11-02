@@ -124,6 +124,8 @@ public final class PlayerActivityListener {
     }
 
     public static void onDamage(LivingDamageEvent.Post e) {
+        if (e.getEntity() instanceof net.minecraft.world.entity.monster.piglin.AbstractPiglin pg && e.getSource().getEntity() instanceof ClaudeEntity g) // ponytail: live 16:49 piglins turned on him in gold and killed him, cause unlogged: every piglin he hurts, and with what
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude piglin] he hurt a {} for {} ({}, by {}) doing {}", pg.getType().getDescription().getString(), e.getNewDamage(), e.getSource().getMsgId(), e.getSource().getDirectEntity() == g ? "his hand" : e.getSource().getDirectEntity() == null ? "nothing" : e.getSource().getDirectEntity().getType().getDescription().getString(), g.currentTask == null ? "nothing" : g.currentTask);
         if (e.getEntity() instanceof ServerPlayer p) {
             float dmg = e.getNewDamage();
             if (dmg >= 4.0f) {

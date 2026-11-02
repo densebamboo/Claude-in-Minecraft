@@ -104,6 +104,7 @@ public final class Persona {
                 YOUR CURRENT GOAL: %s
                 Skills available right now: %s
                 Return a goal and 1 to 4 steps that move toward it right now.
+                The Nether has no day or night: an overworld night never holds a Nether job. Geared (iron armor, a sword, food), go straight back through the portal instead of sheltering till morning.
                 """.formatted(playerName, situation, theirGoal == null || theirGoal.isBlank() ? "(nothing in particular)" : theirGoal,
                 goal == null || goal.isBlank() ? "(none yet: pick one)" : goal, String.join(", ", skills));
     }

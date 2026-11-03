@@ -11030,13 +11030,17 @@ public final class ClaudeLife {
         return true;
     }
 
-    /** A patch of his shell that would seal ore or a drop of his in behind it: not queued yet (said once a minute a cell). */
-    static boolean sealHeld(ClaudeEntity g, ServerLevel level, BlockPos p) {
-        if (g.blueprint == null || !g.blueprint.isShell(p) || MineBlueprint.solid(level, p)) return false;
-        String what = com.claudemod.entity.goals.WorkGoal.sealsIn(g, level, p); if (what == null) return false;
+    /** Records why a queued shell patch waits: doPlace owns its vein, drops and restoration (World 16's ownerless diamond). */
+    static void sealHeld(ClaudeEntity g, ServerLevel level, BlockPos p) {
+        if (g.blueprint == null || !g.blueprint.isShell(p) || MineBlueprint.solid(level, p)) return;
+        String what = com.claudemod.entity.goals.WorkGoal.sealsIn(g, level, p); if (what == null) return;
+        for (BlockPos ore : com.claudemod.entity.goals.WorkGoal.veinBehind(g, level, p)) {
+            if (!canSee(g, level, ore)) continue;
+            String ok = "exposed:" + ore.asLong(); Integer seen = g.attempts.counters.get(ok);
+            if (seen == null || g.tickCount - seen > 20 * 60) { g.attempts.counters.put(ok, g.tickCount); ClaudeMod.LOGGER.info("[Claude ore] left exposed: {} at {}, seen from {}, because the patch waits for its vein; the queued patch owns the dig and pickup (ClaudeLife.sealHeld)", level.getBlockState(ore).getBlock().getName().getString(), ore.toShortString(), g.blockPosition().toShortString()); }
+        }
         String k = "sealHeld:" + p.asLong(); Integer last = g.attempts.counters.get(k);
         if (last == null || g.tickCount - last > 20 * 60) { g.attempts.counters.put(k, g.tickCount); ClaudeMod.LOGGER.info("[Claude mine] not patching {} yet: {} behind it (the vein and the drops first) (ClaudeLife.sealHeld)", p.toShortString(), what); }
-        return true;
     }
 
     /** Queues the reconcile tasks for rows [from, to] (digs, then the shell row by row, then the torches), at the back or the front. The count queued. */
@@ -11064,7 +11068,7 @@ public final class ClaudeLife {
         ts.removeIf(t -> t instanceof Task.Place p && (g.landingCells.contains(p.pos()) || obsWorking(p.pos()))); // his storage alcove, a landing, a bed nook: open on purpose, never walled (he walled off his own chest nook)
         ts.removeIf(t -> g.tasks.contains(t));
         ts.removeIf(t -> nookKeeps(g, level, t));
-        ts.removeIf(t -> t instanceof Task.Place p0 && sealHeld(g, level, p0.pos())); // (the vein and the drops behind a hole first: 12:14 his upkeep sealed 3 diamond ore and a diamond in)
+        for (Task t : ts) if (t instanceof Task.Place p0) sealHeld(g, level, p0.pos()); /* World 16: keep its owner queued; doPlace mines, picks up, then closes it. */ // (the vein and the drops behind a hole first: 12:14 his upkeep sealed 3 diamond ore and a diamond in)
         ts.removeIf(t -> t instanceof Task.Place p0 && planPutsBack(g, p0.pos())); // (their swap through his shell: the plan's own place_at patches it; his round patched it between the dig and its check, "the cobblestone is still there")
         { int n0 = ts.size(); ts.removeIf(t -> t instanceof Task.Break br && pastHisPick(g, level, br.pos())); if (ts.size() < n0) nookSay(g, "pick" + g.tickCount / (20 * 60), "[Claude life] his mine plan: " + (n0 - ts.size()) + " ore dig(s) past his pick left for later (ClaudeLife.bpReconcile)"); } // (live 03:18 World 15: copper queued for a wooden pick, refused and re-queued for 3 minutes)
         { int cut = -1; for (int i = 0; i < ts.size() && cut < 0; i++) if (ts.get(i) instanceof Task.Break br) for (Direction d : Direction.values()) if (level.getFluidState(br.pos().relative(d)).is(net.minecraft.tags.FluidTags.LAVA) && com.claudemod.entity.life.Perception.knowsLavaBody(g, level, br.pos().relative(d))) { cut = i; break; }
@@ -11124,7 +11128,7 @@ public final class ClaudeLife {
         ts.removeIf(t -> t instanceof Task.Break br && g.attempts.within(com.claudemod.entity.life.Attempts.Kind.BREAK, br.pos(), g.tickCount, 20 * 300)); // a dig he was just refused (ore past his pick, or behind it): not re-queued every 3 s
         ts.removeIf(t -> g.tasks.contains(t));
         ts.removeIf(t -> nookKeeps(g, level, t));
-        ts.removeIf(t -> t instanceof Task.Place p0 && sealHeld(g, level, p0.pos())); // (the vein and the drops behind a hole first: 12:14 his upkeep sealed 3 diamond ore and a diamond in)
+        for (Task t : ts) if (t instanceof Task.Place p0) sealHeld(g, level, p0.pos()); /* World 16: keep its owner queued; doPlace mines, picks up, then closes it. */ // (the vein and the drops behind a hole first: 12:14 his upkeep sealed 3 diamond ore and a diamond in)
         ts.removeIf(t -> t instanceof Task.Place p0 && planPutsBack(g, p0.pos())); // (their swap through his shell: the plan's own place_at patches it; his round patched it between the dig and its check, "the cobblestone is still there")
         { final var ts9 = ts; final var bp9 = b; ts9.removeIf(t9 -> t9 instanceof Task.Break b9 && bp9.isShell(b9.pos()) && !MineBlueprint.ore(level.getBlockState(b9.pos())) && ts9.stream().noneMatch(x9 -> x9 instanceof Task.Place p9 && p9.pos().equals(b9.pos())) && g.tasks.stream().noneMatch(x9 -> x9 instanceof Task.Place p9 && p9.pos().equals(b9.pos()))); } // a swap is a pair: its Place filtered out above (failed there lately), its Break goes too; alone the shell guard refused it every round (03:49 the arch at row 2, 6 refusals every 30 s)
         final int r0 = r; if (busy) ts.removeIf(t -> { if (t instanceof Task.WallTorch wt) return Math.abs(b.rowOf(wt.pos()) - r0) > 3 || !level.getBlockState(wt.pos()).canBeReplaced(); /* a dark row he's passing gets its torch on the way (the stairs dug before the torch fix stayed black: walking them counted as busy) */ if (!(t instanceof Task.Place p) || !b.isShell(p.pos())) return true; /* (shell only: a walkway cell's Place is the water-fill before its dig, never on its own: the user, "not supposed to patch the ones that would be air") */ for (Direction d : Direction.values()) { BlockPos w = p.pos().relative(d); if (b.isWalk(w) && !MineBlueprint.solid(level, w) && Math.abs(b.rowOf(w) - r0) <= 3) return false; } return true; }); // the patches of dug rows round him jump a long dig list (the user: patching is first-pass work; a dropped queue took its patches with it, and this check never ran while 300 digs were queued: the floor at 27, 17, 64 stayed open)

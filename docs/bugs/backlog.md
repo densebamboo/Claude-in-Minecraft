@@ -297,3 +297,4 @@ Today the mod runs server-side only. No client mod is needed: he's a ServerPlaye
 - **"Told once" is never cleared** (Watchdog.tell, the `told` set): the same stuck hours later stays silent. Clear an entry after MEMORY.
 - **Watchdog tables only grow** (ends, rung, tried, what, lastEnd, lastFeet, means: keyed by "walk to x,y,z"). Prune entries older than MEMORY once a minute in tick().
 - **Other block pickers still need Watchdog.skipBreak.** Only the obsidian picker and TempLedger use it so far. Mine ore, the nook, trees and the strip-mine face pick break targets on their own.
+- Stages 414 (pin: out of the pocket) and 415 (technique: a plug queued) fail on main as of 2026-11-03, before the audit changes too. Not caused by the watchdog commit.

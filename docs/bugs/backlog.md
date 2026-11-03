@@ -290,3 +290,10 @@ Today the mod runs server-side only. No client mod is needed: he's a ServerPlaye
 ## From the 2026-11-03 audit (not done yet)
 - **Tests run the legacy mine model** (ClaudeBodyTest.java:41 sets mine_model=legacy), while live play uses blueprint: 71 bpMode branches, and mine-integrity bugs in blueprint mode are untested by most stages. Default the tests to blueprint, port or drop the legacy-only stages, then delete the legacy mine path.
 - **ClaudeLife.java is 13.4k lines doing every job.** Move one job out at a time, with no behaviour change: obsidian/portal first, then the mine blueprint.
+
+## Watchdog audit 2026-11-03 (items not done; 1, 3, 4 and 6 are done in the same commit)
+- **Almost anything counts as progress** (ClaudeLife.noticeStuck: `items != progressItems || brk != progressBroken`). Picking up one cobble, or breaking and re-patching the same block, resets the 45 s clock, so dig/patch fights (the nook-shell OWNER fight) and pickup loops never trip. Progress should mean nearer the target, OR the item the step wants, OR the task's own block broken.
+- **Slow jobs that never "fail" are invisible.** The skill layer trips only on the same "failed:" line twice. Missed: the 1 h of food plans, 12 rewordings of one iron plan in 3 min, 3 h of "collect iron_ore". Give each step a time budget (collect or smelt about 5 min, explore about 3 min) and escalate if its output hasn't grown. Escalate as well when the same first step is re-planned 3 times in 5 min. This is the selfwatch SLOWGOAL check, moved in-game where it can act.
+- **"Told once" is never cleared** (Watchdog.tell, the `told` set): the same stuck hours later stays silent. Clear an entry after MEMORY.
+- **Watchdog tables only grow** (ends, rung, tried, what, lastEnd, lastFeet, means: keyed by "walk to x,y,z"). Prune entries older than MEMORY once a minute in tick().
+- **Other block pickers still need Watchdog.skipBreak.** Only the obsidian picker and TempLedger use it so far. Mine ore, the nook, trees and the strip-mine face pick break targets on their own.

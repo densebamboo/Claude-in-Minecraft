@@ -157,7 +157,7 @@ public class WorkGoal extends Goal {
         // Air first, like a player watching his bubbles: underwater and getting low, everything waits while he comes up to
         // breathe (and he stays up till he's got his breath back).
         boolean underwater = g.isEyeInFluid(net.minecraft.tags.FluidTags.WATER);
-        if ((underwater && g.getAirSupply() < 120) || (surfacing && g.getAirSupply() < 280 && g.isInWater())) {
+        if (((underwater && g.getAirSupply() < 120) || (surfacing && g.getAirSupply() < 280 && g.isInWater())) && !com.claudemod.entity.life.Watchdog.airRoute(g)) { // (the watchdog's dug way to air, once the swim-up failed: its tasks run, not this)
             BlockPos roofNow = BlockPos.containing(g.getEyePosition()).above();
             boolean diggingRoof = current instanceof Task.Break cb0 && cb0.pos().equals(roofNow); // his dig up for air, under way: never put back and its crack wiped (each tick it was, restarting a 25x-slow underwater dig from zero: drowned under it, World 15 10:30 -44 59 134)
             if (!surfacing) {

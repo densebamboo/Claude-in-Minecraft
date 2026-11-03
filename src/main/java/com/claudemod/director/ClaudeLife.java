@@ -7663,7 +7663,7 @@ public final class ClaudeLife {
      * alone, a new job each time, and the watchdog never saw him stuck (stage 474: knocked back every 1 s for 27 s, "never seen stuck").
      */
     public static void loopStuck(ClaudeEntity g, Task now, String where) {
-        if (progKey == null) progKey = new java.util.HashMap<>(); if (progBest == null) progBest = new java.util.HashMap<>(); if (progPin == null) progPin = new java.util.HashMap<>();
+        if (progKey == null) progKey = new java.util.HashMap<>(); if (progSeen == null) progSeen = new java.util.HashMap<>(); if (progPin == null) progPin = new java.util.HashMap<>();
         BlockPos at = g.blockPosition();
         String doing = now != null ? ClaudeChat.describe(g, now) : "his queued work";
         BlockPos pinTo = now == null ? null : com.claudemod.entity.life.Watchdog.target(now); String pinKey = progKey.get(g.getUUID());
@@ -7698,9 +7698,9 @@ public final class ClaudeLife {
     }
 
     private static java.util.Map<java.util.UUID, Object[]> progPin; // {key, target} of the action his way out (the 20 s escape plan) serves: its steps are measured against that, not as fresh actions
-    private static java.util.Map<java.util.UUID, String> progKey; private static java.util.Map<java.util.UUID, Double> progBest; // the action he's measured on, and his best distance to its target (static: fields added live start null)
+    private static java.util.Map<java.util.UUID, String> progKey; private static java.util.Map<java.util.UUID, java.util.Map<String, Double>> progSeen; // the action he's measured on; every action seen since his last real progress, with his best distance to its target (static: fields added live start null)
     private static void noticeStuck(ClaudeEntity g, ServerPlayer player) {
-        if (progKey == null) progKey = new java.util.HashMap<>(); if (progBest == null) progBest = new java.util.HashMap<>(); if (progPin == null) progPin = new java.util.HashMap<>();
+        if (progKey == null) progKey = new java.util.HashMap<>(); if (progSeen == null) progSeen = new java.util.HashMap<>(); if (progPin == null) progPin = new java.util.HashMap<>();
         com.claudemod.entity.life.Watchdog.flush(g, player); // (a line the watchdog owes them)
         if (broken == null) broken = new java.util.HashMap<>();
         if (progressBroken == null) progressBroken = new java.util.HashMap<>();
@@ -7719,13 +7719,18 @@ public final class ClaudeLife {
             String pk = (String) pin[0]; boolean alive = pk.equals(nowKey) || g.tasks.stream().anyMatch(q -> pk.equals(com.claudemod.entity.life.Watchdog.key(q)));
             if (alive && busy) { nowKey = pk; tgt = Math.sqrt(((BlockPos) pin[1]).distToCenterSqr(g.position())); } else { progPin.remove(g.getUUID()); pin = null; }
         }
-        boolean sameTask = progKey.containsKey(g.getUUID()) && java.util.Objects.equals(nowKey, progKey.get(g.getUUID())); // (nothing running with work queued: the same "nothing", the move measure)
-        boolean closer = tgt >= 0 && sameTask && tgt < progBest.getOrDefault(g.getUUID(), Double.MAX_VALUE) - 1.0; // a block nearer than his best on it
+        java.util.Map<String, Double> seen = progSeen.computeIfAbsent(g.getUUID(), k -> new java.util.HashMap<>());
+        String seenKey = nowKey == null ? "-" : nowKey; // (nothing running with work queued: the same "nothing", the move measure)
+        boolean sameTask = seen.containsKey(seenKey); // any action seen since his last real progress, not just the last one: two tasks taking turns are one stuck (swim to the shore / walk on: 3 h at 541,12,126, 2026-11-02, the clock reset on every swap)
+        Double best0 = seen.get(seenKey);
+        boolean closer = tgt >= 0 && best0 != null && tgt < best0 - 1.0; // a block nearer than his best on it
+        progKey.put(g.getUUID(), nowKey);
+        if (!sameTask) seen.put(seenKey, tgt >= 0 ? tgt : Double.MAX_VALUE); else if (tgt >= 0) seen.merge(seenKey, tgt, Math::min);
         boolean moved = (tgt < 0 || !sameTask) && g.progressPos != null && at.distSqr(g.progressPos) > 3 * 3; // no target: the move measure; a new action: a fresh start
-        if (busy && tgt >= 0 && sameTask && !closer && g.progressPos != null && at.distSqr(g.progressPos) > 3 * 3 && g.tickCount % 200 == 17) ClaudeMod.LOGGER.info("[Claude watchdog] moving but no nearer: {} best {} now {} (ClaudeLife.noticeStuck)", ClaudeChat.describe(g, now), String.format("%.1f", progBest.getOrDefault(g.getUUID(), -1.0)), String.format("%.1f", tgt));
-        if (!busy || g.progressPos == null || !sameTask || closer || moved || items != g.progressItems || brk != progressBroken.getOrDefault(g.getUUID(), -1)) { // (a shuffle, a missed jump falling back, a hop that re-picks its own spot: moving, but no nearer, is no progress)
+        if (busy && tgt >= 0 && sameTask && !closer && g.progressPos != null && at.distSqr(g.progressPos) > 3 * 3 && g.tickCount % 200 == 17) ClaudeMod.LOGGER.info("[Claude watchdog] moving but no nearer: {} best {} now {} (ClaudeLife.noticeStuck)", ClaudeChat.describe(g, now), String.format("%.1f", best0 == null ? -1.0 : best0), String.format("%.1f", tgt));
+        if (!busy || g.progressPos == null || closer || moved || items != g.progressItems || brk != progressBroken.getOrDefault(g.getUUID(), -1)) { // (a shuffle, a missed jump falling back, a hop that re-picks its own spot: moving, but no nearer, is no progress; a new action alone is no progress either)
             progPin.remove(g.getUUID()); // (real progress: the way out did its job, or it's a new job)
-            progKey.put(g.getUUID(), nowKey); if (tgt >= 0) progBest.put(g.getUUID(), Math.min(tgt, sameTask ? progBest.getOrDefault(g.getUUID(), tgt) : tgt)); else progBest.remove(g.getUUID());
+            seen.clear(); seen.put(seenKey, tgt >= 0 ? tgt : Double.MAX_VALUE);
             g.progressPos = at; g.progressTick = g.tickCount; g.progressItems = items; progressBroken.put(g.getUUID(), brk);
             if (g.stuckLevel > 0) ClaudeMod.LOGGER.info("[Claude life] unstuck: moving again");
             g.stuckLevel = 0; g.stuckNote = "";

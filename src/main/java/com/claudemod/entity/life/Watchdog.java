@@ -45,6 +45,8 @@ public final class Watchdog {
         final Map<String, String> tried = new HashMap<>();   // action key -> the ways tried so far, for the line to them
         final Map<String, String> what = new HashMap<>();    // action key -> what failed and how, from its trip
         final java.util.Set<String> told = new java.util.HashSet<>();
+        int airRouteTick = -100000;                          // when drowningOut queued a dug way to air (the swim-up reflex stands aside for 10 s)
+        final Map<String, int[]> means = new HashMap<>();    // action key -> {ends excused as "something in front of it first", first tick}
         Task started; int startTick, startBroken, startItems; double startDist; // the action now running, as it began
         int broken;                                          // blocks he's broken (ClaudeLife.noteBroken)
         String pending;                                      // a line to say on the next ClaudeLife tick (it has the player)
@@ -66,6 +68,8 @@ public final class Watchdog {
     public static int trips(ClaudeEntity g) { St s = ST.get(g.getUUID()); return s == null ? 0 : s.trips; }
     /** That action written off by the watchdog (tripped, within its 2 minutes): its source should not queue it again. */
     public static boolean off(ClaudeEntity g, Task t) { String k = key(t); return k != null && rung(g, k) > 0; }
+    /** A block to break that a picker should pass over: written off here, or its reach or break failed in the last 2 minutes. The obsidian picker chose a written-off block 3 times a second (13:05 and 13:09, 2026-11-02) until the whole skill tripped. */
+    public static boolean skipBreak(ClaudeEntity g, BlockPos p) { return off(g, new Task.Break(p)) || g.attempts.within(Attempts.Kind.REACH, p, g.tickCount, MEMORY) || g.attempts.within(Attempts.Kind.BREAK, p, g.tickCount, MEMORY); }
     public static int rung(ClaudeEntity g, String key) { St s = ST.get(g.getUUID()); int[] r = s == null ? null : s.rung.get(key); return r == null || now(g) - r[1] > MEMORY ? 0 : r[0]; }
 
     // ---------------------------------------------------------------- the measures
@@ -116,6 +120,12 @@ public final class Watchdog {
     }
     /** The task put itself back with something in front of it (a step out of the cell, a walk to a stand spot, a wait, the block in front): its own bounded retry, not the loop (the gate's nook move: a double chest's two cells and his feet, stepped round in 2 s). */
     private static boolean meansFirst(ClaudeEntity g, Task t) { Task head = g.tasks.peek(); return head != null && !head.equals(t) && g.tasks.contains(t); }
+    /** meansFirst, excused 3 times per action in the window; past that, what it keeps putting in front isn't working (a swim to the shore in front of the same walk, 3 h at 541,12,126 on 2026-11-02, never counted). */
+    private static boolean meansAgain(St s, String k, ClaudeEntity g, Task t) {
+        if (!meansFirst(g, t)) return false;
+        int[] m = s.means.get(k); if (m == null || now(g) - m[1] > WINDOW) { m = new int[] {0, now(g)}; s.means.put(k, m); }
+        return ++m[0] <= 3;
+    }
     /** The same dig or placement ended again with nothing gained since its last end: no block broken, no item got, not nearer its cell, and his feet in the same cell. Any of those, and its count starts over (the block in front cleared first, a nudge to a stand spot: progress). */
     private static boolean repeatNoGain(St s, String k, ClaudeEntity g, Task t) {
         double d = targetDist(g, t); int it = items(g); long feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()).asLong();
@@ -152,9 +162,9 @@ public final class Watchdog {
         int ran = mine ? now(g) - s.startTick : 0;
         boolean madeSome = mine && (s.broken != s.startBroken || items(g) != s.startItems);
         boolean counted = t instanceof Task.Leap
-                || t instanceof Task.GoTo && mine && ran > 3 && !meansFirst(g, t) && walkNoGain(s, k, g, t) // (nearer than his best on that walk over the window, or it's no progress: a one-block step cut and undone the next moment isn't; live 09:48 World 15, 21 "stepping off" in 80 s, net nothing) // (a leg that hands over to its own route's digs, blocks broken between legs and him nearer: progress; live 06:47 World 15 digging stairs home, 130 -> 113 off, tripped every few seconds)
-                || (t instanceof Task.Break || t instanceof Task.Place) && mine && !madeSome && !meansFirst(g, t) && repeatNoGain(s, k, g, t); // (a dig or a placement refused and re-queued with nothing broken, nothing got and no nearer since its last end: live 03:18 World 15, 270 refused digs and the watchdog never saw them)
-        if (!counted) { if (t instanceof Task.GoTo || t instanceof Task.Leap) ClaudeMod.LOGGER.info("[Claude watchdog] {} ended short, not counted ({}) (Watchdog.ended)", k, !mine || ran <= 3 ? "ended at once: the walker's own refusal" : madeSome ? "broke or got something on the way" : "got nearer"); return; } // (the rung stays for MEMORY: it came good, but a fresh trip on it climbs on)
+                || t instanceof Task.GoTo && mine && ran > 3 && !meansAgain(s, k, g, t) && walkNoGain(s, k, g, t) // (nearer than his best on that walk over the window, or it's no progress: a one-block step cut and undone the next moment isn't; live 09:48 World 15, 21 "stepping off" in 80 s, net nothing) // (a leg that hands over to its own route's digs, blocks broken between legs and him nearer: progress; live 06:47 World 15 digging stairs home, 130 -> 113 off, tripped every few seconds)
+                || (t instanceof Task.Break || t instanceof Task.Place) && mine && !madeSome && !meansAgain(s, k, g, t) && repeatNoGain(s, k, g, t); // (a dig or a placement refused and re-queued with nothing broken, nothing got and no nearer since its last end: live 03:18 World 15, 270 refused digs and the watchdog never saw them)
+        if (!counted) { if (t instanceof Task.GoTo || t instanceof Task.Leap) ClaudeMod.LOGGER.info("[Claude watchdog] {} ended short, not counted ({}) (Watchdog.ended)", k, !mine || ran <= 3 ? "ended at once: the walker's own refusal" : madeSome ? "broke or got something on the way" : meansFirst(g, t) ? "something queued in front of it first" : "got nearer"); return; } // (the rung stays for MEMORY: it came good, but a fresh trip on it climbs on)
         int[] e = s.ends.get(k);
         if (e == null || now(g) - e[1] > WINDOW) { e = new int[] {0, now(g)}; s.ends.put(k, e); }
         e[0]++;
@@ -344,7 +354,7 @@ public final class Watchdog {
         while (s.samples.size() > 60) s.samples.pollFirst();
         // 2. health falling 5+ in 10 s with no answer to it (not running, not eating)
         double[] ten = null; for (double[] x : s.samples) if (now(g) - x[0] <= 20 * 10) { ten = x; break; }
-        if (ten != null && ten[4] - g.getHealth() >= 5 && !(g.currentTask instanceof Task.Flee) && !(g.currentTask instanceof Task.Eat) && now(g) - s.lastFall > 20 * 30) { s.lastFall = now(g); incident(g, "HEALTH FALLING", String.format("%.0f -> %.0f in %d s, no flee or eat (doing %s, on fire %s, in lava %s)", ten[4], g.getHealth(), (now(g) - (int) ten[0]) / 20, g.currentTask == null ? "-" : g.currentTask.getClass().getSimpleName(), g.isOnFire(), g.isInLava())); }
+        if (ten != null && ten[4] - g.getHealth() >= 5 && !(g.currentTask instanceof Task.Flee) && !(g.currentTask instanceof Task.Eat) && now(g) - s.lastFall > 20 * 30) { s.lastFall = now(g); incident(g, "HEALTH FALLING", String.format("%.0f -> %.0f in %d s, no flee or eat (doing %s, on fire %s, in lava %s)%s", ten[4], g.getHealth(), (now(g) - (int) ten[0]) / 20, g.currentTask == null ? "-" : g.currentTask.getClass().getSimpleName(), g.isOnFire(), g.isInLava(), drowningOut(g))); }
         // 3. a fight with no effect: 15 s in an attack, its target no worse off
         if (g.currentTask instanceof Task.Attack a && g.level() instanceof ServerLevel sl && sl.getEntity(a.target()) instanceof net.minecraft.world.entity.LivingEntity foe) {
             if (!a.target().equals(s.atkTarget)) { s.atkTarget = a.target(); s.atkSince = now(g); s.atkHp = foe.getHealth(); }
@@ -355,6 +365,24 @@ public final class Watchdog {
         var now = gearOf(g);
         if (s.gear != null && now(g) - s.handOff > 40) { java.util.List<String> lost = new java.util.ArrayList<>(); for (var e : s.gear.entrySet()) { int left = now.getOrDefault(e.getKey(), 0); if (left < e.getValue()) lost.add((e.getValue() - left) + " " + e.getKey()); } if (!lost.isEmpty()) incident(g, "GEAR GONE", String.join(", ", lost) + " (doing " + (g.currentTask == null ? "-" : g.currentTask.getClass().getSimpleName()) + ", step " + (g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target()) + ")"); }
         s.gear = now;
+    }
+
+    /**
+     * Drowning with his health already falling: the swim-up reflex (WorkGoal, air under 120) has failed, so the way to air is
+     * planned like a stuck escape, digging allowed (two drownings in his own mine, 17:09 and 18:11 on 2026-11-02, with the reflex
+     * there both times). Returns what it did, for the incident line.
+     */
+    public static boolean airRoute(ClaudeEntity g) { St s = ST.get(g.getUUID()); return s != null && now(g) - s.airRouteTick < 20 * 10; }
+    static String drowningOut(ClaudeEntity g) {
+        if (!g.isEyeInFluid(net.minecraft.tags.FluidTags.WATER) || g.getAirSupply() > 0 || !(g.level() instanceof ServerLevel lv)) return "";
+        BlockPos me = BlockPos.containing(g.getEyePosition()), best = null;
+        for (BlockPos q : BlockPos.betweenClosed(me.offset(-6, -3, -6), me.offset(6, 6, 6))) // the nearest cell he can breathe in: air, with air over it
+            if (lv.getBlockState(q).isAir() && lv.getBlockState(q.above()).isAir() && (best == null || q.distSqr(me) < best.distSqr(me))) best = q.immutable();
+        if (best == null) return "; drowning, no air within 6";
+        boolean planned = com.claudemod.director.ClaudeLife.escapeStuck(g, lv, new Task.GoTo(best, 0.5));
+        if (planned) st(g).airRouteTick = now(g);
+        ClaudeMod.LOGGER.info("[Claude watchdog] drowning at {} with the swim-up failing: {} air at {} (Watchdog.drowningOut)", me.toShortString(), planned ? "a dug way to the" : "no way found to the", best.toShortString());
+        return planned ? "; drowning: a dug way to air at " + best.toShortString() + " queued" : "; drowning: no way to air at " + best.toShortString();
     }
 
     /** A skill line coming straight back (under 1 s, 3 times running): it returns at once and is queued again (live 12:30 World 15 "collect beef" 9 times in 2 s). */

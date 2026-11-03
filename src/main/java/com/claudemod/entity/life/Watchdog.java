@@ -340,7 +340,7 @@ public final class Watchdog {
         s.px = g.getX(); s.py = g.getY(); s.pz = g.getZ(); s.pTick = now(g); s.pDim = g.level().dimension();
         if (g.currentTask instanceof Task.Toss || g.currentTask instanceof Task.Chest || g.currentTask instanceof Task.Deposit) s.handOff = now(g);
         if (now(g) % 20 != 0) return;
-        s.samples.addLast(new double[] {now(g), g.getX(), g.getY(), g.getZ(), g.getHealth(), g.getFoodData().getFoodLevel(), g.getRemainingFireTicks()});
+        s.samples.addLast(new double[] {now(g), g.getX(), g.getY(), g.getZ(), g.getHealth(), g.getFoodData().getFoodLevel(), g.getRemainingFireTicks(), g.getAirSupply(), g.isEyeInFluid(net.minecraft.tags.FluidTags.WATER) ? 1 : 0, g.level().getBlockState(net.minecraft.core.BlockPos.containing(g.getEyePosition()).above()).blocksMotion() ? 1 : 0}); // + air, eyes under water, a solid block over his head (two drownings 17:09/18:11 had none of it)
         while (s.samples.size() > 60) s.samples.pollFirst();
         // 2. health falling 5+ in 10 s with no answer to it (not running, not eating)
         double[] ten = null; for (double[] x : s.samples) if (now(g) - x[0] <= 20 * 10) { ten = x; break; }
@@ -383,7 +383,7 @@ public final class Watchdog {
         b.append("when: tick ").append(now(g)).append(", day time ").append(lv.getDayTime() % 24000).append('\n');
         b.append("where: ").append(lv.dimension().location()).append(' ').append(at.toShortString()).append(", under him ").append(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(lv.getBlockState(at.below()).getBlock()).getPath()).append(g.isInLava() ? ", IN LAVA" : "").append(g.isOnFire() ? ", on fire" : "").append('\n');
         St s = st(g); StringBuilder tr = new StringBuilder();
-        for (double[] x : s.samples) if (now(g) - x[0] <= 20 * 30) tr.append(String.format(" %ds: hp %.0f food %.0f fire %.0f at %.0f %.0f %.0f;", (int) (x[0] - now(g)) / 20, x[4], x[5], x[6], x[1], x[2], x[3]));
+        for (double[] x : s.samples) if (now(g) - x[0] <= 20 * 30) tr.append(String.format(" %ds: hp %.0f food %.0f fire %.0f at %.0f %.0f %.0f%s;", (int) (x[0] - now(g)) / 20, x[4], x[5], x[6], x[1], x[2], x[3], x.length > 9 && (x[7] < 300 || x[8] > 0) ? String.format(" air %.0f%s%s", x[7], x[8] > 0 ? " eyes under water" : "", x[9] > 0 ? " roof over head" : "") : ""));
         b.append("last 30 s:").append(tr.length() == 0 ? " -" : tr).append('\n');
         b.append("goal: ").append(g.goal == null ? "-" : g.goal).append("; their goal: ").append(g.playerGoal == null ? "-" : g.playerGoal).append("; on their job: ").append(g.commandActive).append(g.staying ? "; STAYING (their hold)" : "").append('\n');
         b.append("step: ").append(g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target()).append("; last line: ").append(g.lastSkillLine == null ? "-" : g.lastSkillLine).append("; plan: ").append(g.skillQueue).append('\n');

@@ -7,7 +7,8 @@ Background: the unaided run in New World (16) had 6 deaths after the portal, a 3
    - Prompt: the goal and the failed action; his exact failure lines ("path=none", water on all sides, out of reach); a layered block map round him (about 9x9x5; water, lava, air, solid, his own placed blocks marked); inventory, health, hunger; what's been tried.
    - Answer: a short sequence of primitives (dig_at, place_at, scoop_at, pour, pillar, step, go_to), which already exist from teaching mode.
    - Check every plan with ActionPath before running it (LLM spatial reasoning from text is weak), run it, then check he's actually closer.
-   - A stronger model for this call is fine: it fires rarely, unlike the planner.
+   - Model: Haiku is enough (user, 2026-11-03). Most blockages are pathing: the obsidian pocket's water cell sat behind one block he wouldn't break, and "break the block" fixes it. What matters is that the prompt NAMES the obstacle ("stone at X stands between you and the water at Y; you have a pick"), not model size. Escalate to a bigger model only after Haiku's plan fails the check twice.
+   - Tier 0, before any LLM call: re-run ActionPath to the target with the moves that were refused allowed again (MAY_DIG, place, scoop). The refusals that caused today's stucks were his own rules (NO_DIG, etiquette, his own builds, owner claims), not the world. If the path is found, run it and log which rule had blocked it. That rule is the bug.
    - A plan that works is saved as a learned skill keyed by obstacle type (learned-skills plan), so the next time it's a lookup, not a model call.
    - Giving up becomes rare and is always logged as a bug.
    - First test cases from today's logs: water at the branch face (541,12,126), sealed in his own patches, an out-of-reach obsidian block, the nook-shell owner fight.

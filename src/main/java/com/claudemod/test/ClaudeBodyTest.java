@@ -10366,6 +10366,7 @@ public final class ClaudeBodyTest {
     // ---------------------------------------------------------------- stages 494 on: one method each (exactStages is at the JVM's 64 KB limit)
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
+            case 565, 566, 567, 568: return st565(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -11888,6 +11889,59 @@ public final class ClaudeBodyTest {
             return true;
         }
     }
+    private static boolean st565(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // (World 16: sealHeld saw 779,-59,81 but nobody owned its dig; a drop in the next cell must come out before the patch.)
+        BlockPos at = h.absolutePos(new BlockPos(6, 2, 8)), hole = at.north(), iron = hole.north(), diamond = iron.east(), lower = iron.below();
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.prefs.put("mine_model", "blueprint"); c.prefs.put("torches_while_digging", "no"); c.prefs.put("stay_close", "no");
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64));
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) for (int y = -2; y <= 7; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.STONE.defaultBlockState(), 2);
+            var b = new com.claudemod.entity.life.MineBlueprint(at.west(2), net.minecraft.core.Direction.EAST, 2, 3);
+            b.segments.clear(); b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, at.west(2), net.minecraft.core.Direction.EAST, 7, null)); b.invalidate(); c.blueprint = b;
+            for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK) level.setBlock(e.getKey(), Blocks.AIR.defaultBlockState(), 2);
+            level.setBlock(hole, Blocks.AIR.defaultBlockState(), 2); level.setBlock(hole.above(), Blocks.AIR.defaultBlockState(), 2); level.setBlock(iron, Blocks.IRON_ORE.defaultBlockState(), 2); level.setBlock(diamond, Blocks.DIAMOND_ORE.defaultBlockState(), 2); level.setBlock(lower, Blocks.IRON_ORE.defaultBlockState(), 2);
+            if (stage[0] == 565 || stage[0] == 568) { level.setBlock(hole.east(), Blocks.AIR.defaultBlockState(), 2); level.setBlock(hole.east().above(), Blocks.AIR.defaultBlockState(), 2); }
+            com.claudemod.director.ClaudeLife.bpSync(c); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+            for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(at).inflate(20))) it.discard();
+            if (stage[0] == 566) {
+                level.setBlock(diamond, Blocks.STONE.defaultBlockState(), 2); level.setBlock(lower, Blocks.STONE.defaultBlockState(), 2);
+                for (int k = 0; k <= 2; k++) for (int y = 0; y <= 1; y++) level.setBlock(hole.north(k).above(y), Blocks.AIR.defaultBlockState(), 2);
+                var drop = new net.minecraft.world.entity.item.ItemEntity(level, hole.getX() + 0.5, hole.getY() + 0.1, hole.getZ() - 1.5, new ItemStack(Items.RAW_IRON)); drop.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); level.addFreshEntity(drop);
+                c.attempts.counters.put("hold:" + hole.asLong(), c.tickCount); // a preceding pickup finished without this drop two cells behind the mouth
+            }
+            if (stage[0] == 567) { c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); }
+        }
+        if (stage[0] == 567) {
+            if (t[0] == 10) c.tasks.add(new Task.Place(hole, Items.COBBLED_DEEPSLATE));
+            if (t[0] > 10) check(level.getBlockState(hole).isAir() && level.getBlockState(iron).is(Blocks.IRON_ORE), "ore without a correct pick was sealed in or broken without drops");
+            if (t[0] == 80) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "ore without a correct pick kept exposed, never sealed in"); }
+            return true;
+        }
+        if (stage[0] == 566) {
+            if (t[0] == 10) c.tasks.add(new Task.Place(hole, Items.COBBLED_DEEPSLATE));
+            if (t[0] > 10) {
+                int raw = c.inventory.count(s -> s.is(Items.RAW_IRON)); boolean closed = !level.getBlockState(hole).getCollisionShape(level, hole).isEmpty();
+                check(!closed || raw == 1, "patch covered his raw iron two cells behind the mouth before pickup");
+                if (closed && raw == 1) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "drop two cells into the pocket picked up before patching in " + t[0] + " ticks"); }
+                else check(t[0] < 300, "pocket drop not collected and patched in 15 s: " + c.currentTask + ", " + c.tasks);
+            }
+            return true;
+        }
+        if (stage[0] == 568) { if (t[0] == 10) c.tasks.add(new Task.MineVisibleOres(3)); }
+        else if (t[0] == 10 || (t[0] > 10 && t[0] % 60 == 10 && c.tasks.isEmpty() && c.currentTask == null)) com.claudemod.director.ClaudeLife.bpReconcile(c, level, 0, 6, false);
+        if (t[0] > 10) {
+            boolean mined = !com.claudemod.entity.life.MineBlueprint.ore(level.getBlockState(iron)) && !com.claudemod.entity.life.MineBlueprint.ore(level.getBlockState(diamond)) && !com.claudemod.entity.life.MineBlueprint.ore(level.getBlockState(lower));
+            boolean patched = java.util.List.of(hole, hole.above(), hole.east(), hole.east().above(), iron, diamond, lower).stream().allMatch(p -> !level.getBlockState(p).getCollisionShape(level, p).isEmpty());
+            int raw = c.inventory.count(s -> s.is(Items.RAW_IRON)), dia = c.inventory.count(s -> s.is(Items.DIAMOND));
+            boolean anyPatch = java.util.List.of(hole, hole.above(), hole.east(), hole.east().above(), iron, diamond, lower).stream().anyMatch(p -> level.getBlockState(p).is(Blocks.COBBLED_DEEPSLATE) || level.getBlockState(p).is(Blocks.COBBLESTONE));
+            check(!anyPatch || (mined && raw >= 2 && dia == 1), "patched before the whole vein and every drop were collected");
+            if (!com.claudemod.entity.life.MineBlueprint.ore(level.getBlockState(iron))) check(!level.getBlockState(diamond).is(Blocks.DIAMOND_ORE), "iron taken before the exposed diamond");
+            if (mined && patched && raw >= 2 && dia == 1) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "whole vein mined, 2 iron + diamond picked up, all seven holes patched in " + t[0] + " ticks"); }
+            else check(t[0] < 400, "mine integrity: mined=" + mined + ", patched=" + patched + ", iron=" + raw + ", diamonds=" + dia + ", at=" + c.blockPosition() + ", task=" + c.currentTask + ", queue=" + c.tasks);
+        }
+        return true;
+    }
+
     private static boolean st513(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         { // the kit tiers (the user, 12:20: "iron or better is fine ... he needs a diamond pick ... for the dragon he should have full diamond"): in iron with a diamond pick before the Nether, no diamond armor, axe or shovel asked; with 6 blaze rods, full diamond
             if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); }

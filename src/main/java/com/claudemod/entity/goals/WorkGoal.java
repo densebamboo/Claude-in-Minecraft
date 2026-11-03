@@ -2411,7 +2411,7 @@ public class WorkGoal extends Goal {
             }
         }
         ores = new java.util.ArrayList<>(all);
-        ores.sort(java.util.Comparator.comparingDouble(p -> p.distSqr(at)));
+        ores.sort(java.util.Comparator.<BlockPos>comparingInt(p -> level.getBlockState(p).is(net.minecraft.tags.BlockTags.DIAMOND_ORES) ? 0 : 1).thenComparingDouble(p -> p.distSqr(at)));
         // Ore taken out of the floor leaves a hole in the walkway: patch it back like a player would.
         // stone to patch stone: cobble (cobbled deepslate down deep), dirt only if that's all he has
         net.minecraft.world.item.Item filler = g.inventory.find(st -> st.is(net.minecraft.world.item.Items.COBBLESTONE)).getItem();
@@ -2422,7 +2422,8 @@ public class WorkGoal extends Goal {
         // the holes that open onto his own mine get patched; ones opening onto a real cave are left alone
         java.util.List<BlockPos> patch = new java.util.ArrayList<>();
         for (BlockPos o : ores) if (!com.claudemod.director.ClaudeLife.isMineCell(g, o) // ore in his path stays open: it's walkway
-                && com.claudemod.director.ClaudeLife.touchesMine(g, o)) patch.add(o); // in his mine's walls, its corners and step edges included
+                && (com.claudemod.director.ClaudeLife.touchesMine(g, o) || ownMine && java.util.Arrays.stream(Direction.values()).anyMatch(d -> g.blueprint != null && airJoinedToMine(level, g.blueprint, o.relative(d))))) patch.add(o); // World 16: the rest of a small ore pocket is patched too, not only its mouth.
+        patch.sort(java.util.Comparator.comparingDouble((BlockPos p) -> p.distSqr(at)).reversed()); // deepest holes before the opening that gives him access
         boolean inOwnTunnel = !patch.isEmpty();
         if (!ores.isEmpty()) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} ore in the walls at {}, {} of them in his mine's walls (will patch those)", ores.size(), at.toShortString(), patch.size());
         if (!ores.isEmpty() && patch.isEmpty()) com.claudemod.ClaudeMod.LOGGER.info("[Claude life]   (his mine as he knows it: shape {}, entrance {} heading {}, end {} heading {}{}, ownMine {})",
@@ -2466,13 +2467,13 @@ public class WorkGoal extends Goal {
             seen.add(q.immutable()); todo.add(q.immutable()); } }
         return seen;
     }
-    /** Ore he can take showing into that pocket (face to face), nearest the cell first, never his walkway's own. */
+    /** Ore showing into that pocket with line of sight, diamonds first, never his walkway's own. */
     public static java.util.List<BlockPos> veinBehind(com.claudemod.entity.ClaudeEntity g, ServerLevel level, BlockPos pos) {
         java.util.Set<BlockPos> pocket = pocketBehind(g, level, pos); java.util.LinkedHashSet<BlockPos> out = new java.util.LinkedHashSet<>();
         for (BlockPos p : pocket) for (Direction d : Direction.values()) { BlockPos q = p.relative(d); if (pocket.contains(q)) continue; BlockState s = level.getBlockState(q);
-            if (!com.claudemod.entity.life.MineBlueprint.ore(s) || (g.blueprint != null && g.blueprint.isWalk(q)) || (s.requiresCorrectToolForDrops() && g.inventory.find(st -> st.isCorrectToolForDrops(s)).isEmpty())) continue;
+            if (!com.claudemod.entity.life.MineBlueprint.ore(s) || (g.blueprint != null && g.blueprint.isWalk(q)) || !com.claudemod.director.ClaudeLife.canSee(g, level, q)) continue;
             out.add(q.immutable()); }
-        java.util.List<BlockPos> l = new java.util.ArrayList<>(out); l.sort(java.util.Comparator.comparingDouble(q -> q.distSqr(pos))); return l;
+        java.util.List<BlockPos> l = new java.util.ArrayList<>(out); l.sort(java.util.Comparator.<BlockPos>comparingInt(q -> level.getBlockState(q).is(net.minecraft.tags.BlockTags.DIAMOND_ORES) ? 0 : 1).thenComparingDouble(q -> q.distSqr(pos))); return l;
     }
     /** What a patch at pos would seal in: ore he can take showing into its pocket, or a valuable drop of his lying in it. Null: nothing. */
     public static String sealsIn(com.claudemod.entity.ClaudeEntity g, ServerLevel level, BlockPos pos) {
@@ -2505,7 +2506,7 @@ public class WorkGoal extends Goal {
 
     private int pickupBeat = -1000;
     private boolean doPickup(Task.Pickup t) {
-        if (ticks > t.maxTicks()) { if (t == holdPickup) leaveHeld(); if (g.tasks.stream().noneMatch(x -> x instanceof Task.Pickup && x != t)) for (var i0 : g.level().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, g.getBoundingBox().inflate(8), i1 -> i1.isAlive() && !g.isGift(i1) && isOreDrop(i1.getItem()))) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the pickup ran out of time with {} still at {}", i0.getItem().getHoverName().getString(), i0.blockPosition().toShortString()); com.claudemod.entity.life.OwnEvents.left(g, i0, "the pickup ran out of time"); leaveOwn(i0); } return true; } // (valuables still lying there go on his book: "you didn't grab them all" finds them; only when no later Pickup is queued: 07:08 a 40-tick per-ore pickup ran out mid-fall and booked a diamond LEFT that the vein's own pickup right after would have got)
+        if (ticks > t.maxTicks()) { boolean mineHold = t == holdPickup && holdAt != null && minePatch(holdAt); if (t == holdPickup) leaveHeld(); if (mineHold) return true; if (g.tasks.stream().noneMatch(x -> x instanceof Task.Pickup && x != t)) for (var i0 : g.level().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, g.getBoundingBox().inflate(8), i1 -> i1.isAlive() && !g.isGift(i1) && isOreDrop(i1.getItem()))) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the pickup ran out of time with {} still at {}", i0.getItem().getHoverName().getString(), i0.blockPosition().toShortString()); com.claudemod.entity.life.OwnEvents.left(g, i0, "the pickup ran out of time"); leaveOwn(i0); } return true; } // (valuables still lying there go on his book: "you didn't grab them all" finds them; only when no later Pickup is queued: 07:08 a 40-tick per-ore pickup ran out mid-fall and booked a diamond LEFT that the vein's own pickup right after would have got)
         if (falling()) { fallNote("a pickup"); return false; } // dropping (down the hole he just dug): what's reachable is judged from where he lands
         { Vec3 e = com.claudemod.director.ClaudeLife.portalEdge(); if (e != null && Math.abs(g.getY() - e.y) <= 0.6) return true; } // up his casting pillar: nothing is chased from up here
         if (ticks == 1 && !(lastPickupTask == t)) { pickupEffort = 0; pickupTowers = 0; lastPickupTask = t; }
@@ -2515,7 +2516,7 @@ public class WorkGoal extends Goal {
         items.removeIf(i -> pickupSkipped(i, pickupSkip(g, i))); // given up on, no room, inside a block: the same filter the waits ask (ClaudeLife.nookMove)
         items.removeIf(i -> (i.getItem().is(net.minecraft.tags.ItemTags.SAPLINGS) || i.getItem().is(net.minecraft.world.item.Items.STICK)) && i.getY() > g.getY() + 2 && pickupSkipped(i, "a sapling or stick up in the leaves: not worth a climb"));
         com.claudemod.entity.life.MineBlueprint bp = com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && (g.blueprint.touches(g.blockPosition()) || airJoinedToMine(level, g.blueprint, g.blockPosition())) ? g.blueprint : null; // in his mine (blueprint mode), an ore hole off it too (06:49 standing in one he took bp null: no wall pre-queue, the shell guard refused, a diamond left)
-        if (t == holdPickup && holdAt != null) { BlockPos cell = holdAt; items.removeIf(i -> i.position().distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(cell)) > 1.6 * 1.6 && pickupSkipped(i, "the hold is for the drop in the cell he's placing at")); } // (the placement's hold: what's in that cell, then the block; the nearest drop 6 off walked him away from the post and the walk back failed)
+        if (t == holdPickup && holdAt != null) { BlockPos cell = holdAt; var pocket = minePatch(cell) ? pocketBehind(g, level, cell) : java.util.Set.<BlockPos>of(); items.removeIf(i -> !pocket.contains(i.blockPosition()) && i.position().distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(cell)) > 1.6 * 1.6 && pickupSkipped(i, "outside the pocket this patch would close (WorkGoal.doPickup)")); } // World 16: a drop in the next cell belongs to the same hold, not only the 1.6-block ball.
         if (digInAt != null && digInTasks != null && digInTasks.stream().anyMatch(x -> x == t)) { BlockPos hole = digInAt; items.removeIf(i -> (Math.abs(i.getBlockX() - hole.getX()) > 1 || Math.abs(i.getBlockZ() - hole.getZ()) > 1) && pickupSkipped(i, "the cover's own pickup takes only what's in the hole")); } // the cover's own pickup (the dirt for the lid): only what's in the hole (it walked him out of his half-dug hole at night to drops lying about)
         // (a full pack: nothing to be had: pickupSkip above)
         if (bp != null) items.removeIf(i -> !bp.touches(i.blockPosition()) && !com.claudemod.director.ClaudeLife.inHisNook(g, i.blockPosition()) && !airJoinedToMine(level, bp, i.blockPosition()) && pickupSkipped(i, "in his mine only drops in it, in his nook or in open air joined to it count")); // only what lies in the mine or in open air joined to it (an ore hole dug off his walkway, the drop a cell deeper in: it was invisible here and the patch sealed it in): a drop that drifted up through the rock lured him into cutting his way up through his own ceiling
@@ -2951,14 +2952,18 @@ public class WorkGoal extends Goal {
     static boolean TRACE = false;
     private int pickupEffort, pickupTowers;
     private Task.Pickup holdPickup; private BlockPos holdAt; // the Pickup a patch waits on (a drop still in the hole), and the hole
-    /** The patch's Pickup ran its time out and the drop is still in the hole: no way to it from here; it's left (logged), and the patch goes in. */
+    /** A timed-out mine pickup leaves its hole open and pending; it never makes the drop a gift to permit sealing it in. */
     private void leaveHeld() {
         BlockPos at = holdAt; holdPickup = null; holdAt = null;
         if (at == null) return;
+        if (minePatch(at)) { g.pendingPatches.add(at); g.tasks.removeIf(t -> t instanceof Task.Place p && p.pos().equals(at)); com.claudemod.ClaudeMod.LOGGER.info("[Claude patch] pickup could not clear the pocket at {}: left open with its drops, repair pending (WorkGoal.leaveHeld)", at.toShortString()); return; }
         for (var i : g.level().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(at).inflate(1.5), i -> i.isAlive() && !g.isGift(i))) {
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't get the {} out of the hole at {} in 20 s: patching over it", i.getItem().getHoverName().getString(), at.toShortString());
             g.markGift(i);
         }
+    }
+    private boolean minePatch(BlockPos pos) {
+        return g.level().dimension() == net.minecraft.world.level.Level.OVERWORLD && com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && !g.blueprint.isWalk(pos) && (g.blueprint.isShell(pos) || com.claudemod.director.ClaudeLife.inHisMine(g, g.blockPosition()));
     }
     /** Open dry air joined to his mine (6-neighbour, 8 cells at most, no cell beside lava) from this cell: an ore hole dug off his walkway; a cell in solid rock, by lava, or a pocket past 8 isn't. */
     static boolean airJoinedToMine(ServerLevel level, com.claudemod.entity.life.MineBlueprint bp, BlockPos from) {
@@ -3129,12 +3134,12 @@ public class WorkGoal extends Goal {
             for (BlockPos q : behind0) { // faces into the hole and its pocket only: a block touching the hole by a corner shows no face into it (03:31 a corner iron "through the hole" had him breaking the torch's wall over and over to aim at it)
                 BlockState qs = level.getBlockState(q);
                 if ( !com.claudemod.entity.life.MineBlueprint.ore(qs) || g.blueprint.roleAt(q) == com.claudemod.entity.life.MineBlueprint.Role.WALK) continue; // (ore in his walls too: patched past, it was sealed in; only his walkway's own ore waits for the dig)
-                if (qs.requiresCorrectToolForDrops() && g.inventory.find(st -> st.isCorrectToolForDrops(qs)).isEmpty()) continue; // (no pick for it: the patch goes in)
+                if (qs.requiresCorrectToolForDrops() && g.inventory.find(st -> st.isCorrectToolForDrops(qs)).isEmpty()) { refusedBehind++; com.claudemod.ClaudeMod.LOGGER.info("[Claude ore] left exposed: {} at {}, seen from {}, because no correct pick is on him; the hole stays open (WorkGoal.doPlace)", name(qs), q.toShortString(), g.blockPosition().toShortString()); continue; }
                 final BlockPos qq = q.immutable();
-                if (com.claudemod.entity.life.Watchdog.off(g, new Task.Break(qq))) { com.claudemod.ClaudeMod.LOGGER.info("[Claude ore] {} at {} behind the hole at {}: its dig is written off (no way to break it from any spot he can get to): left in, the patch goes in (WorkGoal.doPlace)", qs.getBlock().getName().getString(), qq.toShortString(), pos.toShortString()); continue; } // (World 15 16:34: the ore re-found every few seconds, the hole never shut, 236 lines)
+                if (com.claudemod.entity.life.Watchdog.off(g, new Task.Break(qq))) { refusedBehind++; com.claudemod.ClaudeMod.LOGGER.info("[Claude ore] left exposed: {} at {}, seen from {}, because its dig is written off; the hole stays open (WorkGoal.doPlace)", name(qs), qq.toShortString(), g.blockPosition().toShortString()); continue; }
                 if (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.BREAK, qq, g.tickCount, 20 * 60) || g.attempts.within(com.claudemod.entity.life.Attempts.Kind.REACH, qq, g.tickCount, 20 * 60)) { com.claudemod.ClaudeMod.LOGGER.info("[Claude ore] {} at {} behind the hole at {}: its dig was refused a moment ago (WorkGoal.doPlace)", qs.getBlock().getName().getString(), qq.toShortString(), pos.toShortString()); refusedBehind++; continue; } // (05:02 the patch waited on a lapis he couldn't reach from there, 3 times a second)
                 g.tasks.removeIf(t0 -> t0 instanceof Task.Break b0 && b0.pos().equals(qq)); // (queued further back: it comes out now, before this patch seals it)
-                g.tasks.addFirst(t); g.tasks.addFirst(new Task.Pickup(40)); g.tasks.addFirst(new Task.Break(qq));
+                g.tasks.addFirst(t); g.tasks.addFirst(new Task.Place(qq, qq.getY() < 0 ? net.minecraft.world.item.Items.COBBLED_DEEPSLATE : net.minecraft.world.item.Items.COBBLESTONE)); g.tasks.addFirst(new Task.Pickup(100)); g.tasks.addFirst(new Task.Break(qq)); // World 16: every mined cell comes back, deepest first, before the mouth closes.
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude ore] {} at {} shows through the hole at {}: mined first, then the patch", qs.getBlock().getName().getString(), qq.toShortString(), pos.toShortString());
                 return exit("doPlace line 2612");
             }
@@ -3144,10 +3149,16 @@ public class WorkGoal extends Goal {
         // that Pickup's own end (picked up, or its time out with the drop still there: left, logged) ends the wait, never a count of tries
         com.claudemod.entity.life.MineBlueprint bpIn = com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.touches(g.blockPosition()) ? g.blueprint : null; // (as his Pickup sees it from where he stands)
         final java.util.Set<BlockPos> pocket0 = pocketBehind(g, level, pos); // (a drop a cell or two deeper in the pocket is sealed in all the same: 12:14 a diamond behind the patch)
+        var coveredDrops = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(pos).inflate(5), i -> i.isAlive() && !g.isGift(i) && (pocket0.contains(i.blockPosition()) || i.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(pos))));
         var inside = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(pos).inflate(5),
-                i -> i.isAlive() && (i.position().distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(pos)) <= 2.6 * 2.6 || pocket0.contains(i.blockPosition())) && !g.isGift(i) && g.inventory.hasRoomFor(i.getItem()) && (bpIn == null || bpIn.touches(i.blockPosition()) || airJoinedToMine(level, bpIn, i.blockPosition())));
+                i -> i.isAlive() && (i.position().distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(pos)) <= 2.6 * 2.6 || pocket0.contains(i.blockPosition())) && !g.isGift(i) && (minePatch(pos) || g.inventory.hasRoomFor(i.getItem())) && (bpIn == null || bpIn.touches(i.blockPosition()) || airJoinedToMine(level, bpIn, i.blockPosition())));
         if (!inside.isEmpty() && wsDug != null && g.tickCount - wsDugTick < 100 && pos.closerThan(wsDug, 5)) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} by a block of the cover he's making at {}: the cover first, the drop after the fight (WorkGoal.doPlace)", inside.get(0).getItem().getHoverName().getString(), pos.toShortString()); inside = java.util.List.of(); } // ponytail: stage 555, a pearl in the post's cell held the build (a pickup, then "into the hole for it") with two endermen on him: 20 -> 5
         boolean wetBy = !level.getFluidState(pos).isEmpty(); for (Direction d : Direction.values()) if (!level.getFluidState(pos.relative(d)).isEmpty()) wetBy = true; // a plug against lava or water: it goes in first (the flow won't wait; the drop is after, or the lava's)
+        if (minePatch(pos) && !inside.isEmpty() && !wetBy && !coverCell(pos)) {
+            holdPickup = new Task.Pickup(400); holdAt = pos.immutable(); g.tasks.addFirst(t); g.tasks.addFirst(holdPickup); viewTry().remove(pos);
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude patch] {} at {} waits for {} at {}: the whole pocket picked up before closing (WorkGoal.doPlace)", t.item(), pos.toShortString(), inside.get(0).getItem().getHoverName().getString(), inside.get(0).blockPosition().toShortString());
+            return exit("mine drop still in the pocket: pickup first (WorkGoal.doPlace)");
+        }
         { String hk = "hold:" + pos.asLong(); Integer held = g.attempts.counters.get(hk); // held for this drop a moment ago and it's still there: the pickup couldn't get it; it's left (logged) and the block goes in (04:33 a furnace held 6 times in 30 s for a drop the pickup never went for)
           if (!inside.isEmpty() && !wetBy && held != null && g.tickCount - held < 20 * 30 && com.claudemod.director.ClaudeLife.dropsWorth(inside) >= 15) { // a valuable pile is never sealed in (live 11:36: 3 diamonds in his branch's floor holes, the patch went over them after a 2.5 s hold): he steps down into the hole for it; can't: the hole stays open
             String wk = "walkin:" + pos.asLong(); Integer w = g.attempts.counters.get(wk);
@@ -3422,6 +3433,7 @@ public class WorkGoal extends Goal {
         }
         if (bedAim != null && against == Direction.DOWN) hit = bedAim; // (the bed from the corner: aimed at the foot's far half)
         g.useOnAt(pos.relative(against), against.getOpposite(), sneak, hit); // sneak only against a chest/table/door
+        if (!level.getBlockState(pos).canBeReplaced()) for (var drop : coveredDrops) com.claudemod.ClaudeMod.LOGGER.info("[Claude patch] {} at {} covers a drop of his ({}) at {} (WorkGoal.doPlace)", itemName(stack), pos.toShortString(), drop.getItem().getHoverName().getString(), drop.blockPosition().toShortString());
         if (!level.getBlockState(pos).canBeReplaced()) { if (stepOutSince != null) stepOutSince.remove(pos); if (sentFor != null) sentFor.remove(pos); if (viewTry != null) viewTry.remove(pos); } // (placed: what was kept for getting it in is done with)
         if (level.getBlockState(pos).canBeReplaced()) {
             var who = level.getEntities((net.minecraft.world.entity.Entity) null, new net.minecraft.world.phys.AABB(pos), e -> !e.isSpectator());

@@ -298,3 +298,4 @@ Today the mod runs server-side only. No client mod is needed: he's a ServerPlaye
 - **Watchdog tables only grow** (ends, rung, tried, what, lastEnd, lastFeet, means: keyed by "walk to x,y,z"). Prune entries older than MEMORY once a minute in tick().
 - **Other block pickers still need Watchdog.skipBreak.** Only the obsidian picker and TempLedger use it so far. Mine ore, the nook, trees and the strip-mine face pick break targets on their own.
 - Stages 414 (pin: out of the pocket) and 415 (technique: a plug queued) fail on main as of 2026-11-03, before the audit changes too. Not caused by the watchdog commit.
+- Stages 565-568 pass one at a time but fail run as a group ("patched before the whole vein and every drop were collected"), on codex/mine-integrity alone too: they leak state into each other. Run them separately until fixed.

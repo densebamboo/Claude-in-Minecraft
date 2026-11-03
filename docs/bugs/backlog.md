@@ -222,3 +222,9 @@ Today the mod runs server-side only. No client mod is needed: he's a ServerPlaye
   - Patching never seals a cell he's standing in, or the only way out of the water he's in.
   - Swimming with no path out digs out, the way a player would (break the patch or wall toward the shore), not "swimming there" forever.
   - The stuck timer keys on the target cell, not the task object, so a re-queued identical GoTo still trips it.
+
+- **explore stony_peaks: good idea, unbounded search (23:35).** After the iron branch looped, the planner switched to "go find stony peaks" for mountain iron. That's a sound player instinct, but he has no idea where one is, and this world is mostly desert and ocean. Make it a player's version:
+  - Any mountain counts: windswept hills, jagged, frozen or stony peaks, meadow, grove, or any cliff face with exposed ore.
+  - So does any big cave opening he sees on the way.
+  - The search has a budget (about 300 blocks or 3 min). If nothing turns up, fall back to the cave or branch iron he already knows, with the water-face fix.
+  - The planner needs to know biome search is blind, so it doesn't send him chasing a rare biome when known ore is close.

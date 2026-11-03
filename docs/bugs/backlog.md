@@ -2,7 +2,7 @@
 
 Background: the unaided run in New World (16) had 6 deaths after the portal, a 3 h stuck in water, an hour of food plans and blind explores. Most of it came from gaps (no rule for the situation), not broken code. When blocked, he gives up or does random things, because the watchdog's TRIP/skip and the planner never look at what's actually in the way. User: "he's an ai. i think he should be able to intelligently problem solve when he runs into a blockage."
 
-0. **MINE INTEGRITY, RECURRING (user has raised it many times; still not solved).** In New World (16) the user watched him:
+0. **MINE INTEGRITY, RECURRING. DONE 2026-11-03 (codex/mine-integrity merged, 6dca6d0; stages 565-568). Verify live: diamonds finished and drops picked up before holes close.** In New World (16) the user watched him:
    (a) leave exposed diamonds: the diamond at 779,-59,81 stood exposed while sealHeld held the patch and nothing mined it;
    (b) mine ore, not pick up the drop, then patch over it;
    (c) not patch every ore hole he mined in his mine.

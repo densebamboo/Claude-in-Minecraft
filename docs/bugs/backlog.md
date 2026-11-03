@@ -215,3 +215,9 @@ Today the mod runs server-side only. No client mod is needed: he's a ServerPlaye
 - **Spawn and presence:** join and leave rules on a dedicated server (his saved position, not beside whoever joined first). One bot per server, or optionally one per owner.
 - **Dedicated-server check:** no client-only classes reached on a dedicated server (ClaudeModClient stays Dist.CLIENT). Config docs for server admins. A vanilla client joining is verified.
 - **Shared-world etiquette:** don't mine or break other players' builds or claimed areas. Respect protection plugins and claims if present.
+
+- **Sealed himself in a water pocket, stuck 3 h (20:20-23:17+, 541,12,126 in his iron mine at y 12).** The user saw it: he fell into water, then his patching sealed the pocket's openings round him, so he was boxed in with the water. The walker had no path out ("path=none"). Every few seconds: "stuck swimming at 541, 12, 126: a shore at 542, 12, 125 (2 blocks through the water), swimming there", about 37 of those every 2 min, for 3 hours. The collect iron_ore step re-queued GoTo 539,12,127 as a new task each time, so ClaudeLife's 45 s stuck-skip never fired ("task age" kept resetting) and the watchdog counted each end as "got nearer". He said so himself in chat: "stuck in this water, looping trying to climb out". My tp to 542.5 12 125.5 at 23:16:56 put him back at 541,12,126 within 2 s, so the cell was inside his own seal.
+  Root fixes:
+  - Patching never seals a cell he's standing in, or the only way out of the water he's in.
+  - Swimming with no path out digs out, the way a player would (break the patch or wall toward the shore), not "swimming there" forever.
+  - The stuck timer keys on the target cell, not the task object, so a re-queued identical GoTo still trips it.

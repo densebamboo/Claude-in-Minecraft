@@ -286,3 +286,7 @@ Today the mod runs server-side only. No client mod is needed: he's a ServerPlaye
   - So does any big cave opening he sees on the way.
   - The search has a budget (about 300 blocks or 3 min). If nothing turns up, fall back to the cave or branch iron he already knows, with the water-face fix.
   - The planner needs to know biome search is blind, so it doesn't send him chasing a rare biome when known ore is close.
+
+## From the 2026-11-03 audit (not done yet)
+- **Tests run the legacy mine model** (ClaudeBodyTest.java:41 sets mine_model=legacy), while live play uses blueprint: 71 bpMode branches, and mine-integrity bugs in blueprint mode are untested by most stages. Default the tests to blueprint, port or drop the legacy-only stages, then delete the legacy mine path.
+- **ClaudeLife.java is 13.4k lines doing every job.** Move one job out at a time, with no behaviour change: obsidian/portal first, then the mine blueprint.

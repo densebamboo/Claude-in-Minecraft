@@ -1,3 +1,35 @@
+# TOP FEATURES (user 2026-11-03): how he gets near-perfect, beyond hotfixes
+
+Background: the unaided run in New World (16) had 6 deaths after the portal, a 3 h stuck in water, an hour of food plans and blind explores. Most of it came from gaps (no rule for the situation), not broken code. When blocked, he gives up or does random things, because the watchdog's TRIP/skip and the planner never look at what's actually in the way. User: "he's an ai. i think he should be able to intelligently problem solve when he runs into a blockage."
+
+1. **Blockage solver (an LLM call only when blocked). TOP.**
+   - Trigger: a step fails, or makes no progress (same target, no closer) for N s.
+   - Prompt: the goal and the failed action; his exact failure lines ("path=none", water on all sides, out of reach); a layered block map round him (about 9x9x5; water, lava, air, solid, his own placed blocks marked); inventory, health, hunger; what's been tried.
+   - Answer: a short sequence of primitives (dig_at, place_at, scoop_at, pour, pillar, step, go_to), which already exist from teaching mode.
+   - Check every plan with ActionPath before running it (LLM spatial reasoning from text is weak), run it, then check he's actually closer.
+   - A stronger model for this call is fine: it fires rarely, unlike the planner.
+   - A plan that works is saved as a learned skill keyed by obstacle type (learned-skills plan), so the next time it's a lookup, not a model call.
+   - Giving up becomes rare and is always logged as a bug.
+   - First test cases from today's logs: water at the branch face (541,12,126), sealed in his own patches, an out-of-reach obsidian block, the nook-shell owner fight.
+2. **Obstacle -> remedy table (the solver's fast path and fallback).** Diagnose the cause from his own failure lines and run the matching player move before any skip:
+   - water at a face: block it, then go on or turn;
+   - no path out: dig toward the open side;
+   - out of reach: step closer or tower up;
+   - missing item: shortest known route to it;
+   - lava or a drop in the way: bridge, block it, or go round.
+   Each solved blockage adds a row.
+3. **Progress detection that triggers solving, not skipping.**
+   - Key stuck detection on the target and the goal, not on task objects: re-queued identical GoTos reset the 45 s timer, which is why 3 h never tripped.
+   - Same first step re-planned 3+ times means no progress, so solve; don't re-plan again.
+   - The watchdog's write-off goes to the solver first.
+4. **Death avoidance as a priority across all he does, plus fast recovery.** The 6 post-portal deaths cost more than everything else combined. Keep a risk budget:
+   - the gold piece in the Nether, mandatory not optional;
+   - blaze fights fought from cover, never standing in fire;
+   - a water check before entering or digging into water (two drownings, 17:09 and 18:11);
+   - after a death, the fastest route back to working gear, not a full restart.
+5. **A rule-driven route to the dragon (speedrun-style routing), with the planner for exceptions only.** The small, constantly running planner thrashes (12 rewordings of one iron plan in 3 min) and makes wasteful plans: the bow detour before 2 obsidian, explore with lava 10 blocks off, a blind stony-peaks hunt. The main route's steps and their order come from rules; the LLM handles surprises and chat.
+6. **Every incident becomes a regression stage.** Each death or stuck in claude-watch and saves/<world>/claude/incidents gets a stage (the ClaudeBodyTest stage system), so a fixed bug stays fixed.
+
 # Backlog: the minors (parked until the major checkpoints pass; the user, 2026-11-01 00:25)
 
 Each line is a live report from Day to Day (World 15, 2026-10-31/11-01) not on the current major.

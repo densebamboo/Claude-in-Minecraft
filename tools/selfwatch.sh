@@ -13,7 +13,7 @@ echo $$ >> "$OUT/pids.txt"
 # exposed ore, conflicts, his chat admitting trouble); the findings dedup below keeps it to one line per shape
 ( tail -F -n0 "$LOG" 2>/dev/null | grep --line-buffered -aiE '\[Claude [a-z ]+\].*(fail|gave up|give up|giving up|couldn.t|can.t |cannot|no way|stuck|round in circles|skipping|skipped|dropped|refus|ended without|ended short|spin at|stall at|slow walk|conflict|claimed by two|hurt|damage|took [0-9.]+|low health|falling at|litter|left .* behind|left standing|exposed|unlit|wasted|again and again|over and over|timed out|too long|no route)|<Claude> .*(stuck|loop|can.t|couldn.t|sorry|my bad|oops|help)' --line-buffered | sed -uE 's/^\[[^]]*\] \[[^]]*\] \[[^]]*\]: //; s/^/BUG /' >> "$FEED" ) & echo $! >> "$OUT/pids.txt"
 # incidents: the user's "bug", deaths, crashes -> a log snapshot
-( tail -F -n0 "$LOG" 2>/dev/null | grep --line-buffered -aiE '<Fat_Herobrine> .*\bbug\b|died|was slain|was killed|fell |burned|drowned|Exception|Crash' | while read -r l; do
+( tail -F -n0 "$LOG" 2>/dev/null | grep --line-buffered -aiE '<Fat_Herobrine> .*\bbug\b|\[CHAT\] Claude (was|drowned|died|fell|burned|starved|blew|hit|suffocated|tried|went|froze|experienced)|Exception in server tick|This crash report' | while read -r l; do
     k=$(echo "$l" | grep -qi bug && echo bug || (echo "$l" | grep -qiE 'Exception|Crash' && echo crash || echo death))
     f="$OUT/incidents/$(date +%m%d-%H%M%S)-$k.log"; tail -n 600 "$LOG" > "$f"; echo "$(date +%T) INCIDENT $k -> $(basename "$f"): ${l:0:200}" >> "$OUT/findings.txt"
   done ) & echo $! >> "$OUT/pids.txt"

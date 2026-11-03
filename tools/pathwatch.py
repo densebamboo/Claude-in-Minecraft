@@ -22,7 +22,7 @@ while True:
         continue
     g = GOAL.search(line)
     if g:  # time sink: the same goal re-planned for 5+ min means he isn't getting it done (a player would have)
-        gt = int(g[1]) * 3600 + int(g[2]) * 60 + int(g[3]); txt = g[4].strip()
+        gt = int(g[1]) * 3600 + int(g[2]) * 60 + int(g[3]); txt = g[4].strip(); st = re.search(r'Step\[skill=(\w+), target=([^,]*)', line); txt = (st[1] + ' ' + st[2]) if st else txt  # the planner rewords its goal every plan: key on its first step (18:44 iron re-planned 12x in 3 min)
         if txt != goal[0] or gt < goal[1]: goal[0], goal[1] = txt, gt
         elif gt - goal[1] >= 300: say('goal' + txt[:40], 'SLOWGOAL %s:%s:%s %d min on "%s"' % (g[1], g[2], g[3], (gt - goal[1]) // 60, txt), 300)
         continue

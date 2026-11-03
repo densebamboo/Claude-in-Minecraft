@@ -24,7 +24,8 @@ public final class ClaudeChat {
     /** Every 45s: refresh his notes on the player (what they are up to). */
     public static void onServerTick(ServerTickEvent.Post event) {
         MinecraftServer server = event.getServer();
-        if (server.getTickCount() % 20 == 5) bridge(server);
+        if (server.getTickCount() % 20 == 5 && Boolean.getBoolean("claude.bridge")) bridge(server); // dev only: it runs console commands from a file (the live run sets -Dclaude.bridge=true)
+        if (server.getTickCount() % 1200 == 0) for (ServerPlayer sp : server.getPlayerList().getPlayers()) if (!(sp instanceof ClaudeEntity)) com.claudemod.context.PlayerProfile.addTime(sp, 60); // time together drives the story stage; nothing called this before
         if (server.getTickCount() < nextTick) return;
         nextTick = server.getTickCount() + OBSERVE_EVERY_TICKS;
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
@@ -43,8 +44,10 @@ public final class ClaudeChat {
         if (!bridgeAnnounced) { bridgeAnnounced = true; ClaudeMod.LOGGER.info("[Claude bridge] watching {}", f.toAbsolutePath()); }
         try {
             if (!java.nio.file.Files.exists(f) || java.nio.file.Files.size(f) == 0) return;
-            java.util.List<String> lines = java.nio.file.Files.readAllLines(f);
-            java.nio.file.Files.write(f, new byte[0]);
+            java.nio.file.Path taken = f.resolveSibling("claude-chat.reading"); // moved, not emptied: a line written mid-read lands in a fresh file instead of being wiped
+            java.nio.file.Files.move(f, taken, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            java.util.List<String> lines = java.nio.file.Files.readAllLines(taken);
+            java.nio.file.Files.delete(taken);
             ServerPlayer player = null;
             for (ServerPlayer sp : server.getPlayerList().getPlayers()) if (!(sp instanceof ClaudeEntity) && !sp.isSpectator()) { player = sp; break; }
             if (player == null) for (ServerPlayer sp : server.getPlayerList().getPlayers()) if (!(sp instanceof ClaudeEntity)) { player = sp; break; } // a spectating host still speaks (the overnight prompt was dropped while they watched)

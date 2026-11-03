@@ -369,7 +369,7 @@ public final class Primitives {
     /** A face of a block beside the cell, seen from this eye within reach: the ray reaches into the cell without hitting anything. */
     static boolean faceInSight(ClaudeEntity g, ServerLevel level, Vec3 eye, BlockPos p) {
         Vec3 c = Vec3.atCenterOf(p);
-        if (eye.distanceTo(c) > 4.25) return false; // (WorkGoal.inReach)
+        if (eye.distanceTo(c) > com.claudemod.entity.goals.WorkGoal.BREAK_REACH) return false;
         for (Direction d : Direction.values()) {
             BlockPos n = p.relative(d); BlockState ns = level.getBlockState(n);
             if (ns.isAir() || !ns.getFluidState().isEmpty() || ns.canBeReplaced()) continue; // nothing there to click

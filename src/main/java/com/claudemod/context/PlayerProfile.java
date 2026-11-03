@@ -145,7 +145,9 @@ public final class PlayerProfile {
         try {
             Path f = file(player, "claude").resolveSibling(player.getUUID() + "-claude.dat");
             Files.createDirectories(f.getParent());
-            net.minecraft.nbt.NbtIo.writeCompressed(tag, f);
+            Path tmp = f.resolveSibling(f.getFileName() + ".tmp"); // written whole, then swapped in: a crash mid-write used to leave half a file and lose his mine
+            net.minecraft.nbt.NbtIo.writeCompressed(tag, tmp);
+            Files.move(tmp, f, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
             ClaudeMod.LOGGER.warn("[Claude] could not save his state: {}", e.getMessage());
         }
@@ -229,18 +231,19 @@ public final class PlayerProfile {
         }
         prompt.append("\nWRITE: updated notes, and your read on them right now.");
 
-        ClaudeApi.observe(prompt.toString()).whenComplete((result, err) -> {
+        ClaudeApi.observe(prompt.toString()).whenComplete((result, err) -> player.server.execute(() -> { // on the game thread, like the other AI replies
             p.observing = false;
-            if (err != null) {
-                ClaudeMod.LOGGER.warn("[Claude] notes update failed: {}", err.getMessage());
-                return;
+            try {
+                if (err != null) throw err;
+                p.notes = result.get("notes").getAsString().strip();
+                p.read = result.get("read").getAsString().strip();
+                p.lastObservedEvent = newest;
+                save(player, "notes", p.notes);
+                ClaudeMod.LOGGER.info("[Claude read] {}", p.read.replace("\n", " | "));
+            } catch (Throwable e) { // a bad reply used to vanish here, and the notes silently stopped updating
+                ClaudeMod.LOGGER.warn("[Claude] notes update failed: {}", e.toString());
             }
-            p.notes = result.get("notes").getAsString().strip();
-            p.read = result.get("read").getAsString().strip();
-            p.lastObservedEvent = newest;
-            save(player, "notes", p.notes);
-            ClaudeMod.LOGGER.info("[Claude read] {}", p.read.replace("\n", " | "));
-        });
+        }));
     }
 
     private static Profile get(ServerPlayer player) {
@@ -276,7 +279,9 @@ public final class PlayerProfile {
         try {
             Path f = file(player, kind);
             Files.createDirectories(f.getParent());
-            Files.writeString(f, text);
+            Path tmp = f.resolveSibling(f.getFileName() + ".tmp");
+            Files.writeString(tmp, text);
+            Files.move(tmp, f, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
             ClaudeMod.LOGGER.warn("[Claude] could not save {}: {}", kind, e.getMessage());
         }

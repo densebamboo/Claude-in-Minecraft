@@ -268,7 +268,7 @@ public final class Consent {
         for (int k = 2; k <= 4; k++) if (lava(level, q.above(k))) return -1; // lava over him
         Vec3 eye = Vec3.atBottomCenterOf(q).add(0, 1.62, 0);
         if (q.equals(me)) eye = g.getEyePosition();
-        if (eye.distanceTo(Vec3.atCenterOf(cell)) > 4.25) return -1; // (WorkGoal.inReach)
+        if (eye.distanceTo(Vec3.atCenterOf(cell)) > com.claudemod.entity.goals.WorkGoal.BREAK_REACH) return -1;
         if (!sees(g, level, eye, cell)) return -1;
         int tier = q.getY() >= cell.getY() ? 0 : 1;
         int side = Math.abs(q.getX() - cell.getX()) + Math.abs(q.getZ() - cell.getZ());

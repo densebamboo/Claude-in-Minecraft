@@ -1418,8 +1418,11 @@ public class WorkGoal extends Goal {
             com.claudemod.ClaudeMod.LOGGER.info("[Claude temp] {} kept as his build: off his tidy lists (WorkGoal.keptAsBuild)", pos.toShortString());
     }
 
+    /** How far (eyes to a block's centre) he breaks from. Every picker of a block to break uses this, or doBreak refuses what it picked (the obsidian loop, 13:05). */
+    public static final double BREAK_REACH = 4.25;
+
     private boolean inReach(BlockPos pos) {
-        return g.getEyePosition().distanceTo(Vec3.atCenterOf(pos)) <= 4.25; // 4.25 to the centre: every face he clicks stays inside the 4.75 his hands allow (4.0 left a mine-wall hole "out of reach" that a player reaches with a step)
+        return g.getEyePosition().distanceTo(Vec3.atCenterOf(pos)) <= BREAK_REACH; // 4.25 to the centre: every face he clicks stays inside the 4.75 his hands allow (4.0 left a mine-wall hole "out of reach" that a player reaches with a step)
     }
 
     private int approachTries;

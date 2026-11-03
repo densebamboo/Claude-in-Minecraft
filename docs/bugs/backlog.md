@@ -2,6 +2,23 @@
 
 Background: the unaided run in New World (16) had 6 deaths after the portal, a 3 h stuck in water, an hour of food plans and blind explores. Most of it came from gaps (no rule for the situation), not broken code. When blocked, he gives up or does random things, because the watchdog's TRIP/skip and the planner never look at what's actually in the way. User: "he's an ai. i think he should be able to intelligently problem solve when he runs into a blockage."
 
+0. **MINE INTEGRITY, RECURRING (user has raised it many times; still not solved).** In New World (16) the user watched him:
+   (a) leave exposed diamonds: the diamond at 779,-59,81 stood exposed while sealHeld held the patch and nothing mined it;
+   (b) mine ore, not pick up the drop, then patch over it;
+   (c) not patch every ore hole he mined in his mine.
+   The rule ([[mine-integrity-rule]], [[mine-work-order]]), in strict order, in his mine:
+   - every exposed ore he can see gets mined: the whole visible vein, diamonds first, never left exposed;
+   - every drop from it gets picked up before anything closes the hole (no patch while a drop of his lies in or past that cell);
+   - every ore hole gets patched (except the path), then he moves on.
+   Evidence this run:
+   - 2 raw iron at 740,-58/-57,104 "given up on (no way to it)" (00:44);
+   - redstone at 734,-59,103 "down an ore hole ... opening the wall under it", 3 times in 7 s (a loop, 00:44);
+   - 22 "ore in the walls ... will patch those" lines.
+   Logging gap, itself a bug ([[silent-path-is-a-bug]]): a patch placed over a lying drop leaves NO log line (0 hits), and walking past exposed ore he saw leaves none either. Fix the logging first:
+   - "[Claude patch] X at P covers a drop of his (item) at Q";
+   - "[Claude ore] left exposed: <ore> at P, seen from Q, because ...".
+   Then fix the order. Root cause to prove from those lines, not guessed ([[exact-causes-and-logging]]). Stage: a branch with a 3-ore vein (one diamond) where one drop falls into the next cell; assert all mined, all picked up, all holes patched, nothing exposed, under a player-pace time bound.
+
 1. **Blockage solver (an LLM call only when blocked). TOP.**
    - Trigger: a step fails, or makes no progress (same target, no closer) for N s.
    - Prompt: the goal and the failed action; his exact failure lines ("path=none", water on all sides, out of reach); a layered block map round him (about 9x9x5; water, lava, air, solid, his own placed blocks marked); inventory, health, hunger; what's been tried.

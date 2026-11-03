@@ -224,6 +224,7 @@ Today the mod runs server-side only. No client mod is needed: he's a ServerPlaye
   - The stuck timer keys on the target cell, not the task object, so a re-queued identical GoTo still trips it.
 
 - **explore stony_peaks: good idea, unbounded search (23:35).** After the iron branch looped, the planner switched to "go find stony peaks" for mountain iron. That's a sound player instinct, but he has no idea where one is, and this world is mostly desert and ocean. Make it a player's version:
+  - The user's rule (23:40): mountain iron only when he already knows where a mountain or surface-iron biome is (seen it, or it's on his map or memory). Otherwise his default is caving or mining at diamond level, where iron comes along the way and the trip also yields diamonds, redstone and gold. A blind biome hunt is never the first choice.
   - Any mountain counts: windswept hills, jagged, frozen or stony peaks, meadow, grove, or any cliff face with exposed ore.
   - So does any big cave opening he sees on the way.
   - The search has a budget (about 300 blocks or 3 min). If nothing turns up, fall back to the cave or branch iron he already knows, with the water-face fix.

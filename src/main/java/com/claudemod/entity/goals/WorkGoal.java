@@ -360,7 +360,8 @@ public class WorkGoal extends Goal {
             boolean prey = aimed instanceof net.minecraft.world.entity.animal.Animal || aimed instanceof net.minecraft.world.entity.animal.AbstractFish; // (a hunt: the block below takes it as no fight)
             boolean hitterOn = hitter instanceof net.minecraft.world.entity.LivingEntity hl && hl.isAlive() && hl.distanceTo(g) <= 4.0;
             boolean aimedInReach = aimed instanceof net.minecraft.world.entity.LivingEntity al && al.isAlive() && al.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0 && g.hasLineOfSight(al);
-            if (!prey && hitterOn && !aimedInReach) {
+            boolean hitterNearer = hitter instanceof net.minecraft.world.entity.LivingEntity hn && hn.isAlive() && aimed != null && hn.distanceTo(g) < aimed.distanceTo(g) - 1.0 && g.hasLineOfSight(hn); // (live 07:40 11-02: a skeleton 5.4 off shot him 12 times while he stayed on one 9-12 off, full iron 20 -> 0)
+            if (!prey && (hitterOn || hitterNearer) && !aimedInReach) {
                 turnOnHitter = true;
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] a {} hit him ({} off) while he went for a {} out of his reach ({} off): the {} first, the {} after (WorkGoal.tick)", hitter.getType().getDescription().getString(), String.format("%.1f", hitter.distanceTo(g)), aimed == null ? "mob gone" : aimed.getType().getDescription().getString(), aimed == null ? "?" : (int) aimed.distanceTo(g), hitter.getType().getDescription().getString(), aimed == null ? "fight" : aimed.getType().getDescription().getString());
             } else if (!prey) sdSay("busy", "[Claude life] hit by a {} ({} off) while fighting a {} {}: on with that one, the {} next (WorkGoal.tick)", hitter == null ? "mob gone" : hitter.getType().getDescription().getString(), hitter == null ? "?" : String.format("%.1f", hitter.distanceTo(g)), aimed == null ? "mob gone" : aimed.getType().getDescription().getString(), aimedInReach ? "in his reach" : "with the hitter not on him", hitter == null ? "hitter" : hitter.getType().getDescription().getString());
@@ -4190,7 +4191,7 @@ public class WorkGoal extends Goal {
         if (foe instanceof net.minecraft.world.entity.monster.WitherSkeleton) { fightOdds = "wither skeletons: as fast as him, no outrunning them on foot; fought from a 2-high gap or 3 up a pillar (coverFight)"; return false; } // (World 15 19:00:10: he ran from 2 at 6 health, they kept pace, dead in a second)
         if (foe instanceof net.minecraft.world.entity.monster.EnderMan) { fightOdds = "endermen: no outrunning a teleporter; fought (endermanHole for cover)"; return false; } // ponytail: live 18:43 death, he ran from 3 angry endermen and took 7 a hit from behind, 20 -> 0 in 24 s without one swing back
         if (foe instanceof net.minecraft.world.entity.monster.Creeper c && c.distanceTo(g) < 5 && ((c.getSwellDir() > 0 && !canHitNow(c)) || !armed() || g.getHealth() <= 10)) return true; // hissing and he can't hit it right now (or can't fight it): run
-        int n = hostilesNear(10).size();
+        int n = (int) hostilesNear(10).stream().filter(m -> !(m instanceof net.minecraft.world.entity.monster.Phantom) && !(m instanceof net.minecraft.world.entity.monster.Creeper && m.distanceTo(g) > 6)).count(); // the crowd that running gets him away from: no phantoms overhead (no outrunning them), no creeper 12-19 off (live 12:07 11-02: those made one spider '4 on him' and he ran instead of 2-3 axe hits)
         // three or more on him is a crowd whatever he's holding: get out of their reach (tower or dig in) and fight from there
         boolean underground = underground((ServerLevel) g.level(), g.blockPosition()); // (rock over him: a tree's leaves are the open)
         boolean armored = false; for (EquipmentSlot sl : EquipmentSlot.values()) if (sl.isArmor() && !g.getItemBySlot(sl).isEmpty()) armored = true;
@@ -4483,7 +4484,7 @@ public class WorkGoal extends Goal {
         for (var m : ((ServerLevel) level()).getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(24), m -> m.isAlive() && fleeFromIds.contains(m.getUUID()))) if (!mobs.contains(m)) mobs.add(m); // what he's running from stays what he's running from till he's clear of it (out of sight behind him is still on his heels: the run ended a second in and his walk took him back past the witch)
         // cornered (a dungeon, a dead end): running isn't getting him anywhere, so like a player he turns and fights
         if (ticks == 1) fleeFrom = g.position();
-        if (ticks == 30 && !escapeHeld && fleeFrom != null && g.position().distanceTo(fleeFrom) < 2.0 && !mobs.isEmpty()
+        if (ticks >= 30 && ticks % 30 == 0 && !escapeHeld && fleeFrom != null && g.position().distanceTo(fleeFrom) < 2.0 && !mobs.isEmpty() // every 1.5 s of the run, not only its first (live 12:07 11-02: escapes blocked x7 on one block, a spider 20 -> 0, never a swing back)
                 && !mobs.stream().allMatch(m -> (m instanceof net.minecraft.world.entity.monster.AbstractSkeleton || m instanceof net.minecraft.world.entity.monster.Pillager) && m.distanceTo(g) > 3) // "cornered" by a crossbow 8 blocks off is not a fight to wade into (health 16 to 1 in 10 s)
                 && !(mobs.stream().min(java.util.Comparator.comparingDouble(m -> m.distanceTo(g))).get() instanceof net.minecraft.world.entity.monster.Creeper)) { // and never a creeper: "fighting his way out" of one is the explosion
             var near = mobs.stream().min(java.util.Comparator.comparingDouble(m -> m.distanceTo(g))).get();
@@ -4502,6 +4503,7 @@ public class WorkGoal extends Goal {
             return true;
             }
         }
+        if (ticks % 30 == 0) fleeFrom = g.position(); // (the next check: 1.5 s of running from here)
         if (mobs.isEmpty() || (ticks > t.maxTicks() && !escapeHeld)) { // (holding his gap: as long as they come)
             g.setSprinting(false);
             if (mobs.isEmpty()) clearEscape();

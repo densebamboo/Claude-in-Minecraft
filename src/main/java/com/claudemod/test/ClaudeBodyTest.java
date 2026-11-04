@@ -10388,6 +10388,8 @@ public final class ClaudeBodyTest {
             case 591: return st591(stage, t, c, h, level, mock);
             case 592: return st592(stage, t, c, h, level, mock);
             case 593: return st593(stage, t, c, h, level, mock);
+            case 594: return st594(stage, t, c, h, level, mock);
+            case 595: return st595(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -12026,6 +12028,43 @@ public final class ClaudeBodyTest {
     /** A lid of sand over his cover hole: never put down where it falls on him (live 12:37 11-04: suffocated under his own sand lid in a desert). */
     /** Cover in a desert: never a sand lid, never a tuck under a sand roof (live 12:36-12:37 11-04: shot 18 -> 2 in a tuck whose sand roof fell in, then suffocated under a sand lid). */
     /** A creeper walks up while he fights a skeleton: he backs off from the creeper, not ignores it (live 12:25 11-02: blown up in full iron mid-fight). */
+    /** Shot by a nearer skeleton while going for a far one: the nearer one first (live 07:40 11-02: 12 hits from one 5.4 off, stayed on one 9-12 off). */
+    /** A run that ends against a wall with one zombie on him: he turns and fights, not shuffle on the block (live 12:07 11-02: one spider, 20 -> 0, full iron). */
+    private static boolean st595(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000;
+            for (int x = 0; x <= 14; x++) for (int z = 0; z <= 6; z++) for (int y = 1; y <= 14; y++) { boolean hall = (z == 3 || z == 4) && x >= 1 && x <= 12 && (y == 2 || y == 3); level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y <= 4 && !hall ? Blocks.STONE.defaultBlockState() : y <= 4 ? Blocks.AIR.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = 1; x <= 12; x++) for (int z = 3; z <= 4; z++) level.setBlock(h.absolutePos(new BlockPos(x, 4, z)), Blocks.GLOWSTONE.defaultBlockState(), 2);
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 3)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20f);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
+            var z = EntityType.ZOMBIE.create(level); BlockPos zp = me.west(2); z.moveTo(zp.getX() + 0.5, zp.getY(), zp.getZ() + 0.5, 270, 0); level.addFreshEntity(z); z.setTarget(c); hzMob = z;
+            c.tasks.clear(); c.dropCurrent = true; c.tasks.add(new Task.Flee(600));
+        }
+        if (t[0] > 5 && c.currentTask instanceof Task.Attack a && a.target().equals(hzMob.getUUID())) {
+            hzMob.discard(); c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "run blocked at the wall: turned and fought (" + t[0] + " ticks)");
+        } else if (t[0] >= 240) { hzMob.discard(); check(false, "ran into the wall with a zombie on him and never turned to fight (now " + c.currentTask + ", health " + c.getHealth() + ")"); }
+        return true;
+    }
+
+    private static boolean st594(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000;
+            for (int x = 0; x <= 20; x++) for (int z = 0; z <= 8; z++) for (int y = 1; y <= 14; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            BlockPos me = h.absolutePos(new BlockPos(8, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20f);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            var far = EntityType.SKELETON.create(level); BlockPos fp = me.east(11); far.moveTo(fp.getX() + 0.5, fp.getY(), fp.getZ() + 0.5, 90, 0); far.setNoAi(true); level.addFreshEntity(far);
+            var near = EntityType.SKELETON.create(level); BlockPos np = me.west(6); near.moveTo(np.getX() + 0.5, np.getY(), np.getZ() + 0.5, 270, 0); near.setNoAi(true); level.addFreshEntity(near);
+            c.tasks.clear(); c.dropCurrent = true; c.tasks.add(new Task.Attack(far.getUUID(), 600)); hzMob = near;
+        }
+        if (t[0] == 8) c.urgentAttacker = hzMob.getUUID(); // as if its arrow just hit him
+        if (t[0] > 8 && c.currentTask instanceof Task.Attack a && a.target().equals(hzMob.getUUID())) {
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, c.getBoundingBox().inflate(20))) m.discard();
+            c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "the nearer skeleton that shot him first (" + t[0] + " ticks)");
+        } else if (t[0] >= 60) { for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, c.getBoundingBox().inflate(20))) m.discard(); check(false, "shot by a skeleton 6 off, still on the one 11 off (now " + c.currentTask + ")"); }
+        return true;
+    }
+
     private static boolean st593(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (t[0] == 1) {
             scenarioReset(c); c.nextPlanTick = c.tickCount + 12000;

@@ -10390,6 +10390,7 @@ public final class ClaudeBodyTest {
             case 593: return st593(stage, t, c, h, level, mock);
             case 594: return st594(stage, t, c, h, level, mock);
             case 595: return st595(stage, t, c, h, level, mock);
+            case 596: return st596(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -12030,6 +12031,22 @@ public final class ClaudeBodyTest {
     /** A creeper walks up while he fights a skeleton: he backs off from the creeper, not ignores it (live 12:25 11-02: blown up in full iron mid-fight). */
     /** Shot by a nearer skeleton while going for a far one: the nearer one first (live 07:40 11-02: 12 hits from one 5.4 off, stayed on one 9-12 off). */
     /** A run that ends against a wall with one zombie on him: he turns and fights, not shuffle on the block (live 12:07 11-02: one spider, 20 -> 0, full iron). */
+    /** Two skeletons 5 off with a line on him, no armor: no tower and hut built under their fire (live 04:55 11-02: 20 -> 0 in 13 s building one). */
+    private static boolean st596(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000;
+            for (int x = 0; x <= 16; x++) for (int z = 0; z <= 10; z++) for (int y = 1; y <= 14; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(-90f); c.setYHeadRot(-90f); c.setHealth(20f);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 40)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            for (int k = 0; k < 2; k++) { var sk = EntityType.SKELETON.create(level); BlockPos sp = me.east(5).north(k * 2 - 1); sk.moveTo(sp.getX() + 0.5, sp.getY(), sp.getZ() + 0.5, 90, 0); sk.setNoAi(true); level.addFreshEntity(sk); sk.setTarget(c); }
+            c.tasks.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 20) c.tasks.add(new Task.Flee(200));
+        if (t[0] > 20 && (!c.pillarBlocks.isEmpty() || c.tasks.stream().anyMatch(q -> q instanceof Task.Pillar))) { for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, c.getBoundingBox().inflate(20))) m.discard(); check(false, "a tower going up under two skeletons' fire: " + c.tasks); }
+        if (t[0] >= 60) { for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, c.getBoundingBox().inflate(20))) m.discard(); c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "no tower built under two skeletons' fire: out of their sights first"); }
+        return true;
+    }
+
     private static boolean st595(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (t[0] == 1) {
             scenarioReset(c); c.nextPlanTick = c.tickCount + 12000;

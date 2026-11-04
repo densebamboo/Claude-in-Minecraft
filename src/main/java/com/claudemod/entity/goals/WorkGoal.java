@@ -4728,6 +4728,9 @@ public class WorkGoal extends Goal {
                 if (rise > 0 && level.getBlockState(feet.above(towerH + rise + 1)).getCollisionShape(level, feet.above(towerH + rise + 1)).isEmpty()) towerH = Math.min(6, towerH + rise);
                 ItemStack hutBlocks = solidScaffold();
                 boolean enclosed = hutBlocks.getCount() >= 14 + (ItemStack.isSameItem(hutBlocks, blocks) ? towerH : 0); // walls at his feet and head and a lid up there, on top of what the tower takes
+                double buildTicks = towerH * 10 + (enclosed ? 15 * 5 : 0); // a jump and a place a block up; ~5 ticks a hut block with its aim
+                double arrowsBuilding = shooters.stream().filter(m -> m.hasLineOfSight(g)).mapToDouble(m -> { double d = m.distanceTo(g); return d <= 8 ? 1.0 : d <= 12 ? 0.5 : 0.34; }).sum() * (buildTicks + 20) / 40.0; // (as the hole's: a shot every ~2 s, most miss at range)
+                if (arrowsBuilding * 3 >= g.getHealth() - 4 && !desperate && !desperateNow) return noCover(String.format("%d shooter(s) with a line on him: ~%.0f arrows while a %d-high tower%s goes up, at health %d: out of their sights before any building", shooters.size(), arrowsBuilding, towerH, enclosed ? " and hut" : "", (int) g.getHealth())); // (live 04:55 11-02: building a tower and hut under 2-3 skeletons 3-8 off, 20 -> 0 in 13 s, no armor)
                 Direction edge = null; boolean edgeLava = false; int edgeDrop = 0; // a cell beside him with no floor and a long drop or lava under it: a knockback off a bare tower there (or off the climb) is a fall into it
                 for (Direction d : Direction.Plane.HORIZONTAL) {
                     BlockPos n = feet.relative(d);

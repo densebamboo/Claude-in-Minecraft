@@ -54,6 +54,16 @@ Branch `bp/blockage-tier0`. Day to Day's queue, items 1 and 2.
 - **Log:** `[Claude fight] a crowd with a wither skeleton in it (...): to the gap at P ... (WorkGoal.gapFoe)`.
 - **Stage 613:** a nether-brick wall with a 2-high nook, 3 wither skeletons and a skeleton. With the change: in the gap in 40 ticks, health 18.9, never fled. Without it, he runs.
 
+## Stronghold travel through the Nether (item 6, first part)
+- **Before:** find_stronghold walked a 1,416-block estimate across ocean at about 3.4 blocks/s.
+- **Now (`EyeHunt.viaNether` / `netherLeg`):**
+  - With an estimate over 300 off, he prices the Nether way: his nearest lit Overworld portal, plus the Nether leg x1.6 (off-road), plus 100 for the frame and the crossings.
+  - When that is less than walking: to the portal, enter_portal, then in the Nether to estimate/8 at his own height. There, build_portal (its carried-obsidian path, any flat spot), enter_portal, and the hunt goes on by the estimate.
+  - Without 10 obsidian and a flint and steel, he gets them first (make_obsidian, obtain): once a hunt, priced at +300. If they don't come, he walks.
+  - Taken once a hunt.
+- **Stage 614:** an estimate 1,200 off, his portal 20 off, the kit on him: in by the portal. With 4 obsidian: make_obsidian 6 first. Without the change he walks the 1,200.
+- **Stage 557:** moved to 27000. It shared 20000 with stage 548, whose terrain left a roof 160 over him, so he never threw. It passes there (3 throws, 130 s).
+
 ## Gate
 - **Green:** 586-592, 594-595, 597, 600, 601, 94-96, 61.
 - **Flaky on main, not from this branch (in the backlog):** 97, 593, and 596 in a range after 595.

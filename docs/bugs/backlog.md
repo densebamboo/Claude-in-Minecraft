@@ -166,7 +166,7 @@ Each line is a live report from Day to Day (World 15, 2026-10-31/11-01) not on t
 
 ## From Day to Day, 2026-11-01/02 (tabled by the user: dragon path first)
 
-- **Stronghold travel via the Nether:** find_stronghold walked a 1,416-block estimate across ocean at ~3.4 b/s. Past ~300 blocks an expert divides by 8, goes through his portal (PortalMap) and builds an exit portal near the estimate.
+- **DONE (EyeHunt.viaNether, stage 614):** ~~Stronghold travel via the Nether~~ (orig: find_stronghold walked a 1,416-block estimate across ocean at ~3.4 b/s. Past ~300 blocks an expert divides by 8, goes through his portal (PortalMap) and builds an exit portal near the estimate.
 - **Water travel:** no boat or sprint-swim; the walker crosses ocean as a land plan holding jump. Boat ~8 b/s, sprint-swim ~5.6.
 - **Sea-floor dig:** EyeHunt.dig turns from any cut cell touching fluid, so under an ocean every way fails. Needs a dry shaft (walls placed round it) or the stronghold's edge under land.
 - **Chat accuracy, chests:** asked why he didn't use closer chests, he said "hauling the stash, pack full"; the trip was queued for the kit's charcoal from logs in his home chest. Answer from the reason the trip was queued.
@@ -334,3 +334,4 @@ Today the mod runs server-side only. No client mod is needed: he's a ServerPlaye
 - **Range-flaky, pass alone:** 538 (4 of 5 alone, failed in a 531-556 range), 548 (enderman patrol: passes alone with or without the seen rule), 554 (unreachable enderman: failed in a 539-556 range, passes alone with or without item 7). Stages 530 and 541 fail on main from before today: Day to Day is on them (8f3485e's lava price).
 
 - **Item 7 left for later:** deck scouting ("no blaze in view") still walks up to a crowd he can see. An expert stops at the corner and draws them to the gap first. The fight now holds at the gap (stage 613), so this costs time, not his life.
+- **EyeHunt roof loop:** throwEye under a roof walks to the heightmap top, even when that is a floating platform 160 up (557 on 548's leftover terrain: the same "up to open sky" every few seconds). An expert steps out from under it to the nearest open sky.

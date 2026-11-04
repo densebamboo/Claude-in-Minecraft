@@ -43,7 +43,8 @@ public final class EyeHunt {
     static final class Hunt {
         final List<Throw> throwsMade = new ArrayList<>();
         UUID eye; Vec3 eyeFrom; long thrownAt; Vec3 lastAt; long pickupBy;
-        BlockPos second, digAt, found, spot; Direction dig; int steps;
+        BlockPos second, digAt, found, spot, via; Direction dig; int steps;
+        boolean viaTried, viaKit; // (the Nether way: taken once a hunt; its kit asked for once)
     }
     private static Map<UUID, Hunt> hunts; // per bot (static: fields added live start null)
     static Hunt hunt(ClaudeEntity g) { if (hunts == null) hunts = new HashMap<>(); return hunts.computeIfAbsent(g.getUUID(), k -> new Hunt()); }
@@ -61,10 +62,11 @@ public final class EyeHunt {
     public static BlockPos found(ClaudeEntity g) { return hunt(g).found; }
 
     public static String skill(ClaudeEntity g, ServerPlayer player, ServerLevel level, Skills.Step st) {
-        if (level.dimension() != Level.OVERWORLD) return "failed: strongholds are in the Overworld (I'm in the " + level.dimension().location().getPath() + ")";
         Hunt h = hunt(g);
-        if (h.found != null) return "done: stone bricks at " + h.found.toShortString() + ", the stronghold (" + h.throwsMade.size() + " throws)";
         Skills.Step again = new Skills.Step("find_stronghold", st.target(), st.count(), st.where());
+        if (level.dimension() == Level.NETHER && h.via != null) return netherLeg(g, h, again);
+        if (level.dimension() != Level.OVERWORLD) return "failed: strongholds are in the Overworld (I'm in the " + level.dimension().location().getPath() + ")";
+        if (h.found != null) return "done: stone bricks at " + h.found.toShortString() + ", the stronghold (" + h.throwsMade.size() + " throws)";
         // an eye in the air: read it
         if (h.eye != null) {
             long age = now(g) - h.thrownAt;
@@ -124,10 +126,48 @@ public final class EyeHunt {
             h.second = null; return throwEye(g, level, h, again, "the second throw, off the first line");
         }
         double toEst = horiz(g.position(), Vec3.atCenterOf(est));
+        if (toEst > 300 && !h.viaTried) { String n = viaNether(g, h, est, toEst, again); if (n != null) return n; }
         if (toEst > 24) return walkToward(g, level, est, again, "to the estimate " + est.toShortString() + " (" + (int) toEst + " off)");
         if (horiz(last.from(), me) < 16) { h.throwsMade.remove(h.throwsMade.size() - 1); } // (thrown here already and it rose: the estimate is off; that throw counts again as a fresh line from here)
         return throwEye(g, level, h, again, "at the estimate");
     }
+
+    /** Far off: through his nearest lit portal, est/8 in the Nether, a portal built there from carried obsidian, out by the estimate (an expert's 8:1). Null: walking is cheaper. */
+    static String viaNether(ClaudeEntity g, Hunt h, BlockPos est, double toEst, Skills.Step again) {
+        PortalMap.Portal p = null; double pd = Double.MAX_VALUE;
+        for (PortalMap.Portal q : PortalMap.net(g).portals) if (PortalMap.OW.equals(q.dim) && "lit".equals(q.state)) { double d = horiz(g.position(), Vec3.atCenterOf(q.at)); if (d < pd) { pd = d; p = q; } }
+        if (p == null) return null;
+        BlockPos ne = PortalMap.partnerSpot(p), to = new BlockPos(Math.floorDiv(est.getX(), 8), ne.getY(), Math.floorDiv(est.getZ(), 8));
+        int obs = g.inventory.count(x -> x.is(Items.OBSIDIAN)); boolean lighter = g.inventory.count(x -> x.is(Items.FLINT_AND_STEEL) || x.is(Items.FIRE_CHARGE)) > 0;
+        boolean kit = obs >= 10 && lighter;
+        double cost = pd + horiz(Vec3.atCenterOf(ne), Vec3.atCenterOf(to)) * PortalMap.NETHER_OFF_ROAD + 100 + (kit ? 0 : 300); // (+100: the frame and two crossings; +300: the kit got first)
+        if (cost >= toEst) return null;
+        if (!kit) {
+            if (h.viaKit) { ClaudeMod.LOGGER.info("[Claude eye] the Nether way to {} would save {} blocks but the kit didn't come ({} obsidian of 10, lighter {}): walking (EyeHunt.viaNether)", est.toShortString(), (int) (toEst - cost), obs, lighter); return null; }
+            h.viaKit = true; g.skillQueue.addFirst(again);
+            if (!lighter) g.skillQueue.addFirst(new Skills.Step("obtain", "flint_and_steel", 1));
+            if (obs < 10) g.skillQueue.addFirst(new Skills.Step("make_obsidian", "obsidian", 10 - obs));
+            ClaudeMod.LOGGER.info("[Claude eye] estimate {} is {} off: the Nether is about {} by portal #{}; first the kit for a portal out there ({} obsidian of 10, lighter {}) (EyeHunt.viaNether)", est.toShortString(), (int) toEst, (int) cost, p.id, obs, lighter);
+            return "the stronghold's " + (int) toEst + " off: through the Nether is shorter, so " + (obs < 10 && !lighter ? (10 - obs) + " obsidian and a flint and steel" : obs < 10 ? (10 - obs) + " more obsidian" : "a flint and steel") + " first, for a portal out by it";
+        }
+        h.viaTried = true; h.via = to;
+        g.tasks.add(new Task.GoTo(p.at, 3)); g.skillQueue.addFirst(again); g.skillQueue.addFirst(new Skills.Step("enter_portal", "", 1));
+        ClaudeMod.LOGGER.info("[Claude eye] estimate {} is {} off: through portal #{} at {}, to {}, {} in the Nether, a portal there out (about {} against {} walking) (EyeHunt.viaNether)", est.toShortString(), (int) toEst, p.id, p.where(), to.getX(), to.getZ(), (int) cost, (int) toEst);
+        return "the stronghold's " + (int) toEst + " off: through my portal and " + (int) horiz(Vec3.atCenterOf(ne), Vec3.atCenterOf(to)) + " in the Nether to " + to.getX() + ", " + to.getZ() + ", a portal out there";
+    }
+
+    /** In the Nether on the way: to est/8 (at his own height), then a portal from his obsidian, out, and the hunt goes on. */
+    static String netherLeg(ClaudeEntity g, Hunt h, Skills.Step again) {
+        BlockPos to = new BlockPos(h.via.getX(), g.getBlockY(), h.via.getZ()); double off = horiz(g.position(), Vec3.atCenterOf(to));
+        if (off > 16) { g.tasks.add(new Task.GoTo(to, 4)); g.skillQueue.addFirst(again); return "through the Nether to " + to.getX() + ", " + to.getZ() + ", under the stronghold estimate (" + (int) off + " to go)"; }
+        h.via = null;
+        g.skillQueue.addFirst(again); g.skillQueue.addFirst(new Skills.Step("enter_portal", "", 1)); g.skillQueue.addFirst(new Skills.Step("build_portal", "", 1));
+        ClaudeMod.LOGGER.info("[Claude eye] in the Nether under the estimate at {}: a portal from my obsidian, then out (EyeHunt.netherLeg)", g.blockPosition().toShortString());
+        return "under the stronghold estimate in the Nether: a portal here from my obsidian, then out";
+    }
+
+    /** Test hook: a throw on record as if watched. */
+    public static void testThrow(ClaudeEntity g, Throw t) { hunt(g).throwsMade.add(t); }
 
     static int eyes(ClaudeEntity g) { return g.inventory.count(x -> x.is(Items.ENDER_EYE)); }
     static double horiz(Vec3 a, Vec3 b) { double dx = a.x - b.x, dz = a.z - b.z; return Math.sqrt(dx * dx + dz * dz); }

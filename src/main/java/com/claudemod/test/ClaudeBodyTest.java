@@ -10399,6 +10399,7 @@ public final class ClaudeBodyTest {
             case 611: return st611(stage, t, c, h, level, mock);
             case 612: return st612(stage, t, c, h, level, mock);
             case 613: return st613(stage, t, c, h, level, mock);
+            case 614: return st614(stage, t, c, h, level, mock);
             case 598: return st598(stage, t, c, h, level, mock);
             case 599: return st599(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
@@ -11293,7 +11294,7 @@ public final class ClaudeBodyTest {
     }
     private static int shT = -1; private static float shLow = 20f; private static BlockPos shRoom;
     private static boolean st557(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // the stronghold's small half (the user via Day to Day): eyes thrown and watched, two headings crossed, walked, an eye down, a staircase to its stone bricks. The test world is superflat with no stronghold (generator FlatLevelSource, probe 557 before): a stone hill 260 off with a stone-brick room in it, and EyeHunt.testStronghold standing in for vanilla's lookup (the eye itself is vanilla's)
-        final int ox = 20000, oz = 20000, gy = -60; BlockPos me = new BlockPos(ox, gy, oz), top = new BlockPos(ox + 250, gy + 12, oz + 70); shRoom = new BlockPos(top.getX(), gy + 4, top.getZ());
+        final int ox = 27000, oz = 27000, gy = -60; BlockPos me = new BlockPos(ox, gy, oz), top = new BlockPos(ox + 250, gy + 12, oz + 70); shRoom = new BlockPos(top.getX(), gy + 4, top.getZ());
         if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); shT = -1; shLow = 20f; c.nextPlanTick = c.tickCount + 20 * 1800; c.prefs.put("stay_close", "no"); c.commandActive = false; com.claudemod.entity.life.EyeHunt.reset(c);
             c.getInventory().add(new ItemStack(Items.ENDER_EYE, 4)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
             com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5); c.setNoGravity(true); }
@@ -12110,6 +12111,37 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.dropCurrent = true;
             check(ok, "a crowd with wither skeletons in it: " + (s613Fled ? "ran" : "never got to the gap") + " (at " + at + ", health " + c.getHealth() + ", " + t[0] + " ticks)");
             pass(stage, t, "to the 2-high gap with the crowd on him, the fight from there (" + t[0] + " ticks, health " + c.getHealth() + ")");
+        }
+        return true;
+    }
+
+    /** Stronghold travel by the Nether: an estimate 1,200 off, a lit portal of his 20 off, the kit on him: in by the portal, not a 1,200-block walk. Then, without the kit, it's got first. */
+    private static boolean st614(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.tasks.clear(); c.skillQueue.clear();
+            com.claudemod.entity.life.EyeHunt.reset(c);
+            BlockPos me = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            var portal = com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.OW, me.offset(20, 0, 0), "him", "lit");
+            net.minecraft.world.phys.Vec3 a = new net.minecraft.world.phys.Vec3(me.getX(), me.getY(), me.getZ() - 100), b = new net.minecraft.world.phys.Vec3(me.getX(), me.getY(), me.getZ() + 100);
+            com.claudemod.entity.life.EyeHunt.testThrow(c, new com.claudemod.entity.life.EyeHunt.Throw(a, Math.atan2(100, 1200), a, false)); // (both lines cross 1,200 east of him)
+            com.claudemod.entity.life.EyeHunt.testThrow(c, new com.claudemod.entity.life.EyeHunt.Throw(b, Math.atan2(-100, 1200), b, false));
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.ENDER_EYE, 4)); c.getInventory().add(new ItemStack(Items.OBSIDIAN, 10)); c.getInventory().add(new ItemStack(Items.FLINT_AND_STEEL));
+            var st = new com.claudemod.entity.life.Skills.Step("find_stronghold", "", 1);
+            String said = com.claudemod.entity.life.EyeHunt.skill(c, mock[0], level, st);
+            var next = c.skillQueue.peekFirst(); Task go = c.tasks.peekFirst();
+            boolean in = next != null && next.skill().equals("enter_portal") && go instanceof Task.GoTo g0 && g0.pos().distSqr(portal.at) <= 9;
+            String saidKit = "";
+            if (in) { // no kit: obsidian made first, the hunt after it
+                com.claudemod.entity.life.EyeHunt.reset(c); c.tasks.clear(); c.skillQueue.clear();
+                com.claudemod.entity.life.EyeHunt.testThrow(c, new com.claudemod.entity.life.EyeHunt.Throw(a, Math.atan2(100, 1200), a, false));
+                com.claudemod.entity.life.EyeHunt.testThrow(c, new com.claudemod.entity.life.EyeHunt.Throw(b, Math.atan2(-100, 1200), b, false));
+                c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.ENDER_EYE, 4)); c.getInventory().add(new ItemStack(Items.OBSIDIAN, 4)); c.getInventory().add(new ItemStack(Items.FLINT_AND_STEEL));
+                saidKit = com.claudemod.entity.life.EyeHunt.skill(c, mock[0], level, st);
+                var k = c.skillQueue.peekFirst(); in = k != null && k.skill().equals("make_obsidian") && k.count() == 6;
+            }
+            c.tasks.clear(); c.skillQueue.clear(); com.claudemod.entity.life.EyeHunt.reset(c); c.getInventory().clearContent();
+            check(in, "stronghold 1,200 off, portal 20 off: \"" + said + "\" / \"" + saidKit + "\" (want in by the portal, then obsidian first without the kit)");
+            pass(stage, t, "the far estimate by the Nether: \"" + said + "\"; without the kit: \"" + saidKit + "\"");
         }
         return true;
     }

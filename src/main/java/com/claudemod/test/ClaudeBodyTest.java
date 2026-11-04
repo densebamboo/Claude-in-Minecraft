@@ -10367,6 +10367,7 @@ public final class ClaudeBodyTest {
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         switch (stage[0]) {
             case 565, 566, 567, 568: return st565(stage, t, c, h, level, mock);
+            case 569: return st569(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -11938,6 +11939,32 @@ public final class ClaudeBodyTest {
             if (!com.claudemod.entity.life.MineBlueprint.ore(level.getBlockState(iron))) check(!level.getBlockState(diamond).is(Blocks.DIAMOND_ORE), "iron taken before the exposed diamond");
             if (mined && patched && raw >= 2 && dia == 1) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "whole vein mined, 2 iron + diamond picked up, all seven holes patched in " + t[0] + " ticks"); }
             else check(t[0] < 400, "mine integrity: mined=" + mined + ", patched=" + patched + ", iron=" + raw + ", diamonds=" + dia + ", at=" + c.blockPosition() + ", task=" + c.currentTask + ", queue=" + c.tasks);
+        }
+        return true;
+    }
+
+    private static boolean st569(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live Nov 4 00:18:42: the trip to the iron level ended strip_mine with zero iron; smelt ran and failed a second later.
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            BlockPos at = h.absolutePos(new BlockPos(4, 2, 8)).atY(16);
+            for (BlockPos p : BlockPos.betweenClosed(at.offset(-4, -12, -15), at.offset(28, 7, 15))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            var b = new com.claudemod.entity.life.MineBlueprint(at, net.minecraft.core.Direction.EAST, 2, 4); b.segments.clear();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, at, net.minecraft.core.Direction.EAST, 16, null)); b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.STAIRS, b.nextStart(true), net.minecraft.core.Direction.EAST, 8, null)); b.invalidate();
+            lnCarve(level, b); c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.prefs.put("gear_before_caves", "no"); c.prefs.put("torches_while_digging", "no"); com.claudemod.director.ClaudeLife.bpSync(c);
+            c.teleportTo(at.getX() + 8.5, at.getY(), at.getZ() + 0.5); c.getInventory().clearContent();
+            for (ItemStack it : new ItemStack[] {new ItemStack(Items.STONE_PICKAXE, 2), new ItemStack(Items.COBBLESTONE, 64), new ItemStack(Items.OAK_LOG, 64), new ItemStack(Items.TORCH, 64), new ItemStack(Items.COOKED_BEEF, 20), new ItemStack(Items.STONE_SWORD), new ItemStack(Items.FURNACE), new ItemStack(Items.CRAFTING_TABLE)}) c.getInventory().add(it);
+            var smelt = new com.claudemod.entity.life.Skills.Step("smelt", "iron_ingot", 3); c.skillQueue.add(smelt);
+            String first = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "strip_mine", "iron_ore", 3);
+            check(first.contains("back up to my iron tunnel"), "setup did not reproduce the iron-level trip: " + first);
+            check(c.skillQueue.peekFirst() != null && c.skillQueue.peekFirst().skill().equals("strip_mine"), "zero raw iron: mining handed off to smelting after a travel pass: " + c.skillQueue);
+            c.tasks.clear(); c.skillQueue.clear(); c.skillQueue.add(smelt); c.getInventory().add(new ItemStack(Items.RAW_IRON, 3));
+            String done = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "strip_mine", "iron_ore", 3);
+            check(done.startsWith("done:") && c.tasks.isEmpty() && c.skillQueue.peekFirst() == smelt, "target met: mining did not release smelting immediately: " + done + " / " + c.skillQueue);
+            c.skillQueue.clear(); String alone = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "strip_mine", "iron_ore", 3);
+            check(alone.startsWith("done:") && c.tasks.isEmpty(), "standalone mining ignored the completed count: " + alone);
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.prefs.remove("gear_before_caves"); pass(stage, t, "travel keeps mining ahead of smelting; meeting the count releases the next step immediately");
         }
         return true;
     }

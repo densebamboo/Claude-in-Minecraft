@@ -2439,12 +2439,12 @@ public final class ClaudeLife {
             }
             case "strip_mine": {
                 if (level.dimension() != net.minecraft.world.level.Level.OVERWORLD) return "failed: my mine's in the overworld, not here in " + level.dimension().location().getPath(); /* (see ownMine) */
-                if (bpMode(g)) { // ponytail: ore mined for the craft queued next stays on till the count is in (bag + his chests); one pass then the craft failed "missing diamond" 3x and asked them for help (live 22:28)
-                    Item want = oreDrop(target); boolean forCraft = want != null && !st.where().equals("looked_at") && !g.skillQueue.isEmpty() && g.skillQueue.peekFirst().skill().equals("craft");
-                    if (forCraft && haveFor(g, level, want) >= Math.max(1, count)) return "done: already have " + haveFor(g, level, want) + " " + Crafting.name(want);
-                    if (want != null) ClaudeMod.LOGGER.info("[Claude skill] strip_mine {} x{}: have {} (bag+chests), forCraft {}, where {}, queue {} (ClaudeLife strip_mine)", target, count, haveFor(g, level, want), forCraft, st.where(), g.skillQueue);
+                if (bpMode(g)) { // Live Nov 4 00:18: a trip to the ore level is progress, not completion; smelting must wait for the requested ore too.
+                    Item want = oreDrop(target); boolean countedOre = want != null && !st.where().equals("looked_at");
+                    if (countedOre && haveFor(g, level, want) >= Math.max(1, count)) return "done: already have " + haveFor(g, level, want) + " " + Crafting.name(want);
+                    if (want != null) ClaudeMod.LOGGER.info("[Claude skill] strip_mine {} x{}: have {} (bag+chests), countedOre {}, where {}, queue {} (ClaudeLife strip_mine)", target, count, haveFor(g, level, want), countedOre, st.where(), g.skillQueue);
                     String r = bpStripMine(g, player, level, st, target, count);
-                    if (forCraft && !r.startsWith("failed") && !r.startsWith("done") && !g.skillQueue.contains(st)) { g.skillQueue.addFirst(st); ClaudeMod.LOGGER.info("[Claude skill] strip_mine {}: {} of {} {} so far, the step stays on before the craft", target, haveFor(g, level, want), count, Crafting.name(want)); }
+                    if (countedOre && !r.startsWith("failed") && !r.startsWith("done") && !g.skillQueue.contains(st)) { g.skillQueue.addFirst(st); ClaudeMod.LOGGER.info("[Claude skill] strip_mine {}: {} of {} {} so far, the mining step stays on before any dependent step (ClaudeLife.strip_mine)", target, haveFor(g, level, want), count, Crafting.name(want)); }
                     return r;
                 }
                 if ((target.contains("cobble") || target.equals("stone") || target.equals("rock")) && g.inventory.count(s0 -> s0.is(ItemTags.STONE_TOOL_MATERIALS)) >= Math.max(1, count)) // rock: done once he has it (the ore check below doesn't know cobble: "strip_mine cobble x4" ran three full ribs with 125 cobble in his pack)

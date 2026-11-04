@@ -10368,6 +10368,7 @@ public final class ClaudeBodyTest {
         switch (stage[0]) {
             case 565, 566, 567, 568: return st565(stage, t, c, h, level, mock);
             case 569: return st569(stage, t, c, h, level, mock);
+            case 570: return st570(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -11939,6 +11940,25 @@ public final class ClaudeBodyTest {
             if (!com.claudemod.entity.life.MineBlueprint.ore(level.getBlockState(iron))) check(!level.getBlockState(diamond).is(Blocks.DIAMOND_ORE), "iron taken before the exposed diamond");
             if (mined && patched && raw >= 2 && dia == 1) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "whole vein mined, 2 iron + diamond picked up, all seven holes patched in " + t[0] + " ticks"); }
             else check(t[0] < 400, "mine integrity: mined=" + mined + ", patched=" + patched + ", iron=" + raw + ", diamonds=" + dia + ", at=" + c.blockPosition() + ", task=" + c.currentTask + ", queue=" + c.tasks);
+        }
+        return true;
+    }
+
+    private static boolean st570(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live Nov 4 00:19: litter still says "no tool that drops it" with a stone pick in the pack.
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; flatBox(h); }
+        if (t[0] == 10) {
+            BlockPos me = h.absolutePos(new BlockPos(6, 2, 8)), p = me.east(2); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.getInventory().clearContent(); c.currentTask = null;
+            level.setBlock(p, Blocks.COBBLESTONE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, p, Blocks.COBBLESTONE.defaultBlockState(), Blocks.AIR.defaultBlockState());
+            var e = com.claudemod.entity.life.TempLedger.entry(c, p); check(e != null, "setup: cobble not booked as temporary");
+            com.claudemod.entity.life.TempLedger.stepStart(c, level, "collect"); check(e.blocked.equals("no tool that drops it") && c.tasks.isEmpty(), "no pick: cleanup should wait");
+            c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            int n = com.claudemod.entity.life.TempLedger.stepStart(c, level, "dig_down");
+            check(n == 1 && c.tasks.contains(new Task.Break(p)) && e.blocked.isEmpty(), "correct pick arrived but stale refusal still prevents cleanup: " + e.blocked);
+            c.tasks.clear(); e.blocked = "couldn't reach the block"; e.awayAfterTry = false;
+            check(com.claudemod.entity.life.TempLedger.stepStart(c, level, "explore") == 0, "a tool upgrade erased an unrelated reach failure");
+            level.setBlock(p, Blocks.AIR.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.reset(c); c.tasks.clear(); c.dropCurrent = true;
+            pass(stage, t, "correct tool re-enables cleanup immediately; unrelated refusals stay intact");
         }
         return true;
     }

@@ -11253,6 +11253,12 @@ public final class ClaudeLife {
     }
 
     /** strip_mine in blueprint mode: the stairs to the ore's level (the blueprint stops stepping down there), then the tunnel in slices with its branches, torches by the etiquette. */
+    /** His plug with no water he knows of behind it: that branch is done (the user, 11-04: only water plugs reopen, a dry one still ends it). */
+    static boolean dryPlug(ClaudeEntity g, ServerLevel level, BlockPos at) {
+        BlockState bs = level.getBlockState(at); if (!bs.is(Blocks.COBBLESTONE) && !bs.is(Blocks.COBBLED_DEEPSLATE)) return false;
+        for (BlockPos q : BlockPos.betweenClosed(at.offset(-2, -1, -2), at.offset(2, 2, 2))) if (com.claudemod.entity.life.Perception.knowsWater(g, q)) return false;
+        return true;
+    }
     /** A branch whose whole dug length can be walked: every cell, its end included, open at feet and head, no fluid. */
     public static boolean branchWalkable(ServerLevel level, MineBlueprint.Segment s) {
         for (int k = 0; k < s.n; k++) {
@@ -11322,7 +11328,7 @@ public final class ClaudeLife {
                 for (int i = 0; i < rsU.size(); i++) if (rsU.get(i).segment() == si) { last = i; if (first < 0 && java.util.Arrays.stream(rsU.get(i).feet()).anyMatch(f -> MineBlueprint.solid(level, f) || MineBlueprint.solid(level, f.above()))) first = i; }
                 if (first < 0) continue; // all dug
                 BlockPos stop = rsU.get(first).first(); var ss = level.getBlockState(stop);
-                if (level.getFluidState(stop).is(net.minecraft.tags.FluidTags.LAVA) || lavaNear(g, level, stop)) continue; // ends at water, his plug or lava: not one to dig on
+                if (level.getFluidState(stop).is(net.minecraft.tags.FluidTags.LAVA) || lavaNear(g, level, stop) || dryPlug(g, level, stop)) continue; // ends at water, his plug or lava: not one to dig on
                 bpWalkTo(g, s0.start.relative(s0.dir.getOpposite()));
                 int n2 = bpReconcile(g, level, first, last, false);
                 if (n2 == 0) continue;
@@ -11393,7 +11399,7 @@ public final class ClaudeLife {
                 if (g.attempts.counters.containsKey("branchDone:" + s0.start.asLong())) continue; if (s0.kind != MineBlueprint.Kind.BRANCH || s0.start.getY() != face.getY() || s0.n >= 32 || s0.n < half) continue; // (the user: each branch to its checkpoint, 32, or till it hits something to block off; then the next one)
                 if (!branchWalkable(level, s0)) continue;
                 BlockPos past = s0.start.relative(s0.dir, s0.n); BlockState ps = level.getBlockState(past);
-                if (level.getFluidState(past).is(net.minecraft.tags.FluidTags.LAVA) || lavaNear(g, level, past) || ps.hasBlockEntity()) continue; /* (one short of the lava the goal keeps: "9 to 9" over and over, 04:14-04:19) */ // ends at water, lava or his own plug: that one's done
+                if (level.getFluidState(past).is(net.minecraft.tags.FluidTags.LAVA) || lavaNear(g, level, past) || dryPlug(g, level, past) || ps.hasBlockEntity()) continue; /* (one short of the lava the goal keeps: "9 to 9" over and over, 04:14-04:19) */ // ends at water, lava or his own plug: that one's done
                 boolean beside = false; // a branch running alongside his tunnel (the one off the pivot corner, pushed 16 on beside the main run: the user) is done, never pushed
                 for (int k = 0; k < s0.n + b.branchLength && !beside; k++) { BlockPos q = s0.start.relative(s0.dir, k); for (Direction h : new Direction[] {s0.dir.getClockWise(), s0.dir.getCounterClockWise()}) for (int y = 0; y < 2; y++) { BlockPos w = q.relative(h).above(y); if (b.isWalk(w) && b.rowOf(w) >= 0 && b.segments.get(b.rows().get(b.rowOf(w)).segment()).kind != MineBlueprint.Kind.BRANCH) beside = true; } }
                 if (beside) continue;
@@ -11485,7 +11491,7 @@ public final class ClaudeLife {
                 for (int i = 0; i < rsU.size(); i++) if (rsU.get(i).segment() == si) { last = i; if (first < 0 && java.util.Arrays.stream(rsU.get(i).feet()).anyMatch(f -> MineBlueprint.solid(level, f) || MineBlueprint.solid(level, f.above()))) first = i; }
                 if (first < 0) continue; // all dug
                 BlockPos stop = rsU.get(first).first(); var ss = level.getBlockState(stop);
-                if (level.getFluidState(stop).is(net.minecraft.tags.FluidTags.LAVA) || lavaNear(g, level, stop)) continue; // ends at water, his plug or lava: not one to dig on
+                if (level.getFluidState(stop).is(net.minecraft.tags.FluidTags.LAVA) || lavaNear(g, level, stop) || dryPlug(g, level, stop)) continue; // ends at water, his plug or lava: not one to dig on
                 bpWalkTo(g, s0.start.relative(s0.dir.getOpposite()));
                 int n2 = bpReconcile(g, level, first, last, false);
                 if (n2 == 0) continue;
@@ -11500,7 +11506,7 @@ public final class ClaudeLife {
                 if (s0.kind != MineBlueprint.Kind.BRANCH || s0.start.getY() != levelY || s0.n >= 32) continue;
                 if (s0.n < (b.branchLength > 0 ? b.branchLength : 8) / 2) continue; // a stub cut short (water, a cave): not one to push on
                 if (!branchWalkable(level, s0)) continue; // a plug or a cave-in part-way along it: no way to its end, so nothing past it can be dug from the tunnel
-                { BlockPos past = s0.start.relative(s0.dir, s0.n); net.minecraft.world.level.block.state.BlockState ps = level.getBlockState(past); if (level.getFluidState(past).is(net.minecraft.tags.FluidTags.LAVA) || lavaNear(g, level, past)) continue; } /* (one short of lava the goal keeps: the stone at its end, the lava one on; it "went on from 9 to 9" again and again, 04:14) */ // ends at water or at his plug of it: that branch is done (the user: plug it and move on), never pushed on into the same water again (he re-dug into it and re-plugged for 40 s)
+                { BlockPos past = s0.start.relative(s0.dir, s0.n); net.minecraft.world.level.block.state.BlockState ps = level.getBlockState(past); if (level.getFluidState(past).is(net.minecraft.tags.FluidTags.LAVA) || lavaNear(g, level, past) || dryPlug(g, level, past)) continue; } /* (one short of lava the goal keeps: the stone at its end, the lava one on; it "went on from 9 to 9" again and again, 04:14) */ // ends at water or at his plug of it: that branch is done (the user: plug it and move on), never pushed on into the same water again (he re-dug into it and re-plugged for 40 s)
                 if (grow == null || s0.n < grow.n) grow = s0;
             }
             if (grow != null) {

@@ -301,6 +301,9 @@ Today the mod runs server-side only. No client mod is needed: he's a ServerPlaye
 - Stages 565-568 pass one at a time but fail run as a group ("patched before the whole vein and every drop were collected"), on codex/mine-integrity alone too: they leak state into each other. Run them separately until fixed.
 
 ## 4am run 2026-11-04 (Day to Day)
+
+- DONE: stage 123: a dry plug (cobble, no known water within 2) ends a branch again; only water plugs reopen (user, 11-04). ClaudeLife.dryPlug at the 4 branch checks.
+- OPEN: stage 577 "roof air" fails when run inside the 572-584 group (passes alone 3/3); fails the same at Codex's merge a26d45e, so an earlier stage in the group leaks state into it.
 - DONE aec8c34: Codex's 11 overnight branches merged to main (water-tunnel, air escapes, shallow-water pillar, kit/cover/rest/recovery fixes); stages 572-584, 27, 483 pass.
 - DONE 62e40c7: 04:01 death, suffocated cutting a step up through gravel (the resumed walk hopped him onto the fresh step while the column was still falling). gravelOverHim + step/walk waits; stage 585 fails before, passes after (264 ticks).
 - DONE 62e40c7: incident files now carry a 7x7x5 block map round him.

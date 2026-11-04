@@ -10375,6 +10375,7 @@ public final class ClaudeBodyTest {
             case 574: return st574(stage, t, c, h, level, mock);
             case 575: return st575(stage, t, c, h, level, mock);
             case 576: return st576(stage, t, c, h, level, mock);
+            case 577, 578: return st577(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -12001,6 +12002,39 @@ public final class ClaudeBodyTest {
             check(c.getHealth() == 20 && !c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER), "water tunnel: entered flooded work or took damage at " + c.blockPosition());
             if (c.blockPosition().distSqr(end) <= 1 && c.tasks.isEmpty() && c.currentTask == null) { check(c.blueprint.segments.stream().anyMatch(s -> s.kind == com.claudemod.entity.life.MineBlueprint.Kind.BRANCH && s.n == 6), "water shortened the planned branch"); c.dropCurrent = true; pass(stage, t, "advanced through the plugged aquifer dry and unharmed in " + t[0] + " ticks"); }
             else check(t[0] < 900, "water tunnel: no forward progress within 45 s: at " + c.blockPosition() + ", " + c.currentTask + ", " + c.tasks);
+        }
+        return true;
+    }
+
+    private static boolean st577(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 01:25: water plugs repeatedly displaced the roof dig he needed to breathe.
+        int depth = stage[0] == 578 ? 3 : 2;
+        BlockPos me = h.absolutePos(new BlockPos(6, 2, 8)), roof = me.above(depth);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; hzLow = 20; }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(me.offset(-5, -1, -5), me.offset(5, depth + 2, 5))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            for (BlockPos p : BlockPos.betweenClosed(me.offset(-4, 0, -4), me.offset(4, depth - 1, 4))) level.setBlock(p, Blocks.WATER.defaultBlockState(), 2);
+            for (BlockPos p : BlockPos.betweenClosed(me.offset(-4, depth + 1, -4), me.offset(4, depth + 1, 4))) level.setBlock(p, Blocks.AIR.defaultBlockState(), 2);
+            c.blueprint = null; c.mineCells.clear();
+            for (BlockPos p : BlockPos.betweenClosed(me.offset(-4, 0, 0), me.offset(4, 3, 1))) c.mineCells.add(p.immutable());
+            if (stage[0] == 578) {
+                var b = new com.claudemod.entity.life.MineBlueprint(me.west(4).above(), net.minecraft.core.Direction.EAST, 2, 4); b.segments.clear();
+                b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, me.west(4).above(), net.minecraft.core.Direction.EAST, 9, null)); b.invalidate();
+                check(b.isWalk(roof), "setup: the escape dig is planned headroom, not a protected mine ceiling");
+                c.blueprint = b; c.prefs.put("mine_model", "blueprint"); com.claudemod.director.ClaudeLife.bpSync(c);
+            }
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            c.teleportTo(me.getX() + 0.5, me.getY() + depth - 2, me.getZ() + 0.5); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.setAirSupply(119);
+            c.tasks.add(new Task.Wait(1000, false));
+            if (stage[0] == 578) { c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 4)); }
+        }
+        if (t[0] > 10) {
+            if (t[0] == 60) com.claudemod.ClaudeMod.LOGGER.info("[Claude test] roof air: ground {}, y {}, held {}, progress {}", c.onGround(), c.getY(), c.getMainHandItem(), level.getBlockState(roof).getDestroyProgress(c, level, roof));
+            hzLow = Math.min(hzLow, c.getHealth());
+            check(c.isAlive() && hzLow >= 18, "roof air: drowning while plugs interrupt the escape, low " + hzLow + ", task " + c.currentTask + ", air " + c.getAirSupply());
+            if (!c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER) && c.getAirSupply() >= 100 && level.getBlockState(roof).isAir()) {
+                c.tasks.clear(); c.skillQueue.clear(); c.mineCells.clear(); c.dropCurrent = true; pass(stage, t, "roof mined and breathing in " + (t[0] - 10) + " ticks, low health " + hzLow);
+            } else check(t[0] < 210, "roof air: no safe breath within the player's 10 s escape bound, roof " + level.getBlockState(roof) + ", task " + c.currentTask + ", air " + c.getAirSupply());
         }
         return true;
     }

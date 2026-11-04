@@ -295,8 +295,9 @@ public final class Controls {
             // only dive for somewhere underwater; a lower spot on dry land (past a river bank) means swim across and climb out
             boolean diving = goal != null && goal.getY() < p.getBlockY() && p.getAirSupply() > 60 // a block below his feet block, not half a block below his y: afloat at y+0.5 in a 2-deep pool every goal on his own level read as a dive and pinned him to the bottom
                     && p.level().getFluidState(goal).is(net.minecraft.tags.FluidTags.WATER);
+            boolean mining = p instanceof com.claudemod.entity.ClaudeEntity ce && ce.currentTask instanceof com.claudemod.entity.life.Task.Break;
             if (diving) p.setDeltaMovement(p.getDeltaMovement().add(0, -0.04, 0)); // the same push down a sneaking swimmer gets
-            else if (!wading(p) || (p.horizontalCollision && goal != null && !(p instanceof com.claudemod.entity.ClaudeEntity ce0 && (ce0.staying || ce0.currentTask instanceof com.claudemod.entity.life.Task.Break || ce0.currentTask instanceof com.claudemod.entity.life.Task.Place)))) jumpNow = true; // (against a wall only when he means to walk on: in the user's 1x1 water pocket he touched the walls all the time and hopped, mining at a fifth of the speed, 15:15) // (shallow water: he stands in it, space only to step up onto a ledge)
+            else if (!mining && (!wading(p) || (p.horizontalCollision && goal != null && !(p instanceof com.claudemod.entity.ClaudeEntity ce0 && (ce0.staying || ce0.currentTask instanceof com.claudemod.entity.life.Task.Place))))) jumpNow = true; // Stay on the bottom while mining: automatic swimming adds the airborne mining penalty.
         }
         p.setJumping(jumpNow);
     }

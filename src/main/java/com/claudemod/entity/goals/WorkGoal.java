@@ -75,6 +75,10 @@ public class WorkGoal extends Goal {
 
     private boolean surfacing;
 
+    private boolean roofDig(Task task) {
+        return task instanceof Task.Break b && b.pos().getX() == g.getBlockX() && b.pos().getZ() == g.getBlockZ() && b.pos().getY() > g.getEyeY();
+    }
+
     /** Nearest spot to breathe: straight up through the water first, else any open air pocket close by. */
     private BlockPos breathingSpot() {
         var level = g.level();
@@ -158,17 +162,16 @@ public class WorkGoal extends Goal {
         // breathe (and he stays up till he's got his breath back).
         boolean underwater = g.isEyeInFluid(net.minecraft.tags.FluidTags.WATER);
         if (((underwater && g.getAirSupply() < 120) || (surfacing && g.getAirSupply() < 280 && g.isInWater())) && !com.claudemod.entity.life.Watchdog.airRoute(g)) { // (the watchdog's dug way to air, once the swim-up failed: its tasks run, not this)
-            BlockPos roofNow = BlockPos.containing(g.getEyePosition()).above();
-            boolean diggingRoof = current instanceof Task.Break cb0 && cb0.pos().equals(roofNow); // his dig up for air, under way: never put back and its crack wiped (each tick it was, restarting a 25x-slow underwater dig from zero: drowned under it, World 15 10:30 -44 59 134)
+            boolean diggingRoof = roofDig(current); // Keep the same overhead dig when he sinks toward the floor.
             if (!surfacing) {
                 surfacing = true;
                 if (current != null && !diggingRoof) { clearCrack(); g.tasks.addFirst(current); current = null; g.currentTask = null; }
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] low on air ({}) at {}: coming up to breathe", g.getAirSupply(), g.blockPosition().toShortString());
             }
             BlockPos spot = breathingSpot();
-            BlockPos roofOverEyes = BlockPos.containing(g.getEyePosition()).above();
-            if (diggingRoof || (g.tasks.peek() instanceof Task.Break rb && rb.pos().equals(roofOverEyes) && current == null)) { // the roof: dug through below, this tick (returning here every tick left the dig queued and him drowning under it)
-                g.getNavigation().stop(); g.getJumpControl().jump();
+            if (diggingRoof || (roofDig(g.tasks.peek()) && current == null)) { // the roof: dug through below, this tick (returning here every tick left the dig queued and him drowning under it)
+                BlockPos roofOverEyes = ((Task.Break) (diggingRoof ? current : g.tasks.peek())).pos();
+                g.getNavigation().stop(); // Stay grounded while mining: swimming adds the airborne mining penalty.
                 if (g.tickCount % 20 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] digging the roof at {} for air (air {}, {})", roofOverEyes.toShortString(), g.getAirSupply(), diggingRoof ? "under way" : "starting");
             } else {
                 var line = g.level().clip(new net.minecraft.world.level.ClipContext(g.getEyePosition(), Vec3.atCenterOf(spot.above()), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g));
@@ -179,7 +182,7 @@ public class WorkGoal extends Goal {
                 return true;
             }
         }
-        if (!(surfacing && current == null && g.tasks.peek() instanceof Task.Break rb1 && rb1.pos().equals(BlockPos.containing(g.getEyePosition()).above())) && !(surfacing && current instanceof Task.Break cb1 && cb1.pos().equals(BlockPos.containing(g.getEyePosition()).above()))) surfacing = false; // (still surfacing while the roof dig runs below: not a fresh start, no re-queue, every tick)
+        if (!(surfacing && ((current == null && roofDig(g.tasks.peek())) || roofDig(current)))) surfacing = false; // (still surfacing while the roof dig runs below: not a fresh start, no re-queue, every tick)
         // In lava: out first, everything else waits (he stood 3 s in a lava flow finishing a Place and died, 09:02)
         if (!g.isInLava() && g.onGround() && g.tickCount % 5 == 0 && g.level().getFluidState(g.blockPosition()).isEmpty()) { BlockPos f0 = g.blockPosition().immutable(); if (!f0.equals(dryCells.peekLast())) { dryCells.addLast(f0); if (dryCells.size() > 12) dryCells.pollFirst(); } } // (the cells he stood dry on lately: the way he came in, known good footing)
         if (g.isInLava()) {
@@ -2765,6 +2768,7 @@ public class WorkGoal extends Goal {
      */
     private int waterOutTick = -100000;
     private boolean blockWaterInflow() {
+        if (surfacing || com.claudemod.entity.life.Watchdog.airRoute(g)) return false; // Plugging must not displace the dig that lets him breathe.
         ServerLevel level = level();
         ItemStack plug = solidScaffold();
         int n = 0, skipped = 0;

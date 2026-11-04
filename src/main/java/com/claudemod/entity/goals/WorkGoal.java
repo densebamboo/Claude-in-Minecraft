@@ -214,7 +214,8 @@ public class WorkGoal extends Goal {
             if (out != null && g.tickCount - lavaOutSince > 30 + 15 * (int) Math.sqrt(out.distSqr(me))) { lavaOutBad.put(out, g.tickCount); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}: 1.5 s and not onto {}: that way's no good, another (WorkGoal.reflexes)", me.toShortString(), out.toShortString()); lavaOut = null; }
             if (g.tickCount % 20 < 2) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}: getting out{}", me.toShortString(), out == null ? " (no dry cell near: jumping)" : " to " + out.toShortString() + (dryCells.contains(out) ? " (where he came from)" : ""));
             g.getNavigation().stop();
-            if (out == null && g.tickCount - lavaDigTick > 4) { // no dry cell round him (a sealed pocket the lava came into, World 15 22:08: 17 s and dead): out through the wall, the side with no lava behind it, like a player
+            boolean wallUp = false; // (mining his way out: feet on the floor, no jump; off the ground every block takes 5x as long, vanilla, and the pocket burnt him to death, stage 530)
+            if (out == null) { // no dry cell round him (a sealed pocket the lava came into, World 15 22:08: 17 s and dead): out through the wall, the side with no lava behind it, like a player
                 BlockPos dig = null; int best = Integer.MAX_VALUE;
                 for (Direction d0 : Direction.Plane.HORIZONTAL) { BlockPos n = me.relative(d0);
                     var ns = lv.getBlockState(n); var nh = lv.getBlockState(n.above());
@@ -234,9 +235,11 @@ public class WorkGoal extends Goal {
                         g.swing(net.minecraft.world.InteractionHand.MAIN_HAND); lv.destroyBlockProgress(g.getId(), dig, (int) Math.min(9, (g.tickCount - t0) * 10 / Math.max(1, need)));
                         if (g.tickCount - t0 >= need) { for (BlockPos c0 : new BlockPos[] {dig, dig.above()}) if (!lv.getBlockState(c0).getCollisionShape(lv, c0).isEmpty()) sp0.gameMode.destroyBlock(c0); g.attempts.counters.remove(k); }
                     }
-                    if (dig != null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}, no dry cell round him: through the wall at {} (no lava behind it) (WorkGoal.reflexes)", me.toShortString(), dig.toShortString()); out = dig; }
+                    if (dig != null) { if (g.tickCount % 20 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}, no dry cell round him: through the wall at {} (no lava behind it) (WorkGoal.reflexes)", me.toShortString(), dig.toShortString()); out = dig; } // (every tick: on the 4 ticks of 5 it skipped he jumped, off the ground, mining at a fifth)
+                    if (dig != null) wallUp = !lv.getBlockState(dig).getCollisionShape(lv, dig).isEmpty() || !lv.getBlockState(dig.above()).getCollisionShape(lv, dig.above()).isEmpty();
                 }
             }
+            if (wallUp) { g.getLookControl().faceNow(Vec3.atCenterOf(out)); g.getMoveControl().setWantedPosition(g.getX(), g.getY(), g.getZ(), 0); return true; }
             if (out != null) { g.getLookControl().faceNow(Vec3.atCenterOf(out)); /* (at once, then the walk: a turn over 4 ticks lost 4 of the ~22 a cell takes in lava drag) */ g.getMoveControl().setWantedPosition(out.getX() + 0.5, out.getY(), out.getZ() + 0.5, 1.3); g.getLookControl().setLookAt(out.getX() + 0.5, out.getY() + 1.0, out.getZ() + 0.5); g.setSprinting(true); }
             g.getJumpControl().jump();
             return true;
@@ -1490,7 +1493,7 @@ public class WorkGoal extends Goal {
         for (int k = 1; k <= 6; k++) {
             BlockPos p = step.above(k);
             if (!(level.getBlockState(p).getBlock() instanceof net.minecraft.world.level.block.FallingBlock)) { if (!level.getBlockState(p).getCollisionShape(level, p).isEmpty()) return null; continue; }
-            if (level.getBlockState(p.below()).getCollisionShape(level, p.below()).isEmpty()) return p; // on air: it's about to fall
+            if (level.getBlockState(p.below()).getCollisionShape(level, p.below()).isEmpty() && level.getBlockTicks().hasScheduledTick(p, level.getBlockState(p).getBlock())) return p; // on air with its fall tick due: coming down. World-gen gravel over air has no tick and never falls (live 14:05 11-04: 2.5 min waiting under one)
         }
         return null;
     }
@@ -4347,9 +4350,10 @@ public class WorkGoal extends Goal {
      * The way out, picked once: a portal in sight he reaches with its 4 s to spare; a 1-wide gap in sight he gets to first (through
      * it, plugged or held, one at a time); else a run 16 out on the best heading. Logged with what it saw.
      */
+    public BlockPos pickEscapeNow(java.util.List<? extends net.minecraft.world.entity.Mob> mobs) { pickEscape(mobs); return escapeAt; } // (tests)
     private void pickEscape(java.util.List<? extends net.minecraft.world.entity.Mob> mobs) {
         ServerLevel lv = level(); BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); Vec3 eye = g.getEyePosition(); int now = g.tickCount;
-        String from = mobs.stream().map(m -> m.getType().getDescription().getString() + " " + (int) m.distanceTo(g)).toList().toString();
+        String from = mobs.stream().map(m -> m.getType().getDescription().getString() + " " + (int) m.distanceTo(g) + " " + com.claudemod.entity.life.Perception.compassOf(m.position().subtract(g.position()))).toList().toString(); // (with the bearing: which run went through which mob)
         Vec3 crowd = Vec3.ZERO; for (var m : mobs) crowd = crowd.add(m.position()); crowd = mobs.isEmpty() ? g.position() : crowd.scale(1.0 / mobs.size());
         // 1 a portal he can see, with time for its 4 s in it (they come at ~2.3 a second, he sprints ~5)
         BlockPos portal = null; double pd = 1e9;
@@ -4409,7 +4413,7 @@ public class WorkGoal extends Goal {
             for (int k = 0; k <= 12; k++) { if (standable(lv, e0.above(7 - k))) { e1 = e0.above(7 - k); break; } } // (7 up: a basin's or a valley's rim is an end too, if there's a walk up to it)
             if (e1 == null) { noStand++; continue; }
             if (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, e1, now, 20 * 30)) { recent++; continue; }
-            boolean through = false; for (var m : mobs) { Vec3 tm = m.position().subtract(g.position()).multiply(1, 0, 1); if (tm.length() < 3 && tm.normalize().dot(hd) > 0.8) through = true; }
+            boolean through = false; for (var m : mobs) { Vec3 tm = m.position().subtract(g.position()).multiply(1, 0, 1); double along = tm.dot(hd); if (tm.length() < 3 && tm.normalize().dot(hd) > 0.8 || along > 0 && along < dist && tm.subtract(hd.scale(along)).length() < 2.5) through = true; } // (any mob ahead on the run's line, not only one within 3: live 13:59 11-04, two runs in a row into a wither skeleton 5 off on the line, 8 a hit, dead)
             if (through) { thru++; continue; }
             tried++; var path = g.getNavigation().createPath(e1, 1); double straight = Math.sqrt(e1.distSqr(feet)), walk = 0;
             if (path == null || path.getNodeCount() == 0) { if (nos.size() < 4) nos.add(e1.toShortString()); continue; }

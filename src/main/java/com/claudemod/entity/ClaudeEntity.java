@@ -321,6 +321,8 @@ public class ClaudeEntity extends ServerPlayer {
         } else zeroHpTicks = 0;
         if (getServer() != null && getServer().getTickCount() % 10 == 0) {
             connection.resetPosition();
+            { int view = getServer().getPlayerList().getViewDistance(); var ci = ClientInformation.createDefault(); // a player's client asks for its render distance; the default's 2 chunks left him blind past ~40 blocks (live 14:02-14:21 11-04: 31 tree-scouting legs, "no trees within 100")
+              if (requestedViewDistance() != view) updateOptions(new ClientInformation(ci.language(), view, ci.chatVisibility(), ci.chatColors(), ci.modelCustomisation(), ci.mainHand(), ci.textFilteringEnabled(), ci.allowsListing())); }
             serverLevel().getChunkSource().move(this); // he loads the chunks around him, like any player
             if (level().dimension() != net.minecraft.world.level.Level.OVERWORLD) serverLevel().getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, chunkPosition(), 3, blockPosition()); // (away from home: the ticket a portal leaves, renewed, or his chunks stop ticking and he freezes)
         }

@@ -10387,6 +10387,7 @@ public final class ClaudeBodyTest {
             case 590: return st590(stage, t, c, h, level, mock);
             case 591: return st591(stage, t, c, h, level, mock);
             case 592: return st592(stage, t, c, h, level, mock);
+            case 593: return st593(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -12024,6 +12025,25 @@ public final class ClaudeBodyTest {
     /** No planned swim under water longer than half his air, and no mine-row legs down a flooded row (live 12:02 11-04: route legs 10 cells into his flooded mine, drowned). */
     /** A lid of sand over his cover hole: never put down where it falls on him (live 12:37 11-04: suffocated under his own sand lid in a desert). */
     /** Cover in a desert: never a sand lid, never a tuck under a sand roof (live 12:36-12:37 11-04: shot 18 -> 2 in a tuck whose sand roof fell in, then suffocated under a sand lid). */
+    /** A creeper walks up while he fights a skeleton: he backs off from the creeper, not ignores it (live 12:25 11-02: blown up in full iron mid-fight). */
+    private static boolean st593(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000;
+            for (int x = 0; x <= 14; x++) for (int z = 0; z <= 8; z++) for (int y = 1; y <= 14; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            BlockPos me = h.absolutePos(new BlockPos(7, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20f);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            var sk = EntityType.SKELETON.create(level); BlockPos sp = me.east(3); sk.moveTo(sp.getX() + 0.5, sp.getY(), sp.getZ() + 0.5, 90, 0); sk.setNoAi(true); level.addFreshEntity(sk);
+            var cr = EntityType.CREEPER.create(level); BlockPos cp = me.west(5); cr.moveTo(cp.getX() + 0.5, cp.getY(), cp.getZ() + 0.5, 270, 0); cr.setNoAi(true); level.addFreshEntity(cr);
+            c.tasks.clear(); c.dropCurrent = true; c.tasks.add(new Task.Attack(sk.getUUID(), 600));
+        }
+        if (t[0] > 5 && c.currentTask instanceof Task.Flee) {
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, c.getBoundingBox().inflate(16))) m.discard();
+            c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "a creeper close mid-fight with a skeleton: he backs off from it (" + t[0] + " ticks)");
+        }
+        else if (t[0] >= 60) { for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, c.getBoundingBox().inflate(16))) m.discard(); check(false, "a creeper 5 off while he fights a skeleton: neither fought nor run from (now " + c.currentTask + ")"); }
+        return true;
+    }
+
     private static boolean st592(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
         if (t[0] == 10 || t[0] == 40) {

@@ -272,10 +272,13 @@ public class WorkGoal extends Goal {
                     c -> c.isAlive() && c.distanceTo(g) < 7 && g.hasLineOfSight(c)); // (any creeper that close, whoever it's after: one on the player's trail blew up next to him; one walled off behind a block is no threat, that kept him running back and forth in his stairs 22 times)
             creepers.removeIf(c -> g.tasks.stream().anyMatch(t -> t instanceof Task.Attack a && a.target().equals(c.getUUID()))); // a fight with it already queued (clearing the block in the way first): leave that be, don't re-arm it every 5 ticks
             // armed, healthy and it isn't hissing yet: hit it (knocks it back) instead of being chased around by it
-            if (!creepers.isEmpty() && armed() && !weakFighter() && g.getHealth() > 10 && (creepers.get(0).getSwellDir() <= 0 || canHitNow(creepers.get(0)))) { // a real sword only: five wooden-sword swings on a creeper is a funeral (death 18)
-                if (!(current instanceof Task.Attack ca0 && !(g.level() instanceof ServerLevel sl0 && (sl0.getEntity(ca0.target()) instanceof net.minecraft.world.entity.animal.Animal || sl0.getEntity(ca0.target()) instanceof net.minecraft.world.entity.animal.AbstractFish)))) g.urgentAttacker = creepers.get(0).getUUID(); // (a fish on the end of his sword is no fight: a creeper walked up while he hunted salmon and blew him up, 27 through full iron)
+            boolean busyOther = !creepers.isEmpty() && current instanceof Task.Attack ca0 && !ca0.target().equals(creepers.get(0).getUUID())
+                    && !(g.level() instanceof ServerLevel sl0 && (sl0.getEntity(ca0.target()) instanceof net.minecraft.world.entity.animal.Animal || sl0.getEntity(ca0.target()) instanceof net.minecraft.world.entity.animal.AbstractFish)); // in a fight with something else (a fish on the end of his sword is no fight: a creeper walked up while he hunted salmon and blew him up, 27 through full iron)
+            if (!creepers.isEmpty() && armed() && !weakFighter() && g.getHealth() > 10 && (creepers.get(0).getSwellDir() <= 0 || canHitNow(creepers.get(0))) && !busyOther) { // a real sword only: five wooden-sword swings on a creeper is a funeral (death 18)
+                g.urgentAttacker = creepers.get(0).getUUID();
+                com.claudemod.director.ClaudeLife.nookSay(g, "creeperHit", "[Claude life] a creeper close and not hissing yet: hitting it back, armed and healthy (WorkGoal.tick)");
                 creepers = java.util.List.of();
-            }
+            } else if (busyOther) com.claudemod.director.ClaudeLife.nookSay(g, "creeperHit", "[Claude life] a creeper close while he fights something else: away from the creeper first, the fight waits (WorkGoal.tick)"); // (live 12:25 11-02: fighting a skeleton, the creeper was neither fought nor run from till it blew beside him in full iron)
             if (!creepers.isEmpty() && !g.level().canSeeSky(g.blockPosition()) && creepers.get(0).distanceTo(g) >= 4 && !scaffoldBlock().isEmpty()) { // down a tunnel: a block across it at feet and head and the creeper is shut out, like a player (running up and down his stairs from one went nowhere)
                 Direction to = Direction.getNearest(creepers.get(0).getX() - g.getX(), 0, creepers.get(0).getZ() - g.getZ());
                 BlockPos w1 = g.blockPosition().relative(to), w2 = w1.above();

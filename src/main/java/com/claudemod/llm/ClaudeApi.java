@@ -63,16 +63,8 @@ public final class ClaudeApi {
         });
     }
 
-    /** When Claude last showed the player anything (ms), or 0. */
-    public static long lastSpokeAt(ServerPlayer player) {
-        Deque<String[]> log = MEMORY.get(player.getUUID());
-        if (log == null) return 0L;
-        synchronized (log) {
-            long last = 0L;
-            for (String[] e : log) if (e[1].startsWith("you")) last = Long.parseLong(e[0]);
-            return last;
-        }
-    }
+    /** A new world: the last world's lines never carry over into its memory file. */
+    public static void forget() { MEMORY.clear(); }
 
     /** True if Claude already said this line (or one starting with the same four words) recently. */
     public static boolean saidBefore(ServerPlayer player, String line) {
@@ -213,6 +205,12 @@ public final class ClaudeApi {
                     if (!(c instanceof java.net.http.HttpTimeoutException)) return CompletableFuture.failedFuture(c);
                     ClaudeMod.LOGGER.info("[Claude] the {} call timed out after {} ms: once more", kindOf(schema, effortLevel), Config.REQUEST_TIMEOUT_MS.get());
                     return HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofString());
+                })
+                .thenCompose(r -> { // overloaded or rate-limited (429, 529, 5xx): once more after its retry-after (else 3 s), not dropped
+                    if (r.statusCode() != 429 && r.statusCode() < 500) return CompletableFuture.completedFuture(r);
+                    long wait = r.headers().firstValue("retry-after").map(v -> { try { return Long.parseLong(v.trim()) * 1000; } catch (NumberFormatException e) { return 3000L; } }).orElse(3000L);
+                    ClaudeMod.LOGGER.info("[Claude] the {} call got {}: once more in {} ms", kindOf(schema, effortLevel), r.statusCode(), Math.min(wait, 30000));
+                    return CompletableFuture.supplyAsync(() -> null, CompletableFuture.delayedExecutor(Math.min(wait, 30000), java.util.concurrent.TimeUnit.MILLISECONDS)).thenCompose(x -> HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofString()));
                 })
                 .thenApply(ClaudeApi::extractContent);
     }

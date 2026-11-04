@@ -48,8 +48,6 @@ public final class ChatListener {
         var claude = ClaudeEntity.activeFor(player);
         if (claude.isEmpty()) return;
         // chat is global in Minecraft: whatever they type, he read it, however far off he is (the 64-block rule dropped "go back to mining" twice tonight while he was 70-95 blocks away)
-        boolean toHim = true;
-        if (!toHim) return;
 
         UUID id = player.getUUID();
         long wait = NEXT_ALLOWED_AT.getOrDefault(id, 0L) - System.currentTimeMillis();
@@ -70,10 +68,9 @@ public final class ChatListener {
         ClaudeApi.conversation(player, rawMessage, context, directed).whenComplete((reply, err) -> player.server.execute(() -> {
             if (err != null) {
                 Throwable cause = err.getCause() != null ? err.getCause() : err;
-                ClaudeMod.LOGGER.warn("[Claude] reply failed: {}", cause.getMessage());
-                return;
+                ClaudeMod.LOGGER.warn("[Claude] reply failed: {} (his status line answers instead)", cause.getMessage());
             }
-            String text = reply.get("text").getAsString();
+            String text = err != null ? null : reply.get("text").getAsString(); // (a failed call answers like a blank one: the question never just vanishes)
             if (text == null || text.isBlank() || text.trim().equals("...")) { // no words from the model (three in a row to "where you headed now claude"): his own status line answers instead
                 String truth = ClaudeChat.truthFor(player);
                 int i = truth.indexOf("WHAT YOUR BODY IS DOING RIGHT NOW: ");

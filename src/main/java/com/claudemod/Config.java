@@ -24,7 +24,7 @@ public class Config {
 
     public static final ModConfigSpec.IntValue REQUEST_TIMEOUT_MS = BUILDER
             .comment("HTTP timeout for Claude requests, milliseconds.")
-            .defineInRange("requestTimeoutMs", 20000, 1000, 60000);
+            .defineInRange("requestTimeoutMs", 60000, 1000, 180000); // (high-effort plans can think past 20 s; a timeout re-sends the whole call)
 
     public static final ModConfigSpec.BooleanValue ENABLE_SPAWN = BUILDER
             .comment("If true, Claude joins your world near you a few seconds after you load in.")

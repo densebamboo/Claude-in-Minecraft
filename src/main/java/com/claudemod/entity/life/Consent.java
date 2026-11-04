@@ -100,12 +100,12 @@ public final class Consent {
     }
 
     /** Their instruction covers this cell: a lesson open, their step naming the cell, or their job naming its block. Null: none (any order on its own is none). */
-    public static String instructing(ClaudeEntity g, BlockPos cell, BlockState s) {
+    public static String instructing(ClaudeEntity g, BlockPos cell, BlockState s) { // (strip_mine's ore is his mine's, holes patched by the integrity rule: 01:19 11-04 every coal hole read as "their word opened it" and the patches looped)
         if (lesson(g)) return "their lesson (\"" + (g.lessonOpen.length() > 60 ? g.lessonOpen.substring(0, 60) : g.lessonOpen) + "\")";
         String step = theirStepNames(g, cell); if (step != null) return step;
         if (!g.commandActive) return null;
         String b = block(s);
-        if (g.lastStep != null && namesBlock(g.lastStep.target(), b)) return "their job (" + g.lastStep.skill() + " " + g.lastStep.target() + ")";
+        if (g.lastStep != null && !g.lastStep.skill().equals("strip_mine") && namesBlock(g.lastStep.target(), b)) return "their job (" + g.lastStep.skill() + " " + g.lastStep.target() + ")";
         String goal = g.playerGoal == null ? "" : g.playerGoal.toLowerCase(Locale.ROOT);
         if (namesBlock(goal, b) && (b.equals("obsidian") || goal.contains("lava"))) return "their job (\"" + (goal.length() > 60 ? goal.substring(0, 60) : goal) + "\")";
         return null;

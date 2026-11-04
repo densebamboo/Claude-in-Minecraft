@@ -96,8 +96,9 @@ public final class ActionPath {
         Map<BlockPos, Double> best = new HashMap<>();
         open.add(new Node(from.immutable(), 0, w * h(from, to), null, List.of(), 0, 0f));
         best.put(from.immutable(), 0.0);
-        int expanded = 0;
+        int expanded = 0; long t0 = System.nanoTime();
         while (!open.isEmpty() && expanded++ < budget) {
+            if ((expanded & 255) == 0 && System.nanoTime() - t0 > 500_000_000L) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] plan {} -> {} stopped at 500 ms ({} nodes of {}): no way found in time (ActionPath.plan)", from.toShortString(), to.toShortString(), expanded, budget); break; } // (no budget in time: 3.8 s freezes, "Can't keep up" 172x on 11-04)
             Node n = open.poll();
             double dd = Math.sqrt(n.feet.distSqr(to));
             if (dd <= within) { coverNote(c, from, to); leapNote(c, from, to, n); return unwind(n); }
@@ -391,7 +392,9 @@ public final class ActionPath {
             return false;
         }
         /** Seconds to dig it, or -1 when it stays (not allowed in this mode, bedrock, their block, a station, his build, a hazard's wall, a block holding water back). */
-        double digSeconds(BlockPos p) {
+        final java.util.Map<BlockPos, Double> digMemo = new java.util.HashMap<>(); // (one plan, one world: every neighbour move re-priced the same cell, 36 hazard lookups each)
+        double digSeconds(BlockPos p) { Double m = digMemo.get(p); if (m == null) { m = digSeconds0(p); digMemo.put(p.immutable(), m); } return m; }
+        double digSeconds0(BlockPos p) {
             if (closed.contains(p)) return -1;
             BlockState s = level.getBlockState(p);
             if (level.getFluidState(p).is(net.minecraft.tags.FluidTags.LAVA)) return -1; // lava has no collision: it read as a free 0 s "dig" for the cell he steps into, his head's cell and the cells he drops through (the Nether shore deaths)

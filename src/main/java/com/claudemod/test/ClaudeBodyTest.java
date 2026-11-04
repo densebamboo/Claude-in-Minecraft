@@ -10382,6 +10382,7 @@ public final class ClaudeBodyTest {
             case 584: return st584(stage, t, c, h, level, mock);
             case 585: return st585(stage, t, c, h, level, mock);
             case 586: return st586(stage, t, c, h, level, mock);
+            case 587: return st587(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -12014,6 +12015,30 @@ public final class ClaudeBodyTest {
 
     // live 04:01 Nov 4: cutting a step up under a gravel column, he stepped in while it was still coming down and suffocated. A player mines the gravel
     // from beside the column until it stops, then steps up: the step waits, never a hurt from inWall, up within a player's 20 s.
+    private static java.util.UUID st587Sk;
+    private static boolean st587(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 01:54 11-04: underground, no food, a stone axe, a skeleton 3-4 off: he walled himself in under its arrows, 20 -> 0. Self-defence: he kills it.
+        BlockPos me = h.absolutePos(new BlockPos(2, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(me.offset(-1, -1, -2), me.offset(8, 3, 2))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            for (BlockPos p : BlockPos.betweenClosed(me, me.offset(7, 1, 0))) level.setBlock(p, Blocks.AIR.defaultBlockState(), 2); // a 1x2 tunnel, the skeleton at its far end
+            for (int k = 0; k <= 7; k += 3) level.setBlock(me.offset(k, 1, 1), Blocks.GLOWSTONE.defaultBlockState(), 2);
+            var sk = EntityType.SKELETON.create(level); BlockPos sp = me.east(4);
+            sk.moveTo(sp.getX() + 0.5, sp.getY(), sp.getZ() + 0.5, 90, 0); sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW)); sk.setPersistenceRequired(); level.addFreshEntity(sk); sk.setTarget(c); st587Sk = sk.getUUID();
+            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_AXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setHealth(20); c.getFoodData().setFoodLevel(15);
+            c.tasks.add(new Task.Wait(1000, false));
+        }
+        if (t[0] > 10) {
+            var sk = level.getEntity(st587Sk);
+            check(c.isAlive() && c.getHealth() >= 8, "shot down by a skeleton 4 off: health " + c.getHealth() + ", " + c.currentTask);
+            if (sk == null || !sk.isAlive()) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "killed the skeleton 4 off in " + (t[0] - 10) + " ticks, health " + (int) c.getHealth()); }
+            else check(t[0] < 400, "skeleton 4 off still alive after 20 s: health " + c.getHealth() + ", " + c.currentTask);
+        }
+        return true;
+    }
+
     private static boolean st586(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         // Live 00:50 11-04: he swam into a flooded pocket, ran low on air and aimed at air back through a wall till he drowned. The way out is the way he came.
         BlockPos me = h.absolutePos(new BlockPos(3, 2, 10)), end = me.east(4).north(4);

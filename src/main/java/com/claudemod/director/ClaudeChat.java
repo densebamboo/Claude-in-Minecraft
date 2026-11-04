@@ -53,11 +53,11 @@ public final class ClaudeChat {
             if (player == null) for (ServerPlayer sp : server.getPlayerList().getPlayers()) if (!(sp instanceof ClaudeEntity)) { player = sp; break; } // a spectating host still speaks (the overnight prompt was dropped while they watched)
             if (player == null) { ClaudeMod.LOGGER.info("[Claude bridge] no player in the world to speak for; dropped {} line(s)", lines.size()); return; }
             for (String line : lines) {
-                String msg = line.trim();
+                String msg = line.replace("﻿", "").trim(); // (a BOM from a PowerShell writer made "/give" chat)
                 if (msg.isEmpty()) continue;
                 if (msg.startsWith("/")) { /* the user (overnight 03:50): a way to hand him things from outside the game; a "/" line runs as a server command, logged */
                     ClaudeMod.LOGGER.info("[Claude bridge] command: {}", msg);
-                    for (ServerPlayer sp0 : server.getPlayerList().getPlayers()) if (sp0 instanceof ClaudeEntity ce0) com.claudemod.entity.life.Watchdog.teleported(ce0); // (a /tp from outside is no unplanned move of his: World 15 21:26, logged as one)
+                    if (msg.contains("tp ") || msg.contains("teleport ")) for (ServerPlayer sp0 : server.getPlayerList().getPlayers()) if (sp0 instanceof ClaudeEntity ce0) com.claudemod.entity.life.Watchdog.teleported(ce0); // (a /tp from outside is no unplanned move of his: World 15 21:26, logged as one)
                     server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), msg.substring(1));
                     continue;
                 }

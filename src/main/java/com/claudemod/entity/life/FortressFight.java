@@ -133,7 +133,6 @@ public final class FortressFight {
      * he waits in the corner, steps out to draw or strike, steps back in before the volley. Walls on more sides (a doorway's
      * jamb, a corner) and 4-12 off the spawner are better; the nearest of those he can walk to.
      */
-    private static long noCoverLogged;
     static Cover pickBlaze(ClaudeEntity g, ServerLevel level, LivingEntity foe) {
         BlockPos spawner = blazeSpawner(g, level, 20);
         List<Vec3> eyes = new ArrayList<>(); List<Blaze> bl = blazesNear(g, level, g.blockPosition(), 24); if (foe instanceof Blaze b0 && !bl.contains(b0)) bl.add(b0);
@@ -164,7 +163,7 @@ public final class FortressFight {
             return new Cover(k.c(), k.peek(), spawner != null ? spawner : foe.blockPosition(), "blaze",
                     shape + " at " + k.c().toShortString() + " out of sight of " + bl.size() + " blaze(s)" + (spawner != null ? " and the spawner at " + spawner.toShortString() : "") + ", stepping out to " + k.peek().toShortString() + " (" + (int) k.da() + " off, " + cands.size() + " spots looked at)", g.tickCount);
         }
-        if (level.getGameTime() - noCoverLogged >= 100) { noCoverLogged = level.getGameTime(); ClaudeMod.LOGGER.info("[Claude fight] no cover from the blazes within 10 ({} spots out of sight, none walkable or with a step that sees them) (FortressFight.pickBlaze)", cands.size()); } // ponytail: once per 5 s, one shared clock (it is asked every tick, 20 lines a second live)
+        com.claudemod.director.ClaudeLife.nookSay(g, "blazeNoCover", "[Claude fight] no cover from the blazes within 10 of " + g.blockPosition().toShortString() + " (" + cands.size() + " spots out of sight, none walkable or with a step that sees them) (FortressFight.pickBlaze)"); /* once per spot (the backlog: every few seconds at the fortress, 03:54) */ // ponytail: once per 5 s, one shared clock (it is asked every tick, 20 lines a second live)
         return null;
     }
 
@@ -207,8 +206,6 @@ public final class FortressFight {
     }
     /** Ticks since that blaze lit up, or -1 when it isn't glowing. */
     public static int chargeAge(ClaudeEntity g, Blaze b) { if (!b.isOnFire()) return -1; Integer t = chargedSince().get(b.getUUID()); return t == null ? 999 : g.tickCount - t; }
-    /** First lit this tick (the start of its 60-tick charge, seen). */
-    public static void sawLight(ClaudeEntity g, Blaze b) { chargedSince().put(b.getUUID(), g.tickCount); }
 
     /** The blaze whose volley is due at him now (lit 44+ ticks, in sight of him), or one with a fireball coming his way; null: none. */
     public static LivingEntity volleyDue(ClaudeEntity g, ServerLevel level) {

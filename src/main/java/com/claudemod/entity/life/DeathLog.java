@@ -56,7 +56,7 @@ public final class DeathLog {
     }
 
     private static void save(ClaudeEntity g) {
-        try { Path f = file(g); Files.createDirectories(f.getParent()); List<String> out = new ArrayList<>(); for (Death d : of(g)) out.add(d.line()); Files.write(f, out, StandardCharsets.UTF_8); }
+        try { Path f = file(g); Files.createDirectories(f.getParent()); List<String> out = new ArrayList<>(); for (Death d : of(g)) out.add(d.line()); Path tmp = f.resolveSibling(f.getFileName() + ".tmp"); Files.write(tmp, out, StandardCharsets.UTF_8); Files.move(tmp, f, java.nio.file.StandardCopyOption.REPLACE_EXISTING); } // (in place, a crash mid-write lost his pending piles)
         catch (Exception e) { ClaudeMod.LOGGER.warn("[Claude deaths] couldn't save his death list: {}", e.toString()); }
     }
 

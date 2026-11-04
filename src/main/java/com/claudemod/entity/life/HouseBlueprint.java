@@ -89,7 +89,6 @@ public class HouseBlueprint {
     public Role roleAt(BlockPos p) { return cells().get(p); }
     public boolean isStructure(BlockPos p) { Role r = roleAt(p); return r != null && r != Role.INTERIOR && r != Role.BED && r != Role.CHEST && r != Role.TABLE && r != Role.FURNACE; }
     public boolean touches(BlockPos p) { return roleAt(p) != null; }
-    public boolean insideRoom(BlockPos p) { Role r = roleAt(p); return r == Role.INTERIOR || r == Role.BED || r == Role.CHEST || r == Role.TABLE || r == Role.FURNACE; }
     public void invalidate() { cells = null; }
 
     // ---- materials: named per role, one wood ---------------------------------------------------------------------------

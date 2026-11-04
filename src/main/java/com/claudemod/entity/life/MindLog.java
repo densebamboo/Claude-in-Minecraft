@@ -21,7 +21,7 @@ public final class MindLog {
                 String m = e.getMessage().getFormattedMessage();
                 if (!m.startsWith("[Claude ") && !m.startsWith("[Claude]")) return;
                 for (String s : SKIP) if (m.startsWith(s)) return;
-                String t = java.time.LocalTime.ofInstant(java.time.Instant.ofEpochMilli(e.getTimeMillis()), java.time.ZoneId.systemDefault()).withNano(0).toString();
+                String t = java.time.LocalTime.ofInstant(java.time.Instant.ofEpochMilli(e.getTimeMillis()), java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss")); // (toString drops ":00" seconds: "08:31 [C" broke the 8-char parse in recent(), 3 plans lost 11-04)
                 String line = t + " " + (m.length() > 220 ? m.substring(0, 220) + "..." : m);
                 synchronized (lines) { lines.addLast(line); while (lines.size() > KEEP) lines.removeFirst(); }
                 if (!m.startsWith("[Claude conflict]") && !m.startsWith("[Claude ore] skipping") && !m.startsWith("[Claude ore] saw") && !m.contains("spotted ") && !m.startsWith("[Claude plan]") && !m.contains("nothing to pick up round") && !m.contains("its next round when he passes") && !m.startsWith("[Claude life]   (his mine as he knows it")) watch(m, e.getTimeMillis()); // (routine re-scans and plans repeat by design: not a fight)

@@ -310,7 +310,7 @@ public class ClaudeEntity extends ServerPlayer {
     }
     @Override
     public void tick() {
-        if (isChangingDimension()) { hasChangedDimension(); com.claudemod.entity.life.PortalMap.arrived(this); com.claudemod.entity.life.ExactSpot.reset(this); /* a spot given in the other dimension means nothing here */ if (!level().getBlockState(blockPosition()).is(net.minecraft.world.level.block.Blocks.NETHER_PORTAL) && !level().getBlockState(blockPosition().above()).is(net.minecraft.world.level.block.Blocks.NETHER_PORTAL)) { tasks.clear(); com.claudemod.director.ClaudeLife.dropCurrent(this); nav.stop(); for (var it = skillQueue.iterator(); it.hasNext(); ) if ("enter_portal".equals(it.next().skill())) it.remove(); ClaudeMod.LOGGER.info("[Claude life] moved to {} not by a portal: the walks and portal steps planned in the other world dropped, re-planning here (ClaudeEntity.tick)", level().dimension().location().getPath()); } /* ponytail: live 13:55, respawned in the overworld, recover_drops queued enter_portal + its overworld route; a /tp into the Nether kept it, he pillared to y 80 and died in lava */ stoppedTick = tickCount; /* ponytail: live 13:30, a plan asked for in the overworld landed after the tp into the Nether: go_to the overworld portal 70 68 65 there */
+        if (isChangingDimension()) { hasChangedDimension(); com.claudemod.entity.life.PortalMap.arrived(this); com.claudemod.entity.life.ExactSpot.reset(this); com.claudemod.entity.nav.Route.forgetTrail(this); /* a spot given in the other dimension means nothing here; nor does the trail */ if (!level().getBlockState(blockPosition()).is(net.minecraft.world.level.block.Blocks.NETHER_PORTAL) && !level().getBlockState(blockPosition().above()).is(net.minecraft.world.level.block.Blocks.NETHER_PORTAL)) { tasks.clear(); com.claudemod.director.ClaudeLife.dropCurrent(this); nav.stop(); for (var it = skillQueue.iterator(); it.hasNext(); ) if ("enter_portal".equals(it.next().skill())) it.remove(); ClaudeMod.LOGGER.info("[Claude life] moved to {} not by a portal: the walks and portal steps planned in the other world dropped, re-planning here (ClaudeEntity.tick)", level().dimension().location().getPath()); } /* ponytail: live 13:55, respawned in the overworld, recover_drops queued enter_portal + its overworld route; a /tp into the Nether kept it, he pillared to y 80 and died in lava */ stoppedTick = tickCount; /* ponytail: live 13:30, a plan asked for in the overworld landed after the tp into the Nether: go_to the overworld portal 70 68 65 there */
             if (level().getBlockState(blockPosition()).is(net.minecraft.world.level.block.Blocks.NETHER_PORTAL)) { /* where he came out: his way back */
                 if (level().dimension() == net.minecraft.world.level.Level.NETHER) ClaudeLife.netherPortal.put(getUUID(), blockPosition().immutable());
                 else if (level().dimension() == net.minecraft.world.level.Level.OVERWORLD) ClaudeLife.hisPortal.put(getUUID(), blockPosition().immutable());
@@ -328,7 +328,7 @@ public class ClaudeEntity extends ServerPlayer {
             try {
                 brainTick();
             } catch (RuntimeException e) { // a bug in his thinking must never take the server down with it
-                if (!brainCrashed) ClaudeMod.LOGGER.error("[Claude] his brain hit an error (he'll keep going)", e);
+                if (!brainCrashed || tickCount % 1200 < 20) ClaudeMod.LOGGER.error("[Claude] his brain hit an error (he'll keep going)", e); // (once a minute while it keeps failing: after the first, a crash every tick froze him with no log)
                 brainCrashed = true;
                 tasks.clear();
             }
@@ -757,6 +757,8 @@ public class ClaudeEntity extends ServerPlayer {
 
     /** After a respawn (a new player object): keep what he knew. */
     public void copyBrainFrom(ClaudeEntity old) {
+        lessonOpen = old.lessonOpen; lessonLast = old.lessonLast; lessonPlaces = old.lessonPlaces; wornChoice = old.wornChoice; nookOld = old.nookOld; // (saved by saveMine, never carried over: a death mid-lesson or mid-nook-move wiped them, and the new body's save wrote the blanks)
+        tickCount = old.tickCount; // (his clock goes on: the static stamps keyed by his UUID read a fresh 0 as "just now" for a whole life's length, planners and guards off)
         prefs.clear(); prefs.putAll(old.prefs);
         playerGoal = old.playerGoal;
         ownerId = old.ownerId;

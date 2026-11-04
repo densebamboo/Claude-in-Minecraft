@@ -178,6 +178,10 @@ public final class PlayerTrace {
         }
     }
 
+    public static void onStopping(net.neoforged.neoforge.event.server.ServerStoppingEvent e) {
+        for (var out : outs.values()) try { out.close(); } catch (IOException ex) { ClaudeMod.LOGGER.warn("[Claude trace] couldn't close a trace: {}", ex.getMessage()); }
+        outs.clear(); days.clear();
+    }
     public static void onChat(ServerChatEvent e) {
         String t = e.getRawText().trim();
         if (t.toLowerCase(Locale.ROOT).startsWith("mark")) log(e.getPlayer(), "mark", "\"text\":\"" + esc(t) + "\"");

@@ -41,6 +41,7 @@ public class ClaudeMod {
         NeoForge.EVENT_BUS.addListener(com.claudemod.context.PlayerTrace::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(com.claudemod.context.PlayerTrace::onRightClickItem);
         NeoForge.EVENT_BUS.addListener(com.claudemod.context.PlayerTrace::onLeftClickBlock); // digs started, stopped, aborted
+        NeoForge.EVENT_BUS.addListener(com.claudemod.context.PlayerTrace::onStopping); // (flush and close: the buffered tail was lost on every stop)
         NeoForge.EVENT_BUS.addListener(com.claudemod.context.PlayerTrace::onChat); // "mark ..." lines: the windows to cut
         NeoForge.EVENT_BUS.addListener(PlayerActivityListener::onBlockBreak);
         NeoForge.EVENT_BUS.addListener(PlayerActivityListener::onBlockPlace);
@@ -81,6 +82,7 @@ public class ClaudeMod {
     public void onServerStarting(ServerStartingEvent event) {
         LOGGER.info("[Claude] server starting.");
         com.claudemod.context.PlayerProfile.clear();
+        com.claudemod.llm.ClaudeApi.forget(); // (world A's chat lines were written into world B's memory file)
         ClaudeSpawner.clear();
     }
 }

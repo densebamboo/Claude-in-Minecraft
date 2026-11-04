@@ -251,7 +251,7 @@ public final class Watchdog {
         if (e[0] < SKILL_REPEATS) return;
         s.trips++;
         String fk = sk; String lacks = missing(result);
-        int r = s.rung.containsKey("skill " + k) ? s.rung.get("skill " + k)[0] : 0;
+        int r = s.rung.containsKey("skill " + k) && now(g) - s.rung.get("skill " + k)[1] <= SKILL_WINDOW ? s.rung.get("skill " + k)[0] : 0; // (a trip hours old starts over at rung 0, its recoveries included, as the action layer forgets after MEMORY)
         s.rung.put("skill " + k, new int[] {r + 1, now(g)});
         if (r == 0 && "craft".equals(step.skill()) && lacks != null && gatherable(lacks) == null) { // the next way for a craft short of what it's made of: obtain it, the whole chain worked out (mine, smelt, then craft), not the bare craft again (live World 15: "craft iron_pickaxe -> missing iron_ingot" with raw iron and coal on him; "craft diamond_leggings -> missing diamond", 5 of 7)
             g.skillQueue.addFirst(new Skills.Step("obtain", step.target(), Math.max(1, step.count())));
@@ -436,7 +436,7 @@ public final class Watchdog {
         StringBuilder mobs = new StringBuilder();
         for (var m : Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(24), x -> x.isAlive() && x instanceof net.minecraft.world.entity.monster.Enemy)) mobs.append(' ').append(m.getType().getDescription().getString()).append(String.format(" %.0f off%s;", m.distanceTo(g), g.hasLineOfSight(m) ? " in sight" : ""));
         b.append("hostiles known within 24:").append(mobs.length() == 0 ? " none" : mobs).append('\n');
-        b.append("watchdog: ").append(s.trips).append(" trip(s); tripped: ").append(s.rung.keySet()).append("; told: ").append(s.lastTold.isEmpty() ? "-" : s.lastTold).append('\n');
+        b.append("watchdog: ").append(s.trips).append(" trip(s); tripped lately: ").append(s.rung.entrySet().stream().filter(x -> now(g) - x.getValue()[1] <= MEMORY).map(java.util.Map.Entry::getKey).toList()).append("; told: ").append(s.lastTold.isEmpty() ? "-" : s.lastTold).append('\n');
         b.append(MindLog.recent());
         String text = b.toString();
         incidents++; lastIncident = kind + ": " + why;
@@ -445,7 +445,7 @@ public final class Watchdog {
             try {
                 java.nio.file.Path dir = g.getServer().getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("claude").resolve("incidents");
                 java.nio.file.Files.createDirectories(dir);
-                java.nio.file.Path f = dir.resolve(java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + "-" + kind.toLowerCase().replace(' ', '_') + ".txt");
+                java.nio.file.Path f = dir.resolve(java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + "-" + kind.toLowerCase().replace(' ', '_') + "-" + incidents + ".txt"); // (two in one second overwrote each other)
                 java.nio.file.Files.writeString(f, text); file = f.toString();
             } catch (Exception e) { file = "unwritten (" + e.getClass().getSimpleName() + ")"; }
         }

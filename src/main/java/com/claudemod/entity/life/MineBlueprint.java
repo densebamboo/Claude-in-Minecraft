@@ -130,8 +130,6 @@ public final class MineBlueprint {
     public boolean touches(BlockPos p) { return roleAt(p) != null; }
     /** The row a walk cell belongs to, or -1. */
     public int rowOf(BlockPos p) { roles(); Integer i = rowOf.get(p); return i == null ? -1 : i; }
-    /** The row nearest to him (by his feet cell, else by distance), or -1 when the mine is empty. */
-    static boolean torchNear(ServerLevel level, BlockPos cell) { for (BlockPos q : BlockPos.betweenClosed(cell.offset(-2, -1, -2), cell.offset(2, 1, 2))) { BlockState s = level.getBlockState(q); if (s.is(Blocks.WALL_TORCH) || s.is(Blocks.TORCH)) return true; } return false; }
     // ---- torches: the blueprint's own slots ---------------------------------------------------------------------------
     private Map<Integer, BlockPos> slotCells; private Map<BlockPos, Direction> slotWalls; private String slotKey; // derived from the segments (and the spacing and side), like the rows
     /**

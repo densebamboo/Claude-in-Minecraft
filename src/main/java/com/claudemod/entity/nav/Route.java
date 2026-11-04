@@ -55,9 +55,10 @@ public final class Route {
         m.put(g.blockPosition().immutable(), g.tickCount);
     }
     /** The cells he passed in the last {@code ticks}, newest first: the way he came (the drowning escape swims back along it). */
+    public static void forgetTrail(ClaudeEntity g) { trail.remove(g.getUUID()); } // (another dimension: its cells are nowhere here)
     public static List<BlockPos> wayBack(ClaudeEntity g, int ticks) {
         List<BlockPos> out = new ArrayList<>(); var m = trail.get(g.getUUID()); if (m == null) return out;
-        for (var e : m.entrySet()) if (g.tickCount - e.getValue() <= ticks) out.add(e.getKey()); // (entrySet, never get: the map is access-ordered, oldest visit first)
+        for (var e : m.entrySet()) if (g.tickCount - e.getValue() <= ticks && e.getValue() <= g.tickCount) out.add(e.getKey()); // (entrySet, never get: the map is access-ordered, oldest visit first)
         java.util.Collections.reverse(out); return out;
     }
     private static boolean live(ClaudeEntity g, Active r) { if (g.currentTask == r.dest) return true; for (Task q : g.tasks) if (q == r.dest) return true; return false; }
@@ -431,11 +432,6 @@ public final class Route {
             Col c = col(level, cache, tx + dx, tz + dz, ty); if (c.feet != BAD && c.feet != UNKNOWN && Math.abs(c.feet - ty) <= 2) return r;
         }
         return -1;
-    }
-    /** One of the spot's 3x3 columns stands within 2 of its height (somewhere to stand at it): then the plan ends at that height. */
-    private static boolean standsNear(ServerLevel level, Map<Long, Col> cache, int tx, int tz, int ty) {
-        for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) { Col c = col(level, cache, tx + dx, tz + dz, ty); if (c.feet != BAD && c.feet != UNKNOWN && Math.abs(c.feet - ty) <= 2) return true; }
-        return false;
     }
     private static long node(int x, int z, int feet) { return ((long) (x & 0x3FFFFFF) << 38) | ((long) (z & 0x3FFFFFF) << 12) | ((feet + 2048) & 0xFFF); }
     private static double h(int x, int z, int tx, int tz) { double dx = Math.abs(x - tx), dz = Math.abs(z - tz); return Math.max(dx, dz) + 0.414 * Math.min(dx, dz); }

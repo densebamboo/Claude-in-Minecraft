@@ -59,7 +59,7 @@ public final class FarSight {
     static final int FAN_W = 24, FAN_H = 14, DENSE_W = 64, DENSE_H = 36, REFINE = 5, REFINE_HITS = 4;
     static final double HALF_YAW = Math.atan(Perception.TAN_H), HALF_PITCH = Math.atan(Perception.TAN_V);
     static final int MERGE = 24; // a cell of the same kind within this of a sighting is more of it
-    public static final long BUDGET_NS = 2_000_000; // a scan over 2 ms is logged
+    public static final long BUDGET_NS = 10_000_000L; // a scan over 10 ms is logged (2 ms printed every 3 s facing any open view: 0.05 ms a tick on average, the real spikes buried)
 
     /** How far he sees here: 320 (20 chunks), or the Nether's fog at 96. */
     public static double reach(ServerLevel level) { return level.dimension() == Level.NETHER ? Math.min(Perception.RENDER, 192) * 0.5 : Perception.RENDER; }
@@ -300,7 +300,6 @@ public final class FarSight {
     static final class View { int scans, tick = -100000, rays; long lastNs, maxNs, denseNs; String facing = "", summary = "nothing yet"; double reach; int unloaded; double unloadedAt; }
     private static Map<UUID, View> views;
     static View view(ClaudeEntity g) { if (views == null) views = new HashMap<>(); return views.computeIfAbsent(g.getUUID(), k -> new View()); }
-    public static long lastScanNs(ClaudeEntity g) { return view(g).lastNs; }
     public static long maxScanNs(ClaudeEntity g) { return view(g).maxNs; }
     public static int lastRays(ClaudeEntity g) { return view(g).rays; }
     public static void reset(ClaudeEntity g) { UUID id = g.getUUID(); if (views != null) views.remove(id); if (passed != null) passed.remove(id); if (houseCells != null) houseCells.remove(id); if (made != null) made.remove(id); if (looks != null) looks.remove(id); if (asked != null) asked.remove(id); if (misses != null) misses.remove(id); }
@@ -345,7 +344,7 @@ public final class FarSight {
         v.tick = g.tickCount; v.rays = rays; v.reach = reach; v.unloaded = unloaded; v.unloadedAt = unloadedAt; v.facing = words(new Vec3(f.x, 0, f.z));
         if (dense) v.denseNs = ns; else { v.lastNs = ns; v.maxNs = Math.max(v.maxNs, ns); }
         v.summary = summary(tally, rays, reach, level.dimension() == Level.NETHER, unloaded, unloadedAt);
-        if (ns > BUDGET_NS) ClaudeMod.LOGGER.info("[Claude sense] far sight: {} {} rays took {} ms, over the 2 ms budget (FarSight.scan)", dense ? "a careful look," : "a scan,", rays, String.format(Locale.ROOT, "%.2f", ns / 1e6));
+        if (ns > BUDGET_NS) ClaudeMod.LOGGER.info("[Claude sense] far sight: {} {} rays took {} ms, over the 10 ms budget (FarSight.scan)", dense ? "a careful look," : "a scan,", rays, String.format(Locale.ROOT, "%.2f", ns / 1e6));
         return rays;
     }
     static String summary(Map<String, Integer> tally, int rays, double reach, boolean nether, int unloaded, double unloadedAt) {

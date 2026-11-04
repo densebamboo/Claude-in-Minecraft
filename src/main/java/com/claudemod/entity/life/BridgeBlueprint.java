@@ -59,7 +59,6 @@ public final class BridgeBlueprint {
 
     private int lateralMax(Direction rowDir, Direction along) { return rowDir.getClockWise().getAxis() == along.getAxis() ? (rowDir.getClockWise() == along ? hi : -lo) : 0; } // how far a row's columns (lo..hi to its right) reach along another direction
     private int lateralMin(Direction rowDir, Direction along) { return rowDir.getClockWise().getAxis() == along.getAxis() ? (rowDir.getClockWise() == along ? lo : -hi) : 0; }
-    private static int coord(BlockPos p, Direction d) { return d.getAxis() == Direction.Axis.X ? p.getX() * d.getStepX() : p.getZ() * d.getStepZ(); }
 
     /**
      * The plan from the portal (its bottom portal cell, he stands there; the floor is the frame's bottom level, a block lower)

@@ -393,7 +393,9 @@ public final class Perception {
         if (f.is(FluidTags.LAVA)) { m.lava.put(k, g.tickCount); m.water.remove(k); }
         else if (f.is(FluidTags.WATER)) { m.water.put(k, g.tickCount); m.lava.remove(k); }
         else { m.lava.remove(k); m.water.remove(k); }
-        if (m.lava.size() > 4096) m.lava.clear(); if (m.water.size() > 8192) m.water.clear(); // ponytail: a cap, not an age-out (an ocean's worth)
+        BlockPos me = g.blockPosition(); // over the cap: the far cells go first, the lava by him stays known (a Nether lava sea filled it in minutes and the clear forgot the pool behind him)
+        if (m.lava.size() > 4096) { m.lava.keySet().removeIf(q -> q.distSqr(me) > 64 * 64); if (m.lava.size() > 4096) m.lava.clear(); }
+        if (m.water.size() > 8192) { m.water.keySet().removeIf(q -> q.distSqr(me) > 64 * 64); if (m.water.size() > 8192) m.water.clear(); }
     }
     /** Each second: the fluid cells within 10 in his view with nothing opaque between (and the known ones there checked again). */
     static void scanFluids(ClaudeEntity g, ServerLevel level) {
@@ -454,7 +456,7 @@ public final class Perception {
     /** A drip he saw at `at` from the fluid at `fluid`: that fluid on his fluid record; lava on his lava list too (ClaudeLife.lavaByDrip). Logged once a spot. */
     static void drip(ClaudeEntity g, ServerLevel level, BlockPos fluid, Vec3 at) {
         BlockPos k = fluid.immutable(); boolean lava = level.getFluidState(k).is(FluidTags.LAVA);
-        var set = dripSet(g); if (set.size() > 2048) set.clear(); boolean news = set.add(k); // ponytail: a cap, not an age-out
+        var set = dripSet(g); if (set.size() > 2048) { set.removeIf(q -> q.distSqr(g.blockPosition()) > 64 * 64); if (set.size() > 2048) set.clear(); } boolean news = set.add(k); // ponytail: a cap, not an age-out
         sawCell(g, level, k); // (knowsLava / knowsLavaBody: the dig guard and the walk planner hold the block; knowsWater: the bucket and the mine)
         if (!news) return;
         BlockPos from = BlockPos.containing(at.x, at.y + 0.1, at.z);
@@ -542,7 +544,7 @@ public final class Perception {
             if (hz == null) { m.remove(q); continue; }
             if (m.put(q.immutable(), hz) == null) com.claudemod.ClaudeMod.LOGGER.info("[Claude sense] saw {} at {} from {}: {} (Perception.scanSigns)", level.getBlockState(q).getBlock().getName().getString(), q.toShortString(), c.toShortString(), hz);
         }
-        if (m.size() > 4096) m.clear(); // ponytail: a cap, not an age-out
+        if (m.size() > 4096) { m.keySet().removeIf(q -> q.distSqr(g.blockPosition()) > 64 * 64); if (m.size() > 4096) m.clear(); } // (far ones first)
     }
     /** A sound that tells a player of a hazard: any sculk sound (a sensor's clicks, a shrieker): the deep dark; a trial spawner's or vault's: a trial chamber; two or more mobs heard within a minute about the same spawner: a mob spawner. Put where the sound seemed to come from. */
     static void heardSign(ClaudeEntity g, net.minecraft.world.level.Level lv, Vec3 est, double d, Entity src, String id) {
@@ -561,7 +563,7 @@ public final class Perception {
         BlockPos k = BlockPos.containing(est); Map<BlockPos, String> m = heardSigns(g);
         for (var e : m.entrySet()) if (e.getValue().equals(what) && e.getKey().distSqr(k) <= 4 * 4) return; // (heard there already)
         m.put(k, what);
-        if (m.size() > 2048) m.clear(); // ponytail: a cap, not an age-out
+        if (m.size() > 2048) { m.keySet().removeIf(q -> q.distSqr(g.blockPosition()) > 64 * 64); if (m.size() > 2048) m.clear(); } // (far ones first)
         com.claudemod.ClaudeMod.LOGGER.info("[Claude sense] heard {} ({}) about {}, {} blocks off: {} (Perception.heard)", id, src == null ? "a block" : src.getType().getDescription().getString(), k.toShortString(), (int) d, what);
     }
 }

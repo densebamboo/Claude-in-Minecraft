@@ -64,6 +64,16 @@ Branch `bp/blockage-tier0`. Day to Day's queue, items 1 and 2.
 - **Stage 614:** an estimate 1,200 off, his portal 20 off, the kit on him: in by the portal. With 4 obsidian: make_obsidian 6 first. Without the change he walks the 1,200.
 - **Stage 557:** moved to 27000. It shared 20000 with stage 548, whose terrain left a roof 160 over him, so he never threw. It passes there (3 throws, 130 s).
 
+## The stronghold under the sea (item 6, second part)
+- **Before:** EyeHunt.dig turns away from any cut touching water, so under an ocean every way failed, and the restart sent him back to the same spot.
+- **Now:**
+  - With the eye's spot under water, he finds the nearest shore within 64 (`EyeHunt.shore`), 2 back from the water's edge.
+  - From there, a staircase toward the spot (no spiral), level at 6 under the sea floor (4 of rock over his head), then the usual spiral at the spot.
+  - No restart back to the sea. The step limit grows by the shore's distance.
+  - The "away from his staircase" check now measures from his last step, not the staircase's start.
+- **Stage 616:** a 12-deep sea in a stone land, the room under it. From the shore to its bricks in 80-87 s, 3 of 3. Without the change: "fluid or bedrock every way" in 11 s.
+- **Water travel:** measured, not built. Sprint-swim is no faster on the server, because sprinting in water already gives drag 0.9 and he sprints there (about 3.6 b/s). A boat is the gain, and it is parked in the backlog.
+
 ## Gate
 - **Green:** 586-592, 594-595, 597, 600, 601, 94-96, 61.
 - **Flaky on main, not from this branch (in the backlog):** 97, 593, and 596 in a range after 595.

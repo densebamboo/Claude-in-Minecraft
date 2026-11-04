@@ -44,6 +44,7 @@ public final class EyeHunt {
         final List<Throw> throwsMade = new ArrayList<>();
         UUID eye; Vec3 eyeFrom; long thrownAt; Vec3 lastAt; long pickupBy;
         BlockPos second, digAt, found, spot, via; Direction dig; int steps;
+        int shore, tunnelY; BlockPos stepAt; // (the stronghold under the sea: dug to from the shore, level under its floor)
         boolean viaTried, viaKit; // (the Nether way: taken once a hunt; its kit asked for once)
     }
     private static Map<UUID, Hunt> hunts; // per bot (static: fields added live start null)
@@ -102,6 +103,18 @@ public final class EyeHunt {
         Throw last = lastThrow(g);
         if (last != null && last.down()) {
             BlockPos spot = h.spot != null ? h.spot : BlockPos.containing(last.at().x, g.getY(), last.at().z);
+            BlockPos from = spot;
+            if (!level.getFluidState(surface(level, spot).below()).isEmpty()) { // under the sea: no dry staircase there (every cut touches the water); from the nearest shore, as a player would
+                from = shore(level, spot, 64);
+                if (from == null) return "failed: the stronghold's under the sea at " + spot.toShortString() + ", no shore within 64 to dig down from";
+                if (horiz(g.position(), Vec3.atCenterOf(from)) > 3) { g.tasks.add(new Task.GoTo(surface(level, from), 1.0)); g.skillQueue.addFirst(again);
+                    ClaudeMod.LOGGER.info("[Claude eye] the eye went down at {}, under the sea: to the shore at {} ({} off) to dig to it from there (EyeHunt)", spot.toShortString(), from.toShortString(), (int) horiz(Vec3.atCenterOf(from), Vec3.atCenterOf(spot)));
+                    return "the stronghold's under the sea at " + spot.toShortString() + ": to the shore at " + from.toShortString() + " to dig to it from there"; }
+                h.spot = spot.immutable(); h.shore = (int) horiz(Vec3.atCenterOf(from), Vec3.atCenterOf(spot)); h.tunnelY = level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.OCEAN_FLOOR, spot).getY() - 6; // (feet 6 under the sea floor: 4 of rock over his head)
+                h.digAt = g.blockPosition(); h.dig = toward(g.blockPosition(), spot);
+                ClaudeMod.LOGGER.info("[Claude eye] at the shore {}: a staircase toward the spot {} under the sea, level at y {} under its floor (EyeHunt)", h.digAt.toShortString(), spot.toShortString(), h.tunnelY);
+                return dig(g, level, h, again);
+            }
             if (horiz(g.position(), Vec3.atCenterOf(spot)) > 3) { g.tasks.add(new Task.GoTo(surface(level, spot), 1.0)); g.skillQueue.addFirst(again); return "to where the eye went down, " + spot.toShortString(); }
             h.digAt = g.blockPosition(); h.dig = g.getDirection();
             ClaudeMod.LOGGER.info("[Claude eye] at the spot the eye went down, {}: a staircase down to the stronghold, heading {} (EyeHunt)", h.digAt.toShortString(), h.dig.getName());
@@ -169,6 +182,21 @@ public final class EyeHunt {
     /** Test hook: a throw on record as if watched. */
     public static void testThrow(ClaudeEntity g, Throw t) { hunt(g).throwsMade.add(t); }
 
+    static Direction toward(BlockPos from, BlockPos to) { int dx = to.getX() - from.getX(), dz = to.getZ() - from.getZ(); return Math.abs(dx) >= Math.abs(dz) ? (dx >= 0 ? Direction.EAST : Direction.WEST) : (dz >= 0 ? Direction.SOUTH : Direction.NORTH); }
+
+    /** The nearest dry ground within r of the spot, 2 back from any water, in loaded chunks; null: none. */
+    static BlockPos shore(ServerLevel level, BlockPos spot, int r) {
+        for (int d = 2; d <= r; d += 2) { BlockPos best = null; double bd = Double.MAX_VALUE;
+            for (int x = -d; x <= d; x += 2) for (int z = -d; z <= d; z += 2) { if (Math.max(Math.abs(x), Math.abs(z)) != d) continue;
+                BlockPos q = spot.offset(x, 0, z); if (!level.hasChunkAt(q)) continue;
+                BlockPos top = surface(level, q); if (level.getBlockState(top.below()).getCollisionShape(level, top.below()).isEmpty()) continue;
+                boolean wet = false; for (int a = -2; a <= 2 && !wet; a++) for (int b = -2; b <= 2 && !wet; b++) wet = !level.getFluidState(surface(level, top.offset(a, 0, b)).below()).isEmpty(); // (2 back from the water's edge: the first steps down mustn't touch it)
+                if (wet) continue;
+                double dq = x * x + z * z; if (dq < bd) { bd = dq; best = top.immutable(); } }
+            if (best != null) return best; }
+        return null;
+    }
+
     static int eyes(ClaudeEntity g) { return g.inventory.count(x -> x.is(Items.ENDER_EYE)); }
     static double horiz(Vec3 a, Vec3 b) { double dx = a.x - b.x, dz = a.z - b.z; return Math.sqrt(dx * dx + dz * dz); }
     static BlockPos surface(ServerLevel level, BlockPos p) { return level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, p); }
@@ -226,18 +254,20 @@ public final class EyeHunt {
             ClaudeMod.LOGGER.info("[Claude eye] stone bricks at {} ({}), {} steps down from {}: the stronghold. Stopping here (EyeHunt)", h.found.toShortString(), level.getBlockState(q).getBlock().getName().getString(), h.steps, h.digAt.toShortString());
             return "done: broke into the stronghold, " + level.getBlockState(q).getBlock().getName().getString().toLowerCase() + " at " + h.found.toShortString() + " (" + h.steps + " steps down)";
         }
-        if (h.steps > 0 && horiz(Vec3.atCenterOf(f), Vec3.atCenterOf(h.digAt)) > 6 + 3 && restartAtSpot(g, h, f, "he's away from his staircase")) { g.skillQueue.addFirst(again); return "back to the eye's spot to dig down there"; } // (the planner's "explore" took him 90 blocks off up a new stair; the next run dug on from there)
-        if ((h.steps > 80 || f.getY() <= level.getMinBuildHeight() + 5) && restartAtSpot(g, h, f, "no bricks in " + h.steps + " steps")) { g.skillQueue.addFirst(again); return "back to the eye's spot to dig down there"; }
-        if (h.steps > 80 || f.getY() <= level.getMinBuildHeight() + 5) return "failed: " + h.steps + " steps down and no stone bricks (at " + f.toShortString() + ")";
+        if (h.steps > 0 && horiz(Vec3.atCenterOf(f), Vec3.atCenterOf(h.stepAt != null ? h.stepAt : h.digAt)) > 6 + 3 && restartAtSpot(g, h, f, "he's away from his staircase")) { g.skillQueue.addFirst(again); return "back to the eye's spot to dig down there"; } // (the planner's "explore" took him 90 blocks off up a new stair; the next run dug on from there)
+        if ((h.steps > 80 + h.shore || f.getY() <= level.getMinBuildHeight() + 5) && restartAtSpot(g, h, f, "no bricks in " + h.steps + " steps")) { g.skillQueue.addFirst(again); return "back to the eye's spot to dig down there"; }
+        if (h.steps > 80 + h.shore || f.getY() <= level.getMinBuildHeight() + 5) return "failed: " + h.steps + " steps down and no stone bricks (at " + f.toShortString() + ")";
+        boolean across = h.shore > 0 && h.spot != null && horiz(Vec3.atCenterOf(f), Vec3.atCenterOf(h.spot)) > 6; // (from the shore: on toward the spot, level once under the sea floor; the spiral at the spot)
+        if (across) h.dig = toward(f, h.spot);
         for (int turn = 0; turn < 4; turn++) {
-            Direction d = h.dig; BlockPos next = f.relative(d).below();
-            BlockPos[] cut = {f.relative(d).above(), f.relative(d), next};
+            Direction d = h.dig; boolean level0 = across && f.getY() <= h.tunnelY; BlockPos next = level0 ? f.relative(d) : f.relative(d).below();
+            BlockPos[] cut = level0 ? new BlockPos[] {f.relative(d).above(), f.relative(d)} : new BlockPos[] {f.relative(d).above(), f.relative(d), next};
             boolean ok = !level.getBlockState(next.below()).getCollisionShape(level, next.below()).isEmpty();
             for (BlockPos c : cut) { if (level.getBlockState(c).getDestroySpeed(level, c) < 0) ok = false; for (Direction n : Direction.values()) if (!level.getFluidState(c.relative(n)).isEmpty()) ok = false; }
             if (!ok) { h.dig = h.dig.getClockWise(); continue; }
             for (BlockPos c : cut) if (!level.getBlockState(c).isAir()) g.tasks.add(new Task.Break(c.immutable()));
-            g.tasks.add(new Task.GoTo(next.immutable(), 0.3)); h.steps++; g.skillQueue.addFirst(again);
-            if (h.steps % 3 == 0) h.dig = h.dig.getClockWise(); // a square spiral round the spot, 3 steps a side, 12 down a turn: straight on, he'd be 50 blocks off the eye's spot by y 20 (the user: "shouldn't he wrap?")
+            g.tasks.add(new Task.GoTo(next.immutable(), 0.3)); h.steps++; h.stepAt = next.immutable(); g.skillQueue.addFirst(again);
+            if (h.steps % 3 == 0 && !across) h.dig = h.dig.getClockWise(); // a square spiral round the spot, 3 steps a side, 12 down a turn: straight on, he'd be 50 blocks off the eye's spot by y 20 (the user: "shouldn't he wrap?")
             if (h.steps % 5 == 0) for (Direction side : new Direction[]{d.getClockWise(), d.getCounterClockWise()}) { BlockPos w = f.relative(d).relative(side); if (level.getBlockState(w).isFaceSturdy(level, w, side.getOpposite())) { g.tasks.add(new Task.WallTorch(f.relative(d).immutable(), side)); break; } } // a torch every 5 steps on the side wall, like a player's stairs (the user: "torches for sure")
             if (h.steps % 8 == 1) ClaudeMod.LOGGER.info("[Claude eye] staircase step {} going {}, down to y {} (EyeHunt)", h.steps, d.getName(), next.getY());
             return "digging a staircase down to the stronghold (step " + h.steps + ", y " + next.getY() + ")";
@@ -249,8 +279,8 @@ public final class EyeHunt {
     /** The staircase ended away from where the eye went down (the old straight one ran 71 blocks off it, live 00:24): back to the spot, a fresh spiral from there. Once only (steps reset; the spot is kept). */
     static boolean restartAtSpot(ClaudeEntity g, Hunt h, BlockPos f, String why) {
         if (h.spot == null && h.digAt != null) h.spot = h.digAt.immutable(); // (the staircase began at the eye's spot; h.spot stays null when his pickup reflex took the eye first, and the restart never fired, live 00:26)
-        if (h.spot == null || horiz(Vec3.atCenterOf(f), Vec3.atCenterOf(h.spot)) <= 6) return false;
+        if (h.spot == null || h.shore > 0 || horiz(Vec3.atCenterOf(f), Vec3.atCenterOf(h.spot)) <= 6) return false; // (dug to from the shore: back at the spot is the sea)
         ClaudeMod.LOGGER.info("[Claude eye] staircase at {} stopped ({}), {} off the eye's spot {}: back there for a spiral down (EyeHunt)", f.toShortString(), why, (int) horiz(Vec3.atCenterOf(f), Vec3.atCenterOf(h.spot)), h.spot.toShortString());
-        h.digAt = null; h.steps = 0; return true;
+        h.digAt = null; h.steps = 0; h.stepAt = null; return true;
     }
 }

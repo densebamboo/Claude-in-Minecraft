@@ -10400,6 +10400,7 @@ public final class ClaudeBodyTest {
             case 612: return st612(stage, t, c, h, level, mock);
             case 613: return st613(stage, t, c, h, level, mock);
             case 614: return st614(stage, t, c, h, level, mock);
+            case 616: return st616(stage, t, c, h, level, mock);
             case 598: return st598(stage, t, c, h, level, mock);
             case 599: return st599(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
@@ -12142,6 +12143,32 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.skillQueue.clear(); com.claudemod.entity.life.EyeHunt.reset(c); c.getInventory().clearContent();
             check(in, "stronghold 1,200 off, portal 20 off: \"" + said + "\" / \"" + saidKit + "\" (want in by the portal, then obsidian first without the kit)");
             pass(stage, t, "the far estimate by the Nether: \"" + said + "\"; without the kit: \"" + saidKit + "\"");
+        }
+        return true;
+    }
+
+    /** The stronghold under the sea: the eye went down over 12-deep water; from the shore, a staircase toward it, level under the sea floor, down at the spot to its bricks. */
+    private static int s616T;
+    private static boolean st616(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        final int ox = 28000, oz = 28000, gy = -60; BlockPos room = new BlockPos(ox + 15, gy + 4, oz);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 1800; c.tasks.clear(); c.skillQueue.clear(); c.prefs.put("stay_close", "no"); c.commandActive = false; com.claudemod.entity.life.EyeHunt.reset(c); s616T = -1;
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.TORCH, 32)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(ox + 60.5, gy + 50, oz + 0.5); c.setNoGravity(true); }
+        if (t[0] >= 2 && t[0] < 2 + 30) { int y = gy + t[0] - 2; // the land, a layer a tick, the sea cut into its top 12
+            for (int x = ox - 5; x <= ox + 80; x++) for (int z = oz - 20; z <= oz + 20; z++) { boolean sea = y >= gy + 18 && x >= ox && x <= ox + 40 && Math.abs(z - oz) <= 15;
+                level.setBlock(new BlockPos(x, y, z), sea ? Blocks.WATER.defaultBlockState() : Blocks.STONE.defaultBlockState(), 2 | 16); } }
+        if (t[0] == 35) { for (int x = -7; x <= 7; x++) for (int z = -7; z <= 7; z++) for (int y = 0; y <= 4; y++) { boolean shell = Math.abs(x) == 7 || Math.abs(z) == 7 || y == 0 || y == 4; level.setBlock(room.offset(x, y - 2, z), shell ? Blocks.STONE_BRICKS.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2 | 16); }
+            c.setNoGravity(false); c.teleportTo(ox + 60.5, gy + 30, oz + 0.5); c.fallDistance = 0; com.claudemod.entity.life.Watchdog.teleported(c);
+            net.minecraft.world.phys.Vec3 over = new net.minecraft.world.phys.Vec3(ox + 15.5, gy + 30, oz + 0.5); // (the eye went down over the sea)
+            com.claudemod.entity.life.EyeHunt.testThrow(c, new com.claudemod.entity.life.EyeHunt.Throw(over.add(-1, 0, 0), 0, over, true)); }
+        if (t[0] == 40) { s616T = t[0]; c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("find_stronghold", "", 1)); }
+        if (s616T > 0 && t[0] % 40 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, c.getBoundingBox().inflate(48))) m.discard();
+        BlockPos found = com.claudemod.entity.life.EyeHunt.found(c);
+        if (s616T > 0 && (found != null || !c.isAlive() || t[0] >= s616T + 20 * 180 || c.skillQueue.isEmpty() && c.tasks.isEmpty() && c.currentTask == null && t[0] > s616T + 40)) {
+            String at = c.blockPosition().toShortString(); int took = (t[0] - s616T) / 20; boolean wet = c.isInWater();
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; com.claudemod.entity.life.EyeHunt.reset(c);
+            check(c.isAlive() && found != null && found.closerThan(room, 12), "under the sea: no bricks reached in " + took + " s (found " + found + ", at " + at + ", in water " + wet + ", last " + c.lastSkillLine + ")");
+            pass(stage, t, "under the sea: from the shore to the room's bricks at " + found.toShortString() + " in " + took + " s");
         }
         return true;
     }

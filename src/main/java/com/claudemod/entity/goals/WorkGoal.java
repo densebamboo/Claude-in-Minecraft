@@ -4797,6 +4797,7 @@ public class WorkGoal extends Goal {
         }
         // three down: the cover then goes in at ground level, where the ground around it gives it something to sit against
         ItemStack lidToo = scaffoldBlock(); // logs or planks on him: a lid as good as any
+        if (lidToo.getItem() instanceof net.minecraft.world.item.BlockItem lb && lb.getBlock() instanceof net.minecraft.world.level.block.FallingBlock) lidToo = ItemStack.EMPTY; // sand or gravel over an open hole falls in on him (live 12:37 11-04: suffocated under his own sand lid)
         java.util.List<Task> steps = new java.util.ArrayList<>(java.util.List.of(new Task.Break(feet.below()), new Task.Break(feet.below(2)), new Task.Break(feet.below(3)),
                 new Task.Pickup(40), new Task.Place(feet.below(), net.minecraft.world.item.Items.DIRT), new Task.Place(feet.below(), net.minecraft.world.item.Items.COBBLESTONE))); // the lid from what the dig just gave him (dirt, or the cobble off the stone); 40 ticks for the drops to land (10 left the hole open: shot in it)
         if (!lidToo.isEmpty()) steps.add(new Task.Place(feet.below(), lidToo.getItem()));
@@ -4817,6 +4818,7 @@ public class WorkGoal extends Goal {
                 boolean ok = true;
                 for (BlockPos q : new BlockPos[] {a, b}) { BlockState st = level.getBlockState(q); ok &= (st.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_SHOVEL) || (st.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_PICKAXE) && !g.inventory.find(i -> i.isCorrectToolForDrops(st)).isEmpty())) && !st.hasBlockEntity() && level.getFluidState(q).isEmpty(); }
                 ok &= !level.getBlockState(roof).getCollisionShape(level, roof).isEmpty() && !level.getBlockState(floor).getCollisionShape(level, floor).isEmpty();
+                ok &= !(level.getBlockState(roof).getBlock() instanceof net.minecraft.world.level.block.FallingBlock) && !(level.getBlockState(b).getBlock() instanceof net.minecraft.world.level.block.FallingBlock); // a sand roof comes down as the tuck is dug, and the sky with it (live 12:36 11-04: tucked under sand, shot 18 -> 2 from the rim)
                 if (ok) { side = d; break; }
             }
             if (side != null) {

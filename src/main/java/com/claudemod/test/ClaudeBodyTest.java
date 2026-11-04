@@ -10386,6 +10386,7 @@ public final class ClaudeBodyTest {
             case 589: return st589(stage, t, c, h, level, mock);
             case 590: return st590(stage, t, c, h, level, mock);
             case 591: return st591(stage, t, c, h, level, mock);
+            case 592: return st592(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -12022,6 +12023,28 @@ public final class ClaudeBodyTest {
     /** An explore leg over deep water ends on the water, not on the pool's floor (live 12:03 11-04: 39 blocks down to a bed beside a cave). */
     /** No planned swim under water longer than half his air, and no mine-row legs down a flooded row (live 12:02 11-04: route legs 10 cells into his flooded mine, drowned). */
     /** A lid of sand over his cover hole: never put down where it falls on him (live 12:37 11-04: suffocated under his own sand lid in a desert). */
+    /** Cover in a desert: never a sand lid, never a tuck under a sand roof (live 12:36-12:37 11-04: shot 18 -> 2 in a tuck whose sand roof fell in, then suffocated under a sand lid). */
+    private static boolean st592(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10 || t[0] == 40) {
+            for (int x = 0; x <= 8; x++) for (int z = 0; z <= 8; z++) for (int y = 0; y <= 12; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y <= 8 ? Blocks.SAND.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            BlockPos feet = h.absolutePos(new BlockPos(4, 9, 4)); c.tasks.clear(); c.dropCurrent = true;
+            c.teleportTo(feet.getX() + 0.5, feet.getY(), feet.getZ() + 0.5); c.setOnGround(true);
+            c.getInventory().clearContent(); if (t[0] == 10) c.getInventory().add(new ItemStack(Items.SAND, 5));
+        }
+        if (t[0] == 12 || t[0] == 42) {
+            BlockPos feet = h.absolutePos(new BlockPos(4, 9, 4));
+            boolean ok = c.work.shelter();
+            for (Task q : c.tasks) {
+                check(!(q instanceof Task.Place p0 && p0.item() instanceof net.minecraft.world.item.BlockItem bi && bi.getBlock() instanceof net.minecraft.world.level.block.FallingBlock), "a falling block planned as part of his cover: " + q + " (" + c.tasks + ")");
+                check(!(q instanceof Task.GoTo g0 && g0.pos().getY() < feet.getY() && (g0.pos().getX() != feet.getX() || g0.pos().getZ() != feet.getZ())), "tucked in under a sand roof: " + q + " (" + c.tasks + ")");
+            }
+            c.tasks.clear(); c.dropCurrent = true;
+            if (t[0] == 42) pass(stage, t, "cover in sand: no sand lid, no tuck under sand (shelter " + ok + ")");
+        }
+        return true;
+    }
+
     private static boolean st591(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (t[0] == 1) {
             scenarioReset(c); c.nextPlanTick = c.tickCount + 12000;

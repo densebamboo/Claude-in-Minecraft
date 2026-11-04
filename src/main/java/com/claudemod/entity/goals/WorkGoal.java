@@ -408,9 +408,13 @@ public class WorkGoal extends Goal {
             done = switch (current) {
                 case Task.GoTo t -> { if (ticks == 1) exitWhy = null; if (g.staying && t.pos().distSqr(g.blockPosition()) > 2 * 2) { if (g.tickCount % 100 < 2 || ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] staying put where they said: the walk to {} ({}) waits (WorkGoal)", t.pos().toShortString(), com.claudemod.entity.ClaudeEntity.originOf(t)); yield true; } // (told to stay put, every chore of his own walks him off: a stash run, a torch run, his nook; one gate at the walk, their own go_to clears staying first, 15:03)
                     if ((g.onClimbable() || g.level().getBlockState(t.pos()).is(net.minecraft.tags.BlockTags.CLIMBABLE)) && t.pos().getX() == g.getBlockX() && t.pos().getZ() == g.getBlockZ() && t.pos().getY() > g.getBlockY()) { g.getNavigation().stop(); g.getJumpControl().jump(); if (ticks > 40) com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] climb to {} gave up at y {} after 2 s (WorkGoal GoTo climb)", t.pos().toShortString(), g.getBlockY()); yield ticks > 40; } // ponytail: hold jump till he is in the cell (live 16:21 a one-tick jump per leg ended every leg at once, a vine-column loop); 2 s a cell cap // ponytail: live 14:50 -59,5x,-909: up a free-standing twisting vine a player holds jump; the walk never did, "couldn't get to" each cell of the planned climb
+                    if (ticks == 1 && t.pos().distSqr(g.blockPosition()) > 4 * 4 && coverBeforeWalk(t)) yield true;
                     if (ticks == 1) { // a walk into a cell still solid, its dig queued behind the walk: the dig first, then the walk (live 04:43 World 15: a GoTo into the rock under him, its Break next in the queue, 32 stalls in a minute)
                         BlockPos tp = t.pos(); var lv0 = g.level(); java.util.List<Task> first = new java.util.ArrayList<>();
-                        for (Task q0 : g.tasks) if (q0 instanceof Task.Break b0 && (b0.pos().equals(tp) || b0.pos().equals(tp.above())) && !lv0.getBlockState(b0.pos()).getCollisionShape(lv0, b0.pos()).isEmpty() && !first.contains(q0)) first.add(q0);
+                        for (Task q0 : g.tasks) {
+                            if (q0 instanceof Task.Wait) break;
+                            if (q0 instanceof Task.Break b0 && (b0.pos().equals(tp) || b0.pos().equals(tp.above())) && !lv0.getBlockState(b0.pos()).getCollisionShape(lv0, b0.pos()).isEmpty() && !first.contains(q0)) first.add(q0);
+                        }
                         if (!first.isEmpty()) {
                             g.tasks.removeAll(first); g.tasks.addFirst(t); for (int i0 = first.size() - 1; i0 >= 0; i0--) g.tasks.addFirst(first.get(i0));
                             com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] the walk to {} waits for its own cell's dig ({} block(s) still there, queued behind it): digging first (WorkGoal.GoTo)", tp.toShortString(), first.size());
@@ -420,7 +424,7 @@ public class WorkGoal extends Goal {
                     if (ticks == 1 && t.pos().distSqr(g.blockPosition()) > 4 * 4) { // the user's rule: every break and patch in reach is done in the moment (ore, then holes, then the path), then on
                         java.util.List<Task> here = new java.util.ArrayList<>(); var eye0 = g.getEyePosition();
                         if (g.tickCount - pulledAt > 20 * 60) { pulledAt = g.tickCount; pulled.clear(); } // (kept 60 s whatever the walk: keyed by target it cleared each time the walk flipped between two cells by his arch, and pulled the same 8 jobs forward again and again, 04:03) // each job pulled once per walk: one that can't be done goes back in the queue, never pulled again ahead of the walk (03:29: a patch that failed was pulled forward 10 times a second)
-                        for (Task q0 : g.tasks) { BlockPos qp = q0 instanceof Task.Break b0 ? b0.pos() : q0 instanceof Task.Place p0 ? p0.pos() : null; if (qp != null && !pulled.contains(q0) && inReach(qp) && qp.distSqr(t.pos()) <= g.blockPosition().distSqr(t.pos()) /* (none farther from the walk's end than he is: each branch block dug brought the next one west in reach, and the walk north to unload became 8 blocks of tunnelling, live 13:59) */ && blockInTheWay((ServerLevel) g.level(), qp) == null && !(q0 instanceof Task.Place pw && pw.want() != null) && !com.claudemod.entity.life.WatchBuild.ownsCell(g, qp)) here.add(q0); } /* (not a build's blocks or its clearing: they go in its order, each from the spot planned for the build as it stands by then) */ /* (nothing between: a far row cell pulled ahead of the nearer ones hit "in the way" every tick, 04:29) */ // (the dig's and the place's own reach test: a looser eye distance pulled a patch he couldn't reach from there, and it was dropped unplaced, test stage 18)
+                        for (Task q0 : g.tasks) { if (q0 instanceof Task.Wait) break; BlockPos qp = q0 instanceof Task.Break b0 ? b0.pos() : q0 instanceof Task.Place p0 ? p0.pos() : null; if (qp != null && !pulled.contains(q0) && inReach(qp) && qp.distSqr(t.pos()) <= g.blockPosition().distSqr(t.pos()) /* (none farther from the walk's end than he is: each branch block dug brought the next one west in reach, and the walk north to unload became 8 blocks of tunnelling, live 13:59) */ && blockInTheWay((ServerLevel) g.level(), qp) == null && !(q0 instanceof Task.Place pw && pw.want() != null) && !com.claudemod.entity.life.WatchBuild.ownsCell(g, qp)) here.add(q0); } /* (not a build's blocks or its clearing: they go in its order, each from the spot planned for the build as it stands by then) */ /* (nothing between: a far row cell pulled ahead of the nearer ones hit "in the way" every tick, 04:29) */ // (the dig's and the place's own reach test: a looser eye distance pulled a patch he couldn't reach from there, and it was dropped unplaced, test stage 18)
                         pulled.addAll(here);
                         if (!here.isEmpty()) {
                             here.sort(java.util.Comparator.comparingInt(q0 -> q0 instanceof Task.Break b0 && com.claudemod.entity.life.MineBlueprint.ore(g.level().getBlockState(b0.pos())) ? 0 : 1)); // ore first; the rest in queue order (a swap's Break and its Place stay a pair: sorting places ahead split them, 04:03)
@@ -1229,6 +1233,22 @@ public class WorkGoal extends Goal {
 
     /** The steps of the cover he's in right now (its wait, the lid out, the climb up), or none: a new job never drops them. */
     public java.util.List<Task> coverTasks() { return digInAt != null && digInTasks != null && inDigInHole() ? digInTasks : java.util.List.of(); }
+
+    private boolean coverBeforeWalk(Task.GoTo walk) {
+        if (surfacing || com.claudemod.entity.life.Watchdog.airRoute(g)) return false;
+        var cover = coverTasks();
+        for (Task step : cover) if (step == walk) return false;
+        java.util.List<Task> pending = new java.util.ArrayList<>();
+        for (Task step : cover) {
+            var it = g.tasks.iterator();
+            while (it.hasNext()) if (it.next() == step) { it.remove(); pending.add(step); break; }
+        }
+        if (pending.isEmpty()) return false;
+        g.tasks.addFirst(walk);
+        for (int i = pending.size() - 1; i >= 0; i--) g.tasks.addFirst(pending.get(i));
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude life] finish {} cover steps before the walk to {}: build, safety wait, then teardown (WorkGoal.coverBeforeWalk)", pending.size(), walk.pos().toShortString());
+        return true;
+    }
 
     public boolean shelter() {
         if (diggingIn()) return true;

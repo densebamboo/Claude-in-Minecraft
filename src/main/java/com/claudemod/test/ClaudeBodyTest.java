@@ -7847,6 +7847,7 @@ public final class ClaudeBodyTest {
     /** Stone to y 1 over the 16x16, air above to height + 8; a plateau x 0-6 standing height blocks over the floor (its top cell y height + 1, his feet height + 2). */
     private static void djCliff(GameTestHelper h, ServerLevel level, int height) {
         for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -3; yy <= 1; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2); for (int yy = 2; yy <= height + 8; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), (x <= 6 && yy <= height + 1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); }
+        for (int i = -1; i <= 16; i++) for (int yy = -3; yy <= height + 8; yy++) for (BlockPos q : new BlockPos[] {new BlockPos(i, yy, -1), new BlockPos(i, yy, 16), new BlockPos(-1, yy, i), new BlockPos(16, yy, i)}) level.setBlock(h.absolutePos(q), Blocks.BEDROCK.defaultBlockState(), 2); // sealed: no way round over another stage's leftovers outside the box (380 walked out over one a block higher and dropped 8)
         level.setDayTime(6000);
     }
     private static void djPut(ClaudeEntity c, GameTestHelper h, BlockPos rel) { BlockPos p = h.absolutePos(rel); c.teleportTo(p.getX() + 0.5, p.getY(), p.getZ() + 0.5); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.fallDistance = 0; wbFace(c, -90f); c.setHealth(20); c.getFoodData().setFoodLevel(20); }
@@ -7855,7 +7856,7 @@ public final class ClaudeBodyTest {
     /** A trench across the box (x from..to, z 1-14), floor y 1 elsewhere; bedrock walls along z 0 and 15 (no way round the ends); its bottom 'deep' under the floor top, lava in it with lava = true. */
     private static void djTrench(GameTestHelper h, ServerLevel level, int from, int to, int deep, boolean lava) {
         djCliff(h, level, 0);
-        for (int x = 0; x < 16; x++) for (int yy = -3; yy <= 5; yy++) { level.setBlock(h.absolutePos(new BlockPos(x, yy, 0)), Blocks.BEDROCK.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, yy, 15)), Blocks.BEDROCK.defaultBlockState(), 2); }
+        for (int x = 0; x < 16; x++) for (int yy = -3; yy <= 12; yy++) { level.setBlock(h.absolutePos(new BlockPos(x, yy, 0)), Blocks.BEDROCK.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, yy, 15)), Blocks.BEDROCK.defaultBlockState(), 2); }
         for (int x = from; x <= to; x++) for (int z = 1; z <= 14; z++) for (int yy = 2 - deep; yy <= 1; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), (lava && yy == 2 - deep ? Blocks.LAVA : Blocks.AIR).defaultBlockState(), 2);
     }
     /** One jump stage: him at (3, 2, 8) facing east, a walk to (13, y, 8); passes once there with the kind of jump wanted run, never down in the trench, no HP lost, in a player's time. */
@@ -10394,6 +10395,8 @@ public final class ClaudeBodyTest {
             case 597: return st597(stage, t, c, h, level, mock);
             case 600: return st600(stage, t, c, h, level, mock);
             case 601: return st601(stage, t, c, h, level, mock);
+            case 598: return st598(stage, t, c, h, level, mock);
+            case 599: return st599(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -12067,6 +12070,43 @@ public final class ClaudeBodyTest {
         if (t[0] > 10 && c.blockPosition().distSqr(s600Goal) <= 2 * 2) s600Reached = true;
         if (s600Reached && s600Shell.stream().allMatch(q -> !level.getBlockState(q).isAir())) { c.tasks.clear(); c.dropCurrent = true; com.claudemod.entity.life.TempLedger.builtCells(c).clear(); pass(stage, t, "sealed in his own build: out through one bent cell and it patched back (" + t[0] + " ticks)"); }
         else if (t[0] >= 900) { com.claudemod.entity.life.TempLedger.builtCells(c).clear(); check(false, "sealed in his own build: reached " + s600Reached + ", shell cells open " + s600Shell.stream().filter(q -> level.getBlockState(q).isAir()).map(BlockPos::toShortString).toList() + ", now " + c.currentTask + " " + c.tasks); }
+    /** Their order "strip_mine iron_ore x12 near_them", the planner's step "x1 near_you" for the same job: the order's own step is queued (live 01:16-07:33 11-04: never matched, the order stayed open 6 h). */
+    /** 1 ingot and 4 raw iron, his furnace 44 off: no iron_boots craft queued (smelt sends the raw home, the craft failed "missing iron_ingot" 25 times, live 06:29-06:37 11-04). A furnace on him: the boots are queued. */
+    private static boolean st599(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            BlockPos me = c.blockPosition();
+            for (BlockPos q : BlockPos.betweenClosed(me.offset(-17, -17, -17), me.offset(17, 17, 17))) if (level.getBlockState(q).is(Blocks.FURNACE)) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2);
+            BlockPos far = me.east(44); level.setBlock(far, Blocks.FURNACE.defaultBlockState(), 2); c.myStations.add(far.immutable());
+            c.getInventory().clearContent();
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_INGOT)); c.getInventory().add(new ItemStack(Items.RAW_IRON, 4)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 8));
+            c.skillQueue.clear(); c.commandActive = false; c.lastStep = null; c.setHealth(20f);
+            com.claudemod.director.ClaudeLife.ironPiecemealNow(c, level);
+            boolean queued = c.skillQueue.stream().anyMatch(s -> s.skill().equals("craft") && s.target().startsWith("iron_"));
+            String q0 = String.valueOf(c.skillQueue);
+            c.skillQueue.clear(); c.getInventory().add(new ItemStack(Items.FURNACE));
+            com.claudemod.director.ClaudeLife.ironPiecemealNow(c, level);
+            boolean withFurnace = c.skillQueue.stream().anyMatch(s -> s.skill().equals("craft") && s.target().equals("iron_boots"));
+            c.myStations.remove(far); level.setBlock(far, Blocks.AIR.defaultBlockState(), 2); c.skillQueue.clear(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, ItemStack.EMPTY); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, ItemStack.EMPTY);
+            check(!queued, "4 raw iron that smelt sends 44 home counted as ingots: queued " + q0 + " (the craft fails missing iron_ingot)");
+            check(withFurnace, "a furnace on him, 1 ingot + 4 raw: no iron_boots queued (the raw smelts right here)");
+            c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "raw iron counts for armor only where it smelts");
+        }
+        return true;
+    }
+
+    private static boolean st598(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            var theirs = new com.claudemod.entity.life.Skills.Step("strip_mine", "iron_ore", 12, "near_them");
+            var plan = new com.claudemod.entity.life.Skills.Step("strip_mine", "iron_ore", 1, "near_you");
+            var r = com.claudemod.director.ClaudeLife.asOrderStepNow(c, "mine iron", java.util.List.of(theirs), plan);
+            check(r.equals(theirs), "the plan's strip_mine for their order queued as " + r + ", not their " + theirs + ": finishing it never finishes the order");
+            var other = com.claudemod.director.ClaudeLife.asOrderStepNow(c, "mine iron", java.util.List.of(theirs), new com.claudemod.entity.life.Skills.Step("collect", "logs", 4));
+            check(other.skill().equals("collect"), "a step for another job taken as their order's: " + other);
+            c.playerGoal = null; pass(stage, t, "the plan's step for their job is their order's step: " + r);
+        }
         return true;
     }
 

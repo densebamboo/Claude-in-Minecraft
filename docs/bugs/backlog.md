@@ -32,7 +32,7 @@ Background: the unaided run in New World (16) had 6 deaths after the portal, a 3
      - Haiku's plans pass the same HARD filter and the ActionPath check; a plan that trips a hard rule is rejected and logged, never run.
      - If no plan passes the hard rules: he backs out the way he came and the blockage is logged as a bug. Never a risky try.
    - Model: Haiku is enough (user, 2026-11-03). Most blockages are pathing: the obsidian pocket's water cell sat behind one natural cave block (not his build) he wouldn't break, and "break the block" fixes it. What matters is that the prompt NAMES the obstacle ("stone at X stands between you and the water at Y; you have a pick"), not model size. Escalate to a bigger model only after Haiku's plan fails the check twice.
-   - Tier 0, before any LLM call: re-run ActionPath to the target with the moves that were refused allowed again (MAY_DIG, place, scoop). The refusals that caused today's stucks were his own rules (NO_DIG, etiquette, his own builds, owner claims), not the world. If the path is found, run it and log which rule had blocked it. That rule is the bug.
+   - **Tier 0 DONE 2026-11-04 (bp/blockage-tier0, stage 600): ActionPath MAY_BEND + WorkGoal.bendWay; watch live for "[Claude blockage]" lines, each names the rule that blocked a walk (fix that rule).** Tier 0, before any LLM call: re-run ActionPath to the target with the moves that were refused allowed again (MAY_DIG, place, scoop). The refusals that caused today's stucks were his own rules (NO_DIG, etiquette, his own builds, owner claims), not the world. If the path is found, run it and log which rule had blocked it. That rule is the bug.
    - A plan that works is saved as a learned skill keyed by obstacle type (learned-skills plan), so the next time it's a lookup, not a model call.
    - Giving up becomes rare and is always logged as a bug.
    - First test cases from today's logs: water at the branch face (541,12,126), sealed in his own patches, an out-of-reach obsidian block, the nook-shell owner fight.
@@ -325,3 +325,8 @@ Today the mod runs server-side only. No client mod is needed: he's a ServerPlaye
 - OPEN: the Nov 3 3 h water loop (537,13,114: "shore at 538,13,115, swimming there" x7302, never reached; starving at 1 HP). Not provable without the pocket's blocks; incidents now map them, so the next one shows why the shore swim fails.
 - OPEN: iron pickaxe pile at 540,42,91 despawned before recover_drops reached it (died 04:01, still walking at 04:06).
 - Pre-existing on main (not from tonight): groups 0-86 (chicken under leaves), 200-206 (nook move), 350-359 (pocket out of the water cell), 470-489 (walk never nearer); 414/415.
+
+## Big Picture, 2026-11-04 afternoon
+- **Plan that never comes back: DONE** (stage 601, ClaudeLife.planFallback): the rules' step fills the gap; a prompt that throws falls back at once.
+- **Flaky on main, not fixed:** stage 97 (ore approach: the rock ore "can't get at": the 3 s re-plan guard right after its own plan; main failed 2 of 3); stage 593 (creeper mid-fight: passed 2 of 2 alone after a range fail); stage 596 fails in a 594-601 range run after 595 but passes alone (left-over state from 595).
+

@@ -293,10 +293,13 @@ public final class Controls {
             net.minecraft.core.BlockPos goal = path != null && !path.isDone() ? path.getNextNodePos()
                     : Double.isNaN(move.wantedY()) ? null : net.minecraft.core.BlockPos.containing(move.wanted);
             // only dive for somewhere underwater; a lower spot on dry land (past a river bank) means swim across and climb out
-            boolean diving = goal != null && goal.getY() < p.getBlockY() && p.getAirSupply() > 60 // a block below his feet block, not half a block below his y: afloat at y+0.5 in a 2-deep pool every goal on his own level read as a dive and pinned him to the bottom
+            boolean roofed = false; for (int dy = 1; dy <= 4; dy++) { net.minecraft.core.BlockPos q = p.blockPosition().above(dy); if (!p.level().getFluidState(q).isEmpty()) continue; roofed = !p.level().getBlockState(q).getCollisionShape(p.level(), q).isEmpty(); break; } // rock over the water, not air: up is no breath
+            net.minecraft.core.BlockPos nextUp = goal == null ? null : new net.minecraft.core.BlockPos(p.getBlockX() + Integer.signum(goal.getX() - p.getBlockX()), goal.getY(), p.getBlockZ() + Integer.signum(goal.getZ() - p.getBlockZ())).above();
+            boolean lowGap = goal != null && p.getY() > goal.getY() + 0.3 && (!p.level().getBlockState(goal.above()).getCollisionShape(p.level(), goal.above()).isEmpty() || !p.level().getBlockState(nextUp).getCollisionShape(p.level(), nextUp).isEmpty()); // rock a block up over the goal or the next cell toward it: down to the bottom of his cell to swim under it (his swim box is 0.6 high)
+            boolean diving = goal != null && (goal.getY() < p.getBlockY() || lowGap) && (p.getAirSupply() > 60 || roofed || lowGap) // (low on air under a rock roof the way out can be down: "up no matter what" held him floating a cell over it, 12:02 11-04) // a block below his feet block, not half a block below his y: afloat at y+0.5 in a 2-deep pool every goal on his own level read as a dive and pinned him to the bottom
                     && p.level().getFluidState(goal).is(net.minecraft.tags.FluidTags.WATER);
             boolean mining = p instanceof com.claudemod.entity.ClaudeEntity ce && ce.currentTask instanceof com.claudemod.entity.life.Task.Break;
-            if (diving) p.setDeltaMovement(p.getDeltaMovement().add(0, -0.04, 0)); // the same push down a sneaking swimmer gets
+            if (diving) { p.setDeltaMovement(p.getDeltaMovement().add(0, -0.04, 0)); if (p.isSwimming()) p.setXRot(net.minecraft.util.Mth.approachDegrees(p.getXRot(), 60f, 30f)); } // the same push down a sneaking swimmer gets; a swimming player's sink follows his look (Player.travel), so look down like one
             else if (!mining && (!wading(p) || (p.horizontalCollision && goal != null && !(p instanceof com.claudemod.entity.ClaudeEntity ce0 && (ce0.staying || ce0.currentTask instanceof com.claudemod.entity.life.Task.Place))))) jumpNow = true; // Stay on the bottom while mining: automatic swimming adds the airborne mining penalty.
         }
         p.setJumping(jumpNow);

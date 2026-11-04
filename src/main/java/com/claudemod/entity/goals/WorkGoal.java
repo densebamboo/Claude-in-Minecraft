@@ -123,8 +123,11 @@ public class WorkGoal extends Goal {
             java.util.List<BlockPos> back = com.claudemod.entity.nav.Route.wayBack(g, 20 * 60);
             int air = -1; for (int i = 0; i < back.size() && air < 0; i++) { BlockPos h = back.get(i).above(); if (level.getFluidState(h).isEmpty() && level.getBlockState(h).getCollisionShape(level, h).isEmpty()) air = i; }
             if (air > 0) {
-                BlockPos aim = back.get(Math.min(1, air));
-                for (int i = air; i >= 1; i--) { var see = level.clip(new net.minecraft.world.level.ClipContext(g.getEyePosition(), Vec3.atCenterOf(back.get(i).above()), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)); if (see.getType() == net.minecraft.world.phys.HitResult.Type.MISS) { aim = back.get(i); break; } }
+                BlockPos here0 = g.blockPosition(), aim = null; // (never his own cell: 12:02 11-04 he "swam back" to the cell he was in and drowned there)
+                int on = 0; double onD = Double.MAX_VALUE; for (int i = 0; i <= air; i++) { double d0 = back.get(i).distToCenterSqr(g.position()); if (d0 < onD) { onD = d0; on = i; } } // his place on the trail: the nearest of its cells (floated a cell up, he's on none)
+                Vec3 body = g.position().add(0, 0.4, 0); // (from his body, not his eyes: under a low rock ceiling his eyes are in the rock's row)
+                for (int i = air; i > on && aim == null; i--) { BlockPos c0 = back.get(i); var see = level.clip(new net.minecraft.world.level.ClipContext(body, Vec3.atCenterOf(c0), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)); if (see.getType() == net.minecraft.world.phys.HitResult.Type.MISS) aim = c0; }
+                if (aim == null) aim = back.get(Math.min(air, back.get(on).equals(here0) ? on + 1 : on)); // the next cell back along it: the way he came is water he got through
                 if (g.tickCount % 20 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no air in sight at {}: back the way he came, toward {} (air at {}, {} cells back)", g.blockPosition().toShortString(), aim.toShortString(), back.get(air).toShortString(), air);
                 return aim;
             }
@@ -184,10 +187,10 @@ public class WorkGoal extends Goal {
                 g.getNavigation().stop(); // Stay grounded while mining: swimming adds the airborne mining penalty.
                 if (g.tickCount % 20 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] digging the roof at {} for air (air {}, {})", roofOverEyes.toShortString(), g.getAirSupply(), diggingRoof ? "under way" : "starting");
             } else {
-                var line = g.level().clip(new net.minecraft.world.level.ClipContext(g.getEyePosition(), Vec3.atCenterOf(spot.above()), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g));
+                var line = g.level().clip(new net.minecraft.world.level.ClipContext(g.position().add(0, 0.4, 0), Vec3.atCenterOf(spot), /* (body to the spot's own cell: its head cell can be rock under a low ceiling, and a line to rock sent him to the pathfinder, which can't swim) */ net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g));
                 if (line.getType() != net.minecraft.world.phys.HitResult.Type.MISS && g.tickCount % 10 == 0) g.getNavigation().moveTo(spot.getX() + 0.5, spot.getY(), spot.getZ() + 0.5, 1.0); // round a corner: the route, not a swim into the wall
                 else if (line.getType() == net.minecraft.world.phys.HitResult.Type.MISS) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(spot.getX() + 0.5, spot.getY(), spot.getZ() + 0.5, 1.0); }
-                if (spot.getY() >= g.getBlockY()) g.getJumpControl().jump(); // swim up only when the air is up: air below means letting himself sink to it (holding jump kept him floating at the top with his mine's air under him)
+                if (spot.getY() > g.getBlockY() || (spot.getY() == g.getBlockY() && g.level().getBlockState(spot.above()).getCollisionShape(g.level(), spot.above()).isEmpty())) g.getJumpControl().jump(); // (no jump toward a cell with rock over it: the way on is under that rock, swum low) // swim up only when the air is up: air below means letting himself sink to it (holding jump kept him floating at the top with his mine's air under him)
                 g.getLookControl().setLookAt(spot.getX() + 0.5, spot.getY() + 1.5, spot.getZ() + 0.5);
                 return true;
             }

@@ -10381,7 +10381,7 @@ public final class ClaudeBodyTest {
             case 582, 583: return st582(stage, t, c, h, level, mock);
             case 584: return st584(stage, t, c, h, level, mock);
             case 585: return st585(stage, t, c, h, level, mock);
-            case 586: return st586(stage, t, c, h, level, mock);
+            case 586: case 588: return st586(stage, t, c, h, level, mock);
             case 587: return st587(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
@@ -12046,7 +12046,7 @@ public final class ClaudeBodyTest {
         if (t[0] == 10) {
             for (BlockPos p : BlockPos.betweenClosed(me.offset(-2, -1, -6), me.offset(6, 5, 2))) level.setBlock(p, Blocks.BEDROCK.defaultBlockState(), 2);
             java.util.List<BlockPos> way = new java.util.ArrayList<>(); way.add(me.above()); way.add(me); for (int k = 1; k <= 4; k++) way.add(me.east(k)); for (int j = 1; j <= 4; j++) way.add(me.east(4).north(j));
-            for (BlockPos w : way) { level.setBlock(w, Blocks.WATER.defaultBlockState(), 2); level.setBlock(w.above(), Blocks.WATER.defaultBlockState(), 2); }
+            for (BlockPos w : way) { level.setBlock(w, Blocks.WATER.defaultBlockState(), 2); if (stage[0] == 586 || !(w.equals(me.east(2)) || w.equals(me.east(3)))) level.setBlock(w.above(), Blocks.WATER.defaultBlockState(), 2); } // (588: a low rock ceiling over 2 cells he swam under: every way back aimed at that rock, live 12:02 11-04)
             level.setBlock(me.above(2), Blocks.AIR.defaultBlockState(), 2); level.setBlock(me.above(3), Blocks.AIR.defaultBlockState(), 2); // the air: up the shaft he swam down
             c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
             for (BlockPos w : way) { c.teleportTo(w.getX() + 0.5, w.getY(), w.getZ() + 0.5); com.claudemod.entity.nav.Route.step(c); } // his swim in
@@ -12054,7 +12054,7 @@ public final class ClaudeBodyTest {
             c.tasks.add(new Task.Wait(1000, false));
         }
         if (t[0] > 10) {
-            check(c.isAlive() && c.getHealth() >= 20, "drowning in the pocket he swam into: health " + c.getHealth() + " at " + c.blockPosition() + ", air " + c.getAirSupply());
+            check(c.isAlive() && c.getHealth() >= 20, "drowning in the pocket he swam into: health " + c.getHealth() + " at " + c.blockPosition().subtract(me) + " y " + String.format("%.2f", c.getY() - me.getY()) + " x " + String.format("%.2f", c.getX() - me.getX()) + ", pose " + c.getPose() + " sprint " + c.isSprinting() + " underwater " + c.isUnderWater() + ", air " + c.getAirSupply());
             if (!c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "swam back the way he came to air in " + (t[0] - 10) + " ticks"); }
             else check(t[0] < 300, "no air within 14 s: at " + c.blockPosition() + ", air " + c.getAirSupply());
         }

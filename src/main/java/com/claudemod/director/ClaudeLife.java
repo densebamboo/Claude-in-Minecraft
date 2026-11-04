@@ -11454,11 +11454,14 @@ public final class ClaudeLife {
             if (k0 != MineBlueprint.Kind.FLAT && k0 != MineBlueprint.Kind.RUN || r0.first().getY() != levelY || !branchRow(g, b, i)) continue; // (a level's branch rows: past its nook's gap, then every branchEvery)
             if (k0 == MineBlueprint.Kind.RUN && (r0.index() < reach || java.util.Arrays.stream(r0.feet()).anyMatch(f -> MineBlueprint.solid(level, f) || MineBlueprint.solid(level, f.above())))) continue; // his second tunnel: pairs only out past the first one's branches (fresh rock, no crossing), off rows already dug
             boolean near = false; for (int j = i - every + 1; j < i + every; j++) if (branched.contains(j)) near = true;
-            if (!near) pick = i;
+            if (!near) {
+                int beforePair = b.rows().size(); branchPairFor(g, b, i, b.branchLength > 0 ? b.branchLength : 8);
+                if (b.rows().size() > beforePair) pick = i;
+                else ClaudeMod.LOGGER.info("[Claude mine] no branch added at row {}: both sides refused; checking the next row (ClaudeLife.bpAtLevelY)", i);
+            }
         }
         if (pick >= 0) {
-            int before0 = b.rows().size();
-            branchPairFor(g, b, pick, b.branchLength > 0 ? b.branchLength : 8);
+            int before0 = rs0.size(); // the rows before the pair selected above was added
             bpSync(g);
             bpWalkTo(g, b.rows().get(pick).first());
             int n0 = bpReconcile(g, level, before0, b.rows().size() - 1, false);

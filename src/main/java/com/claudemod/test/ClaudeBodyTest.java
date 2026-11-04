@@ -10369,6 +10369,7 @@ public final class ClaudeBodyTest {
             case 565, 566, 567, 568: return st565(stage, t, c, h, level, mock);
             case 569: return st569(stage, t, c, h, level, mock);
             case 570: return st570(stage, t, c, h, level, mock);
+            case 571: return st571(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -11940,6 +11941,25 @@ public final class ClaudeBodyTest {
             if (!com.claudemod.entity.life.MineBlueprint.ore(level.getBlockState(iron))) check(!level.getBlockState(diamond).is(Blocks.DIAMOND_ORE), "iron taken before the exposed diamond");
             if (mined && patched && raw >= 2 && dia == 1) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "whole vein mined, 2 iron + diamond picked up, all seven holes patched in " + t[0] + " ticks"); }
             else check(t[0] < 400, "mine integrity: mined=" + mined + ", patched=" + patched + ", iron=" + raw + ", diamonds=" + dia + ", at=" + c.blockPosition() + ", task=" + c.currentTask + ", queue=" + c.tasks);
+        }
+        return true;
+    }
+
+    private static boolean st571(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live Nov 4 00:29: both sides refused, yet bpAtLevelY reported a new pair and selected that row again.
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            var b = lnMine(h, level, c); int rejected = -1;
+            for (int i = 0; i < b.rows().size(); i++) if (b.rows().get(i).segment() == 1 && com.claudemod.director.ClaudeLife.branchRow(c, b, i)) { rejected = i; break; }
+            check(rejected >= 0, "setup: no branch row"); var row = b.rows().get(rejected);
+            b.dangers.add(row.feet()[0].north()); b.dangers.add(row.feet()[1].south());
+            lnStand(c, mock, row.first(), row.first().west()); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            int beforeRows = b.rows().size(); String line = com.claudemod.director.ClaudeLife.bpAtLevelNow(c, level, b, row.first().getY(), "iron");
+            var branches = b.segments.stream().filter(s -> s.kind == com.claudemod.entity.life.MineBlueprint.Kind.BRANCH).toList();
+            check(b.rows().size() > beforeRows, "reported progress without adding any rows after both sides were refused: " + line);
+            for (var s : branches) check(s.start.getX() != row.first().getX(), "selected the rejected row again");
+            check(c.tasks.stream().anyMatch(q -> q instanceof Task.Break), "new safe branch has no work queued: " + c.tasks);
+            c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "rejected pair skipped; a real branch elsewhere and its digs queued in one pass");
         }
         return true;
     }

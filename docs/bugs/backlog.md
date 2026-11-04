@@ -299,3 +299,13 @@ Today the mod runs server-side only. No client mod is needed: he's a ServerPlaye
 - **Other block pickers still need Watchdog.skipBreak.** Only the obsidian picker and TempLedger use it so far. Mine ore, the nook, trees and the strip-mine face pick break targets on their own.
 - Stages 414 (pin: out of the pocket) and 415 (technique: a plug queued) fail on main as of 2026-11-03, before the audit changes too. Not caused by the watchdog commit.
 - Stages 565-568 pass one at a time but fail run as a group ("patched before the whole vein and every drop were collected"), on codex/mine-integrity alone too: they leak state into each other. Run them separately until fixed.
+
+## 4am run 2026-11-04 (Day to Day)
+- DONE aec8c34: Codex's 11 overnight branches merged to main (water-tunnel, air escapes, shallow-water pillar, kit/cover/rest/recovery fixes); stages 572-584, 27, 483 pass.
+- DONE 62e40c7: 04:01 death, suffocated cutting a step up through gravel (the resumed walk hopped him onto the fresh step while the column was still falling). gravelOverHim + step/walk waits; stage 585 fails before, passes after (264 ticks).
+- DONE 62e40c7: incident files now carry a 7x7x5 block map round him.
+- DONE aec8c34: stage 30 regression from b06bf29 (planner and old cutter both acting in a shallow flooded hole); the cutter only takes holes with his head under.
+- OPEN, needs the user: stage 123 fails since fc38f8b (water-tunnel) dropped "his cobble plug ends a branch". A plugged pair is no longer done: he pushes the old branches on instead of starting a second tunnel. Codex did it for the "cross the aquifer" rule. Decide: does a dry plug still end a branch (only water plugs reopen), or is 123's premise outdated?
+- OPEN: the Nov 3 3 h water loop (537,13,114: "shore at 538,13,115, swimming there" x7302, never reached; starving at 1 HP). Not provable without the pocket's blocks; incidents now map them, so the next one shows why the shore swim fails.
+- OPEN: iron pickaxe pile at 540,42,91 despawned before recover_drops reached it (died 04:01, still walking at 04:06).
+- Pre-existing on main (not from tonight): groups 0-86 (chicken under leaves), 200-206 (nook move), 350-359 (pocket out of the water cell), 470-489 (walk never nearer); 414/415.

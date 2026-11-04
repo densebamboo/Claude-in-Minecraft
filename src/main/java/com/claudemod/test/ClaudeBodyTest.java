@@ -10403,6 +10403,9 @@ public final class ClaudeBodyTest {
             case 616: return st616(stage, t, c, h, level, mock);
             case 598: return st598(stage, t, c, h, level, mock);
             case 599: return st599(stage, t, c, h, level, mock);
+            case 602: return st602(stage, t, c, h, level, mock);
+            case 603: return st603(stage, t, c, h, level, mock);
+            case 604: return st604(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -12047,6 +12050,55 @@ public final class ClaudeBodyTest {
     /** 4 meals and a gear_up queued after a diamond hunt: the food comes before the mine, not after it (live 09:30 11-02: down to y -58 with 4 meals, 30 min of food trips). */
     /** Their order "strip_mine iron_ore x12 near_them", the planner's step "x1 near_you" for the same job: the order's own step is queued (live 01:16-07:33 11-04: never matched, the order stayed open 6 h). */
     /** 1 ingot and 4 raw iron, his furnace 44 off: no iron_boots craft queued (smelt sends the raw home, the craft failed "missing iron_ingot" 25 times, live 06:29-06:37 11-04). A furnace on him: the boots are queued. */
+    /** He loads and sees the chunks a player's render distance does, not the default client's 2 (live 14:02-14:21 11-04: blind past ~40 blocks, 31 legs scouting for trees). */
+    private static int st604View;
+    private static boolean st604(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; st604View = level.getServer().getPlayerList().getViewDistance(); level.getServer().getPlayerList().setViewDistance(10); } // (the test server's own is 0: a player's 10)
+        if (t[0] == 30) {
+            int view = level.getServer().getPlayerList().getViewDistance(); level.getServer().getPlayerList().setViewDistance(st604View);
+            check(c.requestedViewDistance() == view, "his view distance " + c.requestedViewDistance() + " chunks, the server's " + view + ": he can't see what a player sees");
+            pass(stage, t, "view distance " + c.requestedViewDistance() + " chunks, as the server's");
+        }
+        return true;
+    }
+
+    /** Gravel hanging over air as world generation leaves it (no fall tick due) is not "coming down": the walk under it goes on (live 14:05 11-04: 2.5 min waiting at -35, 62, 240). Gravel whose support was just dug is. */
+    private static boolean st603(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            BlockPos step = h.absolutePos(new BlockPos(4, 2, 4));
+            for (BlockPos p : BlockPos.betweenClosed(step, step.above(6))) level.setBlock(p, Blocks.AIR.defaultBlockState(), 2);
+            level.setBlock(step.above(3), Blocks.GRAVEL.defaultBlockState(), 2);
+            level.getBlockTicks().clearArea(new net.minecraft.world.level.levelgen.structure.BoundingBox(step.above(3)));
+            BlockPos f = com.claudemod.entity.goals.WorkGoal.gravelComing(level, step);
+            level.setBlock(step.above(3), Blocks.AIR.defaultBlockState(), 2);
+            check(f == null, "gravel hanging over air with no fall due read as coming down at " + f + ": he waits under it for good");
+            pass(stage, t, "world-gen floating gravel is no falling gravel");
+        }
+        return true;
+    }
+
+    /** Three zombies 4 south, one 5 north on the line away from them: the run he picks doesn't pass within 2.5 of the one in the way (live 13:59 11-04: two runs into a wither skeleton 5 off on the line, 8 a hit, dead). */
+    private static boolean st602(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000;
+            for (int x = 0; x <= 20; x++) for (int z = 0; z <= 20; z++) for (int y = 1; y <= 14; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            BlockPos me = h.absolutePos(new BlockPos(10, 2, 10)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.tasks.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 5) {
+            BlockPos me = h.absolutePos(new BlockPos(10, 2, 10)); java.util.List<net.minecraft.world.entity.monster.Zombie> zs = new java.util.ArrayList<>();
+            for (int k = -1; k <= 2; k++) { var z = EntityType.ZOMBIE.create(level); BlockPos zp = k == 2 ? me.north(5) : me.south(4).east(k); z.moveTo(zp.getX() + 0.5, zp.getY(), zp.getZ() + 0.5, 0, 0); z.setNoAi(true); level.addFreshEntity(z); zs.add(z); }
+            BlockPos end = c.work.pickEscapeNow(zs); var inWay = zs.get(3);
+            net.minecraft.world.phys.Vec3 hd = net.minecraft.world.phys.Vec3.atBottomCenterOf(end).subtract(c.position()).multiply(1, 0, 1); double len = hd.length(); hd = hd.normalize();
+            net.minecraft.world.phys.Vec3 tm = inWay.position().subtract(c.position()).multiply(1, 0, 1); double along = tm.dot(hd), side = tm.subtract(hd.scale(along)).length();
+            for (var z : zs) z.discard(); c.tasks.clear(); c.dropCurrent = true;
+            check(!(along > 0 && along < len && side < 2.5), "the run to " + end.toShortString() + " passes " + String.format("%.1f", side) + " from the zombie on its line, " + String.format("%.1f", along) + " along it");
+            pass(stage, t, "the run to " + end.toShortString() + " keeps clear of the one in the way (" + String.format("%.1f", side) + " off its line)");
+        }
+        return true;
+    }
+
     private static boolean st599(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
         if (t[0] == 10) {

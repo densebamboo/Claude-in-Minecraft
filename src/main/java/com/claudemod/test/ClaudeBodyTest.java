@@ -10395,6 +10395,7 @@ public final class ClaudeBodyTest {
             case 597: return st597(stage, t, c, h, level, mock);
             case 600: return st600(stage, t, c, h, level, mock);
             case 601: return st601(stage, t, c, h, level, mock);
+            case 610: return st610(stage, t, c, h, level, mock);
             case 598: return st598(stage, t, c, h, level, mock);
             case 599: return st599(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
@@ -12076,6 +12077,25 @@ public final class ClaudeBodyTest {
             check(other.skill().equals("collect"), "a step for another job taken as their order's: " + other);
             c.playerGoal = null; pass(stage, t, "the plan's step for their job is their order's step: " + r);
         }
+        return true;
+    }
+
+    private static BlockPos s610At;
+    /** One owner for unreachable patches: a build system re-queues a patch he has no block for, every second (live 11-04: 840 bpReconcile conflict lines). Parked at the 3rd refusal; taken again once he has the block. */
+    private static boolean st610(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000;
+            for (int x = 0; x <= 10; x++) for (int z = 0; z <= 10; z++) for (int y = 1; y <= 8; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20f);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            s610At = me.east(2);
+        }
+        if (t[0] >= 10 && t[0] % 20 == 10 && t[0] < 260) com.claudemod.director.ClaudeLife.nookCutsBack(c, java.util.List.of(s610At), Items.COBBLESTONE); // (the upkeep's round, every second)
+        if (t[0] == 200) c.getInventory().add(new ItemStack(Items.COBBLESTONE, 8));
+        int refusals = c.attempts.counters.getOrDefault("conflict:" + s610At.asLong(), 0);
+        if (refusals > 3) { c.tasks.clear(); c.dropCurrent = true; check(false, "the patch he has no block for was refused " + refusals + " times, re-queued each round"); }
+        else if (t[0] > 200 && level.getBlockState(s610At).is(Blocks.COBBLESTONE)) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "refused 3 times, parked, then put down once he had the block (" + t[0] + " ticks)"); }
+        else if (t[0] >= 400) { c.tasks.clear(); c.dropCurrent = true; check(false, "the patch never went in after he had the block (refusals " + refusals + ", tasks " + c.tasks + ")"); }
         return true;
     }
 

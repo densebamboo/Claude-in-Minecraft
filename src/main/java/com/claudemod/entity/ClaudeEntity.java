@@ -102,8 +102,8 @@ public class ClaudeEntity extends ServerPlayer {
     /** Each block's last claim: which system queued a dig or a fill there, and when (the user: cell ownership, for debugging). */
     private static final java.util.Map<Long, String[]> CLAIM = new java.util.HashMap<>();
     public final ArrayDeque<Task> tasks = new ArrayDeque<>() {
-        @Override public void addFirst(Task t) { noteOrigin(t); super.addFirst(t); }
-        @Override public void addLast(Task t) { noteOrigin(t); super.addLast(t); }
+        @Override public void addFirst(Task t) { noteOrigin(t); if (!com.claudemod.entity.life.Parked.blocks(ClaudeEntity.this, t)) super.addFirst(t); } // (a refused upkeep patch, parked: not taken again till something changed)
+        @Override public void addLast(Task t) { noteOrigin(t); if (!com.claudemod.entity.life.Parked.blocks(ClaudeEntity.this, t)) super.addLast(t); }
     };
     public final ArrayDeque<Task> stashedTasks = new ArrayDeque<>();
     public final ArrayDeque<Skills.Step> skillQueue = new ArrayDeque<>();

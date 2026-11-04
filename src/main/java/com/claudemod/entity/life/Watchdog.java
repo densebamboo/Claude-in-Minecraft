@@ -63,6 +63,8 @@ public final class Watchdog {
     private static int now(ClaudeEntity g) { return g.getServer().getTickCount(); } // ponytail: his own tickCount restarts at 0 on every dimension change; this state outlives the entity
     private static St st(ClaudeEntity g) { return ST.computeIfAbsent(g.getUUID(), k -> new St()); }
     public static void reset(ClaudeEntity g) { ST.remove(g.getUUID()); }
+    /** Parked lifted this job (the block arrived, he moved off, time passed): its trip and write-off go with it, so it runs again. */
+    public static void cleared(ClaudeEntity g, Task t) { St s = ST.get(g.getUUID()); String k = key(t); if (s == null || k == null) return; s.rung.remove(k); s.ends.remove(k); s.told.remove(k); }
     public static int incidents; public static String lastIncident = ""; // (stages read them)
     public static String lastTold(ClaudeEntity g) { St s = ST.get(g.getUUID()); return s == null ? "" : s.lastTold; }
     public static int trips(ClaudeEntity g) { St s = ST.get(g.getUUID()); return s == null ? 0 : s.trips; }

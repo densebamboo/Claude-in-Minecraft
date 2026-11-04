@@ -329,4 +329,6 @@ Today the mod runs server-side only. No client mod is needed: he's a ServerPlaye
 ## Big Picture, 2026-11-04 afternoon
 - **Plan that never comes back: DONE** (stage 601, ClaudeLife.planFallback): the rules' step fills the gap; a prompt that throws falls back at once.
 - **Flaky on main, not fixed:** stage 97 (ore approach: the rock ore "can't get at": the 3 s re-plan guard right after its own plan; main failed 2 of 3); stage 593 (creeper mid-fight: passed 2 of 2 alone after a range fail); stage 596 fails in a 594-601 range run after 595 but passes alone (left-over state from 595).
+- **One owner for unreachable patches: DONE** (stage 610, entity/life/Parked): an upkeep system's dig or fill refused 3 times in 60 s is parked in his task queue until he has more of the block, is 8+ off, or 2 min pass. On release it clears the watchdog's write-off, the place/reach/break skips and the conflict count. Watch live for "[Claude parked]".
+- **Flaky on main, not fixed:** stage 568 fails in a 565-568 range run (2 of 2 on main's code) but passes alone.
 

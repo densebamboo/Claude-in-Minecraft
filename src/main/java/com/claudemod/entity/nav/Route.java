@@ -54,6 +54,12 @@ public final class Route {
         var m = trail.computeIfAbsent(g.getUUID(), k -> new java.util.LinkedHashMap<>(512, 0.75f, true) { @Override protected boolean removeEldestEntry(Map.Entry<BlockPos, Integer> e) { return size() > 4000; } });
         m.put(g.blockPosition().immutable(), g.tickCount);
     }
+    /** The cells he passed in the last {@code ticks}, newest first: the way he came (the drowning escape swims back along it). */
+    public static List<BlockPos> wayBack(ClaudeEntity g, int ticks) {
+        List<BlockPos> out = new ArrayList<>(); var m = trail.get(g.getUUID()); if (m == null) return out;
+        for (var e : m.entrySet()) if (g.tickCount - e.getValue() <= ticks) out.add(e.getKey()); // (entrySet, never get: the map is access-ordered, oldest visit first)
+        java.util.Collections.reverse(out); return out;
+    }
     private static boolean live(ClaudeEntity g, Active r) { if (g.currentTask == r.dest) return true; for (Task q : g.tasks) if (q == r.dest) return true; return false; }
     /** expand's answer "his walker takes it as it is". */
     public static boolean walkerTakes(List<Task> legs) { return legs == MARK; }

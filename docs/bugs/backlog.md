@@ -302,6 +302,9 @@ Today the mod runs server-side only. No client mod is needed: he's a ServerPlaye
 
 ## 4am run 2026-11-04 (Day to Day)
 
+- DONE: drowning in a water pocket (00:50 11-04, 15:46 11-03, same pocket 535,14,119): low on air with no air in sight he aimed at air 5 blocks back through a wall. Now he swims back along his own trail (Route.wayBack) to the last cell with air at his head; stage 586.
+- OPEN: the route that took him in: ActionPath planned a 33-walk route for "8 stone right here" through ~12 flooded cells. A player wouldn't swim an unknown flooded passage for 8 cobble; underwater cells should cost his air budget.
+
 - DONE: stage 123: a dry plug (cobble, no known water within 2) ends a branch again; only water plugs reopen (user, 11-04). ClaudeLife.dryPlug at the 4 branch checks.
 - OPEN: stage 577 "roof air" fails when run inside the 572-584 group (passes alone 3/3); fails the same at Codex's merge a26d45e, so an earlier stage in the group leaks state into it.
 - DONE aec8c34: Codex's 11 overnight branches merged to main (water-tunnel, air escapes, shallow-water pillar, kit/cover/rest/recovery fixes); stages 572-584, 27, 483 pass.

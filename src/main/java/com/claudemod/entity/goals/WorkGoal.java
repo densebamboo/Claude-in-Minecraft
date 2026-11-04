@@ -119,6 +119,16 @@ public class WorkGoal extends Goal {
             if (line.getType() == net.minecraft.world.phys.HitResult.Type.MISS) return c; // a straight swim
             if (routes++ < 4) { var p = g.getNavigation().createPath(c, 0); if (p != null && p.canReach()) return c; } // round a corner (a few tries a tick at most)
         }
+        { // the way he came: he swam in along it, so it's water he can swim back through (the user, 11-04: "he opens a water pocket and swims into it and doesnt swim back through it"; 00:50 he aimed at air 5 blocks back through a wall and drowned)
+            java.util.List<BlockPos> back = com.claudemod.entity.nav.Route.wayBack(g, 20 * 60);
+            int air = -1; for (int i = 0; i < back.size() && air < 0; i++) { BlockPos h = back.get(i).above(); if (level.getFluidState(h).isEmpty() && level.getBlockState(h).getCollisionShape(level, h).isEmpty()) air = i; }
+            if (air > 0) {
+                BlockPos aim = back.get(Math.min(1, air));
+                for (int i = air; i >= 1; i--) { var see = level.clip(new net.minecraft.world.level.ClipContext(g.getEyePosition(), Vec3.atCenterOf(back.get(i).above()), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)); if (see.getType() == net.minecraft.world.phys.HitResult.Type.MISS) { aim = back.get(i); break; } }
+                if (g.tickCount % 20 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no air in sight at {}: back the way he came, toward {} (air at {}, {} cells back)", g.blockPosition().toShortString(), aim.toShortString(), back.get(air).toShortString(), air);
+                return aim;
+            }
+        }
         // nothing open within reach: a player digs the roof out over his head (he has a few seconds of air for it)
         BlockPos roof = eye.above();
         BlockState rs = level.getBlockState(roof);

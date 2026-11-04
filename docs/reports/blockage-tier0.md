@@ -43,6 +43,17 @@ Branch `bp/blockage-tier0`. Day to Day's queue, items 1 and 2.
 - **Re-proven:** 535 (sealed in at the portal: tunnels out in legs, 85 s; was 50 s seeing through rock) and 538 (153-179 s; was 185 s). 545 passes (70 s, bricks intact). 536, 537, 539, 540, 542-547 and 549-556 are green.
 - **Also:** tools/test_in_copy.sh now clears the copy's src first. Files from another branch used to compile in.
 
+## Fortress fight: the gap, not the run (item 7)
+- **Live 11-04 13:59 death:**
+  - Deck scouting ("no blaze in view") walked him into a skeleton, 3 wither skeletons and 5 blazes. He had 2 blocks and a stone axe.
+  - The crowd rule fled, and wither skeletons blocked all four escape runs. Health went 20 to 0 in 10 s.
+  - The 2-high gap that won the fight at 13:58 was 15 off, outside pickWither's radius of 10.
+- **Now:**
+  - `WorkGoal.gapFoe`: with a wither skeleton in a crowd and a gap it can't reach into (`FortressFight.coverFor`), he goes to the gap and fights from there. Hooked where the attacker path and doAttack would flee.
+  - `FortressFight.lastGap`: the last 2-high gap he fought from, used again within 24 if it is still safe and he can reach it.
+- **Log:** `[Claude fight] a crowd with a wither skeleton in it (...): to the gap at P ... (WorkGoal.gapFoe)`.
+- **Stage 613:** a nether-brick wall with a 2-high nook, 3 wither skeletons and a skeleton. With the change: in the gap in 40 ticks, health 18.9, never fled. Without it, he runs.
+
 ## Gate
 - **Green:** 586-592, 594-595, 597, 600, 601, 94-96, 61.
 - **Flaky on main, not from this branch (in the backlog):** 97, 593, and 596 in a range after 595.

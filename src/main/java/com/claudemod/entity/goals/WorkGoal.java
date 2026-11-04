@@ -396,6 +396,7 @@ public class WorkGoal extends Goal {
             else if (current != null && g.tasks.peek() != current) { clearCrack(); g.tasks.addFirst(current); } // (once: not a copy of it every time this fires)
             com.claudemod.director.ClaudeLife.craftSwordIfCan(g, (ServerLevel) g.level()); // something's on him: a sword if he can make one
             boolean run = shouldFlee(foe);
+            if (run) { var gf = gapFoe(); if (gf != null) { run = false; g.urgentAttacker = gf.getUUID(); } } // (a crowd with a wither skeleton in it: the fight from a gap it can't reach into, never a run past them)
             current = run ? new Task.Flee(600) : new Task.Attack(g.urgentAttacker, 300); if (run) fleeSeed = g.urgentAttacker; // (the one that set him running is what he runs from, seen or not) // (the run ends when he's clear of them, above; 30 s is only the backstop: 8 s cut it off 15 blocks from a witch)
             g.currentTask = current; // what he's doing right now (the chat and the logs read this)
             g.dropCurrent = false; // a drop meant for the job he was on (re-queued above) must not kill this fight the same tick (that re-armed the same fight every 5 ticks, 750 tasks deep)
@@ -4199,6 +4200,18 @@ public class WorkGoal extends Goal {
     private net.minecraft.world.phys.Vec3 fleeFrom;
     private int cornerUntil;
 
+    /** A crowd he'd run from with a wither skeleton in it, and a 2-high gap it can't reach into (FortressFight's wither cover): that wither skeleton, fought from the gap (the chokepoint: one at a time, the tall ones can't follow in). Null: run as before. Live 13:59 11-04: four escape runs, each blocked by a wither skeleton, 20 -> 0 in 10 s; the same kind of gap had held one off a minute before. */
+    private net.minecraft.world.entity.LivingEntity gapFoe() {
+        if (!(g.level() instanceof ServerLevel lv)) return null;
+        net.minecraft.world.entity.monster.WitherSkeleton best = null;
+        for (var w : com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.WitherSkeleton.class, g.getBoundingBox().inflate(16), net.minecraft.world.entity.Entity::isAlive)) if (best == null || w.distanceToSqr(g) < best.distanceToSqr(g)) best = w;
+        if (best == null) return null;
+        var cv = com.claudemod.entity.life.FortressFight.coverFor(g, lv, best);
+        if (cv == null) return null;
+        sdSay("gapfoe", "[Claude fight] a crowd with a wither skeleton in it ({} close): to the gap at {} it can't reach into, fighting it from there, not running past them (WorkGoal.gapFoe)", hostilesNear(10).size(), cv.cover().toShortString());
+        return best;
+    }
+
     private boolean shouldFlee(net.minecraft.world.entity.Entity foe) {
         if (foe instanceof net.minecraft.world.entity.LivingEntity l0 && outOfItsReach(l0)) return false; // it can't get him up there: no reason to run (an iron golem under his 3-high tower read as a lost fight)
         if (com.claudemod.entity.life.FortressFight.coverMob(foe) && g.getHealth() > 6 && foe instanceof net.minecraft.world.entity.LivingEntity lf && com.claudemod.entity.life.FortressFight.coverFor(g, (ServerLevel) g.level(), lf) != null) { fightOdds = "from cover"; return false; } // a blaze or wither skeleton with cover at hand: the cover fight backs into it itself (running in the open from fireballs is how it goes wrong)
@@ -4974,6 +4987,7 @@ public class WorkGoal extends Goal {
         } // (the pearl stage: from a 2-deep hole it can't reach into) // a blaze or a wither skeleton: from cover, like an expert (FortressFight)
         // losing the fight: break off and get away, like a player would (fighting on at 3 hearts is how you die)
         if ((mob instanceof net.minecraft.world.entity.monster.Monster || mob instanceof net.minecraft.world.entity.animal.IronGolem) && shouldFlee(mob)) {
+            var gf = gapFoe(); if (gf != null && gf != mob) { g.tasks.addFirst(new Task.Attack(gf.getUUID(), 600)); return true; } // (a crowd with a wither skeleton in it: the fight from a gap it can't reach into, never a run past them)
             g.tasks.addFirst(new Task.Flee(160));
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] breaking off the fight (health {}, {} within 10; {}) (WorkGoal.doAttack)", (int) g.getHealth(), hostilesNear(10).size(), fightOdds);
             return true;

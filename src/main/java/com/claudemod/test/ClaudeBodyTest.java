@@ -10398,6 +10398,7 @@ public final class ClaudeBodyTest {
             case 610: return st610(stage, t, c, h, level, mock);
             case 611: return st611(stage, t, c, h, level, mock);
             case 612: return st612(stage, t, c, h, level, mock);
+            case 613: return st613(stage, t, c, h, level, mock);
             case 598: return st598(stage, t, c, h, level, mock);
             case 599: return st599(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
@@ -12078,6 +12079,37 @@ public final class ClaudeBodyTest {
             var other = com.claudemod.director.ClaudeLife.asOrderStepNow(c, "mine iron", java.util.List.of(theirs), new com.claudemod.entity.life.Skills.Step("collect", "logs", 4));
             check(other.skill().equals("collect"), "a step for another job taken as their order's: " + other);
             c.playerGoal = null; pass(stage, t, "the plan's step for their job is their order's step: " + r);
+        }
+        return true;
+    }
+
+    private static boolean s613Fled;
+    /** A crowd with wither skeletons in it, his fight on a skeleton, a 2-high gap behind him (live 13:59 11-04: four escape runs into wither skeletons, dead in 10 s): to the gap, fighting from it, never a run. */
+    private static boolean st613(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos nook = h.absolutePos(new BlockPos(5, 2, -1)), mouth = h.absolutePos(new BlockPos(5, 2, 0));
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; s613Fled = false;
+            for (int x = 0; x <= 14; x++) for (int z = -4; z <= 12; z++) for (int y = 1; y <= 7; y++) {
+                boolean wall = z <= 0 && y >= 2 && y <= 6 && !(x == 5 && (z == 0 || z == -1) && y <= 3);
+                level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 || wall ? Blocks.NETHER_BRICKS.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            }
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(h.absolutePos(new BlockPos(7, 2, 4))).inflate(20))) m.discard();
+            BlockPos me = h.absolutePos(new BlockPos(5, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(0f); c.setYHeadRot(0f); c.setHealth(20f);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            int[][] ws = {{3, 9}, {7, 9}, {5, 11}};
+            for (int[] p : ws) { var w = EntityType.WITHER_SKELETON.create(level); BlockPos wp = h.absolutePos(new BlockPos(p[0], 2, p[1])); w.moveTo(wp.getX() + 0.5, wp.getY(), wp.getZ() + 0.5, 180, 0); w.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); level.addFreshEntity(w); w.setTarget(c); }
+            var sk = EntityType.SKELETON.create(level); BlockPos sp = h.absolutePos(new BlockPos(9, 2, 8)); sk.moveTo(sp.getX() + 0.5, sp.getY(), sp.getZ() + 0.5, 180, 0); sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.LEATHER_HELMET)); sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW)); level.addFreshEntity(sk); sk.setTarget(c); hzMob = sk;
+            c.tasks.clear(); c.dropCurrent = true; c.tasks.add(new Task.Attack(sk.getUUID(), 600));
+        }
+        if (t[0] > 1 && c.currentTask instanceof Task.Flee) s613Fled = true;
+        boolean inGap = c.blockPosition().equals(nook) || c.blockPosition().equals(mouth);
+        if (s613Fled || inGap && t[0] > 5 || t[0] >= 300 || !c.isAlive()) {
+            String at = c.blockPosition().toShortString(); boolean ok = !s613Fled && inGap;
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(h.absolutePos(new BlockPos(7, 2, 4))).inflate(20))) m.discard();
+            c.tasks.clear(); c.dropCurrent = true;
+            check(ok, "a crowd with wither skeletons in it: " + (s613Fled ? "ran" : "never got to the gap") + " (at " + at + ", health " + c.getHealth() + ", " + t[0] + " ticks)");
+            pass(stage, t, "to the 2-high gap with the crowd on him, the fight from there (" + t[0] + " ticks, health " + c.getHealth() + ")");
         }
         return true;
     }

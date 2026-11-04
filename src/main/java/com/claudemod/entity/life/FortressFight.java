@@ -55,6 +55,7 @@ public final class FortressFight {
 
     public static void reset(ClaudeEntity g) { covers().remove(g.getUUID()); runs().remove(g.getUUID()); riskSaid().remove(g.getUUID()); }
 
+    private static java.util.Map<java.util.UUID, BlockPos> lastGap; // the last 2-high gap he fought a wither skeleton from (static: fields added live start null)
     public static boolean coverMob(Entity e) { return e instanceof Blaze || e instanceof WitherSkeleton; }
 
     // ------------------------------------------------------------------ geometry
@@ -92,6 +93,7 @@ public final class FortressFight {
         c = blaze ? pickBlaze(g, level, foe) : pickWither(g, level, foe);
         if (c == null) { covers().remove(g.getUUID()); return null; }
         covers().put(g.getUUID(), c);
+        if (!blaze) { if (lastGap == null) lastGap = new java.util.HashMap<>(); lastGap.put(g.getUUID(), c.cover()); }
         ClaudeMod.LOGGER.info("[Claude fight] cover for the {}: {} (FortressFight.coverFor)", foe.getType().getDescription().getString(), c.how());
         return c;
     }
@@ -188,6 +190,13 @@ public final class FortressFight {
             Cand k = cands.get(i);
             if (!k.c().equals(me)) { var path = g.getNavigation().createPath(k.c(), 0); if (path == null || !path.canReach()) continue; }
             return new Cover(k.c(), k.front(), foe.blockPosition(), "wither", "a 2-high gap at " + k.c().toShortString() + " (no 3-high room on any side: its sword can't reach in), hitting it at " + k.front().toShortString() + " 2 off (" + cands.size() + " gaps looked at)", g.tickCount);
+        }
+        BlockPos last = lastGap == null ? null : lastGap.get(g.getUUID()); // (none within 10: the gap that held a wither skeleton off before, within 24, as a player goes back to the spot that worked; live 13:59 11-04 it was 15 off and he ran instead)
+        if (last != null && last.closerThan(me, 24) && stand(level, last) && witherSafe(level, last)) {
+            BlockPos front = null;
+            for (int ox = -2; ox <= 2 && front == null; ox++) for (int oz = -2; oz <= 2 && front == null; oz++) { if (Math.max(Math.abs(ox), Math.abs(oz)) != 2) continue; for (int oy = -1; oy <= 1 && front == null; oy++) { BlockPos m = last.offset(ox, oy, oz); if (tall(level, m)) front = m.immutable(); } }
+            var path = front == null ? null : g.getNavigation().createPath(last, 0);
+            if (path != null && path.canReach()) return new Cover(last, front, foe.blockPosition(), "wither", "back to the 2-high gap at " + last.toShortString() + " that held one off before (" + (int) Math.sqrt(last.distSqr(me)) + " off; none nearer)", g.tickCount);
         }
         if (g.tickCount % 40 == 0) ClaudeMod.LOGGER.info("[Claude fight] no 2-high gap within 10 to fight the wither skeleton from ({} out of its reach, none walkable): shield and crits in the open, off at 10 health (FortressFight.pickWither)", cands.size()); // ponytail: said once per 2 s, it runs every tick (live 15:04: 2 lines a tick)
         return null;

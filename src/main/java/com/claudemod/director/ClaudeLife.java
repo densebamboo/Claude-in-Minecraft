@@ -469,6 +469,7 @@ public final class ClaudeLife {
         if (g.planning && g.tickCount - g.planStartTick > 20 * 45) { // an answer that never came back (timeout, a dropped callback): he stops waiting for it
             g.planning = false;
             ClaudeMod.LOGGER.warn("[Claude] a plan asked for 45s ago never came back: going on without it");
+            planFallback(g, player, "the plan never came back"); // (08:31-09:03 11-04: 25 min idle, 14 of these, nothing in the gap)
         }
         if (g.tickCount % 20 == 7 && g.currentTask instanceof Task.GoTo && g.getHealth() >= 14) { // the user 14:00: "any endermen he sees in general he should engage 1 at a time on his way there": the pearl hunt's walks (to the warped forest, exploring) give way to one in sight
             boolean hunting = false; for (Skills.Step s0 : g.skillQueue) if ("ender_pearls".equals(s0.skill())) hunting = true;
@@ -1488,6 +1489,14 @@ public final class ClaudeLife {
         ClaudeMod.LOGGER.info("[Claude plan] their order (\"{}\") held: {} (ClaudeLife.holdNotice)", o.goal(), why);
         ClaudeChat.say(player, "holding off on " + o.goal().replaceAll("\\s*\\(their words.*$", "") + " a sec: " + why, "hold: " + why);
     }
+    /** No plan to go on (it never came back, or its prompt failed): the rules' own next step, as with no planner, so he never stands idle waiting on one. */
+    static void planFallback(ClaudeEntity g, ServerPlayer player, String why) {
+        if (!g.skillQueue.isEmpty() || !g.tasks.isEmpty() || g.currentTask != null) return;
+        Skills.Step rule = ruleStep(g, player);
+        g.skillQueue.add(rule);
+        ClaudeMod.LOGGER.info("[Claude plan] {}: the rules' step meanwhile: {} (ClaudeLife.planFallback)", why, rule.skill() + (rule.target().isBlank() ? "" : " " + rule.target()));
+    }
+
     public static Skills.Step ruleStep(ClaudeEntity g, ServerPlayer player) {
         holdNotice(g, player);
         ServerLevel level = (ServerLevel) g.level();
@@ -1620,7 +1629,9 @@ public final class ClaudeLife {
             ClaudeMod.LOGGER.info("[Claude plan] by the rules (no planner): {}", rule.skill() + (rule.target().isBlank() ? "" : " " + rule.target()));
             return;
         }
-        String turn = Persona.lifeTurn(player.getGameProfile().getName(), situation(g, player), skills, g.goal, stopHeld(g) ? stopNote(g) : g.playerGoal); // (after their stop: what they want is nothing, said so, not "nothing in particular" with stay_close on)
+        String sit;
+        try { sit = situation(g, player); } catch (RuntimeException e) { g.planning = false; ClaudeMod.LOGGER.error("[Claude plan] the plan's prompt hit an error: no plan asked (ClaudeLife.startPlan)", e); planFallback(g, player, "the plan's prompt hit an error"); return; } // (08:31 11-04 a MindLog parse error here, every plan for 25 min)
+        String turn = Persona.lifeTurn(player.getGameProfile().getName(), sit, skills, g.goal, stopHeld(g) ? stopNote(g) : g.playerGoal); // (after their stop: what they want is nothing, said so, not "nothing in particular" with stay_close on)
         final int planStarted = g.tickCount;
         java.util.concurrent.CompletableFuture<com.google.gson.JsonObject> ask;
         try {

@@ -10393,6 +10393,7 @@ public final class ClaudeBodyTest {
             case 596: return st596(stage, t, c, h, level, mock);
             case 597: return st597(stage, t, c, h, level, mock);
             case 600: return st600(stage, t, c, h, level, mock);
+            case 601: return st601(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -12035,6 +12036,18 @@ public final class ClaudeBodyTest {
     /** A run that ends against a wall with one zombie on him: he turns and fights, not shuffle on the block (live 12:07 11-02: one spider, 20 -> 0, full iron). */
     /** Two skeletons 5 off with a line on him, no armor: no tower and hut built under their fire (live 04:55 11-02: 20 -> 0 in 13 s building one). */
     /** 4 meals and a gear_up queued after a diamond hunt: the food comes before the mine, not after it (live 09:30 11-02: down to y -58 with 4 meals, 30 min of food trips). */
+    /** A plan that never comes back (live 08:31-09:03 11-04: 25 min idle, 14 timeouts): the rules' own step fills the gap. */
+    private static boolean st601(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.lastStep = null;
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.planning = true; c.planStartTick = c.tickCount - 20 * 46; // (asked 46 s ago, no answer)
+        }
+        if (t[0] > 1 && (c.lastStep != null || !c.skillQueue.isEmpty() || !c.tasks.isEmpty() || c.currentTask != null)) { String what = c.lastStep != null ? c.lastStep.skill() : String.valueOf(c.skillQueue.peek()); c.skillQueue.clear(); c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "the plan never came back: the rules' step instead (" + what + ", " + t[0] + " ticks)"); }
+        else if (t[0] >= 200) check(false, "the plan never came back and he stood idle 10 s (planning " + c.planning + ")");
+        return true;
+    }
+
     private static BlockPos s600Goal; private static boolean s600Reached; private static final java.util.List<BlockPos> s600Shell = new java.util.ArrayList<>();
     /** The blockage solver's Tier 0: sealed in a cell of his own build blocks (a bedroom wall), sent outside. Before: "no way ... skipping it". Now: one bent rule, logged, the cut patched back behind him. */
     private static boolean st600(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

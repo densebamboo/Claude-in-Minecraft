@@ -676,6 +676,20 @@ public class WorkGoal extends Goal {
     private static int climbBudget(BlockPos from, BlockPos to) { return 3000 + 400 * Math.max(0, to.getY() - from.getY() - 4); }
 
     /** A spot 5+ up with no way the search found (a fortress deck over the open, World 15 22:38): the player's way, a tower beside it from the ground under its edge, then onto it. */
+    /** The blockage solver's Tier 0: no way at all with his rules kept, so once more with his own soft rules bent (ActionPath MAY_BEND). Each bent cell is logged with its rule (that rule blocked the walk: the bug) and his own build is patched back behind him. */
+    private boolean bendWay(BlockPos pos, double within, BlockPos feet, ItemStack scaff, com.claudemod.entity.nav.ActionPath.Mode was) {
+        var plan = com.claudemod.entity.nav.ActionPath.plan(g, (ServerLevel) g.level(), feet, pos, Math.max(within, 1.0), !scaff.isEmpty(), climbBudget(feet, pos), com.claudemod.entity.nav.ActionPath.Mode.MAY_BEND, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount);
+        if (plan == null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude blockage] no way to {} from {} even with his own rules bent: the world or a hard rule blocks it (WorkGoal.bendWay)", pos.toShortString(), feet.toShortString()); return false; }
+        var bent = com.claudemod.entity.nav.ActionPath.lastBent;
+        java.util.List<BlockPos> back = new java.util.ArrayList<>();
+        for (var e : bent.entrySet()) if (!e.getValue().startsWith("the tree rule")) back.add(e.getKey()); // (a log isn't his work to put back)
+        if (!back.isEmpty()) com.claudemod.director.ClaudeLife.nookCutsBack(g, back, scaff.isEmpty() || scaff.is(net.minecraft.world.item.Items.DIRT) ? net.minecraft.world.item.Items.COBBLESTONE : scaff.getItem()); // shortcut: patched with his scaffold block, not the block's own kind; match it when a patch's look matters
+        var tasks = com.claudemod.entity.nav.ActionPath.tasks(plan, feet, scaff.isEmpty() ? net.minecraft.world.item.Items.COBBLESTONE : scaff.getItem(), pos, within, (ServerLevel) g.level());
+        for (int i = tasks.size() - 1; i >= 0; i--) g.tasks.addFirst(tasks.get(i));
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude blockage] no way to {} from {} with his rules kept ({}); bent: {}; {} digs, {} put down, {} patched back behind him. The rule that blocked it is the bug (WorkGoal.bendWay)", pos.toShortString(), feet.toShortString(), was, bent.isEmpty() ? "nothing (only digging his walk mode refused)" : bent.entrySet().stream().map(e -> e.getValue() + " at " + e.getKey().toShortString()).toList(), plan.digs(), plan.puts(), back.size());
+        return true;
+    }
+
     private boolean towerTo(BlockPos pos, BlockPos feet, ItemStack scaff) {
         ServerLevel level = (ServerLevel) g.level(); int up = pos.getY() - feet.getY();
         if (up < 5 || scaff.isEmpty() || scaff.getCount() < up + 2) return false;
@@ -989,6 +1003,7 @@ public class WorkGoal extends Goal {
                 var tasks = com.claudemod.entity.nav.ActionPath.tasks(plan, feetCell, net.minecraft.world.item.Items.COBBLESTONE, pos, within);
                 if (tasks.size() > 1) { for (int i = tasks.size() - 1; i >= 0; i--) g.tasks.addFirst(tasks.get(i)); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] route to {} found on foot ({} walks, {} waypoints): acts {} -> {} (WorkGoal.walkTo)", pos.toShortString(), plan.walks(), tasks.size() - 1, plan.acts(), tasks); return true; }
             } else if (towerTo(pos, feetCell, scaff)) { return true;
+            } else if (bendWay(pos, within, feetCell, scaff, mode)) { return true;
             } else {
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no way to {} from {} ({}; blocks on him: {}): skipping it", pos.toShortString(), feetCell.toShortString(), mode, scaffoldBlock().getCount());
                 stuck = STUCK_LIMIT; // (the give-up below runs now: the spot off for a minute, the work tied to it skipped, no 8 s wait)

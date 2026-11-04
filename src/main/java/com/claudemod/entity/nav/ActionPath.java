@@ -30,7 +30,7 @@ import net.minecraft.world.level.block.state.BlockState;
 public final class ActionPath {
     private ActionPath() {}
 
-    public enum Mode { NO_DIG, MAY_DIG, MAY_REOPEN, MAY_CUT_SHELL, MAY_CUT_NOOK } // MAY_CUT_NOOK: as MAY_DIG, and his nook's shell may be cut, dearly (a walk with no way at all else); the caller patches each cut behind him (ClaudeLife.nookCutsBack) // MAY_CUT_SHELL: as MAY_REOPEN, and his mine's virgin shell may be cut, dearly (the goal needs what's behind it: the cast's lava); the caller owes each cut back // MAY_REOPEN: as MAY_DIG, and his own patches in his mine's shell may come out (a drop behind one: OwnEvents.reopenRoute puts them back); other digs dearer
+    public enum Mode { NO_DIG, MAY_DIG, MAY_REOPEN, MAY_CUT_SHELL, MAY_CUT_NOOK, MAY_BEND } /* MAY_BEND: the blockage solver's Tier 0, a walk with no way at all else: as MAY_DIG, and his own soft rules (his builds, the tree rule) bend at a dear price; the hard ones (lava, water held back, their blocks, structures, mobs, cover) never do. What bent is in lastBent */ // MAY_CUT_NOOK: as MAY_DIG, and his nook's shell may be cut, dearly (a walk with no way at all else); the caller patches each cut behind him (ClaudeLife.nookCutsBack) // MAY_CUT_SHELL: as MAY_REOPEN, and his mine's virgin shell may be cut, dearly (the goal needs what's behind it: the cast's lava); the caller owes each cut back // MAY_REOPEN: as MAY_DIG, and his own patches in his mine's shell may come out (a drop behind one: OwnEvents.reopenRoute puts them back); other digs dearer
 
     /** A cell of his mine's shell holding his own patch block (cobblestone / cobbled deepslate: what he patches with; the virgin shell is stone or deepslate). */
     public static boolean ownPatch(ClaudeEntity g, ServerLevel level, BlockPos p) {
@@ -69,6 +69,8 @@ public final class ActionPath {
 
     public record Plan(List<Act> acts, int digs, int puts, int walks) {}
 
+    /** The cells the last MAY_BEND plan dug through a soft rule of his, with the rule (shortcut: one static, the server thread plans one at a time). */
+    public static Map<BlockPos, String> lastBent = Map.of();
     private static java.util.Set<BlockPos> CLOSED = java.util.Set.of(); // (planClosed: cells taken as solid rock for one plan)
     /** MAY_DIG with {@code closed} taken as solid rock, never dug (is there a way round a gap with the gap shut). */
     public static Plan planClosed(ClaudeEntity g, ServerLevel level, BlockPos from, BlockPos to, double within, int budget, java.util.Set<BlockPos> closed) {
@@ -101,7 +103,7 @@ public final class ActionPath {
             if ((expanded & 255) == 0 && System.nanoTime() - t0 > 500_000_000L) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] plan {} -> {} stopped at 500 ms ({} nodes of {}): no way found in time (ActionPath.plan)", from.toShortString(), to.toShortString(), expanded, budget); break; } // (no budget in time: 3.8 s freezes, "Can't keep up" 172x on 11-04)
             Node n = open.poll();
             double dd = Math.sqrt(n.feet.distSqr(to));
-            if (dd <= within) { coverNote(c, from, to); leapNote(c, from, to, n); return unwind(n); }
+            if (dd <= within) { coverNote(c, from, to); leapNote(c, from, to, n); Plan pl = unwind(n); if (mode == Mode.MAY_BEND) { Map<BlockPos, String> b = new java.util.LinkedHashMap<>(); for (Act a : pl.acts()) if (a instanceof Act.Dig dg && c.bent.containsKey(dg.pos())) b.put(dg.pos(), c.bent.get(dg.pos())); lastBent = b; } return pl; }
             c.hurtNow = n.hurt;
             for (Move m : c.moves(n.feet)) {
                 int np = n.puts; float nh = n.hurt; for (Act a : m.acts) { if (a instanceof Act.Put) np++; else if (a instanceof Act.Leap lp) nh += lp.hp(); }
@@ -318,6 +320,7 @@ public final class ActionPath {
         float hurtNow; // the HP the drops on the way to the node being expanded took (no regen counted)
         final float hp, margin; // his health now; the HP he keeps after any drop (Leaps.margin)
         final java.util.Map<String, String> refused = new java.util.LinkedHashMap<>(); // drops / jumps turned down, and why
+        final Map<BlockPos, String> bent = new HashMap<>(); // MAY_BEND: cells a soft rule of his kept, with the rule
         void refuse(String what, String why) { if (refused.size() < 40) refused.putIfAbsent(what, why); }
         final java.util.Map<BlockPos, Leaps.Fall> falls = new java.util.HashMap<>();
         Leaps.Fall fallAt(BlockPos col) { return falls.computeIfAbsent(col.immutable(), k -> Leaps.fall(g, level, k, k.getY(), 0)); }
@@ -408,9 +411,11 @@ public final class ActionPath {
             for (var f : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(p).inflate(2), m -> m.isAlive() && m.getTarget() == g)) { if (g.blockPosition().distManhattan(p) <= 1 && g.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] not digging {}: it opens onto a {} after him at {} (ActionPath.digSeconds)", p.toShortString(), f.getType().getDescription().getString(), f.blockPosition().toShortString()); return -1; } // ponytail: live 2026-11-01, his explore route dug out the plug he'd just put in against 6 hoglins; a player never opens a wall onto a mob after him
             if (s.getDestroySpeed(level, p) < 0 || s.hasBlockEntity()) return -1;
             if (s.is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE) && !com.claudemod.director.ClaudeLife.isTempStation(g, p) && !com.claudemod.director.ClaudeLife.stationPickup(p)) return -1; // a table is a station with no block entity: the dig guard refuses it, so a route never plans one (the planner dug it, the guard said no, the route came back)
-            if (s.is(net.minecraft.tags.BlockTags.LOGS) && !(p.getX() == g.getBlockX() && p.getZ() == g.getBlockZ() && p.getY() < g.getBlockY() && level.getBlockState(g.blockPosition().below()).is(net.minecraft.tags.BlockTags.LOGS))) return -1; // a tree is felled whole or left standing: never a log cut out of it for a way through (the trunk he's standing on is the exception: digging down it is taking that tree down, from the top)
+            String bend = null; // (MAY_BEND: the soft rule this dig bends)
+            if (s.is(net.minecraft.tags.BlockTags.LOGS) && !(p.getX() == g.getBlockX() && p.getZ() == g.getBlockZ() && p.getY() < g.getBlockY() && level.getBlockState(g.blockPosition().below()).is(net.minecraft.tags.BlockTags.LOGS))) { if (mode != Mode.MAY_BEND) return -1; bend = "the tree rule (a log cut out of a standing tree)"; } // a tree is felled whole or left standing: never a log cut out of it for a way through (the trunk he's standing on is the exception: digging down it is taking that tree down, from the top)
             if (owner != null && com.claudemod.director.ClaudeLife.protectedBlock(g, owner, p)) return -1;
-            if (hisBuild(p)) return -1;
+            if (com.claudemod.director.ClaudeLife.nookShell(g, p) && mode == Mode.MAY_BEND) bend = "his nook's shell";
+            else if (hisBuild(p)) { if (mode != Mode.MAY_BEND) return -1; String by = com.claudemod.entity.life.TempLedger.builtCells(g).get(p); bend = bp && g.blueprint.isShell(p) ? "his mine's shell" : house && g.house.isStructure(p) ? "his house" : by != null ? "his build (" + by + ")" : "his build"; }
             if (com.claudemod.director.ClaudeLife.hazard(g, level, p, 1) != null || lavaBy(p)) return -1;
             { String ik = com.claudemod.director.Structures.intactKind(s); if (ik != null && !com.claudemod.entity.life.TempLedger.built(g, p)) { if (intactSaid.isEmpty()) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} at {} is {}'s: kept intact, the way goes round or through its doorways (ActionPath.digSeconds)", s.getBlock().getName().getString(), p.toShortString(), ik); intactSaid.add(p.immutable()); } } // (the structure-intact rule: his own placed bricks aside; a structure block is very dear below, never a wall: shut in with no way round, one is dug and put back, ActionPath.tasks)
             if (!g.isInWater()) for (Direction d : Direction.values()) if (level.getFluidState(p.relative(d)).isSource() && (com.claudemod.entity.life.Perception.knowsWater(g, p.relative(d)) || com.claudemod.entity.life.Perception.knowsLava(g, p.relative(d)))) return -1; // (holding water back)
@@ -425,6 +430,7 @@ public final class ActionPath {
             double sec = Math.min(10, 1.0 / (prog * 20)) + (structure(p) ? 40 : 0); // a structure's own block: very dear (round it, its doorway, a bridge); dug only with no way round, and put back (tasks)
             if (mode == Mode.MAY_REOPEN || mode == Mode.MAY_CUT_SHELL) { int r = reopenable(g, level, p); if (r == 1) return sec + 1.5; if (r == 2) return sec + 2.5; if (mode == Mode.MAY_CUT_SHELL && bp && g.blueprint.isShell(p)) return sec + 9; sec += 3; } // (a cut through his virgin shell: the dearest dig, only where nothing cheaper gets there) // reopening: his own patch at a modest price, the shell cell under/over it a bit more, virgin rock always dearer (04:25 a 30-block cut round a patch)
             if (besideHisBuild(p)) sec += 4; // a one-wide cut along his mine or house: dear, not forbidden
+            if (bend != null) { bent.put(p.immutable(), bend); sec += 9; } // (a bent rule: the dearest dig, the plan that bends the fewest)
             if (mode == Mode.MAY_CUT_NOOK && com.claudemod.director.ClaudeLife.nookShell(g, p)) sec += 9; // (his nook's shell: the dearest dig, only where nothing else gets there)
             return sec;
         }

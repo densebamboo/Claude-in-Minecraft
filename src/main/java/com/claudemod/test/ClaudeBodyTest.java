@@ -10370,6 +10370,9 @@ public final class ClaudeBodyTest {
             case 569: return st569(stage, t, c, h, level, mock);
             case 570: return st570(stage, t, c, h, level, mock);
             case 571: return st571(stage, t, c, h, level, mock);
+            case 572: return st572(stage, t, c, h, level, mock);
+            case 573: return st573(stage, t, c, h, level, mock);
+            case 574: return st574(stage, t, c, h, level, mock);
             case 575: return st575(stage, t, c, h, level, mock);
             case 576: return st576(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
@@ -11943,6 +11946,61 @@ public final class ClaudeBodyTest {
             if (!com.claudemod.entity.life.MineBlueprint.ore(level.getBlockState(iron))) check(!level.getBlockState(diamond).is(Blocks.DIAMOND_ORE), "iron taken before the exposed diamond");
             if (mined && patched && raw >= 2 && dia == 1) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "whole vein mined, 2 iron + diamond picked up, all seven holes patched in " + t[0] + " ticks"); }
             else check(t[0] < 400, "mine integrity: mined=" + mined + ", patched=" + patched + ", iron=" + raw + ", diamonds=" + dia + ", at=" + c.blockPosition() + ", task=" + c.currentTask + ", queue=" + c.tasks);
+        }
+        return true;
+    }
+
+    private static boolean st574(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            var b = lnMine(h, level, c); BlockPos me = lnRow(b, 5, 5); lnStand(c, mock, me, me.west());
+            BlockPos water = me.east(3); level.setBlock(water, Blocks.WATER.defaultBlockState(), 2); com.claudemod.entity.life.Perception.sawCell(c, level, water);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 3)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 32)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 20)); c.getInventory().add(new ItemStack(Items.TORCH, 64)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE, 2)); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.FURNACE)); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE));
+            var mining = new com.claudemod.entity.life.Skills.Step("strip_mine", "iron_ore", 12);
+            String line = com.claudemod.director.ClaudeLife.packNow(c, level, mining); var supply = c.skillQueue.peekFirst();
+            check(line != null && supply != null && supply.skill().equals("collect") && supply.target().equals("cobblestone") && supply.count() == 32, "underground aquifer did not request a total of 32 lining blocks: " + line + " / " + c.skillQueue);
+            c.skillQueue.clear(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 29));
+            check(com.claudemod.director.ClaudeLife.packNow(c, level, mining) == null, "packed aquifer kit requested more supplies");
+            c.skillQueue.clear(); c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "known aquifer requires lining blocks underground, with total counts that terminate");
+        }
+        return true;
+    }
+
+    private static boolean st573(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            var b = lnMine(h, level, c); var flat = b.segments.get(1); int y = flat.start.getY();
+            for (var r : b.rows()) if (r.segment() == 1) { b.dangers.add(r.feet()[0].north()); b.dangers.add(r.feet()[1].south()); }
+            BlockPos mouth = flat.start.east().south(b.width); var run = new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.RUN, mouth, net.minecraft.core.Direction.SOUTH, 8, null);
+            b.segments.add(run); b.invalidate(); lnCarve(level, b); BlockPos stop = mouth.south(8); level.setBlock(stop, Blocks.FURNACE.defaultBlockState(), 2);
+            for (var r : b.rows()) if (r.first().getY() == y) { b.dangers.add(r.feet()[0].relative(r.dir().getCounterClockWise())); b.dangers.add(r.feet()[r.feet().length - 1].relative(r.dir().getClockWise())); }
+            lnStand(c, mock, flat.start, flat.start.west()); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64));
+            String line = com.claudemod.director.ClaudeLife.bpAtLevelNow(c, level, b, y, "iron");
+            check(b.segments.stream().anyMatch(s -> s.kind == com.claudemod.entity.life.MineBlueprint.Kind.RUN && s.dir == net.minecraft.core.Direction.NORTH && s.n > 0), "blocked +Z run hid the dry -Z extension: " + line);
+            check(level.getBlockState(stop).is(Blocks.FURNACE), "extension disturbed a station"); c.tasks.clear(); c.dropCurrent = true;
+            pass(stage, t, "blocked +Z run skipped and a real -Z extension planned, station intact");
+        }
+        return true;
+    }
+
+    private static boolean st572(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos start = h.absolutePos(new BlockPos(3, 2, 8)), end = start.east(5);
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.prefs.put("mine_model", "blueprint"); c.prefs.put("torches_while_digging", "no"); c.prefs.put("stay_close", "no");
+            for (BlockPos p : BlockPos.betweenClosed(start.offset(-2, -2, -5), start.offset(10, 5, 5))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            var b = new com.claudemod.entity.life.MineBlueprint(start.west(), net.minecraft.core.Direction.EAST, 1, 2); b.segments.get(0).n = 0;
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.BRANCH, start, net.minecraft.core.Direction.EAST, 6, null)); b.invalidate(); c.blueprint = b;
+            lnCarve(level, b);
+            for (BlockPos p : BlockPos.betweenClosed(start.offset(2, 0, -3), start.offset(6, 2, 3))) level.setBlock(p, Blocks.WATER.defaultBlockState(), 2);
+            level.setBlock(start.east(2), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); level.setBlock(start.east(2).above(), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64));
+            com.claudemod.director.ClaudeLife.bpSync(c); c.teleportTo(start.getX() + 1.5, start.getY(), start.getZ() + 0.5);
+        }
+        if (t[0] == 10) { com.claudemod.director.ClaudeLife.bpReconcile(c, level, 0, c.blueprint.rows().size() - 1, false); c.tasks.add(new Task.GoTo(end, 0.6)); }
+        if (t[0] > 10) {
+            check(c.getHealth() == 20 && !c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER), "water tunnel: entered flooded work or took damage at " + c.blockPosition());
+            if (c.blockPosition().distSqr(end) <= 1 && c.tasks.isEmpty() && c.currentTask == null) { check(c.blueprint.segments.stream().anyMatch(s -> s.kind == com.claudemod.entity.life.MineBlueprint.Kind.BRANCH && s.n == 6), "water shortened the planned branch"); c.dropCurrent = true; pass(stage, t, "advanced through the plugged aquifer dry and unharmed in " + t[0] + " ticks"); }
+            else check(t[0] < 900, "water tunnel: no forward progress within 45 s: at " + c.blockPosition() + ", " + c.currentTask + ", " + c.tasks);
         }
         return true;
     }

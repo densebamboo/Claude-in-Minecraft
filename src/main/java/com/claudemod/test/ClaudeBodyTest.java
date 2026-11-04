@@ -10384,6 +10384,8 @@ public final class ClaudeBodyTest {
             case 586: case 588: return st586(stage, t, c, h, level, mock);
             case 587: return st587(stage, t, c, h, level, mock);
             case 589: return st589(stage, t, c, h, level, mock);
+            case 590: return st590(stage, t, c, h, level, mock);
+            case 591: return st591(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -12018,11 +12020,50 @@ public final class ClaudeBodyTest {
     // from beside the column until it stops, then steps up: the step waits, never a hurt from inWall, up within a player's 20 s.
     private static java.util.UUID st587Sk;
     /** An explore leg over deep water ends on the water, not on the pool's floor (live 12:03 11-04: 39 blocks down to a bed beside a cave). */
+    /** No planned swim under water longer than half his air, and no mine-row legs down a flooded row (live 12:02 11-04: route legs 10 cells into his flooded mine, drowned). */
+    /** A lid of sand over his cover hole: never put down where it falls on him (live 12:37 11-04: suffocated under his own sand lid in a desert). */
+    private static boolean st591(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000;
+            for (int x = 0; x <= 6; x++) for (int z = 0; z <= 6; z++) for (int y = 0; y <= 6; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y <= 4 ? Blocks.SAND.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            BlockPos feet = h.absolutePos(new BlockPos(3, 3, 3)); level.setBlock(feet, Blocks.AIR.defaultBlockState(), 2); level.setBlock(feet.above(), Blocks.AIR.defaultBlockState(), 2);
+            c.teleportTo(feet.getX() + 0.5, feet.getY(), feet.getZ() + 0.5); c.setHealth(4f);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.SAND, 16));
+            c.tasks.clear(); c.tasks.add(new Task.Place(feet.above(2), Items.DIRT)); // the cover's lid, dirt wanted, sand all he has
+        }
+        BlockPos feet = h.absolutePos(new BlockPos(3, 3, 3));
+        check(!level.getBlockState(feet.above()).is(Blocks.SAND) && c.getHealth() >= 4f, "sand came down on his head in his cover hole: head cell " + level.getBlockState(feet.above()) + ", health " + c.getHealth());
+        if (t[0] == 80) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "no sand lid over his cover hole: it would fall on him"); }
+        return true;
+    }
+
+    private static boolean st590(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            var b = lnMine(h, level, c);
+            BlockPos a = h.absolutePos(new BlockPos(0, 2, 2)); // a 1x2 tunnel east through the solid stone under the mine, air at both ends
+            for (int i = 0; i <= 22; i++) { var st0 = i == 0 || i == 22 ? Blocks.AIR.defaultBlockState() : Blocks.WATER.defaultBlockState(); level.setBlock(a.east(i), st0, 2); level.setBlock(a.east(i).above(), st0, 2); }
+            lnStand(c, mock, a, a.west()); c.setAirSupply(c.getMaxAirSupply());
+            var NO_DIG = com.claudemod.entity.nav.ActionPath.Mode.NO_DIG;
+            var far = com.claudemod.entity.nav.ActionPath.plan(c, level, a, a.east(22), 0.5, false, 20000, NO_DIG, new java.util.HashMap<>(), c.tickCount);
+            check(far == null, "a 21-cell swim under water planned (half his air is 15)");
+            for (int i = 1; i <= 8; i++) { level.setBlock(a.east(i), Blocks.AIR.defaultBlockState(), 2); level.setBlock(a.east(i).above(), Blocks.AIR.defaultBlockState(), 2); }
+            var near = com.claudemod.entity.nav.ActionPath.plan(c, level, a, a.east(22), 0.5, false, 20000, NO_DIG, new java.util.HashMap<>(), c.tickCount);
+            check(near != null, "a 13-cell swim under water refused (half his air is 15)");
+            for (var r : b.rows()) if (r.segment() == 3) for (BlockPos f : r.feet()) { level.setBlock(f, Blocks.WATER.defaultBlockState(), 2); level.setBlock(f.above(), Blocks.WATER.defaultBlockState(), 2); }
+            BlockPos out = b.outside(); lnStand(c, mock, out, out.west());
+            var legs = com.claudemod.entity.nav.Route.expand(c, level, lnRow(b, 5, 10), 1.0);
+            check(legs == null, "route legs planned down his flooded stairs: " + legs);
+            c.skillQueue.clear(); c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "long swims under water refused, short ones taken; no mine-row legs down a flooded row");
+        }
+        return true;
+    }
+
     private static boolean st589(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
         if (t[0] == 10) {
             BlockPos col = c.blockPosition().east(6); var saved = new java.util.HashMap<BlockPos, net.minecraft.world.level.block.state.BlockState>();
-            for (int dy = -9; dy <= 40; dy++) { BlockPos q = col.above(dy); saved.put(q, level.getBlockState(q)); level.setBlock(q, dy == -9 ? Blocks.STONE.defaultBlockState() : dy <= 2 ? Blocks.WATER.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+            for (int dy = -9; col.getY() + dy < level.getMaxBuildHeight(); dy++) { BlockPos q = col.above(dy); saved.put(q, level.getBlockState(q)); level.setBlock(q, dy == -9 ? Blocks.STONE.defaultBlockState() : dy <= 2 ? Blocks.WATER.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
             BlockPos got = com.claudemod.director.ClaudeLife.exploreGround(level, col.getX(), col.getZ());
             saved.forEach((q, bs) -> level.setBlock(q, bs, 2));
             check(got.getY() == col.getY() + 3, "explore leg over 11 deep water ends at y " + (got.getY() - col.getY()) + " from his feet, not on the water (+3)");

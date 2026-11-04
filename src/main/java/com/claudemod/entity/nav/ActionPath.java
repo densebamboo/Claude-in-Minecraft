@@ -65,7 +65,7 @@ public final class ActionPath {
         record Leap(BlockPos from, BlockPos land, int kind, int down, float hp, double cost) implements Act {} // a drop (4+ down) or a jump over a gap (Leaps works it out, Task.Leap does it)
     }
 
-    private record Node(BlockPos feet, double g, double f, Node from, List<Act> acts, int puts, float hurt) {} // hurt: the HP the drops on the way here took
+    private record Node(BlockPos feet, double g, double f, Node from, List<Act> acts, int puts, float hurt, int wet) {} // hurt: the HP the drops on the way here took; wet: cells in a row with his head under water (his air)
 
     public record Plan(List<Act> acts, int digs, int puts, int walks) {}
 
@@ -94,7 +94,7 @@ public final class ActionPath {
         Costs c = new Costs(g, level, canPlace, mode, failedAt, now); c.avoid = avoid;
         PriorityQueue<Node> open = new PriorityQueue<>((a, b) -> Double.compare(a.f, b.f));
         Map<BlockPos, Double> best = new HashMap<>();
-        open.add(new Node(from.immutable(), 0, w * h(from, to), null, List.of(), 0, 0f));
+        open.add(new Node(from.immutable(), 0, w * h(from, to), null, List.of(), 0, 0f, c.water(from.above()) ? (g.getMaxAirSupply() - Math.max(0, g.getAirSupply())) / 10 : 0));
         best.put(from.immutable(), 0.0);
         int expanded = 0; long t0 = System.nanoTime();
         while (!open.isEmpty() && expanded++ < budget) {
@@ -106,11 +106,13 @@ public final class ActionPath {
             for (Move m : c.moves(n.feet)) {
                 int np = n.puts; float nh = n.hurt; for (Act a : m.acts) { if (a instanceof Act.Put) np++; else if (a instanceof Act.Leap lp) nh += lp.hp(); }
                 if (np > c.maxPuts) continue; // (no more blocks put down than he has: the third put of a bridge with two dirt left him at the lip of a mineshaft)
+                int nw = c.water(m.feet.above()) ? n.wet + 1 : 0;
+                if (nw > g.getMaxAirSupply() / 20) { c.airRefused++; continue; } // a swim under water no longer than half his air (~10 ticks a cell): a player turns back from an unknown flooded passage while he still can (live 12:02 11-04: 10 cells in, drowned)
                 double ng = n.g + m.cost;
                 Double was = best.get(m.feet);
                 if (was != null && was <= ng) continue;
                 best.put(m.feet, ng);
-                open.add(new Node(m.feet, ng, ng + w * h(m.feet, to), n, m.acts, np, nh));
+                open.add(new Node(m.feet, ng, ng + w * h(m.feet, to), n, m.acts, np, nh, nw));
             }
         }
         coverNote(c, from, to); leapNote(c, from, to, null);
@@ -118,6 +120,7 @@ public final class ActionPath {
     }
 
     private static void coverNote(Costs c, BlockPos from, BlockPos to) {
+        if (c.airRefused > 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} -> {}: {} swims refused as longer under water than half his air (ActionPath.plan)", from.toShortString(), to.toShortString(), c.airRefused);
         if (c.coverLeft > 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} -> {}: his cover's cells left alone ({} looks at them refused): never dug through (ActionPath.plan)", from.toShortString(), to.toShortString(), c.coverLeft);
     }
 
@@ -311,6 +314,7 @@ public final class ActionPath {
         final boolean bp, house;
         final java.util.Set<BlockPos> reserved = new java.util.HashSet<>(); // cells another job of his fills (a replant's stump, a patch): never a block of the walk's put down in one (05:26 a step went on the stump the sapling was for)
         List<net.minecraft.world.phys.Vec3> avoid = List.of();
+        int airRefused; // moves turned down as a longer swim under water than half his air
         float hurtNow; // the HP the drops on the way to the node being expanded took (no regen counted)
         final float hp, margin; // his health now; the HP he keeps after any drop (Leaps.margin)
         final java.util.Map<String, String> refused = new java.util.LinkedHashMap<>(); // drops / jumps turned down, and why

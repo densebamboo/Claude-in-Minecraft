@@ -157,13 +157,16 @@ public final class Route {
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude route] his own {} stands in his mine's way in at {}: taken up on the way in (Route.expand)", qs.getBlock().getName().getString(), q.toShortString());
             }
             legs.add(out); slack.add(1.5); legs.add(b.entrance); slack.add(0.8);
+            if (flooded(level, b.walkCells(0, toRow), "down")) return null;
             for (BlockPos p : b.walkCells(0, toRow)) { legs.add(p); slack.add(0.8); }
             why = "over the land to his mine, in, down its rows";
         } else if (meIn && !toIn && across > FAR) { // out of his mine to somewhere off it: up the rows, out, then over the land (planned from the door)
+            if (flooded(level, b.walkCells(meRow, 0), "up")) return null;
             for (BlockPos p : b.walkCells(meRow, 0)) { legs.add(p); slack.add(0.8); }
             legs.add(b.entrance); slack.add(0.8); legs.add(b.outside()); slack.add(1.5);
             return finish(g, to, within, legs, slack, true, "up his mine's rows and out, then over the land");
         } else if (meIn && toIn && across > FAR) { // along his mine: its rows as they join
+            if (flooded(level, b.walkCells(meRow, toRow), "along")) return null;
             for (BlockPos p : b.walkCells(meRow, toRow)) { legs.add(p); slack.add(0.8); }
             why = meNook >= 0 || toNook >= 0 ? "along his mine's rows (from or to his nook's mouth row)" : "along his mine's rows";
         } else if (!meIn && !toIn && meTop && across > FAR && !under(level, to)) { // over the land
@@ -180,6 +183,15 @@ public final class Route {
             plan.addAll(Math.min(i0 + 1, plan.size()), up);
         }
         return plan;
+    }
+
+    /** A row of his mine with his head under water on it: no legs down it (they swam him 10 cells into a flooded row and he drowned, 12:02 11-04); his walker plans it, his air counted. */
+    private static boolean flooded(ServerLevel level, List<BlockPos> cells, String way) {
+        for (BlockPos p : cells) if (level.getFluidState(p.above()).is(net.minecraft.tags.FluidTags.WATER)) {
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude route] his mine's row at {} is flooded to head height: no legs {} its rows, his walker's way instead (Route.expand)", p.toShortString(), way);
+            return true;
+        }
+        return false;
     }
 
     /**

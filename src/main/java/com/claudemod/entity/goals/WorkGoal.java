@@ -3321,6 +3321,11 @@ public class WorkGoal extends Goal {
                 return exit("doPlace line 2644");
             }
         }
+        if (stack.getItem() instanceof BlockItem fb && fb.getBlock() instanceof net.minecraft.world.level.block.FallingBlock && net.minecraft.world.level.block.FallingBlock.isFree(level.getBlockState(pos.below()))) { // sand or gravel with nothing under it falls at once (live 12:37 11-04: a sand lid over his cover hole came down on his head and suffocated him)
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not putting {} at {}: nothing under it, it would fall (WorkGoal.doPlace)", itemName(stack), pos.toShortString());
+            g.attempts.any.put(pos.immutable(), g.tickCount);
+            return exit("a falling block with nothing under it (doPlace fall)");
+        }
         // A player can only place against an existing block, never in midair.
         Direction against = null;
         // the face he can see through the gap: the block behind it, straight ahead of him (a player aims at the back wall, not the floor)

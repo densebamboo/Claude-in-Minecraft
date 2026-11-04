@@ -7847,6 +7847,7 @@ public final class ClaudeBodyTest {
     /** Stone to y 1 over the 16x16, air above to height + 8; a plateau x 0-6 standing height blocks over the floor (its top cell y height + 1, his feet height + 2). */
     private static void djCliff(GameTestHelper h, ServerLevel level, int height) {
         for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -3; yy <= 1; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2); for (int yy = 2; yy <= height + 8; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), (x <= 6 && yy <= height + 1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); }
+        for (int i = -1; i <= 16; i++) for (int yy = -3; yy <= height + 8; yy++) for (BlockPos q : new BlockPos[] {new BlockPos(i, yy, -1), new BlockPos(i, yy, 16), new BlockPos(-1, yy, i), new BlockPos(16, yy, i)}) level.setBlock(h.absolutePos(q), Blocks.BEDROCK.defaultBlockState(), 2); // sealed: no way round over another stage's leftovers outside the box (380 walked out over one a block higher and dropped 8)
         level.setDayTime(6000);
     }
     private static void djPut(ClaudeEntity c, GameTestHelper h, BlockPos rel) { BlockPos p = h.absolutePos(rel); c.teleportTo(p.getX() + 0.5, p.getY(), p.getZ() + 0.5); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.fallDistance = 0; wbFace(c, -90f); c.setHealth(20); c.getFoodData().setFoodLevel(20); }
@@ -7855,7 +7856,7 @@ public final class ClaudeBodyTest {
     /** A trench across the box (x from..to, z 1-14), floor y 1 elsewhere; bedrock walls along z 0 and 15 (no way round the ends); its bottom 'deep' under the floor top, lava in it with lava = true. */
     private static void djTrench(GameTestHelper h, ServerLevel level, int from, int to, int deep, boolean lava) {
         djCliff(h, level, 0);
-        for (int x = 0; x < 16; x++) for (int yy = -3; yy <= 5; yy++) { level.setBlock(h.absolutePos(new BlockPos(x, yy, 0)), Blocks.BEDROCK.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, yy, 15)), Blocks.BEDROCK.defaultBlockState(), 2); }
+        for (int x = 0; x < 16; x++) for (int yy = -3; yy <= 12; yy++) { level.setBlock(h.absolutePos(new BlockPos(x, yy, 0)), Blocks.BEDROCK.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, yy, 15)), Blocks.BEDROCK.defaultBlockState(), 2); }
         for (int x = from; x <= to; x++) for (int z = 1; z <= 14; z++) for (int yy = 2 - deep; yy <= 1; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), (lava && yy == 2 - deep ? Blocks.LAVA : Blocks.AIR).defaultBlockState(), 2);
     }
     /** One jump stage: him at (3, 2, 8) facing east, a walk to (13, y, 8); passes once there with the kind of jump wanted run, never down in the trench, no HP lost, in a player's time. */

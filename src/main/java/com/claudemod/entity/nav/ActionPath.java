@@ -479,7 +479,8 @@ public final class ActionPath {
                         if (!against) continue;
                         if (reserved.contains(under) || !level.getBlockState(under).canBeReplaced()) continue; // (another job's cell; ponytail: a block goes only where vanilla lets one in: never into twisting vines, live 16:24 refused 3 times in 9 s)
                         { Integer pf = g.attempts.of(com.claudemod.entity.life.Attempts.Kind.PLACE).get(under); if (pf != null && now - pf < 20 * 300) continue; } // ponytail: the body's own place memory (WorkGoal.doPlace refuses for 5 min), so the plan and the body agree; live 14:22, the body refused this put (no face he can reach) and the plan made the same put 3 times in 9 s: a put that failed lately is off the plan, the way round instead
-                        cost += 3 + (lavaFloor ? 8 : 0); /* (a block into the lava: dear, a way over land wins; 1 extra made a lava-sea bridge the route of choice) */ acts.add(new Act.Put(under.immutable()));
+                        boolean overLava = false; for (int k = 1; k <= 3 && !overLava; k++) { BlockPos q = under.below(k); if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) overLava = true; else if (solid(q)) break; }
+                        cost += 3 + (lavaFloor || overLava ? 8 : 0); /* (a block into the lava, or a bridge one over it: dear, a way over land wins; 1 extra made a lava-sea bridge the route of choice; only the floor one dear made a pillar and a raised line over the lava the cheap way, stage 386) */ acts.add(new Act.Put(under.immutable()));
                     }
                     if (dy < 0 && water(t)) cost += 1; // a drop into water: fine, a bit slower
                     if (mine(t)) cost *= 0.7; // his own tunnels: the way he knows

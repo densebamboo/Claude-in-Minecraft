@@ -1883,7 +1883,34 @@ public class WorkGoal extends Goal {
         if (!pos.equals(equippedFor) || ticks % 10 == 0) { int q0 = g.tasks.size(); equipBestTool(state); equippedFor = pos.immutable(); if (g.tasks.size() > q0 && g.tasks.peekFirst() instanceof Task.GoTo goT) { g.tasks.pollFirst(); g.tasks.addFirst(new Task.Break(pos.immutable())); g.tasks.addFirst(goT); if (g.tickCount - pulledAt > 20 * 60) { pulledAt = g.tickCount; pulled.clear(); } pulled.add(new Task.Break(pos.immutable())); /* (parked behind the walk on purpose: the in-reach rule leaves it there) */ return exit("the new tool needs his table (the nook's, 20 off): over to it first, this dig after (01:57: the walk was queue (doBreak 1563)"); } } // the new tool needs his table (the nook's, 20 off): over to it first, this dig after (01:57: the walk was queued and the dig went on with the iron pick, every 30 s, for 6 minutes)
         // Held left click through the game's own survival mining: real speed (tool, enchantments, on ground or
         // not, underwater), real drops and tool wear, the crack everyone else sees.
+        // User Nov 4: reopen his plug from dry ground, sealing the newly exposed feeds with real right-clicks before water flows.
+        boolean waterTunnel = level.dimension() == net.minecraft.world.level.Level.OVERWORLD && g.blueprint != null && g.blueprint.isWalk(pos) && !com.claudemod.director.ClaudeLife.isCastBlock(pos);
+        if (waterTunnel) {
+            var nextRow = g.blueprint.rows().get(g.blueprint.rowOf(pos)); java.util.Set<BlockPos> rowCells = new java.util.HashSet<>(), waterFeeds = new java.util.HashSet<>();
+            for (BlockPos f : nextRow.feet()) for (int y = 0; y < nextRow.height(); y++) rowCells.add(f.above(y));
+            for (BlockPos f : rowCells) for (Direction d : Direction.values()) { BlockPos q = f.relative(d); if (!rowCells.contains(q) && level.getFluidState(q).is(net.minecraft.tags.FluidTags.WATER)) waterFeeds.add(q.immutable()); }
+            int feeds = waterFeeds.size();
+            ItemStack fill = solidScaffold();
+            if (feeds > 0 && (fill.isEmpty() || g.inventory.count(x -> x.is(fill.getItem())) < feeds)) { com.claudemod.ClaudeMod.LOGGER.info("[Claude mine] {} needs {} water seals before reopening, not enough solid blocks on him (WorkGoal.doBreak)", pos.toShortString(), feeds); return exit("water tunnel needs solid blocks before opening the plug"); }
+        }
         if (!g.mineTick(pos)) return false;
+        if (waterTunnel) {
+            var row = g.blueprint.rows().get(g.blueprint.rowOf(pos));
+            java.util.Set<BlockPos> interior = new java.util.HashSet<>(); for (BlockPos f : row.feet()) for (int y = 0; y < row.height(); y++) interior.add(f.above(y));
+            java.util.Set<BlockPos> feeds = new java.util.LinkedHashSet<>();
+            for (BlockPos f : row.feet()) for (int y = 0; y < row.height(); y++) for (Direction d : Direction.values()) { BlockPos q = f.above(y).relative(d); if (!interior.contains(q) && level.getFluidState(q).is(net.minecraft.tags.FluidTags.WATER)) feeds.add(q.immutable()); }
+            for (BlockPos wet : feeds) {
+                ItemStack fill = solidScaffold(); boolean sealed = false;
+                for (Direction against : Direction.values()) {
+                    BlockPos support = wet.relative(against); if (level.getBlockState(support).canBeReplaced() || !level.getFluidState(support).isEmpty()) continue;
+                    Vec3 hit = visibleFacePoint(level, g.getEyePosition(), support, against, 4.5); if (hit == null || fill.isEmpty()) continue;
+                    g.hold(fill); g.useOnAt(support, against.getOpposite(), true, hit);
+                    if (level.getFluidState(wet).isEmpty() && !level.getBlockState(wet).canBeReplaced()) { sealed = true; break; }
+                }
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude mine] water feed {} exposed by {}: {} (WorkGoal.doBreak)", wet.toShortString(), pos.toShortString(), sealed ? "sealed before flow" : "needs a visible supporting face");
+                // A forward face hidden by the other plug half becomes reachable when that half opens next; keep working from the dry row.
+            }
+        }
         { // what the break opened is in front of him now: the fluid beside it on record, and lava there means the block straight back in (lava runs into an opening a second and more later; a player puts it back)
             BlockPos lv = null;
             for (Direction d : Direction.values()) { BlockPos q = pos.relative(d); if (!level.getFluidState(q).isEmpty()) { com.claudemod.entity.life.Perception.sawCell(g, level, q); if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) lv = q.immutable(); } }
@@ -1910,7 +1937,7 @@ public class WorkGoal extends Goal {
             g.tasks.addFirst(new Task.Break(pos)); // gravel (sand) above it drops into the hole: this cell again once it has, until the column is down
         }
         // Broke into water (an aquifer, a lake bed): plug it like a player, before it floods the tunnel.
-        if (!level.canSeeSky(pos) && !com.claudemod.director.ClaudeLife.isCastBlock(pos)) { // (the casting water running round his pillar's foot is not an aquifer: it "plugged" the pit and wrote the pillar's foot off as open water)
+        if (!waterTunnel && !level.canSeeSky(pos) && !com.claudemod.director.ClaudeLife.isCastBlock(pos)) { // (the casting water running round his pillar's foot is not an aquifer: it "plugged" the pit and wrote the pillar's foot off as open water)
             ItemStack plug = solidScaffold(); // (never gravel or sand: a plug over his head would fall on him)
             if (plug.isEmpty() && pendingStepUp != null && pos.getY() > g.getBlockY()) { // cutting up into water with nothing to plug it: that way is off (he'd drown in his own cut)
                 int sources = 0;

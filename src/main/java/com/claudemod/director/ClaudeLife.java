@@ -4258,12 +4258,13 @@ public final class ClaudeLife {
         boolean furnace = g.inventory.count(s -> s.is(Items.FURNACE)) > 0 || findNear(level, g.blockPosition(), 16, b -> b.is(Blocks.FURNACE)) != null;
         boolean sword = g.inventory.count(s -> s.getItem() instanceof net.minecraft.world.item.SwordItem) > 0;
         int cobbleNeed = Math.max(0, 2 - stonePicks) * 3 + (furnace ? 0 : 8) + (sword ? 0 : 2); // and a sword: mobs live down there
+        boolean aquifer = false; if (st.skill().equals("strip_mine") || st.skill().equals("dig_down")) for (BlockPos q : BlockPos.betweenClosed(g.blockPosition().offset(-6, -3, -6), g.blockPosition().offset(6, 4, 6))) if (com.claudemod.entity.life.Perception.knowsWater(g, q)) { aquifer = true; cobbleNeed = Math.max(cobbleNeed, 32); break; } // Nov 4: known aquifer work needs lining blocks, not merely the spare pick's three cobble.
         int logs = g.inventory.count(s -> s.is(ItemTags.LOGS)) + g.inventory.count(s -> s.is(ItemTags.PLANKS)) / 4;
         boolean light = g.inventory.count(s -> s.is(Items.TORCH)) >= 16 || g.inventory.count(s -> s.is(Items.COAL) || s.is(Items.CHARCOAL)) >= 4;
         int logNeed = Math.max(32, (g.inventory.count(s -> s.is(Items.CRAFTING_TABLE)) > 0 ? 0 : 1) + (light ? 0 : 6) + 2); // half a stack at least (the user: "i take like at least half a stack"): fewer trips up
         int cobbleShort = Math.max(0, cobbleNeed - cobble), logShort = Math.max(0, logNeed - logs);
         boolean nearTop = level.canSeeSky(g.blockPosition()) || (g.stairStart != null && g.blockPosition().distSqr(g.stairStart) < 20 * 20);
-        if (!nearTop) { logShort = 0; cobbleShort = 0; } // (deep down the digging itself is the cobble: "8 cobble short" there looped pack -> collect cobble -> strip_mine -> pack) // deep down: no trekking up for wood (charcoal prep handles the worst case); the half stack is packed up top, before the trip (an underground minimum sent him "exploring" for trees from the hazard test's tunnel)
+        if (!nearTop) { logShort = 0; if (!aquifer) cobbleShort = 0; } // (deep down the digging itself is the cobble: "8 cobble short" there looped pack -> collect cobble -> strip_mine -> pack) // deep down: no trekking up for wood (charcoal prep handles the worst case); the half stack is packed up top, before the trip (an underground minimum sent him "exploring" for trees from the hazard test's tunnel)
         // and food for the trip: a few cooked meat from whatever's grazing in sight, by day, before going down (not a hunt across the map: no animals about, no food, the mine still happens)
         int meals = g.inventory.count(s -> s.get(net.minecraft.core.component.DataComponents.FOOD) != null && !s.is(Items.ROTTEN_FLESH) && !s.is(Items.SPIDER_EYE) && !s.is(Items.POISONOUS_POTATO) && !s.is(Items.PUFFERFISH));
         String cooked = null;
@@ -4286,7 +4287,7 @@ public final class ClaudeLife {
         g.packTick = g.tickCount;
         g.skillQueue.addFirst(st);
         if (cooked != null) { var ck = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.withDefaultNamespace(cooked)); g.skillQueue.addFirst(new Skills.Step("obtain", cooked, g.inventory.count(s -> s.is(ck)) + 20 - Math.min(20, meals))); } // obtain's count is a total of that item: the meals short on top of what he holds (20 - meals alone was "done: already have 5" and looped pack -> obtain -> replan, live 02:2x World 15) // (20 for a trip: 12 ran out down there and every death that day started hungry)
-        if (cobbleShort > 0) g.skillQueue.addFirst(cobbleShort <= 8 ? new Skills.Step("collect", "stone", cobbleShort, "here") : new Skills.Step("collect", "cobblestone", cobbleShort)); // a handful (a spare pick's three) out of the rock by him; a real load from the mine
+        if (cobbleShort > 0) g.skillQueue.addFirst(aquifer ? new Skills.Step("collect", "cobblestone", cobbleNeed) : cobbleShort <= 8 ? new Skills.Step("collect", "stone", cobbleShort, "here") : new Skills.Step("collect", "cobblestone", cobbleShort)); // a handful (a spare pick's three) out of the rock by him; a real load from the mine
         if (logShort > 0) g.skillQueue.addFirst(new Skills.Step("collect", "logs", logShort + 12)); // wood first (the wooden pick, sticks); a dozen over, like a player at the trees: the tools and furnace made on the way ate into it and sent him 96 blocks back for 8 logs
         ClaudeMod.LOGGER.info("[Claude skill] packing for the trip: {} cobble short (need {}), {} logs short (need {}){}", cobbleShort, cobbleNeed, logShort, logNeed, cooked == null ? "" : ", and " + cooked + " from the animals about");
         return "packing for the trip in one go: " + (logShort > 0 ? logShort + " logs" : "") + (logShort > 0 && cobbleShort > 0 ? " and " : "")
@@ -11231,7 +11232,7 @@ public final class ClaudeLife {
                 b.turn(t); why = "lava ahead: a landing and a turn " + t.getName(); break;
             }
             int wet = 0; for (BlockPos q : BlockPos.betweenClosed(next.offset(-1, -1, -1), next.offset(1, b.height, 1))) if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.WATER)) wet++;
-            if (wet > 12) { b.turn(d.getClockWise()); why = "a lake ahead: a landing and a turn " + d.getClockWise().getName(); break; }
+            if (wet > 12) { why = "water ahead: sealed row by row, not an endless pivot"; ClaudeMod.LOGGER.info("[Claude mine] water ahead at {}: continuing with a sealed tunnel (ClaudeLife.bpDigDown)", next.toShortString()); }
             b.extend(level);
         }
         if (target.equals("cobble")) b.targetY = keptTarget; // (the level on file is the trip's, untouched by the errand)
@@ -11314,7 +11315,7 @@ public final class ClaudeLife {
                 for (int i = 0; i < rsU.size(); i++) if (rsU.get(i).segment() == si) { last = i; if (first < 0 && java.util.Arrays.stream(rsU.get(i).feet()).anyMatch(f -> MineBlueprint.solid(level, f) || MineBlueprint.solid(level, f.above()))) first = i; }
                 if (first < 0) continue; // all dug
                 BlockPos stop = rsU.get(first).first(); var ss = level.getBlockState(stop);
-                if (!level.getFluidState(stop).isEmpty() || ss.is(Blocks.COBBLESTONE) || ss.is(Blocks.COBBLED_DEEPSLATE) || lavaNear(g, level, stop)) continue; // ends at water, his plug or lava: not one to dig on
+                if (level.getFluidState(stop).is(net.minecraft.tags.FluidTags.LAVA) || lavaNear(g, level, stop)) continue; // ends at water, his plug or lava: not one to dig on
                 bpWalkTo(g, s0.start.relative(s0.dir.getOpposite()));
                 int n2 = bpReconcile(g, level, first, last, false);
                 if (n2 == 0) continue;
@@ -11385,7 +11386,7 @@ public final class ClaudeLife {
                 if (g.attempts.counters.containsKey("branchDone:" + s0.start.asLong())) continue; if (s0.kind != MineBlueprint.Kind.BRANCH || s0.start.getY() != face.getY() || s0.n >= 32 || s0.n < half) continue; // (the user: each branch to its checkpoint, 32, or till it hits something to block off; then the next one)
                 if (!branchWalkable(level, s0)) continue;
                 BlockPos past = s0.start.relative(s0.dir, s0.n); BlockState ps = level.getBlockState(past);
-                if (!level.getFluidState(past).isEmpty() || !level.getFluidState(past.relative(s0.dir)).isEmpty() || ps.is(Blocks.COBBLESTONE) || ps.is(Blocks.COBBLED_DEEPSLATE) || lavaNear(g, level, past) || ps.hasBlockEntity()) continue; /* (one short of the lava the goal keeps: "9 to 9" over and over, 04:14-04:19) */ // ends at water, lava or his own plug: that one's done
+                if (level.getFluidState(past).is(net.minecraft.tags.FluidTags.LAVA) || lavaNear(g, level, past) || ps.hasBlockEntity()) continue; /* (one short of the lava the goal keeps: "9 to 9" over and over, 04:14-04:19) */ // ends at water, lava or his own plug: that one's done
                 boolean beside = false; // a branch running alongside his tunnel (the one off the pivot corner, pushed 16 on beside the main run: the user) is done, never pushed
                 for (int k = 0; k < s0.n + b.branchLength && !beside; k++) { BlockPos q = s0.start.relative(s0.dir, k); for (Direction h : new Direction[] {s0.dir.getClockWise(), s0.dir.getCounterClockWise()}) for (int y = 0; y < 2; y++) { BlockPos w = q.relative(h).above(y); if (b.isWalk(w) && b.rowOf(w) >= 0 && b.segments.get(b.rows().get(b.rowOf(w)).segment()).kind != MineBlueprint.Kind.BRANCH) beside = true; } }
                 if (beside) continue;
@@ -11477,7 +11478,7 @@ public final class ClaudeLife {
                 for (int i = 0; i < rsU.size(); i++) if (rsU.get(i).segment() == si) { last = i; if (first < 0 && java.util.Arrays.stream(rsU.get(i).feet()).anyMatch(f -> MineBlueprint.solid(level, f) || MineBlueprint.solid(level, f.above()))) first = i; }
                 if (first < 0) continue; // all dug
                 BlockPos stop = rsU.get(first).first(); var ss = level.getBlockState(stop);
-                if (!level.getFluidState(stop).isEmpty() || ss.is(Blocks.COBBLESTONE) || ss.is(Blocks.COBBLED_DEEPSLATE) || lavaNear(g, level, stop)) continue; // ends at water, his plug or lava: not one to dig on
+                if (level.getFluidState(stop).is(net.minecraft.tags.FluidTags.LAVA) || lavaNear(g, level, stop)) continue; // ends at water, his plug or lava: not one to dig on
                 bpWalkTo(g, s0.start.relative(s0.dir.getOpposite()));
                 int n2 = bpReconcile(g, level, first, last, false);
                 if (n2 == 0) continue;
@@ -11492,7 +11493,7 @@ public final class ClaudeLife {
                 if (s0.kind != MineBlueprint.Kind.BRANCH || s0.start.getY() != levelY || s0.n >= 32) continue;
                 if (s0.n < (b.branchLength > 0 ? b.branchLength : 8) / 2) continue; // a stub cut short (water, a cave): not one to push on
                 if (!branchWalkable(level, s0)) continue; // a plug or a cave-in part-way along it: no way to its end, so nothing past it can be dug from the tunnel
-                { BlockPos past = s0.start.relative(s0.dir, s0.n); net.minecraft.world.level.block.state.BlockState ps = level.getBlockState(past); if (!level.getFluidState(past).isEmpty() || !level.getFluidState(past.relative(s0.dir)).isEmpty() || ps.is(Blocks.COBBLESTONE) || ps.is(Blocks.COBBLED_DEEPSLATE)) continue; } /* (one short of lava the goal keeps: the stone at its end, the lava one on; it "went on from 9 to 9" again and again, 04:14) */ // ends at water or at his plug of it: that branch is done (the user: plug it and move on), never pushed on into the same water again (he re-dug into it and re-plugged for 40 s)
+                { BlockPos past = s0.start.relative(s0.dir, s0.n); net.minecraft.world.level.block.state.BlockState ps = level.getBlockState(past); if (level.getFluidState(past).is(net.minecraft.tags.FluidTags.LAVA) || lavaNear(g, level, past)) continue; } /* (one short of lava the goal keeps: the stone at its end, the lava one on; it "went on from 9 to 9" again and again, 04:14) */ // ends at water or at his plug of it: that branch is done (the user: plug it and move on), never pushed on into the same water again (he re-dug into it and re-plugged for 40 s)
                 if (grow == null || s0.n < grow.n) grow = s0;
             }
             if (grow != null) {
@@ -11578,7 +11579,7 @@ public final class ClaudeLife {
             BlockPos st = side == flat.dir.getClockWise() ? flat.start.relative(flat.dir, k0 + 1).relative(side, b.width) : flat.start.relative(flat.dir, k0).relative(side);
             boolean wet = false; for (int k1 = 1; k1 <= 8 && !wet; k1++) for (int w0 = -2; w0 <= 2 && !wet; w0++) for (int y0 = -1; y0 <= 3 && !wet; y0++) { BlockPos q = st.relative(side, k1).relative(side.getClockWise(), w0).above(y0); if (com.claudemod.entity.life.Perception.knowsWater(g, q)) wet = true; } // an aquifer in the way: not a tunnel into it (a second run off his coal level went into the same water the first one ended at: 4 minutes plugging it)
             if (!wet && b.segments.stream().noneMatch(s0 -> s0.kind == MineBlueprint.Kind.RUN && s0.start.equals(st)) && !runByNook(g, b, st, side)) cands.add(new MineBlueprint.Segment(MineBlueprint.Kind.RUN, st, side, 0, null));
-            if (b.segments.stream().anyMatch(s0 -> s0.kind == MineBlueprint.Kind.RUN && s0.start.getY() == levelY && s0.n < max)) break; // (one open run at a time)
+            // Nov 4: an existing but blocked run must not hide the opposite direction (including -Z).
         }
         for (MineBlueprint.Segment run : cands) {
             boolean fresh = !b.segments.contains(run);

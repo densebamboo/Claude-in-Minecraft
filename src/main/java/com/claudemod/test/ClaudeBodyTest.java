@@ -10376,6 +10376,10 @@ public final class ClaudeBodyTest {
             case 575: return st575(stage, t, c, h, level, mock);
             case 576: return st576(stage, t, c, h, level, mock);
             case 577, 578: return st577(stage, t, c, h, level, mock);
+            case 579: return st579(stage, t, c, h, level, mock);
+            case 580, 581: return st580(stage, t, c, h, level, mock);
+            case 582, 583: return st582(stage, t, c, h, level, mock);
+            case 584: return st584(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -12002,6 +12006,111 @@ public final class ClaudeBodyTest {
             check(c.getHealth() == 20 && !c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER), "water tunnel: entered flooded work or took damage at " + c.blockPosition());
             if (c.blockPosition().distSqr(end) <= 1 && c.tasks.isEmpty() && c.currentTask == null) { check(c.blueprint.segments.stream().anyMatch(s -> s.kind == com.claudemod.entity.life.MineBlueprint.Kind.BRANCH && s.n == 6), "water shortened the planned branch"); c.dropCurrent = true; pass(stage, t, "advanced through the plugged aquifer dry and unharmed in " + t[0] + " ticks"); }
             else check(t[0] < 900, "water tunnel: no forward progress within 45 s: at " + c.blockPosition() + ", " + c.currentTask + ", " + c.tasks);
+    private static boolean st584(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(6, 2, 8)), goal = me.above();
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(me.offset(-3, -1, -3), me.offset(3, 4, 3))) level.setBlock(p, Blocks.BEDROCK.defaultBlockState(), 2);
+            level.setBlock(me, Blocks.WATER.defaultBlockState(), 2); level.setBlock(me.above(), Blocks.AIR.defaultBlockState(), 2);
+            level.setBlock(me.above(2), Blocks.STONE.defaultBlockState(), 2);
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            var mode = com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG;
+            check(com.claudemod.entity.nav.ActionPath.plan(c, level, me, goal, 0.4, true, 4000, mode, null, c.tickCount) == null, "water pillar planned without a block to place");
+            c.getInventory().add(new ItemStack(Items.COBBLESTONE, 8)); level.setBlock(me.above(), Blocks.WATER.defaultBlockState(), 2);
+            check(com.claudemod.entity.nav.ActionPath.plan(c, level, me, goal, 0.4, true, 4000, mode, null, c.tickCount) == null, "deep-water tower was enabled without a tested footing sequence");
+            level.setBlock(me.above(), Blocks.AIR.defaultBlockState(), 2);
+            var b = new com.claudemod.entity.life.MineBlueprint(me, net.minecraft.core.Direction.EAST, 1, 2); b.segments.clear(); b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, me, net.minecraft.core.Direction.EAST, 1, null)); b.invalidate(); c.blueprint = b; c.prefs.put("mine_model", "blueprint");
+            check(com.claudemod.entity.nav.ActionPath.plan(c, level, me, goal, 0.4, true, 4000, mode, null, c.tickCount) == null, "escape cut the protected mine ceiling");
+            c.blueprint = null;
+            var plan = com.claudemod.entity.nav.ActionPath.plan(c, level, me, goal, 0.4, true, 4000, mode, null, c.tickCount);
+            check(plan != null && plan.puts() == 1 && plan.digs() == 1, "no shallow-water escape using the real roof dig and pillar: " + plan);
+            c.tasks.addAll(com.claudemod.entity.nav.ActionPath.tasks(plan, me, Items.COBBLESTONE, goal, 0.4, level));
+        }
+        if (t[0] > 10) {
+            check(c.getHealth() >= 19 && c.isAlive(), "shallow-water escape took damage");
+            if (level.getBlockState(me).is(Blocks.COBBLESTONE) && c.getY() >= goal.getY() - 0.05 && !c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "dug roof, swim-jumped and placed below himself in " + (t[0] - 10) + " ticks; protected/deep/no-block cases stayed blocked"); }
+            else check(t[0] < 130, "shallow-water escape exceeded player 6 s bound: y " + c.getY() + ", task " + c.currentTask + ", queue " + c.tasks);
+        }
+        return true;
+    }
+
+    private static boolean st582(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos start = h.absolutePos(new BlockPos(3, 2, 8)).atY(16), me = start.east(4);
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000;
+            for (BlockPos p : BlockPos.betweenClosed(start.offset(-4, -2, -5), start.offset(24, 8, 6))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            var b = new com.claudemod.entity.life.MineBlueprint(start, net.minecraft.core.Direction.EAST, 2, 4); b.segments.clear(); b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, start, net.minecraft.core.Direction.EAST, 12, null)); b.targetY = 16; b.invalidate(); lnCarve(level, b);
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.prefs.put("gear_before_caves", "yes"); com.claudemod.director.ClaudeLife.bpSync(c);
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.getInventory().clearContent(); c.getFoodData().setFoodLevel(20); c.gearTick = -100000; level.setDayTime(18000);
+        }
+        if (t[0] == 10 && stage[0] == 582) {
+            com.claudemod.director.ClaudeLife.command(c, mock[0], steps1("strip_mine", "iron_ore", 4, "near_you"), "mine iron", "replace");
+            c.commandActive = false; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.planning = true; c.planStartTick = c.tickCount - 40;
+        }
+        if (t[0] == 40 && stage[0] == 582) {
+            check(c.skillQueue.isEmpty() && c.tasks.isEmpty() && c.currentTask == null, "thinking filler started a kit chain with an empty pack: " + c.skillQueue + ", " + c.currentTask);
+            for (ItemStack it : new ItemStack[] {new ItemStack(Items.COOKED_BEEF, 20), new ItemStack(Items.STONE_SWORD), new ItemStack(Items.STONE_PICKAXE, 2), new ItemStack(Items.COAL, 32), new ItemStack(Items.TORCH, 64), new ItemStack(Items.OAK_LOG, 64), new ItemStack(Items.COBBLESTONE, 64), new ItemStack(Items.FURNACE), new ItemStack(Items.CRAFTING_TABLE)}) c.getInventory().add(it);
+        }
+        if (t[0] == 80 && stage[0] == 582) {
+            check(!c.tasks.isEmpty() || c.currentTask != null, "ready mine filler did not start real work within 2 s"); c.planning = false; c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; pass(stage, t, "bare kit never starts as filler; ready mining starts within two seconds");
+        }
+        if (t[0] == 10 && stage[0] == 583) {
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+            for (ItemStack it : new ItemStack[] {new ItemStack(Items.COD, 16), new ItemStack(Items.COBBLESTONE, 32), new ItemStack(Items.STICK, 8), new ItemStack(Items.CRAFTING_TABLE), new ItemStack(Items.FURNACE)}) c.getInventory().add(it);
+            String line = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "strip_mine", "iron_ore", 4); var q = new java.util.ArrayList<>(c.skillQueue); int logs = -1, charcoal = -1;
+            for (int i = 0; i < q.size(); i++) { if (q.get(i).skill().equals("collect") && q.get(i).target().equals("logs")) logs = i; if (q.get(i).skill().equals("smelt") && q.get(i).target().equals("charcoal")) charcoal = i; }
+            check(logs >= 0 && charcoal > logs, "night kit scheduled charcoal before its missing logs: " + line + ", " + q);
+            c.skillQueue.clear(); c.getInventory().add(new ItemStack(Items.OAK_LOG, 64)); c.gearTick = -100000;
+            com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "strip_mine", "iron_ore", 4);
+            check(c.skillQueue.stream().noneMatch(s -> s.skill().equals("collect") && s.target().equals("logs")), "logs already on hand still sent on an outdoor trip");
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; pass(stage, t, "night kit keeps fuel dependencies; logs on hand need no outdoor collection");
+        }
+        return true;
+    }
+
+    private static java.util.List<Task> coverSteps;
+    private static java.util.Set<BlockPos> coverSeen;
+    private static boolean st579(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(4, 2, 8)), table = me.east(7).above();
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; flatBox(h); if (hzMob != null) hzMob.discard(); hzMob = null; }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) for (int y = 4; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.STONE.defaultBlockState(), 2);
+            level.setBlock(me.above(2), Blocks.AIR.defaultBlockState(), 2); // Nearby natural ceiling supports the lid, as in the live mine.
+            level.setDayTime(1000); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            var sk = EntityType.SKELETON.create(level); check(sk != null, "setup: no skeleton"); sk.setNoAi(true); sk.moveTo(me.getX() + 6.5, me.getY(), me.getZ() + 0.5, 0, 0); level.addFreshEntity(sk); hzMob = sk;
+            percFace(c, -90); com.claudemod.entity.life.Perception.lookNow(c);
+            check(c.work.shelter(), "setup: underground cover not queued"); coverSteps = new java.util.ArrayList<>(c.work.coverTasks()); coverSeen = new java.util.HashSet<>();
+            check(coverSteps.stream().anyMatch(q -> q instanceof Task.Place) && coverSteps.stream().anyMatch(q -> q instanceof Task.Wait), "setup: expected a walled cover sequence");
+            c.tasks.addFirst(new Task.GoTo(table, 1.5)); // A combat craft inserted this ahead of the unfinished cover in the live trace.
+        }
+        if (t[0] > 10 && t[0] <= 200) {
+            for (Task q : coverSteps) if (q instanceof Task.Place pl) { if (level.getBlockState(pl.pos()).is(Blocks.COBBLESTONE)) coverSeen.add(pl.pos()); check(!coverSeen.contains(pl.pos()) || level.getBlockState(pl.pos()).is(Blocks.COBBLESTONE), "cover torn down before its safety wait: " + pl.pos()); }
+            check(c.blockPosition().distSqr(me) <= 4, "craft walk left active cover: " + c.blockPosition());
+            if (t[0] == 200) {
+                check(c.currentTask instanceof Task.Wait && coverSteps.stream().anyMatch(q -> q == c.currentTask), "cover not built and holding within 9.5 s: " + c.currentTask);
+                check(coverSteps.stream().filter(q -> q instanceof Task.Place).allMatch(q -> level.getBlockState(((Task.Place) q).pos()).is(Blocks.COBBLESTONE)), "cover incomplete under shooter threat");
+                hzMob.discard(); hzMob = null; com.claudemod.entity.life.Perception.reset(c);
+            }
+        }
+        if (t[0] > 200) {
+            boolean left = coverSteps.stream().anyMatch(q -> q == c.currentTask || c.tasks.stream().anyMatch(x -> x == q));
+            if (!left && coverSeen.stream().allMatch(p -> !level.getBlockState(p).is(Blocks.COBBLESTONE))) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "cover held ahead of craft walk; threat gone, teardown and pickup finished in " + (t[0] - 200) + " ticks"); }
+            else check(t[0] < 600, "safe cover cleanup did not finish within 20 s (17 cobble with a stone pick, then pickup): " + c.currentTask + ", " + c.tasks);
+        }
+        return true;
+    }
+
+    private static boolean st580(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(3, 2, 8)), block = me.east(2), goal = stage[0] == 580 ? block : me.east(8);
+        if (t[0] == 1) { scenarioReset(c); flatBox(h); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            level.setBlock(block, Blocks.STONE.defaultBlockState(), 2); c.tasks.add(new Task.GoTo(goal, 1.5)); c.tasks.add(new Task.Wait(60, false)); c.tasks.add(new Task.Break(block));
+        }
+        if (t[0] == 40) check(level.getBlockState(block).is(Blocks.STONE), "queued dig crossed its wait barrier before the wait ran");
+        if (t[0] > 40) {
+            if (level.getBlockState(block).isAir()) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "walk/delay/dig kept in order in " + (t[0] - 10) + " ticks"); }
+            else check(t[0] < 250, "dig did not resume after its wait within 12 s: " + c.currentTask);
         }
         return true;
     }

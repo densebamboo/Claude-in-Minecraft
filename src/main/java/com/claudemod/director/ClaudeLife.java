@@ -1552,13 +1552,14 @@ public final class ClaudeLife {
     /** The rule work worth starting while the planner thinks and safe to break off when the plan lands: cover in the dark, food, his own mine's next blocks, wood by day (never the kit: it crafts and puts stations down). */
     static Skills.Step fillerStep(ClaudeEntity g, ServerPlayer player) {
         Skills.Step r = ruleStep(g, player);
-        if (Set.of("shelter", "eat").contains(r.skill()) || (r.skill().equals("strip_mine") && inHisMine(g, g.blockPosition()))) return r; // (his mine only from inside it: 06:24 a 200-block walk to it was started and dropped by the landing plan every 6 s)
+        boolean mineReady = Kit.missing(g, false).isEmpty() && !g.inventory.find(s -> s.getItem() instanceof net.minecraft.world.item.PickaxeItem).isEmpty();
+        if (Set.of("shelter", "eat").contains(r.skill()) || (r.skill().equals("strip_mine") && inHisMine(g, g.blockPosition()) && mineReady)) return r; // Mining as filler must not expand into a kit-preparation plan.
         ServerLevel level = (ServerLevel) g.level();
         if (g.inventory.count(s -> s.is(ItemTags.LOGS)) < 32 && nightOutsideNo(g, level, g.blockPosition()) == null && g.failCount.getOrDefault("collect logs", 0) < 3
                 && findNear(level, g.blockPosition(), 24, b -> b.is(BlockTags.LOGS)) != null) return new Skills.Step("collect", "logs", 4);
         { int waitLeft = g.attempts.counters.getOrDefault("timeWait", 0) - g.tickCount; // a clock wait long enough for the walk to his mine face and back plus a minute there: a player mines out the day (09:15 he stood 6 min by his house waiting on dusk for the pearl hunt, logs full, mine face ~180 blocks off)
           if (waitLeft > 0 && !(g.playerGoal != null && g.playerGoal.toLowerCase().contains("dragon") && Kit.missing(g, true).isEmpty()) /* the user: kitted, with iron in his chests, no need of more (11:30 he dug for it at y-58 while waiting) */ && g.mineFace != null && level.dimension() == net.minecraft.world.level.Level.OVERWORLD && g.failCount.getOrDefault("strip_mine iron_ore", 0) < 3
-                  && !g.inventory.find(s -> s.getItem() instanceof net.minecraft.world.item.PickaxeItem).isEmpty()
+                  && mineReady
                   && waitLeft > 2 * Math.sqrt(g.blockPosition().distSqr(g.mineFace)) / 5.0 * 20 + 60 * 20) return new Skills.Step("strip_mine", "iron_ore", 4); }
         return null;
     }
@@ -8936,9 +8937,8 @@ public final class ClaudeLife {
             return null;
         }
         g.skillQueue.addFirst(st);
-        List<Skills.Step> kitOrder = new ArrayList<>(plan.steps());
-        if (nightOutsideNo(g, level, level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.blockPosition())) != null) { List<Skills.Step> outdoor = new ArrayList<>(); for (Skills.Step s1 : kitOrder) if (s1.skill().equals("fight") || (s1.skill().equals("smelt") && s1.target().startsWith("cooked_")) || (s1.skill().equals("collect") && !s1.target().contains("ore") && !s1.target().contains("cobble") )) outdoor.add(s1); if (!outdoor.isEmpty() && outdoor.size() < kitOrder.size()) { kitOrder.removeAll(outdoor); kitOrder.addAll(outdoor); } } // night: charcoal and torches from what's on him first, the hunt at first light (the beef step refused in the dark held up the torches he could make right there)
-        for (int i = kitOrder.size() - 1; i >= 0; i--) g.skillQueue.addFirst(kitOrder.get(i));
+        // Procure orders ingredients before their crafts; night never reverses those dependencies.
+        for (int i = plan.steps().size() - 1; i >= 0; i--) g.skillQueue.addFirst(plan.steps().get(i));
         ClaudeMod.LOGGER.info("[Claude life] kit first, before {}: missing {} -> {}", st.skill(), Kit.describe(missing), Procure.describe(plan.steps()));
         return "kit first (missing " + Kit.describe(missing) + "), then " + st.skill() + ": " + Procure.describe(plan.steps());
     }

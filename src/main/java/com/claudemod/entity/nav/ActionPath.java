@@ -619,8 +619,8 @@ public final class ActionPath {
                     out.add(new Move(t.immutable(), 1.5 + failPenalty(t), acts));
                 }
             }
-            // straight up: a block under him (towering), with head room dug if need be; never on water (a jump there doesn't clear his feet)
-            if (canPlace && !swimming) {
+            // Solid footing and air above shallow water let his swim-jump clear the cell for a block.
+            if (canPlace && (!swimming || solid(feet.below()) && level.getFluidState(feet.above()).isEmpty())) {
                 BlockPos up = feet.above();
                 List<Act> acts = new ArrayList<>();
                 double cost = 4;

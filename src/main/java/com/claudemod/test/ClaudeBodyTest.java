@@ -10375,6 +10375,7 @@ public final class ClaudeBodyTest {
             case 577, 578: return st577(stage, t, c, h, level, mock);
             case 579: return st579(stage, t, c, h, level, mock);
             case 580, 581: return st580(stage, t, c, h, level, mock);
+            case 582, 583: return st582(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -11946,6 +11947,40 @@ public final class ClaudeBodyTest {
             if (!com.claudemod.entity.life.MineBlueprint.ore(level.getBlockState(iron))) check(!level.getBlockState(diamond).is(Blocks.DIAMOND_ORE), "iron taken before the exposed diamond");
             if (mined && patched && raw >= 2 && dia == 1) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "whole vein mined, 2 iron + diamond picked up, all seven holes patched in " + t[0] + " ticks"); }
             else check(t[0] < 400, "mine integrity: mined=" + mined + ", patched=" + patched + ", iron=" + raw + ", diamonds=" + dia + ", at=" + c.blockPosition() + ", task=" + c.currentTask + ", queue=" + c.tasks);
+        }
+        return true;
+    }
+
+    private static boolean st582(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos start = h.absolutePos(new BlockPos(3, 2, 8)).atY(16), me = start.east(4);
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000;
+            for (BlockPos p : BlockPos.betweenClosed(start.offset(-4, -2, -5), start.offset(24, 8, 6))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            var b = new com.claudemod.entity.life.MineBlueprint(start, net.minecraft.core.Direction.EAST, 2, 4); b.segments.clear(); b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, start, net.minecraft.core.Direction.EAST, 12, null)); b.targetY = 16; b.invalidate(); lnCarve(level, b);
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.prefs.put("gear_before_caves", "yes"); com.claudemod.director.ClaudeLife.bpSync(c);
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.getInventory().clearContent(); c.getFoodData().setFoodLevel(20); c.gearTick = -100000; level.setDayTime(18000);
+        }
+        if (t[0] == 10 && stage[0] == 582) {
+            com.claudemod.director.ClaudeLife.command(c, mock[0], steps1("strip_mine", "iron_ore", 4, "near_you"), "mine iron", "replace");
+            c.commandActive = false; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.planning = true; c.planStartTick = c.tickCount - 40;
+        }
+        if (t[0] == 40 && stage[0] == 582) {
+            check(c.skillQueue.isEmpty() && c.tasks.isEmpty() && c.currentTask == null, "thinking filler started a kit chain with an empty pack: " + c.skillQueue + ", " + c.currentTask);
+            for (ItemStack it : new ItemStack[] {new ItemStack(Items.COOKED_BEEF, 20), new ItemStack(Items.STONE_SWORD), new ItemStack(Items.STONE_PICKAXE, 2), new ItemStack(Items.COAL, 32), new ItemStack(Items.TORCH, 64), new ItemStack(Items.OAK_LOG, 64), new ItemStack(Items.COBBLESTONE, 64), new ItemStack(Items.FURNACE), new ItemStack(Items.CRAFTING_TABLE)}) c.getInventory().add(it);
+        }
+        if (t[0] == 80 && stage[0] == 582) {
+            check(!c.tasks.isEmpty() || c.currentTask != null, "ready mine filler did not start real work within 2 s"); c.planning = false; c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; pass(stage, t, "bare kit never starts as filler; ready mining starts within two seconds");
+        }
+        if (t[0] == 10 && stage[0] == 583) {
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+            for (ItemStack it : new ItemStack[] {new ItemStack(Items.COD, 16), new ItemStack(Items.COBBLESTONE, 32), new ItemStack(Items.STICK, 8), new ItemStack(Items.CRAFTING_TABLE), new ItemStack(Items.FURNACE)}) c.getInventory().add(it);
+            String line = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "strip_mine", "iron_ore", 4); var q = new java.util.ArrayList<>(c.skillQueue); int logs = -1, charcoal = -1;
+            for (int i = 0; i < q.size(); i++) { if (q.get(i).skill().equals("collect") && q.get(i).target().equals("logs")) logs = i; if (q.get(i).skill().equals("smelt") && q.get(i).target().equals("charcoal")) charcoal = i; }
+            check(logs >= 0 && charcoal > logs, "night kit scheduled charcoal before its missing logs: " + line + ", " + q);
+            c.skillQueue.clear(); c.getInventory().add(new ItemStack(Items.OAK_LOG, 64)); c.gearTick = -100000;
+            com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "strip_mine", "iron_ore", 4);
+            check(c.skillQueue.stream().noneMatch(s -> s.skill().equals("collect") && s.target().equals("logs")), "logs already on hand still sent on an outdoor trip");
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; pass(stage, t, "night kit keeps fuel dependencies; logs on hand need no outdoor collection");
         }
         return true;
     }

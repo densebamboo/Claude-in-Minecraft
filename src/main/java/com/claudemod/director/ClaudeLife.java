@@ -1258,6 +1258,19 @@ public final class ClaudeLife {
     }
 
     /** Up to 96 blocks out in 8 directions: the nearest spot that's not beach, river or sea, up on dry ground; null when it's water all round. */
+    /** Where an explore leg ends at x z: the ground, not the top of a bamboo stalk or a jungle trunk, and the top of a lake, never its bed (live 12:03 11-04: through 39 blocks of water to a pool's floor, then empty-handed in the cave beside it). */
+    public static BlockPos exploreGround(ServerLevel level, int x, int z) {
+        BlockPos dest = new BlockPos(x, level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z), z);
+        for (int k = 0; k < 40; k++) {
+            var below = level.getBlockState(dest.below());
+            if (!below.getFluidState().isEmpty()) break;
+            if (!(below.is(net.minecraft.tags.BlockTags.LOGS) || below.is(Blocks.BAMBOO) || below.is(net.minecraft.tags.BlockTags.LEAVES)
+                    || !below.isFaceSturdy(level, dest.below(), Direction.UP))) break;
+            dest = dest.below();
+        }
+        return dest;
+    }
+
     static BlockPos inlandSpot(ServerLevel level, BlockPos at) {
         BlockPos best = null; double bd = Double.MAX_VALUE;
         for (Direction d : Direction.Plane.HORIZONTAL) for (int diag = 0; diag < 2; diag++) {
@@ -2804,17 +2817,12 @@ public final class ClaudeLife {
                     g.tasks.add(new Task.GoTo(nd, 4));
                     return "walking off to explore along the ground, to " + nd.toShortString();
                 }
-                BlockPos dest = new BlockPos(x, level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z), z);
+                BlockPos dest = exploreGround(level, x, z);
                 if (shoreBiome(level, g.blockPosition()) || shoreBiome(level, dest)) { // on a beach, or headed for one: inland is where everything is (wood, stone, a mine site)
                     BlockPos inland = inlandSpot(level, g.blockPosition());
                     if (inland != null) { dest = inland; g.exploreAngle = Math.atan2(inland.getZ() - g.getZ(), inland.getX() - g.getX()); }
                 }
-                for (int k = 0; k < 40; k++) { // the ground, not the top of a bamboo stalk or a jungle trunk
-                    var below = level.getBlockState(dest.below());
-                    if (!(below.is(net.minecraft.tags.BlockTags.LOGS) || below.is(Blocks.BAMBOO) || below.is(net.minecraft.tags.BlockTags.LEAVES)
-                            || !below.isFaceSturdy(level, dest.below(), Direction.UP))) break;
-                    dest = dest.below();
-                }
+                if (dest.getX() != x || dest.getZ() != z) dest = exploreGround(level, dest.getX(), dest.getZ());
                 // (no cap on distance from them: he explores where the job takes him; the user, 2026-11-01: "he shouldnt be limited to my proximity at all" - 68 "too far from them" fails stalled the pearl hunt)
                 g.tasks.add(new Task.GoTo(dest, 4));
                 return "walking off to explore";

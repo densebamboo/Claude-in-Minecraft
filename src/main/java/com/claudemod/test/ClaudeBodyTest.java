@@ -10383,6 +10383,7 @@ public final class ClaudeBodyTest {
             case 585: return st585(stage, t, c, h, level, mock);
             case 586: case 588: return st586(stage, t, c, h, level, mock);
             case 587: return st587(stage, t, c, h, level, mock);
+            case 589: return st589(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -12016,6 +12017,20 @@ public final class ClaudeBodyTest {
     // live 04:01 Nov 4: cutting a step up under a gravel column, he stepped in while it was still coming down and suffocated. A player mines the gravel
     // from beside the column until it stops, then steps up: the step waits, never a hurt from inWall, up within a player's 20 s.
     private static java.util.UUID st587Sk;
+    /** An explore leg over deep water ends on the water, not on the pool's floor (live 12:03 11-04: 39 blocks down to a bed beside a cave). */
+    private static boolean st589(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            BlockPos col = c.blockPosition().east(6); var saved = new java.util.HashMap<BlockPos, net.minecraft.world.level.block.state.BlockState>();
+            for (int dy = -9; dy <= 40; dy++) { BlockPos q = col.above(dy); saved.put(q, level.getBlockState(q)); level.setBlock(q, dy == -9 ? Blocks.STONE.defaultBlockState() : dy <= 2 ? Blocks.WATER.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+            BlockPos got = com.claudemod.director.ClaudeLife.exploreGround(level, col.getX(), col.getZ());
+            saved.forEach((q, bs) -> level.setBlock(q, bs, 2));
+            check(got.getY() == col.getY() + 3, "explore leg over 11 deep water ends at y " + (got.getY() - col.getY()) + " from his feet, not on the water (+3)");
+            c.skillQueue.clear(); c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "explore leg over deep water ends on the water, not the bed");
+        }
+        return true;
+    }
+
     private static boolean st587(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         // Live 01:54 11-04: underground, no food, a stone axe, a skeleton 3-4 off: he walled himself in under its arrows, 20 -> 0. Self-defence: he kills it.
         BlockPos me = h.absolutePos(new BlockPos(2, 2, 8));

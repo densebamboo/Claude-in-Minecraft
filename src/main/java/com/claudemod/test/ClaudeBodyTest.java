@@ -10376,6 +10376,7 @@ public final class ClaudeBodyTest {
             case 579: return st579(stage, t, c, h, level, mock);
             case 580, 581: return st580(stage, t, c, h, level, mock);
             case 582, 583: return st582(stage, t, c, h, level, mock);
+            case 584: return st584(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -11947,6 +11948,34 @@ public final class ClaudeBodyTest {
             if (!com.claudemod.entity.life.MineBlueprint.ore(level.getBlockState(iron))) check(!level.getBlockState(diamond).is(Blocks.DIAMOND_ORE), "iron taken before the exposed diamond");
             if (mined && patched && raw >= 2 && dia == 1) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "whole vein mined, 2 iron + diamond picked up, all seven holes patched in " + t[0] + " ticks"); }
             else check(t[0] < 400, "mine integrity: mined=" + mined + ", patched=" + patched + ", iron=" + raw + ", diamonds=" + dia + ", at=" + c.blockPosition() + ", task=" + c.currentTask + ", queue=" + c.tasks);
+        }
+        return true;
+    }
+
+    private static boolean st584(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(6, 2, 8)), goal = me.above();
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(me.offset(-3, -1, -3), me.offset(3, 4, 3))) level.setBlock(p, Blocks.BEDROCK.defaultBlockState(), 2);
+            level.setBlock(me, Blocks.WATER.defaultBlockState(), 2); level.setBlock(me.above(), Blocks.AIR.defaultBlockState(), 2);
+            level.setBlock(me.above(2), Blocks.STONE.defaultBlockState(), 2);
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            var mode = com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG;
+            check(com.claudemod.entity.nav.ActionPath.plan(c, level, me, goal, 0.4, true, 4000, mode, null, c.tickCount) == null, "water pillar planned without a block to place");
+            c.getInventory().add(new ItemStack(Items.COBBLESTONE, 8)); level.setBlock(me.above(), Blocks.WATER.defaultBlockState(), 2);
+            check(com.claudemod.entity.nav.ActionPath.plan(c, level, me, goal, 0.4, true, 4000, mode, null, c.tickCount) == null, "deep-water tower was enabled without a tested footing sequence");
+            level.setBlock(me.above(), Blocks.AIR.defaultBlockState(), 2);
+            var b = new com.claudemod.entity.life.MineBlueprint(me, net.minecraft.core.Direction.EAST, 1, 2); b.segments.clear(); b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, me, net.minecraft.core.Direction.EAST, 1, null)); b.invalidate(); c.blueprint = b; c.prefs.put("mine_model", "blueprint");
+            check(com.claudemod.entity.nav.ActionPath.plan(c, level, me, goal, 0.4, true, 4000, mode, null, c.tickCount) == null, "escape cut the protected mine ceiling");
+            c.blueprint = null;
+            var plan = com.claudemod.entity.nav.ActionPath.plan(c, level, me, goal, 0.4, true, 4000, mode, null, c.tickCount);
+            check(plan != null && plan.puts() == 1 && plan.digs() == 1, "no shallow-water escape using the real roof dig and pillar: " + plan);
+            c.tasks.addAll(com.claudemod.entity.nav.ActionPath.tasks(plan, me, Items.COBBLESTONE, goal, 0.4, level));
+        }
+        if (t[0] > 10) {
+            check(c.getHealth() >= 19 && c.isAlive(), "shallow-water escape took damage");
+            if (level.getBlockState(me).is(Blocks.COBBLESTONE) && c.getY() >= goal.getY() - 0.05 && !c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "dug roof, swim-jumped and placed below himself in " + (t[0] - 10) + " ticks; protected/deep/no-block cases stayed blocked"); }
+            else check(t[0] < 130, "shallow-water escape exceeded player 6 s bound: y " + c.getY() + ", task " + c.currentTask + ", queue " + c.tasks);
         }
         return true;
     }

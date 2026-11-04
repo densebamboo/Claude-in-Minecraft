@@ -1104,7 +1104,7 @@ public class WorkGoal extends Goal {
                 stuck = 30;
                 return false;
             }
-            boolean plannerHadItsSay = d <= 28 && !(g.isInWater() && !com.claudemod.entity.body.Controls.wading(g)) && !(inHole() && g.isInWater()); // (the planner plans dug staircases itself within 28, out of a dry hole too (MAY_DIG there); deep water and a flooded hole are the cutter's)
+            boolean plannerHadItsSay = d <= 28 && !(g.isInWater() && !com.claudemod.entity.body.Controls.wading(g)) && !(inHole() && g.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)); // (shallow water in a hole: the planner pillars out of it now, Nov 4; the cutter racing it dithered stage 30) (the planner plans dug staircases itself within 28, out of a dry hole too (MAY_DIG there); deep water and a flooded hole are the cutter's)
             Boolean r = plannerHadItsSay || !mayDig(pos) ? null : digStepUp(pos, within); // the old cutter only where the planner can't look, and never where digging isn't allowed (it carved steps into a surface hill after a "no way")
             if (r != null) return r;
             boolean trappedBelow = !g.level().canSeeSky(g.blockPosition()) && g.inventory.find(s -> s.getItem() instanceof net.minecraft.world.item.PickaxeItem).isEmpty();

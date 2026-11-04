@@ -151,13 +151,14 @@ public final class Perception {
         Vec3 v = p.subtract(eye); double z = v.dot(f);
         return z > 0.05 && Math.abs(v.dot(r) / z) <= TAN_H && Math.abs(v.dot(u) / z) <= TAN_V;
     }
-    /** Nothing opaque on the line (glass, leaves, fences, water: see-through; lava: not). */
+    /** Nothing opaque on the line (glass, fences, water: see-through; two layers of leaves seen through, the third stops it, as FarSight.cast; lava: not). */
     public static boolean clear(ServerLevel level, Vec3 from, Vec3 to) {
-        BlockPos fromCell = BlockPos.containing(from), toCell = BlockPos.containing(to);
+        BlockPos fromCell = BlockPos.containing(from), toCell = BlockPos.containing(to); int[] leaves = {0};
         Boolean ok = BlockGetter.traverseBlocks(from, to, level, (lv, pos) -> {
             if (pos.equals(fromCell) || pos.equals(toCell)) return null;
             var s = lv.getBlockState(pos);
             if (lv.getFluidState(pos).is(FluidTags.LAVA)) return Boolean.FALSE;
+            if (s.is(net.minecraft.tags.BlockTags.LEAVES) && ++leaves[0] >= 3) return Boolean.FALSE; // (a forest is a wall)
             if (!s.canOcclude()) return null;
             return s.getShape(lv, pos).clip(from, to, pos) != null ? Boolean.FALSE : null;
         }, lv -> Boolean.TRUE);

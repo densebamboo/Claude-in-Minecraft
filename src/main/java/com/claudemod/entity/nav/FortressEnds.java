@@ -65,18 +65,25 @@ public final class FortressEnds {
     }
 
     /** The way into the fortress whose deck holds {@code to}: the end nearest {@code from} (straight line), or null (no deck there, or no end). */
-    public static End entry(ServerLevel level, BlockPos from, BlockPos to) {
+    public static End entry(com.claudemod.entity.ClaudeEntity g, ServerLevel level, BlockPos from, BlockPos to) {
         BlockPos d0 = deckNear(level, to); if (d0 == null) return null;
         End best = null; double bd = Double.MAX_VALUE;
-        for (End e : ends(level, d0)) { double d = e.outside().distSqr(from); if (d < bd) { bd = d; best = e; } }
+        List<End> all = ends(level, d0); boolean any = false; for (End e : all) if (seen(g, e)) any = true;
+        for (End e : all) { if (any && !seen(g, e)) continue; double d = e.outside().distSqr(from); if (d < bd) { bd = d; best = e; } }
+        if (best != null && !any) com.claudemod.director.ClaudeLife.nookSay(g, "fortressEnd", "[Claude route] no end of the fortress at " + d0.toShortString() + " seen yet: heading for where the bridge he saw runs out, at " + best.deck().toShortString() + " (FortressEnds.entry)");
         return best;
     }
 
     /** The way out of the fortress he stands on toward {@code to}: the end nearest it, or null. */
-    public static End exit(ServerLevel level, BlockPos me, BlockPos to) {
+    /** An end he's seen (its deck, or the way out of it) wins over one he hasn't; with none seen, the end of the bridge he saw (a player beside a fortress follows its bridge, never through its side). */
+    static boolean seen(com.claudemod.entity.ClaudeEntity g, End e) { return com.claudemod.entity.life.FarSight.known(g, e.deck().getX(), e.deck().getY(), e.deck().getZ()) || com.claudemod.entity.life.FarSight.known(g, e.outside().getX(), e.outside().getY(), e.outside().getZ()); }
+
+    public static End exit(com.claudemod.entity.ClaudeEntity g, ServerLevel level, BlockPos me, BlockPos to) {
         BlockPos d0 = deckNear(level, me); if (d0 == null) return null;
         End best = null; double bd = Double.MAX_VALUE;
-        for (End e : ends(level, d0)) { double d = e.outside().distSqr(to); if (d < bd) { bd = d; best = e; } }
+        List<End> all = ends(level, d0); boolean any = false; for (End e : all) if (seen(g, e)) any = true;
+        for (End e : all) { if (any && !seen(g, e)) continue; double d = e.outside().distSqr(to); if (d < bd) { bd = d; best = e; } }
+        if (best != null && !any) com.claudemod.director.ClaudeLife.nookSay(g, "fortressEnd", "[Claude route] no end of the fortress at " + d0.toShortString() + " seen yet: heading for where the bridge he saw runs out, at " + best.deck().toShortString() + " (FortressEnds.exit)");
         return best;
     }
 }

@@ -308,6 +308,34 @@ public final class FarSight {
     static Vec3 dirOf(Vec3 f, Vec3 r, Vec3 u, double a, double b) { return f.scale(Math.cos(a)).add(r.scale(Math.sin(a))).scale(Math.cos(b)).add(u.scale(Math.sin(b))).normalize(); }
 
     /** A look over his screen: the coarse fan (each 3 s) or the dense one (a careful look). Returns the rays cast. */
+    // ---- the surfaces he has seen (the no-sensing-through-walls rule for the plans that read the world: NetherRoute, FortressEnds) ----
+    private static Map<UUID, it.unimi.dsi.fastutil.longs.LongOpenHashSet> surfaces; // (static: fields added live start null) every ray's first hit, this dimension
+    static void sawSurface(ClaudeEntity g, BlockPos p) {
+        if (surfaces == null) surfaces = new HashMap<>();
+        var s = surfaces.computeIfAbsent(g.getUUID(), k -> new it.unimi.dsi.fastutil.longs.LongOpenHashSet());
+        if (s.size() > 400_000) s.clear(); // shortcut: forgets all at the cap; keep the near ones if long Nether trips need more
+        s.add(p.asLong());
+    }
+    public static void forgetSurfaces(ClaudeEntity g) { if (surfaces != null) surfaces.remove(g.getUUID()); } // (another dimension)
+    /** He knows what's in this cell: he saw it (or the floor up to 3 under it, seen through the air over it), he's within 6 of it, or he walked it. */
+    public static boolean known(ClaudeEntity g, int x, int y, int z) {
+        BlockPos me = g.blockPosition();
+        if (Math.abs(x - me.getX()) <= 6 && Math.abs(y - me.getY()) <= 6 && Math.abs(z - me.getZ()) <= 6) return true;
+        var s = surfaces == null ? null : surfaces.get(g.getUUID());
+        if (s != null) for (int k = 0; k <= 3; k++) if (s.contains(BlockPos.asLong(x, y - k, z))) return true;
+        return com.claudemod.entity.nav.Route.walked(g, new BlockPos(x, y, z)) || com.claudemod.entity.nav.Route.walked(g, new BlockPos(x, y - 1, z));
+    }
+    /** A look all round from where he stands (a player turning on the spot before a long way): every ray's first hit on his record. */
+    public static int lookAllRound(ClaudeEntity g, ServerLevel level) {
+        Vec3 eye = g.getEyePosition(); double reach = reach(level); Map<Long, LevelChunk> cache = new HashMap<>(); int hits = 0;
+        for (int i = 0; i < 48; i++) for (int j = 0; j < 24; j++) {
+            double yaw = 2 * Math.PI * (i + 0.5) / 48, pitch = Math.PI * ((j + 0.5) / 24 - 0.5);
+            Ray ry = cast(level, eye, new Vec3(Math.cos(pitch) * Math.cos(yaw), Math.sin(pitch), Math.cos(pitch) * Math.sin(yaw)), reach, cache);
+            if (ry.end() == HIT || ry.end() == LAVA) { sawSurface(g, ry.cell()); hits++; }
+        }
+        return hits;
+    }
+
     public static int scan(ClaudeEntity g, ServerLevel level, boolean dense) {
         long t0 = System.nanoTime();
         View v = view(g);
@@ -326,6 +354,7 @@ public final class FarSight {
             if (!Perception.inView(eye, f, r, u, eye.add(d))) continue; // (the corners of the angle grid fall off the screen)
             rays++;
             Ray ry = cast(level, eye, d, reach, cache);
+            if (ry.end() == HIT || ry.end() == LAVA) sawSurface(g, ry.cell());
             String what = ry.end() == HIT ? BuiltInRegistries.BLOCK.getKey(ry.state().getBlock()).getPath().replace('_', ' ') : ry.end() == LAVA ? "lava" : ry.end() == UNLOADED ? "unloaded" : "open";
             tally.merge(what, 1, Integer::sum);
             if (ry.end() == UNLOADED) { unloaded++; unloadedAt = Math.min(unloadedAt, ry.dist()); }

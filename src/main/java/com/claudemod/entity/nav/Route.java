@@ -55,6 +55,7 @@ public final class Route {
         m.put(g.blockPosition().immutable(), g.tickCount);
     }
     /** The cells he passed in the last {@code ticks}, newest first: the way he came (the drowning escape swims back along it). */
+    public static boolean walked(ClaudeEntity g, BlockPos p) { var m = trail.get(g.getUUID()); return m != null && m.containsKey(p); }
     public static void forgetTrail(ClaudeEntity g) { trail.remove(g.getUUID()); } // (another dimension: its cells are nowhere here)
     public static List<BlockPos> wayBack(ClaudeEntity g, int ticks) {
         List<BlockPos> out = new ArrayList<>(); var m = trail.get(g.getUUID()); if (m == null) return out;
@@ -102,9 +103,10 @@ public final class Route {
             BlockPos from = me, aim = to; List<BlockPos> pre = new ArrayList<>(), post = new ArrayList<>(); String via = ""; // (a fortress joined at its bridges' open ends, never through a side: the user, 2026-11-01)
             BlockPos toDeck = toDeck0; boolean intoFortress = toDeck != null && toDeck.distSqr(to) <= 4 * 4;
             boolean onFortress = com.claudemod.entity.life.FortressScout.onFortress(g);
-            if (onFortress && !intoFortress) { FortressEnds.End ex = FortressEnds.exit(level, me, to);
+            if (onFortress != intoFortress) com.claudemod.entity.life.FarSight.lookAllRound(g, level); // (a look round first: the fortress's ends count once seen)
+            if (onFortress && !intoFortress) { FortressEnds.End ex = FortressEnds.exit(g, level, me, to);
                 if (ex != null && ex.outside().distSqr(to) < me.distSqr(to)) { pre.add(ex.deck()); pre.add(ex.outside()); from = ex.outside(); via = "out by the fortress's open end at " + ex.deck().toShortString() + " (" + ex.out().getName() + "), then "; } }
-            if (!onFortress && intoFortress) { FortressEnds.End en = FortressEnds.entry(level, me, to);
+            if (!onFortress && intoFortress) { FortressEnds.End en = FortressEnds.entry(g, level, me, to);
                 if (en != null) { aim = en.outside(); post.add(en.outside()); post.add(en.deck()); via = "to the fortress's open end at " + en.deck().toShortString() + " (from the " + en.out().getName() + "), in along it; "; } }
             if (!via.isEmpty()) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] to {}: {}never through its side (FortressEnds)", to.toShortString(), via);
             NetherRoute.Plan np = from.distSqr(aim) <= 6 * 6 ? new NetherRoute.Plan(List.of(), false, 0, 0, 0, 0, 0, 0) : NetherRoute.plan(g, level, from, aim);

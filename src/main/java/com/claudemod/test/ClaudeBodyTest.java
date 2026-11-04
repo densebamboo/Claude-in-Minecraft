@@ -10396,6 +10396,8 @@ public final class ClaudeBodyTest {
             case 600: return st600(stage, t, c, h, level, mock);
             case 601: return st601(stage, t, c, h, level, mock);
             case 610: return st610(stage, t, c, h, level, mock);
+            case 611: return st611(stage, t, c, h, level, mock);
+            case 612: return st612(stage, t, c, h, level, mock);
             case 598: return st598(stage, t, c, h, level, mock);
             case 599: return st599(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
@@ -12076,6 +12078,42 @@ public final class ClaudeBodyTest {
             var other = com.claudemod.director.ClaudeLife.asOrderStepNow(c, "mine iron", java.util.List.of(theirs), new com.claudemod.entity.life.Skills.Step("collect", "logs", 4));
             check(other.skill().equals("collect"), "a step for another job taken as their order's: " + other);
             c.playerGoal = null; pass(stage, t, "the plan's step for their job is their order's step: " + r);
+        }
+        return true;
+    }
+
+    /** Sight through leaves: two layers seen through, the third stops it (Perception.clear as FarSight.cast; it saw through any depth). */
+    private static boolean st611(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) {
+            for (int x = 0; x <= 10; x++) for (int y = 1; y <= 6; y++) for (int z = 0; z <= 4; z++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            for (int x = 4; x <= 5; x++) level.setBlock(h.absolutePos(new BlockPos(x, 3, 2)), Blocks.OAK_LEAVES.defaultBlockState().setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true), 2);
+            net.minecraft.world.phys.Vec3 from = net.minecraft.world.phys.Vec3.atCenterOf(h.absolutePos(new BlockPos(1, 3, 2))), to = net.minecraft.world.phys.Vec3.atCenterOf(h.absolutePos(new BlockPos(9, 3, 2)));
+            boolean two = com.claudemod.entity.life.Perception.clear(level, from, to);
+            level.setBlock(h.absolutePos(new BlockPos(6, 3, 2)), Blocks.OAK_LEAVES.defaultBlockState().setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true), 2);
+            boolean three = com.claudemod.entity.life.Perception.clear(level, from, to);
+            check(two && !three, "leaves: through 2 layers " + two + " (want true), through 3 " + three + " (want false)");
+            pass(stage, t, "two leaf layers seen through, the third stops sight");
+        }
+        return true;
+    }
+
+    /** NetherRoute through a cave he never saw: a hidden open tunnel in solid netherrack between him and the goal reads as rock (digs), not a free walk. */
+    private static boolean st612(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; com.claudemod.entity.life.FarSight.forgetSurfaces(c); com.claudemod.entity.nav.Route.forgetTrail(c);
+            for (int x = 0; x <= 32; x++) for (int z = 0; z <= 10; z++) for (int y = 1; y <= 9; y++) {
+                boolean pocket = y >= 2 && y <= 3 && z >= 4 && z <= 6 && (x >= 2 && x <= 4 || x >= 28 && x <= 30), tunnel = y >= 2 && y <= 3 && z == 5 && x >= 8 && x <= 28;
+                level.setBlock(h.absolutePos(new BlockPos(x, y, z)), pocket || tunnel ? Blocks.AIR.defaultBlockState() : Blocks.NETHERRACK.defaultBlockState(), 2);
+            }
+            BlockPos me = h.absolutePos(new BlockPos(3, 2, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20f);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.tasks.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 5) {
+            var plan = com.claudemod.entity.nav.NetherRoute.plan(c, level, c.blockPosition(), h.absolutePos(new BlockPos(29, 2, 5)));
+            check(plan != null, "no Nether route at all");
+            check(plan.digs() >= 18, "the route walked a tunnel he never saw: " + plan.digs() + " digs (want 18+: the unseen tunnel is rock till seen)");
+            pass(stage, t, "the unseen tunnel read as rock: " + plan.digs() + " digs, " + plan.legs().size() + " legs");
         }
         return true;
     }

@@ -27,6 +27,22 @@ Branch `bp/blockage-tier0`. Day to Day's queue, items 1 and 2.
 - **Logs:** `[Claude parked] fill at P (origin) refused: why ...` and `... back on (he has more of the block; ...)`.
 - **Stage 610:** a build system re-queues a patch he has no block for, every second. Parked at the 3rd refusal; put down once he has the block. Without the change it never goes in: the watchdog's write-off and doPlace's 5-minute guard keep refusing it.
 
+## Perception parity (item 4)
+- **Perception.clear:** two layers of leaves are seen through, and the third stops sight, as in FarSight.cast. Before, it saw through any depth. Stage 611.
+- **Seen memory:** `FarSight.sawSurface`/`known`. Every far-sight ray's first hit goes on his record for this dimension; the record is cleared on a dimension change.
+  - A cell is known if he saw it, saw the floor up to 3 under it, is within 6 of it, or walked it (Route's trail).
+  - `FarSight.lookAllRound`: 48x24 rays all round, taken before a Nether route plan and before fortress ends are picked.
+- **NetherRoute:**
+  - An unknown cell reads as netherrack. The goal's cells within 8 count as known: he knows where he's headed.
+  - A plan going into unseen ground is cut one leg past where it enters and marked part-way, so Route plans again after a look round.
+  - A climb over 8 gets a leg end every 8 up. Stage 612: a hidden tunnel reads as rock, 26-28 digs; walked without the change, 6 digs.
+- **FortressEnds:**
+  - An end he has seen wins.
+  - With none seen, he heads for where the bridge he saw runs out. A player beside a fortress follows its bridge; never through its side.
+- **ActionPath:** unchanged. Its legs (about 12 blocks) are within what he sees.
+- **Re-proven:** 535 (sealed in at the portal: tunnels out in legs, 85 s; was 50 s seeing through rock) and 538 (153-179 s; was 185 s). 545 passes (70 s, bricks intact). 536, 537, 539, 540, 542-547 and 549-556 are green.
+- **Also:** tools/test_in_copy.sh now clears the copy's src first. Files from another branch used to compile in.
+
 ## Gate
 - **Green:** 586-592, 594-595, 597, 600, 601, 94-96, 61.
 - **Flaky on main, not from this branch (in the backlog):** 97, 593, and 596 in a range after 595.

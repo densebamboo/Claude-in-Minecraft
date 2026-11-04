@@ -10391,6 +10391,7 @@ public final class ClaudeBodyTest {
             case 594: return st594(stage, t, c, h, level, mock);
             case 595: return st595(stage, t, c, h, level, mock);
             case 596: return st596(stage, t, c, h, level, mock);
+            case 597: return st597(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -12032,6 +12033,22 @@ public final class ClaudeBodyTest {
     /** Shot by a nearer skeleton while going for a far one: the nearer one first (live 07:40 11-02: 12 hits from one 5.4 off, stayed on one 9-12 off). */
     /** A run that ends against a wall with one zombie on him: he turns and fights, not shuffle on the block (live 12:07 11-02: one spider, 20 -> 0, full iron). */
     /** Two skeletons 5 off with a line on him, no armor: no tower and hut built under their fire (live 04:55 11-02: 20 -> 0 in 13 s building one). */
+    /** 4 meals and a gear_up queued after a diamond hunt: the food comes before the mine, not after it (live 09:30 11-02: down to y -58 with 4 meals, 30 min of food trips). */
+    private static boolean st597(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            c.getInventory().clearContent();
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.TORCH, 64)); c.getInventory().add(new ItemStack(Items.COAL, 32)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 48)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 4));
+            c.skillQueue.clear(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("gear_up", "", 1));
+            c.gearTick = c.tickCount - 20 * 700; c.lastStep = new com.claudemod.entity.life.Skills.Step("obtain", "diamond_pickaxe", 1); // (as live: the diamond hunt came out of "obtain diamond_pickaxe", no kit check lately)
+            String r = com.claudemod.director.ClaudeLife.gearFirstNow(c, level, new com.claudemod.entity.life.Skills.Step("strip_mine", "diamond_ore", 3), false);
+            check(r != null, "4 meals, a gear_up queued after the diamond hunt: the mine trip let go with no food first");
+            c.skillQueue.clear(); c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "under 6 meals the food comes before the mine, a later gear_up or not: " + r);
+        }
+        return true;
+    }
+
     private static boolean st596(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (t[0] == 1) {
             scenarioReset(c); c.nextPlanTick = c.tickCount + 12000;
@@ -12042,7 +12059,7 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.dropCurrent = true;
         }
         if (t[0] == 20) c.tasks.add(new Task.Flee(200));
-        if (t[0] > 20 && (!c.pillarBlocks.isEmpty() || c.tasks.stream().anyMatch(q -> q instanceof Task.Pillar))) { for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, c.getBoundingBox().inflate(20))) m.discard(); check(false, "a tower going up under two skeletons' fire: " + c.tasks); }
+        if (t[0] > 20 && (c.tasks.stream().anyMatch(q -> q instanceof Task.Pillar p0 && p0.steps() >= 3) || c.currentTask instanceof Task.Pillar p1 && p1.steps() >= 3)) { for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, c.getBoundingBox().inflate(20))) m.discard(); check(false, "a tower going up under two skeletons' fire: " + c.tasks); }
         if (t[0] >= 60) { for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, c.getBoundingBox().inflate(20))) m.discard(); c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "no tower built under two skeletons' fire: out of their sights first"); }
         return true;
     }

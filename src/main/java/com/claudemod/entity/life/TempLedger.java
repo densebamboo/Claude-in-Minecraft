@@ -254,8 +254,15 @@ public final class TempLedger {
 
     /** At the start of a step that isn't crafting or smelting: what he put down round him for the last one comes back up first. */
     private static final Map<UUID, String> lastSkill = new HashMap<>();
+    private static boolean cleanupWaits(ClaudeEntity g) {
+        boolean wait = g.isSleeping() || g.holdingNight() || g.getHealth() <= 6 || g.getFoodData().getFoodLevel() <= 6;
+        if (!wait) g.attempts.counters.remove("tempUrgentHold");
+        else if (g.attempts.counters.putIfAbsent("tempUrgentHold", g.tickCount) == null) ClaudeMod.LOGGER.info("[Claude temp] cleanup waits: sleeping {}, night hold {}, health {}, hunger {} (TempLedger.cleanupWaits)", g.isSleeping(), g.holdingNight(), g.getHealth(), g.getFoodData().getFoodLevel());
+        return wait;
+    }
     public static int stepStart(ClaudeEntity g, ServerLevel level, String skill) {
         if (DragonFight.active(g)) return 0;
+        if (cleanupWaits(g)) return 0; // Live Nov 4 01:13: a 53-walk tidy and the urgent bed trip kept cancelling one another.
         String was = lastSkill.put(g.getUUID(), skill);
         if (java.util.Set.of("craft", "smelt", "obtain").contains(skill)) return 0;
         if (skill.equals(was) && !"craft".equals(was)) return 0; // the same job going on (its next step): what it put down may still be its own
@@ -307,6 +314,7 @@ public final class TempLedger {
             }
             if (e.reported && d2 <= 16 * 16) e.reported = false; // back in the area: it's his to tidy again (reported again if he leaves it)
         }
+        if (cleanupWaits(g)) return; // preserve the ledger above; optional recovery waits for his own urgent needs
         if (leaving(g, level)) return; // setting off past blocks of his he's done with: back up first ("clear before he leaves")
         if ((g.tickCount / 20) % 5 == 0 && idle(g, level)) { // every 5 s, idle: a batch of his blocks back up, or a tree he owes
             BlockPos under = g.blockPosition().below(); Entry ue = book(g).get(under);

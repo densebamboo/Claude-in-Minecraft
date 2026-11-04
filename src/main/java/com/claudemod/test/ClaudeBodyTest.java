@@ -10370,6 +10370,7 @@ public final class ClaudeBodyTest {
             case 569: return st569(stage, t, c, h, level, mock);
             case 570: return st570(stage, t, c, h, level, mock);
             case 571: return st571(stage, t, c, h, level, mock);
+            case 575: return st575(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -11945,6 +11946,29 @@ public final class ClaudeBodyTest {
         return true;
     }
 
+    private static boolean st575(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 01:13: cleanup's 53-walk trip and the urgent bed walk kept cancelling each other.
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; flatBox(h); }
+        if (t[0] == 10) {
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 8)), p = me.east(3); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) level.setBlock(h.absolutePos(new BlockPos(x, 5, z)), Blocks.STONE.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.planning = false; c.busy = false;
+            level.setBlock(p, Blocks.COBBLESTONE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, p, Blocks.COBBLESTONE.defaultBlockState(), Blocks.AIR.defaultBlockState());
+            check(com.claudemod.entity.life.TempLedger.has(c, p), "setup: temporary cobble missing");
+            c.setHealth(20); c.getFoodData().setFoodLevel(6); level.setDayTime(14000); c.tickCount = ((c.tickCount / 100) + 1) * 100;
+            com.claudemod.entity.life.TempLedger.tick(c, level);
+            check(c.tasks.isEmpty(), "urgent night rest was hijacked by idle cleanup: " + c.tasks);
+            check(com.claudemod.entity.life.TempLedger.stepStart(c, level, "collect") == 0 && c.tasks.isEmpty(), "starting a step hijacked urgent rest for cleanup");
+            c.getFoodData().setFoodLevel(20); level.setDayTime(1000);
+            check(com.claudemod.entity.life.TempLedger.stepStart(c, level, "explore") == 1 && c.tasks.contains(new Task.Break(p)), "cleanup did not resume once urgent needs cleared");
+            level.setBlock(p, Blocks.AIR.defaultBlockState(), 2); c.tasks.clear(); c.dropCurrent = true; com.claudemod.entity.life.TempLedger.reset(c);
+            pass(stage, t, "urgent night rest wins over idle and step-start cleanup; cleanup resumes when fed by day");
+        }
+        return true;
+    }
+
+
+
     private static boolean st571(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         // Live Nov 4 00:29: both sides refused, yet bpAtLevelY reported a new pair and selected that row again.
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
@@ -12028,4 +12052,3 @@ public final class ClaudeBodyTest {
         }
     }
 }
-

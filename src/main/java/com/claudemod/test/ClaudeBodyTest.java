@@ -10380,6 +10380,7 @@ public final class ClaudeBodyTest {
             case 580, 581: return st580(stage, t, c, h, level, mock);
             case 582, 583: return st582(stage, t, c, h, level, mock);
             case 584: return st584(stage, t, c, h, level, mock);
+            case 585: return st585(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -12006,6 +12007,33 @@ public final class ClaudeBodyTest {
             check(c.getHealth() == 20 && !c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER), "water tunnel: entered flooded work or took damage at " + c.blockPosition());
             if (c.blockPosition().distSqr(end) <= 1 && c.tasks.isEmpty() && c.currentTask == null) { check(c.blueprint.segments.stream().anyMatch(s -> s.kind == com.claudemod.entity.life.MineBlueprint.Kind.BRANCH && s.n == 6), "water shortened the planned branch"); c.dropCurrent = true; pass(stage, t, "advanced through the plugged aquifer dry and unharmed in " + t[0] + " ticks"); }
             else check(t[0] < 900, "water tunnel: no forward progress within 45 s: at " + c.blockPosition() + ", " + c.currentTask + ", " + c.tasks);
+        }
+        return true;
+    }
+
+    // live 04:01 Nov 4: cutting a step up under a gravel column, he stepped in while it was still coming down and suffocated. A player mines the gravel
+    // from beside the column until it stops, then steps up: the step waits, never a hurt from inWall, up within a player's 20 s.
+    private static int st585On; // ticks stood on the step unhurt
+    private static boolean st585(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(4, 2, 8)), step = me.east().above(), dest = me.offset(40, 14, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; st585On = 0; }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(me.offset(-2, -1, -2), me.offset(3, 9, 2))) level.setBlock(p, Blocks.BEDROCK.defaultBlockState(), 2);
+            level.setBlock(me, Blocks.AIR.defaultBlockState(), 2); level.setBlock(me.above(), Blocks.AIR.defaultBlockState(), 2); level.setBlock(me.above(2), Blocks.STONE.defaultBlockState(), 2);
+            level.setBlock(step, Blocks.STONE.defaultBlockState(), 2); level.setBlock(step.above(), Blocks.STONE.defaultBlockState(), 2);
+            for (int k = 2; k <= 4; k++) level.setBlock(step.above(k), Blocks.GRAVEL.defaultBlockState(), 2);
+            check(com.claudemod.entity.goals.WorkGoal.gravelComing(level, step) == null, "settled gravel on stone read as falling");
+            level.setBlock(step.above(), Blocks.AIR.defaultBlockState(), 3);
+            check(step.above(2).equals(com.claudemod.entity.goals.WorkGoal.gravelComing(level, step)), "gravel on air over the step not seen as coming down");
+            level.setBlock(step.above(), Blocks.STONE.defaultBlockState(), 3);
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.currentTask = null; c.tasks.clear(); c.skillQueue.clear();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SHOVEL)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16));
+            c.tasks.add(new Task.GoTo(dest, 1.0));
+        }
+        if (t[0] > 10) {
+            check(c.isAlive() && c.getHealth() >= 20, "stepped in under the gravel: health " + c.getHealth() + " at " + c.blockPosition() + ", " + c.currentTask);
+            if (c.getBlockY() >= step.getY() && com.claudemod.entity.goals.WorkGoal.gravelComing(level, step) == null && ++st585On >= 20) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "gravel column cleared from beside it, stepped up unhurt in " + t[0] + " ticks"); }
+            else check(t[0] < 420, "no step up through the gravel within 20 s: at " + c.blockPosition() + ", " + c.currentTask + ", " + c.tasks);
         }
         return true;
     }

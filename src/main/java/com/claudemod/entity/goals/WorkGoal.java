@@ -231,6 +231,7 @@ public class WorkGoal extends Goal {
         if (g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW) && g.tickCount - bowAimTick > 2) g.stopUsingItem(); /* the user: "walking super slow with his bow pulled back": the fight ended (target dead, out of sight, timed out, another job) with the draw still held, and a draw walks at 1/5 speed */
         if (reflexes()) return; // fire, air, lava first (WorkGoal.reflexes; also run while he's only hanging out with them)
         if (g.isSleeping()) return; // in bed: the job waits for morning (ticking on in bed timed the vein and its patches out)
+        if (gravelOverHim()) return; // gravel coming down into a column his body is in: out from under it first (04:01 Nov 4, suffocated on a fresh step)
         if (g.tickCount % 40 == 7 && (digInAt == null || digInTasks == null || !inDigInHole())) adoptPitCover(); // his hole from before a restart: its cover state died with it (or an old cover's record, somewhere else)
         // On fire out of the lava with a water bucket on him: water at his feet puts it out, like a player (live 14:07: out of the lava at 17 health, he burned down to 9 with a water bucket in his pack); his fillBucket scoops it back up
         if (g.isOnFire() && !g.isInLava() && !g.isInWater() && g.tickCount % 10 == 3 && !g.level().dimensionType().ultraWarm()) {
@@ -673,6 +674,9 @@ public class WorkGoal extends Goal {
     }
 
     private boolean walkTo(BlockPos pos, double within) {
+        { var np = g.getNavigation().getPath(); // never walk in under gravel still coming down (04:01 Nov 4: the walk took the fresh step under a falling column, he suffocated)
+            if (np != null && !np.isDone()) { BlockPos nn = np.getNextNodePos(); BlockPos falling = nn.equals(g.blockPosition()) ? null : gravelComing((ServerLevel) g.level(), nn);
+                if (falling != null) { g.getNavigation().stop(); if (g.tickCount % 20 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] waits before {}: gravel at {} still coming down into it (WorkGoal.walkTo)", nn.toShortString(), falling.toShortString()); return false; } } }
         Integer failedAt = g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK).get(pos);
         if (failedAt != null && g.tickCount - failedAt < 20 * 60) { // couldn't get there a moment ago: don't burn another 8s
             if (skips().merge(pos.immutable(), 1, Integer::sum) <= 3) { com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] the walk to {} failed {} s ago: skipped this time ({} of 3) (WorkGoal.walkTo)", pos.toShortString(), (g.tickCount - failedAt) / 20, skips().get(pos)); return true; }
@@ -721,6 +725,7 @@ public class WorkGoal extends Goal {
             return true;
         }
         // stepping up onto a step he just cut: a second of just that (hop and walk onto it), no path pulling him elsewhere
+        if (stepUpTo != null && g.tickCount - stepUpTick < 20 && gravelComing((ServerLevel) g.level(), BlockPos.containing(stepUpTo)) != null) { stepUpTo = null; pendingStepUp = null; } // gravel still coming down onto the step: no hop; the cutter waits it out (04:01 Nov 4, suffocated)
         if (stepUpTo != null && g.tickCount - stepUpTick < 20) {
             g.getNavigation().stop();
             g.getMoveControl().setWantedPosition(stepUpTo.x, stepUpTo.y, stepUpTo.z, 1.0);
@@ -1379,7 +1384,8 @@ public class WorkGoal extends Goal {
         if (!dig.isEmpty() || needFloor) {
             // ponytail: keyed far above the world in placeRetries (no new fields live); a cut that never sticks (water refilling it) gives up after 3, not 20 tries in a minute
             BlockPos cutKey = feet.above(10000).immutable();
-            if (placeRetries.merge(cutKey, 1, Integer::sum) > 3) {
+            boolean gravelRefill = !dig.isEmpty() && dig.stream().allMatch(b -> level.getBlockState(b).getBlock() instanceof net.minecraft.world.level.block.FallingBlock); // a gravel column coming down a block at a time is progress, not a cut that won't take
+            if (!gravelRefill && placeRetries.merge(cutKey, 1, Integer::sum) > 3) {
                 placeRetries.remove(cutKey);
                 g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK).put(dest.immutable(), g.tickCount);
                 g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.STEP_UP, feet, g.tickCount); // (and no step up from HERE for a while, whatever the destination: the next walk retried the same three cuts, 2 minutes in one spot)
@@ -1400,6 +1406,13 @@ public class WorkGoal extends Goal {
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no way up: cutting a step up at {}{}", g.blockPosition().toShortString(), g.tickCount - mapTick > 20 * 30 ? miniMap(dest) : "");
             return true;
         }
+        // all cut, but gravel over the step still coming down: wait beside it, never step in under it (04:01 Nov 4: he stepped up under falling gravel and suffocated)
+        BlockPos falling = gravelComing(level, step);
+        if (falling != null) {
+            if (g.tickCount % 20 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] step up at {} waits: gravel at {} still coming down into it (WorkGoal.digStepUp)", step.toShortString(), falling.toShortString());
+            g.getNavigation().stop();
+            return false;
+        }
         // all cut: step up onto it
         placeRetries.remove(feet.above(10000)); // (that cut took: its count starts over)
         g.getNavigation().stop();
@@ -1408,6 +1421,37 @@ public class WorkGoal extends Goal {
         g.getJumpControl().jump();
         stuck = 0;
         return false;
+    }
+
+    /** A player under falling gravel steps out from under it: any column his body overlaps (feet or one up, mid-jump) with gravel coming, to the nearest clear cell. */
+    private boolean gravelOverHim() {
+        ServerLevel level = (ServerLevel) g.level(); var box = g.getBoundingBox(); int fy = net.minecraft.util.Mth.floor(g.getY() + 0.01);
+        BlockPos danger = null;
+        for (double x : new double[] {box.minX, box.maxX}) for (double z : new double[] {box.minZ, box.maxZ}) {
+            BlockPos col = BlockPos.containing(x, fy, z);
+            BlockPos f = gravelComing(level, col.below()); if (f == null) f = gravelComing(level, col);
+            if (f != null && f.getY() <= fy + 4) { danger = f; break; }
+        }
+        if (danger == null) return false;
+        BlockPos feet = BlockPos.containing(g.getX(), fy, g.getZ()), out = null;
+        for (BlockPos c : new BlockPos[] {feet, feet.north(), feet.south(), feet.east(), feet.west()})
+            if (gravelComing(level, c.below()) == null && gravelComing(level, c) == null && level.getBlockState(c).getCollisionShape(level, c).isEmpty() && level.getBlockState(c.above()).getCollisionShape(level, c.above()).isEmpty() && !level.getBlockState(c.below()).getCollisionShape(level, c.below()).isEmpty()) { out = c; break; }
+        g.getNavigation().stop();
+        if (out != null) g.getMoveControl().setWantedPosition(out.getX() + 0.5, out.getY(), out.getZ() + 0.5, 1.0);
+        if (g.tickCount % 20 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] gravel at {} coming down by him at {}: {} (WorkGoal.gravelOverHim)", danger.toShortString(), g.blockPosition().toShortString(), out == null ? "nowhere clear to step, holding still" : "stepping to " + out.toShortString());
+        return true;
+    }
+
+    /** Gravel or sand over the step's head room that hasn't settled: a falling block in the column, or one resting on air. Null when it's safe to step in. */
+    public static BlockPos gravelComing(ServerLevel level, BlockPos step) {
+        var box = new net.minecraft.world.phys.AABB(step).expandTowards(0, 6, 0);
+        for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.FallingBlockEntity.class, box)) return e.blockPosition();
+        for (int k = 1; k <= 6; k++) {
+            BlockPos p = step.above(k);
+            if (!(level.getBlockState(p).getBlock() instanceof net.minecraft.world.level.block.FallingBlock)) { if (!level.getBlockState(p).getCollisionShape(level, p).isEmpty()) return null; continue; }
+            if (level.getBlockState(p.below()).getCollisionShape(level, p.below()).isEmpty()) return p; // on air: it's about to fall
+        }
+        return null;
     }
 
     /** Players look where they are going: the next step of the path, or the destination. */

@@ -399,6 +399,22 @@ public final class Watchdog {
     /** A death: the incident with its last minute. */
     public static void death(ClaudeEntity g, String how) { incident(g, "DEATH", how); }
 
+    /** Layers feet-1..feet+3, 7x7 (x across, z down): @ him, ~ fluid, g gravel/sand, # solid, . open. */
+    static String blockMap(net.minecraft.world.level.Level lv, BlockPos at) {
+        StringBuilder sb = new StringBuilder(" (x across, z down):");
+        for (int dy = -1; dy <= 3; dy++) {
+            sb.append("\n  y").append(at.getY() + dy).append(": ");
+            for (int dz = -3; dz <= 3; dz++) {
+                for (int dx = -3; dx <= 3; dx++) {
+                    BlockPos q = at.offset(dx, dy, dz); var s = lv.getBlockState(q);
+                    sb.append(dx == 0 && dz == 0 && (dy == 0 || dy == 1) ? '@' : !lv.getFluidState(q).isEmpty() ? '~' : s.getBlock() instanceof net.minecraft.world.level.block.FallingBlock ? 'g' : s.getCollisionShape(lv, q).isEmpty() ? '.' : '#');
+                }
+                if (dz < 3) sb.append('|');
+            }
+        }
+        return sb.toString();
+    }
+
     /**
      * One self-contained incident block (the user: "account for more scenarios so you can piece together more context"): where,
      * how he's been, what he was doing and why, what's about him, his recent log. To the log, one [Claude incident] line pointing
@@ -412,6 +428,7 @@ public final class Watchdog {
         b.append("where: ").append(lv.dimension().location()).append(' ').append(at.toShortString()).append(", under him ").append(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(lv.getBlockState(at.below()).getBlock()).getPath()).append(g.isInLava() ? ", IN LAVA" : "").append(g.isOnFire() ? ", on fire" : "").append('\n');
         St s = st(g); StringBuilder tr = new StringBuilder();
         for (double[] x : s.samples) if (now(g) - x[0] <= 20 * 30) tr.append(String.format(" %ds: hp %.0f food %.0f fire %.0f at %.0f %.0f %.0f%s;", (int) (x[0] - now(g)) / 20, x[4], x[5], x[6], x[1], x[2], x[3], x.length > 9 && (x[7] < 300 || x[8] > 0) ? String.format(" air %.0f%s%s", x[7], x[8] > 0 ? " eyes under water" : "", x[9] > 0 ? " roof over head" : "") : ""));
+        b.append("blocks round him").append(blockMap(lv, at)).append('\n'); // (the 3 h water loop of Nov 3 couldn't be proven: no picture of the pocket)
         b.append("last 30 s:").append(tr.length() == 0 ? " -" : tr).append('\n');
         b.append("goal: ").append(g.goal == null ? "-" : g.goal).append("; their goal: ").append(g.playerGoal == null ? "-" : g.playerGoal).append("; on their job: ").append(g.commandActive).append(g.staying ? "; STAYING (their hold)" : "").append('\n');
         b.append("step: ").append(g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target()).append("; last line: ").append(g.lastSkillLine == null ? "-" : g.lastSkillLine).append("; plan: ").append(g.skillQueue).append('\n');

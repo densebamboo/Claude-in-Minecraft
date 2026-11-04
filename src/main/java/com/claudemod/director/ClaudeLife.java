@@ -594,6 +594,12 @@ public final class ClaudeLife {
     }
 
     /** The nearest furnace he can actually get to: not one he just failed to reach (he'd only loop on it). */
+    /** His furnace that raw ore rides home to: none within 16 here, no furnace on him, one of his 40+ off (no new furnace out here). Null: it smelts where he is. */
+    static BlockPos rawRidesHome(ClaudeEntity g, ServerLevel level) {
+        if (g.commandActive || reachableFurnace(g, level, g.blockPosition(), 16) != null || g.inventory.count(t -> t.is(Items.FURNACE)) > 0) return null;
+        BlockPos homeF = null; for (BlockPos f : g.myStations) if (f.distSqr(g.blockPosition()) > 40 * 40 && (!level.isLoaded(f) || level.getBlockState(f).is(Blocks.FURNACE)) && (homeF == null || f.distSqr(g.blockPosition()) < homeF.distSqr(g.blockPosition()))) homeF = f;
+        return homeF;
+    }
     private static BlockPos reachableFurnace(ClaudeEntity g, ServerLevel level, BlockPos center, int r) {
         for (BlockPos f : findAll(level, center, r, b -> b.is(Blocks.FURNACE), 8)) {
             Integer t = g.attempts.any.get(f);
@@ -1556,6 +1562,14 @@ public final class ClaudeLife {
         boolean back = g.skillQueue.contains(step);
         if (result.startsWith("done:") || (!result.startsWith("failed") && !back)) { o.steps().remove(step); ClaudeMod.LOGGER.info("[Claude plan] their order ({}): {} {} ({} step(s) of it left)", o.goal(), step.skill(), result.startsWith("done:") ? "done" : "taken up", o.steps().size()); }
     }
+    /** The plan's step for a job in their order is the order's own step (their count and place), so running it is the order's step run. The planner's
+     *  "strip_mine iron_ore x1 near_you" for their x12 never matched: the order stayed open 6 h, 29,886 "isn't finished" lines (live 01:16-07:33 11-04). */
+    static Skills.Step asOrderStep(ClaudeEntity g, Skills.Step s) {
+        Order o = orders().get(g.getUUID());
+        if (o != null && o.goal().equals(g.playerGoal)) for (Skills.Step os : o.steps()) if (os.skill().equals(s.skill()) && os.target().equals(s.target())) return os;
+        return s;
+    }
+    public static Skills.Step asOrderStepNow(ClaudeEntity g, String goal, List<Skills.Step> order, Skills.Step s) { orders().put(g.getUUID(), new Order(goal, new ArrayList<>(order))); g.playerGoal = goal; Skills.Step r = asOrderStep(g, s); orders().remove(g.getUUID()); return r; } // (tests)
     private static java.util.Map<java.util.UUID, String> fillerFor() { if (fillerFor == null) fillerFor = new java.util.HashMap<>(); return fillerFor; }
 
     /** The rule work worth starting while the planner thinks and safe to break off when the plan lands: cover in the dark, food, his own mine's next blocks, wood by day (never the kit: it crafts and puts stations down). */
@@ -1665,8 +1679,8 @@ public final class ClaudeLife {
                 if (!skills.contains(sk)) continue; // gated by stage/situation in code
                 if (sk.equals("take_from_chest") && o.get("target").getAsString().matches("^-?\\d+[ _,]+-?\\d+[ _,]+-?\\d+[ _,]+.+")) { String t0 = o.get("target").getAsString(); o.addProperty("target", t0.replaceFirst("^-?\\d+[ _,]+-?\\d+[ _,]+-?\\d+[ _,]+", "")); ClaudeMod.LOGGER.info("[Claude plan] take_from_chest target \"{}\" read as \"{}\" (the chest is his to find) (ClaudeLife.startPlan)", t0, o.get("target").getAsString()); } // (the planner put the chest's coords in it: "-1 -58 167 blaze_powder" failed as an unknown item, live 23:58)
                 if (sk.equals("sleep") && !g.level().isThundering() && g.level().getDayTime() % 24000 < 12542) { ClaudeMod.LOGGER.info("[Claude plan] the plan's sleep step dropped: beds work from dusk, it's {} now (the day isn't slept through; the steps after it wait for dusk themselves) (ClaudeLife.startPlan)", g.level().getDayTime() % 24000); continue; } // (01:52 \"wait out the day\" as a sleep at time 460: failed twice, the watchdog asked them for help)
-                g.skillQueue.add(new Skills.Step(sk, o.get("target").getAsString(), Math.max(1, Math.min(64, o.get("count").getAsInt())),
-                        o.has("where") ? o.get("where").getAsString() : "near_you"));
+                g.skillQueue.add(asOrderStep(g, new Skills.Step(sk, o.get("target").getAsString(), Math.max(1, Math.min(64, o.get("count").getAsInt())),
+                        o.has("where") ? o.get("where").getAsString() : "near_you")));
             }
             if (g.skillQueue.isEmpty()) g.skillQueue.add(ruleStep(g, player)); // an empty plan: the rules' next step (was a 10 s wait)
             ClaudeMod.LOGGER.info("[Claude plan] goal: {} | steps: {} | {}", g.goal, g.skillQueue, d.get("why").getAsString());
@@ -3074,8 +3088,8 @@ public final class ClaudeLife {
                 if (!hasFuel && g.inventory.count(t -> t.is(ItemTags.NON_FLAMMABLE_WOOD)) > 0) { g.skillQueue.addFirst(st); g.skillQueue.addFirst(new Skills.Step("craft", "stick", Math.min(64, Math.max(4, g.inventory.count(t -> t.is(input)) * 2)))); return "no fuel but nether wood: sticks out of it first (they burn, the wood doesn't)"; } // the user 16:50
                 if (!hasFuel) return "failed: no fuel (coal, charcoal, logs or planks)";
                 // no coal: a few logs into charcoal first (8 items a piece, against 1.5 for a log burnt as is), then the real batch
-                if (!g.commandActive && (input == Items.RAW_IRON || input == Items.RAW_GOLD || input == Items.RAW_COPPER) && reachableFurnace(g, level, g.blockPosition(), 16) == null && g.inventory.count(t -> t.is(Items.FURNACE)) == 0) { // far from all his furnaces: the raws ride home (live 12:06 World 15: 9 raw iron, a furnace's cobble dug out of a hole 165 from his nook's 6)
-                    BlockPos homeF = null; for (BlockPos f : g.myStations) if (f.distSqr(g.blockPosition()) > 40 * 40 && (!level.isLoaded(f) || level.getBlockState(f).is(Blocks.FURNACE)) && (homeF == null || f.distSqr(g.blockPosition()) < homeF.distSqr(g.blockPosition()))) homeF = f;
+                if (input == Items.RAW_IRON || input == Items.RAW_GOLD || input == Items.RAW_COPPER) { // far from all his furnaces: the raws ride home (live 12:06 World 15: 9 raw iron, a furnace's cobble dug out of a hole 165 from his nook's 6)
+                    BlockPos homeF = rawRidesHome(g, level);
                     if (homeF != null) return "done: the " + Crafting.name(input) + " rides home to my furnace at " + homeF.toShortString() + " (" + (int) Math.sqrt(homeF.distSqr(g.blockPosition())) + " off): no new furnace out here";
                 }
                 if (!g.commandActive && (input == Items.RAW_IRON || input == Items.RAW_GOLD || input == Items.RAW_COPPER) && g.inventory.count(t -> t.is(input)) > count) { int all0 = g.inventory.count(t -> t.is(input)); g.skillQueue.addFirst(new Skills.Step(st.skill(), st.target(), all0, st.where())); return "smelting all " + all0 + " " + Crafting.name(input) + " at once, not just " + count; } // the whole lot at once, like a player (live 12:03 World 15: 2 of 11 raw iron, for the craft's shortfall)
@@ -8951,6 +8965,7 @@ public final class ClaudeLife {
     }
 
     /** Armor comes a piece at a time as the ingots come in (a chestplate at 8, not a set at 24): the best piece he can afford, counting the ingots in his chests, goes on the queue. */
+    public static void ironPiecemealNow(ClaudeEntity g, ServerLevel level) { boolean t0 = com.claudemod.entity.ClaudeSpawner.testing; com.claudemod.entity.ClaudeSpawner.testing = false; try { ironPiecemeal(g, level); } finally { com.claudemod.entity.ClaudeSpawner.testing = t0; } } // (tests: the rule is off while testing)
     private static void ironPiecemeal(ClaudeEntity g, ServerLevel level) {
         if (!com.claudemod.entity.ClaudeSpawner.testing && !Kit.sword(g, false)) craftSwordIfCan(g, level);
         if (!com.claudemod.entity.ClaudeSpawner.testing) { // torches the moment there's coal or charcoal for them (a 2x2 craft, no table): 4 charcoal sat in his pocket while he went fishing with none
@@ -8972,7 +8987,8 @@ public final class ClaudeLife {
         if (g.lastStep != null && Set.of("craft", "gear_up", "smelt").contains(g.lastStep.skill()) && g.currentTask != null) return; // mid-craft right now: after it
         // (a smelt step waiting at the end of "mine 27 ore, then smelt 27" used to switch this off for the whole trip: 21 raw iron on him, no armor, dead)
         java.util.function.Predicate<ItemStack> iron = s -> s.is(Items.IRON_INGOT) || s.is(Items.RAW_IRON); // raw iron is a furnace away from an ingot: a player counts it (he had 14 raw on him and "no iron for armor")
-        boolean fuel = g.inventory.count(s -> s.is(Items.COAL) || s.is(Items.CHARCOAL) || s.is(ItemTags.LOGS) || s.is(ItemTags.PLANKS) || s.is(Items.STICK)) > 0;
+        boolean fuel = g.inventory.count(s -> s.is(Items.COAL) || s.is(Items.CHARCOAL) || s.is(ItemTags.LOGS) || s.is(ItemTags.PLANKS) || s.is(Items.STICK)) > 0
+                && (g.inventory.count(s -> s.is(Items.RAW_IRON)) == 0 || rawRidesHome(g, level) == null); // (raw on him that smelt sends home is no ingot here: live 06:29-06:37 11-04, "5 iron on hand: making iron_boots" 25 times, the craft "missing iron_ingot" each time)
         int ingots = g.inventory.count(s -> s.is(Items.IRON_INGOT) || fuel && s.is(Items.RAW_IRON)); // (raw only with fuel to smelt it: 17:16 "6 iron on hand: making an iron sword now" with 2 raw, no fuel, the rest 228 blocks off, looped and starved their order)
         for (BlockPos p : g.myStations) {
             if (!level.isLoaded(p) || p.distSqr(g.blockPosition()) > 48 * 48) continue;

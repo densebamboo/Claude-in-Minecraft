@@ -10393,6 +10393,8 @@ public final class ClaudeBodyTest {
             case 595: return st595(stage, t, c, h, level, mock);
             case 596: return st596(stage, t, c, h, level, mock);
             case 597: return st597(stage, t, c, h, level, mock);
+            case 598: return st598(stage, t, c, h, level, mock);
+            case 599: return st599(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -12035,6 +12037,46 @@ public final class ClaudeBodyTest {
     /** A run that ends against a wall with one zombie on him: he turns and fights, not shuffle on the block (live 12:07 11-02: one spider, 20 -> 0, full iron). */
     /** Two skeletons 5 off with a line on him, no armor: no tower and hut built under their fire (live 04:55 11-02: 20 -> 0 in 13 s building one). */
     /** 4 meals and a gear_up queued after a diamond hunt: the food comes before the mine, not after it (live 09:30 11-02: down to y -58 with 4 meals, 30 min of food trips). */
+    /** Their order "strip_mine iron_ore x12 near_them", the planner's step "x1 near_you" for the same job: the order's own step is queued (live 01:16-07:33 11-04: never matched, the order stayed open 6 h). */
+    /** 1 ingot and 4 raw iron, his furnace 44 off: no iron_boots craft queued (smelt sends the raw home, the craft failed "missing iron_ingot" 25 times, live 06:29-06:37 11-04). A furnace on him: the boots are queued. */
+    private static boolean st599(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            BlockPos me = c.blockPosition();
+            for (BlockPos q : BlockPos.betweenClosed(me.offset(-17, -17, -17), me.offset(17, 17, 17))) if (level.getBlockState(q).is(Blocks.FURNACE)) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2);
+            BlockPos far = me.east(44); level.setBlock(far, Blocks.FURNACE.defaultBlockState(), 2); c.myStations.add(far.immutable());
+            c.getInventory().clearContent();
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_INGOT)); c.getInventory().add(new ItemStack(Items.RAW_IRON, 4)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 8));
+            c.skillQueue.clear(); c.commandActive = false; c.lastStep = null; c.setHealth(20f);
+            com.claudemod.director.ClaudeLife.ironPiecemealNow(c, level);
+            boolean queued = c.skillQueue.stream().anyMatch(s -> s.skill().equals("craft") && s.target().startsWith("iron_"));
+            String q0 = String.valueOf(c.skillQueue);
+            c.skillQueue.clear(); c.getInventory().add(new ItemStack(Items.FURNACE));
+            com.claudemod.director.ClaudeLife.ironPiecemealNow(c, level);
+            boolean withFurnace = c.skillQueue.stream().anyMatch(s -> s.skill().equals("craft") && s.target().equals("iron_boots"));
+            c.myStations.remove(far); level.setBlock(far, Blocks.AIR.defaultBlockState(), 2); c.skillQueue.clear(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, ItemStack.EMPTY); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, ItemStack.EMPTY);
+            check(!queued, "4 raw iron that smelt sends 44 home counted as ingots: queued " + q0 + " (the craft fails missing iron_ingot)");
+            check(withFurnace, "a furnace on him, 1 ingot + 4 raw: no iron_boots queued (the raw smelts right here)");
+            c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "raw iron counts for armor only where it smelts");
+        }
+        return true;
+    }
+
+    private static boolean st598(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            var theirs = new com.claudemod.entity.life.Skills.Step("strip_mine", "iron_ore", 12, "near_them");
+            var plan = new com.claudemod.entity.life.Skills.Step("strip_mine", "iron_ore", 1, "near_you");
+            var r = com.claudemod.director.ClaudeLife.asOrderStepNow(c, "mine iron", java.util.List.of(theirs), plan);
+            check(r.equals(theirs), "the plan's strip_mine for their order queued as " + r + ", not their " + theirs + ": finishing it never finishes the order");
+            var other = com.claudemod.director.ClaudeLife.asOrderStepNow(c, "mine iron", java.util.List.of(theirs), new com.claudemod.entity.life.Skills.Step("collect", "logs", 4));
+            check(other.skill().equals("collect"), "a step for another job taken as their order's: " + other);
+            c.playerGoal = null; pass(stage, t, "the plan's step for their job is their order's step: " + r);
+        }
+        return true;
+    }
+
     private static boolean st597(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
         if (t[0] == 10) {

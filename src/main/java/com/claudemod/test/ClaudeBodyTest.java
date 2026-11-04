@@ -12006,6 +12006,10 @@ public final class ClaudeBodyTest {
             check(c.getHealth() == 20 && !c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER), "water tunnel: entered flooded work or took damage at " + c.blockPosition());
             if (c.blockPosition().distSqr(end) <= 1 && c.tasks.isEmpty() && c.currentTask == null) { check(c.blueprint.segments.stream().anyMatch(s -> s.kind == com.claudemod.entity.life.MineBlueprint.Kind.BRANCH && s.n == 6), "water shortened the planned branch"); c.dropCurrent = true; pass(stage, t, "advanced through the plugged aquifer dry and unharmed in " + t[0] + " ticks"); }
             else check(t[0] < 900, "water tunnel: no forward progress within 45 s: at " + c.blockPosition() + ", " + c.currentTask + ", " + c.tasks);
+        }
+        return true;
+    }
+
     private static boolean st584(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos me = h.absolutePos(new BlockPos(6, 2, 8)), goal = me.above();
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }

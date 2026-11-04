@@ -1887,7 +1887,8 @@ public class WorkGoal extends Goal {
         // Held left click through the game's own survival mining: real speed (tool, enchantments, on ground or
         // not, underwater), real drops and tool wear, the crack everyone else sees.
         // User Nov 4: reopen his plug from dry ground, sealing the newly exposed feeds with real right-clicks before water flows.
-        boolean waterTunnel = level.dimension() == net.minecraft.world.level.Level.OVERWORLD && g.blueprint != null && g.blueprint.isWalk(pos) && !com.claudemod.director.ClaudeLife.isCastBlock(pos);
+        boolean needsAir = surfacing || com.claudemod.entity.life.Watchdog.airRoute(g);
+        boolean waterTunnel = !needsAir && level.dimension() == net.minecraft.world.level.Level.OVERWORLD && g.blueprint != null && g.blueprint.isWalk(pos) && !com.claudemod.director.ClaudeLife.isCastBlock(pos);
         if (waterTunnel) {
             var nextRow = g.blueprint.rows().get(g.blueprint.rowOf(pos)); java.util.Set<BlockPos> rowCells = new java.util.HashSet<>(), waterFeeds = new java.util.HashSet<>();
             for (BlockPos f : nextRow.feet()) for (int y = 0; y < nextRow.height(); y++) rowCells.add(f.above(y));
@@ -1940,7 +1941,7 @@ public class WorkGoal extends Goal {
             g.tasks.addFirst(new Task.Break(pos)); // gravel (sand) above it drops into the hole: this cell again once it has, until the column is down
         }
         // Broke into water (an aquifer, a lake bed): plug it like a player, before it floods the tunnel.
-        if (!waterTunnel && !level.canSeeSky(pos) && !com.claudemod.director.ClaudeLife.isCastBlock(pos)) { // (the casting water running round his pillar's foot is not an aquifer: it "plugged" the pit and wrote the pillar's foot off as open water)
+        if (!needsAir && !waterTunnel && !level.canSeeSky(pos) && !com.claudemod.director.ClaudeLife.isCastBlock(pos)) { // (the casting water running round his pillar's foot is not an aquifer: it "plugged" the pit and wrote the pillar's foot off as open water)
             ItemStack plug = solidScaffold(); // (never gravel or sand: a plug over his head would fall on him)
             if (plug.isEmpty() && pendingStepUp != null && pos.getY() > g.getBlockY()) { // cutting up into water with nothing to plug it: that way is off (he'd drown in his own cut)
                 int sources = 0;

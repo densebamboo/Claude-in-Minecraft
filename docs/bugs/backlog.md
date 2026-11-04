@@ -176,7 +176,7 @@ Each line is a live report from Day to Day (World 15, 2026-10-31/11-01) not on t
 
 ## Stronghold, after the live portal (2026-11-02)
 
-- Stage 559 now starts him on a staircase dug onto the start piece's roof. He gets in through the roof beside him, then explores too long and times out (2,000-2,600 cells). The hearing cues reach too short from there.
+- **DONE (WorkGoal.pest, 11-04):** the real cause was silverfish, not hearing. Two silverfish from the portal room's spawner made the walk-crowd rule turn him from its doorway 3 times. Six of them made shouldFlee run him off, and he plugged the gap behind him. Silverfish and endermites no longer count as a crowd while he is above 8 health. 559 lights the portal in 57 s. (Orig: Stage 559 now starts him on a staircase dug onto the start piece's roof. He gets in through the roof beside him, then explores too long and times out (2,000-2,600 cells). The hearing cues reach too short from there.
 - 560 (a long walk out of a 2-deep hole) passes without any fix: it doesn't reproduce the live 2-up path-node refusal (00:42 on his spiral staircase, 1,878-block walk). The waypoint fix is on the unpushed branch bp/path-2up (stash) until a stage reproduces it.
 - From Day to Day: a new order doesn't clear the old step's queued walk (190 queued moves survived several orders). StrongholdRoom broke two iron doors after pressing their button and going through. After success, the command layer logged "steps ran out with a failure".
 

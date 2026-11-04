@@ -74,6 +74,13 @@ Branch `bp/blockage-tier0`. Day to Day's queue, items 1 and 2.
 - **Stage 616:** a 12-deep sea in a stone land, the room under it. From the shore to its bricks in 80-87 s, 3 of 3. Without the change: "fluid or bedrock every way" in 11 s.
 - **Water travel:** measured, not built. Sprint-swim is no faster on the server, because sprinting in water already gives drag 0.9 and he sprints there (about 3.6 b/s). A boat is the gain, and it is parked in the backlog.
 
+## Stronghold maze timeout (stage 559)
+- **Cause (from the log):**
+  - At 220 cells seen he was 4 blocks from the portal room's doorway. Two silverfish from its spawner tripped the walk's crowd rule ("2 hostile(s) between him and ...: not walking through them"), 3 times, so he went off through the rest of the maze.
+  - With that rule off, six silverfish tripped shouldFlee. He ran and plugged the gap behind him, sealed out of the room.
+- **Now:** `WorkGoal.pest`. Silverfish and endermites don't count in the three crowd counts (the walk's crowd, shouldFlee's, the cover rule's "swarmed") while he is above 8 health. One damage a bite: a player swats them and breaks the spawner. Self-defence is unchanged.
+- **Result:** 559 lights the portal in 57 s (was a 600 s timeout). 558 (91 s) and 561-564 pass. 559 is in the gate.
+
 ## Gate
 - **Green:** 586-592, 594-595, 597, 600, 601, 94-96, 61.
 - **Flaky on main, not from this branch (in the backlog):** 97, 593, and 596 in a range after 595.

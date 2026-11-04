@@ -850,6 +850,7 @@ public class WorkGoal extends Goal {
                 for (var m : enemiesNear(24)) {
                     if (!(m.distanceTo(g) < 8 || g.hasLineOfSight(m))) continue; // (what he can see or hear close by, nothing through walls)
                     threats.add(m.position());
+                    if (pest(m)) continue; // (two silverfish from the portal room's spawner kept him out of its doorway 3 times, stage 559)
                     if (m instanceof net.minecraft.world.entity.monster.Blaze || m instanceof net.minecraft.world.entity.FlyingMob) continue; // fliers hover off the floor: they shoot, they don't block a way (06:07 four blazes over his own rods 4 off kept every pick_up walk from starting, rods left to despawn)
                     for (int i = path.getNextNodeIndex(); i < path.getNodeCount(); i++) if (path.getNode(i).asBlockPos().distSqr(m.blockPosition()) < 9) { onRoute++; break; }
                 }
@@ -4212,6 +4213,9 @@ public class WorkGoal extends Goal {
         return best;
     }
 
+    /** Silverfish and endermites while he's above 8 health: 1 damage a bite, swatted, never a crowd to run from (stage 559: six from the portal room's spawner ran him off and he plugged himself out of the room). */
+    private boolean pest(net.minecraft.world.entity.Entity m) { return g.getHealth() > 8 && (m instanceof net.minecraft.world.entity.monster.Silverfish || m instanceof net.minecraft.world.entity.monster.Endermite); }
+
     private boolean shouldFlee(net.minecraft.world.entity.Entity foe) {
         if (foe instanceof net.minecraft.world.entity.LivingEntity l0 && outOfItsReach(l0)) return false; // it can't get him up there: no reason to run (an iron golem under his 3-high tower read as a lost fight)
         if (com.claudemod.entity.life.FortressFight.coverMob(foe) && g.getHealth() > 6 && foe instanceof net.minecraft.world.entity.LivingEntity lf && com.claudemod.entity.life.FortressFight.coverFor(g, (ServerLevel) g.level(), lf) != null) { fightOdds = "from cover"; return false; } // a blaze or wither skeleton with cover at hand: the cover fight backs into it itself (running in the open from fireballs is how it goes wrong)
@@ -4220,7 +4224,7 @@ public class WorkGoal extends Goal {
         if (foe instanceof net.minecraft.world.entity.monster.WitherSkeleton) { fightOdds = "wither skeletons: as fast as him, no outrunning them on foot; fought from a 2-high gap or 3 up a pillar (coverFight)"; return false; } // (World 15 19:00:10: he ran from 2 at 6 health, they kept pace, dead in a second)
         if (foe instanceof net.minecraft.world.entity.monster.EnderMan) { fightOdds = "endermen: no outrunning a teleporter; fought (endermanHole for cover)"; return false; } // ponytail: live 18:43 death, he ran from 3 angry endermen and took 7 a hit from behind, 20 -> 0 in 24 s without one swing back
         if (foe instanceof net.minecraft.world.entity.monster.Creeper c && c.distanceTo(g) < 5 && ((c.getSwellDir() > 0 && !canHitNow(c)) || !armed() || g.getHealth() <= 10)) return true; // hissing and he can't hit it right now (or can't fight it): run
-        int n = (int) hostilesNear(10).stream().filter(m -> !(m instanceof net.minecraft.world.entity.monster.Phantom) && !(m instanceof net.minecraft.world.entity.monster.Creeper && m.distanceTo(g) > 6)).count(); // the crowd that running gets him away from: no phantoms overhead (no outrunning them), no creeper 12-19 off (live 12:07 11-02: those made one spider '4 on him' and he ran instead of 2-3 axe hits)
+        int n = (int) hostilesNear(10).stream().filter(m -> !pest(m) && !(m instanceof net.minecraft.world.entity.monster.Phantom) && !(m instanceof net.minecraft.world.entity.monster.Creeper && m.distanceTo(g) > 6)).count(); // the crowd that running gets him away from: no phantoms overhead (no outrunning them), no creeper 12-19 off (live 12:07 11-02: those made one spider '4 on him' and he ran instead of 2-3 axe hits)
         // three or more on him is a crowd whatever he's holding: get out of their reach (tower or dig in) and fight from there
         boolean underground = underground((ServerLevel) g.level(), g.blockPosition()); // (rock over him: a tree's leaves are the open)
         boolean armored = false; for (EquipmentSlot sl : EquipmentSlot.values()) if (sl.isArmor() && !g.getItemBySlot(sl).isEmpty()) armored = true;
@@ -4678,7 +4682,7 @@ public class WorkGoal extends Goal {
         }
         var shooters = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(24),
                 m -> m.isAlive() && (m instanceof net.minecraft.world.entity.monster.AbstractSkeleton || m instanceof net.minecraft.world.entity.monster.Pillager) && (m.getTarget() == g || m.distanceTo(g) < 12 || m.hasLineOfSight(g))); // (in sight within 24 counts: one 15 off shot him off a bare tower twice) skeletons and pillagers alike (a bare tower against a crossbow killed him)
-        int crowd = hostilesNear(14).size();
+        int crowd = (int) hostilesNear(14).stream().filter(m -> !pest(m)).count();
         boolean swarmed = ((!armed() || weakKit()) && crowd >= 2) || crowd >= (prepared() ? 4 : 3) // (the combat rule: a crowd is left alone unless he's prepared, iron and food: in iron with a diamond sword and six meals two skeletons and a zombie had him boxed in, live 04:42) a crowd (or two with nothing proper to fight them in): a covered hole or a tower stops them too
                 || (!armed() && crowd >= 1 && !com.claudemod.director.ClaudeLife.dayHere(level)); // unarmed at night with anything on him: running from a zombie as fast as him is how a fresh respawn died twice; two down and a lid
         java.util.List<net.minecraft.world.entity.Mob> phantoms = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(32), m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Phantom);

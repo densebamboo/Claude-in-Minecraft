@@ -3857,18 +3857,25 @@ public final class ClaudeLife {
                 BlockPos spot = spot0;
                 var around = new net.minecraft.world.phys.AABB(spot).inflate(12);
                 var drops = new ArrayList<>(level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, around, i -> i.isAlive() && !g.isGift(i)));
-                if (drops.isEmpty()) drops = new ArrayList<>(ownDropsNear(g, level, 64));
                 if (drops.isEmpty() && death.isPresent() && spot.equals(death.get()) && g.blockPosition().distSqr(spot) > 48 * 48 && !level.isPositionEntityTicking(spot)) { /* (a ticking chunk with nothing in it: the pile is gone) */ // far off, its chunk unloaded: the pile can't be seen from here, so go and look (the fortress pile read "nothing left" from 300 off)
                     g.tasks.add(new Task.GoTo(spot.immutable(), 6)); g.skillQueue.addFirst(new Skills.Step("recover_drops", "", 1));
                     ClaudeMod.LOGGER.info("[Claude life] recover_drops: his death spot {} is {} off, out of sight: walking there to look (ClaudeLife recover_drops)", spot.toShortString(), (int) Math.sqrt(g.blockPosition().distSqr(spot)));
                     return "walking to where I died at " + spot.toShortString() + " to look for my things"; } // drifted off in the water, or lying a way from where he fell: still his
+                if (drops.isEmpty()) drops = new ArrayList<>(ownDropsNear(g, level, 64));
                 if (drops.isEmpty() && g.playerGoal != null && g.playerGoal.toLowerCase().matches("(?s).*(recover|gear back|drops|death spot|old gear).*")) g.playerGoal = ""; // the drops are gone: so is that goal (it outlived every restart, "back. still on it: recover_drops" and the same question asked four times)
                 if (drops.isEmpty() && dn != null && level.isPositionEntityTicking(dn.at)) com.claudemod.entity.life.DeathLog.abandon(g, dn, "looked: nothing left there");
                 if (drops.isEmpty()) return "done: nothing of yours left on the ground" + (death.isPresent() ? " where you died" : "") + ": it despawned or someone took it, none of it came back to my pack"; // ponytail: live 15:06 the planner read the bare line as "my 40 stacks are already back in my pack"
                 // the user's rule: if it wasn't iron or better, it's not worth picking up (a stone-age pile 40 blocks down a cave had him circling the cave mouth for ten minutes, then dead in it)
                 boolean ironUp = drops.stream().anyMatch(d -> { String id = BuiltInRegistries.ITEM.getKey(d.getItem().getItem()).getPath();
                     return id.startsWith("iron_") || id.equals("raw_iron") || id.contains("diamond") || id.contains("netherite") || id.equals("emerald") || id.equals("shield") || id.equals("bow") || id.endsWith("_bed") || id.equals("ender_pearl") || id.equals("blaze_rod"); });
-                if (!ironUp && g.blockPosition().distSqr(spot) > 12 * 12) { ClaudeMod.LOGGER.info("[Claude life] his drops at {}: nothing iron or better among {} piles, not worth the trip", spot.toShortString(), drops.size()); return "done: nothing iron or better in what I dropped at " + spot.toShortString() + "; not worth the trip, leaving it"; }
+                if (!ironUp && g.blockPosition().distSqr(spot) > 12 * 12) {
+                    if (dn != null && spot.equals(dn.at) && level.isPositionEntityTicking(spot)) {
+                        com.claudemod.entity.life.DeathLog.abandon(g, dn, "looked: nothing iron or better worth the trip");
+                        if (com.claudemod.entity.life.DeathLog.next(g, dimHere) != null) g.skillQueue.addFirst(new Skills.Step("recover_drops", "", 1));
+                    }
+                    ClaudeMod.LOGGER.info("[Claude life] his drops at {}: nothing iron or better among {} piles, not worth the trip", spot.toShortString(), drops.size());
+                    return "done: nothing iron or better in what I dropped at " + spot.toShortString() + "; not worth the trip, leaving it";
+                }
                 String race = com.claudemod.entity.life.Clocks.race(g, player, level, spot); // the despawn clock against the run there: a race he can't win is not run (the user told him it was gone; his clock had known)
                 if (race != null) { if (g.playerGoal != null && g.playerGoal.toLowerCase().matches("(?s).*(recover|gear back|drops|death spot|old gear).*")) g.playerGoal = ""; return race; }
                 var guard = level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, new net.minecraft.world.phys.AABB(spot).inflate(12), m -> m.isAlive()); // what's standing over his things

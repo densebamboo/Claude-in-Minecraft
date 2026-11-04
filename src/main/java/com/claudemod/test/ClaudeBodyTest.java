@@ -10371,6 +10371,7 @@ public final class ClaudeBodyTest {
             case 570: return st570(stage, t, c, h, level, mock);
             case 571: return st571(stage, t, c, h, level, mock);
             case 575: return st575(stage, t, c, h, level, mock);
+            case 576: return st576(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -11942,6 +11943,32 @@ public final class ClaudeBodyTest {
             if (!com.claudemod.entity.life.MineBlueprint.ore(level.getBlockState(iron))) check(!level.getBlockState(diamond).is(Blocks.DIAMOND_ORE), "iron taken before the exposed diamond");
             if (mined && patched && raw >= 2 && dia == 1) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "whole vein mined, 2 iron + diamond picked up, all seven holes patched in " + t[0] + " ticks"); }
             else check(t[0] < 400, "mine integrity: mined=" + mined + ", patched=" + patched + ", iron=" + raw + ", diamonds=" + dia + ", at=" + c.blockPosition() + ", task=" + c.currentTask + ", queue=" + c.tasks);
+        }
+        return true;
+    }
+
+    private static boolean st576(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 01:25: an old bone pile kept winning recovery selection over the newer mine kit.
+        if (t[0] == 1) { scenarioReset(c); flatBox(h); c.nextPlanTick = c.tickCount + 12000; com.claudemod.entity.life.DeathLog.reset(c); }
+        if (t[0] == 10) {
+            BlockPos me = h.absolutePos(new BlockPos(1, 2, 1)), junk = h.absolutePos(new BlockPos(14, 2, 14)), kit = new BlockPos(12000, 70, 12000);
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
+            c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 4));
+            var bone = new net.minecraft.world.entity.item.ItemEntity(level, junk.getX() + 0.5, junk.getY(), junk.getZ() + 0.5, new ItemStack(Items.BONE)); level.addFreshEntity(bone);
+            com.claudemod.entity.life.DeathLog.died(c, level, junk, java.util.List.of(bone));
+            com.claudemod.entity.life.DeathLog.died(c, level, kit, java.util.List.of(new net.minecraft.world.entity.item.ItemEntity(level, kit.getX(), kit.getY(), kit.getZ(), new ItemStack(Items.RAW_IRON, 10))));
+            check(level.isPositionEntityTicking(junk) && !level.isPositionEntityTicking(kit), "setup: junk must be loaded, distant kit unloaded");
+            String r1 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
+            check(!com.claudemod.entity.life.DeathLog.of(c).getFirst().pending() && c.skillQueue.stream().anyMatch(s -> s.skill().equals("recover_drops")), "rejected junk still blocks the next pile: " + r1);
+            c.tasks.clear(); c.skillQueue.clear();
+            String r2 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
+            check(r2.contains("walking to where I died") && c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo gt && gt.pos().equals(kit)), "nearby junk hid the unloaded kit instead of walking to look: " + r2);
+            check(com.claudemod.entity.life.DeathLog.of(c).getLast().pending(), "unseen kit was abandoned");
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.attempts.counters.remove("recoverGear");
+            String r3 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
+            check(r3.contains("gear up first"), "recovery lost its equipment safety gate: " + r3);
+            bone.discard(); com.claudemod.entity.life.DeathLog.reset(c); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            pass(stage, t, "junk retired and distant kit selected within two decisions; unseen items kept and gear gate preserved");
         }
         return true;
     }

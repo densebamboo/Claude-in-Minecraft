@@ -12039,37 +12039,6 @@ public final class ClaudeBodyTest {
     /** A run that ends against a wall with one zombie on him: he turns and fights, not shuffle on the block (live 12:07 11-02: one spider, 20 -> 0, full iron). */
     /** Two skeletons 5 off with a line on him, no armor: no tower and hut built under their fire (live 04:55 11-02: 20 -> 0 in 13 s building one). */
     /** 4 meals and a gear_up queued after a diamond hunt: the food comes before the mine, not after it (live 09:30 11-02: down to y -58 with 4 meals, 30 min of food trips). */
-    /** A plan that never comes back (live 08:31-09:03 11-04: 25 min idle, 14 timeouts): the rules' own step fills the gap. */
-    private static boolean st601(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
-        if (t[0] == 1) {
-            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.lastStep = null;
-            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
-            c.planning = true; c.planStartTick = c.tickCount - 20 * 46; // (asked 46 s ago, no answer)
-        }
-        if (t[0] > 1 && (c.lastStep != null || !c.skillQueue.isEmpty() || !c.tasks.isEmpty() || c.currentTask != null)) { String what = c.lastStep != null ? c.lastStep.skill() : String.valueOf(c.skillQueue.peek()); c.skillQueue.clear(); c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "the plan never came back: the rules' step instead (" + what + ", " + t[0] + " ticks)"); }
-        else if (t[0] >= 200) check(false, "the plan never came back and he stood idle 10 s (planning " + c.planning + ")");
-        return true;
-    }
-
-    private static BlockPos s600Goal; private static boolean s600Reached; private static final java.util.List<BlockPos> s600Shell = new java.util.ArrayList<>();
-    /** The blockage solver's Tier 0: sealed in a cell of his own build blocks (a bedroom wall), sent outside. Before: "no way ... skipping it". Now: one bent rule, logged, the cut patched back behind him. */
-    private static boolean st600(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
-        if (t[0] == 1) {
-            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000;
-            for (int x = 0; x <= 16; x++) for (int z = 0; z <= 10; z++) for (int y = 1; y <= 14; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
-            BlockPos me = h.absolutePos(new BlockPos(4, 2, 5));
-            s600Shell.clear(); // a 3x3 room, 3 high, his build all round (floor and roof too): a room, not a pit (the pit reflex digs a lid out on its own)
-            for (int dx = -2; dx <= 2; dx++) for (int dz = -2; dz <= 2; dz++) for (int dy = -1; dy <= 3; dy++) if (dy == -1 || dy == 3 || Math.abs(dx) == 2 || Math.abs(dz) == 2) s600Shell.add(me.offset(dx, dy, dz));
-            for (BlockPos q : s600Shell) { level.setBlock(q, Blocks.COBBLESTONE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.builtCells(c).put(q.immutable(), "ClaudeLife.secureBedroom"); }
-            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20f);
-            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
-            s600Goal = me.east(7); s600Reached = false;
-            c.tasks.clear(); c.dropCurrent = true;
-        }
-        if (t[0] == 10) c.tasks.add(new Task.GoTo(s600Goal, 1.0));
-        if (t[0] > 10 && c.blockPosition().distSqr(s600Goal) <= 2 * 2) s600Reached = true;
-        if (s600Reached && s600Shell.stream().allMatch(q -> !level.getBlockState(q).isAir())) { c.tasks.clear(); c.dropCurrent = true; com.claudemod.entity.life.TempLedger.builtCells(c).clear(); pass(stage, t, "sealed in his own build: out through one bent cell and it patched back (" + t[0] + " ticks)"); }
-        else if (t[0] >= 900) { com.claudemod.entity.life.TempLedger.builtCells(c).clear(); check(false, "sealed in his own build: reached " + s600Reached + ", shell cells open " + s600Shell.stream().filter(q -> level.getBlockState(q).isAir()).map(BlockPos::toShortString).toList() + ", now " + c.currentTask + " " + c.tasks); }
     /** Their order "strip_mine iron_ore x12 near_them", the planner's step "x1 near_you" for the same job: the order's own step is queued (live 01:16-07:33 11-04: never matched, the order stayed open 6 h). */
     /** 1 ingot and 4 raw iron, his furnace 44 off: no iron_boots craft queued (smelt sends the raw home, the craft failed "missing iron_ingot" 25 times, live 06:29-06:37 11-04). A furnace on him: the boots are queued. */
     private static boolean st599(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
@@ -12107,6 +12076,40 @@ public final class ClaudeBodyTest {
             check(other.skill().equals("collect"), "a step for another job taken as their order's: " + other);
             c.playerGoal = null; pass(stage, t, "the plan's step for their job is their order's step: " + r);
         }
+        return true;
+    }
+
+    /** A plan that never comes back (live 08:31-09:03 11-04: 25 min idle, 14 timeouts): the rules' own step fills the gap. */
+    private static boolean st601(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.lastStep = null;
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.planning = true; c.planStartTick = c.tickCount - 20 * 46; // (asked 46 s ago, no answer)
+        }
+        if (t[0] > 1 && (c.lastStep != null || !c.skillQueue.isEmpty() || !c.tasks.isEmpty() || c.currentTask != null)) { String what = c.lastStep != null ? c.lastStep.skill() : String.valueOf(c.skillQueue.peek()); c.skillQueue.clear(); c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "the plan never came back: the rules' step instead (" + what + ", " + t[0] + " ticks)"); }
+        else if (t[0] >= 200) check(false, "the plan never came back and he stood idle 10 s (planning " + c.planning + ")");
+        return true;
+    }
+
+    private static BlockPos s600Goal; private static boolean s600Reached; private static final java.util.List<BlockPos> s600Shell = new java.util.ArrayList<>();
+    /** The blockage solver's Tier 0: sealed in a cell of his own build blocks (a bedroom wall), sent outside. Before: "no way ... skipping it". Now: one bent rule, logged, the cut patched back behind him. */
+    private static boolean st600(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000;
+            for (int x = 0; x <= 16; x++) for (int z = 0; z <= 10; z++) for (int y = 1; y <= 14; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 5));
+            s600Shell.clear(); // a 3x3 room, 3 high, his build all round (floor and roof too): a room, not a pit (the pit reflex digs a lid out on its own)
+            for (int dx = -2; dx <= 2; dx++) for (int dz = -2; dz <= 2; dz++) for (int dy = -1; dy <= 3; dy++) if (dy == -1 || dy == 3 || Math.abs(dx) == 2 || Math.abs(dz) == 2) s600Shell.add(me.offset(dx, dy, dz));
+            for (BlockPos q : s600Shell) { level.setBlock(q, Blocks.COBBLESTONE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.builtCells(c).put(q.immutable(), "ClaudeLife.secureBedroom"); }
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20f);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            s600Goal = me.east(7); s600Reached = false;
+            c.tasks.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 10) c.tasks.add(new Task.GoTo(s600Goal, 1.0));
+        if (t[0] > 10 && c.blockPosition().distSqr(s600Goal) <= 2 * 2) s600Reached = true;
+        if (s600Reached && s600Shell.stream().allMatch(q -> !level.getBlockState(q).isAir())) { c.tasks.clear(); c.dropCurrent = true; com.claudemod.entity.life.TempLedger.builtCells(c).clear(); pass(stage, t, "sealed in his own build: out through one bent cell and it patched back (" + t[0] + " ticks)"); }
+        else if (t[0] >= 900) { com.claudemod.entity.life.TempLedger.builtCells(c).clear(); check(false, "sealed in his own build: reached " + s600Reached + ", shell cells open " + s600Shell.stream().filter(q -> level.getBlockState(q).isAir()).map(BlockPos::toShortString).toList() + ", now " + c.currentTask + " " + c.tasks); }
         return true;
     }
 

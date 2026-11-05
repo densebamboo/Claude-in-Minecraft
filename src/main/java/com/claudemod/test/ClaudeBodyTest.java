@@ -10432,6 +10432,7 @@ public final class ClaudeBodyTest {
             case 814: return st814(stage, t, c, h, level, mock);
             case 815: return st815(stage, t, c, h, level, mock);
             case 816: return st816(stage, t, c, h, level, mock);
+            case 819: return st819(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13144,6 +13145,36 @@ public final class ClaudeBodyTest {
             if (t[0] % 600 == 0) ClaudeMod.LOGGER.info("[Claude test] 818 t {} s, leg {}: {} left, at {}, now {}, queue {}", (t[0] - s818T0) / 20, s818Leg, (int) left, c.blockPosition().toShortString(), c.currentTask, c.tasks.size());
             check(!(c.currentTask == null && c.tasks.isEmpty() && t[0] - s818T0 > 40), "the bore ended " + (int) left + " short on leg " + s818Leg + " at " + c.blockPosition().toShortString() + " after " + (t[0] - s818T0) / 20 + " s");
             check(t[0] - s818T0 < 20 * 1200, "20 min, leg " + s818Leg + ", " + (int) left + " left, at " + c.blockPosition().toShortString() + " now " + c.currentTask);
+        }
+        return true;
+    }
+
+    /** The user 11-05 ("paving his own way across lava"): a lava lake 34 wide between his ledge and the far shore, rock walls both sides and a roof, so there is no walk round. travel() prices walk, bridge and bore; the bridge is picked and he paves across, never in lava, at a player's pace. */
+    private static int s819T0;
+    private static boolean st819(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(9000, 64, 5120), to = o.offset(40, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            for (int x = -6; x <= 46; x++) for (int z = -7; z <= 7; z++) for (int y = -5; y <= 8; y++) {
+                boolean hollow = x >= -3 && x <= 43 && Math.abs(z) <= 4 && y >= 0 && y <= 6, lake = x >= 3 && x <= 36 && Math.abs(z) <= 4 && y >= -4 && y <= -1;
+                nl.setBlock(o.offset(x, y, z), hollow ? Blocks.AIR.defaultBlockState() : lake ? Blocks.LAVA.defaultBlockState() : Blocks.NETHERRACK.defaultBlockState(), 2);
+            }
+            nsKit(c); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 30) {
+            c.tasks.clear(); c.skillQueue.clear();
+            var tr = com.claudemod.entity.life.FortressScout.travel(c, nl, to);
+            check(com.claudemod.entity.life.FortressScout.lastTravel.endsWith(": bridge"), "not the bridge: " + com.claudemod.entity.life.FortressScout.lastTravel);
+            c.tasks.add(tr); s819T0 = t[0];
+        }
+        if (t[0] > 30) {
+            check(!c.isInLava() && c.isAlive(), "in lava or dead at " + c.blockPosition().toShortString() + " after " + (t[0] - s819T0) / 20 + " s");
+            if (Math.abs(c.getX() - to.getX() - 0.5) + Math.abs(c.getZ() - to.getZ() - 0.5) <= 3) { int s0 = (t[0] - s819T0) / 20; check(s0 <= 40, "too slow: " + s0 + " s for 40 blocks"); String m = "across the lava lake in " + s0 + " s: " + com.claudemod.entity.life.FortressScout.lastTravel; nsHome(c, h, level); pass(stage, t, m); return true; }
+            check(!(c.currentTask == null && c.tasks.isEmpty() && t[0] - s819T0 > 40), "stopped at " + c.blockPosition().toShortString() + " after " + (t[0] - s819T0) / 20 + " s");
+            check(t[0] - s819T0 < 20 * 90, "90 s and not across: at " + c.blockPosition().toShortString() + " now " + c.currentTask);
         }
         return true;
     }

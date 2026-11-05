@@ -294,7 +294,7 @@ public final class FortressScout {
         s.seenBefore.clear(); for (var sg : Perception.sightings(g)) s.seenBefore.add(key(sg));
         g.skillQueue.addFirst(new Skills.Step("find_fortress", "@" + (s.legs.size() + 1) + "w", st.count(), st.where()));
         int d = (int) horiz(to, g.blockPosition());
-        String r = "leg " + (s.legs.size() + 1) + ": scouting " + dirName(dir[0]) + " to " + to.toShortString() + " (" + d + " blocks " + (bore ? "straight through" : why[0].contains("tunnel") || why[0].contains("through the rock") ? "through the rock" : "along the ground") + "): " + why[0];
+        String r = "leg " + (s.legs.size() + 1) + ": scouting " + dirName(dir[0]) + " to " + to.toShortString() + " (" + d + " blocks " + (bore ? (lastTravel.endsWith(": bridge") ? "paved across the lava" : "through the rock") : why[0].contains("tunnel") || why[0].contains("through the rock") ? "through the rock" : "along the ground") + "): " + why[0];
         ClaudeMod.LOGGER.info("[Claude scout] {} (FortressScout.skill)", r);
         if (s.said != dir[0]) { s.said = dir[0]; com.claudemod.director.ClaudeChat.say(player, "heading " + dirName(dir[0]) + " to look for a fortress: " + why[0], "find_fortress: the heading"); }
         g.noteDoing("scouting " + dirName(dir[0]) + " for a nether fortress, leg " + (s.legs.size() + 1));
@@ -376,6 +376,7 @@ public final class FortressScout {
         Direction first = order.get(0);
         for (Direction d : order) {
             BlockPos to = legEnd(g, level, d, LEG);
+            if (to == null && d == first && bores(g, level)) { to = me.relative(d, LEG).atY(Math.max(FORT_LO, Math.min(FORT_HI, me.getY()))); ClaudeMod.LOGGER.info("[Claude scout] no open ground {} of {}: on that bearing through it, to {} (FortressScout.plan)", dirName(d), me.toShortString(), to.toShortString()); } // (Day to Day 11-05: "no ground <dir>" fired ~85 times and turned him round the portal)
             if (to == null) { ClaudeMod.LOGGER.info("[Claude scout] no ground {} of {} (lava too wide or rock) (FortressScout.plan)", dirName(d), me.toShortString()); continue; }
             if (scouted(s, to, me)) { ClaudeMod.LOGGER.info("[Claude scout] {} to {}: scouted already (FortressScout.plan)", dirName(d), to.toShortString()); continue; }
             dir[0] = d;
@@ -399,19 +400,37 @@ public final class FortressScout {
         }
         return null;
     }
-    /** Tunnelling pace through unseen Nether, seconds a block (stage 816: 500 blocks of rock, caves and lava in 197 s). A player knows the pace, not what's in the rock. */
-    public static final double BORE_S = 0.4, WALK_S = 0.2;
+    /** Paces, seconds a block: a tunnel through rock he can't see into (stage 816: 500 blocks of rock, caves and lava in 197 s), a bridge over open lava (a floor and two rails a block), a sprint over ground. A player knows these paces, not what's in the rock. */
+    public static final double BORE_S = 0.4, BRIDGE_S = 0.6, WALK_S = 0.2;
+    public static String lastTravel = ""; // (the last choice and its costs: for stages)
     /**
-     * The way there, the walk or the bore, whichever he reckons the faster (the user 11-05: the moves with their real costs, his pick):
-     * the walk by its path's length at a sprint, no path = no walk; the bore by the L's length at tunnelling pace. Logged with both costs.
+     * The way there, whichever of three he reckons the fastest (the user 11-05: "fully capable of navigating around the terrain, or paving his own way across lava"):
+     * the walk round by its path's length at a sprint, no path = no walk; the bridge, the straight line priced by what he sees of it (open lava paved, open
+     * ground walked, the rest dug); the bore, the line at tunnelling pace throughout. Bridge and bore are the same mover (Task.Bore paves lava and digs rock as
+     * it meets them); their prices differ by what he can see. Logged with all three.
      */
     public static Task travel(ClaudeEntity g, ServerLevel level, BlockPos to) {
-        BlockPos me = g.blockPosition(); double boreS = bores(g, level) ? BORE_S * (Math.abs(to.getX() - me.getX()) + Math.abs(to.getZ() - me.getZ()) + Math.abs(to.getY() - me.getY())) : Double.MAX_VALUE;
+        BlockPos me = g.blockPosition(); boolean can = bores(g, level);
+        int dx = to.getX() - me.getX(), dz = to.getZ() - me.getZ(), dy = to.getY() - me.getY(), n = Math.abs(dx) + Math.abs(dz);
+        int lava = 0, open = 0, rock = 0; Vec3 eye = g.getEyePosition(); int x = me.getX(), z = me.getZ();
+        for (int k = 1; k <= n; k++) { // the L: the longer axis first, as the bore goes
+            if (Math.abs(dx) >= Math.abs(dz) ? x != to.getX() : z == to.getZ()) x += Integer.signum(dx); else z += Integer.signum(dz);
+            BlockPos c = new BlockPos(x, me.getY() + dy * k / Math.max(1, n), z);
+            if (!level.getBlockState(c).isAir() || !level.getBlockState(c.above()).isAir() || !Perception.clear(level, eye, Vec3.atCenterOf(c))) { rock++; continue; }
+            boolean hot = false; for (int d = 1; d <= 3; d++) if (level.getFluidState(c.below(d)).is(net.minecraft.tags.FluidTags.LAVA)) hot = true;
+            if (!hot && level.getBlockState(c.below()).isFaceSturdy(level, c.below(), net.minecraft.core.Direction.UP)) open++; else lava++; // (a gap is paved like lava)
+        }
+        double boreS = can ? BORE_S * (n + Math.abs(dy)) : Double.MAX_VALUE; // (the line through rock he can't see into)
+        double bridgeS = can && lava > 0 ? BRIDGE_S * lava + WALK_S * open + BORE_S * (rock + Math.abs(dy)) : Double.MAX_VALUE;
         var path = g.getNavigation().createPath(to, 2); double walkS = Double.MAX_VALUE; int nodes = 0;
         if (path != null && path.canReach()) { nodes = path.getNodeCount(); double len = 0; for (int i = 1; i < nodes; i++) len += Math.sqrt(path.getNode(i).distanceToSqr(path.getNode(i - 1))); walkS = WALK_S * len; }
-        boolean bore = boreS < walkS;
-        ClaudeMod.LOGGER.info("[Claude route] to {}: walk {} vs bore {}: {} (FortressScout.travel)", to.toShortString(), walkS == Double.MAX_VALUE ? "no path" : String.format("~%.0f s (%d steps)", walkS, nodes), boreS == Double.MAX_VALUE ? "no pick or blocks" : String.format("~%.0f s", boreS), bore ? "bore" : "walk");
-        return bore ? new Task.Bore(to, to.getY()) : new Task.GoTo(to, 3);
+        if (lava > 0) boreS = bridgeS; // (lava he can see on the line: the bore meets it too and paves it, the same line at the same price)
+        String pick = walkS <= bridgeS && walkS <= boreS ? "walk" : bridgeS <= boreS ? "bridge" : "bore";
+        lastTravel = String.format("to %s: walk %s vs bridge %s vs bore %s: %s", to.toShortString(), walkS == Double.MAX_VALUE ? "no path" : String.format("~%.0f s (%d steps)", walkS, nodes),
+                bridgeS == Double.MAX_VALUE ? (can ? "no lava in sight on the line" : "no pick or blocks") : String.format("~%.0f s (%d paved over lava, %d open, %d through rock)", bridgeS, lava, open, rock),
+                boreS == Double.MAX_VALUE ? "no pick or blocks" : String.format("~%.0f s", boreS), pick);
+        ClaudeMod.LOGGER.info("[Claude route] {} (FortressScout.travel)", lastTravel);
+        return pick.equals("walk") ? new Task.GoTo(to, 3) : new Task.Bore(to, to.getY());
     }
     /** Nether travel by bore: a pickaxe and 16+ blocks to floor with. */
     public static boolean bores(ClaudeEntity g, ServerLevel level) {

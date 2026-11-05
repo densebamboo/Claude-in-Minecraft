@@ -44,6 +44,8 @@ public final class Watchdog {
         int startEst; String startWhat = "";                      // the running action's player-pace estimate in ticks, and what it is (SLOW)
         int tripAt = -1, tripBroken, tripItems; BlockPos tripPos; String tripWhat = ""; // a 16+ block walk that got there: something done within 10 s? (WASTED_TRIP)
         int handRun;                                              // tool blocks broken by hand in a row (BARE_HANDS)
+        final Map<UUID, Integer> tossed = new HashMap<>();        // his junk throws still on the ground: entity -> tick (THROW_LOOP)
+        final Map<net.minecraft.world.item.Item, Integer> tossedItem = new HashMap<>(); // last throw tick per item (THROW_LOOP)
         final Map<BlockPos, int[]> placedAt = new HashMap<>();    // his placements: {tick, blocks broken then, items then} (PLACE_BREAK)
         Object stepRef; String stepName = ""; int stepStart, stepBudget, stepExcused, stepNoTask; final Map<String, int[]> stepUse = new HashMap<>(); // the plan step under way: its player-pace budget and where its time went {ticks, budget} (PACE)
         int waitSince = -1, waitBroken; BlockPos waitAt;          // at a furnace, waiting (FURNACE_WAIT)
@@ -527,6 +529,26 @@ public final class Watchdog {
         BlockPos w = g.currentTask == null || g.currentTask instanceof Task.GoTo ? null : target(g.currentTask);
         if (w != null && w.distSqr(s.tripPos) <= 36 || g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Fish || g.currentTask instanceof Task.Smelt) return; // (at work there)
         fileOnce(g, "WASTED_TRIP", "WASTED_TRIP|" + s.tripPos.asLong(), "walked " + s.tripWhat + " and did nothing there in 10 s; now " + (g.currentTask == null ? "no task" : g.currentTask) + " at " + g.blockPosition().toShortString());
+    }
+    /** He threw something out as junk (ClaudeLife's toss): the same one-of item thrown again within 2 min means he took it back (THROW_LOOP); armor, iron+ tools and ingots/gems thrown at all is THREW_VALUABLE (Day to Day 11-05, live 05:16-05:17: iron boots, golden boots, an iron helmet thrown three times). */
+    public static void thrown(ClaudeEntity g, net.minecraft.world.entity.item.ItemEntity e) {
+        if (e == null || !on()) return;
+        St s = st(g); var it = e.getItem(); String n = it.getHoverName().getString();
+        if (s.tossed.size() > 256) s.tossed.clear();
+        s.tossed.put(e.getUUID(), now(g));
+        Integer last = s.tossedItem.put(it.getItem(), now(g));
+        if (it.getMaxStackSize() == 1 && last != null && now(g) - last <= 2400) fileOnce(g, "THROW_LOOP", "THROW_LOOP|" + n, "threw out " + n + " again " + (now(g) - last) / 20 + " s after the last time: he took it back in between");
+        if (valuable(it)) fileOnce(g, "THREW_VALUABLE", "THREW_VALUABLE|" + n, "threw out " + it.getCount() + " " + n + " as junk: a player stashes or keeps armor, iron+ tools and ingots");
+    }
+    /** He picked an item up: one he threw out within 2 min is a THROW_LOOP. */
+    public static void pickedUp(ClaudeEntity g, UUID entity, net.minecraft.world.item.ItemStack what) {
+        if (!on()) return;
+        Integer t = st(g).tossed.remove(entity);
+        if (t != null && now(g) - t <= 2400) fileOnce(g, "THROW_LOOP", "THROW_LOOP|" + what.getHoverName().getString(), "picked back up the " + what.getHoverName().getString() + " he threw out " + (now(g) - t) / 20 + " s ago");
+    }
+    public static boolean valuable(net.minecraft.world.item.ItemStack it) {
+        if (it.getItem() instanceof net.minecraft.world.item.ArmorItem || it.is(net.neoforged.neoforge.common.Tags.Items.INGOTS) || it.is(net.neoforged.neoforge.common.Tags.Items.GEMS)) return true;
+        return it.getItem() instanceof net.minecraft.world.item.TieredItem t && t.getTier() != net.minecraft.world.item.Tiers.WOOD && t.getTier() != net.minecraft.world.item.Tiers.STONE; // (spent wood/stone tools are a player's junk too)
     }
     /** He put a block down (the place event). */
     public static void placedOwn(ClaudeEntity g, BlockPos p) { St s = st(g); if (s.placedAt.size() > 256) s.placedAt.clear(); s.placedAt.put(p.immutable(), new int[] {now(g), s.broken, items(g)}); }

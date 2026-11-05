@@ -5217,6 +5217,7 @@ public final class ClaudeLife {
             thrown.append(st.getCount()).append(' ').append(st.getItem()).append(' ');
             var e = g.drop(st.copy(), false, true);
             if (e != null) g.markGift(e); // a normal toss (vanilla pickup delay); he just doesn't go back for it
+            com.claudemod.entity.life.Watchdog.thrown(g, e);
             inv.items.set(i, net.minecraft.world.item.ItemStack.EMPTY);
             n++;
         }
@@ -5234,7 +5235,7 @@ public final class ClaudeLife {
                 int score = (it instanceof net.minecraft.world.item.BlockItem ? 0 : 1000) + st.getCount(); // spare blocks first, the smallest stack first
                 if (score < pickScore) { pickScore = score; pick = i; }
             }
-            if (pick >= 0 && inv.getFreeSlot() < 0) { var st = inv.items.get(pick); ClaudeMod.LOGGER.info("[Claude life] pack full and nothing junk in it: dropping the {} {} to make room", st.getCount(), Crafting.name(st.getItem())); var e = g.drop(st.copy(), false, true); if (e != null) { g.markGift(e); e.setPickUpDelay(6000); } inv.items.set(pick, ItemStack.EMPTY); } // (6000: till it despawns; the 2 s default let his own touch take it back while he stood there, so the 1 lily pad went out every 5 s, 01:32) // (a bed couldn't be made for want of a slot for its table, three plans running)
+            if (pick >= 0 && inv.getFreeSlot() < 0) { var st = inv.items.get(pick); ClaudeMod.LOGGER.info("[Claude life] pack full and nothing junk in it: dropping the {} {} to make room", st.getCount(), Crafting.name(st.getItem())); var e = g.drop(st.copy(), false, true); if (e != null) { g.markGift(e); e.setPickUpDelay(6000); } com.claudemod.entity.life.Watchdog.thrown(g, e); inv.items.set(pick, ItemStack.EMPTY); } // (6000: till it despawns; the 2 s default let his own touch take it back while he stood there, so the 1 lily pad went out every 5 s, 01:32) // (a bed couldn't be made for want of a slot for its table, three plans running)
         }
     }
 

@@ -10416,6 +10416,7 @@ public final class ClaudeBodyTest {
             case 556: return st556(stage, t, c, h, level, mock);
             case 800: return st800(stage, t, c, h, level, mock);
             case 801: return st801(stage, t, c, h, level, mock);
+            case 802: return st802(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
             case 615: return st615(stage, t, c, h, level, mock);
             case 617: return st617(stage, t, c, h, level, mock);
@@ -12771,6 +12772,33 @@ public final class ClaudeBodyTest {
             com.claudemod.entity.life.Watchdog.linesInTests = false; pass(stage, t, "spin, place-break, bare hands, unseen ore and 20 s idle all filed: " + W); return true;
         }
         check(t[0] < 900, "filed " + W + " (last " + com.claudemod.entity.life.Watchdog.lastIncident + ")");
+        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
+        return true;
+    }
+
+    /** Day to Day 11-05 (live 05:16-05:17, iron boots thrown three times): his real junk toss throwing armor files THREW_VALUABLE; the piece picked back up within 2 min files THROW_LOOP; spent stone tools aren't valuables, ingots are. */
+    private static BlockPos s802A;
+    private static boolean st802(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var W = com.claudemod.entity.life.Watchdog.recentKinds;
+        try {
+        if (t[0] == 1) {
+            check(!com.claudemod.entity.life.Watchdog.valuable(new ItemStack(Items.STONE_PICKAXE)) && com.claudemod.entity.life.Watchdog.valuable(new ItemStack(Items.IRON_INGOT)) && com.claudemod.entity.life.Watchdog.valuable(new ItemStack(Items.IRON_BOOTS)), "valuable(): stone pick no, ingot and boots yes");
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 24000; c.tasks.clear(); c.skillQueue.clear(); W.clear(); com.claudemod.entity.life.Watchdog.linesInTests = true;
+            s802A = h.absolutePos(new BlockPos(3, 40, 8));
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = -1; y <= 3; y++) level.setBlockAndUpdate(s802A.offset(x, y, z), y == -1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState());
+            c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.DIAMOND_BOOTS));
+            for (int i = 0; i < 36; i++) c.getInventory().setItem(i, i == 5 ? new ItemStack(Items.IRON_BOOTS) : new ItemStack(Items.DIRT, 64)); c.getInventory().selected = 0; // (full, the boots worse than his, not in his hand)
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(s802A.getX() + 0.5, s802A.getY(), s802A.getZ() + 0.5); c.fallDistance = 0;
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("dumpJunk", ClaudeEntity.class); m.setAccessible(true); m.invoke(null, c); } catch (ReflectiveOperationException e) { throw new RuntimeException(e); }
+            check(W.contains("THREW_VALUABLE"), "his toss threw the iron boots without THREW_VALUABLE: " + W + " (bag has boots: " + c.getInventory().contains(new ItemStack(Items.IRON_BOOTS)) + ")");
+        }
+        if (t[0] == 60) { // (past the pickup delay: walk him onto them)
+            var boots = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(s802A).inflate(8), e -> e.getItem().is(Items.IRON_BOOTS));
+            check(!boots.isEmpty(), "no thrown boots on the ground");
+            c.getInventory().removeItem(c.getInventory().findSlotMatchingItem(new ItemStack(Items.DIRT)), 64); c.teleportTo(boots.get(0).getX(), boots.get(0).getY(), boots.get(0).getZ());
+        }
+        if (W.contains("THROW_LOOP")) { com.claudemod.entity.life.Watchdog.linesInTests = false; pass(stage, t, "armor in his junk toss and picked back up: " + W); return true; }
+        check(t[0] < 200, "no THROW_LOOP: " + W + " (boots on him: " + c.getInventory().contains(new ItemStack(Items.IRON_BOOTS)) + ")");
         } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
         return true;
     }

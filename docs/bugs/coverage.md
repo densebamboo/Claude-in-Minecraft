@@ -43,6 +43,8 @@ Log watchers (`tools/loopwatch.py`, `tools/pathwatch.py`, run by `tools/selfwatc
 | Out and back: a walk ending within 3 of where an 8+ walk began, inside 60 s, nothing done | Watchdog.backtrack | incident WASTED_WALK | 801 |
 | Off to a furnace/chest 10+ away with an empty furnace / a chest of his within 6 | Watchdog.paceAndSight | incident FAR_STATION | 801 |
 | The same smelt/craft/collect/strip_mine/fetch job as a new step within 5 min of the last | Watchdog.pace | incident SPLIT_JOB | 801 |
+| Junk he threw out picked back up within 2 min, or the same one-of item thrown again (live 05:16: iron boots three times) | Watchdog.thrown / pickedUp | incident THROW_LOOP | 802 |
+| Armor, iron+ tools or ingots/gems in his junk toss (spent wood/stone tools are fine) | Watchdog.thrown | incident THREW_VALUABLE | 802 |
 | Walked over 1.5x (and 8+ more than) the first path planned for a walk | Watchdog.walkLedger + endChecks | incident ROUTE_DETOUR | (no stage yet) |
 | Ore targeted with every face closed; a chest/furnace used (items changed) from 6 or less without line of sight | Watchdog.paceAndSight + endChecks | incident SIGHT | 556 (ore) |
 | Pushing into a block 1 s+ (dragging along leaves/walls) | Watchdog.dragAndWater: `[Claude move] dragging along <block>` | incident DRAG (once per block per 10 min) | 617 |

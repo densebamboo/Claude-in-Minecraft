@@ -89,6 +89,7 @@ public final class OwnEvents {
         ItemStack orig = e.getOriginalStack(), rest = e.getCurrentStack();
         int n = orig.getCount() - (rest.isEmpty() ? 0 : rest.getCount());
         if (n <= 0) return;
+        Watchdog.pickedUp(g, e.getItemEntity().getUUID(), orig);
         String what = id(orig.getItem()); BlockPos at = e.getItemEntity().blockPosition();
         int left = n;
         for (Event l : book(g)) {

@@ -10497,6 +10497,7 @@ public final class ClaudeBodyTest {
             case 724: return st724(stage, t, c, h, level, mock);
             case 725: return st725(stage, t, c, h, level, mock);
             case 726: return st726(stage, t, c, h, level, mock);
+            case 727: return st727(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13680,6 +13681,22 @@ public final class ClaudeBodyTest {
             check(!(rule.skill().equals("gear_up") && r.startsWith("done: through the portal")), "the rules' step in the Nether was gear_up, a no-op there: " + r);
             c.tasks.clear(); c.skillQueue.clear(); c.playerGoal = null; c.dropCurrent = true; nsHome(c, h, level);
             pass(stage, t, "the rules' step in the Nether does something: " + rule.skill() + " " + rule.target()); return true;
+        }
+        return true;
+    }
+
+    /** Live 10:59 + 11:17 11-05 (Nether; REVIEW-48/49; the gold boots): the same plan three times and the rules' step was forced on him in its place (gear_up, a no-op there; its takeback of his bridge), with "do something different" in his notes: he swapped his gold boots for iron "to change it up". A lock, not a decision: the planner hears what the repeated steps gave and plans again itself. */
+    private static boolean st727(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            c.tasks.clear(); c.skillQueue.clear(); c.playerGoal = "beat the ender dragon"; c.planRepeats = 2;
+            c.failReason.put("ender_pearls", "failed: no enderman in sight in this warped forest (a small one): none spawn in 24 of me");
+            var steps = com.google.gson.JsonParser.parseString("[{\"skill\":\"ender_pearls\",\"target\":\"ender_pearl\",\"count\":12,\"where\":\"near_you\"}]").getAsJsonArray();
+            com.claudemod.director.ClaudeLife.planRepeated(c, mock[0], steps);
+            check(c.skillQueue.isEmpty(), "the same plan three times: a step forced on him in its place " + c.skillQueue + " (his rules', not his decision)");
+            check(c.nextPlanTick <= c.tickCount, "the same plan three times: no new plan asked at once (next plan in " + (c.nextPlanTick - c.tickCount) + " ticks)");
+            c.failReason.remove("ender_pearls"); c.playerGoal = null; c.planRepeats = 0; c.dropCurrent = true;
+            pass(stage, t, "a repeated plan goes back to the planner with what its steps gave"); return true;
         }
         return true;
     }

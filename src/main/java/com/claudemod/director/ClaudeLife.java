@@ -165,7 +165,7 @@ public final class ClaudeLife {
                 g.skillQueue.clear();
                 if (g.commandActive && !g.commandResults.isEmpty()) g.commandResults.set(g.commandResults.size() - 1, line + " (round in circles: stopped)"); // (their job isn't done: reportBack keeps at it, the rules carry its step on)
                 lesson(g, "'" + step.skill() + (step.target().isBlank() ? "" : " " + step.target()) + "' kept giving '" + line.substring(line.indexOf("->") + 3) + "' over and over: that approach doesn't work here, try another");
-                PlayerProfile.noteDoing(player, "you went round in circles on '" + line + "': that way isn't working, do something different");
+                PlayerProfile.noteDoing(player, "'" + line + "' came back the same over and over within seconds: run again here it gives the same; what it says stands in the way is the thing to deal with");
                 ClaudeMod.LOGGER.info("[Claude skill] round in circles on \"{}\": stopping that", line); g.attempts.bandaid("round in circles: " + line);
             }
             boolean nightRefusal = result.startsWith("failed") && (result.contains("it's night") || result.contains("it's day,")); // (and the pearl hunt's "it's day": waits for dusk, 02:01 the watchdog asked them for help with it)
@@ -1533,10 +1533,9 @@ public final class ClaudeLife {
         boolean dragonGoal = g.playerGoal != null && g.playerGoal.toLowerCase().contains("dragon");
         boolean kitDone = dragonGoal && Kit.missing(g, true).isEmpty();
         if (kitDone) ClaudeMod.LOGGER.info("[Claude plan] rules: the kit's done (the bow's a want, no part of it): no gear_up (ClaudeLife.ruleStep)");
-        else if (level.dimension() != net.minecraft.world.level.Level.OVERWORLD && Kit.food(g) >= 4) nookSay(g, "ruleNoKit", "[Claude plan] rules: out of the overworld with " + Kit.food(g) + " meals: no gear_up (its kit is the overworld's; there it's a no-op) (ClaudeLife.ruleStep)"); // (as gear_up's own Nether rule: the fallback's gear_up said "through the portal now" and the same plan came back, 10:56-11:30 11-05, stage 724)
+        else if (Kit.behind(g)) nookSay(g, "ruleNoKit", "[Claude plan] rules: the kit's behind him (out of the overworld, " + Kit.food(g) + " meals on him): nothing of it to do here (ClaudeLife.ruleStep)"); // (as gear_up's own Nether rule: the fallback's gear_up said "through the portal now" and the same plan came back, 10:56-11:30 11-05, stage 724)
         else c.add(new Skills.Step("gear_up", "", 1));
         Skills.Step dragonStep = dragonGoal ? dragonNext(g, level) : null; // the run's next step (the portal once the kit's done; the bow once it's the must)
-        if (dragonStep != null && dragonStep.skill().equals("gear_up") && level.dimension() != net.minecraft.world.level.Level.OVERWORLD && Kit.food(g) >= 4) { nookSay(g, "ruleDragonKit", "[Claude plan] rules: the dragon path's gear_up waits for the overworld (" + Kit.food(g) + " meals on him; in here it's a no-op) (ClaudeLife.ruleStep)"); dragonStep = null; } // (stage 724)
         if (dragonStep != null) { c.add(dragonStep); nookSay(g, "ruleDragon", "[Claude plan] rules: the dragon path's next step: " + (dragonStep.skill() + (dragonStep.target().isBlank() ? "" : " " + dragonStep.target())) + " (ClaudeLife.ruleStep)"); }
         boolean pick = !g.inventory.find(s -> s.getItem() instanceof net.minecraft.world.item.PickaxeItem).isEmpty();
         if (pick && !kitDone && level.dimension() == net.minecraft.world.level.Level.OVERWORLD && ((g.blueprint != null && !g.blueprint.isEmpty()) || g.mineFace != null)) c.add(new Skills.Step("strip_mine", "iron_ore", 4)); // (kitted out on the dragon run: iron is no step of it; 11:10 he went down his mine for 4 iron with diamond armor on and the Nether next)
@@ -1630,6 +1629,24 @@ public final class ClaudeLife {
         return true;
     }
 
+    /**
+     * The same plan three times running: it isn't run a fourth time; what each of its steps gave last goes into his notes as fact
+     * and he plans again at once, his own decision on it. (A forced rules step here was a lock: gear_up as a no-op in the Nether,
+     * its takeback of his bridge, and "do something different" swapped his gold boots for iron "to change it up", 11:17 11-05.)
+     */
+    public static void planRepeated(ClaudeEntity g, ServerPlayer player, com.google.gson.JsonArray steps) {
+        StringBuilder got = new StringBuilder();
+        for (var el : steps) {
+            var o = el.getAsJsonObject(); String sk = o.has("skill") ? o.get("skill").getAsString() : "?";
+            String tg = o.has("target") ? o.get("target").getAsString() : "", r = g.failReason.get(sk);
+            got.append(got.length() > 0 ? "; " : "").append(sk).append(tg.isBlank() ? "" : " " + tg).append(" -> ").append(r == null ? "no failure on record (it ran)" : r);
+        }
+        PlayerProfile.noteDoing(player, "your last 3 plans were the same, and each time its steps gave: " + got + ". The same plan again gives the same; what those results say stands in the way is what the next plan has to deal with (or leave for something else)");
+        g.planRepeats = 0;
+        g.nextPlanTick = g.tickCount;
+        ClaudeMod.LOGGER.info("[Claude plan] the same plan three times ({}): not run again; what its steps gave ({}) in his notes, a new plan now, his to make (ClaudeLife.planRepeated)", steps, got);
+    }
+
     private static void startPlan(ClaudeEntity g, ServerPlayer player) {
         g.planning = true;
         g.planStartTick = g.tickCount;
@@ -1686,15 +1703,7 @@ public final class ClaudeLife {
             String signature = d.getAsJsonArray("steps").toString();
             g.planRepeats = signature.equals(g.lastPlan) ? g.planRepeats + 1 : 0;
             g.lastPlan = signature;
-            if (g.planRepeats >= 2 && !g.commandActive) { // (their order repeating is them talking him through it: "hold my spot" three times in a lesson went to gear_up and a strip-mine walk, 14:38)
-                PlayerProfile.noteDoing(player, "you made the same plan three times in a row and it is not getting anywhere: do something different");
-                g.planRepeats = 0;
-                Skills.Step rule = ruleStep(g, player); // the rules' next step instead (was a 10 s wait, then the same plan again)
-                g.skillQueue.add(rule);
-                { Order o0 = orders().get(g.getUUID()); String src = o0 != null && o0.steps().contains(rule) ? "their order (" + o0.goal() + ")" : "his own rules (kit, dragon path, mine, wood)"; // (08:20 11-05: "(obtain)" alone, in the Nether: which rule asked for 6 cobble couldn't be told from the log)
-                ClaudeMod.LOGGER.info("[Claude plan] the same plan three times: by the rules instead ({} {} x{} {}, from {}; the plan repeated: {}) (ClaudeLife plan)", rule.skill(), rule.target(), rule.count(), rule.where(), src, g.lastPlan); }
-                return;
-            }
+            if (g.planRepeats >= 2 && !g.commandActive) { planRepeated(g, player, d.getAsJsonArray("steps")); return; } // (their order repeating is them talking him through it: "hold my spot" three times in a lesson went to gear_up and a strip-mine walk, 14:38)
             for (var el : d.getAsJsonArray("steps")) {
                 var o = el.getAsJsonObject();
                 String sk = o.get("skill").getAsString();
@@ -2925,7 +2934,7 @@ public final class ClaudeLife {
                 return "failed: can't make cover here: nothing to tower with and the ground can't be dug by hand; move onto dirt, or get some blocks";
             }
             case "gear_up": { // the cave kit (iron armor, iron sword, shield, food), or "basic" (a sword and food), in one trip
-                if (level.dimension() != net.minecraft.world.level.Level.OVERWORLD && !g.commandActive) { int meals = Kit.food(g); if (meals >= 4) return "done: through the portal now, the kit's behind me (" + meals + " meals on me): on with the trip"; } // (the kit is the overworld's: live 12:30 World 15 in the Nether its food line sent him "up my stairs and out of the mine for cow" 9 times in 2 s)
+                if (Kit.behind(g)) return "done: through the portal now, the kit's behind me (" + Kit.food(g) + " meals on me): on with the trip"; // (the kit is the overworld's: live 12:30 World 15 in the Nether its food line sent him "up my stairs and out of the mine for cow" 9 times in 2 s)
                 boolean full = !target.equals("basic");
                 var missing = Kit.missing(g, full);
                 String bowNote = full && g.inventory.count(s -> s.is(Items.BOW)) == 0 && !missing.containsKey(Items.BOW) ? bowWantNote(g, level) : null; // the bow: a want, no part of this kit (the user: the Nether wants it, the End needs it)
@@ -13113,7 +13122,7 @@ public final class ClaudeLife {
         var strSpots = com.claudemod.entity.life.ChestLedger.where(g, level, s -> s.is(Items.STRING));
         String strHow = (strSpots.isEmpty() ? "" : "your " + strSpots.get(0).count() + " string at " + strSpots.get(0).pos().toShortString() + ", " + strSpots.get(0).dist() + " blocks off; ") + "spiders at night, a mineshaft's cobwebs";
         return new String[][] {
-            {missing.isEmpty() ? "x" : "", (Kit.netherDone(g) ? "the dragon kit: full diamond armor and tools, a shield, a bucket" : "the Nether kit: armor iron or better, the diamond pick, a sword, a shield, a bucket (a gold piece if he has one; never a wait for diamond armor)") + (missing.isEmpty() ? "" : " (missing " + Kit.describe(missing) + ")"), "gear_up", "gear_up"},
+            {missing.isEmpty() || Kit.behind(g) ? "x" : "", (Kit.behind(g) && !missing.isEmpty() ? "(behind you for now: the overworld's, finished when you're home) " : "") + (Kit.netherDone(g) ? "the dragon kit: full diamond armor and tools, a shield, a bucket" : "the Nether kit: armor iron or better, the diamond pick, a sword, a shield, a bucket (a gold piece if he has one; never a wait for diamond armor)") + (missing.isEmpty() ? "" : " (missing " + Kit.describe(missing) + ")"), "gear_up", "gear_up"},
             {portalUp ? "x" : "", "a nether portal" + (portal != null ? " (yours at " + portal.toShortString() + ")" : ""), "build_portal (it finds lava itself: one you saw, else it explores; obsidian you carry goes in as it is)", "build_portal"},
             {prep ? "x" : "", "Nether prep: a gold armor piece on (piglins leave you be; 4 gold ingots make boots), 16+ food, 64 blocks to bridge and wall with, flint and steel to relight the portal; a bow and arrows go too if you have them (wanted, not needed: a ghast's fireball can be hit back, blazes fought from cover; " + bows + " bow(s), " + arrows + " arrows now)" + (prep ? "" : " (you have: " + (gold ? "gold armor, " : "no gold armor, ") + food + " food, " + blocks + " blocks, " + (fns > 0 ? "flint and steel" : "no flint and steel") + ")"), "obtain golden_boots (gold: strip_mine gold_ore, best at y -16), obtain the food, collect cobblestone", prep ? "" : !gold ? "obtain golden_boots 1" : fns == 0 ? "obtain flint_and_steel 1" : blocks < 64 ? "obtain cobblestone " + (64 - blocks) : food < 16 ? "obtain " + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(Kit.foodChoice(g)).getPath() + " " + (16 - food) : ""}, // (no rule step here sent him strip-mining iron at 11:10, kit done, rods in hand: the rules' mine default won)
             {eyes >= 12 || rods >= 7 ? "x" : "", "blaze rods: 7 (" + rods + " now), off a nether fortress's blazes", "find_fortress (in the Nether: it picks the heading itself, legs along the ground, a look over the open from each end; once there: obtain blaze_rod 7, the blazes fought from cover, and loot fortress for its chests and ripe wart)", away && com.claudemod.entity.life.FortressScout.found(g) == null ? "find_fortress" : ""},

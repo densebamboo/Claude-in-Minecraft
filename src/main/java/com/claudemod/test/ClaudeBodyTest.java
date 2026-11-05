@@ -10412,6 +10412,7 @@ public final class ClaudeBodyTest {
             case 626: return st626(stage, t, c, h, level, mock);
             case 629: return st629(stage, t, c, h, level, mock);
             case 630: return st630(stage, t, c, h, level, mock);
+            case 627: return st627(stage, t, c, h, level, mock);
             case 628: return st628(stage, t, c, h, level, mock);
             case 598: return st598(stage, t, c, h, level, mock);
             case 599: return st599(stage, t, c, h, level, mock);
@@ -12621,6 +12622,38 @@ public final class ClaudeBodyTest {
         boolean walking = c.lastSkillLine != null && c.lastSkillLine.contains("walking to the village");
         if (walking) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; level.setBlockAndUpdate(s629Hay, Blocks.AIR.defaultBlockState()); level.setBlockAndUpdate(s629Hay.north(), Blocks.AIR.defaultBlockState()); pass(stage, t, "a village seen 110 off: bread, iron and a bed planned through it; village_food walks there (" + c.lastSkillLine + ")"); return true; }
         check(t[0] - s629T < 100, "village_food from 110 off: no walk to the village (last " + c.lastSkillLine + ")");
+        return true;
+    }
+
+    /** The user 11-05: the log reviewer. 5 minutes of play past, his log goes to the model; each finding is a REVIEW incident; what was reported goes back in so it isn't filed twice; log_review=off stops it. (The model is faked here.) */
+    private static int s627Calls;
+    private static boolean st627(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        try {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; s627Calls = 0; c.prefs.put("log_review", "on");
+            com.claudemod.entity.life.LogReviewer.call = u -> { s627Calls++; return java.util.concurrent.CompletableFuture.completedFuture("{\"findings\":[{\"what\":\"placed sand at 1, 2, 3 and broke it\",\"expert\":\"leave it\",\"lines\":[\"00:00:01 [Claude temp] sand\"]}]}"); };
+            com.claudemod.entity.life.LogReviewer.reset(c);
+            for (int i = 0; i < 40; i++) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] stage 627 line {}", i);
+        }
+        if (t[0] == 6) {
+            String asked = com.claudemod.entity.life.LogReviewer.lastAsked;
+            check(s627Calls == 1 && asked.contains("stage 627 line 39"), "first read: calls " + s627Calls + ", asked [" + asked.substring(0, Math.min(200, asked.length())) + "]");
+            check(com.claudemod.entity.life.Watchdog.lastIncident.startsWith("REVIEW: placed sand at 1, 2, 3"), "no REVIEW incident: last " + com.claudemod.entity.life.Watchdog.lastIncident);
+            com.claudemod.entity.life.LogReviewer.reset2(c);
+            for (int i = 0; i < 40; i++) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] stage 627 more {}", i);
+        }
+        if (t[0] == 12) {
+            String asked = com.claudemod.entity.life.LogReviewer.lastAsked;
+            check(s627Calls == 2 && asked.startsWith("Already reported:\n- placed sand at 1, 2, 3") && !asked.contains("stage 627 line 39"), "second read: calls " + s627Calls + ", asked [" + asked.substring(0, Math.min(200, asked.length())) + "]");
+            c.prefs.put("log_review", "off"); com.claudemod.entity.life.LogReviewer.reset2(c);
+            for (int i = 0; i < 40; i++) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] stage 627 off {}", i);
+        }
+        if (t[0] == 18) {
+            com.claudemod.entity.life.LogReviewer.call = null; c.prefs.remove("log_review");
+            check(s627Calls == 2, "log_review=off still called the model: " + s627Calls);
+            pass(stage, t, "the reviewer read the log, filed the finding, passed it back, and stopped when switched off");
+        }
+        } catch (AssertionError e) { com.claudemod.entity.life.LogReviewer.call = null; throw e; } // (the fake never outlives the stage)
         return true;
     }
 

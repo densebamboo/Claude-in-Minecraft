@@ -126,6 +126,15 @@ public final class ClaudeApi {
                 .thenApply(text -> JsonParser.parseString(text).getAsJsonObject());
     }
 
+    /** The log reviewer's read of a few minutes of his log (LogReviewer): {findings: [{what, expert, lines}]} as text. The cheap model, always. */
+    public static CompletableFuture<String> review(String prompt, String log) { return complete(prompt, log, REVIEW_SCHEMA, "medium", "claude-haiku-5-5"); }
+
+    private static final JsonObject REVIEW_SCHEMA = JsonParser.parseString("""
+            {"type": "object", "additionalProperties": false, "required": ["findings"],
+             "properties": {"findings": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["what", "expert", "lines"],
+               "properties": {"what": {"type": "string"}, "expert": {"type": "string"}, "lines": {"type": "array", "items": {"type": "string"}}}}}}}
+            """).getAsJsonObject();
+
     /** One chat line Claude sends on his own (reports, remarks). Returns {text}. */
     public static CompletableFuture<JsonObject> line(ServerPlayer player, String truthBlock, String turn) {
         return complete(Persona.systemPrompt(player.getGameProfile().getName()), contextFor(player, truthBlock, turn), LINE_SCHEMA, "high", Config.CHAT_MODEL.get())
@@ -220,7 +229,7 @@ public final class ClaudeApi {
     public static java.nio.file.Path captureDir() { return net.neoforged.fml.loading.FMLPaths.GAMEDIR.get().resolve("claude-capture"); }
     static boolean capturing() { return java.nio.file.Files.isDirectory(captureDir()) && CAPTURED.get() < 120; }
     public static String kindOf(JsonObject schema, String effort) {
-        return schema == PLAN_SCHEMA ? "plan-" + effort : schema == SPEECH_SCHEMA ? "chat" : schema == LINE_SCHEMA ? "line" : schema == READ_SCHEMA ? "notes" : "other";
+        return schema == PLAN_SCHEMA ? "plan-" + effort : schema == SPEECH_SCHEMA ? "chat" : schema == LINE_SCHEMA ? "line" : schema == READ_SCHEMA ? "notes" : schema == REVIEW_SCHEMA ? "review" : "other";
     }
     /** Saves one request body (no key: that's a header) while capturing; a failure never touches the call. */
     public static void capture(String kind, JsonObject body) {
@@ -269,7 +278,7 @@ public final class ClaudeApi {
         body.add("messages", messages);
         body.add("output_config", effort);
         // Thinking counts toward max_tokens; reply length is held by the prompt and cleanReply's cap.
-        body.addProperty("max_tokens", 4096); // room for thinking plus the answer; only used tokens are billed
+        body.addProperty("max_tokens", schema == REVIEW_SCHEMA ? 16000 : 4096); // room for thinking plus the answer; only used tokens are billed (a review of 5 minutes ran past 4096)
         return body;
     }
 

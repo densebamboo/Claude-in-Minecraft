@@ -352,6 +352,7 @@ public final class Watchdog {
     /** Every tick, from the hazard layer: what no single task watches. */
     public static void tick(ClaudeEntity g) {
         if (!g.isAlive()) return;
+        LogReviewer.tick(g);
         St s = st(g);
         // 1. a move no planned move made: more than 3 blocks in one tick (a knock, a fall through, an unlogged teleport)
         if (!Double.isNaN(s.px) && now(g) == s.pTick + 1 && g.level().dimension() == s.pDim) { // (a portal trip is a planned move)

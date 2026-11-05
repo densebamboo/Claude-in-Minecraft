@@ -5156,6 +5156,7 @@ public final class ClaudeLife {
     public static void dumpJunkTest(ClaudeEntity g) { dumpJunk(g); }
     /** Gear past use: armor worse than what he's wearing in its slot, or a third or later copy of the same tool (World 15 00:05: to the fortress with 0 free slots, two iron sets under his diamond, two of every tool). */
     static boolean superseded(ClaudeEntity g, ItemStack st, int slot) {
+        if (com.claudemod.entity.life.Watchdog.valuable(st)) return false; // armor, iron+ tools, ingots: stashed or kept, never junk (live 05:16-05:17 11-05: his spare iron and golden boots and iron helmet thrown out three times, golden boots being his Nether gold piece)
         if (st.getItem() instanceof net.minecraft.world.item.ArmorItem a) { var worn = g.getItemBySlot(a.getEquipmentSlot()); return worn.getItem() instanceof net.minecraft.world.item.ArmorItem w && w.getDefense() > a.getDefense(); }
         if (st.isDamageableItem() && !(st.getItem() instanceof net.minecraft.world.item.ArmorItem)) { int before = 0; for (int i = 0; i < slot; i++) if (g.inventory.items.getItem(i).is(st.getItem())) before++; return before >= 2; }
         return false;

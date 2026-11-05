@@ -10477,6 +10477,7 @@ public final class ClaudeBodyTest {
             case 663: return st663(stage, t, c, h, level, mock);
             case 664: return st664(stage, t, c, h, level, mock);
             case 665: return st665(stage, t, c, h, level, mock);
+            case 666: return st666(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -12790,7 +12791,7 @@ public final class ClaudeBodyTest {
             c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.DIAMOND_BOOTS));
             for (int i = 0; i < 36; i++) c.getInventory().setItem(i, i == 5 ? new ItemStack(Items.IRON_BOOTS) : new ItemStack(Items.DIRT, 64)); c.getInventory().selected = 0; // (full, the boots worse than his, not in his hand)
             com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(s802A.getX() + 0.5, s802A.getY(), s802A.getZ() + 0.5); c.fallDistance = 0;
-            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("dumpJunk", ClaudeEntity.class); m.setAccessible(true); m.invoke(null, c); } catch (ReflectiveOperationException e) { throw new RuntimeException(e); }
+            { var e0 = c.drop(c.getInventory().items.get(5).copy(), false, true); c.getInventory().items.set(5, ItemStack.EMPTY); com.claudemod.entity.life.Watchdog.thrown(c, e0); } // (a toss of the boots, as his junk toss reports one: his own toss keeps armor now, stage 666)
             check(W.contains("THREW_VALUABLE"), "his toss threw the iron boots without THREW_VALUABLE: " + W + " (bag has boots: " + c.getInventory().contains(new ItemStack(Items.IRON_BOOTS)) + ")");
         }
         if (t[0] == 60) { // (past the pickup delay: walk him onto them)
@@ -14148,6 +14149,22 @@ public final class ClaudeBodyTest {
             check(!r2.startsWith("done: already have"), "lava hunt: the branch push was done before it began (" + push + "): " + r2);
             c.skillQueue.clear(); c.tasks.clear();
             pass(stage, t, "the lava hunt's branch push (" + push.count() + " " + push.target() + ") really branches: " + r2);
+        }
+        return true;
+    }
+
+    /** Pack full, diamond boots on, spare iron boots and golden boots and an iron helmet in the bag with stone: the junk toss throws stone, never the armor (live 05:16:51-05:17:51 11-05 World 17: "inventory full: threw out 5 stacks of junk" with the iron and golden boots and the helmet, picked up and thrown again three times; the golden boots are his Nether gold piece). */
+    private static boolean st666(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 24000; c.tasks.clear(); c.skillQueue.clear(); }
+        if (t[0] == 10) {
+            flatBox(h); BlockPos me = h.absolutePos(new BlockPos(6, 2, 6)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.DIAMOND_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.DIAMOND_HELMET));
+            for (int i = 0; i < 36; i++) c.getInventory().setItem(i, i == 5 ? new ItemStack(Items.IRON_BOOTS) : i == 6 ? new ItemStack(Items.GOLDEN_BOOTS) : i == 7 ? new ItemStack(Items.IRON_HELMET) : i < 12 ? new ItemStack(Items.COBBLESTONE, 64) : new ItemStack(Items.DIRT, 64)); c.getInventory().selected = 0;
+            com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+            var inv = c.getInventory();
+            check(inv.contains(new ItemStack(Items.IRON_BOOTS)) && inv.contains(new ItemStack(Items.GOLDEN_BOOTS)) && inv.contains(new ItemStack(Items.IRON_HELMET)), "junk toss: armor thrown out (iron boots " + inv.contains(new ItemStack(Items.IRON_BOOTS)) + ", golden boots " + inv.contains(new ItemStack(Items.GOLDEN_BOOTS)) + ", iron helmet " + inv.contains(new ItemStack(Items.IRON_HELMET)) + ")");
+            check(inv.getFreeSlot() >= 0, "junk toss: no room made");
+            pass(stage, t, "the junk toss made room with stone and kept the spare armor");
         }
         return true;
     }

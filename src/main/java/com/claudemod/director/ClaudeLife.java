@@ -1994,7 +1994,8 @@ public final class ClaudeLife {
                 }
                 if (cobble && pointedTree == null && !"looked_at".equals(st.where()) && !pointingAtIt) { // a few blocks of plain rock near him (a wall, the ground): what any player does for a handful of cobble
                     List<BlockPos> rock = findAll(level, g.blockPosition(), 16, b -> b.is(BlockTags.STONE_ORE_REPLACEABLES) || b.is(BlockTags.DEEPSLATE_ORE_REPLACEABLES), Math.max(count * 3, 12)); // exposed stone: a hillside, a cliff, a cave mouth
-                    rock.removeIf(b -> !touchesAir(level, b) || PlayerProfile.placedBy(player).contains(b) || com.claudemod.entity.life.TempLedger.has(g, b) || !level.getFluidState(b.above()).isEmpty());
+                    rock.removeIf(b -> !touchesAir(level, b) || PlayerProfile.placedBy(player).contains(b) || !level.getFluidState(b.above()).isEmpty());
+                    for (var it = rock.iterator(); it.hasNext(); ) if (com.claudemod.entity.life.TempLedger.has(g, it.next())) it.remove(); // his own way blocks are no rock (a loop, not the lambda: hotswap keeps its shape)
                     rock.removeIf(b -> { // a face he can stand in front of (a hillside, a wall): never a cave or tunnel roof that only "touches air" underneath (he dug at his mine's roof from above through his own floor for 45 s), never his mine's shell or his house (uses houseMode/g.house: this script runs after batch A)
                         if (bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.isShell(b)) return true;
                         if (houseMode(g) && g.house != null && g.house.isStructure(b)) return true;

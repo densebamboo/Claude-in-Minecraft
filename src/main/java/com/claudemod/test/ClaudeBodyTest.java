@@ -10490,6 +10490,7 @@ public final class ClaudeBodyTest {
             case 721: return st721(stage, t, c, h, level, mock);
             case 722: return st722(stage, t, c, h, level, mock);
             case 723: return st723(stage, t, c, h, level, mock);
+            case 724: return st724(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13520,6 +13521,28 @@ public final class ClaudeBodyTest {
             check(toStairs.isEmpty(), "nether hunt: " + toStairs.size() + " walk(s) to his overworld stairs at " + ss.toShortString() + " from the Nether (" + r + "), queue " + c.tasks.stream().limit(6).toList());
             c.tasks.clear(); c.skillQueue.clear(); c.stairStart = null; c.dropCurrent = true; nsHome(c, h, level);
             pass(stage, t, "collect chicken in the Nether: no walk to his overworld stairs (" + r + ")"); return true;
+        }
+        return true;
+    }
+
+    /** Live 10:56-11:30 11-05 (REVIEW-49, Nether): after the same plan three times, the rules' step was gear_up, and gear_up in the Nether with 4+ meals is "done: through the portal now, the kit's behind me", a no-op, then the same plan again. The rules never hand him a step that does nothing where he is: the dragon path's step instead. */
+    private static boolean st724(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(5480, 70, 5480);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            nsArena(nl, o, 10, 10, 10, 8); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 9)); c.setHealth(20); c.getFoodData().setFoodLevel(20); // (no armor: the kit not done, as live)
+            c.playerGoal = "beat the ender dragon"; c.commandActive = false; c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 20) {
+            check(c.level() == nl, "rules in the Nether: not in the Nether (" + c.level().dimension().location() + ")");
+            var rule = com.claudemod.director.ClaudeLife.ruleStep(c, mock[0]);
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], rule.skill(), rule.target(), rule.count());
+            check(!(rule.skill().equals("gear_up") && r.startsWith("done: through the portal")), "the rules' step in the Nether was gear_up, a no-op there: " + r);
+            c.tasks.clear(); c.skillQueue.clear(); c.playerGoal = null; c.dropCurrent = true; nsHome(c, h, level);
+            pass(stage, t, "the rules' step in the Nether does something: " + rule.skill() + " " + rule.target()); return true;
         }
         return true;
     }

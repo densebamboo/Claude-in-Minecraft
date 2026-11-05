@@ -10407,6 +10407,7 @@ public final class ClaudeBodyTest {
             case 621: return st621(stage, t, c, h, level, mock);
             case 622: return st622(stage, t, c, h, level, mock);
             case 623: return st623(stage, t, c, h, level, mock);
+            case 624: return st624(stage, t, c, h, level, mock);
             case 598: return st598(stage, t, c, h, level, mock);
             case 599: return st599(stage, t, c, h, level, mock);
             case 602: return st602(stage, t, c, h, level, mock);
@@ -12425,6 +12426,20 @@ public final class ClaudeBodyTest {
         }
         if (t[0] - s623T >= 20 * 60) levelEnd(c);
         check(t[0] - s623T < 20 * 60, "branches at 32: the south one not 8 rows on in 60 s (" + south + ") now=" + c.currentTask + " tasks=" + c.tasks.size());
+        return true;
+    }
+
+    /** Live 17:24 11-04: a diamond chestplate just crafted, still in his bag, and the queue's "obtain iron_chestplate" planned 8 iron. A better piece carried counts: done. */
+    private static boolean st624(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.tasks.clear(); c.skillQueue.clear(); c.commandActive = false; }
+        if (t[0] == 10) {
+            flatBox(h); c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.DIAMOND_CHESTPLATE));
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "obtain", "iron_chestplate", 1);
+            boolean trip = c.skillQueue.stream().anyMatch(q -> q.target().contains("iron")); c.skillQueue.clear(); c.tasks.clear();
+            check(r != null && r.startsWith("done") && !trip, "a diamond chestplate in his bag: obtain iron_chestplate still planned (" + r + ")");
+            pass(stage, t, "a diamond chestplate in his bag: \"" + r + "\"");
+        }
         return true;
     }
 

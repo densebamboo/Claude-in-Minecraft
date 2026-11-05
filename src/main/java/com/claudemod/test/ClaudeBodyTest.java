@@ -10474,6 +10474,7 @@ public final class ClaudeBodyTest {
             case 662: return st662(stage, t, c, h, level, mock);
             case 663: return st663(stage, t, c, h, level, mock);
             case 664: return st664(stage, t, c, h, level, mock);
+            case 665: return st665(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -14070,6 +14071,30 @@ public final class ClaudeBodyTest {
             check(level.getFluidState(sc).isEmpty() && !level.getBlockState(sc).canBeReplaced(), "water scaffold: his block at " + sc.toShortString() + " came up and let the pool out (task " + c.currentTask + ")");
             if (c.blockPosition().distSqr(dest) <= 3 * 3) pass(stage, t, "his block holding the pool back stayed up; at " + dest.toShortString() + " in " + (t[0] - 10) + " ticks");
             else check(t[0] < 10 + 20 * 40, "water scaffold: not at " + dest.toShortString() + " in 40 s: " + c.currentTask + " " + c.tasks);
+        }
+        return true;
+    }
+
+    /** No lava anywhere, his mine at the diamond level, 2 diamonds on him: the lava hunt's branch push asks for more diamonds than he has, so it really branches (live 04:38-05:00 11-05 World 17: it queued "strip_mine diamond_ore 1", which said "done: already have 2 diamond" each time, went on the failed-3x skip, and the hunt's 12 tries burnt in 1.2 s with not a block dug, 169 skips; the portal "failed: no lava pool ... none found exploring for one"). */
+    private static boolean st665(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.director.ClaudeLife.lavaSeen(c).clear(); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) for (int yy = -3; yy <= 9; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE);
+            for (int x = 2; x <= 9; x++) for (int yy = 2; yy <= 3; yy++) h.setBlock(new BlockPos(x, yy, 4), Blocks.AIR); // his tunnel
+            var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(new BlockPos(2, 2, 4)), net.minecraft.core.Direction.EAST, 1, 2); b.segments.clear();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, h.absolutePos(new BlockPos(2, 2, 4)), net.minecraft.core.Direction.EAST, 8, null)); b.invalidate();
+            c.prefs.put("mine_model", "blueprint"); c.blueprint = b; com.claudemod.director.ClaudeLife.bpSync(c);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.DIAMOND, 2)); c.getInventory().add(new ItemStack(Items.FLINT_AND_STEEL)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); level.setDayTime(1000);
+            c.tasks.clear(); c.skillQueue.clear();
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_portal", "", 1);
+            check(r.contains("branching at my diamond level"), "lava hunt: build_portal said: " + r);
+            com.claudemod.entity.life.Skills.Step push = null; for (com.claudemod.entity.life.Skills.Step s0 : c.skillQueue) if (s0.skill().equals("strip_mine")) { push = s0; break; }
+            check(push != null, "lava hunt: no branch push queued: " + c.skillQueue);
+            String r2 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], push.skill(), push.target(), push.count());
+            check(!r2.startsWith("done: already have"), "lava hunt: the branch push was done before it began (" + push + "): " + r2);
+            c.skillQueue.clear(); c.tasks.clear();
+            pass(stage, t, "the lava hunt's branch push (" + push.count() + " " + push.target() + ") really branches: " + r2);
         }
         return true;
     }

@@ -10559,7 +10559,7 @@ public final class ClaudeLife {
             g.skillQueue.addFirst(st);
             if (inMine && diamondPick(g) && !holding(g, Items.WATER_BUCKET) && holding(g, Items.BUCKET)) { String w0 = obsWater(g, level, () -> g.skillQueue.addFirst(st)); if (w0 != null && !w0.startsWith("failed")) { g.skillQueue.removeFirstOccurrence(st); lavaHunts.put(g.getUUID(), tries); return w0 + " before the lava hunt"; } } // (water over the lava is what makes the obsidian; the diamond level has none)
             if (inMine) { // his mine is at the diamond level, where lava pools lie every few branches: a player pushes branches there, never climbs 75 blocks to wander the surface for one
-                g.skillQueue.addFirst(new Skills.Step("strip_mine", "diamond_ore", 1));
+                g.skillQueue.addFirst(new Skills.Step("strip_mine", "diamond_ore", haveFor(g, level, Items.DIAMOND) + 1)); // one more than he has: a push for 1 was "done: already have 2" before it began, went on the failed-3x skip, and burnt all 12 tries in 1.2 s (live 04:38-05:00 11-05)
                 return "no lava in sight and none I've seen: branching at my diamond level, lava's common down there (" + (tries + 1) + " of " + cap + ")";
             }
             g.skillQueue.addFirst(new Skills.Step("explore", "", 1));

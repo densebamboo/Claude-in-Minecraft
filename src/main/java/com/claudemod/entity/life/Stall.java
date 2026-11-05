@@ -51,6 +51,8 @@ public final class Stall {
             if (bs.requiresCorrectToolForDrops() && !g.getInventory().items.stream().anyMatch(s -> s.isCorrectToolForDrops(bs))) return new Cause(Attempts.Reason.NO_TOOL, nm, null);
             return new Cause(Attempts.Reason.BLOCKED_BLOCK, nm, null);
         }
+        if (path != null && path.getEndNode() != null && Math.sqrt(path.getEndNode().asBlockPos().distSqr(target)) > within + 1) { BlockPos end = path.getEndNode().asBlockPos(); int up = target.getY() - end.getY(); // (the walker's closest cell: live 21:14 its path ended under his feet, a log 5 up, and this read his own cell as "nothing in the way")
+            return new Cause(Attempts.Reason.NO_PATH, "the path stops at " + end.toShortString() + ", " + (int) Math.sqrt(end.distSqr(target)) + " short" + (up > 1 ? " (" + up + " up)" : ""), null); }
         if (path == null || path.isDone() && Math.sqrt(feet.distSqr(target)) > within + 1) return new Cause(Attempts.Reason.NO_PATH, "no path from " + feet.toShortString(), null);
         if (!lv.getBlockState(target).getCollisionShape(lv, target).isEmpty() && g.getEyePosition().distanceTo(net.minecraft.world.phys.Vec3.atCenterOf(target)) > g.blockInteractionRange() + 0.5) return new Cause(Attempts.Reason.OUT_OF_REACH, String.format("%.1f off", g.getEyePosition().distanceTo(net.minecraft.world.phys.Vec3.atCenterOf(target))), null);
         return new Cause(Attempts.Reason.UNKNOWN, "path on, nothing in the way at " + next.toShortString() + ", no headway", null);

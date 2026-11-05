@@ -683,6 +683,7 @@ public class WorkGoal extends Goal {
 
     /** A walk farther than his walker plans, or between the surface and his mine: the whole way planned into legs (Route) and put in its place. */
     private boolean routeOut(Task.GoTo t) {
+        if (Math.sqrt(BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()).distSqr(t.pos())) <= t.within()) return false; // there already: the walk ends, no route (live 21:19: "to -16, 68, -20 (0 blocks off): 3 legs", planned 12 times standing on it)
         var legs = com.claudemod.entity.nav.Route.expand(g, level(), t.pos(), t.within());
         if (legs == null || com.claudemod.entity.nav.Route.walkerTakes(legs)) return false;
         if (legs.isEmpty()) { g.getNavigation().stop(); return true; } // (behind him on a route he's on: Route said so, dropped)

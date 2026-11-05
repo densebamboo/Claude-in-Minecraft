@@ -10438,6 +10438,7 @@ public final class ClaudeBodyTest {
             case 646: return st646(stage, t, c, h, level, mock);
             case 647: return st647(stage, t, c, h, level, mock);
             case 648: return st648(stage, t, c, h, level, mock);
+            case 649: return st649(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -13346,6 +13347,32 @@ public final class ClaudeBodyTest {
             check(ctx.split("\n  -").length >= 10 && ctx.contains(" at ") && ctx.contains(" | want "), "too few tick lines: " + ctx.substring(Math.max(0, ctx.length() - 600)));
             com.claudemod.ClaudeMod.LOGGER.info("[Claude test] stage 648 context:\n{}", ctx);
             pass(stage, t, "the context has the target, the path, the start and " + (ctx.split("\n  -").length - 1) + " trace lines");
+        }
+        return true;
+    }
+
+    private static int st649Start = -1;
+    /** 8 raw iron cooking (80 s), 64 logs on him, no mine, his plan's next step "collect cobblestone": he does that while it cooks, not stand staring at the furnace (the user, 11-04: "he should be doing something productive until it finishes"). */
+    private static boolean st649(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(4, 2, 3)), f = h.absolutePos(new BlockPos(3, 2, 3));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st649Start = -1; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -4; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            level.setBlock(f, Blocks.FURNACE.defaultBlockState(), 3);
+            var fb = (net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity) level.getBlockEntity(f);
+            fb.setItem(0, new ItemStack(Items.RAW_IRON, 8)); fb.setItem(1, new ItemStack(Items.COAL, 2));
+            c.myStations.add(f.immutable()); level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.OAK_LOG, 64)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+        }
+        if (t[0] == 20) { c.tasks.add(new Task.FurnaceTake(f.immutable())); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("collect", "cobblestone", 8, "near_you")); st649Start = t[0]; }
+        if (st649Start > 0 && t[0] > st649Start) {
+            int cobble = c.getInventory().countItem(Items.COBBLESTONE);
+            boolean takeQueued = c.currentTask instanceof Task.FurnaceTake || c.tasks.stream().anyMatch(x -> x instanceof Task.FurnaceTake);
+            if (cobble >= 2) { check(takeQueued || c.getInventory().countItem(Items.IRON_INGOT) > 0, "the furnace was forgotten: no FurnaceTake left after the side job"); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; pass(stage, t, "while it cooked: " + cobble + " cobble in " + (t[0] - st649Start) / 20 + " s, the furnace still queued"); }
+            else check(t[0] - st649Start < 20 * 30, "30 s at the furnace with his plan's step waiting: now=" + c.currentTask + " cobble " + cobble + " plan " + c.skillQueue + " line " + c.lastSkillLine);
         }
         return true;
     }

@@ -549,9 +549,14 @@ public final class ClaudeLife {
         int treeRange = (int) Math.max(20, Math.min(32, (left - 15) * com.claudemod.entity.life.Clocks.SPRINT / 2.5)); // as far as the batch leaves time for: there and back at a sprint plus the chopping (a fixed 20 left him watching 8 iron cook with trees 26 off)
         BlockPos tree = g.getBlockY() >= level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.getBlockX(), g.getBlockZ()) - 1 ? findNear(level, ft.pos(), treeRange, b -> b.is(BlockTags.LOGS)) : null;
         int logs = tree == null ? 0 : (int) Math.max(3, Math.min(6, (left - 2 * com.claudemod.entity.life.Clocks.eta(ft.pos(), tree)) / 6)); // a log every ~6 s with the pickup: as many as the clock holds
+        Skills.Step free = null; // his own plan's next step that doesn't wait on this batch (the user, 11-04: "getting wood, mining, getting food" while it smelts, not staring at the furnace)
+        if (left >= 20) {
+            String outName = level.getRecipeManager().getRecipeFor(net.minecraft.world.item.crafting.RecipeType.SMELTING, new net.minecraft.world.item.crafting.SingleRecipeInput(f.getItem(0)), level).map(rh -> net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(rh.value().getResultItem(level.registryAccess()).getItem()).getPath()).orElse("?");
+            for (Skills.Step s : g.skillQueue) if (Set.of("collect", "strip_mine", "dig_down", "fight", "explore").contains(s.skill()) && !s.target().contains(outName)) { free = s; break; } // (crafts, smelts and stores wait: they may need what's cooking)
+        }
         boolean anyJob = (g.mineFace != null && !g.mineIsTunnel && inHisMine(g, g.blockPosition()) && g.blockPosition().distSqr(g.mineFace) <= 8 * 8)
             || (tree != null && g.inventory.count(st -> st.is(net.minecraft.tags.ItemTags.LOGS)) < 64)
-            || (g.mineFace != null && g.blockPosition().distSqr(g.mineFace) <= 12 * 12) || !g.pillarBlocks.isEmpty();
+            || (g.mineFace != null && g.blockPosition().distSqr(g.mineFace) <= 12 * 12) || !g.pillarBlocks.isEmpty() || free != null;
         if (!anyJob) return; // nothing nearby to do: keep waiting, queue untouched (clearing and re-adding it logged "dropping FurnaceTake" every 5 s, live 01:05 World 15)
         List<Task> rest = new ArrayList<>(g.tasks);
         clearTasks(g);
@@ -562,6 +567,9 @@ public final class ClaudeLife {
             r = runSkill(g, player, new Skills.Step("collect", "logs", logs));
         } else if (g.mineFace != null && f.getItem(0).getCount() >= 2 && g.blockPosition().distSqr(g.mineFace) <= 12 * 12) { // (2 items is 20 s: a batch split over a row of furnaces never reached 6 in any one, and he stood watching charcoal for over a minute) // underground off his mine with a long smelt on (20 raw iron, 70 s stood watching four furnaces): a few blocks of his tunnel meanwhile
             r = runSkill(g, player, new Skills.Step("strip_mine", "iron_ore", 2));
+        } else if (free != null) { // his plan's next step meanwhile: the batch waits in the furnace, its take queued after
+            r = runSkill(g, player, free);
+            if (!g.tasks.isEmpty()) g.skillQueue.remove(free); // (it queued work: done here, not again from the plan; nothing queued: it stays where it was)
         } else if (!g.pillarBlocks.isEmpty()) { // the cover blocks he left about: down while it cooks
             tidyLitter(g, level); r = "tidying the blocks i left";
         }

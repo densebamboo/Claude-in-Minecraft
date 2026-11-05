@@ -10415,6 +10415,7 @@ public final class ClaudeBodyTest {
             case 604: return st604(stage, t, c, h, level, mock);
             case 605: return st605(stage, t, c, h, level, mock);
             case 606: return st606(stage, t, c, h, level, mock);
+            case 607: return st607(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -12765,6 +12766,31 @@ public final class ClaudeBodyTest {
             check(c.isAlive() && c.getHealth() >= 20, "drowning in the 535,13,117 pocket: health " + c.getHealth() + " at " + c.blockPosition().subtract(me) + " y " + String.format("%.2f", c.getY() - me.getY()) + ", pose " + c.getPose() + " sprint " + c.isSprinting() + ", air " + c.getAirSupply());
             if (!c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "out of the 535,13,117 pocket to air in " + (t[0] - 10) + " ticks"); }
             else check(t[0] < 300, "no air within 14 s: at " + c.blockPosition().subtract(me) + ", air " + c.getAirSupply());
+        }
+        return true;
+    }
+
+    private static int st607Top;
+    private static boolean st607(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 18:13 11-04 (532,64,338): night, bare, a stone pick, 5 dirt; a skeleton shot him twice and went out of sight; with a husk 6.6 off he counted "0 shooter(s)", put up a bare 3-high dirt tower and was shot off it 20 -> 0.
+        BlockPos at = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); st607Top = 0; }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -4; yy <= 0; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE); h.setBlock(new BlockPos(x, 1, z), Blocks.DIRT); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            for (int x = 0; x < 16; x++) for (int yy = 2; yy <= 5; yy++) h.setBlock(new BlockPos(x, yy, 14), Blocks.STONE); // a wall: the skeleton behind it, out of his sight
+            level.setDayTime(18000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.DIRT, 5)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 49)); c.setHealth(15); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+            mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            var sk = h.spawn(EntityType.SKELETON, new BlockPos(8, 2, 15)); sk.setPersistenceRequired(); sk.setNoAi(true); // 7 off, behind the wall: it shot him a moment ago
+            c.setLastHurtByMob(sk);
+            var hk = h.spawn(EntityType.HUSK, new BlockPos(2, 2, 6)); hk.setPersistenceRequired(); hk.setTarget(c);
+        }
+        if (t[0] > 10) {
+            int up = c.getBlockY() - at.getY(); st607Top = Math.max(st607Top, up);
+            BlockPos f = c.blockPosition(); boolean lid = !level.getBlockState(f.above(2)).getCollisionShape(level, f.above(2)).isEmpty();
+            check(!(up >= 2 && !lid), "up a bare tower " + up + " high with a skeleton that just shot him about (no lid), health " + (int) c.getHealth() + ", now=" + c.currentTask + " last=" + c.lastSkillLine);
+            if (t[0] >= 210) { for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); pass(stage, t, "no bare tower with a skeleton that just shot him about (highest " + st607Top + " up, health " + (int) c.getHealth() + ")"); }
         }
         return true;
     }

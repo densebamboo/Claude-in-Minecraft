@@ -3093,6 +3093,10 @@ public final class ClaudeLife {
                     var cooks = level.getRecipeManager().getAllRecipesFor(net.minecraft.world.item.crafting.RecipeType.SMELTING);
                     String got = fromMyChests(g, level, s -> cooks.stream().anyMatch(h -> h.value().getResultItem(level.registryAccess()).is(item) && h.value().getIngredients().get(0).test(s)), st);
                     if (got != null) return got;
+                    if (g.tickCount - g.gatherForCraftTick > 20 * 30) { // nothing to smelt into it: the whole chain, like craft (live 11-04: "smelt iron_ingot x12 -> nothing that smelts into it" 443 times after a strip_mine that came back empty)
+                        Procure.Plan plan = Procure.plan(g, level, item, count);
+                        if (plan.problem() == null && plan.steps().size() > 1) { g.gatherForCraftTick = g.tickCount; for (int i = plan.steps().size() - 1; i >= 0; i--) g.skillQueue.addFirst(plan.steps().get(i)); return "nothing on me smelts into " + target + " yet: " + Procure.describe(plan.steps()) + " first"; }
+                    }
                     return "failed: you have nothing that smelts into or from " + target;
                 }
                 boolean hasFuel = !g.inventory.find(t -> (t.is(Items.COAL) || t.is(Items.CHARCOAL) || t.is(ItemTags.LOGS) || t.is(ItemTags.PLANKS) || t.is(Items.STICK)) && !t.is(ItemTags.NON_FLAMMABLE_WOOD)).isEmpty() /* ponytail: crimson/warped wood is no fuel */;

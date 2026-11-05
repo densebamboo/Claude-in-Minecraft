@@ -10407,6 +10407,7 @@ public final class ClaudeBodyTest {
             case 602: return st602(stage, t, c, h, level, mock);
             case 603: return st603(stage, t, c, h, level, mock);
             case 604: return st604(stage, t, c, h, level, mock);
+            case 605: return st605(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -12052,6 +12053,19 @@ public final class ClaudeBodyTest {
     /** Their order "strip_mine iron_ore x12 near_them", the planner's step "x1 near_you" for the same job: the order's own step is queued (live 01:16-07:33 11-04: never matched, the order stayed open 6 h). */
     /** 1 ingot and 4 raw iron, his furnace 44 off: no iron_boots craft queued (smelt sends the raw home, the craft failed "missing iron_ingot" 25 times, live 06:29-06:37 11-04). A furnace on him: the boots are queued. */
     /** He loads and sees the chunks a player's render distance does, not the default client's 2 (live 14:02-14:21 11-04: blind past ~40 blocks, 31 legs scouting for trees). */
+    /** "smelt iron_ingot x12" with no raw iron on him or in his chests: the chain (iron ore, then the smelt), not a failure the planner asks again (live 11-04: 443 lines). */
+    private static boolean st605(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COAL, 8)); c.skillQueue.clear(); c.gatherForCraftTick = -100000;
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "iron_ingot", 12);
+            String q = String.valueOf(c.skillQueue); c.skillQueue.clear(); c.tasks.clear(); c.dropCurrent = true;
+            check(!r.startsWith("failed"), "smelt iron_ingot with no raw iron: " + r);
+            check(q.contains("iron_ore") || q.contains("raw_iron"), "no way to the iron queued: " + q);
+            pass(stage, t, r);
+        }
+        return true;
+    }
     private static int st604View;
     private static boolean st604(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; st604View = level.getServer().getPlayerList().getViewDistance(); level.getServer().getPlayerList().setViewDistance(10); } // (the test server's own is 0: a player's 10)

@@ -75,6 +75,13 @@ Each line is a live report from Day to Day (World 15, 2026-10-31/11-01) not on t
 - **The combat controller** (see CLOUD_HANDOFF.md).
 - **The vanilla-parity audit, the rest of it** (see CLOUD_HANDOFF.md, `bp/parity`).
 
+## Day to Day, 2026-11-04 afternoon (left from the log sweep)
+
+- Chat: "mine through the water plug" (00:48) got "i don't see any water near you, where is it?" The plug was his own mine's water plug. His chat context doesn't know his plugs or his mine's water cells. Big Picture: chat misunderstanding to feature.
+- Fish fights: FIGHT NO EFFECT, 15 s attacking a Salmon 3.5 off with no hit (13:52), and a Cod 48 off as a fight target. Entity reach is 3; he never closed on a swimming fish. The fishing rod or a closer approach in water is the fix. Low priority (food is otherwise fine).
+- Retries on targets below his tunnel floor at 533,16,119 for 13 h (morning log). Not reproduced since; check after the Parked owner (8310565) went live.
+- Mine row 771-784,-58/-57,200: redstone ore at 770 in the row, stone pick, so every dig past it was refused. The user's rule: go round it (Big Picture, live as of 16:10). Parked stops the re-queue loop meanwhile.
+
 ## Bugs
 - The respawn says "no bed" with his bed at -2/-1 16 78 (logged now; find why).
 - After a death he planned to hand his 14 rods to the user, a spectator who can't pick up:

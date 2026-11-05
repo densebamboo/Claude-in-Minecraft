@@ -277,7 +277,7 @@ public final class Watchdog {
         }
         g.failCount.put(fk, 3); // (the plan runner skips a step at 3: the planner picks another way)
         String line = sk.replace('_', ' ') + " keeps failing: " + result.substring(result.indexOf(':') + 1).trim() + " (" + e[0] + " times in " + Math.max(1, (now(g) - e[1]) / 20) + " s"
-                + (r > 0 ? ", got more " + gatherable(lacks) + " first and it still failed" : "") + "). doing something else for now, could you help with that?";
+                + (r > 0 ? ", " + triedFirst(step.skill(), lacks) + " and it still failed" : "") + "). doing something else for now, could you help with that?";
         ClaudeMod.LOGGER.info("[Claude watchdog] TRIP {}: \"{}\" {} times: skipped, the planner told, them told (Watchdog.skillRan)", sk, result, e[0]);
         tell(g, "skill " + sk, line);
         s.skills.remove(k);
@@ -289,6 +289,10 @@ public final class Watchdog {
         return m.find() ? m.group(1).trim() : null;
     }
     /** What a collect step gets for it (the same words the craft skill's own gather uses), or null. */
+    /** What rung 0 did before this trip, said as it was (live 03:41: "got more null first" when it had gone to obtain the iron). */
+    static String triedFirst(String skill, String lacks) {
+        return gatherable(lacks) != null ? "got more " + gatherable(lacks) + " first" : "craft".equals(skill) && lacks != null ? "went for the " + lacks.replace('_', ' ') + " first" : "tried another way first";
+    }
     static String gatherable(String lacks) {
         if (lacks == null) return null;
         return lacks.contains("cobble") || lacks.equals("stone") ? "cobblestone" : lacks.contains("plank") || lacks.contains("log") || lacks.contains("stick") ? "logs" : null;
@@ -459,6 +463,8 @@ public final class Watchdog {
         if (!"cobblestone".equals(missing("failed: to craft furnace you are missing cobblestone"))) throw new AssertionError(missing("failed: to craft furnace you are missing cobblestone"));
         if (!"oak planks".equals(missing("failed: missing 3 oak planks (the table)"))) throw new AssertionError(missing("failed: missing 3 oak planks (the table)"));
         if (!"cobblestone".equals(gatherable("cobbled deepslate"))) throw new AssertionError("deepslate");
+        if (triedFirst("craft", "iron_ingot").contains("null") || !triedFirst("craft", "iron_ingot").contains("iron ingot")) throw new AssertionError(triedFirst("craft", "iron_ingot"));
+        if (!triedFirst("build_here", null).equals("tried another way first")) throw new AssertionError(triedFirst("build_here", null));
         System.out.println("Watchdog self-check passed");
     }
 }

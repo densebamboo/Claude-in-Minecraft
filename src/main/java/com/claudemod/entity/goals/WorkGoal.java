@@ -1618,8 +1618,9 @@ public class WorkGoal extends Goal {
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} at {} is below him: down his tower first", name(level.getBlockState(pos)), pos.toShortString());
             return true;
         }
-        if (g.tickCount - plannedAt().getOrDefault(pos.immutable(), -100000) > 60) {
-            plannedAt().put(pos.immutable(), g.tickCount); if (plannedAt().size() > 64) plannedAt().clear();
+        BlockPos planKey = pos.below(500).immutable(), fromKey = pos.below(1000).immutable(); // (its own keys: a walk plan to the same cell, 3 s throttle, made this skip the plan and give up "no way to it" untried: stage 97, 1 run in 3)
+        if (g.tickCount - plannedAt().getOrDefault(planKey, -100000) > 60 || !Integer.valueOf(feet.hashCode()).equals(plannedAt().get(fromKey))) { // (once per 3 s from one spot; from a new spot, at once)
+            if (plannedAt().size() > 64) plannedAt().clear(); plannedAt().put(planKey, g.tickCount); plannedAt().put(fromKey, feet.hashCode());
             long t0 = System.nanoTime();
             ItemStack scaff = scaffoldBlock();
             var plan = com.claudemod.entity.nav.ActionPath.plan(g, level, feet, pos, 3.2, !scaff.isEmpty(), 3000, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount);

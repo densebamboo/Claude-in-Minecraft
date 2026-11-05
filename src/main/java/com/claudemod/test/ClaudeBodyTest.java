@@ -10455,6 +10455,10 @@ public final class ClaudeBodyTest {
             case 702: return st702(stage, t, c, h, level, mock);
             case 703: return st703(stage, t, c, h, level, mock);
             case 704: return st704(stage, t, c, h, level, mock);
+            case 705: return st705(stage, t, c, h, level, mock);
+            case 706: return st706(stage, t, c, h, level, mock);
+            case 707: return st707(stage, t, c, h, level, mock);
+            case 708: return st708(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -12978,6 +12982,105 @@ public final class ClaudeBodyTest {
         if (t[0] == 20) { c.tasks.clear(); c.tasks.add(new Task.Place(s704P, Items.COBBLESTONE)); }
         if (t[0] > 20 && level.getBlockState(s704P).is(Blocks.COBBLESTONE)) { c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); pass(stage, t, "the patch's drop picked up, the hole patched (" + t[0] + " ticks)"); return true; }
         if (t[0] > 20) check(t[0] < 200, "the patch at " + s704P.toShortString() + " not in after 9 s (a drop 2 off it waited for and never picked up?), now " + c.currentTask + " queue " + c.tasks.stream().limit(6).toList());
+        return true;
+    }
+
+    /** Live 00:49 11-05 (TRIP): at the bottom of a 1x1 hole, patching his own head cell; the step out was the cell beside it, a step up from his feet, but taken as level with the patch, so a flat nudge into the wall instead of a walk up: never out, the place refused 3 times a second. A step-out spot above his feet is walked (climbed) to. */
+    private static BlockPos s705P;
+    private static boolean st705(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = 0; x <= 10; x++) for (int z = 0; z <= 10; z++) for (int y = 1; y <= 6; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.STONE.defaultBlockState(), 2);
+            for (int y = 2; y <= 4; y++) level.setBlock(h.absolutePos(new BlockPos(5, y, 5)), Blocks.AIR.defaultBlockState(), 2); // (his hole: feet, head, one more, rock over it, as live)
+            for (int z = 1; z <= 4; z++) for (int y = 3; y <= 4; y++) level.setBlock(h.absolutePos(new BlockPos(5, y, z)), Blocks.AIR.defaultBlockState(), 2); // (his branch, a step up from the hole's floor)
+            s705P = h.absolutePos(new BlockPos(5, 3, 5));
+            c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16));
+            BlockPos at = h.absolutePos(new BlockPos(5, 2, 5)); lnStand(c, mock, at, at.north(4).above()); c.tasks.clear(); c.skillQueue.clear();
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.tasks.add(new Task.Place(s705P, Items.COBBLESTONE)); c.tasks.add(new Task.Place(s705P.below(), Items.COBBLESTONE)); }
+        if (t[0] > 14 && level.getBlockState(s705P).is(Blocks.COBBLESTONE)) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "out of the hole up its step, the hole patched (" + t[0] + " ticks)"); return true; }
+        if (t[0] > 14) check(t[0] < 160, "patching his hole's head cell at " + s705P.toShortString() + " from its floor: not out and patched in 7 s, at " + c.blockPosition().toShortString() + ", now " + c.currentTask + " queue " + c.tasks.stream().limit(6).toList());
+        return true;
+    }
+
+    /** Live 00:55 11-05 (Big Picture, incident 17): his branch opened onto a flooded pocket with coal in it; the patch waited on "the whole visible vein first", so he went in after the coal, down to the bottom, up for air, back down, round in circles. With water in or by the hole the patch goes in first; the ore behind it waits. */
+    private static BlockPos s706H, s706O; private static boolean s706OreFirst;
+    private static boolean st706(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); s706OreFirst = false; }
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            BlockPos r = lnRow(b, 1, 3).immutable();
+            net.minecraft.core.Direction side = null; for (var d : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && !com.claudemod.director.ClaudeLife.isMineCell(c, r.relative(d)) && level.getBlockState(r.relative(d)).is(Blocks.STONE)) side = d;
+            s706H = r.relative(side).immutable(); s706O = s706H.relative(side).immutable();
+            level.setBlock(s706H, Blocks.AIR.defaultBlockState(), 2); // (a hole in his wall)
+            level.setBlock(s706O, Blocks.COAL_ORE.defaultBlockState(), 2); // (coal showing through it)
+            for (BlockPos q : new BlockPos[] {s706H.above(), s706O.above(), s706H.relative(side.getClockWise())}) level.setBlock(q, Blocks.WATER.defaultBlockState(), 3); // (the flooded pocket round it: water running into the hole)
+            c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            lnStand(c, mock, r.east(), b.entrance); c.tasks.clear(); c.skillQueue.clear(); // (a cell along from the hole: the water running out of it can't push him into it, and "never a block where he stands" isn't what's tested)
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.tasks.add(new Task.Place(s706H, Items.COBBLESTONE)); }
+        if (t[0] > 20) {
+            boolean patched = !level.getBlockState(s706H).getCollisionShape(level, s706H).isEmpty();
+            if (!patched && !level.getBlockState(s706O).is(Blocks.COAL_ORE)) s706OreFirst = true;
+            check(!s706OreFirst, "the hole at " + s706H.toShortString() + " with water running in: he went for the coal behind it before patching it (now " + c.currentTask + ", queue " + c.tasks.stream().limit(6).toList() + ")");
+            if (patched) { c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); pass(stage, t, "a wet hole: patched first, the coal behind it left (" + t[0] + " ticks)"); return true; }
+            check(t[0] < 160, "the wet hole at " + s706H.toShortString() + " not patched in 7 s, now " + c.currentTask + " queue " + c.tasks.stream().limit(6).toList());
+        }
+        return true;
+    }
+
+    /** Live 00:49-00:51 11-05 (the user: "he walks away from what he's doing and then walks back to it"): at the end of his branch, 54 blocks out, pushing it on sent him first to the branch's start at his tunnel and then all the way back. From the branch's end the push starts there: no walk back toward the tunnel. */
+    private static boolean st707(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 30; x++) for (int z = -6; z <= 26; z++) { for (int yy = -3; yy <= 12; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, 13, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); }
+            var E = net.minecraft.core.Direction.EAST; var KB = com.claudemod.entity.life.MineBlueprint.Kind.BRANCH;
+            var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(new BlockPos(2, 12, 8)), E, 2, 3); b.segments.get(0).n = 8; b.invalidate(); // the stairs: y 12 down to 5
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(true), E, 8, null)); b.invalidate(); // the level at y 4
+            b.branchLength = 4; b.branchEvery = 4; b.branchPair(11, 2); b.branchPair(15, 2);
+            com.claudemod.entity.life.MineBlueprint.Segment lng = null; for (var s0 : b.segments) if (lng == null && s0.kind == KB && s0.dir == net.minecraft.core.Direction.SOUTH) lng = s0;
+            lng.n = 10; b.invalidate(); // (his long branch, out south)
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int y = 0; y < r.height(); y++) level.setBlock(f.above(y), Blocks.AIR.defaultBlockState(), 2);
+            for (var s0 : b.segments) if (s0.kind == KB && s0 != lng) { BlockPos end = s0.start.relative(s0.dir, s0.n); level.setBlock(end, Blocks.COBBLESTONE.defaultBlockState(), 2); level.setBlock(end.above(), Blocks.COBBLESTONE.defaultBlockState(), 2); } // (the others plugged: done)
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); com.claudemod.director.ClaudeLife.bpSync(c);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.TORCH, 32)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            BlockPos end = lng.start.relative(lng.dir, lng.n - 1); c.teleportTo(end.getX() + 0.5, end.getY(), end.getZ() + 0.5);
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); level.setDayTime(1000); c.tasks.clear(); c.skillQueue.clear(); c.attempts.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 20) {
+            var b = c.blueprint; com.claudemod.entity.life.MineBlueprint.Segment lng = null; for (var s0 : b.segments) if (lng == null && s0.kind == com.claudemod.entity.life.MineBlueprint.Kind.BRANCH && s0.dir == net.minecraft.core.Direction.SOUTH) lng = s0;
+            int oldN = lng.n; BlockPos me = c.blockPosition(); c.tasks.clear();
+            String line = com.claudemod.director.ClaudeLife.bpAtLevel(c, level, b, h.absolutePos(new BlockPos(0, 4, 0)).getY(), "iron");
+            check(lng.n > oldN, "branch push: his long branch wasn't pushed on from its end (" + oldN + " -> " + lng.n + "): " + line + ", queue " + c.tasks.stream().limit(6).toList());
+            for (Task q : c.tasks) if (q instanceof Task.GoTo g0) { int back = (me.getX() - g0.pos().getX()) * lng.dir.getStepX() + (me.getZ() - g0.pos().getZ()) * lng.dir.getStepZ();
+                check(back <= 2, "branch push from its end at " + me.toShortString() + ": a walk " + back + " back toward the tunnel, to " + g0.pos().toShortString() + " (" + line + "), queue " + c.tasks.stream().limit(6).toList()); }
+            c.tasks.clear(); c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            pass(stage, t, "pushed his branch on from its end, no walk back (" + line + ")"); return true;
+        }
+        return true;
+    }
+
+    /** Live 01:10 11-05 (TRIP, break -99, 15, -24 3 times a second): in water, a dig first plugs where it comes in; the one plug left was parked (refused 3 times), so the queue dropped it, yet it counted as queued and the dig went back in line to plug again, every tick. A parked plug is no plug: the dig goes on (or he gets out of the water). */
+    private static BlockPos s708T, s708Q;
+    private static boolean st708(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            BlockPos r = lnRow(b, 5, 4).immutable();
+            net.minecraft.core.Direction side = null; for (var d : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && !com.claudemod.director.ClaudeLife.isMineCell(c, r.relative(d)) && level.getBlockState(r.relative(d)).is(Blocks.STONE)) side = d;
+            s708Q = r.relative(side).immutable(); s708T = r.relative(net.minecraft.core.Direction.WEST, 2).immutable();
+            level.setBlock(s708T, Blocks.COBBLESTONE.defaultBlockState(), 2); // (the dig: a block in his walkway ahead)
+            BlockPos mate = r.relative(side.getOpposite()); check(com.claudemod.director.ClaudeLife.isMineCell(c, mate), "setup: no row cell beside him at " + mate.toShortString());
+            for (BlockPos q : new BlockPos[] {r, r.above(), mate, mate.above(), s708Q, s708Q.above()}) level.setBlock(q, Blocks.WATER.defaultBlockState(), 2); // (still water over him and the row cell beside him, and where it comes in through the wall: no current to carry him off)
+            c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            lnStand(c, mock, r, b.entrance); c.tasks.clear(); c.skillQueue.clear(); c.setAirSupply(c.getMaxAirSupply());
+            for (BlockPos q : new BlockPos[] {s708Q, s708Q.above(), mate, mate.above()}) { Task plug = new Task.Place(q, Items.COBBLESTONE); ClaudeEntity.ORIGIN.put(plug, "WorkGoal.blockWaterInflow:2940"); c.attempts.counters.put("conflict:" + q.asLong(), 3);
+                com.claudemod.entity.life.Parked.refused(c, plug, "no face in sight (test)"); // (those plugs refused 3 times live: parked, -95, 15, -21 at 01:09:53)
+                check(com.claudemod.entity.life.Parked.blocks(c, plug), "setup: the plug at " + q.toShortString() + " isn't parked"); }
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.tasks.add(new Task.Break(s708T)); }
+        if (t[0] > 20) {
+            if (level.getBlockState(s708T).isAir() || !level.getFluidState(s708T).isEmpty()) { c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); pass(stage, t, "parked plugs: the dig went on (" + (t[0] - 20) + " ticks, in water " + c.isInWater() + ")"); return true; }
+            check(t[0] < 140, "in water at " + c.blockPosition().toShortString() + " with the plug at " + s708Q.toShortString() + " parked: the dig at " + s708T.toShortString() + " never ran in 6 s, now " + c.currentTask + " queue " + c.tasks.stream().limit(6).toList());
+        }
         return true;
     }
 

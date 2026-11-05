@@ -322,6 +322,13 @@ public final class ActionPath {
         final float hp, margin; // his health now; the HP he keeps after any drop (Leaps.margin)
         final java.util.Map<String, String> refused = new java.util.LinkedHashMap<>(); // drops / jumps turned down, and why
         final Map<BlockPos, String> bent = new HashMap<>(); // MAY_BEND: cells a soft rule of his kept, with the rule
+        private java.util.Set<BlockPos> myWater; // the water he's in (joined cells from his feet and head, 256 at most): empty when he's dry
+        boolean inMyWater(BlockPos q) {
+            if (myWater == null) { myWater = new java.util.HashSet<>(); java.util.ArrayDeque<BlockPos> open = new java.util.ArrayDeque<>();
+                if (g.isInWater()) for (BlockPos s0 : new BlockPos[] {g.blockPosition(), g.blockPosition().above()}) if (level.getFluidState(s0).is(net.minecraft.tags.FluidTags.WATER) && myWater.add(s0.immutable())) open.add(s0.immutable());
+                while (!open.isEmpty() && myWater.size() < 256) { BlockPos c0 = open.poll(); for (Direction d : Direction.values()) { BlockPos n0 = c0.relative(d); if (level.getFluidState(n0).is(net.minecraft.tags.FluidTags.WATER) && myWater.add(n0.immutable())) open.add(n0.immutable()); } } }
+            return myWater.contains(q);
+        }
         void refuse(String what, String why) { if (refused.size() < 40) refused.putIfAbsent(what, why); }
         final java.util.Map<BlockPos, Leaps.Fall> falls = new java.util.HashMap<>();
         Leaps.Fall fallAt(BlockPos col) { return falls.computeIfAbsent(col.immutable(), k -> Leaps.fall(g, level, k, k.getY(), 0)); }
@@ -419,7 +426,7 @@ public final class ActionPath {
             else if (hisBuild(p)) { if (mode != Mode.MAY_BEND) return -1; String by = com.claudemod.entity.life.TempLedger.builtCells(g).get(p); bend = bp && g.blueprint.isShell(p) ? "his mine's shell" : house && g.house.isStructure(p) ? "his house" : by != null ? "his build (" + by + ")" : "his build"; }
             if (com.claudemod.director.ClaudeLife.hazard(g, level, p, 1) != null || lavaBy(p)) return -1;
             { String ik = com.claudemod.director.Structures.intactKind(s); if (ik != null && !com.claudemod.entity.life.TempLedger.built(g, p)) { if (intactSaid.isEmpty()) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} at {} is {}'s: kept intact, the way goes round or through its doorways (ActionPath.digSeconds)", s.getBlock().getName().getString(), p.toShortString(), ik); intactSaid.add(p.immutable()); } } // (the structure-intact rule: his own placed bricks aside; a structure block is very dear below, never a wall: shut in with no way round, one is dug and put back, ActionPath.tasks)
-            if (!g.isInWater()) for (Direction d : Direction.values()) if (level.getFluidState(p.relative(d)).isSource() && (com.claudemod.entity.life.Perception.knowsWater(g, p.relative(d)) || com.claudemod.entity.life.Perception.knowsLava(g, p.relative(d)))) return -1; // (holding water back)
+            for (Direction d : Direction.values()) { BlockPos n0 = p.relative(d); if (level.getFluidState(n0).isSource() && (com.claudemod.entity.life.Perception.knowsWater(g, n0) || com.claudemod.entity.life.Perception.knowsLava(g, n0)) && !inMyWater(n0)) return -1; } // (holding water back; in the water, only the water he's in may be dug out of: live 00:09 11-05 the rule was off whenever he was wet, and his walk dug his own plugs and his nook's wall into the flooded pocket)
             if (s.getBlock() instanceof net.minecraft.world.level.block.FallingBlock && !solid(p.below())) return -1; // gravel over nothing: it comes down on him
             boolean right = !s.requiresCorrectToolForDrops();
             float speed = 1f; // bare hands

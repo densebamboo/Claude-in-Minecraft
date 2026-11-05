@@ -2050,14 +2050,15 @@ public class WorkGoal extends Goal {
             java.util.Set<BlockPos> feeds = new java.util.LinkedHashSet<>();
             for (BlockPos f : row.feet()) for (int y = 0; y < row.height(); y++) for (Direction d : Direction.values()) { BlockPos q = f.above(y).relative(d); if (!interior.contains(q) && level.getFluidState(q).is(net.minecraft.tags.FluidTags.WATER)) feeds.add(q.immutable()); }
             for (BlockPos wet : feeds) {
-                ItemStack fill = solidScaffold(); boolean sealed = false;
+                ItemStack fill = solidScaffold(); boolean sealed = false; StringBuilder tried = new StringBuilder();
                 for (Direction against : Direction.values()) {
                     BlockPos support = wet.relative(against); if (level.getBlockState(support).canBeReplaced() || !level.getFluidState(support).isEmpty()) continue;
-                    Vec3 hit = visibleFacePoint(level, g.getEyePosition(), support, against, 4.5); if (hit == null || fill.isEmpty()) continue;
+                    Vec3 hit = visibleFacePoint(level, g.getEyePosition(), support, against, 4.5); if (hit == null || fill.isEmpty()) { tried.append(against.getName()).append(hit == null ? " face hidden; " : " nothing to fill with; "); continue; }
                     g.hold(fill); g.useOnAt(support, against.getOpposite(), true, hit);
                     if (level.getFluidState(wet).isEmpty() && !level.getBlockState(wet).canBeReplaced()) { sealed = true; break; }
+                    tried.append(against.getName()).append(" placed, still ").append(level.getBlockState(wet).getBlock().getName().getString()).append("; ");
                 }
-                com.claudemod.ClaudeMod.LOGGER.info("[Claude mine] water feed {} exposed by {}: {} (WorkGoal.doBreak)", wet.toShortString(), pos.toShortString(), sealed ? "sealed before flow" : "needs a visible supporting face");
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude mine] water feed {} exposed by {}: {} (WorkGoal.doBreak)", wet.toShortString(), pos.toShortString(), sealed ? "sealed before flow" : "needs a visible supporting face (tried from " + String.format("%.2f %.2f %.2f", g.getX(), g.getEyeY(), g.getZ()) + ": " + (tried.length() == 0 ? "no solid face round it" : tried.toString()) + ")");
                 // A forward face hidden by the other plug half becomes reachable when that half opens next; keep working from the dry row.
             }
         }

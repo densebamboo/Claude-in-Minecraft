@@ -10460,6 +10460,7 @@ public final class ClaudeBodyTest {
             case 706: return st706(stage, t, c, h, level, mock);
             case 707: return st707(stage, t, c, h, level, mock);
             case 708: return st708(stage, t, c, h, level, mock);
+            case 709: return st709(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13123,6 +13124,33 @@ public final class ClaudeBodyTest {
         if (t[0] > 20) {
             if (level.getBlockState(s708T).isAir() || !level.getFluidState(s708T).isEmpty()) { c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); pass(stage, t, "parked plugs: the dig went on (" + (t[0] - 20) + " ticks, in water " + c.isInWater() + ")"); return true; }
             check(t[0] < 140, "in water at " + c.blockPosition().toShortString() + " with the plug at " + s708Q.toShortString() + " parked: the dig at " + s708T.toShortString() + " never ran in 6 s, now " + c.currentTask + " queue " + c.tasks.stream().limit(6).toList());
+        }
+        return true;
+    }
+
+    /** Live 01:36-01:38 11-05 (incident 41, 2 min stuck at -92, 16, -46): his mine's patch at -92, 15, -45 was refused 3 times and parked; his walker's way out then put a block in that same cell, and the queue took the way's Put for the parked patch (same block, same cell) and dropped it: every walk "no path, nothing changed since". The way's own Put is his walker's, never held by a park on another system's job. */
+    private static BlockPos s709G; private static java.util.List<BlockPos> s709Puts = new java.util.ArrayList<>();
+    private static boolean st709(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); s709Puts.clear(); }
+        if (t[0] == 10) {
+            for (int x = 0; x <= 10; x++) for (int z = 0; z <= 13; z++) for (int y = -3; y <= 6; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.STONE.defaultBlockState(), 2);
+            for (int z = 1; z <= 12; z++) for (int y = 2; y <= 3; y++) level.setBlock(h.absolutePos(new BlockPos(5, y, z)), Blocks.AIR.defaultBlockState(), 2); // (a tunnel, 1 wide)
+            for (int z = 6; z <= 7; z++) for (int y = -2; y <= 1; y++) level.setBlock(h.absolutePos(new BlockPos(5, y, z)), Blocks.AIR.defaultBlockState(), 2); // (a pit across it, 2 long, 4 deep: no jump, a block or two put down)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            BlockPos at = h.absolutePos(new BlockPos(5, 2, 3)); s709G = h.absolutePos(new BlockPos(5, 2, 10)); lnStand(c, mock, at, s709G); c.tasks.clear(); c.skillQueue.clear();
+        }
+        if (t[0] == 14) { // the way his planner makes across, and its puts parked as another system's refused patch
+            var plan = com.claudemod.entity.nav.ActionPath.plan(c, level, c.blockPosition(), s709G, 1.0, true, 3000, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, new java.util.HashMap<>(), c.tickCount);
+            if (plan != null) for (var a : plan.acts()) if (a instanceof com.claudemod.entity.nav.ActionPath.Act.Put pt) s709Puts.add(pt.pos().immutable());
+            check(!s709Puts.isEmpty(), "setup: his way across the pit puts nothing down: " + (plan == null ? "no way" : plan.acts()));
+            for (BlockPos q : s709Puts) { Task patch = new Task.Place(q, Items.COBBLESTONE); ClaudeEntity.ORIGIN.put(patch, "ClaudeLife.bpIntegrity:11230"); c.attempts.counters.put("conflict:" + q.asLong(), 3);
+                com.claudemod.entity.life.Parked.refused(c, patch, "doPlace line 2580 (test)");
+                check(com.claudemod.entity.life.Parked.blocks(c, patch), "setup: the patch at " + q.toShortString() + " isn't parked"); }
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.tasks.add(new Task.GoTo(s709G, 1.0)); }
+        if (t[0] > 20) {
+            if (c.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(s709G)) < 1.6) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "across the pit on his way's own blocks " + s709Puts + ", the parked patch there notwithstanding (" + (t[0] - 20) + " ticks)"); return true; }
+            check(t[0] < 240, "the walk across the pit to " + s709G.toShortString() + ": at " + c.blockPosition().toShortString() + " after 11 s, the way's puts " + s709Puts + " (parked as a patch), now " + c.currentTask + " queue " + c.tasks.stream().limit(6).toList());
         }
         return true;
     }

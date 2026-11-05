@@ -1222,8 +1222,8 @@ public class WorkGoal extends Goal {
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] long walk to {} ({} blocks): hopping to {} first", pos.toShortString(), (int) hd, mid.toShortString());
             return true;
         } }
-        { var np = g.getNavigation().getPath(); if (np != null && np == walkPath && np.getNextNodeIndex() > walkNode && !np.isDone()) { stuck = 0; lastDist = Math.min(lastDist, d); } walkPath = np; walkNode = np == null ? -1 : np.getNextNodeIndex(); } // on along his route counts as headway (round his house to its door the line to the bed gets no shorter for seconds)
-        if (d < lastDist - 0.5) { lastDist = d; stuck = 0; } else if (++stuck > STUCK_LIMIT) {
+        { var np = g.getNavigation().getPath(); if (np != null && np == walkPath && np.getNextNodeIndex() > walkNode && !np.isDone() && !pos.equals(noWayFor)) { stuck = 0; lastDist = Math.min(lastDist, d); } walkPath = np; walkNode = np == null ? -1 : np.getNextNodeIndex(); } // on along his route counts as headway (round his house to its door the line to the bed gets no shorter for seconds)
+        if (d < lastDist - 0.5 && !pos.equals(noWayFor)) { lastDist = d; stuck = 0; } else if (++stuck > STUCK_LIMIT) { // (a spot every planner has no way to: no headway on the plain path undoes the give-up, live 09:14 11-05 into Nether lava, stage 670)
             // Can't get to this spot: skip just the work tied to it (up to the next walk), keep the rest of the job,
             // and grab whatever already dropped around him first.
             // Later walks to the same spot (or right next to it) in this job would fail the same way: drop those too.

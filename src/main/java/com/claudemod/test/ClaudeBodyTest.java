@@ -10494,6 +10494,7 @@ public final class ClaudeBodyTest {
             case 667: return st667(stage, t, c, h, level, mock);
             case 668: return st668(stage, t, c, h, level, mock);
             case 669: return st669(stage, t, c, h, level, mock);
+            case 670: return st670(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -14545,6 +14546,30 @@ public final class ClaudeBodyTest {
             for (var it : clockItems) it.discard(); c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear(); c.setLastDeathLocation(java.util.Optional.empty()); flatBox(h);
             check(!q.isEmpty() && q.get(0).target().endsWith("_pickaxe") && q.stream().anyMatch(x -> x.skill().equals("recover_drops")), "pick first: no pickaxe on him and the pile shut in rock, but: " + line + ", queued " + q);
             pass(stage, t, "no pickaxe, pile in the rock: " + q.get(0).target() + " first, then the pile (" + line + ")");
+        }
+        return true;
+    }
+
+    /** A walk every planner has no way for is given up at once, though the plain path still gains ground toward it (live 09:14 11-05, World 17 Nether: "no way to -9, 43, -8 ... skipping it", the walk went on 15 s on the vanilla path's headway, into lava at -12, 31, -9, down to 5 HP). */
+    private static boolean st670(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(2, 2, 8)), goal = h.absolutePos(new BlockPos(26, 2, 8));
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000;
+            for (int x = 0; x <= 30; x++) for (int z = -1; z <= 17; z++) for (int y = 1; y <= 8; y++) {
+                boolean edge = z == -1 || z == 17, moat = x >= 17 && x <= 21 && y == 1;
+                level.setBlock(h.absolutePos(new BlockPos(x, y, z)), moat ? Blocks.LAVA.defaultBlockState() : y == 1 || edge && y <= 6 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20f);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear();
+        }
+        if (t[0] == 5) { c.tasks.clear(); c.dropCurrent = true; c.tasks.add(new Task.GoTo(h.absolutePos(new BlockPos(14, 2, 8)), 1.0)); } // (on his way already: live, he was walking when the no-way came)
+        if (t[0] == 16) { c.tasks.clear(); c.dropCurrent = true; c.tasks.add(new Task.GoTo(goal, 1.5)); }
+        if (t[0] == 80) {
+            boolean still = c.currentTask instanceof Task.GoTo gt && gt.pos().equals(goal) || c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo gt && gt.pos().equals(goal));
+            BlockPos at = c.blockPosition(); c.tasks.clear(); c.dropCurrent = true; c.getNavigation().stop(); c.clearFire();
+            for (int x = 0; x <= 30; x++) for (int z = -1; z <= 17; z++) for (int y = 1; y <= 8; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            check(!still, "no way over the lava moat, yet 3 s on the walk to " + goal.toShortString() + " still runs (he's at " + at.toShortString() + "): the plain path's headway undid the give-up");
+            pass(stage, t, "no way with every planner: the walk given up at once (he's at " + at.toShortString() + ")");
         }
         return true;
     }

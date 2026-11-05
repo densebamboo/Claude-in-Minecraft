@@ -365,6 +365,26 @@ public final class FortressScout {
             why[0] = base + (d == first ? "" : "(that way's blocked or scouted) ") + dirName(d) + " in legs of " + LEG + " along the ground, looking out over the open from each end";
             return to;
         }
+        // no open ground in sight any way: through the rock, as a player does with a pickaxe (live 08:10:37, review-95: one leg, then "which way?" with a diamond pick and 40 cobble on him)
+        if (g.inventory.count(x -> x.getItem() instanceof net.minecraft.world.item.PickaxeItem) > 0) for (Direction d : order) {
+            BlockPos to = tunnelEnd(level, me, d, TUNNEL);
+            if (to == null || scouted(s, to, me)) continue;
+            dir[0] = d;
+            why[0] = base + "no open ground in sight that way, so " + dirName(d) + " through the rock (" + TUNNEL + " blocks), looking out from the far end";
+            ClaudeMod.LOGGER.info("[Claude scout] no open ground any way from {}: a tunnel {} to {} (FortressScout.plan)", me.toShortString(), dirName(d), to.toShortString());
+            return to;
+        }
+        return null;
+    }
+    static final int TUNNEL = 40;
+    /** A tunnel's end: the cell len along d at his height (back to 32), never one with lava in it, over it, beside it or a drop under it; rock is fine (the walk digs it). */
+    static BlockPos tunnelEnd(ServerLevel level, BlockPos me, Direction d, int len) {
+        for (int k = len; k >= 32; k -= 4) {
+            BlockPos c = me.relative(d, k); if (!level.hasChunkAt(c)) continue;
+            boolean hot = false; for (BlockPos q : BlockPos.betweenClosed(c.offset(-1, -1, -1), c.offset(1, 2, 1))) if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) { hot = true; break; }
+            if (hot || level.getBlockState(c.below()).getCollisionShape(level, c.below()).isEmpty() && level.getBlockState(c.below(2)).getCollisionShape(level, c.below(2)).isEmpty()) continue;
+            return c.immutable();
+        }
         return null;
     }
 

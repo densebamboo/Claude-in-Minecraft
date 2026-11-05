@@ -10419,6 +10419,7 @@ public final class ClaudeBodyTest {
             case 802: return st802(stage, t, c, h, level, mock);
             case 803: return st803(stage, t, c, h, level, mock);
             case 804: return st804(stage, t, c, h, level, mock);
+            case 805: return st805(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
             case 615: return st615(stage, t, c, h, level, mock);
             case 617: return st617(stage, t, c, h, level, mock);
@@ -12787,6 +12788,33 @@ public final class ClaudeBodyTest {
         }
         check(t[0] < 900, "filed " + W + " (last " + com.claudemod.entity.life.Watchdog.lastIncident + ")");
         } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
+        return true;
+    }
+
+    /** Day to Day 11-05 (live 08:10:37, review-95): find_fortress from a room in solid netherrack (no ground in sight any way), a diamond pick and cobble on him: a heading and a tunnel through the rock, never "no leg left" and a question. */
+    private static boolean st805(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(4936, 70, 5120);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.FortressScout.reset(c); com.claudemod.entity.life.Perception.reset(c); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            var rack = Blocks.NETHERRACK.defaultBlockState(); var air = Blocks.AIR.defaultBlockState();
+            for (int x = -48; x <= 48; x++) for (int z = -48; z <= 48; z++) for (int y = -2; y <= 5; y++) nl.setBlock(o.offset(x, y, z), Math.abs(x) <= 3 && Math.abs(z) <= 3 && y >= 0 && y <= 3 ? air : rack, 2);
+            nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 40)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 20) {
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "find_fortress", "", 1);
+            ClaudeMod.LOGGER.info("[Claude test] 805 find_fortress -> {}", r);
+            check(!r.startsWith("failed") && !r.contains("asked"), "find_fortress in solid rock gave up: " + r);
+            BlockPos lt = com.claudemod.entity.life.FortressScout.legTo(c);
+            check(lt != null && Math.sqrt(lt.distSqr(o)) >= 32, "find_fortress: the leg's end " + lt);
+        }
+        if (t[0] > 20) {
+            double out = Math.sqrt(Math.pow(c.getX() - o.getX(), 2) + Math.pow(c.getZ() - o.getZ(), 2));
+            if (out >= 20) { int took = t[0] - 20; nsHome(c, h, level); pass(stage, t, "out of the rock room by a tunnel " + (int) out + " blocks in " + took + " ticks (leg to " + com.claudemod.entity.life.FortressScout.legTo(c) + ")"); return true; }
+            check(t[0] - 20 < 20 * 60, "still in the rock: " + String.format("%.1f", out) + " out in 60 s, at " + c.blockPosition().toShortString() + " now=" + c.currentTask + " tasks=" + c.tasks);
+        }
         return true;
     }
 

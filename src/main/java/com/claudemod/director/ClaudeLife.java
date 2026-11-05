@@ -11492,7 +11492,7 @@ public final class ClaudeLife {
                 int si = b.segments.indexOf(grow), first = -1, last = -1; List<MineBlueprint.Row> rs1 = b.rows();
                 for (int i = 0; i < rs1.size(); i++) if (rs1.get(i).segment() == si) { if (rs1.get(i).index() >= oldN - 1 && first < 0) first = i; last = i; }
                 if (first >= 0) {
-                    bpWalkTo(g, grow.start.relative(grow.dir.getOpposite())); g.tasks.add(new Task.GoTo(rs1.get(first).first(), 1.0));
+                    bpWalkTo(g, rs1.get(first).first()); g.tasks.add(new Task.GoTo(rs1.get(first).first(), 1.0)); // along his rows from wherever he is to the branch's end (via its mouth only when he's out in the tunnel: from its end, 54 blocks back to the mouth and out again, 00:49 11-05)
                     int n1 = bpReconcile(g, level, first, last, false);
                     g.tasks.add(new Task.MineVisibleOres(3)); g.tasks.add(new Task.Pickup(20));
                     if (grow.n <= oldN) { g.attempts.counters.put("branchDone:" + grow.start.asLong(), g.tickCount); ClaudeMod.LOGGER.info("[Claude life] branch at {} can't go on past {} (cut back at lava, water or his plug): done, the next one", grow.start.toShortString(), oldN); return "that branch is done (it ends at lava): on to the next"; } /* (after the reconcile: the lava cut-back comes there, the sync before it still showed it longer, 05:37) */ ClaudeMod.LOGGER.info("[Claude life] blueprint: no {} yet: his branch at {} goes on from {} to {} before the tunnel ({} task(s))", ore, grow.start.toShortString(), oldN, grow.n, n1);
@@ -11595,7 +11595,7 @@ public final class ClaudeLife {
                 int si = b.segments.indexOf(grow), first = -1, last = -1; List<MineBlueprint.Row> rs1 = b.rows();
                 for (int i = 0; i < rs1.size(); i++) if (rs1.get(i).segment() == si) { if (rs1.get(i).index() >= oldN - 1 && first < 0) first = i; last = i; }
                 if (first >= 0) {
-                    bpWalkTo(g, grow.start.relative(grow.dir.getOpposite())); g.tasks.add(new Task.GoTo(rs1.get(first).first(), 1.0)); // down his tunnel to the branch, then along it to its end
+                    bpWalkTo(g, rs1.get(first).first()); g.tasks.add(new Task.GoTo(rs1.get(first).first(), 1.0)); // along his rows from wherever he is to the branch's end: down his tunnel and into the branch from out there, straight on from its end (never back to its mouth first: 00:49 11-05, stage 707)
                     int n1 = bpReconcile(g, level, first, last, false);
                     g.tasks.add(new Task.MineVisibleOres(3)); g.tasks.add(new Task.Pickup(20));
                     if (grow.n <= oldN) { g.attempts.counters.put("branchDone:" + grow.start.asLong(), g.tickCount); ClaudeMod.LOGGER.info("[Claude life] branch at {} can't go on past {} (cut back at lava, water or his plug): done, the next one", grow.start.toShortString(), oldN); return "that branch is done (it ends at lava): on to the next"; } /* (after the reconcile: the lava cut-back comes there, the sync before it still showed it longer, 05:37) */ ClaudeMod.LOGGER.info("[Claude life] blueprint: no {} yet: his branch at {} goes on from {} to {} ({} task(s))", ore, grow.start.toShortString(), oldN, grow.n, n1);

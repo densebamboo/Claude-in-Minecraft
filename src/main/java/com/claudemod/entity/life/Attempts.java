@@ -87,7 +87,12 @@ public final class Attempts {
         if (worldSig(p) != w.world()) ch = "the blocks round it changed";
         else if (kitSig() != w.kit()) ch = "his tools or blocks changed";
         else if (!w.stood().isEmpty() && w.stood().stream().noneMatch(s0 -> s0.closerThan(g.blockPosition(), far(w.reason()) ? 8 : 2.5))) ch = "he stands somewhere new (" + g.blockPosition().toShortString() + ")";
-        else if (w.mob() != null) { var m = lv.getEntity(w.mob()); if (m == null || !m.isAlive() || !m.blockPosition().closerThan(p, 4)) ch = "the mob in the way moved off"; }
+        else if (w.mob() != null) { var m = lv.getEntity(w.mob()); boolean off = m == null || !m.isAlive();
+            if (!off) { // still on his way: within 4 of the line from where he stood to the walk's end, or of the end itself (the end alone let a mob half-way along go at once: refused, back on 50 ms later, round and round, 10:48 11-05, stage 721)
+                double best = m.blockPosition().closerThan(p, 4) ? 0 : 99; net.minecraft.world.phys.Vec3 e = net.minecraft.world.phys.Vec3.atBottomCenterOf(p), mp = m.position();
+                for (BlockPos s0 : w.stood()) { net.minecraft.world.phys.Vec3 a = net.minecraft.world.phys.Vec3.atBottomCenterOf(s0), v = e.subtract(a); double vv = v.lengthSqr(), tt = vv < 1e-6 ? 0 : Math.max(0, Math.min(1, mp.subtract(a).dot(v) / vv)); best = Math.min(best, mp.distanceTo(a.add(v.scale(tt)))); }
+                off = best > 4; }
+            if (off) ch = "the mob in the way moved off"; }
         if (ch != null) { forget(k, p); com.claudemod.ClaudeMod.LOGGER.info("[Claude attempt] {} at {} back on: {} (was {}{}) (Attempts.changed)", k, p.toShortString(), ch, w.reason(), w.detail().isEmpty() ? "" : " " + w.detail()); }
         return ch;
     }

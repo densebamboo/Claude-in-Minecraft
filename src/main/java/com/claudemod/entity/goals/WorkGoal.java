@@ -897,7 +897,7 @@ public class WorkGoal extends Goal {
                     g.getNavigation().stop();
                     if (g.tickCount - plannedAt().getOrDefault(pos.above(500).immutable(), -100000) > 60) {
                         plannedAt().put(pos.above(500).immutable(), g.tickCount); // (keyed apart from the ordinary plans for this spot)
-                        var plan = com.claudemod.entity.nav.ActionPath.plan(g, (ServerLevel) g.level(), feetCell, pos, Math.max(within, 1.0), false, 3000, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount, threats);
+                        var plan = com.claudemod.entity.nav.ActionPath.plan(g, (ServerLevel) g.level(), feetCell, pos, Math.max(within, 1.0), false, 3000, mayDig(pos) ? com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG : com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount, threats); // (round them through the rock too, with a pick: from a hole the only way round is a tunnel, live 10:46 11-05 Nether, stage 672)
                         if (plan != null) {
                             var tasks = com.claudemod.entity.nav.ActionPath.tasks(plan, feetCell, net.minecraft.world.item.Items.COBBLESTONE, pos, within, (ServerLevel) g.level());
                             queueWay(tasks, "WorkGoal.walkTo");

@@ -10485,6 +10485,7 @@ public final class ClaudeBodyTest {
             case 718: return st718(stage, t, c, h, level, mock);
             case 719: return st719(stage, t, c, h, level, mock);
             case 720: return st720(stage, t, c, h, level, mock);
+            case 721: return st721(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -10503,6 +10504,7 @@ public final class ClaudeBodyTest {
             case 669: return st669(stage, t, c, h, level, mock);
             case 670: return st670(stage, t, c, h, level, mock);
             case 671: return st671(stage, t, c, h, level, mock);
+            case 672: return st672(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -13460,6 +13462,29 @@ public final class ClaudeBodyTest {
         return true;
     }
 
+    /** Live 10:48 11-05 (Nether 76,85,104, pinned 50 min): a walk refused for "4 hostile(s) on the way" was let back on 50 ms later, "the mob in the way moved off": the mob on record (the nearest to him, half-way along) was never within 4 of the walk's END, so the release fired at once, every time; walk, refuse, release, again. A mob that hasn't moved off his way keeps the walk refused. */
+    private static net.minecraft.world.entity.monster.Zombie s721Z;
+    private static boolean st721(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -1; x <= 16; x++) for (int z = -1; z <= 12; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 1; y <= 4; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+            BlockPos me = h.absolutePos(new BlockPos(2, 1, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.attempts.clear(); c.dropCurrent = true;
+            var z = net.minecraft.world.entity.EntityType.ZOMBIE.create(level); BlockPos zp = h.absolutePos(new BlockPos(5, 1, 5)); z.moveTo(zp.getX() + 0.5, zp.getY(), zp.getZ() + 0.5, 0, 0); z.setNoAi(true); z.setSilent(true); z.setPersistenceRequired(); level.addFreshEntity(z); s721Z = z; // (on his way, 3 from him, 7 from the walk's end)
+        }
+        if (t[0] == 15) {
+            BlockPos p = h.absolutePos(new BlockPos(12, 1, 5)), me = c.blockPosition();
+            c.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, p, c.tickCount, me, com.claudemod.entity.life.Attempts.Reason.BLOCKED_MOB, "1 hostile(s) on the way, no way round them", s721Z.getUUID());
+            String ch = c.attempts.changed(com.claudemod.entity.life.Attempts.Kind.WALK, p);
+            check(ch == null, "a walk refused for a mob on his way was let back on with the mob still there (" + ch + "): it's " + String.format("%.1f", s721Z.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(p))) + " from the walk's end, on the way");
+            s721Z.moveTo(s721Z.getX(), s721Z.getY(), s721Z.getZ() + 6, 0, 0); // (now it walks off his way: the walk comes back on)
+            String ch2 = c.attempts.changed(com.claudemod.entity.life.Attempts.Kind.WALK, p);
+            check(ch2 != null, "the mob walked 6 off his way and the walk stayed refused");
+            s721Z.discard(); c.attempts.clear();
+            pass(stage, t, "a walk refused for a mob on his way stays refused while it's there, back on once it's off it (" + ch2 + ")"); return true;
+        }
+        return true;
+    }
+
     /** Live 09:36 11-05 (PLACE_BREAK, REVIEW-175): "a few logs while it cooks" with a stone axe and no iron: the better-tool check put his crafting table down before it knew there was nothing better to make, and the leave-it rule took it back up a second later, nothing crafted. No table goes down for an upgrade he has no makings for. */
     private static boolean st720(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
@@ -14776,6 +14801,34 @@ public final class ClaudeBodyTest {
             double d = sk.distanceTo(c); sk.discard();
             check(legs == null || legs.isEmpty() || !(legs.get(0) instanceof Task.Wait), "walled in with a skeleton " + String.format("%.1f", d) + " off over his head: he waits in cover from it: " + legs);
             pass(stage, t, "a mob at his cell is no reason to wait in cover (" + legs + ")");
+        }
+        return true;
+    }
+
+    /** In a hole in the rock, the vanilla way out climbs through 3 skeletons in the room over him: with a pickaxe he tunnels round them, he isn't held (live 10:46-10:51 11-05, World 17 Nether 76, 85, 104: "4 hostile(s) between him and 90, 90, 104 (a crowd): not walking through them" both ways, the go-round plan NO_DIG only). */
+    private static boolean st672(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(5400, 70, 5400), goal = o.east(12);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            nsArena(nl, o, 12, 12, 12, 8); nsKit(c); c.nextPlanTick = c.tickCount + 20 * 600;
+            for (BlockPos q : BlockPos.betweenClosed(o.offset(-3, -1, -3), o.offset(16, 8, 3))) nl.setBlock(q, Blocks.NETHERRACK.defaultBlockState(), 2);
+            for (BlockPos q : BlockPos.betweenClosed(o.offset(-2, 4, 0), o.offset(14, 6, 0))) nl.setBlock(q, Blocks.AIR.defaultBlockState(), 2); // a 1-wide hall over him, the goal at its far end
+            for (int y = 0; y <= 3; y++) nl.setBlock(o.above(y), Blocks.AIR.defaultBlockState(), 2); nl.setBlock(goal, Blocks.AIR.defaultBlockState(), 2); nl.setBlock(goal.above(), Blocks.AIR.defaultBlockState(), 2); // his hole up into it; the goal a pocket in the rock
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 20) {
+            for (int k = 0; k < 2; k++) { var sk = EntityType.SKELETON.create(nl); BlockPos sp = o.above(2); /* (two in the shaft cell over his head, as live) */ sk.moveTo(sp.getX() + 0.5, sp.getY(), sp.getZ() + 0.5, 0, 0); sk.setNoAi(true); nl.addFreshEntity(sk); }
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.tasks.add(new Task.GoTo(goal, 1.0));
+        }
+        if (t[0] == 100) {
+            boolean dug = false; for (Task q : c.tasks) if (q instanceof Task.Break) dug = true; if (c.currentTask instanceof Task.Break) dug = true;
+            boolean moved = c.blockPosition().getX() > o.getX();
+            for (var m : nl.getEntitiesOfClass(net.minecraft.world.entity.monster.Skeleton.class, new net.minecraft.world.phys.AABB(o).inflate(20))) m.discard();
+            BlockPos at = c.blockPosition(); c.tasks.clear(); c.dropCurrent = true;
+            check(dug || moved, "a hole in the rock, 3 skeletons in the room over him, a pickaxe on him: no tunnel round them in 4 s (at " + at.toShortString() + ", " + c.currentTask + ")");
+            pass(stage, t, "the way round the skeletons through the rock (" + (moved ? "on his way, at " + at.toShortString() : "digging") + ")");
         }
         return true;
     }

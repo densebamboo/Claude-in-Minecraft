@@ -345,7 +345,7 @@ public final class ActionPath {
         /** -1: too close to a threat to stand there; else what being near them adds. */
         double avoidCost(BlockPos t) {
             double add = 0; net.minecraft.world.phys.Vec3 c = net.minecraft.world.phys.Vec3.atBottomCenterOf(t);
-            for (var a : avoid) { double d = Math.sqrt(Math.pow(c.x - a.x, 2) + Math.pow(c.z - a.z, 2)) + Math.abs(c.y - a.y) * 0.5; if (d < 3) return -1; if (d < 7) add += (7 - d) * 2.5; }
+            for (var a : avoid) { double d = Math.sqrt(Math.pow(c.x - a.x, 2) + Math.pow(c.z - a.z, 2)) + Math.abs(c.y - a.y) * 0.5, d0 = Math.sqrt(Math.pow(g.getX() - a.x, 2) + Math.pow(g.getZ() - a.z, 2)) + Math.abs(g.getY() - a.y) * 0.5; if (d < 3 && d < d0 + 0.5) return -1; if (d < 7) add += (7 - d) * 2.5; } // (a step away from one he's already close to is never banned, only priced: two skeletons 2 over his hole banned every cell round him, live 10:46 11-05, stage 672)
             return add;
         }
         Costs(ClaudeEntity g, ServerLevel level, boolean canPlace, Mode mode, Map<BlockPos, Integer> failedAt, int now) {

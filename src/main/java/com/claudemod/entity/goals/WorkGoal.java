@@ -4355,6 +4355,15 @@ public class WorkGoal extends Goal {
             if (ticks > 200) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't get in reach of {} at {} (he's at {})", name(level.getBlockState(target)), target.toShortString(), feet.toShortString()); failed(com.claudemod.entity.life.Attempts.Kind.REACH, target, com.claudemod.entity.life.Attempts.Reason.OUT_OF_REACH, "couldn't get in reach of " + name(level.getBlockState(target))); return true; }
             g.getNavigation().stop(); g.getMoveControl().setWantedPosition(side.getX() + 0.5, side.getY(), side.getZ() + 0.5, 0.5); return false;
         }
+        if (ticks == 1 && g.currentTask != null && !g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.REACH, target, g.tickCount, 0)) { // a far reach goes by his route like any walk (live 13:57-14:22 11-05: straight down through the lake to his furnace by his mine's rows, BLOCKED_FLUID for 25 min; only a GoTo was split into his route's legs)
+            var legs = com.claudemod.entity.nav.Route.expand(g, level, side, side.equals(target) ? 2 : 0.6);
+            if (legs != null && !legs.isEmpty() && !com.claudemod.entity.nav.Route.walkerTakes(legs)) {
+                g.tasks.addFirst(g.currentTask); for (int i = legs.size() - 1; i >= 0; i--) g.tasks.addFirst(legs.get(i));
+                g.getNavigation().stop(); exitWhy = "the way into reach of " + target.toShortString() + " split into " + legs.size() + " legs of his route, the job after (WorkGoal.reachFor)";
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} at {}: into reach by his route, {} legs, then the job (WorkGoal.reachFor)", name(level.getBlockState(target)), target.toShortString(), legs.size());
+                return true;
+            }
+        }
         boolean ended = walkTo(side, side.equals(target) ? 2 : 0.6);
         if (ended && BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()).distSqr(side) > 4) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't get in reach of {} at {} (he's at {})", name(level.getBlockState(target)), target.toShortString(), feet.toShortString()); failed(com.claudemod.entity.life.Attempts.Kind.REACH, target, com.claudemod.entity.life.Attempts.Reason.NO_PATH, "no way to a spot beside the " + name(level.getBlockState(target)) + " at " + side.toShortString()); return true; } // (on record: the furnace rule queued it again every 5 s, live 13:52)
         return false;

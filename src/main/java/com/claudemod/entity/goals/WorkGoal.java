@@ -2941,6 +2941,7 @@ public class WorkGoal extends Goal {
             if (!entry && !(inMine && level.getFluidState(q).isSource() && q.distSqr(g.blockPosition()) <= 16)) continue;
             if (inMine && g.blueprint != null && !g.blueprint.isEmpty()) { int qr = g.blueprint.rowOf(q), mr = g.blueprint.rowOf(g.blockPosition()); if (mr < 0) mr = g.blueprint.rowOf(g.blockPosition().above()); if (qr >= 0 && mr >= 0 && qr < mr) continue; } // never his way back: a walkway cell toward his entrance stays open (he walled himself into a water cell at 50, 18, 82 and drowned; a player walls the water out from the dry side)
             if (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.PLACE, q, g.tickCount, 20 * 300) || com.claudemod.entity.life.Watchdog.off(g, new Task.Place(q, plug.getItem()))) { skipped++; continue; } // (a plug that failed there, or one the watchdog wrote off: not queued again every tick, 150 times in 5 min live)
+            for (Direction d : Direction.values()) { BlockPos w0 = q.relative(d); if (level.getFluidState(w0).is(net.minecraft.tags.FluidTags.WATER)) com.claudemod.entity.life.Perception.sawCell(g, level, w0); } // the water he plugs off is water he knows is there: a plug is never a way through for a walk of his (live 01:16 11-05 his walk bent his own plug open)
             int had = g.tasks.size();
             if (inMine) g.tasks.addFirst(new Task.Break(q));
             int withDig = g.tasks.size();

@@ -10441,6 +10441,9 @@ public final class ClaudeBodyTest {
             case 649: return st649(stage, t, c, h, level, mock);
             case 650: return st650(stage, t, c, h, level, mock);
             case 651: return st651(stage, t, c, h, level, mock);
+            case 652: return st652(stage, t, c, h, level, mock);
+            case 653: return st653(stage, t, c, h, level, mock);
+            case 654: return st654(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -13382,6 +13385,84 @@ public final class ClaudeBodyTest {
             check(c.isAlive() && c.getHealth() >= 14, "drowning in the -81,15,-17 pocket: health " + c.getHealth() + " at " + c.blockPosition().subtract(me) + " y " + String.format("%.2f", c.getY() - me.getY()) + ", air " + c.getAirSupply());
             if (t[0] > 12 && !c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER) && c.getY() >= me.getY() + 6) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "up the shaft to air in " + (t[0] - 10) + " ticks, at " + c.blockPosition().subtract(me)); }
             else check(t[0] < 500, "no air within 24 s: at " + c.blockPosition().subtract(me) + ", air " + c.getAirSupply());
+        }
+        return true;
+    }
+
+    /** Low on air 6 up a flooded shaft whose water runs more than 4 cells over him to a rock roof, the air he came from down the shaft and along a tunnel: he dives back to it (live 23:05 11-04 World 17, -77,17,-17: the way back aimed a cell down, the swim's "up for a breath" saw only 4 cells of water over him, not the rock past them, and floated him there till he drowned). */
+    private static boolean st652(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(1, 2, 1));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(-1, -1, -1), o.offset(8, 16, 3))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            for (int y = 0; y <= 12; y++) level.setBlock(o.offset(0, y, 1), Blocks.WATER.defaultBlockState(), 2); // the shaft: 13 of water, rock over it
+            for (int x = 1; x <= 5; x++) for (int y = 0; y <= 1; y++) level.setBlock(o.offset(x, y, 1), Blocks.WATER.defaultBlockState(), 2); // the tunnel along the bottom, 2 high like his mine's
+            level.setBlock(o.offset(6, 0, 1), Blocks.WATER.defaultBlockState(), 2); level.setBlock(o.offset(6, 1, 1), Blocks.AIR.defaultBlockState(), 2); level.setBlock(o.offset(6, 2, 1), Blocks.AIR.defaultBlockState(), 2); // the air he came from
+            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64));
+            int[][] way = {{6, 0}, {5, 0}, {4, 0}, {3, 0}, {2, 0}, {1, 0}, {0, 0}, {0, 1}, {0, 2}, {0, 3}, {0, 4}, {0, 5}, {0, 6}};
+            for (int[] w : way) { BlockPos p = o.offset(w[0], w[1], 1); c.teleportTo(p.getX() + 0.5, p.getY(), p.getZ() + 0.5); com.claudemod.entity.nav.Route.step(c); }
+            BlockPos me = o.offset(0, 6, 1);
+            c.teleportTo(me.getX() + 0.5, me.getY() + 0.2, me.getZ() + 0.5); c.setSwimming(true); c.setPose(net.minecraft.world.entity.Pose.SWIMMING); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.setAirSupply(50);
+            c.tasks.add(new Task.Wait(1000, false));
+        }
+        if (t[0] > 10) {
+            if (c.getY() <= o.getY() + 1.5) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "dived to the shaft's bottom, the way back, in " + (t[0] - 10) + " ticks, air " + c.getAirSupply()); }
+            else check(t[0] < 10 + 80, "4 s and not down the shaft to the way back: y " + String.format("%.2f", c.getY() - o.getY()) + ", air " + c.getAirSupply()); // (live: he floated up to the water's top instead)
+        }
+        return true;
+    }
+
+    /** (open, not in the gate) The whole way back to air: down the shaft, then along the 2-high tunnel; with the dive fixed he stalls at the tunnel mouth, his forward input full and his speed pushed back. Low on air 6 up a flooded shaft whose water runs more than 4 cells over him to a rock roof, the air he came from down the shaft and along a tunnel: he dives back to it (live 23:05 11-04 World 17, -77,17,-17: the way back aimed a cell down, the swim's "up for a breath" saw only 4 cells of water over him, not the rock past them, and floated him there till he drowned). */
+    private static boolean st653(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(1, 2, 1));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(-1, -1, -1), o.offset(8, 16, 3))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            for (int y = 0; y <= 12; y++) level.setBlock(o.offset(0, y, 1), Blocks.WATER.defaultBlockState(), 2); // the shaft: 13 of water, rock over it
+            for (int x = 1; x <= 5; x++) for (int y = 0; y <= 1; y++) level.setBlock(o.offset(x, y, 1), Blocks.WATER.defaultBlockState(), 2); // the tunnel along the bottom, 2 high like his mine's
+            level.setBlock(o.offset(6, 0, 1), Blocks.WATER.defaultBlockState(), 2); level.setBlock(o.offset(6, 1, 1), Blocks.AIR.defaultBlockState(), 2); level.setBlock(o.offset(6, 2, 1), Blocks.AIR.defaultBlockState(), 2); // the air he came from
+            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64));
+            int[][] way = {{6, 0}, {5, 0}, {4, 0}, {3, 0}, {2, 0}, {1, 0}, {0, 0}, {0, 1}, {0, 2}, {0, 3}, {0, 4}, {0, 5}, {0, 6}};
+            for (int[] w : way) { BlockPos p = o.offset(w[0], w[1], 1); c.teleportTo(p.getX() + 0.5, p.getY(), p.getZ() + 0.5); com.claudemod.entity.nav.Route.step(c); }
+            BlockPos me = o.offset(0, 6, 1);
+            c.teleportTo(me.getX() + 0.5, me.getY() + 0.2, me.getZ() + 0.5); c.setSwimming(true); c.setPose(net.minecraft.world.entity.Pose.SWIMMING); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.setAirSupply(50);
+            c.tasks.add(new Task.Wait(1000, false));
+        }
+        if (t[0] == 130) com.claudemod.ClaudeMod.LOGGER.info("ST653 TRACE {}", com.claudemod.entity.life.Watchdog.context(c));
+        if (t[0] > 10) {
+            check(c.isAlive() && c.getHealth() >= 16, "drowning 6 up the flooded shaft: health " + c.getHealth() + " at " + c.blockPosition().subtract(o) + " y " + String.format("%.2f", c.getY() - o.getY()) + ", air " + c.getAirSupply());
+            if (t[0] > 12 && !c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "back down and along to the air in " + (t[0] - 10) + " ticks, at " + c.blockPosition().subtract(o) + ", health " + c.getHealth()); }
+            else check(t[0] < 400, "no air within 19 s: at " + c.blockPosition().subtract(o) + " y " + String.format("%.2f", c.getY() - o.getY()) + ", air " + c.getAirSupply());
+        }
+        return true;
+    }
+
+    /** Logs to chop, an axe's planks and sticks on him, his own table 10 off that he walked to (and used) 40 s ago: he walks back and makes the axe, no chopping by hand (live 23:19 11-04 World 17: the 60 s mark of the sword's walk to that table held the axe's walk, the table in his pack found no spot, 7 logs by hand). */
+    private static int st654Logs = -1;
+    private static boolean st654(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(1, 2, 1)), table = o.offset(0, 0, 0), tree = o.offset(11, 0, 11);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(-1, -1, -1), o.offset(13, -1, 13))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(-1, 0, -1), o.offset(13, 8, 13))) level.setBlock(p, Blocks.AIR.defaultBlockState(), 2);
+            level.setBlock(table, Blocks.CRAFTING_TABLE.defaultBlockState(), 3); c.myStations.add(table.immutable());
+            for (int y = 0; y < 5; y++) level.setBlock(tree.above(y), Blocks.OAK_LOG.defaultBlockState(), 2);
+            level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 3)); c.getInventory().add(new ItemStack(Items.STICK, 2));
+            c.teleportTo(tree.getX() - 0.5, tree.getY(), tree.getZ() + 0.5); mock[0].teleportTo(tree.getX() + 0.5, tree.getY() + 30, tree.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+            c.attempts.any.put(table.above(700).immutable(), c.tickCount); // (his walk to that table for the sword, just now: it got there)
+            st654Logs = -1;
+        }
+        if (t[0] == 20) c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("collect", "logs", 4, "near_you"));
+        if (t[0] > 20) {
+            int logs = 0; for (int y = 0; y < 5; y++) if (level.getBlockState(tree.above(y)).is(Blocks.OAK_LOG)) logs++;
+            boolean axe = c.getInventory().countItem(Items.WOODEN_AXE) > 0;
+            int tables = 0; for (BlockPos p : BlockPos.betweenClosed(o.offset(-1, 0, -1), o.offset(13, 3, 13))) if (level.getBlockState(p).is(Blocks.CRAFTING_TABLE)) tables++;
+            check(tables <= 1, "a second crafting table down, his own 10 off");
+            check(axe || logs >= 4, "chopping by hand: " + (5 - logs) + " logs down and no axe (axe planks and sticks on him, his table 10 off; line " + c.lastSkillLine + ")");
+            if (axe && logs <= 3) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; pass(stage, t, "made the axe at his table, then chopped: " + (5 - logs) + " logs in " + (t[0] - 20) / 20 + " s"); }
+            else check(t[0] < 20 + 20 * 40, "40 s: logs left " + logs + ", axe " + axe + ", line " + c.lastSkillLine);
         }
         return true;
     }

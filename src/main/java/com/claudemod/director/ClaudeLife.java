@@ -247,7 +247,7 @@ public final class ClaudeLife {
         if (g.level().dimension() != net.minecraft.world.level.Level.OVERWORLD) { // away from home (the Nether): his places (house, mine, farm, chests, beds) are overworld ones; no night rules (a bed set down here explodes), no following; the basics, then the work
             if (g.tickCount % 100 == 0) equipArmor(g);
             if (g.tickCount % 100 == 0) dumpJunk(g); // ponytail: live 13:20, 320 netherrack and 0 free slots in the Nether: this branch never dumped, pickups and crafts failed
-            if (g.tickCount % 20 == 10 && g.getFoodData().getFoodLevel() < 20 && !(g.currentTask instanceof Task.Eat) && !(g.tasks.peekFirst() instanceof Task.Eat) && (g.getFoodData().getFoodLevel() <= 6 || !lavaEdge(g))) { Item f0 = foodToEat(g, true); if (f0 != null) g.tasks.addFirst(new Task.Eat(f0)); } // ponytail: live 15:36 an Eat queued at the END of a 18-leg route (recover_drops) blocked this the whole walk: food 20 -> 6, 63 beef in the pack, killed by a magma cube // (the top-up waits off a lava edge: eating stands him still where a knock is the fall, World 15 13:41 on his 1-wide bridge)
+            if (g.tickCount % 20 == 10 && g.getFoodData().getFoodLevel() < 20 && !(g.currentTask instanceof Task.Eat) && !(g.tasks.peekFirst() instanceof Task.Eat)) { Item f0 = foodToEat(g, true); if (f0 != null) g.tasks.addFirst(new Task.Eat(f0)); } // ponytail: live 15:36 an Eat queued at the END of a 18-leg route (recover_drops) blocked this the whole walk: food 20 -> 6, 63 beef in the pack, killed by a magma cube // (no lava-edge hold: it kept him from eating at all while stuck by lava, live 12:23-12:49 11-05 health 4 food 13; eating is no riskier there than standing)
             if (g.tickCount % 20 == 11 && foodToEat(g, true) == null) eatIfHungry(g, player); // ponytail: the user 16:50, nothing to eat in the Nether: hoglins in the crimson forest, cooked into porkchops (this branch never ran the hunt)
             mlg(g, (ServerLevel) g.level());
             if (g.planning && g.tickCount - g.planStartTick > 20 * 45) g.planning = false;
@@ -4212,8 +4212,29 @@ public final class ClaudeLife {
                     ClaudeMod.LOGGER.info("[Claude prim] place {} -> the bucket poured at his feet {} (ClaudeLife.runSkill place)", target, g.blockPosition().toShortString());
                     return Primitives.pourAt(g, player, st, g.blockPosition(), item);
                 }
-                if (!g.commandActive && item != Items.CHEST && item != Items.TORCH && item != Items.CRAFTING_TABLE && item != Items.FURNACE)
-                    return "failed: you only put blocks down when they ask for it (never on your own guess)"; // his own plan placing cobble wherever they look: no
+                if (!g.commandActive && item != Items.CHEST && item != Items.TORCH && item != Items.CRAFTING_TABLE && item != Items.FURNACE && !"looked_at".equals(st.where()) && !"near_them".equals(st.where())) {
+                    // his own place: a bridge across the gap he's at (lava or a drop under the cells ahead), the way he faces first, walked as it goes down (it was a flat refusal, "never on your own guess": at 13:06 he asked them for leave to bridge 2 blocks of lava and gave up going home; the user: "he should be able to bridge over lava")
+                    if (!(item instanceof net.minecraft.world.item.BlockItem bb) || !bb.getBlock().defaultBlockState().isCollisionShapeFullBlock(level, g.blockPosition())) return "failed: " + target + " is no full block to bridge with (place on my own is a bridge across the gap I'm at)";
+                    if (g.inventory.count(s0 -> s0.is(item)) == 0) return "failed: you don't have " + target;
+                    BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
+                    Direction face = g.getDirection(), way = null; int len = 0; String under = "";
+                    for (Direction d : new Direction[] {face, face.getClockWise(), face.getCounterClockWise(), face.getOpposite()}) {
+                        int n = 0; String u = "";
+                        for (int i = 1; i <= Math.min(count, 8); i++) {
+                            BlockPos c0 = feet.relative(d, i), b0 = c0.below();
+                            if (!level.getBlockState(c0).getCollisionShape(level, c0).isEmpty() || !level.getBlockState(c0.above()).getCollisionShape(level, c0.above()).isEmpty()) { n = 0; break; } // a wall that way: no bridge there
+                            if (!level.getBlockState(b0).getCollisionShape(level, b0).isEmpty()) break; // floor again: the gap ends
+                            n = i; if (u.isEmpty()) u = level.getFluidState(b0).is(net.minecraft.tags.FluidTags.LAVA) ? "lava" : "a drop";
+                        }
+                        if (n > 0) { way = d; len = n; under = u; break; }
+                    }
+                    if (way == null) return "failed: no gap at my feet to bridge (place on my own is a bridge across a gap I'm at the edge of; go_to bridges its own way where it needs one)";
+                    for (int i = 1; i <= len; i++) { g.tasks.add(new Task.Place(feet.below().relative(way, i), item)); g.tasks.add(new Task.GoTo(feet.relative(way, i), 0.4)); }
+                    BlockPos past = feet.relative(way, len + 1);
+                    if (!level.getBlockState(past.below()).getCollisionShape(level, past.below()).isEmpty() && level.getBlockState(past).getCollisionShape(level, past).isEmpty()) g.tasks.add(new Task.GoTo(past, 0.5));
+                    ClaudeMod.LOGGER.info("[Claude skill] place {}: his own, a bridge of {} {} from {} over {} (ClaudeLife.runSkill place)", target, len, way.getName(), feet.toShortString(), under);
+                    return "bridging " + len + " block(s) " + way.getName() + " over " + under + " with " + target;
+                }
                 BlockPos store = storageAt(g);
                 if (item == Items.CHEST && store != null && g.inventory.count(t -> t.is(Items.CHEST)) < 2) { // for the storage: make them first
                     boolean table = ensureCraftingTable(g, level, Items.CHEST);
@@ -13433,7 +13454,7 @@ public final class ClaudeLife {
         }
     }
 
-    private static String situation(ClaudeEntity g, ServerPlayer player) {
+    public static String situation(ClaudeEntity g, ServerPlayer player) {
         BlockPos bed = bed(player);
         BlockPos home = PlayerProfile.baseOrigin(player);
         ItemStack weapon = g.inventory.find(s -> s.getItem() instanceof net.minecraft.world.item.SwordItem || s.getItem() instanceof net.minecraft.world.item.AxeItem);
@@ -13453,8 +13474,9 @@ public final class ClaudeLife {
             bedNote = "BED: you have 3+ " + Kit.woolForBed(g) + " wool, that IS a bed already (3 wool of one colour + 3 planks at a table): craft " + Kit.woolForBed(g) + "_bed now, no more sheep needed\n";
         String facing = "You stand at " + g.blockPosition().toShortString() + " facing " + g.getDirection().getName() + ": \"forward\" is " + g.getDirection().getName() + ", \"back\" " + g.getDirection().getOpposite().getName() + ", \"left\" " + g.getDirection().getCounterClockWise().getName() + ", \"right\" " + g.getDirection().getClockWise().getName() + "; " + player.getName().getString() + " faces " + player.getDirection().getName() + ".\n"; // (he asked "which way is forward" 3 times: his own facing wasn't in what he knows, 14:37)
         String onFort = com.claudemod.entity.life.FortressScout.onFortress(g) ? "YOU ARE STANDING ON THE NETHER FORTRESS (nether bricks under your feet): you're at the fortress, never say you're short of it.\n" : "";
+        String goldNote = ""; if (g.level().dimension() == net.minecraft.world.level.Level.NETHER) for (var sl0 : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET}) { ItemStack w0 = g.getItemBySlot(sl0); if (w0.getItem() instanceof net.minecraft.world.item.ArmorItem a0 && a0.getMaterial().is(net.minecraft.world.item.ArmorMaterials.GOLD)) { goldNote = "YOUR GOLD PIECE: the " + w0.getHoverName().getString().toLowerCase() + " you wear is what keeps piglins calm (without gold on, every piglin attacks you; brutes attack anyway).\n"; break; } } if (goldNote.isEmpty() && g.level().dimension() == net.minecraft.world.level.Level.NETHER) for (int gi = 0; gi < g.inventory.items.getContainerSize(); gi++) { ItemStack gc = g.inventory.items.getItem(gi); if (gc.getItem() instanceof net.minecraft.world.item.ArmorItem a1 && a1.getMaterial().is(net.minecraft.world.item.ArmorMaterials.GOLD)) { goldNote = "NO GOLD ON: every piglin attacks you on sight; the " + gc.getHoverName().getString().toLowerCase() + " in your pack would keep them calm (wear it)." + (char) 10; break; } } // what a player knows about it, his call what to do with it (live 11:17 11-05: "changing it up", his plan swapped his gold boots for iron not knowing, the piglins shot him to 6 HP)
         String biomeNow = onFort + "YOUR BIOME (exact, what F3 shows you; never guess one from the ground): " + g.level().getBiome(g.blockPosition()).unwrapKey().map(k -> k.location().getPath().replace('_', ' ')).orElse("unknown") + ".\n"; /* the user: he should be able to tell which biome he is in (00:04: he planned an enderman hunt off a guessed biome) */
-        return facing + biomeNow + urgent + own + bedNote + com.claudemod.entity.life.MindLog.recent() + com.claudemod.entity.life.OwnEvents.describe(g) + Primitives.describe(g) + dragonPath(g, (ServerLevel) g.level()) + com.claudemod.entity.life.Clocks.describe(g, (ServerLevel) g.level()) + Senses.describe(g) + nookLine(g, (ServerLevel) g.level()) + Structures.describe(g, (ServerLevel) g.level()) + com.claudemod.entity.life.FortressFight.mobFacts(g, g.playerGoal) + com.claudemod.entity.life.PortalMap.describe(g) + com.claudemod.entity.life.FortressScout.describe(g, (ServerLevel) g.level()) + com.claudemod.entity.life.TempLedger.describe(g, (ServerLevel) g.level())
+        return facing + biomeNow + goldNote + urgent + own + bedNote + com.claudemod.entity.life.MindLog.recent() + com.claudemod.entity.life.OwnEvents.describe(g) + Primitives.describe(g) + dragonPath(g, (ServerLevel) g.level()) + com.claudemod.entity.life.Clocks.describe(g, (ServerLevel) g.level()) + Senses.describe(g) + nookLine(g, (ServerLevel) g.level()) + Structures.describe(g, (ServerLevel) g.level()) + com.claudemod.entity.life.FortressFight.mobFacts(g, g.playerGoal) + com.claudemod.entity.life.PortalMap.describe(g) + com.claudemod.entity.life.FortressScout.describe(g, (ServerLevel) g.level()) + com.claudemod.entity.life.TempLedger.describe(g, (ServerLevel) g.level())
                 + "your weapon: " + (weapon.isEmpty() ? "NONE (a stone sword is 2 cobblestone + 1 stick; make one before any fight, cave or dungeon, you won't fight bare-handed)" : Crafting.name(weapon.getItem())) + "\n"
                 + "where they are: " + com.claudemod.entity.life.Whereabouts.describe(g, player) + (com.claudemod.entity.life.Whereabouts.seesNow(g, player) ? "; they can see you: " + (g.targetIsFacingMe() ? "yes" : "no") : "") + "\n"
                 + "your place: " + (home == null ? "you have not started one" : (int) Math.sqrt(home.distSqr(g.blockPosition())) + " blocks from you") + "\n"

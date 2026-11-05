@@ -26,7 +26,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
  * The whole way somewhere, planned before he sets off, the way a player knows his world: over the land (round cliffs, trees,
  * lava, across water) in legs his walker takes one at a time; into his mine by its way in and down its rows when the spot is
  * down his mine, and back out the same way. A GoTo farther than his walker plans, or one that goes between the surface and his
- * mine, becomes those legs. A leg he can't walk: the rest of that route dropped and the walk planned again round it (12 plans in a row at most).
+ * mine, becomes those legs. A leg he can't walk: the rest of that route dropped and the walk planned again round it (however many times: a count that handed a 47-block Nether walk to his 28-block walker was a lock, 13:05 11-05).
  * Land not loaded yet: planned up to its edge, then planned again from there.
  */
 public final class Route {
@@ -77,12 +77,11 @@ public final class Route {
     public static boolean walkerTakes(List<Task> legs) { return legs == MARK; }
     /** A walk one of his routes queued (its own copy). */
     public static boolean owns(ClaudeEntity g, Task t) { List<Active> rs = routes.get(g.getUUID()); if (rs == null || t == null) return false; for (Active r : rs) if (r.indexOf(t) >= 0) return true; return false; }
-    private static final Map<UUID, BlockPos> planFor = new HashMap<>(); private static final Map<UUID, Integer> plans = new HashMap<>(); // plans made in a row for one spot (12 and his walker takes it)
 
     /** A leg of the route he's on (never expanded again). */
     public static boolean isLeg(ClaudeEntity g, BlockPos p) { List<Active> rs = routes.get(g.getUUID()); if (rs != null) for (Active r : rs) if (r.legs.contains(p) && live(g, r)) return true; return false; }
 
-    /** A leg he couldn't walk: the rest of the route dropped, and the walk to its end planned again round the failed spot (12 plans in a row at most). */
+    /** A leg he couldn't walk: the rest of the route dropped, and the walk to its end planned again round the failed spot. */
     public static void legFailed(ClaudeEntity g, BlockPos p) {
         Active a = active.get(g.getUUID()); if (a == null || !a.legs.contains(p)) return;
         boolean still = g.tasks.stream().anyMatch(t -> t instanceof Task.GoTo go && (a.legs.contains(go.pos()) || go.pos().equals(a.target)));
@@ -273,11 +272,6 @@ public final class Route {
             started = true; out.add(new Task.GoTo(p, slack.get(i))); mark.add(p.immutable()); last = p;
         }
         out.add(new Task.GoTo(to, within)); if (!again) mark.add(to.immutable());
-        int n = to.equals(planFor.get(g.getUUID())) ? plans.getOrDefault(g.getUUID(), 0) + 1 : 1;
-        planFor.put(g.getUUID(), to.immutable()); plans.put(g.getUUID(), n);
-        if (n > 12) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] to {}: planned 12 times without getting there, his walker takes it as it is", to.toShortString());
-            g.attempts.bandaid("planned the way to " + to.toShortString() + " 12 times from " + g.blockPosition().toShortString()); // (a give-up that hides a bug: filed)
-            return null; }
         Active a = new Active(to.immutable(), within, mark, out, !again, g.tickCount);
         active.put(g.getUUID(), a); List<Active> rs = routes.computeIfAbsent(g.getUUID(), k -> new ArrayList<>()); rs.add(a); while (rs.size() > 8) rs.remove(0);
         com.claudemod.ClaudeMod.LOGGER.info("[Claude route] to {} ({} blocks off): {} legs, {}", to.toShortString(), (int) Math.sqrt(g.blockPosition().distSqr(to)), out.size(), why);

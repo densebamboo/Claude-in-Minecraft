@@ -36,6 +36,11 @@ public final class Kit {
         return g.inventory.count(s -> s.has(DataComponents.FOOD) && !ClaudeLife.rawOrBad(level, s));
     }
 
+    /** The cave kit is the overworld's (its iron, its cows, his chests): through the portal on his own run with 4+ meals on him, it's behind him till he's home, nothing of it to do where he is. What gear_up, the dragon roadmap and the rules all go by. */
+    public static boolean behind(ClaudeEntity g) {
+        return g.level().dimension() != net.minecraft.world.level.Level.OVERWORLD && !g.commandActive && food(g) >= 4;
+    }
+
     /** Wearing something at least as good, or carrying the piece itself (it goes on at the next armor check). */
     static boolean has(ClaudeEntity g, Item armor) {
         ArmorItem a = (ArmorItem) armor;

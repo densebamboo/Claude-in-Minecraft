@@ -22,6 +22,7 @@ public final class MindLog {
                 if (!m.startsWith("[Claude ") && !m.startsWith("[Claude]")) return;
                 String t = java.time.LocalTime.ofInstant(java.time.Instant.ofEpochMilli(e.getTimeMillis()), java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss")); // (toString drops ":00" seconds: "08:31 [C" broke the 8-char parse in recent(), 3 plans lost 11-04)
                 LogReviewer.add(t, m); // (the reviewer reads the where lines too)
+                Watchdog.logged(m);
                 for (String s : SKIP) if (m.startsWith(s)) return;
                 String line = t + " " + (m.length() > 220 ? m.substring(0, 220) + "..." : m);
                 synchronized (lines) { lines.addLast(line); while (lines.size() > KEEP) lines.removeFirst(); }

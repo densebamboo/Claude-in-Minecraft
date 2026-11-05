@@ -4062,7 +4062,7 @@ public class WorkGoal extends Goal {
                 ItemStack fuel = g.inventory.find(s -> s.is(net.minecraft.world.item.Items.COAL) || s.is(net.minecraft.world.item.Items.CHARCOAL));
                 int fuelCount = Math.max(1, (n + 7) / 8);
                 if (fuel.isEmpty()) { fuel = g.inventory.find(s -> s.is(net.minecraft.tags.ItemTags.LOGS) || s.is(net.minecraft.tags.ItemTags.PLANKS)); fuelCount = Math.max(1, (n * 2 + 2) / 3); }
-                if (!fuel.isEmpty()) furnace.setItem(1, fuel.split(Math.min(fuelCount, fuel.getCount())));
+                if (!fuel.isEmpty()) { furnace.setItem(1, fuel.split(Math.min(fuelCount, fuel.getCount()))); fuelLine(t.pos(), furnace.getItem(1), n); }
             }
             furnace.setChanged();
             g.swing(InteractionHand.MAIN_HAND);
@@ -4158,11 +4158,17 @@ public class WorkGoal extends Goal {
             int add = Math.max(0, Math.min(need - fuelSlot.getCount(), fuel.getCount()));
             if (add > 0) {
                 if (fuelSlot.isEmpty()) furnace.setItem(1, fuel.split(add)); else { fuelSlot.grow(add); fuel.shrink(add); }
+                fuelLine(t.pos(), furnace.getItem(1).copyWithCount(add), total);
             }
         }
         furnace.setChanged();
         g.swing(InteractionHand.MAIN_HAND);
         return true;
+    }
+
+    /** What went in as fuel (the bug log: whole logs burnt are a LOG_FUEL incident). */
+    private void fuelLine(BlockPos at, ItemStack fuel, int items) {
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude smelt] fuel at {}: {} {} for {} items{}", at.toShortString(), fuel.getCount(), itemName(fuel), items, fuel.is(net.minecraft.tags.ItemTags.LOGS) ? " (whole logs)" : "");
     }
 
     /** Wait at a loaded furnace until it has cooked everything, then take the results. */

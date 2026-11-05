@@ -37,6 +37,9 @@ public final class Watchdog {
     public static final int SKILL_WINDOW = 20 * 300;
 
     static final class St {
+        int dragTicks; String dragBlock = ""; BlockPos dragAt; // walking into a block (leaves, a wall) and sliding along it
+        int wetSince = -1; double wetX, wetY, wetZ;              // in water since, from where
+        String wetDoing = "nothing"; boolean wetWalk;             // what he was at in the water (the walk ends as he lands)
         final Map<String, int[]> ends = new HashMap<>();     // action key -> {no-progress ends, first tick}
         final Map<String, int[]> rung = new HashMap<>();     // action key -> {rung reached, tick}
         final Map<String, int[]> skills = new HashMap<>();   // failed skill line -> {times, first tick}
@@ -350,9 +353,92 @@ public final class Watchdog {
     }
 
     /** Every tick, from the hazard layer: what no single task watches. */
+    // ---- log-line detectors (the user 11-05: "everything that constitutes a bug logged properly"; docs/bugs/coverage.md): a failed step, a conflict, litter he logged, each an incident once per kind and spot in 10 min
+    private static final java.util.concurrent.ConcurrentLinkedQueue<String> LOGGED = new java.util.concurrent.ConcurrentLinkedQueue<>();
+    private static final java.util.Map<String, Integer> filed = new java.util.HashMap<>();
+    public static boolean linesInTests = false; // (off in the gate: every stage's failed lines would file one; the line stage turns it on)
+    /** One [Claude ...] line (from MindLog's appender, any thread). */
+    public static void logged(String m) { if (!m.startsWith("[Claude incident]") && lineKind(m) != null) LOGGED.add(m); }
+    static String lineKind(String m) {
+        if (m.startsWith("[Claude litter]")) return "LITTER";
+        if (m.startsWith("[Claude smelt] fuel")) return m.contains("(whole logs)") ? "LOG_FUEL" : null; // (the user 11-04: "turn them into planks first": a log is 1.5 items of fuel, its 4 planks 6)
+        if (m.startsWith("[Claude conflict]")) return m.contains("in his cover") ? null : "CONFLICT"; // (the night hold's status line repeats by design: not a fight)
+        return m.contains("-> failed") ? "FAILED" : null;
+    }
+    /** The rate-limit key: the kind, the spot for litter, and its words without numbers or the [Claude x] tag (a skill line and the watchdog's echo of it are one). */
+    static String lineKey(String kind, String m) {
+        var spot = java.util.regex.Pattern.compile("-?\\d+, -?\\d+, -?\\d+").matcher(m);
+        String words = m.replaceFirst("^\\[Claude [a-z]+\\] ", "").replaceAll("\\([^()]*\\)", "").replaceAll("\\d+", "#").replaceAll("[^A-Za-z#]+", " ").trim(); // (punctuation differs between a line and its echo)
+        return kind + "|" + (kind.equals("LITTER") && spot.find() ? spot.group() : "") + "|" + words.substring(0, Math.min(50, words.length())); // (litter: each spot is its own mess; a conflict or failure is one rule's bug wherever it hits: by spot it was 90 an hour, World 17)
+    }
+    private static void lineIncidents(ClaudeEntity g) {
+        for (String m; (m = LOGGED.poll()) != null; ) {
+            if (com.claudemod.entity.ClaudeSpawner.testing && !linesInTests) continue;
+            String kind = lineKind(m);
+            fileOnce(g, kind, lineKey(kind, m), m.length() > 400 ? m.substring(0, 400) : m);
+        }
+    }
+    /** An incident once per key in 10 min. */
+    private static void fileOnce(ClaudeEntity g, String kind, String k, String why) {
+        Integer t0 = filed.get(k);
+        if (t0 != null && now(g) - t0 < 20 * 600 && now(g) >= t0) return;
+        if (filed.size() > 500) filed.clear();
+        filed.put(k, now(g));
+        incident(g, kind, why);
+    }
+    /**
+     * Movement a player wouldn't make, logged (World 17: dragging along leaves, a slow river crossing, neither in the log):
+     * pushing forward into a block for 1 s+ ([Claude move] dragging, incident DRAG), and every spell in water with its length and
+     * time ([Claude move] in water, incident WATER over 5 s while on a walk).
+     */
+    private static void dragAndWater(ClaudeEntity g, St s) {
+        if (g.horizontalCollision && Math.abs(g.zza) > 0.1f && !g.isInWater()) {
+            if (s.dragTicks++ == 0) {
+                net.minecraft.world.phys.Vec3 f = net.minecraft.world.phys.Vec3.directionFromRotation(0, g.getYRot());
+                BlockPos ahead = BlockPos.containing(g.getX() + f.x * 0.6, g.getY() + 0.5, g.getZ() + f.z * 0.6);
+                if (g.level().getBlockState(ahead).isAir()) ahead = ahead.above();
+                s.dragAt = ahead.immutable(); s.dragBlock = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(g.level().getBlockState(ahead).getBlock()).getPath();
+            }
+            if (s.dragTicks == 20) { // (at 1 s, not at the end: pushing into a wall can go on for ever)
+                String line = "dragging along " + s.dragBlock + " at " + s.dragAt.toShortString() + " for 1 s, now at " + g.blockPosition().toShortString() + ", doing " + (g.currentTask == null ? "nothing" : g.currentTask);
+                ClaudeMod.LOGGER.info("[Claude move] {}", line);
+                if (!com.claudemod.entity.ClaudeSpawner.testing || linesInTests) fileOnce(g, "DRAG", "DRAG|" + s.dragAt.asLong(), line);
+            }
+        } else s.dragTicks = 0;
+        boolean wet = g.isInWater();
+        if (wet && s.wetSince < 0) { s.wetSince = now(g); s.wetX = g.getX(); s.wetY = g.getY(); s.wetZ = g.getZ(); s.wetWalk = false; s.wetDoing = "nothing"; }
+        if (wet && g.currentTask != null) { s.wetDoing = g.currentTask.toString(); if (g.currentTask instanceof Task.GoTo) s.wetWalk = true; }
+        else if (!wet && g.onGround() && s.wetSince >= 0) { // (landed: swimming bobs him out of the water every stroke)
+            int ticks = now(g) - s.wetSince; s.wetSince = -1;
+            if (ticks >= 20) {
+                double d = Math.sqrt(Math.pow(g.getX() - s.wetX, 2) + Math.pow(g.getZ() - s.wetZ, 2));
+                String line = String.format("in water %.1f s, %.0f blocks from %.0f %.0f %.0f to %.0f %.0f %.0f, doing %s", ticks / 20.0, d, s.wetX, s.wetY, s.wetZ, g.getX(), g.getY(), g.getZ(), s.wetDoing);
+                ClaudeMod.LOGGER.info("[Claude move] {}", line);
+                if (ticks > 20 * 5 && s.wetWalk && (!com.claudemod.entity.ClaudeSpawner.testing || linesInTests)) fileOnce(g, "WATER", "WATER|" + BlockPos.containing(s.wetX, s.wetY, s.wetZ).asLong(), line);
+            }
+        }
+    }
+
+    // furnace output done and sitting (input empty) over 30 s in one of his furnaces while he isn't on his way to it (World 17 23:35: charcoal left in it)
+    private static final java.util.Map<BlockPos, Integer> doneSince = new java.util.HashMap<>();
+    private static void furnaceLeft(ClaudeEntity g) {
+        if (com.claudemod.entity.ClaudeSpawner.testing && !linesInTests) return;
+        Task cur = g.currentTask;
+        for (BlockPos f : g.myStations) {
+            if (!g.level().isLoaded(f) || !(g.level().getBlockEntity(f) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fe) || fe.getItem(2).isEmpty() || !fe.getItem(0).isEmpty()) { doneSince.remove(f); continue; }
+            int since = doneSince.computeIfAbsent(f.immutable(), k -> now(g));
+            boolean heading = cur != null && f.equals(target(cur)) || g.tasks.stream().anyMatch(t -> t instanceof Task.FurnaceTake ft && ft.pos().equals(f) && cur instanceof Task.GoTo);
+            if (heading) { doneSince.put(f.immutable(), now(g)); continue; }
+            if (now(g) - since > 20 * 30) fileOnce(g, "FURNACE_LEFT", "FURNACE_LEFT|" + f.asLong(), fe.getItem(2).getCount() + " " + fe.getItem(2).getHoverName().getString() + " done in his furnace at " + f.toShortString() + " for " + (now(g) - since) / 20 + " s; he's " + Math.round(Math.sqrt(f.distToCenterSqr(g.position()))) + " off, doing " + (cur == null ? "nothing" : cur));
+        }
+    }
+
     public static void tick(ClaudeEntity g) {
         if (!g.isAlive()) return;
         LogReviewer.tick(g);
+        lineIncidents(g);
+        if (now(g) % 20 == 0) furnaceLeft(g);
+        dragAndWater(g, st(g));
         St s = st(g);
         // 1. a move no planned move made: more than 3 blocks in one tick (a knock, a fall through, an unlogged teleport)
         if (!Double.isNaN(s.px) && now(g) == s.pTick + 1 && g.level().dimension() == s.pDim) { // (a portal trip is a planned move)
@@ -507,6 +593,10 @@ public final class Watchdog {
         if (!"cobblestone".equals(missing("failed: to craft furnace you are missing cobblestone"))) throw new AssertionError(missing("failed: to craft furnace you are missing cobblestone"));
         if (!"oak planks".equals(missing("failed: missing 3 oak planks (the table)"))) throw new AssertionError(missing("failed: missing 3 oak planks (the table)"));
         if (!"cobblestone".equals(gatherable("cobbled deepslate"))) throw new AssertionError("deepslate");
+        if (!"LOG_FUEL".equals(lineKind("[Claude smelt] fuel at 1, 2, 3: 2 oak log for 3 items (whole logs)")) || lineKind("[Claude smelt] fuel at 1, 2, 3: 2 oak planks for 3 items") != null) throw new AssertionError("log fuel");
+        if (lineKind("[Claude conflict] 3 times in 59 s: [Claude life] holding in his cover at 0, 66, 0 for the night") != null) throw new AssertionError("night hold is a conflict");
+        if (!lineKey("FAILED", "[Claude skill] collect logs x2 -> failed: it's night (no iron armor)").equals(lineKey("FAILED", "[Claude watchdog] collect logs x5 -> failed: it's night: 1 time(s) in 0 s"))) throw new AssertionError("skill line and its echo differ: " + lineKey("FAILED", "[Claude skill] collect logs x2 -> failed: it's night (no iron armor)"));
+        if (lineKey("LITTER", "[Claude litter] the tree at -7, 79, 5 isn't finished").equals(lineKey("LITTER", "[Claude litter] the tree at -11, 78, 13 isn't finished"))) throw new AssertionError("two trees, one key");
         if (triedFirst("craft", "iron_ingot").contains("null") || !triedFirst("craft", "iron_ingot").contains("iron ingot")) throw new AssertionError(triedFirst("craft", "iron_ingot"));
         if (!triedFirst("build_here", null).equals("tried another way first")) throw new AssertionError(triedFirst("build_here", null));
         System.out.println("Watchdog self-check passed");

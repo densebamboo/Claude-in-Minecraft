@@ -3920,7 +3920,7 @@ public final class ClaudeBodyTest {
                             c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 4)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
                             BlockPos me = h.absolutePos(new BlockPos(6, 2, 6)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
                             BlockPos ma = h.absolutePos(new BlockPos(12, 2, 12)); mock[0].teleportTo(ma.getX() + 0.5, ma.getY(), ma.getZ() + 0.5);
-                            c.lastStep = new com.claudemod.entity.life.Skills.Step("craft", "wooden_pickaxe", 1, ""); c.lastSkillLine = "put down a crafting table"; c.playerGoal = "a wooden pickaxe"; c.staying = true; // (no plan of his own in the middle of it)
+                            c.lastStep = new com.claudemod.entity.life.Skills.Step("craft", "wooden_pickaxe", 1, ""); c.lastSkillLine = "put down a crafting table"; c.playerGoal = "a wooden pickaxe";  // (no plan of his own in the middle of it)
                             BlockPos tb = h.absolutePos(new BlockPos(8, 2, 6));
                             check(c.placeAt(tb, Items.CRAFTING_TABLE), "table: couldn't put it down");
                             var e = com.claudemod.entity.life.TempLedger.entry(c, tb);
@@ -10413,6 +10413,9 @@ public final class ClaudeBodyTest {
             case 629: return st629(stage, t, c, h, level, mock);
             case 630: return st630(stage, t, c, h, level, mock);
             case 627: return st627(stage, t, c, h, level, mock);
+            case 644: return st644(stage, t, c, h, level, mock);
+            case 615: return st615(stage, t, c, h, level, mock);
+            case 617: return st617(stage, t, c, h, level, mock);
             case 628: return st628(stage, t, c, h, level, mock);
             case 598: return st598(stage, t, c, h, level, mock);
             case 599: return st599(stage, t, c, h, level, mock);
@@ -12630,6 +12633,92 @@ public final class ClaudeBodyTest {
         check(t[0] - s629T < 100, "village_food from 110 off: no walk to the village (last " + c.lastSkillLine + ")");
         return true;
     }
+
+    /** The user 11-05 (World 17: dragging along leaves, a slow river crossing, neither in the log): pushing into a leaf wall 1 s+ is a [Claude move] line and a DRAG incident; a long swim on a walk is a [Claude move] line and a WATER incident. */
+    private static final java.util.Set<String> s617Kinds = new java.util.HashSet<>(); private static BlockPos s617A;
+    private static boolean st617(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        try {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.tasks.clear(); c.skillQueue.clear(); s617Kinds.clear(); c.prefs.put("stay_close", "no"); com.claudemod.entity.life.Watchdog.linesInTests = true; com.claudemod.entity.life.Watchdog.lastIncident = "";
+            s617A = h.absolutePos(new BlockPos(3, 40, 8));
+            for (int x = -2; x <= 36; x++) for (int z = -2; z <= 2; z++) for (int y = -3; y <= 3; y++) level.setBlockAndUpdate(s617A.offset(x, y, z), y == -3 || Math.abs(z) == 2 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState());
+            for (int z = -1; z <= 1; z++) for (int y = -2; y <= 1; y++) level.setBlockAndUpdate(s617A.offset(2, y, z), Blocks.OAK_LEAVES.defaultBlockState().setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true)); // (the leaf wall, 2 east)
+            for (int z = -1; z <= 1; z++) level.setBlockAndUpdate(s617A.offset(0, -3, z), Blocks.STONE.defaultBlockState());
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(s617A.getX() + 0.5, s617A.getY() - 2, s617A.getZ() + 0.5); c.setYRot(-90); c.fallDistance = 0;
+        }
+        if (t[0] > 3 && t[0] < 40) c.getMoveControl().setWantedPosition(s617A.getX() + 6.5, s617A.getY() - 2, s617A.getZ() + 0.5, 1.0); // (walking east into the leaves)
+        if (t[0] == 60) { // the pool: 30 blocks of water 2 deep east of the leaves, a dry landing at its end
+            for (int x = 4; x <= 33; x++) for (int z = -1; z <= 1; z++) for (int y = -2; y <= -1; y++) level.setBlockAndUpdate(s617A.offset(x, y, z), Blocks.WATER.defaultBlockState());
+            for (int z = -1; z <= 1; z++) for (int y = -2; y <= 1; y++) level.setBlockAndUpdate(s617A.offset(2, y, z), Blocks.AIR.defaultBlockState());
+            for (int x = 34; x <= 36; x++) for (int z = -1; z <= 1; z++) { level.setBlockAndUpdate(s617A.offset(x, -2, z), Blocks.STONE.defaultBlockState()); level.setBlockAndUpdate(s617A.offset(x, -1, z), Blocks.STONE.defaultBlockState()); }
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(s617A.getX() + 4.5, s617A.getY() - 1, s617A.getZ() + 0.5);
+            c.getInventory().clearContent(); // (nothing to bridge with: he swims it)
+            c.tasks.add(new com.claudemod.entity.life.Task.GoTo(s617A.offset(35, 0, 0).immutable(), 1.5));
+        }
+        String last = com.claudemod.entity.life.Watchdog.lastIncident;
+        if (last.startsWith("DRAG") && last.contains("oak_leaves")) s617Kinds.add("DRAG");
+        if (last.startsWith("WATER")) s617Kinds.add("WATER");
+        if (t[0] == 59) check(s617Kinds.contains("DRAG"), "no DRAG after pushing into the leaf wall (last incident " + last + ")");
+        if (s617Kinds.size() == 2) { com.claudemod.entity.life.Watchdog.linesInTests = false; c.tasks.clear(); pass(stage, t, "a leaf wall pushed into, then a 30-block swim on a walk, both filed (tick " + t[0] + ")"); return true; }
+        check(t[0] < 700, "filed only " + s617Kinds + " (last incident " + last + ", he's at " + c.blockPosition().toShortString() + ")");
+        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
+        return true;
+    }
+
+    /** The user 11-05 (World 17 23:35): charcoal left done in his furnace, whole logs burnt as fuel. Both are incidents: FURNACE_LEFT after 30 s with him not on his way to it, LOG_FUEL when logs go in the fuel slot. */
+    private static final java.util.Set<String> s615Kinds = new java.util.HashSet<>(); private static BlockPos s615F, s615F2;
+    private static boolean st615(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        try {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.tasks.clear(); c.skillQueue.clear(); s615Kinds.clear(); c.prefs.put("stay_close", "no"); c.staying = true; com.claudemod.entity.life.Watchdog.linesInTests = true; com.claudemod.entity.life.Watchdog.lastIncident = "";
+            BlockPos me = at0(h); s615F = me.east(20); // (3 charcoal 20 off: under 8 and past 16, his rule leaves it: World 17 23:35)
+            s615F2 = me.west(1).north(1); level.getChunk(s615F); // (20 off: its chunk loaded, or the furnace never goes in)
+            for (BlockPos f : new BlockPos[] {s615F, s615F2}) { level.setBlockAndUpdate(f.below(), Blocks.STONE.defaultBlockState()); level.setBlockAndUpdate(f, Blocks.FURNACE.defaultBlockState()); c.myStations.add(f.immutable()); }
+            ((net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity) level.getBlockEntity(s615F)).setItem(2, new ItemStack(Items.CHARCOAL, 3));
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.RAW_IRON, 3)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 4));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.tasks.add(new com.claudemod.entity.life.Task.FurnaceLoad(s615F2.immutable(), Items.RAW_IRON, 3));
+        }
+        if (t[0] == 200) com.claudemod.ClaudeMod.LOGGER.info("[Claude smelt] fuel at {}: 2 Oak Log for 3 items (whole logs)", s615F2.toShortString()); // (the loader makes planks first since 6ed5fca: the line as fuelLine writes it for logs)
+        String last = com.claudemod.entity.life.Watchdog.lastIncident;
+        if (last.startsWith("LOG_FUEL")) s615Kinds.add("LOG_FUEL");
+        if (last.startsWith("FURNACE_LEFT") && last.contains(s615F.toShortString())) { check(t[0] > 590, "furnace left filed before 30 s: tick " + t[0] + ": " + last); s615Kinds.add("FURNACE_LEFT"); }
+        if (s615Kinds.size() == 2) {
+            com.claudemod.entity.life.Watchdog.linesInTests = false; c.staying = false; c.myStations.remove(s615F); c.myStations.remove(s615F2); c.tasks.clear();
+            pass(stage, t, "whole logs in the fuel slot and charcoal left 30 s in his furnace, both filed (tick " + t[0] + ")"); return true;
+        }
+        check(t[0] < 900, "filed only " + s615Kinds + " (last incident " + last + ")");
+        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; c.staying = false; c.myStations.remove(s615F); c.myStations.remove(s615F2); throw e; }
+        return true;
+    }
+
+    /** The user 11-05: everything that's a bug logged. A failed step, a conflict and litter he logs are incidents; the same one again (a skill line and the watchdog's echo, a second time) isn't refiled; the night hold's status repeat isn't a conflict. */
+    private static boolean st644(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        try {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; com.claudemod.entity.life.Watchdog.linesInTests = true; s644N0 = com.claudemod.entity.life.Watchdog.incidents;
+            var L = com.claudemod.ClaudeMod.LOGGER;
+            L.info("[Claude skill] collect st644wood x2 -> failed: it's night and I'm not geared (no iron armor)");
+            L.info("[Claude watchdog] collect st644wood x5 -> failed: it's night and I'm not geared: 1 time(s) in 0 s (Watchdog.skillRan)");
+            L.info("[Claude conflict] 3 times in 59 s: [Claude life] holding in his cover at 644, 66, 0 for the night (time 13840)");
+            L.info("[Claude conflict] breaking st644stone at 644, 16, -20: queued again and refused 3 times in 4 s");
+            L.info("[Claude litter] the tree at 644, 79, 5 isn't finished: 1 logs still up");
+        }
+        if (t[0] == 4) {
+            check(com.claudemod.entity.life.Watchdog.incidents - s644N0 == 3, (com.claudemod.entity.life.Watchdog.incidents - s644N0) + " incidents filed, not 3 (a failed step once, a conflict, litter): last " + com.claudemod.entity.life.Watchdog.lastIncident);
+            s644N = com.claudemod.entity.life.Watchdog.incidents;
+            check(com.claudemod.entity.life.Watchdog.lastIncident.startsWith("LITTER: [Claude litter] the tree at 644, 79, 5"), "last incident not the litter: " + com.claudemod.entity.life.Watchdog.lastIncident);
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude skill] collect st644wood x3 -> failed: it's night and I'm not geared (no iron armor)"); // (the same failure again: not refiled)
+        }
+        if (t[0] == 7) {
+            com.claudemod.entity.life.Watchdog.linesInTests = false;
+            check(com.claudemod.entity.life.Watchdog.incidents == s644N, "the same failure refiled: " + com.claudemod.entity.life.Watchdog.lastIncident);
+            pass(stage, t, "a failed step (once for the line and its echo), a conflict (not the night hold) and litter, each filed once");
+        }
+        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
+        return true;
+    }
+    private static int s644N, s644N0;
 
     /** The user 11-05: the log reviewer. 5 minutes of play past, his log goes to the model; each finding is a REVIEW incident; what was reported goes back in so it isn't filed twice; log_review=off stops it. (The model is faked here.) */
     private static int s627Calls;

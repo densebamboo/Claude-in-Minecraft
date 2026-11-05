@@ -10416,6 +10416,8 @@ public final class ClaudeBodyTest {
             case 605: return st605(stage, t, c, h, level, mock);
             case 606: return st606(stage, t, c, h, level, mock);
             case 607: return st607(stage, t, c, h, level, mock);
+            case 608: return st608(stage, t, c, h, level, mock);
+            case 609: return st609(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -12791,6 +12793,53 @@ public final class ClaudeBodyTest {
             BlockPos f = c.blockPosition(); boolean lid = !level.getBlockState(f.above(2)).getCollisionShape(level, f.above(2)).isEmpty();
             check(!(up >= 2 && !lid), "up a bare tower " + up + " high with a skeleton that just shot him about (no lid), health " + (int) c.getHealth() + ", now=" + c.currentTask + " last=" + c.lastSkillLine);
             if (t[0] >= 210) { for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); pass(stage, t, "no bare tower with a skeleton that just shot him about (highest " + st607Top + " up, health " + (int) c.getHealth() + ")"); }
+        }
+        return true;
+    }
+
+    private static String st608Said = "";
+    private static boolean st608(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 18:05 11-04: dusk, swimming in open ocean: "shelter: no cover right now: in the water" every second, "explore beach" refused at night; the mobs found him on the shore bare. The nearest dry ground first, then cover.
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -4; yy <= 0; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE); for (int yy = 1; yy <= 3; yy++) h.setBlock(new BlockPos(x, yy, z), x < 10 ? Blocks.WATER : Blocks.DIRT); for (int yy = 4; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            level.setDayTime(13000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 49)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            BlockPos at = h.absolutePos(new BlockPos(3, 3, 8)); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+            c.skillQueue.clear(); c.tasks.clear();
+        }
+        if (t[0] == 30) { // (a second in the water first: the game marks him in it on his own tick)
+            st608Said = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "shelter", "", 1);
+            check(!st608Said.contains("no cover right now: in the water"), "shelter in the water gave up: " + st608Said);
+        }
+        if (t[0] > 30) {
+            if (!c.isInWater() && c.onGround() && c.getBlockX() >= h.absolutePos(new BlockPos(10, 0, 0)).getX()) { c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "out of the water onto dry ground in " + (t[0] - 10) + " ticks for cover"); }
+            else check(t[0] < 430, "still in the water after 20 s at " + c.blockPosition() + ", shelter said: " + st608Said + ", now=" + c.currentTask + " tasks=" + c.tasks);
+        }
+        return true;
+    }
+
+    private static int st609Up;
+    private static boolean st609(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 18:13 11-04: up a bare dirt tower against a husk, then a skeleton shot him on it for 30 s ("digging on, not a fight") 20 -> 0. Shot on a bare perch: a lid and walls, or down to a hole, never holding there.
+        BlockPos at = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); st609Up = -1; }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -4; yy <= 0; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE); h.setBlock(new BlockPos(x, 1, z), Blocks.DIRT); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            level.setDayTime(18000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.DIRT, 5)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 49)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+            mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            var hk = h.spawn(EntityType.HUSK, new BlockPos(2, 2, 6)); hk.setPersistenceRequired(); hk.setTarget(c);
+            c.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.KNOCKBACK_RESISTANCE).setBaseValue(1.0); // (live he stayed up there; here an arrow's knockback can throw him off and pass it by luck: the decision is what's tested)
+        }
+        if (t[0] > 10) {
+            BlockPos f = c.blockPosition(); int up = f.getY() - at.getY(); boolean lid = !level.getBlockState(f.above(2)).getCollisionShape(level, f.above(2)).isEmpty();
+            if (st609Up < 0) { if (up >= 2 && !lid) { st609Up = t[0]; var sk = h.spawn(EntityType.SKELETON, new BlockPos(8, 2, 1)); sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW)); sk.setPersistenceRequired(); sk.setTarget(c); /* (a test spawn has no bow of its own) */ } else check(t[0] < 300, "never went up a tower against the husk (the setup): at " + f + ", now=" + c.currentTask); }
+            else {
+                if (up >= 2 && !lid) check(c.isAlive() && c.getHealth() > 6, "shot down holding a bare perch: health " + (int) c.getHealth() + ", " + up + " up, lid " + lid + ", now=" + c.currentTask + " tasks=" + c.tasks);
+                if (t[0] - st609Up >= 300) { check(!(up >= 2 && !lid), "still on a bare perch 15 s after the skeleton came: " + up + " up, no lid, health " + (int) c.getHealth()); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); c.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.KNOCKBACK_RESISTANCE).setBaseValue(0.0); pass(stage, t, "off the bare perch under fire (" + up + " up, lid " + lid + ", health " + (int) c.getHealth() + ")"); }
+            }
         }
         return true;
     }

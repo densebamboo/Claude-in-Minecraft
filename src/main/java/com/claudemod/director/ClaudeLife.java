@@ -2857,6 +2857,16 @@ public final class ClaudeLife {
                 if (pastEarly(g) && com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(8), m -> m.isAlive() && m.getTarget() == g).isEmpty())
                     return "done: past the early game (armor " + g.getArmorValue() + "): no hole tonight; a bed if there's one, else on with the work"; // (the user: holes are for the early phases; hunted and hurt, the reflexes still take cover)
                 com.claudemod.entity.life.Perception.glance(g); // a look round before choosing the cover (zombies behind him make it a tower, not a hole)
+                if (g.isInWater()) { // in the water no cover can be made: the nearest dry ground first, then cover there (live 18:05 11-04: dusk in open ocean, "no cover right now: in the water" every second, "explore beach" refused at night, and the mobs found him on the shore bare)
+                    BlockPos land = null; BlockPos me = g.blockPosition();
+                    for (int d = 2; d <= 64 && land == null; d += 2) { double bd = Double.MAX_VALUE;
+                        for (int x = -d; x <= d; x += 2) for (int z = -d; z <= d; z += 2) { if (Math.max(Math.abs(x), Math.abs(z)) != d) continue;
+                            BlockPos q = me.offset(x, 0, z); if (!level.hasChunkAt(q)) continue;
+                            BlockPos top = null; for (int dy = 3; dy >= -3 && top == null; dy--) { BlockPos c0 = q.above(dy); if (level.getFluidState(c0).isEmpty() && level.getFluidState(c0.above()).isEmpty() && level.getBlockState(c0).getCollisionShape(level, c0).isEmpty() && level.getBlockState(c0.above()).getCollisionShape(level, c0.above()).isEmpty() && level.getFluidState(c0.below()).isEmpty() && !level.getBlockState(c0.below()).getCollisionShape(level, c0.below()).isEmpty()) top = c0; }
+                            if (top == null) continue; // dry ground to stand on, near his own height (a heightmap gave the treetops)
+                            double dq = x * x + z * z; if (dq < bd) { bd = dq; land = top.immutable(); } } }
+                    if (land != null) { g.skillQueue.addFirst(st); g.tasks.add(new Task.GoTo(land, 1.5)); ClaudeMod.LOGGER.info("[Claude skill] shelter: in the water at {}: swimming to dry ground at {} ({} off) first, cover there (ClaudeLife shelter)", me.toShortString(), land.toShortString(), (int) Math.sqrt(land.distSqr(me))); return "in the water: to the dry ground at " + land.toShortString() + " first, then cover"; }
+                }
                 if (g.shelter()) return "getting under cover here (out of reach, with a lid over me)";
                 { String why = g.noCoverWhyNow(); // a reason that isn't the ground or the blocks (a creeper close, a mob too near to finish it, in the air): that's the answer, not "nothing to tower with"
                   if (why != null && !why.startsWith("no tower to be had") && !why.startsWith("underground with") && !why.startsWith("water ")) { ClaudeMod.LOGGER.info("[Claude skill] shelter: no cover right now: {} (ClaudeLife shelter)", why); return "done: no cover right now: " + why; } }

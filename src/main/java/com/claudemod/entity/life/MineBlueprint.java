@@ -2,6 +2,7 @@ package com.claudemod.entity.life;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -46,12 +47,15 @@ public final class MineBlueprint {
     public final List<Segment> segments = new ArrayList<>();
     public final List<BlockPos> dangers = new ArrayList<>(); // where his mine stood open to a cave he died by, or a spawner near it (ClaudeLife.noteMineDeath): no new branch runs at one
     private List<Row> rows; private Map<BlockPos, Role> roles; private Map<BlockPos, Integer> rowOf; // derived from the segments
+    private Set<BlockPos> kept; private Map<Integer, List<BlockPos>> bends; // ore his pick can't take, left in the wall for later; the cells the row bends round it by (the user: "go round it")
+    public java.util.function.Predicate<BlockPos> pastPick; // ore there needs a better pick than he carries (set by the caller, as keepOut; null: none)
+    public Set<BlockPos> kept() { if (kept == null) kept = new HashSet<>(); return kept; } // (lazy: a field added live starts null)
 
     public MineBlueprint() {}
     public MineBlueprint(BlockPos entrance, Direction dir, int width, int height) { this.entrance = entrance.immutable(); this.width = Math.max(1, Math.min(5, width)); this.height = Math.max(2, Math.min(4, height)); segments.add(new Segment(Kind.STAIRS, entrance, dir, 0, null)); }
 
     public boolean isEmpty() { return segments.isEmpty() || rows().isEmpty(); }
-    public void invalidate() { rows = null; roles = null; rowOf = null; slotCells = null; slotWalls = null; }
+    public void invalidate() { rows = null; roles = null; rowOf = null; slotCells = null; slotWalls = null; bends = null; }
 
     // ---- geometry -----------------------------------------------------------------------------------------------
     static Direction right(Direction dir) { return dir.getClockWise(); }
@@ -108,8 +112,22 @@ public final class MineBlueprint {
         Map<BlockPos, Role> m = new HashMap<>(); Map<BlockPos, Integer> ro = new HashMap<>();
         List<Row> rs = rows();
         for (int i = 0; i < rs.size(); i++) for (BlockPos f : rs.get(i).feet()) for (int y = 0; y < rs.get(i).height(); y++) { m.put(f.above(y), Role.WALK); ro.putIfAbsent(f.above(y), i); }
-        for (Row row : rs) for (BlockPos f : row.feet()) for (int y = 0; y < row.height(); y++) {
-            BlockPos p = f.above(y);
+        Map<Integer, List<BlockPos>> bd = new HashMap<>();
+        if (!kept().isEmpty()) { // ore he can't take stays wall; a row with no 2-high way past it bends round it, 3 cells to one side (the row before, its own, the row after)
+            for (BlockPos k : kept) if (m.get(k) == Role.WALK) m.remove(k);
+            for (int i = 0; i < rs.size(); i++) { Row row = rs.get(i); boolean blocked = true;
+                for (BlockPos f : row.feet()) if (!kept.contains(f) && !kept.contains(f.above())) blocked = false;
+                if (!blocked) continue;
+                for (Direction side : new Direction[] {right(row.dir()), right(row.dir()).getOpposite()}) {
+                    BlockPos edge = side == right(row.dir()) ? row.feet()[row.feet().length - 1] : row.feet()[0]; List<BlockPos> cells = new ArrayList<>(); boolean ok = true;
+                    for (int d = -1; d <= 1 && ok; d++) for (int y = 0; y < Math.min(row.height(), 2); y++) { BlockPos c = edge.relative(row.dir(), d).relative(side).above(y); if (kept.contains(c)) ok = false; else cells.add(c.immutable()); }
+                    if (!ok) continue;
+                    for (BlockPos c : cells) if (m.get(c) != Role.WALK) { m.put(c, Role.WALK); ro.putIfAbsent(c, i); bd.computeIfAbsent(i, k0 -> new ArrayList<>()).add(c); }
+                    break;
+                }
+            }
+        }
+        for (BlockPos p : m.keySet().toArray(new BlockPos[0])) { if (m.get(p) != Role.WALK) continue;
             for (Direction d : Direction.values()) {
                 BlockPos q = p.relative(d);
                 if (m.get(q) == Role.WALK) continue;
@@ -122,7 +140,7 @@ public final class MineBlueprint {
             Row top = rs.get(0); Direction back = segments.get(0).dir.getOpposite();
             for (BlockPos f : top.feet()) for (int y = 0; y < top.height(); y++) m.remove(f.relative(back).above(y));
         }
-        roles = m; rowOf = ro; return m;
+        roles = m; rowOf = ro; bends = bd; return m;
     }
     public Role roleAt(BlockPos p) { return roles().get(p); }
     public boolean isWalk(BlockPos p) { return roleAt(p) == Role.WALK; }
@@ -280,6 +298,14 @@ public final class MineBlueprint {
      */
     public BlockPos lavaHit;
     public boolean keepLava; // his goal wants lava (the portal's obsidian): a branch that hits it ends one short, the source left behind the plug (ClaudeLife.objectiveSync) // where a branch last ran into lava (the plug takes that cell; the pool behind it stays, and he knows it's there)
+    /** Row i's walk cells in dig order (a step down: its ahead cell, then up, the bottom last), then the cells it bends round kept ore by. */
+    List<BlockPos> rowCells(int i) {
+        Row row = rows().get(i); Segment seg = segments.get(row.segment()); List<BlockPos> out = new ArrayList<>();
+        for (BlockPos f : row.feet()) for (int yy = 0; yy < row.height(); yy++) { int y = seg.kind == Kind.STAIRS && row.height() > 1 ? (yy + 1) % row.height() : yy; out.add(f.above(y)); } // a step down is dug from his feet level ahead, then up, then the bottom cell last: the bottom first put the floor he stands on "in the way" of his aim and the body dug it out
+        roles(); if (bends != null && bends.containsKey(i)) out.addAll(bends.get(i));
+        return out;
+    }
+
     public List<Task> reconcile(ServerLevel level, int from, int to) {
         if (level.dimension() != net.minecraft.world.level.Level.OVERWORLD) return new ArrayList<>(); // (his mine is in the overworld: another world's blocks at its x y z are nothing of his)
         boolean cut = false; // Nov 4: lava still ends a branch; water is crossed by sealing each newly exposed row.
@@ -308,6 +334,13 @@ public final class MineBlueprint {
             }
             if (adopted) invalidate();
         }
+        for (int pass = 0; pass < 2; pass++) { // ore his pick can't take in a walk cell: kept in the wall, the row bent round it; back on the plan once he can take it (or it's gone). Twice: a bend cell can be such ore too
+            List<Row> rs0 = rows(); roles(); boolean ch = false;
+            for (BlockPos k : new ArrayList<>(kept())) if (pastPick == null || !pastPick.test(k)) { kept.remove(k); ch = true; com.claudemod.ClaudeMod.LOGGER.info("[Claude mine] {} back on the plan: {} (MineBlueprint.reconcile)", k.toShortString(), ore(level.getBlockState(k)) ? "his pick takes it now" : "it's gone"); }
+            if (pastPick != null) for (int i = Math.max(0, from); i <= Math.min(rs0.size() - 1, to); i++) for (BlockPos c : rowCells(i))
+                if (!kept().contains(c) && pastPick.test(c)) { kept.add(c.immutable()); ch = true; com.claudemod.ClaudeMod.LOGGER.info("[Claude mine] {} at {} in his row: past his pick, left in the wall for later, the row goes round it (MineBlueprint.reconcile)", level.getBlockState(c).getBlock().getName().getString(), c.toShortString()); }
+            if (!ch) break; invalidate();
+        }
         List<Row> rs = rows(); roles();
         List<Task> out = new ArrayList<>();
         Set<BlockPos> seen = new LinkedHashSet<>();
@@ -315,9 +348,8 @@ public final class MineBlueprint {
             Row row = rs.get(i);
             Segment seg = segments.get(row.segment());
             List<Task> dig = new ArrayList<>(), floor = new ArrayList<>(), wall = new ArrayList<>(), ceil = new ArrayList<>();
-            for (BlockPos f : row.feet()) for (int yy = 0; yy < row.height(); yy++) {
-                int y = seg.kind == Kind.STAIRS && row.height() > 1 ? (yy + 1) % row.height() : yy; // a step down is dug from his feet level ahead, then up, then the bottom cell last: the bottom first put the floor he stands on "in the way" of his aim and the body dug it out
-                BlockPos p = f.above(y);
+            for (BlockPos p : rowCells(i)) {
+                if (kept().contains(p)) continue;
                 if (!passable(level, p) && !com.claudemod.director.ClaudeLife.obsWorking(p)) {
                     if (!level.getFluidState(p).isEmpty()) dig.add(new Task.Place(p, filler(p))); // water or lava where the walk is: a block into it, then that block out
                     dig.add(new Task.Break(p));
@@ -327,7 +359,7 @@ public final class MineBlueprint {
                     Role r = roleAt(q);
                     if (r == null || r == Role.WALK || !seen.add(q)) continue;
                     BlockState qs = level.getBlockState(q);
-                    if (solid(level, q)) { if (ore(qs)) { dig.add(new Task.Break(q)); dig.add(new Task.MineVisibleOres(3)); dig.add(new Task.Pickup(100)); } /* (the ore path: the vein behind it and the drops before the patch; 05:01 a bare break, the rest of the lapis left in the wall and the drop with it) */ else if (isArch(q) && !qs.is(((net.minecraft.world.item.BlockItem) archBlock()).getBlock()) && (qs.is(net.minecraft.world.level.block.Blocks.COBBLESTONE) || qs.is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE) || qs.is(net.minecraft.world.level.block.Blocks.ANDESITE) || qs.is(net.minecraft.world.level.block.Blocks.DIORITE) || qs.is(net.minecraft.world.level.block.Blocks.GRANITE) || qs.is(net.minecraft.world.level.block.Blocks.TUFF) || qs.is(net.minecraft.world.level.block.Blocks.DIRT))) { /* (his own fill only: the hill the arch runs into stays) */ dig.add(new Task.Break(q)); dig.add(new Task.Place(q, archBlock())); } /* one block at a time, out and straight back in, like a player: all the row's Breaks first left him on air outside his arch (04:03) */ continue; } // (an arch block of anything else, dirt or andesite or the old cobble once he is at the diamond level: swapped for the arch block) // ore in the shell: mined now, refilled on the next pass
+                    if (solid(level, q)) { if (ore(qs) && !kept().contains(q)) { dig.add(new Task.Break(q)); dig.add(new Task.MineVisibleOres(3)); dig.add(new Task.Pickup(100)); } /* (the ore path: the vein behind it and the drops before the patch; 05:01 a bare break, the rest of the lapis left in the wall and the drop with it) */ else if (isArch(q) && !qs.is(((net.minecraft.world.item.BlockItem) archBlock()).getBlock()) && (qs.is(net.minecraft.world.level.block.Blocks.COBBLESTONE) || qs.is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE) || qs.is(net.minecraft.world.level.block.Blocks.ANDESITE) || qs.is(net.minecraft.world.level.block.Blocks.DIORITE) || qs.is(net.minecraft.world.level.block.Blocks.GRANITE) || qs.is(net.minecraft.world.level.block.Blocks.TUFF) || qs.is(net.minecraft.world.level.block.Blocks.DIRT))) { /* (his own fill only: the hill the arch runs into stays) */ dig.add(new Task.Break(q)); dig.add(new Task.Place(q, archBlock())); } /* one block at a time, out and straight back in, like a player: all the row's Breaks first left him on air outside his arch (04:03) */ continue; } // (an arch block of anything else, dirt or andesite or the old cobble once he is at the diamond level: swapped for the arch block) // ore in the shell: mined now, refilled on the next pass
                     if (com.claudemod.director.ClaudeLife.obsWorking(q)) continue; // (an obsidian run here: the cells he opens on purpose stay open till it's done)
                     Task place = new Task.Place(q, isArch(q) ? archBlock() : filler(q)); // the arch: the rows above ground get the same walls and roof as below (the user: "an extension of his mine on the surface"), floor first, walls bottom-up, the roof on the wall tops; the opening at the top is a walkway's face, never a shell cell, so it stays open
                     (r == Role.FLOOR ? floor : r == Role.CEILING ? ceil : wall).add(place);
@@ -503,6 +535,7 @@ public final class MineBlueprint {
         }
         t.put("segments", list);
         t.putLongArray("dangers", dangers.stream().mapToLong(BlockPos::asLong).toArray());
+        t.putLongArray("kept", kept().stream().mapToLong(BlockPos::asLong).toArray());
         return t;
     }
 
@@ -517,6 +550,7 @@ public final class MineBlueprint {
             b.segments.add(new Segment(Kind.valueOf(c.getString("kind")), BlockPos.of(c.getLong("start")), Direction.byName(c.getString("dir")), c.getInt("n"), turnTo));
         }
         for (long l : t.getLongArray("dangers")) b.dangers.add(BlockPos.of(l));
+        for (long l : t.getLongArray("kept")) b.kept().add(BlockPos.of(l));
         return b;
     }
 

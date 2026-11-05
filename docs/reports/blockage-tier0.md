@@ -81,6 +81,19 @@ Branch `bp/blockage-tier0`. Day to Day's queue, items 1 and 2.
 - **Now:** `WorkGoal.pest`. Silverfish and endermites don't count in the three crowd counts (the walk's crowd, shouldFlee's, the cover rule's "swarmed") while he is above 8 health. One damage a bite: a player swats them and breaks the spawner. Self-defence is unchanged.
 - **Result:** 559 lights the portal in 57 s (was a 600 s timeout). 558 (91 s) and 561-564 pass. 559 is in the gate.
 
+## Ore past his pick in his own tunnel: go round it (live 15:38)
+- **Cause (from the live log):**
+  - Deepslate redstone ore filled both cells of his branch at 770, -57/-58, 200. He had a stone pick and no iron.
+  - doBreak refused the breaks behind it ("deepslate redstone ore ... is in the way"), and ActionPath refused the ore itself (`if (!right) return -1`).
+  - No way existed, so the 768 -> 773 plan spent 500 ms proving it. Not a search-budget problem: a straight-dig-line pre-pass was tried and gave nothing measurable (236 vs 184 ms where a way exists), so it was dropped.
+- **The user's rule:** "go round it". In his own mine, ore his pick can't harvest stays in the wall; the row bends round that cell and goes on past.
+- **Now (`MineBlueprint`):**
+  - `kept`: such cells, found by `reconcile` from `pastPick` (set by bpReconcile to `ClaudeLife.pastHisPick`). Saved with the blueprint.
+  - In roles(), kept cells are wall. A row with no 2-high way past them gets 3 bend cells beside it (the row before, its own, the row after), on the first side with no kept cell.
+  - reconcile digs the bend cells with their row. Kept ore is never dug, as a walk cell or by the "ore in the wall" path. A kept cell comes back on the plan once his pick takes it, or once it's gone, and the bend cells then get walled up as shell.
+- **Stage 618 (the live layout):** both branch cells redstone, stone pick, 0 iron. The ore stays, and he's past it in 17 s. Then given an iron pick: the ore mined and the bend walled up in 14 s. Without the change he's still stuck at 90 s.
+- **Sweep:** 77-81, 90-91 and 116 pass (116 alone; it failed in a range). 97 is the known flake. 114 fails on main too (backlog).
+
 ## Gate
 - **Green:** 586-592, 594-595, 597, 600, 601, 94-96, 61.
 - **Flaky on main, not from this branch (in the backlog):** 97, 593, and 596 in a range after 595.

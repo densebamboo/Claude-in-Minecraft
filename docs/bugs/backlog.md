@@ -335,3 +335,4 @@ Today the mod runs server-side only. No client mod is needed: he's a ServerPlaye
 
 - **Item 7 left for later:** deck scouting ("no blaze in view") still walks up to a crowd he can see. An expert stops at the corner and draws them to the gap first. The fight now holds at the gap (stage 613), so this costs time, not his life.
 - **EyeHunt roof loop:** throwEye under a roof walks to the heightmap top, even when that is a floating platform 160 up (557 on 548's leftover terrain: the same "up to open sky" every few seconds). An expert steps out from under it to the nearest open sky.
+- **Stage 114 fails on main (11-04):** "smelting: 4 iron, 0 cooked beef after 130 s ... collect beef x12 -> no cow". Fails with and without the go-round change. Not looked into.

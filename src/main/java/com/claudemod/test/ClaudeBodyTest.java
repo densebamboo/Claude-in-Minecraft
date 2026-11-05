@@ -10401,6 +10401,7 @@ public final class ClaudeBodyTest {
             case 613: return st613(stage, t, c, h, level, mock);
             case 614: return st614(stage, t, c, h, level, mock);
             case 616: return st616(stage, t, c, h, level, mock);
+            case 618: return st618(stage, t, c, h, level, mock);
             case 598: return st598(stage, t, c, h, level, mock);
             case 599: return st599(stage, t, c, h, level, mock);
             case 602: return st602(stage, t, c, h, level, mock);
@@ -12221,6 +12222,41 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; com.claudemod.entity.life.EyeHunt.reset(c);
             check(c.isAlive() && found != null && found.closerThan(room, 12), "under the sea: no bricks reached in " + took + " s (found " + found + ", at " + at + ", in water " + wet + ", last " + c.lastSkillLine + ")");
             pass(stage, t, "under the sea: from the shore to the room's bricks at " + found.toShortString() + " in " + took + " s");
+        }
+        return true;
+    }
+
+    /** Live 15:38 11-04: deepslate redstone ore filling his 1-wide, 2-high branch (770,-57/-58,200), a stone pick, no iron. The user: "go round it": the ore stays in the wall, the branch bends round it and goes on past. */
+    private static int s618T, s618Took, s618Iron = -1;
+    private static boolean st618(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        final int ox = 25000, oz = 25000, gy = -58; BlockPos ore0 = new BlockPos(ox + 5, gy, oz), ore1 = ore0.above();
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.tasks.clear(); c.skillQueue.clear(); c.prefs.put("stay_close", "no"); c.commandActive = false; s618T = -1; s618Iron = -1;
+            c.prefs.put("mine_model", "blueprint"); c.prefs.put("torches_while_digging", "no");
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(ox + 0.5, gy + 30, oz + 0.5); c.setNoGravity(true); }
+        if (t[0] >= 2 && t[0] < 2 + 7) { int y = gy - 2 + t[0] - 2; // deepslate; the branch's first 5 cells dug, the ore in its 6th, both cells
+            for (int x = -6; x <= 26; x++) for (int z = -5; z <= 5; z++) { BlockPos q = new BlockPos(ox + x, y, oz + z); boolean dug = z == 0 && x >= 0 && x <= 4 && (y == gy || y == gy + 1);
+                level.setBlock(q, dug ? Blocks.AIR.defaultBlockState() : q.equals(ore0) || q.equals(ore1) ? Blocks.DEEPSLATE_REDSTONE_ORE.defaultBlockState() : Blocks.DEEPSLATE.defaultBlockState(), 2 | 16); } }
+        if (t[0] == 12) { c.setNoGravity(false); c.teleportTo(ox + 4.5, gy, oz + 0.5); c.fallDistance = 0; com.claudemod.entity.life.Watchdog.teleported(c);
+            var b = new com.claudemod.entity.life.MineBlueprint(new BlockPos(ox, gy, oz), net.minecraft.core.Direction.EAST, 1, 2); b.segments.clear();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.BRANCH, new BlockPos(ox, gy, oz), net.minecraft.core.Direction.EAST, 12, null)); b.invalidate(); c.blueprint = b; s618T = t[0]; }
+        if (s618T > 0 && c.tasks.isEmpty() && c.currentTask == null && t[0] % 20 == 0) com.claudemod.director.ClaudeLife.bpReconcile(c, level, 0, 11, true);
+        boolean past = s618T > 0 && level.getBlockState(new BlockPos(ox + 9, gy, oz)).isAir() && level.getBlockState(new BlockPos(ox + 9, gy + 1, oz)).isAir();
+        if (s618T > 0 && s618Iron < 0 && (past || t[0] >= s618T + 20 * 90)) {
+            boolean oreKept = level.getBlockState(ore0).is(Blocks.DEEPSLATE_REDSTONE_ORE) && level.getBlockState(ore1).is(Blocks.DEEPSLATE_REDSTONE_ORE);
+            int took = (t[0] - s618T) / 20; String at = c.blockPosition().toShortString();
+            if (!(past && oreKept)) { c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); }
+            check(past && oreKept, "ore past his pick in his branch: past it " + past + ", ore left in the wall " + oreKept + " (" + took + " s, at " + at + ")");
+            s618Took = took; s618Iron = t[0]; c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); // then an iron pick: the ore comes out, the bend is walled up
+        }
+        if (s618Iron > 0) {
+            boolean oreOut = !level.getBlockState(ore0).is(Blocks.DEEPSLATE_REDSTONE_ORE) && !level.getBlockState(ore1).is(Blocks.DEEPSLATE_REDSTONE_ORE);
+            boolean walled = true; for (int x = 4; x <= 6; x++) for (int y = 0; y <= 1; y++) for (int z : new int[] {-1, 1}) if (level.getBlockState(new BlockPos(ox + x, gy + y, oz + z)).isAir()) walled = false;
+            if (oreOut && walled || t[0] >= s618Iron + 20 * 60) {
+                int took2 = (t[0] - s618Iron) / 20; c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); s618Iron = -1;
+                check(oreOut && walled, "with an iron pick: the ore out " + oreOut + ", the bend walled up " + walled + " (" + took2 + " s)");
+                pass(stage, t, "redstone past his stone pick left in the wall, the branch round it and on past in " + s618Took + " s; with an iron pick, mined and the bend walled up in " + took2 + " s");
+            }
         }
         return true;
     }

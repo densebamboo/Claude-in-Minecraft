@@ -3955,6 +3955,12 @@ public final class ClaudeLife {
                     g.skillQueue.addFirst(st);
                     return "waiting: " + guard.size() + " mob(s) still standing over my things at " + spot.toShortString() + (properSword ? "" : " and I've nothing proper to fight with") + "; trying again in a bit";
                 }
+                if (g.inventory.count(s0 -> s0.getItem() instanceof net.minecraft.world.item.PickaxeItem) == 0 && !level.canSeeSky(spot.above())) { // in the rock and no pick: the way there may need digging (live 07:11 11-05: two minutes of "no way" 20 under his pile, then it despawned)
+                    String pk = haveFor(g, level, Items.IRON_INGOT) >= 3 ? "iron_pickaxe" : "stone_pickaxe";
+                    g.skillQueue.addFirst(st); g.skillQueue.addFirst(new Skills.Step("craft", pk, 1));
+                    ClaudeMod.LOGGER.info("[Claude life] his drops at {} are in the rock and he has no pickaxe: {} first (ClaudeLife recover_drops)", spot.toShortString(), pk);
+                    return "my things at " + spot.toShortString() + " are underground and I've no pickaxe: making a " + pk.replace('_', ' ') + " first, then going for them";
+                }
                 drops.sort(Comparator.comparingDouble(i -> i.distanceToSqr(g)));
                 boolean viaMine = g.mineFace != null && !inHisMine(g, g.blockPosition()) && (inHisMine(g, spot) || spot.distSqr(g.mineFace) <= 16 * 16 || (spot.getY() < g.getBlockY() - 12 && Math.abs(spot.getX() - g.mineFace.getX()) + Math.abs(spot.getZ() - g.mineFace.getZ()) <= 64)); // deep under him near his mine: down the mine, not overland to the spot 95 blocks above it
                 if (viaMine) queueRouteToMine(g, level); // they're down his mine: in at the entrance and along it, like a player (not overland to the spot above them)

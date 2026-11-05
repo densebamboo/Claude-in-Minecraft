@@ -10482,6 +10482,8 @@ public final class ClaudeBodyTest {
             case 665: return st665(stage, t, c, h, level, mock);
             case 666: return st666(stage, t, c, h, level, mock);
             case 667: return st667(stage, t, c, h, level, mock);
+            case 668: return st668(stage, t, c, h, level, mock);
+            case 669: return st669(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -14268,6 +14270,53 @@ public final class ClaudeBodyTest {
             check(walk, "obsidian water: no walk to the pool he saw: " + c.tasks);
             c.tasks.clear(); level.setBlock(pool, Blocks.STONE.defaultBlockState(), 3);
             pass(stage, t, "no water in sight: off to the pool he saw (" + r + ")");
+        }
+        return true;
+    }
+
+    /** A creeper 4 west; the way south is a 2-wide opening right beside it, the way north one on the far side from it: the run he picks never walks him nearer the creeper and within its blast (live 07:10 11-05, World 17 -182,-36,4: a run end south-west whose walk went west first, past the creeper 6 off, blown up at 20 HP). */
+    private static boolean st668(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000;
+            for (int x = 0; x <= 40; x++) for (int z = 0; z <= 40; z++) for (int y = 1; y <= 14; y++) {
+                boolean wall = y <= 10 && x <= 24 && (z == 22 && x != 17 && x != 18 || z == 18 && x != 22 && x != 23);
+                level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 || x >= 25 || wall ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+            BlockPos me = h.absolutePos(new BlockPos(20, 2, 20)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.tasks.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 5) {
+            BlockPos me = h.absolutePos(new BlockPos(20, 2, 20)); var cr = EntityType.CREEPER.create(level); BlockPos cp = me.west(4); cr.moveTo(cp.getX() + 0.5, cp.getY(), cp.getZ() + 0.5, 0, 0); cr.setNoAi(true); level.addFreshEntity(cr);
+            BlockPos end = c.work.pickEscapeNow(java.util.List.of(cr)); var path = end == null ? null : c.getNavigation().createPath(end, 1);
+            double now = cr.position().distanceTo(c.position()), near = 99; BlockPos at = null;
+            if (path != null) for (int n = 1; n < path.getNodeCount(); n++) { double d = net.minecraft.world.phys.Vec3.atBottomCenterOf(path.getNode(n).asBlockPos()).distanceTo(cr.position()); if (d < near) { near = d; at = path.getNode(n).asBlockPos(); } }
+            cr.discard(); c.tasks.clear(); c.dropCurrent = true;
+            for (int x = 0; x <= 40; x++) for (int z = 0; z <= 40; z++) for (int y = 2; y <= 14; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2);
+            check(end != null && path != null, "no run picked from the creeper: " + end);
+            check(!(near < 4 && near < now), "the run to " + end.toShortString() + " walks him " + String.format("%.1f", near) + " from the creeper at " + at.toShortString() + " (he's " + String.format("%.1f", now) + " off): inside its blast");
+            pass(stage, t, "the run to " + end.toShortString() + " keeps out of the creeper's blast (" + String.format("%.1f", near) + " at its nearest)");
+        }
+        return true;
+    }
+
+    /** Respawned with no pickaxe, his iron pile shut in the rock 11 off: a pickaxe first, then the pile (live 07:11 11-05, World 17: straight off to his pile 20 up a cave from his mine with no pick and no blocks, two minutes of "no way", the diamond helmet and boots despawned). */
+    private static boolean st669(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos pile = h.absolutePos(new BlockPos(8, 2, 8)), from = h.absolutePos(new BlockPos(1, 2, 1));
+        if (t[0] == 1) { scenarioReset(c); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(64))) it.discard(); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 5) {
+            flatBox(h); level.setDayTime(level.getDayTime() / 24000 * 24000 + 1000);
+            for (BlockPos q : BlockPos.betweenClosed(pile.offset(-2, 0, -2), pile.offset(2, 3, 2))) if (!q.equals(pile) && !q.equals(pile.above())) level.setBlock(q, Blocks.STONE.defaultBlockState(), 2); // shut in the rock
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_INGOT, 3)); c.getInventory().add(new ItemStack(Items.STICK, 2));
+            clockItems = clockPile(c, level, pile, from, 1200);
+            c.teleportTo(from.getX() + 0.5, from.getY(), from.getZ() + 0.5);
+            c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear(); c.lastStep = null; c.lastSkillLine = "";
+            c.skillQueue.addFirst(new com.claudemod.entity.life.Skills.Step("recover_drops", "", 1));
+        }
+        if (t[0] == 100) check(false, "pick first: recover_drops never ran in 5 s: " + c.lastSkillLine + ", queued " + c.skillQueue);
+        if (t[0] > 5 && c.lastSkillLine != null && c.lastSkillLine.startsWith("recover_drops")) {
+            String line = c.lastSkillLine; var q = new java.util.ArrayList<>(c.skillQueue);
+            for (var it : clockItems) it.discard(); c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear(); c.setLastDeathLocation(java.util.Optional.empty()); flatBox(h);
+            check(!q.isEmpty() && q.get(0).target().endsWith("_pickaxe") && q.stream().anyMatch(x -> x.skill().equals("recover_drops")), "pick first: no pickaxe on him and the pile shut in rock, but: " + line + ", queued " + q);
+            pass(stage, t, "no pickaxe, pile in the rock: " + q.get(0).target() + " first, then the pile (" + line + ")");
         }
         return true;
     }

@@ -4435,6 +4435,12 @@ public class WorkGoal extends Goal {
      * it, plugged or held, one at a time); else a run 16 out on the best heading. Logged with what it saw.
      */
     public BlockPos pickEscapeNow(java.util.List<? extends net.minecraft.world.entity.Mob> mobs) { pickEscape(mobs); return escapeAt; } // (tests)
+    /** The mob a walk takes him a block nearer than he is and within reach of (a creeper's blast 4, a hit 2.5), or null (stage 668). */
+    private net.minecraft.world.entity.Mob walksPast(net.minecraft.world.level.pathfinder.Path path, java.util.List<? extends net.minecraft.world.entity.Mob> mobs) {
+        for (var m : mobs) { double r = m instanceof net.minecraft.world.entity.monster.Creeper ? 4 : 2.5, now = m.position().distanceTo(g.position());
+            for (int n = 1; n < path.getNodeCount(); n++) { double d = Vec3.atBottomCenterOf(path.getNode(n).asBlockPos()).distanceTo(m.position()); if (d < r && d < now - 1) return m; } } // (a block nearer at least: the first node beside him is a hair nearer on a run away too, stage 596)
+        return null;
+    }
     private void pickEscape(java.util.List<? extends net.minecraft.world.entity.Mob> mobs) {
         ServerLevel lv = level(); BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); Vec3 eye = g.getEyePosition(); int now = g.tickCount;
         String from = mobs.stream().map(m -> m.getType().getDescription().getString() + " " + (int) m.distanceTo(g) + " " + com.claudemod.entity.life.Perception.compassOf(m.position().subtract(g.position()))).toList().toString(); // (with the bearing: which run went through which mob)
@@ -4476,7 +4482,7 @@ public class WorkGoal extends Goal {
         gaps.sort(java.util.Comparator.comparingDouble(a -> a[0].distSqr(feet)));
         for (int i = 0; i < Math.min(4, gaps.size()); i++) {
             var path = g.getNavigation().createPath(gaps.get(i)[1], 0);
-            if (path == null || !path.canReach()) continue;
+            if (path == null || !path.canReach() || walksPast(path, mobs) != null) continue;
             setEscape("gap", gaps.get(i)[1], gaps.get(i)[0]); escapeSide = Direction.getNearest(gaps.get(i)[1].getX() - gaps.get(i)[0].getX(), 0, gaps.get(i)[1].getZ() - gaps.get(i)[0].getZ());
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: the 1-wide gap at {} ({} off, in sight, none of them nearer it), held from {} on its far side, from {} (WorkGoal.pickEscape)", gaps.get(i)[0].toShortString(), (int) Math.sqrt(gaps.get(i)[0].distSqr(feet)), gaps.get(i)[1].toShortString(), from);
             return;
@@ -4501,6 +4507,7 @@ public class WorkGoal extends Goal {
             if (through) { thru++; continue; }
             tried++; var path = g.getNavigation().createPath(e1, 1); double straight = Math.sqrt(e1.distSqr(feet)), walk = 0;
             if (path == null || path.getNodeCount() == 0) { if (nos.size() < 4) nos.add(e1.toShortString()); continue; }
+            if (walksPast(path, mobs) != null) { thru++; continue; } // (the walk, not only the straight line: live 07:10 11-05, an end south-west whose walk went west first, past the creeper 6 off)
             for (int n = 1; n < path.getNodeCount(); n++) walk += Math.sqrt(path.getNode(n).asBlockPos().distSqr(path.getNode(n - 1).asBlockPos()));
             if (!path.canReach()) { // (a run needn't reach its end, only get him well along: stage 488's run off a fenced platform broke the skeleton's sight on the way. The live death was runs with no headway at all)
                 double gain = straight - Math.sqrt(path.getEndNode().asBlockPos().distSqr(e1));

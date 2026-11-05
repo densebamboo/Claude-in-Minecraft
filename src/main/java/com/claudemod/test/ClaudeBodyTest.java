@@ -10462,6 +10462,7 @@ public final class ClaudeBodyTest {
             case 708: return st708(stage, t, c, h, level, mock);
             case 709: return st709(stage, t, c, h, level, mock);
             case 710: return st710(stage, t, c, h, level, mock);
+            case 711: return st711(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13186,6 +13187,25 @@ public final class ClaudeBodyTest {
             boolean patched = level.getBlockState(s710P).is(Blocks.COBBLESTONE), got = c.getInventory().countItem(Items.RAW_COPPER) > 0;
             if (patched && got) { c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); pass(stage, t, "the dig, the copper, then the patch (" + (t[0] - 10) + " ticks)"); return true; }
             check(t[0] < 260, "the patch at " + s710P.toShortString() + " waiting on his copper at " + s710D.toShortString() + " past the block in his walkway: after 12 s patched " + patched + ", copper " + got + ", at " + c.blockPosition().toShortString() + ", now " + c.currentTask + " queue " + c.tasks.stream().limit(6).toList());
+        }
+        return true;
+    }
+
+    /** Live 02:44:18-02:44:21 11-05 (REVIEW-45): a patch refused because he stood in its cell was parked, then let back in 3 s later "he has more of the block" (a cobble picked up mid-vein, 100+ on him already) and refused again. More of the block lets a park go only when he had none of it when it was parked. */
+    private static boolean st711(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; }
+        if (t[0] == 10) {
+            BlockPos q = c.blockPosition().east(2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 40));
+            Task fill = new Task.Place(q, Items.COBBLESTONE); ClaudeEntity.ORIGIN.put(fill, "ClaudeLife.bpIntegrity:11231"); c.attempts.counters.put("conflict:" + q.asLong(), 3);
+            com.claudemod.entity.life.Parked.refused(c, fill, "where he's standing (test)");
+            check(com.claudemod.entity.life.Parked.blocks(c, fill), "setup: the fill at " + q.toShortString() + " isn't parked");
+            c.getInventory().add(new ItemStack(Items.COBBLESTONE, 1)); // (a cobble picked up mid-vein)
+            check(com.claudemod.entity.life.Parked.blocks(c, fill), "a fill parked with 40 cobble on him let back in by one more cobble: the park was about where he stood, not about the block");
+            Task none = new Task.Place(q.above(), Items.COBBLESTONE); ClaudeEntity.ORIGIN.put(none, "ClaudeLife.bpIntegrity:11231"); c.attempts.counters.put("conflict:" + q.above().asLong(), 3);
+            c.getInventory().clearContent(); com.claudemod.entity.life.Parked.refused(c, none, "no block (test)"); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 4));
+            check(!com.claudemod.entity.life.Parked.blocks(c, none), "a fill parked with no cobble on him not let back in once he has some");
+            c.getInventory().clearContent(); pass(stage, t, "more of the block lets a park go only when he had none of it"); return true;
         }
         return true;
     }

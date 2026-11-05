@@ -41,7 +41,7 @@ public final class Parked {
         String k = key(t); if (k == null) return false;
         Map<String, Park> b = books.get(g.getUUID()); Park p = b == null ? null : b.get(k);
         if (p == null || !upkeep(t)) return false;
-        String back = g.tickCount - p.at() > 20 * 120 ? "2 min passed" : p.from().distSqr(g.blockPosition()) > 8 * 8 ? "he's 8+ off where it failed" : p.item() != null && g.inventory.count(s -> s.is(p.item())) > p.had() ? "he has more of the block" : null;
+        String back = g.tickCount - p.at() > 20 * 120 ? "2 min passed" : p.from().distSqr(g.blockPosition()) > 8 * 8 ? "he's 8+ off where it failed" : p.item() != null && p.had() == 0 && g.inventory.count(s -> s.is(p.item())) > 0 ? "he has the block now" : null; // (only a park made with none of the block on him is about the block: 40+ cobble on him, one more picked up let a park about where he stood back in, refused again, 02:44:21 11-05, stage 711)
         if (back == null) return true;
         b.remove(k); Watchdog.cleared(g, t); g.attempts.of(Attempts.Kind.PLACE).remove(pos(t)); g.attempts.of(Attempts.Kind.REACH).remove(pos(t)); g.attempts.of(Attempts.Kind.BREAK).remove(pos(t)); g.attempts.counters.remove("conflict:" + pos(t).asLong()); // (the other owners of "not again yet": the watchdog's write-off, doPlace's 5 min guard, the reach skip)
         com.claudemod.ClaudeMod.LOGGER.info("[Claude parked] {} at {} back on ({}; it was: {}) (Parked.blocks)", k.split(" ")[0], pos(t).toShortString(), back, p.why());

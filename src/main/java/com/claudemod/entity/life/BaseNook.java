@@ -42,11 +42,11 @@ public final class BaseNook {
     /** The third row, on top of his storage: his junk chest (the user: "a 3rd chest on top for blocks"). */
     public List<BlockPos> junkChestCells() { return List.of(cell(0, DEPTH + 1, 2), cell(1, DEPTH + 1, 2)); }
     public List<BlockPos> allChestCells() { List<BlockPos> a = new ArrayList<>(chestCells()); a.addAll(junkChestCells()); return a; }
-    public BlockPos bedFoot() { return cell(2, DEPTH, 0); } // the user (world 14): in the right-wall niche beside the chests, running into the rock
-    public BlockPos bedHead() { return cell(2, DEPTH + 1, 0); } // its head in the back-wall line, beside the chests
+    public BlockPos bedFoot() { return cell(2, 2, 0); } // in the right wall, right after the table (the user 11-05: touching the crafting table, one cell nearer the mouth than it was)
+    public BlockPos bedHead() { return cell(2, DEPTH, 0); } // its head one deeper, beside the back row
     public Direction bedFacing() { return side; }
     /** Where the bed used to go (the back-row niche along the tunnel, then the pocket's middle row): a bed found there is moved, its niche filled back in (cells still in the layout are skipped). */
-    public List<BlockPos> oldBedCells() { return List.of(cell(2, DEPTH, 0), cell(3, DEPTH, 0), cell(2, DEPTH, 1), cell(3, DEPTH, 1), cell(1, 2, 0), cell(2, 2, 0), cell(2, 2, 1), cell(2, 2, 2)); }
+    public List<BlockPos> oldBedCells() { List<BlockPos> out = new java.util.ArrayList<>(List.of(cell(2, DEPTH, 0), cell(3, DEPTH, 0), cell(2, DEPTH, 1), cell(3, DEPTH, 1), cell(1, 2, 0), cell(2, 2, 0), cell(2, 2, 1), cell(2, 2, 2), cell(2, DEPTH + 1, 0), cell(2, DEPTH + 1, 1), cell(2, DEPTH + 1, 2))); out.removeIf(p -> isBedCell(p) || p.equals(bedFoot().above()) || p.equals(bedFoot().above(2)) || p.equals(bedHead().above()) || p.equals(bedHead().above(2))); return out; } // (never a cell of the bed's spot now, or its room: filled as the old niche, then dug for the bed, a loop) // (and the head cell of the spot before 11-05, with its room over it)
     public BlockPos tableCell() { return cell(2, 1, 0); } // in the right wall by the mouth
     public BlockPos torchCell() { return cell(0, 2, 1); } // on the left wall, eye height
     public Direction torchWall() { return ahead.getOpposite(); }

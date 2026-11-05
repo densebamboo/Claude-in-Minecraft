@@ -4892,7 +4892,7 @@ public final class ClaudeBodyTest {
                                 check(fs.getValue(net.minecraft.world.level.block.BedBlock.FACING) == n.side, "nook bed: facing " + fs.getValue(net.minecraft.world.level.block.BedBlock.FACING) + ", not into the rock (" + n.side + ")");
                                 BlockPos oldFoot = n.cell(1, 2, 0), oldHead = n.cell(2, 2, 0);
                                 check(level.getBlockState(oldFoot).isAir(), "nook bed: the old foot cell isn't the pocket's floor again: " + level.getBlockState(oldFoot));
-                                for (int y = 0; y <= 2; y++) check(com.claudemod.entity.life.BaseNook.solid(level, oldHead.above(y)), "nook bed: the old niche not walled at y+" + y + ": " + level.getBlockState(oldHead.above(y)));
+                                check(n.bedFoot().equals(oldHead), "nook bed: the bed's foot isn't in the old niche by the table: " + n.bedFoot().toShortString()); // (11-05: the bed's spot is the old niche now, touching the table)
                                 for (int y = 1; y <= 2; y++) check(level.getBlockState(n.bedFoot().above(y)).isAir() && level.getBlockState(n.bedHead().above(y)).isAir(), "nook bed: not 3 high over the bed");
                                 pass(stage, t, "the bed moved beside the chests (" + n.bedFoot().toShortString() + " -> " + n.bedHead().toShortString() + ", facing " + n.side + "), the old niche walled (" + t[0] + " ticks)");
                             } else if (t[0] >= 2400) check(false, "nook bed: not done in 120 s: " + (n == null ? "no nook" : n.stage(level) + " missing " + n.missing) + " tasks=" + c.tasks + " now=" + c.currentTask + " at " + c.blockPosition().toShortString());

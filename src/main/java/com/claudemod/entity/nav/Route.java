@@ -256,10 +256,10 @@ public final class Route {
     private static List<Task> finish(ClaudeEntity g, BlockPos to, double within, List<BlockPos> legs, List<Double> slack, boolean again, String why) {
         List<Task> out = new ArrayList<>(); Set<BlockPos> mark = new HashSet<>();
         BlockPos last = null, me = g.blockPosition(); boolean started = false;
-        for (int i = 0; i < legs.size(); i++) {
+        int upTo = legs.size(); while (upTo > 0 && legs.get(upTo - 1).equals(to)) upTo--; // the end's own walk covers every leg at the end equal to it (two equal walks side by side: the duplicate drop took the end, 12:31; "entrance, entrance" kept one as a leg, the end was dropped and the route planned again 12 times, 22:42 11-04)
+        for (int i = 0; i < upTo; i++) {
             BlockPos p = legs.get(i); if (p.equals(last)) continue;
             if (!started && p.equals(me)) continue; // (where he stands: his start is no leg; it stayed queued behind him, 12:30)
-            if (i == legs.size() - 1 && p.equals(to)) continue; // (the end's own walk covers it: two equal walks side by side, and the duplicate drop took the end, 12:31)
             started = true; out.add(new Task.GoTo(p, slack.get(i))); mark.add(p.immutable()); last = p;
         }
         out.add(new Task.GoTo(to, within)); if (!again) mark.add(to.immutable());

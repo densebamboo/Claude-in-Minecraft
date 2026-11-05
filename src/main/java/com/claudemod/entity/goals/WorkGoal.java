@@ -4103,13 +4103,14 @@ public class WorkGoal extends Goal {
         int coal = g.inventory.count(s -> s.is(net.minecraft.world.item.Items.COAL) || s.is(net.minecraft.world.item.Items.CHARCOAL));
         int fuelHeld = furnace.getItem(1).getCount();
         boolean inputWood = new ItemStack(t.input()).is(net.minecraft.tags.ItemTags.LOGS);
-        if (coal == 0 && fuelHeld == 0 && !inputWood && g.inventory.count(s -> s.is(net.minecraft.tags.ItemTags.PLANKS)) * 3 / 2 < want) {
+        if (coal == 0 && fuelHeld == 0 && g.inventory.count(s -> s.is(net.minecraft.tags.ItemTags.PLANKS)) * 3 / 2 < want) { // (logs cooking too: the spare ones, never whole logs in the fuel slot; the user 11-04 "turn them into planks first")
             // no coal: logs into planks first (a log burns 1.5 items, its 4 planks 6)
             ItemStack log = g.inventory.find(s -> s.is(net.minecraft.tags.ItemTags.LOGS));
             if (!log.isEmpty()) {
                 String planks = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(log.getItem()).getPath().replace("_log", "_planks").replace("stripped_", "").replace("_wood", "_planks");
                 var pi = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.withDefaultNamespace(planks));
-                if (pi != net.minecraft.world.item.Items.AIR) com.claudemod.entity.life.Crafting.craft(level, g.inventory, pi, Math.max(1, (want + 5) / 6), false);
+                int planksFor = Math.max(1, (want * 2 + 2) / 3); if (inputWood) planksFor = Math.min(planksFor, 4 * (g.inventory.count(s -> s.is(net.minecraft.tags.ItemTags.LOGS)) - want)); // planks to make, not crafts: craft() counts items ("(want+5)/6" made 4 of the 6 needed and whole logs went in as fuel) ; the logs to cook stay logs
+                if (pi != net.minecraft.world.item.Items.AIR && planksFor > 0) com.claudemod.entity.life.Crafting.craft(level, g.inventory, pi, planksFor, false);
             }
         }
         if (coal == 0 && fuelHeld == 0) {

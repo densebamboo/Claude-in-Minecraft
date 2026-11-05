@@ -10491,6 +10491,7 @@ public final class ClaudeBodyTest {
             case 722: return st722(stage, t, c, h, level, mock);
             case 723: return st723(stage, t, c, h, level, mock);
             case 724: return st724(stage, t, c, h, level, mock);
+            case 725: return st725(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13543,6 +13544,26 @@ public final class ClaudeBodyTest {
             check(!(rule.skill().equals("gear_up") && r.startsWith("done: through the portal")), "the rules' step in the Nether was gear_up, a no-op there: " + r);
             c.tasks.clear(); c.skillQueue.clear(); c.playerGoal = null; c.dropCurrent = true; nsHome(c, h, level);
             pass(stage, t, "the rules' step in the Nether does something: " + rule.skill() + " " + rule.target()); return true;
+        }
+        return true;
+    }
+
+    /** Live 12:11-12:25 11-05 (Nether 70,32,-51, 14 min pinned): on soul sand over lava (feet at y 32.88), every Pillar step of his made way up ended at once with no block put down: his feet cell was taken as the soul sand's own (blockPosition), "already" solid, "up a level either way". The walk up then failed 2 short, the way was made again, round and round. On a block lower than full he towers from on top of it. */
+    private static boolean st725(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -1; x <= 10; x++) for (int z = -1; z <= 10; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), Blocks.NETHERRACK.defaultBlockState(), 2); for (int y = 1; y <= 7; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = 3; x <= 7; x++) for (int z = 3; z <= 7; z++) level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), Blocks.SOUL_SAND.defaultBlockState(), 2); // (a soul sand patch in the floor, as live)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 16));
+            BlockPos me = h.absolutePos(new BlockPos(5, 0, 5)); c.teleportTo(me.getX() + 0.5, me.getY() + 0.875, me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.tasks.add(new Task.Pillar(1)); c.tasks.add(new Task.Wait(100, false)); } // (stays up: live the walk on was next)
+        if (t[0] == 70) {
+            BlockPos top = h.absolutePos(new BlockPos(5, 1, 5));
+            check(!level.getBlockState(top).isAir(), "a Pillar(1) from on soul sand put no block down on it (" + level.getBlockState(top).getBlock() + " at " + top.toShortString() + ", he's at y " + String.format("%.2f", c.getY()) + ")");
+            check(c.getY() >= top.getY() + 0.99, "a Pillar(1) from on soul sand: he's not up on the new block (y " + String.format("%.2f", c.getY()) + ")");
+            c.tasks.clear(); c.dropCurrent = true;
+            pass(stage, t, "towered one up from on soul sand"); return true;
         }
         return true;
     }

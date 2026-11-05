@@ -10467,6 +10467,8 @@ public final class ClaudeBodyTest {
             case 655: return st655(stage, t, c, h, level, mock);
             case 656: return st656(stage, t, c, h, level, mock);
             case 657: return st657(stage, t, c, h, level, mock);
+            case 658: return st658(stage, t, c, h, level, mock);
+            case 660: return st660(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -13939,6 +13941,37 @@ public final class ClaudeBodyTest {
         return true;
     }
 
+    /** Low on air standing at the bottom of a flooded pocket, rock right over his head cell, the air one across and three up: he moves across, then up (live 00:56 11-05 World 17, -90,12,-52: the way back's first step was straight up into his own head cell, he jumped into the rock over it for 10 s, health 20 -> 0.5). The grid y11..15 is the incident's, block for block. */
+    private static boolean st660(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(1, 2, 1)); // real (-93, 11, -55)
+        String[][] grid = { // y 11..15, each row z -55..-49, x -93..-87
+            {"####~~~", "####~~~", "####~~~", "####~~~", "######~", "#######", "#######"},
+            {"##~~~~#", "###~~~#", "###~~~~", "###~~~~", "###~~~~", "####~~~", "#####~~"},
+            {"#~~~~##", "##~~~##", "##~~~##", "##~~~##", "###~~~#", "###~~~#", "###~~~#"},
+            {"~~~####", "#~~~###", "#~~####", "##~#~##", "##~~###", "##~~~##", "##~~~##"},
+            {"~######", "~~#####", "~~#..##", "#~~~~##", "#~~~~##", "#~~~###", "##~~~##"}};
+        java.util.function.Function<int[], BlockPos> R = r -> o.offset(r[0] + 93, r[1] - 11, r[2] + 55); // real -> test
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(-1, -1, -1), o.offset(7, 8, 7))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            for (int y = 0; y < 5; y++) for (int z = 0; z < 7; z++) for (int x = 0; x < 7; x++) { char ch = grid[y][z].charAt(x); level.setBlock(o.offset(x, y, z), ch == '~' ? Blocks.WATER.defaultBlockState() : ch == '.' ? Blocks.AIR.defaultBlockState() : Blocks.STONE.defaultBlockState(), 2); }
+            for (int y = 16; y <= 17; y++) level.setBlock(R.apply(new int[] {-89, y, -52}), Blocks.AIR.defaultBlockState(), 2); // the air over the column he came down
+            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64));
+            int[][] way = {{-89, 16, -52}, {-89, 15, -52}, {-89, 14, -52}, {-89, 13, -52}, {-89, 12, -52}, {-90, 12, -52}}; // down the column, one across
+            for (int[] w : way) { BlockPos p = R.apply(w); c.teleportTo(p.getX() + 0.5, p.getY(), p.getZ() + 0.5); com.claudemod.entity.nav.Route.step(c); }
+            BlockPos me = R.apply(new int[] {-90, 12, -52});
+            c.teleportTo(me.getX() + 0.51, me.getY(), me.getZ() + 0.55); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.setAirSupply(117);
+            c.tasks.add(new Task.Wait(1000, false));
+        }
+        if (t[0] > 10) {
+            BlockPos me = R.apply(new int[] {-90, 12, -52});
+            check(c.isAlive() && c.getHealth() >= 18, "drowning under the rock at -90,14,-52: health " + c.getHealth() + " at " + c.blockPosition().subtract(me) + " y " + String.format("%.2f", c.getY() - me.getY()) + ", air " + c.getAirSupply());
+            if (t[0] > 12 && !c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER) && c.getY() >= me.getY() + 3) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "across and up to air in " + (t[0] - 10) + " ticks, at " + c.blockPosition().subtract(me)); }
+            else check(t[0] < 10 + 20 * 12, "no air in 12 s: at " + c.blockPosition().subtract(me) + " y " + String.format("%.2f", c.getY() - me.getY()) + ", air " + c.getAirSupply());
+        }
+        return true;
+    }
+
     private static boolean st650(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         // Live 22:14 11-04 World 17, -81,15,-17: drowned bobbing between y15 and y16, his aim flipping between -82,15,-18 (the way he came down) and -81,14,-17 (a cell he'd poked into below), the air 19 trail cells back up the shaft. The grid y14..18 is the incident's, block for block; the shaft above it (y19..24) is built from his last 30 s.
         BlockPos o = h.absolutePos(new BlockPos(1, 2, 1)); // real (-84, 14, -20)
@@ -14112,6 +14145,26 @@ public final class ClaudeBodyTest {
             int cob = c.getInventory().countItem(Items.COBBLESTONE);
             if (cob > 17) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; pass(stage, t, "digging on for the cobble: " + cob + " in " + (t[0] - 20) / 20 + " s"); }
             else check(t[0] < 20 + 20 * 40, "40 s and still 17 cobble: " + line);
+        }
+        return true;
+    }
+
+    /** No pick, 32 logs, his nook's table 8 off behind a wall he can't path through: "craft wooden_pickaxe" puts his own table down and makes it (live 00:24 11-05 World 17: the nook branch re-sent him to the table's stand every pass, the walk failing at once NO_PATH, 3 a second for minutes). */
+    private static boolean st658(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(3, 2, 6));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -4; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE); for (int yy = 2; yy <= 5; yy++) h.setBlock(new BlockPos(x, yy, z), x == 6 ? Blocks.BEDROCK : Blocks.AIR); h.setBlock(new BlockPos(x, 6, z), Blocks.BEDROCK); for (int yy = -4; yy <= 1; yy++) if (x == 6) h.setBlock(new BlockPos(x, yy, z), Blocks.BEDROCK); }
+            c.nook = new com.claudemod.entity.life.BaseNook(h.absolutePos(new BlockPos(9, 2, 6)), net.minecraft.core.Direction.EAST, net.minecraft.core.Direction.SOUTH);
+            level.setBlock(c.nook.tableCell(), Blocks.CRAFTING_TABLE.defaultBlockState(), 3); c.myStations.add(c.nook.tableCell().immutable()); level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.OAK_LOG, 32)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 4)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+        }
+        if (t[0] == 20) c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "wooden_pickaxe", 1, "near_you"));
+        if (t[0] > 20) {
+            if (c.getInventory().countItem(Items.WOODEN_PICKAXE) > 0) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; pass(stage, t, "his own table down and the pick made in " + (t[0] - 20) / 20 + " s"); }
+            else check(t[0] < 20 + 20 * 20, "20 s and no wooden pickaxe: line " + c.lastSkillLine + ", task " + c.currentTask);
         }
         return true;
     }

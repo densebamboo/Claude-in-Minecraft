@@ -8804,7 +8804,7 @@ public final class ClaudeLife {
             BlockPos tc = g.nook.tableCell(), stand = g.nook.standFor(tc);
             if (!level.getBlockState(tc).is(Blocks.CRAFTING_TABLE) && (g.tasks.stream().anyMatch(t -> t instanceof Task.Place pl && pl.pos().equals(tc) && pl.item() == Items.CRAFTING_TABLE) || (g.currentTask instanceof Task.Place cp && cp.pos().equals(tc)))) return false; // (its table already going in: not queued again; the extra break ran after it was in)
             Integer failed = g.attempts.any.get(tc);
-            if (stand != null && (failed == null || g.tickCount - failed > 20 * 300)) {
+            if (stand != null && (failed == null || g.tickCount - failed > 20 * 300) && !g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, stand, g.tickCount, 20 * 300)) { // (a walk to its stand that failed holds it too: live 00:24 11-05 the stand had no path, he was re-sent every pass, 3 a second)
                 if (level.getBlockState(tc).is(Blocks.CRAFTING_TABLE)) { g.tasks.addFirst(new Task.GoTo(stand, 1.0)); nookSay(g, "tableWalk", "[Claude craft] for " + Crafting.name(target) + ": walking to a crafting table at " + stand.toShortString() + " (ClaudeLife.ensureCraftingTable)"); return false; }
                 if (g.inventory.count(t -> t.is(Items.CRAFTING_TABLE)) == 0) Crafting.craft(level, g.inventory, Items.CRAFTING_TABLE, 1, false);
                 if (g.tasks.stream().anyMatch(t0 -> t0 instanceof Task.Place p0 && p0.pos().equals(tc))) return false; // (already on its way in: a second Break+Place pair broke at the table the first had just placed, 05:46)

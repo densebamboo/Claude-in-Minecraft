@@ -2049,6 +2049,7 @@ public class WorkGoal extends Goal {
             java.util.Set<BlockPos> interior = new java.util.HashSet<>(); for (BlockPos f : row.feet()) for (int y = 0; y < row.height(); y++) interior.add(f.above(y));
             java.util.Set<BlockPos> feeds = new java.util.LinkedHashSet<>();
             for (BlockPos f : row.feet()) for (int y = 0; y < row.height(); y++) for (Direction d : Direction.values()) { BlockPos q = f.above(y).relative(d); if (!interior.contains(q) && level.getFluidState(q).is(net.minecraft.tags.FluidTags.WATER)) feeds.add(q.immutable()); }
+            BlockPos pocket = null; // a feed with no solid face anywhere round it: open water, no player places into that from dry ground
             for (BlockPos wet : feeds) {
                 ItemStack fill = solidScaffold(); boolean sealed = false; StringBuilder tried = new StringBuilder();
                 for (Direction against : Direction.values()) {
@@ -2060,6 +2061,16 @@ public class WorkGoal extends Goal {
                 }
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude mine] water feed {} exposed by {}: {} (WorkGoal.doBreak)", wet.toShortString(), pos.toShortString(), sealed ? "sealed before flow" : "needs a visible supporting face (tried from " + String.format("%.2f %.2f %.2f", g.getX(), g.getEyeY(), g.getZ()) + ": " + (tried.length() == 0 ? "no solid face round it" : tried.toString()) + ")");
                 // A forward face hidden by the other plug half becomes reachable when that half opens next; keep working from the dry row.
+                if (!sealed && tried.length() == 0 && pocket == null) pocket = wet;
+            }
+            var seg0 = g.blueprint.segments.get(row.segment());
+            if (pocket != null && seg0.kind == com.claudemod.entity.life.MineBlueprint.Kind.BRANCH) { // the branch ends here, like at lava: this cell plugged, nothing queued past it (live 01:54 11-05 World 17: the fills past it sent him swimming into the aquifer, his own blocks boxed him in)
+                int oldN = seg0.n, cutAt = row.index(); seg0.n = cutAt; g.blueprint.invalidate(); int dropped = 0;
+                for (java.util.Iterator<Task> it = g.tasks.iterator(); it.hasNext(); ) { Task q = it.next(); BlockPos tp = q instanceof Task.Place p0 ? p0.pos() : q instanceof Task.Break b0 ? b0.pos() : q instanceof Task.GoTo g0 ? g0.pos() : null; if (tp == null) continue;
+                    int along = (tp.getX() - seg0.start.getX()) * seg0.dir.getStepX() + (tp.getZ() - seg0.start.getZ()) * seg0.dir.getStepZ(), side = Math.abs((tp.getX() - seg0.start.getX()) * seg0.dir.getStepZ() + (tp.getZ() - seg0.start.getZ()) * seg0.dir.getStepX());
+                    if (along >= cutAt && along <= oldN + 1 && side <= 2) { it.remove(); dropped++; } }
+                ItemStack plugFill = solidScaffold(); if (!plugFill.isEmpty()) g.tasks.addFirst(new Task.Place(pos.immutable(), plugFill.getItem()));
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude mine] branch at {} opened into open water at {} (no face to seal it against from dry ground): plugging {}, the branch ends at {} long (was {}), {} queued job(s) past it dropped (WorkGoal.doBreak)", seg0.start.toShortString(), pocket.toShortString(), pos.toShortString(), cutAt, oldN, dropped);
             }
         }
         { // what the break opened is in front of him now: the fluid beside it on record, and lava there means the block straight back in (lava runs into an opening a second and more later; a player puts it back)

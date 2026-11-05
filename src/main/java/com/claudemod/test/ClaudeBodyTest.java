@@ -10471,6 +10471,8 @@ public final class ClaudeBodyTest {
             case 660: return st660(stage, t, c, h, level, mock);
             case 661: return st661(stage, t, c, h, level, mock);
             case 662: return st662(stage, t, c, h, level, mock);
+            case 663: return st663(stage, t, c, h, level, mock);
+            case 664: return st664(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -13993,6 +13995,61 @@ public final class ClaudeBodyTest {
             boolean left = c.currentTask instanceof Task.GoTo g0 && g0.pos().getX() >= wp.getX() || c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo g1 && g1.pos().getX() >= wp.getX());
             if (!left) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "the stale swim waypoints dropped on dry ground in " + (t[0] - 10) + " ticks, the wall and his plug standing"); }
             else check(t[0] < 10 + 20 * 15, "15 s and the swim waypoints still queued: " + c.currentTask + " " + c.tasks);
+        }
+        return true;
+    }
+
+    /** His branch runs into a flooded pocket (water round the walk cells, under and over them): no face to seal the open water against from dry ground, so the branch ends there plugged like at lava, the fills past it dropped, and he never goes into the water (live 01:54-01:56 11-05 World 17, -96,16,-58: the branch pushed to 48 hit an aquifer; seals tried from 5 blocks back failed for want of a visible face, the flood came into his tunnel, and the blueprint's fills sent him swimming into the pocket, where his own blocks boxed him in). */
+    private static boolean st663(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(7, 2, 6));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); idleSince = 0; orePasses = 0; }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) for (int yy = -3; yy <= 9; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE);
+            for (int x = 2; x <= 7; x++) for (int yy = 2; yy <= 3; yy++) h.setBlock(new BlockPos(x, yy, 1), Blocks.AIR); // the main tunnel
+            for (int z = 2; z <= 7; z++) for (int yy = 2; yy <= 3; yy++) h.setBlock(new BlockPos(7, yy, z), Blocks.AIR); // his branch, dug 6 of 12
+            for (int x = 5; x <= 9; x++) for (int z = 10; z <= 14; z++) for (int yy = 1; yy <= 4; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.WATER); // the flooded pocket two rows on
+            var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(new BlockPos(2, 2, 1)), net.minecraft.core.Direction.EAST, 1, 2); b.segments.clear();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, h.absolutePos(new BlockPos(2, 2, 1)), net.minecraft.core.Direction.EAST, 6, null));
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.BRANCH, h.absolutePos(new BlockPos(7, 2, 2)), net.minecraft.core.Direction.SOUTH, 12, null)); b.invalidate();
+            c.prefs.put("mine_model", "blueprint"); c.prefs.put("torches_while_digging", "no"); c.blueprint = b; com.claudemod.director.ClaudeLife.bpSync(c);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5); level.setDayTime(1000);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+            com.claudemod.director.ClaudeLife.bpReconcile(c, level, 0, 99, false);
+        }
+        if (t[0] > 10) {
+            check(!c.isInWater() && level.getFluidState(c.blockPosition()).isEmpty(), "went into the water at " + c.blockPosition().toShortString() + ": task " + c.currentTask + ", next " + c.tasks.stream().limit(4).toList());
+            boolean idle = c.tasks.isEmpty() && c.currentTask == null;
+            if (idle && t[0] - idleSince > 40 && orePasses < 40 && com.claudemod.director.ClaudeLife.bpReconcile(c, level, 0, 99, false) > 0) { orePasses++; idleSince = t[0]; idle = false; } // (his upkeep's next pass)
+            String wrong = null;
+            for (int z = 2; z <= 9 && wrong == null; z++) for (int yy = 2; yy <= 3; yy++) { BlockPos q = h.absolutePos(new BlockPos(7, yy, z)); if (!level.getFluidState(q).isEmpty() || z <= 7 && !level.getBlockState(q).isAir()) { wrong = "branch cell " + q.toShortString() + " is " + level.getBlockState(q).getBlock().getName().getString(); break; } }
+            if (wrong == null && c.blueprint.segments.get(1).n >= 12) wrong = "the branch still planned on through the water";
+            for (int x = 2; x <= 7 && wrong == null; x++) for (int yy = 2; yy <= 3; yy++) if (!level.getFluidState(h.absolutePos(new BlockPos(x, yy, 1))).isEmpty()) { wrong = "water in his main tunnel"; break; }
+            if (wrong == null && idle) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "the branch ended plugged at the flooded pocket (" + c.blueprint.segments.get(1).n + " long) in " + (t[0] - 10) / 20 + " s, never in the water"); }
+            else check(t[0] < 10 + 20 * 60, "60 s and the branch not ended dry at the water: " + wrong + "; task " + c.currentTask + ", next " + c.tasks.stream().limit(4).toList());
+        }
+        return true;
+    }
+
+    /** His old scaffold block now holds back water (a pool opened beside it since he put it down): leaving for a walk, it stays up, a plug now, not litter (live 02:01 11-05 World 17: his cobblestone at -91,14,-46 "back up after 23 min" let the water into his tunnel at -91,13,-47, and he went in after its drop and shuffled in and out of the water for 5 minutes). */
+    private static boolean st664(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(5, 2, 6)), sc = h.absolutePos(new BlockPos(7, 2, 6)), dest = h.absolutePos(new BlockPos(5, 2, 30));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 34; z++) { for (int yy = -2; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE); for (int yy = 2; yy <= 5; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            for (int x = 8; x <= 11; x++) for (int z = 4; z <= 8; z++) for (int yy = 2; yy <= 3; yy++) h.setBlock(new BlockPos(x, yy, z), x == 11 || z == 4 || z == 8 || yy == 3 ? Blocks.STONE : Blocks.WATER); // the pool, open only toward his block
+            level.setBlock(sc, Blocks.COBBLESTONE.defaultBlockState(), 3); com.claudemod.entity.life.TempLedger.placed(c, level, sc, Blocks.COBBLESTONE.defaultBlockState(), Blocks.AIR.defaultBlockState());
+            check(com.claudemod.entity.life.TempLedger.has(c, sc), "water scaffold: his block isn't on his ledger as temporary");
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 10)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); level.setDayTime(6000);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.tasks.add(new Task.GoTo(dest, 1.0));
+        }
+        if (t[0] > 10) {
+            check(level.getFluidState(sc).isEmpty() && !level.getBlockState(sc).canBeReplaced(), "water scaffold: his block at " + sc.toShortString() + " came up and let the pool out (task " + c.currentTask + ")");
+            if (c.blockPosition().distSqr(dest) <= 3 * 3) pass(stage, t, "his block holding the pool back stayed up; at " + dest.toShortString() + " in " + (t[0] - 10) + " ticks");
+            else check(t[0] < 10 + 20 * 40, "water scaffold: not at " + dest.toShortString() + " in 40 s: " + c.currentTask + " " + c.tasks);
         }
         return true;
     }

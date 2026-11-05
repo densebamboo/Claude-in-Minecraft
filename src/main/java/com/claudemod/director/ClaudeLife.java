@@ -3626,6 +3626,17 @@ public final class ClaudeLife {
                 if (mode.equals("off")) return "failed: villages are theirs (village_mode off)";
                 boolean shortOfIron = g.inventory.count(s -> s.is(Items.IRON_INGOT) || s.is(Items.RAW_IRON)) < 8 && !Kit.has(g, Items.IRON_CHESTPLATE);
                 boolean raid = mode.equals("raid") || mode.equals("useful") && (st.skill().equals("village_beds") || st.skill().equals("village_iron") && shortOfIron); // "useful": beds are fine to take (the user), the golem's iron when he's short
+                { var vil = knownVillage(g, st.skill(), level); // the village he saw, off out of view: there first, like a player heading back to one he passed
+                  boolean inView = st.skill().equals("village_food") ? villageHayInSight(g, level) > 0 // (what this skill takes, in view here: here it is, whatever he has on record)
+                          : st.skill().equals("village_beds") ? !findAll(level, g.blockPosition(), 32, b -> b.is(BlockTags.BEDS), 4).stream().filter(p -> visibleBlock(g, level, p)).toList().isEmpty()
+                          : !level.getEntitiesOfClass(net.minecraft.world.entity.animal.IronGolem.class, g.getBoundingBox().inflate(32), e -> e.isAlive() && g.hasLineOfSight(e)).isEmpty();
+                  if (vil != null && !inView) { BlockPos vc = vil.nearestCell(g.position()); double vd = Math.sqrt(vc.distToCenterSqr(g.position()));
+                    if (vd > 20) { // (knownVillage leaves out one whose walk just failed)
+                        String night = nightOutsideNo(g, level, vc); if (night != null) return night;
+                        g.tasks.add(new Task.GoTo(vc, 4)); g.skillQueue.addFirst(st);
+                        String what = st.skill().equals("village_food") ? "hay" : st.skill().equals("village_beds") ? "beds" : "golem";
+                        return "walking to the village I saw at " + vc.toShortString() + " (" + (int) vd + " blocks) for its " + what;
+                    } } }
                 if (st.skill().equals("village_food")) {
                     List<BlockPos> hay = findAll(level, g.blockPosition(), 32, b -> b.is(Blocks.HAY_BLOCK), 16); hay.removeIf(p -> !canSee(g, level, p));
                     List<BlockPos> ripe = findAll(level, g.blockPosition(), 32, b -> b.getBlock() instanceof net.minecraft.world.level.block.CropBlock cb && cb.isMaxAge(b), 24);
@@ -13414,15 +13425,48 @@ public final class ClaudeLife {
 
     /** An iron golem in sight within 32 that village_iron would take on now (raid mode, or useful and short of iron; fit for it), or null. */
     public static net.minecraft.world.entity.animal.IronGolem golemReady(ClaudeEntity g, ServerLevel level) {
-        String mode = g.pref("village_mode", "useful");
-        boolean shortOfIron = g.inventory.count(s -> s.is(Items.IRON_INGOT) || s.is(Items.RAW_IRON)) < 8 && !Kit.has(g, Items.IRON_CHESTPLATE);
-        if (!(mode.equals("raid") || mode.equals("useful") && shortOfIron)) return null;
-        if (g.getHealth() < 12 || g.inventory.count(s -> s.has(net.minecraft.core.component.DataComponents.FOOD)) < 4) return null;
-        if (g.inventory.count(s -> s.getItem() instanceof net.minecraft.world.item.AxeItem || s.getItem() instanceof net.minecraft.world.item.SwordItem) == 0) return null;
-        if (g.inventory.count(ClaudeInventory::isBuildingBlock) < 4) return null;
-        if (g.inventory.count(s -> s.getItem() instanceof net.minecraft.world.item.PickaxeItem) == 0 && g.inventory.count(s -> s.is(Items.DIRT)) < 4) return null; // the tower comes down after: a pickaxe for cobble, or dirt by hand (a cobble tower and no pick: the take-down read as a broken pick and the fight was dropped)
+        if (!golemFit(g)) return null;
         var golems = level.getEntitiesOfClass(net.minecraft.world.entity.animal.IronGolem.class, g.getBoundingBox().inflate(32), e -> e.isAlive() && g.hasLineOfSight(e));
         return golems.isEmpty() ? null : golems.get(0);
+    }
+
+    static final int VILLAGE_FOOD_WALK = 160, VILLAGE_WALK = 400; // (bread is everywhere, cows and crops: a village's hay is worth ~30 s sprinting; a golem's iron against minutes of strip-mining, beds against 3 sheep a bed: ~75 s)
+    /**
+     * The nearest village he saw here (by its nearest seen cell) within `range` that's worth the trip (`worth`) and that he hasn't
+     * just failed to walk to, when villages are his to use (village_mode not off); else null. The user 11-04: "he should be able to
+     * see it from where he set up his mine, and use hay bales for food and iron golems for iron... and also beds"; two villages on
+     * his record, the nearest worthwhile one first.
+     */
+    public static com.claudemod.entity.life.Perception.Sighting knownVillage(ClaudeEntity g, int range, java.util.function.Predicate<com.claudemod.entity.life.Perception.Sighting> worth) {
+        if (g.pref("village_mode", "useful").equals("off")) return null;
+        com.claudemod.entity.life.Perception.Sighting best = null; double bd = (double) range * range;
+        for (var s : com.claudemod.entity.life.Perception.landmarks(g)) {
+            if (!com.claudemod.entity.life.FarSight.kindMatches("village", s.id())) continue;
+            BlockPos c = s.nearestCell(g.position()); double d = c.distToCenterSqr(g.position());
+            if (d > bd || !worth.test(s) || g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, c, g.tickCount, 20 * 300)) continue; // (a walk there that failed: the next one)
+            bd = d; best = s;
+        }
+        return best;
+    }
+    /** The village a village skill heads for: hay within the food walk, else any within the long walk. */
+    public static com.claudemod.entity.life.Perception.Sighting knownVillage(ClaudeEntity g, String skill, ServerLevel level) {
+        return skill.equals("village_food") ? knownVillage(g, VILLAGE_FOOD_WALK, s -> villageHay(level, s)) : knownVillage(g, VILLAGE_WALK, s -> true);
+    }
+    /** Hay he saw in it (still there where it's loaded; out there, his record of it). */
+    public static boolean villageHay(ServerLevel level, com.claudemod.entity.life.Perception.Sighting s) {
+        for (BlockPos c : s.cells()) if (level.isLoaded(c) ? level.getBlockState(c).is(Blocks.HAY_BLOCK) : s.block().contains("hay")) return true;
+        return false;
+    }
+    /** Fit to take on a golem for its iron (village_iron's checks): raid mode, or useful and short of iron; 6 hearts, 4 meals, an axe or sword, 4 blocks for the pillar and a way to take it down. */
+    public static boolean golemFit(ClaudeEntity g) {
+        String mode = g.pref("village_mode", "useful");
+        boolean shortOfIron = g.inventory.count(s -> s.is(Items.IRON_INGOT) || s.is(Items.RAW_IRON)) < 8 && !Kit.has(g, Items.IRON_CHESTPLATE);
+        if (!(mode.equals("raid") || mode.equals("useful") && shortOfIron)) return false;
+        if (g.getHealth() < 12 || g.inventory.count(s -> s.has(net.minecraft.core.component.DataComponents.FOOD)) < 4) return false;
+        if (g.inventory.count(s -> s.getItem() instanceof net.minecraft.world.item.AxeItem || s.getItem() instanceof net.minecraft.world.item.SwordItem) == 0) return false;
+        if (g.inventory.count(ClaudeInventory::isBuildingBlock) < 4) return false;
+        if (g.inventory.count(s -> s.getItem() instanceof net.minecraft.world.item.PickaxeItem) == 0 && g.inventory.count(s -> s.is(Items.DIRT)) < 4) return false; // the tower comes down after: a pickaxe for cobble, or dirt by hand (a cobble tower and no pick: the take-down read as a broken pick and the fight was dropped)
+        return true;
     }
 
     private static boolean standable(ServerLevel level, BlockPos feet) {

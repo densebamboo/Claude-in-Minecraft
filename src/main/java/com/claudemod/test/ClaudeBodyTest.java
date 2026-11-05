@@ -10410,6 +10410,8 @@ public final class ClaudeBodyTest {
             case 624: return st624(stage, t, c, h, level, mock);
             case 625: return st625(stage, t, c, h, level, mock);
             case 626: return st626(stage, t, c, h, level, mock);
+            case 629: return st629(stage, t, c, h, level, mock);
+            case 630: return st630(stage, t, c, h, level, mock);
             case 628: return st628(stage, t, c, h, level, mock);
             case 598: return st598(stage, t, c, h, level, mock);
             case 599: return st599(stage, t, c, h, level, mock);
@@ -12582,6 +12584,84 @@ public final class ClaudeBodyTest {
         if (c.isAlive()) s625Low = Math.min(s625Low, c.getHealth());
         if (!c.isAlive() || c.getHealth() <= 0) { check(false, "replay " + name + ": STILL DIES after " + (t[0] - s625T) / 20 + " s (" + c.getLastDamageSource() + ") at " + c.blockPosition().toShortString() + ", last " + c.lastSkillLine + " | " + (s625Note.length() > 500 ? s625Note.substring(0, 500) + "... (the whole note in the replay line above)" : s625Note)); return true; }
         if (t[0] - s625T >= 20 * 30) { pass(stage, t, "replay " + name + ": SURVIVES 30 s, health " + c.getHealth() + " (low " + s625Low + "), at " + c.blockPosition().toShortString() + ", last " + c.lastSkillLine + " | " + (s625Note.length() > 500 ? s625Note.substring(0, 500) + "... (the whole note in the replay line above)" : s625Note)); }
+        return true;
+    }
+
+    /** The user 11-04 23:20: "there's a fairly large village nearby... use hay bales for food and iron golems for iron... and also beds". A village he saw (its hay) 110 blocks off, out of sight: bread, iron and a bed plan through it, and village_food walks there. Before: only hay/golem in sight counted. */
+    private static int s629T; private static BlockPos s629Hay;
+    private static boolean st629(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.tasks.clear(); c.skillQueue.clear(); c.commandActive = false; c.prefs.put("stay_close", "no"); c.prefs.put("village_mode", "useful"); s629T = -1; c.lastSkillLine = ""; com.claudemod.entity.life.Perception.sightings(c).removeIf(s0 -> s0.id().equals("village")); }
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(1000);
+            s629Hay = h.absolutePos(new BlockPos(9, 2, 8)); level.setBlockAndUpdate(s629Hay, Blocks.HAY_BLOCK.defaultBlockState()); level.setBlockAndUpdate(s629Hay.north(), Blocks.HAY_BLOCK.defaultBlockState());
+            c.getInventory().clearContent(); for (net.minecraft.world.item.Item it : new net.minecraft.world.item.Item[] {Items.STONE_AXE, Items.STONE_PICKAXE}) c.getInventory().add(new ItemStack(it)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 6)); c.setHealth(20f);
+            BlockPos me = h.absolutePos(new BlockPos(3, 2, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, net.minecraft.world.phys.Vec3.atCenterOf(s629Hay));
+        }
+        if (t[0] == 12) { com.claudemod.entity.life.FarSight.lookAllRound(c, level); com.claudemod.entity.life.FarSight.nearScan(c, level); }
+        if (t[0] == 14) {
+            var vil = com.claudemod.entity.life.Perception.nearestLandmark(c, "village");
+            if (vil == null) { check(false, "setup: the hay he saw never went on record as a village"); return true; }
+            BlockPos far = h.absolutePos(new BlockPos(3, 20, 8)).east(110); for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) level.setBlockAndUpdate(far.offset(x, -1, z), Blocks.STONE.defaultBlockState());
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(far.getX() + 0.5, far.getY(), far.getZ() + 0.5); c.fallDistance = 0;
+        }
+        if (t[0] == 18) {
+            String bread = com.claudemod.director.Procure.describe(com.claudemod.director.Procure.plan(c, level, Items.BREAD, 6).steps());
+            String iron = com.claudemod.director.Procure.describe(com.claudemod.director.Procure.plan(c, level, Items.IRON_INGOT, 3).steps());
+            String bed = com.claudemod.director.Procure.describe(com.claudemod.director.Procure.plan(c, level, Items.WHITE_BED, 1).steps());
+            check(bread.contains("village_food"), "a village with hay 110 off, bread planned without it: " + bread);
+            check(iron.contains("village_iron"), "a village 110 off, iron planned without its golem: " + iron);
+            check(bed.contains("village_beds"), "a village 110 off, a bed planned without its beds: " + bed);
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("village_food", "", 4)); s629T = t[0];
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude test] stage 629 plans: bread [{}], iron [{}], bed [{}]", bread, iron, bed);
+        }
+        if (s629T < 0) return true;
+        boolean walking = c.lastSkillLine != null && c.lastSkillLine.contains("walking to the village");
+        if (walking) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; level.setBlockAndUpdate(s629Hay, Blocks.AIR.defaultBlockState()); level.setBlockAndUpdate(s629Hay.north(), Blocks.AIR.defaultBlockState()); pass(stage, t, "a village seen 110 off: bread, iron and a bed planned through it; village_food walks there (" + c.lastSkillLine + ")"); return true; }
+        check(t[0] - s629T < 100, "village_food from 110 off: no walk to the village (last " + c.lastSkillLine + ")");
+        return true;
+    }
+
+    /** The user 11-04: two villages on his record, the nearest worthwhile one first. A 120 off, B 250 past it (~370): food and iron through A; A's walk failed, the iron goes to B (in the long walk), the bread doesn't (B is past the food walk). */
+    private static BlockPos s630A, s630B; private static int s630T, s630Phase;
+    private static void s630Platform(ServerLevel level, BlockPos p) { for (int x = -2; x <= 2; x++) for (int z = -2; z <= 2; z++) { level.setBlockAndUpdate(p.offset(x, -1, z), Blocks.STONE.defaultBlockState()); for (int y = 0; y < 3; y++) if (!p.offset(x, y, z).equals(s630A) && !p.offset(x, y, z).equals(s630B)) level.setBlockAndUpdate(p.offset(x, y, z), Blocks.AIR.defaultBlockState()); } }
+    private static void s630Stand(ClaudeEntity c, BlockPos me, BlockPos look) { com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.fallDistance = 0; if (look != null) c.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, net.minecraft.world.phys.Vec3.atCenterOf(look)); }
+    private static boolean st630(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.tasks.clear(); c.skillQueue.clear(); c.commandActive = false; c.prefs.put("stay_close", "no"); c.prefs.put("village_mode", "useful"); s630T = -1; s630Phase = 0; c.lastSkillLine = ""; com.claudemod.entity.life.Perception.sightings(c).removeIf(s0 -> s0.id().equals("village")); }
+        if (t[0] == 10) {
+            level.setDayTime(1000);
+            BlockPos base = h.absolutePos(new BlockPos(3, 30, 8)); s630A = base.east(6); s630B = s630A.east(250);
+            s630Platform(level, base); s630Platform(level, s630B.west(6)); s630Platform(level, s630A.west(120));
+            level.setBlockAndUpdate(s630A, Blocks.HAY_BLOCK.defaultBlockState()); level.setBlockAndUpdate(s630B, Blocks.HAY_BLOCK.defaultBlockState());
+            c.getInventory().clearContent(); for (net.minecraft.world.item.Item it : new net.minecraft.world.item.Item[] {Items.STONE_AXE, Items.STONE_PICKAXE}) c.getInventory().add(new ItemStack(it)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 6)); c.setHealth(20f);
+            s630Stand(c, base, s630A);
+        }
+        if (t[0] == 12) { com.claudemod.entity.life.FarSight.lookAllRound(c, level); com.claudemod.entity.life.FarSight.nearScan(c, level); s630Stand(c, s630B.west(6), s630B); }
+        if (t[0] == 16) { level.getChunk(s630B); level.getChunk(s630B.west(6)); com.claudemod.entity.life.FarSight.lookAllRound(c, level); // (his chunk loaded, as it is round a player standing there)
+            com.claudemod.entity.life.FarSight.nearScan(c, level); s630Stand(c, s630A.west(120), null); }
+        if (t[0] == 20) {
+            int n = 0; for (var s0 : com.claudemod.entity.life.Perception.landmarks(c)) if (s0.id().equals("village") && (s0.near(s630A, 2) || s0.near(s630B, 2))) n++;
+            if (n < 2) { check(false, "setup: " + n + " of the 2 villages on record"); return true; }
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude test] stage 630 villages on record: {}", com.claudemod.entity.life.Perception.landmarks(c).stream().filter(s0 -> s0.id().equals("village")).map(s0 -> s0.saw().toShortString() + " t" + s0.tick()).toList());
+            String bread = com.claudemod.director.Procure.describe(com.claudemod.director.Procure.plan(c, level, Items.BREAD, 6).steps()), iron = com.claudemod.director.Procure.describe(com.claudemod.director.Procure.plan(c, level, Items.IRON_INGOT, 3).steps());
+            check(bread.contains("village_food") && iron.contains("village_iron"), "village A 120 off: bread [" + bread + "], iron [" + iron + "]");
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("village_food", "", 4)); s630T = t[0];
+        }
+        if (s630T < 0) return true;
+        String line = c.lastSkillLine == null ? "" : c.lastSkillLine;
+        if (s630Phase == 0 && line.contains("walking to the village")) {
+            check(line.contains(s630A.toShortString()), "village_food: not to the nearer village A at " + s630A.toShortString() + ": " + line);
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            c.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, s630A, c.tickCount); // (the walk to A failed)
+            String bread = com.claudemod.director.Procure.describe(com.claudemod.director.Procure.plan(c, level, Items.BREAD, 6).steps()), iron = com.claudemod.director.Procure.describe(com.claudemod.director.Procure.plan(c, level, Items.IRON_INGOT, 3).steps());
+            check(!bread.contains("village_food"), "A out of reach, B ~370 off (past the food walk): bread still planned through a village: " + bread);
+            check(iron.contains("village_iron"), "A out of reach, B ~370 off (in the long walk): iron not planned through B: " + iron);
+            c.lastSkillLine = ""; c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("village_iron", "", 1)); s630Phase = 1; s630T = t[0]; return true;
+        }
+        if (s630Phase == 1 && line.contains("walking to the village")) {
+            check(line.contains(s630B.toShortString()), "village_iron with A's walk failed: not to village B at " + s630B.toShortString() + ": " + line);
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; level.setBlockAndUpdate(s630A, Blocks.AIR.defaultBlockState()); level.setBlockAndUpdate(s630B, Blocks.AIR.defaultBlockState()); pass(stage, t, "two villages: food and iron through the nearer; its walk failed, the iron to the far one, the bread not (" + line + ")"); return true;
+        }
+        check(t[0] - s630T < 100, "two villages, phase " + s630Phase + ": no walk to a village (last " + line + ")");
         return true;
     }
 

@@ -11445,6 +11445,10 @@ public final class ClaudeLife {
                 if (first < 0) continue; // all dug
                 BlockPos stop = rsU.get(first).first(); var ss = level.getBlockState(stop);
                 if (level.getFluidState(stop).is(net.minecraft.tags.FluidTags.LAVA) || lavaNear(g, level, stop) || dryPlug(g, level, stop)) continue; // ends at water, his plug or lava: not one to dig on
+                { int gap = 0, fill = 0; // the floor it takes to get there (a cavern across it) against the stone on him: no digs past a gap he can't floor (07:51 11-05: 0 cobble, the patches over a cavern failed and the digs past it were queued again every second, stage 719)
+                  for (int i = 0; i < first; i++) if (rsU.get(i).segment() == si) for (BlockPos f : rsU.get(i).feet()) if (!MineBlueprint.solid(level, f.below())) gap++;
+                  for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { net.minecraft.world.item.ItemStack s1 = g.inventory.items.getItem(i); if (s1.is(Items.COBBLESTONE) || s1.is(Items.COBBLED_DEEPSLATE) || s1.is(Items.STONE) || s1.is(Items.ANDESITE) || s1.is(Items.DIORITE) || s1.is(Items.GRANITE) || s1.is(Items.TUFF) || s1.is(Items.DEEPSLATE)) fill += s1.getCount(); }
+                  if (gap > fill) { nookSay(g, "branchGap" + s0.start.asLong(), "[Claude life] blueprint: his branch at " + s0.start.toShortString() + " stops past a gap of " + gap + " floor cell(s) and he has " + fill + " stone to floor it: left till he has the blocks (ClaudeLife branch finish)"); continue; } }
                 bpWalkTo(g, stop); // along his rows from wherever he is to where it stops: from its dug end straight on, never back to its mouth first (336/41 11-05, stage 717)
                 int n2 = bpReconcile(g, level, first, last, false);
                 if (n2 == 0) continue;
@@ -11608,6 +11612,10 @@ public final class ClaudeLife {
                 if (first < 0) continue; // all dug
                 BlockPos stop = rsU.get(first).first(); var ss = level.getBlockState(stop);
                 if (level.getFluidState(stop).is(net.minecraft.tags.FluidTags.LAVA) || lavaNear(g, level, stop) || dryPlug(g, level, stop)) continue; // ends at water, his plug or lava: not one to dig on
+                { int gap = 0, fill = 0; // the floor it takes to get there (a cavern across it) against the stone on him: no digs past a gap he can't floor (07:51 11-05: 0 cobble, the patches over a cavern failed and the digs past it were queued again every second, stage 719)
+                  for (int i = 0; i < first; i++) if (rsU.get(i).segment() == si) for (BlockPos f : rsU.get(i).feet()) if (!MineBlueprint.solid(level, f.below())) gap++;
+                  for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { net.minecraft.world.item.ItemStack s1 = g.inventory.items.getItem(i); if (s1.is(Items.COBBLESTONE) || s1.is(Items.COBBLED_DEEPSLATE) || s1.is(Items.STONE) || s1.is(Items.ANDESITE) || s1.is(Items.DIORITE) || s1.is(Items.GRANITE) || s1.is(Items.TUFF) || s1.is(Items.DEEPSLATE)) fill += s1.getCount(); }
+                  if (gap > fill) { nookSay(g, "branchGap" + s0.start.asLong(), "[Claude life] blueprint: his branch at " + s0.start.toShortString() + " stops past a gap of " + gap + " floor cell(s) and he has " + fill + " stone to floor it: left till he has the blocks (ClaudeLife branch finish)"); continue; } }
                 bpWalkTo(g, stop); // along his rows from wherever he is to where it stops: from its dug end straight on, never back to its mouth first (336/41 11-05, stage 717)
                 int n2 = bpReconcile(g, level, first, last, false);
                 if (n2 == 0) continue;

@@ -10480,6 +10480,7 @@ public final class ClaudeBodyTest {
             case 716: return st716(stage, t, c, h, level, mock);
             case 717: return st717(stage, t, c, h, level, mock);
             case 718: return st718(stage, t, c, h, level, mock);
+            case 719: return st719(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13380,6 +13381,39 @@ public final class ClaudeBodyTest {
             check(toStairs.isEmpty(), "nether hunt: " + toStairs.size() + " walk(s) to his overworld stairs at " + ss.toShortString() + " from the Nether (" + r + "), queue " + c.tasks.stream().limit(6).toList());
             c.tasks.clear(); c.skillQueue.clear(); c.stairStart = null; c.dropCurrent = true; nsHome(c, h, level);
             pass(stage, t, "collect chicken in the Nether: no walk to his overworld stairs (" + r + ")"); return true;
+        }
+        return true;
+    }
+
+    /** Live 07:51 11-05 (REVIEW-334, then CONFLICT "finishing my branch" 3 times a second): his branch ran into a cavern; out of cobble half-way over it, the floor patches failed one after another and the digs past the gap had no way to them, and "finish the half-dug branch" queued them again every second. With fewer blocks than the gap's floor takes, that branch waits: no digs past a gap he can't floor. */
+    private static boolean st719(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 30; x++) for (int z = -6; z <= 26; z++) { for (int yy = -3; yy <= 12; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, 13, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); }
+            var E = net.minecraft.core.Direction.EAST; var KB = com.claudemod.entity.life.MineBlueprint.Kind.BRANCH;
+            var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(new BlockPos(2, 12, 8)), E, 2, 3); b.segments.get(0).n = 8; b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(true), E, 8, null)); b.invalidate();
+            b.branchLength = 4; b.branchEvery = 4; b.branchPair(11, 2); b.branchPair(15, 2);
+            com.claudemod.entity.life.MineBlueprint.Segment lng = null; for (var s0 : b.segments) if (lng == null && s0.kind == KB && s0.dir == net.minecraft.core.Direction.SOUTH) lng = s0;
+            lng.n = 10; b.invalidate(); // (his long branch, out south: dug 6, a cavern across rows 3-5, rows 6-9 still rock)
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int y = 0; y < r.height(); y++) level.setBlock(f.above(y), Blocks.AIR.defaultBlockState(), 2);
+            for (var r : b.rows()) if (b.segments.get(r.segment()) == lng) for (BlockPos f : r.feet()) { int along = (f.getX() - lng.start.getX()) * lng.dir.getStepX() + (f.getZ() - lng.start.getZ()) * lng.dir.getStepZ();
+                if (along >= 6) for (int y = 0; y < r.height(); y++) level.setBlock(f.above(y), Blocks.STONE.defaultBlockState(), 2);
+                if (along >= 3 && along <= 5) for (int y = 1; y <= 4; y++) level.setBlock(f.below(y), Blocks.AIR.defaultBlockState(), 2); } // (the cavern: no floor under those rows, 4 down)
+            for (var s0 : b.segments) if (s0.kind == KB && s0 != lng) { BlockPos end = s0.start.relative(s0.dir, s0.n); level.setBlock(end, Blocks.COBBLESTONE.defaultBlockState(), 2); level.setBlock(end.above(), Blocks.COBBLESTONE.defaultBlockState(), 2); }
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); com.claudemod.director.ClaudeLife.bpSync(c);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 64)); c.getInventory().add(new ItemStack(Items.TORCH, 32)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); // (logs, no stone: as live)
+            BlockPos me = lng.start.relative(lng.dir, 2); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); level.setDayTime(1000); c.tasks.clear(); c.skillQueue.clear(); c.attempts.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 20) {
+            var b = c.blueprint; com.claudemod.entity.life.MineBlueprint.Segment lng = null; for (var s0 : b.segments) if (lng == null && s0.kind == com.claudemod.entity.life.MineBlueprint.Kind.BRANCH && s0.dir == net.minecraft.core.Direction.SOUTH) lng = s0;
+            final var lg = lng; c.tasks.clear();
+            String line = com.claudemod.director.ClaudeLife.bpAtLevel(c, level, b, h.absolutePos(new BlockPos(0, 4, 0)).getY(), "iron");
+            var past = c.tasks.stream().filter(q -> q instanceof Task.Break br && (br.pos().getX() - lg.start.getX()) * lg.dir.getStepX() + (br.pos().getZ() - lg.start.getZ()) * lg.dir.getStepZ() >= 6 && Math.abs((br.pos().getX() - lg.start.getX()) * lg.dir.getStepZ()) + Math.abs((br.pos().getZ() - lg.start.getZ()) * lg.dir.getStepX()) <= 1).toList(); // (the branch's own cells: a new run off the level two over is other work)
+            check(past.isEmpty(), "branch over a cavern with no stone on him: " + past.size() + " dig(s) queued past the gap he can't floor (" + line + "), first " + past.stream().limit(3).toList());
+            c.tasks.clear(); c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            pass(stage, t, "no digs past a gap he can't floor (" + line + ")"); return true;
         }
         return true;
     }

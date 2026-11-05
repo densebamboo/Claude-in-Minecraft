@@ -81,7 +81,8 @@ public final class TempLedger {
             "ClaudeLife.farmBuild", "ClaudeLife.bpReconcile", "ClaudeLife.bpIntegrity", "ClaudeLife.mineIntegrity", "ClaudeLife.mineDeathRepair", "ClaudeLife.patchOpenings", "ClaudeLife.checkMineAroundHimRaw",
             "ClaudeLife.refillNotch", "ClaudeLife.furnaceWallUpkeep", "ClaudeLife.smoothStairs", "ClaudeLife.turnLanding", "ClaudeLife.frameEntrance",
             "BaseNook.reconcile", "MineBlueprint.reconcile", "HouseBlueprint.reconcile", "FarmBlueprint.reconcile", "PitGuard.close", "PitGuard.resume",
-            "WorkGoal.doMineVisibleOres", "WorkGoal.doBreak", "WorkGoal.doSealStep", "WorkGoal.blockWaterInflow");
+            "WorkGoal.doMineVisibleOres", "WorkGoal.doBreak", "WorkGoal.doSealStep", "WorkGoal.blockWaterInflow",
+            "WorkGoal.doBore"); // (his travel way through the Nether: its floor, rails and walls over gaps and lava are a path, and stay: the user 11-05, "bridges stay")
     private static Map<UUID, Map<BlockPos, String>> plannedBuild; // cells a plan of his lays out as a build before the walker queues their Places (a lava crossing: a piece of highway) (static: fields added live start null)
     /** A cell a plan of his lays out as his build (the highway spec's crossing): the block he puts there stays. */
     public static void planBuild(ClaudeEntity g, BlockPos p, String by) { if (plannedBuild == null) plannedBuild = new HashMap<>(); var m = plannedBuild.computeIfAbsent(g.getUUID(), k -> new java.util.LinkedHashMap<>()); m.put(p.immutable(), by); while (m.size() > 4096) m.remove(m.keySet().iterator().next()); }

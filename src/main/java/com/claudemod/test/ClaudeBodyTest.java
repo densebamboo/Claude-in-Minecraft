@@ -10484,6 +10484,7 @@ public final class ClaudeBodyTest {
             case 718: return st718(stage, t, c, h, level, mock);
             case 719: return st719(stage, t, c, h, level, mock);
             case 720: return st720(stage, t, c, h, level, mock);
+            case 721: return st721(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13426,6 +13427,29 @@ public final class ClaudeBodyTest {
             check(toStairs.isEmpty(), "nether hunt: " + toStairs.size() + " walk(s) to his overworld stairs at " + ss.toShortString() + " from the Nether (" + r + "), queue " + c.tasks.stream().limit(6).toList());
             c.tasks.clear(); c.skillQueue.clear(); c.stairStart = null; c.dropCurrent = true; nsHome(c, h, level);
             pass(stage, t, "collect chicken in the Nether: no walk to his overworld stairs (" + r + ")"); return true;
+        }
+        return true;
+    }
+
+    /** Live 10:48 11-05 (Nether 76,85,104, pinned 50 min): a walk refused for "4 hostile(s) on the way" was let back on 50 ms later, "the mob in the way moved off": the mob on record (the nearest to him, half-way along) was never within 4 of the walk's END, so the release fired at once, every time; walk, refuse, release, again. A mob that hasn't moved off his way keeps the walk refused. */
+    private static net.minecraft.world.entity.monster.Zombie s721Z;
+    private static boolean st721(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -1; x <= 16; x++) for (int z = -1; z <= 12; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 1; y <= 4; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+            BlockPos me = h.absolutePos(new BlockPos(2, 1, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.attempts.clear(); c.dropCurrent = true;
+            var z = net.minecraft.world.entity.EntityType.ZOMBIE.create(level); BlockPos zp = h.absolutePos(new BlockPos(5, 1, 5)); z.moveTo(zp.getX() + 0.5, zp.getY(), zp.getZ() + 0.5, 0, 0); z.setNoAi(true); z.setSilent(true); z.setPersistenceRequired(); level.addFreshEntity(z); s721Z = z; // (on his way, 3 from him, 7 from the walk's end)
+        }
+        if (t[0] == 15) {
+            BlockPos p = h.absolutePos(new BlockPos(12, 1, 5)), me = c.blockPosition();
+            c.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, p, c.tickCount, me, com.claudemod.entity.life.Attempts.Reason.BLOCKED_MOB, "1 hostile(s) on the way, no way round them", s721Z.getUUID());
+            String ch = c.attempts.changed(com.claudemod.entity.life.Attempts.Kind.WALK, p);
+            check(ch == null, "a walk refused for a mob on his way was let back on with the mob still there (" + ch + "): it's " + String.format("%.1f", s721Z.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(p))) + " from the walk's end, on the way");
+            s721Z.moveTo(s721Z.getX(), s721Z.getY(), s721Z.getZ() + 6, 0, 0); // (now it walks off his way: the walk comes back on)
+            String ch2 = c.attempts.changed(com.claudemod.entity.life.Attempts.Kind.WALK, p);
+            check(ch2 != null, "the mob walked 6 off his way and the walk stayed refused");
+            s721Z.discard(); c.attempts.clear();
+            pass(stage, t, "a walk refused for a mob on his way stays refused while it's there, back on once it's off it (" + ch2 + ")"); return true;
         }
         return true;
     }

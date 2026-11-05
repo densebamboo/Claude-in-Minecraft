@@ -10469,6 +10469,7 @@ public final class ClaudeBodyTest {
             case 657: return st657(stage, t, c, h, level, mock);
             case 658: return st658(stage, t, c, h, level, mock);
             case 660: return st660(stage, t, c, h, level, mock);
+            case 661: return st661(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -13968,6 +13969,29 @@ public final class ClaudeBodyTest {
             check(c.isAlive() && c.getHealth() >= 18, "drowning under the rock at -90,14,-52: health " + c.getHealth() + " at " + c.blockPosition().subtract(me) + " y " + String.format("%.2f", c.getY() - me.getY()) + ", air " + c.getAirSupply());
             if (t[0] > 12 && !c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER) && c.getY() >= me.getY() + 3) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "across and up to air in " + (t[0] - 10) + " ticks, at " + c.blockPosition().subtract(me)); }
             else check(t[0] < 10 + 20 * 12, "no air in 12 s: at " + c.blockPosition().subtract(me) + " y " + String.format("%.2f", c.getY() - me.getY()) + ", air " + c.getAirSupply());
+        }
+        return true;
+    }
+
+    /** Out of the water (teleported out, as live) with his old swim-to-the-shore waypoints still queued, the shore past a wall with water behind it and his own plug in it: the waypoints are dropped, nothing in the wall is dug (live 01:16-01:18 11-05 World 17: the waypoints to a "shore" in the flooded pocket over his mine outlived the teleport, and the blockage solver dug his ceiling and plugs toward the water four times). */
+    private static boolean st661(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(3, 2, 6)), plug = h.absolutePos(new BlockPos(6, 2, 6)), wp = h.absolutePos(new BlockPos(8, 4, 6));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -4; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE); for (int yy = 2; yy <= 6; yy++) h.setBlock(new BlockPos(x, yy, z), x == 6 ? Blocks.STONE : x > 6 && x < 11 && yy <= 3 ? Blocks.WATER : x >= 11 || yy == 6 ? Blocks.STONE : Blocks.AIR); }
+            level.setBlock(plug, Blocks.COBBLESTONE.defaultBlockState(), 3); level.setBlock(plug.above(), Blocks.COBBLESTONE.defaultBlockState(), 3);
+            com.claudemod.entity.life.TempLedger.builtCells(c).put(plug.immutable(), "WorkGoal.blockWaterInflow:2927"); for (int z = 0; z < 16; z++) for (int y = 2; y <= 5; y++) com.claudemod.entity.life.TempLedger.builtCells(c).putIfAbsent(h.absolutePos(new BlockPos(6, y, z)).immutable(), "ClaudeLife.bpReconcile:11162"); com.claudemod.entity.life.TempLedger.builtCells(c).put(plug.above().immutable(), "WorkGoal.blockWaterInflow:2927");
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5); level.setDayTime(1000);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+            c.tasks.add(new Task.GoTo(wp.immutable(), 0.8)); c.tasks.add(new Task.GoTo(wp.east().immutable(), 0.8)); // (the swim waypoints, as the stuck-swimming shore queued them)
+        }
+        if (t[0] > 12) {
+            boolean wallDug = false; for (int z = 0; z < 16; z++) for (int y = 2; y <= 5; y++) if (level.getBlockState(h.absolutePos(new BlockPos(6, y, z))).isAir() || !level.getFluidState(h.absolutePos(new BlockPos(6, y, z))).isEmpty()) wallDug = true;
+            check(!wallDug && !c.isInWater(), "dug the wall into the water for his old swim waypoints: in water " + c.isInWater() + ", task " + c.currentTask + ", queue " + c.tasks);
+            boolean left = c.currentTask instanceof Task.GoTo g0 && g0.pos().getX() >= wp.getX() || c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo g1 && g1.pos().getX() >= wp.getX());
+            if (!left) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "the stale swim waypoints dropped on dry ground in " + (t[0] - 10) + " ticks, the wall and his plug standing"); }
+            else check(t[0] < 10 + 20 * 15, "15 s and the swim waypoints still queued: " + c.currentTask + " " + c.tasks);
         }
         return true;
     }

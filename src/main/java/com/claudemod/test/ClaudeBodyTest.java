@@ -10487,6 +10487,7 @@ public final class ClaudeBodyTest {
             case 720: return st720(stage, t, c, h, level, mock);
             case 721: return st721(stage, t, c, h, level, mock);
             case 722: return st722(stage, t, c, h, level, mock);
+            case 723: return st723(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13459,6 +13460,24 @@ public final class ClaudeBodyTest {
             check(toStairs.isEmpty(), "nether hunt: " + toStairs.size() + " walk(s) to his overworld stairs at " + ss.toShortString() + " from the Nether (" + r + "), queue " + c.tasks.stream().limit(6).toList());
             c.tasks.clear(); c.skillQueue.clear(); c.stairStart = null; c.dropCurrent = true; nsHome(c, h, level);
             pass(stage, t, "collect chicken in the Nether: no walk to his overworld stairs (" + r + ")"); return true;
+        }
+        return true;
+    }
+
+    /** Live 11:18 11-05 (REVIEW-145, Nether): ender_pearls refused "under 4 meals"; the planner asked to cook the 3 raw he carried, and smelt said "done: 3 raw food isn't worth a furnace out here (fed, cooked food on me)", three plans in 14 s. Two rules at odds: with fewer cooked meals than his own hunt needs, a few raws are worth the furnace. */
+    private static boolean st723(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -1; x <= 12; x++) for (int z = -1; z <= 12; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 1; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 3)); c.getInventory().add(new ItemStack(Items.PORKCHOP, 2)); c.getInventory().add(new ItemStack(Items.SALMON, 1)); c.getInventory().add(new ItemStack(Items.FURNACE)); c.getInventory().add(new ItemStack(Items.CHARCOAL, 4)); // (as live: 3 meals cooked, 3 raw, his own furnace along)
+            c.getFoodData().setFoodLevel(20); c.setHealth(20);
+            BlockPos me = h.absolutePos(new BlockPos(5, 1, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 15) {
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "cooked_porkchop", 2);
+            check(!r.contains("isn't worth a furnace"), "3 cooked meals (his hunt wants 4) and 3 raw on him: the smelt turned down as not worth a furnace (" + r + ")");
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            pass(stage, t, "short of 4 meals, the raws get cooked (" + r + ")"); return true;
         }
         return true;
     }

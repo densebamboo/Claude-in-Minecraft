@@ -528,7 +528,7 @@ public class WorkGoal extends Goal {
             }
             done = true;
         }
-        if (done && current instanceof Task.GoTo gt0 && Math.sqrt(g.blockPosition().distSqr(gt0.pos())) > gt0.within() + 4) // (any walk that ends 4+ off its spot, however long it ran: a silent end hid where 3 bed legs went, 12:53) // a walk that ended before it began, far from the spot: say so (go_to "49 64 164" ended in 2 ticks, silently, three plans running)
+        if (done && current instanceof Task.GoTo gt0 && (Math.sqrt(g.blockPosition().distSqr(gt0.pos())) > gt0.within() + 4 || ticks <= 3 && Math.sqrt(g.blockPosition().distSqr(gt0.pos())) > gt0.within() + 0.5)) // (and any walk refused at once short of its spot: a 3-off refusal on the Nether ledge looped every 15 s with no word why, 08:16-08:32 11-05, REVIEW-130/134) // (any walk that ends 4+ off its spot, however long it ran: a silent end hid where 3 bed legs went, 12:53) // a walk that ended before it began, far from the spot: say so (go_to "49 64 164" ended in 2 ticks, silently, three plans running)
             com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] GoTo {} ended {} from {} (walk-fail {}, queue now {} first {}, why {})", gt0.pos().toShortString(), ticks <= 3 ? "at once" : "after " + ticks + " ticks, " + (int) Math.sqrt(g.blockPosition().distSqr(gt0.pos())) + " off it,", g.blockPosition().toShortString(), g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK).get(gt0.pos()), g.tasks.size(), g.tasks.peek(), exitWhy);
         if (done) {
             try { com.claudemod.entity.life.Watchdog.ended(g, current, current instanceof Task.GoTo ? null : exitWhy); /* (exitWhy is only reset by the dig, place and leap: a walk would carry the last one's) */ } catch (RuntimeException e) { com.claudemod.ClaudeMod.LOGGER.warn("[Claude watchdog] ended() threw on {}", current, e); }
@@ -854,7 +854,8 @@ public class WorkGoal extends Goal {
             g.getNavigation().stop(); g.getMoveControl().setWantedPosition(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0.5);
             return false;
         }
-        if ((d <= within || (chain && d <= 2.0 && pos.getY() <= feetCell.getY())) && !onLeavesAbove) { // ponytail: live 19:40 -58,79,-901: a route's 1-up step 1.4 off counted as reached in a chain, so the next leg was 2 up and refused, a loop for minutes; a step up is only reached by stepping up
+        boolean towardIt = g.getDeltaMovement().x * (pos.getX() + 0.5 - g.getX()) + g.getDeltaMovement().z * (pos.getZ() + 0.5 - g.getZ()) > 0.05 * Math.max(0.1, Math.hypot(pos.getX() + 0.5 - g.getX(), pos.getZ() + 0.5 - g.getZ())); // (run through a waypoint only on his way to it: standing 2.0 off, the first tick "ran through" his planner's first step on the Nether ledge and the same way was planned again every 15 s, 08:16-08:35 11-05, stage 715)
+        if ((d <= within || (chain && towardIt && d <= 2.0 && pos.getY() <= feetCell.getY())) && !onLeavesAbove) { // ponytail: live 19:40 -58,79,-901: a route's 1-up step 1.4 off counted as reached in a chain, so the next leg was 2 up and refused, a loop for minutes; a step up is only reached by stepping up
             if (!chain) g.getNavigation().stop();
             return true;
         }

@@ -695,9 +695,10 @@ public class WorkGoal extends Goal {
         if (Math.sqrt(BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()).distSqr(t.pos())) <= t.within()) return false; // there already: the walk ends, no route (live 21:19: "to -16, 68, -20 (0 blocks off): 3 legs", planned 12 times standing on it)
         var legs = com.claudemod.entity.nav.Route.expand(g, level(), t.pos(), t.within());
         if (legs == null || com.claudemod.entity.nav.Route.walkerTakes(legs)) return false;
-        if (legs.isEmpty()) { g.getNavigation().stop(); return true; } // (behind him on a route he's on: Route said so, dropped)
+        if (legs.isEmpty()) { g.getNavigation().stop(); exitWhy = "behind him on the route he's on: dropped (WorkGoal.routeOut)"; return true; } // (behind him on a route he's on: Route said so, dropped)
         for (int i = legs.size() - 1; i >= 0; i--) g.tasks.addFirst(legs.get(i));
         g.getNavigation().stop();
+        exitWhy = "split into " + legs.size() + " legs of his route, walked next (WorkGoal.routeOut)"; // (the walk line said "ended at once ... why null": the reviewer read every long walk as refused, 05:53-06:17 11-05, REVIEW-103/203)
         return true;
     }
 

@@ -10466,6 +10466,7 @@ public final class ClaudeBodyTest {
             case 711: return st711(stage, t, c, h, level, mock);
             case 712: return st712(stage, t, c, h, level, mock);
             case 713: return st713(stage, t, c, h, level, mock);
+            case 714: return st714(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13294,6 +13295,30 @@ public final class ClaudeBodyTest {
                 pass(stage, t, "the spare stone in his junk chest, 2 stacks kept, nothing on his floor (" + (t[0] - 10) + " ticks)"); return true;
             }
             check(t[0] < 400, "no junk-chest round in 19 s: " + stone + " stone stacks on him, now " + c.currentTask + " queue " + c.tasks.stream().limit(4).toList());
+        }
+        return true;
+    }
+
+    /** Live 06:24-06:28 11-05 (REVIEW-156/157, -931,62,1400): his planner took a lily pad (0.09 tall) for a full block, his feet a cell over it, while on one he stands at y+0.09 in its own cell: lips "ended off it", "2 up, no jump makes that", a pillar in the water put and taken back every 2 s, 2.5 min. A pad is a floor in its own cell, as carpet is: across a pond of them is a plain walk. */
+    private static BlockPos s714G;
+    private static boolean st714(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -1; x <= 13; x++) for (int z = 3; z <= 13; z++) { level.setBlock(h.absolutePos(new BlockPos(x, -1, z)), Blocks.STONE.defaultBlockState(), 2);
+                level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), x >= 4 && x <= 7 && z >= 5 && z <= 11 ? Blocks.WATER.defaultBlockState() : Blocks.GRASS_BLOCK.defaultBlockState(), 2);
+                for (int y = 1; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), x >= 4 && x <= 7 && z >= 5 && z <= 11 && y == 1 ? Blocks.LILY_PAD.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); } // (a pond, 4 across, every cell of it padded)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            BlockPos at = h.absolutePos(new BlockPos(1, 1, 8)); s714G = h.absolutePos(new BlockPos(10, 1, 8)); lnStand(c, mock, at, s714G); c.tasks.clear(); c.skillQueue.clear();
+        }
+        if (t[0] == 14) {
+            var plan = com.claudemod.entity.nav.ActionPath.plan(c, level, c.blockPosition(), s714G, 1.0, true, 3000, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, new java.util.HashMap<>(), c.tickCount);
+            check(plan != null, "no way across a pond of lily pads from " + c.blockPosition().toShortString() + " to " + s714G.toShortString());
+            for (var a : plan.acts()) check(a instanceof com.claudemod.entity.nav.ActionPath.Act.Walk w && w.feet().getY() == s714G.getY(), "his way across the lily pads isn't a level walk on them: " + a + " in " + plan.acts());
+            c.tasks.add(new Task.GoTo(s714G, 1.0));
+        }
+        if (t[0] > 14) {
+            if (c.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(s714G)) < 1.6) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "across the lily pads, a level walk (" + (t[0] - 14) + " ticks)"); return true; }
+            check(t[0] < 200, "the walk across the lily pads to " + s714G.toShortString() + ": at " + c.position() + " after 9 s, now " + c.currentTask + " queue " + c.tasks.stream().limit(6).toList());
         }
         return true;
     }

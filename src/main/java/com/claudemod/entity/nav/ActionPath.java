@@ -370,11 +370,15 @@ public final class ActionPath {
             if (closed.contains(p)) return false;
             BlockState s = level.getBlockState(p);
             if (level.getFluidState(p).is(net.minecraft.tags.FluidTags.LAVA)) return false;
-            return s.getCollisionShape(level, p).isEmpty() || climbable(p) || (door(p) && doorOpen(p));
+            return s.getCollisionShape(level, p).isEmpty() || low(p) || climbable(p) || (door(p) && doorOpen(p));
         }
+        /** A floor in its own cell (a lily pad, carpet, a thin snow layer): on one his feet are in that cell, y+0.09, not a cell over it (live 06:24 11-05, a pond of pads planned a cell too high: lips never reached, "2 up", a pillar in the water put and taken back for 2.5 min; stage 714). */
+        boolean low(BlockPos p) { if (closed.contains(p)) return false; var sh = level.getBlockState(p).getCollisionShape(level, p); return !sh.isEmpty() && sh.max(Direction.Axis.Y) <= 0.1875; }
+        /** Something to stand on with his feet in that cell: the block under it, or a low floor in it. */
+        boolean floor(BlockPos feet) { return solid(feet.below()) || low(feet); }
         boolean tall(BlockPos p) { return !closed.contains(p) && level.getBlockState(p).getCollisionShape(level, p).max(Direction.Axis.Y) > 1.0; }
         boolean water(BlockPos p) { return level.getFluidState(p).is(net.minecraft.tags.FluidTags.WATER); }
-        boolean solid(BlockPos p) { return closed.contains(p) || !level.getBlockState(p).getCollisionShape(level, p).isEmpty(); }
+        boolean solid(BlockPos p) { return closed.contains(p) || !level.getBlockState(p).getCollisionShape(level, p).isEmpty() && !low(p); }
         final java.util.Map<BlockPos, Boolean> lavaBodyMemo = new java.util.HashMap<>(); // (a pool's cells, once per plan)
         boolean lavaBy(BlockPos p) {
             for (Direction d : Direction.values()) { BlockPos n0 = p.relative(d); if (level.getFluidState(n0).is(net.minecraft.tags.FluidTags.LAVA) && lavaBodyMemo.computeIfAbsent(n0.immutable(), k -> com.claudemod.entity.life.Perception.knowsLavaBody(g, level, k))) return true; } // (lava he knows of, the pool he saw included, as doBreak asks) // (lava he knows of: what's in the rock is met as it comes)
@@ -427,7 +431,7 @@ public final class ActionPath {
             if (com.claudemod.director.ClaudeLife.hazard(g, level, p, 1) != null || lavaBy(p)) return -1;
             { String ik = com.claudemod.director.Structures.intactKind(s); if (ik != null && !com.claudemod.entity.life.TempLedger.built(g, p)) { if (intactSaid.isEmpty()) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} at {} is {}'s: kept intact, the way goes round or through its doorways (ActionPath.digSeconds)", s.getBlock().getName().getString(), p.toShortString(), ik); intactSaid.add(p.immutable()); } } // (the structure-intact rule: his own placed bricks aside; a structure block is very dear below, never a wall: shut in with no way round, one is dug and put back, ActionPath.tasks)
             for (Direction d : Direction.values()) { BlockPos n0 = p.relative(d); if ((level.getFluidState(n0).isSource() || mode == Mode.MAY_BEND && !level.getFluidState(n0).isEmpty()) && (com.claudemod.entity.life.Perception.knowsWater(g, n0) || com.claudemod.entity.life.Perception.knowsLava(g, n0)) && !inMyWater(n0)) return -1; } // (bending never opens water he knows of, flowing or still) // (holding water back; in the water, only the water he's in may be dug out of: live 00:09 11-05 the rule was off whenever he was wet, and his walk dug his own plugs and his nook's wall into the flooded pocket)
-            if (s.getBlock() instanceof net.minecraft.world.level.block.FallingBlock && !solid(p.below())) return -1; // gravel over nothing: it comes down on him
+            if (s.getBlock() instanceof net.minecraft.world.level.block.FallingBlock && !floor(p)) return -1; // gravel over nothing: it comes down on him
             boolean right = !s.requiresCorrectToolForDrops();
             float speed = 1f; // bare hands
             for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { var it = g.inventory.items.getItem(i); if (it.isEmpty()) continue; speed = Math.max(speed, it.getDestroySpeed(s)); if (!right && it.isCorrectToolForDrops(s)) right = true; }
@@ -481,15 +485,15 @@ public final class ActionPath {
                         if (sec < 0) { ok = false; break; }
                         cost += 1.5 + sec * 2; acts.add(new Act.Dig(q.immutable()));
                     }
-                    boolean lavaFloor = dy == 0 && canPlace && level.getFluidState(t.below()).is(net.minecraft.tags.FluidTags.LAVA) && !solid(t.below()) && !reserved.contains(t.below()); // a gap over lava: a block put into the lava is the way across (a player bridging a lava lake), never a jump
+                    boolean lavaFloor = dy == 0 && canPlace && level.getFluidState(t.below()).is(net.minecraft.tags.FluidTags.LAVA) && !floor(t) && !reserved.contains(t.below()); // a gap over lava: a block put into the lava is the way across (a player bridging a lava lake), never a jump
                     if (!ok || hurts(t, lavaFloor)) continue; // (magma underfoot, a cactus, fire: a player goes round)
                     // something under his feet there: a solid block, water to swim in, a ladder; else a block put down (a bridge, a step), if he can
                     BlockPos under = t.below();
                     if (tall(under) && (dy > 0 || !passable(t.above(2)))) continue; // (a fence or wall is 1.5 high: no jump gets onto one from a block lower, and on top his head is in the cell above)
                     if (!solid(under) && !water(t)) { // ponytail: live 14:32, vines -49,40..44,-887: stepped into mid-vine he slid off and spun at the foot; a vine is got onto at its foot (ground under it), then the climb move below
                         if (dy != 0 || !canPlace) continue; // (a block put down is a flat bridge or a tower step, never a step down into a drop: the body can't set one from up there)
-                        if (!lavaFloor && (solid(under.below()) || water(under.below()))) continue; // the user: a block put down for movement is for real terrain (a gap, a drop), never a raised line over flat ground or a causeway over water he can swim
-                        boolean against = dy == 0 || solid(under.relative(d.getOpposite())) || solid(under.below()); // flat: against the block he stands on (his own last bridge block counts, the plan knows it is there); a drop: something in the world
+                        if (!lavaFloor && (floor(under) || water(under.below()))) continue; // the user: a block put down for movement is for real terrain (a gap, a drop), never a raised line over flat ground or a causeway over water he can swim
+                        boolean against = dy == 0 || solid(under.relative(d.getOpposite())) || floor(under); // flat: against the block he stands on (his own last bridge block counts, the plan knows it is there); a drop: something in the world
                         if (!against) continue;
                         if (reserved.contains(under) || !level.getBlockState(under).canBeReplaced()) continue; // (another job's cell; ponytail: a block goes only where vanilla lets one in: never into twisting vines, live 16:24 refused 3 times in 9 s)
                         { Integer pf = g.attempts.of(com.claudemod.entity.life.Attempts.Kind.PLACE).get(under); if (pf != null && now - pf < 20 * 300) continue; } // ponytail: the body's own place memory (WorkGoal.doPlace refuses for 5 min), so the plan and the body agree; live 14:22, the body refused this put (no face he can reach) and the plan made the same put 3 times in 9 s: a put that failed lately is off the plan, the way round instead
@@ -511,7 +515,7 @@ public final class ActionPath {
             if (!swimming) for (int[] dd : new int[][] {{1, 1}, {1, -1}, {-1, 1}, {-1, -1}}) {
                 BlockPos t = feet.offset(dd[0], 0, dd[1]), s1 = feet.offset(dd[0], 0, 0), s2 = feet.offset(0, 0, dd[1]);
                 if (!passable(t) || !passable(t.above()) || !passable(s1) || !passable(s1.above()) || !passable(s2) || !passable(s2.above())) continue;
-                if (water(t) || !solid(t.below()) || tall(t.below()) || hurts(t) || hurts(s1) || hurts(s2) || door(s1) || door(s2)) continue;
+                if (water(t) || !floor(t) || tall(t.below()) || hurts(t) || hurts(s1) || hurts(s2) || door(s1) || door(s2)) continue;
                 double cost = 1.414 + failPenalty(t); if (mine(t)) cost *= 0.7;
                 double av = avoidCost(t); if (av < 0) continue; cost += av;
                 List<Act> acts = new ArrayList<>(); acts.add(new Act.Walk(t.immutable())); out.add(new Move(t.immutable(), cost, acts));
@@ -519,9 +523,9 @@ public final class ActionPath {
             // off an edge, 4 or more down (the user, 16:42: "he should be able to calculate fall damage and assess risk"): vanilla's fall worked out tick by tick (Leaps.fall:
             // water, a cobweb, a ladder or vine take all of it, hay and a bed some), its HP the move's price, taken only while what's left keeps his margin; never onto lava,
             // fire or magma, never a landing he can't see from the lip (16:31 he stood on his bridge 15 over them: "no way", 40 walks ended at once)
-            if (!swimming && solid(feet.below())) for (Direction d : Direction.Plane.HORIZONTAL) {
+            if (!swimming && floor(feet)) for (Direction d : Direction.Plane.HORIZONTAL) {
                 BlockPos ahead = feet.relative(d);
-                if (!passable(ahead) || !passable(ahead.above()) || water(ahead) || solid(ahead.below()) || water(ahead.below()) || climbable(ahead) || climbable(ahead.below())) continue;
+                if (!passable(ahead) || !passable(ahead.above()) || water(ahead) || floor(ahead) || water(ahead.below()) || climbable(ahead) || climbable(ahead.below())) continue;
                 Leaps.Fall f = fallAt(ahead);
                 if (f.down() <= 3 && f.ok()) continue; // (up to three down: the ordinary step down above)
                 String what = "drop off " + feet.toShortString() + " " + d.getName();
@@ -540,14 +544,14 @@ public final class ActionPath {
             // a jump over a gap (the user, 16:48: "he should get better and jumping across platforms and parkour. and use it in his pathing"): vanilla's motion (Leaps.reach, jumpKind):
             // a walk-jump over 1, a sprint-jump over 2 (up one), 3 and 4 (down); priced by the chance of a miss times what's under the gap; a miss onto lava, no bottom or
             // past his margin: no jump, a bridge (or the way round) instead
-            if (!swimming && solid(feet.below()) && !climbable(feet) && passable(feet.above(2))) {
+            if (!swimming && floor(feet) && !climbable(feet) && passable(feet.above(2))) {
                 boolean canSprint = g.getFoodData().getFoodLevel() > 6;
                 for (Direction d : Direction.Plane.HORIZONTAL) {
                     float missHp = 0; int missDepth = 0; String missWhy = null;
                     for (int i = 1; i <= 4; i++) {
                         BlockPos gc = feet.relative(d, i);
                         if (!passable(gc) || !passable(gc.above()) || !passable(gc.above(2)) || water(gc) || climbable(gc)) break;
-                        if (solid(gc.below())) break; // ground right there: a walk, not a gap (water under it is a gap a jump saves swimming)
+                        if (floor(gc)) break; // ground right there: a walk, not a gap (water under it is a gap a jump saves swimming)
                         Leaps.Fall mf = fallAt(gc); // a miss: down this cell
                         if (!mf.ok()) missWhy = mf.why();
                         else if (level.getBlockState(mf.land()).is(net.minecraft.world.level.block.Blocks.POWDER_SNOW)) missWhy = "powder snow";
@@ -561,7 +565,7 @@ public final class ActionPath {
                             if (dy == 1 && !passable(land.above(2))) continue; // the arc's top over a landing one up
                             boolean clear = true; for (int k = dy + 1; k <= 1; k++) if (!passable(col.above(k))) { clear = false; break; } // the cells he comes down through at the landing
                             if (!clear) continue;
-                            if (!(solid(land.below()) || water(land))) continue; // ponytail: live 14:30, twisting vines -49,40..41,-889: a jump "landed" mid-vine, he slid off to the nylium and jumped again every 4 s; no standing mid-vine, so a vine landing needs ground under it like any other
+                            if (!(floor(land) || water(land))) continue; // ponytail: live 14:30, twisting vines -49,40..41,-889: a jump "landed" mid-vine, he slid off to the nylium and jumped again every 4 s; no standing mid-vine, so a vine landing needs ground under it like any other
                             if (!water(land) && hurts(land)) continue;
                             String what = Leaps.kindName(kind) + " off " + feet.toShortString() + " " + d.getName() + " over " + i + (dy > 0 ? " up 1" : dy < 0 ? " down " + -dy : "");
                             if (missWhy != null) { refuse(what, "a miss falls onto " + missWhy + ": a bridge instead"); continue; }
@@ -580,7 +584,7 @@ public final class ActionPath {
             }
             // a jump over a gap on a diagonal (the user 14:10): over 1 corner cell is 2.83 centre to centre (a sprint-jump, like a straight 2), over 2 is 4.24 (like a straight 4, down only);
             // every cell the box sweeps (the gap cells and the side cells between them) open 3 high for the arc
-            if (!swimming && solid(feet.below()) && !climbable(feet) && passable(feet.above(2))) {
+            if (!swimming && floor(feet) && !climbable(feet) && passable(feet.above(2))) {
                 boolean canSprint = g.getFoodData().getFoodLevel() > 6;
                 for (int[] dd : new int[][] {{1, 1}, {1, -1}, {-1, 1}, {-1, -1}}) {
                     float missHp = 0; int missDepth = 0; String missWhy = null;
@@ -591,7 +595,7 @@ public final class ActionPath {
                             if (!passable(q) || !passable(q.above()) || !passable(q.above(2)) || water(q) || climbable(q)) { open = false; break; } }
                         if (!open) break;
                         BlockPos gc = feet.offset(dd[0] * i, 0, dd[1] * i);
-                        if (solid(gc.below())) break; // ground on the diagonal: the diagonal walk, not a gap
+                        if (floor(gc)) break; // ground on the diagonal: the diagonal walk, not a gap
                         Leaps.Fall mf = fallAt(gc);
                         if (!mf.ok()) missWhy = mf.why();
                         else if (level.getBlockState(mf.land()).is(net.minecraft.world.level.block.Blocks.POWDER_SNOW)) missWhy = "powder snow";
@@ -606,7 +610,7 @@ public final class ActionPath {
                             if (dy == 1 && !passable(land.above(2))) continue;
                             boolean clear = true; for (int k = dy + 1; k <= 1; k++) if (!passable(col.above(k))) { clear = false; break; }
                             if (!clear) continue;
-                            if (!(solid(land.below()) || water(land))) continue; // ponytail: live 14:30, twisting vines -49,40..41,-889: a jump "landed" mid-vine, he slid off to the nylium and jumped again every 4 s; no standing mid-vine, so a vine landing needs ground under it like any other
+                            if (!(floor(land) || water(land))) continue; // ponytail: live 14:30, twisting vines -49,40..41,-889: a jump "landed" mid-vine, he slid off to the nylium and jumped again every 4 s; no standing mid-vine, so a vine landing needs ground under it like any other
                             if (!water(land) && hurts(land)) continue;
                             String what = Leaps.kindName(kind) + " off " + feet.toShortString() + " diagonally over " + i + (dy > 0 ? " up 1" : dy < 0 ? " down " + -dy : "");
                             if (missWhy != null) { refuse(what, "a miss falls onto " + missWhy); continue; }
@@ -629,7 +633,7 @@ public final class ActionPath {
                 if (sec >= 0) {
                     BlockPos land = below; int k = 0;
                     while (k < 2 && passable(land.below()) && !water(land.below())) { land = land.below(); k++; }
-                    if ((solid(land.below()) || water(land)) && !hurts(land)) { List<Act> acts = new ArrayList<>(); acts.add(new Act.Dig(below.immutable())); acts.add(new Act.Walk(land.immutable())); out.add(new Move(land.immutable(), 2.5 + sec * 2 + k * 0.8 + failPenalty(land), acts)); }
+                    if ((floor(land) || water(land)) && !hurts(land)) { List<Act> acts = new ArrayList<>(); acts.add(new Act.Dig(below.immutable())); acts.add(new Act.Walk(land.immutable())); out.add(new Move(land.immutable(), 2.5 + sec * 2 + k * 0.8 + failPenalty(land), acts)); }
                 }
             }
             // a ladder or vine: straight up or down it
@@ -637,13 +641,13 @@ public final class ActionPath {
                 for (int dy : new int[] {1, -1}) {
                     BlockPos t = feet.above(dy);
                     if (!passable(t) || (dy == 1 && !passable(t.above())) || hurts(t)) continue;
-                    if (!climbable(t) && dy == 1 && !solid(t.below())) continue;
+                    if (!climbable(t) && dy == 1 && !floor(t)) continue;
                     List<Act> acts = new ArrayList<>(); acts.add(new Act.Walk(t.immutable()));
                     out.add(new Move(t.immutable(), 1.5 + failPenalty(t), acts));
                 }
             }
             // Solid footing and air above shallow water let his swim-jump clear the cell for a block.
-            if (canPlace && (!swimming || solid(feet.below()) && level.getFluidState(feet.above()).isEmpty())) {
+            if (canPlace && (!swimming || floor(feet) && level.getFluidState(feet.above()).isEmpty())) {
                 BlockPos up = feet.above();
                 List<Act> acts = new ArrayList<>();
                 double cost = 4;

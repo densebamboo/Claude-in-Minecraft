@@ -53,6 +53,14 @@ public final class FortressScout {
         int phase; Direction dir, said; String why = ""; BlockPos legFrom, legTo; int legTick;
         final List<Leg> legs = new ArrayList<>(); final Set<Long> regionsDone = new HashSet<>(); final Set<String> seenBefore = new HashSet<>(); final List<BlockPos> blocked = new ArrayList<>(); // (leg ends his walk couldn't reach: not tried again)
         BlockPos found; String foundHow = "";
+        Vec3 heardAt; int heardTick = -100000; String heardWhat; // the last blaze or wither skeleton he heard (through rock too: only a fortress has them)
+    }
+    /** From his ears (Perception.heard): a blaze's or a wither skeleton's sound, placed by its estimate. */
+    public static void heard(ClaudeEntity g, Vec3 est, net.minecraft.world.entity.EntityType<?> type, double d) {
+        if (type != net.minecraft.world.entity.EntityType.BLAZE && type != net.minecraft.world.entity.EntityType.WITHER_SKELETON) return;
+        State s = state(g); boolean news = g.tickCount - s.heardTick > 20 * 30;
+        s.heardAt = est; s.heardTick = g.tickCount; s.heardWhat = type.getDescription().getString().toLowerCase();
+        if (news) ClaudeMod.LOGGER.info("[Claude scout] heard a {} {} blocks off, about {}: blazes and wither skeletons are a fortress's (FortressScout.heard)", s.heardWhat, (int) d, BlockPos.containing(est).toShortString());
     }
     private static Map<UUID, State> states; // (static: fields added live start null)
     static State state(ClaudeEntity g) { if (states == null) states = new HashMap<>(); return states.computeIfAbsent(g.getUUID(), k -> new State()); }
@@ -284,7 +292,7 @@ public final class FortressScout {
         s.seenBefore.clear(); for (var sg : Perception.sightings(g)) s.seenBefore.add(key(sg));
         g.skillQueue.addFirst(new Skills.Step("find_fortress", "@" + (s.legs.size() + 1) + "w", st.count(), st.where()));
         int d = (int) horiz(to, g.blockPosition());
-        String r = "leg " + (s.legs.size() + 1) + ": scouting " + dirName(dir[0]) + " to " + to.toShortString() + " (" + d + " blocks along the ground): " + why[0];
+        String r = "leg " + (s.legs.size() + 1) + ": scouting " + dirName(dir[0]) + " to " + to.toShortString() + " (" + d + " blocks " + (why[0].contains("tunnel") || why[0].contains("through the rock") ? "through the rock" : "along the ground") + "): " + why[0];
         ClaudeMod.LOGGER.info("[Claude scout] {} (FortressScout.skill)", r);
         if (s.said != dir[0]) { s.said = dir[0]; com.claudemod.director.ClaudeChat.say(player, "heading " + dirName(dir[0]) + " to look for a fortress: " + why[0], "find_fortress: the heading"); }
         g.noteDoing("scouting " + dirName(dir[0]) + " for a nether fortress, leg " + (s.legs.size() + 1));
@@ -327,11 +335,18 @@ public final class FortressScout {
         var blazes = Perception.known(g, net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(96));
         Vec3 sign = null; String what = null;
         if (!blazes.isEmpty()) { sign = Perception.believedAt(g, blazes.get(0)); what = "a blaze"; }
+        if (sign == null) { var ws = Perception.known(g, net.minecraft.world.entity.monster.WitherSkeleton.class, g.getBoundingBox().inflate(96)); if (!ws.isEmpty()) { sign = Perception.believedAt(g, ws.get(0)); what = "a wither skeleton"; } }
         if (sign == null) { BlockPos sp = Perception.nearestSign(g, me, 96, "a mob spawner"); if (sp != null) { sign = Vec3.atCenterOf(sp); what = "a spawner"; } }
+        boolean byEar = false;
+        if (sign == null && s.heardAt != null && g.tickCount - s.heardTick <= 20 * 90) { sign = s.heardAt; what = "a " + s.heardWhat + " heard " + (g.tickCount - s.heardTick) / 20 + " s ago"; byEar = true; } // (through rock: a buried fortress is found by ear first)
         if (sign != null) {
             Vec3 v = sign.subtract(g.position()); double dist = Math.sqrt(v.x * v.x + v.z * v.z);
             BlockPos to = alongRay(g, level, Math.atan2(v.z, v.x), (int) Math.max(16, Math.min(LEG, dist - 6)));
-            if (to != null && !scouted(s, to, me)) { dir[0] = Direction.getNearest(v.x, 0, v.z); why[0] = what + " " + (int) dist + " blocks " + Perception.compassOf(v) + ": blazes and their spawners are a fortress's"; return to; }
+            if (to != null && !scouted(s, to, me)) { dir[0] = Direction.getNearest(v.x, 0, v.z); why[0] = what + " " + (int) dist + " blocks " + Perception.compassOf(v) + ": blazes, wither skeletons and their spawners are a fortress's"; return to; }
+            if (dist >= 2 && g.inventory.count(x -> x.getItem() instanceof net.minecraft.world.item.PickaxeItem) > 0) { // no open ground to it: through the rock straight at it
+                BlockPos tt = tunnelToward(level, me, sign, (int) Math.min(LEG, dist));
+                if (tt != null) { dir[0] = Direction.getNearest(v.x, 0, v.z); why[0] = what + " " + (int) dist + " blocks " + Perception.compassOf(v) + (byEar ? ", through the rock" : "") + ": blazes, wither skeletons and their spawners are a fortress's; tunnelling straight to it"; ClaudeMod.LOGGER.info("[Claude scout] {} {} off: a tunnel to {} (FortressScout.plan)", what, (int) dist, tt.toShortString()); return tt; }
+            }
         }
         // the region grid: the nearest region middle not scouted yet
         int rx0 = regionOf(me.getX()), rz0 = regionOf(me.getZ());
@@ -376,11 +391,24 @@ public final class FortressScout {
         }
         return null;
     }
-    static final int TUNNEL = 40;
+    static final int TUNNEL = 40, FORT_LO = 48, FORT_HI = 70;
+    /** A tunnel's end toward a point (a sign heard or seen): the cell up to len along the line, at the point's height, never in lava or beside it or over a 2-deep drop; nearer when that one isn't. */
+    static BlockPos tunnelToward(ServerLevel level, BlockPos me, Vec3 at, int len) {
+        Vec3 v = at.subtract(Vec3.atCenterOf(me)); double dh = Math.sqrt(v.x * v.x + v.z * v.z); if (dh < 1) return null;
+        for (int k = len; k >= Math.min(len, 6); k -= 2) {
+            double f = Math.min(1.0, k / dh); BlockPos c = BlockPos.containing(me.getX() + 0.5 + v.x * f, Math.round(me.getY() + (at.y - me.getY()) * f), me.getZ() + 0.5 + v.z * f);
+            if (!level.hasChunkAt(c) || c.getY() <= level.getMinBuildHeight() + 2 || c.getY() >= MAX_Y) continue;
+            boolean hot = false; for (BlockPos q : BlockPos.betweenClosed(c.offset(-1, -1, -1), c.offset(1, 2, 1))) if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) { hot = true; break; }
+            if (hot || level.getBlockState(c.below()).getCollisionShape(level, c.below()).isEmpty() && level.getBlockState(c.below(2)).getCollisionShape(level, c.below(2)).isEmpty()) continue;
+            return c.immutable();
+        }
+        return null;
+    }
     /** A tunnel's end: the cell len along d at his height (back to 32), never one with lava in it, over it, beside it or a drop under it; rock is fine (the walk digs it). */
     static BlockPos tunnelEnd(ServerLevel level, BlockPos me, Direction d, int len) {
+        int y = Math.max(FORT_LO, Math.min(FORT_HI, me.getY())); // (at a fortress's height: buried ones sit about y 48 to 70, a tunnel above or below them never meets their bricks)
         for (int k = len; k >= 32; k -= 4) {
-            BlockPos c = me.relative(d, k); if (!level.hasChunkAt(c)) continue;
+            BlockPos c = me.relative(d, k).atY(y); if (!level.hasChunkAt(c)) continue;
             boolean hot = false; for (BlockPos q : BlockPos.betweenClosed(c.offset(-1, -1, -1), c.offset(1, 2, 1))) if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) { hot = true; break; }
             if (hot || level.getBlockState(c.below()).getCollisionShape(level, c.below()).isEmpty() && level.getBlockState(c.below(2)).getCollisionShape(level, c.below(2)).isEmpty()) continue;
             return c.immutable();

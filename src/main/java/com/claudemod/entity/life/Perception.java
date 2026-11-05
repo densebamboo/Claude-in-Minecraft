@@ -208,6 +208,7 @@ public final class Perception {
             Mind m = mind(g); int now = g.tickCount;
             Contact c = new Contact(src0 == null ? null : src0.getUUID(), src0 == null ? null : src0.getType(), est, now, How.HEARD, id);
             if (src0 != null) m.heard.put(src0.getUUID(), c);
+            if (src0 != null) FortressScout.heard(g, est, src0.getType(), d); // (a blaze or wither skeleton: a fortress by ear)
             m.sounds.addFirst(c); while (m.sounds.size() > 24) m.sounds.removeLast();
             heardSign(g, lv, est, d, src0, id); // (a sculk sensor's clicks, a spawner's mobs: a hazard known by ear)
             boolean hostile = src0 instanceof net.minecraft.world.entity.monster.Enemy

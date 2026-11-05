@@ -10429,6 +10429,8 @@ public final class ClaudeBodyTest {
             case 811: return st811(stage, t, c, h, level, mock);
             case 812: return st812(stage, t, c, h, level, mock);
             case 813: return st813(stage, t, c, h, level, mock);
+            case 814: return st814(stage, t, c, h, level, mock);
+            case 815: return st815(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
             case 615: return st615(stage, t, c, h, level, mock);
             case 617: return st617(stage, t, c, h, level, mock);
@@ -13006,6 +13008,64 @@ public final class ClaudeBodyTest {
             String bio = p == null ? "-" : nl.getBiome(p).unwrapKey().map(k -> k.location().getPath()).orElse("?");
             check(p != null && bio.equals("warped_forest"), "the walked-over forest left for " + (p == null ? "nothing" : p.toShortString() + " (" + bio + ", " + (int) Math.sqrt(p.distSqr(o)) + " off)") + ": " + why[0]);
             nsHome(c, h, level); pass(stage, t, "the walked-over forest walked again: " + p.toShortString() + " (" + why[0] + ")"); return true;
+        }
+        return true;
+    }
+
+    /** The user 11-05 (buried fortress, World 17): sealed in netherrack, a blaze in a buried brick hall 12 east, heard through the rock; the region grid says north-west. He goes for the sound: a tunnel east, the bricks seen in its wall: found. */
+    private static net.minecraft.world.entity.monster.Blaze s814B;
+    private static boolean st814(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(7700, 64, 5120); // (its region's middle is 140 west, 152 north)
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.FortressScout.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.Atlas.reset(c); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            net.minecraft.world.level.block.state.BlockState rack = Blocks.NETHERRACK.defaultBlockState(), air = Blocks.AIR.defaultBlockState(), brick = Blocks.NETHER_BRICKS.defaultBlockState();
+            for (int x = -40; x <= 40; x++) for (int z = -40; z <= 40; z++) for (int y = -3; y <= 6; y++) {
+                boolean room = Math.abs(x) <= 2 && Math.abs(z) <= 2 && y >= 0 && y <= 3, hall = x >= 10 && x <= 16 && Math.abs(z) <= 3 && y >= -1 && y <= 4, hallIn = x >= 11 && x <= 15 && Math.abs(z) <= 2 && y >= 0 && y <= 3;
+                nl.setBlock(o.offset(x, y, z), room || hallIn ? air : hall ? brick : rack, 2);
+            }
+            nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 40)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+            s814B = net.minecraft.world.entity.EntityType.BLAZE.create(nl); s814B.moveTo(o.getX() + 13.5, o.getY() + 1, o.getZ() + 0.5); s814B.setNoAi(true); s814B.setPersistenceRequired(); nl.addFreshEntity(s814B);
+        }
+        if (t[0] == 15 || t[0] > 20 && t[0] % 60 == 0) if (s814B != null && s814B.isAlive()) s814B.playAmbientSound(); // (its breathing, through the rock)
+        if (t[0] == 20) {
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "find_fortress", "", 1);
+            ClaudeMod.LOGGER.info("[Claude test] 814 find_fortress -> {}", r);
+            BlockPos lt = com.claudemod.entity.life.FortressScout.legTo(c);
+            check(lt != null && lt.getX() - o.getX() >= 8 && Math.abs(lt.getZ() - o.getZ()) <= 6, "the leg went " + (lt == null ? "nowhere" : "to " + lt.toShortString() + " (" + (lt.getX() - o.getX()) + " east, " + (lt.getZ() - o.getZ()) + " south)") + ", not for the blaze he heard 13 east: " + r);
+        }
+        if (t[0] > 20) {
+            BlockPos f = com.claudemod.entity.life.FortressScout.found(c);
+            if (f != null) { int took = t[0] - 20; if (s814B != null) s814B.discard(); nsHome(c, h, level); pass(stage, t, "heard the blaze through the rock, tunnelled east, the bricks found at " + f.toShortString() + " in " + took + " ticks"); return true; }
+            check(t[0] - 20 < 20 * 60, "no bricks found in 60 s: at " + c.blockPosition().toShortString() + " now=" + c.currentTask + " tasks=" + c.tasks.size() + " legTo " + com.claudemod.entity.life.FortressScout.legTo(c));
+        }
+        return true;
+    }
+
+    /** The user 11-05 (buried fortress): sealed in netherrack at y 90, no sign of one: the tunnel leg heads down to a fortress's height (48 to 70), where a buried one's bricks would be met, and he gets out along it. */
+    private static boolean st815(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(8236, 90, 5120);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.FortressScout.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.Atlas.reset(c); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            for (int x = -48; x <= 48; x++) for (int z = -48; z <= 48; z++) for (int y = -30; y <= 5; y++) nl.setBlock(o.offset(x, y, z), Math.abs(x) <= 2 && Math.abs(z) <= 2 && y >= 0 && y <= 3 ? Blocks.AIR.defaultBlockState() : Blocks.NETHERRACK.defaultBlockState(), 2);
+            nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 40)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 20) {
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "find_fortress", "", 1);
+            ClaudeMod.LOGGER.info("[Claude test] 815 find_fortress -> {}", r);
+            BlockPos lt = com.claudemod.entity.life.FortressScout.legTo(c);
+            check(lt != null && lt.getY() >= 48 && lt.getY() <= 70, "the tunnel leg's end " + lt + " not at a fortress's height (48-70): " + r);
+            check(r.contains("through the rock"), "the leg said as walking along the ground: " + r);
+        }
+        if (t[0] > 20) {
+            double out = Math.sqrt(Math.pow(c.getX() - o.getX(), 2) + Math.pow(c.getZ() - o.getZ(), 2));
+            if (out >= 16 && c.getY() < o.getY() - 4) { String m = "tunnelled down toward a fortress's height: " + (int) out + " out, at y " + c.getBlockY() + " in " + (t[0] - 20) + " ticks (leg to " + com.claudemod.entity.life.FortressScout.legTo(c) + ")"; nsHome(c, h, level); pass(stage, t, m); return true; }
+            check(t[0] - 20 < 20 * 90, "still in the rock: " + String.format("%.1f", out) + " out, y " + c.getBlockY() + " in 90 s, now=" + c.currentTask + " tasks=" + c.tasks.size());
         }
         return true;
     }

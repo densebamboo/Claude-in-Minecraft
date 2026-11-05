@@ -12686,11 +12686,11 @@ public final class ClaudeBodyTest {
         if (last.startsWith("LOG_FUEL")) s615Kinds.add("LOG_FUEL");
         if (last.startsWith("FURNACE_LEFT") && last.contains(s615F.toShortString())) { check(t[0] > 590, "furnace left filed before 30 s: tick " + t[0] + ": " + last); s615Kinds.add("FURNACE_LEFT"); }
         if (s615Kinds.size() == 2) {
-            com.claudemod.entity.life.Watchdog.linesInTests = false; c.staying = false; c.myStations.remove(s615F); c.myStations.remove(s615F2); c.tasks.clear();
+            com.claudemod.entity.life.Watchdog.linesInTests = false; c.staying = false; c.myStations.remove(s615F); c.myStations.remove(s615F2); level.setBlockAndUpdate(s615F, Blocks.AIR.defaultBlockState()); level.setBlockAndUpdate(s615F2, Blocks.AIR.defaultBlockState()); c.tasks.clear();
             pass(stage, t, "whole logs in the fuel slot and charcoal left 30 s in his furnace, both filed (tick " + t[0] + ")"); return true;
         }
         check(t[0] < 900, "filed only " + s615Kinds + " (last incident " + last + ")");
-        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; c.staying = false; c.myStations.remove(s615F); c.myStations.remove(s615F2); throw e; }
+        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; c.staying = false; c.myStations.remove(s615F); c.myStations.remove(s615F2); level.setBlockAndUpdate(s615F, Blocks.AIR.defaultBlockState()); level.setBlockAndUpdate(s615F2, Blocks.AIR.defaultBlockState()); throw e; }
         return true;
     }
 

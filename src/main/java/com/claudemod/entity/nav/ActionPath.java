@@ -166,7 +166,7 @@ public final class ActionPath {
 
     private static double h(BlockPos a, BlockPos b) {
         double dx = Math.abs(a.getX() - b.getX()), dy = Math.abs(a.getY() - b.getY()), dz = Math.abs(a.getZ() - b.getZ());
-        return Math.max(dx, dz) + Math.min(dx, dz) * 0.2 + dy * 0.6; // (1.2 a block up overshot a step up's 1.6: stairs and hills got a worse way first)
+        return Math.max(dx, dz) + Math.min(dx, dz) * 0.2 + dy * 1.2; // (0.6 was admissible but blew the search budget before the dig way: stage 61 failed, NO_PATH; backlog)
     }
 
     private static Plan unwind(Node n) {

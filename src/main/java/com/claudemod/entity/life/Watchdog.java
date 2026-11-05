@@ -70,6 +70,7 @@ public final class Watchdog {
         final java.util.ArrayDeque<double[]> samples = new java.util.ArrayDeque<>(); // {tick, x, y, z, health, food, fire ticks}, one a second, the last 60
         double px = Double.NaN, py, pz; int pTick; Object pDim; int handOff = -100000; // (the last tick he was handing things over: give, a chest, a deposit)          // his position last tick (the silent-move check)
         java.util.UUID atkTarget; int atkSince; float atkHp; // the fight under way: whom, since when, its health then
+        float plannedHp; int plannedAt = -100000; // a planned drop's damage as Leaps planned it (HEALTH FALLING leaves it out)
         int lastFall = -100000, lastNoEffect = -100000, lastMove = -100000; // (each detector says so at most every 30 s)
         java.util.Map<String, Integer> gear;                 // his important gear by item, a second ago
         String quickLine; int quickTick, quickN;             // a skill line coming straight back
@@ -551,6 +552,8 @@ public final class Watchdog {
         if (it.getItem() instanceof net.minecraft.world.item.ArmorItem || it.is(net.neoforged.neoforge.common.Tags.Items.INGOTS) || it.is(net.neoforged.neoforge.common.Tags.Items.GEMS)) return true;
         return it.getItem() instanceof net.minecraft.world.item.TieredItem t && t.getTier() != net.minecraft.world.item.Tiers.WOOD && t.getTier() != net.minecraft.world.item.Tiers.STONE; // (spent wood/stone tools are a player's junk too)
     }
+    /** Leaps: a planned drop landed for the damage it planned (no more): that much falling health is his plan, not a threat. */
+    public static void plannedHurt(ClaudeEntity g, float hp) { St s = st(g); s.plannedHp = hp; s.plannedAt = now(g); }
     /** He put a block down (the place event). */
     public static void placedOwn(ClaudeEntity g, BlockPos p) { St s = st(g); if (s.placedAt.size() > 256) s.placedAt.clear(); s.placedAt.put(p.immutable(), new int[] {now(g), s.broken, items(g)}); }
     /** He broke a block (the break event, before the drop): his own placement undone with nothing done (PLACE_BREAK); a tool block by hand or with the wrong tool (BARE_HANDS). */
@@ -691,7 +694,8 @@ public final class Watchdog {
         while (s.samples.size() > 60) s.samples.pollFirst();
         // 2. health falling 5+ in 10 s with no answer to it (not running, not eating)
         double[] ten = null; for (double[] x : s.samples) if (now(g) - x[0] <= 20 * 10) { ten = x; break; }
-        if (ten != null && ten[4] - g.getHealth() >= 5 && !(g.currentTask instanceof Task.Flee) && !(g.currentTask instanceof Task.Eat) && now(g) - s.lastFall > 20 * 30) { s.lastFall = now(g); incident(g, "HEALTH FALLING", String.format("%.0f -> %.0f in %d s, no flee or eat (doing %s, on fire %s, in lava %s)%s", ten[4], g.getHealth(), (now(g) - (int) ten[0]) / 20, g.currentTask == null ? "-" : g.currentTask.getClass().getSimpleName(), g.isOnFire(), g.isInLava(), drowningOut(g))); }
+        double planned = now(g) - s.plannedAt <= 20 * 10 ? s.plannedHp : 0; // (a drop he planned and took as planned: 08:10:22 a 9-block leap for its 6 HP read as HEALTH FALLING)
+        if (ten != null && ten[4] - g.getHealth() - planned >= 5 && !(g.currentTask instanceof Task.Flee) && !(g.currentTask instanceof Task.Eat) && now(g) - s.lastFall > 20 * 30) { s.lastFall = now(g); incident(g, "HEALTH FALLING", String.format("%.0f -> %.0f in %d s, no flee or eat (doing %s, on fire %s, in lava %s)%s", ten[4], g.getHealth(), (now(g) - (int) ten[0]) / 20, g.currentTask == null ? "-" : g.currentTask.getClass().getSimpleName(), g.isOnFire(), g.isInLava(), drowningOut(g))); }
         // 3. a fight with no effect: 15 s in an attack, its target no worse off
         if (g.currentTask instanceof Task.Attack a && g.level() instanceof ServerLevel sl && sl.getEntity(a.target()) instanceof net.minecraft.world.entity.LivingEntity foe) {
             if (!a.target().equals(s.atkTarget)) { s.atkTarget = a.target(); s.atkSince = now(g); s.atkHp = foe.getHealth(); }

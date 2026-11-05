@@ -316,6 +316,7 @@ public final class Leaps {
         float took = Math.max(0, s.hp0 - health(g));
         String how = kindName(t.kind()) + " from " + t.from().toShortString() + " to " + t.land().toShortString() + ": " + (onIt ? "landed" : "MISSED, came down at " + feet.toShortString()) + ", took " + fmt(took) + " HP (planned " + fmt(t.hp()) + "), at " + fmt(health(g)) + ", " + (g.tickCount - s.takeoff) + " ticks in the air";
         com.claudemod.ClaudeMod.LOGGER.info("[Claude leap] {} (Leaps.tick)", how);
+        if (onIt && took > 0 && took <= t.hp() + 0.5f) com.claudemod.entity.life.Watchdog.plannedHurt(g, took);
         if (!onIt) { g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, t.land(), g.tickCount); com.claudemod.entity.life.MindLog.refused(g, t.land(), kindName(t.kind()) + " [missed]"); }
         return onIt ? "landed" : "missed";
     }

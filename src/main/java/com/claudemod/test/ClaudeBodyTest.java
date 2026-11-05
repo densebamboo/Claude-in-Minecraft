@@ -10418,6 +10418,7 @@ public final class ClaudeBodyTest {
             case 801: return st801(stage, t, c, h, level, mock);
             case 802: return st802(stage, t, c, h, level, mock);
             case 803: return st803(stage, t, c, h, level, mock);
+            case 804: return st804(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
             case 615: return st615(stage, t, c, h, level, mock);
             case 617: return st617(stage, t, c, h, level, mock);
@@ -12786,6 +12787,18 @@ public final class ClaudeBodyTest {
         }
         check(t[0] < 900, "filed " + W + " (last " + com.claudemod.entity.life.Watchdog.lastIncident + ")");
         } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
+        return true;
+    }
+
+    /** Day to Day 11-05 (live 08:10:22): a drop Leaps planned for 6 HP and landed for 6 is no HEALTH FALLING; 6 more on top of it is. */
+    private static int s804T; private static int s804N;
+    private static boolean st804(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var W = com.claudemod.entity.life.Watchdog.recentKinds;
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 24000; c.tasks.clear(); c.skillQueue.clear(); W.clear(); c.setHealth(20f); s804N = com.claudemod.entity.life.Watchdog.incidents; }
+        if (t[0] == 40) { com.claudemod.entity.life.Watchdog.plannedHurt(c, 6f); c.setHealth(14f); } // (the planned leap's 6)
+        if (t[0] == 40 + 20 * 8) { check(!W.contains("HEALTH FALLING"), "a planned 6 HP drop filed HEALTH FALLING: " + com.claudemod.entity.life.Watchdog.lastIncident); c.setHealth(8f); s804T = t[0]; } // (6 more, not planned)
+        if (s804T > 0 && W.contains("HEALTH FALLING")) { c.setHealth(20f); pass(stage, t, "the planned drop left out, the 6 on top of it filed"); return true; }
+        check(t[0] < 40 + 20 * 20, "6 unplanned HP on top of the drop, no HEALTH FALLING: " + W);
         return true;
     }
 

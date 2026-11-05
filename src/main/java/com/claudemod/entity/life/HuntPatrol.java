@@ -70,9 +70,11 @@ public final class HuntPatrol {
         walked(g, level);
         Book b = book(g, level); long now = now(g);
         BlockPos best = null; double bs = -1e9, bestA = 0; String bwhy = "";
+        boolean inForest = level.dimension() == net.minecraft.world.level.Level.NETHER && level.getBiome(g.blockPosition()).is(net.minecraft.world.level.biome.Biomes.WARPED_FOREST);
+        int[] ds = inForest ? new int[] {12, 8, 16, 24} : new int[] {24, 16, 32, 48}; // (in a warped forest, where they spawn: short hops inside it; its stems hide all past 12, and the far legs it saw were the wastes beyond, live 08:14:52, review-111)
         for (int i = 0; i < 12; i++) {
             double a = i * Math.PI / 6;
-            for (int d : new int[] {24, 16, 32, 48}) {
+            for (int d : ds) {
                 BlockPos p = FortressScout.alongRay(g, level, a, d); if (p == null) continue;
                 double score = 0; StringBuilder w = new StringBuilder();
                 double hunt = 0; for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) { double[] h = b.hunt.get(cell(p.getX() + dx * CELL, p.getZ() + dz * CELL)); if (h != null) hunt += weight(h, now) * (dx == 0 && dz == 0 ? 1.0 : 0.4); }
@@ -81,7 +83,7 @@ public final class HuntPatrol {
                 if (fresh) { score -= 4; w.append("walked ").append((now - last) / 20).append(" s ago; "); }
                 int bio = biomeScore(level, p); score += bio; if (bio != 0) w.append(level.getBiome(p).unwrapKey().map(k -> k.location().getPath()).orElse("?")).append(' ').append(bio > 0 ? "+" : "").append(bio).append("; ");
                 if (b.heading != null) { double turn = Math.cos(a - b.heading); score += 1.5 * turn; if (turn > 0.7) w.append("on his heading; "); }
-                score -= Math.abs(d - 24) * 0.02;
+                score -= Math.abs(d - ds[0]) * 0.02;
                 if (score > bs) { bs = score; best = p; bestA = a; bwhy = w + String.format("score %.1f", score); }
                 if (!fresh) break; // (the first standable spot along this way; ponytail: a just-walked one looks further out instead, live 20:5x a N-S corridor, both nearest ends walked, he flipped between them)
             }

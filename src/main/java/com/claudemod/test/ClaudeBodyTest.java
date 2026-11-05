@@ -10420,6 +10420,7 @@ public final class ClaudeBodyTest {
             case 803: return st803(stage, t, c, h, level, mock);
             case 804: return st804(stage, t, c, h, level, mock);
             case 805: return st805(stage, t, c, h, level, mock);
+            case 806: return st806(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
             case 615: return st615(stage, t, c, h, level, mock);
             case 617: return st617(stage, t, c, h, level, mock);
@@ -12789,6 +12790,34 @@ public final class ClaudeBodyTest {
         }
         check(t[0] < 900, "filed " + W + " (last " + com.claudemod.entity.life.Watchdog.lastIncident + ")");
         } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
+        return true;
+    }
+
+    /** Day to Day 11-05 (live 08:14:52, review-111): pearls in a warped forest whose stems hide everything past 12, nether wastes and a lava field round it: the patrol's next spot is in the forest, never 30+ out in the wastes with no endermen on record. */
+    private static boolean st806(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(5236, 70, 5120);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.HuntPatrol.reset(c); com.claudemod.entity.life.Perception.reset(c); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            for (int x = -50; x <= 50; x++) for (int z = -50; z <= 50; z++) for (int y = -2; y <= 8; y++) {
+                boolean in = Math.abs(x) <= 16 && Math.abs(z) <= 16;
+                net.minecraft.world.level.block.state.BlockState b = y < 0 ? (y == -1 && in ? Blocks.WARPED_NYLIUM : Blocks.NETHERRACK).defaultBlockState() : Blocks.AIR.defaultBlockState();
+                if (y == -1 && !in && Math.max(Math.abs(x), Math.abs(z)) <= 26) b = Blocks.LAVA.defaultBlockState(); // (a lava field round the forest, the wastes past it)
+                if (y >= 0 && y <= 5 && in && Math.floorMod(x, 4) == 2 && Math.floorMod(z, 5) == 1) b = Blocks.WARPED_STEM.defaultBlockState();
+                nl.setBlock(o.offset(x, y, z), b, 2);
+            }
+            var src = level.getServer().createCommandSourceStack().withSuppressedOutput().withLevel(nl);
+            level.getServer().getCommands().performPrefixedCommand(src, "fillbiome " + (o.getX() - 50) + " " + (o.getY() - 4) + " " + (o.getZ() - 50) + " " + (o.getX() + 50) + " " + (o.getY() + 10) + " " + (o.getZ() + 50) + " minecraft:nether_wastes");
+            level.getServer().getCommands().performPrefixedCommand(src, "fillbiome " + (o.getX() - 16) + " " + (o.getY() - 4) + " " + (o.getZ() - 16) + " " + (o.getX() + 16) + " " + (o.getY() + 10) + " " + (o.getZ() + 16) + " minecraft:warped_forest");
+            nsKit(c); c.nextPlanTick = c.tickCount + 20 * 600; c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 20) {
+            String[] why = new String[1]; BlockPos p = com.claudemod.entity.life.HuntPatrol.next(c, nl, why);
+            String bio = p == null ? "-" : nl.getBiome(p).unwrapKey().map(k -> k.location().getPath()).orElse("?");
+            check(p != null && bio.equals("warped_forest"), "the patrol left the warped forest for " + (p == null ? "nothing" : p.toShortString() + " (" + bio + ", " + (int) Math.sqrt(p.distSqr(o)) + " off)") + ": " + why[0]);
+            nsHome(c, h, level); pass(stage, t, "the patrol stayed in the forest: " + p.toShortString() + " (" + why[0] + ")"); return true;
+        }
         return true;
     }
 

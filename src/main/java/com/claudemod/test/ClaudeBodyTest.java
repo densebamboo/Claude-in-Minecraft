@@ -10461,6 +10461,7 @@ public final class ClaudeBodyTest {
             case 707: return st707(stage, t, c, h, level, mock);
             case 708: return st708(stage, t, c, h, level, mock);
             case 709: return st709(stage, t, c, h, level, mock);
+            case 710: return st710(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13155,6 +13156,30 @@ public final class ClaudeBodyTest {
         if (t[0] > 20) {
             if (c.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(s709G)) < 1.6) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "across the pit on his way's own blocks " + s709Puts + ", the parked patch there notwithstanding (" + (t[0] - 20) + " ticks)"); return true; }
             check(t[0] < 240, "the walk across the pit to " + s709G.toShortString() + ": at " + c.blockPosition().toShortString() + " after 11 s, the way's puts " + s709Puts + " (parked as a patch), now " + c.currentTask + " queue " + c.tasks.stream().limit(6).toList());
+        }
+        return true;
+    }
+
+    /** Live 01:43:52 11-05 (TRIP, place -93, 17, -61 3 times a second): a patch waited for his raw copper in its pocket ("pickup first"); the pickup, the drop out of reach past a block in his walkway, put "the dig first, the pickup straight after", but back behind the patch, which came round again first and waited again. The dig that opens the way runs first, then the pickup, then the patch. */
+    private static BlockPos s710P, s710D;
+    private static boolean st710(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            BlockPos r3 = lnRow(b, 1, 3).immutable(), r5 = lnRow(b, 1, 5).immutable(); s710D = lnRow(b, 1, 6).immutable();
+            net.minecraft.core.Direction side = null; for (var d : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && !com.claudemod.director.ClaudeLife.isMineCell(c, s710D.relative(d)) && level.getBlockState(s710D.relative(d)).is(Blocks.STONE)) side = d;
+            s710P = s710D.relative(side).immutable(); level.setBlock(s710P, Blocks.AIR.defaultBlockState(), 2); // (a hole in his wall by the drop: the patch)
+            java.util.List<BlockPos> wall = new java.util.ArrayList<>(); for (BlockPos f : b.rows().get(lnRowIndex(b, 1, 5)).feet()) for (int y = 0; y < 2; y++) wall.add(f.above(y).immutable());
+            for (BlockPos q : wall) level.setBlock(q, Blocks.STONE.defaultBlockState(), 2); // (row 5 left standing across his walkway: the drop past it is out of reach)
+            var drop = new net.minecraft.world.entity.item.ItemEntity(level, s710D.getX() + 0.5, s710D.getY(), s710D.getZ() + 0.5, new ItemStack(Items.RAW_COPPER)); drop.setDeltaMovement(0, 0, 0); level.addFreshEntity(drop);
+            c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            lnStand(c, mock, r3, b.entrance); c.tasks.clear(); c.skillQueue.clear();
+            c.tasks.add(new Task.Place(s710P, Items.COBBLESTONE)); for (BlockPos q : wall) c.tasks.add(new Task.Break(q)); // (as live: the patch first, his walkway digs behind it)
+            check(r5 != null, "setup: no row 5");
+        }
+        if (t[0] > 10) {
+            boolean patched = level.getBlockState(s710P).is(Blocks.COBBLESTONE), got = c.getInventory().countItem(Items.RAW_COPPER) > 0;
+            if (patched && got) { c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); pass(stage, t, "the dig, the copper, then the patch (" + (t[0] - 10) + " ticks)"); return true; }
+            check(t[0] < 260, "the patch at " + s710P.toShortString() + " waiting on his copper at " + s710D.toShortString() + " past the block in his walkway: after 12 s patched " + patched + ", copper " + got + ", at " + c.blockPosition().toShortString() + ", now " + c.currentTask + " queue " + c.tasks.stream().limit(6).toList());
         }
         return true;
     }

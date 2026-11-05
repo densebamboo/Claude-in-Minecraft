@@ -2721,7 +2721,7 @@ public class WorkGoal extends Goal {
             if (opens != null) {
                 Task later = new Task.Pickup(t.maxTicks()); if (t == holdPickup) holdPickup = (Task.Pickup) later; lastPickupTask = later;
                 java.util.ArrayDeque<Task> before = new java.util.ArrayDeque<>(); while (!g.tasks.isEmpty() && g.tasks.peekFirst() != opens) before.addLast(g.tasks.pollFirst());
-                g.tasks.pollFirst(); g.tasks.addFirst(later); g.tasks.addFirst(opens); while (!before.isEmpty()) g.tasks.addFirst(before.pollLast()); // (the same tasks back in their order, the pickup straight after the dig: each keeps who queued it)
+                g.tasks.pollFirst(); while (!before.isEmpty()) g.tasks.addFirst(before.pollLast()); g.tasks.addFirst(later); g.tasks.addFirst(opens); // (the dig now, the pickup straight after, then the rest in their order, each keeping who queued it: with the rest back in front, the patch waiting on this pickup came round first and waited again, 3 times a second, live 01:43:52 11-05, stage 710)
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude pickup] {} at {}: out of reach from {}, and his next dig at {} opens the way to it: the dig first, the pickup straight after (WorkGoal.doPickup)", nearest.getItem().getHoverName().getString(), ip.toShortString(), g.blockPosition().toShortString(), ((Task.Break) opens).pos().toShortString());
                 return true;
             }

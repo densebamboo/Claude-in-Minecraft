@@ -10408,6 +10408,7 @@ public final class ClaudeBodyTest {
             case 622: return st622(stage, t, c, h, level, mock);
             case 623: return st623(stage, t, c, h, level, mock);
             case 624: return st624(stage, t, c, h, level, mock);
+            case 625: return st625(stage, t, c, h, level, mock);
             case 598: return st598(stage, t, c, h, level, mock);
             case 599: return st599(stage, t, c, h, level, mock);
             case 602: return st602(stage, t, c, h, level, mock);
@@ -12452,6 +12453,119 @@ public final class ClaudeBodyTest {
             check(r != null && r.startsWith("done") && !trip, "a diamond chestplate in his bag: obtain iron_chestplate still planned (" + r + ")");
             pass(stage, t, "a diamond chestplate in his bag: \"" + r + "\"");
         }
+        return true;
+    }
+
+    /**
+     * Incident replay (the user 11-04: 19 deaths in a day, "fix the root, not the symptom"). -Dclaude.incident=<file>: an incident file
+     * (saves/<world>/claude/incidents/*.txt, plus a "death kit:" line from the game log when there is one) rebuilt at 30000, y, 30000:
+     * its 7x5x7 block grid, the rock or air round it (row by row, the grid row's most common cell), his health, food, air, fire and spot
+     * from the earliest "last 30 s" entry inside the grid, his armor, hands and pack, the time of day, the hostiles he knew of. Then he
+     * runs on his own for 30 s. PASS: alive. FAIL "still dies". Anything not rebuilt is named in the result; no grid is a FAIL, never a pass.
+     */
+    private static int s625T, s625Fell; private static float s625Low; private static String s625Note;
+    private static boolean st625(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        String path = System.getProperty("claude.incident");
+        if (path == null) { pass(stage, t, "incident replay: no -Dclaude.incident given (run it with one)"); return true; }
+        String name = java.nio.file.Path.of(path).getFileName().toString();
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 24000; c.tasks.clear(); c.skillQueue.clear(); c.commandActive = false; c.playerGoal = null; c.prefs.put("stay_close", "no"); s625T = -1; s625Fell = 0; s625Low = 99; s625Note = ""; }
+        if (t[0] == 5) {
+            java.util.List<String> L; try { L = java.nio.file.Files.readAllLines(java.nio.file.Path.of(path)); } catch (Exception e) { check(false, "replay " + name + ": can't read it: " + e); return true; }
+            java.util.List<String> skipped = new java.util.ArrayList<>(), built = new java.util.ArrayList<>();
+            String dim = "minecraft:overworld", under = "stone"; int dx0 = 0, dy0 = 0, dz0 = 0; long dayTime = -1; java.util.TreeMap<Integer, String[]> grid = new java.util.TreeMap<>();
+            String last30 = null, hostiles = null, kit = null; java.util.Map<String, java.util.List<BlockPos>> heard = new java.util.HashMap<>();
+            for (String ln : L) {
+                var wm = java.util.regex.Pattern.compile("^where: (\\S+) (-?\\d+), (-?\\d+), (-?\\d+), under him (\\S+)").matcher(ln);
+                if (wm.find()) { dim = wm.group(1); dx0 = Integer.parseInt(wm.group(2)); dy0 = Integer.parseInt(wm.group(3)); dz0 = Integer.parseInt(wm.group(4)); under = wm.group(5).replaceAll("[^a-z0-9_]", ""); }
+                var tm = java.util.regex.Pattern.compile("day time (\\d+)").matcher(ln); if (ln.startsWith("when:") && tm.find()) dayTime = Long.parseLong(tm.group(1));
+                var gm = java.util.regex.Pattern.compile("^\\s+y(-?\\d+): (.+)$").matcher(ln); if (gm.find() && grid.size() < 5) { String[] zs = gm.group(2).trim().split("\\|"); if (zs.length == 7) grid.put(Integer.parseInt(gm.group(1)), zs); }
+                if (ln.startsWith("last 30 s:") && last30 == null) last30 = ln;
+                if (ln.startsWith("hostiles known within 24:") && hostiles == null) hostiles = ln.substring(ln.indexOf(':') + 1);
+                if (ln.contains("death kit:")) kit = ln; // (the last one: the line added from the game log; his recent log can quote an earlier death's)
+                var hm0 = java.util.regex.Pattern.compile("heard an? ([A-Z][A-Za-z ]*?) \\d+ blocks off \\(about (-?\\d+), (-?\\d+), (-?\\d+)\\)").matcher(ln);
+                if (hm0.find()) heard.computeIfAbsent(hm0.group(1), k -> new java.util.ArrayList<>()).add(0, new BlockPos(Integer.parseInt(hm0.group(2)), Integer.parseInt(hm0.group(3)), Integer.parseInt(hm0.group(4)))); // (newest first)
+            }
+            if (grid.isEmpty()) { check(false, "replay " + name + ": NOT REPLAYABLE: no block grid in the file (written before the grid was logged)"); return true; }
+            ServerLevel lv = level.getServer().getLevel(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, net.minecraft.resources.ResourceLocation.parse(dim)));
+            if (lv == null) { check(false, "replay " + name + ": NOT REPLAYABLE: no dimension " + dim); return true; }
+            boolean nether = dim.contains("nether");
+            var underB = net.minecraft.core.registries.BuiltInRegistries.BLOCK.get(net.minecraft.resources.ResourceLocation.withDefaultNamespace(under));
+            net.minecraft.world.level.block.state.BlockState rock = underB == Blocks.AIR || !underB.defaultBlockState().isSolid() ? (nether ? Blocks.NETHERRACK : Blocks.STONE).defaultBlockState() : underB.defaultBlockState();
+            if (rock.getBlock() != underB) built.add("rock " + rock.getBlock().getName().getString() + " (under him: " + under + ")");
+            net.minecraft.world.level.block.state.BlockState fluid = (nether ? Blocks.LAVA : Blocks.WATER).defaultBlockState(), fall = (under.contains("sand") ? Blocks.SAND : Blocks.GRAVEL).defaultBlockState();
+            if (nether) built.add("~ as lava (the Nether)");
+            final int OX = 30000, OZ = 30000; final int sx = dx0, sz = dz0; java.util.function.Function<BlockPos, BlockPos> map = q -> new BlockPos(q.getX() - sx + OX, q.getY(), q.getZ() - sz + OZ);
+            boolean eyesWet = last30 != null && last30.substring(Math.max(0, last30.lastIndexOf("s: hp"))).contains("under water");
+            java.util.function.BiFunction<Character, Boolean, net.minecraft.world.level.block.state.BlockState> cell = (ch, wet) -> ch == '#' ? rock : ch == '~' ? fluid : ch == 'g' ? fall : ch == '@' ? (wet ? fluid : Blocks.AIR.defaultBlockState()) : Blocks.AIR.defaultBlockState();
+            int yLo = grid.firstKey(), yHi = grid.lastKey(); java.util.Map<Integer, Character> rowFill = new java.util.HashMap<>();
+            for (var e : grid.entrySet()) { java.util.Map<Character, Integer> cnt = new java.util.HashMap<>(); for (String zr : e.getValue()) for (char ch : zr.toCharArray()) if (ch != '@') cnt.merge(ch, 1, Integer::sum); char m = cnt.entrySet().stream().max(java.util.Map.Entry.comparingByValue()).get().getKey(); rowFill.put(e.getKey(), m == 'g' ? '#' : m); } // (sand or gravel as the fill rains down on him: rock outside the grid)
+            StringBuilder rf = new StringBuilder(); for (var e : rowFill.entrySet()) rf.append(" y").append(e.getKey()).append(" ").append(e.getValue());
+            built.add("outside the grid by row:" + rf + ", below the grid rock, above y" + yHi + " as the top row (" + rowFill.get(yHi) + ")");
+            int ground = yLo - 1; // (the top of the rock under the grid: right under it, unless the grid's bottom row is open air: then the heard mobs' feet, else 5 down)
+            if (rowFill.get(yLo) == '.') { java.util.List<Integer> ys = new java.util.ArrayList<>(); for (var hl : heard.values()) for (BlockPos q : hl) if (q.getY() < yLo) ys.add(q.getY()); java.util.Collections.sort(ys);
+                ground = ys.isEmpty() ? yLo - 5 : ys.get(ys.size() / 2) - 1; built.add("the bottom row open: ground at y" + ground + (ys.isEmpty() ? " (5 under the grid, no mob heard lower)" : " (under the mobs he heard)")); }
+            final int groundTop = ground;
+            for (int y = Math.min(yLo, groundTop) - 6; y <= yHi + 6; y++) { char ch = y < yLo ? (y <= groundTop ? '#' : '.') : y > yHi ? rowFill.get(yHi) : rowFill.getOrDefault(y, '#'); var bs = cell.apply(ch, false);
+                for (int x = -16; x <= 16; x++) for (int z = -16; z <= 16; z++) lv.setBlock(new BlockPos(OX + x, y, OZ + z), bs, 2 | 16); }
+            for (var e : grid.entrySet()) { String[] zs = e.getValue(); for (int z = 0; z < 7; z++) for (int x = 0; x < 7 && x < zs[z].length(); x++) { char ch = zs[z].charAt(x); if ("#~g.@".indexOf(ch) < 0) { skipped.add("grid cell '" + ch + "' at y" + e.getKey() + " as air"); ch = '.'; } lv.setBlock(map.apply(new BlockPos(dx0 - 3 + x, e.getKey(), dz0 - 3 + z)), cell.apply(ch, eyesWet), 2); } }
+            for (var m0 : lv.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(OX - 40, yLo - 20, OZ - 40, OX + 40, yHi + 20, OZ + 40))) m0.discard();
+            // his state: the earliest second of the last 30 s that's inside the grid
+            BlockPos at = new BlockPos(dx0, dy0, dz0); float hp = 20; int food = 20, air = 300, fire = -20; String when = "the death spot (no second of the last 30 s inside the grid): health 20";
+            if (last30 != null) { var em = java.util.regex.Pattern.compile("(-?\\d+)s: hp (\\d+(?:\\.\\d+)?) food (\\d+) fire (-?\\d+) at (-?\\d+) (-?\\d+) (-?\\d+)( air (\\d+))?").matcher(last30);
+                while (em.find()) { int x = Integer.parseInt(em.group(5)), y = Integer.parseInt(em.group(6)), z = Integer.parseInt(em.group(7));
+                    BlockPos pick = null; // (%.0f of his exact x and z: a man centred on block 461 reads 462, so the block is that or one less, the one he can stand in)
+                    for (int ax = x - 1; ax <= x && pick == null; ax++) for (int az = z - 1; az <= z && pick == null; az++) { if (Math.abs(ax - dx0) > 3 || Math.abs(az - dz0) > 3 || y - 1 < yLo || y + 1 > yHi) continue;
+                        int gz = az - dz0 + 3, gx = ax - dx0 + 3; char f = grid.get(y)[gz].charAt(gx), hd = grid.get(y + 1)[gz].charAt(gx), b0 = grid.get(y - 1)[gz].charAt(gx);
+                        if (f != '#' && hd != '#' && (b0 == '#' || b0 == 'g' || f == '~' || f == '@')) pick = new BlockPos(ax, y, az); }
+                    if (pick == null) continue;
+                    at = pick; hp = Float.parseFloat(em.group(2)); food = Integer.parseInt(em.group(3)); fire = Integer.parseInt(em.group(4)); air = em.group(9) != null ? Integer.parseInt(em.group(9)) : 300; when = em.group(1) + "s"; break; } }
+            else skipped.add("no last-30-s line: health 20, food 20");
+            BlockPos me = map.apply(at);
+            if (lv != c.level()) c.teleportTo(lv, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0, 0); else c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.fallDistance = 0; c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.setHealth(Math.max(1, hp)); c.getFoodData().setFoodLevel(food); c.setAirSupply(air); c.setRemainingFireTicks(Math.max(0, fire));
+            built.add("him from " + when + " at " + at.toShortString() + ": hp " + hp + " food " + food + " air " + air + (fire > 0 ? " fire " + fire : ""));
+            // his things
+            c.getInventory().clearContent(); for (var sl : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET, net.minecraft.world.entity.EquipmentSlot.OFFHAND}) c.setItemSlot(sl, ItemStack.EMPTY);
+            java.util.function.Function<String, net.minecraft.world.item.Item> itemOf = nm -> { var rl = net.minecraft.resources.ResourceLocation.tryParse(nm.trim().toLowerCase().replace(' ', '_')); var it = rl == null ? Items.AIR : net.minecraft.core.registries.BuiltInRegistries.ITEM.get(rl); if (it == Items.AIR) skipped.add("item '" + nm.trim() + "'"); return it; };
+            if (kit == null) skipped.add("his armor, hands and pack (no death-kit line: nothing on him)");
+            else { var km = java.util.regex.Pattern.compile("wearing (.*?); holding (.*?); pack: (.*)$").matcher(kit);
+                if (!km.find()) skipped.add("his kit (the death-kit line didn't parse)");
+                else {
+                    if (!km.group(1).equals("no armor")) for (String a : km.group(1).split(", ")) { var it = itemOf.apply(a); if (it instanceof net.minecraft.world.item.ArmorItem ai) c.setItemSlot(ai.getEquipmentSlot(), new ItemStack(it)); }
+                    String[] hands = km.group(2).split(" \\| "); var mh = itemOf.apply(hands[0]);
+                    String pk = km.group(3).replaceAll(" \\(ClaudeLife[^)]*\\)\\s*$", ""); boolean cut = pk.endsWith("...");
+                    if (cut) { pk = pk.substring(0, Math.max(0, pk.lastIndexOf(", "))); skipped.add("the end of his pack (the log line was cut short)"); } // (its last entry is cut part-way)
+                    for (String pe : pk.isEmpty() ? new String[0] : pk.split(", ")) { var pm = java.util.regex.Pattern.compile("^(\\S+?)(?: (\\d+))?$").matcher(pe.trim()); if (!pm.find()) { skipped.add("pack entry '" + pe + "'"); continue; } var it = itemOf.apply(pm.group(1)); int n = pm.group(2) == null ? 1 : Integer.parseInt(pm.group(2)); if (it != Items.AIR) c.getInventory().add(new ItemStack(it, n)); }
+                    if (mh != Items.AIR) { int slot = c.getInventory().findSlotMatchingItem(new ItemStack(mh)); if (slot < 0) { c.getInventory().add(new ItemStack(mh)); slot = c.getInventory().findSlotMatchingItem(new ItemStack(mh)); } if (slot >= 0 && slot < 9) c.getInventory().selected = slot; }
+                    if (hands.length > 1) { var oh = itemOf.apply(hands[1]); if (oh != Items.AIR) c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(oh)); }
+                    built.add("kit: " + km.group(1) + "; holding " + km.group(2));
+                } }
+            if (dayTime >= 0) lv.setDayTime(dayTime); else skipped.add("the time of day");
+            // the hostiles he knew of, round him at their distance (12 at most past the box's edge), on their feet
+            if (hostiles != null) { var hm = java.util.regex.Pattern.compile("([A-Z][A-Za-z ]*?) (\\d+) off( in sight)?").matcher(hostiles); int i = 0; java.util.List<String> put = new java.util.ArrayList<>(); java.util.List<String[]> all = new java.util.ArrayList<>();
+                while (hm.find()) all.add(new String[] {hm.group(1), hm.group(2)});
+                for (String[] m0 : all) { var type = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.get(net.minecraft.resources.ResourceLocation.withDefaultNamespace(m0[0].toLowerCase().replace(' ', '_')));
+                    int d = Math.min(15, Integer.parseInt(m0[1])); double ang = 2 * Math.PI * i++ / all.size(); BlockPos spot = null;
+                    java.util.List<BlockPos> hp0 = heard.get(m0[0]); BlockPos aim = null; if (hp0 != null) for (BlockPos q : hp0) if (Math.abs(Math.sqrt(q.distSqr(at)) - Integer.parseInt(m0[1])) <= 3) { aim = q; break; } if (aim != null) hp0.remove(aim); // (where he heard one, newest first; else on a ring at its distance)
+                    BlockPos base = aim != null ? map.apply(aim) : me.offset((int) Math.round(Math.cos(ang) * d), 0, (int) Math.round(Math.sin(ang) * d)); base = new BlockPos(Math.max(OX - 15, Math.min(OX + 15, base.getX())), base.getY(), Math.max(OZ - 15, Math.min(OZ + 15, base.getZ())));
+                    for (int k = 0; k <= 22 && spot == null; k++) { int dy = (k % 2 == 0 ? 1 : -1) * ((k + 1) / 2); BlockPos q = base.above(dy); if (lv.getBlockState(q).getCollisionShape(lv, q).isEmpty() && lv.getBlockState(q.above()).getCollisionShape(lv, q.above()).isEmpty() && !lv.getBlockState(q.below()).getCollisionShape(lv, q.below()).isEmpty()) spot = q; }
+                    var e = type.create(lv);
+                    if (!(e instanceof net.minecraft.world.entity.Mob mob) || spot == null) { skipped.add(m0[0] + " " + m0[1] + " off (" + (spot == null ? "no footing that far" : "not a mob") + ")"); continue; }
+                    mob.moveTo(spot.getX() + 0.5, spot.getY(), spot.getZ() + 0.5, 0, 0); mob.setPersistenceRequired();
+                    if (mob instanceof net.minecraft.world.entity.monster.AbstractSkeleton) mob.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(mob instanceof net.minecraft.world.entity.monster.WitherSkeleton ? Items.STONE_SWORD : Items.BOW));
+                    lv.addFreshEntity(mob); put.add(m0[0] + " " + d + " off at " + spot.subtract(me).toShortString() + (aim != null ? " (heard there)" : "")); }
+                if (!put.isEmpty()) built.add("hostiles: " + String.join(", ", put)); }
+            else skipped.add("hostiles (no line: none put down)");
+            built.add("not rebuilt: his memories (mine, home, portals, goal, queue) and anything outside 16 of him");
+            s625Note = String.join("; ", built) + (skipped.isEmpty() ? "" : "; SKIPPED: " + String.join(", ", skipped));
+            ClaudeMod.LOGGER.info("[Claude test] replay {}: {}", name, s625Note);
+            s625T = t[0];
+        }
+        if (s625T < 0) return true;
+        if (c.isAlive()) s625Low = Math.min(s625Low, c.getHealth());
+        if (!c.isAlive() || c.getHealth() <= 0) { check(false, "replay " + name + ": STILL DIES after " + (t[0] - s625T) / 20 + " s (" + c.getLastDamageSource() + ") at " + c.blockPosition().toShortString() + ", last " + c.lastSkillLine + " | " + (s625Note.length() > 500 ? s625Note.substring(0, 500) + "... (the whole note in the replay line above)" : s625Note)); return true; }
+        if (t[0] - s625T >= 20 * 30) { pass(stage, t, "replay " + name + ": SURVIVES 30 s, health " + c.getHealth() + " (low " + s625Low + "), at " + c.blockPosition().toShortString() + ", last " + c.lastSkillLine + " | " + (s625Note.length() > 500 ? s625Note.substring(0, 500) + "... (the whole note in the replay line above)" : s625Note)); }
         return true;
     }
 

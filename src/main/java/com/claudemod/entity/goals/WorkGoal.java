@@ -854,7 +854,8 @@ public class WorkGoal extends Goal {
             g.getNavigation().stop(); g.getMoveControl().setWantedPosition(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0.5);
             return false;
         }
-        if ((d <= within || (chain && d <= 2.0 && pos.getY() <= feetCell.getY())) && !onLeavesAbove) { // ponytail: live 19:40 -58,79,-901: a route's 1-up step 1.4 off counted as reached in a chain, so the next leg was 2 up and refused, a loop for minutes; a step up is only reached by stepping up
+        boolean towardIt = g.getDeltaMovement().x * (pos.getX() + 0.5 - g.getX()) + g.getDeltaMovement().z * (pos.getZ() + 0.5 - g.getZ()) > 0.05 * Math.max(0.1, Math.hypot(pos.getX() + 0.5 - g.getX(), pos.getZ() + 0.5 - g.getZ())); // (run through a waypoint only on his way to it: standing 2.0 off, the first tick "ran through" his planner's first step on the Nether ledge and the same way was planned again every 15 s, 08:16-08:35 11-05, stage 715)
+        if ((d <= within || (chain && towardIt && d <= 2.0 && pos.getY() <= feetCell.getY())) && !onLeavesAbove) { // ponytail: live 19:40 -58,79,-901: a route's 1-up step 1.4 off counted as reached in a chain, so the next leg was 2 up and refused, a loop for minutes; a step up is only reached by stepping up
             if (!chain) g.getNavigation().stop();
             return true;
         }

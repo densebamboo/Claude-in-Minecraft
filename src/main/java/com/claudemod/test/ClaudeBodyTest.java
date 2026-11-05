@@ -10468,6 +10468,7 @@ public final class ClaudeBodyTest {
             case 712: return st712(stage, t, c, h, level, mock);
             case 713: return st713(stage, t, c, h, level, mock);
             case 714: return st714(stage, t, c, h, level, mock);
+            case 715: return st715(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13349,6 +13350,25 @@ public final class ClaudeBodyTest {
         if (t[0] > 14) {
             if (c.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(s714G)) < 1.6) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "across the lily pads, a level walk (" + (t[0] - 14) + " ticks)"); return true; }
             check(t[0] < 200, "the walk across the lily pads to " + s714G.toShortString() + ": at " + c.position() + " after 9 s, now " + c.currentTask + " queue " + c.tasks.stream().limit(6).toList());
+        }
+        return true;
+    }
+
+    /** Live 08:16-08:35 11-05 (REVIEW-130/134, Nether ledge -26,38,-46): his planner's way was GoTo -26,38,-48 then the spot; with the next walk queued on his level, walkTo "ran through" the first waypoint from exactly 2.0 off on its first tick, standing still, so the spot was still 4 off, the same way was planned again, round every 15 s for 15 min. A waypoint is run through only on the way to it. */
+    private static BlockPos s715A; private static double s715Near;
+    private static boolean st715(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); s715Near = 99; }
+        if (t[0] == 10) {
+            for (int x = -1; x <= 9; x++) for (int z = -1; z <= 12; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 1; y <= 4; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+            BlockPos at = h.absolutePos(new BlockPos(4, 1, 2)); s715A = at.south(2).immutable(); BlockPos far = at.south(8).immutable();
+            c.getInventory().clearContent(); lnStand(c, mock, at, far.east(3)); c.tasks.clear(); c.skillQueue.clear();
+            c.tasks.add(new Task.GoTo(s715A, 0.9)); c.tasks.add(new Task.GoTo(far, 0.9)); // (a planned way's waypoint 2.0 off, its next leg on the same level)
+            s715Near = c.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(s715A));
+        }
+        if (t[0] > 10) {
+            if (c.currentTask instanceof Task.GoTo go && go.pos().equals(s715A) || c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().equals(s715A))) s715Near = Math.min(s715Near, c.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(s715A)));
+            else { check(s715Near < 1.9, "the waypoint " + s715A.toShortString() + " counted reached from " + String.format("%.2f", s715Near) + " off without a step toward it (he's at " + c.position() + ")"); c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "walked to the waypoint before running on (" + String.format("%.2f", s715Near) + " off at most)"); return true; }
+            check(t[0] < 200, "the waypoint " + s715A.toShortString() + " not reached in 9 s: at " + c.position() + ", now " + c.currentTask);
         }
         return true;
     }

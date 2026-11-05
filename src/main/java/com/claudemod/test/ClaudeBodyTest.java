@@ -10409,6 +10409,7 @@ public final class ClaudeBodyTest {
             case 623: return st623(stage, t, c, h, level, mock);
             case 624: return st624(stage, t, c, h, level, mock);
             case 625: return st625(stage, t, c, h, level, mock);
+            case 626: return st626(stage, t, c, h, level, mock);
             case 598: return st598(stage, t, c, h, level, mock);
             case 599: return st599(stage, t, c, h, level, mock);
             case 602: return st602(stage, t, c, h, level, mock);
@@ -12575,6 +12576,36 @@ public final class ClaudeBodyTest {
         if (c.isAlive()) s625Low = Math.min(s625Low, c.getHealth());
         if (!c.isAlive() || c.getHealth() <= 0) { check(false, "replay " + name + ": STILL DIES after " + (t[0] - s625T) / 20 + " s (" + c.getLastDamageSource() + ") at " + c.blockPosition().toShortString() + ", last " + c.lastSkillLine + " | " + (s625Note.length() > 500 ? s625Note.substring(0, 500) + "... (the whole note in the replay line above)" : s625Note)); return true; }
         if (t[0] - s625T >= 20 * 30) { pass(stage, t, "replay " + name + ": SURVIVES 30 s, health " + c.getHealth() + " (low " + s625Low + "), at " + c.blockPosition().toShortString() + ", last " + c.lastSkillLine + " | " + (s625Note.length() > 500 ? s625Note.substring(0, 500) + "... (the whole note in the replay line above)" : s625Note)); }
+        return true;
+    }
+
+    /** Fix causes, not counters (the user 11-04): a walk to a spot sealed in bedrock fails with its cause (no path). Sent there every 3 s for 75 s, he never tries it again while nothing changed (no 3-skips-then-a-forced-try, no 60 s retry); one wall block gone, the next send goes straight in. */
+    private static int s626Fail = -1, s626Open = -1;
+    private static boolean st626(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos in = h.absolutePos(new BlockPos(10, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.tasks.clear(); c.skillQueue.clear(); c.commandActive = false; c.prefs.put("stay_close", "no"); s626Fail = -1; s626Open = -1; }
+        if (t[0] == 10) {
+            flatBox(h); for (BlockPos q : BlockPos.betweenClosed(in.offset(-1, -1, -1), in.offset(1, 1, 1))) if (!q.equals(in)) level.setBlockAndUpdate(q, Blocks.BEDROCK.defaultBlockState());
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.tasks.add(new Task.GoTo(in, 0.5));
+        }
+        if (t[0] <= 10) return true;
+        Integer f = c.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK).get(in);
+        if (s626Fail < 0 && f != null) s626Fail = f;
+        if (s626Fail >= 0 && s626Open < 0) {
+            int since = (c.tickCount - s626Fail) / 20;
+            check(f == null || f == s626Fail, "sealed in bedrock, nothing changed: a new go at it " + since + " s after the first failure (failed again at +" + (f == null ? -1 : (f - s626Fail) / 20) + " s)");
+            if (t[0] % 60 == 0 && c.tasks.isEmpty() && c.currentTask == null) c.tasks.add(new Task.GoTo(in, 0.5)); // (the planner sending him there again and again)
+            if (since >= 75) { level.setBlockAndUpdate(in.west(), Blocks.AIR.defaultBlockState()); level.setBlockAndUpdate(in.west().above(), Blocks.AIR.defaultBlockState()); level.setBlockAndUpdate(in.above(), Blocks.AIR.defaultBlockState()); s626Open = t[0]; /* (a 2-high way in: the wall and the roof cell over the spot) */ c.tasks.clear(); c.dropCurrent = true; }
+            return true;
+        }
+        if (s626Open >= 0) {
+            if (t[0] % 60 == 0 && c.tasks.isEmpty() && c.currentTask == null) c.tasks.add(new Task.GoTo(in, 0.5));
+            if (c.blockPosition().equals(in)) { int took = (t[0] - s626Open) / 20; c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "no path to a bedrock cell: skipped 75 s with no new go while nothing changed; the wall opened, in " + took + " s"); return true; }
+            check(t[0] - s626Open < 20 * 15, "the bedrock wall opened: not in after 15 s (walk record " + c.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK).get(in) + ", now " + c.currentTask + ")");
+        }
+        check(t[0] < 20 * 30 || s626Fail >= 0, "sealed in bedrock: the walk never failed in 30 s (now " + c.currentTask + ")");
         return true;
     }
 

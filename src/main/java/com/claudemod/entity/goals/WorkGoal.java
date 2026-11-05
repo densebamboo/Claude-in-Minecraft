@@ -34,6 +34,7 @@ public class WorkGoal extends Goal {
 
     private static final double REACH = 4.0; // (stand spots within 3.7 of the target; a wider search (4.2) left stair roofs unplaced in the stairs test, 4 of 5)
     private static final int STUCK_LIMIT = 160; // ~8s without getting closer: give up on this step
+    private BlockPos noWayFor; private String noWayWhy; // (the walk's planners all said no way to this spot: its give-up's cause is NO_PATH)
 
     private final ClaudeEntity g;
     private Task current;
@@ -250,6 +251,7 @@ public class WorkGoal extends Goal {
     private int lavaDigTick = -100;
     @Override
     public void tick() {
+        if (g.tickCount % 5 == 0) g.attempts.sweep(); // (failures whose cause no longer holds leave the records the planners read)
         if (g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW) && g.tickCount - bowAimTick > 2) g.stopUsingItem(); /* the user: "walking super slow with his bow pulled back": the fight ended (target dead, out of sight, timed out, another job) with the draw still held, and a draw walks at 1/5 speed */
         if (reflexes()) return; // fire, air, lava first (WorkGoal.reflexes; also run while he's only hanging out with them)
         if (g.isSleeping()) return; // in bed: the job waits for morning (ticking on in bed timed the vein and its patches out)
@@ -499,17 +501,19 @@ public class WorkGoal extends Goal {
             };
         } catch (RuntimeException e) {
             done = true; // a step that throws (block changed under him, etc.) is just skipped
-            com.claudemod.ClaudeMod.LOGGER.warn("[Claude life] {} threw: skipped (WorkGoal.tick)", current, e); bandaid(g, "task threw", e.getClass().getSimpleName(), current + " threw " + e); // (it was silent: a bug in the step, never seen)
+            com.claudemod.ClaudeMod.LOGGER.warn("[Claude life] {} threw: skipped (WorkGoal.tick)", current, e); g.attempts.bandaid(current + " threw " + e); // (it was silent: a bug in the step, never seen)
         }
         // Watchdog: no single action should take 45s (cooking and long fights have their own limits). Skip it, never hang.
         boolean longByNature = current instanceof Task.Smelt || current instanceof Task.FurnaceTake || current instanceof Task.Attack
                 || current instanceof Task.Wait || current instanceof Task.Fish;
         if (!done && !longByNature && ticks > 20 * 45) {
-            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] stuck on {} for 45s, skipping it", current); bandaid(g, "45 s task clock", com.claudemod.entity.life.Watchdog.target(current), current + " ran 45 s at " + g.blockPosition().toShortString());
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] stuck on {} for 45s, skipping it", current);
             g.getNavigation().stop();
             BlockPos spot = switch (current) { case Task.Break b -> b.pos(); case Task.GoTo go -> go.pos(); case Task.Place pl -> pl.pos(); default -> null; }; // what he couldn't get at stays off the list a while (the ore-spotting would queue it straight back)
             if (spot != null) {
-                g.attempts.any.put(spot.immutable(), g.tickCount);
+                var cause = com.claudemod.entity.life.Stall.diagnose(g, spot, current instanceof Task.GoTo go0 ? go0.within() : 1.5);
+                g.attempts.fail(current instanceof Task.Break ? com.claudemod.entity.life.Attempts.Kind.BREAK : current instanceof Task.Place ? com.claudemod.entity.life.Attempts.Kind.PLACE : com.claudemod.entity.life.Attempts.Kind.WALK, spot, g.tickCount, g.blockPosition(), cause.reason(), cause.detail(), cause.mob());
+                g.attempts.bandaid("the 45 s task clock fired on " + current + ": " + cause.say()); // (no task should need 45 s: the cause it found is the bug)
                 final BlockPos sp = spot;
                 if (current instanceof Task.Break) g.tasks.removeIf(t -> t instanceof Task.Break b && b.pos().distSqr(sp) <= 3 * 3); // the rest of that vein is just as out of reach: not 45s each
             }
@@ -729,8 +733,13 @@ public class WorkGoal extends Goal {
         { var np = g.getNavigation().getPath(); // never walk in under gravel still coming down (04:01 Nov 4: the walk took the fresh step under a falling column, he suffocated)
             if (np != null && !np.isDone()) { BlockPos nn = np.getNextNodePos(); BlockPos falling = nn.equals(g.blockPosition()) ? null : gravelComing((ServerLevel) g.level(), nn);
                 if (falling != null) { g.getNavigation().stop(); if (g.tickCount % 20 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] waits before {}: gravel at {} still coming down into it (WorkGoal.walkTo)", nn.toShortString(), falling.toShortString()); return false; } } }
+        var whyFailed = g.attempts.why(com.claudemod.entity.life.Attempts.Kind.WALK, pos);
+        if (whyFailed != null) { // failed for a cause: skipped while that cause holds (the blocks round it, his kit, where he stands), tried again the moment it changes; no clock, no forced try
+            if (g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.WALK, pos, g.tickCount, 0)) { if (skips().merge(pos.immutable(), 1, Integer::sum) % 20 == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] the walk to {} skipped: it failed {} s ago for {}{}, nothing changed since (WorkGoal.walkTo)", pos.toShortString(), (g.tickCount - whyFailed.tick()) / 20, whyFailed.reason(), whyFailed.detail().isEmpty() ? "" : " (" + whyFailed.detail() + ")"); return exit("the walk there failed for " + whyFailed.reason() + ", nothing changed since"); }
+            skips().remove(pos);
+        }
         Integer failedAt = g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK).get(pos);
-        if (failedAt != null && g.tickCount - failedAt < 20 * 60) { // couldn't get there a moment ago: don't burn another 8s
+        if (failedAt != null && whyFailed == null && g.tickCount - failedAt < 20 * 60) { // couldn't get there a moment ago (a failure with no cause on record: the old window, till its writer gives one)
             if (skips().merge(pos.immutable(), 1, Integer::sum) <= 3) { com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] the walk to {} failed {} s ago: skipped this time ({} of 3) (WorkGoal.walkTo)", pos.toShortString(), (g.tickCount - failedAt) / 20, skips().get(pos)); return exit("the walk there failed " + (g.tickCount - failedAt) / 20 + " s ago: skipped"); }
             int dugTo = Integer.MAX_VALUE; for (BlockPos sp : g.mineSpine) dugTo = Math.min(dugTo, sp.getY());
             boolean floating = g.level().getBlockState(pos).isAir() && g.level().getBlockState(pos.below()).getCollisionShape(g.level(), pos.below()).isEmpty(); // (air with nothing under it: an arch block, a branch cell; a surface spot with ground under it is somewhere to stand)
@@ -771,8 +780,10 @@ public class WorkGoal extends Goal {
         int since = walkSince.computeIfAbsent(pos.immutable(), k -> g.tickCount);
         if (d > within && d < 8 && g.tickCount - since > 20 * 20 && g.tickCount - since < 20 * 60) { // 20s on a spot a few blocks away: it's not happening
             walkSince.remove(pos); walkBest.remove(pos);
-            g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK).put(pos.immutable(), g.tickCount);
-            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] gave up walking to {} after 20s (he's at {})", pos.toShortString(), g.blockPosition().toShortString()); bandaid(g, "walk 20 s near", pos.toShortString(), "20 s within 8 of " + pos.toShortString() + ", " + (int) d + " off");
+            var cause = com.claudemod.entity.life.Stall.diagnose(g, pos, within);
+            g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, pos, g.tickCount, g.blockPosition(), cause.reason(), cause.detail(), cause.mob());
+            g.attempts.bandaid("the 20 s walk clock fired " + (int) d + " off " + pos.toShortString() + ": " + cause.say()); // (a generic clock ending a walk: the cause it found is the bug to fix)
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] gave up walking to {} after 20s (he's at {}): {}", pos.toShortString(), g.blockPosition().toShortString(), cause.say());
             com.claudemod.entity.nav.Route.legFailed(g, pos);
             return true;
         }
@@ -1023,6 +1034,7 @@ public class WorkGoal extends Goal {
             } else if (bendWay(pos, within, feetCell, scaff, mode)) { return true;
             } else {
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no way to {} from {} ({}; blocks on him: {}): skipping it", pos.toShortString(), feetCell.toShortString(), mode, scaffoldBlock().getCount());
+                noWayFor = pos.immutable(); noWayWhy = "no way with every planner (" + mode + ", " + scaffoldBlock().getCount() + " blocks on him)";
                 stuck = STUCK_LIMIT; // (the give-up below runs now: the spot off for a minute, the work tied to it skipped, no 8 s wait)
             }
         }
@@ -1202,7 +1214,11 @@ public class WorkGoal extends Goal {
             // Can't get to this spot: skip just the work tied to it (up to the next walk), keep the rest of the job,
             // and grab whatever already dropped around him first.
             // Later walks to the same spot (or right next to it) in this job would fail the same way: drop those too.
-            g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK).put(pos.immutable(), g.tickCount);
+            { boolean noWay = pos.equals(noWayFor); var cause = noWay ? new com.claudemod.entity.life.Stall.Cause(com.claudemod.entity.life.Attempts.Reason.NO_PATH, noWayWhy, null) : com.claudemod.entity.life.Stall.diagnose(g, pos, within); noWayFor = null;
+              g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, pos, g.tickCount, g.blockPosition(), cause.reason(), cause.detail(), cause.mob());
+              if (!noWay) g.attempts.bandaid("the 8 s walk clock fired on " + pos.toShortString() + " with a plan in hand: " + cause.say()); // (every planner had a way, the body didn't get closer: that's the bug)
+              if (cause.reason() == com.claudemod.entity.life.Attempts.Reason.NO_TOOL) { String tool = com.claudemod.entity.life.Stall.toolFor(g, cause.detail()); if (tool != null && g.skillQueue.stream().noneMatch(x -> x.target().equals(tool))) { g.skillQueue.addFirst(new com.claudemod.entity.life.Skills.Step("obtain", tool, 1)); com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] {} in the way to {} needs a {}: getting one (WorkGoal.walkTo)", cause.detail(), pos.toShortString(), tool); } }
+              else if (cause.reason() == com.claudemod.entity.life.Attempts.Reason.BLOCKED_BLOCK && !noWay) forceDigAt = pos.immutable(); } // (a breakable block the walk stood at: the next go digs through)
             // A walk to a block he'll break (a trunk, ore): the Breaks get there their own way (tower, dig, bridge); keep them.
             boolean toABlock = !g.level().getBlockState(pos).getCollisionShape(g.level(), pos).isEmpty();
             boolean leg = com.claudemod.entity.nav.Route.isLeg(g, pos);
@@ -1220,7 +1236,6 @@ public class WorkGoal extends Goal {
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't get to {} ({} on {}; he's at {}), skipping that spot",
                     pos.toShortString(), lv.getBlockState(pos).getBlock().getName().getString(),
                     lv.getBlockState(pos.below()).getBlock().getName().getString(), g.blockPosition().toShortString());
-            bandaid(g, "walk stalled 8 s", pos.toShortString(), "couldn't get to " + pos.toShortString() + " from " + g.blockPosition().toShortString() + ", " + (int) d + " off");
             return true;
         }
         return false;
@@ -4949,14 +4964,6 @@ public class WorkGoal extends Goal {
         { Boolean dug = tallCover(t, em, angryAt >= 2 || g.getHealth() <= 12); if (dug != null) return dug; } // ponytail: the user 20:13 "2 endermen at once is okay if he can manage it, but not if he keeps dying"; live 20:12 -60,38,-880, "no natural 2-high cover within 8" twice, 20 -> 10 in a second: a tunnel dug into the rock (no building), the capped hole (4 blocks) only with two on him or hurt
         if (g.tickCount - emSaid > 200) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] an enderman {} off: no natural 2-high cover within 8 and none to dig, fighting it in the open (WorkGoal.endermanHole)", (int) d); }
         return null; // ponytail: the user 13:41 "natural cover ... if not, he keeps fighting": no booth building
-    }
-    /** A generic give-up fired: it hides a bug, so it files one (his whole state), once per rule and key per 5 min. shortcut: copied in WorkGoal and ClaudeLife so it hotswaps; one Watchdog method at the next restart. */
-    private static void bandaid(ClaudeEntity g, String rule, Object key, String why) {
-        if (g.attempts.counters.size() > 512) g.attempts.counters.keySet().removeIf(x -> x.startsWith("bandaid "));
-        String k = "bandaid " + rule + " " + key; Integer was = g.attempts.counters.get(k);
-        if (was != null && g.tickCount - was >= 0 && g.tickCount - was < 20 * 300) return;
-        g.attempts.counters.put(k, g.tickCount);
-        com.claudemod.entity.life.Watchdog.incident(g, "BANDAID " + rule, why);
     }
     private int unseenSince = -1;
     private final java.util.Map<java.util.UUID, Integer> behindWall = new java.util.HashMap<>(); // (mobs let be behind a wall, when)

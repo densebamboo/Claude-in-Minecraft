@@ -266,7 +266,7 @@ public final class Route {
         int n = to.equals(planFor.get(g.getUUID())) ? plans.getOrDefault(g.getUUID(), 0) + 1 : 1;
         planFor.put(g.getUUID(), to.immutable()); plans.put(g.getUUID(), n);
         if (n > 12) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] to {}: planned 12 times without getting there, his walker takes it as it is", to.toShortString());
-            String bk = "bandaid route 12 plans " + to.toShortString(); Integer bw = g.attempts.counters.get(bk); if (bw == null || g.tickCount - bw < 0 || g.tickCount - bw >= 20 * 300) { g.attempts.counters.put(bk, g.tickCount); com.claudemod.entity.life.Watchdog.incident(g, "BANDAID route 12 plans", "planned the way to " + to.toShortString() + " 12 times from " + g.blockPosition().toShortString()); } // (a give-up that hides a bug: filed)
+            g.attempts.bandaid("planned the way to " + to.toShortString() + " 12 times from " + g.blockPosition().toShortString()); // (a give-up that hides a bug: filed)
             return null; }
         Active a = new Active(to.immutable(), within, mark, out, !again, g.tickCount);
         active.put(g.getUUID(), a); List<Active> rs = routes.computeIfAbsent(g.getUUID(), k -> new ArrayList<>()); rs.add(a); while (rs.size() > 8) rs.remove(0);

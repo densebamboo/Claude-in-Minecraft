@@ -136,7 +136,7 @@ public final class ClaudeLife {
             Skills.Step step = g.skillQueue.poll();
             String failKey = step.skill() + (step.target().isBlank() ? "" : " " + step.target()); // per skill AND target: a beef hunt that failed must not skip the next log run
             if (!g.commandActive && g.failCount.getOrDefault(failKey, 0) >= 3) { // his own plan, failed 3x: not that step again yet, but the rest of the plan goes on
-                ClaudeMod.LOGGER.info("[Claude skill] skipped {}: failed 3 times in a row (on with the rest of the plan)", step.skill()); bandaid(g, "failed 3x skip", failKey, failKey + " skipped, last: " + g.failReason.get(step.skill()));
+                ClaudeMod.LOGGER.info("[Claude skill] skipped {}: failed 3 times in a row (on with the rest of the plan)", step.skill()); g.attempts.bandaid("the failed-3x skip fired: " + failKey + " skipped, last: " + g.failReason.get(step.skill()));
                 g.lastSkillLine = step.skill() + " -> skipped (failed 3 times in a row)";
                 if (g.skillQueue.isEmpty()) g.nextPlanTick = g.tickCount; // nothing else in it: think again
                 return;
@@ -166,7 +166,7 @@ public final class ClaudeLife {
                 if (g.commandActive && !g.commandResults.isEmpty()) g.commandResults.set(g.commandResults.size() - 1, line + " (round in circles: stopped)"); // (their job isn't done: reportBack keeps at it, the rules carry its step on)
                 lesson(g, "'" + step.skill() + (step.target().isBlank() ? "" : " " + step.target()) + "' kept giving '" + line.substring(line.indexOf("->") + 3) + "' over and over: that approach doesn't work here, try another");
                 PlayerProfile.noteDoing(player, "you went round in circles on '" + line + "': that way isn't working, do something different");
-                ClaudeMod.LOGGER.info("[Claude skill] round in circles on \"{}\": stopping that", line); bandaid(g, "round in circles", step.skill(), line);
+                ClaudeMod.LOGGER.info("[Claude skill] round in circles on \"{}\": stopping that", line); g.attempts.bandaid("round in circles: " + line);
             }
             boolean nightRefusal = result.startsWith("failed") && (result.contains("it's night") || result.contains("it's day,")); // (and the pearl hunt's "it's day": waits for dusk, 02:01 the watchdog asked them for help with it)
             if (nightRefusal) { g.failReason.put(step.skill(), result); long t = g.level().getDayTime() % 24000; int until = Math.max(200, (int) (result.contains("it's day,") ? 12542 - t : (24000 - t) % 24000)); g.attempts.counters.put("timeWaitRefusals", g.tickCount < g.attempts.counters.getOrDefault("timeWait", 0) ? g.attempts.counters.getOrDefault("timeWaitRefusals", 0) + 1 : 1); g.attempts.counters.put("timeWait", g.tickCount + until); ClaudeMod.LOGGER.info("[Claude plan] {} waits on the time of day: no thinking ahead mid-work for {} s, till it changes (ClaudeLife.skillDone)", step.skill(), until / 20); } // (01:54 the pearl hunt refused by day re-planned every 10 s through the meanwhile walk) // the planner still hears why, so it plans round the wait // a "not at night" is a wait, not a failure: by day the same step is the right one
@@ -582,14 +582,6 @@ public final class ClaudeLife {
         for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { ItemStack s = g.inventory.items.getItem(i); if (!s.isEmpty()) h = h * 31 + s.getItem().hashCode() * 7L + s.getCount(); }
         h = h * 31 + (broken == null ? 0 : broken.getOrDefault(g.getUUID(), 0));
         return (int) (h ^ (h >>> 32));
-    }
-    /** A generic give-up fired: it hides a bug, so it files one (his whole state), once per rule and key per 5 min. shortcut: copied in WorkGoal and ClaudeLife so it hotswaps; one Watchdog method at the next restart. */
-    private static void bandaid(ClaudeEntity g, String rule, Object key, String why) {
-        if (g.attempts.counters.size() > 512) g.attempts.counters.keySet().removeIf(x -> x.startsWith("bandaid "));
-        String k = "bandaid " + rule + " " + key; Integer was = g.attempts.counters.get(k);
-        if (was != null && g.tickCount - was >= 0 && g.tickCount - was < 20 * 300) return;
-        g.attempts.counters.put(k, g.tickCount);
-        com.claudemod.entity.life.Watchdog.incident(g, "BANDAID " + rule, why);
     }
     public static boolean spinning(ClaudeEntity g, String line) {
         if (g.lineRepeats == null) g.lineRepeats = new java.util.HashMap<>();
@@ -7807,9 +7799,13 @@ public final class ClaudeLife {
         } else if (secs >= 45 && g.stuckLevel == 1) {
             g.stuckLevel = 2;
             g.stuckNote = "you've been stuck at " + at.toShortString() + " for a while, " + doing + ", and it isn't working; you're trying another way";
-            ClaudeMod.LOGGER.info("[Claude life] stuck for {}s at {} ({}): dropping it and thinking again", secs, at.toShortString(), doing); bandaid(g, "stuck 45 s", nowKey, doing + " at " + at.toShortString() + ", no nearer in " + secs + " s");
-            if (now instanceof Task.Break b) { // the block he couldn't get at: not again (the planner re-issued the same dig every 45 s); in his mine, the stairs turn instead of going on that way
-                g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.BREAK, b.pos(), g.tickCount);
+            BlockPos stuckOn = now == null ? null : com.claudemod.entity.life.Watchdog.target(now);
+            var cause = stuckOn == null ? new com.claudemod.entity.life.Stall.Cause(com.claudemod.entity.life.Attempts.Reason.UNKNOWN, "no target", null) : com.claudemod.entity.life.Stall.diagnose(g, stuckOn, now instanceof Task.GoTo go0 ? go0.within() : 1.5);
+            ClaudeMod.LOGGER.info("[Claude life] stuck for {}s at {} ({}): {}: dropping it and thinking again", secs, at.toShortString(), doing, cause.say());
+            g.attempts.bandaid("the 45 s stuck rung fired on " + doing + " at " + at.toShortString() + ": " + cause.say()); // (a generic clock: the cause it found is the bug to fix)
+            if (stuckOn != null && (now instanceof Task.GoTo || now instanceof Task.Place || now instanceof Task.Leap)) g.attempts.fail(now instanceof Task.Place ? com.claudemod.entity.life.Attempts.Kind.PLACE : com.claudemod.entity.life.Attempts.Kind.WALK, stuckOn, g.tickCount, at, cause.reason(), cause.detail(), cause.mob()); // (skipped till that cause changes)
+            if (now instanceof Task.Break b) { // the block he couldn't get at: not again while the cause holds (the planner re-issued the same dig every 45 s); in his mine, the stairs turn instead of going on that way
+                g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.BREAK, b.pos(), g.tickCount, at, cause.reason(), cause.detail(), cause.mob());
                 if (g.mineDir != null && isMineCell(g, b.pos()) && !bpMode(g)) { g.badDigDirs.add(g.mineDir); ClaudeMod.LOGGER.info("[Claude life] the stairs can't go on {} from here (stuck on {}): turning next", g.mineDir, b.pos().toShortString()); } // (blueprint mode: a stuck dig never turns the mine; a stuck base-chest dig re-planned the stairs)
             }
             g.noteDoing("got stuck at " + at.toShortString() + " while " + doing + "; that way doesn't work from here, need another way (or help)");
@@ -7817,7 +7813,7 @@ public final class ClaudeLife {
             int strikes = g.failCount.merge(stuckKey, 1, Integer::sum);
             if (strikes == 2) com.claudemod.entity.life.Watchdog.tellOnce(g, stuckKey + " " + (nowKey == null ? "-" : nowKey), "stuck: " + doing + " at " + at.toShortString() + ", no nearer in " + secs + " s, twice now; tried my own way out (dig, climb or round), trying another way"); // (the user: say exactly what failed; once, never waiting on an answer)
             if (strikes >= 3) { // three stucks on one step: the plan is wrong, think again
-                g.failCount.remove(stuckKey); g.failReason.put(g.lastStep == null ? "-" : g.lastStep.skill(), "stuck 3 times (" + doing + ")");
+                g.failCount.remove(stuckKey); g.failReason.put(g.lastStep == null ? "-" : g.lastStep.skill(), "stuck 3 times (" + doing + "): " + cause.say()); // (the planner hears the cause, not just the count)
                 clearTasks(g); g.skillQueue.clear(); dropCurrent(g);
                 g.nextPlanTick = g.tickCount;
                 ClaudeMod.LOGGER.info("[Claude life] stuck three times on {}: dropping the plan", stuckKey.substring(6));
@@ -7830,10 +7826,13 @@ public final class ClaudeLife {
                 ClaudeMod.LOGGER.info("[Claude life] stuck on the way to his drops: one more go at them");
             }
         } else if (secs >= 90 && g.stuckLevel == 2) { // still nowhere: that spot written off, everything dropped, a fresh plan at once (no asking them for a hand, no standing to 240 s: he sat 5 min on an arch block he couldn't reach)
-            if (now instanceof Task.Place p) g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.PLACE, p.pos(), g.tickCount);
-            if (now instanceof Task.GoTo go) g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, go.pos(), g.tickCount);
-            if (now instanceof Task.Break b) g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.BREAK, b.pos(), g.tickCount);
-            ClaudeMod.LOGGER.info("[Claude life] still stuck after {}s at {} ({}): dropping it all and starting over", secs, at.toShortString(), doing); bandaid(g, "stuck 90 s", nowKey, doing + " at " + at.toShortString() + ", no nearer in " + secs + " s");
+            BlockPos stuckOn = now == null ? null : com.claudemod.entity.life.Watchdog.target(now);
+            var cause = stuckOn == null ? new com.claudemod.entity.life.Stall.Cause(com.claudemod.entity.life.Attempts.Reason.UNKNOWN, "no target", null) : com.claudemod.entity.life.Stall.diagnose(g, stuckOn, now instanceof Task.GoTo go0 ? go0.within() : 1.5);
+            if (now instanceof Task.Place p) g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.PLACE, p.pos(), g.tickCount, at, cause.reason(), cause.detail(), cause.mob());
+            if (now instanceof Task.GoTo go) g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, go.pos(), g.tickCount, at, cause.reason(), cause.detail(), cause.mob());
+            if (now instanceof Task.Break b) g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.BREAK, b.pos(), g.tickCount, at, cause.reason(), cause.detail(), cause.mob());
+            g.attempts.bandaid("the 90 s stuck rung fired on " + doing + " at " + at.toShortString() + ": " + cause.say());
+            ClaudeMod.LOGGER.info("[Claude life] still stuck after {}s at {} ({}): {}: dropping it all and starting over", secs, at.toShortString(), doing, cause.say());
             clearTasks(g); g.skillQueue.clear(); dropCurrent(g);
             g.progressTick = g.tickCount; g.stuckLevel = 0;
             g.nextPlanTick = g.tickCount;

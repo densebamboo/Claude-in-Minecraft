@@ -2936,8 +2936,11 @@ public class WorkGoal extends Goal {
             if (!entry && !(inMine && level.getFluidState(q).isSource() && q.distSqr(g.blockPosition()) <= 16)) continue;
             if (inMine && g.blueprint != null && !g.blueprint.isEmpty()) { int qr = g.blueprint.rowOf(q), mr = g.blueprint.rowOf(g.blockPosition()); if (mr < 0) mr = g.blueprint.rowOf(g.blockPosition().above()); if (qr >= 0 && mr >= 0 && qr < mr) continue; } // never his way back: a walkway cell toward his entrance stays open (he walled himself into a water cell at 50, 18, 82 and drowned; a player walls the water out from the dry side)
             if (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.PLACE, q, g.tickCount, 20 * 300) || com.claudemod.entity.life.Watchdog.off(g, new Task.Place(q, plug.getItem()))) { skipped++; continue; } // (a plug that failed there, or one the watchdog wrote off: not queued again every tick, 150 times in 5 min live)
+            int had = g.tasks.size();
             if (inMine) g.tasks.addFirst(new Task.Break(q));
+            int withDig = g.tasks.size();
             g.tasks.addFirst(new Task.Place(q, plug.getItem()));
+            if (g.tasks.size() == withDig) { while (g.tasks.size() > had) g.tasks.pollFirst(); skipped++; continue; } // (a parked plug: the queue refused it, so none is queued; counted as one, the dig went back in line to plug again every tick, -95, 15, -21 parked 01:09:53-01:11:55 11-05)
             n++;
         }
         if (n == 0 && skipped > 0 && g.isInWater() && g.tickCount - waterOutTick > 20 * 10) { // every plug failed already: out of the water to dry ground, not standing in it re-queueing them

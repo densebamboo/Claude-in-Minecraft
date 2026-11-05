@@ -13007,17 +13007,17 @@ public final class ClaudeBodyTest {
             net.minecraft.core.Direction side = null; for (var d : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && !com.claudemod.director.ClaudeLife.isMineCell(c, r.relative(d)) && level.getBlockState(r.relative(d)).is(Blocks.STONE)) side = d;
             s708Q = r.relative(side).immutable(); s708T = r.relative(net.minecraft.core.Direction.WEST, 2).immutable();
             level.setBlock(s708T, Blocks.COBBLESTONE.defaultBlockState(), 2); // (the dig: a block in his walkway ahead)
-            level.setBlock(s708Q, Blocks.WATER.defaultBlockState(), 3); level.setBlock(s708Q.above(), Blocks.WATER.defaultBlockState(), 3); // (where it comes in, beside him at feet and head: it runs over him, eyes under)
+            BlockPos mate = r.relative(side.getOpposite()); check(com.claudemod.director.ClaudeLife.isMineCell(c, mate), "setup: no row cell beside him at " + mate.toShortString());
+            for (BlockPos q : new BlockPos[] {r, r.above(), mate, mate.above(), s708Q, s708Q.above()}) level.setBlock(q, Blocks.WATER.defaultBlockState(), 2); // (still water over him and the row cell beside him, and where it comes in through the wall: no current to carry him off)
             c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
             lnStand(c, mock, r, b.entrance); c.tasks.clear(); c.skillQueue.clear(); c.setAirSupply(c.getMaxAirSupply());
-            for (BlockPos q : new BlockPos[] {s708Q, s708Q.above()}) { Task plug = new Task.Place(q, Items.COBBLESTONE); ClaudeEntity.ORIGIN.put(plug, "WorkGoal.blockWaterInflow:2940"); c.attempts.counters.put("conflict:" + q.asLong(), 3);
+            for (BlockPos q : new BlockPos[] {s708Q, s708Q.above(), mate, mate.above()}) { Task plug = new Task.Place(q, Items.COBBLESTONE); ClaudeEntity.ORIGIN.put(plug, "WorkGoal.blockWaterInflow:2940"); c.attempts.counters.put("conflict:" + q.asLong(), 3);
                 com.claudemod.entity.life.Parked.refused(c, plug, "no face in sight (test)"); // (those plugs refused 3 times live: parked, -95, 15, -21 at 01:09:53)
                 check(com.claudemod.entity.life.Parked.blocks(c, plug), "setup: the plug at " + q.toShortString() + " isn't parked"); }
         }
         if (t[0] == 20) { c.tasks.clear(); c.tasks.add(new Task.Break(s708T)); }
         if (t[0] > 20) {
             if (level.getBlockState(s708T).isAir() || !level.getFluidState(s708T).isEmpty()) { c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); pass(stage, t, "parked plugs: the dig went on (" + (t[0] - 20) + " ticks, in water " + c.isInWater() + ")"); return true; }
-            if (t[0] == 30) check(c.isInWater() && !com.claudemod.entity.body.Controls.wading(c), "setup: not under water at " + c.blockPosition().toShortString() + " (the water plugs only run under water)");
             check(t[0] < 140, "in water at " + c.blockPosition().toShortString() + " with the plug at " + s708Q.toShortString() + " parked: the dig at " + s708T.toShortString() + " never ran in 6 s, now " + c.currentTask + " queue " + c.tasks.stream().limit(6).toList());
         }
         return true;

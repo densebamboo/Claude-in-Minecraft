@@ -10502,6 +10502,7 @@ public final class ClaudeBodyTest {
             case 727: return st727(stage, t, c, h, level, mock);
             case 728: return st728(stage, t, c, h, level, mock);
             case 729: return st729(stage, t, c, h, level, mock);
+            case 730: return st730(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13752,6 +13753,34 @@ public final class ClaudeBodyTest {
             check(!(rule.skill().equals("gear_up") && r.startsWith("done: through the portal")), "the rules' step in the Nether was gear_up, a no-op there: " + r);
             c.tasks.clear(); c.skillQueue.clear(); c.playerGoal = null; c.dropCurrent = true; nsHome(c, h, level);
             pass(stage, t, "the rules' step in the Nether does something: " + rule.skill() + " " + rule.target()); return true;
+        }
+        return true;
+    }
+
+    /** Live 13:52-13:56 11-05 (-80,62,-20, his furnace 45 down at -79,17,-22, 1 ingot): "his furnace is done: going to take it out", "couldn't get in reach of furnace", and the same again every 5 s for minutes while a drowned took him 10 -> 4: the failed reach was never on record, so the furnace rule queued it again each round. A way that failed is known failed till something changes. */
+    private static int s730Takes, s730Was;
+    private static boolean st730(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); s730Takes = 0; s730Was = 0; }
+        if (t[0] == 10) {
+            for (int x = -1; x <= 12; x++) for (int z = -1; z <= 12; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 1; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+            BlockPos f = h.absolutePos(new BlockPos(5, 30, 5)); // (out of his reach: bedrock all round it but one pocket, itself shut in bedrock)
+            for (int x = -2; x <= 2; x++) for (int y = -2; y <= 2; y++) for (int z = -2; z <= 2; z++) level.setBlock(f.offset(x, y, z), Blocks.BEDROCK.defaultBlockState(), 2);
+            level.setBlock(f, Blocks.FURNACE.defaultBlockState(), 2); level.setBlock(f.east(), Blocks.AIR.defaultBlockState(), 2); level.setBlock(f.east().above(), Blocks.AIR.defaultBlockState(), 2);
+            if (level.getBlockEntity(f) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fe) fe.setItem(2, new ItemStack(Items.IRON_INGOT, 1));
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.myStations.clear(); c.myStations.add(f.immutable()); c.furnaceReadyAt.clear(); c.attempts.clear();
+            BlockPos me = h.absolutePos(new BlockPos(5, 1, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+        }
+        if (t[0] > 12) { // (each go is a new FurnaceTake: counted by identity, a re-queue in the same tick as the failure included)
+            Task cur = c.currentTask; if (cur == null) cur = c.tasks.stream().filter(q -> q instanceof Task.FurnaceTake).findFirst().orElse(null);
+            if (cur instanceof Task.FurnaceTake) { int id = System.identityHashCode(cur); if (id != s730Was) { s730Takes++; s730Was = id; } }
+        }
+        if (t[0] == 600) {
+            BlockPos f = h.absolutePos(new BlockPos(5, 30, 5));
+            for (int x = -2; x <= 2; x++) for (int y = -2; y <= 2; y++) for (int z = -2; z <= 2; z++) level.setBlock(f.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.myStations.remove(f); c.tasks.clear(); c.dropCurrent = true; c.attempts.clear();
+            check(s730Takes <= 1, "his furnace out of reach: went for it " + s730Takes + " times in 30 s (each failed reach forgotten, the rule queued it again)");
+            pass(stage, t, "an out-of-reach furnace gone for once, then left (" + s730Takes + " take(s))"); return true;
         }
         return true;
     }

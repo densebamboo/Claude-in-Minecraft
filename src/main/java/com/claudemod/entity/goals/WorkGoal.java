@@ -4340,7 +4340,7 @@ public class WorkGoal extends Goal {
             g.getNavigation().stop(); g.getMoveControl().setWantedPosition(side.getX() + 0.5, side.getY(), side.getZ() + 0.5, 0.5); return false;
         }
         boolean ended = walkTo(side, side.equals(target) ? 2 : 0.6);
-        if (ended && BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()).distSqr(side) > 4) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't get in reach of {} at {} (he's at {})", name(level.getBlockState(target)), target.toShortString(), feet.toShortString()); return true; }
+        if (ended && BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()).distSqr(side) > 4) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't get in reach of {} at {} (he's at {})", name(level.getBlockState(target)), target.toShortString(), feet.toShortString()); failed(com.claudemod.entity.life.Attempts.Kind.REACH, target, com.claudemod.entity.life.Attempts.Reason.NO_PATH, "no way to a spot beside the " + name(level.getBlockState(target)) + " at " + side.toShortString()); return true; } // (on record: the furnace rule queued it again every 5 s, live 13:52)
         return false;
     }
 

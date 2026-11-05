@@ -854,7 +854,7 @@ public class WorkGoal extends Goal {
             g.getNavigation().stop(); g.getMoveControl().setWantedPosition(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0.5);
             return false;
         }
-        boolean towardIt = g.getDeltaMovement().x * (pos.getX() + 0.5 - g.getX()) + g.getDeltaMovement().z * (pos.getZ() + 0.5 - g.getZ()) > 0.05 * Math.max(0.1, Math.hypot(pos.getX() + 0.5 - g.getX(), pos.getZ() + 0.5 - g.getZ())); // (run through a waypoint only on his way to it: standing 2.0 off, the first tick "ran through" his planner's first step on the Nether ledge and the same way was planned again every 15 s, 08:16-08:35 11-05, stage 715)
+        boolean towardIt = !(g.tasks.peekFirst() instanceof Task.GoTo nx2) || Math.sqrt(feetCell.distSqr(nx2.pos())) <= Math.sqrt(pos.distSqr(nx2.pos())) + 1.0; // (run through a waypoint only where skipping it leaves the next leg no farther: a corner, not the step before it. On the Nether ledge the planner's first step -26,38,-48 was 2.0 off and "run through" on its first tick, his momentum toward it notwithstanding, the spot still 4 off and the same way planned again every 15 s, 08:16-08:45 11-05, stage 715)
         if ((d <= within || (chain && towardIt && d <= 2.0 && pos.getY() <= feetCell.getY())) && !onLeavesAbove) { // ponytail: live 19:40 -58,79,-901: a route's 1-up step 1.4 off counted as reached in a chain, so the next leg was 2 up and refused, a loop for minutes; a step up is only reached by stepping up
             if (!chain) g.getNavigation().stop();
             return true;

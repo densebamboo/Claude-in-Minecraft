@@ -2892,6 +2892,7 @@ public class WorkGoal extends Goal {
     private static final net.minecraft.world.item.Item[] BORE_FILL = {net.minecraft.world.item.Items.NETHERRACK, net.minecraft.world.item.Items.COBBLESTONE, net.minecraft.world.item.Items.COBBLED_DEEPSLATE, net.minecraft.world.item.Items.BLACKSTONE, net.minecraft.world.item.Items.BASALT, net.minecraft.world.item.Items.DIRT, net.minecraft.world.item.Items.STONE};
     /** One step of the bore: the next column along the L opened (head, then feet), its floor put in, rails beside it over lava, lava in view plugged; then a step into it. Done within 1 of the goal. */
     /** A block can go into p: something solid beside it to set it against. */
+    private final java.util.ArrayDeque<BlockPos> boreOpened = new java.util.ArrayDeque<>(); // the last cells the bore dug open (lava that comes up beside them is plugged, behind him too)
     private final java.util.Map<BlockPos, BlockPos> boreStopped = new java.util.HashMap<>(); // goal -> the cell a bore toward it was stopped at (what it met: the next straight line there is judged by it, no timer)
     /** The straight line from a to the goal runs within 2 of where a bore toward that goal was stopped. */
     private boolean boreLineStopped(BlockPos a, BlockPos goal) {
@@ -2941,6 +2942,10 @@ public class WorkGoal extends Goal {
             if (q.equals(me) || q.equals(me.above()) || !level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA) || !boreFace(level, q)) continue;
             com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] lava at {} beside him at {}: plugged first (WorkGoal.doBore)", q.toShortString(), me.toShortString());
             g.tasks.addFirst(t); g.tasks.addFirst(new Task.Place(q.immutable(), fill)); return true; }
+        if (fill != null) for (BlockPos c : boreOpened) { if (!level.getBlockState(c).isAir()) continue; for (Direction d : Direction.values()) { BlockPos q = c.relative(d); // lava come up beside a cell he dug open (behind him, or in a column left for a way round): plugged, never left a channel down his tunnel (stage 818: the fall came down his own way through the cells a way round left open)
+            if (!level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA) || !boreFace(level, q) || q.distManhattan(me) > 5) continue;
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] lava at {} by the cell {} he opened: plugged (WorkGoal.doBore)", q.toShortString(), c.toShortString());
+            g.tasks.addFirst(t); g.tasks.addFirst(new Task.Place(q.immutable(), fill)); return true; } }
         BlockPos loose = null; // lava there's nothing to set a block against (a fall in the open): no plug, the line goes round it (stage 818: the plug's column went up beside the flow and it reached him)
         for (BlockPos c : way) {
             if (level.getFluidState(c).is(net.minecraft.tags.FluidTags.LAVA)) { if (!boreFace(level, c)) loose = c; else if (fill != null) todo.add(new Task.Place(c, fill)); continue; }
@@ -2979,6 +2984,7 @@ public class WorkGoal extends Goal {
                 return false;
             }
             g.tasks.addFirst(t); for (int i = todo.size() - 1; i >= 0; i--) g.tasks.addFirst(todo.get(i));
+            for (Task td : todo) if (td instanceof Task.Break b) { boreOpened.addLast(b.pos().immutable()); while (boreOpened.size() > 12) boreOpened.pollFirst(); }
             return true;
         }
         // the way is open: the step

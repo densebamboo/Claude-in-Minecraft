@@ -4212,8 +4212,29 @@ public final class ClaudeLife {
                     ClaudeMod.LOGGER.info("[Claude prim] place {} -> the bucket poured at his feet {} (ClaudeLife.runSkill place)", target, g.blockPosition().toShortString());
                     return Primitives.pourAt(g, player, st, g.blockPosition(), item);
                 }
-                if (!g.commandActive && item != Items.CHEST && item != Items.TORCH && item != Items.CRAFTING_TABLE && item != Items.FURNACE)
-                    return "failed: you only put blocks down when they ask for it (never on your own guess)"; // his own plan placing cobble wherever they look: no
+                if (!g.commandActive && item != Items.CHEST && item != Items.TORCH && item != Items.CRAFTING_TABLE && item != Items.FURNACE && !"looked_at".equals(st.where()) && !"near_them".equals(st.where())) {
+                    // his own place: a bridge across the gap he's at (lava or a drop under the cells ahead), the way he faces first, walked as it goes down (it was a flat refusal, "never on your own guess": at 13:06 he asked them for leave to bridge 2 blocks of lava and gave up going home; the user: "he should be able to bridge over lava")
+                    if (!(item instanceof net.minecraft.world.item.BlockItem bb) || !bb.getBlock().defaultBlockState().isCollisionShapeFullBlock(level, g.blockPosition())) return "failed: " + target + " is no full block to bridge with (place on my own is a bridge across the gap I'm at)";
+                    if (g.inventory.count(s0 -> s0.is(item)) == 0) return "failed: you don't have " + target;
+                    BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
+                    Direction face = g.getDirection(), way = null; int len = 0; String under = "";
+                    for (Direction d : new Direction[] {face, face.getClockWise(), face.getCounterClockWise(), face.getOpposite()}) {
+                        int n = 0; String u = "";
+                        for (int i = 1; i <= Math.min(count, 8); i++) {
+                            BlockPos c0 = feet.relative(d, i), b0 = c0.below();
+                            if (!level.getBlockState(c0).getCollisionShape(level, c0).isEmpty() || !level.getBlockState(c0.above()).getCollisionShape(level, c0.above()).isEmpty()) { n = 0; break; } // a wall that way: no bridge there
+                            if (!level.getBlockState(b0).getCollisionShape(level, b0).isEmpty()) break; // floor again: the gap ends
+                            n = i; if (u.isEmpty()) u = level.getFluidState(b0).is(net.minecraft.tags.FluidTags.LAVA) ? "lava" : "a drop";
+                        }
+                        if (n > 0) { way = d; len = n; under = u; break; }
+                    }
+                    if (way == null) return "failed: no gap at my feet to bridge (place on my own is a bridge across a gap I'm at the edge of; go_to bridges its own way where it needs one)";
+                    for (int i = 1; i <= len; i++) { g.tasks.add(new Task.Place(feet.below().relative(way, i), item)); g.tasks.add(new Task.GoTo(feet.relative(way, i), 0.4)); }
+                    BlockPos past = feet.relative(way, len + 1);
+                    if (!level.getBlockState(past.below()).getCollisionShape(level, past.below()).isEmpty() && level.getBlockState(past).getCollisionShape(level, past).isEmpty()) g.tasks.add(new Task.GoTo(past, 0.5));
+                    ClaudeMod.LOGGER.info("[Claude skill] place {}: his own, a bridge of {} {} from {} over {} (ClaudeLife.runSkill place)", target, len, way.getName(), feet.toShortString(), under);
+                    return "bridging " + len + " block(s) " + way.getName() + " over " + under + " with " + target;
+                }
                 BlockPos store = storageAt(g);
                 if (item == Items.CHEST && store != null && g.inventory.count(t -> t.is(Items.CHEST)) < 2) { // for the storage: make them first
                     boolean table = ensureCraftingTable(g, level, Items.CHEST);

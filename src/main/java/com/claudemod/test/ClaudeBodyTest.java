@@ -10499,6 +10499,7 @@ public final class ClaudeBodyTest {
             case 726: return st726(stage, t, c, h, level, mock);
             case 727: return st727(stage, t, c, h, level, mock);
             case 728: return st728(stage, t, c, h, level, mock);
+            case 729: return st729(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13686,6 +13687,33 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.skillQueue.clear(); c.playerGoal = null; c.dropCurrent = true; nsHome(c, h, level);
             pass(stage, t, "the rules' step in the Nether does something: " + rule.skill() + " " + rule.target()); return true;
         }
+        return true;
+    }
+
+    /** Live 13:06:52 11-05 (Nether 22,48,5, portal #3 27 off; REVIEW-68): his plan's "place netherrack x16" to bridge a short lava gap came back "failed: you only put blocks down when they ask for it (never on your own guess)", so he asked them for leave to bridge, stood a minute, gave up going home. The user: "he should be able to bridge over lava. that's what an expert player would do". His own place is a bridge across the gap he's at, walked as it goes down. */
+    private static boolean st729(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(5480, 70, 5720);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            nsArena(nl, o, 8, 3, 3, 5);
+            for (int z = -3; z <= 3; z++) for (int x = 1; x <= 2; x++) for (int y = -2; y <= -1; y++) nl.setBlock(o.offset(x, y, z), Blocks.LAVA.defaultBlockState(), 2); // (a 2-wide lava gap across, the floor on past it)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 16)); c.getInventory().add(new ItemStack(Items.COOKED_PORKCHOP, 8));
+            c.commandActive = false; c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 12000;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setYRot(-90f); c.setYHeadRot(-90f); c.tasks.clear(); c.skillQueue.clear(); // (facing east, the gap: yaw -90)
+        }
+        if (t[0] == 20) {
+            check(c.level() == nl, "lava bridge: not in the Nether");
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "place", "netherrack", 16);
+            check(!r.startsWith("failed"), "his own plan's place netherrack at a 2-block lava gap: " + r);
+        }
+        if (t[0] > 20 && t[0] < 260 && c.getX() >= o.getX() + 3.2 && c.onGround()) {
+            check(!nl.getBlockState(o.offset(1, -1, 0)).is(Blocks.LAVA) && !nl.getBlockState(o.offset(2, -1, 0)).is(Blocks.LAVA), "across, but not on a bridge of his");
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; nsHome(c, h, level);
+            pass(stage, t, "bridged the 2-block lava gap on his own plan in " + (t[0] - 20) + " ticks"); return true;
+        }
+        if (t[0] == 260) check(false, "his own place netherrack at a lava gap: not across in 12 s (at " + c.blockPosition().toShortString() + ", queue " + c.tasks.stream().limit(6).toList() + ")");
         return true;
     }
 

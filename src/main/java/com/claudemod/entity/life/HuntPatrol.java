@@ -70,7 +70,8 @@ public final class HuntPatrol {
         walked(g, level);
         Book b = book(g, level); long now = now(g);
         BlockPos best = null; double bs = -1e9, bestA = 0; String bwhy = "";
-        boolean inForest = level.dimension() == net.minecraft.world.level.Level.NETHER && level.getBiome(g.blockPosition()).is(net.minecraft.world.level.biome.Biomes.WARPED_FOREST);
+        boolean inForest = false; // in a warped forest or by its edge (live 11:01:22: 2 out of it, his feet read the wastes and he left for a leg 26 off)
+        if (level.dimension() == net.minecraft.world.level.Level.NETHER) for (int k = 0; k <= 16 && !inForest; k++) { BlockPos q = k == 0 ? g.blockPosition() : g.blockPosition().offset((int) Math.round(Math.cos(k * Math.PI / 4) * (k <= 8 ? 3 : 6)), 0, (int) Math.round(Math.sin(k * Math.PI / 4) * (k <= 8 ? 3 : 6))); inForest = level.getBiome(q).is(net.minecraft.world.level.biome.Biomes.WARPED_FOREST); }
         int[] ds = inForest ? new int[] {12, 8, 16, 24} : new int[] {24, 16, 32, 48}; // (in a warped forest, where they spawn: short hops inside it; its stems hide all past 12, and the far legs it saw were the wastes beyond, live 08:14:52, review-111)
         for (int i = 0; i < 12; i++) {
             double a = i * Math.PI / 6;

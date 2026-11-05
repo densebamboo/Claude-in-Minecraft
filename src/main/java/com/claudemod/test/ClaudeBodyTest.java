@@ -10492,6 +10492,7 @@ public final class ClaudeBodyTest {
             case 723: return st723(stage, t, c, h, level, mock);
             case 724: return st724(stage, t, c, h, level, mock);
             case 725: return st725(stage, t, c, h, level, mock);
+            case 726: return st726(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13544,6 +13545,31 @@ public final class ClaudeBodyTest {
             check(!(rule.skill().equals("gear_up") && r.startsWith("done: through the portal")), "the rules' step in the Nether was gear_up, a no-op there: " + r);
             c.tasks.clear(); c.skillQueue.clear(); c.playerGoal = null; c.dropCurrent = true; nsHome(c, h, level);
             pass(stage, t, "the rules' step in the Nether does something: " + rule.skill() + " " + rule.target()); return true;
+        }
+        return true;
+    }
+
+    /** Live 11:37:59-11:39:09 11-05 (Nether 70,36..42,-63, REVIEW-210): his Nether route planned again 12 times in 70 s, flipping y36 -> y42 -> y36: NetherRoute reads a cell as known only within 6 of where he stands NOW (FarSight.known), so the open cavern he'd just stood by read as solid netherrack again once he'd stepped away, and every plan went the way he couldn't see. Ground he's stood by stays known. */
+    private static boolean st726(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(5480, 70, 5560);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            nsArena(nl, o, 20, 5, 5, 6);
+            for (int z = -6; z <= 6; z++) for (int y = -8; y <= 5; y++) for (int x = 3; x <= 5; x++) nl.setBlock(o.offset(x, y, z), y == -8 ? Blocks.LAVA.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); // (a cut across the cavern floor, a lava sea 8 down: as live, open void over lava)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 32));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.tasks.clear(); c.skillQueue.clear();
+        }
+        if (t[0] == 20) com.claudemod.entity.nav.Route.step(c); // (stood by the cut: it's in sight, its void known)
+        if (t[0] == 21) { BlockPos b = o.offset(-12, 0, 0); c.teleportTo(b.getX() + 0.5, b.getY(), b.getZ() + 0.5); }
+        if (t[0] == 25) {
+            com.claudemod.entity.nav.Route.step(c);
+            BlockPos cut = o.offset(4, -1, 0);
+            boolean known = com.claudemod.entity.life.FarSight.known(c, cut.getX(), cut.getY(), cut.getZ());
+            check(known, "the cut in the floor at " + cut.toShortString() + " he stood by 4 off reads as unseen (solid netherrack to his planner) once he's 12 back: the plan flips to whichever side he isn't at");
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; nsHome(c, h, level);
+            pass(stage, t, "ground he stood by stays known when he steps away"); return true;
         }
         return true;
     }

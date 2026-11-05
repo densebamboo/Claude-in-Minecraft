@@ -1669,7 +1669,7 @@ public final class ClaudeBodyTest {
                             int[][] order = {{1, 0}, {2, 0}, {0, 1}, {0, 2}, {0, 3}, {3, 1}, {3, 2}, {3, 3}, {1, 4}, {2, 4}};
                             for (int[] o : order) h.setBlock(new BlockPos(5 + o[0], 2 + o[1], 8), Blocks.OBSIDIAN);
                             for (int i = 1; i <= 2; i++) for (int j = 1; j <= 3; j++) h.setBlock(new BlockPos(5 + i, 2 + j, 8), Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X));
-                            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 4)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16));
+                            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16));
                             c.setHealth(20); c.getFoodData().setFoodLevel(20);
                             BlockPos at = h.absolutePos(new BlockPos(6, 2, 4)); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
                             ClaudeMod.LOGGER.info("[Claude test] stage 76 enter_portal -> {}", com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "enter_portal", "", 1));
@@ -10404,6 +10404,7 @@ public final class ClaudeBodyTest {
             case 618: return st618(stage, t, c, h, level, mock);
             case 619: return st619(stage, t, c, h, level, mock);
             case 620: return st620(stage, t, c, h, level, mock);
+            case 621: return st621(stage, t, c, h, level, mock);
             case 598: return st598(stage, t, c, h, level, mock);
             case 599: return st599(stage, t, c, h, level, mock);
             case 602: return st602(stage, t, c, h, level, mock);
@@ -10519,7 +10520,7 @@ public final class ClaudeBodyTest {
             for (int x = 0; x <= 3; x++) for (int y = 1; y <= 5; y++) if (x == 0 || x == 3 || y == 1 || y == 5) level.setBlock(h.absolutePos(new BlockPos(4 + x, y, 10)), Blocks.OBSIDIAN.defaultBlockState(), 2 | 16);
             for (int x = 1; x <= 2; x++) for (int y = 2; y <= 4; y++) level.setBlock(h.absolutePos(new BlockPos(4 + x, y, 10)), Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
             com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.dim(level), h.absolutePos(new BlockPos(5, 2, 10)), "him", "lit");
-            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.commandActive = false;
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8)); /* (meals for the trip: the Nether food gate) */ c.commandActive = false;
             c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("enter_portal", "my portal", 1, "near_you"));
         }
         if (t[0] > 10) {
@@ -12308,6 +12309,35 @@ public final class ClaudeBodyTest {
         }
         if (t[0] - s620T >= 20 * 60) { c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); }
         check(t[0] - s620T < 20 * 60, "level fully branched: the second tunnel's first 8 rows not dug in 60 s, run " + run + " now=" + c.currentTask + " tasks=" + c.tasks.size());
+        return true;
+    }
+
+    /** He went into the Nether with 1 meal and hunted beef there (744954f). His own enter_portal with 1 meal and cows about: food first (the trip packing rule), never straight through. */
+    private static boolean st621(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        if (t[0] == 1) { lwReset(c); c.getInventory().clearContent(); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); }
+        if (t[0] == 10) {
+            esStart(c, h, level, mock, new BlockPos(5, 2, 7), new BlockPos(1, 2, 14));
+            for (int x = 0; x <= 3; x++) for (int y = 1; y <= 5; y++) if (x == 0 || x == 3 || y == 1 || y == 5) level.setBlock(h.absolutePos(new BlockPos(4 + x, y, 10)), Blocks.OBSIDIAN.defaultBlockState(), 2 | 16);
+            for (int x = 1; x <= 2; x++) for (int y = 2; y <= 4; y++) level.setBlock(h.absolutePos(new BlockPos(4 + x, y, 10)), Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.dim(level), h.absolutePos(new BlockPos(5, 2, 10)), "him", "lit");
+            for (int i = 0; i < 3; i++) { var cow = net.minecraft.world.entity.EntityType.COW.create(level); BlockPos cp = h.absolutePos(new BlockPos(10 + i, 2, 4)); cow.moveTo(cp.getX() + 0.5, cp.getY(), cp.getZ() + 0.5); level.addFreshEntity(cow); }
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 1)); c.commandActive = false; level.setDayTime(1000);
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("enter_portal", "my portal", 1, "near_you"));
+        }
+        if (t[0] > 10) {
+            boolean in = c.level() == nether, held = c.skillQueue.stream().anyMatch(q -> q.skill().equals("enter_portal")) && c.skillQueue.stream().anyMatch(q -> q.target().contains("beef"));
+            if (in || held || t[0] == 20 * 15) {
+                String last = c.lastSkillLine, q = String.valueOf(c.skillQueue);
+                c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+                if (in) { BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(level, back.getX() + 0.5, back.getY(), back.getZ() + 0.5, 0, 0); }
+                for (int x = 0; x <= 3; x++) for (int y = 1; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(4 + x, y, 10)), Blocks.AIR.defaultBlockState(), 2 | 16);
+                for (var cow : level.getEntitiesOfClass(net.minecraft.world.entity.animal.Cow.class, c.getBoundingBox().inflate(32))) cow.discard();
+                com.claudemod.entity.life.PortalMap.net(c).portals.clear();
+                check(held && !in, "Nether trip with 1 meal: into the Nether " + in + ", food first " + held + " (last " + last + ", queue " + q + ")");
+                pass(stage, t, "his own trip to the Nether with 1 meal: food first (" + last + ")");
+            }
+        }
         return true;
     }
 

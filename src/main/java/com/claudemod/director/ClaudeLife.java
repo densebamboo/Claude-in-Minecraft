@@ -3425,6 +3425,7 @@ public final class ClaudeLife {
                     g.tasks.add(new Task.GoTo(ep, 0.4)); g.skillQueue.addFirst(st);
                     return "to the exit portal on the fountain at " + ep.toShortString() + ", " + (int) Math.sqrt(ep.distSqr(g.blockPosition())) + " off";
                 }
+                if (level.dimension() == net.minecraft.world.level.Level.OVERWORLD && !g.commandActive && Kit.food(g) < 6) { String kit = gearFirst(g, level, st, false); if (kit != null) return kit; } // the trip packing rule holds for the Nether: food before he goes in (he went in with 1 meal and hunted beef in the Nether, 744954f)
                 { String rp = com.claudemod.entity.life.PortalMap.enterStep(g, level, st, target); if (rp != null) return rp; } // their words: home / back / fortress / my portal (PortalMap.resolve); an unlit one relit // into a lit portal: stand in it 4 s, the game does the rest; both coordinate pairs noted
                 BlockPos portal = findNear(level, g.blockPosition(), 24, b -> b.is(Blocks.NETHER_PORTAL));
                 if (portal == null) { /* the portal he lit and saved (hisPortal): 33 blocks off it, "no lit portal within 24", and the planner went to mine iron for a bucket to cast a new one (live 18:08) */

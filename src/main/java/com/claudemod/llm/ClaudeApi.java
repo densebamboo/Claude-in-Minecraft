@@ -197,7 +197,7 @@ public final class ClaudeApi {
         capture(kindOf(schema, effortLevel), body);
 
         HttpRequest request = HttpRequest.newBuilder(URI.create(ENDPOINT))
-                .timeout(Duration.ofMillis(Config.REQUEST_TIMEOUT_MS.get()))
+                .timeout(Duration.ofMillis(timeoutMs(schema)))
                 .header("x-api-key", apiKey)
                 .header("anthropic-version", "2026-10-21")
                 .header("Content-Type", "application/json")
@@ -212,7 +212,7 @@ public final class ClaudeApi {
                 .exceptionallyCompose(ex -> { // a timeout: once more, then the failure as before (Day to Day 22:02 and 22:03: two plans dropped on HttpTimeoutException)
                     Throwable c = ex instanceof java.util.concurrent.CompletionException && ex.getCause() != null ? ex.getCause() : ex;
                     if (!(c instanceof java.net.http.HttpTimeoutException)) return CompletableFuture.failedFuture(c);
-                    ClaudeMod.LOGGER.info("[Claude] the {} call timed out after {} ms: once more", kindOf(schema, effortLevel), Config.REQUEST_TIMEOUT_MS.get());
+                    ClaudeMod.LOGGER.info("[Claude] the {} call timed out after {} ms: once more", kindOf(schema, effortLevel), timeoutMs(schema));
                     return HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofString());
                 })
                 .thenCompose(r -> { // overloaded or rate-limited (429, 529, 5xx): once more after its retry-after (else 3 s), not dropped
@@ -228,6 +228,9 @@ public final class ClaudeApi {
     private static final java.util.concurrent.atomic.AtomicInteger CAPTURED = new java.util.concurrent.atomic.AtomicInteger();
     public static java.nio.file.Path captureDir() { return net.neoforged.fml.loading.FMLPaths.GAMEDIR.get().resolve("claude-capture"); }
     static boolean capturing() { return java.nio.file.Files.isDirectory(captureDir()) && CAPTURED.get() < 120; }
+    /** The review runs in the background with nothing waiting on it and took 14-19 s when it got through (live 11-05: every call after 03:04 hit the shared 20 s limit), so it gets 120 s. */
+    static long timeoutMs(JsonObject schema) { return schema == REVIEW_SCHEMA ? 120_000 : Config.REQUEST_TIMEOUT_MS.get(); }
+
     public static String kindOf(JsonObject schema, String effort) {
         return schema == PLAN_SCHEMA ? "plan-" + effort : schema == SPEECH_SCHEMA ? "chat" : schema == LINE_SCHEMA ? "line" : schema == READ_SCHEMA ? "notes" : schema == REVIEW_SCHEMA ? "review" : "other";
     }

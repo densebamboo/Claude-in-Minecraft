@@ -43,13 +43,13 @@ public final class LogReviewer {
         synchronized (buf) { if (buf.size() < MIN_LINES) return; window = String.join("\n", buf); buf.clear(); }
         String user;
         synchronized (reported) { user = (reported.isEmpty() ? "" : "Already reported:\n- " + String.join("\n- ", reported) + "\n\n") + "His log:\n" + window; }
-        lastAsked = user; inFlight = true;
+        lastAsked = user; inFlight = true; long sent = System.currentTimeMillis(); int lines = window.split("\n").length;
         (call != null ? call : (java.util.function.Function<String, CompletableFuture<String>>) u -> com.claudemod.llm.ClaudeApi.review(prompt(), u)).apply(user).whenComplete((text, ex) -> {
             try {
-                if (ex != null) { ClaudeMod.LOGGER.info("[Claude review] the call failed: {}", ex.toString()); return; }
+                if (ex != null) { ClaudeMod.LOGGER.info("[Claude review] the call failed after {} s ({} lines, {} chars): {}", (System.currentTimeMillis() - sent) / 1000, lines, user.length(), ex.toString()); return; }
                 var fs = JsonParser.parseString(text).getAsJsonObject().getAsJsonArray("findings"); int n = 0;
                 for (var e : fs) { if (n++ >= MAX_FINDINGS) break; JsonObject f = e.getAsJsonObject(); found.add(f); synchronized (reported) { reported.addLast(f.get("what").getAsString()); while (reported.size() > REMEMBER) reported.removeFirst(); } }
-                ClaudeMod.LOGGER.info("[Claude review] {} finding(s) in {} lines", Math.min(n, MAX_FINDINGS), window.split("\n").length);
+                ClaudeMod.LOGGER.info("[Claude review] {} finding(s) in {} lines ({} chars, {} s)", Math.min(n, MAX_FINDINGS), lines, user.length(), (System.currentTimeMillis() - sent) / 1000);
             } catch (RuntimeException e) { ClaudeMod.LOGGER.info("[Claude review] unreadable answer: {}", e.toString()); }
             finally { inFlight = false; }
         });

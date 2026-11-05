@@ -10601,13 +10601,17 @@ public final class ClaudeLife {
     }
 
     /** A solid cell to stand on beside a lava source, in reach of it and never over lava, nearest to him; or null. */
-    static BlockPos lavaStand(ClaudeEntity g, ServerLevel level, BlockPos src) {
+    /** The empty bucket at the lava source from where he stands (the cast's scoop). */
+    public static boolean scoopLava(ClaudeEntity g, ServerLevel level, BlockPos src) { Vec3 a = scoopAim(g, level, src); g.hold(s -> s.is(Items.BUCKET)); g.getLookControl().faceNow(a != null ? a : fluidAim(g, src)); g.useHeld(); // (a point of it he sees: fluidAim's, shifted toward him, sat behind the bank's edge from 2 up, six clicks on the stone, live 06:03)
+        boolean got = holding(g, Items.LAVA_BUCKET); if (!got) ClaudeMod.LOGGER.info("[Claude portal] scoop at {} missed from eye {}: aim {} (seen {}), look yaw {} pitch {} (ClaudeLife.scoopLava)", src.toShortString(), g.getEyePosition(), a, a != null, g.getYRot(), g.getXRot()); return got; }
+    public static BlockPos lavaStand(ClaudeEntity g, ServerLevel level, BlockPos src) {
         BlockPos best = null; double bd = Double.MAX_VALUE;
         for (int dx = -2; dx <= 2; dx++) for (int dz = -2; dz <= 2; dz++) for (int dy = 0; dy <= 2; dy++) {
             if (dx == 0 && dz == 0) continue;
             BlockPos c = src.offset(dx, dy, dz);
             if (!standable(level, c) || level.getFluidState(c.below()).is(net.minecraft.tags.FluidTags.LAVA) || !level.getBlockState(c.below()).isSolid()) continue;
             if (Vec3.atCenterOf(src).distanceTo(Vec3.atCenterOf(c).add(0, 1.62, 0)) > 4.3) continue;
+            { Vec3 e0 = Vec3.atBottomCenterOf(c).add(0, 1.62, 0); boolean seen = true; for (double[] o : new double[][] {{0, 0}, {0.3, 0}, {-0.3, 0}, {0, 0.3}, {0, -0.3}}) if (scoopAim(g, level, src, e0.add(o[0], 0, o[1])) == null) { seen = false; break; } if (!seen) continue; } // (seen from anywhere he may stand on it: from 2 up a quarter block off its middle the bank hid it, live 06:03, stage 803)
             { boolean hot = false; for (int ax = -1; ax <= 1 && !hot; ax++) for (int az = -1; az <= 1 && !hot; az++) for (int ay = -1; ay <= 0; ay++) { BlockPos n = c.offset(ax, ay, az); if (!n.equals(src) && level.getFluidState(n).is(net.minecraft.tags.FluidTags.LAVA)) { hot = true; break; } } if (hot) continue; } // no other lava beside the spot (a pool's next cell sat diagonal to 59, 65, 196: every step onto it clipped him into the lava, 20 to 8 health)
             double d = c.distSqr(g.blockPosition()) + (Math.abs(dx) + Math.abs(dz) == 1 ? 0 : 9); if (d < bd) { bd = d; best = c.immutable(); } // straight beside it first: from a diagonal the aim at a sunken pool hits the bank's edge block
         }
@@ -10770,7 +10774,7 @@ public final class ClaudeLife {
                     BlockPos stand = lavaStand(g, level, src);
                     if (stand == null) return "failed: no safe spot to scoop lava from at " + src.toShortString();
                     String w1 = stepTo(g, stand, again, "the lava's edge at " + src.toShortString()); if (w1 != null) return w1;
-                    g.hold(s -> s.is(Items.BUCKET)); g.getLookControl().faceNow(fluidAim(g, src)); g.useHeld();
+                    scoopLava(g, level, src);
                     if (holding(g, Items.LAVA_BUCKET)) portalStep = 2;
                     if (!holding(g, Items.LAVA_BUCKET) && ++portalScoops > 6) { Vec3 eye = g.getEyePosition(), look = g.getViewVector(1.0F); var hit = level.clip(new ClipContext(eye, eye.add(look.scale(4.5)), ClipContext.Block.OUTLINE, ClipContext.Fluid.SOURCE_ONLY, g)); return "failed: the bucket won't fill at " + src.toShortString() + " from " + g.blockPosition().toShortString() + " (the aim hits " + (hit.getType() == HitResult.Type.BLOCK ? level.getBlockState(hit.getBlockPos()).getBlock() + " at " + hit.getBlockPos().toShortString() : "nothing") + ")"; }
                     if (holding(g, Items.LAVA_BUCKET)) portalScoops = 0;

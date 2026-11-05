@@ -10417,6 +10417,7 @@ public final class ClaudeBodyTest {
             case 800: return st800(stage, t, c, h, level, mock);
             case 801: return st801(stage, t, c, h, level, mock);
             case 802: return st802(stage, t, c, h, level, mock);
+            case 803: return st803(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
             case 615: return st615(stage, t, c, h, level, mock);
             case 617: return st617(stage, t, c, h, level, mock);
@@ -12778,6 +12779,28 @@ public final class ClaudeBodyTest {
         }
         check(t[0] < 900, "filed " + W + " (last " + com.claudemod.entity.life.Watchdog.lastIncident + ")");
         } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
+        return true;
+    }
+
+    /** Day to Day 11-05 (live 06:03 at -151,66,853): a lava source one block below the ground, the cast's scoop from the stand lavaStand picks: the bucket fills on the first click, never "the aim hits" the bank six times. */
+    private static BlockPos s803L;
+    private static boolean st803(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 24000; c.tasks.clear(); c.skillQueue.clear();
+            BlockPos a = h.absolutePos(new BlockPos(3, 40, 8));
+            for (int x = -5; x <= 5; x++) for (int z = -5; z <= 5; z++) for (int y = -2; y <= 3; y++) level.setBlockAndUpdate(a.offset(x, y, z), y <= 0 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState());
+            s803L = a.offset(0, -1, 0).immutable(); level.setBlockAndUpdate(a, Blocks.AIR.defaultBlockState()); level.setBlockAndUpdate(s803L, Blocks.LAVA.defaultBlockState()); // (its surface a block under the ground round it)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.BUCKET));
+        }
+        if (t[0] == 5) {
+            BlockPos st = com.claudemod.director.ClaudeLife.lavaStand(c, level, s803L);
+            check(st != null, "no stand for the lava at " + s803L.toShortString());
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(st.getX() + 0.5, st.getY(), st.getZ() + 0.5); c.fallDistance = 0; // (and the scoop at once: given a tick his lava reflex steps him back off the edge)
+            boolean ok = com.claudemod.director.ClaudeLife.scoopLava(c, level, s803L);
+            var eye = c.getEyePosition(); var hit = level.clip(new net.minecraft.world.level.ClipContext(eye, eye.add(c.getViewVector(1.0F).scale(4.5)), net.minecraft.world.level.ClipContext.Block.OUTLINE, net.minecraft.world.level.ClipContext.Fluid.SOURCE_ONLY, c));
+            check(ok, "the bucket didn't fill at " + s803L.toShortString() + " from " + c.blockPosition().toShortString() + " (stand " + (c.blockPosition().getY() - s803L.getY()) + " above it; eye " + eye + " yaw " + c.getYRot() + " pitch " + c.getXRot() + " ray hits " + hit.getType() + " " + hit.getBlockPos().toShortString() + ")");
+            pass(stage, t, "lava scooped first click from " + c.blockPosition().toShortString()); return true;
+        }
         return true;
     }
 

@@ -10405,6 +10405,8 @@ public final class ClaudeBodyTest {
             case 619: return st619(stage, t, c, h, level, mock);
             case 620: return st620(stage, t, c, h, level, mock);
             case 621: return st621(stage, t, c, h, level, mock);
+            case 622: return st622(stage, t, c, h, level, mock);
+            case 623: return st623(stage, t, c, h, level, mock);
             case 598: return st598(stage, t, c, h, level, mock);
             case 599: return st599(stage, t, c, h, level, mock);
             case 602: return st602(stage, t, c, h, level, mock);
@@ -12278,7 +12280,7 @@ public final class ClaudeBodyTest {
         return true;
     }
 
-    /** Live 11-04, his y 16 level: fully branched (pairs every 4 rows, 32 long), and every second-tunnel mouth sat on a branch row, so each stopped at row 0 and the level read as done (down to -58). The second tunnel now rides the branch running its own way, out to fresh rock. */
+    /** Live 11-04, his y 16 level: fully branched (pairs every 4 rows, 32 long then; 64 now, the push cap), and every second-tunnel mouth sat on a branch row, so each stopped at row 0 and the level read as done (down to -58). The second tunnel now rides the branch running its own way, out to fresh rock. */
     private static int s620T;
     private static boolean st620(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         final int ox = 23000, oz = 23000, gy = 16; var M = com.claudemod.entity.life.MineBlueprint.Kind.RUN;
@@ -12286,13 +12288,13 @@ public final class ClaudeBodyTest {
             c.prefs.put("mine_model", "blueprint"); c.prefs.put("torches_while_digging", "no");
             c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.TORCH, 32)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
             com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(ox + 0.5, gy + 30, oz + 0.5); c.setNoGravity(true); }
-        if (t[0] >= 2 && t[0] < 2 + 6) { int y = gy - 2 + t[0] - 2; for (int x = -3; x <= 15; x++) for (int z = -36; z <= 37; z++) level.setBlock(new BlockPos(ox + x, y, oz + z), Blocks.STONE.defaultBlockState(), 2 | 16); }
+        if (t[0] >= 2 && t[0] < 2 + 6) { int y = gy - 2 + t[0] - 2; for (int x = -3; x <= 15; x++) for (int z = -68; z <= 69; z++) level.setBlock(new BlockPos(ox + x, y, oz + z), Blocks.STONE.defaultBlockState(), 2 | 16); }
         if (t[0] == 10) {
             var b = new com.claudemod.entity.life.MineBlueprint(new BlockPos(ox, gy, oz), net.minecraft.core.Direction.EAST, 2, 3); b.segments.clear();
             b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, new BlockPos(ox, gy, oz), net.minecraft.core.Direction.EAST, 12, null)); b.invalidate();
-            b.branchLength = 32; b.branchEvery = 4; for (int r : new int[] {0, 4, 8}) b.branchPair(r, 32);
+            b.branchLength = 32; b.branchEvery = 4; for (int r : new int[] {0, 4, 8}) b.branchPair(r, 64); // (fully branched: 64, the push cap)
             for (var r : b.rows()) for (BlockPos f : r.feet()) for (int y = 0; y < r.height(); y++) level.setBlockAndUpdate(f.above(y), Blocks.AIR.defaultBlockState());
-            for (int y = 0; y < 2; y++) level.setBlockAndUpdate(new BlockPos(ox, gy + y, oz + 2 + 32), Blocks.COBBLESTONE.defaultBlockState()); // row 0's south branch ends at his plug: not one to ride
+            for (int y = 0; y < 2; y++) level.setBlockAndUpdate(new BlockPos(ox, gy + y, oz + 2 + 64), Blocks.COBBLESTONE.defaultBlockState()); // row 0's south branch ends at his plug: not one to ride
             c.blueprint = b; com.claudemod.director.ClaudeLife.bpSync(c);
             c.setNoGravity(false); c.teleportTo(ox + 6.5, gy, oz + 0.5); c.fallDistance = 0; com.claudemod.entity.life.Watchdog.teleported(c); s620T = t[0]; }
         if (s620T < 0 || c.blueprint == null) return true;
@@ -12338,6 +12340,90 @@ public final class ClaudeBodyTest {
                 pass(stage, t, "his own trip to the Nether with 1 meal: food first (" + last + ")");
             }
         }
+        return true;
+    }
+
+    /** A mine level at (ox, gy, oz) for 622/623: the given segments dug out of the stone, the given cells plugged with cobble. */
+    private static com.claudemod.entity.life.MineBlueprint levelAt(ServerLevel level, int ox, int gy, int oz, java.util.List<com.claudemod.entity.life.MineBlueprint.Segment> segs, java.util.List<BlockPos> plugs) {
+        var b = new com.claudemod.entity.life.MineBlueprint(new BlockPos(ox, gy, oz), net.minecraft.core.Direction.EAST, 2, 3); b.segments.clear(); b.segments.addAll(segs); b.branchLength = 8; b.branchEvery = 4; b.invalidate();
+        for (var r : b.rows()) for (BlockPos f : r.feet()) for (int y = 0; y < r.height(); y++) level.setBlockAndUpdate(f.above(y), Blocks.AIR.defaultBlockState());
+        for (BlockPos q : plugs) { level.setBlockAndUpdate(q, Blocks.COBBLESTONE.defaultBlockState()); level.setBlockAndUpdate(q.above(), Blocks.COBBLESTONE.defaultBlockState()); }
+        return b;
+    }
+    private static boolean levelStart(int[] t, ClaudeEntity c, ServerLevel level, int ox, int gy, int oz) { // ticks 1-7: him kitted, held up high, the stone laid; true from tick 10
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.tasks.clear(); c.skillQueue.clear(); c.prefs.put("stay_close", "no"); c.commandActive = false;
+            c.prefs.put("mine_model", "blueprint"); c.prefs.put("torches_while_digging", "no");
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.TORCH, 32)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(ox + 0.5, gy + 30, oz + 0.5); c.setNoGravity(true); }
+        if (t[0] >= 2 && t[0] < 8) { int y = gy - 2 + t[0] - 2; for (int x = -8; x <= 16; x++) for (int z = -52; z <= 44; z++) level.setBlock(new BlockPos(ox + x, y, oz + z), Blocks.STONE.defaultBlockState(), 2 | 16); }
+        if (t[0] % 40 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, c.getBoundingBox().inflate(48))) m.discard();
+        return t[0] >= 10;
+    }
+    private static void levelEnd(ClaudeEntity c) { c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); }
+    private static boolean rowsDug(ServerLevel level, com.claudemod.entity.life.MineBlueprint.Segment s0, int from, int to, int width) {
+        for (int k = from; k < to; k++) for (int j = 0; j < width; j++) { BlockPos q = s0.start.relative(s0.dir, k).relative(s0.dir.getClockWise(), j); if (com.claudemod.entity.life.MineBlueprint.solid(level, q) || com.claudemod.entity.life.MineBlueprint.solid(level, q.above())) return false; }
+        return true;
+    }
+    private static com.claudemod.entity.life.MineBlueprint.Segment seg(com.claudemod.entity.life.MineBlueprint.Kind k, int x, int y, int z, net.minecraft.core.Direction d, int n) { return new com.claudemod.entity.life.MineBlueprint.Segment(k, new BlockPos(x, y, z), d, n, null); }
+
+    /** The user 11-04: "he has tunnel forks that go off in the + and -z directions, he's fully capable of extending those". His fork at y 16 at its old cap (the level's reach + 32), the rest of the level done (branches plugged): the fork goes on. */
+    private static int s622T;
+    private static boolean st622(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        final int ox = 22000, oz = 22000, gy = 16; var N = net.minecraft.core.Direction.NORTH; var S = net.minecraft.core.Direction.SOUTH;
+        if (t[0] == 1) s622T = -1;
+        if (!levelStart(t, c, level, ox, gy, oz)) return true;
+        if (t[0] == 10) {
+            java.util.List<com.claudemod.entity.life.MineBlueprint.Segment> segs = new java.util.ArrayList<>(); java.util.List<BlockPos> plugs = new java.util.ArrayList<>();
+            segs.add(seg(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, ox, gy, oz, net.minecraft.core.Direction.EAST, 8));
+            for (int r : new int[] {0, 4}) { segs.add(seg(com.claudemod.entity.life.MineBlueprint.Kind.BRANCH, ox + r, gy, oz + 2, S, 4)); plugs.add(new BlockPos(ox + r, gy, oz + 6)); }
+            segs.add(seg(com.claudemod.entity.life.MineBlueprint.Kind.BRANCH, ox + 4, gy, oz - 1, N, 4)); plugs.add(new BlockPos(ox + 4, gy, oz - 5));
+            segs.add(seg(com.claudemod.entity.life.MineBlueprint.Kind.RUN, ox, gy, oz - 1, N, 38)); // the fork: reach 6 + 32
+            for (int i = 7; i < 38; i += 4) { int z = oz - 1 - i; // its pairs: stubs, plugged
+                segs.add(seg(com.claudemod.entity.life.MineBlueprint.Kind.BRANCH, ox - 1, gy, z, net.minecraft.core.Direction.WEST, 2)); plugs.add(new BlockPos(ox - 3, gy, z));
+                segs.add(seg(com.claudemod.entity.life.MineBlueprint.Kind.BRANCH, ox + 2, gy, z, net.minecraft.core.Direction.EAST, 2)); plugs.add(new BlockPos(ox + 4, gy, z)); }
+            c.blueprint = levelAt(level, ox, gy, oz, segs, plugs); com.claudemod.director.ClaudeLife.bpSync(c);
+            c.setNoGravity(false); c.teleportTo(ox + 4.5, gy, oz + 0.5); c.fallDistance = 0; com.claudemod.entity.life.Watchdog.teleported(c); s622T = t[0]; }
+        if (s622T < 0 || c.blueprint == null) return true;
+        var b = c.blueprint; com.claudemod.entity.life.MineBlueprint.Segment fork = null; for (var s0 : b.segments) if (s0.kind == com.claudemod.entity.life.MineBlueprint.Kind.RUN && s0.start.equals(new BlockPos(ox, gy, oz - 1))) fork = s0;
+        if (fork != null && fork.n >= 46 && rowsDug(level, fork, 38, 46, 2)) { int took = (t[0] - s622T) / 20; String f = fork.n + " rows"; levelEnd(c); pass(stage, t, "his fork past its old cap: on to " + f + ", 8 more dug in " + took + " s"); return true; }
+        if (c.tasks.isEmpty() && c.currentTask == null && t[0] % 20 == 0) {
+            String line = com.claudemod.director.ClaudeLife.bpAtLevel(c, level, b, gy, "iron");
+            if (line == null) levelEnd(c);
+            check(line != null, "his fork at its old cap: nothing more at y " + gy + " " + b);
+        }
+        if (t[0] - s622T >= 20 * 60) levelEnd(c);
+        check(t[0] - s622T < 20 * 60, "his fork: not 8 rows on in 60 s, fork " + fork + " now=" + c.currentTask + " tasks=" + c.tasks.size());
+        return true;
+    }
+
+    /** The user 11-04: branches past 32. A pair at 32, nothing else at the level: the branches go on (not a new fork), the north one stopping one short of his tunnel across its way at row 36. */
+    private static int s623T;
+    private static boolean st623(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        final int ox = 21000, oz = 21000, gy = 16;
+        if (t[0] == 1) s623T = -1;
+        if (!levelStart(t, c, level, ox, gy, oz)) return true;
+        if (t[0] == 10) {
+            java.util.List<com.claudemod.entity.life.MineBlueprint.Segment> segs = new java.util.ArrayList<>(); java.util.List<BlockPos> plugs = new java.util.ArrayList<>();
+            segs.add(seg(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, ox, gy, oz, net.minecraft.core.Direction.EAST, 8));
+            segs.add(seg(com.claudemod.entity.life.MineBlueprint.Kind.BRANCH, ox + 4, gy, oz + 2, net.minecraft.core.Direction.SOUTH, 32));
+            segs.add(seg(com.claudemod.entity.life.MineBlueprint.Kind.BRANCH, ox + 4, gy, oz - 1, net.minecraft.core.Direction.NORTH, 32));
+            segs.add(seg(com.claudemod.entity.life.MineBlueprint.Kind.BRANCH, ox + 1, gy, oz - 37, net.minecraft.core.Direction.EAST, 8)); plugs.add(new BlockPos(ox + 9, gy, oz - 37)); // his tunnel across the north one's way (its row 36)
+            c.blueprint = levelAt(level, ox, gy, oz, segs, plugs); com.claudemod.director.ClaudeLife.bpSync(c);
+            c.setNoGravity(false); c.teleportTo(ox + 4.5, gy, oz + 0.5); c.fallDistance = 0; com.claudemod.entity.life.Watchdog.teleported(c); s623T = t[0]; }
+        if (s623T < 0 || c.blueprint == null) return true;
+        var b = c.blueprint; com.claudemod.entity.life.MineBlueprint.Segment south = null, north = null; boolean fork = false;
+        for (var s0 : b.segments) { if (s0.kind == com.claudemod.entity.life.MineBlueprint.Kind.RUN) fork = true; if (s0.start.equals(new BlockPos(ox + 4, gy, oz + 2))) south = s0; if (s0.start.equals(new BlockPos(ox + 4, gy, oz - 1))) north = s0; }
+        if (fork || north != null && north.n > 35) levelEnd(c);
+        check(!fork, "branches at 32: a new fork instead of pushing them on " + b);
+        check(north == null || north.n <= 35, "branches at 32: the north one pushed into his tunnel across its way (" + (north == null ? -1 : north.n) + " long)");
+        if (south != null && south.n >= 40 && rowsDug(level, south, 32, 40, 1) && north != null && north.n == 35 && rowsDug(level, north, 32, 35, 1)) { int took = (t[0] - s623T) / 20; String r = "south " + south.n + ", north " + north.n; levelEnd(c); pass(stage, t, "branches past 32: " + r + " (the north one short of his tunnel), 8 rows dug in " + took + " s"); return true; }
+        if (c.tasks.isEmpty() && c.currentTask == null && t[0] % 20 == 0) {
+            String line = com.claudemod.director.ClaudeLife.bpAtLevel(c, level, b, gy, "iron");
+            if (line == null) levelEnd(c);
+            check(line != null, "branches at 32: nothing more at y " + gy + " " + b);
+        }
+        if (t[0] - s623T >= 20 * 60) levelEnd(c);
+        check(t[0] - s623T < 20 * 60, "branches at 32: the south one not 8 rows on in 60 s (" + south + ") now=" + c.currentTask + " tasks=" + c.tasks.size());
         return true;
     }
 

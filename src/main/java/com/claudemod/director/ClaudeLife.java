@@ -11445,7 +11445,7 @@ public final class ClaudeLife {
         { // the user: at the ore's level his branches go on (till they hit water, lava, his plugs or 32) before the tunnel gets any longer
             MineBlueprint.Segment grow = null; int half = Math.max(2, b.branchLength / 2);
             for (MineBlueprint.Segment s0 : b.segments) {
-                if (g.attempts.counters.containsKey("branchDone:" + s0.start.asLong())) continue; if (s0.kind != MineBlueprint.Kind.BRANCH || s0.start.getY() != face.getY() || s0.n >= 32 || s0.n < half) continue; // (the user: each branch to its checkpoint, 32, or till it hits something to block off; then the next one)
+                if (g.attempts.counters.containsKey("branchDone:" + s0.start.asLong())) continue; if (s0.kind != MineBlueprint.Kind.BRANCH || s0.start.getY() != face.getY() || s0.n >= BRANCH_MAX || s0.n < half) continue; // (the user: each branch to its checkpoint, 32, or till it hits something to block off; then the next one)
                 if (!branchWalkable(level, s0)) continue;
                 BlockPos past = s0.start.relative(s0.dir, s0.n); BlockState ps = level.getBlockState(past);
                 if (level.getFluidState(past).is(net.minecraft.tags.FluidTags.LAVA) || lavaNear(g, level, past) || dryPlug(g, level, past) || ps.hasBlockEntity()) continue; /* (one short of the lava the goal keeps: "9 to 9" over and over, 04:14-04:19) */ // ends at water, lava or his own plug: that one's done
@@ -11456,7 +11456,7 @@ public final class ClaudeLife {
                   if (grow == null || (ri >= 0 && (gi < 0 || ri < gi)) || (ri == gi && b.segments.indexOf(s0) < b.segments.indexOf(grow))) grow = s0; } // the user: an order of operations, the first branch down the tunnel first (its pair partner next), each to its checkpoint, never hopping to whichever end is nearest // the nearest one he can push, not the shortest anywhere (that sent him 120 blocks back down the tunnel)
             }
             if (grow != null) {
-                int oldN = grow.n; grow.n = Math.min(32, grow.n + b.branchLength); b.invalidate();
+                int oldN = grow.n; grow.n = branchRoom(b, grow, Math.min(BRANCH_MAX, grow.n + b.branchLength)); b.invalidate();
                 bpSync(g); if (grow.n <= oldN) { g.attempts.counters.put("branchDone:" + grow.start.asLong(), g.tickCount); ClaudeMod.LOGGER.info("[Claude life] branch at {} can't go on past {} (lava, water or his plug at its end): done, the next one", grow.start.toShortString(), oldN); return "that branch is done (it ends at lava): on to the next"; } // (no growth is no progress: "12 to 12" over and over, 04:14 and 05:30)
                 int si = b.segments.indexOf(grow), first = -1, last = -1; List<MineBlueprint.Row> rs1 = b.rows();
                 for (int i = 0; i < rs1.size(); i++) if (rs1.get(i).segment() == si) { if (rs1.get(i).index() >= oldN - 1 && first < 0) first = i; last = i; }
@@ -11552,14 +11552,14 @@ public final class ClaudeLife {
         { // no room for a new pair: his branches at that level go further, shortest first, a branch length at a time, till the ore turns up (the user: "if he can't find iron, he extends his iron branches until he can"); each branch to 32 at most, then the next level down
             MineBlueprint.Segment grow = null;
             for (MineBlueprint.Segment s0 : b.segments) {
-                if (s0.kind != MineBlueprint.Kind.BRANCH || s0.start.getY() != levelY || s0.n >= 32) continue;
+                if (s0.kind != MineBlueprint.Kind.BRANCH || s0.start.getY() != levelY || s0.n >= BRANCH_MAX) continue;
                 if (s0.n < (b.branchLength > 0 ? b.branchLength : 8) / 2) continue; // a stub cut short (water, a cave): not one to push on
                 if (!branchWalkable(level, s0)) continue; // a plug or a cave-in part-way along it: no way to its end, so nothing past it can be dug from the tunnel
                 { BlockPos past = s0.start.relative(s0.dir, s0.n); net.minecraft.world.level.block.state.BlockState ps = level.getBlockState(past); if (level.getFluidState(past).is(net.minecraft.tags.FluidTags.LAVA) || lavaNear(g, level, past) || dryPlug(g, level, past)) continue; } /* (one short of lava the goal keeps: the stone at its end, the lava one on; it "went on from 9 to 9" again and again, 04:14) */ // ends at water or at his plug of it: that branch is done (the user: plug it and move on), never pushed on into the same water again (he re-dug into it and re-plugged for 40 s)
                 if (grow == null || s0.n < grow.n) grow = s0;
             }
             if (grow != null) {
-                int oldN = grow.n; grow.n = Math.min(32, grow.n + (b.branchLength > 0 ? b.branchLength : 8)); b.invalidate();
+                int oldN = grow.n; grow.n = branchRoom(b, grow, Math.min(BRANCH_MAX, grow.n + (b.branchLength > 0 ? b.branchLength : 8))); b.invalidate();
                 bpSync(g); if (grow.n <= oldN) { g.attempts.counters.put("branchDone:" + grow.start.asLong(), g.tickCount); ClaudeMod.LOGGER.info("[Claude life] branch at {} can't go on past {} (lava, water or his plug at its end): done, the next one", grow.start.toShortString(), oldN); return "that branch is done (it ends at lava): on to the next"; } // (no growth is no progress: "12 to 12" over and over, 04:14 and 05:30)
                 int si = b.segments.indexOf(grow), first = -1, last = -1; List<MineBlueprint.Row> rs1 = b.rows();
                 for (int i = 0; i < rs1.size(); i++) if (rs1.get(i).segment() == si) { if (rs1.get(i).index() >= oldN - 1 && first < 0) first = i; last = i; }
@@ -11590,6 +11590,16 @@ public final class ClaudeLife {
         return !dryPlug(g, level, end) && !lavaNear(g, level, end) && !com.claudemod.entity.life.Perception.knowsWater(g, end);
     }
 
+    /** How long his branches may be pushed (the user 11-04: past 32). */
+    static final int BRANCH_MAX = 64;
+    /** A branch pushed on to want rows, stopped one short of his own tunnels (another branch or fork across, beside or right ahead of its way). */
+    static int branchRoom(MineBlueprint b, MineBlueprint.Segment s0, int want) {
+        for (int k = s0.n; k < want; k++) { BlockPos q = s0.start.relative(s0.dir, k);
+            for (BlockPos w : new BlockPos[] {q, q.above(), q.relative(s0.dir), q.relative(s0.dir.getClockWise()), q.relative(s0.dir.getCounterClockWise())}) {
+                int ri = b.rowOf(w); if (b.isWalk(w) && ri >= 0 && b.segments.get(b.rows().get(ri).segment()) != s0) return k; } }
+        return want;
+    }
+
     /** How far his branches off the level's first tunnel reach, plus two: a second tunnel's pairs start past that. */
     static int levelReach(MineBlueprint b, int levelY) {
         int reach = 0; List<MineBlueprint.Row> rs = b.rows();
@@ -11605,7 +11615,7 @@ public final class ClaudeLife {
     static String bpOpenRun(ClaudeEntity g, ServerLevel level, MineBlueprint b, int levelY, String ore) {
         if (levelY == Integer.MIN_VALUE) return null;
         MineBlueprint.Segment flat = null; for (MineBlueprint.Segment s0 : b.segments) if (s0.kind == MineBlueprint.Kind.FLAT && s0.start.getY() == levelY && s0.n >= 2) { flat = s0; break; }
-        int reach = levelReach(b, levelY), max = reach + 32;
+        int reach = levelReach(b, levelY), max = Integer.MAX_VALUE; // (the user: his forks go on as far as the rock lets him, no 32-row stop)
         List<MineBlueprint.Segment> cands = new ArrayList<>();
         for (MineBlueprint.Segment s0 : b.segments) if (s0.kind == MineBlueprint.Kind.RUN && s0.start.getY() == levelY && s0.n < max) cands.add(s0);
         if (flat != null) for (int k0 = 0; k0 + 1 < Math.max(2, flat.n); k0 += 4) for (Direction side : new Direction[] {flat.dir.getClockWise(), flat.dir.getCounterClockWise()}) { // its first two rows' side wall: the new tunnel's mouth; further along the level when that wall is taken (his furnace wall stood there and the level read as done: iron at -58, the user)
@@ -11621,15 +11631,16 @@ public final class ClaudeLife {
             int si = b.segments.indexOf(run); List<MineBlueprint.Row> rs = b.rows(); List<Integer> mine = new ArrayList<>();
             for (int i = 0; i < rs.size(); i++) if (rs.get(i).segment() == si) mine.add(i);
             int dug = 0; for (int i : mine) { if (java.util.Arrays.stream(rs.get(i).feet()).anyMatch(f -> MineBlueprint.solid(level, f) || MineBlueprint.solid(level, f.above()))) break; dug++; }
-            if (dug >= run.n) { // all dug: 8 rows more, short of his own tunnels and lava he knows of
-                for (int k = 0; k < 8 && run.n < max; k++) {
-                    BlockPos f0 = run.start.relative(run.dir, run.n); boolean stop = false;
-                    for (int c0 = 0; c0 < b.width && !stop; c0++) for (int y = 0; y < 3 && !stop; y++) { BlockPos q = f0.relative(run.dir.getClockWise(), c0).above(y); stop = b.isWalk(q) && !ridesBranch(g, level, b, q, run.dir) || lavaNear(g, level, q) || com.claudemod.entity.life.Perception.knowsWater(g, q) || java.util.Arrays.stream(Direction.values()).anyMatch(d9 -> com.claudemod.entity.life.Perception.knowsWater(g, q.relative(d9))) /* (water beside the next cell too: he'd plugged the one in line and the tunnel went on into the pocket round it) */ || level.getBlockState(q).hasBlockEntity() || level.getBlockState(q).is(Blocks.CRAFTING_TABLE); } // (and never through his own furnace, chest or table: the tunnel opened on his mine furnace and he stood at it 2 min)
-                    if (stop) break;
-                    run.n++; b.invalidate();
+            String stopWhy = null;
+            if (dug >= run.n) { // all dug: 8 rows more, short of his own tunnels, lava he knows of and his stations (water is crossed: the body seals it row by row, as in his branches)
+                for (int k = 0; k < 8 && run.n < max && stopWhy == null; k++) {
+                    BlockPos f0 = run.start.relative(run.dir, run.n);
+                    for (int c0 = 0; c0 < b.width && stopWhy == null; c0++) for (int y = 0; y < 3 && stopWhy == null; y++) { BlockPos q = f0.relative(run.dir.getClockWise(), c0).above(y); var qs = level.getBlockState(q);
+                        stopWhy = b.isWalk(q) && !ridesBranch(g, level, b, q, run.dir) ? "his own tunnel at " + q.toShortString() : lavaNear(g, level, q) ? "lava he knows of by " + q.toShortString() : qs.hasBlockEntity() || qs.is(Blocks.CRAFTING_TABLE) ? "his " + qs.getBlock().getName().getString() + " at " + q.toShortString() : null; } // (never through his own furnace, chest or table: the tunnel opened on his mine furnace and he stood at it 2 min)
+                    if (stopWhy == null) { run.n++; b.invalidate(); }
                 }
-            } else if (dug >= mine.size() || lavaNear(g, level, rs.get(mine.get(dug)).first()) || java.util.Arrays.stream(rs.get(mine.get(dug)).feet()).anyMatch(f -> { for (int y = 0; y < 3; y++) { var bs = level.getBlockState(f.above(y)); if (level.getFluidState(f.above(y)).is(net.minecraft.tags.FluidTags.WATER) || level.getFluidState(f.above(y).east()).is(net.minecraft.tags.FluidTags.WATER) || level.getFluidState(f.above(y).west()).is(net.minecraft.tags.FluidTags.WATER) || level.getFluidState(f.above(y).north()).is(net.minecraft.tags.FluidTags.WATER) || level.getFluidState(f.above(y).south()).is(net.minecraft.tags.FluidTags.WATER) /* (beside it too) */ /* (an aquifer: the run ends dry and walled, never re-fixed under the flow; 7 minutes plugging his coal tunnel at y 16) */ || bs.hasBlockEntity() || bs.is(Blocks.CRAFTING_TABLE)) return true; } return false; })) { run.n = dug; b.invalidate(); } // lava, or his own furnace/chest/table, at its undug end: the tunnel ends there
-            if (run.n == dug) { nookSay(g, "runstop" + run.start.asLong(), "[Claude life] blueprint: no second tunnel " + run.dir.getName() + " from " + run.start.toShortString() + ": stopped at row " + dug + " (his own tunnel, lava, water, or a station in its next row) (ClaudeLife.bpOpenRun)"); if (fresh) { b.segments.remove(run); b.invalidate(); } continue; } // nothing to dig this way
+            } else if (dug >= mine.size() || lavaNear(g, level, rs.get(mine.get(dug)).first()) || java.util.Arrays.stream(rs.get(mine.get(dug)).feet()).anyMatch(f -> { for (int y = 0; y < 3; y++) { var bs = level.getBlockState(f.above(y)); if (bs.hasBlockEntity() || bs.is(Blocks.CRAFTING_TABLE)) return true; } return false; })) { stopWhy = "lava he knows of or his station in row " + dug; run.n = dug; b.invalidate(); } // lava, or his own furnace/chest/table, at its undug end: the tunnel ends there
+            if (run.n == dug) { nookSay(g, "runstop" + run.start.asLong(), "[Claude life] blueprint: no second tunnel " + run.dir.getName() + " from " + run.start.toShortString() + ": stopped at row " + dug + ": " + (stopWhy != null ? stopWhy : "nothing more on its plan") + " (ClaudeLife.bpOpenRun)"); if (fresh) { b.segments.remove(run); b.invalidate(); } continue; } // nothing to dig this way
             bpSync(g);
             rs = b.rows(); si = b.segments.indexOf(run); int first = -1, last = -1, lastDug = -1;
             for (int i = 0; i < rs.size(); i++) if (rs.get(i).segment() == si) { if (rs.get(i).index() < dug) lastDug = i; else { if (first < 0) first = i; last = i; } }

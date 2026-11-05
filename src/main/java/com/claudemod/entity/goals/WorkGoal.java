@@ -3288,7 +3288,7 @@ public class WorkGoal extends Goal {
             int since = stepOutSince().computeIfAbsent(pos.immutable(), k -> g.tickCount);
             if (out != null && g.tickCount - since <= 40) { // while his box is still in the cell (the state, not a count of 2): out of it again, a nudge onto the cell beside or a walk to the one up; 2 s of that for a one-block step
                 g.tasks.addFirst(t);
-                if (out.getY() == pos.getY() && out.distManhattan(pos) == 1) { g.tasks.addFirst(new Task.Wait(8, false)); g.getNavigation().stop(); g.getMoveControl().setWantedPosition(out.getX() + 0.5, out.getY(), out.getZ() + 0.5, 0.6); } // (a walk to the cell beside ends at once: a nudge instead)
+                if (out.getY() == pos.getY() && out.getY() == BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()).getY() && out.distManhattan(pos) == 1) { g.tasks.addFirst(new Task.Wait(8, false)); g.getNavigation().stop(); g.getMoveControl().setWantedPosition(out.getX() + 0.5, out.getY(), out.getZ() + 0.5, 0.6); } // (a walk to the cell beside ends at once: a nudge instead; level with his feet only: from the floor of a hole, patching his head cell, the spot beside it is a step up, and a flat nudge pushed him into the wall 3 times a second, live 00:49 11-05: that's a walk, which jumps)
                 else g.tasks.addFirst(new Task.GoTo(out, 0.6));
                 return exit("doPlace line 2580");
             }
@@ -3316,6 +3316,11 @@ public class WorkGoal extends Goal {
         // ponytail: live 13:17, his overworld mine blueprint ran on Nether patches: ore "through the hole" queued, refused as their build, 3x/s loop
         if (ticks == 1 && level.dimension() == net.minecraft.world.level.Level.OVERWORLD && com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.roleAt(pos) != com.claudemod.entity.life.MineBlueprint.Role.WALK) { // (any ore-hole patch, not only his shell: the end of his branch at 16,-57,-205 has no role, and 3 diamonds went in behind it, 04:10) // the user: mine all ore, then patch: ore now showing through this hole (the vein went on behind the block he took) comes out first
             int refusedBehind = 0; java.util.List<BlockPos> behind0 = veinBehind(g, level, pos); // (live 12:14: the vein went on past the hole's own faces, the patch sealed 3 diamond ore and a drop in)
+            BlockPos wetAt = level.getFluidState(pos).is(net.minecraft.tags.FluidTags.WATER) ? pos : null; for (Direction d : Direction.values()) if (wetAt == null && level.getFluidState(pos.relative(d)).is(net.minecraft.tags.FluidTags.WATER)) wetAt = pos.relative(d);
+            if (wetAt != null && !behind0.isEmpty()) { // water in or by the hole: the patch first, the vein behind it waits (live 00:55 11-05: "mined first, then the patch" had him after the coal into a flooded pocket, mining from its bottom, up for air, back down; the user: plug the water, never dive for it)
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude ore] water at {} by the hole at {}: patched first, the {} ore cell(s) behind it left for a dry way (WorkGoal.doPlace)", wetAt.toShortString(), pos.toShortString(), behind0.size());
+                behind0 = java.util.List.of();
+            }
             for (BlockPos q : behind0) { // faces into the hole and its pocket only: a block touching the hole by a corner shows no face into it (03:31 a corner iron "through the hole" had him breaking the torch's wall over and over to aim at it)
                 BlockState qs = level.getBlockState(q);
                 if ( !com.claudemod.entity.life.MineBlueprint.ore(qs) || g.blueprint.roleAt(q) == com.claudemod.entity.life.MineBlueprint.Role.WALK) continue; // (ore in his walls too: patched past, it was sealed in; only his walkway's own ore waits for the dig)

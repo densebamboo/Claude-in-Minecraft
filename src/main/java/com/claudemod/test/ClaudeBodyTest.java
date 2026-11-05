@@ -10403,6 +10403,7 @@ public final class ClaudeBodyTest {
             case 616: return st616(stage, t, c, h, level, mock);
             case 618: return st618(stage, t, c, h, level, mock);
             case 619: return st619(stage, t, c, h, level, mock);
+            case 620: return st620(stage, t, c, h, level, mock);
             case 598: return st598(stage, t, c, h, level, mock);
             case 599: return st599(stage, t, c, h, level, mock);
             case 602: return st602(stage, t, c, h, level, mock);
@@ -12273,6 +12274,40 @@ public final class ClaudeBodyTest {
                 pass(stage, t, "redstone past his stone pick left in the wall, the branch round it and on past in " + s618Took + " s; with an iron pick, mined and the bend walled up in " + took2 + " s");
             }
         }
+        return true;
+    }
+
+    /** Live 11-04, his y 16 level: fully branched (pairs every 4 rows, 32 long), and every second-tunnel mouth sat on a branch row, so each stopped at row 0 and the level read as done (down to -58). The second tunnel now rides the branch running its own way, out to fresh rock. */
+    private static int s620T;
+    private static boolean st620(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        final int ox = 23000, oz = 23000, gy = 16; var M = com.claudemod.entity.life.MineBlueprint.Kind.RUN;
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.tasks.clear(); c.skillQueue.clear(); c.prefs.put("stay_close", "no"); c.commandActive = false; s620T = -1;
+            c.prefs.put("mine_model", "blueprint"); c.prefs.put("torches_while_digging", "no");
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.TORCH, 32)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(ox + 0.5, gy + 30, oz + 0.5); c.setNoGravity(true); }
+        if (t[0] >= 2 && t[0] < 2 + 6) { int y = gy - 2 + t[0] - 2; for (int x = -3; x <= 15; x++) for (int z = -36; z <= 37; z++) level.setBlock(new BlockPos(ox + x, y, oz + z), Blocks.STONE.defaultBlockState(), 2 | 16); }
+        if (t[0] == 10) {
+            var b = new com.claudemod.entity.life.MineBlueprint(new BlockPos(ox, gy, oz), net.minecraft.core.Direction.EAST, 2, 3); b.segments.clear();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, new BlockPos(ox, gy, oz), net.minecraft.core.Direction.EAST, 12, null)); b.invalidate();
+            b.branchLength = 32; b.branchEvery = 4; for (int r : new int[] {0, 4, 8}) b.branchPair(r, 32);
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int y = 0; y < r.height(); y++) level.setBlockAndUpdate(f.above(y), Blocks.AIR.defaultBlockState());
+            for (int y = 0; y < 2; y++) level.setBlockAndUpdate(new BlockPos(ox, gy + y, oz + 2 + 32), Blocks.COBBLESTONE.defaultBlockState()); // row 0's south branch ends at his plug: not one to ride
+            c.blueprint = b; com.claudemod.director.ClaudeLife.bpSync(c);
+            c.setNoGravity(false); c.teleportTo(ox + 6.5, gy, oz + 0.5); c.fallDistance = 0; com.claudemod.entity.life.Watchdog.teleported(c); s620T = t[0]; }
+        if (s620T < 0 || c.blueprint == null) return true;
+        if (t[0] % 40 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, c.getBoundingBox().inflate(48))) m.discard();
+        var b = c.blueprint; com.claudemod.entity.life.MineBlueprint.Segment run = null; for (var s0 : b.segments) if (s0.kind == M) { run = s0; break; }
+        boolean dug8 = run != null && run.n >= 8; if (dug8) for (int k = 0; k < 8; k++) for (int j = 0; j < 2; j++) { BlockPos q = run.start.relative(run.dir, k).relative(run.dir.getClockWise(), j); if (com.claudemod.entity.life.MineBlueprint.solid(level, q) || com.claudemod.entity.life.MineBlueprint.solid(level, q.above())) dug8 = false; }
+        check(run == null || !run.start.equals(new BlockPos(ox + 1, gy, oz + 2)), "level fully branched: the second tunnel rides the branch that ends at his plug");
+        if (dug8) { String r = run.n + " rows " + run.dir.getName() + " from " + run.start.toShortString(); int took = (t[0] - s620T) / 20; c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            pass(stage, t, "level fully branched: a second tunnel along his branch (" + r + "), its first 8 rows dug in " + took + " s"); return true; }
+        if (c.tasks.isEmpty() && c.currentTask == null && t[0] % 20 == 0) {
+            String line = com.claudemod.director.ClaudeLife.bpAtLevel(c, level, b, gy, "iron");
+            if (line == null) { c.blueprint = null; c.prefs.put("mine_model", "legacy"); }
+            check(line != null, "level fully branched: nothing more at y " + gy + " (every second-tunnel mouth on a branch row) " + b);
+        }
+        if (t[0] - s620T >= 20 * 60) { c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); }
+        check(t[0] - s620T < 20 * 60, "level fully branched: the second tunnel's first 8 rows not dug in 60 s, run " + run + " now=" + c.currentTask + " tasks=" + c.tasks.size());
         return true;
     }
 

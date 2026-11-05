@@ -11581,6 +11581,14 @@ public final class ClaudeLife {
      * tunnels, stations and lava; pairs come off it like any level's. Null: no step for one (the next level down, as before).
      */
 
+    /** q is on his branch running dir whose far end is open rock (no plug, water or lava he knows of): a second tunnel may ride it out to fresh rock. (The mouths sit on his branch rows, 4 apart: every one stopped at row 0 on his own branch, y 16 live 11-04.) */
+    static boolean ridesBranch(ClaudeEntity g, ServerLevel level, MineBlueprint b, BlockPos q, Direction dir) {
+        int ro = b.rowOf(q); if (ro < 0) return false;
+        MineBlueprint.Segment s0 = b.segments.get(b.rows().get(ro).segment()); if (s0.kind != MineBlueprint.Kind.BRANCH || s0.dir != dir) return false;
+        BlockPos end = s0.start.relative(s0.dir, s0.n);
+        return !dryPlug(g, level, end) && !lavaNear(g, level, end) && !com.claudemod.entity.life.Perception.knowsWater(g, end);
+    }
+
     /** How far his branches off the level's first tunnel reach, plus two: a second tunnel's pairs start past that. */
     static int levelReach(MineBlueprint b, int levelY) {
         int reach = 0; List<MineBlueprint.Row> rs = b.rows();
@@ -11615,7 +11623,7 @@ public final class ClaudeLife {
             if (dug >= run.n) { // all dug: 8 rows more, short of his own tunnels and lava he knows of
                 for (int k = 0; k < 8 && run.n < max; k++) {
                     BlockPos f0 = run.start.relative(run.dir, run.n); boolean stop = false;
-                    for (int c0 = 0; c0 < b.width && !stop; c0++) for (int y = 0; y < 3 && !stop; y++) { BlockPos q = f0.relative(run.dir.getClockWise(), c0).above(y); stop = b.isWalk(q) || lavaNear(g, level, q) || com.claudemod.entity.life.Perception.knowsWater(g, q) || java.util.Arrays.stream(Direction.values()).anyMatch(d9 -> com.claudemod.entity.life.Perception.knowsWater(g, q.relative(d9))) /* (water beside the next cell too: he'd plugged the one in line and the tunnel went on into the pocket round it) */ || level.getBlockState(q).hasBlockEntity() || level.getBlockState(q).is(Blocks.CRAFTING_TABLE); } // (and never through his own furnace, chest or table: the tunnel opened on his mine furnace and he stood at it 2 min)
+                    for (int c0 = 0; c0 < b.width && !stop; c0++) for (int y = 0; y < 3 && !stop; y++) { BlockPos q = f0.relative(run.dir.getClockWise(), c0).above(y); stop = b.isWalk(q) && !ridesBranch(g, level, b, q, run.dir) || lavaNear(g, level, q) || com.claudemod.entity.life.Perception.knowsWater(g, q) || java.util.Arrays.stream(Direction.values()).anyMatch(d9 -> com.claudemod.entity.life.Perception.knowsWater(g, q.relative(d9))) /* (water beside the next cell too: he'd plugged the one in line and the tunnel went on into the pocket round it) */ || level.getBlockState(q).hasBlockEntity() || level.getBlockState(q).is(Blocks.CRAFTING_TABLE); } // (and never through his own furnace, chest or table: the tunnel opened on his mine furnace and he stood at it 2 min)
                     if (stop) break;
                     run.n++; b.invalidate();
                 }

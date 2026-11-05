@@ -10451,6 +10451,8 @@ public final class ClaudeBodyTest {
             case 700: return st700(stage, t, c, h, level, mock);
             case 701: return st701(stage, t, c, h, level, mock);
             case 702: return st702(stage, t, c, h, level, mock);
+            case 703: return st703(stage, t, c, h, level, mock);
+            case 704: return st704(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -12870,6 +12872,51 @@ public final class ClaudeBodyTest {
                 c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; pass(stage, t, "shelter in the air: decided on landing (" + line + ", " + t[0] + " ticks)"); return true; }
             check(t[0] < 120, "shelter in the air: no cover 5 s on, line " + line + ", now " + c.currentTask + " queue " + c.tasks);
         }
+        return true;
+    }
+
+    /** Live 00:09 11-05 (the flooded pocket): standing in water, his walk dug his nook's wall and his own plugs with water he knew of behind them and swam into it ("dug through his nook and swam into the water"): ActionPath's "a block holding water back stays" was off whenever he was in water. The user: the wall stays, he plugs or goes round. Only the water he's in may be dug out of. */
+    private static BlockPos s703W; private static boolean s703Dug;
+    private static boolean st703(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); s703Dug = false; }
+        if (t[0] == 10) {
+            for (int x = -1; x <= 13; x++) for (int z = 0; z <= 10; z++) for (int y = 1; y <= 6; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), (y == 1 || y >= 5 ? Blocks.STONE : Blocks.STONE).defaultBlockState(), 2); // (solid rock all round)
+            for (int x = 2; x <= 4; x++) for (int z = 4; z <= 6; z++) for (int y = 2; y <= 3; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.WATER.defaultBlockState(), 2); // (the pool he's standing in, head under)
+            for (int y = 2; y <= 3; y++) level.setBlock(h.absolutePos(new BlockPos(6, y, 5)), Blocks.WATER.defaultBlockState(), 2); // (the pocket behind his wall, water he's seen)
+            for (int x = 8; x <= 10; x++) for (int y = 2; y <= 3; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, 5)), Blocks.AIR.defaultBlockState(), 2); // (where his walk goes: past the pocket, no way round)
+            s703W = h.absolutePos(new BlockPos(5, 2, 5));
+            for (int y = 2; y <= 3; y++) com.claudemod.entity.life.Perception.sawCell(c, level, h.absolutePos(new BlockPos(6, y, 5)));
+            c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            BlockPos at = h.absolutePos(new BlockPos(4, 2, 5)); lnStand(c, mock, at, at.west(2)); c.tasks.clear(); c.skillQueue.clear();
+        }
+        if (t[0] == 20) { // his walk's own planner, from where he floats (the stuck-swim and air rules aside: what the walk would dig)
+            check(c.isInWater(), "703: not in the pool at " + c.blockPosition().toShortString());
+            for (var mode : new com.claudemod.entity.nav.ActionPath.Mode[] {com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, com.claudemod.entity.nav.ActionPath.Mode.MAY_BEND}) {
+                var plan = com.claudemod.entity.nav.ActionPath.plan(c, level, c.blockPosition(), h.absolutePos(new BlockPos(9, 2, 5)), 1.0, true, 6000, mode, new java.util.HashMap<>(), c.tickCount);
+                boolean digsWall = plan != null && plan.acts().stream().anyMatch(a -> a instanceof com.claudemod.entity.nav.ActionPath.Act.Dig d0 && (d0.pos().equals(s703W) || d0.pos().equals(s703W.above())));
+                check(!digsWall, "in the water, his " + mode + " walk digs the wall at " + s703W.toShortString() + " with the water he'd seen behind it: " + plan.acts());
+            }
+            c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "in the water, no walk of his digs a wall holding water he knows of");
+        }
+        return true;
+    }
+
+    /** Live 00:44 11-05 (TRIP): a patch in his mine's wall waited for a cobble drop 2 blocks off it ("mine drop still in the pocket: pickup first", within 2.6), and the pickup it held for skipped that same drop ("outside the pocket this patch would close", within 1.6): 3 tries a second. The drop the patch waits for is the one the pickup takes. */
+    private static BlockPos s704P;
+    private static boolean st704(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            var row = b.rows().stream().filter(r0 -> r0.segment() == 1 && r0.index() == 3).findFirst().get();
+            BlockPos r = row.first(), along = r.relative(row.dir());
+            net.minecraft.core.Direction side = null; for (var d : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && !com.claudemod.director.ClaudeLife.isMineCell(c, r.relative(d)) && level.getBlockState(r.relative(d)).is(Blocks.STONE)) side = d;
+            s704P = r.relative(side).above().immutable(); level.setBlock(s704P, Blocks.AIR.defaultBlockState(), 2); // (a hole in his wall at head height, a cell deep: the patch's pocket)
+            var drop = new net.minecraft.world.entity.item.ItemEntity(level, along.getX() + 0.5, along.getY(), along.getZ() + 0.5, new ItemStack(Items.COBBLESTONE)); drop.setDeltaMovement(0, 0, 0); level.addFreshEntity(drop); // (his drop on the floor a cell along: ~2 from the hole, outside its pocket)
+            c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16));
+            BlockPos me = r.relative(row.dir().getOpposite()); lnStand(c, mock, me, b.entrance); c.tasks.clear(); c.skillQueue.clear();
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.tasks.add(new Task.Place(s704P, Items.COBBLESTONE)); }
+        if (t[0] > 20 && level.getBlockState(s704P).is(Blocks.COBBLESTONE)) { c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); pass(stage, t, "the patch's drop picked up, the hole patched (" + t[0] + " ticks)"); return true; }
+        if (t[0] > 20) check(t[0] < 200, "the patch at " + s704P.toShortString() + " not in after 9 s (a drop 2 off it waited for and never picked up?), now " + c.currentTask + " queue " + c.tasks.stream().limit(6).toList());
         return true;
     }
 

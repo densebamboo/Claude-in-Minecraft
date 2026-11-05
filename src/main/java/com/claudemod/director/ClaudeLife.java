@@ -2949,9 +2949,11 @@ public final class ClaudeLife {
             case "obtain": { // anything, from nothing: the whole chain worked out and queued, tools first
                 Item item0 = item(target);
                 if (item0 == null) return "failed: no such item '" + target + "'";
-                if (Kit.diamondStage(g) && !g.commandActive && Kit.diamondsCover(g, item0) && (item0 == Items.IRON_HELMET || item0 == Items.IRON_CHESTPLATE || item0 == Items.IRON_LEGGINGS || item0 == Items.IRON_BOOTS || item0 == Items.IRON_SWORD)) { // past the iron stage (the user: no iron level trip for armor): the diamond piece instead
+                if (!g.commandActive && !diamondsReserved(g) && Kit.diamondsCover(g, item0) && (item0 == Items.IRON_HELMET || item0 == Items.IRON_CHESTPLATE || item0 == Items.IRON_LEGGINGS || item0 == Items.IRON_BOOTS || item0 == Items.IRON_SWORD)) { // his diamonds cover it: the diamond piece, no iron trip (the user 11-04: "he can gear up with diamond armor"); a diamond pick first (diamondsCover kept its 3)
                     String dt = target.replace("iron_", "diamond_"); g.skillQueue.addFirst(new Skills.Step("obtain", dt, count, st.where()));
-                    return "past iron now: going for a " + dt + " instead of the " + target;
+                    boolean pick = g.inventory.count(s0 -> s0.is(Items.DIAMOND_PICKAXE) || s0.is(Items.NETHERITE_PICKAXE)) == 0; if (pick) g.skillQueue.addFirst(new Skills.Step("obtain", "diamond_pickaxe", 1, st.where()));
+                    ClaudeMod.LOGGER.info("[Claude skill] obtain {}: his diamonds cover a {}: that instead, no iron trip{} (ClaudeLife obtain)", target, dt, pick ? "; a diamond pickaxe first" : "");
+                    return "my diamonds cover it: " + (pick ? "a diamond pickaxe, then " : "") + "a " + dt + " instead of the " + target;
                 }
                 final Item item = item0;
                 if (item == Items.BUCKET && count <= 1 && g.inventory.count(s -> s.is(Items.WATER_BUCKET) || s.is(Items.LAVA_BUCKET)) > 0) return "done: my bucket's full, that's my bucket (the obsidian at the lava wants it full of water; empty is one pour away)"; // (a water bucket read as no bucket: an iron, beef and coal trip to craft a second one)
@@ -8998,7 +9000,7 @@ public final class ClaudeLife {
             if (coalOn > 0 && torchOn <= 6) { int made = Crafting.craft(level, g.inventory, Items.TORCH, Math.min(64 - torchOn, coalOn * 4), false).made(); if (made > 0) ClaudeMod.LOGGER.info("[Claude life] coal on him and {} torches: made {} torches", torchOn, made); }
         } // a sword as soon as there's the stuff for one, not when something's already on him (66 cobble and "unarmed" for an hour)
         if (com.claudemod.entity.ClaudeSpawner.testing || g.commandActive || g.getHealth() < 10) return;
-        if (g.skillQueue.stream().anyMatch(s -> s.skill().equals("craft") && s.target().startsWith("iron_"))) return; // the pieces are queued already
+        if (g.skillQueue.stream().anyMatch(s -> s.skill().equals("craft") && (s.target().startsWith("iron_") || s.target().startsWith("diamond_")))) return; // the pieces are queued already
         if (g.lastStep != null && Set.of("craft", "gear_up", "smelt").contains(g.lastStep.skill()) && g.currentTask != null) return; // mid-craft right now: after it
         // (a smelt step waiting at the end of "mine 27 ore, then smelt 27" used to switch this off for the whole trip: 21 raw iron on him, no armor, dead)
         java.util.function.Predicate<ItemStack> iron = s -> s.is(Items.IRON_INGOT) || s.is(Items.RAW_IRON); // raw iron is a furnace away from an ingot: a player counts it (he had 14 raw on him and "no iron for armor")
@@ -9011,18 +9013,24 @@ public final class ClaudeLife {
             if (!(level.getBlockEntity(p) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box)) continue;
             for (int i = 0; i < box.getContainerSize(); i++) if (iron.test(box.getItem(i))) ingots += box.getItem(i).getCount();
         }
+        List<Skills.Step> crafts = new ArrayList<>(); int total = ingots;
+        // diamonds first, unless they're theirs (the user 11-04: "he can gear up with diamond armor"): the diamond pick (the Nether wants one), then the best pieces the rest covers, his chests counted
+        int dia = diamondsReserved(g) ? 0 : g.inventory.count(s -> s.is(Items.DIAMOND)) + stored(g, level).getOrDefault(Items.DIAMOND, 0), diaTotal = dia;
+        boolean diaPick = g.inventory.count(s -> s.is(Items.DIAMOND_PICKAXE) || s.is(Items.NETHERITE_PICKAXE)) > 0; java.util.Set<Item> byDia = new java.util.HashSet<>();
+        if (!diaPick && dia >= 3) { crafts.add(new Skills.Step("craft", "diamond_pickaxe", 1)); dia -= 3; diaPick = true; }
+        Item[] dPieces = {Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_HELMET, Items.DIAMOND_BOOTS}, dIron = {Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_HELMET, Items.IRON_BOOTS}; int[] dCost = {8, 7, 5, 4};
+        for (int i = 0; i < 4 && diaPick; i++) if (!Kit.has(g, dPieces[i]) && dia >= dCost[i]) { crafts.add(new Skills.Step("craft", Crafting.name(dPieces[i]), 1)); dia -= dCost[i]; byDia.add(dIron[i]); }
         Item[] pieces = {Items.IRON_PICKAXE, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_HELMET, Items.IRON_BOOTS, Items.IRON_SWORD}; // the pick first (diamonds in front of him and his 3 iron went to a sword), then most protection per trip
         int[] cost = {3, 8, 7, 5, 4, 2};
-        List<Skills.Step> crafts = new ArrayList<>(); int total = ingots;
         for (int i = 0; i < pieces.length; i++) { // everything the iron covers goes in one go (a full set at 24, not a piece every five seconds)
-            boolean have = pieces[i] == Items.IRON_SWORD ? Kit.sword(g, true) : pieces[i] == Items.IRON_PICKAXE ? g.inventory.count(s0 -> s0.is(Items.IRON_PICKAXE) || s0.is(Items.DIAMOND_PICKAXE) || s0.is(Items.NETHERITE_PICKAXE)) > 0 : Kit.has(g, pieces[i]);
+            boolean have = byDia.contains(pieces[i]) || (pieces[i] == Items.IRON_SWORD ? Kit.sword(g, true) : pieces[i] == Items.IRON_PICKAXE ? diaPick || g.inventory.count(s0 -> s0.is(Items.IRON_PICKAXE)) > 0 : Kit.has(g, pieces[i]));
             if (have || ingots < cost[i]) continue;
             crafts.add(new Skills.Step("craft", Crafting.name(pieces[i]), 1)); // (the craft skill smelts the raw, fetches from his chest and finds the table)
             ingots -= cost[i];
         }
         if (crafts.isEmpty()) return;
         for (int i = crafts.size() - 1; i >= 0; i--) g.skillQueue.addFirst(crafts.get(i));
-        ClaudeMod.LOGGER.info("[Claude life] {} iron on hand (ingots and raw, pocket and chests): making {} now", total, Procure.describe(crafts));
+        ClaudeMod.LOGGER.info("[Claude life] {} iron and {} diamonds on hand (pocket and chests): making {} now", total, diaTotal, Procure.describe(crafts));
     }
 
     private static java.util.Map<java.util.UUID, double[]> preyOut; // animals a chase didn't close on, and why: where it was, how near he got, the blocks he had to climb with (static: fields added live start null)

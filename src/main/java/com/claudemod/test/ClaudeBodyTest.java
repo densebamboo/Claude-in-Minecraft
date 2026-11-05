@@ -10402,6 +10402,7 @@ public final class ClaudeBodyTest {
             case 614: return st614(stage, t, c, h, level, mock);
             case 616: return st616(stage, t, c, h, level, mock);
             case 618: return st618(stage, t, c, h, level, mock);
+            case 619: return st619(stage, t, c, h, level, mock);
             case 598: return st598(stage, t, c, h, level, mock);
             case 599: return st599(stage, t, c, h, level, mock);
             case 602: return st602(stage, t, c, h, level, mock);
@@ -12270,6 +12271,38 @@ public final class ClaudeBodyTest {
                 int took2 = (t[0] - s618Iron) / 20; c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); s618Iron = -1;
                 check(oreOut && walled, "with an iron pick: the ore out " + oreOut + ", the bend walled up " + walled + " (" + took2 + " s)");
                 pass(stage, t, "redstone past his stone pick left in the wall, the branch round it and on past in " + s618Took + " s; with an iron pick, mined and the bend walled up in " + took2 + " s");
+            }
+        }
+        return true;
+    }
+
+    /** Diamonds as armor (the user 11-04): 11 diamonds, 0 iron, an iron pick. His own "obtain iron_chestplate" makes a diamond pickaxe and a diamond chestplate, no iron trip; the piecemeal plans the same. */
+    private static boolean s619Iron;
+    private static boolean st619(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.tasks.clear(); c.skillQueue.clear(); c.commandActive = false; c.playerGoal = null; s619Iron = false; }
+        if (t[0] == 10) {
+            flatBox(h); h.setBlock(new BlockPos(8, 2, 6), Blocks.CRAFTING_TABLE);
+            c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.DIAMOND, 11)); c.getInventory().add(new ItemStack(Items.STICK, 4)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            BlockPos me = h.absolutePos(new BlockPos(8, 2, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("obtain", "iron_chestplate", 1));
+        }
+        if (t[0] > 10) {
+            if (c.skillQueue.stream().anyMatch(s0 -> s0.skill().equals("strip_mine") || s0.target().contains("iron_ore") || s0.target().contains("raw_iron")) || c.lastSkillLine.contains("iron_ore")) s619Iron = true;
+            boolean chest = c.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).is(Items.DIAMOND_CHESTPLATE) || c.inventory.count(s0 -> s0.is(Items.DIAMOND_CHESTPLATE)) > 0, pick = c.inventory.count(s0 -> s0.is(Items.DIAMOND_PICKAXE)) > 0;
+            if (chest && pick || s619Iron || t[0] - 10 >= 20 * 40) {
+                String last = c.lastSkillLine; int took = (t[0] - 10) / 20;
+                check(chest && pick && !s619Iron, "diamonds as armor: diamond chestplate " + chest + ", diamond pick " + pick + ", an iron trip " + s619Iron + " (" + took + " s, last " + last + ")");
+                // the piecemeal: the same 11 diamonds plan the pick, then the chestplate, no iron piece
+                c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY);
+                c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.DIAMOND, 11)); c.getInventory().add(new ItemStack(Items.STICK, 4)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+                c.lastStep = null; c.dropCurrent = true; c.currentTask = null; // (part A's craft step done: not "mid-craft")
+                com.claudemod.director.ClaudeLife.ironPiecemealNow(c, level);
+                String planned = c.skillQueue.stream().map(s0 -> s0.skill() + " " + s0.target()).toList().toString();
+                boolean ok2 = planned.contains("craft diamond_pickaxe") && planned.contains("craft diamond_chestplate") && !planned.contains("iron_");
+                c.skillQueue.clear(); c.getInventory().clearContent();
+                check(ok2, "the piecemeal with 11 diamonds planned " + planned + " (want the diamond pick, then the diamond chestplate, no iron)");
+                pass(stage, t, "11 diamonds, no iron: a diamond pick and chestplate in " + took + " s, no iron trip; the piecemeal plans " + planned);
             }
         }
         return true;

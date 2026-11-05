@@ -94,6 +94,20 @@ Branch `bp/blockage-tier0`. Day to Day's queue, items 1 and 2.
 - **Stage 618 (the live layout):** both branch cells redstone, stone pick, 0 iron. The ore stays, and he's past it in 17 s. Then given an iron pick: the ore mined and the bend walled up in 14 s. Without the change he's still stuck at 90 s.
 - **Sweep:** 77-81, 90-91 and 116 pass (116 alone; it failed in a range). 97 is the known flake. 114 fails on main too (backlog).
 
+## Diamond armor as a gear-up route (the user, 11-04)
+- **Live:** 7 diamonds on him while he chased 30 raw iron at -58 for an iron chestplate and helmet.
+  - The obtain swap (iron_X to diamond_X) only fired in the "diamond stage" (diamond gear already, or the full iron kit).
+  - ironPiecemeal only made iron.
+- **Now:**
+  - obtain: an iron armor piece or sword from his own plan is met by the diamond piece whenever his diamonds cover it (on him and in his chests, 3 kept for a diamond pick: Kit.diamondsCover) and they aren't theirs (diamondsReserved). A diamond pick comes first if he has none. Their own direct ask for iron stays iron.
+  - ironPiecemeal: diamonds first. The diamond pick (3), then the best diamond pieces the rest covers. Iron only for the slots the diamonds didn't cover, and no iron pick once a diamond one is coming.
+- **Stage 619:** 11 diamonds, 0 iron, an iron pick and sword.
+  - His own `obtain iron_chestplate` makes a diamond pick and a diamond chestplate, with no iron trip.
+  - The piecemeal plans [diamond_pickaxe, diamond_chestplate].
+  - Without the change: "strip_mine iron_ore 8, ... craft iron_chestplate".
+  - With 8 diamonds and no diamond pick, the pick comes first and 5 are left: a helmet, not the chestplate. That follows from "pick first", so the stage uses 11.
+- **Sweep:** 37, 111, 130, 168, 175-178, 205, 206, 243, 597-599 pass. 167, 204 and 241 fail on main too (backlog). 252 is flaky.
+
 ## Gate
 - **Green:** 586-592, 594-595, 597, 600, 601, 94-96, 61.
 - **Flaky on main, not from this branch (in the backlog):** 97, 593, and 596 in a range after 595.

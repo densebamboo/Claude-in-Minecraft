@@ -88,6 +88,18 @@ public final class HuntPatrol {
                 if (!fresh) break; // (the first standable spot along this way; ponytail: a just-walked one looks further out instead, live 20:5x a N-S corridor, both nearest ends walked, he flipped between them)
             }
         }
+        if (inForest && !bwhy.contains("endermen there") && (best == null || !level.getBiome(best).is(net.minecraft.world.level.biome.Biomes.WARPED_FOREST))) { // all of the forest walked in the last 2 min: back through it, the oldest ground first; they keep spawning here, the wastes round it have none (live 09:12-09:18, out to the wastes and sent back, round and round)
+            BlockPos f = null; double fs = -1e9, fa = 0;
+            for (int i = 0; i < 12; i++) { double a = i * Math.PI / 6;
+                for (int d : new int[] {8, 12, 16}) {
+                    BlockPos p = FortressScout.standAt(level, g.getBlockX() + (int) Math.round(Math.cos(a) * d), g.getBlockZ() + (int) Math.round(Math.sin(a) * d), g.getBlockY());
+                    if (p == null || !level.getBiome(p).is(net.minecraft.world.level.biome.Biomes.WARPED_FOREST) || !FortressScout.seen(g, level, p)) continue;
+                    Long last = b.walked.get(cell(p.getX(), p.getZ())); double sc = (last == null ? 20 * 120 : Math.min(20 * 120, now - last)) / 20.0 + (b.heading == null ? 0 : 10 * Math.cos(a - b.heading));
+                    if (sc > fs) { fs = sc; f = p; fa = a; }
+                }
+            }
+            if (f != null) { best = f; bestA = fa; bwhy = "warped_forest, all of it walked in the last 2 min: back through it, its oldest ground first (the wastes round it have no endermen)"; }
+        }
         if (best == null) { why[0] = "no ground in sight to walk to"; return null; }
         b.heading = bestA;
         why[0] = "heading " + Perception.compassOf(new net.minecraft.world.phys.Vec3(Math.cos(bestA), 0, Math.sin(bestA))) + " to " + best.toShortString() + ": " + bwhy;

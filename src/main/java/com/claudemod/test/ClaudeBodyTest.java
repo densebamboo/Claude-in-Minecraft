@@ -10499,6 +10499,7 @@ public final class ClaudeBodyTest {
             case 668: return st668(stage, t, c, h, level, mock);
             case 669: return st669(stage, t, c, h, level, mock);
             case 670: return st670(stage, t, c, h, level, mock);
+            case 671: return st671(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -14678,6 +14679,30 @@ public final class ClaudeBodyTest {
             for (int x = 0; x <= 30; x++) for (int z = -1; z <= 17; z++) for (int y = 1; y <= 8; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
             check(!still, "no way over the lava moat, yet 3 s on the walk to " + goal.toShortString() + " still runs (he's at " + at.toShortString() + "): the plain path's headway undid the give-up");
             pass(stage, t, "no way with every planner: the walk given up at once (he's at " + at.toShortString() + ")");
+        }
+        return true;
+    }
+
+    /** Walled in, a skeleton on him from the open cell over his head: no "waiting in cover" from a mob his walls don't keep off (live 09:53-10:31 11-05, World 17 Nether 76, 85, 104: "walled in ... with the Skeleton 0 off on him: waiting in cover" every 10 s for 40 min). */
+    private static boolean st671(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(5360, 70, 5360);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            nsArena(nl, o, 12, 12, 12, 8); nsKit(c); c.nextPlanTick = c.tickCount + 20 * 600;
+            for (BlockPos q : BlockPos.betweenClosed(o.offset(-3, -1, -3), o.offset(3, 5, 3))) nl.setBlock(q, Blocks.NETHERRACK.defaultBlockState(), 2);
+            for (int y = 0; y <= 4; y++) nl.setBlock(o.above(y), Blocks.AIR.defaultBlockState(), 2); // his 1x2 cell and the shaft over it
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 20) {
+            check(c.level() == nl, "walled in: not in the Nether (" + c.level().dimension().location() + ")");
+            var sk = EntityType.SKELETON.create(nl); sk.moveTo(o.getX() + 0.5, o.getY() + 2, o.getZ() + 0.5, 0, 90); sk.setNoAi(true); nl.addFreshEntity(sk); sk.setTarget(c);
+            c.tasks.clear(); c.skillQueue.clear();
+            var legs = com.claudemod.entity.nav.Route.expand(c, nl, o.offset(14, 12, 0), 2.0);
+            double d = sk.distanceTo(c); sk.discard();
+            check(legs == null || legs.isEmpty() || !(legs.get(0) instanceof Task.Wait), "walled in with a skeleton " + String.format("%.1f", d) + " off over his head: he waits in cover from it: " + legs);
+            pass(stage, t, "a mob at his cell is no reason to wait in cover (" + legs + ")");
         }
         return true;
     }

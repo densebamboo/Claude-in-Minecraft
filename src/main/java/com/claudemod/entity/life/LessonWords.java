@@ -321,7 +321,7 @@ public final class LessonWords {
             if (driftLogged == null) driftLogged = new HashMap<>();
             Integer l0 = driftLogged.get(g.getUUID()); if (l0 == null || g.tickCount - l0 > 100) { driftLogged.put(g.getUUID(), g.tickCount); ClaudeMod.LOGGER.info("[Claude lesson] breaking from {}: no walk for it (in reach from the cell), his navigation stopped (LessonWords.tickHold)", xyz(c)); }
         }
-        if (g.currentTask instanceof Task.Break) return; // ponytail: mining from the water he stands still, facing the block; the move control's step back to the cell's middle turned his body every tick against the break's look (the user 13:03 "spazzing out ... he should be facing the obsidian")
+        // mining from the water he holds the cell against the current too, as a player holds a key while he mines: the walk input is relative to his look (Controls.apply), so he keeps facing the block (the user 13:03 "spazzing" was a body turn). Let go during the 9 s break, the current carried him into the hole each block (stage 500: 18 trips back to his dry spot)
         double dx = c.getX() + 0.5 - g.getX(), dz = c.getZ() + 0.5 - g.getZ(), d2 = dx * dx + dz * dz;
         if (Math.abs(g.getY() - c.getY()) > 1.2 || d2 > 1.6 * 1.6 || d2 < 0.12 * 0.12) return;
         g.getMoveControl().setWantedPosition(c.getX() + 0.5, g.getY(), c.getZ() + 0.5, 1.0); // (full input: in water a half step's 0.01 a tick loses to the current's 0.014)
@@ -330,12 +330,15 @@ public final class LessonWords {
         if (l == null || g.tickCount - l > 100) { driftLogged.put(g.getUUID(), g.tickCount); ClaudeMod.LOGGER.info("[Claude lesson] the water pushing him {} off the middle of {}: a step back against it (LessonWords.tickHold)", String.format("%.2f", Math.sqrt(d2)), xyz(c)); }
     }
     private static Map<UUID, Integer> stepIns;
+    private static Map<UUID, BlockPos> stepInAt;
     /** A cell beside him (or his own, off its middle): a step to its middle with the move control, full input against the current, a few ticks (a walk to a cell beside him "arrives" at once and never gets there). False: further off (a walk), or 40 steps already for it. */
     static boolean stepIn(ClaudeEntity g, BlockPos c) {
         double dx = c.getX() + 0.5 - g.getX(), dz = c.getZ() + 0.5 - g.getZ();
         BlockPos f = g.blockPosition(); boolean beside = Math.abs(f.getX() - c.getX()) <= 1 && Math.abs(f.getZ() - c.getZ()) <= 1; // (any cell touching his, the diagonals too: the water put him on the grass 1 across and 1 over, 1.8 off, and the walk down into it failed 3 of 3)
-        if (!beside && dx * dx + dz * dz > 1.7 * 1.7 || Math.abs(g.getY() - c.getY()) > 1.1) return false;
+        if (!beside && dx * dx + dz * dz > 1.7 * 1.7 || g.getY() - c.getY() > 2.0 || c.getY() - g.getY() > 1.1) return false; // (a pocket under him: floating 1.15 over the next layer's source it was refused, and the walk round to it failed, stage 415; the move control dives to its height)
         if (stepIns == null) stepIns = new HashMap<>();
+        if (stepInAt == null) stepInAt = new HashMap<>();
+        if (!c.equals(stepInAt.put(g.getUUID(), c.immutable()))) stepIns.remove(g.getUUID()); // (the 40 count per cell: a whole job's steps added up refused the step down into the next layer's pocket, stage 415)
         int n = stepIns.merge(g.getUUID(), 1, Integer::sum);
         if (n > 40) { stepIns.remove(g.getUUID()); return false; }
         g.getNavigation().stop(); g.getMoveControl().setWantedPosition(c.getX() + 0.5, c.getY(), c.getZ() + 0.5, 1.0); g.tasks.add(new Task.Wait(10, false));
@@ -565,7 +568,7 @@ public final class LessonWords {
                 if (g.inventory.count(x -> x.is(Items.WATER_BUCKET)) == 0) g.skillQueue.addFirst(new Skills.Step("scoop_at", xyz(cell), 1, "near_you"));
                 Pin was = pin(g); if (was != null) pins().put(u, new Pin(n, was.words(), g.level().getGameTime())); // (a pin moves with the source; his own pocket has none)
                 if (p != null && ExactSpot.lesson(g, p)) notePlace(g, "pocket", n, "his source, moved beside " + xyz(o) + " so the water runs into it", true);
-                if (ownPocket(g, cell)) { ownPockets.get(u).remove(cell); markOwn(g, n); } // (his own pocket moved: still his, scooped back at the end)
+                if (ownPocket(g, cell)) { ownPockets.get(u).remove(cell); markOwn(g, n); Tech k = techs().get(u); if (k != null && k.pocket().equals(cell)) techs().put(u, new Tech(n, k.from(), k.layer(), k.started())); } // (his own pocket moved: still his, scooped back at the end; the technique's pocket with it)
                 ClaudeMod.LOGGER.info("[Claude lesson] the water wouldn't run into {} from {}: his source re-placed at {} first (scoop_at, place_at water, in there), the job held there now (LessonWords.fromPlace)", xyz(o), xyz(cell), xyz(n));
                 return "moving my source to " + xyz(n) + " so the water runs into " + xyz(o) + " (" + count + ")";
             }
@@ -687,11 +690,11 @@ public final class LessonWords {
         if (best == null) return null;
         if (g.inventory.count(x -> x.is(Items.BUCKET) || x.is(Items.WATER_BUCKET)) == 0) return null;
         again.run();
-        g.skillQueue.addFirst(new Skills.Step("go_to", xyz(best), 1, "exact"));
-        g.skillQueue.addFirst(new Skills.Step("place_at", xyz(best) + " water #own", 1, "near_you"));
+        g.skillQueue.addFirst(new Skills.Step("place_at", xyz(best) + " water #own", 1, "near_you")); // (then in by the pocket's own step-in, fromPlace: a go_to exact planned him sideways out of the column over it, stage 415)
         if (level.getFluidState(cell).isSource()) g.skillQueue.addFirst(new Skills.Step("scoop_at", xyz(cell), 1, "near_you"));
         g.tasks.add(new Task.Break(best));
         boolean own = ownPocket(g, cell); if (own) { ownPockets.get(g.getUUID()).remove(cell); markOwn(g, best); }
+        { Tech k = techs().get(g.getUUID()); if (k != null && k.pocket().equals(cell)) techs().put(g.getUUID(), new Tech(best, cell, best.getY(), k.started())); } // (the technique's pocket moves with it: left on the old cell it read as never made after 2 min and fell to the old way, stage 415)
         Pin was = pin(g); if (was != null) pins().put(g.getUUID(), new Pin(best, was.words(), g.level().getGameTime()));
         ClaudeMod.LOGGER.info("[Claude obsidian] the layer at y {} done from {} ({}): one down, the obsidian at {} under the water out and my source moved down into it (LessonWords.nextLayer)", cell.getY(), xyz(cell), count, xyz(best));
         return "the top layer's done (" + count + "): one down, my source into " + xyz(best);

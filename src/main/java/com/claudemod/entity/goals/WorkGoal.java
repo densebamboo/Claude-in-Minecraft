@@ -2103,7 +2103,8 @@ public class WorkGoal extends Goal {
             g.tasks.addFirst(new Task.Break(pos)); // gravel (sand) above it drops into the hole: this cell again once it has, until the column is down
         }
         // Broke into water (an aquifer, a lake bed): plug it like a player, before it floods the tunnel.
-        if (!needsAir && !waterTunnel && !level.canSeeSky(pos) && !com.claudemod.director.ClaudeLife.isCastBlock(pos)) { // (the casting water running round his pillar's foot is not an aquifer: it "plugged" the pit and wrote the pillar's foot off as open water)
+        boolean ownObsidian = com.claudemod.entity.life.LessonWords.atOwnPocket(g); // (at his own obsidian pocket: the water's his on purpose, no plug, no "open water" refusal: stage 415's layer below was refused and dropped)
+        if (!needsAir && !waterTunnel && !level.canSeeSky(pos) && !com.claudemod.director.ClaudeLife.isCastBlock(pos) && !ownObsidian) { // (the casting water running round his pillar's foot is not an aquifer: it "plugged" the pit and wrote the pillar's foot off as open water)
             ItemStack plug = solidScaffold(); // (never gravel or sand: a plug over his head would fall on him)
             if (plug.isEmpty() && pendingStepUp != null && pos.getY() > g.getBlockY()) { // cutting up into water with nothing to plug it: that way is off (he'd drown in his own cut)
                 int sources = 0;
@@ -2163,6 +2164,7 @@ public class WorkGoal extends Goal {
                 || com.claudemod.director.ClaudeLife.isCastBlock(pos) // (a cast's mould block or the cell dug clear for the lava: its cobble lies in the mould, picked up once the frame stands; a chase took him off the pillar into the cell)
                 || com.claudemod.director.ClaudeLife.bridgeBlocks().contains(pos) // (a planned way's own climbing block, taken back from the ledge: its drop lies at the foot he climbed from; the sweep walked him back down to it and the way began again, 40+ times live 04:42; the daylight chore drops its blocks off this list before it breaks them, so it still sweeps)
                 || pendingStepUp != null // (a step he's cutting: the drops are at his feet anyway)
+                || com.claudemod.entity.life.LessonWords.atOwnPocket(g) // (mining from his obsidian pocket: the drops wait for the sweep at the end; the walk to each one took him off the pocket, a trip back every block, stage 500)
                 || com.claudemod.director.ClaudeLife.obsOpening(g, pos) // (a cell opened onto lava, the water about to go in: the drop's picked up after; the walk to it went into the lava running in)
                 || (nextAt != null && nextAt.distSqr(pos) <= 4 * 4 && !(next instanceof Task.Smelt));
         if (!stillHere) g.tasks.addFirst(new Task.Pickup(100));

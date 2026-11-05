@@ -13262,6 +13262,7 @@ public final class ClaudeBodyTest {
             nsKit(c); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64)); /* (a floor, two rails and a wall a block: a player under fire carries enough) */ c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
             c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
         }
+        if (t[0] == 25) { c.setYRot(-90f); c.setYHeadRot(-90f); } // (facing the lake: the stage is about pricing a shooter he has seen; looking across before a crossing on his own is on the backlog, his facing here was whatever the stage before left)
         if (t[0] >= 30 && s820T0 == 0 && (com.claudemod.entity.life.FortressScout.shooterInSight(c) != null || t[0] >= 200)) { // priced once he has seen the blaze, as a player sizes up the crossing first (on his senses: unseen, it can't be priced)
             c.tasks.clear(); c.skillQueue.clear();
             var tr = com.claudemod.entity.life.FortressScout.travel(c, nl, to);

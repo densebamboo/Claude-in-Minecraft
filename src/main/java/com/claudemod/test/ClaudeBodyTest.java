@@ -10415,6 +10415,7 @@ public final class ClaudeBodyTest {
             case 627: return st627(stage, t, c, h, level, mock);
             case 556: return st556(stage, t, c, h, level, mock);
             case 800: return st800(stage, t, c, h, level, mock);
+            case 801: return st801(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
             case 615: return st615(stage, t, c, h, level, mock);
             case 617: return st617(stage, t, c, h, level, mock);
@@ -12764,26 +12765,68 @@ public final class ClaudeBodyTest {
         return true;
     }
 
-    /** The user 11-05: a walk that takes over twice a player's time (a wall to go round) is SLOW; a 20-block walk then 10 s of nothing is a WASTED_TRIP. */
-    private static BlockPos s800A;
+    /** The user 11-05 ("everything in the same vein constitutes as slow"): one furnace cooking while two beside it stand empty, a far furnace used with an empty one at hand, a load of 1 with 9 more on him, a walk out and straight back, the same chest emptied twice, 20 s waiting at a furnace, and the step that held all that: SLOW against a player's pace, and the same job again (SPLIT_JOB). */
+    private static BlockPos s801A, s801C; private static Object s801Step;
+    private static boolean st801(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var W = com.claudemod.entity.life.Watchdog.recentKinds;
+        try {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 24000; c.tasks.clear(); c.skillQueue.clear(); c.prefs.put("stay_close", "no"); W.clear(); com.claudemod.entity.life.Watchdog.linesInTests = true;
+            s801A = h.absolutePos(new BlockPos(3, 40, 8)); level.getChunk(s801A.east(16));
+            for (int x = -4; x <= 18; x++) for (int z = -5; z <= 5; z++) for (int y = -1; y <= 3; y++) level.setBlockAndUpdate(s801A.offset(x, y, z), y == -1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState());
+            BlockPos[] fs = {s801A.offset(0, 0, 3), s801A.offset(1, 0, 3), s801A.offset(2, 0, 3), s801A.offset(15, 0, 3)};
+            for (BlockPos f : fs) { level.setBlockAndUpdate(f, Blocks.FURNACE.defaultBlockState()); c.myStations.add(f.immutable()); }
+            var f1 = (net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity) level.getBlockEntity(fs[0]); f1.setItem(0, new ItemStack(Items.RAW_IRON, 16)); f1.setItem(1, new ItemStack(Items.COAL, 2));
+            s801C = s801A.offset(-2, 0, 3); level.setBlockAndUpdate(s801C, Blocks.CHEST.defaultBlockState());
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.RAW_IRON, 10)); c.getInventory().add(new ItemStack(Items.COAL, 4));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(s801A.getX() + 0.5, s801A.getY(), s801A.getZ() + 0.5); c.fallDistance = 0;
+            c.lastStep = new com.claudemod.entity.life.Skills.Step("smelt", "iron_ingot", 3); s801Step = c.lastStep;
+        }
+        if (s801C != null && level.getBlockEntity(s801C) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity ch && ch.isEmpty()) ch.setItem(0, new ItemStack(Items.COBBLESTONE, 16)); // (always some to take)
+        if (t[0] == 40) {
+            c.tasks.clear(); c.dropCurrent = true;
+            c.tasks.add(new com.claudemod.entity.life.Task.FurnaceLoad(s801A.offset(15, 0, 3).immutable(), Items.RAW_IRON, 1)); // (14 off, an empty one at hand: far; 1 of 10: small)
+            c.tasks.add(new com.claudemod.entity.life.Task.GoTo(s801A.immutable(), 1.0)); c.tasks.add(new com.claudemod.entity.life.Task.GoTo(s801A.offset(14, 0, 0).immutable(), 1.0)); // (out and back)
+            c.tasks.add(new com.claudemod.entity.life.Task.Chest(s801C.immutable(), true, null)); c.tasks.add(new com.claudemod.entity.life.Task.Chest(s801C.immutable(), true, null, 64)); // (a second record, or the queue takes them as one)
+            c.tasks.add(new com.claudemod.entity.life.Task.FurnaceTake(s801A.offset(0, 0, 3).immutable()));
+        }
+        if (t[0] > 40 && W.contains("FURNACE_WAIT") && c.lastStep == s801Step) { c.tasks.clear(); c.dropCurrent = true; c.lastStep = new com.claudemod.entity.life.Skills.Step("smelt", "iron_ingot", 5); } // (the step over, the same job again)
+        java.util.List<String> want = java.util.List.of("IDLE_FURNACES", "FAR_STATION", "SMALL_BATCH", "WASTED_WALK", "REPEAT_FETCH", "FURNACE_WAIT", "SLOW", "SPLIT_JOB");
+        if (W.containsAll(want)) { com.claudemod.entity.life.Watchdog.linesInTests = false; for (int i = 0; i < 4; i++) c.myStations.remove(s801A.offset(i == 3 ? 15 : i, 0, 3)); c.tasks.clear(); pass(stage, t, "furnace and walk waste all filed: " + W); return true; }
+        check(t[0] < 2400, "filed " + W + ", missing " + want.stream().filter(k -> !W.contains(k)).toList() + " (now " + c.currentTask + ", queue " + c.tasks.size() + ", last " + com.claudemod.entity.life.Watchdog.lastIncident + ")");
+        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; for (int i = 0; i < 4; i++) c.myStations.remove(s801A.offset(i == 3 ? 15 : i, 0, 3)); throw e; }
+        return true;
+    }
+
+    /** The user 11-05: a plan step that takes over 1.5x a player's time (here his walking slowed to 40%: 60 blocks in ~27 s, a player ~11 s) is SLOW, with where the time went; a 20-block walk then 10 s of nothing is a WASTED_TRIP. (A long walk is split into legs: the step, not each leg, is what's judged.) */
+    private static BlockPos s800A; private static Object s800Step; private static int s800T;
+    private static void s800Speed(ClaudeEntity c, double v) { c.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED).setBaseValue(v); }
     private static boolean st800(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         var W = com.claudemod.entity.life.Watchdog.recentKinds;
         try {
         if (t[0] == 1) {
             scenarioReset(c); c.nextPlanTick = c.tickCount + 24000; c.tasks.clear(); c.skillQueue.clear(); c.prefs.put("stay_close", "no"); W.clear(); com.claudemod.entity.life.Watchdog.linesInTests = true;
             s800A = h.absolutePos(new BlockPos(3, 40, 8));
-            for (int x = -4; x <= 30; x++) for (int z = -18; z <= 18; z++) for (int y = -1; y <= 3; y++) level.setBlockAndUpdate(s800A.offset(x, y, z), y == -1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState());
-            for (int z = -16; z <= 16; z++) for (int y = 0; y <= 3; y++) level.setBlockAndUpdate(s800A.offset(4, y, z), Blocks.OBSIDIAN.defaultBlockState()); // (a wall to go round: 8 straight, ~40 walked)
-            c.getInventory().clearContent();
+            for (int x = 0; x <= 80; x += 16) level.getChunk(s800A.east(x));
+            for (int x = -4; x <= 66; x++) for (int z = -2; z <= 2; z++) for (int y = -1; y <= 3; y++) level.setBlockAndUpdate(s800A.offset(x, y, z), y == -1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState());
+            c.getInventory().clearContent(); s800Speed(c, 0.04); s800T = -1;
             com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(s800A.getX() + 0.5, s800A.getY(), s800A.getZ() + 0.5); c.fallDistance = 0;
-            c.tasks.add(new com.claudemod.entity.life.Task.GoTo(s800A.east(8).immutable(), 1.0));
+            c.lastStep = new com.claudemod.entity.life.Skills.Step("collect", "stone", 1); s800Step = c.lastStep;
+            c.tasks.add(new com.claudemod.entity.life.Task.GoTo(s800A.east(60).immutable(), 1.0));
         }
-        if (t[0] > 1 && t[0] < 1200 && c.currentTask == null && c.tasks.isEmpty() && !W.contains("SLOW")) check(false, "the walk round the wall ended without SLOW: " + W + " at " + c.blockPosition().toShortString());
-        if (W.contains("SLOW") && !W.contains("WASTED_TRIP") && c.currentTask == null && c.tasks.isEmpty() && c.blockPosition().distSqr(s800A.east(8)) < 9) c.tasks.add(new com.claudemod.entity.life.Task.GoTo(s800A.east(28).immutable(), 1.0)); // (20 blocks on, then nothing)
-        if (W.contains("WASTED_TRIP")) { com.claudemod.entity.life.Watchdog.linesInTests = false; pass(stage, t, "a walk round a wall filed SLOW, a 20-block walk to nothing WASTED_TRIP: " + W); return true; }
-        if (W.contains("SLOW")) { c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 24000; }
+        if (c.lastStep == s800Step && t[0] > 5 && c.currentTask == null && c.tasks.isEmpty()) {
+            check(c.blockPosition().distSqr(s800A.east(60)) < 9, "the slow walk ended short at " + c.blockPosition().toShortString());
+            s800Speed(c, 0.1); c.lastStep = new com.claudemod.entity.life.Skills.Step("craft", "stone_pickaxe", 1); // (the step over: judged)
+            s800T = t[0];
+        }
+        if (s800T > 0 && t[0] == s800T + 3) { // (the watchdog judges the step on its next tick)
+            check(W.contains("SLOW") && com.claudemod.entity.life.Watchdog.lastIncident.contains("the step collect stone"), "the slow step filed no SLOW: " + W + " (last " + com.claudemod.entity.life.Watchdog.lastIncident + ")");
+            c.tasks.add(new com.claudemod.entity.life.Task.GoTo(s800A.east(40).immutable(), 1.0)); // (20 blocks back, then nothing)
+        }
+        if (W.contains("WASTED_TRIP")) { s800Speed(c, 0.1); com.claudemod.entity.life.Watchdog.linesInTests = false; pass(stage, t, "a slow step filed SLOW with where its time went, a 20-block walk to nothing WASTED_TRIP: " + W); return true; }
+        if (c.lastStep != s800Step) { c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 24000; }
         check(t[0] < 1500, "filed " + W + " (last " + com.claudemod.entity.life.Watchdog.lastIncident + ", he's at " + c.blockPosition().toShortString() + ")");
-        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
+        } catch (AssertionError e) { s800Speed(c, 0.1); com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
         return true;
     }
 

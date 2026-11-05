@@ -34,7 +34,16 @@ Log watchers (`tools/loopwatch.py`, `tools/pathwatch.py`, run by `tools/selfwatc
 | Whole logs burnt as fuel | WorkGoal fuel line `[Claude smelt] fuel at X: N item for M items (whole logs)`; Watchdog line detector | incident LOG_FUEL | 615 |
 | Placed and broken by him within 60 s, nothing broken or gained between | Watchdog.placedOwn / brokeOwn (place and break events) | incident PLACE_BREAK | 556 |
 | Walk of 16+ blocks with nothing broken, gained or handed over within 10 s, no work at that spot (not explore/go_to/follow, their job, the night) | Watchdog.endChecks + wastedTrip | incident WASTED_TRIP | 800 |
-| A walk or a dig over 2x a player's time + 2 s (walk: distance / 5.6 b/s; dig: vanilla break time with his best tool, plus the walk into reach) | Watchdog.paceAndSight + endChecks | incident SLOW (one per kind of task per 10 min) | 800 |
+| A walk or a dig over 1.5x a player's time and 10 s+ over (walk: distance / 5.6 b/s; dig: vanilla break time with his best tool, plus the walk into reach) | Watchdog.paceAndSight + endChecks | incident SLOW (one per kind of task per 10 min) | (long walks are split into legs, so the step check below is what catches a slow walk) |
+| PACE: a plan step over 1.5x and 10 s+ over its player-pace budget (its walks and digs at their estimates, a placement 0.5 s, a chest or furnace 1 s, plus 1 s; night holds, sleep and stays don't count). The incident says where the time went: walking, digging, waiting, fighting, no task (idle or re-planning) | Watchdog.pace | incident SLOW (key SLOW\|step\|skill) | 800, 801 |
+| Waiting at a furnace 20 s+ with nothing else done | Watchdog.furnaceWait | incident FURNACE_WAIT | 801 |
+| A smelt load with 8+ more of the input on him or in his chests and no other load of it queued | Watchdog.endChecks | incident SMALL_BATCH | 801 |
+| One of his furnaces cooking while 2+ of his within 6 stand empty and the input is still on him | Watchdog.idleFurnaces | incident IDLE_FURNACES | 801 |
+| The same item out of the same chest twice within 5 min | Watchdog.endChecks | incident REPEAT_FETCH | 801 |
+| Out and back: a walk ending within 3 of where an 8+ walk began, inside 60 s, nothing done | Watchdog.backtrack | incident WASTED_WALK | 801 |
+| Off to a furnace/chest 10+ away with an empty furnace / a chest of his within 6 | Watchdog.paceAndSight | incident FAR_STATION | 801 |
+| The same smelt/craft/collect/strip_mine/fetch job as a new step within 5 min of the last | Watchdog.pace | incident SPLIT_JOB | 801 |
+| Walked over 1.5x (and 8+ more than) the first path planned for a walk | Watchdog.walkLedger + endChecks | incident ROUTE_DETOUR | (no stage yet) |
 | Ore targeted with every face closed; a chest/furnace used (items changed) from 6 or less without line of sight | Watchdog.paceAndSight + endChecks | incident SIGHT | 556 (ore) |
 | Pushing into a block 1 s+ (dragging along leaves/walls) | Watchdog.dragAndWater: `[Claude move] dragging along <block>` | incident DRAG (once per block per 10 min) | 617 |
 | Long spells in water (a river swum instead of bridged) | Watchdog.dragAndWater: `[Claude move] in water N s, M blocks` for every spell of 1 s+ | incident WATER (over 5 s on a walk) | 617 |

@@ -45,6 +45,12 @@ public final class Watchdog {
         int tripAt = -1, tripBroken, tripItems; BlockPos tripPos; String tripWhat = ""; // a 16+ block walk that got there: something done within 10 s? (WASTED_TRIP)
         int handRun;                                              // tool blocks broken by hand in a row (BARE_HANDS)
         final Map<BlockPos, int[]> placedAt = new HashMap<>();    // his placements: {tick, blocks broken then, items then} (PLACE_BREAK)
+        Object stepRef; String stepName = ""; int stepStart, stepBudget, stepExcused, stepNoTask; final Map<String, int[]> stepUse = new HashMap<>(); // the plan step under way: its player-pace budget and where its time went {ticks, budget} (PACE)
+        int waitSince = -1, waitBroken; BlockPos waitAt;          // at a furnace, waiting (FURNACE_WAIT)
+        final java.util.ArrayDeque<int[]> walks = new java.util.ArrayDeque<>(); // the last walks: {end tick, from x, z, to x, z, broken, items} (WASTED_WALK)
+        double walked, lastWX = Double.NaN, lastWZ, lastWX0, lastWZ0; double pathLen = -1; // the walk under way: distance walked, its first path's length (ROUTE_DETOUR)
+        final Map<String, Integer> fetched = new HashMap<>();     // chest|item -> tick he took it out (REPEAT_FETCH)
+        final Map<String, int[]> jobs = new HashMap<>();          // skill target -> {tick it began, step identity} (SPLIT_JOB)
         final Map<String, int[]> ends = new HashMap<>();     // action key -> {no-progress ends, first tick}
         final Map<String, int[]> rung = new HashMap<>();     // action key -> {rung reached, tick}
         final Map<String, int[]> skills = new HashMap<>();   // failed skill line -> {times, first tick}
@@ -56,6 +62,7 @@ public final class Watchdog {
         int airRouteTick = -100000;                          // when drowningOut queued a dug way to air (the swim-up reflex stands aside for 10 s)
         final Map<String, int[]> means = new HashMap<>();    // action key -> {ends excused as "something in front of it first", first tick}
         Task started; int startTick, startBroken, startItems; double startDist; // the action now running, as it began
+        Map<String, Integer> bagAtStart;                     // (a chest action only: what he had going in)
         int broken;                                          // blocks he's broken (ClaudeLife.noteBroken)
         String pending;                                      // a line to say on the next ClaudeLife tick (it has the player)
         final java.util.ArrayDeque<double[]> samples = new java.util.ArrayDeque<>(); // {tick, x, y, z, health, food, fire ticks}, one a second, the last 60
@@ -151,6 +158,7 @@ public final class Watchdog {
     private static int items(ClaudeEntity g) { int n = 0; for (int i = 0; i < g.inventory.items.getContainerSize(); i++) n += g.inventory.items.getItem(i).getCount(); return n; }
     public static boolean starting(ClaudeEntity g, Task t) {
         St s0 = st(g); s0.started = t; s0.startTick = now(g); s0.startBroken = s0.broken; s0.startItems = items(g); s0.startDist = targetDist(g, t);
+        if (t instanceof Task.Chest) { s0.bagAtStart = new HashMap<>(); for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { var it = g.inventory.items.getItem(i); if (!it.isEmpty()) s0.bagAtStart.merge(it.getHoverName().getString(), it.getCount(), Integer::sum); } } else s0.bagAtStart = null;
         try { paceAndSight(g, s0, t); } catch (RuntimeException e) { ClaudeMod.LOGGER.warn("[Claude watchdog] pace estimate threw", e); }
         if (target(t) != null) { s0.lastTargeted = t; s0.lastTargetedTick = now(g); }
         record(s0, now(g), "START " + t + (s0.startDist >= 0 ? String.format(" (%.1f off)", s0.startDist) : ""));
@@ -430,7 +438,14 @@ public final class Watchdog {
 
     private static boolean on() { return !com.claudemod.entity.ClaudeSpawner.testing || linesInTests; }
     private static String nm(net.minecraft.world.level.block.state.BlockState st) { return net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(st.getBlock()).getPath(); }
-    private static boolean seen(ClaudeEntity g, BlockPos p) { return g.level().clip(new net.minecraft.world.level.ClipContext(g.getEyePosition(), net.minecraft.world.phys.Vec3.atCenterOf(p), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getBlockPos().equals(p); }
+    /** Any face of the block in his line of sight (a player sees a chest by its side, not only its middle). */
+    private static boolean seen(ClaudeEntity g, BlockPos p) {
+        for (var d : net.minecraft.core.Direction.values()) {
+            var at = net.minecraft.world.phys.Vec3.atCenterOf(p).add(d.getStepX() * 0.45, d.getStepY() * 0.45, d.getStepZ() * 0.45);
+            if (g.level().clip(new net.minecraft.world.level.ClipContext(g.getEyePosition(), at, net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getBlockPos().equals(p)) return true;
+        }
+        return false;
+    }
     /** A player's ticks to break this block with the best tool he carries (no enchantments: the estimate errs long). */
     static int breakTicks(ClaudeEntity g, BlockPos p, net.minecraft.world.level.block.state.BlockState st) {
         float h = st.getDestroySpeed(g.level(), p); if (h < 0) return -1; if (h == 0) return 1;
@@ -442,6 +457,17 @@ public final class Watchdog {
     /** At an action's start: its player-pace estimate (SLOW), and ore targeted with no face open to see it by (SIGHT). */
     private static void paceAndSight(ClaudeEntity g, St s, Task t) {
         s.startEst = -1; s.startWhat = "";
+        if (t instanceof Task.GoTo) { s.walked = 0; s.pathLen = -1; s.lastWX = g.getX(); s.lastWZ = g.getZ(); s.lastWX0 = g.getX(); s.lastWZ0 = g.getZ(); }
+        BlockPos st0 = t instanceof Task.FurnaceLoad x ? x.pos() : t instanceof Task.Smelt x ? x.pos() : t instanceof Task.Deposit x ? x.pos() : null;
+        if (on() && st0 != null && s.startDist > 10) { // a furnace (an empty one) or a chest of his within 6 would do (FAR_STATION)
+            boolean furnace = !(t instanceof Task.Deposit);
+            for (BlockPos o : furnace ? g.myStations : g.storageChests) {
+                if (o.equals(st0) || o.distToCenterSqr(g.position()) > 36 || !g.level().isLoaded(o)) continue;
+                var be = g.level().getBlockEntity(o);
+                boolean does = furnace ? be instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f && f.getItem(0).isEmpty() && f.getItem(2).isEmpty() : be instanceof net.minecraft.world.level.block.entity.ChestBlockEntity;
+                if (does) { fileOnce(g, "FAR_STATION", "FAR_STATION|" + st0.asLong(), String.format("off to the %s at %s, %.0f away, with his %s at %s %.0f off doing the same (%s)", furnace ? "furnace" : "chest", st0.toShortString(), s.startDist, furnace ? "empty furnace" : "chest", o.toShortString(), Math.sqrt(o.distToCenterSqr(g.position())), t)); break; }
+            }
+        }
         if (t instanceof Task.GoTo && s.startDist >= 8) { s.startEst = (int) (s.startDist / PACE); s.startWhat = "walk"; }
         if (t instanceof Task.Break b) {
             var st = g.level().getBlockState(b.pos()); int bt = breakTicks(g, b.pos(), st);
@@ -457,13 +483,30 @@ public final class Watchdog {
         if (!on() || !t.equals(s.started)) return;
         int ran = now(g) - s.startTick;
         boolean got = t instanceof Task.GoTo ? Boolean.TRUE.equals(achieved(g, t)) : t instanceof Task.Break && s.broken != s.startBroken;
-        if (got && s.startEst > 0 && ran > 2 * s.startEst + 40)
+        { int[] u = s.stepUse.computeIfAbsent(kindOf(t), k -> new int[2]); u[1] += budget(g, s, t, ran); } // (the step's budget: this action at a player's pace)
+        if (got && s.startEst > 0 && ran > 1.5 * s.startEst && ran - s.startEst >= 200)
             fileOnce(g, "SLOW", "SLOW|" + s.startWhat, String.format("%s took %.1f s, a player %.1f s (%s, from %.1f off)", s.startWhat, ran / 20.0, s.startEst / 20.0, t, s.startDist));
         String step = g.lastStep == null ? "" : g.lastStep.skill();
         if (t instanceof Task.GoTo && got && s.startDist >= 16 && !g.commandActive && !g.holdingNight() && !java.util.Set.of("explore", "go_to", "follow", "come", "scout").contains(step)) {
             s.tripAt = now(g); s.tripBroken = s.broken; s.tripItems = items(g); s.tripPos = g.blockPosition().immutable(); s.tripWhat = String.format("%.0f blocks to %s (step %s)", s.startDist, ((Task.GoTo) t).pos().toShortString(), step.isEmpty() ? "-" : step + " " + g.lastStep.target());
         }
         BlockPos c = t instanceof Task.Chest x ? x.pos() : t instanceof Task.Deposit x ? x.pos() : t instanceof Task.Smelt x ? x.pos() : t instanceof Task.FurnaceLoad x ? x.pos() : t instanceof Task.FurnaceTake x ? x.pos() : null;
+        net.minecraft.world.item.Item in = t instanceof Task.FurnaceLoad x ? x.input() : t instanceof Task.Smelt x ? x.input() : null;
+        if (in != null && items(g) != s.startItems) { // a load went in: more of it on him or in his chests, and no other load of it coming (SMALL_BATCH)
+            int bag = g.inventory.count(x -> x.is(in)), chests = g.level() instanceof ServerLevel sl ? ChestLedger.count(g, sl, in) : 0;
+            boolean more = g.tasks.stream().anyMatch(x -> x instanceof Task.FurnaceLoad f && f.input() == in || x instanceof Task.Smelt f2 && f2.input() == in);
+            if (bag + chests >= 8 && !more) fileOnce(g, "SMALL_BATCH", "SMALL_BATCH|" + c.asLong(), "loaded " + Math.abs(s.startItems - items(g)) + " " + in + " into the furnace at " + c.toShortString() + " with " + bag + " more on him and " + chests + " in his chests, no other load of it queued (" + t + ")");
+        }
+        if (t instanceof Task.Chest ch && ch.take() && items(g) > s.startItems) { // the same chest, the same item, again within 5 min (REPEAT_FETCH)
+            for (var e : gained(s, g).entrySet()) {
+                String k = ch.pos().asLong() + "|" + e.getKey(); Integer t0 = s.fetched.put(k, now(g));
+                if (t0 != null && now(g) - t0 <= 20 * 300) fileOnce(g, "REPEAT_FETCH", "REPEAT_FETCH|" + k, "took " + e.getKey() + " out of the chest at " + ch.pos().toShortString() + " again, " + (now(g) - t0) / 20 + " s after the last time (one trip for the lot would do)");
+            }
+            if (s.fetched.size() > 128) s.fetched.clear();
+        }
+        if (t instanceof Task.GoTo && got && s.pathLen > 0 && s.walked > 1.5 * s.pathLen && s.walked - s.pathLen > 8) // walked half as far again as the path he planned (ROUTE_DETOUR)
+            fileOnce(g, "ROUTE_DETOUR", "ROUTE_DETOUR|" + ((Task.GoTo) t).pos().asLong(), String.format("walked %.0f blocks on a %.0f-block path to %s (%.0f straight)", s.walked, s.pathLen, ((Task.GoTo) t).pos().toShortString(), s.startDist));
+        if (t instanceof Task.GoTo) { s.walks.addLast(new int[] {now(g), (int) s.lastWX0, (int) s.lastWZ0, g.getBlockX(), g.getBlockZ(), s.broken, items(g)}); while (s.walks.size() > 8) s.walks.removeFirst(); backtrack(g, s); }
         if (c != null && items(g) != s.startItems && Math.sqrt(c.distToCenterSqr(g.getEyePosition())) <= 6 && !seen(g, c))
             fileOnce(g, "SIGHT", "SIGHT|" + c.asLong(), "used the " + nm(g.level().getBlockState(c)) + " at " + c.toShortString() + " without seeing it (" + t + ", from " + g.blockPosition().toShortString() + ")");
     }
@@ -506,6 +549,88 @@ public final class Watchdog {
             fileOnce(g, "BARE_HANDS", "BARE_HANDS|hand|" + (axe ? "axe" : "pick"), s.handRun + " " + (axe ? "axe" : "pickaxe") + " blocks by hand in a row (now " + nm(st) + " at " + p.toShortString() + ") with the makings of a tool on him (logs " + logs + ", planks " + planks + ")");
     }
 
+    private static String kindOf(Task t) { return t instanceof Task.GoTo ? "walking" : t instanceof Task.Break || t instanceof Task.ChopTree || t instanceof Task.FinishTree ? "digging" : t instanceof Task.Place ? "placing" : t instanceof Task.FurnaceTake || t instanceof Task.Smelt || t instanceof Task.Wait ? "waiting" : t instanceof Task.Attack || t instanceof Task.Flee ? "fighting" : t instanceof Task.Chest || t instanceof Task.Deposit || t instanceof Task.FurnaceLoad ? "chests and furnaces" : "other"; }
+    /** An action's ticks at a player's pace: walks and digs by their estimate (and only when they got done), a placement or a chest 0.5-1 s plus the walk into reach; the rest (waits, fights, chores) as they ran: other detectors judge those. */
+    private static int budget(ClaudeEntity g, St s, Task t, int ran) {
+        int walk = (int) (Math.max(0, s.startDist - 4.5) / PACE);
+        if (t instanceof Task.GoTo) return s.startEst > 0 ? Math.min(ran, s.startEst) : Math.min(ran, (int) (Math.max(0, s.startDist) / PACE) + 10);
+        if (t instanceof Task.Break) return s.startEst > 0 ? Math.min(ran, s.startEst) : Math.min(ran, 10);
+        if (t instanceof Task.Place) return Math.min(ran, 10 + walk);
+        if (t instanceof Task.Chest || t instanceof Task.Deposit || t instanceof Task.FurnaceLoad) return Math.min(ran, 20 + walk);
+        return ran;
+    }
+    private static Map<String, Integer> gained(St s, ClaudeEntity g) { // what came into his bag since the action began: the bag now against the start snapshot is rough, by item name (start count kept only as a total)
+        Map<String, Integer> m = new HashMap<>();
+        for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { var it = g.inventory.items.getItem(i); if (!it.isEmpty()) m.merge(it.getHoverName().getString(), it.getCount(), Integer::sum); }
+        if (s.bagAtStart != null) for (var e : s.bagAtStart.entrySet()) m.merge(e.getKey(), -e.getValue(), Integer::sum);
+        m.values().removeIf(v -> v <= 0); return m;
+    }
+    /**
+     * PACE (the user 11-05: "everything in the same vein constitutes as slow"): each plan step's time against a player's: the sum of
+     * its actions at a player's pace plus a second. Night holds, sleep and their stays don't count. Over 1.5x and 10 s+ over: SLOW, with
+     * where the time went (walking, digging, waiting, no task: idle or re-planning).
+     */
+    private static void pace(ClaudeEntity g, St s) {
+        Object ref = g.lastStep;
+        if (ref != s.stepRef) {
+            if (s.stepRef != null && on()) {
+                int took = now(g) - s.stepStart - s.stepExcused, budget = 20 + s.stepUse.values().stream().mapToInt(u -> u[1]).sum();
+                if (took > 1.5 * budget && took - budget >= 200) {
+                    StringBuilder b = new StringBuilder();
+                    for (var e : s.stepUse.entrySet()) b.append(String.format("%s %.1f s (a player %.1f s), ", e.getKey(), e.getValue()[0] / 20.0, e.getValue()[1] / 20.0));
+                    fileOnce(g, "SLOW", "SLOW|step|" + s.stepName.split(" ")[0], String.format("the step %s took %.1f s, a player %.1f s: %sno task %.1f s (idle or re-planning)", s.stepName, took / 20.0, budget / 20.0, b, s.stepNoTask / 20.0));
+                }
+            }
+            s.stepRef = ref; s.stepStart = now(g); s.stepExcused = 0; s.stepNoTask = 0; s.stepUse.clear();
+            s.stepName = g.lastStep == null ? "" : g.lastStep.skill() + " " + g.lastStep.target() + " x" + g.lastStep.count();
+            if (g.lastStep != null && on()) { // the same job again within 5 min, a new step for it (SPLIT_JOB): one run of the total would do
+                String k = g.lastStep.skill() + " " + g.lastStep.target(); int[] j = s.jobs.get(k);
+                if (j != null && now(g) - j[0] <= 20 * 300 && j[1] != System.identityHashCode(ref) && java.util.Set.of("smelt", "craft", "collect", "strip_mine", "fetch", "obtain").contains(g.lastStep.skill()))
+                    fileOnce(g, "SPLIT_JOB", "SPLIT_JOB|" + k, "a new " + k + " x" + g.lastStep.count() + " step " + (now(g) - j[0]) / 20 + " s after the last one (one run of the total would do); plan " + g.skillQueue);
+                s.jobs.put(k, new int[] {now(g), System.identityHashCode(ref)}); if (s.jobs.size() > 64) s.jobs.clear();
+            }
+        }
+        if (s.stepRef == null) return;
+        if (g.holdingNight() || g.isSleeping() || g.staying) { s.stepExcused++; return; }
+        if (g.currentTask == null) s.stepNoTask++;
+        else s.stepUse.computeIfAbsent(kindOf(g.currentTask), k -> new int[2])[0]++;
+    }
+    /** The walk under way: distance walked, and the length of the first path planned for it. */
+    private static void walkLedger(ClaudeEntity g, St s) {
+        if (!(g.currentTask instanceof Task.GoTo)) return;
+        if (!Double.isNaN(s.lastWX)) s.walked += Math.sqrt(Math.pow(g.getX() - s.lastWX, 2) + Math.pow(g.getZ() - s.lastWZ, 2));
+        s.lastWX = g.getX(); s.lastWZ = g.getZ();
+        var p = g.getNavigation().getPath();
+        if (s.pathLen < 0 && p != null && p.getNodeCount() > 1) { double l = 0; for (int i = 1; i < p.getNodeCount(); i++) l += Math.sqrt(p.getNodePos(i).distSqr(p.getNodePos(i - 1))); s.pathLen = l; }
+    }
+    /** Out and back: a walk ending within 3 of where a walk 8+ away began, inside 60 s, nothing done between (WASTED_WALK). */
+    private static void backtrack(ClaudeEntity g, St s) {
+        if (!on() || s.walks.size() < 2) return;
+        int[] last = s.walks.peekLast();
+        for (int[] w : s.walks) {
+            if (w == last || last[0] - w[0] > 20 * 60) continue;
+            double out = Math.hypot(w[3] - w[1], w[4] - w[2]), back = Math.hypot(last[3] - w[1], last[4] - w[2]);
+            if (out >= 8 && back <= 3 && last[5] == w[5] && last[6] == w[6]) { fileOnce(g, "WASTED_WALK", "WASTED_WALK|" + w[1] + "," + w[2], String.format("walked %.0f out from %d, %d and back again within %d s with nothing done (%s)", out, w[1], w[2], (last[0] - w[0]) / 20, g.lastStep == null ? "no step" : g.lastStep.skill() + " " + g.lastStep.target())); return; }
+        }
+    }
+    /** At a furnace 20 s+ waiting with nothing else done (FURNACE_WAIT): a player loads it and goes on working. */
+    private static void furnaceWait(ClaudeEntity g, St s) {
+        BlockPos f = g.currentTask instanceof Task.FurnaceTake x ? x.pos() : g.currentTask instanceof Task.Smelt x ? x.pos() : null;
+        if (f == null || !on()) { s.waitSince = -1; return; }
+        if (s.waitSince < 0 || !f.equals(s.waitAt) || s.broken != s.waitBroken) { s.waitSince = now(g); s.waitAt = f.immutable(); s.waitBroken = s.broken; return; }
+        if (now(g) - s.waitSince >= 20 * 20) fileOnce(g, "FURNACE_WAIT", "FURNACE_WAIT|" + f.asLong(), "waiting at the furnace at " + f.toShortString() + " " + (now(g) - s.waitSince) / 20 + " s with nothing else done (" + g.currentTask + ", step " + (g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target()) + ")");
+    }
+    /** One of his furnaces cooking while 2+ of his others within 6 stand empty and the input it's cooking is still on him (IDLE_FURNACES). */
+    private static void idleFurnaces(ClaudeEntity g) {
+        if (!on()) return;
+        for (BlockPos f : g.myStations) {
+            if (!g.level().isLoaded(f) || !(g.level().getBlockEntity(f) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fe) || fe.getItem(0).isEmpty()) continue;
+            var in = fe.getItem(0).getItem(); int left = g.inventory.count(x -> x.is(in)); if (left == 0) continue;
+            int empty = 0; for (BlockPos o : g.myStations) if (!o.equals(f) && o.distSqr(f) <= 36 && g.level().isLoaded(o) && g.level().getBlockEntity(o) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity oe && oe.getItem(0).isEmpty() && oe.getItem(2).isEmpty()) empty++;
+            if (empty >= 2) fileOnce(g, "IDLE_FURNACES", "IDLE_FURNACES|" + f.asLong(), "the furnace at " + f.toShortString() + " cooks " + fe.getItem(0).getCount() + " " + in + " while " + empty + " of his furnaces beside it stand empty and " + left + " more is on him");
+        }
+    }
+
     // furnace output done and sitting (input empty) over 30 s in one of his furnaces while he isn't on his way to it (World 17 23:35: charcoal left in it)
     private static final java.util.Map<BlockPos, Integer> doneSince = new java.util.HashMap<>();
     private static void furnaceLeft(ClaudeEntity g) {
@@ -524,7 +649,8 @@ public final class Watchdog {
         if (!g.isAlive()) return;
         LogReviewer.tick(g);
         lineIncidents(g);
-        if (now(g) % 20 == 0) { furnaceLeft(g); idle(g, st(g)); wastedTrip(g, st(g)); }
+        if (now(g) % 20 == 0) { furnaceLeft(g); idle(g, st(g)); wastedTrip(g, st(g)); furnaceWait(g, st(g)); idleFurnaces(g); }
+        pace(g, st(g)); walkLedger(g, st(g));
         dragAndWater(g, st(g));
         St s = st(g);
         // 1. a move no planned move made: more than 3 blocks in one tick (a knock, a fall through, an unlogged teleport)

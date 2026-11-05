@@ -10444,6 +10444,9 @@ public final class ClaudeBodyTest {
             case 652: return st652(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
+            case 655: return st655(stage, t, c, h, level, mock);
+            case 656: return st656(stage, t, c, h, level, mock);
+            case 657: return st657(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -13456,13 +13459,79 @@ public final class ClaudeBodyTest {
         }
         if (t[0] == 20) c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("collect", "logs", 4, "near_you"));
         if (t[0] > 20) {
-            int logs = 0; for (int y = 0; y < 5; y++) if (level.getBlockState(tree.above(y)).is(Blocks.OAK_LOG)) logs++;
+            int logs = 0; for (int y = 0; y < 5; y++) if (level.getBlockState(tree.above(y)).is(Blocks.OAK_LOG)) logs++; if (t[0] == 21) { StringBuilder sb = new StringBuilder(); for (int y = -1; y < 7; y++) sb.append(y).append('=').append(level.getBlockState(tree.above(y)).getBlock().getName().getString()).append(' '); com.claudemod.ClaudeMod.LOGGER.info("ST654 column {}", sb); }
             boolean axe = c.getInventory().countItem(Items.WOODEN_AXE) > 0;
             int tables = 0; for (BlockPos p : BlockPos.betweenClosed(o.offset(-1, 0, -1), o.offset(13, 3, 13))) if (level.getBlockState(p).is(Blocks.CRAFTING_TABLE)) tables++;
             check(tables <= 1, "a second crafting table down, his own 10 off");
             check(axe || logs >= 4, "chopping by hand: " + (5 - logs) + " logs down and no axe (axe planks and sticks on him, his table 10 off; line " + c.lastSkillLine + ")");
             if (axe && logs <= 3) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; pass(stage, t, "made the axe at his table, then chopped: " + (5 - logs) + " logs in " + (t[0] - 20) / 20 + " s"); }
             else check(t[0] < 20 + 20 * 40, "40 s: logs left " + logs + ", axe " + axe + ", line " + c.lastSkillLine);
+        }
+        return true;
+    }
+
+    /** The plan comes in while his meanwhile chop has the tree's bottom logs down: he finishes the tree, no top left hanging (live 23:31 11-04 World 17, -109,63,-20: "the plan is in: collect (meanwhile work) stops there" wiped the ChopTree, a floating tree left). */
+    private static boolean st655(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos base = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(1000);
+            for (int y = 2; y <= 6; y++) level.setBlock(base.above(y - 2), y <= 3 ? Blocks.AIR.defaultBlockState() : Blocks.OAK_LOG.defaultBlockState(), 2); // its bottom 2 down already
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_AXE)); c.getInventory().add(new ItemStack(Items.DIRT, 16));
+            c.teleportTo(base.getX() - 0.5, base.getY(), base.getZ() + 0.5); mock[0].teleportTo(base.getX() + 0.5, base.getY() + 30, base.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+            c.tasks.add(new Task.ChopTree(base.immutable(), 0)); c.tasks.add(new Task.Pickup(80));
+            c.planning = true; c.planStartTick = c.tickCount;
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("fillerFor"); m.setAccessible(true); ((java.util.Map<java.util.UUID, String>) m.invoke(null)).put(c.getUUID(), "collect@" + c.planStartTick); } catch (Exception e) { throw new RuntimeException(e); }
+            com.claudemod.director.ClaudeLife.planLanded(c); c.planning = false; // the plan comes in
+        }
+        if (t[0] > 10) {
+            int logs = 0; for (int y = 0; y < 5; y++) if (level.getBlockState(base.above(y)).is(Blocks.OAK_LOG)) logs++;
+            if (logs == 0) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "the tree he'd begun finished after the plan came in, " + (t[0] - 10) / 20 + " s"); }
+            else check(t[0] < 10 + 20 * 30 && (t[0] < 30 || c.currentTask != null || !c.tasks.isEmpty()), "the plan came in and his begun tree's top stays up: " + logs + " logs hanging, tasks " + c.tasks);
+        }
+        return true;
+    }
+
+    /** 8 raw salmon, 20 logs, no coal, a furnace beside him: the salmon cooks at once on planks, no charcoal errand first and no whole log burnt (the user 11-04: "not using whole logs for fuel. turn them into planks first"; live 23:23 World 17: "making charcoal first (1)", the charcoal taken minutes later). */
+    private static boolean st656(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(4, 2, 3)), f = h.absolutePos(new BlockPos(3, 2, 3));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            flatBox(h); level.setBlock(f, Blocks.FURNACE.defaultBlockState(), 3); c.myStations.add(f.immutable()); level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.SALMON, 8)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 20)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+        }
+        if (t[0] == 20) c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("smelt", "cooked_salmon", 8, "near_you"));
+        if (t[0] > 20) {
+            var fb = (net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity) level.getBlockEntity(f);
+            ItemStack in = fb.getItem(0), fuel = fb.getItem(1);
+            check(!in.is(net.minecraft.tags.ItemTags.LOGS), "a log in to smelt (a charcoal errand) before the salmon: " + c.lastSkillLine);
+            check(!fuel.is(net.minecraft.tags.ItemTags.LOGS), "whole logs burnt as fuel: " + fuel);
+            if (in.is(Items.SALMON) && fuel.is(net.minecraft.tags.ItemTags.PLANKS)) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; pass(stage, t, "the salmon cooking on " + fuel.getCount() + " planks in " + (t[0] - 20) / 20 + " s"); }
+            else check(t[0] < 20 + 20 * 10, "10 s and the salmon isn't cooking on planks: in " + in + ", fuel " + fuel + ", line " + c.lastSkillLine);
+        }
+        return true;
+    }
+
+    /** 17 cobble on him, "collect cobblestone x32" (the trip's packing): his mine is dug on till he has more, never "done: already have 17" (live 23:40-23:50 11-04 World 17: the mine dig got 32/5 = 7 as its count, 17 >= 7 said done, the packer asked again, round in circles, strip_mine skipped). */
+    private static boolean st657(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(6, 2, 6));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 17)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.TORCH, 16)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 40)); // (his kit as live: 34 logs, the trip's 32) c.mineFace = at.offset(3, 0, 0).immutable(); c.mineIsTunnel = true; // (his mine: a tunnel face by him, as live)
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+        }
+        if (t[0] == 20) c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("collect", "cobblestone", 32, "near_you"));
+        if (t[0] > 22) {
+            String line = String.valueOf(c.lastSkillLine);
+            check(!(line.startsWith("collect cobblestone") && line.contains("done: already have 17")), "the mine dig said done at 17 of 32: " + line);
+            int cob = c.getInventory().countItem(Items.COBBLESTONE);
+            if (cob > 17) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; pass(stage, t, "digging on for the cobble: " + cob + " in " + (t[0] - 20) / 20 + " s"); }
+            else check(t[0] < 20 + 20 * 40, "40 s and still 17 cobble: " + line);
         }
         return true;
     }

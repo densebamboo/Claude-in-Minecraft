@@ -1612,7 +1612,7 @@ public final class ClaudeLife {
         if (f.equals("shelter") || f.equals("eat")) return;
         { Skills.Step s0 = g.skillQueue.peekFirst(); String why = s0 == null ? null : g.failReason.get(s0.skill()); boolean day = com.claudemod.director.ClaudeLife.dayHere(g.level());
           if (why != null && why.startsWith("failed") && ((why.contains("it's day,") && day) || (why.contains("it's night") && !day))) { ClaudeMod.LOGGER.info("[Claude plan] the plan is in, but its {} still waits ({}): {} (meanwhile work) goes on (ClaudeLife.planLanded)", s0.skill(), day ? "day" : "night", f); return; } } // (live 01:17 World 15: pearls refused by day, meanwhile branch dug, plan landed and stopped it, pearls refused again: every 25 s)
-        g.tasks.removeIf(t -> !(t instanceof Task.Pickup || t instanceof Task.FinishTree || t instanceof Task.Replant));
+        g.tasks.removeIf(t -> !(t instanceof Task.Pickup || t instanceof Task.FinishTree || t instanceof Task.Replant || t instanceof Task.ChopTree ct && !g.level().getBlockState(ct.base()).is(BlockTags.LOGS))); // (a tree he's begun, its base log down, is finished: wiping its ChopTree left the top hanging, live 23:31 11-04)
         if (g.currentTask instanceof Task.GoTo) dropCurrent(g);
         ClaudeMod.LOGGER.info("[Claude plan] the plan is in: {} (meanwhile work) stops there", f);
     }
@@ -1985,8 +1985,8 @@ public final class ClaudeLife {
                 boolean atHouse = g.stairStart == null && g.mineFace == null && g.house != null && g.blockPosition().distSqr(g.house.centre()) <= 10 * 10; // no mine yet and he's at his house: a mine never starts in its footprint (one dug for 4 cobble went in under his own foundation and stalled on it); the rock about him gives it
                 if (cobble && pointedTree == null && !"looked_at".equals(st.where()) && (!"here".equals(st.where()) || bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && inHisMine(g, g.blockPosition())) && !pointingAtIt && !hurtNow  && !faceFarDown && !atHouse) { // ("here": a handful out of the rock by him, the kit's three for a spare pick)
                     boolean starting = g.stairStart == null && g.mineFace == null;
-                    String r = runSkill(g, player, new Skills.Step(g.mineFace != null && g.mineIsTunnel ? "strip_mine" : "dig_down", "cobble", Math.max(4, (count + 4) / 5)));
-                    if (r.startsWith("failed") && r.contains("strip_mine from here")) r = runSkill(g, player, new Skills.Step("strip_mine", "cobble", Math.max(4, (count + 4) / 5))); // the stairs can't go deeper: the tunnel gives it
+                    String r = runSkill(g, player, new Skills.Step(g.mineFace != null && g.mineIsTunnel ? "strip_mine" : "dig_down", "cobble", Math.max(4, count) /* the total he wants: the dig says done once he has it (32/5 = 7 against 17 on him said done at once, live 23:40 11-04, the trip packer round in circles) */));
+                    if (r.startsWith("failed") && r.contains("strip_mine from here")) r = runSkill(g, player, new Skills.Step("strip_mine", "cobble", Math.max(4, count))); // the stairs can't go deeper: the tunnel gives it
                     boolean mineNoGood = r.startsWith("failed") || r.contains("lake in the way") || r.contains("water right by") || r.contains("dry ground"); // (water at the mine: a few blocks of cobble don't need the mine at all)
                     if (!mineNoGood) return (starting ? "starting my mine for the cobble: " : "getting the cobble by digging my mine further: ") + r;
                     clearTasks(g); // (the walk to dry ground that was queued: the rock here comes first)
@@ -2130,6 +2130,7 @@ public final class ClaudeLife {
                 BlockState sample = level.getBlockState(found.get(0));
                 String tool = ensureToolFor(g, player, level, sample, st);
                 if (tool != null) return tool;
+                if (count >= 4 && sample.is(BlockTags.MINEABLE_WITH_AXE) && hasToolMaterials(g, Items.WOODEN_AXE) && g.inventory.find(s0 -> s0.getItem() instanceof net.minecraft.world.item.AxeItem).isEmpty()) { String w = goToStation(g, level, Blocks.CRAFTING_TABLE, st); if (w != null) return w; } // no axe and an axe's makings on him: to a table for it first, this step again there (live 23:19 11-04: 7 logs by hand, his table 8 off)
                 if (count >= 4) upgradeToolFor(g, level, sample); // a real job: better tool first if he can make one
                 int queued = 0, reachLooked = 0;
                 java.util.Set<BlockPos> trees = new java.util.HashSet<>();
@@ -3123,13 +3124,6 @@ public final class ClaudeLife {
                 if (!g.commandActive && (input == Items.RAW_IRON || input == Items.RAW_GOLD || input == Items.RAW_COPPER) && g.inventory.count(t -> t.is(input)) > count) { int all0 = g.inventory.count(t -> t.is(input)); g.skillQueue.addFirst(new Skills.Step(st.skill(), st.target(), all0, st.where())); return "smelting all " + all0 + " " + Crafting.name(input) + " at once, not just " + count; } // the whole lot at once, like a player (live 12:03 World 15: 2 of 11 raw iron, for the craft's shortfall)
                 int toCook = Math.min(count, g.inventory.count(t -> t.is(input)));
                 boolean coal = g.inventory.count(t -> t.is(Items.COAL) || t.is(Items.CHARCOAL)) * 8 >= toCook;
-                if (!coal && toCook >= 3 && item != Items.CHARCOAL && input != Items.CHARCOAL && !input.builtInRegistryHolder().is(ItemTags.LOGS)
-                        && g.inventory.count(t -> t.is(ItemTags.LOGS)) >= 3) {
-                    int charcoal = (toCook + 7) / 8 - g.inventory.count(t -> t.is(Items.COAL) || t.is(Items.CHARCOAL));
-                    g.skillQueue.addFirst(st);
-                    g.skillQueue.addFirst(new Skills.Step("smelt", "charcoal", Math.max(1, charcoal)));
-                    return "making charcoal first (" + Math.max(1, charcoal) + "), it burns way longer than logs";
-                }
                 String walkingToFurnace = goToStation(g, level, Blocks.FURNACE, st);
                 if (walkingToFurnace != null) return walkingToFurnace;
                 BlockPos furnace = reachableFurnace(g, level, g.blockPosition(), 6);
@@ -8808,7 +8802,8 @@ public final class ClaudeLife {
         if (Crafting.needsTable(level, target)) { // a table standing within 24 (his house's, one he set down a moment ago): walk to it, never another one down (the user: three tables littered 40 blocks from his house's)
             BlockPos far = findNear(level, g.blockPosition(), 24, b -> b.is(Blocks.CRAFTING_TABLE));
             if (far == null) far = g.myStations.stream().filter(p -> p.distSqr(g.blockPosition()) <= 64 * 64 && level.isLoaded(p) && level.getBlockState(p).is(Blocks.CRAFTING_TABLE)).min(java.util.Comparator.comparingDouble(p -> p.distSqr(g.blockPosition()))).orElse(null); // his own table further down his tunnel: he knows it's there (a pick broke 32 off his mine's table: 15 s of "could not make a crafting table" with 2 planks, live 23:16)
-            if (far != null && far.distSqr(g.blockPosition()) > 5 * 5 && (g.attempts.any.get(far.above(700)) == null || g.tickCount - g.attempts.any.get(far.above(700)) > 20 * 60)) { g.attempts.any.put(far.above(700).immutable(), g.tickCount); g.tasks.addFirst(new Task.GoTo(far, 2.0)); nookSay(g, "tableWalk", "[Claude craft] for " + Crafting.name(target) + ": walking to a crafting table at " + far.toShortString() + " (ClaudeLife.ensureCraftingTable)"); return false; }
+            final BlockPos far0 = far; /* held only by a walk there that failed, or one on its way (a 60 s mark from any walk held the axe's walk after the sword's had got there: live 23:19 11-04, 7 logs by hand) */ boolean goingThere = far != null && (g.currentTask instanceof Task.GoTo gt && gt.pos().equals(far0) || g.tasks.stream().anyMatch(t0 -> t0 instanceof Task.GoTo gt0 && gt0.pos().equals(far0)));
+            if (far != null && far.distSqr(g.blockPosition()) > 5 * 5 && !goingThere && !g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, far, g.tickCount, 20 * 60)) { g.tasks.addFirst(new Task.GoTo(far, 2.0)); nookSay(g, "tableWalk", "[Claude craft] for " + Crafting.name(target) + ": walking to a crafting table at " + far.toShortString() + " (ClaudeLife.ensureCraftingTable)"); return false; }
         }
         BlockPos near = findNear(level, g.blockPosition(), 5, b -> b.is(Blocks.CRAFTING_TABLE));
         if (near != null && g.inventory.count(t -> t.is(Items.CRAFTING_TABLE)) == 0 && (g.attempts.any.get(near) == null || g.tickCount - g.attempts.any.get(near) > 20 * 60)) { g.tasks.addFirst(new Task.GoTo(near, 1.5)); nookSay(g, "tableWalk", "[Claude craft] for " + Crafting.name(target) + ": walking to a crafting table at " + near.toShortString() + " (ClaudeLife.ensureCraftingTable)"); return false; } // (one he couldn't walk to a moment ago: his own goes down instead) // (one in his pack: down it goes here; a table behind the wall below had him walking at it and the walk dropped every time) // one a few steps off: walk to it (a player crafts at the table, not from across the room)

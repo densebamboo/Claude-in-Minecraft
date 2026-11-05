@@ -10418,6 +10418,13 @@ public final class ClaudeBodyTest {
             case 607: return st607(stage, t, c, h, level, mock);
             case 608: return st608(stage, t, c, h, level, mock);
             case 609: return st609(stage, t, c, h, level, mock);
+            case 631: return st631(stage, t, c, h, level, mock);
+            case 632: return st632(stage, t, c, h, level, mock);
+            case 633: return st633(stage, t, c, h, level, mock);
+            case 634: return st634(stage, t, c, h, level, mock);
+            case 635: return st635(stage, t, c, h, level, mock);
+            case 636: return st636(stage, t, c, h, level, mock);
+            case 637: return st637(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -10817,9 +10824,11 @@ public final class ClaudeBodyTest {
         if (y <= 69 && shore) return Blocks.NETHERRACK.defaultBlockState();
         return Blocks.AIR.defaultBlockState();
     }
-    private static boolean st541(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a lava crossing is a piece of highway (the user, via Day to Day: "the same blueprint as the highway ... That way he can connect them cleanly later"; 01:26 a 1-wide bridge left as litter): 4 wide, railed, kept, on record as a segment
+    private static boolean st541(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { return st541at(stage, t, c, h, level, mock, 3); }
+    /** Stage 637: the same crossing from 8 back (the lip at 6): the highway is built wherever the crossing starts, not only within 3 of him (audit 11-04: the bot was looked up by distance to the crossing's start). */
+    private static boolean st541at(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock, int startX) { // a lava crossing is a piece of highway (the user, via Day to Day: "the same blueprint as the highway ... That way he can connect them cleanly later"; 01:26 a 1-wide bridge left as litter): 4 wide, railed, kept, on record as a segment
         ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
-        final int ox = 7000, oz = 7000; BlockPos me = new BlockPos(ox + 3, 70, oz), far = new BlockPos(ox + 23, 70, oz);
+        final int ox = 7000, oz = 7000; BlockPos me = new BlockPos(ox + startX, 70, oz), far = new BlockPos(ox + 23, 70, oz);
         if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); hwT = -1; c.nextPlanTick = c.tickCount + 20 * 900; c.prefs.put("stay_close", "no"); com.claudemod.entity.life.PortalMap.net(c).segments.clear();
             c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
             com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(nether, me.getX() + 0.5, 95, me.getZ() + 0.5, 0, 0); c.setNoGravity(true); }
@@ -12840,6 +12849,156 @@ public final class ClaudeBodyTest {
                 if (up >= 2 && !lid) check(c.isAlive() && c.getHealth() > 6, "shot down holding a bare perch: health " + (int) c.getHealth() + ", " + up + " up, lid " + lid + ", now=" + c.currentTask + " tasks=" + c.tasks);
                 if (t[0] - st609Up >= 300) { check(!(up >= 2 && !lid), "still on a bare perch 15 s after the skeleton came: " + up + " up, no lid, health " + (int) c.getHealth()); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); c.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.KNOCKBACK_RESISTANCE).setBaseValue(0.0); pass(stage, t, "off the bare perch under fire (" + up + " up, lid " + lid + ", health " + (int) c.getHealth() + ")"); }
             }
+        }
+        return true;
+    }
+
+    /** A pile of 8 diamonds is worth 8 of them, not 1 (audit 11-04: stacks worth 20+ counted once, 8 diamonds read below 7 iron ingots and were let despawn). */
+    private static boolean st632(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            java.util.function.Function<ItemStack, Integer> worth = s -> com.claudemod.director.ClaudeLife.dropsWorth(java.util.List.of(new net.minecraft.world.entity.item.ItemEntity(level, c.getX(), c.getY() + 3, c.getZ(), s)));
+            int d1 = worth.apply(new ItemStack(Items.DIAMOND, 1)), d8 = worth.apply(new ItemStack(Items.DIAMOND, 8)), i7 = worth.apply(new ItemStack(Items.IRON_INGOT, 7)), p4 = worth.apply(new ItemStack(Items.ENDER_PEARL, 4)), sw = worth.apply(new ItemStack(Items.DIAMOND_SWORD));
+            check(d8 == 8 * d1, "8 diamonds worth " + d8 + ", 1 worth " + d1);
+            check(d8 > i7, "8 diamonds (" + d8 + ") not above 7 iron ingots (" + i7 + ")");
+            check(p4 == 4 * worth.apply(new ItemStack(Items.ENDER_PEARL, 1)), "4 pearls worth " + p4);
+            check(sw == 120, "a diamond sword worth " + sw + ", want 120 (gear once per piece)");
+            pass(stage, t, "8 diamonds " + d8 + ", 7 iron " + i7 + ", 4 pearls " + p4 + ", a diamond sword " + sw);
+        }
+        return true;
+    }
+
+    /** Water beside the hole's column at a lake edge, 50 cobble on him: a tower, not "no cover" (audit 11-04: the hole was picked, then refused for the water, and the tower never tried). */
+    private static boolean st633(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -4; yy <= 0; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE); h.setBlock(new BlockPos(x, 1, z), Blocks.DIRT); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            for (int yy = -1; yy <= 0; yy++) h.setBlock(new BlockPos(8, yy, 8), Blocks.DIRT);
+            h.setBlock(new BlockPos(9, 0, 8), Blocks.WATER); // (beside the column, two down, under a dirt cap: the lake's edge)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 50)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.pillarBlocks.clear();
+        }
+        if (t[0] == 20) {
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); // (the follow walk had moved him off the water's column)
+            boolean ok = c.work.shelter(); String q = String.valueOf(c.tasks), why = c.noCoverWhyNow();
+            boolean tower = c.tasks.stream().anyMatch(x -> x instanceof Task.Pillar);
+            c.tasks.clear(); c.dropCurrent = true; c.pillarBlocks.clear();
+            check(ok && tower, "water beside the hole: shelter " + ok + ", no tower (" + why + "), tasks " + q);
+            pass(stage, t, "a tower by the water: " + q.substring(0, Math.min(120, q.length())));
+        }
+        return true;
+    }
+
+    /** A skeleton on him, 15 cobble, rock he can't dig: no bare tower (audit 11-04: the roofless check passed at 13+ blocks, the hut needs 14 + the tower; live 18:13 a bare perch got him shot off). */
+    private static boolean st634(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -4; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            level.setDayTime(18000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 15)); c.setHealth(20); c.getFoodData().setFoodLevel(20); // (no pick: the stone under him is no hole)
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.pillarBlocks.clear();
+        }
+        if (t[0] == 19) { c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); }
+        if (t[0] == 15) { var sk = h.spawn(EntityType.SKELETON, new BlockPos(8, 2, 0)); sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW)); sk.setPersistenceRequired(); sk.setTarget(c); sk.setNoAi(true); c.setLastHurtByMob(sk); }
+        if (t[0] == 20) {
+            c.tasks.clear(); c.currentTask = null;
+            boolean ok = c.work.shelter(); String q = String.valueOf(c.tasks), why = c.noCoverWhyNow();
+            int fy = c.blockPosition().getY();
+            boolean tower = c.tasks.stream().anyMatch(x -> x instanceof Task.Pillar), hut = c.tasks.stream().anyMatch(x -> x instanceof Task.Place p0 && p0.pos().getY() >= fy + 2);
+            c.tasks.clear(); c.dropCurrent = true; c.pillarBlocks.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard();
+            check(!tower || hut, "a bare tower under the skeleton with 15 blocks: " + q);
+            pass(stage, t, "no bare perch (shelter " + ok + ", " + why + ")");
+        }
+        return true;
+    }
+
+    private static int st635Husks = -1, st635Wait = -1; private static net.minecraft.world.entity.monster.Husk st635Hk;
+    /** Hurt in his hole by day, the husk on top wanders 28 off over his 45 s mark (still sensed lately, none within 24), then comes back: he tunnels out (audit 11-04: the tunnel was marked tried with no one near, then the hold at <8 health kept him in for good). */
+    private static boolean st635(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st635Husks = -1; st635Wait = -1; st635Hk = null; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -6; yy <= -5; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE); for (int yy = -4; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.DIRT); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            level.setDayTime(3000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIRT, 5)); c.setHealth(6); c.getFoodData().setFoodLevel(6); c.getFoodData().setSaturation(0);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.pillarBlocks.clear();
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); check(c.work.shelter(), "no hole dug (" + c.noCoverWhyNow() + ")"); }
+        if (t[0] > 20 && st635Wait < 0 && c.currentTask instanceof Task.Wait && c.work.holdingCover()) { st635Wait = t[0]; st635Hk = h.spawn(EntityType.HUSK, new BlockPos(8, 2, 5)); st635Hk.setPersistenceRequired(); st635Hk.setTarget(c); }
+        if (st635Wait > 0 && st635Hk != null) {
+            BlockPos far = at.offset(28, 0, 0);
+            if (t[0] == st635Wait + 840) { st635Hk.setNoAi(true); st635Hk.teleportTo(far.getX() + 0.5, far.getY(), far.getZ() + 0.5); } // (wandered off: sensed 3 s ago, none within 24 at his 45 s mark)
+            if (t[0] == st635Wait + 1000) { st635Hk.setNoAi(false); st635Hk.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() - 2.5); st635Hk.setTarget(c); st635Husks = t[0]; }
+            if (t[0] < st635Wait + 1000) check(c.isAlive(), "dead in the hole before the test's turn");
+        }
+        if (t[0] > 20 && st635Wait < 0) check(t[0] < 400, "never settled in a hole: at " + c.blockPosition() + ", now=" + c.currentTask + " tasks=" + c.tasks);
+        if (st635Husks > 0) {
+            double off = Math.max(Math.abs(c.getX() - (at.getX() + 0.5)), Math.abs(c.getZ() - (at.getZ() + 0.5)));
+            if (off >= 3) { c.tasks.clear(); c.dropCurrent = true; c.pillarBlocks.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); c.setHealth(20); pass(stage, t, "tunnelling out: " + String.format("%.1f", off) + " off the hole " + (t[0] - st635Husks) / 20 + " s after the husk came back"); }
+            else check(t[0] - st635Husks < 20 * 30, "30 s with the husk back on top at " + (int) c.getHealth() + " health and no tunnel out: at " + c.blockPosition() + ", now=" + c.currentTask + " tasks=" + c.tasks);
+        }
+        return true;
+    }
+
+    /** The route's column cache: (x, z, y) and (x, z - 1, y + 31) are two columns, not one entry (audit 11-04: key(x, z) * 31 + ref shared them). */
+    private static boolean st636(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            long a = com.claudemod.entity.nav.Route.colKey(10, 5, 71), b = com.claudemod.entity.nav.Route.colKey(10, 4, 40), d = com.claudemod.entity.nav.Route.colKey(-3, 7, -50), e = com.claudemod.entity.nav.Route.colKey(-3, 6, -19);
+            check(a != b, "columns (10, 5) at 71 and (10, 4) at 40 share a cache key");
+            check(d != e, "columns (-3, 7) at -50 and (-3, 6) at -19 share a cache key");
+            check(com.claudemod.entity.nav.Route.colKey(10, 5, 71) == a, "the key isn't stable");
+            pass(stage, t, "column keys apart");
+        }
+        return true;
+    }
+
+    /** A route planned 8 back from the lava's lip: its crossing is the highway (4 wide, rails), not the plain 2-wide run (audit 11-04: the bot was looked up by distance to the crossing's start, within 3). */
+    private static boolean st637(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        final int ox = 7000, oz = 7000; BlockPos me = new BlockPos(ox - 2, 70, oz), far = new BlockPos(ox + 23, 70, oz);
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 900; c.prefs.put("stay_close", "no"); com.claudemod.entity.life.PortalMap.net(c).segments.clear();
+            c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(nether, me.getX() + 0.5, 95, me.getZ() + 0.5, 0, 0); c.setNoGravity(true); }
+        if (t[0] >= 10 && t[0] < 10 + 34) { int x = t[0] - 10 - 3; for (int z = -9; z <= 9; z++) for (int y = 60; y <= 82; y++) nether.setBlock(new BlockPos(ox + x, y, oz + z), hwBlock(x, y, z), 2 | 16); }
+        if (t[0] == 50) { c.setNoGravity(false); c.teleportTo(nether, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, -90f, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.fallDistance = 0; c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); }
+        if (t[0] == 60) {
+            var plan = com.claudemod.entity.nav.ActionPath.plan(c, nether, me, far, 1.0, true, 20000);
+            check(plan != null, "no plan across the lava from 8 back");
+            var ts = com.claudemod.entity.nav.ActionPath.tasks(plan, me, Items.COBBLESTONE, far, 1.0, nether);
+            long places = ts.stream().filter(x -> x instanceof Task.Place).count();
+            c.tasks.clear(); c.dropCurrent = true; c.getInventory().clearContent(); com.claudemod.entity.life.PortalMap.net(c).segments.clear();
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0);
+            check(places >= 40, "the crossing from 8 back: " + places + " blocks in its tasks, a highway is ~74 (4 wide, rails): " + ts.subList(0, Math.min(12, ts.size())));
+            pass(stage, t, "the crossing from 8 back is the highway: " + places + " blocks");
+        }
+        return true;
+    }
+
+    private static String st631Said;
+    private static boolean st631(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 19:05 11-04: out of his dusk hole after 2 s, the hole filled back in on the way up (its blocks went into pillarBlocks); the next shelter read them as his tower, "already up his tower: staying put" on flat ground, and a creeper walked up at 19:09. Ground-level fill is no tower.
+        BlockPos at = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -4; yy <= 0; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE); h.setBlock(new BlockPos(x, 1, z), Blocks.DIRT); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            h.setBlock(new BlockPos(8, 0, 8), Blocks.DIRT);
+            level.setDayTime(13000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.DIRT, 5)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 49)); c.setHealth(9); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+            mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            c.skillQueue.clear(); c.tasks.clear();
+        }
+        if (t[0] == 30) { c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); c.pillarBlocks.clear(); c.pillarBlocks.addFirst(at.below(2)); c.pillarBlocks.addFirst(at.below()); st631Said = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "shelter", "", 1); } // (the hole he climbed out of, filled back in that same second: live the next shelter came before tidyLitter's prune of fill)
+        if (t[0] > 30) {
+            BlockPos f = c.blockPosition(); boolean lid = !level.getBlockState(f.above(2)).getCollisionShape(level, f.above(2)).isEmpty();
+            if ((f.getY() < at.getY() && lid) || f.getY() >= at.getY() + 2) { c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.pillarBlocks.clear(); pass(stage, t, "under cover at " + f + " (lid " + lid + ") in " + (t[0] - 30) + " ticks"); }
+            else check(t[0] < 330, "on the open ground at " + f + " 15 s after shelter (lid " + lid + "), shelter said: " + st631Said + ", now=" + c.currentTask + " tasks=" + c.tasks);
         }
         return true;
     }

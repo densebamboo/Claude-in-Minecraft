@@ -306,7 +306,7 @@ public final class Route {
      * an overhang (the roof read as the ground: a 3-high wall round where he stood).
      */
     private static Col col(ServerLevel level, Map<Long, Col> cache, int x, int z, int ref) {
-        long k = key(x, z) * 31 + ref; Col c = cache.get(k); if (c != null) return c;
+        long k = colKey(x, z, ref); Col c = cache.get(k); if (c != null) return c;
         LevelChunk ch = level.getChunkSource().getChunkNow(x >> 4, z >> 4);
         if (ch == null) c = new Col(UNKNOWN, false, 0);
         else {
@@ -330,6 +330,7 @@ public final class Route {
     }
     /** He can be in it: nothing to bump into (air, grass, flowers, water). */
     private static boolean open(ServerLevel level, BlockPos p, BlockState s) { return s.getCollisionShape(level, p).isEmpty() && !s.is(Blocks.POWDER_SNOW); }
+    public static long colKey(int x, int z, int ref) { return node(x, z, ref); } // (key(x, z) * 31 + ref: (x, z, y) and (x, z - 1, y + 31) shared one entry)
     private static long key(int x, int z) { return ((long) x << 32) | (z & 0xffffffffL); }
 
     private record N(int x, int z, int feet, double g, double f) {}

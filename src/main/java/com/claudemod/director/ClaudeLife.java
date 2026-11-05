@@ -6686,7 +6686,7 @@ public final class ClaudeLife {
                     : s.getItem() instanceof net.minecraft.world.item.TieredItem ? 8 : s.getItem() instanceof net.minecraft.world.item.ArmorItem ? 10
                     : id.equals("torch") || id.equals("coal") || id.equals("arrow") || id.equals("string") || id.equals("flint") || id.equals("feather") ? 1
                     : s.get(net.minecraft.core.component.DataComponents.FOOD) != null ? 1 : 0;
-            w += each * (each >= 20 ? 1 : n); // stacks of plain stuff count once per item, gear once per piece
+            w += each * (s.getMaxStackSize() == 1 ? 1 : n); // gear once per piece, everything that stacks per item (8 diamonds read as 1 and were left to despawn)
         }
         return w;
     }

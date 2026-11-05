@@ -272,7 +272,7 @@ public final class ActionPath {
     }
     /** The rows of a crossing as his tasks: each row's floor (the highway's width, his way on it), its two rails at floor + 1 outside it, then onto the row; on a segment he built before, lined up with it. False when he's short of blocks for it (the 2-wide line is laid instead). */
     static boolean crossingTasks(List<Task> out, List<Act> acts, int i0, int i1, BlockPos from, Item scaffold, ServerLevel level, int rows) {
-        com.claudemod.entity.ClaudeEntity g = null; for (var p : level.players()) if (p instanceof com.claudemod.entity.ClaudeEntity c0 && c0.blockPosition().distSqr(from) <= 9) g = c0;
+        com.claudemod.entity.ClaudeEntity g = null; for (var p : level.players()) if (p instanceof com.claudemod.entity.ClaudeEntity c0 && c0.level() == level) g = c0; // (one bot per server; by distance to the crossing's start, any crossing past 3 blocks out got the plain 2-wide run)
         if (g == null) return false;
         BlockPos first = ((Act.Put) acts.get(i0)).pos(), last = ((Act.Put) acts.get(i1 - 1)).pos();
         Direction d = Direction.getNearest(last.getX() - first.getX(), 0, last.getZ() - first.getZ()); Direction right = d.getClockWise();

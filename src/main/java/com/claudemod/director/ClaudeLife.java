@@ -7642,7 +7642,7 @@ public final class ClaudeLife {
 
     /** A furnace of his that's done (output waiting, nothing left cooking), not too far: go empty it, like a player would. */
     private static void collectFinishedFurnaces(ClaudeEntity g, ServerLevel level) {
-        if (g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee || g.tasks.stream().anyMatch(t -> t instanceof Task.FurnaceTake)) return;
+        if (g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee || g.currentTask instanceof Task.FurnaceTake || g.tasks.stream().anyMatch(t -> t instanceof Task.FurnaceTake)) return; // (the one he's on counts too: a second was queued in front of it mid-walk, live 13:53 "doing FurnaceTake, 1 more queued")
         List<BlockPos> furnaces = new ArrayList<>(g.myStations);
         for (BlockPos p : BlockPos.betweenClosed(g.blockPosition().offset(-12, -6, -12), g.blockPosition().offset(12, 6, 12))) // ones set into his mine's walls
             if (level.getBlockState(p).is(Blocks.FURNACE) && touchesMine(g, p) && !furnaces.contains(p)) { furnaces.add(p.immutable()); g.myStations.add(p.immutable()); }
@@ -7657,6 +7657,7 @@ public final class ClaudeLife {
             }
         }
         for (BlockPos f : furnaces) {
+            if (g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.REACH, f, g.tickCount, 1200)) { if (g.tickCount % 600 < 100) ClaudeMod.LOGGER.info("[Claude life] his furnace at {} is done, but his way into reach of it failed and nothing's changed since: it keeps till he's by it (ClaudeLife.collectFinishedFurnaces)", f.toShortString()); continue; } // (live 13:52: "couldn't get in reach" then queued again every 5 s for minutes, a drowned on him)
             Integer readyAt = g.furnaceReadyAt.get(f);
             if (readyAt != null && g.tickCount < readyAt) continue; // still cooking: he knows when it's due
             if (!level.isLoaded(f) || !(level.getBlockEntity(f) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fe)) continue;

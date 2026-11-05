@@ -12024,7 +12024,18 @@ public final class ClaudeLife {
         for (int i = 0; i < g.inventory.items.getContainerSize(); i++) have = Math.max(have, g.inventory.items.getItem(i).getDestroySpeed(state));
         BlockPos tablePos = findNear(level, g.blockPosition(), 5, b -> b.is(Blocks.CRAFTING_TABLE));
         boolean table = tablePos != null;
-        if (!table && g.inventory.count(s -> s.is(Items.CRAFTING_TABLE)) > 0) table = placeNextTo(g, level, Items.CRAFTING_TABLE) != null;
+        boolean makings = false; { // a better tool of this kind with its makings on him (the head's material, sticks or wood for them), or a spare stone pick for a pick job: only then is a table worth putting down (inline: a new method won't hotswap)
+            int uWood = 0, uSticks = 0, uRock = 0, uIron = 0, uDia = 0, uPicks = 0;
+            for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { ItemStack s1 = g.inventory.items.getItem(i);
+                if (s1.is(ItemTags.PLANKS)) uWood += s1.getCount(); else if (s1.is(ItemTags.LOGS)) uWood += s1.getCount() * 4; else if (s1.is(Items.STICK)) uSticks += s1.getCount();
+                else if (s1.is(ItemTags.STONE_TOOL_MATERIALS)) uRock += s1.getCount(); else if (s1.is(Items.IRON_INGOT)) uIron += s1.getCount(); else if (s1.is(Items.DIAMOND)) uDia += s1.getCount();
+                else if (s1.getItem() instanceof net.minecraft.world.item.PickaxeItem) uPicks++; }
+            if (kinds != PICKAXES && uIron < 27) for (Item k : Kit.missing(g, true).keySet()) if (Crafting.name(k).startsWith("iron")) { uIron = 0; uDia = 0; break; } // (as below: the first iron goes on the kit, no iron or diamond axe or shovel)
+            boolean uStick = uSticks >= 2 || uWood >= 2; int uHead = kinds == SHOVELS ? 1 : 3;
+            int[] uMat = {uWood - (uSticks >= 2 ? 0 : 2), uRock, uIron, diamondsReserved(g) ? 0 : uDia};
+            for (int i = 0; i < kinds.length && i < uMat.length; i++) if (new ItemStack(kinds[i]).getDestroySpeed(state) > have && uMat[i] >= uHead && uStick) makings = true;
+            if (kinds == PICKAXES && uPicks < 2 && uRock >= 3 && uStick) makings = true; }
+        if (!table && g.inventory.count(s -> s.is(Items.CRAFTING_TABLE)) > 0) { if (makings) table = placeNextTo(g, level, Items.CRAFTING_TABLE) != null; else nookSay(g, "noUpgrade" + kinds[0], "[Claude skill] no better " + Crafting.name(kinds[0]).replace("wooden ", "") + " he has the makings for: his table stays in his pack (ClaudeLife.upgradeToolFor)"); } // (09:36 11-05: put down, nothing made, taken back up a second later, stage 720)
         if (!table && kinds == PICKAXES && have < new ItemStack(Items.STONE_PICKAXE).getDestroySpeed(state)) { // a wooden pick with 159 cobble on him for half an hour: a player spends a log on a table
             int rock = 0, wood = 0;
             for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { var it0 = g.inventory.items.getItem(i); if (it0.is(ItemTags.STONE_TOOL_MATERIALS)) rock += it0.getCount(); else if (it0.is(ItemTags.LOGS)) wood += it0.getCount() * 4; else if (it0.is(ItemTags.PLANKS)) wood += it0.getCount(); }

@@ -10479,6 +10479,7 @@ public final class ClaudeBodyTest {
             case 664: return st664(stage, t, c, h, level, mock);
             case 665: return st665(stage, t, c, h, level, mock);
             case 666: return st666(stage, t, c, h, level, mock);
+            case 667: return st667(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -14197,6 +14198,23 @@ public final class ClaudeBodyTest {
             check(inv.contains(new ItemStack(Items.IRON_BOOTS)) && inv.contains(new ItemStack(Items.GOLDEN_BOOTS)) && inv.contains(new ItemStack(Items.IRON_HELMET)), "junk toss: armor thrown out (iron boots " + inv.contains(new ItemStack(Items.IRON_BOOTS)) + ", golden boots " + inv.contains(new ItemStack(Items.GOLDEN_BOOTS)) + ", iron helmet " + inv.contains(new ItemStack(Items.IRON_HELMET)) + ")");
             check(inv.getFreeSlot() >= 0, "junk toss: no room made");
             pass(stage, t, "the junk toss made room with stone and kept the spare armor");
+        }
+        return true;
+    }
+
+    /** An empty bucket for the obsidian, no water in sight, a pool he saw 40 blocks off: he goes to that pool to fill it, never "failed: no water in sight" and an explore (live 05:42-05:56 11-05 World 17: three "no water in sight" fails at the lava at y -54 put make_obsidian on the failed-3x skip; the planner explored, he stair-cut 50 blocks up and filled the bucket 480 blocks off, then wandered 900 out looking for an ocean). */
+    private static boolean st667(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 24000; c.tasks.clear(); c.skillQueue.clear(); }
+        if (t[0] == 10) {
+            flatBox(h); BlockPos me = h.absolutePos(new BlockPos(3, 2, 3)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); level.setDayTime(1000);
+            BlockPos pool = me.offset(0, -1, 40); level.setBlock(pool, Blocks.WATER.defaultBlockState(), 3); com.claudemod.entity.life.Perception.sawCell(c, level, pool);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.BUCKET)); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE));
+            String r = com.claudemod.director.ClaudeLife.obsWater(c, level, () -> {});
+            check(r != null && !r.startsWith("failed"), "obsidian water: with a pool seen 40 off, obsWater said: " + r);
+            boolean walk = false; for (Task q : c.tasks) if (q instanceof Task.GoTo go && go.pos().distSqr(pool) <= 3 * 3) walk = true;
+            check(walk, "obsidian water: no walk to the pool he saw: " + c.tasks);
+            c.tasks.clear(); level.setBlock(pool, Blocks.STONE.defaultBlockState(), 3);
+            pass(stage, t, "no water in sight: off to the pool he saw (" + r + ")");
         }
         return true;
     }

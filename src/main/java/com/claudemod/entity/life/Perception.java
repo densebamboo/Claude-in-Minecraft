@@ -339,6 +339,8 @@ public final class Perception {
         return false;
     }
     public static boolean knowsWater(ClaudeEntity g, BlockPos p) { return fl(g).water.containsKey(p); }
+    public static java.util.Set<BlockPos> knownWater(ClaudeEntity g) { return fl(g).water.keySet(); }
+    public static void forgetWater(ClaudeEntity g, BlockPos p) { fl(g).water.remove(p); }
     /** Every lava cell he has seen (and not seen gone since). */
     public static java.util.Set<BlockPos> knownLava(ClaudeEntity g) { return fl(g).lava.keySet(); }
 

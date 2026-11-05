@@ -9911,6 +9911,12 @@ public final class ClaudeLife {
                 if (++obsWaterTries > 6) return "failed: couldn't fill my bucket at " + ws.toShortString() + " (6 clicks on the water in reach, still empty)"; /* (only clicks in reach count: the walks to the water never were a failure) */ g.hold(s -> s.is(Items.BUCKET)); g.getLookControl().faceNow(fluidAim(g, ws)); g.useHeld(); again.run(); return holding(g, Items.WATER_BUCKET) ? "filled my bucket at " + ws.toShortString() : "filling my bucket at " + ws.toShortString(); }
             g.tasks.add(new Task.GoTo(ws, 2.5)); again.run(); return "to the water at " + ws.toShortString() + " to fill my bucket (water over lava makes the obsidian)";
         }
+        { // none in sight: the nearest water he has seen, wherever it is (live 05:42 11-05: three "no water in sight" fails, then a 900-block wander for an ocean)
+            BlockPos known = null; double kd = Double.MAX_VALUE; java.util.List<BlockPos> stale = new java.util.ArrayList<>();
+            for (BlockPos p : com.claudemod.entity.life.Perception.knownWater(g)) { if (g.farm != null && g.farm.waterCells().contains(p)) continue; double d = p.distSqr(g.blockPosition()); if (d <= 4 * 4) { stale.add(p); continue; } if (d < kd) { kd = d; known = p; } } // (one in reach with no source in sight: not a source, or gone)
+            for (BlockPos p : stale) com.claudemod.entity.life.Perception.forgetWater(g, p);
+            if (known != null) { g.tasks.add(new Task.GoTo(known, 2.5)); again.run(); return "no water in sight: to the water I saw at " + known.toShortString() + " (" + (int) Math.sqrt(kd) + " blocks) to fill my bucket"; }
+        }
         if (g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.touches(g.blockPosition()) && underground(g, level)) { bpWalkTo(g, g.blueprint.entrance); g.tasks.add(new Task.GoTo(g.blueprint.outside(), 1.5)); again.run(); return "no water down here: up out of the mine to fill my bucket"; }
         return "failed: no water in sight to fill my bucket (obsidian is water poured over lava): a lake, a river or the sea";
     }

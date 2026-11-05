@@ -10426,6 +10426,8 @@ public final class ClaudeBodyTest {
             case 808: return st808(stage, t, c, h, level, mock);
             case 809: return st809(stage, t, c, h, level, mock);
             case 810: return st810(stage, t, c, h, level, mock);
+            case 811: return st811(stage, t, c, h, level, mock);
+            case 812: return st812(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
             case 615: return st615(stage, t, c, h, level, mock);
             case 617: return st617(stage, t, c, h, level, mock);
@@ -12928,6 +12930,47 @@ public final class ClaudeBodyTest {
             check(com.claudemod.entity.life.Perception.knowsLava(c, ow), "back in the Overworld, the lava he saw there forgotten");
             check(com.claudemod.director.ClaudeLife.lavaSeen(c).contains(ow) && com.claudemod.director.ClaudeLife.lavaSeen(c).size() == 1, "back in the Overworld, its list isn't the Overworld's own: " + com.claudemod.director.ClaudeLife.lavaSeen(c));
             com.claudemod.director.ClaudeLife.lavaSeen(c).clear(); nsHome(c, h, level); pass(stage, t, "each world its own lava list: the Overworld's lava off his Nether list, kept for his return; the Nether's saved and loaded"); return true;
+        }
+        return true;
+    }
+
+    /** Day to Day 11-05 (live 09:52-10:31, review-4/5): 40 min on one block, a planned Wait every 10 s with his walk queued behind it; no incident fired (each Wait a planned task). Now STUCK, whatever the task; a walk that's going files nothing. */
+    private static BlockPos s811A; private static int s811T;
+    private static boolean st811(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var W = com.claudemod.entity.life.Watchdog.recentKinds;
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 24000; c.tasks.clear(); c.skillQueue.clear(); W.clear(); com.claudemod.entity.life.Watchdog.stuckTicks = 200; com.claudemod.entity.life.Watchdog.linesInTests = true;
+            s811A = h.absolutePos(new BlockPos(3, 40, 8));
+            for (int x = -2; x <= 20; x++) for (int z = -2; z <= 2; z++) for (int y = -1; y <= 3; y++) level.setBlockAndUpdate(s811A.offset(x, y, z), y == -1 || y == 3 || Math.abs(z) == 2 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState());
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(s811A.getX() + 0.5, s811A.getY(), s811A.getZ() + 0.5); c.fallDistance = 0;
+        }
+        try {
+        if (t[0] >= 10 && t[0] < 400 && !(c.currentTask instanceof com.claudemod.entity.life.Task.Wait)) { c.tasks.clear(); c.dropCurrent = true; c.tasks.add(new com.claudemod.entity.life.Task.Wait(200, false)); c.tasks.add(new com.claudemod.entity.life.Task.GoTo(s811A.offset(16, 0, 0).immutable(), 1.0)); } // (a fresh Wait each time, the walk behind it)
+        if (t[0] == 120) check(!W.contains("STUCK"), "STUCK after 5 s: " + com.claudemod.entity.life.Watchdog.lastIncident);
+        if (t[0] > 120 && t[0] < 400 && W.contains("STUCK")) { s811T = t[0]; W.clear(); c.tasks.clear(); c.dropCurrent = true; c.tasks.add(new com.claudemod.entity.life.Task.GoTo(s811A.offset(16, 0, 0).immutable(), 1.0)); t[0] = 400; } // (filed: now the walk itself)
+        if (t[0] > 400 && c.blockPosition().distSqr(s811A.offset(16, 0, 0)) <= 2) { check(!W.contains("STUCK"), "STUCK on a walk that went: " + com.claudemod.entity.life.Watchdog.lastIncident); com.claudemod.entity.life.Watchdog.stuckTicks = 20 * 180; com.claudemod.entity.life.Watchdog.linesInTests = false; c.tasks.clear(); pass(stage, t, "STUCK filed at t " + s811T + " on Waits with the walk queued; the walk itself none"); return true; }
+        check(t[0] < 399 || s811T > 0, "no STUCK in 20 s on one block with the walk queued: " + W);
+        check(t[0] < 900, "the walk to the end didn't arrive (at " + c.blockPosition().toShortString() + ", " + c.currentTask + ")");
+        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.stuckTicks = 20 * 180; com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
+        return true;
+    }
+
+    /** Day to Day 11-05 (live 09:49-09:50, review-198): explore for a biome re-picked its heading every leg, east-west over the same ground: the fewest covered cells won outright, a cell less behind him turned him round. Now a turn costs (about-face = 3 cells): one covered cell ahead, none behind, he holds his way. */
+    private static boolean st812(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Atlas.reset(c); }
+        if (t[0] == 5) {
+            int gx = c.getBlockX(), gz = c.getBlockZ();
+            for (int dx = -224; dx <= 224; dx += 32) for (int dz = -224; dz <= 224; dz += 32) {
+                double r = Math.sqrt(dx * dx + dz * dz), a = Math.toDegrees(Math.atan2(dz, dx));
+                boolean west = Math.abs(Math.abs(a) - 180) <= 35, east = Math.abs(a) <= 35;
+                if (r < 40 || west) continue; // (behind him: all fresh)
+                if (east && !(r >= 130 && r <= 175)) continue; // (ahead: fresh but for one ring of covered cells)
+                com.claudemod.entity.life.Atlas.coverTest(c, level, gx + dx, gz + dz);
+            }
+            double a = com.claudemod.entity.life.Atlas.freshHeading(c, level, 0.0); // (heading east)
+            double off = Math.toDegrees(Math.abs(Math.atan2(Math.sin(a), Math.cos(a))));
+            check(off <= 45, "turned " + (int) off + " deg off his heading for a cell less behind him (picked " + (int) Math.toDegrees(a) + " deg)");
+            com.claudemod.entity.life.Atlas.reset(c); pass(stage, t, "held his heading (" + (int) Math.toDegrees(a) + " deg, " + (int) off + " off) over one covered cell ahead"); return true;
         }
         return true;
     }

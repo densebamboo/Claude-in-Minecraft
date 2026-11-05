@@ -41,6 +41,7 @@ public final class Watchdog {
         int wetSince = -1; double wetX, wetY, wetZ;              // in water since, from where
         String wetDoing = "nothing"; boolean wetWalk;             // what he was at in the water (the walk ends as he lands)
         int idleSince = -1; double idleX, idleZ;                  // no task, no queue, standing, since (IDLE)
+        long stillPos = Long.MIN_VALUE; BlockPos stillWant; int stillSince, stillBroken; // same block, the same walk queued, nothing dug, since (STUCK)
         int startEst; String startWhat = "";                      // the running action's player-pace estimate in ticks, and what it is (SLOW)
         int tripAt = -1, tripBroken, tripItems; BlockPos tripPos; String tripWhat = ""; // a 16+ block walk that got there: something done within 10 s? (WASTED_TRIP)
         int handRun;                                              // tool blocks broken by hand in a row (BARE_HANDS)
@@ -520,6 +521,17 @@ public final class Watchdog {
         if (c != null && items(g) != s.startItems && Math.sqrt(c.distToCenterSqr(g.getEyePosition())) <= 6 && !seen(g, c))
             fileOnce(g, "SIGHT", "SIGHT|" + c.asLong(), "used the " + nm(g.level().getBlockState(c)) + " at " + c.toShortString() + " without seeing it (" + t + ", from " + g.blockPosition().toShortString() + ")");
     }
+    public static int stuckTicks = 20 * 180; // (stage 811 shortens it)
+    /** The same block 3 min while a walk waits in his queue, whatever task holds him (live 09:52-10:31: 40 min of planned cover Waits, no incident). Not holding the night, asleep, staying where told, or in their lesson. */
+    private static void stuck(ClaudeEntity g, St s) {
+        BlockPos want = g.currentTask instanceof Task.GoTo c ? c.pos() : null;
+        if (want == null) for (Task t : g.tasks) if (t instanceof Task.GoTo q) { want = q.pos(); break; }
+        long pos = g.blockPosition().asLong();
+        boolean excused = g.holdingNight() || g.isSleeping() || g.staying || Consent.lesson(g) || !on();
+        if (excused || want == null || pos != s.stillPos || !want.equals(s.stillWant) || s.broken != s.stillBroken) { s.stillPos = pos; s.stillWant = want; s.stillSince = now(g); s.stillBroken = s.broken; return; } // (digging from one spot is work: an obsidian pocket's 10 blocks)
+        if (now(g) - s.stillSince >= stuckTicks)
+            fileOnce(g, "STUCK", "STUCK|" + pos + "|" + want.asLong(), String.format("at %s for %d s with the walk to %s queued all that time, doing %s (queue %d, step %s)", g.blockPosition().toShortString(), (now(g) - s.stillSince) / 20, want.toShortString(), g.currentTask, g.tasks.size(), g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target()));
+    }
     /** No task, nothing queued, standing still 20 s+ (not holding the night, asleep, held by them, or thinking under 45 s). */
     private static void idle(ClaudeEntity g, St s) {
         boolean still = s.idleSince >= 0 && Math.abs(g.getX() - s.idleX) + Math.abs(g.getZ() - s.idleZ) < 2;
@@ -683,7 +695,7 @@ public final class Watchdog {
         if (!g.isAlive()) return;
         LogReviewer.tick(g);
         lineIncidents(g);
-        if (now(g) % 20 == 0) { furnaceLeft(g); idle(g, st(g)); wastedTrip(g, st(g)); furnaceWait(g, st(g)); idleFurnaces(g); }
+        if (now(g) % 20 == 0) { furnaceLeft(g); idle(g, st(g)); stuck(g, st(g)); wastedTrip(g, st(g)); furnaceWait(g, st(g)); idleFurnaces(g); }
         pace(g, st(g)); walkLedger(g, st(g));
         dragAndWater(g, st(g));
         St s = st(g);

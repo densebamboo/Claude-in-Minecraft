@@ -38,6 +38,7 @@ public final class Atlas {
     private static Map<UUID, Book> books;
     static Book book(ClaudeEntity g) { if (books == null) books = new HashMap<>(); return books.computeIfAbsent(g.getUUID(), k -> new Book()); }
     public static void reset(ClaudeEntity g) { if (books != null) books.remove(g.getUUID()); }
+    public static void coverTest(ClaudeEntity g, ServerLevel l, int x, int z) { book(g).covered.computeIfAbsent(dim(l), k -> new HashSet<>()).add(cell(x, z)); }
 
     static String dim(ServerLevel l) { return l.dimension().location().getPath(); }
     static long cell(int x, int z) { return ((long) Math.floorDiv(x, CELL) << 32) | (Math.floorDiv(z, CELL) & 0xffffffffL); }
@@ -118,7 +119,7 @@ public final class Atlas {
     /** The heading with the least ground he's covered along it (48-160 out), sixteen ways round; ties: the one nearest {@code now}. */
     public static double freshHeading(ClaudeEntity g, ServerLevel l, double now) {
         Set<Long> cov = book(g).covered.getOrDefault(dim(l), Set.of());
-        double best = now; int bc = Integer.MAX_VALUE; double bTurn = Double.MAX_VALUE;
+        double best = now, bc = Double.MAX_VALUE; double bTurn = Double.MAX_VALUE;
         boolean sweep = l.dimensionType().hasCeiling() && l.getBiome(g.blockPosition()).is(net.minecraft.world.level.biome.Biomes.WARPED_FOREST); // ponytail: the user 14:15, "mapping out the warped biome and covering as much ground as possible" on the pearl hunt; a flag here, not a new method, for the live hotswap
         for (int k = 0; k < 16; k++) {
             double a = k * Math.PI / 8; int n = 0;
@@ -129,7 +130,8 @@ public final class Atlas {
             } else
             for (int r = 48; r <= 160; r += 16) if (cov.contains(cell(g.getBlockX() + (int) (Math.cos(a) * r), g.getBlockZ() + (int) (Math.sin(a) * r)))) n++;
             double turn = Math.abs(Math.atan2(Math.sin(a - now), Math.cos(a - now)));
-            if (n < bc || n == bc && turn < bTurn) { bc = n; best = a; bTurn = turn; }
+            double sc = n + 3 * turn / Math.PI; // (a turn costs: about-face = 3 cells; a cell less on the far side flipped him east-west over the same ground, live 09:49-09:50 review-198)
+            if (sc < bc || sc == bc && turn < bTurn) { bc = sc; best = a; bTurn = turn; }
         }
         return best;
     }

@@ -10,6 +10,7 @@ Log watchers (`tools/loopwatch.py`, `tools/pathwatch.py`, run by `tools/selfwatc
 |---|---|---|---|
 | Death | Watchdog.death; loopwatch | incident DEATH; flag DEATH | |
 | Stuck on an action (no progress) | Watchdog ladder | incident TRIP; flag STUCK | |
+| The same block 3 min with a walk queued all that time, whatever task holds him (not night hold, asleep, staying, a lesson; any block dug restarts it) | Watchdog.stuck | incident STUCK | 811 |
 | A typed failure hit its counter (bandaid) | Attempts | incident BANDAID | |
 | Same step result 3x inside a second | Watchdog.tick | incident INSTANT REPEAT | |
 | Moved more than 3 blocks in a tick, unplanned | Watchdog.tick | incident UNPLANNED MOVE | |

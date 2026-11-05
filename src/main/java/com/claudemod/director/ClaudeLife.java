@@ -3128,7 +3128,8 @@ public final class ClaudeLife {
                     BlockPos homeF = rawRidesHome(g, level);
                     if (homeF != null) return "done: the " + Crafting.name(input) + " rides home to my furnace at " + homeF.toShortString() + " (" + (int) Math.sqrt(homeF.distSqr(g.blockPosition())) + " off): no new furnace out here";
                 }
-                if (!g.commandActive && (input == Items.RAW_IRON || input == Items.RAW_GOLD || input == Items.RAW_COPPER) && g.inventory.count(t -> t.is(input)) > count) { int all0 = g.inventory.count(t -> t.is(input)); g.skillQueue.addFirst(new Skills.Step(st.skill(), st.target(), all0, st.where())); return "smelting all " + all0 + " " + Crafting.name(input) + " at once, not just " + count; } // the whole lot at once, like a player (live 12:03 World 15: 2 of 11 raw iron, for the craft's shortfall)
+                if ((input == Items.RAW_IRON || input == Items.RAW_GOLD) && com.claudemod.entity.life.ChestLedger.count(g, level, input) > 0 && g.inventory.count(t -> t.is(input)) + com.claudemod.entity.life.ChestLedger.count(g, level, input) > count) { String got0 = fromMyChests(g, level, t -> t.is(input), new Skills.Step(st.skill(), st.target(), g.inventory.count(t -> t.is(input)) + com.claudemod.entity.life.ChestLedger.count(g, level, input), st.where())); if (got0 != null) return got0; } // the rest of the lot from his chests too, one trip (live 01:25 11-05: 3 cooked, then 8 fetched for the chestplate, then 7)
+                if ((input == Items.RAW_IRON || input == Items.RAW_GOLD || !g.commandActive && input == Items.RAW_COPPER) && g.inventory.count(t -> t.is(input)) > count) { // (iron and gold on their job too: "go" made the pickaxe's 3 of 26) int all0 = g.inventory.count(t -> t.is(input)); g.skillQueue.addFirst(new Skills.Step(st.skill(), st.target(), all0, st.where())); return "smelting all " + all0 + " " + Crafting.name(input) + " at once, not just " + count; } // the whole lot at once, like a player (live 12:03 World 15: 2 of 11 raw iron, for the craft's shortfall)
                 int toCook = Math.min(count, g.inventory.count(t -> t.is(input)));
                 boolean coal = g.inventory.count(t -> t.is(Items.COAL) || t.is(Items.CHARCOAL)) * 8 >= toCook;
                 String walkingToFurnace = goToStation(g, level, Blocks.FURNACE, st);
@@ -11841,7 +11842,7 @@ public final class ClaudeLife {
         // batches: each job split evenly over all the furnaces (the user: all of them at once, in groups): 32 raw iron in six furnaces is 6,6,5,5,5,5, not 8,8,8,8
         List<Object[]> batches = new ArrayList<>();
         for (Object[] l : loads) {
-            int n = (int) l[1], parts = Math.max(1, Math.min(furnaces.size(), (n + 7) / 8)); // the user: a furnace per 8 (one coal's worth), never one item each in six furnaces burning six fuels
+            int n = (int) l[1], parts = Math.max(1, Math.min(furnaces.size(), Math.max((n + 7) / 8, n / 3))); // the user: a furnace per 8 (one coal's worth), never one item each in six furnaces burning six fuels
             for (int k = 0; k < parts; k++) { int c = n / parts + (k < n % parts ? 1 : 0); if (c > 0) batches.add(new Object[] {l[0], c}); }
         }
         // assign: a furnace takes one kind of item; same-kind batches can share

@@ -4164,7 +4164,7 @@ public class WorkGoal extends Goal {
             ItemStack planks = g.inventory.find(s -> s.is(net.minecraft.tags.ItemTags.PLANKS) && !s.is(net.minecraft.tags.ItemTags.NON_FLAMMABLE_WOOD));
             if (!planks.isEmpty() && planks.getCount() * 3 / 2 >= total) { fuel = planks; need = (total * 2 + 2) / 3; }
         }
-        if (fuel.isEmpty()) { fuel = g.inventory.find(s -> s.is(net.minecraft.tags.ItemTags.PLANKS) && !s.is(net.minecraft.tags.ItemTags.NON_FLAMMABLE_WOOD)); need = (total * 2 + 2) / 3; } // planks before whole logs
+        if (fuel.isEmpty()) { fuel = g.inventory.find(s -> s.is(net.minecraft.tags.ItemTags.PLANKS) && !s.is(net.minecraft.tags.ItemTags.NON_FLAMMABLE_WOOD)); need = (total * 2 + 2) / 3; for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { ItemStack pk = g.inventory.items.getItem(i); if (pk.is(net.minecraft.tags.ItemTags.PLANKS) && !pk.is(net.minecraft.tags.ItemTags.NON_FLAMMABLE_WOOD) && pk.getCount() >= need - fuelSlot.getCount() && (fuel.getCount() < need - fuelSlot.getCount())) fuel = pk; } } // planks before whole logs; a stack that covers it (live 01:27 11-05: 3 oak planks found first, 8 birch ones just made, 5 whole logs went in)
         if (fuel.isEmpty() || (fuel.is(net.minecraft.tags.ItemTags.PLANKS) && fuel.getCount() < need - fuelSlot.getCount() && fuelSlot.isEmpty())) { // (3 planks for 7 iron burnt out halfway, the rest raw in there for good: logs when the planks won't cover it)
             ItemStack logs = g.inventory.find(s -> s.is(net.minecraft.tags.ItemTags.LOGS_THAT_BURN));
             if (!logs.isEmpty() || fuel.isEmpty()) { fuel = logs; need = (total * 2 + 2) / 3; }

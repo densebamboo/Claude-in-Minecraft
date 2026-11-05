@@ -10470,6 +10470,7 @@ public final class ClaudeBodyTest {
             case 658: return st658(stage, t, c, h, level, mock);
             case 660: return st660(stage, t, c, h, level, mock);
             case 661: return st661(stage, t, c, h, level, mock);
+            case 662: return st662(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -14148,6 +14149,33 @@ public final class ClaudeBodyTest {
             check(!fuel.is(net.minecraft.tags.ItemTags.LOGS), "whole logs burnt as fuel: " + fuel);
             if (in.is(Items.SALMON) && fuel.is(net.minecraft.tags.ItemTags.PLANKS)) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; pass(stage, t, "the salmon cooking on " + fuel.getCount() + " planks in " + (t[0] - 20) / 20 + " s"); }
             else check(t[0] < 20 + 20 * 10, "10 s and the salmon isn't cooking on planks: in " + in + ", fuel " + fuel + ", line " + c.lastSkillLine);
+        }
+        return true;
+    }
+
+    /** On their job ("go"), 3 raw iron on him and 23 in his chest, six furnaces in a row, 3 oak planks and logs, no coal: "smelt iron_ingot x3" (the pickaxe's share) cooks the whole lot over his furnaces on planks, no whole log in a fuel slot (live 01:25-01:27 11-05 World 17: 3 in one furnace, then 8 fetched for the chestplate, then 7: one furnace each time, stared at it; 3 oak planks short of the 5 needed sent 5 whole logs into the fuel slot though he had just made 8 birch planks). */
+    private static boolean st662(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(5, 2, 4)), chest = h.absolutePos(new BlockPos(8, 2, 5));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(1000);
+            for (int x = 2; x <= 7; x++) { BlockPos f = h.absolutePos(new BlockPos(x, 2, 3)); level.setBlock(f, Blocks.FURNACE.defaultBlockState(), 3); c.myStations.add(f.immutable()); }
+            level.setBlock(chest, Blocks.CHEST.defaultBlockState(), 3); c.storageChests.add(chest.immutable());
+            if (level.getBlockEntity(chest) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity cb) cb.setItem(0, new ItemStack(Items.RAW_IRON, 23));
+            com.claudemod.entity.life.ChestLedger.look(c, level, chest.immutable());
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.RAW_IRON, 3)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 3)); c.getInventory().add(new ItemStack(Items.BIRCH_LOG, 11)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 14)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.commandActive = true;
+        }
+        if (t[0] == 20) c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("smelt", "iron_ingot", 3, "near_you"));
+        if (t[0] > 20) {
+            int loaded = 0, used = 0;
+            for (int x = 2; x <= 7; x++) { var fb = (net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity) level.getBlockEntity(h.absolutePos(new BlockPos(x, 2, 3)));
+                check(!fb.getItem(1).is(net.minecraft.tags.ItemTags.LOGS), "whole logs burnt as fuel: " + fb.getItem(1) + " (line " + c.lastSkillLine + ")");
+                int n = fb.getItem(0).getCount() + fb.getItem(2).getCount() + (fb.getItem(0).isEmpty() && fb.getItem(2).isEmpty() ? 0 : 0); loaded += n; if (n > 0) used++; }
+            int cooked = c.getInventory().countItem(Items.IRON_INGOT);
+            if (loaded + cooked >= 26 && used >= 4) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.commandActive = false; pass(stage, t, "all 26 raw iron in " + used + " furnaces in " + (t[0] - 20) / 20 + " s"); }
+            else { if (t[0] >= 20 + 20 * 20) c.commandActive = false; check(t[0] < 20 + 20 * 20, "20 s and only " + (loaded + cooked) + " of 26 raw iron in, " + used + " furnace(s): line " + c.lastSkillLine + ", task " + c.currentTask); }
         }
         return true;
     }

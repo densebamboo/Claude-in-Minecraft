@@ -66,6 +66,15 @@ public final class PortalMap {
     public static Net net(ClaudeEntity g) { if (nets == null) nets = new HashMap<>(); return nets.computeIfAbsent(g.getUUID(), k -> new Net()); }
 
     public static String dim(Level l) { return l.dimension().location().getPath(); }
+    /** For his plans: the portals he knows in this world, nearest first, with their state (review-69: a new portal planned, no bucket, with a lit one 27 off). */
+    public static String describe(ClaudeEntity g) {
+        String d = dim(g.level()); List<Portal> ps = new ArrayList<>(); for (Portal p : net(g).portals) if (d.equals(p.dim) && !"gone".equals(p.state)) ps.add(p);
+        if (ps.isEmpty()) return "";
+        ps.sort(java.util.Comparator.comparingDouble(p -> p.at.distSqr(g.blockPosition())));
+        StringBuilder sb = new StringBuilder("PORTALS YOU KNOW in this world (use a lit one before building another): ");
+        for (int i = 0; i < Math.min(4, ps.size()); i++) { Portal p = ps.get(i); sb.append(i == 0 ? "" : "; ").append("#").append(p.id).append(' ').append(p.state).append(" at ").append(p.where()).append(" (").append((int) Math.sqrt(p.at.distSqr(g.blockPosition()))).append(" off, ").append(p.by.equals("him") ? "yours" : p.by).append(p.name.isEmpty() ? "" : ", \"" + p.name + "\"").append(")"); }
+        return sb.append(".\n").toString();
+    }
     static ResourceKey<Level> key(String d) { return NETHER.equals(d) ? Level.NETHER : OW.equals(d) ? Level.OVERWORLD : Level.END; }
     /** A lit portal of his on record in the overworld (his way to the Nether already stands). */
     public static boolean litPortal(ClaudeEntity g) { for (Portal p : net(g).portals) if (OW.equals(p.dim) && "lit".equals(p.state)) return true; return false; }

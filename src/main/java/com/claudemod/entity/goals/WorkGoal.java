@@ -1046,6 +1046,10 @@ public class WorkGoal extends Goal {
                 if (tasks.size() > 1) { queueWay(tasks, "WorkGoal.walkTo"); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] route to {} found on foot ({} walks, {} waypoints): acts {} -> {} (WorkGoal.walkTo)", pos.toShortString(), plan.walks(), tasks.size() - 1, plan.acts(), tasks); return true; }
             } else if (towerTo(pos, feetCell, scaff)) { return true;
             } else if (bendWay(pos, within, feetCell, scaff, mode)) { return true;
+            } else if (level().dimension() == net.minecraft.world.level.Level.NETHER && com.claudemod.entity.life.FortressScout.bores(g, level()) && Math.abs(pos.getX() - feetCell.getX()) + Math.abs(pos.getZ() - feetCell.getZ()) >= 3
+                    && !boreLineStopped(feetCell, pos)) { // the user 11-05: "he should be able to bridge over lava"; no walk there: straight there, lava paved and rock dug (review-186/192, live 13:06 the walk home ended 27 off at a lava gap)
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude route] no walk to {} from {} ({}): straight there instead, the lava paved and the rock dug (WorkGoal.walkTo)", pos.toShortString(), feetCell.toShortString(), mode);
+                g.tasks.addFirst(new Task.GoTo(pos, within)); g.tasks.addFirst(new Task.Bore(pos, pos.getY())); return true;
             } else {
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no way to {} from {} ({}; blocks on him: {}): skipping it", pos.toShortString(), feetCell.toShortString(), mode, scaffoldBlock().getCount());
                 noWayFor = pos.immutable(); noWayWhy = "no way with every planner (" + mode + ", " + scaffoldBlock().getCount() + " blocks on him)";
@@ -1477,6 +1481,8 @@ public class WorkGoal extends Goal {
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] cut a step up at {} three times and it didn't take: {} is off for now", feet.toShortString(), dest.toShortString());
                 return null;
             }
+            for (BlockPos b : dig) if (level.getBlockState(b).is(net.minecraft.tags.BlockTags.GUARDED_BY_PIGLINS) && !com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.piglin.Piglin.class, g.getBoundingBox().inflate(16)).isEmpty()) // (review-45: the planned routes price this; the step cut is the last way up, so it's said, not refused)
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the step cut up at {} breaks {} at {} with piglins in sight: they'll turn on him (WorkGoal.digStepUp)", feet.toShortString(), name(level.getBlockState(b)), b.toShortString());
             g.tasks.addFirst(new Task.GoTo(dest, within)); // keep going after this step is cut
             if (needFloor) {
                 ItemStack block = scaffoldBlock();
@@ -1804,7 +1810,7 @@ public class WorkGoal extends Goal {
      * under the next step when there's nothing to stand on. Returns false when bridging can't help
      * (a wall in the way, too far up or down, no blocks, or he's bridged enough for this task).
      */
-    private boolean bridgeToward(Vec3 target) {
+    private boolean bridgeToward(Vec3 target, double worth) { // worth: seconds of his time the thing over there is worth (a drop's value, a chase)
         ServerLevel level = (ServerLevel) g.level();
         Vec3 to = target.subtract(g.position());
         if (Math.abs(to.y) > 3 || to.horizontalDistance() < 1.5 || bridged >= 32) return false;
@@ -1818,9 +1824,10 @@ public class WorkGoal extends Goal {
         boolean overLava = false; for (int k = 1; k <= 12 && !overLava; k++) { BlockPos q = next.below(k); if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) overLava = true; else if (!level.getBlockState(q).getCollisionShape(level, q).isEmpty()) break; }
         net.minecraft.world.entity.Mob shooter = null;
         if (overLava) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(48), m -> m.isAlive() && (m instanceof net.minecraft.world.entity.monster.Blaze || m instanceof net.minecraft.world.entity.monster.Ghast || m instanceof net.minecraft.world.entity.monster.RangedAttackMob) && g.hasLineOfSight(m))) { shooter = m; break; }
-        if (shooter != null) { // the Nether bridge rule: never out over lava with a shooter on him (a fireball's knock is the fall: World 15 13:41)
+        double risk = shooter == null ? 0 : 3.0 * Math.max(1, to.horizontalDistance()); // a knock off is the fall into the lava (World 15 13:41): its odds per block of bridge in a shooter's sight, priced (the user 11-05: a cost, not a ban)
+        if (shooter != null && risk > worth) {
             g.setShiftKeyDown(false);
-            if (g.tickCount - lavaBridgeSaid > 40) { lavaBridgeSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not bridging out over the lava toward {}: a {} {} off has him in sight (WorkGoal.bridgeToward)", BlockPos.containing(target).toShortString(), shooter.getType().getDescription().getString(), (int) shooter.distanceTo(g)); }
+            if (g.tickCount - lavaBridgeSaid > 40) { lavaBridgeSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not bridging out over the lava toward {}: a {} {} off has him in sight; the knock's risk (~{} s) is more than it's worth (~{} s) (WorkGoal.bridgeToward)", BlockPos.containing(target).toShortString(), shooter.getType().getDescription().getString(), (int) shooter.distanceTo(g), (int) risk, (int) worth); }
             return false;
         } // open water: a player swims it (he laid 40-block dirt causeways across the sea)
         // Crouch-bridging like a player: sneak (the game won't let a sneaking player walk off an edge), place a
@@ -2862,7 +2869,7 @@ public class WorkGoal extends Goal {
         // 5. across a gap: walk as close as he can, then bridge
         if (pathGetsCloser(path, nearest.position())) { g.getNavigation().moveTo(path, 1.0); return false; }
         boolean junkDrop = nearest.getItem().is(net.minecraft.world.item.Items.COBBLESTONE) || nearest.getItem().is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE) || com.claudemod.director.ClaudeLife.junkItem(nearest.getItem());
-        if (!junkDrop && bridgeToward(nearest.position())) return false; // (junk isn't worth a block put out over a drop: it waits)
+        if (!junkDrop && bridgeToward(nearest.position(), isOreDrop(nearest.getItem()) ? 60 : 10)) return false; // (junk isn't worth a block put out over a drop: it waits)
         if (valuable && bp == null && digThroughToward(nearest.position())) { g.tasks.add(again); return true; } // ore: never left behind, dig straight to it (not through his mine's shell)
         if (valuable && bp != null && airJoinedToMine(level, bp, ip)) { // ore dropped in an ore hole off his tunnel (head-high, 2 deep: 03:32 two diamonds out of reach, then patched in): the player's way, break the wall block under the hole, step in, take it; the wall goes back on the patch list
             { Vec3 to0 = nearest.position().subtract(g.position()); BlockPos nx0 = g.blockPosition().relative(Direction.getNearest(to0.x, 0, to0.z)); // the wall cells he opens go back once he has it: queued now, so the shell guard lets the break through (03:41 it refused them 626 times: the Pickup asked again and again)
@@ -2885,6 +2892,15 @@ public class WorkGoal extends Goal {
     private static final net.minecraft.world.item.Item[] BORE_FILL = {net.minecraft.world.item.Items.NETHERRACK, net.minecraft.world.item.Items.COBBLESTONE, net.minecraft.world.item.Items.COBBLED_DEEPSLATE, net.minecraft.world.item.Items.BLACKSTONE, net.minecraft.world.item.Items.BASALT, net.minecraft.world.item.Items.DIRT, net.minecraft.world.item.Items.STONE};
     /** One step of the bore: the next column along the L opened (head, then feet), its floor put in, rails beside it over lava, lava in view plugged; then a step into it. Done within 1 of the goal. */
     /** A block can go into p: something solid beside it to set it against. */
+    private final java.util.Map<BlockPos, BlockPos> boreStopped = new java.util.HashMap<>(); // goal -> the cell a bore toward it was stopped at (what it met: the next straight line there is judged by it, no timer)
+    /** The straight line from a to the goal runs within 2 of where a bore toward that goal was stopped. */
+    private boolean boreLineStopped(BlockPos a, BlockPos goal) {
+        BlockPos s = boreStopped.get(goal); if (s == null) return false;
+        double dx = goal.getX() - a.getX(), dz = goal.getZ() - a.getZ(), len2 = dx * dx + dz * dz; if (len2 < 1) return false;
+        double u = Math.max(0, Math.min(1, ((s.getX() - a.getX()) * dx + (s.getZ() - a.getZ()) * dz) / len2)), px = a.getX() + u * dx - s.getX(), pz = a.getZ() + u * dz - s.getZ();
+        boolean hit = px * px + pz * pz <= 4; if (hit) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] no straight line to {} from {}: it runs by {}, where the last bore there was stopped (WorkGoal.walkTo)", goal.toShortString(), a.toShortString(), s.toShortString());
+        return hit;
+    }
     private static boolean boreFace(ServerLevel level, BlockPos p) {
         for (Direction d : Direction.values()) { BlockState n = level.getBlockState(p.relative(d)); if (!n.isAir() && n.getFluidState().isEmpty() && !n.canBeReplaced()) return true; }
         return false;
@@ -2920,7 +2936,8 @@ public class WorkGoal extends Goal {
         java.util.List<Task> todo = new java.util.ArrayList<>();
         net.minecraft.world.item.Item fill = null; for (var it : BORE_FILL) if (g.inventory.count(x -> x.is(it)) > 0) { fill = it; break; }
         // lava in view by the opened way, or in it: a block in it first (he sees what the dig showed him, never into the rock)
-        if (fill != null) for (BlockPos c : new BlockPos[] {me, me.above()}) for (Direction d : Direction.values()) { BlockPos q = c.relative(d); // lava come up to where he stands (a flow down his own tunnel, stage 818's way back): plugged before anything ahead
+        java.util.List<BlockPos> mine0 = new java.util.ArrayList<>(java.util.List.of(me, me.above())); if (level.getBlockState(me.above(2)).isAir() || level.getFluidState(me.above(2)).is(net.minecraft.tags.FluidTags.LAVA)) mine0.add(me.above(2)); // (the cell over his head when it's open: a step down leaves the one he left open, and lava runs down it onto him, stage 818)
+        if (fill != null) for (BlockPos c : mine0) for (Direction d : Direction.values()) { BlockPos q = c.relative(d); // lava come up to where he stands (a flow down his own tunnel, stage 818's way back): plugged before anything ahead
             if (q.equals(me) || q.equals(me.above()) || !level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA) || !boreFace(level, q)) continue;
             com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] lava at {} beside him at {}: plugged first (WorkGoal.doBore)", q.toShortString(), me.toShortString());
             g.tasks.addFirst(t); g.tasks.addFirst(new Task.Place(q.immutable(), fill)); return true; }
@@ -2933,10 +2950,13 @@ public class WorkGoal extends Goal {
         }
         if (loose != null) boreTries = 99; // (straight to the next way round)
         for (BlockPos c : way) if (com.claudemod.entity.nav.ActionPath.structureBlock(level, c) && !com.claudemod.entity.life.TempLedger.built(g, c)) { // a structure's blocks: kept whole, and what he was looking for is likely right here
-            com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] {} at {} ahead is a structure's: the bore stops at {}, structures stay whole (WorkGoal.doBore)", name(level.getBlockState(c)), c.toShortString(), me.toShortString()); boreRun = null; return true; }
-        if (todo.isEmpty()) for (BlockPos c : way) { var cs = level.getBlockState(c); if (!cs.isAir() && cs.getFluidState().isEmpty()) todo.add(new Task.Break(c)); }
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] {} at {} ahead is a structure's: the bore stops at {}, structures stay whole (WorkGoal.doBore)", name(level.getBlockState(c)), c.toShortString(), me.toShortString()); boreStopped.put(t.goal().immutable(), f.immutable()); boreRun = null; return true; }
+        if (todo.isEmpty()) for (BlockPos c : way) { var cs = level.getBlockState(c); if (!cs.isAir() && cs.getFluidState().isEmpty()) {
+            boolean behind = false; for (Direction d : Direction.values()) { BlockPos q = c.relative(d); if (!way.contains(q) && !q.equals(me) && !q.equals(me.above()) && level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) behind = true; }
+            if (behind && loose == null) { loose = c; boreTries = 99; } // lava behind the face (he saw it come up beside the way): doBreak won't open it, so round it now (stage 818: 12 minutes of refused digs at one face)
+            else if (!behind) todo.add(new Task.Break(c)); } }
         BlockPos fl = f.below(); var fls = level.getBlockState(fl);
-        boolean overLava = level.getFluidState(fl).is(net.minecraft.tags.FluidTags.LAVA) || level.getFluidState(fl.below()).is(net.minecraft.tags.FluidTags.LAVA) && !fls.isFaceSturdy(level, fl, Direction.UP);
+        boolean overLava = level.getFluidState(fl).is(net.minecraft.tags.FluidTags.LAVA) || level.getFluidState(fl.below()).is(net.minecraft.tags.FluidTags.LAVA); // (his own floor over it still counts: its rails and wall come after it; stage 820 got none)
         if (todo.isEmpty() && (!fls.isFaceSturdy(level, fl, Direction.UP) || fls.is(net.minecraft.world.level.block.Blocks.MAGMA_BLOCK))) {
             if (fill == null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] no block on him to floor {} with: the bore ends at {} (WorkGoal.doBore)", fl.toShortString(), me.toShortString()); boreRun = null; return true; }
             if (fls.is(net.minecraft.world.level.block.Blocks.MAGMA_BLOCK)) todo.add(new Task.Break(fl));
@@ -2945,19 +2965,24 @@ public class WorkGoal extends Goal {
         BlockPos fl2 = f.relative(boreDir).below(); var fl2s = level.getBlockState(fl2); // (bridging: the floor a block further too, so a sprint's look ahead meets ground, never the drop)
         if (todo.isEmpty() && off == 0 && ny == me.getY() && fill != null && fls.isFaceSturdy(level, fl, Direction.UP) && (fl2s.isAir() || fl2s.getFluidState().is(net.minecraft.tags.FluidTags.LAVA)) && level.getBlockState(fl2.above()).isAir() && level.getBlockState(fl2.below()).getCollisionShape(level, fl2.below()).isEmpty() && fl2.closerToCenterThan(g.getEyePosition(), 4.5))
             todo.add(new Task.Place(fl2, fill));
+        if (todo.isEmpty() && overLava && fill != null) { var sh = com.claudemod.entity.life.FortressScout.shooterInSight(g); // a shooter in sight over lava: a wall block at head height on its side (the knock's way off)
+            if (sh != null) { Direction side = boreDir.getClockWise(); if ((sh.getX() - g.getX()) * side.getStepX() + (sh.getZ() - g.getZ()) * side.getStepZ() < 0) side = side.getOpposite(); BlockPos w = f.relative(side).above(); if (level.getBlockState(w).isAir() && boreFace(level, w)) todo.add(new Task.Place(w, fill)); } }
         if (todo.isEmpty() && overLava && fill != null) for (Direction side : new Direction[] {boreDir.getClockWise(), boreDir.getCounterClockWise()}) { BlockPos r = f.relative(side); var rs = level.getBlockState(r); if (rs.isAir() || rs.getFluidState().is(net.minecraft.tags.FluidTags.LAVA)) todo.add(new Task.Place(r, fill)); } // (rails: a knock-back over lava lands on a block)
         if (!todo.isEmpty() || loose != null) {
             if (todo.isEmpty()) todo.add(new Task.Place(loose, net.minecraft.world.item.Items.NETHERRACK)); // (for the log line: the plug it can't make)
             if (++boreTries > 12) { // this column won't open (lava behind a face he won't dig, a block he can't take): over it
-                if (boreDetour < BORE_DETOURS.length) { int[] dt = BORE_DETOURS[boreDetour++]; boreClean = 0; boreLaneOff = dt[0]; boreYOff = dt[1]; boreCol = null; com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] {} won't open ({}): round it, the line {} lane(s) over and {} up (WorkGoal.doBore)", f.toShortString(), todo.get(0), boreLaneOff, boreYOff); }
-                else { com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] {} won't open, nor any way round it ({}): the bore ends at {} (WorkGoal.doBore)", f.toShortString(), todo.get(0), me.toShortString()); boreRun = null; return true; }
+                boolean hotHere = loose != null; for (BlockPos q : BlockPos.betweenClosed(f.offset(-2, -2, -2), f.offset(2, 2, 2))) if (!hotHere && level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) hotHere = true;
+                if (boreDetour < BORE_DETOURS.length) { int[] dt = BORE_DETOURS[boreDetour++]; boreClean = 0; boreLaneOff = dt[0]; boreYOff = dt[1]; boreCol = null; com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] {} won't open ({}): round it, the line {} lane(s) over and {} up (WorkGoal.doBore)", f.toShortString(), todo.get(0), boreLaneOff, boreYOff);
+                    BlockPos back = me.relative(boreDir.getOpposite(), 5); // lava in the way: 5 back down his own way first, so the turn round it starts clear of the flow (stage 818: every way round began beside the same lava)
+                    if (hotHere && level.getBlockState(back).isAir() && level.getBlockState(back.above()).isAir() && level.getFluidState(back).isEmpty() && level.getBlockState(back.below()).isFaceSturdy(level, back.below(), Direction.UP)) { boreTries = 0; g.tasks.addFirst(t); g.tasks.addFirst(new Task.GoTo(back, 0.6)); return true; } }
+                else { com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] {} won't open, nor any way round it ({}): the bore ends at {} (WorkGoal.doBore)", f.toShortString(), todo.get(0), me.toShortString()); boreStopped.put(t.goal().immutable(), f.immutable()); boreRun = null; return true; }
                 return false;
             }
             g.tasks.addFirst(t); for (int i = todo.size() - 1; i >= 0; i--) g.tasks.addFirst(todo.get(i));
             return true;
         }
         // the way is open: the step
-        if (++boreStill > 60) { Direction cw0 = boreDir.getClockWise(); com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] 3 s at {} ({} {} {}, ground {}, box {}) with {} open and no step taken: the bore ends; beside it {} / {}, head-side {} / {}, floor {} (WorkGoal.doBore)", me.toShortString(), String.format("%.2f", g.getX()), String.format("%.2f", g.getY()), String.format("%.2f", g.getZ()), g.onGround(), g.getBoundingBox(), f.toShortString(), name(level.getBlockState(f.relative(cw0))), name(level.getBlockState(f.relative(cw0.getOpposite()))), name(level.getBlockState(f.above().relative(cw0))), name(level.getBlockState(f.above().relative(cw0.getOpposite()))), name(level.getBlockState(f.below()))); boreRun = null; return true; }
+        if (++boreStill > 60) { Direction cw0 = boreDir.getClockWise(); com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] 3 s at {} ({} {} {}, ground {}, box {}) with {} open and no step taken: the bore ends; beside it {} / {}, head-side {} / {}, floor {} (WorkGoal.doBore)", me.toShortString(), String.format("%.2f", g.getX()), String.format("%.2f", g.getY()), String.format("%.2f", g.getZ()), g.onGround(), g.getBoundingBox(), f.toShortString(), name(level.getBlockState(f.relative(cw0))), name(level.getBlockState(f.relative(cw0.getOpposite()))), name(level.getBlockState(f.above().relative(cw0))), name(level.getBlockState(f.above().relative(cw0.getOpposite()))), name(level.getBlockState(f.below()))); boreStopped.put(t.goal().immutable(), f.immutable()); boreRun = null; return true; }
         BlockPos past = f.relative(boreDir); g.getNavigation().stop(); g.setSprinting(off == 0 && !level.getBlockState(past.below()).getCollisionShape(level, past.below()).isEmpty()); // (a sprint only with ground past the step: its look ahead stops him short of a drop)
         g.getLookControl().setLookAt(f.getX() + 0.5, f.getY() + 1.5, f.getZ() + 0.5);
         g.getMoveControl().setWantedPosition(f.getX() + 0.5, f.getY(), f.getZ() + 0.5, 1.3);
@@ -5354,7 +5379,7 @@ public class WorkGoal extends Goal {
         // Otherwise get as close as walking allows, then bridge the rest of the way.
         if (pathGetsCloser(path, mob.position())) { g.setSprinting(true); g.getNavigation().moveTo(path, 1.3); return false; }
         g.setSprinting(false);
-        bridgeToward(mob.position());
+        bridgeToward(mob.position(), 8); // (a chase over lava: a bow or the shore is the better trade under fire)
         return false;
     }
 

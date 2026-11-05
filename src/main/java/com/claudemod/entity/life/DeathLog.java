@@ -67,7 +67,8 @@ public final class DeathLog {
         for (ItemEntity i : fell) what.merge(BuiltInRegistries.ITEM.getKey(i.getItem().getItem()).getPath(), i.getItem().getCount(), Integer::sum);
         StringBuilder sb = new StringBuilder(); what.forEach((k, v) -> sb.append(sb.length() == 0 ? "" : ", ").append(k).append(v > 1 ? " " + v : ""));
         List<Death> l = of(g);
-        l.add(new Death(level.dimension().location().getPath(), at.immutable(), level.getGameTime(), sb.toString(), "pending", 0));
+        boolean burnt = level.getFluidState(at).is(net.minecraft.tags.FluidTags.LAVA) || level.getFluidState(at.above()).is(net.minecraft.tags.FluidTags.LAVA); // items in lava burn at once (Day to Day 11-05: after his 13:28 death in a lava sea he planned a trip back for a pile that was ash)
+        l.add(new Death(level.dimension().location().getPath(), at.immutable(), level.getGameTime(), sb.toString(), burnt ? "gone (burnt: he died in lava)" : "pending", 0));
         while (l.size() > 20) l.remove(0); // ponytail: the last 20 deaths
         save(g);
         ClaudeMod.LOGGER.info("[Claude deaths] died in {} at {}: {} on his list as pending ({})", level.dimension().location().getPath(), at.toShortString(), fell.size() + " stack(s)", sb);

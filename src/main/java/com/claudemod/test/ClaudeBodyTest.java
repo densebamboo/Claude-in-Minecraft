@@ -10433,6 +10433,8 @@ public final class ClaudeBodyTest {
             case 815: return st815(stage, t, c, h, level, mock);
             case 816: return st816(stage, t, c, h, level, mock);
             case 819: return st819(stage, t, c, h, level, mock);
+            case 820: return st820(stage, t, c, h, level, mock);
+            case 821: return st821(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13141,11 +13143,75 @@ public final class ClaudeBodyTest {
             check(c.isAlive(), "dead at " + c.blockPosition().toShortString());
             BlockPos to = s818Leg == 1 ? far : o;
             double left = Math.abs(c.getX() - to.getX() - 0.5) + Math.abs(c.getZ() - to.getZ() - 0.5);
-            if (left <= 3 && s818Leg == 1) { ClaudeMod.LOGGER.info("[Claude test] 818: out 1000 in {} s, low {} HP; back now", (t[0] - s818T0) / 20, s818Low); s818Leg = 2; c.tasks.clear(); c.tasks.add(new com.claudemod.entity.life.Task.Bore(o, 64)); return true; }
+            if (left <= 3 && s818Leg == 1) { ClaudeMod.LOGGER.info("[Claude test] 818: out 1000 in {} s, low {} HP; back now", (t[0] - s818T0) / 20, s818Low); s818Leg = 2; c.tasks.clear(); c.dropCurrent = true; c.tasks.add(new com.claudemod.entity.life.Task.Bore(o, 64)); return true; }
             if (left <= 3 && s818Leg == 2) { int s0 = (t[0] - s818T0) / 20; String m = String.format("out 1000 and back in %d s (%.1f blocks/s), low %.1f HP", s0, 2000.0 / Math.max(1, s0), s818Low); check(s0 <= 1000, "too slow: " + m); nsHome(c, h, level); pass(stage, t, m); return true; }
             if (t[0] % 600 == 0) ClaudeMod.LOGGER.info("[Claude test] 818 t {} s, leg {}: {} left, at {}, now {}, queue {}", (t[0] - s818T0) / 20, s818Leg, (int) left, c.blockPosition().toShortString(), c.currentTask, c.tasks.size());
             check(!(c.currentTask == null && c.tasks.isEmpty() && t[0] - s818T0 > 40), "the bore ended " + (int) left + " short on leg " + s818Leg + " at " + c.blockPosition().toShortString() + " after " + (t[0] - s818T0) / 20 + " s");
             check(t[0] - s818T0 < 20 * 1200, "20 min, leg " + s818Leg + ", " + (int) left + " left, at " + c.blockPosition().toShortString() + " now " + c.currentTask);
+        }
+        return true;
+    }
+
+    /** The lava lake of 819 built for 820/821 at o (a 34-wide lake, rock walls both sides, a roof; no walk round). */
+    private static void lakeArena(ServerLevel nl, BlockPos o) {
+        for (int x = -6; x <= 46; x++) for (int z = -7; z <= 7; z++) for (int y = -5; y <= 8; y++) {
+            boolean hollow = x >= -3 && x <= 43 && Math.abs(z) <= 4 && y >= 0 && y <= 6, lake = x >= 3 && x <= 36 && Math.abs(z) <= 4 && y >= -4 && y <= -1;
+            nl.setBlock(o.offset(x, y, z), hollow ? Blocks.AIR.defaultBlockState() : lake ? Blocks.LAVA.defaultBlockState() : Blocks.NETHERRACK.defaultBlockState(), 2);
+        }
+    }
+    /** The user 11-05 (stage 525's ban made a cost): 819's lake with a blaze hovering in sight over its far side. The bridge is still his pick, priced with a wall block on the blaze's side, and he crosses walled, never in lava. */
+    private static int s820T0; private static net.minecraft.world.entity.monster.Blaze s820B;
+    private static boolean st820(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(9000, 64, 5320), to = o.offset(40, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); if (s820B != null) s820B.discard(); s820B = null; }
+        if (t[0] > 10 && t[0] % 10 == 0 && c.level() == nl) { nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition()); for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60), m -> m != s820B)) e.discard(); }
+        if (t[0] == 10) {
+            nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+            lakeArena(nl, o);
+            s820B = net.minecraft.world.entity.EntityType.BLAZE.create(nl); s820B.moveTo(o.getX() + 20.5, o.getY() + 4, o.getZ() - 3.5, 0, 0); s820B.setNoAi(true); s820B.setInvulnerable(true); nl.addFreshEntity(s820B);
+            nsKit(c); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64)); /* (a floor, two rails and a wall a block: a player under fire carries enough) */ c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 30) {
+            c.tasks.clear(); c.skillQueue.clear();
+            var tr = com.claudemod.entity.life.FortressScout.travel(c, nl, to);
+            check(com.claudemod.entity.life.FortressScout.lastTravel.endsWith(": bridge") && com.claudemod.entity.life.FortressScout.lastTravel.contains("walled against the blaze"), "not the walled bridge: " + com.claudemod.entity.life.FortressScout.lastTravel);
+            c.tasks.add(tr); s820T0 = t[0];
+        }
+        if (t[0] > 30) {
+            check(!c.isInLava() && c.isAlive(), "in lava or dead at " + c.blockPosition().toShortString() + " after " + (t[0] - s820T0) / 20 + " s");
+            if (Math.abs(c.getX() - to.getX() - 0.5) + Math.abs(c.getZ() - to.getZ() - 0.5) <= 3) {
+                int walls = 0; for (int x = 3; x <= 36; x++) for (int z = -4; z <= -1; z++) if (nl.getBlockState(o.offset(x, 1, z)).is(Blocks.NETHERRACK)) walls++;
+                check(walls >= 10, "across, but only " + walls + " wall blocks on the blaze's side at head height");
+                int s0 = (t[0] - s820T0) / 20; String m = "across the lake under the blaze's eye in " + s0 + " s, " + walls + " wall blocks on its side: " + com.claudemod.entity.life.FortressScout.lastTravel;
+                if (s820B != null) s820B.discard(); s820B = null; nsHome(c, h, level); pass(stage, t, m); return true;
+            }
+            check(!(c.currentTask == null && c.tasks.isEmpty() && t[0] - s820T0 > 40), "stopped at " + c.blockPosition().toShortString() + " after " + (t[0] - s820T0) / 20 + " s");
+            check(t[0] - s820T0 < 20 * 120, "120 s and not across: at " + c.blockPosition().toShortString() + " now " + c.currentTask);
+        }
+        return true;
+    }
+
+    /** The user 11-05 ("he should be able to bridge over lava"; live 13:06 the walk home ended 27 off at a lava gap): a plain GoTo across 819's lake, where no walk exists. The walker's no-way ends in the bore, not a skip: he gets there, never in lava. */
+    private static int s821T0;
+    private static boolean st821(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(9000, 64, 5520), to = o.offset(40, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+            lakeArena(nl, o);
+            nsKit(c); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 30) { c.tasks.clear(); c.skillQueue.clear(); c.tasks.add(new com.claudemod.entity.life.Task.GoTo(to, 1.5)); s821T0 = t[0]; }
+        if (t[0] > 30) {
+            check(!c.isInLava() && c.isAlive(), "in lava or dead at " + c.blockPosition().toShortString() + " after " + (t[0] - s821T0) / 20 + " s");
+            if (Math.abs(c.getX() - to.getX() - 0.5) + Math.abs(c.getZ() - to.getZ() - 0.5) <= 3) { int s0 = (t[0] - s821T0) / 20; check(s0 <= 60, "too slow: " + s0 + " s"); nsHome(c, h, level); pass(stage, t, "the walk with no way across ended in the bore: there in " + s0 + " s"); return true; }
+            check(!(c.currentTask == null && c.tasks.isEmpty() && t[0] - s821T0 > 60), "the walk gave up at " + c.blockPosition().toShortString() + " after " + (t[0] - s821T0) / 20 + " s");
+            check(t[0] - s821T0 < 20 * 120, "120 s and not across: at " + c.blockPosition().toShortString() + " now " + c.currentTask);
         }
         return true;
     }

@@ -2323,6 +2323,7 @@ public final class ClaudeBodyTest {
                             for (int x = 1; x <= 11; x++) for (int z = 4; z <= 12; z++) for (int yy = 2; yy <= 8; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); // a cavern, 7 high
                             h.setBlock(new BlockPos(6, 9, 8), Blocks.IRON_ORE); // in the ceiling: 7 over the floor, a tower of 4 to reach it
                             h.setBlock(new BlockPos(14, 2, 8), Blocks.IRON_ORE); // behind the cavern's east wall (x 12, 13 rock)
+                            h.setBlock(new BlockPos(15, 2, 8), Blocks.AIR); // (a pocket on its far side: one face open; ore walled in on every side is never started, stage 807)
                             c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16));
                             BlockPos at = h.absolutePos(new BlockPos(3, 2, 8)); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
                             c.tasks.clear(); c.attempts.clear(); com.claudemod.director.ClaudeLife.bridgeBlocks().clear(); c.pillarBlocks.clear();
@@ -10421,6 +10422,8 @@ public final class ClaudeBodyTest {
             case 804: return st804(stage, t, c, h, level, mock);
             case 805: return st805(stage, t, c, h, level, mock);
             case 806: return st806(stage, t, c, h, level, mock);
+            case 807: return st807(stage, t, c, h, level, mock);
+            case 808: return st808(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
             case 615: return st615(stage, t, c, h, level, mock);
             case 617: return st617(stage, t, c, h, level, mock);
@@ -12780,7 +12783,7 @@ public final class ClaudeBodyTest {
             com.claudemod.entity.life.Watchdog.brokeOwn(c, s556A.offset(2, 0, 2), Blocks.OAK_LOG.defaultBlockState());
             check(s556Has("BARE_HANDS"), "an oak log broken with a shovel, a stone axe in his bag, no BARE_HANDS: " + W);
         }
-        if (t[0] == 300) { c.tasks.clear(); c.dropCurrent = true; c.tasks.add(new com.claudemod.entity.life.Task.Break(s556A.offset(8, 1, 0))); }
+        if (t[0] == 300) { c.tasks.clear(); c.dropCurrent = true; c.tasks.add(new com.claudemod.entity.life.Task.Wait(200, false)); com.claudemod.entity.life.Watchdog.starting(c, new com.claudemod.entity.life.Task.Break(s556A.offset(8, 1, 0))); } // (the detector itself: his queue no longer starts such a dig, stage 807)
         if (t[0] == 310) { check(s556Has("SIGHT"), "ore with every face closed targeted, no SIGHT: " + W); c.tasks.clear(); c.dropCurrent = true; s556T = t[0]; }
         if (t[0] > 310 && t[0] < 900) { c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 24000; } // (nothing for him to do)
         if (s556T > 0 && s556Has("IDLE")) {
@@ -12818,6 +12821,52 @@ public final class ClaudeBodyTest {
             check(p != null && bio.equals("warped_forest"), "the patrol left the warped forest for " + (p == null ? "nothing" : p.toShortString() + " (" + bio + ", " + (int) Math.sqrt(p.distSqr(o)) + " off)") + ": " + why[0]);
             nsHome(c, h, level); pass(stage, t, "the patrol stayed in the forest: " + p.toShortString() + " (" + why[0] + ")"); return true;
         }
+        return true;
+    }
+
+    /** Day to Day 11-05 (review-44, live 07:59:30): the furnace in the row beside his corridor, its face to the corridor open, he 3 off in the corridor: seen side-on (SIGHT read it as unseen: face centres only); the same furnace walled in is not. */
+    private static boolean st808(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(3, 40, 8)), f = o.offset(-3, 0, 1);
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 24000; c.tasks.clear(); c.skillQueue.clear();
+            for (int x = -5; x <= 3; x++) for (int z = -2; z <= 3; z++) for (int y = -1; y <= 3; y++) level.setBlockAndUpdate(o.offset(x, y, z), z == 0 && y >= 0 && y <= 1 ? Blocks.AIR.defaultBlockState() : Blocks.STONE.defaultBlockState()); // (a corridor along x, the rock round it)
+            for (int y = 0; y <= 1; y++) for (int x = 0; x <= 1; x++) level.setBlockAndUpdate(o.offset(x, y, 1), Blocks.AIR.defaultBlockState()); // (the side row he stands by, as live)
+            level.setBlockAndUpdate(f, Blocks.FURNACE.defaultBlockState());
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.76); c.setYRot(180f); c.setXRot(0f); c.fallDistance = 0;
+        }
+        if (t[0] == 5 || t[0] == 8) c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.76); // (where he stood live, this very tick: he drifts between ticks)
+        if (t[0] == 5) {
+            check(com.claudemod.entity.life.Watchdog.seen(c, f), "the furnace's open face side-on from " + c.position() + " read as unseen");
+            level.setBlockAndUpdate(o.offset(-3, 0, 0), Blocks.STONE.defaultBlockState()); level.setBlockAndUpdate(o.offset(-3, 1, 0), Blocks.STONE.defaultBlockState());
+        }
+        if (t[0] == 8) { check(!com.claudemod.entity.life.Watchdog.seen(c, f), "the walled-in furnace read as seen"); c.tasks.clear(); pass(stage, t, "the furnace side-on seen, walled in not"); return true; }
+        return true;
+    }
+
+    /** Day to Day 11-05 (review-44, live 07:59): his mine plan queued a branch's cells and the iron in their walls; the cells' digs were dropped (56 off) and he went for the iron with every face still closed. Now: walled-in ore is never started (no SIGHT, the ore stands); the same ore behind a stone he digs first is mined. */
+    private static BlockPos s807A;
+    private static boolean st807(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var W = com.claudemod.entity.life.Watchdog.recentKinds;
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 24000; c.tasks.clear(); c.skillQueue.clear(); W.clear();
+            s807A = h.absolutePos(new BlockPos(3, 40, 8));
+            for (int x = -3; x <= 6; x++) for (int z = -3; z <= 3; z++) for (int y = -1; y <= 3; y++) level.setBlockAndUpdate(s807A.offset(x, y, z), x >= 2 || y == -1 || y == 3 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState());
+            level.setBlockAndUpdate(s807A.offset(3, 0, 0), Blocks.IRON_ORE.defaultBlockState()); // (behind the stone at x 2: every face closed)
+            level.setBlockAndUpdate(s807A.offset(3, 0, 2), Blocks.IRON_ORE.defaultBlockState()); // (the same, its stone at x 2 z 2 dug first)
+            c.getInventory().clearContent(); c.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(Items.STONE_PICKAXE));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(s807A.getX() + 0.5, s807A.getY(), s807A.getZ() + 1.5); c.fallDistance = 0;
+        }
+        if (t[0] == 10) { c.tasks.clear(); c.dropCurrent = true; c.tasks.add(new com.claudemod.entity.life.Task.Break(s807A.offset(3, 0, 0))); }
+        if (t[0] == 110) {
+            check(level.getBlockState(s807A.offset(3, 0, 0)).is(Blocks.IRON_ORE), "the walled-in iron was dug (he can't have seen it): " + level.getBlockState(s807A.offset(3, 0, 0)));
+            check(!W.contains("SIGHT"), "SIGHT filed: " + com.claudemod.entity.life.Watchdog.lastIncident);
+            c.tasks.clear(); c.dropCurrent = true; c.tasks.add(new com.claudemod.entity.life.Task.Break(s807A.offset(2, 0, 2))); c.tasks.add(new com.claudemod.entity.life.Task.Break(s807A.offset(3, 0, 2)));
+        }
+        if (t[0] > 110 && level.getBlockState(s807A.offset(3, 0, 2)).isAir()) {
+            check(!W.contains("SIGHT"), "SIGHT filed on the opened iron: " + com.claudemod.entity.life.Watchdog.lastIncident);
+            c.tasks.clear(); pass(stage, t, "walled-in iron left standing, no SIGHT; the iron behind the stone he dug first mined (t " + t[0] + ")"); return true;
+        }
+        check(t[0] < 600, "the opened iron not mined in 25 s (now " + c.currentTask + ", queue " + c.tasks + ")");
         return true;
     }
 

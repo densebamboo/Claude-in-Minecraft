@@ -442,7 +442,7 @@ public class WorkGoal extends Goal {
             current = g.tasks.poll();
             int dup = 0; while (current != null && !(current instanceof Task.Pillar) && current.equals(g.tasks.peek())) { Task nx = g.tasks.poll(); if (com.claudemod.entity.nav.Route.owns(g, nx) && !com.claudemod.entity.nav.Route.owns(g, current)) current = nx; dup++; } // (a route's own copy is the one kept: the other copy dropped took the route's end, and its old legs walked him back down, 12:31) // (two Pillar(-1)s are two towers to take down, not a copy: dropping one left a cobble block in his stair walkway) // the same task queued over and over (a route re-fired every few seconds): one copy is plenty
             if (dup > 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} duplicate copies of {} dropped from his queue", dup, current);
-            while (current != null && !com.claudemod.entity.life.Watchdog.starting(g, current)) current = g.tasks.poll(); /* the no-progress watchdog: an action that kept failing goes up its ladder, not round again */
+            while (current != null && (unseenOre(current) || !com.claudemod.entity.life.Watchdog.starting(g, current))) current = g.tasks.poll(); /* the no-progress watchdog: an action that kept failing goes up its ladder, not round again */
             g.busy = current != null;
             ticks = 0; stuck = 0; lastDist = Double.MAX_VALUE; breakProgress = 0; bridged = 0;
             g.currentTask = current;
@@ -476,7 +476,7 @@ public class WorkGoal extends Goal {
                         for (Task q0 : g.tasks) { if (q0 instanceof Task.Wait) break; BlockPos qp = q0 instanceof Task.Break b0 ? b0.pos() : q0 instanceof Task.Place p0 ? p0.pos() : null; if (qp != null && !pulled.contains(q0) && inReach(qp) && qp.distSqr(t.pos()) <= g.blockPosition().distSqr(t.pos()) /* (none farther from the walk's end than he is: each branch block dug brought the next one west in reach, and the walk north to unload became 8 blocks of tunnelling, live 13:59) */ && blockInTheWay((ServerLevel) g.level(), qp) == null && !(q0 instanceof Task.Place pw && pw.want() != null) && !com.claudemod.entity.life.WatchBuild.ownsCell(g, qp)) here.add(q0); } /* (not a build's blocks or its clearing: they go in its order, each from the spot planned for the build as it stands by then) */ /* (nothing between: a far row cell pulled ahead of the nearer ones hit "in the way" every tick, 04:29) */ // (the dig's and the place's own reach test: a looser eye distance pulled a patch he couldn't reach from there, and it was dropped unplaced, test stage 18)
                         pulled.addAll(here);
                         if (!here.isEmpty()) {
-                            here.sort(java.util.Comparator.comparingInt(q0 -> q0 instanceof Task.Break b0 && com.claudemod.entity.life.MineBlueprint.ore(g.level().getBlockState(b0.pos())) ? 0 : 1)); // ore first; the rest in queue order (a swap's Break and its Place stay a pair: sorting places ahead split them, 04:03)
+                            here.sort(java.util.Comparator.comparingInt(q0 -> q0 instanceof Task.Break b0 && com.claudemod.entity.life.MineBlueprint.ore(g.level().getBlockState(b0.pos())) && !com.claudemod.entity.life.Watchdog.hiddenOre(g.level(), b0.pos()) ? 0 : 1)); // ore first; the rest in queue order (a swap's Break and its Place stay a pair: sorting places ahead split them, 04:03)
                             g.tasks.removeAll(here); g.tasks.removeIf(q0 -> q0.equals(t)); g.tasks.addFirst(t); for (int i0 = here.size() - 1; i0 >= 0; i0--) g.tasks.addFirst(here.get(i0));
                             com.claudemod.ClaudeMod.LOGGER.info("[Claude dig] {} job(s) in reach at {} done first, then the walk to {}", here.size(), g.blockPosition().toShortString(), t.pos().toShortString());
                             exitWhy = "paused for " + here.size() + " job(s) in reach, the walk queued after them"; yield true; } }
@@ -2208,7 +2208,7 @@ public class WorkGoal extends Goal {
         for (Task q : g.tasks) {
             if (++i > 80) break;
             BlockPos qp = q instanceof Task.Place p ? p.pos() : q instanceof Task.Break b ? b.pos() : null;
-            if (qp != null && qp.distSqr(g.blockPosition()) <= 6 * 6) {
+            if (qp != null && qp.distSqr(g.blockPosition()) <= 6 * 6 && !(q instanceof Task.Break && com.claudemod.entity.life.Watchdog.hiddenOre(g.level(), qp))) { // (ore still walled in waits for the dig that opens it)
                 g.tasks.remove(q);
                 g.tasks.addFirst(q);
                 return;
@@ -2549,6 +2549,13 @@ public class WorkGoal extends Goal {
     /** A player glances at the walls and mines any ore showing (that their pickaxe can take). */
     private int pulledAt = -100000; private final java.util.Set<Task> pulled = new java.util.HashSet<>(); // (jobs pulled ahead of a walk, per walk target)
     String exitWhy = null; // why the last dig/place ended without its block changed (the user: every give-up says why)
+    /** A dig of ore he can't have seen (every face closed; the dig that opens it dropped or not yet done): not started, his lesson or their step naming the cell aside. The plan and the vein scan queue it again once a face is open. */
+    private boolean unseenOre(Task t) {
+        if (!(t instanceof Task.Break b) || !com.claudemod.entity.life.Watchdog.hiddenOre(g.level(), b.pos())) return false;
+        if (com.claudemod.entity.life.Consent.lesson(g) || com.claudemod.entity.life.Consent.theirStepNames(g, b.pos()) != null) return false;
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude dig] not digging the {} at {}: every face of it closed, he can't have seen it; dropped till a dig opens it (he's at {}; queued by {}) (WorkGoal.unseenOre)", net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(g.level().getBlockState(b.pos()).getBlock()).getPath(), b.pos().toShortString(), g.blockPosition().toShortString(), com.claudemod.entity.ClaudeEntity.originOf(t));
+        return true;
+    }
     private boolean exit(String why) { exitWhy = why; return true; }
     /** A failure of his with its cause, from where he stands (the user 11-04: fix causes, not counters; the skip holds while the cause does). */
     private void failed(com.claudemod.entity.life.Attempts.Kind k, BlockPos p, com.claudemod.entity.life.Attempts.Reason r, String detail) { g.attempts.fail(k, p, g.tickCount, g.blockPosition(), r, detail); }

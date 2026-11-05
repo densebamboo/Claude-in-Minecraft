@@ -443,9 +443,10 @@ public final class Watchdog {
     private static boolean on() { return !com.claudemod.entity.ClaudeSpawner.testing || linesInTests; }
     private static String nm(net.minecraft.world.level.block.state.BlockState st) { return net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(st.getBlock()).getPath(); }
     /** Any face of the block in his line of sight (a player sees a chest by its side, not only its middle). */
-    private static boolean seen(ClaudeEntity g, BlockPos p) {
-        for (var d : net.minecraft.core.Direction.values()) {
-            var at = net.minecraft.world.phys.Vec3.atCenterOf(p).add(d.getStepX() * 0.45, d.getStepY() * 0.45, d.getStepZ() * 0.45);
+    public static boolean seen(ClaudeEntity g, BlockPos p) { // any of a face's centre and four corners in view: a player sees a face side-on too (live 07:59, a furnace beside his corridor)
+        for (var d : net.minecraft.core.Direction.values()) for (int k = 0; k < 5; k++) {
+            double u = k == 0 ? 0 : (k & 1) == 1 ? 0.4 : -0.4, v = k == 0 ? 0 : k < 3 ? 0.4 : -0.4;
+            var at = net.minecraft.world.phys.Vec3.atCenterOf(p).add(d.getStepX() * 0.45 + (d.getAxis() == net.minecraft.core.Direction.Axis.X ? 0 : u), d.getStepY() * 0.45 + (d.getAxis() == net.minecraft.core.Direction.Axis.Y ? 0 : d.getAxis() == net.minecraft.core.Direction.Axis.X ? u : v), d.getStepZ() * 0.45 + (d.getAxis() == net.minecraft.core.Direction.Axis.Z ? 0 : v));
             if (g.level().clip(new net.minecraft.world.level.ClipContext(g.getEyePosition(), at, net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getBlockPos().equals(p)) return true;
         }
         return false;
@@ -458,6 +459,12 @@ public final class Watchdog {
         return (int) Math.ceil(h * (harvest ? 30 : 100) / best);
     }
     private static final double PACE = Clocks.SPRINT / 20; // blocks a tick, a player sprinting
+    /** Ore with every face against an opaque block: nothing a player could have seen it by. */
+    public static boolean hiddenOre(net.minecraft.world.level.Level l, BlockPos p) {
+        if (!l.getBlockState(p).is(net.neoforged.neoforge.common.Tags.Blocks.ORES)) return false;
+        for (var d : net.minecraft.core.Direction.values()) { var n = l.getBlockState(p.relative(d)); if (!n.canOcclude() || n.isAir()) return false; }
+        return true;
+    }
     /** At an action's start: its player-pace estimate (SLOW), and ore targeted with no face open to see it by (SIGHT). */
     private static void paceAndSight(ClaudeEntity g, St s, Task t) {
         s.startEst = -1; s.startWhat = "";
@@ -476,9 +483,8 @@ public final class Watchdog {
         if (t instanceof Task.Break b) {
             var st = g.level().getBlockState(b.pos()); int bt = breakTicks(g, b.pos(), st);
             if (bt > 0) { s.startEst = bt + (int) (Math.max(0, s.startDist - 4.5) / PACE); s.startWhat = "breaking " + nm(st); }
-            if (on() && st.is(net.neoforged.neoforge.common.Tags.Blocks.ORES)) {
-                boolean open = false; for (var d : net.minecraft.core.Direction.values()) { var n = g.level().getBlockState(b.pos().relative(d)); if (!n.canOcclude() || n.isAir()) open = true; }
-                if (!open) fileOnce(g, "SIGHT", "SIGHT|" + b.pos().asLong(), "targeting " + nm(st) + " at " + b.pos().toShortString() + " with every face closed (he can't have seen it); he's at " + g.blockPosition().toShortString() + ", step " + (g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target()));
+            if (on() && hiddenOre(g.level(), b.pos())) {
+                fileOnce(g, "SIGHT", "SIGHT|" + b.pos().asLong(), "targeting " + nm(st) + " at " + b.pos().toShortString() + " with every face closed (he can't have seen it); he's at " + g.blockPosition().toShortString() + ", step " + (g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target()));
             }
         }
     }

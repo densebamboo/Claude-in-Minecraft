@@ -46,7 +46,7 @@ Log watchers (`tools/loopwatch.py`, `tools/pathwatch.py`, run by `tools/selfwatc
 | Junk he threw out picked back up within 2 min, or the same one-of item thrown again (live 05:16: iron boots three times) | Watchdog.thrown / pickedUp | incident THROW_LOOP | 802 |
 | Armor, iron+ tools or ingots/gems in his junk toss (spent wood/stone tools are fine) | Watchdog.thrown | incident THREW_VALUABLE | 802 |
 | Walked over 1.5x (and 8+ more than) the first path planned for a walk | Watchdog.walkLedger + endChecks | incident ROUTE_DETOUR | (no stage yet) |
-| Ore targeted with every face closed; a chest/furnace used (items changed) from 6 or less without line of sight | Watchdog.paceAndSight + endChecks | incident SIGHT | 556 (ore) |
+| Ore targeted with every face closed; a chest/furnace used (items changed) from 6 or less without line of sight (any face's centre or corners in view) | Watchdog.paceAndSight + endChecks; WorkGoal.unseenOre never starts such a dig | incident SIGHT | 556 (ore), 807 (gate), 808 (side-on) |
 | Pushing into a block 1 s+ (dragging along leaves/walls) | Watchdog.dragAndWater: `[Claude move] dragging along <block>` | incident DRAG (once per block per 10 min) | 617 |
 | Long spells in water (a river swum instead of bridged) | Watchdog.dragAndWater: `[Claude move] in water N s, M blocks` for every spell of 1 s+ | incident WATER (over 5 s on a walk) | 617 |
 

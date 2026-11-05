@@ -316,13 +316,25 @@ public final class FarSight {
         if (s.size() > 400_000) s.clear(); // shortcut: forgets all at the cap; keep the near ones if long Nether trips need more
         s.add(p.asLong());
     }
-    public static void forgetSurfaces(ClaudeEntity g) { if (surfaces != null) surfaces.remove(g.getUUID()); } // (another dimension)
+    public static void forgetSurfaces(ClaudeEntity g) { if (surfaces != null) surfaces.remove(g.getUUID()); if (opens != null) opens.remove(g.getUUID()); } // (another dimension)
+    private static Map<UUID, it.unimi.dsi.fastutil.longs.LongOpenHashSet> opens; // (static: fields added live start null) the air his look-all-round rays crossed before they hit: seen open (Day to Day 15:17 11-05: the void over a lava sea he stood looking across read as "unseen, netherrack" and the route tunnelled through it)
+    /** A cell he sees from where he stands (NetherRoute's line of sight): on his record, known after he moves on (the void he looked across, planned from inside the rock beside it). */
+    public static void sawCell(ClaudeEntity g, int x, int y, int z) { if (opens == null) opens = new HashMap<>(); var s = opens.computeIfAbsent(g.getUUID(), k -> new it.unimi.dsi.fastutil.longs.LongOpenHashSet()); if (s.size() > 400_000) s.clear(); s.add(BlockPos.asLong(x >> 2, y >> 2, z >> 2)); }
+    /** Seen open space is kept by the 4-block cube: a cavern he looked across is known as a volume, the gaps between the rays of a look filled (24 x 48 rays are 2-3 blocks apart 20 off: the cells between read as rock, a floor in the void, stage 824). */
+    static boolean seenOpen(ClaudeEntity g, int x, int y, int z) { var o = opens == null ? null : opens.get(g.getUUID()); return o != null && o.contains(BlockPos.asLong(x >> 2, y >> 2, z >> 2)); }
+    static void sawOpen(ClaudeEntity g, Vec3 eye, Vec3 d, double dist) {
+        if (opens == null) opens = new HashMap<>();
+        var s = opens.computeIfAbsent(g.getUUID(), k -> new it.unimi.dsi.fastutil.longs.LongOpenHashSet());
+        if (s.size() > 400_000) s.clear(); // shortcut: forgets all at the cap (4-block cubes: a few hundred looks all round); keep the near ones if long trips need more
+        for (double k = 1; k < dist - 0.5; k += 1.5) s.add(BlockPos.asLong(Mth.floor(eye.x + d.x * k) >> 2, Mth.floor(eye.y + d.y * k) >> 2, Mth.floor(eye.z + d.z * k) >> 2));
+    }
     /** He knows what's in this cell: he saw it (or the floor up to 3 under it, seen through the air over it), he's within 6 of it, or he walked it. */
     public static boolean known(ClaudeEntity g, int x, int y, int z) {
         BlockPos me = g.blockPosition();
         if (Math.abs(x - me.getX()) <= 6 && Math.abs(y - me.getY()) <= 6 && Math.abs(z - me.getZ()) <= 6) return true;
         var s = surfaces == null ? null : surfaces.get(g.getUUID());
         if (s != null) for (int k = 0; k <= 3; k++) if (s.contains(BlockPos.asLong(x, y - k, z))) return true;
+        if (seenOpen(g, x, y, z)) return true; // (the open space his rays crossed)
         return com.claudemod.entity.nav.Route.stoodBy(g, x, y, z) || com.claudemod.entity.nav.Route.walked(g, new BlockPos(x, y, z)) || com.claudemod.entity.nav.Route.walked(g, new BlockPos(x, y - 1, z));
     }
     /** A look all round from where he stands (a player turning on the spot before a long way): every ray's first hit on his record. */
@@ -332,6 +344,7 @@ public final class FarSight {
             double yaw = 2 * Math.PI * (i + 0.5) / 48, pitch = Math.PI * ((j + 0.5) / 24 - 0.5);
             Ray ry = cast(level, eye, new Vec3(Math.cos(pitch) * Math.cos(yaw), Math.sin(pitch), Math.cos(pitch) * Math.sin(yaw)), reach, cache);
             if (ry.end() == HIT || ry.end() == LAVA) { sawSurface(g, ry.cell()); hits++; }
+            sawOpen(g, eye, new Vec3(Math.cos(pitch) * Math.cos(yaw), Math.sin(pitch), Math.cos(pitch) * Math.sin(yaw)), ry.end() == OPEN ? reach : ry.dist());
         }
         return hits;
     }

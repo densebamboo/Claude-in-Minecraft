@@ -10437,6 +10437,7 @@ public final class ClaudeBodyTest {
             case 821: return st821(stage, t, c, h, level, mock);
             case 822: return st822(stage, t, c, h, level, mock);
             case 823: return st823(stage, t, c, h, level, mock);
+            case 824: return st824(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13237,6 +13238,35 @@ public final class ClaudeBodyTest {
             }
             check(!(c.currentTask == null && c.tasks.isEmpty() && t[0] - s823T0 > 40), "stopped at " + c.blockPosition().toShortString() + " after " + (t[0] - s823T0) / 20 + " s");
             check(t[0] - s823T0 < 20 * 60, "60 s and not across: at " + c.blockPosition().toShortString() + " now " + c.currentTask);
+        }
+        return true;
+    }
+
+    /** Live 15:10-15:17 11-05 (CONFLICT 15:17:43, the fortress found at 268,60,511): on his 1-wide bridge in a lava-sea cavern, NetherRoute planned through y48, mid-air 17 over the lava: the void he looked across read as "unseen, netherrack", every leg refused, the same plan again every 10 s. Here: the cavern, the sea 26 down, him at his bridge's end with 5 netherrack and a pick, the goal on a ledge 87 off at his level. He gets there (round through the rock or across), never planning through the air he sees. */
+    private static int s824T0;
+    private static boolean st824(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(9000, 64, 5920), to = o.offset(90, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); s824T0 = 0; }
+        if (t[0] >= 10 && t[0] % 10 == 0) { for (int k = 0; k <= 2; k++) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(45 * k, 0, 0)), 3, o.offset(45 * k, 0, 0));
+            if (c.level() == nl) { nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition()); for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(120, 40, 40))) e.discard(); } }
+        if (t[0] == 20) {
+            for (int x = -14; x <= 100; x++) for (int z = -14; z <= 14; z++) for (int y = -28; y <= 14; y++) {
+                boolean hollow = x >= -10 && x <= 96 && Math.abs(z) <= 10 && y >= -26 && y <= 10;
+                boolean ledge = (x <= -3 || x >= 88) && y <= -1, sea = y == -26, bridge = x >= -2 && x <= 3 && z == 0 && y == -1;
+                nl.setBlock(o.offset(x, y, z), !hollow || ledge || bridge ? Blocks.NETHERRACK.defaultBlockState() : sea ? Blocks.LAVA.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 16)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 5));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 3.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 40) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.tasks.add(new com.claudemod.entity.life.Task.GoTo(to, 2)); s824T0 = t[0]; }
+        if (s824T0 > 0 && t[0] > s824T0) {
+            check(!c.isInLava() && c.isAlive(), "in lava or dead at " + c.blockPosition().toShortString() + " after " + (t[0] - s824T0) / 20 + " s");
+            check(c.getY() >= o.getY() - 4 || c.getBlockX() - o.getX() <= -3 || c.getBlockX() - o.getX() >= 88 || Math.abs(c.getBlockZ() - o.getZ()) > 10, "down into the void over the lava sea: at " + c.blockPosition().toShortString() + " after " + (t[0] - s824T0) / 20 + " s (the route planned through air he can see)");
+            if (Math.abs(c.getX() - to.getX() - 0.5) + Math.abs(c.getZ() - to.getZ() - 0.5) <= 4 && Math.abs(c.getY() - to.getY()) <= 2) { int s0 = (t[0] - s824T0) / 20; check(s0 <= 75, "there, but slow: " + s0 + " s for 87 blocks"); nsHome(c, h, level); pass(stage, t, "off his bridge over the lava-sea cavern to the ledge 87 off in " + s0 + " s"); return true; }
+            check(!(c.currentTask == null && c.tasks.isEmpty() && t[0] - s824T0 > 60), "the walk gave up at " + c.blockPosition().toShortString() + " after " + (t[0] - s824T0) / 20 + " s");
+            check(t[0] - s824T0 < 20 * 150, "150 s and not there: at " + c.blockPosition().toShortString() + " now " + c.currentTask + " queue " + c.tasks);
         }
         return true;
     }

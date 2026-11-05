@@ -128,13 +128,17 @@ public final class NetherRoute {
             for (BlockPos f : failedLegs) if (Math.abs(f.getX() - x) <= 3 && Math.abs(f.getZ() - z) <= 3 && Math.abs(f.getY() - y) <= 3) return true;
             return false;
         }
-        Reader(ClaudeEntity g, ServerLevel level) { this.g = g; this.level = level; this.minY = level.getMinBuildHeight() + 1; this.blocks = com.claudemod.director.Kit.buildingBlocks(g); this.maxY = Math.min(118, Math.min(level.getMaxBuildHeight(), level.getMinBuildHeight() + level.getLogicalHeight()) - 3); } // (never up by the bedrock roof)
+        Reader(ClaudeEntity g, ServerLevel level) { this.g = g; this.level = level; this.eye = g.getEyePosition(); this.sight = com.claudemod.entity.life.FarSight.reach(level); this.minY = level.getMinBuildHeight() + 1; this.blocks = com.claudemod.director.Kit.buildingBlocks(g); this.maxY = Math.min(118, Math.min(level.getMaxBuildHeight(), level.getMinBuildHeight() + level.getLogicalHeight()) - 3); } // (never up by the bedrock roof)
         LevelChunk chunk(int x, int z) { long k = ((long) (x >> 4) << 32) ^ ((z >> 4) & 0xffffffffL); return chunks.computeIfAbsent(k, kk -> level.getChunkSource().getChunkNow(x >> 4, z >> 4)); }
         boolean loaded(int x, int z) { return chunk(x, z) != null; }
         BlockPos to; // the goal: he knows where he's headed (a sighting, his atlas), so its cells within 8 are read as they are
         final Map<Long, Boolean> knownMemo = new HashMap<>();
         /** A cell he hasn't seen, walked or stood by reads as netherrack: rock at its dig price till he sees it (never a cave he never saw). */
-        boolean known(int x, int y, int z) { if (to != null && Math.abs(x - to.getX()) <= 8 && Math.abs(y - to.getY()) <= 8 && Math.abs(z - to.getZ()) <= 8) return true; return knownMemo.computeIfAbsent(key(x, y, z), k -> com.claudemod.entity.life.FarSight.known(g, x, y, z)); }
+        final net.minecraft.world.phys.Vec3 eye; final double sight; // where he looks from as he plans, and how far he sees (the Nether's fog)
+        boolean known(int x, int y, int z) { if (to != null && Math.abs(x - to.getX()) <= 8 && Math.abs(y - to.getY()) <= 8 && Math.abs(z - to.getZ()) <= 8) return true;
+            return knownMemo.computeIfAbsent(key(x, y, z), k -> com.claudemod.entity.life.FarSight.known(g, x, y, z)
+                || (x + 0.5 - eye.x) * (x + 0.5 - eye.x) + (y + 0.5 - eye.y) * (y + 0.5 - eye.y) + (z + 0.5 - eye.z) * (z + 0.5 - eye.z) <= sight * sight && com.claudemod.entity.life.Perception.clear(level, eye, new net.minecraft.world.phys.Vec3(x + 0.5, y + 0.5, z + 0.5)) && seen(x, y, z)); }
+        private boolean seen(int x, int y, int z) { com.claudemod.entity.life.FarSight.sawCell(g, x, y, z); return true; } // (in plain view from where he stands: the void he looks across is air, not rock (Day to Day 15:17 11-05: the route tunnelled through the air over a lava sea); the ray fan alone leaves holes a block wide at 10 off; out to his sight, not 24: a void past a 24 cut-off read as floor again, stage 535)
         BlockState bs(int x, int y, int z) { LevelChunk c = chunk(x, z); return c == null || y < minY - 1 || y > maxY + 3 ? Blocks.BEDROCK.defaultBlockState() : !known(x, y, z) ? Blocks.NETHERRACK.defaultBlockState() : c.getBlockState(new BlockPos(x, y, z)); }
         boolean lava(BlockState s) { return s.getFluidState().is(FluidTags.LAVA); }
         boolean solid(int x, int y, int z) { BlockState s = bs(x, y, z); return !s.getCollisionShape(level, new BlockPos(x, y, z)).isEmpty(); }

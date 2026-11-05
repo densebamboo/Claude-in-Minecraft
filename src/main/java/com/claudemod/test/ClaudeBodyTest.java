@@ -10508,6 +10508,7 @@ public final class ClaudeBodyTest {
             case 731: return st731(stage, t, c, h, level, mock);
             case 732: return st732(stage, t, c, h, level, mock);
             case 733: return st733(stage, t, c, h, level, mock);
+            case 734: return st734(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13839,6 +13840,28 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.skillQueue.clear(); c.playerGoal = null; c.dropCurrent = true; nsHome(c, h, level);
             pass(stage, t, "the rules' step in the Nether does something: " + rule.skill() + " " + rule.target()); return true;
         }
+        return true;
+    }
+
+    /** Live 13:57-14:22 11-05 (Day to Day review item 5): his furnace at -79,17,-22 by his mine's rows, he swimming in the lake 45 above it: "couldn't get in reach of furnace" and "going to take it out" every few seconds for 25 min. The reach walk went straight down (BLOCKED_FLUID: the lake), never by his mine's stairs: reachFor walked the side cell itself, and only a GoTo is split into his route's legs. A far reach goes by his route like any walk. */
+    private static int s734T;
+    private static boolean st734(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); s734T = -1; }
+        if (t[0] == 10) {
+            var b = lnMine(h, level, c); com.claudemod.entity.life.MineBlueprint.Row row = null; for (var r : b.rows()) if (r.segment() == 5 && r.index() == 8) row = r;
+            java.util.Set<BlockPos> feet = new java.util.HashSet<>(); for (var r : b.rows()) for (BlockPos f : r.feet()) feet.add(f);
+            BlockPos fur = null; for (BlockPos f : row.feet()) for (net.minecraft.core.Direction d : new net.minecraft.core.Direction[] {row.dir().getClockWise(), row.dir().getCounterClockWise()}) if (fur == null && !feet.contains(f.relative(d)) && !level.getBlockState(f.relative(d)).isAir()) fur = f.relative(d);
+            level.setBlock(fur, Blocks.FURNACE.defaultBlockState(), 2); if (level.getBlockEntity(fur) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fe) fe.setItem(2, new ItemStack(Items.IRON_INGOT, 1));
+            c.myStations.clear(); c.myStations.add(fur.immutable()); c.furnaceReadyAt.clear(); c.attempts.clear();
+            BlockPos top = new BlockPos(fur.getX(), h.absolutePos(new BlockPos(0, 13, 0)).getY(), fur.getZ()); // (a lake 5 across, 3 deep, over it)
+            for (int x = -2; x <= 2; x++) for (int z = -2; z <= 2; z++) for (int y = -2; y <= 0; y++) level.setBlock(top.offset(x, y, z), Blocks.WATER.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.teleportTo(top.getX() + 0.5, top.getY() + 0.1, top.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 15) c.tasks.add(new Task.FurnaceTake(c.myStations.iterator().next()));
+        if (t[0] > 15 && s734T < 0 && c.getInventory().countItem(Items.IRON_INGOT) > 0) s734T = t[0];
+        if (s734T > 0) { c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); c.myStations.clear(); pass(stage, t, "his furnace under the lake, by his mine's stairs: the ingot in " + (s734T - 15) / 20 + " s"); return true; }
+        if (t[0] == 15 + 20 * 60) { check(false, "his furnace by his mine's lower rows, he in the lake over it: no ingot in 60 s (at " + c.blockPosition().toShortString() + ", " + c.currentTask + ", queue " + c.tasks.stream().limit(4).toList() + ")"); }
         return true;
     }
 

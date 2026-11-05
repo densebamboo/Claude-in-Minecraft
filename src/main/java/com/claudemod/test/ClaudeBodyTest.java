@@ -10465,6 +10465,7 @@ public final class ClaudeBodyTest {
             case 710: return st710(stage, t, c, h, level, mock);
             case 711: return st711(stage, t, c, h, level, mock);
             case 712: return st712(stage, t, c, h, level, mock);
+            case 713: return st713(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13261,6 +13262,37 @@ public final class ClaudeBodyTest {
             for (BlockPos q : s712Wall) check(level.getBlockState(q).is(Blocks.STONE), "dug his wall at " + q.toShortString() + " (now " + level.getBlockState(q).getBlock().getName().getString() + ") for the ore at " + s712O.toShortString() + " behind the hole, he at " + c.blockPosition().toShortString() + ": walk up to the hole, mine through it");
             if (level.getBlockState(s712O).isAir()) { c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); pass(stage, t, "walked up and mined the ore through the hole, wall intact (" + (t[0] - 10) + " ticks)"); return true; }
             check(t[0] < 200, "the ore at " + s712O.toShortString() + " still there after 9 s: at " + c.blockPosition().toShortString() + ", now " + c.currentTask + " queue " + c.tasks.stream().limit(6).toList());
+        }
+        return true;
+    }
+
+    /** Live 05:16:51-05:17:51 11-05 (REVIEW-73): in his mine with a full pack, the same stacks thrown on his tunnel floor 3 times and walked back over. His toss keeps 2 stacks of stone all told; the junk-chest round (spareStacks) and its Deposit kept 2 a kind, so 2 cobble + 2 cobbled deepslate was "nothing spare" to the round and 2 stacks to the toss. One rule: the spare stone goes to his junk chest, never his floor. */
+    private static BlockPos s713C;
+    private static boolean st713(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            BlockPos d = lnRow(b, 1, 6).immutable();
+            net.minecraft.core.Direction side = null; for (var dd : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && !com.claudemod.director.ClaudeLife.isMineCell(c, d.relative(dd)) && level.getBlockState(d.relative(dd)).is(Blocks.STONE)) side = dd;
+            check(side != null, "setup: no wall beside row 6");
+            s713C = d.relative(side).immutable(); level.setBlock(s713C, Blocks.CHEST.defaultBlockState(), 2); level.setBlock(s713C.above(), Blocks.AIR.defaultBlockState(), 2); /* (a chest under rock won't open) */ c.prefs.put("junk_chests", s713C.getX() + " " + s713C.getY() + " " + s713C.getZ());
+            var inv = c.getInventory(); inv.clearContent();
+            inv.add(new ItemStack(Items.COBBLESTONE, 64)); inv.add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); inv.items.set(2, new ItemStack(Items.COBBLESTONE, 12)); inv.items.set(3, new ItemStack(Items.COBBLED_DEEPSLATE, 16));
+            for (int i = 0; i < inv.items.size(); i++) if (inv.items.get(i).isEmpty()) inv.items.set(i, new ItemStack(Items.OAK_LOG, 64));
+            inv.selected = 4;
+            lnStand(c, mock, lnRow(b, 1, 3), b.entrance); c.tasks.clear(); c.skillQueue.clear();
+            com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+        }
+        if (t[0] > 10) {
+            var floor = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(10), i -> i.getItem().is(Items.COBBLESTONE) || i.getItem().is(Items.COBBLED_DEEPSLATE));
+            if (!floor.isEmpty()) check(false, "threw " + floor.get(0).getItem() + " on his tunnel floor at " + floor.get(0).blockPosition().toShortString() + " with his junk chest at " + s713C.toShortString() + " (queue " + c.tasks.stream().limit(4).toList() + ")");
+            int stone = 0; for (var st : c.getInventory().items) if (st.is(Items.COBBLESTONE) || st.is(Items.COBBLED_DEEPSLATE)) stone++;
+            if (stone <= 2 && c.currentTask == null && c.tasks.isEmpty()) {
+                com.claudemod.director.ClaudeLife.dumpJunkTest(c); // (nothing spare left: the toss throws nothing)
+                check(level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(10), i -> i.getItem().is(Items.COBBLESTONE) || i.getItem().is(Items.COBBLED_DEEPSLATE)).isEmpty(), "after his junk-chest round the toss still threw stone");
+                c.getInventory().clearContent(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); c.prefs.remove("junk_chests");
+                pass(stage, t, "the spare stone in his junk chest, 2 stacks kept, nothing on his floor (" + (t[0] - 10) + " ticks)"); return true;
+            }
+            check(t[0] < 400, "no junk-chest round in 19 s: " + stone + " stone stacks on him, now " + c.currentTask + " queue " + c.tasks.stream().limit(4).toList());
         }
         return true;
     }

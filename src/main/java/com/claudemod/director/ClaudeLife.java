@@ -5090,7 +5090,7 @@ public final class ClaudeLife {
     /** Stacks a junk chest would take: junk, and cobble past two stacks of a kind (kept for patching). */
     static int spareStacks(ClaudeEntity g) {
         java.util.Map<Item, Integer> kept = new java.util.HashMap<>(); int n = 0;
-        for (var st : g.getInventory().items) { if (st.isEmpty() || com.claudemod.entity.goals.WorkGoal.keeps(st)) continue; if (cobbleItem(st)) { if (kept.merge(st.getItem(), 1, Integer::sum) > 2) n++; } else if (junkItem(st)) n++; } // (what Deposit keeps never counts: 06:27 a junk round every 10 s that stored 0)
+        for (var st : g.getInventory().items) { if (st.isEmpty() || com.claudemod.entity.goals.WorkGoal.keeps(st)) continue; if (cobbleItem(st)) { if (kept.merge(Items.COBBLESTONE, 1, Integer::sum) > 2) n++; } else if (junkItem(st)) n++; } // (what Deposit keeps never counts: 06:27 a junk round every 10 s that stored 0) (two stacks of stone all told, as his toss keeps: 2 a kind here was "nothing spare" while the toss threw 2 stacks on his tunnel floor, 3 times in a minute, 05:17 11-05, stage 713)
         return n;
     }
 
@@ -5169,7 +5169,7 @@ public final class ClaudeLife {
         { int free0 = 0; for (var st0 : inv.items) if (st0.isEmpty()) free0++; if (free0 >= 2) return; } // (room for a craft's two steps: one free slot and "could not make a crafting table: missing room" every 5 s, 05:11)
         if (g.commandActive && g.lastStep != null && (g.lastStep.skill().equals("go_to") || g.lastStep.skill().equals("follow")) && inv.getFreeSlot() >= 0) return; // on their go_to/follow: the junk waits till the pack is truly full (they called him over to teach him; a 17-block junk chest run went first, 14:25)
         if (g.currentTask instanceof Task.Deposit || g.tasks.stream().anyMatch(t -> t instanceof Task.Deposit)) return; // on his way to put it away: nothing on the floor meanwhile (the toss went while the walk to the chest was queued)
-        if (g.level() instanceof ServerLevel sl0 && spareStacks(g) >= 2 && g.blueprint != null && !g.blueprint.isEmpty() && (g.blueprint.touches(g.blockPosition()) || inHisMine(g, g.blockPosition())) && g.tasks.stream().noneMatch(t -> t instanceof Task.Deposit)) { // in his mine: the junk chest, never his own floor
+        if (g.level() instanceof ServerLevel sl0 && spareStacks(g) >= 1 && g.blueprint != null && !g.blueprint.isEmpty() && (g.blueprint.touches(g.blockPosition()) || inHisMine(g, g.blockPosition())) && g.tasks.stream().noneMatch(t -> t instanceof Task.Deposit)) { // in his mine: the junk chest, never his own floor
             String r = junkChestRound(g, sl0); if (r != null) { ClaudeMod.LOGGER.info("[Claude life] inventory full in his mine: {}", r); return; }
         }
         boolean storable = false; for (var st0 : inv.items) if (!st0.isEmpty() && !cobbleItem(st0) && !junkItem(st0) && !com.claudemod.entity.goals.WorkGoal.keeps(st0)) storable = true; // (a pack of only cobble and junk: his stash takes none of it, a walk there for nothing)

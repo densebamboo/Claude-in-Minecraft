@@ -316,8 +316,8 @@ public final class Perception {
 
     // ---- the fluid he has seen: a player knows the lava and water he has looked at, never what's inside the rock ----
     static final class Fluids { final Map<BlockPos, Integer> lava = new HashMap<>(), water = new HashMap<>(); }
-    private static final Map<UUID, Fluids> fluids = new HashMap<>();
-    static Fluids fl(ClaudeEntity g) { return fluids.computeIfAbsent(g.getUUID(), k -> new Fluids()); }
+    private static final Map<UUID, Map<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>, Fluids>> fluids = new HashMap<>(); // one record per world (live 09:22: Overworld lava at y -58 read in the Nether)
+    static Fluids fl(ClaudeEntity g) { return fluids.computeIfAbsent(g.getUUID(), k -> new HashMap<>()).computeIfAbsent(g.level().dimension(), k -> new Fluids()); }
     public static boolean knowsLava(ClaudeEntity g, BlockPos p) { return fl(g).lava.containsKey(p); }
     /**
      * This lava cell is one body with lava he has seen or noted: a flood through lava from it (6-way, up to 512 cells) reaches a

@@ -661,6 +661,7 @@ public class ClaudeEntity extends ServerPlayer {
         if (mine != null && mine.contains("atlas")) com.claudemod.entity.life.Atlas.load(this, mine.getCompound("atlas"));
         if (mine != null && mine.contains("seenOre")) for (long l0 : mine.getLongArray("seenOre")) ClaudeLife.seenOre(this).add(BlockPos.of(l0));
         if (mine != null && mine.contains("lava")) ClaudeLife.loadLavaMemory(this, mine.getLongArray("lava"));
+        if (mine != null && mine.contains("lavaNether")) ClaudeLife.loadLavaList(this, net.minecraft.world.level.Level.NETHER, mine.getLongArray("lavaNether"));
         if (mine != null && mine.contains("netherPortal")) ClaudeLife.netherPortal.put(getUUID(), BlockPos.of(mine.getLong("netherPortal")));
         if (mine != null && mine.contains("portalMap")) com.claudemod.entity.life.PortalMap.load(this, mine.getCompound("portalMap")); else if (mine != null) com.claudemod.entity.life.PortalMap.adopt(this, ClaudeLife.hisPortal.get(getUUID()), ClaudeLife.netherPortal.get(getUUID())); // (a world saved before the portal map: the stopgap's two spots)
         if (mine != null && mine.contains("lessons")) { var ls = mine.getList("lessons", net.minecraft.nbt.Tag.TAG_STRING); java.util.List<String> saved = new java.util.ArrayList<>(); for (int i = 0; i < ls.size(); i++) saved.add(ls.getString(i)); ClaudeLife.loadLessons(this, saved); }
@@ -745,6 +746,7 @@ public class ClaudeEntity extends ServerPlayer {
         mine.putLongArray("spine", mineSpine.stream().mapToLong(BlockPos::asLong).toArray());
         mine.putLongArray("landings", landingCells.stream().mapToLong(BlockPos::asLong).toArray());
         mine.putLongArray("lava", ClaudeLife.lavaMemory(this));
+        mine.putLongArray("lavaNether", ClaudeLife.lavaList(this, net.minecraft.world.level.Level.NETHER));
         { BlockPos np = ClaudeLife.netherPortal.get(getUUID()); if (np != null) mine.putLong("netherPortal", np.asLong()); } mine.put("portalMap", com.claudemod.entity.life.PortalMap.save(this)); // the lava he saw and his portal: the dragon run's memory across a relaunch
         mine.put("atlas", com.claudemod.entity.life.Atlas.save(this)); // the biomes he has seen, the ground he has covered
         mine.put("whereabouts", com.claudemod.entity.life.Whereabouts.save(this)); // where people were last seen, kept across a relaunch

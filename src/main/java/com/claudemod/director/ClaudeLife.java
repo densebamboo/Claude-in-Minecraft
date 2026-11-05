@@ -10491,16 +10491,20 @@ public final class ClaudeLife {
     private static boolean lavaWithin(ServerLevel level, BlockPos p, int r) { for (BlockPos q : BlockPos.betweenClosed(p.offset(-r, -r, -r), p.offset(r, r, r))) if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) return true; return false; }
 
     /** A lava source he can see (a ray that stops at source fluids), the nearest within r, or null. */
-    private static final java.util.Map<java.util.UUID, java.util.ArrayDeque<BlockPos>> lavaSeen = new java.util.HashMap<>(); // lava sources he saw, the last 8 (overworld)
+    private static final java.util.Map<java.util.UUID, java.util.Map<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>, java.util.ArrayDeque<BlockPos>>> lavaSeen = new java.util.HashMap<>(); // lava sources he saw, one list per world (live 09:22: in the Nether he set off for Overworld lava at y -58)
     private static final java.util.Map<java.util.UUID, Integer> lavaHunts = new java.util.HashMap<>();
     /** His lava sightings and his portal, for the save: the sightings, then the portal last (0 when none). */
-    public static long[] lavaMemory(ClaudeEntity g) { var seen = lavaSeen(g); long[] out = new long[seen.size() + 1]; int i = 0; for (BlockPos p : seen) out[i++] = p.asLong(); BlockPos portal = hisPortal.get(g.getUUID()); out[i] = portal == null ? 0L : portal.asLong(); return out; }
+    public static long[] lavaMemory(ClaudeEntity g) { var seen = lavaSeen(g, net.minecraft.world.level.Level.OVERWORLD); long[] out = new long[seen.size() + 1]; int i = 0; for (BlockPos p : seen) out[i++] = p.asLong(); BlockPos portal = hisPortal.get(g.getUUID()); out[i] = portal == null ? 0L : portal.asLong(); return out; }
     public static void loadLavaMemory(ClaudeEntity g, long[] a) {
         if (a == null || a.length == 0) return;
-        var seen = lavaSeen(g); seen.clear(); for (int i = 0; i < a.length - 1; i++) seen.addLast(BlockPos.of(a[i]));
+        var seen = lavaSeen(g, net.minecraft.world.level.Level.OVERWORLD); seen.clear(); for (int i = 0; i < a.length - 1; i++) seen.addLast(BlockPos.of(a[i]));
         if (a[a.length - 1] != 0L) hisPortal.put(g.getUUID(), BlockPos.of(a[a.length - 1]));
     }
-    public static java.util.ArrayDeque<BlockPos> lavaSeen(ClaudeEntity g) { return lavaSeen.computeIfAbsent(g.getUUID(), k -> new java.util.ArrayDeque<>()); }
+    public static java.util.ArrayDeque<BlockPos> lavaSeen(ClaudeEntity g) { return lavaSeen(g, g.level().dimension()); } // (the world he's in)
+    public static java.util.ArrayDeque<BlockPos> lavaSeen(ClaudeEntity g, net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dim) { return lavaSeen.computeIfAbsent(g.getUUID(), k -> new java.util.HashMap<>()).computeIfAbsent(dim, k -> new java.util.ArrayDeque<>()); }
+    /** One world's lava list for his save (the Overworld's goes with his portal in lavaMemory). */
+    public static long[] lavaList(ClaudeEntity g, net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dim) { return lavaSeen(g, dim).stream().mapToLong(BlockPos::asLong).toArray(); }
+    public static void loadLavaList(ClaudeEntity g, net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dim, long[] a) { if (a == null) return; var seen = lavaSeen(g, dim); seen.clear(); for (long l : a) seen.addLast(BlockPos.of(l)); }
     private static java.util.Map<java.util.UUID, java.util.Set<BlockPos>> lavaDrips; // (static: fields added live start null) the lava he knows by its drip, seen through the block under it
     /** Lava he knows by the drip under its block (Perception.drips): seen through rock, so reached by a planned way (dripLavaWay). */
     public static boolean byDrip(ClaudeEntity g, BlockPos p) { return lavaDrips != null && lavaDrips.getOrDefault(g.getUUID(), java.util.Set.of()).contains(p) && lavaSeen(g).contains(p); } // (a mark on an entry of his list: off the list, no mark)

@@ -10425,6 +10425,7 @@ public final class ClaudeBodyTest {
             case 807: return st807(stage, t, c, h, level, mock);
             case 808: return st808(stage, t, c, h, level, mock);
             case 809: return st809(stage, t, c, h, level, mock);
+            case 810: return st810(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
             case 615: return st615(stage, t, c, h, level, mock);
             case 617: return st617(stage, t, c, h, level, mock);
@@ -12900,6 +12901,31 @@ public final class ClaudeBodyTest {
             String bio = p == null ? "-" : nl.getBiome(p).unwrapKey().map(k -> k.location().getPath()).orElse("?");
             check(p != null && bio.equals("warped_forest"), "the walked-over forest left for " + (p == null ? "nothing" : p.toShortString() + " (" + bio + ", " + (int) Math.sqrt(p.distSqr(o)) + " off)") + ": " + why[0]);
             nsHome(c, h, level); pass(stage, t, "the walked-over forest walked again: " + p.toShortString() + " (" + why[0] + ")"); return true;
+        }
+        return true;
+    }
+
+    /** Day to Day 11-05 (live 09:22:19, review-106): make_obsidian in the Nether went "back to the lava I saw at -195, -58, 11", lava he saw in the Overworld (y -58), 225 off: his lava list had no world to it. Now: each world its own list, the Overworld's kept for his return. */
+    private static boolean st810(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(5836, 70, 5120), ow = h.absolutePos(new BlockPos(102, 1, 2)).atY(-58); // (100 off, in the rock: out of his sight when he's back)
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.director.ClaudeLife.lavaSeen(c).clear(); com.claudemod.director.ClaudeLife.lavaSeen(c).addFirst(ow.immutable()); // (an Overworld lava source on his list, and seen)
+            var was = level.getBlockState(ow); level.setBlock(ow, Blocks.LAVA.defaultBlockState(), 2); com.claudemod.entity.life.Perception.sawCell(c, level, ow); level.setBlock(ow, was, 2); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) { for (int x = -4; x <= 4; x++) for (int z = -4; z <= 4; z++) { nl.setBlock(o.offset(x, -1, z), Blocks.NETHERRACK.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); } nsKit(c); c.nextPlanTick = c.tickCount + 20 * 600; c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); }
+        if (t[0] == 20) {
+            check(c.level() == nl, "not in the Nether: " + c.level().dimension());
+            check(!com.claudemod.director.ClaudeLife.lavaSeen(c).contains(ow), "the Overworld's lava at " + ow.toShortString() + " on his list in the Nether: " + com.claudemod.director.ClaudeLife.lavaSeen(c));
+            check(!com.claudemod.entity.life.Perception.knowsLava(c, ow), "the Overworld's lava at " + ow.toShortString() + " known to his eyes in the Nether");
+            BlockPos nlava = o.offset(3, 0, 3); com.claudemod.director.ClaudeLife.lavaSeen(c).addFirst(nlava);
+            long[] saved = com.claudemod.director.ClaudeLife.lavaList(c, net.minecraft.world.level.Level.NETHER); com.claudemod.director.ClaudeLife.lavaSeen(c).clear(); com.claudemod.director.ClaudeLife.loadLavaList(c, net.minecraft.world.level.Level.NETHER, saved);
+            check(com.claudemod.director.ClaudeLife.lavaSeen(c).contains(nlava), "the Nether's lava list lost over a save: " + com.claudemod.director.ClaudeLife.lavaSeen(c));
+            BlockPos back = h.absolutePos(new BlockPos(8, 2, 8)); c.teleportTo(level, back.getX() + 0.5, back.getY(), back.getZ() + 0.5, 0f, 0f); // (home by hand: nsHome wipes his eyes' record)
+        }
+        if (t[0] == 30) {
+            check(com.claudemod.entity.life.Perception.knowsLava(c, ow), "back in the Overworld, the lava he saw there forgotten");
+            check(com.claudemod.director.ClaudeLife.lavaSeen(c).contains(ow) && com.claudemod.director.ClaudeLife.lavaSeen(c).size() == 1, "back in the Overworld, its list isn't the Overworld's own: " + com.claudemod.director.ClaudeLife.lavaSeen(c));
+            com.claudemod.director.ClaudeLife.lavaSeen(c).clear(); nsHome(c, h, level); pass(stage, t, "each world its own lava list: the Overworld's lava off his Nether list, kept for his return; the Nether's saved and loaded"); return true;
         }
         return true;
     }

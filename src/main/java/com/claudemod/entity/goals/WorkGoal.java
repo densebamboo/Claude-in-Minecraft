@@ -122,14 +122,23 @@ public class WorkGoal extends Goal {
         }
         { // the way he came: he swam in along it, so it's water he can swim back through (the user, 11-04: "he opens a water pocket and swims into it and doesnt swim back through it"; 00:50 he aimed at air 5 blocks back through a wall and drowned)
             java.util.List<BlockPos> back = com.claudemod.entity.nav.Route.wayBack(g, 20 * 60);
-            int air = -1; for (int i = 0; i < back.size() && air < 0; i++) { BlockPos h = back.get(i).above(); if (level.getFluidState(h).isEmpty() && level.getBlockState(h).getCollisionShape(level, h).isEmpty()) air = i; }
-            if (air > 0) {
-                BlockPos here0 = g.blockPosition(), aim = null; // (never his own cell: 12:02 11-04 he "swam back" to the cell he was in and drowned there)
-                int on = 0; double onD = Double.MAX_VALUE; for (int i = 0; i <= air; i++) { double d0 = back.get(i).distToCenterSqr(g.position()); if (d0 < onD) { onD = d0; on = i; } } // his place on the trail: the nearest of its cells (floated a cell up, he's on none)
-                Vec3 body = g.position().add(0, 0.4, 0); // (from his body, not his eyes: under a low rock ceiling his eyes are in the rock's row)
-                for (int i = air; i > on && aim == null; i--) { BlockPos c0 = back.get(i); var see = level.clip(new net.minecraft.world.level.ClipContext(body, Vec3.atCenterOf(c0), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)); if (see.getType() == net.minecraft.world.phys.HitResult.Type.MISS) aim = c0; }
-                if (aim == null) aim = back.get(Math.min(air, back.get(on).equals(here0) ? on + 1 : on)); // the next cell back along it: the way he came is water he got through
-                if (g.tickCount % 20 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no air in sight at {}: back the way he came, toward {} (air at {}, {} cells back; body y {} pose {} sprint {} swimming {} hcoll {} vcoll {} motion {}; aim {}/{} head {})", g.blockPosition().toShortString(), aim.toShortString(), back.get(air).toShortString(), air, String.format("%.2f", g.getY()), g.getPose(), g.isSprinting(), g.isSwimming(), g.horizontalCollision, g.verticalCollision, g.getDeltaMovement().toString(), level.getBlockState(aim).getBlock().getName().getString(), level.getFluidState(aim).isEmpty() ? "dry" : "wet", level.getBlockState(aim.above()).getBlock().getName().getString()); // (11-04 17:35 and 17:37: two drownings at 535,13,117 aimed 2 cells back and never moved; the log had no body state to say why)
+            // the shortest way through the cells he swam, to the nearest with air over it (by recency, a cell he'd poked into after coming down read as "on the way back": live 22:14 11-04 his aim flipped between the shaft and a dead end below as he bobbed a cell up and down, and he drowned 19 cells from air)
+            java.util.Set<BlockPos> cells = new java.util.HashSet<>(); // his trail and any open cell beside it (a corner he cut leaves no trail cell between two of its own)
+            for (BlockPos q : back) { cells.add(q); for (Direction d : Direction.values()) { BlockPos n = q.relative(d); if (level.getBlockState(n).getCollisionShape(level, n).isEmpty()) cells.add(n.immutable()); } }
+            BlockPos start = cells.contains(g.blockPosition()) ? g.blockPosition() : null; double sd = Double.MAX_VALUE;
+            if (start == null) for (BlockPos q : back) { double d0 = q.distToCenterSqr(g.position()); if (d0 < sd) { sd = d0; start = q; } }
+            java.util.Map<BlockPos, BlockPos> came = new java.util.HashMap<>(); java.util.ArrayDeque<BlockPos> frontier = new java.util.ArrayDeque<>(); BlockPos goal = null;
+            if (start != null) { came.put(start, start); frontier.add(start); }
+            while (!frontier.isEmpty() && goal == null) {
+                BlockPos q = frontier.poll(), qa = q.above();
+                if (q != start && !level.getFluidState(q).isEmpty() && level.getFluidState(qa).isEmpty() && level.getBlockState(qa).getCollisionShape(level, qa).isEmpty()) { goal = q; break; }
+                for (Direction d : Direction.values()) { BlockPos n = q.relative(d); if (cells.contains(n) && !came.containsKey(n)) { came.put(n, q); frontier.add(n); } } // (face to face: a diagonal past two rock corners is in sight but his body doesn't fit, 22:14 stage 650)
+            }
+            if (goal != null) {
+                java.util.List<BlockPos> way = new java.util.ArrayList<>(); for (BlockPos q = goal; ; q = came.get(q)) { way.add(0, q); if (q.equals(start)) break; } // start .. goal
+                BlockPos here0 = g.blockPosition();
+                BlockPos aim = way.size() > 1 && way.get(0).equals(here0) ? way.get(1) : way.get(0); // the next cell along it, one face at a time (floated off it: back onto it first)
+                if (g.tickCount % 20 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no air in sight at {}: back the way he came, toward {} (air over {}, {} cells along his trail; body y {} pose {} sprint {} swimming {} hcoll {} vcoll {} motion {}; aim {}/{} head {})", g.blockPosition().toShortString(), aim.toShortString(), goal.toShortString(), way.size() - 1, String.format("%.2f", g.getY()), g.getPose(), g.isSprinting(), g.isSwimming(), g.horizontalCollision, g.verticalCollision, g.getDeltaMovement().toString(), level.getBlockState(aim).getBlock().getName().getString(), level.getFluidState(aim).isEmpty() ? "dry" : "wet", level.getBlockState(aim.above()).getBlock().getName().getString()); // (11-04 17:35 and 17:37: two drownings at 535,13,117 aimed 2 cells back and never moved; the log had no body state to say why)
                 return aim;
             }
         }

@@ -10439,6 +10439,7 @@ public final class ClaudeBodyTest {
             case 647: return st647(stage, t, c, h, level, mock);
             case 648: return st648(stage, t, c, h, level, mock);
             case 649: return st649(stage, t, c, h, level, mock);
+            case 650: return st650(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -13347,6 +13348,39 @@ public final class ClaudeBodyTest {
             check(ctx.split("\n  -").length >= 10 && ctx.contains(" at ") && ctx.contains(" | want "), "too few tick lines: " + ctx.substring(Math.max(0, ctx.length() - 600)));
             com.claudemod.ClaudeMod.LOGGER.info("[Claude test] stage 648 context:\n{}", ctx);
             pass(stage, t, "the context has the target, the path, the start and " + (ctx.split("\n  -").length - 1) + " trace lines");
+        }
+        return true;
+    }
+
+    private static boolean st650(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 22:14 11-04 World 17, -81,15,-17: drowned bobbing between y15 and y16, his aim flipping between -82,15,-18 (the way he came down) and -81,14,-17 (a cell he'd poked into below), the air 19 trail cells back up the shaft. The grid y14..18 is the incident's, block for block; the shaft above it (y19..24) is built from his last 30 s.
+        BlockPos o = h.absolutePos(new BlockPos(1, 2, 1)); // real (-84, 14, -20)
+        String[][] grid = { // y 14..18, each row z -20..-14, x -84..-78
+            {"#######", "#######", "~~~~~~~", "~~~~~~~", "~~~~~~~", "~~~~~~~", "#######"},
+            {"#######", "#######", "#~~~#~~", "#~~~##~", "#~~###~", "#~~~~~~", "#######"},
+            {"#......", "#####.#", "##~####", "###~~#~", "##~~~~#", "~#~####", "#######"},
+            {".......", ".####.#", ".#~####", "#######", "#######", "~######", "#######"},
+            {".......", "#######", "#~~####", "#~#####", "#~#####", "#######", "#######"}};
+        java.util.function.Function<int[], BlockPos> R = r -> o.offset(r[0] + 84, r[1] - 14, r[2] + 20); // real -> test
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(-1, -1, -1), o.offset(7, 12, 7))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            for (int y = 0; y < 5; y++) for (int z = 0; z < 7; z++) for (int x = 0; x < 7; x++) { char ch = grid[y][z].charAt(x); level.setBlock(o.offset(x, y, z), ch == '~' ? Blocks.WATER.defaultBlockState() : ch == '.' ? Blocks.AIR.defaultBlockState() : Blocks.STONE.defaultBlockState(), 2); }
+            for (int x = -83; x <= -80; x++) for (int z = -18; z <= -16; z++) for (int y = 19; y <= 24; y++) level.setBlock(R.apply(new int[] {x, y, z}), y <= 22 ? Blocks.WATER.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); // the room up the shaft: water to y22, air over it
+            for (int y = 15; y <= 18; y++) level.setBlock(R.apply(new int[] {-82, y, -18}), Blocks.WATER.defaultBlockState(), 2); // the shaft down (y15..18 at -82,-18: water in the grid)
+            level.setBlock(R.apply(new int[] {-81, 15, -17}), Blocks.WATER.defaultBlockState(), 2); level.setBlock(R.apply(new int[] {-81, 16, -17}), Blocks.WATER.defaultBlockState(), 2); // (his cells, '@')
+            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64));
+            int[][] way = {{-81, 22, -16}, {-81, 21, -16}, {-81, 20, -16}, {-80, 20, -16}, {-81, 20, -16}, {-82, 19, -17}, {-82, 18, -18}, {-82, 17, -18}, {-82, 16, -18}, {-82, 15, -18}, {-81, 15, -17}, {-81, 16, -16}, {-81, 14, -17}, {-80, 16, -16}, {-79, 16, -16}, {-81, 16, -17}, {-81, 15, -17}, {-81, 16, -17}}; // down the shaft, then his patching about the bottom, then the bob
+            for (int[] w : way) { BlockPos p = R.apply(w); c.teleportTo(p.getX() + 0.5, p.getY(), p.getZ() + 0.5); com.claudemod.entity.nav.Route.step(c); }
+            BlockPos me = R.apply(new int[] {-81, 15, -17});
+            c.teleportTo(me.getX() + 0.6, me.getY() + 0.2, me.getZ() + 0.6); c.setSwimming(true); c.setPose(net.minecraft.world.entity.Pose.SWIMMING); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.setAirSupply(117);
+            c.tasks.add(new Task.Wait(1000, false));
+        }
+        if (t[0] > 10) {
+            BlockPos me = R.apply(new int[] {-81, 15, -17});
+            check(c.isAlive() && c.getHealth() >= 14, "drowning in the -81,15,-17 pocket: health " + c.getHealth() + " at " + c.blockPosition().subtract(me) + " y " + String.format("%.2f", c.getY() - me.getY()) + ", air " + c.getAirSupply());
+            if (t[0] > 12 && !c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER) && c.getY() >= me.getY() + 6) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "up the shaft to air in " + (t[0] - 10) + " ticks, at " + c.blockPosition().subtract(me)); }
+            else check(t[0] < 500, "no air within 24 s: at " + c.blockPosition().subtract(me) + ", air " + c.getAirSupply());
         }
         return true;
     }

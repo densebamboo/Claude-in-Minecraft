@@ -12784,7 +12784,8 @@ public final class ClaudeBodyTest {
             com.claudemod.entity.life.Watchdog.brokeOwn(c, s556A.offset(2, 0, 2), Blocks.OAK_LOG.defaultBlockState());
             check(s556Has("BARE_HANDS"), "an oak log broken with a shovel, a stone axe in his bag, no BARE_HANDS: " + W);
         }
-        if (t[0] == 300) { c.tasks.clear(); c.dropCurrent = true; c.tasks.add(new com.claudemod.entity.life.Task.Wait(200, false)); com.claudemod.entity.life.Watchdog.starting(c, new com.claudemod.entity.life.Task.Break(s556A.offset(8, 1, 0))); } // (the detector itself: his queue no longer starts such a dig, stage 807)
+        if (t[0] == 280) { c.tasks.clear(); c.dropCurrent = true; c.tasks.add(new com.claudemod.entity.life.Task.Wait(200, false)); } // (busy to 310: the idle clock, sampled every 20 ticks, starts there)
+        if (t[0] == 300) { com.claudemod.entity.life.Watchdog.starting(c, new com.claudemod.entity.life.Task.Break(s556A.offset(8, 1, 0))); } // (the detector itself: his queue no longer starts such a dig, stage 807)
         if (t[0] == 310) { check(s556Has("SIGHT"), "ore with every face closed targeted, no SIGHT: " + W); c.tasks.clear(); c.dropCurrent = true; s556T = t[0]; }
         if (t[0] > 310 && t[0] < 900) { c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 24000; } // (nothing for him to do)
         if (s556T > 0 && s556Has("IDLE")) {

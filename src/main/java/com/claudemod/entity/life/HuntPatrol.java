@@ -22,6 +22,8 @@ public final class HuntPatrol {
     private HuntPatrol() {}
 
     static final int CELL = 16;
+    /** Endermen seen a minute per 1000 square blocks of warped forest (shortcut: a rough figure, tune it from the pearls lines once hunts log sightings). */
+    static final double RATE = 1.0, TYPICAL = 3000, SEARCH_S = 120;
     static final class Book { final Map<Long, Long> walked = new HashMap<>(); final Map<Long, double[]> hunt = new HashMap<>(); Double heading; } // hunt: {weight, server tick it was last added to}
     private static Map<UUID, Map<String, Book>> books; // (static: fields added live start null)
     static Book book(ClaudeEntity g, ServerLevel level) { if (books == null) books = new HashMap<>(); return books.computeIfAbsent(g.getUUID(), k -> new HashMap<>()).computeIfAbsent(PortalMap.dim(level), k -> new Book()); }
@@ -65,6 +67,16 @@ public final class HuntPatrol {
         return 0;
     }
 
+    /** Warped forest he has in view round him, in square blocks: standing ground on a 4-block grid within 40: seen, or within 16 (the ground round him he knows, stems or not). */
+    static int forestArea(ClaudeEntity g, ServerLevel level) {
+        int n = 0;
+        for (int x = -40; x <= 40; x += 4) for (int z = -40; z <= 40; z += 4) {
+            if (x * x + z * z > 1600) continue;
+            BlockPos p = FortressScout.standAt(level, g.getBlockX() + x, g.getBlockZ() + z, g.getBlockY());
+            if (p != null && level.getBiome(p).is(net.minecraft.world.level.biome.Biomes.WARPED_FOREST) && (x * x + z * z <= 256 || FortressScout.seen(g, level, p))) n++;
+        }
+        return n * 16;
+    }
     /** The next patrol point and why, or null (no seen ground to stand on round him). */
     public static BlockPos next(ClaudeEntity g, ServerLevel level, String[] why) {
         walked(g, level);
@@ -72,6 +84,16 @@ public final class HuntPatrol {
         BlockPos best = null; double bs = -1e9, bestA = 0; String bwhy = "";
         boolean inForest = false; // in a warped forest or by its edge (live 11:01:22: 2 out of it, his feet read the wastes and he left for a leg 26 off)
         if (level.dimension() == net.minecraft.world.level.Level.NETHER) for (int k = 0; k <= 16 && !inForest; k++) { BlockPos q = k == 0 ? g.blockPosition() : g.blockPosition().offset((int) Math.round(Math.cos(k * Math.PI / 4) * (k <= 8 ? 3 : 6)), 0, (int) Math.round(Math.sin(k * Math.PI / 4) * (k <= 8 ? 3 : 6))); inForest = level.getBiome(q).is(net.minecraft.world.level.biome.Biomes.WARPED_FOREST); }
+        if (inForest && Atlas.quietAt(g, level, g.blockPosition())) inForest = false; // (found quiet: no more patrolling it)
+        boolean anyHunt = false; for (double[] h : b.hunt.values()) if (weight(h, now) > 0.05) anyHunt = true;
+        if (inForest && !anyHunt) { // the user 11-05: he knows the forest's size and its odds, and goes elsewhere only when that's the better bet
+            int area = forestArea(g, level); double here = 60 * 1000 / (RATE * Math.max(16, area));
+            BlockPos other = Atlas.findAway(g, level, "warped_forest", 64);
+            double there = (other == null ? SEARCH_S : FortressScout.BORE_S * (Math.abs(other.getX() - g.getBlockX()) + Math.abs(other.getZ() - g.getBlockZ()))) + 60 * 1000 / (RATE * TYPICAL);
+            String odds = String.format("this warped forest is about %d square blocks (seen), an enderman every ~%.0f s here; %s ~%.0f s", area, here, other == null ? "finding another and one there:" : "the one at " + other.toShortString() + " and one there:", there);
+            if (here > there) { Atlas.quiet(g, level, g.blockPosition()); why[0] = odds + ": on to another"; ClaudeMod.LOGGER.info("[Claude skill] ender_pearls patrol: {} (HuntPatrol.next)", why[0]); return null; }
+            if (g.tickCount % 200 < 40) ClaudeMod.LOGGER.info("[Claude skill] ender_pearls patrol: {}: staying (HuntPatrol.next)", odds);
+        }
         int[] ds = inForest ? new int[] {12, 8, 16, 24} : new int[] {24, 16, 32, 48}; // (in a warped forest, where they spawn: short hops inside it; its stems hide all past 12, and the far legs it saw were the wastes beyond, live 08:14:52, review-111)
         for (int i = 0; i < 12; i++) {
             double a = i * Math.PI / 6;
@@ -102,6 +124,10 @@ public final class HuntPatrol {
             if (f != null) { best = f; bestA = fa; bwhy = "warped_forest, all of it walked in the last 2 min: back through it, its oldest ground first (the wastes round it have no endermen)"; }
         }
         if (best == null) { why[0] = "no ground in sight to walk to"; return null; }
+        if (level.dimension() == net.minecraft.world.level.Level.NETHER && bs < 0 && !level.getBiome(best).is(net.minecraft.world.level.biome.Biomes.WARPED_FOREST)) { // (review-185/191: walked to wastes it scored -3.7 and -4.3, found nothing, turned back)
+            why[0] = "nothing worth walking to round here (best " + best.toShortString() + ": " + bwhy + ")";
+            ClaudeMod.LOGGER.info("[Claude skill] ender_pearls patrol: {} (HuntPatrol.next)", why[0]); return null;
+        }
         b.heading = bestA;
         why[0] = "heading " + Perception.compassOf(new net.minecraft.world.phys.Vec3(Math.cos(bestA), 0, Math.sin(bestA))) + " to " + best.toShortString() + ": " + bwhy;
         ClaudeMod.LOGGER.info("[Claude skill] ender_pearls patrol: {} ({} cells walked, {} with endermen on record) (HuntPatrol.next)", why[0], b.walked.size(), b.hunt.size());

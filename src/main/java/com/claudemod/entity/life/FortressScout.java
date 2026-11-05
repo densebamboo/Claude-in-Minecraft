@@ -279,20 +279,22 @@ public final class FortressScout {
             return "failed: no leg left to scout from " + g.blockPosition().toShortString() + " (every way scouted, lava too wide or rock): asked them which way";
         }
         clearFire(g, level, to);
-        { // the leg in hops of about 16 on the ground under the line (one walk plans about 28 out; a gap or a drop in the way is bridged within a hop)
+        boolean bore = travel(g, level, to) instanceof Task.Bore;
+        if (bore) g.tasks.add(new Task.Bore(to, to.getY())); // straight through: rock dug, lava floored (the user 11-05: "travel way farther out")
+        else { // the leg in hops of about 16 on the ground under the line (one walk plans about 28 out; a gap or a drop in the way is bridged within a hop)
             int dTot = (int) horiz(to, g.blockPosition()), n = Math.max(1, (int) Math.ceil(dTot / 16.0)); BlockPos last = g.blockPosition();
             for (int i = 1; i < n; i++) {
                 double f0 = (double) i / n; BlockPos wp = null;
                 for (double df : new double[] {0, -3.0 / dTot, 3.0 / dTot, -6.0 / dTot}) { double ff = f0 + df; wp = standAt(level, (int) Math.round(g.getX() + (to.getX() + 0.5 - g.getX()) * ff), (int) Math.round(g.getZ() + (to.getZ() + 0.5 - g.getZ()) * ff), last.getY()); if (wp != null) break; }
                 if (wp != null && horiz(wp, last) >= 8) { g.tasks.add(new Task.GoTo(wp, 2)); last = wp; }
             }
+            g.tasks.add(new Task.GoTo(to, 3));
         }
-        g.tasks.add(new Task.GoTo(to, 3));
         s.phase = WALK; s.legFrom = g.blockPosition().immutable(); s.legTo = to; s.legTick = g.tickCount; s.dir = dir[0]; s.why = why[0];
         s.seenBefore.clear(); for (var sg : Perception.sightings(g)) s.seenBefore.add(key(sg));
         g.skillQueue.addFirst(new Skills.Step("find_fortress", "@" + (s.legs.size() + 1) + "w", st.count(), st.where()));
         int d = (int) horiz(to, g.blockPosition());
-        String r = "leg " + (s.legs.size() + 1) + ": scouting " + dirName(dir[0]) + " to " + to.toShortString() + " (" + d + " blocks " + (why[0].contains("tunnel") || why[0].contains("through the rock") ? "through the rock" : "along the ground") + "): " + why[0];
+        String r = "leg " + (s.legs.size() + 1) + ": scouting " + dirName(dir[0]) + " to " + to.toShortString() + " (" + d + " blocks " + (bore ? "straight through" : why[0].contains("tunnel") || why[0].contains("through the rock") ? "through the rock" : "along the ground") + "): " + why[0];
         ClaudeMod.LOGGER.info("[Claude scout] {} (FortressScout.skill)", r);
         if (s.said != dir[0]) { s.said = dir[0]; com.claudemod.director.ClaudeChat.say(player, "heading " + dirName(dir[0]) + " to look for a fortress: " + why[0], "find_fortress: the heading"); }
         g.noteDoing("scouting " + dirName(dir[0]) + " for a nether fortress, leg " + (s.legs.size() + 1));
@@ -389,7 +391,32 @@ public final class FortressScout {
             ClaudeMod.LOGGER.info("[Claude scout] no open ground any way from {}: a tunnel {} to {} (FortressScout.plan)", me.toShortString(), dirName(d), to.toShortString());
             return to;
         }
+        if (bores(g, level)) { // every end checked is lava, a drop or scouted: the bore floors lava and gaps, so on along the first way, never a question
+            Direction d = order.get(0); BlockPos to = me.relative(d, LEG).atY(Math.max(FORT_LO, Math.min(FORT_HI, me.getY())));
+            dir[0] = d; why[0] = base + dirName(d) + " straight through rock and lava (" + LEG + " blocks), looking out from the far end";
+            ClaudeMod.LOGGER.info("[Claude scout] no clear end any way from {}: bored {} to {} (FortressScout.plan)", me.toShortString(), dirName(d), to.toShortString());
+            return to;
+        }
         return null;
+    }
+    /** Tunnelling pace through unseen Nether, seconds a block (stage 816: 500 blocks of rock, caves and lava in 197 s). A player knows the pace, not what's in the rock. */
+    public static final double BORE_S = 0.4, WALK_S = 0.2;
+    /**
+     * The way there, the walk or the bore, whichever he reckons the faster (the user 11-05: the moves with their real costs, his pick):
+     * the walk by its path's length at a sprint, no path = no walk; the bore by the L's length at tunnelling pace. Logged with both costs.
+     */
+    public static Task travel(ClaudeEntity g, ServerLevel level, BlockPos to) {
+        BlockPos me = g.blockPosition(); double boreS = bores(g, level) ? BORE_S * (Math.abs(to.getX() - me.getX()) + Math.abs(to.getZ() - me.getZ()) + Math.abs(to.getY() - me.getY())) : Double.MAX_VALUE;
+        var path = g.getNavigation().createPath(to, 2); double walkS = Double.MAX_VALUE; int nodes = 0;
+        if (path != null && path.canReach()) { nodes = path.getNodeCount(); double len = 0; for (int i = 1; i < nodes; i++) len += Math.sqrt(path.getNode(i).distanceToSqr(path.getNode(i - 1))); walkS = WALK_S * len; }
+        boolean bore = boreS < walkS;
+        ClaudeMod.LOGGER.info("[Claude route] to {}: walk {} vs bore {}: {} (FortressScout.travel)", to.toShortString(), walkS == Double.MAX_VALUE ? "no path" : String.format("~%.0f s (%d steps)", walkS, nodes), boreS == Double.MAX_VALUE ? "no pick or blocks" : String.format("~%.0f s", boreS), bore ? "bore" : "walk");
+        return bore ? new Task.Bore(to, to.getY()) : new Task.GoTo(to, 3);
+    }
+    /** Nether travel by bore: a pickaxe and 16+ blocks to floor with. */
+    public static boolean bores(ClaudeEntity g, ServerLevel level) {
+        return level.dimension() == net.minecraft.world.level.Level.NETHER && g.inventory.count(x -> x.getItem() instanceof net.minecraft.world.item.PickaxeItem) > 0
+                && g.inventory.count(x -> x.is(net.minecraft.world.item.Items.NETHERRACK) || x.is(net.minecraft.world.item.Items.COBBLESTONE) || x.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE) || x.is(net.minecraft.world.item.Items.BLACKSTONE)) >= 16;
     }
     static final int TUNNEL = 40, FORT_LO = 48, FORT_HI = 70;
     /** A tunnel's end toward a point (a sign heard or seen): the cell up to len along the line, at the point's height, never in lava or beside it or over a 2-deep drop; nearer when that one isn't. */

@@ -500,6 +500,7 @@ public class WorkGoal extends Goal {
                 case Task.FinishTree t -> doFinishTree(t);
                 case Task.ChopTree t -> doChopTree(t);
                 case Task.SealStep t -> doSealStep(t);
+                case Task.Bore t -> doBore(t);
                 case Task.Replant t -> doReplant(t);
                 case Task.MineVisibleOres t -> doMineVisibleOres(t);
                 case Task.WallTorch t -> doWallTorch(t);
@@ -2878,6 +2879,78 @@ public class WorkGoal extends Goal {
     }
 
     /** Patch his mine: any opening into a cave around this step (walls, floor, ceiling) gets filled, never his own mine's open space. */
+    // ---- Nether travel: the bore ----
+    private Direction boreDir; private Direction.Axis boreAxis0; private BlockPos boreCol; private int boreTries, boreYOff, boreLaneOff, boreDetour, boreStill, boreSteps, boreClean; private long boreStart; private BlockPos boreFrom, boreLast; private Task.Bore boreRun;
+    private static final int[][] BORE_DETOURS = {{0, -2}, {1, 0}, {-1, 0}, {0, 2}, {2, 0}, {-2, 0}, {1, -2}, {-1, -2}, {0, -4}, {0, 4}}; // {lanes over, up}: lava overhead is gone round below or beside first
+    private static final net.minecraft.world.item.Item[] BORE_FILL = {net.minecraft.world.item.Items.NETHERRACK, net.minecraft.world.item.Items.COBBLESTONE, net.minecraft.world.item.Items.COBBLED_DEEPSLATE, net.minecraft.world.item.Items.BLACKSTONE, net.minecraft.world.item.Items.BASALT, net.minecraft.world.item.Items.DIRT, net.minecraft.world.item.Items.STONE};
+    /** One step of the bore: the next column along the L opened (head, then feet), its floor put in, rails beside it over lava, lava in view plugged; then a step into it. Done within 1 of the goal. */
+    private boolean doBore(Task.Bore t) {
+        ServerLevel level = level();
+        if (!t.equals(boreRun)) { boreRun = t; boreDir = null; boreAxis0 = null; boreCol = null; boreTries = 0; boreYOff = 0; boreLaneOff = 0; boreDetour = 0; boreClean = 0; boreStill = 0; boreSteps = 0; boreStart = g.tickCount; boreFrom = g.blockPosition().immutable();
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] from {} to {} at y {}: straight through, rock dug and gaps floored (WorkGoal.doBore)", boreFrom.toShortString(), t.goal().toShortString(), t.y()); }
+        BlockPos me = g.blockPosition(), goal = t.goal();
+        if (boreLast != null && !me.equals(boreLast) && boreRun == t) { boreSteps++; if (boreSteps % 32 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] {} blocks, at {} ({} s) (WorkGoal.doBore)", boreSteps, me.toShortString(), (g.tickCount - boreStart) / 20); } boreLast = me.immutable();
+        int dx = goal.getX() - me.getX(), dz = goal.getZ() - me.getZ();
+        if (Math.abs(dx) <= 1 && Math.abs(dz) <= 1) { double s0 = Math.max(1, g.tickCount - boreStart) / 20.0; com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] there: {} -> {} ({} blocks in {} s, {} blocks/s) (WorkGoal.doBore)", boreFrom.toShortString(), me.toShortString(), boreSteps, String.format("%.0f", s0), String.format("%.1f", boreSteps / s0)); boreRun = null; return true; }
+        if (boreDir == null || (boreDir.getAxis() == Direction.Axis.X ? dx * boreDir.getStepX() <= 0 : dz * boreDir.getStepZ() <= 0)) // the L: the longer axis first, kept till it's walked
+            boreDir = Math.abs(dx) >= Math.abs(dz) ? (dx > 0 ? Direction.EAST : Direction.WEST) : (dz > 0 ? Direction.SOUTH : Direction.NORTH);
+        if (boreAxis0 == null) boreAxis0 = boreDir.getAxis();
+        if (!g.onGround() && !g.isInWater() && !g.isInLava()) return false; // (mid-step: the body lands first)
+        int wantY = Math.max(level.getMinBuildHeight() + 5, Math.min(120, t.y() + boreYOff));
+        int ny = me.getY() + Integer.signum(wantY - me.getY());
+        BlockPos laneOf = boreDir.getAxis() == boreAxis0 ? boreFrom : goal; // (the L's lanes: the first leg on his start's line, the second on the goal's)
+        int lane = (boreDir.getAxis() == Direction.Axis.X ? laneOf.getZ() : laneOf.getX()) + boreLaneOff;
+        int off = boreDir.getAxis() == Direction.Axis.X ? me.getZ() - lane : me.getX() - lane;
+        BlockPos f = off == 0 ? me.relative(boreDir).atY(ny) : (boreDir.getAxis() == Direction.Axis.X ? me.offset(0, 0, -Integer.signum(off)) : me.offset(-Integer.signum(off), 0, 0)).atY(me.getY()); // (drifted off it, into a cave: a step back into the lane first)
+        if (off != 0) ny = me.getY();
+        if (off == 0 && ny <= me.getY()) { // lava level with the step (beside it, or in it): the line goes up 2 over it, a bridge over the lava, never beside it (live test 816: a rail into a lava flow had nothing to go against)
+            boolean side = false; for (Direction sd : new Direction[] {boreDir.getClockWise(), boreDir.getCounterClockWise()}) for (int yy = 0; yy <= 1; yy++) if (level.getFluidState(f.relative(sd).above(yy)).is(net.minecraft.tags.FluidTags.LAVA)) side = true;
+            if (side || level.getFluidState(f).is(net.minecraft.tags.FluidTags.LAVA)) { int up = me.getY() + 2 - t.y(); if (boreYOff < up) { boreYOff = up; boreClean = 0; com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] lava level with {}: the line goes up to y {} over it (WorkGoal.doBore)", f.toShortString(), t.y() + boreYOff); } ny = me.getY() + 1; f = me.relative(boreDir).atY(ny); }
+        }
+        if (!f.equals(boreCol)) { if (++boreClean >= 16 && (boreYOff != 0 || boreLaneOff != 0)) { boreYOff = 0; boreLaneOff = 0; boreDetour = 0; } boreCol = f.immutable(); boreTries = 0; boreStill = 0; } // (16 clean columns past a detour: back on the line)
+        java.util.List<BlockPos> way = new java.util.ArrayList<>(java.util.List.of(f, f.above()));
+        if (ny > me.getY()) way.add(me.above(2)); else if (ny < me.getY()) way.add(f.above(2));
+        java.util.List<Task> todo = new java.util.ArrayList<>();
+        net.minecraft.world.item.Item fill = null; for (var it : BORE_FILL) if (g.inventory.count(x -> x.is(it)) > 0) { fill = it; break; }
+        // lava in view by the opened way, or in it: a block in it first (he sees what the dig showed him, never into the rock)
+        for (BlockPos c : way) {
+            if (level.getFluidState(c).is(net.minecraft.tags.FluidTags.LAVA)) { if (fill != null) todo.add(new Task.Place(c, fill)); continue; }
+            if (!level.getBlockState(c).isAir()) continue;
+            for (Direction d : Direction.values()) { BlockPos q = c.relative(d); if (way.contains(q) || q.equals(me) || q.equals(me.above())) continue;
+                if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA) && fill != null) todo.add(new Task.Place(q, fill)); }
+        }
+        for (BlockPos c : way) if (com.claudemod.entity.nav.ActionPath.structureBlock(level, c) && !com.claudemod.entity.life.TempLedger.built(g, c)) { // a structure's blocks: kept whole, and what he was looking for is likely right here
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] {} at {} ahead is a structure's: the bore stops at {}, structures stay whole (WorkGoal.doBore)", name(level.getBlockState(c)), c.toShortString(), me.toShortString()); boreRun = null; return true; }
+        if (todo.isEmpty()) for (BlockPos c : way) { var cs = level.getBlockState(c); if (!cs.isAir() && cs.getFluidState().isEmpty()) todo.add(new Task.Break(c)); }
+        BlockPos fl = f.below(); var fls = level.getBlockState(fl);
+        boolean overLava = level.getFluidState(fl).is(net.minecraft.tags.FluidTags.LAVA) || level.getFluidState(fl.below()).is(net.minecraft.tags.FluidTags.LAVA) && !fls.isFaceSturdy(level, fl, Direction.UP);
+        if (todo.isEmpty() && (!fls.isFaceSturdy(level, fl, Direction.UP) || fls.is(net.minecraft.world.level.block.Blocks.MAGMA_BLOCK))) {
+            if (fill == null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] no block on him to floor {} with: the bore ends at {} (WorkGoal.doBore)", fl.toShortString(), me.toShortString()); boreRun = null; return true; }
+            if (fls.is(net.minecraft.world.level.block.Blocks.MAGMA_BLOCK)) todo.add(new Task.Break(fl));
+            todo.add(new Task.Place(fl, fill));
+        }
+        BlockPos fl2 = f.relative(boreDir).below(); var fl2s = level.getBlockState(fl2); // (bridging: the floor a block further too, so a sprint's look ahead meets ground, never the drop)
+        if (todo.isEmpty() && off == 0 && ny == me.getY() && fill != null && fls.isFaceSturdy(level, fl, Direction.UP) && (fl2s.isAir() || fl2s.getFluidState().is(net.minecraft.tags.FluidTags.LAVA)) && level.getBlockState(fl2.above()).isAir() && level.getBlockState(fl2.below()).getCollisionShape(level, fl2.below()).isEmpty() && fl2.closerToCenterThan(g.getEyePosition(), 4.5))
+            todo.add(new Task.Place(fl2, fill));
+        if (todo.isEmpty() && overLava && fill != null) for (Direction side : new Direction[] {boreDir.getClockWise(), boreDir.getCounterClockWise()}) { BlockPos r = f.relative(side); var rs = level.getBlockState(r); if (rs.isAir() || rs.getFluidState().is(net.minecraft.tags.FluidTags.LAVA)) todo.add(new Task.Place(r, fill)); } // (rails: a knock-back over lava lands on a block)
+        if (!todo.isEmpty()) {
+            if (++boreTries > 12) { // this column won't open (lava behind a face he won't dig, a block he can't take): over it
+                if (boreDetour < BORE_DETOURS.length) { int[] dt = BORE_DETOURS[boreDetour++]; boreClean = 0; boreLaneOff = dt[0]; boreYOff = dt[1]; boreCol = null; com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] {} won't open ({}): round it, the line {} lane(s) over and {} up (WorkGoal.doBore)", f.toShortString(), todo.get(0), boreLaneOff, boreYOff); }
+                else { com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] {} won't open, nor any way round it ({}): the bore ends at {} (WorkGoal.doBore)", f.toShortString(), todo.get(0), me.toShortString()); boreRun = null; return true; }
+                return false;
+            }
+            g.tasks.addFirst(t); for (int i = todo.size() - 1; i >= 0; i--) g.tasks.addFirst(todo.get(i));
+            return true;
+        }
+        // the way is open: the step
+        if (++boreStill > 60) { Direction cw0 = boreDir.getClockWise(); com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] 3 s at {} ({} {} {}, ground {}, box {}) with {} open and no step taken: the bore ends; beside it {} / {}, head-side {} / {}, floor {} (WorkGoal.doBore)", me.toShortString(), String.format("%.2f", g.getX()), String.format("%.2f", g.getY()), String.format("%.2f", g.getZ()), g.onGround(), g.getBoundingBox(), f.toShortString(), name(level.getBlockState(f.relative(cw0))), name(level.getBlockState(f.relative(cw0.getOpposite()))), name(level.getBlockState(f.above().relative(cw0))), name(level.getBlockState(f.above().relative(cw0.getOpposite()))), name(level.getBlockState(f.below()))); boreRun = null; return true; }
+        BlockPos past = f.relative(boreDir); g.getNavigation().stop(); g.setSprinting(off == 0 && !level.getBlockState(past.below()).getCollisionShape(level, past.below()).isEmpty()); // (a sprint only with ground past the step: its look ahead stops him short of a drop)
+        g.getLookControl().setLookAt(f.getX() + 0.5, f.getY() + 1.5, f.getZ() + 0.5);
+        g.getMoveControl().setWantedPosition(f.getX() + 0.5, f.getY(), f.getZ() + 0.5, 1.3);
+        if (ny > me.getY()) g.getJumpControl().jump();
+        return false;
+    }
+
     private boolean doSealStep(Task.SealStep t) {
         ServerLevel level = level();
         if (com.claudemod.director.ClaudeLife.bpMode(g)) return true; // the blueprint's reconcile pass patches the shell
@@ -3635,7 +3708,7 @@ public class WorkGoal extends Goal {
                 BlockPos view = null; double vd = Double.MAX_VALUE; // the nearest spot he can stand that sees some face of a neighbour
                 for (BlockPos p0 : BlockPos.betweenClosed(pos.offset(-3, -2, -3), pos.offset(3, 2, 3))) {
                     BlockPos sp = p0.immutable();
-                    if (sp.equals(pos) || !level.getBlockState(sp).getCollisionShape(level, sp).isEmpty() || !level.getBlockState(sp.above()).getCollisionShape(level, sp.above()).isEmpty() || level.getBlockState(sp.below()).getCollisionShape(level, sp.below()).isEmpty()) continue; // (farmland, a slab: something to stand on, not only a full-faced block)
+                    if (sp.equals(pos) || !level.getBlockState(sp).getCollisionShape(level, sp).isEmpty() || !level.getBlockState(sp.above()).getCollisionShape(level, sp.above()).isEmpty() || level.getBlockState(sp.below()).getCollisionShape(level, sp.below()).isEmpty() || level.getFluidState(sp).is(net.minecraft.tags.FluidTags.LAVA) || level.getFluidState(sp.above()).is(net.minecraft.tags.FluidTags.LAVA)) continue; // (farmland, a slab: something to stand on, not only a full-faced block; never a lava cell: stage 816 was nudged into one)
                     double dd = sp.distSqr(g.blockPosition()); if (dd >= vd) continue;
                     Vec3 e2 = Vec3.atBottomCenterOf(sp).add(0, 1.62, 0);
                     for (Direction d : Direction.values()) {

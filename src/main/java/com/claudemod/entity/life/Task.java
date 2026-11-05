@@ -60,4 +60,6 @@ public sealed interface Task {
     record Fish(BlockPos water, int catches, int maxTicks) implements Task {}
     /** The End fight, ticked every tick (DragonFight.tick): the crystals, then the dragon. */
     record Dragon(int maxTicks) implements Task {}
+    /** Nether travel the way players do it (WorkGoal.doBore): straight through, an L along the axes at feet height y; rock dug 1x2, gaps and lava floored, rails over lava, lava that shows plugged. */
+    record Bore(BlockPos goal, int y) implements Task {}
 }

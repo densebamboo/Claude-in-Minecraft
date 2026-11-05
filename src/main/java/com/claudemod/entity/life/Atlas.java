@@ -36,6 +36,20 @@ public final class Atlas {
         final Map<String, Set<Long>> covered = new HashMap<>();                  // dim -> grid cells walked
     }
     private static Map<UUID, Book> books;
+    private static Map<UUID, Map<String, List<BlockPos>>> quiet; // dim -> spots of warped forest he judged a poorer bet (shortcut: not saved, a restart forgets them; save with the Book once it matters)
+    /** A warped forest he judged a poorer bet than another (its size against the trip): off his list of places to hunt. */
+    public static void quiet(ClaudeEntity g, ServerLevel l, BlockPos p) {
+        if (quiet == null) quiet = new HashMap<>();
+        quiet.computeIfAbsent(g.getUUID(), k -> new HashMap<>()).computeIfAbsent(dim(l), k -> new ArrayList<>()).add(p.immutable());
+        ClaudeMod.LOGGER.info("[Claude atlas] the warped forest at {} is a poorer bet than going elsewhere: off the hunt's list (Atlas.quiet)", p.toShortString());
+    }
+    /** Within 64 of a forest he found quiet. */
+    public static boolean quietAt(ClaudeEntity g, ServerLevel l, BlockPos p) {
+        if (quiet == null || !quiet.containsKey(g.getUUID())) return false;
+        List<BlockPos> q = quiet.get(g.getUUID()).get(dim(l)); if (q == null) return false;
+        for (BlockPos x : q) if (x.distSqr(p) <= 64 * 64) return true;
+        return false;
+    }
     static Book book(ClaudeEntity g) { if (books == null) books = new HashMap<>(); return books.computeIfAbsent(g.getUUID(), k -> new Book()); }
     public static void reset(ClaudeEntity g) { if (books != null) books.remove(g.getUUID()); }
     public static void coverTest(ClaudeEntity g, ServerLevel l, int x, int z) { book(g).covered.computeIfAbsent(dim(l), k -> new HashSet<>()).add(cell(x, z)); }
@@ -102,10 +116,17 @@ public final class Atlas {
         BlockPos best = null; double bd = Double.MAX_VALUE;
         var hk = l.getBiome(g.blockPosition()).unwrapKey(); String here = hk.isPresent() ? hk.get().location().getPath() : ""; // (no lambda: live hotswap)
         for (var it = spots.iterator(); it.hasNext(); ) { BlockPos q = it.next(); if (!here.equals(biome) && q.distSqr(g.blockPosition()) <= 16) { it.remove(); ClaudeMod.LOGGER.info("[Claude atlas] {} at {}: stood by it and it's {} here, only a sliver: off the record (Atlas.find)", biome, q.toShortString(), here); } }
-        for (BlockPos q : spots) { double dd = q.distSqr(g.blockPosition()); if (dd < bd) { bd = dd; best = q; } }
+        for (BlockPos q : spots) { double dd = q.distSqr(g.blockPosition()); if (dd < bd && !quietAt(g, l, q)) { bd = dd; best = q; } }
         return best;
     }
 
+    /** The nearest spot of that biome at least min away, not a quiet one, or null. */
+    public static BlockPos findAway(ClaudeEntity g, ServerLevel l, String biome, int min) {
+        var m = book(g).places.get(dim(l)); if (m == null || m.get(biome) == null) return null;
+        BlockPos best = null; double bd = Double.MAX_VALUE;
+        for (BlockPos q : m.get(biome)) { double dd = q.distSqr(g.blockPosition()); if (dd >= min * min && dd < bd && !quietAt(g, l, q)) { bd = dd; best = q; } }
+        return best;
+    }
     /** "the fortress at -65, 68, 135 (94 off, south-west); ..." nearest first, for his chat and plans. */
     public static String known(ClaudeEntity g, ServerLevel l, String kind) {
         var m = book(g).places.get(dim(l)); if (m == null || !m.containsKey(kind)) return "";
@@ -120,7 +141,7 @@ public final class Atlas {
     public static double freshHeading(ClaudeEntity g, ServerLevel l, double now) {
         Set<Long> cov = book(g).covered.getOrDefault(dim(l), Set.of());
         double best = now, bc = Double.MAX_VALUE; double bTurn = Double.MAX_VALUE;
-        boolean sweep = l.dimensionType().hasCeiling() && l.getBiome(g.blockPosition()).is(net.minecraft.world.level.biome.Biomes.WARPED_FOREST); // ponytail: the user 14:15, "mapping out the warped biome and covering as much ground as possible" on the pearl hunt; a flag here, not a new method, for the live hotswap
+        boolean sweep = l.dimensionType().hasCeiling() && l.getBiome(g.blockPosition()).is(net.minecraft.world.level.biome.Biomes.WARPED_FOREST) && !quietAt(g, l, g.blockPosition()); // ponytail: the user 14:15, "mapping out the warped biome and covering as much ground as possible" on the pearl hunt; a flag here, not a new method, for the live hotswap
         for (int k = 0; k < 16; k++) {
             double a = k * Math.PI / 8; int n = 0;
             if (sweep) { // a warped forest hunt: near ground, and only ways that stay in the forest

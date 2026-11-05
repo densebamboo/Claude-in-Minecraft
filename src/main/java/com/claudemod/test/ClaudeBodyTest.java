@@ -10431,6 +10431,9 @@ public final class ClaudeBodyTest {
             case 813: return st813(stage, t, c, h, level, mock);
             case 814: return st814(stage, t, c, h, level, mock);
             case 815: return st815(stage, t, c, h, level, mock);
+            case 816: return st816(stage, t, c, h, level, mock);
+            case 818: return st818(stage, t, c, h, level, mock);
+            case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
             case 615: return st615(stage, t, c, h, level, mock);
             case 617: return st617(stage, t, c, h, level, mock);
@@ -12889,7 +12892,7 @@ public final class ClaudeBodyTest {
         return true;
     }
 
-    /** Day to Day 11-05 (live 09:12-09:18 World 17): a small warped forest, every 16-block cell of it walked in the last 2 min; the patrol's only new ground was the wastes round it, he walked out, the pearl skill sent him back, round and round. Now: back through the forest, its oldest ground first. */
+    /** Day to Day 11-05 (live 09:12-09:18 World 17): a warped forest (49x49 here: big enough that staying beats a search, by his odds), every 16-block cell of it walked in the last 2 min; the patrol's only new ground was the wastes round it, he walked out, the pearl skill sent him back, round and round. Now: back through the forest, its oldest ground first. */
     private static boolean st809(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
         BlockPos o = new BlockPos(5536, 70, 5120);
@@ -12897,16 +12900,16 @@ public final class ClaudeBodyTest {
         nsTick(nl, c, o, t);
         if (t[0] == 10) {
             for (int x = -50; x <= 50; x++) for (int z = -50; z <= 50; z++) for (int y = -2; y <= 8; y++) {
-                boolean in = Math.abs(x) <= 12 && Math.abs(z) <= 12;
+                boolean in = Math.abs(x) <= 24 && Math.abs(z) <= 24;
                 net.minecraft.world.level.block.state.BlockState b = y < 0 ? (y == -1 && in ? Blocks.WARPED_NYLIUM : Blocks.NETHERRACK).defaultBlockState() : Blocks.AIR.defaultBlockState();
                 if (y >= 0 && y <= 5 && in && Math.floorMod(x, 4) == 2 && Math.floorMod(z, 5) == 1) b = Blocks.WARPED_STEM.defaultBlockState();
                 nl.setBlock(o.offset(x, y, z), b, 2);
             }
             var src = level.getServer().createCommandSourceStack().withSuppressedOutput().withLevel(nl);
             level.getServer().getCommands().performPrefixedCommand(src, "fillbiome " + (o.getX() - 50) + " " + (o.getY() - 4) + " " + (o.getZ() - 50) + " " + (o.getX() + 50) + " " + (o.getY() + 10) + " " + (o.getZ() + 50) + " minecraft:nether_wastes");
-            level.getServer().getCommands().performPrefixedCommand(src, "fillbiome " + (o.getX() - 12) + " " + (o.getY() - 4) + " " + (o.getZ() - 12) + " " + (o.getX() + 12) + " " + (o.getY() + 10) + " " + (o.getZ() + 12) + " minecraft:warped_forest");
+            level.getServer().getCommands().performPrefixedCommand(src, "fillbiome " + (o.getX() - 24) + " " + (o.getY() - 2) + " " + (o.getZ() - 24) + " " + (o.getX() + 24) + " " + (o.getY() + 8) + " " + (o.getZ() + 24) + " minecraft:warped_forest"); // (fillbiome caps at 32768 blocks)
             nsKit(c); c.nextPlanTick = c.tickCount + 20 * 600;
-            for (int x = -12; x <= 12; x += 6) for (int z = -12; z <= 12; z += 6) { c.teleportTo(nl, o.getX() + x + 0.5, o.getY(), o.getZ() + z + 0.5, 0f, 0f); com.claudemod.entity.life.HuntPatrol.walked(c, nl); } // (all of the forest walked just now)
+            for (int x = -24; x <= 24; x += 6) for (int z = -24; z <= 24; z += 6) { c.teleportTo(nl, o.getX() + x + 0.5, o.getY(), o.getZ() + z + 0.5, 0f, 0f); com.claudemod.entity.life.HuntPatrol.walked(c, nl); } // (all of the forest walked just now)
             c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
         }
         if (t[0] == 20) {
@@ -12992,17 +12995,17 @@ public final class ClaudeBodyTest {
         nsTick(nl, c, o, t);
         if (t[0] == 10) {
             for (int x = -50; x <= 50; x++) for (int z = -50; z <= 50; z++) for (int y = -2; y <= 8; y++) {
-                boolean in = Math.abs(x) <= 12 && Math.abs(z) <= 12;
+                boolean in = Math.abs(x) <= 24 && Math.abs(z) <= 24;
                 net.minecraft.world.level.block.state.BlockState b = y < 0 ? (y == -1 && in ? Blocks.WARPED_NYLIUM : Blocks.NETHERRACK).defaultBlockState() : Blocks.AIR.defaultBlockState();
                 if (y >= 0 && y <= 5 && in && Math.floorMod(x, 4) == 2 && Math.floorMod(z, 5) == 1) b = Blocks.WARPED_STEM.defaultBlockState();
                 nl.setBlock(o.offset(x, y, z), b, 2);
             }
             var src = level.getServer().createCommandSourceStack().withSuppressedOutput().withLevel(nl);
             level.getServer().getCommands().performPrefixedCommand(src, "fillbiome " + (o.getX() - 50) + " " + (o.getY() - 4) + " " + (o.getZ() - 50) + " " + (o.getX() + 50) + " " + (o.getY() + 10) + " " + (o.getZ() + 50) + " minecraft:nether_wastes");
-            level.getServer().getCommands().performPrefixedCommand(src, "fillbiome " + (o.getX() - 12) + " " + (o.getY() - 4) + " " + (o.getZ() - 12) + " " + (o.getX() + 12) + " " + (o.getY() + 10) + " " + (o.getZ() + 12) + " minecraft:warped_forest");
+            level.getServer().getCommands().performPrefixedCommand(src, "fillbiome " + (o.getX() - 24) + " " + (o.getY() - 2) + " " + (o.getZ() - 24) + " " + (o.getX() + 24) + " " + (o.getY() + 8) + " " + (o.getZ() + 24) + " minecraft:warped_forest"); // (fillbiome caps at 32768 blocks)
             nsKit(c); c.nextPlanTick = c.tickCount + 20 * 600;
-            for (int x = -12; x <= 12; x += 6) for (int z = -12; z <= 12; z += 6) { c.teleportTo(nl, o.getX() + x + 0.5, o.getY(), o.getZ() + z + 0.5, 0f, 0f); com.claudemod.entity.life.HuntPatrol.walked(c, nl); } // (all of the forest walked just now)
-            c.teleportTo(nl, o.getX() + 18.5, o.getY(), o.getZ() + 0.5, 0f, 0f); // (just out of the forest, on the wastes by its edge)
+            for (int x = -24; x <= 24; x += 6) for (int z = -24; z <= 24; z += 6) { c.teleportTo(nl, o.getX() + x + 0.5, o.getY(), o.getZ() + z + 0.5, 0f, 0f); com.claudemod.entity.life.HuntPatrol.walked(c, nl); } // (all of the forest walked just now)
+            c.teleportTo(nl, o.getX() + 27.5, o.getY(), o.getZ() + 0.5, 0f, 0f); // (just out of the forest, on the wastes by its edge)
         }
         if (t[0] == 20) {
             String[] why = new String[1]; BlockPos p = com.claudemod.entity.life.HuntPatrol.next(c, nl, why);
@@ -13067,6 +13070,107 @@ public final class ClaudeBodyTest {
             double out = Math.sqrt(Math.pow(c.getX() - o.getX(), 2) + Math.pow(c.getZ() - o.getZ(), 2));
             if (out >= 16 && c.getY() < o.getY() - 4) { String m = "tunnelled down toward a fortress's height: " + (int) out + " out, at y " + c.getBlockY() + " in " + (t[0] - 20) + " ticks (leg to " + com.claudemod.entity.life.FortressScout.legTo(c) + ")"; nsHome(c, h, level); pass(stage, t, m); return true; }
             check(t[0] - 20 < 20 * 90, "still in the rock: " + String.format("%.1f", out) + " out, y " + c.getBlockY() + " in 90 s, now=" + c.currentTask + " tasks=" + c.tasks.size());
+        }
+        return true;
+    }
+
+    /** The user 11-05 (the forest by the portal is about 20x20, review-185/191): a small warped forest, all walked and no enderman in it; a second forest on his atlas 110 east past rock. He sizes it (about 440 square blocks: an enderman every ~2 min by his odds) against the bore there and a typical forest's odds, goes, and the small one stays off his list (no wastes patrol, no ping-pong back). */
+    private static boolean st817(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(6136, 70, 5520), o2 = o.offset(110, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.HuntPatrol.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.Atlas.reset(c); }
+        if (t[0] > 10 && t[0] % 10 == 0 && c.level() == nl) { nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition()); for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard(); }
+        if (t[0] == 10) {
+            nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o2), 3, o2);
+            var src = level.getServer().createCommandSourceStack().withSuppressedOutput().withLevel(nl);
+            for (BlockPos f : new BlockPos[] {o, o2}) {
+                for (int x = -20; x <= 20; x++) for (int z = -20; z <= 20; z++) for (int y = -2; y <= 8; y++) {
+                    boolean in = Math.abs(x) <= 10 && Math.abs(z) <= 10;
+                    net.minecraft.world.level.block.state.BlockState b = y < 0 ? (y == -1 && in ? Blocks.WARPED_NYLIUM : Blocks.NETHERRACK).defaultBlockState() : in ? Blocks.AIR.defaultBlockState() : Blocks.NETHERRACK.defaultBlockState();
+                    if (y >= 0 && y <= 5 && in && Math.floorMod(x, 4) == 2 && Math.floorMod(z, 5) == 1) b = Blocks.WARPED_STEM.defaultBlockState();
+                    if (y >= 6 && in) b = Blocks.NETHERRACK.defaultBlockState();
+                    nl.setBlock(f.offset(x, y, z), b, 2);
+                }
+                level.getServer().getCommands().performPrefixedCommand(src, "fillbiome " + (f.getX() - 20) + " " + (f.getY() - 4) + " " + (f.getZ() - 20) + " " + (f.getX() + 20) + " " + (f.getY() + 10) + " " + (f.getZ() + 20) + " minecraft:nether_wastes");
+                level.getServer().getCommands().performPrefixedCommand(src, "fillbiome " + (f.getX() - 10) + " " + (f.getY() - 4) + " " + (f.getZ() - 10) + " " + (f.getX() + 10) + " " + (f.getY() + 10) + " " + (f.getZ() + 10) + " minecraft:warped_forest");
+            }
+            nsKit(c); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 900;
+            for (int x = -10; x <= 10; x += 5) for (int z = -10; z <= 10; z += 5) { c.teleportTo(nl, o.getX() + x + 0.5, o.getY(), o.getZ() + z + 0.5, 0f, 0f); com.claudemod.entity.life.HuntPatrol.walked(c, nl); }
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0;
+            com.claudemod.entity.life.Atlas.note(c, nl, "warped_forest", o); com.claudemod.entity.life.Atlas.note(c, nl, "warped_forest", o2); // (both seen before: the far one from across a lava sea, say)
+        }
+        if (t[0] == 30) { c.tasks.clear(); c.skillQueue.clear(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("ender_pearls", "ender_pearl", 12)); }
+        if (t[0] > 30) {
+            check(c.isAlive() && !c.isInLava(), "hurt: in lava or dead at " + c.blockPosition().toShortString());
+            if (c.distanceToSqr(o2.getX() + 0.5, o2.getY(), o2.getZ() + 0.5) < 9 * 9 && nl.getBiome(c.blockPosition()).is(net.minecraft.world.level.biome.Biomes.WARPED_FOREST)) {
+                check(com.claudemod.entity.life.Atlas.quietAt(c, nl, o), "in the second forest, but the first was never marked quiet");
+                int s0 = (t[0] - 30) / 20;
+                nsHome(c, h, level); pass(stage, t, "the quiet forest left for the one 110 east in " + s0 + " s"); return true;
+            }
+            if (t[0] % 400 == 0) ClaudeMod.LOGGER.info("[Claude test] 817 t {} s: at {}, now {}, skills {}", (t[0] - 30) / 20, c.blockPosition().toShortString(), c.currentTask, c.skillQueue);
+            check(t[0] - 30 < 20 * 150, "150 s and not in the second forest: at " + c.blockPosition().toShortString() + " now " + c.currentTask + " skills " + c.skillQueue);
+        }
+        return true;
+    }
+
+    /** The user 11-05, bar 2: out 1000 blocks from the portal through the Nether as generated and back, no deaths, no give-ups (the bore ending short is one), 2 blocks/s or better over the whole trip. Mobs by him are cleared (fights have their own stages); he gets the blocks a player would carry for it. Long: not in the gate. */
+    private static int s818T0, s818Leg; private static float s818Low;
+    private static boolean st818(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(-40000, 64, 40000), far = o.offset(0, 0, 1000);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); s818Leg = 0; }
+        if (t[0] > 10 && t[0] % 10 == 0 && c.level() == nl) {
+            nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(24))) e.discard();
+        }
+        if (t[0] == 10) {
+            nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+            for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) { nl.setBlock(o.offset(x, -1, z), Blocks.NETHERRACK.defaultBlockState(), 2); for (int y = 0; y <= 2; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            nsKit(c); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 1800;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 30) { c.tasks.clear(); c.skillQueue.clear(); c.tasks.add(new com.claudemod.entity.life.Task.Bore(far, 64)); s818T0 = t[0]; s818Low = c.getHealth(); s818Leg = 1; }
+        if (t[0] > 30) {
+            s818Low = Math.min(s818Low, c.getHealth());
+            check(!c.isInLava(), "in lava at " + c.blockPosition().toShortString() + " after " + (t[0] - s818T0) / 20 + " s, leg " + s818Leg);
+            check(c.isAlive(), "dead at " + c.blockPosition().toShortString());
+            BlockPos to = s818Leg == 1 ? far : o;
+            double left = Math.abs(c.getX() - to.getX() - 0.5) + Math.abs(c.getZ() - to.getZ() - 0.5);
+            if (left <= 3 && s818Leg == 1) { ClaudeMod.LOGGER.info("[Claude test] 818: out 1000 in {} s, low {} HP; back now", (t[0] - s818T0) / 20, s818Low); s818Leg = 2; c.tasks.clear(); c.tasks.add(new com.claudemod.entity.life.Task.Bore(o, 64)); return true; }
+            if (left <= 3 && s818Leg == 2) { int s0 = (t[0] - s818T0) / 20; String m = String.format("out 1000 and back in %d s (%.1f blocks/s), low %.1f HP", s0, 2000.0 / Math.max(1, s0), s818Low); check(s0 <= 1000, "too slow: " + m); nsHome(c, h, level); pass(stage, t, m); return true; }
+            if (t[0] % 600 == 0) ClaudeMod.LOGGER.info("[Claude test] 818 t {} s, leg {}: {} left, at {}, now {}, queue {}", (t[0] - s818T0) / 20, s818Leg, (int) left, c.blockPosition().toShortString(), c.currentTask, c.tasks.size());
+            check(!(c.currentTask == null && c.tasks.isEmpty() && t[0] - s818T0 > 40), "the bore ended " + (int) left + " short on leg " + s818Leg + " at " + c.blockPosition().toShortString() + " after " + (t[0] - s818T0) / 20 + " s");
+            check(t[0] - s818T0 < 20 * 1200, "20 min, leg " + s818Leg + ", " + (int) left + " left, at " + c.blockPosition().toShortString() + " now " + c.currentTask);
+        }
+        return true;
+    }
+
+    /** The user 11-05 ("he should be able to travel way farther out"): the bore on the Nether as generated (no arena: its rock, caves, lava seas, gravel), 500 blocks east at y 64 from a pocket at 40000, 40000, inside the user's bar of 5 min, never in lava. Mobs by him are cleared: this measures the travel, fights have their own stages. */
+    private static int s816T0; private static float s816Low;
+    private static boolean st816(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(40000, 64, 40000), to = o.offset(500, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); }
+        if (t[0] > 10 && t[0] % 10 == 0 && c.level() == nl) {
+            nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(24))) e.discard();
+        }
+        if (t[0] == 10) {
+            nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+            for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) { nl.setBlock(o.offset(x, -1, z), Blocks.NETHERRACK.defaultBlockState(), 2); for (int y = 0; y <= 2; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            nsKit(c); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 900;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 30) { c.tasks.clear(); c.skillQueue.clear(); c.tasks.add(new com.claudemod.entity.life.Task.Bore(to, 64)); s816T0 = t[0]; s816Low = c.getHealth(); }
+        if (t[0] > 30) {
+            s816Low = Math.min(s816Low, c.getHealth());
+            check(!c.isInLava(), "in lava at " + c.blockPosition().toShortString() + " after " + (t[0] - s816T0) / 20 + " s");
+            check(c.isAlive(), "dead at " + c.blockPosition().toShortString());
+            double left = Math.abs(c.getX() - to.getX()) + Math.abs(c.getZ() - to.getZ()), done = Math.abs(c.getX() - o.getX());
+            if (left <= 3) { int s0 = (t[0] - s816T0) / 20; String m = String.format("500 blocks through the Nether as generated in %d s (%.1f blocks/s), low %.1f HP, at %s", s0, 500.0 / Math.max(1, s0), s816Low, c.blockPosition().toShortString()); check(s0 <= 300, "too slow: " + m); nsHome(c, h, level); pass(stage, t, m); return true; }
+            if (t[0] % 400 == 0) ClaudeMod.LOGGER.info("[Claude test] 816 t {} s: {} along, at {}, now {}, queue {}", (t[0] - s816T0) / 20, (int) done, c.blockPosition().toShortString(), c.currentTask, c.tasks.size());
+            check(!(c.currentTask == null && c.tasks.isEmpty() && t[0] - s816T0 > 40), "the bore ended " + (int) left + " short at " + c.blockPosition().toShortString() + " after " + (t[0] - s816T0) / 20 + " s");
+            check(t[0] - s816T0 < 20 * 300, "5 min and " + (int) left + " left, at " + c.blockPosition().toShortString() + " now " + c.currentTask);
         }
         return true;
     }

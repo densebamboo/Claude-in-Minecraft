@@ -1653,6 +1653,7 @@ public final class ClaudeLife {
         }
         String sit;
         try { sit = situation(g, player); } catch (RuntimeException e) { g.planning = false; ClaudeMod.LOGGER.error("[Claude plan] the plan's prompt hit an error: no plan asked (ClaudeLife.startPlan)", e); planFallback(g, player, "the plan's prompt hit an error"); return; } // (08:31 11-04 a MindLog parse error here, every plan for 25 min)
+        for (String ln : sit.split("\n")) if (ln.startsWith("you see: ") || ln.startsWith("you hear: ")) ClaudeMod.LOGGER.info("[Claude plan] the plan was told: {} (ClaudeLife.startPlan)", ln); // (review-190: a plan read "four endermen in view" with none within 48; what it was given goes on the log)
         String turn = Persona.lifeTurn(player.getGameProfile().getName(), sit, skills, g.goal, stopHeld(g) ? stopNote(g) : g.playerGoal); // (after their stop: what they want is nothing, said so, not "nothing in particular" with stay_close on)
         final int planStarted = g.tickCount;
         java.util.concurrent.CompletableFuture<com.google.gson.JsonObject> ask;
@@ -2798,6 +2799,7 @@ public final class ClaudeLife {
                     if (!com.claudemod.entity.life.Perception.turningRound(g)) com.claudemod.entity.life.Perception.lookRound(g, null);
                     g.tasks.add(new Task.Wait(34, false)); g.skillQueue.addFirst(st); return "no enderman in view: looking all round first (" + have + "/" + want + " pearls)"; }
                 { String[] pw = new String[1]; BlockPos pp = com.claudemod.entity.life.HuntPatrol.next(g, level, pw); // (the patrol: the best ground by what he's seen of it, his heading held; a bare explore flipped its targets each time, live 15:23)
+                  if (nether && pp == null) { ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: {}: to another warped forest (ClaudeLife ender_pearls)", pw[0]); g.skillQueue.addFirst(new Skills.Step("explore", "warped_forest", 1)); return "no enderman in sight: " + pw[0] + " (" + have + "/" + want + " pearls)"; }
                   if (nether && !here.equals("warped_forest") && (pp == null || !(pw[0].contains("endermen there") || level.getBiome(pp).is(net.minecraft.world.level.biome.Biomes.WARPED_FOREST)))) /* ponytail: live 21:26 at the forest edge, the patrol had forest 20 off and he left for one 93 off up a cliff */ { ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: in {} with no endermen on record near ({}): to a warped forest (ClaudeLife ender_pearls)", here, pw[0]); g.skillQueue.addFirst(new Skills.Step("explore", "warped_forest", 1)); return "no enderman in sight: to a warped forest, where they are (" + have + "/" + want + " pearls)"; } // ponytail: live 01Nov, the patrol took him to wastes where he'd seen them and this sent him straight back, a loop: the forest only when the patrol has no sightings to go on
                   if (pp != null) { g.tasks.add(new Task.GoTo(pp, 2)); return "no enderman in sight: patrolling, " + pw[0] + " (" + have + "/" + want + " pearls)"; } }
                 g.skillQueue.addFirst(new Skills.Step("explore", "", 1)); // (no ground in sight for the patrol: the old walk on, looking)
@@ -2822,13 +2824,13 @@ public final class ClaudeLife {
                 }
                 if (!want.isEmpty()) { // a biome to find (the user: "find a warped forest"): in it, done; seen before, there; else fresh ground till it's in view
                     String here = level.getBiome(g.blockPosition()).unwrapKey().map(k -> k.location().getPath()).orElse("");
-                    if (here.equals(want)) { ClaudeMod.LOGGER.info("[Claude skill] explore {}: in it at {} (ClaudeLife explore)", want, g.blockPosition().toShortString()); return "done: in the " + want.replace('_', ' ') + " at " + g.blockPosition().toShortString(); }
+                    if (here.equals(want) && !(want.equals("warped_forest") && com.claudemod.entity.life.Atlas.quietAt(g, level, g.blockPosition()))) { ClaudeMod.LOGGER.info("[Claude skill] explore {}: in it at {} (ClaudeLife explore)", want, g.blockPosition().toShortString()); return "done: in the " + want.replace('_', ' ') + " at " + g.blockPosition().toShortString(); }
                     BlockPos known = com.claudemod.entity.life.Atlas.find(g, level, want);
                     if (known != null && g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, known, g.tickCount, 20 * 60)) { ClaudeMod.LOGGER.info("[Claude skill] explore {}: the walk to the one I saw at {} failed this minute: fresh ground instead (ClaudeLife explore)", want, known.toShortString()); known = null; } // ponytail: live 19:22 -34,62,-901: no way there, re-headed for it every tick (walkTo's skip ended it at once), the watchdog tripped
                     if (known != null) {
                         g.exploreAngle = Math.atan2(known.getZ() - g.getZ(), known.getX() - g.getX()); g.exploreTick = g.tickCount;
                         BlockPos go = known; // ponytail: straight for the spot, the walk's NetherRoute tunnels/bridges the long way; a 45-out visible spot swung east/west of a wall forever (live 16:52, 37 <-> 83)
-                        g.tasks.add(new Task.GoTo(go, go == known ? 0.8 : 3)); g.skillQueue.addFirst(st); // (and the check again once there; the last leg onto the spot itself: 3 short of it can be outside the biome's edge)
+                        { Task tr = level.dimension() == net.minecraft.world.level.Level.NETHER ? com.claudemod.entity.life.FortressScout.travel(g, level, go) : null; g.tasks.add(tr instanceof Task.Bore ? tr : new Task.GoTo(go, go == known ? 0.8 : 3)); } g.skillQueue.addFirst(st); // (and the check again once there; the last leg onto the spot itself: 3 short of it can be outside the biome's edge)
                         ClaudeMod.LOGGER.info("[Claude skill] explore {}: seen it at {} ({} off): heading there by {} (ClaudeLife explore)", want, known.toShortString(), (int) Math.sqrt(known.distSqr(g.blockPosition())), go.toShortString());
                         return "heading for the " + want.replace('_', ' ') + " I saw at " + known.toShortString();
                     }
@@ -2845,7 +2847,7 @@ public final class ClaudeLife {
                 int x = g.getBlockX() + dx, z = g.getBlockZ() + dz;
                 if (level.dimensionType().hasCeiling()) { // the Nether: every column's top is the bedrock roof (live 16:26: GoTo 49, 128, 37 on top of it, a minute of steps cut up toward it): ground at his own height, never above y 110
                     BlockPos nd = null;
-                    if (level.getBiome(g.blockPosition()).is(net.minecraft.world.level.biome.Biomes.WARPED_FOREST)) { // a sweep of the forest: each leg ~20 out toward the ground he's walked least, staying in it
+                    if (level.getBiome(g.blockPosition()).is(net.minecraft.world.level.biome.Biomes.WARPED_FOREST) && !com.claudemod.entity.life.Atlas.quietAt(g, level, g.blockPosition())) { // a sweep of the forest: each leg ~20 out toward the ground he's walked least, staying in it
                         a = g.exploreAngle = com.claudemod.entity.life.Atlas.freshHeading(g, level, g.exploreAngle);
                         nd = com.claudemod.entity.life.FortressScout.alongRay(g, level, a, 20);
                         if (nd != null && !level.getBiome(nd).is(net.minecraft.world.level.biome.Biomes.WARPED_FOREST)) nd = null;
@@ -2857,7 +2859,7 @@ public final class ClaudeLife {
                     if (nd == null) { ClaudeMod.LOGGER.info("[Claude skill] explore in {}: no ground in sight to walk to from {} any way (ClaudeLife explore)", level.dimension().location().getPath(), g.blockPosition().toShortString()); return "failed: no ground to walk to from here any way (lava too wide or rock all round): bridge or tunnel first"; }
                     g.exploreAngle = Math.atan2(nd.getZ() - g.getZ(), nd.getX() - g.getX());
                     ClaudeMod.LOGGER.info("[Claude skill] explore in {}: ground at {}, {} blocks off at about his height (y {}), never the roof (the heightmap there reads {}) (ClaudeLife explore)", level.dimension().location().getPath(), nd.toShortString(), (int) Math.sqrt(nd.distSqr(g.blockPosition())), g.getBlockY(), level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, nd.getX(), nd.getZ()));
-                    g.tasks.add(new Task.GoTo(nd, 4));
+                    { Task tr = com.claudemod.entity.life.FortressScout.travel(g, level, nd); g.tasks.add(tr instanceof Task.Bore ? tr : new Task.GoTo(nd, 4)); } // (the walk or the bore, the faster: the user 11-05)
                     return "walking off to explore along the ground, to " + nd.toShortString();
                 }
                 BlockPos dest = exploreGround(level, x, z);

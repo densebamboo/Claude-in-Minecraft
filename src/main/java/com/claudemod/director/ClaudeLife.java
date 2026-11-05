@@ -1121,6 +1121,11 @@ public final class ClaudeLife {
         }
         if (bed == null) {
             Item bedItem = g.inventory.find(s -> s.is(ItemTags.BEDS)).getItem();
+            if (houseMode(g) && g.house != null && g.blockPosition().distSqr(g.house.centre()) <= 24 * 24) { // his house is here: the bed goes back in its cell, the shell patched round it, not down where he stands (the user 11-05: a bed in the creeper hole in his house)
+                int q0 = g.tasks.size(); hbUpkeep(g, g.getTarget() instanceof ServerPlayer sp1 ? sp1 : null, level, true);
+                if (g.tasks.size() > q0 || g.tasks.stream().anyMatch(t -> t instanceof Task.Place pl && g.house.touches(pl.pos()))) { if (g.tasks.size() > q0) ClaudeMod.LOGGER.info("[Claude life] night at his house at {} ({}): the shell and the bed back in their cells first, {} task(s)", g.house.centre().toShortString(), g.house.stage(level), g.tasks.size() - q0); return; }
+                ClaudeMod.LOGGER.info("[Claude life] night at his house at {} ({}): nothing to patch it with ({}), the bed where he stands", g.house.centre().toShortString(), g.house.stage(level), g.house.missing);
+            }
             BlockPos home0 = g.getTarget() instanceof ServerPlayer sp0 ? PlayerProfile.baseOrigin(sp0) : null;
             if (home0 != null && !level.canSeeSky(g.blockPosition()) && inHisMine(g, g.blockPosition()) && home0.distSqr(g.blockPosition()) > 6 * 6 && home0.distSqr(g.blockPosition()) < 96 * 96) { // (only down his mine: out in the open at night he sleeps where he is, not a 54-block walk home through the mobs) // he has a house: the bed goes in it, never down his mine (the user: a bed in the stairs, blocking them)
                 if (g.tasks.stream().noneMatch(t -> t instanceof Task.GoTo gt && gt.pos().equals(home0))) { g.tasks.addFirst(new Task.GoTo(home0, 1.5)); ClaudeMod.LOGGER.info("[Claude life] night: home to his house at {} to sleep, not a bed in the mine", home0.toShortString()); }
@@ -6715,7 +6720,7 @@ public final class ClaudeLife {
                 if (openings.size() < 16) openings.add(q.immutable());
             }
         }
-        Item fill = g.inventory.count(t -> t.is(Items.COBBLESTONE)) > 0 ? Items.COBBLESTONE : g.inventory.count(t -> t.is(Items.COBBLED_DEEPSLATE)) > 0 ? Items.COBBLED_DEEPSLATE : g.inventory.count(t -> t.is(Items.DIRT)) > 0 ? Items.DIRT : null;
+        Item fill = g.inventory.count(t -> t.is(Items.COBBLESTONE)) > 0 ? Items.COBBLESTONE : g.inventory.count(t -> t.is(Items.COBBLED_DEEPSLATE)) > 0 ? Items.COBBLED_DEEPSLATE : g.inventory.count(t -> t.is(Items.NETHERRACK)) > 0 ? Items.NETHERRACK : g.inventory.count(t -> t.is(Items.DIRT)) > 0 ? Items.DIRT : null;
         boolean queued = false;
         if (!openings.isEmpty() && fill != null) {
             openings.sort(Comparator.comparingDouble(q -> q.distSqr(g.blockPosition())));
@@ -11096,7 +11101,9 @@ public final class ClaudeLife {
     }
 
     /** The upkeep in blueprint mode: at home (within 24) the pass fixes what's wrong, a few tasks at a time; without a house yet, after the stone age, the build is queued. */
-    static void hbUpkeep(ClaudeEntity g, ServerPlayer player, ServerLevel level) {
+    static void hbUpkeep(ClaudeEntity g, ServerPlayer player, ServerLevel level) { hbUpkeep(g, player, level, false); }
+    /** shellOnly (their job on): only what keeps his bed shut in, the walls, posts, roof, floor, foundation, windows and door; no new rooms, steps or furniture. */
+    static void hbUpkeep(ClaudeEntity g, ServerPlayer player, ServerLevel level, boolean shellOnly) {
         HouseBlueprint h = g.house;
         boolean stoneAge = g.inventory.count(x -> (x.getItem() instanceof net.minecraft.world.item.SwordItem && !x.is(Items.WOODEN_SWORD))) > 0 && Kit.food(g) >= 2;
         if (h == null) {
@@ -11108,11 +11115,15 @@ public final class ClaudeLife {
             return;
         }
         if (g.blockPosition().distSqr(h.centre()) > 24 * 24 || g.skillQueue.stream().anyMatch(st -> st.skill().equals("build_my_place"))) return;
+        if (shellOnly && h.shellStands(level) && !houseHoled(level, h) && level.getBlockState(h.bedFoot()).is(BlockTags.BEDS)) return; // (shut, bed in: nothing to do mid-job)
         int queued = 0; for (Task t : g.tasks) if (t instanceof Task.Place || t instanceof Task.Break) queued++;
         if (queued >= 8) return;
         ServerPlayer owner = player;
-        List<Task> ts = h.reconcile(level, it -> g.inventory.count(s0 -> s0.is(it)), p -> owner != null && (PlayerProfile.placedBy(owner).contains(p) || protectedByThem(g, owner, p)), 12);
+        List<Task> ts = h.reconcile(level, it -> g.inventory.count(s0 -> s0.is(it)), p -> owner != null && (PlayerProfile.placedBy(owner).contains(p) || protectedByThem(g, owner, p)), shellOnly ? 256 : 12);
         ts.removeIf(t -> g.tasks.contains(t));
+        if (shellOnly) { ts.removeIf(t -> { BlockPos tp = t instanceof Task.Place pl ? pl.pos() : t instanceof Task.Break br ? br.pos() : null; HouseBlueprint.Role r = tp == null ? null : h.roleAt(tp); return r == null || !SHUT_ROLES.contains(r); });
+            if (ts.isEmpty() && g.tickCount - houseLogTick > 20 * 600) { houseLogTick = g.tickCount; ClaudeMod.LOGGER.info("[Claude life] house at {} wants its shell or bed ({}), and he carries nothing for it: {} (ClaudeLife.hbUpkeep)", h.centre().toShortString(), h.stage(level), h.missing.isEmpty() ? "nothing missing on record" : "short of " + h.missing); }
+            if (ts.isEmpty()) return; if (ts.size() > 12) ts = new ArrayList<>(ts.subList(0, 12)); }
         if (ts.isEmpty()) {
             registerHouse(g, level, h);
             if (!h.missing.isEmpty() && g.tickCount - houseLogTick > 20 * 60 && com.claudemod.director.ClaudeLife.dayHere(level) && g.skillQueue.isEmpty() && !h.complete(level)) { houseLogTick = g.tickCount; g.skillQueue.addFirst(new Skills.Step("build_my_place", "", 1)); ClaudeMod.LOGGER.info("[Claude life] his house is at {}: {} missing, going on with it", h.stage(level), h.missing); return; }
@@ -12292,6 +12303,12 @@ public final class ClaudeLife {
     private static java.util.Map<java.util.UUID, Integer> mineAskTick; // when he last asked them about a new mine's heading and size (static: fields added live start null)
     private static java.util.Map<java.util.UUID, Integer> mineAskTick() { if (mineAskTick == null) mineAskTick = new java.util.HashMap<>(); return mineAskTick; }
     private static java.util.Map<java.util.UUID, Integer> homeTick; // when he last started on his place (static: fields added live start null)
+    static final java.util.Set<HouseBlueprint.Role> SHUT_ROLES = java.util.EnumSet.of(HouseBlueprint.Role.FOUNDATION, HouseBlueprint.Role.FLOOR, HouseBlueprint.Role.POST, HouseBlueprint.Role.WALL, HouseBlueprint.Role.WINDOW, HouseBlueprint.Role.DOOR, HouseBlueprint.Role.ROOF, HouseBlueprint.Role.BED); // (the bed: his respawn, it goes back in its cell)
+    /** A floor, foundation or window cell of his house open: a way in (a creeper's crater) though the walls stand. */
+    static boolean houseHoled(ServerLevel level, HouseBlueprint h) {
+        for (var e : h.cells().entrySet()) { var r = e.getValue(); if ((r == HouseBlueprint.Role.FLOOR || r == HouseBlueprint.Role.FOUNDATION || r == HouseBlueprint.Role.WINDOW) && !h.rightBlock(level, e.getKey(), r)) return true; }
+        return false;
+    }
     private static java.util.Map<java.util.UUID, Integer> homeTick() { if (homeTick == null) homeTick = new java.util.HashMap<>(); return homeTick; }
 
     /**
@@ -12310,7 +12327,10 @@ public final class ClaudeLife {
     private static void homeUpkeepNow(ClaudeEntity g, ServerPlayer player) {
         if (g.commandActive || g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee) return;
         ServerLevel level = ((ServerLevel) g.level());
-        if (houseMode(g)) { if (!g.playerGoal.isBlank() && !g.playerGoal.startsWith("done")) return; hbUpkeep(g, player, level); return; } // (their job first, the house after it, like a player: an 81-block roof in the middle of "beat the dragon" ate his morning)
+        if (houseMode(g)) { // their job first, the house after it, like a player (an 81-block roof in the middle of "beat the dragon" ate his morning); but the house he sleeps and respawns in is kept shut: walls, roof, floor and door come back even mid-job (the user 11-05: his bed sat in a creeper hole, the repair had been gated off by the goal, silently)
+            boolean job = !g.playerGoal.isBlank() && !g.playerGoal.startsWith("done");
+            if (job && g.house == null) { if (g.tickCount - houseLogTick > 20 * 600) { houseLogTick = g.tickCount; ClaudeMod.LOGGER.info("[Claude life] house: none yet, and their job (\"{}\") comes first: no new house now (ClaudeLife.homeUpkeepNow)", g.playerGoal); } return; }
+            hbUpkeep(g, player, level, job); return; }
         BlockPos o = PlayerProfile.baseOrigin(player);
         BlockPos pbed = bed(player);
         Direction front = pbed == null || o == null ? Direction.NORTH : Direction.getNearest(pbed.getX() - o.getX(), 0, pbed.getZ() - o.getZ());

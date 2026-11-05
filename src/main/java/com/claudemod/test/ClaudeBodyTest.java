@@ -10435,6 +10435,7 @@ public final class ClaudeBodyTest {
             case 819: return st819(stage, t, c, h, level, mock);
             case 820: return st820(stage, t, c, h, level, mock);
             case 821: return st821(stage, t, c, h, level, mock);
+            case 822: return st822(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13153,6 +13154,53 @@ public final class ClaudeBodyTest {
             if (t[0] % 600 == 0) ClaudeMod.LOGGER.info("[Claude test] 818 t {} s, leg {}: {} left, at {}, now {}, queue {}", (t[0] - s818T0) / 20, s818Leg, (int) left, c.blockPosition().toShortString(), c.currentTask, c.tasks.size());
             check(!(c.currentTask == null && c.tasks.isEmpty() && t[0] - s818T0 > 40), "the bore ended " + (int) left + " short on leg " + s818Leg + " at " + c.blockPosition().toShortString() + " after " + (t[0] - s818T0) / 20 + " s");
             check(t[0] - s818T0 < 20 * 1200, "20 min, leg " + s818Leg + ", " + (int) left + " left, at " + c.blockPosition().toShortString() + " now " + c.currentTask);
+        }
+        return true;
+    }
+
+    /** The user 11-05 ("he placed his bed in a creeper hole inside his house"): his house blown open, 8 wall planks gone and a crater 2 deep through its floor, their job "beat the dragon" on, planks, cobble and his bed in his pocket. The repair is not gated off by the job: the shell is patched and the bed goes back in its cell, nothing else built mid-job. */
+    private static java.util.List<BlockPos> s822Gone = new java.util.ArrayList<>();
+    private static boolean st822(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -3; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            var hf = net.minecraft.core.Direction.SOUTH; BlockPos ctr = h.absolutePos(new BlockPos(8, 2, 7));
+            var hb = new com.claudemod.entity.life.HouseBlueprint(ctr.relative(hf.getCounterClockWise(), -3).relative(hf.getOpposite(), -3), hf); hb.wood = "oak";
+            for (var e : hb.cells().entrySet()) {
+                BlockPos p = e.getKey();
+                net.minecraft.world.level.block.state.BlockState bs = switch (e.getValue()) {
+                    case FOUNDATION -> Blocks.COBBLESTONE.defaultBlockState(); case POST -> Blocks.OAK_LOG.defaultBlockState(); case WALL, ROOF -> Blocks.OAK_PLANKS.defaultBlockState();
+                    case CHEST -> Blocks.CHEST.defaultBlockState(); case TABLE -> Blocks.CRAFTING_TABLE.defaultBlockState();
+                    case FURNACE -> p.equals(hb.furnaceCell()) ? Blocks.FURNACE.defaultBlockState() : Blocks.AIR.defaultBlockState();
+                    default -> Blocks.AIR.defaultBlockState();
+                };
+                if (e.getValue() != com.claudemod.entity.life.HouseBlueprint.Role.STEP) level.setBlock(p, bs, 2);
+            }
+            BlockPos door = hb.doorCell();
+            level.setBlock(door, Blocks.OAK_DOOR.defaultBlockState().setValue(net.minecraft.world.level.block.DoorBlock.FACING, hf.getOpposite()).setValue(net.minecraft.world.level.block.DoorBlock.HALF, net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER), 2);
+            level.setBlock(door.above(), Blocks.OAK_DOOR.defaultBlockState().setValue(net.minecraft.world.level.block.DoorBlock.FACING, hf.getOpposite()).setValue(net.minecraft.world.level.block.DoorBlock.HALF, net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER), 2);
+            s822Gone.clear(); int n = 0; // the blast: every 4th wall plank, and the foundation round the middle with the ground under it
+            for (var e : hb.cells().entrySet()) if (e.getValue() == com.claudemod.entity.life.HouseBlueprint.Role.WALL && n++ % 4 == 0 && s822Gone.size() < 8) { level.setBlock(e.getKey(), Blocks.AIR.defaultBlockState(), 2); s822Gone.add(e.getKey().immutable()); }
+            BlockPos mid = hb.centre();
+            for (var e : hb.cells().entrySet()) { BlockPos p = e.getKey(); if (e.getValue() == com.claudemod.entity.life.HouseBlueprint.Role.FOUNDATION && Math.abs(p.getX() - mid.getX()) <= 1 && Math.abs(p.getZ() - mid.getZ()) <= 1) { level.setBlock(p, Blocks.AIR.defaultBlockState(), 2); level.setBlock(p.below(), Blocks.AIR.defaultBlockState(), 2); s822Gone.add(p.immutable()); } }
+            c.house = hb; upkeepStageReset(c, mock[0]); c.playerGoal = "beat the dragon";
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_AXE)); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 32)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.WHITE_BED)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            BlockPos me = hb.cell(3, -1, 0); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); level.setDayTime(6000);
+            ClaudeMod.LOGGER.info("[Claude test] 822: house {} blown open at {} cells: {}", hb, s822Gone.size(), s822Gone);
+        }
+        if (t[0] > 10) {
+            var hb = c.house;
+            if (c.tasks.isEmpty() && c.currentTask == null && c.skillQueue.isEmpty() && t[0] % 40 == 0) com.claudemod.director.ClaudeLife.testUpkeep(c, mock[0]);
+            boolean shut = hb.shellStands(level) && s822Gone.stream().allMatch(p -> hb.rightBlock(level, p, hb.roleAt(p))), bed = level.getBlockState(hb.bedFoot()).is(net.minecraft.tags.BlockTags.BEDS);
+            if (shut && bed) {
+                check(c.playerGoal.equals("beat the dragon"), "the job was dropped: " + c.playerGoal);
+                c.tasks.clear(); c.dropCurrent = true; com.claudemod.director.ClaudeLife.testUpkeep(c, mock[0]);
+                check(c.tasks.isEmpty() && c.skillQueue.isEmpty(), "shut and the bed in, mid-job, and still more queued: " + c.tasks + " / " + c.skillQueue);
+                pass(stage, t, "his blown-open house patched and the bed back in its cell mid-job in " + (t[0] - 10) / 20 + " s"); return true;
+            }
+            check(t[0] - 10 < 20 * 60, "60 s and not shut: shell " + hb.shellStands(level) + ", stage " + hb.stage(level) + ", bed " + bed + ", missing " + hb.missing + ", he's at " + c.blockPosition().toShortString() + " doing " + c.currentTask + " tasks " + c.tasks);
         }
         return true;
     }

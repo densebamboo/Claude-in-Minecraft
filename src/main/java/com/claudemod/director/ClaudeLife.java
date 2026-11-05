@@ -1688,7 +1688,8 @@ public final class ClaudeLife {
                 g.planRepeats = 0;
                 Skills.Step rule = ruleStep(g, player); // the rules' next step instead (was a 10 s wait, then the same plan again)
                 g.skillQueue.add(rule);
-                ClaudeMod.LOGGER.info("[Claude plan] the same plan three times: by the rules instead ({})", rule.skill());
+                { Order o0 = orders().get(g.getUUID()); String src = o0 != null && o0.steps().contains(rule) ? "their order (" + o0.goal() + ")" : "his own rules (kit, dragon path, mine, wood)"; // (08:20 11-05: "(obtain)" alone, in the Nether: which rule asked for 6 cobble couldn't be told from the log)
+                ClaudeMod.LOGGER.info("[Claude plan] the same plan three times: by the rules instead ({} {} x{} {}, from {}; the plan repeated: {}) (ClaudeLife plan)", rule.skill(), rule.target(), rule.count(), rule.where(), src, g.lastPlan); }
                 return;
             }
             for (var el : d.getAsJsonArray("steps")) {

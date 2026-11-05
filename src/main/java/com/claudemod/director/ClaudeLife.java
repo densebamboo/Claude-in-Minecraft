@@ -1533,11 +1533,13 @@ public final class ClaudeLife {
         boolean dragonGoal = g.playerGoal != null && g.playerGoal.toLowerCase().contains("dragon");
         boolean kitDone = dragonGoal && Kit.missing(g, true).isEmpty();
         if (kitDone) ClaudeMod.LOGGER.info("[Claude plan] rules: the kit's done (the bow's a want, no part of it): no gear_up (ClaudeLife.ruleStep)");
+        else if (level.dimension() != net.minecraft.world.level.Level.OVERWORLD && Kit.food(g) >= 4) nookSay(g, "ruleNoKit", "[Claude plan] rules: out of the overworld with " + Kit.food(g) + " meals: no gear_up (its kit is the overworld's; there it's a no-op) (ClaudeLife.ruleStep)"); // (as gear_up's own Nether rule: the fallback's gear_up said "through the portal now" and the same plan came back, 10:56-11:30 11-05, stage 724)
         else c.add(new Skills.Step("gear_up", "", 1));
         Skills.Step dragonStep = dragonGoal ? dragonNext(g, level) : null; // the run's next step (the portal once the kit's done; the bow once it's the must)
+        if (dragonStep != null && dragonStep.skill().equals("gear_up") && level.dimension() != net.minecraft.world.level.Level.OVERWORLD && Kit.food(g) >= 4) { nookSay(g, "ruleDragonKit", "[Claude plan] rules: the dragon path's gear_up waits for the overworld (" + Kit.food(g) + " meals on him; in here it's a no-op) (ClaudeLife.ruleStep)"); dragonStep = null; } // (stage 724)
         if (dragonStep != null) { c.add(dragonStep); nookSay(g, "ruleDragon", "[Claude plan] rules: the dragon path's next step: " + (dragonStep.skill() + (dragonStep.target().isBlank() ? "" : " " + dragonStep.target())) + " (ClaudeLife.ruleStep)"); }
         boolean pick = !g.inventory.find(s -> s.getItem() instanceof net.minecraft.world.item.PickaxeItem).isEmpty();
-        if (pick && !kitDone && ((g.blueprint != null && !g.blueprint.isEmpty()) || g.mineFace != null)) c.add(new Skills.Step("strip_mine", "iron_ore", 4)); // (kitted out on the dragon run: iron is no step of it; 11:10 he went down his mine for 4 iron with diamond armor on and the Nether next)
+        if (pick && !kitDone && level.dimension() == net.minecraft.world.level.Level.OVERWORLD && ((g.blueprint != null && !g.blueprint.isEmpty()) || g.mineFace != null)) c.add(new Skills.Step("strip_mine", "iron_ore", 4)); // (kitted out on the dragon run: iron is no step of it; 11:10 he went down his mine for 4 iron with diamond armor on and the Nether next)
         c.add(new Skills.Step("collect", "logs", 8));
         c.add(new Skills.Step("explore", "", 1));
         for (Skills.Step s : c) if (g.failCount.getOrDefault(s.skill() + (s.target().isBlank() ? "" : " " + s.target()), 0) < 3) return s;

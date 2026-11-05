@@ -52,11 +52,21 @@ public final class Route {
     /** Every tick he's on a job: the cell he's in, on his trail (a leg of a route he walked through, whatever walk took him there, is passed). */
     public static void step(ClaudeEntity g) {
         var m = trail.computeIfAbsent(g.getUUID(), k -> new java.util.LinkedHashMap<>(512, 0.75f, true) { @Override protected boolean removeEldestEntry(Map.Entry<BlockPos, Integer> e) { return size() > 4000; } });
-        m.put(g.blockPosition().immutable(), g.tickCount);
+        BlockPos p = g.blockPosition().immutable();
+        if (m.put(p, g.tickCount) == null) { // a new cell: the 4-block sections his window of 6 touches are ground he's stood by, known from now on (the window round him only, forgotten a step later, flipped his Nether route 12 times in 70 s, live 11:38)
+            var n = near.computeIfAbsent(g.getUUID(), k -> new java.util.LinkedHashMap<>(512, 0.75f, false) { @Override protected boolean removeEldestEntry(Map.Entry<Long, Boolean> e) { return size() > 60000; } });
+            // shortcut: 4-block grain, so up to 9 out rather than 6; finer only if the extra reach ever plans him wrong
+            for (int sx = (p.getX() - 6) >> 2; sx <= (p.getX() + 6) >> 2; sx++)
+                for (int sy = (p.getY() - 6) >> 2; sy <= (p.getY() + 6) >> 2; sy++)
+                    for (int sz = (p.getZ() - 6) >> 2; sz <= (p.getZ() + 6) >> 2; sz++) n.put(BlockPos.asLong(sx, sy, sz), Boolean.TRUE);
+        }
     }
+    private static final Map<UUID, java.util.LinkedHashMap<Long, Boolean>> near = new HashMap<>(); // 4-block sections he's stood within 6 of (the last 60000)
+    /** A cell in a 4-block section he's stood within 6 of, in this dimension. */
+    public static boolean stoodBy(ClaudeEntity g, int x, int y, int z) { var n = near.get(g.getUUID()); return n != null && n.containsKey(BlockPos.asLong(x >> 2, y >> 2, z >> 2)); }
     /** The cells he passed in the last {@code ticks}, newest first: the way he came (the drowning escape swims back along it). */
     public static boolean walked(ClaudeEntity g, BlockPos p) { var m = trail.get(g.getUUID()); return m != null && m.containsKey(p); }
-    public static void forgetTrail(ClaudeEntity g) { trail.remove(g.getUUID()); } // (another dimension: its cells are nowhere here)
+    public static void forgetTrail(ClaudeEntity g) { trail.remove(g.getUUID()); near.remove(g.getUUID()); } // (another dimension: its cells are nowhere here)
     public static List<BlockPos> wayBack(ClaudeEntity g, int ticks) {
         List<BlockPos> out = new ArrayList<>(); var m = trail.get(g.getUUID()); if (m == null) return out;
         for (var e : m.entrySet()) if (g.tickCount - e.getValue() <= ticks && e.getValue() <= g.tickCount) out.add(e.getKey()); // (entrySet, never get: the map is access-ordered, oldest visit first)

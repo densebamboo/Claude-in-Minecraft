@@ -323,7 +323,7 @@ public final class FarSight {
         if (Math.abs(x - me.getX()) <= 6 && Math.abs(y - me.getY()) <= 6 && Math.abs(z - me.getZ()) <= 6) return true;
         var s = surfaces == null ? null : surfaces.get(g.getUUID());
         if (s != null) for (int k = 0; k <= 3; k++) if (s.contains(BlockPos.asLong(x, y - k, z))) return true;
-        return com.claudemod.entity.nav.Route.walked(g, new BlockPos(x, y, z)) || com.claudemod.entity.nav.Route.walked(g, new BlockPos(x, y - 1, z));
+        return com.claudemod.entity.nav.Route.stoodBy(g, x, y, z) || com.claudemod.entity.nav.Route.walked(g, new BlockPos(x, y, z)) || com.claudemod.entity.nav.Route.walked(g, new BlockPos(x, y - 1, z));
     }
     /** A look all round from where he stands (a player turning on the spot before a long way): every ray's first hit on his record. */
     public static int lookAllRound(ClaudeEntity g, ServerLevel level) {

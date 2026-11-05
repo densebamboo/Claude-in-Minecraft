@@ -5973,6 +5973,7 @@ public class WorkGoal extends Goal {
         if (pillarPhase == 0) {
             if (!g.onGround() && !swimming) { if (ticks > 60) dbg("never landed"); return ticks > 60; } // never landed (a ladder...): give up towering
             pillarFeet = g.blockPosition();
+            if (!level.getBlockState(pillarFeet).getCollisionShape(level, pillarFeet).isEmpty()) pillarFeet = pillarFeet.above(); // standing IN a block lower than full (soul sand, a slab, a path): the tower goes on top of it, not "already there" (live 12:11, 14 min pinned on soul sand)
             BlockPos head = pillarFeet.above(2);
             if (!level.getBlockState(head).getCollisionShape(level, head).isEmpty()) { // (water up there is fine: he swims through it)
                 if (treeBlockInWay(head)) { // leaves (or the trunk) over his head: punch them out and keep towering
@@ -6008,7 +6009,7 @@ public class WorkGoal extends Goal {
         if (!high) { dbg("jump too low y=" + g.getY() + " feet=" + pillarFeet.getY() + " jumping=" + g.jumpInput() + " delay=" + g.jumpDelay() + " ground=" + g.onGround() + " sneak=" + g.isShiftKeyDown() + " dy=" + g.getDeltaMovement().y + " ticks=" + pillarTicks + " holding=" + g.getMainHandItem() + " above: " + level.getBlockState(g.blockPosition().above()).getBlock() + "/" + level.getBlockState(g.blockPosition().above(2)).getBlock() + "/" + level.getBlockState(g.blockPosition().above(3)).getBlock()); return true; } // the jump didn't make it (low ceiling, slab...): give up towering
         // right click the top of the block he jumped off: the new block goes where his feet were
         boolean already = !level.getBlockState(pillarFeet).getCollisionShape(level, pillarFeet).isEmpty(); // landed on something there anyway
-        if (already) { pillarDone++; pillarPhase = 0; return pillarDone >= t.steps(); } // up a level either way (not his block to take down)
+        if (already) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] tower at {}: {} there already, up a level without a block of his (y {}) (WorkGoal.doPillar)", pillarFeet.toShortString(), name(level.getBlockState(pillarFeet)), String.format("%.2f", g.getY())); pillarDone++; pillarPhase = 0; return pillarDone >= t.steps(); } // up a level either way (not his block to take down)
         if (!level.getFluidState(pillarFeet).isEmpty()) g.placeAt(pillarFeet, pillarItem); // in water: against the side walls (or whatever's under it)
         else g.useOn(pillarFeet.below(), Direction.UP);
         if (level.getBlockState(pillarFeet).getCollisionShape(level, pillarFeet).isEmpty()) { // the game didn't take it (yet): click again next tick, jump again if he lands

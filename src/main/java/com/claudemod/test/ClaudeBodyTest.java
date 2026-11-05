@@ -10493,6 +10493,9 @@ public final class ClaudeBodyTest {
             case 721: return st721(stage, t, c, h, level, mock);
             case 722: return st722(stage, t, c, h, level, mock);
             case 723: return st723(stage, t, c, h, level, mock);
+            case 724: return st724(stage, t, c, h, level, mock);
+            case 725: return st725(stage, t, c, h, level, mock);
+            case 726: return st726(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13624,6 +13627,73 @@ public final class ClaudeBodyTest {
             check(toStairs.isEmpty(), "nether hunt: " + toStairs.size() + " walk(s) to his overworld stairs at " + ss.toShortString() + " from the Nether (" + r + "), queue " + c.tasks.stream().limit(6).toList());
             c.tasks.clear(); c.skillQueue.clear(); c.stairStart = null; c.dropCurrent = true; nsHome(c, h, level);
             pass(stage, t, "collect chicken in the Nether: no walk to his overworld stairs (" + r + ")"); return true;
+        }
+        return true;
+    }
+
+    /** Live 10:56-11:30 11-05 (REVIEW-49, Nether): after the same plan three times, the rules' step was gear_up, and gear_up in the Nether with 4+ meals is "done: through the portal now, the kit's behind me", a no-op, then the same plan again. The rules never hand him a step that does nothing where he is: the dragon path's step instead. */
+    private static boolean st724(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(5480, 70, 5480);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            nsArena(nl, o, 10, 10, 10, 8); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 9)); c.setHealth(20); c.getFoodData().setFoodLevel(20); // (no armor: the kit not done, as live)
+            c.playerGoal = "beat the ender dragon"; c.commandActive = false; c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 20) {
+            check(c.level() == nl, "rules in the Nether: not in the Nether (" + c.level().dimension().location() + ")");
+            var rule = com.claudemod.director.ClaudeLife.ruleStep(c, mock[0]);
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], rule.skill(), rule.target(), rule.count());
+            check(!(rule.skill().equals("gear_up") && r.startsWith("done: through the portal")), "the rules' step in the Nether was gear_up, a no-op there: " + r);
+            c.tasks.clear(); c.skillQueue.clear(); c.playerGoal = null; c.dropCurrent = true; nsHome(c, h, level);
+            pass(stage, t, "the rules' step in the Nether does something: " + rule.skill() + " " + rule.target()); return true;
+        }
+        return true;
+    }
+
+    /** Live 11:37:59-11:39:09 11-05 (Nether 70,36..42,-63, REVIEW-210): his Nether route planned again 12 times in 70 s, flipping y36 -> y42 -> y36: NetherRoute reads a cell as known only within 6 of where he stands NOW (FarSight.known), so the open cavern he'd just stood by read as solid netherrack again once he'd stepped away, and every plan went the way he couldn't see. Ground he's stood by stays known. */
+    private static boolean st726(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(5480, 70, 5560);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            nsArena(nl, o, 20, 5, 5, 6);
+            for (int z = -6; z <= 6; z++) for (int y = -8; y <= 5; y++) for (int x = 3; x <= 5; x++) nl.setBlock(o.offset(x, y, z), y == -8 ? Blocks.LAVA.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); // (a cut across the cavern floor, a lava sea 8 down: as live, open void over lava)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 32));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.tasks.clear(); c.skillQueue.clear();
+        }
+        if (t[0] == 20) com.claudemod.entity.nav.Route.step(c); // (stood by the cut: it's in sight, its void known)
+        if (t[0] == 21) { BlockPos b = o.offset(-12, 0, 0); c.teleportTo(b.getX() + 0.5, b.getY(), b.getZ() + 0.5); }
+        if (t[0] == 25) {
+            com.claudemod.entity.nav.Route.step(c);
+            BlockPos cut = o.offset(4, -1, 0);
+            boolean known = com.claudemod.entity.life.FarSight.known(c, cut.getX(), cut.getY(), cut.getZ());
+            check(known, "the cut in the floor at " + cut.toShortString() + " he stood by 4 off reads as unseen (solid netherrack to his planner) once he's 12 back: the plan flips to whichever side he isn't at");
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; nsHome(c, h, level);
+            pass(stage, t, "ground he stood by stays known when he steps away"); return true;
+        }
+        return true;
+    }
+
+    /** Live 12:11-12:25 11-05 (Nether 70,32,-51, 14 min pinned): on soul sand over lava (feet at y 32.88), every Pillar step of his made way up ended at once with no block put down: his feet cell was taken as the soul sand's own (blockPosition), "already" solid, "up a level either way". The walk up then failed 2 short, the way was made again, round and round. On a block lower than full he towers from on top of it. */
+    private static boolean st725(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -1; x <= 10; x++) for (int z = -1; z <= 10; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), Blocks.NETHERRACK.defaultBlockState(), 2); for (int y = 1; y <= 7; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = 3; x <= 7; x++) for (int z = 3; z <= 7; z++) level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), Blocks.SOUL_SAND.defaultBlockState(), 2); // (a soul sand patch in the floor, as live)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 16));
+            BlockPos me = h.absolutePos(new BlockPos(5, 0, 5)); c.teleportTo(me.getX() + 0.5, me.getY() + 0.875, me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.tasks.add(new Task.Pillar(1)); c.tasks.add(new Task.Wait(100, false)); } // (stays up: live the walk on was next)
+        if (t[0] == 70) {
+            BlockPos top = h.absolutePos(new BlockPos(5, 1, 5));
+            check(!level.getBlockState(top).isAir(), "a Pillar(1) from on soul sand put no block down on it (" + level.getBlockState(top).getBlock() + " at " + top.toShortString() + ", he's at y " + String.format("%.2f", c.getY()) + ")");
+            check(c.getY() >= top.getY() + 0.99, "a Pillar(1) from on soul sand: he's not up on the new block (y " + String.format("%.2f", c.getY()) + ")");
+            c.tasks.clear(); c.dropCurrent = true;
+            pass(stage, t, "towered one up from on soul sand"); return true;
         }
         return true;
     }

@@ -10478,6 +10478,7 @@ public final class ClaudeBodyTest {
             case 715: return st715(stage, t, c, h, level, mock);
             case 716: return st716(stage, t, c, h, level, mock);
             case 717: return st717(stage, t, c, h, level, mock);
+            case 718: return st718(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13329,6 +13330,30 @@ public final class ClaudeBodyTest {
                 check(back <= 2, "branch push from its end at " + me.toShortString() + ": a walk " + back + " back toward the tunnel, to " + g0.pos().toShortString() + " (" + line + "), queue " + c.tasks.stream().limit(6).toList()); }
             c.tasks.clear(); c.blueprint = null; c.prefs.put("mine_model", "legacy");
             pass(stage, t, "pushed his branch on from its end, no walk back (" + line + ")"); return true;
+        }
+        return true;
+    }
+
+    /** Live 09:31 11-05 (CONFLICT, BANDAID-5): in the Nether, gear_up's "collect chicken" read the bedrock roof as ground overhead ("no chicken down here: heading up top") and sent him to his mine's stairs, overworld coordinates (-16, 68, -20), routed across the Nether and cut steps up toward y 68 till it gave up. The way "up top" to his stairs is no Nether walk. */
+    private static boolean st718(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(5320, 70, 5320);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            nsArena(nl, o, 12, 12, 12, 8); nsKit(c); level.setDayTime(6000); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+            c.stairStart = o.offset(-16, 0, -40).above(20).immutable(); // (his overworld mine's entrance: 45 off by the numbers, in another world)
+        }
+        if (t[0] == 20) {
+            check(c.level() == nl, "nether hunt: not in the Nether (" + c.level().dimension().location() + ")");
+            c.tasks.clear(); c.skillQueue.clear();
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "chicken", 16);
+            BlockPos ss = c.stairStart;
+            var toStairs = c.tasks.stream().filter(q -> q instanceof Task.GoTo go && go.pos().equals(ss)).toList();
+            check(toStairs.isEmpty(), "nether hunt: " + toStairs.size() + " walk(s) to his overworld stairs at " + ss.toShortString() + " from the Nether (" + r + "), queue " + c.tasks.stream().limit(6).toList());
+            c.tasks.clear(); c.skillQueue.clear(); c.stairStart = null; c.dropCurrent = true; nsHome(c, h, level);
+            pass(stage, t, "collect chicken in the Nether: no walk to his overworld stairs (" + r + ")"); return true;
         }
         return true;
     }

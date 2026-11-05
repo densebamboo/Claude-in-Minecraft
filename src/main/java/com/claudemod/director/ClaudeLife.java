@@ -11440,7 +11440,7 @@ public final class ClaudeLife {
                 if (first < 0) continue; // all dug
                 BlockPos stop = rsU.get(first).first(); var ss = level.getBlockState(stop);
                 if (level.getFluidState(stop).is(net.minecraft.tags.FluidTags.LAVA) || lavaNear(g, level, stop) || dryPlug(g, level, stop)) continue; // ends at water, his plug or lava: not one to dig on
-                bpWalkTo(g, s0.start.relative(s0.dir.getOpposite()));
+                bpWalkTo(g, stop); // along his rows from wherever he is to where it stops: from its dug end straight on, never back to its mouth first (336/41 11-05, stage 717)
                 int n2 = bpReconcile(g, level, first, last, false);
                 if (n2 == 0) continue;
                 g.tasks.add(new Task.MineVisibleOres(3)); g.tasks.add(new Task.Pickup(20));
@@ -11603,7 +11603,7 @@ public final class ClaudeLife {
                 if (first < 0) continue; // all dug
                 BlockPos stop = rsU.get(first).first(); var ss = level.getBlockState(stop);
                 if (level.getFluidState(stop).is(net.minecraft.tags.FluidTags.LAVA) || lavaNear(g, level, stop) || dryPlug(g, level, stop)) continue; // ends at water, his plug or lava: not one to dig on
-                bpWalkTo(g, s0.start.relative(s0.dir.getOpposite()));
+                bpWalkTo(g, stop); // along his rows from wherever he is to where it stops: from its dug end straight on, never back to its mouth first (336/41 11-05, stage 717)
                 int n2 = bpReconcile(g, level, first, last, false);
                 if (n2 == 0) continue;
                 g.tasks.add(new Task.MineVisibleOres(3)); g.tasks.add(new Task.Pickup(20));

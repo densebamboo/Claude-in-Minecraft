@@ -10477,6 +10477,7 @@ public final class ClaudeBodyTest {
             case 714: return st714(stage, t, c, h, level, mock);
             case 715: return st715(stage, t, c, h, level, mock);
             case 716: return st716(stage, t, c, h, level, mock);
+            case 717: return st717(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13327,6 +13328,38 @@ public final class ClaudeBodyTest {
                 check(back <= 2, "branch push from its end at " + me.toShortString() + ": a walk " + back + " back toward the tunnel, to " + g0.pos().toShortString() + " (" + line + "), queue " + c.tasks.stream().limit(6).toList()); }
             c.tasks.clear(); c.blueprint = null; c.prefs.put("mine_model", "legacy");
             pass(stage, t, "pushed his branch on from its end, no walk back (" + line + ")"); return true;
+        }
+        return true;
+    }
+
+    /** Live 336/41 11-05: a branch dropped half-way ("never dug out") was finished from its mouth: he stood at its dug end and was sent back to the tunnel first, then out again (stage 707's twin for the finish, not the push). From its dug end the finish starts there. */
+    private static boolean st717(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 30; x++) for (int z = -6; z <= 26; z++) { for (int yy = -3; yy <= 12; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, 13, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); }
+            var E = net.minecraft.core.Direction.EAST; var KB = com.claudemod.entity.life.MineBlueprint.Kind.BRANCH;
+            var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(new BlockPos(2, 12, 8)), E, 2, 3); b.segments.get(0).n = 8; b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(true), E, 8, null)); b.invalidate();
+            b.branchLength = 4; b.branchEvery = 4; b.branchPair(11, 2); b.branchPair(15, 2);
+            com.claudemod.entity.life.MineBlueprint.Segment lng = null; for (var s0 : b.segments) if (lng == null && s0.kind == KB && s0.dir == net.minecraft.core.Direction.SOUTH) lng = s0;
+            lng.n = 10; b.invalidate(); // (his long branch, out south: laid 10, dug 6)
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int y = 0; y < r.height(); y++) level.setBlock(f.above(y), Blocks.AIR.defaultBlockState(), 2);
+            for (var r : b.rows()) if (b.segments.get(r.segment()) == lng) for (BlockPos f : r.feet()) { int along = (f.getX() - lng.start.getX()) * lng.dir.getStepX() + (f.getZ() - lng.start.getZ()) * lng.dir.getStepZ(); if (along >= 6) for (int y = 0; y < r.height(); y++) level.setBlock(f.above(y), Blocks.STONE.defaultBlockState(), 2); }
+            for (var s0 : b.segments) if (s0.kind == KB && s0 != lng) { BlockPos end = s0.start.relative(s0.dir, s0.n); level.setBlock(end, Blocks.COBBLESTONE.defaultBlockState(), 2); level.setBlock(end.above(), Blocks.COBBLESTONE.defaultBlockState(), 2); }
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); com.claudemod.director.ClaudeLife.bpSync(c);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.TORCH, 32)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            BlockPos end = lng.start.relative(lng.dir, 5); c.teleportTo(end.getX() + 0.5, end.getY(), end.getZ() + 0.5);
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); level.setDayTime(1000); c.tasks.clear(); c.skillQueue.clear(); c.attempts.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 20) {
+            var b = c.blueprint; com.claudemod.entity.life.MineBlueprint.Segment lng = null; for (var s0 : b.segments) if (lng == null && s0.kind == com.claudemod.entity.life.MineBlueprint.Kind.BRANCH && s0.dir == net.minecraft.core.Direction.SOUTH) lng = s0;
+            BlockPos me = c.blockPosition(); c.tasks.clear();
+            String line = com.claudemod.director.ClaudeLife.bpAtLevel(c, level, b, h.absolutePos(new BlockPos(0, 4, 0)).getY(), "iron");
+            check(line != null && line.contains("never dug out"), "branch finish: not the half-dug branch's finish: " + line + ", queue " + c.tasks.stream().limit(6).toList());
+            for (Task q : c.tasks) if (q instanceof Task.GoTo g0) { int back = (me.getX() - g0.pos().getX()) * lng.dir.getStepX() + (me.getZ() - g0.pos().getZ()) * lng.dir.getStepZ();
+                check(back <= 2, "branch finish from its dug end at " + me.toShortString() + ": a walk " + back + " back toward the tunnel, to " + g0.pos().toShortString() + " (" + line + "), queue " + c.tasks.stream().limit(6).toList()); }
+            c.tasks.clear(); c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            pass(stage, t, "finished his half-dug branch from its dug end, no walk back (" + line + ")"); return true;
         }
         return true;
     }

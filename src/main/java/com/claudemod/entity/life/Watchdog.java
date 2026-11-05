@@ -40,6 +40,11 @@ public final class Watchdog {
         int dragTicks; String dragBlock = ""; BlockPos dragAt; // walking into a block (leaves, a wall) and sliding along it
         int wetSince = -1; double wetX, wetY, wetZ;              // in water since, from where
         String wetDoing = "nothing"; boolean wetWalk;             // what he was at in the water (the walk ends as he lands)
+        int idleSince = -1; double idleX, idleZ;                  // no task, no queue, standing, since (IDLE)
+        int startEst; String startWhat = "";                      // the running action's player-pace estimate in ticks, and what it is (SLOW)
+        int tripAt = -1, tripBroken, tripItems; BlockPos tripPos; String tripWhat = ""; // a 16+ block walk that got there: something done within 10 s? (WASTED_TRIP)
+        int handRun;                                              // tool blocks broken by hand in a row (BARE_HANDS)
+        final Map<BlockPos, int[]> placedAt = new HashMap<>();    // his placements: {tick, blocks broken then, items then} (PLACE_BREAK)
         final Map<String, int[]> ends = new HashMap<>();     // action key -> {no-progress ends, first tick}
         final Map<String, int[]> rung = new HashMap<>();     // action key -> {rung reached, tick}
         final Map<String, int[]> skills = new HashMap<>();   // failed skill line -> {times, first tick}
@@ -71,6 +76,7 @@ public final class Watchdog {
     /** Parked lifted this job (the block arrived, he moved off, time passed): its trip and write-off go with it, so it runs again. */
     public static void cleared(ClaudeEntity g, Task t) { St s = ST.get(g.getUUID()); String k = key(t); if (s == null || k == null) return; s.rung.remove(k); s.ends.remove(k); s.told.remove(k); }
     public static int incidents; public static String lastIncident = ""; // (stages read them)
+    public static final java.util.ArrayDeque<String> recentKinds = new java.util.ArrayDeque<>(); // the last 50 incidents' kinds (stages)
     public static String lastTold(ClaudeEntity g) { St s = ST.get(g.getUUID()); return s == null ? "" : s.lastTold; }
     public static int trips(ClaudeEntity g) { St s = ST.get(g.getUUID()); return s == null ? 0 : s.trips; }
     /** That action written off by the watchdog (tripped, within its 2 minutes): its source should not queue it again. */
@@ -145,6 +151,7 @@ public final class Watchdog {
     private static int items(ClaudeEntity g) { int n = 0; for (int i = 0; i < g.inventory.items.getContainerSize(); i++) n += g.inventory.items.getItem(i).getCount(); return n; }
     public static boolean starting(ClaudeEntity g, Task t) {
         St s0 = st(g); s0.started = t; s0.startTick = now(g); s0.startBroken = s0.broken; s0.startItems = items(g); s0.startDist = targetDist(g, t);
+        try { paceAndSight(g, s0, t); } catch (RuntimeException e) { ClaudeMod.LOGGER.warn("[Claude watchdog] pace estimate threw", e); }
         if (target(t) != null) { s0.lastTargeted = t; s0.lastTargetedTick = now(g); }
         record(s0, now(g), "START " + t + (s0.startDist >= 0 ? String.format(" (%.1f off)", s0.startDist) : ""));
         String k = key(t); if (k == null) return true;
@@ -160,6 +167,7 @@ public final class Watchdog {
     /** WorkGoal: the action ended (why: its exit line, or null). Counts it if it ended without its progress. */
     public static void ended(ClaudeEntity g, Task t, String why) {
         { double d = targetDist(g, t); record(st(g), now(g), "END " + t + " after " + (g.work == null ? "?" : g.work.taskAge()) + "t" + (d >= 0 ? String.format(", %.1f off", d) : "") + (why == null ? "" : ": " + why)); }
+        try { endChecks(g, st(g), t); } catch (RuntimeException e) { ClaudeMod.LOGGER.warn("[Claude watchdog] end checks threw", e); }
         String k = key(t); if (k == null) return;
         Boolean got = achieved(g, t); if (got == null) return;
         St s = st(g);
@@ -361,6 +369,7 @@ public final class Watchdog {
     public static void logged(String m) { if (!m.startsWith("[Claude incident]") && lineKind(m) != null) LOGGED.add(m); }
     static String lineKind(String m) {
         if (m.startsWith("[Claude litter]")) return "LITTER";
+        if (m.startsWith("[Claude move] spin") || m.startsWith("[Claude move] shuffle")) return "SPIN";
         if (m.startsWith("[Claude smelt] fuel")) return m.contains("(whole logs)") ? "LOG_FUEL" : null; // (the user 11-04: "turn them into planks first": a log is 1.5 items of fuel, its 4 planks 6)
         if (m.startsWith("[Claude conflict]")) return m.contains("in his cover") ? null : "CONFLICT"; // (the night hold's status line repeats by design: not a fight)
         return m.contains("-> failed") ? "FAILED" : null;
@@ -419,6 +428,84 @@ public final class Watchdog {
         }
     }
 
+    private static boolean on() { return !com.claudemod.entity.ClaudeSpawner.testing || linesInTests; }
+    private static String nm(net.minecraft.world.level.block.state.BlockState st) { return net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(st.getBlock()).getPath(); }
+    private static boolean seen(ClaudeEntity g, BlockPos p) { return g.level().clip(new net.minecraft.world.level.ClipContext(g.getEyePosition(), net.minecraft.world.phys.Vec3.atCenterOf(p), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getBlockPos().equals(p); }
+    /** A player's ticks to break this block with the best tool he carries (no enchantments: the estimate errs long). */
+    static int breakTicks(ClaudeEntity g, BlockPos p, net.minecraft.world.level.block.state.BlockState st) {
+        float h = st.getDestroySpeed(g.level(), p); if (h < 0) return -1; if (h == 0) return 1;
+        float best = 1f; boolean harvest = !st.requiresCorrectToolForDrops();
+        for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { var it = g.inventory.items.getItem(i); best = Math.max(best, it.getDestroySpeed(st)); if (it.isCorrectToolForDrops(st)) harvest = true; }
+        return (int) Math.ceil(h * (harvest ? 30 : 100) / best);
+    }
+    private static final double PACE = Clocks.SPRINT / 20; // blocks a tick, a player sprinting
+    /** At an action's start: its player-pace estimate (SLOW), and ore targeted with no face open to see it by (SIGHT). */
+    private static void paceAndSight(ClaudeEntity g, St s, Task t) {
+        s.startEst = -1; s.startWhat = "";
+        if (t instanceof Task.GoTo && s.startDist >= 8) { s.startEst = (int) (s.startDist / PACE); s.startWhat = "walk"; }
+        if (t instanceof Task.Break b) {
+            var st = g.level().getBlockState(b.pos()); int bt = breakTicks(g, b.pos(), st);
+            if (bt > 0) { s.startEst = bt + (int) (Math.max(0, s.startDist - 4.5) / PACE); s.startWhat = "breaking " + nm(st); }
+            if (on() && st.is(net.neoforged.neoforge.common.Tags.Blocks.ORES)) {
+                boolean open = false; for (var d : net.minecraft.core.Direction.values()) { var n = g.level().getBlockState(b.pos().relative(d)); if (!n.canOcclude() || n.isAir()) open = true; }
+                if (!open) fileOnce(g, "SIGHT", "SIGHT|" + b.pos().asLong(), "targeting " + nm(st) + " at " + b.pos().toShortString() + " with every face closed (he can't have seen it); he's at " + g.blockPosition().toShortString() + ", step " + (g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target()));
+            }
+        }
+    }
+    /** At an action's end: slower than twice a player's pace (SLOW); a 16+ block walk arrived (armed for WASTED_TRIP); a chest/furnace used unseen (SIGHT). */
+    private static void endChecks(ClaudeEntity g, St s, Task t) {
+        if (!on() || !t.equals(s.started)) return;
+        int ran = now(g) - s.startTick;
+        boolean got = t instanceof Task.GoTo ? Boolean.TRUE.equals(achieved(g, t)) : t instanceof Task.Break && s.broken != s.startBroken;
+        if (got && s.startEst > 0 && ran > 2 * s.startEst + 40)
+            fileOnce(g, "SLOW", "SLOW|" + s.startWhat, String.format("%s took %.1f s, a player %.1f s (%s, from %.1f off)", s.startWhat, ran / 20.0, s.startEst / 20.0, t, s.startDist));
+        String step = g.lastStep == null ? "" : g.lastStep.skill();
+        if (t instanceof Task.GoTo && got && s.startDist >= 16 && !g.commandActive && !g.holdingNight() && !java.util.Set.of("explore", "go_to", "follow", "come", "scout").contains(step)) {
+            s.tripAt = now(g); s.tripBroken = s.broken; s.tripItems = items(g); s.tripPos = g.blockPosition().immutable(); s.tripWhat = String.format("%.0f blocks to %s (step %s)", s.startDist, ((Task.GoTo) t).pos().toShortString(), step.isEmpty() ? "-" : step + " " + g.lastStep.target());
+        }
+        BlockPos c = t instanceof Task.Chest x ? x.pos() : t instanceof Task.Deposit x ? x.pos() : t instanceof Task.Smelt x ? x.pos() : t instanceof Task.FurnaceLoad x ? x.pos() : t instanceof Task.FurnaceTake x ? x.pos() : null;
+        if (c != null && items(g) != s.startItems && Math.sqrt(c.distToCenterSqr(g.getEyePosition())) <= 6 && !seen(g, c))
+            fileOnce(g, "SIGHT", "SIGHT|" + c.asLong(), "used the " + nm(g.level().getBlockState(c)) + " at " + c.toShortString() + " without seeing it (" + t + ", from " + g.blockPosition().toShortString() + ")");
+    }
+    /** No task, nothing queued, standing still 20 s+ (not holding the night, asleep, held by them, or thinking under 45 s). */
+    private static void idle(ClaudeEntity g, St s) {
+        boolean still = s.idleSince >= 0 && Math.abs(g.getX() - s.idleX) + Math.abs(g.getZ() - s.idleZ) < 2;
+        boolean excused = g.holdingNight() || g.isSleeping() || g.staying || g.planning && g.tickCount - g.planStartTick < 20 * 45;
+        if (g.currentTask != null || !g.tasks.isEmpty() || excused || !on()) { s.idleSince = -1; return; }
+        if (!still) { s.idleSince = now(g); s.idleX = g.getX(); s.idleZ = g.getZ(); return; }
+        if (now(g) - s.idleSince >= 20 * 20)
+            fileOnce(g, "IDLE", "IDLE|" + g.blockPosition().getX() / 8 + "," + g.blockPosition().getZ() / 8, String.format("no task for %d s at %s%s; plan %s; last line %s", (now(g) - s.idleSince) / 20, g.blockPosition().toShortString(), g.planning ? ", thinking" : "", g.skillQueue, g.lastSkillLine == null ? "-" : g.lastSkillLine));
+    }
+    /** 10 s after a 16+ block walk got there: nothing broken, nothing gained, nothing handed over, and no work on that spot: a wasted trip. */
+    private static void wastedTrip(ClaudeEntity g, St s) {
+        if (s.tripAt < 0 || now(g) - s.tripAt < 200) return;
+        int at = s.tripAt; s.tripAt = -1;
+        if (!on() || s.broken != s.tripBroken || items(g) != s.tripItems || s.handOff >= at || g.isSleeping()) return;
+        BlockPos w = g.currentTask == null || g.currentTask instanceof Task.GoTo ? null : target(g.currentTask);
+        if (w != null && w.distSqr(s.tripPos) <= 36 || g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Fish || g.currentTask instanceof Task.Smelt) return; // (at work there)
+        fileOnce(g, "WASTED_TRIP", "WASTED_TRIP|" + s.tripPos.asLong(), "walked " + s.tripWhat + " and did nothing there in 10 s; now " + (g.currentTask == null ? "no task" : g.currentTask) + " at " + g.blockPosition().toShortString());
+    }
+    /** He put a block down (the place event). */
+    public static void placedOwn(ClaudeEntity g, BlockPos p) { St s = st(g); if (s.placedAt.size() > 256) s.placedAt.clear(); s.placedAt.put(p.immutable(), new int[] {now(g), s.broken, items(g)}); }
+    /** He broke a block (the break event, before the drop): his own placement undone with nothing done (PLACE_BREAK); a tool block by hand or with the wrong tool (BARE_HANDS). */
+    public static void brokeOwn(ClaudeEntity g, BlockPos p, net.minecraft.world.level.block.state.BlockState st) {
+        if (!on()) return;
+        St s = st(g);
+        int[] pl = s.placedAt.remove(p);
+        if (pl != null && now(g) - pl[0] <= 20 * 60 && s.broken == pl[1] && items(g) <= pl[2])
+            fileOnce(g, "PLACE_BREAK", "PLACE_BREAK|" + p.asLong(), "put " + nm(st) + " down at " + p.toShortString() + " and broke it " + (now(g) - pl[0]) / 20 + " s later with nothing broken or gained between; doing " + (g.currentTask == null ? "-" : g.currentTask) + ", step " + (g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target()));
+        boolean axe = st.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_AXE), pick = st.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_PICKAXE);
+        if (!axe && !pick) return;
+        var held = g.getMainHandItem(); float hs = held.getDestroySpeed(st), best = hs; String bestName = "";
+        for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { var it = g.inventory.items.getItem(i); float v = it.getDestroySpeed(st); if (v > best) { best = v; bestName = it.getHoverName().getString(); } }
+        if (best >= 2 * hs && best > 1) { fileOnce(g, "BARE_HANDS", "BARE_HANDS|wrong|" + nm(st), "broke " + nm(st) + " at " + p.toShortString() + " with " + (held.isEmpty() ? "his hand" : held.getHoverName().getString()) + " while carrying " + bestName); s.handRun = 0; return; }
+        if (hs > 1) { s.handRun = 0; return; }
+        int planks = 0, logs = 0;
+        for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { var it = g.inventory.items.getItem(i); if (it.is(net.minecraft.tags.ItemTags.PLANKS)) planks += it.getCount(); if (it.is(net.minecraft.tags.ItemTags.LOGS)) logs += it.getCount(); }
+        if (++s.handRun >= 4 && planks + 4 * logs >= 9) // (the makings of a wooden tool and a table: 3 head, 2 sticks, 4 table)
+            fileOnce(g, "BARE_HANDS", "BARE_HANDS|hand|" + (axe ? "axe" : "pick"), s.handRun + " " + (axe ? "axe" : "pickaxe") + " blocks by hand in a row (now " + nm(st) + " at " + p.toShortString() + ") with the makings of a tool on him (logs " + logs + ", planks " + planks + ")");
+    }
+
     // furnace output done and sitting (input empty) over 30 s in one of his furnaces while he isn't on his way to it (World 17 23:35: charcoal left in it)
     private static final java.util.Map<BlockPos, Integer> doneSince = new java.util.HashMap<>();
     private static void furnaceLeft(ClaudeEntity g) {
@@ -437,7 +524,7 @@ public final class Watchdog {
         if (!g.isAlive()) return;
         LogReviewer.tick(g);
         lineIncidents(g);
-        if (now(g) % 20 == 0) furnaceLeft(g);
+        if (now(g) % 20 == 0) { furnaceLeft(g); idle(g, st(g)); wastedTrip(g, st(g)); }
         dragAndWater(g, st(g));
         St s = st(g);
         // 1. a move no planned move made: more than 3 blocks in one tick (a knock, a fall through, an unlogged teleport)
@@ -574,7 +661,7 @@ public final class Watchdog {
         try { b.append(context(g)); } catch (RuntimeException e) { b.append("context: threw ").append(e).append('\n'); }
         b.append(MindLog.recent());
         String text = b.toString();
-        incidents++; lastIncident = kind + ": " + why;
+        incidents++; lastIncident = kind + ": " + why; recentKinds.addLast(kind); while (recentKinds.size() > 50) recentKinds.removeFirst();
         String file = "-";
         if (!com.claudemod.entity.ClaudeSpawner.testing && g.getServer() != null) {
             try {
@@ -594,6 +681,8 @@ public final class Watchdog {
         if (!"oak planks".equals(missing("failed: missing 3 oak planks (the table)"))) throw new AssertionError(missing("failed: missing 3 oak planks (the table)"));
         if (!"cobblestone".equals(gatherable("cobbled deepslate"))) throw new AssertionError("deepslate");
         if (!"LOG_FUEL".equals(lineKind("[Claude smelt] fuel at 1, 2, 3: 2 oak log for 3 items (whole logs)")) || lineKind("[Claude smelt] fuel at 1, 2, 3: 2 oak planks for 3 items") != null) throw new AssertionError("log fuel");
+        if (!"SPIN".equals(lineKind("[Claude move] spin at -89, 22, -22 doing GoTo to -91, 23, -24 next node -90,22,-22 (294 deg in 19 ticks)"))) throw new AssertionError("spin");
+        if (lineKind("[Claude move] in water 8.8 s, 30 blocks") != null || lineKind("[Claude move] dragging along oak_leaves") != null) throw new AssertionError("own move lines refiled");
         if (lineKind("[Claude conflict] 3 times in 59 s: [Claude life] holding in his cover at 0, 66, 0 for the night") != null) throw new AssertionError("night hold is a conflict");
         if (!lineKey("FAILED", "[Claude skill] collect logs x2 -> failed: it's night (no iron armor)").equals(lineKey("FAILED", "[Claude watchdog] collect logs x5 -> failed: it's night: 1 time(s) in 0 s"))) throw new AssertionError("skill line and its echo differ: " + lineKey("FAILED", "[Claude skill] collect logs x2 -> failed: it's night (no iron armor)"));
         if (lineKey("LITTER", "[Claude litter] the tree at -7, 79, 5 isn't finished").equals(lineKey("LITTER", "[Claude litter] the tree at -11, 78, 13 isn't finished"))) throw new AssertionError("two trees, one key");

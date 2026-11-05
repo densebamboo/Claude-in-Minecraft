@@ -40,6 +40,7 @@ public final class PlayerActivityListener {
             BlockPos pos = e.getPos();
             String blockId = BuiltInRegistries.BLOCK.getKey(e.getState().getBlock()).toString();
             log(p, new ActivityEvent.Mined(blockId, pos, System.currentTimeMillis()));
+            if (p instanceof ClaudeEntity gb) com.claudemod.entity.life.Watchdog.brokeOwn(gb, pos, e.getState()); // (the bug log: place-break, bare hands)
             try { PlayerTrace.block(p, "break", blockId, pos); } catch (NoClassDefFoundError ignored) {} // (the recorder class arrives with a relaunch; a hot-swapped listener must not blow up before it)
             if (!ClaudeEntity.isClaude(p) && p.level() instanceof ServerLevel slw) com.claudemod.entity.life.WatchBuild.userBroke(p, slw, pos, e.getState()); if (!ClaudeEntity.isClaude(p) && p.level() instanceof ServerLevel slc) com.claudemod.entity.life.CopyMode.userBroke(p, slc, pos, e.getState()); // (showing him: learned if he saw it) // (a build he's watching: learned if he saw it go)
             if (p.level() instanceof ServerLevel sl1) com.claudemod.entity.life.TempLedger.brokenBy(p, sl1, pos); // one of his temporary blocks back up (his after-record)
@@ -47,6 +48,7 @@ public final class PlayerActivityListener {
     }
 
     public static void onBlockPlace(BlockEvent.EntityPlaceEvent e) {
+        if (e.getEntity() instanceof ClaudeEntity gp) com.claudemod.entity.life.Watchdog.placedOwn(gp, e.getPos());
         if (e.getEntity() instanceof ServerPlayer c && ClaudeEntity.isClaude(c)) { com.claudemod.context.PlayerProfile.notePlaced(c, e.getPos()); if (c instanceof ClaudeEntity g0 && c.level() instanceof ServerLevel sl0) com.claudemod.entity.life.TempLedger.placed(g0, sl0, e.getPos(), e.getPlacedBlock(), e.getBlockSnapshot().getState()); /* (every block he puts down for now, on one ledger) */ try { PlayerTrace.block(c, "place", BuiltInRegistries.BLOCK.getKey(e.getPlacedBlock().getBlock()).toString(), e.getPos()); } catch (NoClassDefFoundError ignored) {} return; } // (his places in the trace too: placed minus broken is his litter) // what he put down, on his own record: a rule that undoes his placements never touches anything else
         if (e.getEntity() instanceof ServerPlayer p && !ClaudeEntity.isClaude(p)) {
             BlockPos pos = e.getPos();

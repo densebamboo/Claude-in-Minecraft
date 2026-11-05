@@ -8030,7 +8030,7 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
-        if (stage[0] >= 494 && stage[0] <= 799 && stages494(stage, t, c, h, level, mock)) return true;
+        if (stage[0] >= 494 && stage[0] <= 849 && stages494(stage, t, c, h, level, mock)) return true;
         if (stage[0] >= 279 && stage[0] <= 285) {
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Whereabouts.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.ExactSpot.reset(c); com.claudemod.director.Primitives.reset(c);
                 c.planning = false; c.failCount.clear(); c.commandResults.clear(); c.commandActive = false; c.lastSkillLine = ""; c.lastStep = null; c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600; esWaitT = -1; esMark = -1; esFake = ""; }
@@ -10413,6 +10413,8 @@ public final class ClaudeBodyTest {
             case 629: return st629(stage, t, c, h, level, mock);
             case 630: return st630(stage, t, c, h, level, mock);
             case 627: return st627(stage, t, c, h, level, mock);
+            case 556: return st556(stage, t, c, h, level, mock);
+            case 800: return st800(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
             case 615: return st615(stage, t, c, h, level, mock);
             case 617: return st617(stage, t, c, h, level, mock);
@@ -12721,6 +12723,65 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static int s644N, s644N0;
+
+    /** The user 11-05, the rest of the bug log: a spin, a block put down and broken with nothing done, a log broken with the wrong tool in hand, ore targeted with every face closed, and 20 s standing with nothing to do, each an incident. */
+    private static BlockPos s556A; private static int s556T;
+    private static boolean s556Has(String k) { return com.claudemod.entity.life.Watchdog.recentKinds.contains(k); }
+    private static boolean st556(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var W = com.claudemod.entity.life.Watchdog.recentKinds;
+        try {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 24000; c.tasks.clear(); c.skillQueue.clear(); c.prefs.put("stay_close", "no"); W.clear(); com.claudemod.entity.life.Watchdog.linesInTests = true; s556T = -1;
+            s556A = h.absolutePos(new BlockPos(3, 40, 8));
+            for (int x = -6; x <= 12; x++) for (int z = -6; z <= 6; z++) for (int y = -1; y <= 3; y++) level.setBlockAndUpdate(s556A.offset(x, y, z), y == -1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState());
+            for (var d : net.minecraft.core.Direction.values()) level.setBlockAndUpdate(s556A.offset(8, 1, 0).relative(d), Blocks.STONE.defaultBlockState());
+            level.setBlockAndUpdate(s556A.offset(8, 1, 0), Blocks.COAL_ORE.defaultBlockState()); // (ore in solid stone: nothing to see it by)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 4)); c.setHealth(20f);
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(s556A.getX() + 0.5, s556A.getY(), s556A.getZ() + 0.5); c.fallDistance = 0;
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude move] spin at {} doing GoTo to {} next node - (300 deg in 12 ticks)", s556A.toShortString(), s556A.east(3).toShortString());
+            BlockPos cell = s556A.offset(-1, 0, 0); // (down and straight back up, nothing done between: the events as his place and break fire them)
+            com.claudemod.entity.life.Watchdog.placedOwn(c, cell); com.claudemod.entity.life.Watchdog.brokeOwn(c, cell, Blocks.COBBLESTONE.defaultBlockState());
+        }
+        if (t[0] == 290) { // (he crafts an axe before chopping by hand now: the wrong tool, put in his hand here, is what's checked)
+            c.getInventory().add(new ItemStack(Items.STONE_AXE)); c.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(Items.WOODEN_SHOVEL));
+            com.claudemod.entity.life.Watchdog.brokeOwn(c, s556A.offset(2, 0, 2), Blocks.OAK_LOG.defaultBlockState());
+            check(s556Has("BARE_HANDS"), "an oak log broken with a shovel, a stone axe in his bag, no BARE_HANDS: " + W);
+        }
+        if (t[0] == 300) { c.tasks.clear(); c.dropCurrent = true; c.tasks.add(new com.claudemod.entity.life.Task.Break(s556A.offset(8, 1, 0))); }
+        if (t[0] == 310) { check(s556Has("SIGHT"), "ore with every face closed targeted, no SIGHT: " + W); c.tasks.clear(); c.dropCurrent = true; s556T = t[0]; }
+        if (t[0] > 310 && t[0] < 900) { c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 24000; } // (nothing for him to do)
+        if (s556T > 0 && s556Has("IDLE")) {
+            check(t[0] - s556T >= 380, "IDLE before 20 s: " + (t[0] - s556T) + " ticks");
+            for (String k : new String[] {"SPIN", "PLACE_BREAK", "BARE_HANDS", "SIGHT"}) check(s556Has(k), "no " + k + ": " + W + " (last " + com.claudemod.entity.life.Watchdog.lastIncident + ")");
+            com.claudemod.entity.life.Watchdog.linesInTests = false; pass(stage, t, "spin, place-break, bare hands, unseen ore and 20 s idle all filed: " + W); return true;
+        }
+        check(t[0] < 900, "filed " + W + " (last " + com.claudemod.entity.life.Watchdog.lastIncident + ")");
+        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
+        return true;
+    }
+
+    /** The user 11-05: a walk that takes over twice a player's time (a wall to go round) is SLOW; a 20-block walk then 10 s of nothing is a WASTED_TRIP. */
+    private static BlockPos s800A;
+    private static boolean st800(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var W = com.claudemod.entity.life.Watchdog.recentKinds;
+        try {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 24000; c.tasks.clear(); c.skillQueue.clear(); c.prefs.put("stay_close", "no"); W.clear(); com.claudemod.entity.life.Watchdog.linesInTests = true;
+            s800A = h.absolutePos(new BlockPos(3, 40, 8));
+            for (int x = -4; x <= 30; x++) for (int z = -18; z <= 18; z++) for (int y = -1; y <= 3; y++) level.setBlockAndUpdate(s800A.offset(x, y, z), y == -1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState());
+            for (int z = -16; z <= 16; z++) for (int y = 0; y <= 3; y++) level.setBlockAndUpdate(s800A.offset(4, y, z), Blocks.OBSIDIAN.defaultBlockState()); // (a wall to go round: 8 straight, ~40 walked)
+            c.getInventory().clearContent();
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(s800A.getX() + 0.5, s800A.getY(), s800A.getZ() + 0.5); c.fallDistance = 0;
+            c.tasks.add(new com.claudemod.entity.life.Task.GoTo(s800A.east(8).immutable(), 1.0));
+        }
+        if (t[0] > 1 && t[0] < 1200 && c.currentTask == null && c.tasks.isEmpty() && !W.contains("SLOW")) check(false, "the walk round the wall ended without SLOW: " + W + " at " + c.blockPosition().toShortString());
+        if (W.contains("SLOW") && !W.contains("WASTED_TRIP") && c.currentTask == null && c.tasks.isEmpty() && c.blockPosition().distSqr(s800A.east(8)) < 9) c.tasks.add(new com.claudemod.entity.life.Task.GoTo(s800A.east(28).immutable(), 1.0)); // (20 blocks on, then nothing)
+        if (W.contains("WASTED_TRIP")) { com.claudemod.entity.life.Watchdog.linesInTests = false; pass(stage, t, "a walk round a wall filed SLOW, a 20-block walk to nothing WASTED_TRIP: " + W); return true; }
+        if (W.contains("SLOW")) { c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 24000; }
+        check(t[0] < 1500, "filed " + W + " (last " + com.claudemod.entity.life.Watchdog.lastIncident + ", he's at " + c.blockPosition().toShortString() + ")");
+        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
+        return true;
+    }
 
     /** The user 11-05: the log reviewer. 5 minutes of play past, his log goes to the model; each finding is a REVIEW incident; what was reported goes back in so it isn't filed twice; log_review=off stops it. (The model is faked here.) */
     private static int s627Calls;

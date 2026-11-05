@@ -76,6 +76,7 @@ Each line is a live report from Day to Day (World 15, 2026-10-31/11-01) not on t
 - **The vanilla-parity audit, the rest of it** (see CLOUD_HANDOFF.md, `bp/parity`).
 
 ## Day to Day, 2026-11-04 afternoon (left from the log sweep)
+- **Route.wayBack order (audit 11-04, stage 643 red, out of the gate).** The trail is access-ordered, so the route check's `get()` moves an old cell to the newest end and wayBack's "newest first" is wrong. Sorting by tick fixes 643 but breaks 606: in strict time order, the drowning escape (WorkGoal ~123) aims at the trail cell *below* him once he floats off the trail (`on` = nearest cell, his own cell not on it) and flips between that cell and the air every tick. The fix needs both: wayBack by tick, and the escape aiming at the next cell toward the air (never the nearest one when he's off the trail). Prove with 606 + 643 + the drowning stages (592, 603).
 
 - Chat: "mine through the water plug" (00:48) got "i don't see any water near you, where is it?" The plug was his own mine's water plug. His chat context doesn't know his plugs or his mine's water cells. Big Picture: chat misunderstanding to feature.
 - Fish fights: FIGHT NO EFFECT, 15 s attacking a Salmon 3.5 off with no hit (13:52), and a Cod 48 off as a fight target. Entity reach is 3; he never closed on a swimming fish. The fishing rod or a closer approach in water is the fix. Low priority (food is otherwise fine).

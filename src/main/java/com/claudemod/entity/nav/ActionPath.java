@@ -95,9 +95,9 @@ public final class ActionPath {
     public static Plan plan(ClaudeEntity g, ServerLevel level, BlockPos from, BlockPos to, double within, boolean canPlace, int budget, Mode mode, Map<BlockPos, Integer> failedAt, int now, List<net.minecraft.world.phys.Vec3> avoid, double w) {
         Costs c = new Costs(g, level, canPlace, mode, failedAt, now); c.avoid = avoid;
         PriorityQueue<Node> open = new PriorityQueue<>((a, b) -> Double.compare(a.f, b.f));
-        Map<BlockPos, Double> best = new HashMap<>();
+        Map<BlockPos, Node> best = new HashMap<>(); // (by cost alone, the cheap arrival that had used his blocks pruned the dearer one that hadn't, and the way on needed one)
         open.add(new Node(from.immutable(), 0, w * h(from, to), null, List.of(), 0, 0f, c.water(from.above()) ? (g.getMaxAirSupply() - Math.max(0, g.getAirSupply())) / 10 : 0));
-        best.put(from.immutable(), 0.0);
+        best.put(from.immutable(), open.peek());
         int expanded = 0; long t0 = System.nanoTime();
         while (!open.isEmpty() && expanded++ < budget) {
             if ((expanded & 255) == 0 && System.nanoTime() - t0 > 500_000_000L) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] plan {} -> {} stopped at 500 ms ({} nodes of {}): no way found in time (ActionPath.plan)", from.toShortString(), to.toShortString(), expanded, budget); break; } // (no budget in time: 3.8 s freezes, "Can't keep up" 172x on 11-04)
@@ -111,10 +111,11 @@ public final class ActionPath {
                 int nw = c.water(m.feet.above()) ? n.wet + 1 : 0;
                 if (nw > g.getMaxAirSupply() / 20) { c.airRefused++; continue; } // a swim under water no longer than half his air (~10 ticks a cell): a player turns back from an unknown flooded passage while he still can (live 12:02 11-04: 10 cells in, drowned)
                 double ng = n.g + m.cost;
-                Double was = best.get(m.feet);
-                if (was != null && was <= ng) continue;
-                best.put(m.feet, ng);
-                open.add(new Node(m.feet, ng, ng + w * h(m.feet, to), n, m.acts, np, nh, nw));
+                Node was = best.get(m.feet);
+                if (was != null && was.g() <= ng && was.puts() <= np && was.wet() <= nw && was.hurt() <= nh) continue;
+                Node nn = new Node(m.feet, ng, ng + w * h(m.feet, to), n, m.acts, np, nh, nw);
+                if (was == null || was.g() > ng) best.put(m.feet, nn);
+                open.add(nn);
             }
         }
         coverNote(c, from, to); leapNote(c, from, to, null);
@@ -161,11 +162,11 @@ public final class ActionPath {
     static final java.util.Set<String> STRUCT_KEYS = java.util.Set.of("fortress", "bastion_remnant", "village", "desert_pyramid", "jungle_pyramid", "pillager_outpost", "igloo", "mansion", "ocean_ruin", "trail_ruins", "end_city", "stronghold");
     /** Structure cells a planned way digs (no way round): the dig guard lets these through for 5 minutes; tasks() puts each back. */
     private static final Map<BlockPos, Long> STRUCT_OK = new HashMap<>();
-    public static boolean structureDigOk(ServerLevel level, BlockPos p) { Long t = STRUCT_OK.get(p); return t != null && level.getGameTime() - t < 20 * 300; }
+    public static boolean structureDigOk(ServerLevel level, BlockPos p) { Long t = STRUCT_OK.get(p); return t != null && level.getGameTime() - t < 20 * 300 && level.getGameTime() >= t; }
 
     private static double h(BlockPos a, BlockPos b) {
         double dx = Math.abs(a.getX() - b.getX()), dy = Math.abs(a.getY() - b.getY()), dz = Math.abs(a.getZ() - b.getZ());
-        return Math.max(dx, dz) + Math.min(dx, dz) * 0.2 + dy * 1.2;
+        return Math.max(dx, dz) + Math.min(dx, dz) * 0.2 + dy * 0.6; // (1.2 a block up overshot a step up's 1.6: stairs and hills got a worse way first)
     }
 
     private static Plan unwind(Node n) {

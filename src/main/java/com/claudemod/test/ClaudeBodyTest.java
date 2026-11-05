@@ -10426,6 +10426,15 @@ public final class ClaudeBodyTest {
             case 635: return st635(stage, t, c, h, level, mock);
             case 636: return st636(stage, t, c, h, level, mock);
             case 637: return st637(stage, t, c, h, level, mock);
+            case 638: return st638(stage, t, c, h, level, mock);
+            case 639: return st639(stage, t, c, h, level, mock);
+            case 640: return st640(stage, t, c, h, level, mock);
+            case 641: return st641(stage, t, c, h, level, mock);
+            case 642: return st642(stage, t, c, h, level, mock);
+            case 643: return st643(stage, t, c, h, level, mock);
+            case 645: return st645(stage, t, c, h, level, mock);
+            case 646: return st646(stage, t, c, h, level, mock);
+            case 647: return st647(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -13090,6 +13099,206 @@ public final class ClaudeBodyTest {
             com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0);
             check(places >= 40, "the crossing from 8 back: " + places + " blocks in its tasks, a highway is ~74 (4 wide, rails): " + ts.subList(0, Math.min(12, ts.size())));
             pass(stage, t, "the crossing from 8 back is the highway: " + places + " blocks");
+        }
+        return true;
+    }
+
+    private static int st638Gone = -1;
+    /** A walk that gives up drops the wall torch queued by that spot (audit 11-04: a comment had swallowed the WallTorch clause, so it stayed queued and failed its own walk). */
+    private static boolean st638(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(3, 2, 8)), box = h.absolutePos(new BlockPos(12, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st638Gone = -1; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -4; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            for (int dx = -1; dx <= 1; dx++) for (int dy = -1; dy <= 2; dy++) for (int dz = -1; dz <= 1; dz++) level.setBlock(box.offset(dx, dy, dz), Blocks.BEDROCK.defaultBlockState(), 2);
+            level.setBlock(box, Blocks.AIR.defaultBlockState(), 2); level.setBlock(box.above(), Blocks.AIR.defaultBlockState(), 2); // (an air pocket sealed in bedrock: no way in)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.TORCH, 16));
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.GoTo(box, 0.5)); c.tasks.add(new Task.WallTorch(box.west(2), net.minecraft.core.Direction.EAST)); }
+        if (t[0] > 20) {
+            boolean goQueued = c.currentTask instanceof Task.GoTo g0 && g0.pos().equals(box) || c.tasks.stream().anyMatch(x -> x instanceof Task.GoTo g1 && g1.pos().equals(box));
+            boolean torch = c.currentTask instanceof Task.WallTorch || c.tasks.stream().anyMatch(x -> x instanceof Task.WallTorch);
+            if (!goQueued) { c.tasks.clear(); c.dropCurrent = true; check(!torch, "the walk to " + box.toShortString() + " gave up and the wall torch 2 off it stayed queued: now=" + c.currentTask + " tasks=" + c.tasks); pass(stage, t, "the walk gave up in " + (t[0] - 20) / 20 + " s and its torch went with it"); }
+            else check(t[0] < 20 + 20 * 60, "the walk into a sealed box never gave up in 60 s");
+        }
+        return true;
+    }
+
+    private static int st639Placed; private static boolean st639Was;
+    /** 21 placements in one cell (placed, taken down, placed again): all 21 go in (audit 11-04: the try count never reset on success, the 21st was dropped as "failed 20 times"). */
+    private static boolean st639(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(6, 2, 8)), p = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st639Placed = 0; st639Was = false; }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -4; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64));
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.currentTask = null; for (int i = 0; i < 21; i++) { c.tasks.add(new Task.Place(p, Items.COBBLESTONE)); c.tasks.add(new Task.Break(p)); } }
+        if (t[0] > 20) {
+            boolean now = !level.getBlockState(p).isAir(); if (now && !st639Was) st639Placed++; st639Was = now;
+            boolean left = c.currentTask instanceof Task.Place || c.tasks.stream().anyMatch(x -> x instanceof Task.Place);
+            if (st639Placed >= 21) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "21 placements in one cell in " + (t[0] - 20) / 20 + " s"); }
+            else { check(left || c.currentTask instanceof Task.Break || c.tasks.stream().anyMatch(x -> x instanceof Task.Break), "only " + st639Placed + " of 21 placements went in, the rest dropped"); check(t[0] < 20 + 20 * 120, "21 placements not done in 120 s (" + st639Placed + ")"); }
+        }
+        return true;
+    }
+
+    private static int st640Start = -1, st640End = -1; private static net.minecraft.world.entity.monster.Zombie st640A, st640B;
+    /** A fight left with the out-of-sight clock running: the next fight with one out of sight gets its own 3 s, not over on its first tick (audit 11-04). */
+    private static boolean st640(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st640Start = -1; st640End = -1; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -4; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            level.setDayTime(18000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+            for (int[] o : new int[][] {{0, 4}, {4, 4}}) { BlockPos m0 = at.offset(o[0], 7, o[1]); /* (7 up: past the 5.5 of the behind-stone rule, which ended both fights first) */ for (int dx = -1; dx <= 1; dx++) for (int dy = -1; dy <= 2; dy++) for (int dz = -1; dz <= 1; dz++) level.setBlock(m0.offset(dx, dy, dz), Blocks.STONE.defaultBlockState(), 2); level.setBlock(m0, Blocks.AIR.defaultBlockState(), 2); level.setBlock(m0.above(), Blocks.AIR.defaultBlockState(), 2); }
+        }
+        if (t[0] == 12) {
+            st640A = EntityType.ZOMBIE.create(level); st640A.moveTo(at.getX() + 0.5, at.getY() + 7, at.getZ() + 4.5, 0, 0); st640A.setNoAi(true); st640A.setPersistenceRequired(); level.addFreshEntity(st640A);
+            st640B = EntityType.ZOMBIE.create(level); st640B.moveTo(at.getX() + 4.5, at.getY() + 7, at.getZ() + 4.5, 0, 0); st640B.setNoAi(true); st640B.setPersistenceRequired(); level.addFreshEntity(st640B);
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Attack(st640A.getUUID(), 600)); }
+        if (t[0] == 40) st640A.discard(); // (gone mid-fight, its out-of-sight clock running)
+        if (t[0] == 130) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Attack(st640B.getUUID(), 600)); st640Start = t[0]; }
+        if (st640Start > 0 && t[0] > st640Start + 1 && st640End < 0) {
+            boolean on = c.currentTask instanceof Task.Attack a0 && a0.target().equals(st640B.getUUID()) || c.tasks.stream().anyMatch(x -> x instanceof Task.Attack a1 && a1.target().equals(st640B.getUUID()));
+            if (!on) st640End = t[0];
+            else check(t[0] < st640Start + 20 * 30, "the fight with the one out of sight never ended in 30 s");
+        }
+        if (st640End > 0) {
+            int lasted = st640End - st640Start; st640B.discard(); c.tasks.clear(); c.dropCurrent = true;
+            check(lasted >= 40, "the next fight with one out of sight over in " + lasted + " ticks (want its own ~3 s)");
+            pass(stage, t, "the second fight lasted " + lasted + " ticks before 'out of sight'");
+        }
+        return true;
+    }
+
+    /** One block on him, the cheap way to the middle bridges a gap, the dear way walks round, the way on needs one bridge: a way is found (audit 11-04: the best map kept only the cheaper arrival, with his block used up). */
+    private static boolean st641(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos b = h.absolutePos(new BlockPos(0, 40, 0)); // (floor at 39, feet 40, head 41, ceiling 42; under the gaps, 40 blocks of air: no drop)
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            for (int x = -1; x <= 5; x++) for (int z = -1; z <= 4; z++) for (int y = -1; y <= 2; y++) level.setBlock(b.offset(x, y, z), Blocks.BEDROCK.defaultBlockState(), 2);
+            int[][] cells = {{0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0}, {0, 1}, {0, 2}, {0, 3}, {1, 3}, {2, 3}, {2, 2}, {2, 1}};
+            for (int[] q : cells) { level.setBlock(b.offset(q[0], 0, q[1]), Blocks.AIR.defaultBlockState(), 2); level.setBlock(b.offset(q[0], 1, q[1]), Blocks.AIR.defaultBlockState(), 2); }
+            for (int gx : new int[] {1, 3}) level.setBlock(b.offset(gx, -1, 0), Blocks.AIR.defaultBlockState(), 2); // the two gaps
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 1));
+        }
+        if (t[0] == 20) {
+            var plan = com.claudemod.entity.nav.ActionPath.plan(c, level, b, b.offset(4, 0, 0), 0.5, true, 20000);
+            String acts = plan == null ? "none" : String.valueOf(plan.acts());
+            for (int x = -1; x <= 5; x++) for (int z = -1; z <= 4; z++) for (int y = -1; y <= 2; y++) level.setBlock(b.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.getInventory().clearContent();
+            check(plan != null, "no way through with one block: the round way to the middle was pruned by the bridge's cheaper arrival");
+            pass(stage, t, "a way through: " + acts.substring(0, Math.min(160, acts.length())));
+        }
+        return true;
+    }
+
+    /** The route search's estimate never above what a move really costs (audit 11-04: 1.2 a block up made a step up read 2.2 against its 1.6). */
+    private static boolean st642(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            try {
+                var mh = com.claudemod.entity.nav.ActionPath.class.getDeclaredMethod("h", BlockPos.class, BlockPos.class); mh.setAccessible(true);
+                BlockPos a = new BlockPos(0, 64, 0);
+                double up = (double) mh.invoke(null, a, a.east().above()), down = (double) mh.invoke(null, a, a.east().below()), down3 = (double) mh.invoke(null, a, a.east().below(3)), flat = (double) mh.invoke(null, a, a.east());
+                check(up <= 1.6 + 1e-9, "a step up estimated " + up + ", it costs 1.6");
+                check(down <= 1.8 + 1e-9 && down3 <= 3.4 + 1e-9, "a step down estimated " + down + " / 3 down " + down3 + ", they cost 1.8 / 3.4");
+                check(flat <= 1.0 + 1e-9, "a step across estimated " + flat);
+                pass(stage, t, "estimates within the costs: up " + up + ", down " + down + ", 3 down " + down3);
+            } catch (ReflectiveOperationException e) { check(false, "no ActionPath.h: " + e); }
+        }
+        return true;
+    }
+
+    /** The way back is newest first even after the route check reads an old cell of his trail (audit 11-04: the trail map is access-ordered; a get() moved a cell 50 s old to the newest end, and the drowning escape aimed at it). */
+    @SuppressWarnings("unchecked")
+    private static boolean st643(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos a = h.absolutePos(new BlockPos(3, 2, 8)), b = h.absolutePos(new BlockPos(6, 2, 8)), d = h.absolutePos(new BlockPos(9, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.prefs.put("stay_close", "no"); com.claudemod.entity.nav.Route.forgetTrail(c); }
+        if (t[0] == 10) { for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -4; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); } c.tasks.clear(); c.currentTask = null; }
+        if (t[0] == 12) { c.teleportTo(a.getX() + 0.5, a.getY(), a.getZ() + 0.5); com.claudemod.entity.nav.Route.step(c); }
+        if (t[0] == 15) { c.teleportTo(b.getX() + 0.5, b.getY(), b.getZ() + 0.5); com.claudemod.entity.nav.Route.step(c); }
+        if (t[0] == 18) { c.teleportTo(d.getX() + 0.5, d.getY(), d.getZ() + 0.5); com.claudemod.entity.nav.Route.step(c); }
+        if (t[0] == 20) {
+            try {
+                var f = com.claudemod.entity.nav.Route.class.getDeclaredField("trail"); f.setAccessible(true);
+                var m = ((java.util.Map<java.util.UUID, java.util.Map<BlockPos, Integer>>) f.get(null)).get(c.getUUID());
+                check(m != null && m.get(a) != null, "his trail has no cell at " + a.toShortString()); // (the route check's read: Route.alongRoutes)
+                var back = com.claudemod.entity.nav.Route.wayBack(c, 200);
+                int ia = back.indexOf(a), ib = back.indexOf(b), id = back.indexOf(d);
+                check(ia >= 0 && ib >= 0 && id >= 0, "the way back is missing a cell: " + back);
+                check(id < ib && ib < ia, "the way back isn't newest first after a read of the oldest cell: " + back);
+                pass(stage, t, "the way back newest first: " + back.size() + " cells");
+            } catch (ReflectiveOperationException e) { check(false, "no Route.trail: " + e); }
+        }
+        return true;
+    }
+
+    /** Food choice: chorus fruit never (it teleports him, off an End island); golden apples only when he's low (audit 11-04). */
+    private static boolean st645(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.CHORUS_FRUIT, 8)); c.setHealth(20); c.getFoodData().setFoodLevel(8);
+            var f1 = com.claudemod.director.ClaudeLife.foodToEat(c, true);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.GOLDEN_APPLE, 2));
+            var f2 = com.claudemod.director.ClaudeLife.foodToEat(c, true);
+            c.setHealth(6); var f3 = com.claudemod.director.ClaudeLife.foodToEat(c, true);
+            c.getInventory().clearContent(); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            check(f1 != Items.CHORUS_FRUIT, "chorus fruit chosen as food");
+            check(f2 != Items.GOLDEN_APPLE, "a golden apple eaten for hunger at full health");
+            check(f3 == Items.GOLDEN_APPLE, "at 6 health the golden apple wasn't eaten: " + f3);
+            pass(stage, t, "chorus " + f1 + ", golden apple at 20 health " + f2 + ", at 6 health " + f3);
+        }
+        return true;
+    }
+
+    /** A Nether death isn't one of his overworld death spots; a death kit from a later clock isn't listed (audit 11-04: no dimension on the spots; negative ages never expired). */
+    private static boolean st646(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos np = new BlockPos(c.getBlockX(), 40, c.getBlockZ());
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; com.claudemod.director.ClaudeLife.deathTestReset(c); }
+        if (t[0] == 10) {
+            com.claudemod.director.ClaudeLife.noteDeath(c, level.damageSources().generic());
+            var ld = (net.minecraft.world.level.storage.ServerLevelData) level.getLevelData(); long gt = level.getGameTime();
+            ld.setGameTime(gt - 100000); String lines = com.claudemod.director.ClaudeLife.deathKitLines(c); ld.setGameTime(gt);
+            check(lines.isEmpty(), "a death from a later clock listed: " + lines.trim());
+            c.setLastDeathLocation(java.util.Optional.of(net.minecraft.core.GlobalPos.of(net.minecraft.world.level.Level.NETHER, np))); c.justRespawned = true;
+        }
+        if (t[0] == 40) {
+            boolean has = java.util.Arrays.stream(com.claudemod.director.ClaudeLife.deathSpotsFor(c)).anyMatch(l -> l == np.asLong());
+            c.justRespawned = false; c.recoverPending = false; c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.setLastDeathLocation(java.util.Optional.empty()); com.claudemod.director.ClaudeLife.deathTestReset(c);
+            check(!has, "a Nether death at " + np.toShortString() + " counted as an overworld death spot");
+            pass(stage, t, "Nether death not among his overworld spots; a later clock's kit not listed");
+        }
+        return true;
+    }
+
+    private static int st647From = -1;
+    /** A walk he can't finish (a pocket walled in bedrock, nothing on him): the give-up files a BANDAID incident, so the bug under it is seen (audit 11-04: the generic give-ups were silent). */
+    private static boolean st647(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(3, 2, 8)), box = h.absolutePos(new BlockPos(9, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st647From = -1; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -4; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            for (int dx = -1; dx <= 1; dx++) for (int dy = -1; dy <= 2; dy++) for (int dz = -1; dz <= 1; dz++) level.setBlock(box.offset(dx, dy, dz), Blocks.BEDROCK.defaultBlockState(), 2);
+            level.setBlock(box, Blocks.AIR.defaultBlockState(), 2); level.setBlock(box.above(), Blocks.AIR.defaultBlockState(), 2);
+            level.setDayTime(3000); c.getInventory().clearContent(); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+        }
+        if (t[0] == 20) { st647From = com.claudemod.entity.life.Watchdog.incidents; c.tasks.add(new Task.GoTo(box, 0.5)); }
+        if (st647From >= 0 && t[0] > 20) {
+            String li = com.claudemod.entity.life.Watchdog.lastIncident;
+            if (com.claudemod.entity.life.Watchdog.incidents > st647From && li.startsWith("BANDAID")) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "the give-up filed an incident: " + li); }
+            else check(t[0] < 20 + 20 * 70, "70 s on a walk into a bedrock pocket and no BANDAID incident (last: " + li + ", now=" + c.currentTask + " queue " + c.tasks + ")");
         }
         return true;
     }

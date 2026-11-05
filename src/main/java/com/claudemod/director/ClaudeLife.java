@@ -136,7 +136,7 @@ public final class ClaudeLife {
             Skills.Step step = g.skillQueue.poll();
             String failKey = step.skill() + (step.target().isBlank() ? "" : " " + step.target()); // per skill AND target: a beef hunt that failed must not skip the next log run
             if (!g.commandActive && g.failCount.getOrDefault(failKey, 0) >= 3) { // his own plan, failed 3x: not that step again yet, but the rest of the plan goes on
-                ClaudeMod.LOGGER.info("[Claude skill] skipped {}: failed 3 times in a row (on with the rest of the plan)", step.skill());
+                ClaudeMod.LOGGER.info("[Claude skill] skipped {}: failed 3 times in a row (on with the rest of the plan)", step.skill()); bandaid(g, "failed 3x skip", failKey, failKey + " skipped, last: " + g.failReason.get(step.skill()));
                 g.lastSkillLine = step.skill() + " -> skipped (failed 3 times in a row)";
                 if (g.skillQueue.isEmpty()) g.nextPlanTick = g.tickCount; // nothing else in it: think again
                 return;
@@ -166,7 +166,7 @@ public final class ClaudeLife {
                 if (g.commandActive && !g.commandResults.isEmpty()) g.commandResults.set(g.commandResults.size() - 1, line + " (round in circles: stopped)"); // (their job isn't done: reportBack keeps at it, the rules carry its step on)
                 lesson(g, "'" + step.skill() + (step.target().isBlank() ? "" : " " + step.target()) + "' kept giving '" + line.substring(line.indexOf("->") + 3) + "' over and over: that approach doesn't work here, try another");
                 PlayerProfile.noteDoing(player, "you went round in circles on '" + line + "': that way isn't working, do something different");
-                ClaudeMod.LOGGER.info("[Claude skill] round in circles on \"{}\": stopping that", line);
+                ClaudeMod.LOGGER.info("[Claude skill] round in circles on \"{}\": stopping that", line); bandaid(g, "round in circles", step.skill(), line);
             }
             boolean nightRefusal = result.startsWith("failed") && (result.contains("it's night") || result.contains("it's day,")); // (and the pearl hunt's "it's day": waits for dusk, 02:01 the watchdog asked them for help with it)
             if (nightRefusal) { g.failReason.put(step.skill(), result); long t = g.level().getDayTime() % 24000; int until = Math.max(200, (int) (result.contains("it's day,") ? 12542 - t : (24000 - t) % 24000)); g.attempts.counters.put("timeWaitRefusals", g.tickCount < g.attempts.counters.getOrDefault("timeWait", 0) ? g.attempts.counters.getOrDefault("timeWaitRefusals", 0) + 1 : 1); g.attempts.counters.put("timeWait", g.tickCount + until); ClaudeMod.LOGGER.info("[Claude plan] {} waits on the time of day: no thinking ahead mid-work for {} s, till it changes (ClaudeLife.skillDone)", step.skill(), until / 20); } // (01:54 the pearl hunt refused by day re-planned every 10 s through the meanwhile walk) // the planner still hears why, so it plans round the wait // a "not at night" is a wait, not a failure: by day the same step is the right one
@@ -419,7 +419,7 @@ public final class ClaudeLife {
             var death = g.getLastDeathLocation();
             if (death.isPresent() && g.justRespawned) {
                 BlockPos at = death.get().pos();
-                deathSpots(g).add(at.immutable());
+                if (death.get().dimension() == net.minecraft.world.level.Level.OVERWORLD) deathSpots(g).add(at.immutable()); // (the list has no dimension and turns his overworld stairs: a Nether death at the same x, z isn't one of them)
                 boolean inItsDepths = inHisMine(g, at) || g.mineSpine.stream().anyMatch(s -> Math.abs(s.getX() - at.getX()) <= 3 && Math.abs(s.getZ() - at.getZ()) <= 3 && Math.abs(s.getY() - at.getY()) <= 3); // in his tunnels (a fall from the stairs into the cave below is the cave's kill, not the mine's) // the cave its bottom opens into counts (eight deaths within 10 blocks of the face never once read as "in the mine")
                 if (g.mineFace == null || !inItsDepths) ClaudeMod.LOGGER.info("[Claude life] death at {} not counted against a mine (face {}, entrance {})", at.toShortString(), g.mineFace == null ? "none" : g.mineFace.toShortString(), g.stairStart == null ? "none" : g.stairStart.toShortString());
                 if (g.mineFace != null && inItsDepths) noteMineDeath(g, ((ServerLevel) g.level()), at); // the cause read off the spot and fixed when he's back there; the mine stays his (no death count writes it off)
@@ -582,6 +582,14 @@ public final class ClaudeLife {
         for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { ItemStack s = g.inventory.items.getItem(i); if (!s.isEmpty()) h = h * 31 + s.getItem().hashCode() * 7L + s.getCount(); }
         h = h * 31 + (broken == null ? 0 : broken.getOrDefault(g.getUUID(), 0));
         return (int) (h ^ (h >>> 32));
+    }
+    /** A generic give-up fired: it hides a bug, so it files one (his whole state), once per rule and key per 5 min. shortcut: copied in WorkGoal and ClaudeLife so it hotswaps; one Watchdog method at the next restart. */
+    private static void bandaid(ClaudeEntity g, String rule, Object key, String why) {
+        if (g.attempts.counters.size() > 512) g.attempts.counters.keySet().removeIf(x -> x.startsWith("bandaid "));
+        String k = "bandaid " + rule + " " + key; Integer was = g.attempts.counters.get(k);
+        if (was != null && g.tickCount - was >= 0 && g.tickCount - was < 20 * 300) return;
+        g.attempts.counters.put(k, g.tickCount);
+        com.claudemod.entity.life.Watchdog.incident(g, "BANDAID " + rule, why);
     }
     public static boolean spinning(ClaudeEntity g, String line) {
         if (g.lineRepeats == null) g.lineRepeats = new java.util.HashMap<>();
@@ -2376,13 +2384,6 @@ public final class ClaudeLife {
                     return "failed: can't dig down from here (water, lava, a build or something unbreakable every way); move a few blocks and try again";
                 }
                 if (!continuing && g.stairStart == null) { g.stairStart = at; g.stairDir = dir; } // the entrance: set once, when the mine is started
-                final BlockPos ahead4 = at.relative(dir, 4).below(4);
-                if (deathSpots(g).stream().anyMatch(d -> d.distSqr(ahead4) <= 12 * 12) && !g.badDigDirs.contains(dir) && g.badDigDirs.size() < 3) { // the stairs are heading into a spot that has killed him (a cave full of mobs): they turn, they don't dig back into it
-                    g.badDigDirs.add(dir);
-                    g.skillQueue.addFirst(st);
-                    ClaudeMod.LOGGER.info("[Claude life] the stairs at {} are heading for where he died: turning them next", at.toShortString());
-                    return "those stairs run into the spot that killed me; turning them another way";
-                }
                 if (!continuing && dir != null && dir == g.stairDir && g.stairStart != null && shape(g).width > 1) { // the user: on the same heading as his stairs, the new run lines up with their left column, never one over (the stairs below his y13 tunnel came out offset one block right)
                     Direction cw0 = dir.getClockWise();
                     int off = (at.getX() - g.stairStart.getX()) * cw0.getStepX() + (at.getZ() - g.stairStart.getZ()) * cw0.getStepZ();
@@ -6428,7 +6429,7 @@ public final class ClaudeLife {
     public static String deathKitLines(ClaudeEntity g) {
         var q = deathKits.get(g.getUUID()); if (q == null || q.isEmpty()) return "";
         long now = g.level().getGameTime(); StringBuilder sb = new StringBuilder();
-        for (String[] d : q) { long ago = now - Long.parseLong(d[0]); if (ago > 20L * 60 * 30) continue; sb.append(" - ").append(ago / 1200).append(" min ago: ").append(d[1]).append("\n"); }
+        for (String[] d : q) { long ago = now - Long.parseLong(d[0]); if (ago > 20L * 60 * 30 || ago < 0) continue; /* (below 0: another world's clock) */ sb.append(" - ").append(ago / 1200).append(" min ago: ").append(d[1]).append("\n"); }
         return sb.toString();
     }
     public static void noteDeath(ClaudeEntity g, net.minecraft.world.damagesource.DamageSource src) {
@@ -7806,7 +7807,7 @@ public final class ClaudeLife {
         } else if (secs >= 45 && g.stuckLevel == 1) {
             g.stuckLevel = 2;
             g.stuckNote = "you've been stuck at " + at.toShortString() + " for a while, " + doing + ", and it isn't working; you're trying another way";
-            ClaudeMod.LOGGER.info("[Claude life] stuck for {}s at {} ({}): dropping it and thinking again", secs, at.toShortString(), doing);
+            ClaudeMod.LOGGER.info("[Claude life] stuck for {}s at {} ({}): dropping it and thinking again", secs, at.toShortString(), doing); bandaid(g, "stuck 45 s", nowKey, doing + " at " + at.toShortString() + ", no nearer in " + secs + " s");
             if (now instanceof Task.Break b) { // the block he couldn't get at: not again (the planner re-issued the same dig every 45 s); in his mine, the stairs turn instead of going on that way
                 g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.BREAK, b.pos(), g.tickCount);
                 if (g.mineDir != null && isMineCell(g, b.pos()) && !bpMode(g)) { g.badDigDirs.add(g.mineDir); ClaudeMod.LOGGER.info("[Claude life] the stairs can't go on {} from here (stuck on {}): turning next", g.mineDir, b.pos().toShortString()); } // (blueprint mode: a stuck dig never turns the mine; a stuck base-chest dig re-planned the stairs)
@@ -7832,7 +7833,7 @@ public final class ClaudeLife {
             if (now instanceof Task.Place p) g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.PLACE, p.pos(), g.tickCount);
             if (now instanceof Task.GoTo go) g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, go.pos(), g.tickCount);
             if (now instanceof Task.Break b) g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.BREAK, b.pos(), g.tickCount);
-            ClaudeMod.LOGGER.info("[Claude life] still stuck after {}s at {} ({}): dropping it all and starting over", secs, at.toShortString(), doing);
+            ClaudeMod.LOGGER.info("[Claude life] still stuck after {}s at {} ({}): dropping it all and starting over", secs, at.toShortString(), doing); bandaid(g, "stuck 90 s", nowKey, doing + " at " + at.toShortString() + ", no nearer in " + secs + " s");
             clearTasks(g); g.skillQueue.clear(); dropCurrent(g);
             g.progressTick = g.tickCount; g.stuckLevel = 0;
             g.nextPlanTick = g.tickCount;
@@ -12504,6 +12505,7 @@ public final class ClaudeLife {
             if (food == null) continue;
             // pufferfish: Poison II for 60 s always ends at 1 health, so he never eats it (01:41 it took him 8 -> 0.6 hiding from zombies); spider eye / poisonous potato cost ~4 health, so only with health to spare
             if (s.is(Items.PUFFERFISH) || (s.is(Items.SPIDER_EYE) || s.is(Items.POISONOUS_POTATO)) && g.getHealth() <= 10) continue;
+            if (s.is(Items.CHORUS_FRUIT) || (s.is(Items.GOLDEN_APPLE) || s.is(Items.ENCHANTED_GOLDEN_APPLE)) && g.getHealth() >= 8) continue; // (chorus fruit teleports him, off an End island; golden apples are for when he's low)
             boolean bad = s.is(Items.ROTTEN_FLESH) || s.is(Items.SPIDER_EYE) || s.is(Items.POISONOUS_POTATO) || s.is(Items.CHICKEN); // (sick-making: only when starving)
             if (bad) { if (food.nutrition() > fallbackN) { fallbackN = food.nutrition(); fallback = s.getItem(); } }
             else if (rawOrBad(level, s)) { if (food.nutrition() > rawN) { rawN = food.nutrition(); raw = s.getItem(); } } // raw beef, pork, fish: fine, cooked is just better

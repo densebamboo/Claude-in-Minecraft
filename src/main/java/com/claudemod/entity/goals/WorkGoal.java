@@ -499,12 +499,13 @@ public class WorkGoal extends Goal {
             };
         } catch (RuntimeException e) {
             done = true; // a step that throws (block changed under him, etc.) is just skipped
+            com.claudemod.ClaudeMod.LOGGER.warn("[Claude life] {} threw: skipped (WorkGoal.tick)", current, e); bandaid(g, "task threw", e.getClass().getSimpleName(), current + " threw " + e); // (it was silent: a bug in the step, never seen)
         }
         // Watchdog: no single action should take 45s (cooking and long fights have their own limits). Skip it, never hang.
         boolean longByNature = current instanceof Task.Smelt || current instanceof Task.FurnaceTake || current instanceof Task.Attack
                 || current instanceof Task.Wait || current instanceof Task.Fish;
         if (!done && !longByNature && ticks > 20 * 45) {
-            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] stuck on {} for 45s, skipping it", current);
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] stuck on {} for 45s, skipping it", current); bandaid(g, "45 s task clock", com.claudemod.entity.life.Watchdog.target(current), current + " ran 45 s at " + g.blockPosition().toShortString());
             g.getNavigation().stop();
             BlockPos spot = switch (current) { case Task.Break b -> b.pos(); case Task.GoTo go -> go.pos(); case Task.Place pl -> pl.pos(); default -> null; }; // what he couldn't get at stays off the list a while (the ore-spotting would queue it straight back)
             if (spot != null) {
@@ -771,7 +772,7 @@ public class WorkGoal extends Goal {
         if (d > within && d < 8 && g.tickCount - since > 20 * 20 && g.tickCount - since < 20 * 60) { // 20s on a spot a few blocks away: it's not happening
             walkSince.remove(pos); walkBest.remove(pos);
             g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK).put(pos.immutable(), g.tickCount);
-            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] gave up walking to {} after 20s (he's at {})", pos.toShortString(), g.blockPosition().toShortString());
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] gave up walking to {} after 20s (he's at {})", pos.toShortString(), g.blockPosition().toShortString()); bandaid(g, "walk 20 s near", pos.toShortString(), "20 s within 8 of " + pos.toShortString() + ", " + (int) d + " off");
             com.claudemod.entity.nav.Route.legFailed(g, pos);
             return true;
         }
@@ -1207,7 +1208,7 @@ public class WorkGoal extends Goal {
             boolean leg = com.claudemod.entity.nav.Route.isLeg(g, pos);
             if (leg) com.claudemod.entity.nav.Route.legFailed(g, pos);
             if (!toABlock) g.tasks.removeIf(x -> x instanceof Task.GoTo n ? n.pos().distSqr(pos) <= 2 // only the work tied to that spot: everything else (an ore vein, the next legs) stays
-                    : x instanceof Task.Place pl ? pl.pos().distSqr(pos) <= 16 && g.pendingPatches.add(pl.pos().immutable()) // (a patch there isn't forgotten: done when he's back by it) : x instanceof Task.WallTorch w ? w.pos().distSqr(pos) <= 16
+                    : x instanceof Task.Place pl ? pl.pos().distSqr(pos) <= 16 && g.pendingPatches.add(pl.pos().immutable()) /* (a patch there isn't forgotten: done when he's back by it) */ : x instanceof Task.WallTorch w ? w.pos().distSqr(pos) <= 16
                     : x instanceof Task.SealStep ss && ss.feet().distSqr(pos) <= 16);
             if (!leg && !toABlock && g.blueprint != null && !g.blueprint.isEmpty() && (pos.distSqr(g.blueprint.entrance) <= 9 || pos.distSqr(g.blueprint.outside()) <= 9) && !g.blueprint.touches(g.blockPosition())) { // the way into his mine is out of reach: the legs down it behind this walk go too (157 of them failed one by one, 7 s each)
                 if (!g.attempts.within(com.claudemod.entity.life.Attempts.Kind.SENT_FROM, g.blueprint.entrance, g.tickCount, 20 * 120)) { g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.SENT_FROM, g.blueprint.entrance, g.tickCount); g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK).remove(pos); g.tasks.addFirst(new Task.GoTo(pos, within)); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] his mine's way in at {} is a long walk: going again, by the surface", pos.toShortString()); return true; } // (the user: path to the entrance; dropping the legs left only a dig straight down)
@@ -1219,6 +1220,7 @@ public class WorkGoal extends Goal {
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't get to {} ({} on {}; he's at {}), skipping that spot",
                     pos.toShortString(), lv.getBlockState(pos).getBlock().getName().getString(),
                     lv.getBlockState(pos.below()).getBlock().getName().getString(), g.blockPosition().toShortString());
+            bandaid(g, "walk stalled 8 s", pos.toShortString(), "couldn't get to " + pos.toShortString() + " from " + g.blockPosition().toShortString() + ", " + (int) d + " off");
             return true;
         }
         return false;
@@ -3589,7 +3591,7 @@ public class WorkGoal extends Goal {
         if (bedAim != null && against == Direction.DOWN) hit = bedAim; // (the bed from the corner: aimed at the foot's far half)
         g.useOnAt(pos.relative(against), against.getOpposite(), sneak, hit); // sneak only against a chest/table/door
         if (!level.getBlockState(pos).canBeReplaced()) for (var drop : coveredDrops) com.claudemod.ClaudeMod.LOGGER.info("[Claude patch] {} at {} covers a drop of his ({}) at {} (WorkGoal.doPlace)", itemName(stack), pos.toShortString(), drop.getItem().getHoverName().getString(), drop.blockPosition().toShortString());
-        if (!level.getBlockState(pos).canBeReplaced()) { if (stepOutSince != null) stepOutSince.remove(pos); if (sentFor != null) sentFor.remove(pos); if (viewTry != null) viewTry.remove(pos); } // (placed: what was kept for getting it in is done with)
+        if (!level.getBlockState(pos).canBeReplaced()) { placeRetries.remove(pos.below(20000)); /* (it took: the count starts over; 20 over a session locked his tower cell out) */ if (stepOutSince != null) stepOutSince.remove(pos); if (sentFor != null) sentFor.remove(pos); if (viewTry != null) viewTry.remove(pos); } // (placed: what was kept for getting it in is done with)
         if (level.getBlockState(pos).canBeReplaced()) {
             var who = level.getEntities((net.minecraft.world.entity.Entity) null, new net.minecraft.world.phys.AABB(pos), e -> !e.isSpectator());
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] placing {} at {} didn't take (against {}, in the way: {})", itemName(stack), pos.toShortString(), against,
@@ -4948,10 +4950,19 @@ public class WorkGoal extends Goal {
         if (g.tickCount - emSaid > 200) { emSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] an enderman {} off: no natural 2-high cover within 8 and none to dig, fighting it in the open (WorkGoal.endermanHole)", (int) d); }
         return null; // ponytail: the user 13:41 "natural cover ... if not, he keeps fighting": no booth building
     }
+    /** A generic give-up fired: it hides a bug, so it files one (his whole state), once per rule and key per 5 min. shortcut: copied in WorkGoal and ClaudeLife so it hotswaps; one Watchdog method at the next restart. */
+    private static void bandaid(ClaudeEntity g, String rule, Object key, String why) {
+        if (g.attempts.counters.size() > 512) g.attempts.counters.keySet().removeIf(x -> x.startsWith("bandaid "));
+        String k = "bandaid " + rule + " " + key; Integer was = g.attempts.counters.get(k);
+        if (was != null && g.tickCount - was >= 0 && g.tickCount - was < 20 * 300) return;
+        g.attempts.counters.put(k, g.tickCount);
+        com.claudemod.entity.life.Watchdog.incident(g, "BANDAID " + rule, why);
+    }
     private int unseenSince = -1;
     private final java.util.Map<java.util.UUID, Integer> behindWall = new java.util.HashMap<>(); // (mobs let be behind a wall, when)
     private boolean doAttack(Task.Attack t) {
         ServerLevel level = (ServerLevel) g.level();
+        if (ticks == 1) unseenSince = -1; // (a fight left with the clock running ended the next one on its first tick)
         var e = level.getEntity(t.target());
         if (!(e instanceof net.minecraft.world.entity.LivingEntity mob) || !mob.isAlive()
                 || ticks > t.maxTicks() || g.distanceTo(mob) > 64) {

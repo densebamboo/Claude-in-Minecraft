@@ -10464,6 +10464,7 @@ public final class ClaudeBodyTest {
             case 709: return st709(stage, t, c, h, level, mock);
             case 710: return st710(stage, t, c, h, level, mock);
             case 711: return st711(stage, t, c, h, level, mock);
+            case 712: return st712(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13235,6 +13236,30 @@ public final class ClaudeBodyTest {
             c.getInventory().clearContent(); com.claudemod.entity.life.Parked.refused(c, none, "no block (test)"); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 4));
             check(!com.claudemod.entity.life.Parked.blocks(c, none), "a fill parked with no cobble on him not let back in once he has some");
             c.getInventory().clearContent(); pass(stage, t, "more of the block lets a park go only when he had none of it"); return true;
+        }
+        return true;
+    }
+
+    /** Live 05:12:06-05:12:19 and 05:19:23 11-05 (REVIEW-49/75/95): ore behind an open hole in his wall, he 3-4 rows back down his tunnel; the hole doesn't line up from there, so doBreak dug his wall along his eye line ("his mine's wall, his wall put back after"), 3 cells and their patches, then the patches got in the way. A player walks up to the hole and mines through it. */
+    private static BlockPos s712O; private static java.util.List<BlockPos> s712Wall;
+    private static boolean st712(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            BlockPos d = lnRow(b, 1, 7).immutable();
+            net.minecraft.core.Direction side = null; for (var dd : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && !com.claudemod.director.ClaudeLife.isMineCell(c, d.relative(dd)) && level.getBlockState(d.relative(dd)).is(Blocks.STONE)) side = dd;
+            check(side != null, "setup: no wall beside row 7");
+            BlockPos hole = d.relative(side).immutable(); level.setBlock(hole, Blocks.AIR.defaultBlockState(), 2); // (an ore hole in his wall)
+            s712O = hole.relative(side).immutable(); level.setBlock(s712O, Blocks.IRON_ORE.defaultBlockState(), 2); // (the vein goes on behind it)
+            BlockPos me = d.west(4).immutable(); check(com.claudemod.director.ClaudeLife.isMineCell(c, me), "setup: " + me.toShortString() + " not in his tunnel");
+            s712Wall = new java.util.ArrayList<>(); for (int k = 1; k <= 3; k++) for (int y = 0; y < 4; y++) { BlockPos q = d.west(k).relative(side).above(y).immutable(); if (level.getBlockState(q).is(Blocks.STONE)) s712Wall.add(q); }
+            c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            lnStand(c, mock, me, b.entrance); c.tasks.clear(); c.skillQueue.clear();
+            c.tasks.add(new Task.Break(s712O));
+        }
+        if (t[0] > 10) {
+            for (BlockPos q : s712Wall) check(level.getBlockState(q).is(Blocks.STONE), "dug his wall at " + q.toShortString() + " (now " + level.getBlockState(q).getBlock().getName().getString() + ") for the ore at " + s712O.toShortString() + " behind the hole, he at " + c.blockPosition().toShortString() + ": walk up to the hole, mine through it");
+            if (level.getBlockState(s712O).isAir()) { c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); pass(stage, t, "walked up and mined the ore through the hole, wall intact (" + (t[0] - 10) + " ticks)"); return true; }
+            check(t[0] < 200, "the ore at " + s712O.toShortString() + " still there after 9 s: at " + c.blockPosition().toShortString() + ", now " + c.currentTask + " queue " + c.tasks.stream().limit(6).toList());
         }
         return true;
     }

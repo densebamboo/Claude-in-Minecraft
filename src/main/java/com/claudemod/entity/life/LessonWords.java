@@ -447,7 +447,7 @@ public final class LessonWords {
     /** A water cell of the lesson's: one he poured on their ask, a lesson place, or (their lesson about the pocket or the water) any source. */
     public static boolean lessonWater(ClaudeEntity g, ServerPlayer p, ServerLevel level, BlockPos c) {
         if (!level.getFluidState(c).is(FluidTags.WATER) || !level.getFluidState(c).isSource()) return false;
-        if (com.claudemod.director.Primitives.pouredOnAsk(g, c)) return true;
+        if (com.claudemod.director.Primitives.pouredOnAsk(g, c) || ownPocket(g, c)) return true; // (his own pocket while the job runs: waterBack frees it)
         boolean lesson = p != null ? ExactSpot.lesson(g, p) : g.lessonOpen != null && !g.lessonOpen.isBlank();
         if (!lesson) return false;
         if (places(g).stream().anyMatch(q -> q.water() && q.cell().equals(c))) return true;
@@ -467,9 +467,14 @@ public final class LessonWords {
     public static BlockPos jobCell(ClaudeEntity g, ServerLevel level, ServerPlayer p) {
         Pin pn = pin(g); if (pn != null) return pn.cell();
         BlockPos f = ExactSpot.feet(g);
-        if (com.claudemod.director.Primitives.pouredOnAsk(g, f) && level.getFluidState(f).isSource()) return f;
+        if ((com.claudemod.director.Primitives.pouredOnAsk(g, f) || ownPocket(g, f)) && level.getFluidState(f).isSource()) return f; // (his own pocket: worked from, never a lesson's pin)
         pn = p == null ? null : pinWater(g, level, p);
         return pn == null ? null : pn.cell();
+    }
+    /** Water still spreading round his pocket (a fluid tick waiting in his layer or the one under it): more lava is about to turn. */
+    static boolean waterRunning(ServerLevel level, BlockPos cell) {
+        for (BlockPos q : BlockPos.betweenClosed(cell.offset(-5, -1, -5), cell.offset(5, 0, 5))) if (level.getFluidTicks().hasScheduledTick(q, net.minecraft.world.level.material.Fluids.WATER) || level.getFluidTicks().hasScheduledTick(q, net.minecraft.world.level.material.Fluids.FLOWING_WATER)) return true;
+        return false;
     }
     /** The water would run into q once it's broken: water beside it (a source, or a flow with room to run on, over a floor) or over it. */
     static boolean flowsInto(ServerLevel level, BlockPos q) {
@@ -538,6 +543,7 @@ public final class LessonWords {
             }
             if (best != null && (o == null || bestFlows)) { o = best; oFlows = bestFlows; commit().put(u, o); ClaudeMod.LOGGER.info("[Claude lesson] the obsidian at {} next, from {} (in reach, seen from the water; {}; kept till it's out) (LessonWords.fromPlace)", xyz(o), xyz(cell), oFlows ? "the water runs into it once it's out" : "no water would run into it yet"); }
         }
+        if (o == null && ownPocket(g, cell) && waterRunning(level, cell)) { g.tasks.add(new Task.Wait(5, false)); again.run(); return "the water still running over the lava by " + xyz(cell) + " (" + count + ")"; } // (the next obsidian is made as it gets there, a block every 5 ticks: looked at too soon, the layer read as done after 1 of 9, stage 500)
         if (o == null) { String dn = nextLayer(g, level, again, cell, count); if (dn != null) return dn; }
         if (o == null && ownPocket(g, cell) && pin(g) == null) { // his own pocket, nothing left at its level, no next one: the water back, more lava the old way
             { String sw = sweepFirst(g, level, again, cell); if (sw != null) return sw; }
@@ -555,7 +561,7 @@ public final class LessonWords {
             if (n != null && g.inventory.count(x -> x.is(Items.BUCKET) || x.is(Items.WATER_BUCKET)) > 0 && level.getFluidState(cell).isSource()) {
                 again.run();
                 g.skillQueue.addFirst(new Skills.Step("go_to", xyz(n), 1, "exact"));
-                g.skillQueue.addFirst(new Skills.Step("place_at", xyz(n) + " water", 1, "near_you"));
+                g.skillQueue.addFirst(new Skills.Step("place_at", xyz(n) + " water #own", 1, "near_you"));
                 if (g.inventory.count(x -> x.is(Items.WATER_BUCKET)) == 0) g.skillQueue.addFirst(new Skills.Step("scoop_at", xyz(cell), 1, "near_you"));
                 Pin was = pin(g); if (was != null) pins().put(u, new Pin(n, was.words(), g.level().getGameTime())); // (a pin moves with the source; his own pocket has none)
                 if (p != null && ExactSpot.lesson(g, p)) notePlace(g, "pocket", n, "his source, moved beside " + xyz(o) + " so the water runs into it", true);
@@ -575,7 +581,9 @@ public final class LessonWords {
     record Tech(BlockPos pocket, BlockPos from, int layer, int started) {}
     private static Map<UUID, Tech> techs; static Map<UUID, Tech> techs() { if (techs == null) techs = new HashMap<>(); return techs; }
     private static Map<UUID, java.util.Set<BlockPos>> ownPockets; // the water cells he poured for his own technique (scooped back after; a lesson's stay)
-    static boolean ownPocket(ClaudeEntity g, BlockPos c) { return ownPockets != null && ownPockets.getOrDefault(g.getUUID(), java.util.Set.of()).contains(c); }
+    /** At work in his own pocket (it within 3 of him): the obsidian he mines from it is gathered in one sweep after, as a player does, not a trip out per block. */
+    public static boolean atOwnPocket(ClaudeEntity g) { return ownPockets != null && ownPockets.getOrDefault(g.getUUID(), java.util.Set.of()).stream().anyMatch(q -> q.distToCenterSqr(g.position()) <= 25); }
+    public static boolean ownPocket(ClaudeEntity g, BlockPos c) { return ownPockets != null && ownPockets.getOrDefault(g.getUUID(), java.util.Set.of()).contains(c); }
     static void markOwn(ClaudeEntity g, BlockPos c) { if (ownPockets == null) ownPockets = new HashMap<>(); ownPockets.computeIfAbsent(g.getUUID(), k -> new java.util.HashSet<>()).add(c.immutable()); }
     /** Done with his own pocket: its water back in his bucket (no litter); a lesson's pocket stays. */
     static String waterBack(ClaudeEntity g, BlockPos cell) {
@@ -648,7 +656,7 @@ public final class LessonWords {
         BlockPos e = k.pocket(), f = ExactSpot.feet(g);
         var fe = level.getFluidState(e);
         if (fe.is(FluidTags.WATER) && fe.isSource()) {
-            if (f.equals(e) || (f.getY() == e.getY() && Math.abs(f.getX() - e.getX()) <= 1 && Math.abs(f.getZ() - e.getZ()) <= 1 && level.getFluidState(f).is(FluidTags.WATER))) { markOwn(g, e); return null; } // (in it: fromPlace from here) // ponytail: the user 13:0x "he doesn't have to stand directly in the source block, just stand still in the flowing water": a cell beside it in its water is in it too, no step back each block
+            if (f.equals(e) || (f.getY() == e.getY() && Math.abs(f.getX() - e.getX()) <= 1 && Math.abs(f.getZ() - e.getZ()) <= 1 && level.getFluidState(f).is(FluidTags.WATER))) { markOwn(g, e); return fromPlace(g, level, null, want, again, e); } // (in it or pushed a cell off: worked from it now; a null here fell through to the old way, which scooped this very water, stage 500) // ponytail: the user 13:0x "he doesn't have to stand directly in the source block, just stand still in the flowing water": a cell beside it in its water is in it too, no step back each block
             markOwn(g, e); again.run(); if (stepIn(g, e)) return "back into my water at " + xyz(e) + " (" + String.format("%.1f", Math.sqrt(Math.pow(e.getX() + 0.5 - g.getX(), 2) + Math.pow(e.getZ() + 0.5 - g.getZ(), 2))) + " off, step " + stepIns.get(g.getUUID()) + ")"; if (!ExactSpot.feet(g).equals(k.from())) { g.tasks.add(new Task.GoTo(k.from(), 0.4)); ClaudeMod.LOGGER.info("[Claude obsidian] pushed off my pocket at {} to {}: back to my dry spot {} beside it first, then the step in (LessonWords.technique)", xyz(e), xyz(f), xyz(k.from())); return "back to my spot by the pocket at " + xyz(k.from()); } // (the water pushed him 2 off or onto the grass a cell up: the walk into the water itself failed there 3 of 3 and ended the order at 3-6 of 10; from the dry spot, the way he first went in, the step in works)
             g.skillQueue.addFirst(new Skills.Step("go_to", xyz(e), 1, "exact"));
             ClaudeMod.LOGGER.info("[Claude obsidian] the water's in the pocket at {}: in there (LessonWords.technique)", xyz(e));
@@ -661,7 +669,7 @@ public final class LessonWords {
         if (!level.getBlockState(e.above()).getCollisionShape(level, e.above()).isEmpty()) { g.tasks.add(new Task.Break(e.above().immutable())); again.run(); return "the head room over my pocket at " + xyz(e) + " first"; }
         if (!level.getBlockState(e).getCollisionShape(level, e).isEmpty()) { g.tasks.add(new Task.Break(e)); again.run(); ClaudeMod.LOGGER.info("[Claude obsidian] opening my pocket {} beside the lava, the water straight in after (LessonWords.technique)", xyz(e)); return "opening my pocket at " + xyz(e) + ", the water ready"; }
         if (g.inventory.count(x -> x.is(Items.WATER_BUCKET)) == 0) return null; // (his bucket's empty: the old way fills it)
-        again.run(); g.skillQueue.addFirst(new Skills.Step("place_at", xyz(e) + " water", 1, "near_you"));
+        again.run(); g.skillQueue.addFirst(new Skills.Step("place_at", xyz(e) + " water #own", 1, "near_you"));
         ClaudeMod.LOGGER.info("[Claude obsidian] the water into my pocket at {} (at the lava's level, y {}): the lava it touches turns (LessonWords.technique)", xyz(e), k.layer());
         return "the water into my pocket at " + xyz(e);
     }
@@ -680,7 +688,7 @@ public final class LessonWords {
         if (g.inventory.count(x -> x.is(Items.BUCKET) || x.is(Items.WATER_BUCKET)) == 0) return null;
         again.run();
         g.skillQueue.addFirst(new Skills.Step("go_to", xyz(best), 1, "exact"));
-        g.skillQueue.addFirst(new Skills.Step("place_at", xyz(best) + " water", 1, "near_you"));
+        g.skillQueue.addFirst(new Skills.Step("place_at", xyz(best) + " water #own", 1, "near_you"));
         if (level.getFluidState(cell).isSource()) g.skillQueue.addFirst(new Skills.Step("scoop_at", xyz(cell), 1, "near_you"));
         g.tasks.add(new Task.Break(best));
         boolean own = ownPocket(g, cell); if (own) { ownPockets.get(g.getUUID()).remove(cell); markOwn(g, best); }

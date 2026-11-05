@@ -232,7 +232,7 @@ public final class Primitives {
         boolean in = level.getFluidState(p).is(bucket == net.minecraft.world.item.Items.WATER_BUCKET ? net.minecraft.tags.FluidTags.WATER : net.minecraft.tags.FluidTags.LAVA);
         ClaudeMod.LOGGER.info("[Claude prim] {}: poured ({}), the cell now {} (Primitives.pourAt)", what, ok, level.getFluidState(p).isEmpty() ? "dry" : "wet");
         if (!in) return refuse("pourAt", what, "the bucket didn't take there (aimed at the face by it, nothing poured)");
-        POURED.computeIfAbsent(g.getUUID(), k -> new java.util.HashSet<>()).add(p.immutable()); com.claudemod.entity.life.LessonWords.notePoured(g, player, p.immutable()); // (in a lesson: its pocket) // (on their ask: there on purpose, his bucket reflex leaves it)
+        if (st.target() == null || !st.target().contains("#own")) POURED.computeIfAbsent(g.getUUID(), k -> new java.util.HashSet<>()).add(p.immutable()); com.claudemod.entity.life.LessonWords.notePoured(g, player, p.immutable()); // (#own: a skill's own pour, his pocket's; the ask-only list never held it: live 05:4x it kept him off his own water after the job, 130 blocks to a lake) // (in a lesson: its pocket) // (on their ask: there on purpose, his bucket reflex leaves it)
         return "poured the " + (bucket == net.minecraft.world.item.Items.WATER_BUCKET ? "water" : "lava") + " at " + xyz(p);
     }
 

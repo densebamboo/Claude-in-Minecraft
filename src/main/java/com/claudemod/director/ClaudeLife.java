@@ -9222,6 +9222,7 @@ public final class ClaudeLife {
             var f = level.getFluidState(q);
             if (!f.is(net.minecraft.tags.FluidTags.WATER) || !f.isSource()) continue;
             if (g.farm != null && g.farm.waterCells().contains(q)) continue; // his farm's water: there on purpose
+            if (g.skillQueue.stream().anyMatch(s0 -> s0.skill().equals("scoop_at"))) return; // (a scoop of his own queued: that step takes it; the reflex took it first and the step failed the job, stage 500)
             if (Primitives.pouredOnAsk(g, q) || com.claudemod.entity.life.LessonWords.lessonWater(g, null, level, q)) { if (g.tickCount % 200 < 5) ClaudeMod.LOGGER.info("[Claude life] the water at {} is the one they had him pour: leaving it (ClaudeLife.fillBucket)", q.toShortString()); continue; } // (scoop_at takes it back)
             double d = Vec3.atCenterOf(q).distanceToSqr(g.getEyePosition());
             if (d < bd) { bd = d; best = q.immutable(); }
@@ -9982,7 +9983,9 @@ public final class ClaudeLife {
             obsPourAt = null; obsScoops = 0;
         }
         // 3. obsidian on the ground: picked up
-        if (obsPickups < 3) { var drops = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, g.getBoundingBox().inflate(6, 3, 6), e -> e.getItem().is(Items.OBSIDIAN) && reachableDrop(level, e.blockPosition())); if (!drops.isEmpty()) { obsPickups++; var near = drops.stream().min(java.util.Comparator.comparingDouble(e -> e.distanceToSqr(g))).get(); BlockPos dp = near.blockPosition();
+        int lying = 0; for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, g.getBoundingBox().inflate(8, 4, 8), e -> e.getItem().is(Items.OBSIDIAN))) lying += e.getItem().getCount();
+        boolean sweepLater = (obsMaking || portalMaking) && have + lying < want && com.claudemod.entity.life.LessonWords.atOwnPocket(g); // (in his pocket with more to make: mined on, the drops gathered in one sweep after; stage 500: a trip out per block was 5 s of every 14)
+        if (obsPickups < 3 && !sweepLater) { var drops = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, g.getBoundingBox().inflate(6, 3, 6), e -> e.getItem().is(Items.OBSIDIAN) && reachableDrop(level, e.blockPosition())); if (!drops.isEmpty()) { obsPickups++; var near = drops.stream().min(java.util.Comparator.comparingDouble(e -> e.distanceToSqr(g))).get(); BlockPos dp = near.blockPosition();
                 if (!g.getBoundingBox().inflate(1.0, 0.5, 1.0).intersects(near.getBoundingBox())) { // out of his pickup reach: over to it by a planned way (13:35: a plain walk to a cell one down and over with no head room "failed" at once, three tries in 0.3 s, "no way to it")
                     List<Task> way = obsRoute(g, level, dp, "the obsidian he made, dropped at " + dp.toShortString());
                     if (way == null) { obsPickups = 3; ClaudeMod.LOGGER.info("[Claude life] obsidian: no way plans to the drop at {} from {}: left for now (ClaudeLife.makeObsidian)", dp.toShortString(), g.blockPosition().toShortString()); again.run(); return "no way to the obsidian at " + dp.toShortString() + " from here: on with the rest"; }

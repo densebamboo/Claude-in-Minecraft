@@ -4114,8 +4114,9 @@ public class WorkGoal extends Goal {
         }
         if (coal == 0 && fuelHeld == 0) {
             int wood = g.inventory.count(s -> s.is(net.minecraft.tags.ItemTags.LOGS) || s.is(net.minecraft.tags.ItemTags.PLANKS));
+            int sticks = g.inventory.count(s -> s.is(net.minecraft.world.item.Items.STICK)); // half an item each: the smelt skill counts them as fuel, so must this (live 22:44 11-04: sticks only, smelt said "smelting", this said "not enough wood", round in circles)
             boolean inputIsWood = new ItemStack(t.input()).is(net.minecraft.tags.ItemTags.LOGS) || new ItemStack(t.input()).is(net.minecraft.tags.ItemTags.PLANKS);
-            want = Math.min(want, inputIsWood ? (wood * 3) / 5 : (wood * 3) / 2);
+            want = Math.min(want, inputIsWood ? (wood * 3 + sticks) / 5 : (wood * 3 + sticks) / 2);
             if (want <= 0) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not enough wood to both cook and fuel {}: skipping", itemName(new ItemStack(t.input()))); return true; }
         }
         int n = g.inventory.remove(s -> s.is(t.input()), want);

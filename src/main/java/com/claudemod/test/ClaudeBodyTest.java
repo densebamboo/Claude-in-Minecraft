@@ -10440,6 +10440,7 @@ public final class ClaudeBodyTest {
             case 648: return st648(stage, t, c, h, level, mock);
             case 649: return st649(stage, t, c, h, level, mock);
             case 650: return st650(stage, t, c, h, level, mock);
+            case 651: return st651(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -13381,6 +13382,28 @@ public final class ClaudeBodyTest {
             check(c.isAlive() && c.getHealth() >= 14, "drowning in the -81,15,-17 pocket: health " + c.getHealth() + " at " + c.blockPosition().subtract(me) + " y " + String.format("%.2f", c.getY() - me.getY()) + ", air " + c.getAirSupply());
             if (t[0] > 12 && !c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER) && c.getY() >= me.getY() + 6) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "up the shaft to air in " + (t[0] - 10) + " ticks, at " + c.blockPosition().subtract(me)); }
             else check(t[0] < 500, "no air within 24 s: at " + c.blockPosition().subtract(me) + ", air " + c.getAirSupply());
+        }
+        return true;
+    }
+
+    /** Raw salmon, a furnace beside him, sticks his only fuel: "eat" cooks it (live 22:44 11-04 World 17: the smelt skill counted the sticks, the furnace load counted only wood and skipped, eat asked again: round in circles). */
+    private static boolean st651(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(4, 2, 3)), f = h.absolutePos(new BlockPos(3, 2, 3));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -4; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            level.setBlock(f, Blocks.FURNACE.defaultBlockState(), 3); c.myStations.add(f.immutable()); level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.SALMON, 5)); c.getInventory().add(new ItemStack(Items.STICK, 6)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            c.setHealth(20); c.getFoodData().setFoodLevel(16); c.getFoodData().setSaturation(0);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+        }
+        if (t[0] == 20) c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("eat", "", 1, "near_you"));
+        if (t[0] > 20) {
+            var fb = (net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity) level.getBlockEntity(f);
+            boolean cooking = fb != null && (fb.getItem(0).is(Items.SALMON) || fb.getItem(2).is(Items.COOKED_SALMON)) && !fb.getItem(1).isEmpty() || c.getInventory().countItem(Items.COOKED_SALMON) > 0 || c.getFoodData().getFoodLevel() > 16;
+            if (cooking) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; pass(stage, t, "the salmon is cooking on sticks in " + (t[0] - 20) / 20 + " s"); }
+            else check(t[0] < 20 + 20 * 20, "20 s and no salmon cooking on his sticks: line " + c.lastSkillLine + ", furnace " + (fb == null ? "-" : fb.getItem(0) + " / " + fb.getItem(1)) + ", sticks " + c.getInventory().countItem(Items.STICK));
         }
         return true;
     }

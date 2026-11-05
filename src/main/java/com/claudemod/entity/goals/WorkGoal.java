@@ -714,7 +714,7 @@ public class WorkGoal extends Goal {
         for (var e : bent.entrySet()) if (!e.getValue().startsWith("the tree rule")) back.add(e.getKey()); // (a log isn't his work to put back)
         if (!back.isEmpty()) com.claudemod.director.ClaudeLife.nookCutsBack(g, back, scaff.isEmpty() || scaff.is(net.minecraft.world.item.Items.DIRT) ? net.minecraft.world.item.Items.COBBLESTONE : scaff.getItem()); // shortcut: patched with his scaffold block, not the block's own kind; match it when a patch's look matters
         var tasks = com.claudemod.entity.nav.ActionPath.tasks(plan, feet, scaff.isEmpty() ? net.minecraft.world.item.Items.COBBLESTONE : scaff.getItem(), pos, within, (ServerLevel) g.level());
-        for (int i = tasks.size() - 1; i >= 0; i--) g.tasks.addFirst(tasks.get(i));
+        queueWay(tasks, "WorkGoal.bendWay");
         com.claudemod.ClaudeMod.LOGGER.info("[Claude blockage] no way to {} from {} with his rules kept ({}); bent: {}; {} digs, {} put down, {} patched back behind him. The rule that blocked it is the bug (WorkGoal.bendWay)", pos.toShortString(), feet.toShortString(), was, bent.isEmpty() ? "nothing (only digging his walk mode refused)" : bent.entrySet().stream().map(e -> e.getValue() + " at " + e.getKey().toShortString()).toList(), plan.digs(), plan.puts(), back.size());
         return true;
     }
@@ -897,7 +897,7 @@ public class WorkGoal extends Goal {
                         var plan = com.claudemod.entity.nav.ActionPath.plan(g, (ServerLevel) g.level(), feetCell, pos, Math.max(within, 1.0), false, 3000, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount, threats);
                         if (plan != null) {
                             var tasks = com.claudemod.entity.nav.ActionPath.tasks(plan, feetCell, net.minecraft.world.item.Items.COBBLESTONE, pos, within, (ServerLevel) g.level());
-                            for (int i = tasks.size() - 1; i >= 0; i--) g.tasks.addFirst(tasks.get(i));
+                            queueWay(tasks, "WorkGoal.walkTo");
                             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} hostile(s) on the way to {}: going round them ({} walks)", onRoute, pos.toShortString(), plan.walks());
                             return true;
                         }
@@ -1032,14 +1032,14 @@ public class WorkGoal extends Goal {
             if (plan != null && (plan.digs() > 0 || plan.puts() > 0 || plan.acts().stream().anyMatch(a -> a instanceof com.claudemod.entity.nav.ActionPath.Act.Door || a instanceof com.claudemod.entity.nav.ActionPath.Act.Leap))) { // (a drop or a jump: its own task, Task.Leap)
                 if (!nookCuts.isEmpty()) com.claudemod.director.ClaudeLife.nookCutsBack(g, nookCuts, scaff.isEmpty() || scaff.is(net.minecraft.world.item.Items.DIRT) ? net.minecraft.world.item.Items.COBBLESTONE : scaff.getItem()); // (queued first: the walk goes in front of them, so they run once he's through)
                 var tasks = com.claudemod.entity.nav.ActionPath.tasks(plan, feetCell, scaff.isEmpty() ? net.minecraft.world.item.Items.COBBLESTONE : scaff.getItem(), pos, within, (ServerLevel) g.level());
-                for (int i = tasks.size() - 1; i >= 0; i--) g.tasks.addFirst(tasks.get(i));
+                queueWay(tasks, "WorkGoal.walkTo");
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude route] the made way to {}: acts {} -> tasks {} (WorkGoal.walkTo)", pos.toShortString(), plan.acts(), tasks);
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no route to {}: made one ({}: {} digs, {} blocks put down{}, {} walks; {} ms)", pos.toShortString(), mode, plan.digs(), plan.puts(), plan.puts() > 0 && outside && !dirtOnHim ? " of " + com.claudemod.entity.life.Crafting.name(scaff.getItem()) + ", to take back up" : "", plan.walks(), (System.nanoTime() - t0) / 1000000);
                 return true;
             }
             if (plan != null) { // a way on foot the vanilla path missed (over a ledge, through an open door): its waypoints
                 var tasks = com.claudemod.entity.nav.ActionPath.tasks(plan, feetCell, net.minecraft.world.item.Items.COBBLESTONE, pos, within);
-                if (tasks.size() > 1) { for (int i = tasks.size() - 1; i >= 0; i--) g.tasks.addFirst(tasks.get(i)); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] route to {} found on foot ({} walks, {} waypoints): acts {} -> {} (WorkGoal.walkTo)", pos.toShortString(), plan.walks(), tasks.size() - 1, plan.acts(), tasks); return true; }
+                if (tasks.size() > 1) { queueWay(tasks, "WorkGoal.walkTo"); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] route to {} found on foot ({} walks, {} waypoints): acts {} -> {} (WorkGoal.walkTo)", pos.toShortString(), plan.walks(), tasks.size() - 1, plan.acts(), tasks); return true; }
             } else if (towerTo(pos, feetCell, scaff)) { return true;
             } else if (bendWay(pos, within, feetCell, scaff, mode)) { return true;
             } else {
@@ -1628,7 +1628,7 @@ public class WorkGoal extends Goal {
                 var tasks = com.claudemod.entity.nav.ActionPath.tasks(plan, feet, scaff.isEmpty() ? net.minecraft.world.item.Items.COBBLESTONE : scaff.getItem(), pos, 3.2, level);
                 if (plan.puts() > 0) { for (var a : plan.acts()) if (a instanceof com.claudemod.entity.nav.ActionPath.Act.Put pt) g.pillarBlocks.addFirst(pt.pos().immutable()); g.tasks.addFirst(new Task.Pillar(-1)); } // every block the way puts down is his to take back (a tower under a block overhead comes down once it's out; the Pillar(-1) is kept while a Break in reach is queued)
                 g.tasks.addFirst(new Task.Break(pos));
-                for (int i = tasks.size() - 1; i >= 0; i--) g.tasks.addFirst(tasks.get(i));
+                queueWay(tasks, "WorkGoal.approach");
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no way to the {} at {} on foot: made one ({} digs, {} blocks put down, {} walks; {} ms)", name(level.getBlockState(pos)), pos.toShortString(), plan.digs(), plan.puts(), plan.walks(), (System.nanoTime() - t0) / 1000000);
                 return true;
             }
@@ -2689,6 +2689,11 @@ public class WorkGoal extends Goal {
     private int pickupBeat = -1000;
     /** How near a patch a drop counts as its own: the patch waits for it and its held pickup takes it, the one ball for both (live 00:44 11-05: 2.6 for the wait, 1.6 for the pickup, a drop between was waited on and never taken, 3 tries a second). */
     private static double holdR2() { return 2.6 * 2.6; }
+
+    /** A way his planner made, queued as his walker's own: a Put or dig on a cell where another system's job (a mine patch) was refused and parked is the way's, never dropped by that park (live 01:36-01:38 11-05: the way's Put at -92, 15, -45 was taken for bpIntegrity's parked patch there, same block, same cell, and dropped; 2 min of "no path, nothing changed since"). */
+    private void queueWay(java.util.List<Task> tasks, String by) { // (by: the planner's method, as the queue's stack walk names it; ClaudeLife.walkPlanTask reads "WorkGoal.walkTo")
+        for (int i = tasks.size() - 1; i >= 0; i--) { Task t = tasks.get(i); com.claudemod.entity.ClaudeEntity.ORIGIN.put(t, by); g.tasks.addFirst(t); }
+    }
     private boolean doPickup(Task.Pickup t) {
         if (ticks > t.maxTicks()) { boolean mineHold = t == holdPickup && holdAt != null && minePatch(holdAt); if (t == holdPickup) leaveHeld(); if (mineHold) return true; if (g.tasks.stream().noneMatch(x -> x instanceof Task.Pickup && x != t)) for (var i0 : g.level().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, g.getBoundingBox().inflate(8), i1 -> i1.isAlive() && !g.isGift(i1) && isOreDrop(i1.getItem()))) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the pickup ran out of time with {} still at {}", i0.getItem().getHoverName().getString(), i0.blockPosition().toShortString()); com.claudemod.entity.life.OwnEvents.left(g, i0, "the pickup ran out of time"); leaveOwn(i0); } return true; } // (valuables still lying there go on his book: "you didn't grab them all" finds them; only when no later Pickup is queued: 07:08 a 40-tick per-ore pickup ran out mid-fall and booked a diamond LEFT that the vein's own pickup right after would have got)
         if (falling()) { fallNote("a pickup"); return false; } // dropping (down the hole he just dug): what's reachable is judged from where he lands

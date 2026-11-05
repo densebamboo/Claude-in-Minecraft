@@ -8525,7 +8525,13 @@ public final class ClaudeLife {
                 return "back to the mine's " + Crafting.name(block.asItem()) + " at " + mineStation.toShortString();
             }
         }
-        if (block == Blocks.FURNACE) { BlockPos mine0 = null; for (BlockPos f : g.myStations) if (level.isLoaded(f) && level.getBlockState(f).is(Blocks.FURNACE) && f.distSqr(g.blockPosition()) <= 40 * 40 && (g.attempts.any.get(f) == null || g.tickCount - g.attempts.any.get(f) > 20 * 60) && (mine0 == null || f.distSqr(g.blockPosition()) < mine0.distSqr(g.blockPosition()))) mine0 = f;
+        if (block == Blocks.FURNACE) { BlockPos mine0 = null; int r0 = 0; for (BlockPos f : g.myStations) if (level.isLoaded(f) && level.getBlockState(f).is(Blocks.FURNACE) && f.distSqr(g.blockPosition()) <= 40 * 40 && (g.attempts.any.get(f) == null || g.tickCount - g.attempts.any.get(f) > 20 * 60)) { int r = routeDist(g, g.blockPosition(), f); if (mine0 == null || r < r0) { mine0 = f; r0 = r; } } // (nearest on foot, down his mine's rows: not as the crow flies)
+            if (mine0 != null && canPlaceOwn) { // priced (live 14:20 11-05: 3 salmon, a furnace in his pack, 69 legs down his mine and out through its wall to his): the walk there and back plus the smelt at that furnace wall, against setting down his own here (seconds: sprint 5.6 b/s, 10 s an item)
+                Item in0 = smeltInput(level, g, item(st.target())); int n0 = in0 == null ? st.count() : Math.min(st.count(), g.getInventory().countItem(in0));
+                int k0 = 0; for (BlockPos f : g.myStations) if (f.distSqr(mine0) <= 9 && level.isLoaded(f) && level.getBlockState(f).is(Blocks.FURNACE)) k0++;
+                double his0 = 2.0 * r0 / 5.6 + n0 * 10.0 / Math.max(1, k0), own0 = (g.getInventory().countItem(Items.FURNACE) > 0 ? 4 : 10) + n0 * 10.0; // (own: set down and picked back up; 10 if it's crafted first)
+                if (own0 < his0) { ClaudeMod.LOGGER.info("[Claude life] {} {} x{}: his own furnace set down here (~{} s) beats his at {} ({} on foot, {} furnace(s) there, ~{} s) (ClaudeLife.goToStation)", st.skill(), st.target(), n0, (int) own0, mine0.toShortString(), r0, k0, (int) his0); return null; }
+            }
             if (mine0 != null) { g.tasks.add(new Task.GoTo(mine0, 2.5)); g.stationWalkTick = g.tickCount; g.skillQueue.addFirst(st); ClaudeMod.LOGGER.info("[Claude life] {} {}: his own furnace at {} ({} off), not a new one here (ClaudeLife.goToStation)", st.skill(), st.target(), mine0.toShortString(), (int) Math.sqrt(mine0.distSqr(g.blockPosition()))); return "over to my furnace at " + mine0.toShortString(); } } // (a player walks 20 blocks to his furnaces: live 12:03 World 15 a new furnace notched into an ore hole in his mine wall, his nook's 6 about 20 off)
         if (canPlaceOwn && (g.tickCount - g.stationWalkTick < 20 * 60 || !level.canSeeSky(g.blockPosition())
                 || (g.mineFace != null && g.blockPosition().distSqr(g.mineFace) < 24 * 24))) return null;

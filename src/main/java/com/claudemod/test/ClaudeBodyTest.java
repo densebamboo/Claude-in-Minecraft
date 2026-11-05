@@ -10507,6 +10507,7 @@ public final class ClaudeBodyTest {
             case 730: return st730(stage, t, c, h, level, mock);
             case 731: return st731(stage, t, c, h, level, mock);
             case 732: return st732(stage, t, c, h, level, mock);
+            case 733: return st733(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13837,6 +13838,22 @@ public final class ClaudeBodyTest {
             check(!(rule.skill().equals("gear_up") && r.startsWith("done: through the portal")), "the rules' step in the Nether was gear_up, a no-op there: " + r);
             c.tasks.clear(); c.skillQueue.clear(); c.playerGoal = null; c.dropCurrent = true; nsHome(c, h, level);
             pass(stage, t, "the rules' step in the Nether does something: " + rule.skill() + " " + rule.target()); return true;
+        }
+        return true;
+    }
+
+    /** Live 14:20:22-14:23:47 11-05 (-81,60,-22, food 8, no meals, a furnace in his pack, 2-3 salmon): "smelt cooked_salmon x16 -> over to my furnace at -92, 23, -24": his own furnace 38 off as the crow flies, 69 legs down his mine and out through its wall (cut both ways, the owner fight), for 3 salmon. The rule took any furnace of his within 40 in a line, whatever the walk and the load. Priced instead: the walk there and back plus the smelt at that furnace wall, against setting down the one he carries. */
+    private static boolean st733(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); c.skillQueue.clear(); flatBox(h); c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 5) {
+            BlockPos far = c.blockPosition().offset(35, 0, 0); // (his own furnace, 35 off)
+            level.setBlock(far.below(), Blocks.STONE.defaultBlockState(), 2); level.setBlock(far, Blocks.FURNACE.defaultBlockState(), 2); c.myStations.add(far.immutable()); c.attempts.clear();
+            c.getInventory().add(new ItemStack(Items.SALMON, 3)); c.getInventory().add(new ItemStack(Items.FURNACE)); c.getInventory().add(new ItemStack(Items.COAL, 2)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getFoodData().setFoodLevel(8);
+            String a = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "cooked_salmon", 16);
+            boolean walksOff = c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().distSqr(far) <= 9);
+            c.tasks.clear(); c.skillQueue.clear(); level.setBlock(far, Blocks.AIR.defaultBlockState(), 2); c.myStations.remove(far);
+            check(!walksOff, "3 salmon, a furnace in his pack: walked 35 off to his own furnace for them: \"" + a + "\"");
+            pass(stage, t, "3 salmon cooked where he is: \"" + a + "\""); return true;
         }
         return true;
     }

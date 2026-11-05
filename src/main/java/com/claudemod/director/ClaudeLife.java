@@ -540,8 +540,8 @@ public final class ClaudeLife {
         g.sideJobTick = g.tickCount;
         { java.util.List<Task> own = new ArrayList<>(); for (Task q : g.tasks) if (q instanceof Task.Pickup || q instanceof Task.Replant || q instanceof Task.FinishTree || q instanceof Task.ChopTree || q instanceof Task.Break || q instanceof Task.Place || q instanceof Task.WallTorch) own.add(q);
           if (!own.isEmpty()) { // his own work still queued (a felled tree's drops and its sapling): that, while it cooks, then the furnace; no new side job pushing it back every round (live 06:00 World 15: the pickups and the replant behind a new tree, round after round, the drops left to despawn)
-            g.tasks.removeIf(q -> q instanceof Task.FurnaceTake fq && fq.pos().equals(ft.pos()));
-            dropCurrent(g); g.tasks.add(ft);
+            dropCurrent(g); List<Task> qs = new ArrayList<>(g.tasks); int at = 0; while (at < qs.size() && !(qs.get(at) instanceof Task.FurnaceLoad || qs.get(at) instanceof Task.FurnaceTake)) at++;
+            qs.add(at, ft); g.tasks.clear(); g.tasks.addAll(qs); // (back in ahead of the next furnace job, never at the end: a second batch's load ran into this furnace while the first still cooked, and its take was removed as a copy of this one, stage 114)
             ClaudeMod.LOGGER.info("[Claude life] while the furnace works: his own {} queued job(s) first (first: {}), then the furnace at {} (ClaudeLife.sideJobWhileCooking)", own.size(), own.get(0).getClass().getSimpleName(), ft.pos().toShortString());
             return;
           } }

@@ -12016,6 +12016,20 @@ public final class ClaudeLife {
      * a stone pickaxe once he has cobblestone, iron once he has ingots), make it now. No detour for materials:
      * that's ensureToolFor's job when the tool is actually required.
      */
+    /** A better tool of this kind than he has, with its makings on him (the head's material, sticks or wood for them), or a spare stone pick for a pick job: only then is a table worth putting down for it. */
+    private static boolean upgradeMakings(ClaudeEntity g, Item[] kinds, float have, BlockState state) {
+        int wood = 0, sticks = 0, rock = 0, iron = 0, dia = 0, picks = 0;
+        for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { ItemStack s = g.inventory.items.getItem(i);
+            if (s.is(ItemTags.PLANKS)) wood += s.getCount(); else if (s.is(ItemTags.LOGS)) wood += s.getCount() * 4; else if (s.is(Items.STICK)) sticks += s.getCount();
+            else if (s.is(ItemTags.STONE_TOOL_MATERIALS)) rock += s.getCount(); else if (s.is(Items.IRON_INGOT)) iron += s.getCount(); else if (s.is(Items.DIAMOND)) dia += s.getCount();
+            else if (s.getItem() instanceof net.minecraft.world.item.PickaxeItem) picks++; }
+        if (kinds != PICKAXES && iron < 27) for (Item k : Kit.missing(g, true).keySet()) if (Crafting.name(k).startsWith("iron")) { iron = 0; dia = 0; break; } // (as upgradeToolFor: the first iron goes on the kit, no iron or diamond axe or shovel)
+        boolean stickOk = sticks >= 2 || wood >= 2; int head = kinds == SHOVELS ? 1 : 3;
+        int[] mat = {wood - (sticks >= 2 ? 0 : 2), rock, iron, diamondsReserved(g) ? 0 : dia};
+        for (int i = 0; i < kinds.length && i < mat.length; i++) if (new ItemStack(kinds[i]).getDestroySpeed(state) > have && mat[i] >= head && stickOk) return true;
+        return kinds == PICKAXES && picks < 2 && rock >= 3 && stickOk;
+    }
+
     private static void upgradeToolFor(ClaudeEntity g, ServerLevel level, BlockState state) {
         Item[] kinds = state.is(BlockTags.MINEABLE_WITH_PICKAXE) ? PICKAXES : state.is(BlockTags.MINEABLE_WITH_AXE) ? AXES
                 : state.is(BlockTags.MINEABLE_WITH_SHOVEL) ? SHOVELS : null;
@@ -12024,7 +12038,7 @@ public final class ClaudeLife {
         for (int i = 0; i < g.inventory.items.getContainerSize(); i++) have = Math.max(have, g.inventory.items.getItem(i).getDestroySpeed(state));
         BlockPos tablePos = findNear(level, g.blockPosition(), 5, b -> b.is(Blocks.CRAFTING_TABLE));
         boolean table = tablePos != null;
-        if (!table && g.inventory.count(s -> s.is(Items.CRAFTING_TABLE)) > 0) table = placeNextTo(g, level, Items.CRAFTING_TABLE) != null;
+        if (!table && g.inventory.count(s -> s.is(Items.CRAFTING_TABLE)) > 0) { if (upgradeMakings(g, kinds, have, state)) table = placeNextTo(g, level, Items.CRAFTING_TABLE) != null; else nookSay(g, "noUpgrade" + kinds[0], "[Claude skill] no better " + Crafting.name(kinds[0]).replace("wooden ", "") + " he has the makings for: his table stays in his pack (ClaudeLife.upgradeToolFor)"); } // (09:36 11-05: put down, nothing made, taken back up a second later, stage 720)
         if (!table && kinds == PICKAXES && have < new ItemStack(Items.STONE_PICKAXE).getDestroySpeed(state)) { // a wooden pick with 159 cobble on him for half an hour: a player spends a log on a table
             int rock = 0, wood = 0;
             for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { var it0 = g.inventory.items.getItem(i); if (it0.is(ItemTags.STONE_TOOL_MATERIALS)) rock += it0.getCount(); else if (it0.is(ItemTags.LOGS)) wood += it0.getCount() * 4; else if (it0.is(ItemTags.PLANKS)) wood += it0.getCount(); }

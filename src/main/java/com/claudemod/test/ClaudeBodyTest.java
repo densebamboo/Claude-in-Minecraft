@@ -10481,6 +10481,7 @@ public final class ClaudeBodyTest {
             case 717: return st717(stage, t, c, h, level, mock);
             case 718: return st718(stage, t, c, h, level, mock);
             case 719: return st719(stage, t, c, h, level, mock);
+            case 720: return st720(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13381,6 +13382,28 @@ public final class ClaudeBodyTest {
             check(toStairs.isEmpty(), "nether hunt: " + toStairs.size() + " walk(s) to his overworld stairs at " + ss.toShortString() + " from the Nether (" + r + "), queue " + c.tasks.stream().limit(6).toList());
             c.tasks.clear(); c.skillQueue.clear(); c.stairStart = null; c.dropCurrent = true; nsHome(c, h, level);
             pass(stage, t, "collect chicken in the Nether: no walk to his overworld stairs (" + r + ")"); return true;
+        }
+        return true;
+    }
+
+    /** Live 09:36 11-05 (PLACE_BREAK, REVIEW-175): "a few logs while it cooks" with a stone axe and no iron: the better-tool check put his crafting table down before it knew there was nothing better to make, and the leave-it rule took it back up a second later, nothing crafted. No table goes down for an upgrade he has no makings for. */
+    private static boolean st720(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -2; x <= 16; x++) for (int z = -2; z <= 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 1; y <= 9; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (int y = 1; y <= 4; y++) level.setBlock(h.absolutePos(new BlockPos(10, y, 8)), Blocks.BIRCH_LOG.defaultBlockState(), 2);
+            for (BlockPos q : BlockPos.betweenClosed(h.absolutePos(new BlockPos(8, 4, 6)), h.absolutePos(new BlockPos(12, 6, 10)))) if (level.getBlockState(q).isAir()) level.setBlock(q, Blocks.BIRCH_LEAVES.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_AXE)); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE)); c.getInventory().add(new ItemStack(Items.BIRCH_LOG, 35)); c.getInventory().add(new ItemStack(Items.STICK, 2)); // (as live: no iron, no diamonds)
+            BlockPos me = h.absolutePos(new BlockPos(4, 1, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            level.setDayTime(1000); c.tasks.clear(); c.skillQueue.clear(); c.attempts.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 20) {
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "logs", 5);
+            BlockPos tbl = null; for (BlockPos q : BlockPos.betweenClosed(c.blockPosition().offset(-6, -2, -6), c.blockPosition().offset(6, 3, 6))) if (level.getBlockState(q).is(Blocks.CRAFTING_TABLE)) { tbl = q.immutable(); break; }
+            check(tbl == null, "logs with a stone axe and no iron: his crafting table put down at " + (tbl == null ? "" : tbl.toShortString()) + " for no craft (" + r + ")");
+            check(c.getInventory().countItem(Items.CRAFTING_TABLE) == 1, "logs: his crafting table not in his pack (" + c.getInventory().countItem(Items.CRAFTING_TABLE) + ")");
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            pass(stage, t, "no table down for an upgrade he can't make (" + r + ")"); return true;
         }
         return true;
     }

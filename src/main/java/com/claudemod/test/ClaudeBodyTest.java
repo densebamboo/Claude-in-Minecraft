@@ -10498,6 +10498,7 @@ public final class ClaudeBodyTest {
             case 725: return st725(stage, t, c, h, level, mock);
             case 726: return st726(stage, t, c, h, level, mock);
             case 727: return st727(stage, t, c, h, level, mock);
+            case 728: return st728(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13681,6 +13682,28 @@ public final class ClaudeBodyTest {
             check(!(rule.skill().equals("gear_up") && r.startsWith("done: through the portal")), "the rules' step in the Nether was gear_up, a no-op there: " + r);
             c.tasks.clear(); c.skillQueue.clear(); c.playerGoal = null; c.dropCurrent = true; nsHome(c, h, level);
             pass(stage, t, "the rules' step in the Nether does something: " + rule.skill() + " " + rule.target()); return true;
+        }
+        return true;
+    }
+
+    /** Live 13:05-13:08 11-05 (Nether 36,32,2 -> portal #3 at -3,59,1, 47 off): every Nether plan home was made and thrown away, "planned 12 times without getting there, his walker takes it as it is", a count over the whole trip that never reset as he got on (a long Nether way is planned again at every "as far as here for now"); his walker plans 28 out, the walk ended at once, again every second. He gave up going home and went fortress-hunting with 0 meals. A give-up count, a lock: the route is planned however many times it takes. */
+    private static boolean st728(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(5480, 70, 5640);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            nsArena(nl, o, 30, 4, 4, 6);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 32));
+            c.teleportTo(nl, o.getX() + 20.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.tasks.clear(); c.skillQueue.clear();
+        }
+        if (t[0] == 20) {
+            check(c.level() == nl, "long Nether walk: not in the Nether");
+            BlockPos to = o.offset(-25, 0, 0); java.util.List<Task> got = null; int n = 0;
+            for (int i = 1; i <= 14; i++) { c.tasks.clear(); got = com.claudemod.entity.nav.Route.expand(c, nl, to, 1.5); n = i; if (got == null || com.claudemod.entity.nav.Route.walkerTakes(got)) break; }
+            check(got != null && !com.claudemod.entity.nav.Route.walkerTakes(got), "a 45-block Nether walk planned " + n + " times: plan " + n + " thrown away to his walker (it plans 28 out)");
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; nsHome(c, h, level);
+            pass(stage, t, "a long Nether walk gets its route however many times it's planned"); return true;
         }
         return true;
     }

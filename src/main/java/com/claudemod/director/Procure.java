@@ -43,7 +43,7 @@ public final class Procure {
 
     private static final Map<Item, Source> SOURCES = new HashMap<>();
     // ponytail: two world sources ride in the plan's item counts under items he never carries, so a plan that backs out restores them
-    private static final Item HAY_IN_SIGHT = Items.STRUCTURE_VOID, GOLEM_READY = Items.IRON_GOLEM_SPAWN_EGG;
+    private static final Item HAY_IN_SIGHT = Items.STRUCTURE_VOID, GOLEM_READY = Items.IRON_GOLEM_SPAWN_EGG, VILLAGE_BEDS = Items.BARRIER; // (in sight, or in a village he saw within a walk: the village skills walk there)
     private static final Item[] PICKS = {Items.WOODEN_PICKAXE, Items.STONE_PICKAXE, Items.IRON_PICKAXE, Items.DIAMOND_PICKAXE}; // by tier
 
     private static void gather(String target, int tier, Item... items) { for (Item i : items) SOURCES.put(i, new Source("collect", target, tier, null)); }
@@ -143,8 +143,12 @@ public final class Procure {
             // his own stations a walk off count too (the craft walks back to them): he climbed out of his mine at y -58 for a log to make a table, his mine's table 20 blocks down the tunnel
             boolean ownTable = false, ownFurnace = false;
             for (net.minecraft.core.BlockPos p : g.myStations) { if (p.distSqr(g.blockPosition()) > 64 * 64 || !level.isLoaded(p)) continue; if (level.getBlockState(p).is(Blocks.CRAFTING_TABLE)) ownTable = true; if (level.getBlockState(p).is(Blocks.FURNACE)) ownFurnace = true; }
-            int bales0 = ClaudeLife.villageHayInSight(g, level); if (bales0 > 0) have.put(HAY_IN_SIGHT, bales0); // a village's bales and golem, counted like items so a plan that backs out puts them back
-            if (ClaudeLife.golemReady(g, level) != null) have.put(GOLEM_READY, 1);
+            String mode = g.pref("village_mode", "useful"); // a village he saw, out of sight: its hay, golem and beds count too, the nearest worthwhile one (the user 11-04)
+            var vil = ClaudeLife.knownVillage(g, "village_iron", level);
+            int bales0 = ClaudeLife.villageHayInSight(g, level); if (bales0 == 0 && ClaudeLife.knownVillage(g, "village_food", level) != null) bales0 = mode.equals("raid") ? 8 : 4;
+            if (bales0 > 0) have.put(HAY_IN_SIGHT, bales0); // a village's bales and golem, counted like items so a plan that backs out puts them back
+            if (ClaudeLife.golemReady(g, level) != null || vil != null && ClaudeLife.golemFit(g)) have.put(GOLEM_READY, 1);
+            if (vil != null && (mode.equals("useful") || mode.equals("raid"))) have.put(VILLAGE_BEDS, 6); // (beds are his to take, the user; a guest leaves them)
             table = ownTable || ClaudeLife.findNear(level, g.blockPosition(), 16, b -> b.is(Blocks.CRAFTING_TABLE)) != null || have.getOrDefault(Items.CRAFTING_TABLE, 0) > 0;
             furnace = ownFurnace || ClaudeLife.findNear(level, g.blockPosition(), 16, b -> b.is(Blocks.FURNACE)) != null || have.getOrDefault(Items.FURNACE, 0) > 0;
         }
@@ -178,6 +182,10 @@ public final class Procure {
                 steps.add(new Skills.Step("village_iron", "", 1));
                 n -= Math.min(n, 3);
                 if (n == 0) return null;
+            }
+            if (have.getOrDefault(VILLAGE_BEDS, 0) > 0 && new ItemStack(item).is(ItemTags.BEDS)) { // a village's beds, unless he has the wool for one already
+                int wool = 0; for (var e : have.entrySet()) if (new ItemStack(e.getKey()).is(ItemTags.WOOL)) wool += e.getValue();
+                if (wool < 3 * n) { int b = Math.min(n, have.remove(VILLAGE_BEDS)); steps.add(new Skills.Step("village_beds", "", b)); n -= b; if (n == 0) return null; }
             }
             if (depth > 8 || path.contains(item)) return "no way to get " + Crafting.name(item);
             Set<Item> deeper = new HashSet<>(path);

@@ -13987,9 +13987,9 @@ public final class ClaudeBodyTest {
             c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
             c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5); level.setDayTime(1000);
             c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
-            c.tasks.add(new Task.GoTo(wp.immutable(), 0.8)); c.tasks.add(new Task.GoTo(wp.east().immutable(), 0.8)); // (the swim waypoints, as the stuck-swimming shore queued them)
         }
-        if (t[0] > 12) {
+        if (t[0] == 16) { c.tasks.add(new Task.GoTo(wp.immutable(), 0.8)); c.tasks.add(new Task.GoTo(wp.east().immutable(), 0.8)); } // (the swim waypoints, as the stuck-swimming shore queued them; once he has landed from the teleport, as live: queued the same tick as the teleport he was still in the air and the walk planned a route from mid-air)
+        if (t[0] > 17) {
             boolean wallDug = false; for (int z = 0; z < 16; z++) for (int y = 2; y <= 5; y++) if (level.getBlockState(h.absolutePos(new BlockPos(6, y, z))).isAir() || !level.getFluidState(h.absolutePos(new BlockPos(6, y, z))).isEmpty()) wallDug = true;
             check(!wallDug && !c.isInWater(), "dug the wall into the water for his old swim waypoints: in water " + c.isInWater() + ", task " + c.currentTask + ", queue " + c.tasks);
             boolean left = c.currentTask instanceof Task.GoTo g0 && g0.pos().getX() >= wp.getX() || c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo g1 && g1.pos().getX() >= wp.getX());

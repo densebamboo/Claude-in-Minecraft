@@ -2023,7 +2023,8 @@ public class WorkGoal extends Goal {
                 if (shellOverOre) g.tasks.addFirst(new Task.Place(inWay.immutable(), inWay.getY() < 0 && g.inventory.count(s0 -> s0.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE)) > 0 ? net.minecraft.world.item.Items.COBBLED_DEEPSLATE : net.minecraft.world.item.Items.COBBLESTONE)); // his wall back once the ore's out (its own vein-behind check waits for the rest)
                 g.tasks.addFirst(new Task.Break(pos));
                 g.tasks.addFirst(new Task.Break(inWay));
-                return exit("doBreak line 1556");
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude dig] {} at {} is in the way of {} at {} (he's at {}; {}{}): that first, then it (WorkGoal.doBreak)", name(w), inWay.toShortString(), name(state), pos.toShortString(), g.blockPosition().toShortString(), g.blueprint != null && g.blueprint.isShell(inWay) ? "his mine's wall" : g.blueprint != null && g.blueprint.isWalk(inWay) ? "his walkway" : "not his mine", shellOverOre ? ", his wall put back after" : ""); // (silent before: 141 "back in the queue (doBreak line 1556)" 02:44-03:03 11-05, stone at -101, 12, -20 nine times from one spot, the block in the way never named)
+                return exit("in the way: " + name(w) + " at " + inWay.toShortString() + " first (doBreak line 1556)");
             }
         }
 

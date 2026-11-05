@@ -13313,23 +13313,18 @@ public final class ClaudeBodyTest {
     }
 
     private static int st647From = -1;
-    /** A walk he can't finish (a pocket walled in bedrock, nothing on him): the give-up files a BANDAID incident, so the bug under it is seen (audit 11-04: the generic give-ups were silent). */
+    /** A step of his own plan failed 3 times is skipped: the skip files a BANDAID incident, so the bug under it is seen (audit 11-04: the generic give-ups were silent; the walk exits record their cause since phase 1). */
     private static boolean st647(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
-        BlockPos at = h.absolutePos(new BlockPos(3, 2, 8)), box = h.absolutePos(new BlockPos(9, 2, 8));
-        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st647From = -1; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; st647From = -1; }
         if (t[0] == 10) {
-            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -4; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
-            for (int dx = -1; dx <= 1; dx++) for (int dy = -1; dy <= 2; dy++) for (int dz = -1; dz <= 1; dz++) level.setBlock(box.offset(dx, dy, dz), Blocks.BEDROCK.defaultBlockState(), 2);
-            level.setBlock(box, Blocks.AIR.defaultBlockState(), 2); level.setBlock(box.above(), Blocks.AIR.defaultBlockState(), 2);
-            level.setDayTime(3000); c.getInventory().clearContent(); c.setHealth(20); c.getFoodData().setFoodLevel(20);
-            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
-            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.commandActive = false;
+            c.failCount.put("craft diamond_pickaxe", 3); st647From = com.claudemod.entity.life.Watchdog.incidents;
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "diamond_pickaxe", 1));
         }
-        if (t[0] == 20) { st647From = com.claudemod.entity.life.Watchdog.incidents; c.tasks.add(new Task.GoTo(box, 0.5)); }
-        if (st647From >= 0 && t[0] > 20) {
+        if (st647From >= 0 && t[0] > 10) {
             String li = com.claudemod.entity.life.Watchdog.lastIncident;
-            if (com.claudemod.entity.life.Watchdog.incidents > st647From && li.startsWith("BANDAID")) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "the give-up filed an incident: " + li); }
-            else check(t[0] < 20 + 20 * 70, "70 s on a walk into a bedrock pocket and no BANDAID incident (last: " + li + ", now=" + c.currentTask + " queue " + c.tasks + ")");
+            if (com.claudemod.entity.life.Watchdog.incidents > st647From && li.startsWith("BANDAID") && li.contains("diamond_pickaxe")) { c.failCount.clear(); c.skillQueue.clear(); pass(stage, t, "the skip filed an incident: " + li); }
+            else check(t[0] < 10 + 20 * 20, "20 s and the failed-3x skip of craft diamond_pickaxe filed no BANDAID incident (last: " + li + ", plan " + c.skillQueue + ", line " + c.lastSkillLine + ")");
         }
         return true;
     }

@@ -606,10 +606,11 @@ public final class Watchdog {
     /** Out and back: a walk ending within 3 of where a walk 8+ away began, inside 60 s, nothing done between (WASTED_WALK). */
     private static void backtrack(ClaudeEntity g, St s) {
         if (!on() || s.walks.size() < 2) return;
-        int[] last = s.walks.peekLast();
-        for (int[] w : s.walks) {
-            if (w == last || last[0] - w[0] > 20 * 60) continue;
-            double out = Math.hypot(w[3] - w[1], w[4] - w[2]), back = Math.hypot(last[3] - w[1], last[4] - w[2]);
+        int[] last = s.walks.peekLast(); java.util.List<int[]> ws = new java.util.ArrayList<>(s.walks);
+        for (int i = 0; i < ws.size() - 1; i++) {
+            int[] w = ws.get(i); if (last[0] - w[0] > 20 * 60) continue;
+            double out = 0; for (int j = i; j < ws.size(); j++) out = Math.max(out, Math.hypot(ws.get(j)[3] - w[1], ws.get(j)[4] - w[2])); // (the furthest he got: a long walk comes in legs)
+            double back = Math.hypot(last[3] - w[1], last[4] - w[2]);
             if (out >= 8 && back <= 3 && last[5] == w[5] && last[6] == w[6]) { fileOnce(g, "WASTED_WALK", "WASTED_WALK|" + w[1] + "," + w[2], String.format("walked %.0f out from %d, %d and back again within %d s with nothing done (%s)", out, w[1], w[2], (last[0] - w[0]) / 20, g.lastStep == null ? "no step" : g.lastStep.skill() + " " + g.lastStep.target())); return; }
         }
     }

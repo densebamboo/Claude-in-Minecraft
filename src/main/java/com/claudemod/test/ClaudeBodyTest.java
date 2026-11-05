@@ -12767,7 +12767,7 @@ public final class ClaudeBodyTest {
     }
 
     /** The user 11-05 ("everything in the same vein constitutes as slow"): one furnace cooking while two beside it stand empty, a far furnace used with an empty one at hand, a load of 1 with 9 more on him, a walk out and straight back, the same chest emptied twice, 20 s waiting at a furnace, and the step that held all that: SLOW against a player's pace, and the same job again (SPLIT_JOB). */
-    private static BlockPos s801A, s801C; private static Object s801Step;
+    private static BlockPos s801A, s801C, s801Back; private static Object s801Step;
     private static boolean st801(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         var W = com.claudemod.entity.life.Watchdog.recentKinds;
         try {
@@ -12787,7 +12787,11 @@ public final class ClaudeBodyTest {
         if (t[0] == 40) {
             c.tasks.clear(); c.dropCurrent = true;
             c.tasks.add(new com.claudemod.entity.life.Task.FurnaceLoad(s801A.offset(15, 0, 3).immutable(), Items.RAW_IRON, 1)); // (14 off, an empty one at hand: far; 1 of 10: small)
-            c.tasks.add(new com.claudemod.entity.life.Task.GoTo(s801A.immutable(), 1.0)); c.tasks.add(new com.claudemod.entity.life.Task.GoTo(s801A.offset(14, 0, 0).immutable(), 1.0)); // (out and back)
+            s801Back = null;
+        }
+        if (t[0] > 41 && s801Back == null && c.currentTask == null && c.tasks.isEmpty()) { // the load done: out and back to the very spot, then the chest twice, then the wait
+            s801Back = c.blockPosition().immutable();
+            c.tasks.add(new com.claudemod.entity.life.Task.GoTo(s801A.immutable(), 1.0)); c.tasks.add(new com.claudemod.entity.life.Task.GoTo(s801Back, 0.5));
             c.tasks.add(new com.claudemod.entity.life.Task.Chest(s801C.immutable(), true, null)); c.tasks.add(new com.claudemod.entity.life.Task.Chest(s801C.immutable(), true, null, 64)); // (a second record, or the queue takes them as one)
             c.tasks.add(new com.claudemod.entity.life.Task.FurnaceTake(s801A.offset(0, 0, 3).immutable()));
         }

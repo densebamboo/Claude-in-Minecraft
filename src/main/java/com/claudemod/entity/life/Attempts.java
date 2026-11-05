@@ -163,10 +163,10 @@ public final class Attempts {
     public void clear() { for (Map<BlockPos, Integer> m : at.values()) m.clear(); for (Map<BlockPos, Why> m : why.values()) m.clear(); counters.clear(); from = null; }
 
     private static final Kind[] CELL_KINDS = {Kind.WALK, Kind.PLACE, Kind.BREAK, Kind.REACH};
-    /** The latest failure of any kind at the cell (walk, place, break, reach), or null. */
+    /** The latest failure of any kind at the cell (walk, place, break, reach), or null; one whose cause still holds is "now". */
     public Integer anyAt(BlockPos p) {
         Integer best = null;
-        for (Kind k : CELL_KINDS) { Integer t = at.get(k).get(p); if (t != null && why.get(k).get(p) != null && changed(k, p) != null) t = null; if (t != null && (best == null || t > best)) best = t; }
+        for (Kind k : CELL_KINDS) { Integer t = at.get(k).get(p); if (t != null && why.get(k).get(p) != null) t = changed(k, p) != null ? null : g == null ? t : Integer.valueOf(g.tickCount); if (t != null && (best == null || t > best)) best = t; } // (a cause that still holds reads as failing now: the readers' own windows don't end it, a change does)
         return best;
     }
 

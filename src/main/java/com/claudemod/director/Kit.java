@@ -42,7 +42,8 @@ public final class Kit {
         ItemStack worn = g.getItemBySlot(a.getEquipmentSlot());
         if (worn.is(armor) || g.inventory.count(s -> s.is(armor)) > 0) return true;
         if (java.util.Set.of(Items.GOLDEN_HELMET, Items.GOLDEN_CHESTPLATE, Items.GOLDEN_LEGGINGS, Items.GOLDEN_BOOTS).contains(armor)) return false; /* gold is wanted for itself (piglins), no better piece covers it: diamond boots on him and "already wearing something as good as golden_boots" */
-        return worn.getItem() instanceof ArmorItem w && w.getDefense() >= a.getDefense();
+        return worn.getItem() instanceof ArmorItem w && w.getDefense() >= a.getDefense()
+            || g.inventory.count(s -> s.getItem() instanceof ArmorItem c && c.getEquipmentSlot() == a.getEquipmentSlot() && c.getDefense() >= a.getDefense()) > 0; // (a better one in his bag too: the diamond chestplate just crafted, not on yet, and obtain iron_chestplate planned 8 iron, live 17:24 11-04)
     }
 
     /** Past the iron stage: any diamond armor or a diamond pickaxe on him, or the full iron kit (four iron pieces, iron pick, iron sword). */

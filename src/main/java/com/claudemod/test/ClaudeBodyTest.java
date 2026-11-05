@@ -10410,6 +10410,7 @@ public final class ClaudeBodyTest {
             case 624: return st624(stage, t, c, h, level, mock);
             case 625: return st625(stage, t, c, h, level, mock);
             case 626: return st626(stage, t, c, h, level, mock);
+            case 628: return st628(stage, t, c, h, level, mock);
             case 598: return st598(stage, t, c, h, level, mock);
             case 599: return st599(stage, t, c, h, level, mock);
             case 602: return st602(stage, t, c, h, level, mock);
@@ -12511,11 +12512,12 @@ public final class ClaudeBodyTest {
             for (var e : grid.entrySet()) { java.util.Map<Character, Integer> cnt = new java.util.HashMap<>(); for (String zr : e.getValue()) for (char ch : zr.toCharArray()) if (ch != '@') cnt.merge(ch, 1, Integer::sum); char m = cnt.entrySet().stream().max(java.util.Map.Entry.comparingByValue()).get().getKey(); rowFill.put(e.getKey(), m == 'g' ? '#' : m); } // (sand or gravel as the fill rains down on him: rock outside the grid)
             StringBuilder rf = new StringBuilder(); for (var e : rowFill.entrySet()) rf.append(" y").append(e.getKey()).append(" ").append(e.getValue());
             built.add("outside the grid by row:" + rf + ", below the grid rock, above y" + yHi + " as the top row (" + rowFill.get(yHi) + ")");
+            char cap = rowFill.get(yHi); if (cap == '~') { cap = '#'; for (int y = yHi; y >= yLo; y--) if (rowFill.get(y) != '~') { cap = rowFill.get(y); break; } built.add("the top row fluid: capped above with " + (cap == '#' ? "rock" : "air") + " (the grid's highest dry row), no column of it to the sky"); } final char capF = cap; // (Day to Day 11-04: the 20:32/20:37 drownings replayed in an endless water column the live pocket hadn't)
             int ground = yLo - 1; // (the top of the rock under the grid: right under it, unless the grid's bottom row is open air: then the heard mobs' feet, else 5 down)
             if (rowFill.get(yLo) == '.') { java.util.List<Integer> ys = new java.util.ArrayList<>(); for (var hl : heard.values()) for (BlockPos q : hl) if (q.getY() < yLo) ys.add(q.getY()); java.util.Collections.sort(ys);
                 ground = ys.isEmpty() ? yLo - 5 : ys.get(ys.size() / 2) - 1; built.add("the bottom row open: ground at y" + ground + (ys.isEmpty() ? " (5 under the grid, no mob heard lower)" : " (under the mobs he heard)")); }
             final int groundTop = ground;
-            for (int y = Math.min(yLo, groundTop) - 6; y <= yHi + 6; y++) { char ch = y < yLo ? (y <= groundTop ? '#' : '.') : y > yHi ? rowFill.get(yHi) : rowFill.getOrDefault(y, '#'); var bs = cell.apply(ch, false);
+            for (int y = Math.min(yLo, groundTop) - 6; y <= yHi + 6; y++) { char ch = y < yLo ? (y <= groundTop ? '#' : '.') : y > yHi ? capF : rowFill.getOrDefault(y, '#'); var bs = cell.apply(ch, false);
                 for (int x = -16; x <= 16; x++) for (int z = -16; z <= 16; z++) lv.setBlock(new BlockPos(OX + x, y, OZ + z), bs, 2 | 16); }
             for (var e : grid.entrySet()) { String[] zs = e.getValue(); for (int z = 0; z < 7; z++) for (int x = 0; x < 7 && x < zs[z].length(); x++) { char ch = zs[z].charAt(x); if ("#~g.@".indexOf(ch) < 0) { skipped.add("grid cell '" + ch + "' at y" + e.getKey() + " as air"); ch = '.'; } lv.setBlock(map.apply(new BlockPos(dx0 - 3 + x, e.getKey(), dz0 - 3 + z)), cell.apply(ch, eyesWet), 2); } }
             for (var m0 : lv.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(OX - 40, yLo - 20, OZ - 40, OX + 40, yHi + 20, OZ + 40))) m0.discard();
@@ -12576,6 +12578,19 @@ public final class ClaudeBodyTest {
         if (c.isAlive()) s625Low = Math.min(s625Low, c.getHealth());
         if (!c.isAlive() || c.getHealth() <= 0) { check(false, "replay " + name + ": STILL DIES after " + (t[0] - s625T) / 20 + " s (" + c.getLastDamageSource() + ") at " + c.blockPosition().toShortString() + ", last " + c.lastSkillLine + " | " + (s625Note.length() > 500 ? s625Note.substring(0, 500) + "... (the whole note in the replay line above)" : s625Note)); return true; }
         if (t[0] - s625T >= 20 * 30) { pass(stage, t, "replay " + name + ": SURVIVES 30 s, health " + c.getHealth() + " (low " + s625Low + "), at " + c.blockPosition().toShortString() + ", last " + c.lastSkillLine + " | " + (s625Note.length() > 500 ? s625Note.substring(0, 500) + "... (the whole note in the replay line above)" : s625Note)); }
+        return true;
+    }
+
+    /** Live 21:19 11-04 (bandaid 3): a walk to the cell he stood on was routed ("0 blocks off: 3 legs") each time it came up, 12 times. There already, the walk just ends. */
+    private static int s628Max;
+    private static boolean st628(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); s628Max = 0; }
+        if (t[0] == 10) { var b = lnMine(h, level, c); lnStand(c, mock, b.entrance, b.entrance.west()); c.tasks.clear(); c.skillQueue.clear(); }
+        if (t[0] == 14) c.tasks.add(new Task.GoTo(c.blueprint.entrance, 0.8));
+        if (t[0] > 14) s628Max = Math.max(s628Max, c.tasks.size());
+        if (t[0] == 60) { boolean done = c.tasks.isEmpty() && !(c.currentTask instanceof Task.GoTo);
+            check(s628Max == 0 && done, "a walk to the cell he stands on: " + s628Max + " walks queued for it (route legs), now " + c.currentTask);
+            c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); pass(stage, t, "a walk to the cell he stands on ended at once, no route planned"); }
         return true;
     }
 

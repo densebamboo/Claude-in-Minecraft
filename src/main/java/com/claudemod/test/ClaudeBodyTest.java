@@ -8030,7 +8030,7 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
-        if (stage[0] >= 494 && stage[0] <= 699 && stages494(stage, t, c, h, level, mock)) return true;
+        if (stage[0] >= 494 && stage[0] <= 799 && stages494(stage, t, c, h, level, mock)) return true;
         if (stage[0] >= 279 && stage[0] <= 285) {
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Whereabouts.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.ExactSpot.reset(c); com.claudemod.director.Primitives.reset(c);
                 c.planning = false; c.failCount.clear(); c.commandResults.clear(); c.commandActive = false; c.lastSkillLine = ""; c.lastStep = null; c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600; esWaitT = -1; esMark = -1; esFake = ""; }
@@ -10444,6 +10444,9 @@ public final class ClaudeBodyTest {
             case 650: return st650(stage, t, c, h, level, mock);
             case 651: return st651(stage, t, c, h, level, mock);
             case 652: return st652(stage, t, c, h, level, mock);
+            case 700: return st700(stage, t, c, h, level, mock);
+            case 701: return st701(stage, t, c, h, level, mock);
+            case 702: return st702(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -12681,6 +12684,70 @@ public final class ClaudeBodyTest {
         if (t[0] == 60) { boolean done = c.tasks.isEmpty() && !(c.currentTask instanceof Task.GoTo);
             check(s628Max == 0 && done, "a walk to the cell he stands on: " + s628Max + " walks queued for it (route legs), now " + c.currentTask);
             c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); pass(stage, t, "a walk to the cell he stands on ended at once, no route planned"); }
+        return true;
+    }
+
+    /** Live 22:42 11-04 (bandaids 50, 63): beside his mine's door (off its line, 1.6 from the entrance), a walk to the entrance was routed "door, entrance": the door leg counted as reached at once, the entrance planned again, 12 times. From beside the door the walker steps in, no route. */
+    private static int s700Max, s700At;
+    private static boolean st700(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); s700Max = 0; s700At = -1; }
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            for (int x = -5; x <= -1; x++) for (int z = 4; z <= 12; z++) for (int y = 12; y <= 20; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); // (the land before his door: open to the sky, the floor one below the entrance)
+            lnStand(c, mock, b.entrance.west().north(), b.entrance.west(3)); c.tasks.clear(); c.skillQueue.clear(); }
+        if (t[0] == 14) c.tasks.add(new Task.GoTo(c.blueprint.entrance, 0.8));
+        if (t[0] > 14) { BlockPos en = c.blueprint.entrance; s700Max = Math.max(s700Max, (int) c.tasks.stream().filter(q -> q instanceof Task.GoTo go && go.pos().equals(en)).count()); if (s700At < 0 && c.blockPosition().equals(en)) s700At = t[0]; }
+        if (t[0] == 80) {
+            check(s700Max <= 1 && s700At > 0 && s700At < 45, "a walk to his mine's entrance from beside his door: " + s700Max + " walks to the entrance queued at once (a leg and the end), in at tick " + s700At + ", now " + c.currentTask + " at " + c.blockPosition().toShortString());
+            c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); pass(stage, t, "beside his door, the walk to the entrance: stepped in at tick " + s700At + ", the entrance queued once"); }
+        return true;
+    }
+
+    /** Live 22:59 11-04 (incidents 54-56): a peony stood in a wall cell of his house; the build queued planks there with no break first (it has no collision), each refused "the cell's filled already", round in circles. The flower comes out first, then the planks. */
+    private static BlockPos s701P;
+    private static boolean st701(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); s701P = null; }
+        if (t[0] == 10) {
+            for (int x = -8; x <= 16; x++) for (int z = -4; z <= 18; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 2; y <= 9; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+            var hb = new com.claudemod.entity.life.HouseBlueprint(h.absolutePos(new BlockPos(3, 2, 6)), net.minecraft.core.Direction.NORTH); hb.wood = "oak";
+            for (var e : hb.cells().entrySet()) { BlockPos p = e.getKey(); var W = com.claudemod.entity.life.HouseBlueprint.Role.WALL;
+                if (e.getValue() == W && hb.cells().get(p.above()) == W && hb.cells().get(p.below()) != W && (s701P == null || p.getY() < s701P.getY())) s701P = p.immutable(); }
+            for (var e : hb.cells().entrySet()) { BlockPos p = e.getKey(); if (p.equals(s701P) || p.equals(s701P.above())) continue; // (the house built up to its walls: the peony's two cells are all that's wrong)
+                switch (e.getValue()) { case FOUNDATION -> level.setBlock(p, Blocks.STONE.defaultBlockState(), 2); case POST -> level.setBlock(p, Blocks.OAK_LOG.defaultBlockState(), 2); case WALL -> level.setBlock(p, Blocks.OAK_PLANKS.defaultBlockState(), 2); default -> {} } }
+            level.setBlock(s701P.below(), Blocks.GRASS_BLOCK.defaultBlockState(), 2);
+            net.minecraft.world.level.block.DoublePlantBlock.placeAt(level, Blocks.PEONY.defaultBlockState(), s701P, 2);
+            c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 64));
+            lnStand(c, mock, s701P.south(2).east(2), s701P.south(4));
+            var ts = hb.reconcile(level, it -> 64, p -> false, 256);
+            ClaudeMod.LOGGER.info("[Claude test] 701: reconcile gave {} tasks, first {}; role at the peony {} / {}, missing {}", ts.size(), ts.stream().limit(6).toList(), hb.cells().get(s701P), hb.cells().get(s701P.above()), hb.missing);
+            ts.removeIf(q -> !(q instanceof Task.Place p0 && (p0.pos().equals(s701P) || p0.pos().equals(s701P.above())) || q instanceof Task.Break b0 && (b0.pos().equals(s701P) || b0.pos().equals(s701P.above()))));
+            ClaudeMod.LOGGER.info("[Claude test] 701: peony at {}, the build's tasks for it: {}", s701P.toShortString(), ts);
+            c.tasks.clear(); c.tasks.addAll(ts);
+        }
+        if (t[0] > 10 && level.getBlockState(s701P).is(Blocks.OAK_PLANKS) && level.getBlockState(s701P.above()).is(Blocks.OAK_PLANKS)) {
+            c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "a peony in his wall: broken, then the planks (" + t[0] + " ticks)"); return true; }
+        if (t[0] > 10) check(t[0] < 200, "a peony in his house's wall at " + s701P + ": still " + level.getBlockState(s701P).getBlock() + " / " + level.getBlockState(s701P.above()).getBlock() + " after 10 s, now " + c.currentTask + " queue " + c.tasks);
+        return true;
+    }
+
+    /** Live 22:44 11-04 (incident 51): night, hopping out of the water onto the shore, shelter ran 3 times in a second, each "done: no cover right now: in the air", and the skill was over: no cover that night. In the air, cover is decided on landing, and then taken. */
+    private static boolean s702Air;
+    private static boolean st702(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); s702Air = false; }
+        if (t[0] == 10) {
+            for (int x = -1; x <= 14; x++) for (int z = -1; z <= 14; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.DIRT.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), Blocks.DIRT.defaultBlockState(), 2); for (int y = 2; y <= 12; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16));
+            for (int x = 0; x <= 5; x++) for (int z = 2; z <= 10; z++) level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.WATER.defaultBlockState(), 2); // (a pond one below the shore, as live: water at 62, the shore at 63)
+            BlockPos at = h.absolutePos(new BlockPos(3, 1, 6));
+            lnStand(c, mock, at, at.east(8)); c.setDeltaMovement(0, 0, 0); c.tasks.clear(); c.skillQueue.clear();
+        }
+        if (t[0] == 16) { check(c.isInWater(), "702: not in the pond at " + c.blockPosition().toShortString()); c.lastSkillLine = ""; c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("shelter", "", 1)); } // (in the water first: shelter swims him to the shore, the hop out is where it ran in the air)
+        if (t[0] > 16) { String line = c.lastSkillLine == null ? "" : c.lastSkillLine;
+            if (line.contains("in the air") && line.contains("done:")) s702Air = true;
+            check(!s702Air, "shelter in the air ended the skill: " + line);
+            if (!line.isEmpty() && !line.contains("in the air") && (c.currentTask instanceof Task.Pillar || c.currentTask instanceof Task.Break || c.tasks.stream().anyMatch(q -> q instanceof Task.Pillar || q instanceof Task.Break))) {
+                c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; pass(stage, t, "shelter in the air: decided on landing (" + line + ", " + t[0] + " ticks)"); return true; }
+            check(t[0] < 120, "shelter in the air: no cover 5 s on, line " + line + ", now " + c.currentTask + " queue " + c.tasks);
+        }
         return true;
     }
 

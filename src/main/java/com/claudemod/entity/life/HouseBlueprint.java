@@ -150,7 +150,7 @@ public class HouseBlueprint {
             int left = budget.computeIfAbsent(it, have::applyAsInt);
             if (left <= 0) { missing.merge(it, 1, Integer::sum); return false; }
             budget.put(it, left - 1);
-            if (solid(level, p) && !level.getBlockState(p).canBeReplaced()) out.add(new Task.Break(p)); // the wrong block out first (dirt in a wall, a stray cobble)
+            if (!level.getBlockState(p).isAir() && !level.getBlockState(p).canBeReplaced()) out.add(new Task.Break(p)); // the wrong block out first (dirt in a wall, a stray cobble, a peony: no collision, still no place there, live 22:59 11-04)
             out.add(new Task.Place(p, it));
             return true;
         };

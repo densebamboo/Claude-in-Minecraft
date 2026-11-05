@@ -2869,6 +2869,13 @@ public final class ClaudeLife {
                             double dq = x * x + z * z; if (dq < bd) { bd = dq; land = top.immutable(); } } }
                     if (land != null) { g.skillQueue.addFirst(st); g.tasks.add(new Task.GoTo(land, 1.5)); ClaudeMod.LOGGER.info("[Claude skill] shelter: in the water at {}: swimming to dry ground at {} ({} off) first, cover there (ClaudeLife shelter)", me.toShortString(), land.toShortString(), (int) Math.sqrt(land.distSqr(me))); return "in the water: to the dry ground at " + land.toShortString() + " first, then cover"; }
                 }
+                if (!g.onGround() && !g.isInWater() && !g.onClimbable()) { // in the air (a hop out of the water onto the shore): cover is decided on landing, the skill kept for then (live 22:44 11-04: "done: in the air" 3 times in a second ended it, no cover that night)
+                    int drop = 0; BlockPos f0 = g.blockPosition(); while (drop < 64 && level.getBlockState(f0.below(drop + 1)).getCollisionShape(level, f0.below(drop + 1)).isEmpty() && level.getFluidState(f0.below(drop + 1)).isEmpty()) drop++;
+                    int wait = 2 + (int) Math.ceil(Math.sqrt(2 * (drop + 1.25) / 0.08)); // (the time a fall that far takes, from a hop's top: never back in the same second)
+                    g.skillQueue.addFirst(st); g.tasks.add(new Task.Wait(wait, false));
+                    ClaudeMod.LOGGER.info("[Claude skill] shelter: in the air at {} ({} to the ground under him): cover decided on landing, {} ticks (ClaudeLife shelter)", String.format("%.1f", g.getY()), drop, wait);
+                    return "in the air: cover once I land";
+                }
                 if (g.shelter()) return "getting under cover here (out of reach, with a lid over me)";
                 { String why = g.noCoverWhyNow(); // a reason that isn't the ground or the blocks (a creeper close, a mob too near to finish it, in the air): that's the answer, not "nothing to tower with"
                   if (why != null && !why.startsWith("no tower to be had") && !why.startsWith("underground with") && !why.startsWith("water ")) { ClaudeMod.LOGGER.info("[Claude skill] shelter: no cover right now: {} (ClaudeLife shelter)", why); return "done: no cover right now: " + why; } }

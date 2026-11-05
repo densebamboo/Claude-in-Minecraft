@@ -10503,6 +10503,7 @@ public final class ClaudeBodyTest {
             case 669: return st669(stage, t, c, h, level, mock);
             case 670: return st670(stage, t, c, h, level, mock);
             case 671: return st671(stage, t, c, h, level, mock);
+            case 672: return st672(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -14770,6 +14771,34 @@ public final class ClaudeBodyTest {
             double d = sk.distanceTo(c); sk.discard();
             check(legs == null || legs.isEmpty() || !(legs.get(0) instanceof Task.Wait), "walled in with a skeleton " + String.format("%.1f", d) + " off over his head: he waits in cover from it: " + legs);
             pass(stage, t, "a mob at his cell is no reason to wait in cover (" + legs + ")");
+        }
+        return true;
+    }
+
+    /** In a hole in the rock, the vanilla way out climbs through 3 skeletons in the room over him: with a pickaxe he tunnels round them, he isn't held (live 10:46-10:51 11-05, World 17 Nether 76, 85, 104: "4 hostile(s) between him and 90, 90, 104 (a crowd): not walking through them" both ways, the go-round plan NO_DIG only). */
+    private static boolean st672(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(5400, 70, 5400), goal = o.east(12);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            nsArena(nl, o, 12, 12, 12, 8); nsKit(c); c.nextPlanTick = c.tickCount + 20 * 600;
+            for (BlockPos q : BlockPos.betweenClosed(o.offset(-3, -1, -3), o.offset(16, 8, 3))) nl.setBlock(q, Blocks.NETHERRACK.defaultBlockState(), 2);
+            for (BlockPos q : BlockPos.betweenClosed(o.offset(-2, 4, 0), o.offset(14, 6, 0))) nl.setBlock(q, Blocks.AIR.defaultBlockState(), 2); // a 1-wide hall over him, the goal at its far end
+            for (int y = 0; y <= 3; y++) nl.setBlock(o.above(y), Blocks.AIR.defaultBlockState(), 2); nl.setBlock(goal, Blocks.AIR.defaultBlockState(), 2); nl.setBlock(goal.above(), Blocks.AIR.defaultBlockState(), 2); // his hole up into it; the goal a pocket in the rock
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 20) {
+            for (int k = 0; k < 2; k++) { var sk = EntityType.SKELETON.create(nl); BlockPos sp = o.above(2); /* (two in the shaft cell over his head, as live) */ sk.moveTo(sp.getX() + 0.5, sp.getY(), sp.getZ() + 0.5, 0, 0); sk.setNoAi(true); nl.addFreshEntity(sk); }
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.tasks.add(new Task.GoTo(goal, 1.0));
+        }
+        if (t[0] == 100) {
+            boolean dug = false; for (Task q : c.tasks) if (q instanceof Task.Break) dug = true; if (c.currentTask instanceof Task.Break) dug = true;
+            boolean moved = c.blockPosition().getX() > o.getX();
+            for (var m : nl.getEntitiesOfClass(net.minecraft.world.entity.monster.Skeleton.class, new net.minecraft.world.phys.AABB(o).inflate(20))) m.discard();
+            BlockPos at = c.blockPosition(); c.tasks.clear(); c.dropCurrent = true;
+            check(dug || moved, "a hole in the rock, 3 skeletons in the room over him, a pickaxe on him: no tunnel round them in 4 s (at " + at.toShortString() + ", " + c.currentTask + ")");
+            pass(stage, t, "the way round the skeletons through the rock (" + (moved ? "on his way, at " + at.toShortString() : "digging") + ")");
         }
         return true;
     }

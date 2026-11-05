@@ -10504,6 +10504,8 @@ public final class ClaudeBodyTest {
             case 728: return st728(stage, t, c, h, level, mock);
             case 729: return st729(stage, t, c, h, level, mock);
             case 730: return st730(stage, t, c, h, level, mock);
+            case 731: return st731(stage, t, c, h, level, mock);
+            case 732: return st732(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13801,6 +13803,57 @@ public final class ClaudeBodyTest {
             check(!(rule.skill().equals("gear_up") && r.startsWith("done: through the portal")), "the rules' step in the Nether was gear_up, a no-op there: " + r);
             c.tasks.clear(); c.skillQueue.clear(); c.playerGoal = null; c.dropCurrent = true; nsHome(c, h, level);
             pass(stage, t, "the rules' step in the Nether does something: " + rule.skill() + " " + rule.target()); return true;
+        }
+        return true;
+    }
+
+    /** Live 14:38:58-14:39:09 11-05 (-139,14,-100; Day to Day review, INSTANT_REPEAT): a coal 5 below down a shaft; the pickup's "dig a step down toward it" queued a walk onto -138,13,-100, open air over the drop; the walker refused the drop and booked the walk failed, and the pickup queued the same walk again 43 times in 4 s, then "tried 16 ways". A walk on record failed, nothing changed since, is not queued again. */
+    private static int s732Goes, s732Was;
+    private static boolean st732(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); s732Goes = 0; s732Was = 0; }
+        if (t[0] == 10) { // (rock to y15, he on it at x1; a pit x2..5 open down 7 to y9)
+            for (int x = -2; x <= 8; x++) for (int z = -3; z <= 3; z++) { for (int y = 0; y <= 15; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), (y >= 9 && x >= 2 && x <= 5 && Math.abs(z) <= 2 ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); for (int y = 16; y <= 20; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8)); c.setHealth(20);
+            BlockPos me = h.absolutePos(new BlockPos(1, 16, 0)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.attempts.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 15) {
+            BlockPos at = h.absolutePos(new BlockPos(5, 9, 0));
+            var it = new net.minecraft.world.entity.item.ItemEntity(level, at.getX() + 0.5, at.getY() + 0.1, at.getZ() + 0.5, new ItemStack(Items.COAL, 1), 0, 0, 0); it.setPickUpDelay(0); level.addFreshEntity(it);
+            c.tasks.add(new Task.Pickup(300));
+        }
+        if (t[0] > 15) { // (each go is a new GoTo onto the same cell: counted by identity)
+            BlockPos step = h.absolutePos(new BlockPos(2, 15, 0));
+            Task cur = c.currentTask instanceof Task.GoTo go && go.pos().equals(step) ? c.currentTask : c.tasks.stream().filter(q -> q instanceof Task.GoTo go && go.pos().equals(step)).findFirst().orElse(null);
+            if (cur != null) { int id = System.identityHashCode(cur); if (id != s732Was) { s732Goes++; s732Was = id; } }
+        }
+        if (t[0] == 15 + 200) {
+            c.tasks.clear(); c.dropCurrent = true;
+            check(s732Goes <= 2, "a coal 7 down a pit: the step down onto the open drop queued " + s732Goes + " times in 10 s (a failed walk queued again, nothing changed)");
+            pass(stage, t, "the walk onto the drop queued " + s732Goes + " time(s), at " + c.blockPosition().toShortString() + ", coal " + c.getInventory().countItem(Items.COAL)); return true;
+        }
+        return true;
+    }
+
+    /** Live 14:15:52-14:16:16 11-05 (-12,64,-30; the user: "he just went underground and dug up to grab the logs from a tree he just chopped"): down a ditch at the hill's foot, his logs up on the bank 3-4 above; the pickup read the bank between them as a block "in the way" of the item and dug into the hill five times ("Birch Log is behind dirt: digging that out first"), each dirt a new pickup, then "tried 16 ways". A walk round was there. A pickup he can't just step to is a walk his walker plans (digs priced against the way round), the dig-through only once that walk has failed. */
+    private static boolean st731(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) { // (flat ground, grass top at y3; a pit 3 deep at x0..2, a step out west at x-1 (y2), one block over head at x-2 to dig: the live made way's one dig)
+            for (int x = -6; x <= 9; x++) for (int z = -5; z <= 5; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 1; y <= 3; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), (y == 3 ? Blocks.GRASS_BLOCK : Blocks.DIRT).defaultBlockState(), 2); for (int y = 4; y <= 8; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = 0; x <= 2; x++) for (int y = 1; y <= 3; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, 0)), Blocks.AIR.defaultBlockState(), 2);
+            for (int y = 2; y <= 3; y++) level.setBlock(h.absolutePos(new BlockPos(-1, y, 0)), Blocks.AIR.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_AXE)); c.getInventory().add(new ItemStack(Items.STONE_SHOVEL)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            BlockPos me = h.absolutePos(new BlockPos(1, 1, 0)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.attempts.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 15) {
+            BlockPos at = h.absolutePos(new BlockPos(4, 4, 0));
+            var it = new net.minecraft.world.entity.item.ItemEntity(level, at.getX() + 0.5, at.getY() + 0.1, at.getZ() + 0.5, new ItemStack(Items.BIRCH_LOG, 3), 0, 0, 0); it.setPickUpDelay(0); level.addFreshEntity(it);
+            c.tasks.add(new Task.Pickup(300));
+        }
+        if (t[0] > 15) {
+            int dug = 0; for (int x = -6; x <= 9; x++) for (int z = -5; z <= 5; z++) for (int y = 1; y <= 3; y++) { boolean pit = z == 0 && (x >= 0 && x <= 2 || x == -1 && y >= 2); if (!pit && level.getBlockState(h.absolutePos(new BlockPos(x, y, z))).isAir()) dug++; }
+            check(dug <= 2, "dug " + dug + " blocks of the ground for his logs (a way out of a 3-deep pit wants 1-2)");
+            if (c.getInventory().countItem(Items.BIRCH_LOG) >= 3) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "out of the pit for his logs, " + dug + " block(s) dug, in " + (t[0] - 15) + " ticks"); return true; }
+            if (t[0] == 15 + 300) check(false, "his 3 logs on the ground above his pit: not picked up in 15 s (at " + c.blockPosition().toShortString() + ", " + dug + " dug, queue " + c.tasks.stream().limit(5).toList() + ")");
         }
         return true;
     }

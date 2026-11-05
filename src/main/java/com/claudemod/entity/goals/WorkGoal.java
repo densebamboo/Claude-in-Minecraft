@@ -2811,7 +2811,12 @@ public class WorkGoal extends Goal {
         Task again = new Task.Pickup(t.maxTicks());
         if (t == holdPickup) holdPickup = (Task.Pickup) again; // (the patch's Pickup, still)
         lastPickupTask = again; // keep the effort count across the re-queue
-        // 2. a block between him and it (item in a nook, behind a wall, buried in a hole): mine it
+        // 2. a walk his walker plans: its ActionPath prices a dig, a step cut or a pillar against the way round (live 14:16 11-05: up out of a 3-deep pit, the sight-line dig and a 3-block "jump" had him "tried 16 ways"); the moves below only once that walk is on record failed, nothing changed since
+        if (bp == null && nearest.getY() - g.getY() > 1.3 && !g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.WALK, ip, g.tickCount, 0)) { // (higher than a jump (1.25): no move below climbs it; down in a pocket or across a gap they do. shortcut: the walker can't yet plan into a 1-deep side pocket (522) or a lava gap's pickup (525), widen when it can)
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude pickup] {} at {}: no plain walk from {} ({} up, {} off): his walker plans the way (WorkGoal.doPickup)", nearest.getItem().getHoverName().getString(), ip.toShortString(), g.blockPosition().toShortString(), String.format("%.1f", nearest.getY() - g.getY()), String.format("%.1f", hz));
+            g.tasks.addFirst(again); g.tasks.addFirst(new Task.GoTo(ip.immutable(), 1.0)); return true;
+        }
+        // 3. a block between him and it (item in a nook, behind a wall, buried in a hole): mine it
         BlockPos inWay = blockInTheWay(level, ip);
         if (inWay != null && (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.REACH, inWay, g.tickCount, 20 * 60) || g.attempts.within(com.claudemod.entity.life.Attempts.Kind.BREAK, inWay, g.tickCount, 20 * 60))) { com.claudemod.ClaudeMod.LOGGER.info("[Claude pickup] the block in the way of {} at {} was refused a moment ago: not asking again", nearest.getItem().getHoverName().getString(), inWay.toShortString()); inWay = null; } // (04:21 the same refused dig asked for every second)
         if (inWay != null && level.getBlockState(inWay).getDestroySpeed(level, inWay) >= 0 && !level.getBlockState(inWay).hasBlockEntity() && !(com.claudemod.entity.nav.ActionPath.structureBlock(level, inWay) && !com.claudemod.entity.life.TempLedger.built(g, inWay)) && !(bp != null && bp.isShell(inWay)) && !(bp == null && !com.claudemod.director.ClaudeLife.isMineCell(g, inWay) && com.claudemod.director.ClaudeLife.touchesMine(g, inWay))) { // (never his mine's wall: the raw iron in a wall hole had him break the block over it, 12 fixes round that row; his staircase's walls too: the drop from a table notch had him cutting along his stair wall after it, the repairs he'd queued lost in the mess)
@@ -2832,10 +2837,15 @@ public class WorkGoal extends Goal {
         if (dy < -1.5 && g.onGround() && bp == null && (valuable || dy > -2.6 && com.claudemod.director.ClaudeLife.inHisMine(g, g.blockPosition()))) { // (in his blueprint mine: no step cut for a drop, the stairs are the way down)
             Direction dir = horiz < 0.5 ? g.getDirection() : Direction.getNearest(nearest.getX() - g.getX(), 0, nearest.getZ() - g.getZ());
             BlockPos step = g.blockPosition().relative(dir).below();
+            boolean floorless = level.getBlockState(step.below()).getCollisionShape(level, step.below()).isEmpty(); // (the step's own cell is dug below; what he'd stand on is under it)
+            if (floorless || g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.WALK, step, g.tickCount, 0)) { // (live 14:39 11-05: a step onto open air over the shaft, refused, queued again 43 times in 4 s)
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude pickup] {} at {}: no step down at {} ({}) (WorkGoal.doPickup)", nearest.getItem().getHoverName().getString(), ip.toShortString(), step.toShortString(), floorless ? "nothing under it: a drop, not a step" : "the walk there failed, nothing changed since");
+            } else {
             g.tasks.addFirst(again);
             g.tasks.addFirst(new Task.GoTo(step, 0.6));
             for (BlockPos b : new BlockPos[] {step.above(2), step.above(), step}) if (!level.getBlockState(b).getCollisionShape(level, b).isEmpty()) g.tasks.addFirst(new Task.Break(b));
             return true;
+            }
         }
         // 4. caught up in a tree's leaves: knock out the leaves it's lying on so it falls down to him
         BlockPos rest = level.getBlockState(ip).is(net.minecraft.tags.BlockTags.LEAVES) ? ip : ip.below();

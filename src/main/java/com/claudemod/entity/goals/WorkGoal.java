@@ -891,7 +891,7 @@ public class WorkGoal extends Goal {
                             return true;
                         }
                     }
-                    g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, pos, g.tickCount);
+                    { var hm = nearestHostile(); g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, pos, g.tickCount, g.blockPosition(), com.claudemod.entity.life.Attempts.Reason.BLOCKED_MOB, onRoute + " hostile(s) on the way, no way round them", hm == null ? null : hm.getUUID()); }
                     com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} hostile(s) between him and {} ({}): not walking through them", onRoute, pos.toShortString(), armed() ? "a crowd" : "unarmed");
                     return true;
                 }
@@ -1057,7 +1057,7 @@ public class WorkGoal extends Goal {
         if (pos.getY() <= g.getBlockY() - 3 && (stuck > 20 || mineTripStart) && (g.onGround() || g.onClimbable()) && ticks % 10 == 0) {
             // one of his own stations (a chest, a furnace, a table) down there: it sits in a mine of his, reached by its stairs; never a hole cut in the grass over it (the dirt crosses)
             if (g.mineShape == null && !com.claudemod.entity.ClaudeSpawner.testing && g.myStations.stream().anyMatch(st -> st.distSqr(pos) <= 3 * 3 && (g.level().getBlockState(st).hasBlockEntity() || g.level().getBlockState(st).is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE))) && g.level().canSeeSky(g.blockPosition())) { // (no mine on file at all, a station still standing there; the test box keeps old stage tables about)
-                g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK).put(pos.immutable(), g.tickCount);
+                failed(com.claudemod.entity.life.Attempts.Kind.WALK, pos, com.claudemod.entity.life.Attempts.Reason.GUARD, "his own station under it: reached by its stairs, never a hole cut over it");
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} is one of his stations underground and he's up top with no stairs on file to it: not digging for it from here", pos.toShortString());
                 return true;
             }
@@ -1092,7 +1092,7 @@ public class WorkGoal extends Goal {
                 } else {
                 if (!g.level().getBlockState(pos).getCollisionShape(g.level(), pos).isEmpty() && !g.level().getBlockState(pos.above()).getCollisionShape(g.level(), pos.above()).isEmpty()) { // the "step" is solid rock: no stairs there (a phantom flight in his record had him up and down the real one every 15 s)
                     com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} is solid rock, not a step of his stairs: dropping that walk", pos.toShortString());
-                    g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK).put(pos.immutable(), g.tickCount);
+                    failed(com.claudemod.entity.life.Attempts.Kind.WALK, pos, com.claudemod.entity.life.Attempts.Reason.BLOCKED_BLOCK, "solid rock, not a step of his stairs");
                     return true;
                 }
                 g.tasks.pollFirst(); // (the walk itself goes back on after the steps)
@@ -1226,7 +1226,7 @@ public class WorkGoal extends Goal {
                     : x instanceof Task.Place pl ? pl.pos().distSqr(pos) <= 16 && g.pendingPatches.add(pl.pos().immutable()) // (a patch there isn't forgotten: done when he's back by it) : x instanceof Task.WallTorch w ? w.pos().distSqr(pos) <= 16
                     : x instanceof Task.SealStep ss && ss.feet().distSqr(pos) <= 16);
             if (!leg && !toABlock && g.blueprint != null && !g.blueprint.isEmpty() && (pos.distSqr(g.blueprint.entrance) <= 9 || pos.distSqr(g.blueprint.outside()) <= 9) && !g.blueprint.touches(g.blockPosition())) { // the way into his mine is out of reach: the legs down it behind this walk go too (157 of them failed one by one, 7 s each)
-                if (!g.attempts.within(com.claudemod.entity.life.Attempts.Kind.SENT_FROM, g.blueprint.entrance, g.tickCount, 20 * 120)) { g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.SENT_FROM, g.blueprint.entrance, g.tickCount); g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK).remove(pos); g.tasks.addFirst(new Task.GoTo(pos, within)); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] his mine's way in at {} is a long walk: going again, by the surface", pos.toShortString()); return true; } // (the user: path to the entrance; dropping the legs left only a dig straight down)
+                if (!g.attempts.within(com.claudemod.entity.life.Attempts.Kind.SENT_FROM, g.blueprint.entrance, g.tickCount, 20 * 120)) { failed(com.claudemod.entity.life.Attempts.Kind.SENT_FROM, g.blueprint.entrance, com.claudemod.entity.life.Attempts.Reason.NO_PATH, "his mine's way in out of reach from here"); g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK).remove(pos); g.tasks.addFirst(new Task.GoTo(pos, within)); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] his mine's way in at {} is a long walk: going again, by the surface", pos.toShortString()); return true; } // (the user: path to the entrance; dropping the legs left only a dig straight down)
                 int before = g.tasks.size(); g.tasks.removeIf(x -> x instanceof Task.GoTo n && g.blueprint.touches(n.pos()));
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] can't get to his mine's way in at {}: the {} legs down it dropped", g.blueprint.entrance.toShortString(), before - g.tasks.size());
             }
@@ -1346,7 +1346,7 @@ public class WorkGoal extends Goal {
     private boolean climbTheCave(BlockPos dest, double within) {
         ServerLevel level = level();
         BlockPos at = g.blockPosition();
-        if (lastCaveLeg != null && lastCaveLeg.distSqr(at) > 3 * 3) g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, lastCaveLeg, g.tickCount); // back here and not up on the last leg: that leg didn't work
+        if (lastCaveLeg != null && lastCaveLeg.distSqr(at) > 3 * 3) failed(com.claudemod.entity.life.Attempts.Kind.WALK, lastCaveLeg, com.claudemod.entity.life.Attempts.Reason.UNKNOWN, "the cave leg ran and he's back here, not up on it"); // back here and not up on the last leg: that leg didn't work
         BlockPos best = null; double bestScore = 0; java.util.List<Object[]> caveLegs = new java.util.ArrayList<>();
         for (BlockPos q0 : BlockPos.betweenClosed(at.offset(-14, 1, -14), at.offset(14, 14, 14))) {
             if (q0.getY() <= at.getY() + 1 || q0.equals(lastCaveLeg)) continue;
@@ -1380,23 +1380,23 @@ public class WorkGoal extends Goal {
     private Boolean digStepUp(BlockPos dest, double within) {
         ServerLevel level = (ServerLevel) g.level();
         BlockPos feet = g.blockPosition();
-        { Integer noStep = g.attempts.last(com.claudemod.entity.life.Attempts.Kind.STEP_UP, feet); if (noStep != null && g.tickCount - noStep < 20 * 120) return null; } // steps up from here didn't take a moment ago: another way
+        { if (g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.STEP_UP, feet, g.tickCount, 20 * 120)) return null; } // steps up from here didn't take a moment ago: another way
         if (com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && dest.getY() > feet.getY() + 1) { // blueprint mode: up and out is along his mine's rows (the user: to reach the surface he goes up his staircase), never a second flight cut beside it
             var b = g.blueprint; int from = b.nearestRow(feet), to = b.nearestRow(dest);
             BlockPos fromCell = b.rowCell(from);
             Integer sentFromHere = g.attempts.last(com.claudemod.entity.life.Attempts.Kind.SENT_FROM, feet);
-            if (fromCell != null && to >= 0 && from != to && fromCell.distSqr(feet) <= 8 * 8 && (sentFromHere == null || g.tickCount - sentFromHere > 20 * 90)) { // in or beside the mine (a bedroom pocket off the stairs counts), and not sent this way from this spot a minute ago
-                g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.SENT_FROM, feet, g.tickCount);
+            if (fromCell != null && to >= 0 && from != to && fromCell.distSqr(feet) <= 8 * 8 && !g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.SENT_FROM, feet, g.tickCount, 20 * 90)) { // in or beside the mine (a bedroom pocket off the stairs counts), and not sent this way from this spot a minute ago
+                failed(com.claudemod.entity.life.Attempts.Kind.SENT_FROM, feet, com.claudemod.entity.life.Attempts.Reason.GUARD, "sent to his stairs from here: back here means that way up doesn't work from here");
                 g.tasks.removeIf(t -> t instanceof Task.GoTo gg && gg.pos().equals(dest));
                 g.tasks.addFirst(new Task.GoTo(dest, within));
                 java.util.List<BlockPos> cells = b.walkCells(from, to);
-                if (cells.size() > 6 && feet.distSqr(dest) <= 16 * 16 && cells.size() > 2 + Math.sqrt(feet.distSqr(dest)) / 2) { /* (only a spot close by: the surface 66 blocks up from his y-16 tunnel IS a walk up his stairs; refused, every walk out ended at once and he sat in his mine) */ g.tasks.removeIf(t -> t instanceof Task.GoTo gg && gg.pos().equals(dest)); g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, dest, g.tickCount); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no way up from {} to {} ({} blocks off) but by {} hops round his mine: leaving it", feet.toShortString(), dest.toShortString(), (int) Math.sqrt(feet.distSqr(dest)), cells.size()); return true; } // a spot 2 blocks off is never worth a trip round the whole mine (rows 450 to 88 sent him from y16 down to y-58 and back for a plug above his branch)
+                if (cells.size() > 6 && feet.distSqr(dest) <= 16 * 16 && cells.size() > 2 + Math.sqrt(feet.distSqr(dest)) / 2) { /* (only a spot close by: the surface 66 blocks up from his y-16 tunnel IS a walk up his stairs; refused, every walk out ended at once and he sat in his mine) */ g.tasks.removeIf(t -> t instanceof Task.GoTo gg && gg.pos().equals(dest)); failed(com.claudemod.entity.life.Attempts.Kind.WALK, dest, com.claudemod.entity.life.Attempts.Reason.GUARD, "no flight cut beside his stairs: they are the way up"); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no way up from {} to {} ({} blocks off) but by {} hops round his mine: leaving it", feet.toShortString(), dest.toShortString(), (int) Math.sqrt(feet.distSqr(dest)), cells.size()); return true; } // a spot 2 blocks off is never worth a trip round the whole mine (rows 450 to 88 sent him from y16 down to y-58 and back for a plug above his branch)
                 for (int k = cells.size() - 1; k >= 0; k--) g.tasks.addFirst(new Task.GoTo(cells.get(k), 0.8));
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no way up from {}: along his mine's rows {} to {} ({} hops) and on to {}, not cutting new steps", feet.toShortString(), from, to, cells.size(), dest.toShortString());
                 return true;
             }
             if (fromCell != null && fromCell.distSqr(feet) <= 8 * 8) { // beside his mine and the rows don't help (sent that way a minute ago): no one-wide flight cut up through the rock beside his stairs, ever (the user's zigzag)
-                g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.STEP_UP, feet, g.tickCount);
+                failed(com.claudemod.entity.life.Attempts.Kind.STEP_UP, feet, com.claudemod.entity.life.Attempts.Reason.GUARD, "beside his mine: no flight cut next to his stairs");
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no way up from {} beside his mine: not cutting a flight next to his stairs; that way is off for now", feet.toShortString());
                 return null;
             }
@@ -1406,9 +1406,9 @@ public class WorkGoal extends Goal {
             for (BlockPos sp : g.mineSpine) { double d = sp.distSqr(feet); if (d < nd && level.getBlockState(sp).getCollisionShape(level, sp).isEmpty()) { nd = d; near = sp; } }
             Integer failed = g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK).get(g.stairStart);
             Integer sentFromHere = g.attempts.last(com.claudemod.entity.life.Attempts.Kind.SENT_FROM, feet);
-            if (sentFromHere != null && g.tickCount - sentFromHere < 20 * 90) near = null; // sent to his stairs from this very spot a minute ago and back here: that way up doesn't work (a broken join in his stairs record), so not again (it looped every 12 s)
-            if (near != null && nd > 2 * 2 && (failed == null || g.tickCount - failed > 20 * 120)) {
-                g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.SENT_FROM, feet, g.tickCount);
+            if (g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.SENT_FROM, feet, g.tickCount, 20 * 90)) near = null; // sent to his stairs from this very spot a minute ago and back here: that way up doesn't work (a broken join in his stairs record), so not again (it looped every 12 s)
+            if (near != null && nd > 2 * 2 && !g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.WALK, g.stairStart, g.tickCount, 20 * 120)) {
+                failed(com.claudemod.entity.life.Attempts.Kind.SENT_FROM, feet, com.claudemod.entity.life.Attempts.Reason.GUARD, "sent to his stairs from here: back here means that way up doesn't work from here");
                 g.tasks.removeIf(t -> t instanceof Task.GoTo gg && gg.pos().equals(dest));
                 g.tasks.addFirst(new Task.GoTo(dest, within));
                 g.tasks.addFirst(new Task.GoTo(g.stairStart, 1.6));
@@ -1438,14 +1438,14 @@ public class WorkGoal extends Goal {
             dig.add(step.above(k)); break;
         }
         for (BlockPos b : new BlockPos[] {feet.above(2), step, step.above()}) {
-            if (com.claudemod.director.ClaudeLife.nookShell(g, b)) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no step up from {} toward {}: {} is his nook's shell (its wall or roof): not cut for a step (WorkGoal.digStepUp)", feet.toShortString(), dest.toShortString(), b.toShortString()); g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.STEP_UP, feet, g.tickCount); return null; }
+            if (com.claudemod.director.ClaudeLife.nookShell(g, b)) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no step up from {} toward {}: {} is his nook's shell (its wall or roof): not cut for a step (WorkGoal.digStepUp)", feet.toShortString(), dest.toShortString(), b.toShortString()); failed(com.claudemod.entity.life.Attempts.Kind.STEP_UP, feet, com.claudemod.entity.life.Attempts.Reason.GUARD, "his nook's shell in the way of a step"); return null; }
             BlockState bs = level.getBlockState(b);
             if (!bs.getFluidState().isEmpty()) return null; // water or lava up there: not this way
             if (bs.getCollisionShape(level, b).isEmpty()) continue;
             if (bs.getDestroySpeed(level, b) < 0 || bs.hasBlockEntity()) return null;
             if (com.claudemod.entity.nav.ActionPath.structureBlock(level, b) && !com.claudemod.entity.nav.ActionPath.structureDigOk(level, b) && !com.claudemod.entity.life.TempLedger.built(g, b)) { // the intact rule refuses it in doBreak anyway (live 01:06, a step cut into the stronghold's wall 3x every 4 s)
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no step up from {} toward {}: {} is a structure's own block, kept intact (WorkGoal.digStepUp)", feet.toShortString(), dest.toShortString(), b.toShortString());
-                g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.STEP_UP, feet, g.tickCount); return null; }
+                failed(com.claudemod.entity.life.Attempts.Kind.STEP_UP, feet, com.claudemod.entity.life.Attempts.Reason.GUARD, "a structure's own block in the way, kept intact"); return null; }
             if (bs.requiresCorrectToolForDrops() && g.inventory.find(st -> st.isCorrectToolForDrops(bs)).isEmpty()) return null; // no tool that takes it (stone with bare hands: 23 s a step, nothing dropping, up a cliff after a death): not this way
             dig.add(b);
         }
@@ -1457,8 +1457,8 @@ public class WorkGoal extends Goal {
             boolean gravelRefill = !dig.isEmpty() && dig.stream().allMatch(b -> level.getBlockState(b).getBlock() instanceof net.minecraft.world.level.block.FallingBlock); // a gravel column coming down a block at a time is progress, not a cut that won't take
             if (!gravelRefill && placeRetries.merge(cutKey, 1, Integer::sum) > 3) {
                 placeRetries.remove(cutKey);
-                g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK).put(dest.immutable(), g.tickCount);
-                g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.STEP_UP, feet, g.tickCount); // (and no step up from HERE for a while, whatever the destination: the next walk retried the same three cuts, 2 minutes in one spot)
+                failed(com.claudemod.entity.life.Attempts.Kind.WALK, dest, com.claudemod.entity.life.Attempts.Reason.UNKNOWN, "the steps cut up toward it didn't take him up");
+                failed(com.claudemod.entity.life.Attempts.Kind.STEP_UP, feet, com.claudemod.entity.life.Attempts.Reason.NO_PATH, "steps cut up from here didn't take him up"); // (and no step up from HERE for a while, whatever the destination: the next walk retried the same three cuts, 2 minutes in one spot)
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] cut a step up at {} three times and it didn't take: {} is off for now", feet.toShortString(), dest.toShortString());
                 return null;
             }
@@ -1583,7 +1583,7 @@ public class WorkGoal extends Goal {
             return false;
         }
         if (ticks % 6 != 1) return false; // re-think a few times a second, not every tick (pathfinding is costly)
-        if (++approachTries > 3) { g.attempts.of(com.claudemod.entity.life.Attempts.Kind.REACH).put(pos.immutable(), g.tickCount); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] gave up reaching {} (he's at {})", pos.toShortString(), g.blockPosition().toShortString()); return true; }
+        if (++approachTries > 3) { { var c0 = com.claudemod.entity.life.Stall.diagnose(g, pos, 3.2); g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.REACH, pos, g.tickCount, g.blockPosition(), c0.reason(), c0.detail(), c0.mob()); g.attempts.bandaid("the approach gave up after 3 re-plans at " + pos.toShortString() + ": " + c0.say()); } com.claudemod.ClaudeMod.LOGGER.info("[Claude life] gave up reaching {} (he's at {})", pos.toShortString(), g.blockPosition().toShortString()); return true; }
         BlockPos spot = standSpotBeside(pos); // never path "into" a solid block (vanilla would aim at the air above it)
         var path = g.getNavigation().createPath(spot, spot.equals(pos) ? (int) REACH - 1 : 1);
         if (path != null && path.canReach() && !bodyRefused) {
@@ -1621,7 +1621,7 @@ public class WorkGoal extends Goal {
                 return true;
             }
         }
-        g.attempts.of(com.claudemod.entity.life.Attempts.Kind.REACH).put(pos.immutable(), g.tickCount);
+        failed(com.claudemod.entity.life.Attempts.Kind.REACH, pos, com.claudemod.entity.life.Attempts.Reason.NO_PATH, "no way to it, digging allowed");
         com.claudemod.ClaudeMod.LOGGER.info("[Claude life] can't get at {} from {} (no way to it, digging allowed): leaving it", pos.toShortString(), g.blockPosition().toShortString());
         return true;
     }
@@ -1876,28 +1876,28 @@ public class WorkGoal extends Goal {
         if (state.isAir() || hardness < 0 || state.getBlock() instanceof net.minecraft.world.level.block.LiquidBlock) return exit("nothing to mine there, " + (state.isAir() ? "air" : name(state)) + " where his block was (doBreak 1450)"); // water where his block was (a pillar in a pond): nothing to mine (45 s swinging at a water cell)
         boolean inWaterBeside = false; for (Direction d0 : Direction.Plane.HORIZONTAL) { var wf0 = level.getFluidState(pos.relative(d0)); if (wf0.is(net.minecraft.tags.FluidTags.WATER)) inWaterBeside = true; } if (inWaterBeside && pos.equals(g.blockPosition().below())) inWaterBeside = false; BlockPos liftedLava = null; // (the block under his feet: the water beside it doesn't make it safe, the hold asks Consent; live 15:59 "i told you not to mine the ones below you") (their word over the hold: Consent.theirWord below, not any order of theirs; the user 15:41: instructing him, he listens to them over his safety rules) // (any water source beside it at its level runs in, not only the one he stands in: 15:35 the pocket's obsidian held as "the face left standing") // (the user's pocket: his water runs into the hole and makes the lava behind it obsidian)
         if (!inWaterBeside && !com.claudemod.director.ClaudeLife.isCastBlock(pos) && !com.claudemod.director.ClaudeLife.obsOpening(g, pos)) for (Direction d : Direction.values()) if (level.getFluidState(pos.relative(d)).is(net.minecraft.tags.FluidTags.LAVA) && com.claudemod.entity.life.Perception.knowsLavaBody(g, level, pos.relative(d))) { if (com.claudemod.entity.life.Consent.theirWord(g, pos, com.claudemod.entity.life.Perception.knowsLava(g, pos.relative(d)) ? "lava behind" : "lava body", (d == Direction.UP ? "lava over it at " : d == Direction.DOWN ? "lava under it at " : "lava behind it at ") + pos.relative(d).toShortString(), pos.relative(d))) { liftedLava = pos.relative(d).immutable(); break; } if (ticks == 1 && !com.claudemod.entity.life.Perception.knowsLava(g, pos.relative(d))) com.claudemod.ClaudeMod.LOGGER.info("[Claude sense] {} behind {} is part of the pool he knows (never seen itself): holding (WorkGoal.doBreak)", pos.relative(d).toShortString(), pos.toShortString()); // it holds back lava he knows is there: never broken (lava he can't know of is met as it comes, below) (his mine's patch-and-dig broke the blocks in front of a lava flow twice and it ran onto him: two deaths at 220, -58, 64)
-            g.attempts.of(com.claudemod.entity.life.Attempts.Kind.BREAK).put(pos.immutable(), g.tickCount);
+            failed(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, com.claudemod.entity.life.Attempts.Reason.GUARD, "lava he knows of beside it");
             if (ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not breaking {}: lava behind it at {}", pos.toShortString(), pos.relative(d).toShortString());
             if (ticks == 1) com.claudemod.director.ClaudeLife.lavaBehind(g, pos, pos.relative(d)); // (the goal wants lava: this face is where it is)
             return exit("doBreak line 1455");
         }
-        if (liftedLava != null) { BlockPos stand0 = com.claudemod.entity.life.Consent.safeStand(g, level, pos, liftedLava); if (stand0 == com.claudemod.entity.life.Consent.REFUSE) { g.attempts.of(com.claudemod.entity.life.Attempts.Kind.BREAK).put(pos.immutable(), g.tickCount); return exit("the block under his feet by lava: never dug from on top (Consent.safeStand)"); } if (stand0 != null) { g.tasks.addFirst(new Task.Break(pos.immutable())); g.tasks.addFirst(new Task.GoTo(stand0, 0.3)); return exit("their word over the lava hold: to the safe stand first (Consent.safeStand)"); } } // (the same step the safe way: beside or above, never under it)
+        if (liftedLava != null) { BlockPos stand0 = com.claudemod.entity.life.Consent.safeStand(g, level, pos, liftedLava); if (stand0 == com.claudemod.entity.life.Consent.REFUSE) { failed(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, com.claudemod.entity.life.Attempts.Reason.GUARD, "the block under his feet by lava"); return exit("the block under his feet by lava: never dug from on top (Consent.safeStand)"); } if (stand0 != null) { g.tasks.addFirst(new Task.Break(pos.immutable())); g.tasks.addFirst(new Task.GoTo(stand0, 0.3)); return exit("their word over the lava hold: to the safe stand first (Consent.safeStand)"); } } // (the same step the safe way: beside or above, never under it)
         if (pos.equals(g.blockPosition().below()) && g.onGround() && !g.isInWater() && !com.claudemod.director.ClaudeLife.isCastBlock(pos) && !(digInTasks != null && digInTasks.stream().anyMatch(t -> t == current))) { // (his cast's pillar comes down under his feet by design) // the block under his own feet, with a drop beneath it (the dig-in hole is three down on purpose and knows the ground: exempt): not from up here (the last floating log of a tree, dug out from under him: a 5-block fall, every tree test since falls started to hurt)
             int drop = 0; BlockPos q = pos.below();
             while (drop < 6 && level.getBlockState(q).getCollisionShape(level, q).isEmpty() && level.getFluidState(q).isEmpty()) { drop++; q = q.below(); }
             boolean takeFall = drop < 6 && !level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA) && !level.getBlockState(q).is(net.minecraft.world.level.block.Blocks.MAGMA_BLOCK) && g.getHealth() - (drop + 1 - 3) >= 14; // (stranded on one block over a short drop at near full health: a player just breaks it and takes the hit; refusing re-queued forever, 111 refusals in 15 s)
             if (drop >= 3 && !takeFall && !com.claudemod.director.ClaudeLife.safeDrop(pos) && com.claudemod.entity.life.Consent.theirWord(g, pos, "drop under his feet", "a " + drop + "-block drop under it", null)) { BlockPos stand1 = com.claudemod.entity.life.Consent.safeStand(g, level, pos, null); if (stand1 != null) { g.tasks.addFirst(new Task.Break(pos.immutable())); g.tasks.addFirst(new Task.GoTo(stand1, 0.3)); return exit("their word over the drop hold: off it to a side stand first (Consent.safeStand)"); } } // (their word: dug from beside it, not from on top)
-            else if (drop >= 3 && !takeFall && !com.claudemod.director.ClaudeLife.safeDrop(pos)) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not digging the block under his feet at {} out: a {}-block drop under it; leaving that one", pos.toShortString(), drop); g.attempts.of(com.claudemod.entity.life.Attempts.Kind.BREAK).put(pos.immutable(), g.tickCount); return true; }
+            else if (drop >= 3 && !takeFall && !com.claudemod.director.ClaudeLife.safeDrop(pos)) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not digging the block under his feet at {} out: a {}-block drop under it; leaving that one", pos.toShortString(), drop); failed(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, com.claudemod.entity.life.Attempts.Reason.GUARD, "a " + drop + "-block drop under it"); return true; }
         }
         if (com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.isShell(pos) && !pos.equals(g.blockPosition()) && !pos.equals(g.blockPosition().above()) /* (in his body: he's suffocating, it comes out; 09:04 gravel fell into his head at 169,-57,202) */ && !com.claudemod.entity.life.MineBlueprint.ore(state) && !g.landingCells.contains(pos) && !g.notches.contains(pos) && !(g.nookOld != null && (g.nookOld.touches(pos) || g.nookOld.oldBedCells().contains(pos))) && !g.tasks.stream().anyMatch(t -> t instanceof Task.Place pl && pl.pos().equals(pos)) && !com.claudemod.director.Primitives.putsBack(g, pos) && !com.claudemod.director.ClaudeLife.obsOwes(pos) && !com.claudemod.entity.life.Consent.theirWord(g, pos, "mine shell", "his mine's wall", null)) { /* (a plan's place_at for the cell is a swap too: dig_at the patch, the ore, place_at the patch) */ /* (a swap: out and straight back, the patch in front of a temp station he's taking up; refused, it re-queued Break+Place forever, 99 tasks on one cell) */ /* (a table/furnace notch is cut into the wall on purpose, then filled by the station) */ // his mine's shell (the arch's sides, every wall, floor and roof): never dug through by a walk, a step cut, a route or a pickup; only ore comes out of it (and is refilled)
             if (com.claudemod.director.ClaudeLife.seenOre(g).remove(pos)) { com.claudemod.ClaudeMod.LOGGER.info("[Claude ore] the ore he saw at {} is already out (now {}): nothing to dig there, his wall stays (WorkGoal.doBreak)", pos.toShortString(), name(state)); return true; } // (queued when it was ore; the guard and the queue agree)
             if (ticks == 1) { shellRefusals++; lastShellRefusal = pos.immutable(); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not digging through his mine's wall at {} ({}): the shell stays", pos.toShortString(), g.lastStep == null ? "-" : g.lastStep.skill()); }
-            g.attempts.of(com.claudemod.entity.life.Attempts.Kind.BREAK).put(pos.immutable(), g.tickCount);
+            failed(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, com.claudemod.entity.life.Attempts.Reason.GUARD, "his mine's wall");
             return exit("doBreak line 1466");
         }
         if (com.claudemod.director.ClaudeLife.houseMode(g) && g.house != null && g.house.isStructure(pos) && g.house.rightBlock((ServerLevel) g.level(), pos, g.house.roleAt(pos)) && !(current instanceof Task.Break cb && g.tasks.stream().anyMatch(t -> t instanceof Task.Place pl && pl.pos().equals(pos))) && !com.claudemod.entity.life.Consent.theirWord(g, pos, "house", "his house's " + g.house.roleAt(pos), null)) { // his house's walls, posts, roof and foundation: never dug by a walk, a reflex or a pickup (a swap by the house pass comes as Break then Place)
             if (ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not digging his house's {} at {} ({})", g.house.roleAt(pos), pos.toShortString(), g.lastStep == null ? "-" : g.lastStep.skill());
-            g.attempts.of(com.claudemod.entity.life.Attempts.Kind.BREAK).put(pos.immutable(), g.tickCount);
+            failed(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, com.claudemod.entity.life.Attempts.Reason.GUARD, "his house's " + g.house.roleAt(pos));
             return exit("doBreak line 1471");
         }
         if (state.is(net.minecraft.tags.BlockTags.BEDS) && !com.claudemod.director.ClaudeLife.bedPickup(pos) && !com.claudemod.entity.life.Consent.theirWord(g, pos, "bed", "his bed", null) && !(com.claudemod.director.ClaudeLife.isMineCell(g, pos) && !(g.getTarget() instanceof net.minecraft.server.level.ServerPlayer o0 && com.claudemod.context.PlayerProfile.placedBy(o0).contains(pos)))) { // (his own bed on his mine's path is his to take up and carry home: refused, it blocked the stairs and stalled him 20 minutes) // his bed: never dug out by a job (one vanished with nothing in the log to say why); the bed rules take one up themselves
@@ -1924,11 +1924,11 @@ public class WorkGoal extends Goal {
                 && ((madeTool = com.claudemod.director.ClaudeLife.craftToolNow(g, state)) || !punchThrough().contains(pos) || state.is(net.minecraft.tags.BlockTags.NEEDS_IRON_TOOL) || state.is(net.minecraft.tags.BlockTags.NEEDS_DIAMOND_TOOL))) { // (a step cut never punches obsidian)
             if (!madeTool) { BlockPos tb = null; double tbd = 99; // a table a few steps off: walk to it, then the tool (the walk queued for it was wiped with the rest every time: 18 planks and 30 cobble on him, no pickaxe for minutes)
                 for (BlockPos q : BlockPos.betweenClosed(g.blockPosition().offset(-6, -3, -6), g.blockPosition().offset(6, 3, 6))) if (level.getBlockState(q).is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE)) { double d = Math.sqrt(q.distSqr(g.blockPosition())); if (d < tbd) { tbd = d; tb = q.immutable(); } }
-                if (tb != null && tbd > 3.5 && !g.attempts.within(com.claudemod.entity.life.Attempts.Kind.TOOL_WALK, tb, g.tickCount, 20 * 60)) { g.tasks.addFirst(new Task.Break(pos.immutable())); g.tasks.addFirst(new Task.GoTo(tb, 1.5)); if (g.tickCount - pulledAt > 20 * 60) { pulledAt = g.tickCount; pulled.clear(); } pulled.add(new Task.Break(pos.immutable())); g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.TOOL_WALK, tb, g.tickCount); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no tool for {}: over to his table at {} to make one", name(state), tb.toShortString()); return true; } } // (a new pick on the spot even mid-climb: he punched one stone of his stairs up for 45 s with the materials on him)
+                if (tb != null && tbd > 3.5 && !g.attempts.within(com.claudemod.entity.life.Attempts.Kind.TOOL_WALK, tb, g.tickCount, 20 * 60)) { g.tasks.addFirst(new Task.Break(pos.immutable())); g.tasks.addFirst(new Task.GoTo(tb, 1.5)); if (g.tickCount - pulledAt > 20 * 60) { pulledAt = g.tickCount; pulled.clear(); } pulled.add(new Task.Break(pos.immutable())); failed(com.claudemod.entity.life.Attempts.Kind.TOOL_WALK, tb, com.claudemod.entity.life.Attempts.Reason.GUARD, "walked to this table for a tool already"); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no tool for {}: over to his table at {} to make one", name(state), tb.toShortString()); return true; } } // (a new pick on the spot even mid-climb: he punched one stone of his stairs up for 45 s with the materials on him)
             // like a player: craft a new one right here and keep going with the same job (the rest of the ore, the pickup, the patching)
             if (madeTool) return false;
             if (state.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_PICKAXE) && (state.is(net.minecraft.tags.BlockTags.NEEDS_IRON_TOOL) || state.is(net.minecraft.tags.BlockTags.NEEDS_DIAMOND_TOOL))) { boolean hasPick = false; for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { var it0 = g.inventory.items.getItem(i); if (it0.getItem() instanceof net.minecraft.world.item.PickaxeItem && !it0.is(net.minecraft.world.item.Items.WOODEN_PICKAXE) && !it0.is(net.minecraft.world.item.Items.GOLDEN_PICKAXE)) { hasPick = true; break; } } // (stone+ in hand and the block wants iron or diamond: a craft away isn't the answer; a broken stone pick still re-tools below)
-                if (hasPick) { Integer seen = g.attempts.of(com.claudemod.entity.life.Attempts.Kind.BREAK).get(pos); if (seen != null && g.tickCount - seen < 20 * 300) return true; g.attempts.of(com.claudemod.entity.life.Attempts.Kind.BREAK).put(pos.immutable(), g.tickCount); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} at {} needs a better pickaxe than his: left for later", name(state), pos.toShortString()); return true; } } // not broken, just the wrong tier (deepslate gold on a stone pick): the job goes on (it cleared his whole job 4 times in 2 minutes to "re-tool" a stone pick he had)
+                if (hasPick) { if (g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, g.tickCount, 20 * 300)) return true; failed(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, com.claudemod.entity.life.Attempts.Reason.NO_TOOL, net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath() + " at " + pos.toShortString() + ": needs a better pickaxe than his"); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} at {} needs a better pickaxe than his: left for later", name(state), pos.toShortString()); return true; } } // not broken, just the wrong tier (deepslate gold on a stone pick): the job goes on (it cleared his whole job 4 times in 2 minutes to "re-tool" a stone pick he had)
             if (g.tickCount - g.retoolTick < 20 * 30) return exit("just tried to re-tool: skip this block, don't loop (doBreak 1493)"); // just tried to re-tool: skip this block, don't loop
             g.retoolTick = g.tickCount;
             com.claudemod.director.ClaudeLife.clearTasks(g);
@@ -1939,7 +1939,7 @@ public class WorkGoal extends Goal {
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no tool for {} anymore (broke?), re-tooling", name(state));
             return exit("doBreak line 1501");
         }
-        if (!inReach(pos)) { Integer gaveUp = g.attempts.last(com.claudemod.entity.life.Attempts.Kind.REACH, pos); if (gaveUp != null && g.tickCount - gaveUp < 20 * 300) { if (ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not digging {} at {}: no way to it {}s ago", name(state), pos.toShortString(), (g.tickCount - gaveUp) / 20); return true; } return approach(pos); } // gave up reaching it a moment ago: skipped outright, not walked at again (a plan re-queued the same 150 out-of-reach cells every lap)
+        if (!inReach(pos)) { Integer gaveUp = g.attempts.last(com.claudemod.entity.life.Attempts.Kind.REACH, pos); if (gaveUp != null && g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.REACH, pos, g.tickCount, 20 * 300)) { if (ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not digging {} at {}: no way to it {}s ago", name(state), pos.toShortString(), (g.tickCount - gaveUp) / 20); return true; } return approach(pos); } // gave up reaching it a moment ago: skipped outright, not walked at again (a plan re-queued the same 150 out-of-reach cells every lap)
 
         // Standing in water (it flooded in): stop it where it comes in, like a player. Every spot where water flows into
         // his mine from outside (within 6) gets blocked for good; a source inside the mine gets blocked and mined straight
@@ -1978,7 +1978,7 @@ public class WorkGoal extends Goal {
                     // something he won't break (their chest, a table): step around it to where he can see the block
                     BlockPos clear = clearViewSpot(level, pos);
                     if (clear != null && !clear.equals(g.blockPosition()) && g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, clear, g.tickCount, 20 * 60)) { // a view cell he couldn't get to a moment ago: never sent there again (he looped on one six times in 15 s)
-                        g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.REACH, pos, g.tickCount);
+                        failed(com.claudemod.entity.life.Attempts.Kind.REACH, pos, com.claudemod.entity.life.Attempts.Reason.OUT_OF_REACH, "no cell to see it from that he can get to");
                         com.claudemod.ClaudeMod.LOGGER.info("[Claude life] can't get a clear look at {}: {} at {} in the way, and no way to {} where he'd see it; leaving it", pos.toShortString(), name(w), inWay.toShortString(), clear.toShortString());
                         return exit("doBreak line 1540");
                     }
@@ -1986,22 +1986,22 @@ public class WorkGoal extends Goal {
                         if (clear.distSqr(g.blockPosition()) <= 2 && clear.getY() == g.getBlockY()) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(clear.getX() + 0.5, clear.getY(), clear.getZ() + 0.5, 0.6); return false; } // the cell beside him: a nudge (a walk to it "arrives" at once and never gets there; 45 s stuck on a one-block walk)
                         g.tasks.addFirst(new Task.Break(pos));
                         g.tasks.addFirst(new Task.GoTo(clear, 0.5));
-                        g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.REACH, clear, g.tickCount); // tried once: standing on it next time is fine, being sent to it again is not
+                        failed(com.claudemod.entity.life.Attempts.Kind.REACH, clear, com.claudemod.entity.life.Attempts.Reason.GUARD, "sent to this view cell once already"); // tried once: standing on it next time is fine, being sent to it again is not
                         return exit("doBreak line 1546: " + name(w) + " at " + inWay.toShortString() + " in the way, going round to " + clear.toShortString() + " to see it");
                     }
                     if (clear != null && clear.equals(g.blockPosition()) && (Math.abs(g.getX() - (clear.getX() + 0.5)) > 0.15 || Math.abs(g.getZ() - (clear.getZ() + 0.5)) > 0.15) && ticks < 40) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(clear.getX() + 0.5, clear.getY(), clear.getZ() + 0.5, 0.5); return false; } // (his own cell sees it from its middle; he stood off to the side: a step to the middle, never "refused" from the edge, 05:49 a diamond sealed in so)
-                    g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, g.tickCount); // (on record: his mine check re-queued it every 3 s behind a redstone ore his stone pick can't take)
+                    failed(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, com.claudemod.entity.life.Attempts.Reason.OUT_OF_REACH, "not in sight from any cell he can stand in"); // (on record: his mine check re-queued it every 3 s behind a redstone ore his stone pick can't take)
                     if (com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.isShell(inWay)) { shellRefusals++; lastShellRefusal = inWay.immutable(); }
                     com.claudemod.ClaudeMod.LOGGER.info("[Claude life] can't break {}: {} at {} is in the way", pos.toShortString(), name(w), inWay.toShortString());
                     return exit("doBreak line 1550");
                 }
                 if (com.claudemod.entity.life.MineBlueprint.ore(w) && w.requiresCorrectToolForDrops() && g.inventory.find(s -> s.isCorrectToolForDrops(w)).isEmpty()) { // ore in front that needs a pick he hasn't got (stone in front without a pick still goes the re-tool way: a pick made on the spot): queuing it first only loops (live 03:18 World 15: copper in front of stone, wooden pick, 270 re-queues in 3 min)
-                    g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, g.tickCount);
+                    failed(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, com.claudemod.entity.life.Attempts.Reason.NO_TOOL, "ore in front of it needs a pick he hasn't got");
                     com.claudemod.ClaudeMod.LOGGER.info("[Claude life] can't break {}: {} at {} is in the way and needs a better pick than he has (WorkGoal.doBreak)", pos.toShortString(), name(w), inWay.toShortString());
                     return exit("in the way: " + name(w) + " needs a better pick");
                 }
                 if (com.claudemod.entity.nav.ActionPath.structureBlock(level, inWay) && !com.claudemod.entity.nav.ActionPath.structureDigOk(level, inWay) && !com.claudemod.entity.life.TempLedger.built(g, inWay) && !(g.lastStep != null && g.lastStep.skill().equals("light_end_portal"))) { // the intact rule refuses it anyway (live 01:09, a stronghold brick queued 3x a second as "in the way")
-                    g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, g.tickCount);
+                    failed(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, com.claudemod.entity.life.Attempts.Reason.GUARD, "a structure's block in the way, kept intact");
                     com.claudemod.ClaudeMod.LOGGER.info("[Claude life] can't break {}: {} at {} is in the way, a structure's own block kept intact (WorkGoal.doBreak)", pos.toShortString(), name(w), inWay.toShortString());
                     return exit("in the way: a structure's own block");
                 }
@@ -2081,7 +2081,7 @@ public class WorkGoal extends Goal {
                 int sources = 0;
                 for (BlockPos q : BlockPos.betweenClosed(pos.offset(-1, 0, -1), pos.offset(1, 2, 1))) if (level.getFluidState(q).isSource()) sources++;
                 if (sources >= 2) {
-                    g.attempts.of(com.claudemod.entity.life.Attempts.Kind.BREAK).put(pos.immutable(), g.tickCount);
+                    failed(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, com.claudemod.entity.life.Attempts.Reason.NO_BLOCKS, "cutting up into water (" + sources + " sources) with nothing to plug it");
                     pendingStepUp = null;
                     g.tasks.removeIf(q -> q instanceof Task.Break b && b.pos().getY() >= pos.getY() && b.pos().distSqr(pos) <= 9);
                     com.claudemod.ClaudeMod.LOGGER.info("[Claude life] water above the step at {} and nothing to plug it with: not cutting up through that", pos.toShortString());
@@ -2099,7 +2099,7 @@ public class WorkGoal extends Goal {
             openUp &= wetBy; // (no water by it at all, a log under leaves: nothing to judge; that read every canopy log as "open water" and skipped it)
             for (BlockPos q = pos.above(); openUp && q.getY() < skyTop; q = q.above()) { BlockState st = level.getBlockState(q); if (!st.getCollisionShape(level, q).isEmpty() && !st.is(net.minecraft.tags.BlockTags.LEAVES)) openUp = false; }
             boolean surfaceWater = openUp && !com.claudemod.director.ClaudeLife.inHisMine(g, pos); // a pond or lake up top is not a flooded mine: nobody fills a lake with cobble to till its bank (that "plugged" 12 sources by a crafting table)
-            if (surfaceWater && n == 0) { g.attempts.of(com.claudemod.entity.life.Attempts.Kind.BREAK).put(pos.immutable(), g.tickCount); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] water at {} is open water up top: leaving it, not that block", pos.toShortString()); return true; }
+            if (surfaceWater && n == 0) { failed(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, com.claudemod.entity.life.Attempts.Reason.GUARD, "open water up top, not a flooded mine"); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] water at {} is open water up top: leaving it, not that block", pos.toShortString()); return true; }
             if (!plug.isEmpty() && !surfaceWater) for (BlockPos q0 : BlockPos.betweenClosed(pos.offset(-2, -1, -2), pos.offset(2, 2, 2))) {
                 BlockPos q = q0.immutable();
                 if (n >= 12 || !level.getFluidState(q).is(net.minecraft.tags.FluidTags.WATER) || !level.getFluidState(q).isSource()) continue;
@@ -2271,7 +2271,7 @@ public class WorkGoal extends Goal {
     private boolean descendStep(BlockPos dest) {
         ServerLevel level = level();
         { BlockPos f0 = g.blockPosition(); // by his mine: no new zigzag cut down to a block he spotted below (the user: a one-wide zigzag next to his stairs); his stairs are the way down, or it's left
-          if (dest.getY() < f0.getY() - 2 && g.mineSpine.stream().anyMatch(sp -> sp.distSqr(f0) <= 12 * 12)) { g.attempts.any.put(dest.immutable(), g.tickCount); return false; } }
+          if (dest.getY() < f0.getY() - 2 && g.mineSpine.stream().anyMatch(sp -> sp.distSqr(f0) <= 12 * 12)) { failed(com.claudemod.entity.life.Attempts.Kind.WALK, dest, com.claudemod.entity.life.Attempts.Reason.GUARD, "by his mine: no zigzag cut down to it, his stairs are the way down"); return false; } }
         if (!com.claudemod.director.ClaudeLife.inHisMine(g, g.blockPosition()) && g.blueprint != null && !g.blueprint.isEmpty() && com.claudemod.director.ClaudeLife.downHisMine(g, dest)) return false; // a spot down his mine: the way there is his entrance and his stairs, never a new flight cut down from the surface (the user: "he should be pathing to the entrance"; he dug 10 steps into an aquifer toward lava 110 below)
         if (g.isInWater()) return false; // swimming: he just swims down (digging the bottom out would sink him to bedrock)
         BlockPos under = standingOn(), feet = under.above();
@@ -2519,6 +2519,10 @@ public class WorkGoal extends Goal {
     private int pulledAt = -100000; private final java.util.Set<Task> pulled = new java.util.HashSet<>(); // (jobs pulled ahead of a walk, per walk target)
     String exitWhy = null; // why the last dig/place ended without its block changed (the user: every give-up says why)
     private boolean exit(String why) { exitWhy = why; return true; }
+    /** A failure of his with its cause, from where he stands (the user 11-04: fix causes, not counters; the skip holds while the cause does). */
+    private void failed(com.claudemod.entity.life.Attempts.Kind k, BlockPos p, com.claudemod.entity.life.Attempts.Reason r, String detail) { g.attempts.fail(k, p, g.tickCount, g.blockPosition(), r, detail); }
+    /** The nearest hostile within 16 of him, or null (a BLOCKED_MOB skip ends when it moves off). */
+    private net.minecraft.world.entity.Mob nearestHostile() { return level().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(16), m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy).stream().min(java.util.Comparator.comparingDouble(m -> m.distanceToSqr(g))).orElse(null); }
     private boolean doMineVisibleOres(Task.MineVisibleOres t) {
         ServerLevel level = (ServerLevel) g.level();
         BlockPos at = g.blockPosition();
@@ -3081,7 +3085,7 @@ public class WorkGoal extends Goal {
         if (logs.size() != chopLogsLast || scaffold.size() != chopScaffLast) { chopLogsLast = logs.size(); chopScaffLast = scaffold.size(); chopIdleAt = g.tickCount; }
         else if (g.tickCount - chopIdleAt > 20 * 40 && !logs.isEmpty()) {
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no headway on the tree at {} for 40 s ({} logs left): leaving the rest", b.toShortString(), logs.size());
-            chopSkip.addAll(logs); chopWhy = "no headway on it for 40 s (" + logs.size() + " logs up, the lowest at " + logs.get(0).toShortString() + ")"; logs.clear(); g.attempts.any.put(b.immutable(), g.tickCount);
+            chopSkip.addAll(logs); chopWhy = "no headway on it for 40 s (" + logs.size() + " logs up, the lowest at " + logs.get(0).toShortString() + ")"; logs.clear(); { var c0 = com.claudemod.entity.life.Stall.diagnose(g, b, 4.5); g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.BREAK, b, g.tickCount, g.blockPosition(), c0.reason(), c0.detail(), c0.mob()); g.attempts.bandaid("the 40 s chop clock fired on the tree at " + b.toShortString() + ": " + c0.say()); }
         }
         if (logs.isEmpty() || chopDown) {
             if (!scaffold.isEmpty()) { // his tower comes down from the top, under his feet, one block at a time (bottom-first left him on a floating top)
@@ -3257,7 +3261,7 @@ public class WorkGoal extends Goal {
             if (ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not setting {} on his scaffold at {}", net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(t.item()).getPath(), pos.toShortString());
             return exit("doPlace line 2565");
         }
-        { Integer failedAt = g.attempts.of(com.claudemod.entity.life.Attempts.Kind.PLACE).get(pos); if (failedAt != null && g.tickCount - failedAt < 20 * 300) { if (ticks == 1) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not placing at {}: it failed there {}s ago", pos.toShortString(), (g.tickCount - failedAt) / 20); com.claudemod.entity.life.MindLog.refused(g, pos, "placing (failed there lately) queued by " + com.claudemod.entity.ClaudeEntity.originOf(t)); } return true; } } // (logged: a silent skip left an ore hole open in a test and nothing said why) // failed there a moment ago (nothing to place against, out of reach): not again yet
+        { Integer failedAt = g.attempts.of(com.claudemod.entity.life.Attempts.Kind.PLACE).get(pos); if (failedAt != null && g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, g.tickCount, 20 * 300)) { if (ticks == 1) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not placing at {}: it failed there {}s ago", pos.toShortString(), (g.tickCount - failedAt) / 20); com.claudemod.entity.life.MindLog.refused(g, pos, "placing (failed there lately) queued by " + com.claudemod.entity.ClaudeEntity.originOf(t)); } return true; } } // (logged: a silent skip left an ore hole open in a test and nothing said why) // failed there a moment ago (nothing to place against, out of reach): not again yet
         if (g.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(pos)) && !(current instanceof Task.Pillar) && falling()) { // dropping through the cell (down his hole, under its lid): he's out of it in a moment, no stepping out onto the rim
             fallNote("placing at " + pos.toShortString());
             return false;
@@ -3279,7 +3283,7 @@ public class WorkGoal extends Goal {
         if (ticks == 1 && !(stepOutSince != null && stepOutSince.containsKey(pos)) && placeRetries.merge(pos.below(20000).immutable(), 1, Integer::sum) > 20) { // (not while he's stepping out of the cell: that has its own 2 s) // ponytail: tries kept far below the world in placeRetries (no new fields live); a placement that keeps coming back and never takes is dropped, not a 4-minute loop (his tower roof re-queued itself every tick)
             placeRetries.remove(pos.below(20000));
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] placing at {} has failed 20 times: dropping it", pos.toShortString());
-            g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, g.tickCount, g.blockPosition());
+            failed(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, com.claudemod.entity.life.Attempts.Reason.UNKNOWN, "placing failed 20 times");
             return exit("doPlace line 2589");
         }
         if (com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.isShell(pos) && !g.blueprint.isWalk(g.blockPosition()) && !g.blueprint.isWalk(g.blockPosition().above())
@@ -3360,13 +3364,13 @@ public class WorkGoal extends Goal {
         if (stack.isEmpty() || !(stack.getItem() instanceof BlockItem)) {
             // out of that block: any filler he does have does the job; a stone patch (his mine) only ever takes stone, never dirt
             boolean stoneWanted = t.item() == net.minecraft.world.item.Items.COBBLESTONE || t.item() == net.minecraft.world.item.Items.COBBLED_DEEPSLATE;
-            if (stoneWanted && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.isArch(pos)) { g.attempts.any.put(pos.immutable(), g.tickCount); g.pendingPatches.add(pos.immutable()); if (ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the arch at {} takes {} only: waiting till he has some", pos.toShortString(), itemName(new ItemStack(t.item()))); return true; } // (the user: the arch is all cobblestone, deepslate later; never andesite or dirt)
+            if (stoneWanted && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.isArch(pos)) { failed(com.claudemod.entity.life.Attempts.Kind.WALK, pos, com.claudemod.entity.life.Attempts.Reason.NO_BLOCKS, "the arch takes stone only"); g.pendingPatches.add(pos.immutable()); if (ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the arch at {} takes {} only: waiting till he has some", pos.toShortString(), itemName(new ItemStack(t.item()))); return true; } // (the user: the arch is all cobblestone, deepslate later; never andesite or dirt)
             stack = stoneWanted ? g.inventory.find(st -> st.is(net.minecraft.world.item.Items.COBBLESTONE) || st.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE)
                     || st.is(net.minecraft.world.item.Items.STONE) || st.is(net.minecraft.world.item.Items.ANDESITE) || st.is(net.minecraft.world.item.Items.DIORITE)
                     || st.is(net.minecraft.world.item.Items.GRANITE) || st.is(net.minecraft.world.item.Items.TUFF) || st.is(net.minecraft.world.item.Items.DEEPSLATE))
                     : scaffoldBlock();
             if (stack.isEmpty()) {
-                g.attempts.any.put(pos.immutable(), g.tickCount); // (the upkeep waits a minute before queueing it again: dirt on him read as filler and the stone patches came back every 3 s)
+                failed(com.claudemod.entity.life.Attempts.Kind.WALK, pos, com.claudemod.entity.life.Attempts.Reason.NO_BLOCKS, "the patch takes stone, not dirt"); // (the upkeep waits a minute before queueing it again: dirt on him read as filler and the stone patches came back every 3 s)
                 g.pendingPatches.add(pos.immutable()); // not forgotten: filled in once he has blocks again and is back here
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't place at {}: none of {} or any filler left (will come back to it)", pos.toShortString(), itemName(new ItemStack(t.item())));
                 return exit("doPlace line 2644");
@@ -3374,7 +3378,7 @@ public class WorkGoal extends Goal {
         }
         if (stack.getItem() instanceof BlockItem fb && fb.getBlock() instanceof net.minecraft.world.level.block.FallingBlock && net.minecraft.world.level.block.FallingBlock.isFree(level.getBlockState(pos.below()))) { // sand or gravel with nothing under it falls at once (live 12:37 11-04: a sand lid over his cover hole came down on his head and suffocated him)
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not putting {} at {}: nothing under it, it would fall (WorkGoal.doPlace)", itemName(stack), pos.toShortString());
-            g.attempts.any.put(pos.immutable(), g.tickCount);
+            failed(com.claudemod.entity.life.Attempts.Kind.WALK, pos, com.claudemod.entity.life.Attempts.Reason.NO_FACE, "nothing under it: it would fall");
             return exit("a falling block with nothing under it (doPlace fall)");
         }
         // A player can only place against an existing block, never in midair.
@@ -3398,7 +3402,7 @@ public class WorkGoal extends Goal {
         }
         if (against == null && t.want() != null) { // a build's block with nothing to go against yet: no column or footing of its block outside the plan; the build's check comes back to it
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] nothing to set {} against at {} yet (a build's cell): left for the build's check (WorkGoal.doPlace)", itemName(new ItemStack(t.item())), pos.toShortString());
-            g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, g.tickCount, g.blockPosition());
+            failed(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, com.claudemod.entity.life.Attempts.Reason.NO_FACE, "nothing to set it against yet (a build's cell)");
             return exit("nothing to go against yet (doPlace want)");
         }
         if (against == null && upHisSkytower() && !enemiesNear(16).isEmpty()) { // (a column up from the floor is a walk down off the tower)
@@ -3413,7 +3417,7 @@ public class WorkGoal extends Goal {
                 if (anchored) {
                     { var failed = g.attempts.of(com.claudemod.entity.life.Attempts.Kind.PLACE); boolean stale = false; // ponytail: live 14:28 -47,42,-885: the column's cells refused as "failed lately", the block put back in front, the column queued again: 4x a second in his fight
                       for (BlockPos q = b; q.getY() < pos.getY() && !stale; q = q.above()) { Integer at = failed.get(q); stale = at != null && g.tickCount - at < 20 * 300; }
-                      if (stale) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not placing {} at {}: the column up to it from {} failed lately (WorkGoal.doPlace)", itemName(new ItemStack(t.item())), pos.toShortString(), b.toShortString()); g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, g.tickCount, g.blockPosition()); return exit("column below failed lately (doPlace)"); } }
+                      if (stale) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not placing {} at {}: the column up to it from {} failed lately (WorkGoal.doPlace)", itemName(new ItemStack(t.item())), pos.toShortString(), b.toShortString()); failed(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, com.claudemod.entity.life.Attempts.Reason.NO_FACE, "the column up to it failed lately"); return exit("column below failed lately (doPlace)"); } }
                     g.tasks.addFirst(t);
                     for (BlockPos q = b; q.getY() < pos.getY(); q = q.above()) g.tasks.addFirst(new Task.Place(q.immutable(), t.item())); // (lowest first)
                     return exit("doPlace line 2674");
@@ -3448,7 +3452,7 @@ public class WorkGoal extends Goal {
                 return exit("doPlace line 2702");
             }
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't place at {}: nothing to place it against", pos.toShortString());
-            g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, g.tickCount, g.blockPosition()); // (remembered: 56 tries at floating cells in a flooded cave in 3 minutes, 40 cobble gone)
+            failed(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, com.claudemod.entity.life.Attempts.Reason.NO_FACE, "nothing to place it against"); // (remembered: 56 tries at floating cells in a flooded cave in 3 minutes, 40 cobble gone)
             return exit("doPlace line 2706");
         }
         if (!inReach(pos) && com.claudemod.director.ClaudeLife.isCastBlock(pos) && com.claudemod.director.ClaudeLife.portalEdge() != null) { // a mould block from his pillar: to its near edge, never a walk off the pillar (he walked off to "reach" a side wall and the pour came from the ground)
@@ -3459,7 +3463,7 @@ public class WorkGoal extends Goal {
         }
         if (!inReach(pos)) { // walk to where he can reach it (a hole in a wall is not somewhere to stand)
             Integer gaveUp = g.attempts.of(com.claudemod.entity.life.Attempts.Kind.PLACE).get(pos);
-            if (gaveUp != null && g.tickCount - gaveUp < 20 * 300) return exit("out of reach a moment ago: skipped outright (the same column of placements walked him up and down his stairs e (doPlace 2716)"); // out of reach a moment ago: skipped outright (the same column of placements walked him up and down his stairs every 20 s)
+            if (gaveUp != null && g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, g.tickCount, 20 * 300)) return exit("out of reach a moment ago: skipped outright (the same column of placements walked him up and down his stairs e (doPlace 2716)"); // out of reach a moment ago: skipped outright (the same column of placements walked him up and down his stairs every 20 s)
             walkNoDig = true; // never dig through walls just to put a block somewhere
             boolean done = walkTo(standSpotBeside(pos, false), 0.8) && !inReach(pos) || ticks > 20 * 12 && g.getDeltaMovement().horizontalDistanceSqr() < 1.0E-4 && g.getNavigation().isDone(); // (stood still 12 s+ short of a patch he can't walk to: on to the next; a plain 12 s cap cut off stair roofs he was still walking to)
             walkNoDig = false;
@@ -3470,7 +3474,7 @@ public class WorkGoal extends Goal {
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] patch at {} is {} up with nowhere to stand: a {}-block tower under it", pos.toShortString(), pos.getY() - g.getBlockY(), Math.max(0, up));
                 return exit("doPlace line 2725");
             }
-            if (done) { g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, g.tickCount, g.blockPosition()); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't get in reach to place at {} (he's at {})", pos.toShortString(), g.blockPosition().toShortString()); }
+            if (done) { failed(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, com.claudemod.entity.life.Attempts.Reason.OUT_OF_REACH, "couldn't get in reach to place it"); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't get in reach to place at {} (he's at {})", pos.toShortString(), g.blockPosition().toShortString()); }
             return done;
         }
         if (g.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(pos))) return exit("don't build himself in (doPlace 2730)"); // don't build himself in
@@ -3498,7 +3502,7 @@ public class WorkGoal extends Goal {
                 }
                 if (!g.blockPosition().equals(stand)) {
                     boolean straight = stand.distSqr(g.blockPosition()) <= 4 && stand.getY() == g.getBlockY() && openStep(level, stand); // (the cell beside with nothing between: a nudge; through his house's back wall it was 10 s of walking into the planks, then "couldn't get behind the bed spot")
-                    if (straight) { if (ticks > 200) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't step onto {} behind the bed spot at {} to set it (he's at {}, nothing between)", stand.toShortString(), pos.toShortString(), g.blockPosition().toShortString()); g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, g.tickCount); return true; } g.getNavigation().stop(); g.getMoveControl().setWantedPosition(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5, 0.5); return false; }
+                    if (straight) { if (ticks > 200) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't step onto {} behind the bed spot at {} to set it (he's at {}, nothing between)", stand.toShortString(), pos.toShortString(), g.blockPosition().toShortString()); failed(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, com.claudemod.entity.life.Attempts.Reason.OUT_OF_REACH, "couldn't step onto the stand spot behind the bed spot"); return true; } g.getNavigation().stop(); g.getMoveControl().setWantedPosition(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5, 0.5); return false; }
                     if (walkTo(stand, 0.4) && !g.blockPosition().equals(stand) && !(stand.distSqr(g.blockPosition()) <= 4 && stand.getY() == g.getBlockY() && openStep(level, stand))) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the walk to {} behind the bed spot at {} ended short (he's at {}): the next round tries again (the walker keeps its own memory of the failed walk) (WorkGoal.doPlace)", stand.toShortString(), pos.toShortString(), g.blockPosition().toShortString()); return true; } // the walker's way there (in at his door), not a line through the wall
                     return false; } // (the cell beside: a nudge, a walk there never lands on the cell)
                 against = Direction.DOWN; // (the floor in front of him: his look lands straight ahead, so the game runs the bed that way)
@@ -3542,11 +3546,11 @@ public class WorkGoal extends Goal {
                 BlockPos standP = frontStand;
                 if (!g.blockPosition().equals(standP)) {
                     if (standP.distSqr(g.blockPosition()) <= 4 && standP.getY() == g.getBlockY()) { // the last block: a nudge onto it
-                        if (ticks > 100) { g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, g.tickCount, g.blockPosition()); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't get onto {} in front of the {} spot at {}: not setting it askew, next round", standP.toShortString(), itemName(stack), pos.toShortString()); return true; }
+                        if (ticks > 100) { failed(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, com.claudemod.entity.life.Attempts.Reason.OUT_OF_REACH, "couldn't get onto the stand spot in front of it"); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't get onto {} in front of the {} spot at {}: not setting it askew, next round", standP.toShortString(), itemName(stack), pos.toShortString()); return true; }
                         g.getNavigation().stop(); g.getMoveControl().setWantedPosition(standP.getX() + 0.5, standP.getY(), standP.getZ() + 0.5, 0.5); return false;
                     }
                     if (!walkFailedSince(standP, pos)) { sentFor().put(pos.immutable(), g.tickCount); g.tasks.addFirst(t); g.tasks.addFirst(new Task.GoTo(standP, 0.8)); return exit("the walk as its own task: the whole walker, not a path call every second; again while he isn't on the spot, un (doPlace 2797)"); } // the walk as its own task: the whole walker, not a path call every second; again while he isn't on the spot, unless that walk failed
-                    g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, g.tickCount, g.blockPosition());
+                    failed(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, com.claudemod.entity.life.Attempts.Reason.OUT_OF_REACH, "the walk to its stand spot failed");
                     com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't get in front of the {} spot at {} (he's at {}): not setting it askew, next round", itemName(stack), pos.toShortString(), g.blockPosition().toShortString());
                     return exit("doPlace line 2800");
                 }
@@ -3598,7 +3602,7 @@ public class WorkGoal extends Goal {
                 }
                 viewTry().remove(pos);
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] can't see a face to set {} against from anywhere he can stand: not placing it through the wall (he's at {} eye {}, spot {}, moved since the last step: {})", pos.toShortString(), g.blockPosition().toShortString(), g.getEyePosition(), view == null ? "none" : view.toShortString(), moved);
-                g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, g.tickCount, g.blockPosition());
+                failed(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, com.claudemod.entity.life.Attempts.Reason.NO_FACE, "no face in sight from anywhere he can stand");
                 return exit("doPlace line 2844");
             }
         }
@@ -3652,7 +3656,7 @@ public class WorkGoal extends Goal {
         }
         aimTry.remove(pos);
         com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no spot he can stand that gives {} at {} (he's at {}, spot {}, steps tried {}): not placing it wrong (WorkGoal.placeAimed)", want, pos.toShortString(), feet.toShortString(), stand == null ? "none" : stand.toShortString(), tries);
-        g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, g.tickCount, g.blockPosition());
+        failed(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, com.claudemod.entity.life.Attempts.Reason.OUT_OF_REACH, "no stand spot gives the facing it needs");
         return exit("no click gives the planned state (doPlace aimed)");
     }
 
@@ -4158,7 +4162,7 @@ public class WorkGoal extends Goal {
         BlockPos side = clearViewSpot(level, target); if (side == null) side = standSpotBeside(target);
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
         if (side.distSqr(feet) <= 4 && side.getY() == feet.getY()) { // (level only: a nudge can't take a step up, 10 s stood still under his furnace one up the slope, live 11:31) // the spot beside him (or under him, off its centre): a nudge, a walk there "arrives" a block short
-            if (ticks > 200) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't get in reach of {} at {} (he's at {})", name(level.getBlockState(target)), target.toShortString(), feet.toShortString()); g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.REACH, target, g.tickCount); return true; }
+            if (ticks > 200) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't get in reach of {} at {} (he's at {})", name(level.getBlockState(target)), target.toShortString(), feet.toShortString()); failed(com.claudemod.entity.life.Attempts.Kind.REACH, target, com.claudemod.entity.life.Attempts.Reason.OUT_OF_REACH, "couldn't get in reach of " + name(level.getBlockState(target))); return true; }
             g.getNavigation().stop(); g.getMoveControl().setWantedPosition(side.getX() + 0.5, side.getY(), side.getZ() + 0.5, 0.5); return false;
         }
         boolean ended = walkTo(side, side.equals(target) ? 2 : 0.6);
@@ -4582,7 +4586,7 @@ public class WorkGoal extends Goal {
         else if (ticks % 10 == 1 && !escapeHeld) {
             String why = escapeBlocked(mobs);
             if (why != null) {
-                g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, escapeAt, g.tickCount, g.blockPosition());
+                { var hm = nearestHostile(); g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, escapeAt, g.tickCount, g.blockPosition(), com.claudemod.entity.life.Attempts.Reason.BLOCKED_MOB, why, hm == null ? null : hm.getUUID()); }
                 if ("run".equals(escapeKind) && fleeDir != null) fleeDead.add(fleeDir);
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape {} at {} blocked: {}; on his attempts, another (WorkGoal.escapeBlocked)", escapeKind, escapeAt.toShortString(), why);
                 clearEscape(); pickEscape(mobs);
@@ -4999,7 +5003,7 @@ public class WorkGoal extends Goal {
         if (unseenSince > 0 && g.tickCount - unseenSince > 60) { unseenSince = -1; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the {} has been out of sight {} up/down for 3 s and isn't after him: leaving it (WorkGoal.doAttack)", mob.getType().getDescription().getString(), (int) (mob.getY() - g.getY())); return true; }
         if (ticks == 1) dropCloseSteps(); // (a closing-in step cut short by a new fight: stale, it would walk him to where the shooter was)
         if (ticks == 1 && mob instanceof net.minecraft.world.entity.animal.WaterAnimal && !level.getFluidState(mob.blockPosition().above(6)).isEmpty() && g.distanceTo(mob) > 3) { // (6 deep now, as the hunt picks them) // a fish deep down: no reaching it from the bank (100 s at half a heart swinging at cod he couldn't get to); the land animals come next
-            g.attempts.any.put(mob.blockPosition().immutable(), g.tickCount);
+            failed(com.claudemod.entity.life.Attempts.Kind.WALK, mob.blockPosition(), com.claudemod.entity.life.Attempts.Reason.OUT_OF_REACH, "a fish 6+ deep");
             return true;
         }
         if (mob instanceof net.minecraft.world.entity.animal.IronGolem ig && ig.getTarget() != g && !outOfItsReach(mob) && t.maxTicks() >= 20 * 60) { // the golem job on the ground (the tower didn't go up: it walked into him): no fight down here with a golem that isn't after him, the tower again
@@ -5118,7 +5122,7 @@ public class WorkGoal extends Goal {
                     boolean soft = w.is(net.minecraft.tags.BlockTags.LEAVES) || w.getDestroySpeed(g.level(), inWay) <= 0.6f; // (leaves over a chicken, dirt or sand: what a player knocks away for a mob; never rock between him and it)
                     boolean shell = com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.isShell(inWay);
                     if (!soft || shell || com.claudemod.entity.life.Watchdog.off(g, new Task.Break(inWay)) || g.attempts.within(com.claudemod.entity.life.Attempts.Kind.BREAK, inWay, g.tickCount, 20 * 60)) { // (World 15 16:44: digs through his own mine wall toward a mob behind it, each refused by the shell rule and asked for again every second, 235 lines)
-                        g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.REACH, mob.blockPosition(), g.tickCount); behindWall.put(mob.getUUID(), g.tickCount);
+                        g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.REACH, mob.blockPosition(), g.tickCount, g.blockPosition(), com.claudemod.entity.life.Attempts.Reason.OUT_OF_REACH, "the " + mob.getType().getDescription().getString() + " behind a wall", mob.getUUID()); behindWall.put(mob.getUUID(), g.tickCount);
                         com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the {} is behind {} at {} ({}): no fight through it, let be (WorkGoal.doAttack)", mob.getType().getDescription().getString(), name(w), inWay.toShortString(), shell ? "his mine's wall" : !soft ? "rock" : "its dig refused a moment ago");
                         return true;
                     }
@@ -5749,7 +5753,7 @@ public class WorkGoal extends Goal {
             double hookD = Math.hypot(hook.getX() - g.getX(), hook.getZ() - g.getZ()), wantD = Math.hypot(to.x - g.getX(), to.z - g.getZ());
             if (Math.abs(hookD - wantD) > 1.5) fishAim = Math.max(-40, Math.min(60, fishAim + (hookD > wantD ? 8 : -8))); // the right distance and still dry: off to the side, the aim's fine
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the cast landed out of the water ({} blocks out, the water's {}): aiming {} next", (int) hookD, (int) wantD, hookD > wantD ? "lower" : "higher");
-            if (hookD < 1.0) { int blocked = g.attempts.counters.merge("castBlocked", 1, Integer::sum); if (blocked >= 3) { g.attempts.counters.put("castBlocked", 0); g.useHeld(); g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.REACH, t.water(), g.tickCount); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the line stops at his feet every cast (something in the way): not fishing from here"); return true; } } else g.attempts.counters.put("castBlocked", 0); // (a block over or before him catches the line: aiming higher never helps, and he cast twenty times)
+            if (hookD < 1.0) { int blocked = g.attempts.counters.merge("castBlocked", 1, Integer::sum); if (blocked >= 3) { g.attempts.counters.put("castBlocked", 0); g.useHeld(); failed(com.claudemod.entity.life.Attempts.Kind.REACH, t.water(), com.claudemod.entity.life.Attempts.Reason.BLOCKED_BLOCK, "the cast lands out of the water: something in the line"); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the line stops at his feet every cast (something in the way): not fishing from here"); return true; } } else g.attempts.counters.put("castBlocked", 0); // (a block over or before him catches the line: aiming higher never helps, and he cast twenty times)
             g.useHeld(); fishCastTick = ticks; return false;
         }
         if (nibble(hook) > 0) { // a bite: reel in now (the catch flies to him)

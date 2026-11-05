@@ -883,7 +883,7 @@ public final class ClaudeLife {
                 }
             }
             if (!atBed(g, level, head, foot)) {
-                g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.REACH, head, g.tickCount);
+                g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.REACH, head, g.tickCount, g.blockPosition(), com.claudemod.entity.life.Attempts.Reason.OUT_OF_REACH, "the walk ended short of his bed", null);
                 bedMissedFrom().put(head, g.blockPosition().immutable());
                 return "failed: couldn't get to the bed at " + head.toShortString() + ": the walk ended " + (int) Math.sqrt(g.blockPosition().distSqr(head)) + " blocks short, at " + g.blockPosition().toShortString();
             }
@@ -4680,7 +4680,7 @@ public final class ClaudeLife {
             if (g.tickCount - patchTries().getOrDefault(tKey, -100000) > 20 * 300) { patchTries().put(tKey, g.tickCount); patchTries().put(nKey, 0); }
             if (patchTries().merge(nKey, 1, Integer::sum) >= 3) {
                 patchTries().put(nKey, 0);
-                for (Task t : g.tasks) if (t instanceof Task.Break b) g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.BREAK, b.pos(), g.tickCount);
+                for (Task t : g.tasks) if (t instanceof Task.Break b) g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.BREAK, b.pos(), g.tickCount, g.blockPosition(), com.claudemod.entity.life.Attempts.Reason.UNKNOWN, "third time back out of the same spot off his mine: a loop", null);
                 clearTasks(g); g.skillQueue.clear(); g.nextPlanTick = g.tickCount;
                 ClaudeMod.LOGGER.info("[Claude life] third time back out of the same spot off his mine at {}: that job's a loop, dropped, thinking again", g.blockPosition().toShortString());
                 return;
@@ -7828,7 +7828,7 @@ public final class ClaudeLife {
             g.lastSkillLine = "stuck at " + at.toShortString() + " " + doing + " for " + secs + "s; that doesn't work from here";
             if (g.lastStep != null && g.lastStep.skill().equals("recover_drops") && g.failCount.getOrDefault("recover_drops", 0) < 1) { // his things are still lying there: one more go (another way in) before giving them up
                 g.failCount.merge("recover_drops", 1, Integer::sum);
-                g.attempts.any.put(at.immutable(), g.tickCount);
+                g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, at, g.tickCount, at, cause.reason(), cause.detail(), cause.mob());
                 g.skillQueue.add(new Skills.Step("recover_drops", "", 1));
                 ClaudeMod.LOGGER.info("[Claude life] stuck on the way to his drops: one more go at them");
             }
@@ -10358,9 +10358,9 @@ public final class ClaudeLife {
     static BlockPos obsPick; // the lava he picked to work (makeObsidian): kept till it's used up or proven unworkable from its spot (15:46 he went pool to pool and back, LOOP x4)
     /** A pool he's on a spot beside with nothing to open over it from there: unworkable from there, on his attempts (REACH, 10 minutes) and never picked again meanwhile. */
     static void obsUnworkable(ClaudeEntity g, BlockPos h, BlockPos pool, String why) {
-        g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.REACH, h, g.tickCount); g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.REACH, pool, g.tickCount);
+        g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.REACH, h, g.tickCount, g.blockPosition(), com.claudemod.entity.life.Attempts.Reason.OUT_OF_REACH, "obsidian: " + why, null); g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.REACH, pool, g.tickCount, g.blockPosition(), com.claudemod.entity.life.Attempts.Reason.OUT_OF_REACH, "obsidian: " + why, null);
         if (h.equals(obsPick) || pool.equals(obsPick)) obsPick = null;
-        ClaudeMod.LOGGER.info("[Claude life] obsidian: the lava at {} (pool {}) is unworkable from {}: {}; on his attempts, not picked again for 10 minutes (ClaudeLife.obsUnworkable)", h.toShortString(), pool.toShortString(), g.blockPosition().toShortString(), why);
+        ClaudeMod.LOGGER.info("[Claude life] obsidian: the lava at {} (pool {}) is unworkable from {}: {}; on his attempts, not picked again from there till something changes (ClaudeLife.obsUnworkable)", h.toShortString(), pool.toShortString(), g.blockPosition().toShortString(), why);
     }
     static BlockPos obsRouteTo; // the spot a planned way over to a pool is taking him to (null: none under way)
     /** A spot he can stand on within r of `at`, nearest it (a heard spot is often in the rock or the air). */

@@ -163,7 +163,7 @@ public class ClaudeEntity extends ServerPlayer {
     public int awaitingAnswerUntil = 0;  // asked them a question (found a cave): hold off on his own work until this tick
     public int stoppedTick = -1;         // last stop / new order; plans started before it are thrown away
     public int ongoingSetTick = -1;      // when they last set (or cleared) an open-ended job
-    public final com.claudemod.entity.life.Attempts attempts = new com.claudemod.entity.life.Attempts(); // what failed where lately, by kind (was one map for every kind: "unreachable")
+    public final com.claudemod.entity.life.Attempts attempts = new com.claudemod.entity.life.Attempts(this); // what failed where lately, by kind (was one map for every kind: "unreachable")
     public int tablePlacedTick = -1;
     /**
      * Temporary workstations: crafting tables / furnaces he put down out in the field for a quick job; he picks

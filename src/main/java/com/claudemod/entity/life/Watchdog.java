@@ -58,6 +58,8 @@ public final class Watchdog {
         String quickLine; int quickTick, quickN;             // a skill line coming straight back
         String lastTold = ""; int lastTellTick = -1;                                // (stages read it)
         int trips;
+        Task lastTargeted; int lastTargetedTick;             // the last task that had a cell to get to (a give-up often fires after its task was replaced)
+        final java.util.ArrayDeque<Object[]> trace = new java.util.ArrayDeque<>(); // {first tick, last tick, line}: his body tick by tick and his tasks' starts and ends, the last 10 s (every incident prints it)
     }
     private static final Map<UUID, St> ST = new HashMap<>();
     private static int now(ClaudeEntity g) { return g.getServer().getTickCount(); } // ponytail: his own tickCount restarts at 0 on every dimension change; this state outlives the entity
@@ -140,6 +142,8 @@ public final class Watchdog {
     private static int items(ClaudeEntity g) { int n = 0; for (int i = 0; i < g.inventory.items.getContainerSize(); i++) n += g.inventory.items.getItem(i).getCount(); return n; }
     public static boolean starting(ClaudeEntity g, Task t) {
         St s0 = st(g); s0.started = t; s0.startTick = now(g); s0.startBroken = s0.broken; s0.startItems = items(g); s0.startDist = targetDist(g, t);
+        if (target(t) != null) { s0.lastTargeted = t; s0.lastTargetedTick = now(g); }
+        record(s0, now(g), "START " + t + (s0.startDist >= 0 ? String.format(" (%.1f off)", s0.startDist) : ""));
         String k = key(t); if (k == null) return true;
         int r = rung(g, k); if (r == 0) return true;
         Boolean got = achieved(g, t); if (Boolean.TRUE.equals(got) && !(t instanceof Task.GoTo)) return true; // (already done: the task ends at once by itself)
@@ -152,6 +156,7 @@ public final class Watchdog {
 
     /** WorkGoal: the action ended (why: its exit line, or null). Counts it if it ended without its progress. */
     public static void ended(ClaudeEntity g, Task t, String why) {
+        { double d = targetDist(g, t); record(st(g), now(g), "END " + t + " after " + (g.work == null ? "?" : g.work.taskAge()) + "t" + (d >= 0 ? String.format(", %.1f off", d) : "") + (why == null ? "" : ": " + why)); }
         String k = key(t); if (k == null) return;
         Boolean got = achieved(g, t); if (got == null) return;
         St s = st(g);
@@ -354,6 +359,7 @@ public final class Watchdog {
             if (d > 3 && com.claudemod.entity.nav.Leaps.control(g) == null && now(g) - s.lastMove > 20 * 5) { s.lastMove = now(g); incident(g, "UNPLANNED MOVE", String.format("%.1f blocks in one tick, from %.1f %.1f %.1f to %.1f %.1f %.1f, doing %s", d, s.px, s.py, s.pz, g.getX(), g.getY(), g.getZ(), g.currentTask == null ? "-" : g.currentTask.getClass().getSimpleName())); }
         }
         s.px = g.getX(); s.py = g.getY(); s.pz = g.getZ(); s.pTick = now(g); s.pDim = g.level().dimension();
+        record(s, now(g), bodyLine(g));
         if (g.currentTask instanceof Task.Toss || g.currentTask instanceof Task.Chest || g.currentTask instanceof Task.Deposit) s.handOff = now(g);
         if (now(g) % 20 != 0) return;
         s.samples.addLast(new double[] {now(g), g.getX(), g.getY(), g.getZ(), g.getHealth(), g.getFoodData().getFoodLevel(), g.getRemainingFireTicks(), g.getAirSupply(), g.isEyeInFluid(net.minecraft.tags.FluidTags.WATER) ? 1 : 0, g.level().getBlockState(net.minecraft.core.BlockPos.containing(g.getEyePosition()).above()).blocksMotion() ? 1 : 0}); // + air, eyes under water, a solid block over his head (two drownings 17:09/18:11 had none of it)
@@ -426,6 +432,41 @@ public final class Watchdog {
      * how he's been, what he was doing and why, what's about him, his recent log. To the log, one [Claude incident] line pointing
      * at it, and to saves/<world>/claude/incidents/<time>.txt.
      */
+    /** A trace entry: the same line as the last one only stretches its tick span; entries older than 10 s go. */
+    static void record(St s, int tick, String line) {
+        Object[] last = s.trace.peekLast();
+        if (last != null && last[2].equals(line)) last[1] = tick; else s.trace.addLast(new Object[] {tick, tick, line});
+        while (s.trace.size() > 400 || !s.trace.isEmpty() && tick - (int) s.trace.peekFirst()[1] > 200) s.trace.pollFirst();
+    }
+    /** His body this tick: where, how he's moving, what his legs and hands were told (the walk's target, the path's next node, a jump), and what task. */
+    static String bodyLine(ClaudeEntity g) {
+        var v = g.getDeltaMovement(); var nav = g.getNavigation(); var path = nav.getPath();
+        String next = path == null ? "no path" : path.isDone() ? "path done" : "next " + path.getNextNodePos().toShortString() + " (" + path.getNextNodeIndex() + "/" + path.getNodeCount() + ")";
+        return String.format("at %.2f %.2f %.2f v %.2f %.2f %.2f%s%s%s%s pose %s | %s | want %s%s | %s age %s",
+                g.getX(), g.getY(), g.getZ(), v.x, v.y, v.z, g.onGround() ? " ground" : " air", g.horizontalCollision ? " hcoll" : "", g.isInWater() ? (g.isEyeInFluid(net.minecraft.tags.FluidTags.WATER) ? " under water" : " in water") : "", g.isInLava() ? " LAVA" : "",
+                g.getPose(), next, g.getMoveControl().debug(), g.getJumpControl().pressed() ? " JUMP" : "", g.currentTask == null ? "no task" : g.currentTask, g.work == null ? "?" : g.work.taskAge());
+    }
+    /** The context sections every incident carries: the target's own surroundings, his path, and the last 10 s tick by tick. */
+    public static String context(ClaudeEntity g) { St s = st(g);
+        StringBuilder b = new StringBuilder(); var lv = g.level();
+        Task cur = g.currentTask != null ? g.currentTask : s.started;
+        BlockPos t = cur == null ? null : target(cur);
+        if (t == null && s.lastTargeted != null) { b.append("(now ").append(cur == null ? "no task" : cur).append("; the last task with a target began ").append((now(g) - s.lastTargetedTick) / 20).append(" s ago)\n"); cur = s.lastTargeted; t = target(cur); }
+        if (t != null) {
+            b.append("target: ").append(cur).append(" -> ").append(t.toShortString()).append(" is ").append(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(lv.getBlockState(t).getBlock()).getPath())
+             .append(String.format(", %.1f off (%d across, %d up)", Math.sqrt(t.distToCenterSqr(g.position())), (int) Math.round(Math.sqrt(Math.pow(t.getX() - g.getBlockX(), 2) + Math.pow(t.getZ() - g.getBlockZ(), 2))), t.getY() - g.getBlockY()))
+             .append(", in sight ").append(lv.clip(new net.minecraft.world.level.ClipContext(g.getEyePosition(), net.minecraft.world.phys.Vec3.atCenterOf(t), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getBlockPos().equals(t)).append('\n');
+            b.append("blocks round the target").append(blockMap(lv, t).replace("(x across, z down)", "(x across, z down; @ the target's column)")).append('\n');
+        } else b.append("target: none (").append(cur == null ? "no task" : cur).append(")\n");
+        var path = g.getNavigation().getPath();
+        if (path != null) {
+            StringBuilder ps = new StringBuilder(); for (int i = path.getNextNodeIndex(); i < path.getNodeCount() && i < path.getNextNodeIndex() + 16; i++) ps.append(' ').append(path.getNodePos(i).toShortString()).append(';');
+            b.append("his path: to ").append(path.getTarget().toShortString()).append(", reaches it ").append(path.canReach()).append(", node ").append(path.getNextNodeIndex()).append('/').append(path.getNodeCount()).append(", next:").append(ps).append('\n');
+        } else b.append("his path: none\n");
+        b.append("the last 10 s, tick by tick (ticks ago; a span = the same for those ticks):\n");
+        int nw = now(g); for (Object[] e : s.trace) { int a = nw - (int) e[0], z = nw - (int) e[1]; b.append(a == z ? String.format("  -%d: ", a) : String.format("  -%d..-%d: ", a, z)).append(e[2]).append('\n'); }
+        return b.toString();
+    }
     public static void incident(ClaudeEntity g, String kind, String why) {
         StringBuilder b = new StringBuilder();
         var lv = g.level(); BlockPos at = g.blockPosition();
@@ -443,6 +484,7 @@ public final class Watchdog {
         for (var m : Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(24), x -> x.isAlive() && x instanceof net.minecraft.world.entity.monster.Enemy)) mobs.append(' ').append(m.getType().getDescription().getString()).append(String.format(" %.0f off%s;", m.distanceTo(g), g.hasLineOfSight(m) ? " in sight" : ""));
         b.append("hostiles known within 24:").append(mobs.length() == 0 ? " none" : mobs).append('\n');
         b.append("watchdog: ").append(s.trips).append(" trip(s); tripped lately: ").append(s.rung.entrySet().stream().filter(x -> now(g) - x.getValue()[1] <= MEMORY).map(java.util.Map.Entry::getKey).toList()).append("; told: ").append(s.lastTold.isEmpty() ? "-" : s.lastTold).append('\n');
+        try { b.append(context(g)); } catch (RuntimeException e) { b.append("context: threw ").append(e).append('\n'); }
         b.append(MindLog.recent());
         String text = b.toString();
         incidents++; lastIncident = kind + ": " + why;
@@ -455,7 +497,8 @@ public final class Watchdog {
                 java.nio.file.Files.writeString(f, text); file = f.toString();
             } catch (Exception e) { file = "unwritten (" + e.getClass().getSimpleName() + ")"; }
         }
-        ClaudeMod.LOGGER.info("[Claude incident] {}: {} (file {})\n{}", kind, why, file, text);
+        if (file.startsWith("unwritten") || "-".equals(file)) ClaudeMod.LOGGER.info("[Claude incident] {}: {} (file {})\n{}", kind, why, file, text);
+        else ClaudeMod.LOGGER.info("[Claude incident] {}: {} (file {})", kind, why, file); // (the whole context is in the file: the log keeps the line)
     }
 
     /** Self-check of the pure parts. */

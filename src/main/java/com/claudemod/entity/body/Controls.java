@@ -86,7 +86,7 @@ public final class Controls {
         private int setTick = -100;
 
         public Move(Player p) { this.p = p; }
-        String debug() { return wanted == null ? "none" : String.format("%.2f %.2f %.2f set %d ticks ago", wanted.x, wanted.y, wanted.z, p.tickCount - setTick); }
+        public String debug() { return wanted == null ? "none" : String.format("%.2f %.2f %.2f set %d ticks ago", wanted.x, wanted.y, wanted.z, p.tickCount - setTick); }
 
         public void setWantedPosition(double x, double y, double z, double speed) {
             wanted = new Vec3(x, y, z);
@@ -149,7 +149,7 @@ public final class Controls {
 
         public void jump() { jumpTick = p.tickCount; }
 
-        boolean pressed() { return p.tickCount - jumpTick <= 1; }
+        public boolean pressed() { return p.tickCount - jumpTick <= 1; }
     }
 
     /**

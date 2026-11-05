@@ -10436,6 +10436,7 @@ public final class ClaudeBodyTest {
             case 645: return st645(stage, t, c, h, level, mock);
             case 646: return st646(stage, t, c, h, level, mock);
             case 647: return st647(stage, t, c, h, level, mock);
+            case 648: return st648(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -13308,6 +13309,28 @@ public final class ClaudeBodyTest {
             c.justRespawned = false; c.recoverPending = false; c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.setLastDeathLocation(java.util.Optional.empty()); com.claudemod.director.ClaudeLife.deathTestReset(c);
             check(!has, "a Nether death at " + np.toShortString() + " counted as an overworld death spot");
             pass(stage, t, "Nether death not among his overworld spots; a later clock's kit not listed");
+        }
+        return true;
+    }
+
+    /** Every incident carries the bug's context (the user, 11-04: "no way to get an accurate fix without the context"): the target's own surroundings, his path, his task's start, and the last 10 s tick by tick. */
+    private static boolean st648(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(3, 2, 8)), up = h.absolutePos(new BlockPos(5, 7, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -4; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            level.setBlock(up, Blocks.OAK_LOG.defaultBlockState(), 2); // (a log 5 up in the air: the walk to it can't get there)
+            c.getInventory().clearContent(); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+        }
+        if (t[0] == 12) c.tasks.add(new Task.GoTo(up, 3.0));
+        if (t[0] == 80) {
+            String ctx = com.claudemod.entity.life.Watchdog.context(c); c.tasks.clear(); c.dropCurrent = true;
+            check(ctx.contains("target: ") && ctx.contains(up.toShortString()) && ctx.contains("is oak_log") && ctx.contains("blocks round the target"), "no target section: " + ctx.substring(0, Math.min(400, ctx.length())));
+            check(ctx.contains("his path: "), "no path section");
+            check(ctx.contains("START GoTo"), "no task start in the trace");
+            check(ctx.split("\n  -").length >= 10 && ctx.contains(" at ") && ctx.contains(" | want "), "too few tick lines: " + ctx.substring(Math.max(0, ctx.length() - 600)));
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude test] stage 648 context:\n{}", ctx);
+            pass(stage, t, "the context has the target, the path, the start and " + (ctx.split("\n  -").length - 1) + " trace lines");
         }
         return true;
     }

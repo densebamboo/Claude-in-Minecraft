@@ -30,7 +30,7 @@ Log watchers (`tools/loopwatch.py`, `tools/pathwatch.py`, run by `tools/selfwatc
 | Any "-> failed" step line (a line and its watchdog echo are one; one per wording per 10 min) | Watchdog line detector | incident FAILED | 644 |
 | Idle 20 s+: no task, nothing queued, standing (not night hold, asleep, staying, or thinking under 45 s) | Watchdog.idle | incident IDLE | 556 |
 | Furnace output left over 30 s in one of his furnaces (input empty) while not heading to it (charcoal sat there, World 17 23:35) | Watchdog.furnaceLeft | incident FURNACE_LEFT | 615 |
-| Wrong tool (a 2x+ faster one in his bag), or 4+ axe/pick blocks by hand with the makings of a tool on him | Watchdog.brokeOwn (break event) | incident BARE_HANDS | 556 |
+| Wrong tool (not a tool for that block, or one it drops nothing to, with a 2x+ faster one in his bag; a stone pick on anything it mines is right), or 4+ axe/pick blocks by hand with the makings of a tool on him | Watchdog.brokeOwn (break event) | incident BARE_HANDS | 556 |
 | Whole logs burnt as fuel | WorkGoal fuel line `[Claude smelt] fuel at X: N item for M items (whole logs)`; Watchdog line detector | incident LOG_FUEL | 615 |
 | Placed and broken by him within 60 s, nothing broken or gained between | Watchdog.placedOwn / brokeOwn (place and break events) | incident PLACE_BREAK | 556 |
 | Walk of 16+ blocks with nothing broken, gained or handed over within 10 s, no work at that spot (not explore/go_to/follow, their job, the night) | Watchdog.endChecks + wastedTrip | incident WASTED_TRIP | 800 |

@@ -12764,6 +12764,11 @@ public final class ClaudeBodyTest {
             BlockPos cell = s556A.offset(-1, 0, 0); // (down and straight back up, nothing done between: the events as his place and break fire them)
             com.claudemod.entity.life.Watchdog.placedOwn(c, cell); com.claudemod.entity.life.Watchdog.brokeOwn(c, cell, Blocks.COBBLESTONE.defaultBlockState());
         }
+        if (t[0] == 285) { // (the user's rule: a stone pick for all it mines, a diamond one on him or not)
+            c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(Items.STONE_PICKAXE));
+            com.claudemod.entity.life.Watchdog.brokeOwn(c, s556A.offset(3, 0, 3), Blocks.FURNACE.defaultBlockState());
+            check(!s556Has("BARE_HANDS"), "a furnace broken with a stone pick filed BARE_HANDS: " + com.claudemod.entity.life.Watchdog.lastIncident);
+        }
         if (t[0] == 290) { // (he crafts an axe before chopping by hand now: the wrong tool, put in his hand here, is what's checked)
             c.getInventory().add(new ItemStack(Items.STONE_AXE)); c.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(Items.WOODEN_SHOVEL));
             com.claudemod.entity.life.Watchdog.brokeOwn(c, s556A.offset(2, 0, 2), Blocks.OAK_LOG.defaultBlockState());

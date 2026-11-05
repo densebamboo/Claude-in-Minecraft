@@ -564,7 +564,8 @@ public final class Watchdog {
         if (!axe && !pick) return;
         var held = g.getMainHandItem(); float hs = held.getDestroySpeed(st), best = hs; String bestName = "";
         for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { var it = g.inventory.items.getItem(i); float v = it.getDestroySpeed(st); if (v > best) { best = v; bestName = it.getHoverName().getString(); } }
-        if (best >= 2 * hs && best > 1) { fileOnce(g, "BARE_HANDS", "BARE_HANDS|wrong|" + nm(st), "broke " + nm(st) + " at " + p.toShortString() + " with " + (held.isEmpty() ? "his hand" : held.getHoverName().getString()) + " while carrying " + bestName); s.handRun = 0; return; }
+        boolean wrongTool = hs <= 1 || st.requiresCorrectToolForDrops() && !held.isCorrectToolForDrops(st); // (a tool for it that drops it is right: stone picks for all a stone pick mines, the user's rule; a stone pick on his furnace with a diamond one on him filed it, review-58 07:06)
+        if (wrongTool && best >= 2 * hs && best > 1) { fileOnce(g, "BARE_HANDS", "BARE_HANDS|wrong|" + nm(st), "broke " + nm(st) + " at " + p.toShortString() + " with " + (held.isEmpty() ? "his hand" : held.getHoverName().getString()) + " while carrying " + bestName); s.handRun = 0; return; }
         if (hs > 1) { s.handRun = 0; return; }
         int planks = 0, logs = 0;
         for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { var it = g.inventory.items.getItem(i); if (it.is(net.minecraft.tags.ItemTags.PLANKS)) planks += it.getCount(); if (it.is(net.minecraft.tags.ItemTags.LOGS)) logs += it.getCount(); }

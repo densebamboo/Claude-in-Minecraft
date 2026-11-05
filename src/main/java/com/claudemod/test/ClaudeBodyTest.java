@@ -10518,6 +10518,9 @@ public final class ClaudeBodyTest {
             case 670: return st670(stage, t, c, h, level, mock);
             case 671: return st671(stage, t, c, h, level, mock);
             case 672: return st672(stage, t, c, h, level, mock);
+            case 673: return st673(stage, t, c, h, level, mock);
+            case 674: return st674(stage, t, c, h, level, mock);
+            case 675: return st675(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -15178,6 +15181,78 @@ public final class ClaudeBodyTest {
             check(dug || moved, "a hole in the rock, 3 skeletons in the room over him, a pickaxe on him: no tunnel round them in 4 s (at " + at.toShortString() + ", " + c.currentTask + ")");
             pass(stage, t, "the way round the skeletons through the rock (" + (moved ? "on his way, at " + at.toShortString() : "digging") + ")");
         }
+        return true;
+    }
+
+    private static boolean st673(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 11:17 11-05 World 17: his plan swapped his gold boots for iron in the Nether ("changing it up"), not knowing what they were for; the piglins shot him to 6 HP. His planner must be told, the choice stays his.
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(5500, 70, 5400);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            nsArena(nl, o, 6, 6, 6, 4); nsKit(c); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, ItemStack.EMPTY); // (nsKit's gold helmet off: the boots are his one gold piece, as live)
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 30) {
+            String sit = com.claudemod.director.ClaudeLife.situation(c, mock[0]);
+            check(sit.contains("golden boots") && sit.contains("piglins"), "in the Nether with golden boots on, his planner isn't told what they're for: " + sit.substring(0, Math.min(300, sit.length())));
+            c.inventory.add(c.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.FEET).copy()); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS)); // as live: the gold boots in his pack, iron on
+            String sit2 = com.claudemod.director.ClaudeLife.situation(c, mock[0]);
+            check(sit2.contains("NO GOLD ON") && sit2.contains("golden boots"), "in the Nether with the gold boots in his pack, his planner isn't told the piglins will attack: " + sit2.substring(0, Math.min(300, sit2.length())));
+            pass(stage, t, "his planner knows his gold piece keeps piglins calm, worn or in his pack");
+        }
+        return true;
+    }
+
+    private static boolean st674(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 12:23-12:49 11-05 World 17, 71,32,-51: stuck by lava at health 6 food 17 (no regen under 18), down to 4/13; the Nether top-up held off eating at a lava edge.
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(5600, 70, 5400);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            nsArena(nl, o, 6, 6, 6, 4); nsKit(c); c.nextPlanTick = c.tickCount + 20 * 600;
+            nl.setBlock(o.east(), Blocks.AIR.defaultBlockState(), 2); nl.setBlock(o.east().above(), Blocks.AIR.defaultBlockState(), 2); nl.setBlock(o.east().below(), Blocks.LAVA.defaultBlockState(), 2); // lava one step east, one down
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.setHealth(6f); c.getFoodData().setFoodLevel(17); c.getFoodData().setSaturation(0f); }
+        if (t[0] > 20 && t[0] < 140 && !c.blockPosition().equals(o)) c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); // held at the edge, as live (stuck there)
+        if (t[0] == 140) {
+            int f = c.getFoodData().getFoodLevel();
+            check(f > 17, "health 6, food 17 beside lava in the Nether: still food " + f + " after 6 s, no top-up, no regen");
+            pass(stage, t, "by a lava edge he eats like anywhere else (food " + f + ")");
+        }
+        return true;
+    }
+
+    private static boolean st675(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 13:27:56-13:28:03 11-05 World 17 (death): on his own patchy netherrack bridge over the lava sea (y35 floor, lava y31), the walk to 129,36,396 stepped 1 up diagonally to 122,37,399;
+        // each jump was cut at 36.75 (the lava-slide guard), the landings crept east, the 4th left him 0.003 off the edge at 122.303: into the lava. Grid y35/y36, x 116..131, z 393..403, from the saved region.
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(5716, 70, 5393); // real (116, 36, 393)
+        java.util.function.Function<int[], BlockPos> R = r -> o.offset(r[0] - 116, r[1] - 36, r[2] - 393);
+        String[] g36 = {".....##.........",".....#####......","................","................","............####","................","......####......","................","................","................","................"};
+        String[] g35 = {"............####",".........#..####","......####.#####","......##########",".....#######...#",".....#####......","....##...#......","....##..........","................","................","................"};
+        BlockPos goal = R.apply(new int[] {129, 36, 396}), step = R.apply(new int[] {122, 37, 399}); // live: the route's next node, 1 up diagonally over the hole's corner
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); }
+        nsTick(nl, c, R.apply(new int[] {122, 36, 400}), t);
+        if (t[0] == 10) {
+            for (BlockPos q : BlockPos.betweenClosed(o.offset(-4, -7, -4), o.offset(19, 6, 14))) nl.setBlock(q, Blocks.AIR.defaultBlockState(), 2);
+            for (BlockPos q : BlockPos.betweenClosed(o.offset(-4, -7, -4), o.offset(19, -6, 14))) nl.setBlock(q, Blocks.LAVA.defaultBlockState(), 2); // the lava sea, y30-31
+            for (int z = 0; z < 11; z++) for (int x = 0; x < 16; x++) {
+                if (g35[z].charAt(x) == '#') nl.setBlock(o.offset(x, -1, z), Blocks.NETHERRACK.defaultBlockState(), 2);
+                if (g36[z].charAt(x) == '#') nl.setBlock(o.offset(x, 0, z), Blocks.NETHERRACK.defaultBlockState(), 2); }
+            nsKit(c); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64)); c.nextPlanTick = c.tickCount + 20 * 600;
+            BlockPos st = R.apply(new int[] {121, 36, 400}); c.teleportTo(nl, st.getX() + 0.81, st.getY(), st.getZ() + 0.30, -123f, 6f); // where he stood 7 s before (121.81 36.00 400.30)
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.tasks.add(new Task.GoTo(step, 0.5)); c.tasks.add(new Task.GoTo(goal, 1.5)); }
+        if (t[0] > 20 && (c.isInLava() || c.getY() < o.getY() - 2)) { BlockPos at = c.blockPosition(); c.tasks.clear(); c.dropCurrent = true; c.clearFire(); c.teleportTo(nl, goal.getX() + 0.5, goal.getY(), goal.getZ() + 0.5, 0f, 0f);
+            check(false, "on his own bridge over the lava sea, the walk to 129,36,396 (real) put him in the lava at " + at.toShortString() + " after " + (t[0] - 20) + " ticks"); }
+        if (t[0] > 20 && c.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(goal)) < 2.0) { pass(stage, t, "across his bridge to the goal in " + (t[0] - 20) + " ticks, no lava"); return true; }
+        if (t[0] == 620) { BlockPos at = c.blockPosition(); c.tasks.clear(); c.dropCurrent = true;
+            check(false, "on his own bridge over the lava sea: 30 s and not at 129,36,396 (real), at " + at.toShortString() + " (" + c.currentTask + ")"); }
         return true;
     }
 

@@ -10413,6 +10413,7 @@ public final class ClaudeBodyTest {
             case 603: return st603(stage, t, c, h, level, mock);
             case 604: return st604(stage, t, c, h, level, mock);
             case 605: return st605(stage, t, c, h, level, mock);
+            case 606: return st606(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -12721,6 +12722,34 @@ public final class ClaudeBodyTest {
             check(c.isAlive() && c.getHealth() >= 8, "shot down by a skeleton 4 off: health " + c.getHealth() + ", " + c.currentTask);
             if (sk == null || !sk.isAlive()) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "killed the skeleton 4 off in " + (t[0] - 10) + " ticks, health " + (int) c.getHealth()); }
             else check(t[0] < 400, "skeleton 4 off still alive after 20 s: health " + c.getHealth() + ", " + c.currentTask);
+        }
+        return true;
+    }
+
+    private static boolean st606(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 17:35 and 17:37 11-04, 535,13,117: drowned twice in this pocket (the incident file's grid, block for block), "no air in sight: back the way he came" every second, never moving. The air is up the shaft at 535,15,119.
+        BlockPos o = h.absolutePos(new BlockPos(1, 2, 1)); // the grid's corner: x 532, y 12, z 114
+        String[][] grid = { // y 12..16, each row z 114..120, x 532..538
+            {"#~#~~~#", "#~~~~~#", "#~~~~##", "#~~~~##", "~~~~###", "~~~~~##", "~~~~~~#"},
+            {"##~~#~.", "#~~~~~.", "#~~~~#.", "#~~~###", "#~~~###", "~~~~~##", "~~~~~~#"},
+            {"##~~#.#", "##~~#..", "##~~###", "##~~###", "#~~####", "~~~~~##", "~~~~~##"},
+            {"#######", "#######", "#######", "#######", "#######", "###.###", "##~####"},
+            {"###..##", ".......", "###..##", "###..##", "###..##", ".......", "###..##"}};
+        BlockPos me = o.offset(3, 1, 3); // 535, 13, 117
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(-1, -1, -1), o.offset(7, 6, 7))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            for (int y = 0; y < 5; y++) for (int z = 0; z < 7; z++) for (int x = 0; x < 7; x++) { char ch = grid[y][z].charAt(x); level.setBlock(o.offset(x, y, z), ch == '~' ? Blocks.WATER.defaultBlockState() : ch == '.' ? Blocks.AIR.defaultBlockState() : Blocks.STONE.defaultBlockState(), 2); }
+            level.setBlock(me, Blocks.WATER.defaultBlockState(), 2); level.setBlock(me.above(), Blocks.WATER.defaultBlockState(), 2); // (his own cells, '@' in the grid)
+            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE));
+            for (BlockPos w : new BlockPos[] {me.offset(0, 2, 2), me.offset(0, 1, 2), me.offset(0, 0, 2), me.offset(0, 0, 1), me, me.north(), me.north(2), me.north(3), me.north(2), me.north(), me}) { c.teleportTo(w.getX() + 0.5, w.getY(), w.getZ() + 0.5); com.claudemod.entity.nav.Route.step(c); } // his swim in (live: down the shaft, through the gap to 114, then back)
+            com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.setAirSupply(119);
+            c.tasks.add(new Task.Wait(1000, false));
+        }
+        if (t[0] > 10) {
+            check(c.isAlive() && c.getHealth() >= 20, "drowning in the 535,13,117 pocket: health " + c.getHealth() + " at " + c.blockPosition().subtract(me) + " y " + String.format("%.2f", c.getY() - me.getY()) + ", pose " + c.getPose() + " sprint " + c.isSprinting() + ", air " + c.getAirSupply());
+            if (!c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "out of the 535,13,117 pocket to air in " + (t[0] - 10) + " ticks"); }
+            else check(t[0] < 300, "no air within 14 s: at " + c.blockPosition().subtract(me) + ", air " + c.getAirSupply());
         }
         return true;
     }

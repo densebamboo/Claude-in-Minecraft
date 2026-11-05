@@ -279,8 +279,8 @@ public final class Controls {
             // a player sprints wherever he's going (the user: sprinting and sprint-jumping are the default), walks only for the last couple of blocks, sneaking, eating, a shield up, or an empty stomach
             var path = nav.getPath();
             double left = path != null && !path.isDone() ? Math.sqrt(p.blockPosition().distSqr(path.getTarget())) : move.wantedDist();
-            boolean sprint = (speed > 1.1 || left > 2.5) && p.zza > 0.5f && !p.isShiftKeyDown() && p.getFoodData().getFoodLevel() > 6 && !p.isUsingItem();
-            if (sprint != p.isSprinting()) p.setSprinting(sprint);
+            boolean sprint = (speed > 1.1 || left > 2.5 || p.isUnderWater()) && p.zza > 0.5f && !p.isShiftKeyDown() && p.getFoodData().getFoodLevel() > 6 && !p.isUsingItem();
+            if (sprint != p.isSprinting()) p.setSprinting(sprint); // (under water always: a player sprint-swims, and only the swim pose fits a 1-high flooded gap; 11-04 17:35 and 17:37 he drowned twice at 535,13,117 pressed under one, standing, 2 cells from air)
             if (sprint && left > 4 && p.onGround() && !p.isInWater() && !jumpNow && p.getFoodData().getFoodLevel() >= 10 && !com.claudemod.entity.ClaudeSpawner.testing && openGround(p, walk.normalize())) jumpNow = true; // (off in the test box: its stages are a few blocks each, and a hop at a stage's edge reads as the wrong move) // sprint-jumping on open ground: faster, at a hunger price he can afford
             if (jumpNow) p.setJumping(true);
         } else if (p.isSprinting()) {

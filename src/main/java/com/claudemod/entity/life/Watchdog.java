@@ -168,7 +168,8 @@ public final class Watchdog {
         int r = rung(g, k); if (r == 0) return true;
         Boolean got = achieved(g, t); if (Boolean.TRUE.equals(got) && !(t instanceof Task.GoTo)) return true; // (already done: the task ends at once by itself)
         if (t instanceof Task.GoTo && r < 2) return true; // a walk on rung 1 runs behind its MAY_DIG way (that's the way)
-        if (r >= 3) { ClaudeMod.LOGGER.info("[Claude watchdog] {} picked again, written off and told: not run (Watchdog.starting)", k); return false; }
+        if (r >= 3) { StringBuilder nx = new StringBuilder(); int i = 0; for (Task q : g.tasks) { if (i++ >= 4) break; nx.append(q).append(" by ").append(ClaudeEntity.originOf(q)).append("; "); }
+            ClaudeMod.LOGGER.info("[Claude watchdog] {} picked again, written off and told: not run; queued by {}, current {}, next [{}] (Watchdog.starting)", k, ClaudeEntity.originOf(t), g.currentTask, nx); return false; } // (who keeps queuing it: 326 of these in 31 s at 07:21 11-05, REVIEW-145, its source never named)
         ClaudeMod.LOGGER.info("[Claude watchdog] {} again after it tripped (rung {}): not run as it was, next way (Watchdog.starting)", k, r);
         climb(g, t, k, ClaudeChat_describe(g, t) + ": picked again after it kept failing");
         return false;

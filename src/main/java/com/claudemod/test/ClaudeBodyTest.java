@@ -10472,6 +10472,7 @@ public final class ClaudeBodyTest {
             case 713: return st713(stage, t, c, h, level, mock);
             case 714: return st714(stage, t, c, h, level, mock);
             case 715: return st715(stage, t, c, h, level, mock);
+            case 716: return st716(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13434,11 +13435,35 @@ public final class ClaudeBodyTest {
             c.getInventory().clearContent(); lnStand(c, mock, at, far.east(3)); c.tasks.clear(); c.skillQueue.clear();
             c.tasks.add(new Task.GoTo(s715A, 0.9)); c.tasks.add(new Task.GoTo(far, 0.9)); // (a planned way's waypoint 2.0 off, its next leg on the same level)
             s715Near = c.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(s715A));
+            c.setDeltaMovement(0, 0, 0.25); // (as live: he came onto that cell walking toward the waypoint; his momentum is no step toward it, 08:45)
         }
         if (t[0] > 10) {
             if (c.currentTask instanceof Task.GoTo go && go.pos().equals(s715A) || c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().equals(s715A))) s715Near = Math.min(s715Near, c.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(s715A)));
             else { check(s715Near < 1.9, "the waypoint " + s715A.toShortString() + " counted reached from " + String.format("%.2f", s715Near) + " off without a step toward it (he's at " + c.position() + ")"); c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "walked to the waypoint before running on (" + String.format("%.2f", s715Near) + " off at most)"); return true; }
             check(t[0] < 200, "the waypoint " + s715A.toShortString() + " not reached in 9 s: at " + c.position() + ", now " + c.currentTask);
+        }
+        return true;
+    }
+
+    /** His own bridge is no quarry (live 08:16-08:45 11-05, Nether): out of cobbled deepslate he bridged on in tuff; collect cobblestone x6 then "spotted 6 cobblestone blocks nearby", the six tuff blocks of that bridge over lava, and walked back and forth to them for half an hour. */
+    private static boolean st716(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -1; x <= 9; x++) for (int z = -1; z <= 12; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), Blocks.NETHERRACK.defaultBlockState(), 2); for (int y = 1; y <= 4; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = -1; x <= 9; x++) for (int z = 5; z <= 7; z++) for (int y = -2; y <= 0; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); // the gap (live: lava) he bridged
+            BlockPos me = h.absolutePos(new BlockPos(4, 1, 2)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            java.util.List<BlockPos> his = new java.util.ArrayList<>();
+            for (int z = 5; z <= 7; z++) for (int x = 4; x <= 5; x++) { BlockPos q = h.absolutePos(new BlockPos(x, 0, z)).immutable(); level.setBlock(q, Blocks.TUFF.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, q, Blocks.TUFF.defaultBlockState(), Blocks.AIR.defaultBlockState()); his.add(q); }
+            for (BlockPos q : his) { var e = com.claudemod.entity.life.TempLedger.entry(c, q); check(e != null, "setup: his tuff at " + q.toShortString() + " isn't on his ledger"); }
+            level.setBlock(h.absolutePos(new BlockPos(2, 6, 3)), Blocks.STONE.defaultBlockState(), 2); // natural stone in sight, farther than his bridge (the test is in the overworld: with none, the fallback is a dig down, which the Nether refuses)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.tasks.clear(); c.skillQueue.clear();
+            c.setHealth(8f); // (no trip down a mine: the blocks about him, the path that queued his bridge live)
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "cobblestone", 6);
+            c.setHealth(20f);
+            var onHis = c.tasks.stream().filter(q -> !ClaudeEntity.originOf(q).contains("TempLedger") && (q instanceof Task.Break br && his.contains(br.pos()) || q instanceof Task.GoTo go && his.contains(go.pos()))).toList(); // (the ledger taking its blocks back up at a step's start is its own rule, not the collect)
+            check(onHis.isEmpty(), "collect cobblestone: " + onHis.size() + " task(s) at his own bridge blocks: " + onHis + " (said: " + r + ")");
+            c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear();
+            pass(stage, t, "collect cobblestone: none of his own bridge (" + r + ")");
         }
         return true;
     }

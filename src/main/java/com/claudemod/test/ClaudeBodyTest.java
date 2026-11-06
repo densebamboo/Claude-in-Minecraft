@@ -10571,6 +10571,7 @@ public final class ClaudeBodyTest {
             case 767: return st767(stage, t, c, h, level, mock);
             case 768: return st768(stage, t, c, h, level, mock);
             case 769: return st769(stage, t, c, h, level, mock);
+            case 770: return st770(stage, t, c, h, level, mock);
             case 762: return st762(stage, t, c, h, level, mock);
             case 763: return st763(stage, t, c, h, level, mock);
             case 758: return st758(stage, t, c, h, level, mock);
@@ -14909,6 +14910,32 @@ public final class ClaudeBodyTest {
             check(c.isAlive(), "dead in the dip");
             check(c.getX() < st768X0 + 2.5, "ran toward the creeper on the only way out of the dip (" + String.format("%.1f", c.getX() - st768X0) + " east, doing " + c.currentTask + ")");
             if (t[0] - st768Start >= 20 * 15) { st768C.discard(); st768C = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY); pass(stage, t, "15 s in the dip, never up the way out past the creeper"); }
+        }
+        return true;
+    }
+    private static int st770Start; private static float st770Low; private static java.util.List<net.minecraft.world.entity.monster.WitherSkeleton> st770W = new java.util.ArrayList<>();
+    private static boolean st770(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // four wither skeletons on him on a fortress bridge, no gap to fight from, armor 14 (iron, gold boots), shield, iron sword, fed (World 17 08:50: "shield and crits in the open", each hit re-armed the fight, 20 -> 0 in 2 s; death 267): he gets clear of them (they walk at 0.25, his sprint is faster), alive
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(9900, 80, 6200);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st770Start = -1; st770Low = 20; st770W.clear(); }
+        if (t[0] > 4 && t[0] % 10 == 0) for (int cx = -2; cx <= 2; cx++) for (int cz = -9; cz <= 9; cz++) { BlockPos q = o.offset(cx * 16, 0, cz * 16); nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(q), 2, q); }
+        if (t[0] > 10 && t[0] % 5 == 0) { for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(160))) if (!st770W.contains(e)) e.discard(); if (t[0] <= 22) for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(160))) e.discard(); }
+        if (t[0] == 10) { // a 5-wide nether brick bridge 1 thick, 280 long, open air 30 down to a netherrack floor, walled and roofed far off (no lava in)
+            for (int x = -12; x <= 12; x++) for (int z = -140; z <= 140; z++) for (int y = -32; y <= 12; y++) { boolean shell = y == -32 || y == 12 || Math.abs(x) == 12 || Math.abs(z) == 140; nl.setBlock(o.offset(x, y, z), shell ? Blocks.NETHERRACK.defaultBlockState() : y == -1 && Math.abs(x) <= 2 ? Blocks.NETHER_BRICKS.defaultBlockState() : y == 0 && Math.abs(x) == 2 ? Blocks.NETHER_BRICK_FENCE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null; c.pillarBlocks.clear();
+        }
+        if (t[0] == 20) { com.claudemod.entity.life.Perception.reset(c); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+            for (int k = 0; k < 4; k++) { var w = EntityType.WITHER_SKELETON.create(nl); w.moveTo(o.getX() + 0.5 + (k % 2 == 0 ? -1 : 1), o.getY(), o.getZ() - 3.5 - k / 2, 0, 0); w.setPersistenceRequired(); w.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); nl.addFreshEntity(w); w.setTarget(c); st770W.add(w); }
+            st770Start = t[0]; }
+        if (st770Start > 0) {
+            for (var w : st770W) if (w.isAlive() && w.getTarget() != c) w.setTarget(c);
+            st770Low = Math.min(st770Low, c.getHealth());
+            check(c.isAlive() && c.level() == nl, "dead to four wither skeletons on the bridge at " + (t[0] - st770Start) / 20 + " s (low " + st770Low + ")");
+            double near = 99; int alive = 0; for (var w : st770W) if (w.isAlive()) { alive++; near = Math.min(near, w.distanceTo(c)); }
+            if (t[0] - st770Start >= 20 * 40) { check(st770Low > 0, "?"); for (var w : st770W) w.discard(); nsHome(c, h, level); c.setHealth(20); pass(stage, t, "alive 40 s with four wither skeletons on him on the bridge (" + alive + " left, nearest " + (int) near + ", low " + st770Low + ")"); }
         }
         return true;
     }

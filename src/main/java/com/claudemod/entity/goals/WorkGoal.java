@@ -4575,7 +4575,7 @@ public class WorkGoal extends Goal {
     /** Silverfish and endermites while he's above 8 health: 1 damage a bite, swatted, never a crowd to run from (stage 559: six from the portal room's spawner ran him off and he plugged himself out of the room). */
     private boolean pest(net.minecraft.world.entity.Entity m) { return g.getHealth() > 8 && (m instanceof net.minecraft.world.entity.monster.Silverfish || m instanceof net.minecraft.world.entity.monster.Endermite); }
     /** A mob that shoots him: skeletons, and anything holding a crossbow (pillagers, piglins: live 05:41 World 17, a crossbow piglin read as melee, "0 shooter(s)", a bare tower, shot off it). */
-    public static boolean shoots(net.minecraft.world.entity.Entity m) { return m instanceof net.minecraft.world.entity.monster.AbstractSkeleton || m instanceof net.minecraft.world.entity.monster.CrossbowAttackMob && m instanceof net.minecraft.world.entity.LivingEntity l && l.isHolding(net.minecraft.world.item.Items.CROSSBOW); }
+    public static boolean shoots(net.minecraft.world.entity.Entity m) { return m instanceof net.minecraft.world.entity.monster.AbstractSkeleton && !(m instanceof net.minecraft.world.entity.monster.WitherSkeleton) || m instanceof net.minecraft.world.entity.monster.CrossbowAttackMob && m instanceof net.minecraft.world.entity.LivingEntity l && l.isHolding(net.minecraft.world.item.Items.CROSSBOW); }
 
     private boolean shouldFlee(net.minecraft.world.entity.Entity foe) { return shouldFlee(foe, false); }
     private boolean shouldFlee(net.minecraft.world.entity.Entity foe, boolean say) {
@@ -4583,7 +4583,7 @@ public class WorkGoal extends Goal {
         if (com.claudemod.entity.life.FortressFight.coverMob(foe) && g.getHealth() > 6 && foe instanceof net.minecraft.world.entity.LivingEntity lf && com.claudemod.entity.life.FortressFight.coverFor(g, (ServerLevel) g.level(), lf) != null) { fightOdds = "from cover"; return false; } // a blaze or wither skeleton with cover at hand: the cover fight backs into it itself (running in the open from fireballs is how it goes wrong)
         if (g.tickCount < cornerUntil && !(foe instanceof net.minecraft.world.entity.monster.Creeper)) return false; // cornered a moment ago: fight, no more running into the wall
         if (foe instanceof net.minecraft.world.entity.monster.Blaze) { fightOdds = "blazes: no outrunning them in the open; fought, out of their sight when hurt (coverFight, blazeRetreat)"; return false; } // (live 12:06: the crowd rule ran him from 6 blazes with no gap to break their sight, 20 -> 0 in 7 s, their backs to them all the way)
-        if (foe instanceof net.minecraft.world.entity.monster.WitherSkeleton) { fightOdds = "wither skeletons: as fast as him, no outrunning them on foot; fought from a 2-high gap or 3 up a pillar (coverFight)"; return false; } // (World 15 19:00:10: he ran from 2 at 6 health, they kept pace, dead in a second)
+        // (wither skeletons: no rule any more, fleePriced prices them: their hits through armor, the Wither on each (fight.wither_hp_per_s for its fight.wither_s), and they walk at 0.25, short of his sprint. World 17 08:50: "can't outrun them" kept him fighting four on a bridge with no gap, 20 -> 0 in 2 s; stage 770)
         if (foe instanceof net.minecraft.world.entity.monster.EnderMan) { fightOdds = "endermen: no outrunning a teleporter; fought (endermanHole for cover)"; return false; } // ponytail: live 18:43 death, he ran from 3 angry endermen and took 7 a hit from behind, 20 -> 0 in 24 s without one swing back
         if (foe instanceof net.minecraft.world.entity.monster.Creeper c && c.distanceTo(g) < 5 && ((c.getSwellDir() > 0 && !canHitNow(c)) || !armed() || g.getHealth() <= 10)) return true; // hissing and he can't hit it right now (or can't fight it): run
         java.util.List<net.minecraft.world.entity.Mob> crowd = hostilesNear(10).stream().filter(m -> !pest(m) && !(m instanceof net.minecraft.world.entity.monster.Phantom) && !(m instanceof net.minecraft.world.entity.monster.Creeper && m.distanceTo(g) > 6)).toList(); int n = crowd.size(); // the crowd that running gets him away from: no phantoms overhead (no outrunning them), no creeper 12-19 off (live 12:07 11-02: those made one spider '4 on him' and he ran instead of 2-3 axe hits)
@@ -4618,7 +4618,7 @@ public class WorkGoal extends Goal {
         double t = 0, hits = 0, hp = 0, runHits = 0, burnS = 0; int most = 0, swings = 0; boolean sprint = g.getFoodData().getFoodLevel() > 6, allBurn = true, anyPace = false;
         for (var m : them) {
             boolean witch = m instanceof net.minecraft.world.entity.monster.Witch; // (harming: 6 at Normal, armor no help)
-            double dmg = witch ? w("fight.witch_hit_hp", 6) : mobHit(m); boolean ranged = m instanceof net.minecraft.world.entity.monster.RangedAttackMob;
+            double dmg = witch ? w("fight.witch_hit_hp", 6) : mobHit(m); boolean ranged = m instanceof net.minecraft.world.entity.monster.RangedAttackMob && !(m instanceof net.minecraft.world.entity.monster.WitherSkeleton); // (a wither skeleton is a skeleton by class, but a sword, never a bow)
             int k = hitsToKill(m); swings += k; t += k * swing;
             double h = t * (witch ? w("fight.witch_throws_per_s", 0.33) : rate) + (ranged ? m.distanceTo(g) / w("fight.close_blocks_per_shot", 6) : 0); // (each hits him till it's down: the first for its own time, the next for both; a shooter ~a shot each 6 blocks he closes)
             hits += h; hp += h * dmg; most += (int) Math.ceil(t / cool) + (ranged ? 2 : 0);
@@ -4628,7 +4628,8 @@ public class WorkGoal extends Goal {
             boolean burning = m.isOnFire() && !m.fireImmune() && g.level().isDay(); allBurn &= burning; burnS = Math.max(burnS, m.getHealth() / w("flee.burn_hp_per_s", 1.0));
         }
         double perHit = hits > 0 ? hp / hits : 3;
-        if (underground) runHits += w("flee.dark_hits", 1.0) * perHit;
+        if (underground && !g.level().dimensionType().hasCeiling()) runHits += w("flee.dark_hits", 1.0) * perHit; // (the Nether is "underground" by its roof, but lit to the eye: no dark surcharge there)
+        if (them.stream().anyMatch(m -> m instanceof net.minecraft.world.entity.monster.WitherSkeleton)) { double dot = w("fight.wither_hp_per_s", 0.5); hp += dot * (t + w("fight.wither_s", 10)); runHits += dot * w("fight.wither_s", 10) * Math.min(1, runHits); } // (after perHit: the Wither is no hit. Each hit puts the Wither on him, armor no help: on all through the fight and its 10 s after; a run that takes a hit gets its 10 s too)
         boolean pile = g.getArmorValue() == 0 && (g.lastStep != null && g.lastStep.skill().equals("recover_drops") || g.skillQueue.stream().anyMatch(s0 -> s0.skill().equals("recover_drops")))
                 && com.claudemod.entity.life.DeathLog.next(g, g.level().dimension().location().getPath()) != null && !anyPace; // (one that keeps pace with him gets its hits either way: running avoids no fight, review 1292)
         double fightNow = t + com.claudemod.entity.life.Decide.hpS(g, g.getHealth(), 0, hp, perHit, most), fightFull = t + com.claudemod.entity.life.Decide.hpS(g, g.getMaxHealth(), 0, hp, perHit, most);

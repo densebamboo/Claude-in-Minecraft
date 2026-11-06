@@ -896,6 +896,7 @@ public class WorkGoal extends Goal {
             g.getNavigation().moveTo(aim.getX() + 0.5, aim.getY(), aim.getZ() + 0.5, 0.9);
             var path = g.getNavigation().getPath();
             routeReaches = reaches(path, aim, within);
+            if (routeReaches && d > within && path != null && path.getEndNode() != null && path.getEndNode().asBlockPos().equals(feetCell)) routeReaches = false; // a path that ends where he stands takes him nowhere: the goal past `within` isn't reached (D2D reviews 228/360, 10:08 and 10:26: a route leg in a pond 1 down, 2 off, aimed at the dry cell he stood on, "path 0/1" read as reached, 8 s still and the spot dropped; stage 901)
             if (routeReaches) for (int i = Math.max(1, path.getNextNodeIndex()); i < path.getNodeCount(); i++) { var b = path.getNode(i); double ay = i == path.getNextNodeIndex() ? g.getY() : path.getNode(i - 1).y; // (the next step against his feet, as Controls judges it: the start node can sit a block over them)
                 if (b.y - ay > 1.25 && !g.level().getBlockState(new BlockPos(b.x, b.y, b.z)).is(net.minecraft.tags.BlockTags.CLIMBABLE) && !g.level().getBlockState(new BlockPos(b.x, b.y - 1, b.z)).is(net.minecraft.tags.BlockTags.CLIMBABLE)) { routeReaches = false; if (ticks % 200 == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] the way to {} has a step {} up at {},{},{}: not his way, planning his own (WorkGoal.walkTo)", pos.toShortString(), String.format("%.1f", b.y - ay), b.x, b.y, b.z); break; } }
             if (current instanceof Task.GoTo && path != null && path.getNodeCount() > 0) { // a crowd of hostiles on the way: round them, or not this walk (he walked through the pack on his death pile, twice)
@@ -1215,7 +1216,7 @@ public class WorkGoal extends Goal {
             ServerLevel lv = (ServerLevel) g.level();
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] slow walk: at {} y={} -> {} (d {}), ground={} sneaking={} water={} path={} under him {}",
                     g.blockPosition().toShortString(), String.format("%.2f", g.getY()), pos.toShortString(), String.format("%.1f", d), g.onGround(), g.isShiftKeyDown(), g.isInWater(),
-                    g.getNavigation().getPath() == null ? "none" : g.getNavigation().getPath().getNextNodeIndex() + "/" + g.getNavigation().getPath().getNodeCount(),
+                    g.getNavigation().getPath() == null ? "none" : g.getNavigation().getPath().getNextNodeIndex() + "/" + g.getNavigation().getPath().getNodeCount() + " ending " + (g.getNavigation().getPath().getEndNode() == null ? "-" : g.getNavigation().getPath().getEndNode().asBlockPos().toShortString()) + (g.getNavigation().getPath().canReach() ? " (reaches)" : " (short)") + ", plan reaches " + routeReaches,
                     lv.getBlockState(g.blockPosition().below()).getBlock().getName().getString());
         }
         // Too far for one path (it plans ~30 blocks): a hop of ~20 toward it over the ground first, then this walk again

@@ -10476,6 +10476,7 @@ public final class ClaudeBodyTest {
             case 848: return st848(stage, t, c, h, level, mock);
             case 849: return st849(stage, t, c, h, level, mock);
             case 900: return st900(stage, t, c, h, level, mock);
+            case 901: return st901(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13527,6 +13528,22 @@ public final class ClaudeBodyTest {
             check(b != null && b.legs().equals(a.legs()), "planned again from the same spot, a different way: " + a.legs() + " then " + (b == null ? "none" : b.legs()));
             pass(stage, t, "his own trail home: " + onTrail + " legs on it, the same way planned again (" + a.legs().size() + " legs, ~" + (int) a.seconds() + " s)");
         }
+        return true;
+    }
+    /** Stage 901 (D2D reviews 228 and 360, World 17 10:08 and 10:26: a route leg in a 1-deep pond one down from the grass, 2 off; "path=0/1", stalled 8 s, "nothing in the way", the spot dropped): he steps down into it. */
+    private static int s901At = -1;
+    private static boolean st901(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(4, 2, 8)), to = h.absolutePos(new BlockPos(6, 1, 8));
+        if (t[0] == 1) { scenarioReset(c); flatBox(h); s901At = -1; c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no");
+            for (int x = 6; x <= 10; x++) for (int z = 5; z <= 11; z++) { h.setBlock(new BlockPos(x, 0, z), Blocks.SAND); h.setBlock(new BlockPos(x, 1, z), Blocks.WATER); }
+            h.setBlock(new BlockPos(6, 1, 8), Blocks.SEAGRASS);
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.fallDistance = 0; }
+        if (t[0] == 10) c.tasks.add(new Task.GoTo(to, 1.5));
+        if (t[0] > 10 && s901At < 0 && Math.sqrt(c.blockPosition().distSqr(to)) <= 1.5) s901At = t[0] - 10;
+        if (s901At >= 0 || t[0] == 10 + 200) {
+            String at = c.blockPosition().toShortString(); for (int x = 6; x <= 10; x++) for (int z = 5; z <= 11; z++) { h.setBlock(new BlockPos(x, 0, z), Blocks.STONE); h.setBlock(new BlockPos(x, 1, z), Blocks.GRASS_BLOCK); } c.tasks.clear();
+            check(s901At >= 0 && s901At <= 60, "the pond 1 down, 2 off: not in it in " + (s901At < 0 ? "10 s" : s901At + " ticks") + " (at " + at + ")");
+            pass(stage, t, "stepped down into the pond 2 off in " + s901At + " ticks"); }
         return true;
     }
     /** Stage 900 (D2D review 241, World 17 08:40: pack full, "nothing junk in it", bones, wart and nether bricks dropped while 2 stone swords sat by 2 iron ones): the stone swords go, the stone picks stay (his picks for rock), the bone stays. */

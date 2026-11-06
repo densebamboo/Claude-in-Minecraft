@@ -3913,18 +3913,17 @@ public final class ClaudeLife {
                 String dimHere = level.dimension().location().getPath();
                 var dn = com.claudemod.entity.life.DeathLog.next(g, dimHere);
                 if (dn != null && !(dn.dim.equals(dimHere) && level.isPositionEntityTicking(dn.at))) { // the pile's chunk not loaded (the other dimension, or far off): its 5-min despawn clock is stopped, so no going back unready to the place that killed him (World 15 12:40: back into the fortress with 0 meals, no pick, 0 blocks, fireballed)
-                    boolean nether = dn.dim.contains("nether");
-                    boolean weapon = g.inventory.count(x -> (x.getItem() instanceof net.minecraft.world.item.SwordItem || x.getItem() instanceof net.minecraft.world.item.AxeItem) && !x.is(Items.WOODEN_SWORD) && !x.is(Items.WOODEN_AXE)) > 0;
-                    boolean pick = g.inventory.count(x -> x.getItem() instanceof net.minecraft.world.item.PickaxeItem && !x.is(Items.WOODEN_PICKAXE)) > 0;
-                    int meals = Kit.food(g), blocks = Kit.buildingBlocks(g);
-                    java.util.List<String> lack = new java.util.ArrayList<>();
-                    if (!weapon) lack.add("a sword or axe"); if (!pick) lack.add("a pickaxe"); if (meals < (nether ? 4 : 2)) lack.add((nether ? 4 : 2) + "+ meals (" + meals + ")"); if (nether && blocks < 32) lack.add("32+ blocks for bridges and cover (" + blocks + ")");
+                    var kit = com.claudemod.entity.life.Decide.runKit(g, level, dn); // (the run's own needs, priced: Decide.runKit; was a sword, a pick, 4 meals and 32 blocks, else the full iron kit, which was in the pile, World 17 20:41)
+                    ClaudeMod.LOGGER.info("[Claude decide] {} (Decide.runKit)", kit.why());
                     Integer tried = g.attempts.counters.get("recoverGear"); int nowT = g.getServer() == null ? g.tickCount : g.getServer().getTickCount();
-                    if (!lack.isEmpty() && (tried == null || nowT - tried > 20 * 600 || nowT < tried)) {
-                        g.attempts.counters.put("recoverGear", nowT); // (one go at it every 10 min: a kit he can't finish never holds the pile up for good)
-                        g.skillQueue.addFirst(new Skills.Step("recover_drops", "", 1)); g.skillQueue.addFirst(new Skills.Step("gear_up", "", 1));
-                        ClaudeMod.LOGGER.info("[Claude life] recover_drops: his pile in {} at {} ({}) waits (its chunk isn't loaded, so its despawn clock is stopped); short of {}: gear_up first (ClaudeLife recover_drops)", dn.dim, dn.at.toShortString(), dn.what, String.join(", ", lack));
-                        return "my things at " + dn.at.toShortString() + " keep while nobody's near them, so i'll gear up first (short of " + String.join(", ", lack) + "), then go back for them";
+                    if (!kit.first().isEmpty() && tried != null && nowT - tried <= 20 * 600 && nowT >= tried) { // (its needs queued in the last 10 min and still not met: a refusal with its cause for the planner, never the run without them; the cooldown sent him ungeared into piglins at 20:49, World 17)
+                        java.util.List<String> names = new java.util.ArrayList<>(); for (var s0 : kit.first()) names.add(s0.skill() + (s0.target().isBlank() ? "" : " " + s0.target()));
+                        return "failed: the run to my things at " + dn.at.toShortString() + " still needs " + String.join(" and ", names) + " first, tried " + (nowT - tried) / 20 + " s ago and not got (" + kit.why() + ")"; }
+                    if (!kit.first().isEmpty()) {
+                        g.attempts.counters.put("recoverGear", nowT); // (one go at it every 10 min: a step he can't finish never holds the pile up for good)
+                        g.skillQueue.addFirst(new Skills.Step("recover_drops", "", 1)); for (int i = kit.first().size() - 1; i >= 0; i--) g.skillQueue.addFirst(kit.first().get(i));
+                        java.util.List<String> names = new java.util.ArrayList<>(); for (var s0 : kit.first()) names.add(s0.skill() + (s0.target().isBlank() ? "" : " " + s0.target()));
+                        return "my things at " + dn.at.toShortString() + " keep while nobody's near them; first " + String.join(", then ", names) + ", then straight back for them (" + kit.why() + ")";
                     }
                 }
                 if (dn != null && !dn.dim.equals(dimHere)) {
@@ -10977,7 +10976,7 @@ public final class ClaudeLife {
     private static int houseLogTick = -100000;
 
     /** What he carries plus what his storage chests hold, for the house pass (storage is inventory). */
-    private static int haveFor(ClaudeEntity g, ServerLevel level, Item it) {
+    public static int haveFor(ClaudeEntity g, ServerLevel level, Item it) {
         int n = g.inventory.count(s -> s.is(it));
         for (BlockPos c : g.storageChests) if (level.isLoaded(c) && level.getBlockEntity(c) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box) for (int i = 0; i < box.getContainerSize(); i++) if (box.getItem(i).is(it)) n += box.getItem(i).getCount();
         return n;

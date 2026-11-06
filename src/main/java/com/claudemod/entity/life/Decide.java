@@ -66,6 +66,42 @@ public final class Decide {
         if (key != null) ClaudeMod.LOGGER.info("[Claude decide] dusk (tick {}, the first spawns in {} s, {} hostile(s) known, armor {}): {}: {} (Decide.dusk)", tod, (int) toDark, hostiles, g.getArmorValue(), String.join("; ", said), best);
     }
 
+    /** What a run back to a pile in an unloaded chunk needs first (empty: go now), and the reasons, priced. */
+    public record RunKit(java.util.List<Skills.Step> first, String why) {}
+    /**
+     * The run back to his pile, its needs from the run itself (the user 11-05: "all you need to run to get your stuff back is a pick
+     * and some blocks, and maybe some food, sometimes not even any of those. It all depends on the context"; "most times I'll run
+     * in there without gearing up again"). A pick, any pick, only if the way digs (the Nether, or a pile under the ground): the rock
+     * gives the blocks for a bridge or cover. Food only when he can't sprint (food 6 or under) with nothing on him to eat. No sword,
+     * armor or full kit: what fell is what he's going for (a pile with his iron kit in it is the kit). Was: a sword, a non-wooden
+     * pick, 4 meals and 32 blocks in the Nether, else gear_up's full iron kit first (World 17 20:41: all his iron was in the pile).
+     */
+    public static RunKit runKit(ClaudeEntity g, ServerLevel level, DeathLog.Death dn) {
+        boolean nether = dn.dim.contains("nether"), digs = nether || dn.at.getY() < 50;
+        boolean pick = g.inventory.count(x -> x.getItem() instanceof net.minecraft.world.item.PickaxeItem) > 0;
+        int meals = com.claudemod.director.Kit.food(g), food = g.getFoodData().getFoodLevel(), cobble = g.inventory.count(x -> x.is(net.minecraft.world.item.Items.COBBLESTONE) || x.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE) || x.is(net.minecraft.world.item.Items.BLACKSTONE));
+        BlockPos from = g.blockPosition(); String fromName = "here";
+        if (!dn.dim.equals(level.dimension().location().getPath())) { double bd = Double.MAX_VALUE; for (var p : PortalMap.net(g).portals) if (dn.dim.equals(p.dim) && "lit".equals(p.state) && p.at.distSqr(dn.at) < bd) { bd = p.at.distSqr(dn.at); from = p.at; fromName = "his portal at " + p.where(); } }
+        int runS = fromName.equals("here") && !dn.dim.equals(level.dimension().location().getPath()) ? -1 : (int) (Math.sqrt(from.distSqr(dn.at)) / 5.6);
+        java.util.List<Skills.Step> first = new java.util.ArrayList<>(); java.util.List<String> said = new java.util.ArrayList<>();
+        if (digs && !pick) { first.add(new Skills.Step("craft", cobble >= 3 ? "stone_pickaxe" : "wooden_pickaxe", 1)); said.add("a pick first (the way digs: " + (nether ? "the Nether" : "under the ground") + "; the rock gives the blocks)"); }
+        else said.add(digs ? "his pick does (the rock gives the blocks)" : "no pick needed (an open way)");
+        if (food <= 6 && meals == 0) { first.add(new Skills.Step("gear_up", "basic", 1)); said.add("food first (food " + food + ": no sprinting, nothing to eat)"); }
+        else said.add("food " + food + (meals > 0 ? ", " + meals + " meal(s)" : "") + " does");
+        if (nether) { // piglins: a gold piece or the hits (the gold-piece rule: going without is a cost priced by the job; World 17 20:51, no gold, no armor, dead to piglins 20 -> 4 in 2 s on the run back)
+            boolean gold = false; for (var sl : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET}) if (g.getItemBySlot(sl).getItem() instanceof net.minecraft.world.item.ArmorItem a && a.getMaterial().equals(net.minecraft.world.item.ArmorMaterials.GOLD)) gold = true;
+            if (!gold && g.inventory.count(x -> x.getItem() instanceof net.minecraft.world.item.ArmorItem a && a.getMaterial().equals(net.minecraft.world.item.ArmorMaterials.GOLD)) > 0) gold = true; // (on him: his wear puts it on)
+            if (!gold) {
+                double there = (runS < 0 ? 60 : runS) * 2, armorF = 1.0 - Math.min(20, g.getArmorValue()) / 25.0, dmg = there * 0.05 * 7 * armorF; // (~a piglin hit every 20 s in the open Nether without gold, 7 HP: a player's rough odds; shortcut: the route's own biomes and the piglins Perception knows of, once travel() prices them)
+                int goldHere = com.claudemod.director.ClaudeLife.haveFor(g, level, net.minecraft.world.item.Items.GOLD_INGOT); // (his pack and his chests)
+                if (dmg > g.getHealth() / 2 && goldHere >= 4) { first.add(new Skills.Step("craft", "golden_boots", 1)); said.add("golden boots first (" + goldHere + " gold to hand: a craft): no gold piece, ~" + (int) dmg + " HP of piglin hits on the ~" + (int) there + " s there and back is over half his " + (int) g.getHealth() + " (armor " + g.getArmorValue() + ")"); }
+                else said.add("no gold piece" + (goldHere >= 4 ? "" : " and none to hand") + ": ~" + (int) dmg + " HP of piglin hits on the ~" + (int) there + " s if he fights; straight there, no fights till he's in what fell (the user 11-05: \"avoiding combat altogether until you get suited with your pickups\")");
+            } else said.add("a gold piece on him: the piglins let him be");
+        }
+        said.add("no sword, armor or kit: they're in what fell (" + (dn.what.length() > 80 ? dn.what.substring(0, 80) + "..." : dn.what) + ")");
+        return new RunKit(first, "the run to his pile in " + dn.dim + " at " + dn.at.toShortString() + (runS >= 0 ? " (~" + runS + " s from " + fromName + ")" : "") + ": " + String.join("; ", said));
+    }
+
     /** His drops to fetch and, when he grabs and runs, where to run to (null: a plain pickup, then he carries on). */
     public record Grab(java.util.List<net.minecraft.world.entity.item.ItemEntity> fetch, BlockPos runTo, String why) {}
     /**

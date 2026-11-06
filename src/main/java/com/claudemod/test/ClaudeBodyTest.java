@@ -10536,6 +10536,8 @@ public final class ClaudeBodyTest {
             case 743: return st743(stage, t, c, h, level, mock);
             case 744: return st744(stage, t, c, h, level, mock);
             case 745: return st745(stage, t, c, h, level, mock);
+            case 746: return st746(stage, t, c, h, level, mock);
+            case 747: return st747(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -11130,7 +11132,7 @@ public final class ClaudeBodyTest {
             com.claudemod.entity.life.DeathLog.died(c, nether, new BlockPos(12000, 70, 12000), fell);
             String r1 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
             var q1 = c.skillQueue.peekFirst();
-            check(r1 != null && r1.contains("gear up first") && q1 != null && q1.skill().equals("gear_up"), "recovery: unready for the Nether pile, not geared first: \"" + r1 + "\" (queue " + c.skillQueue + ")");
+            check(r1 != null && r1.contains("first craft") && q1 != null && q1.skill().equals("craft"), "recovery: no pick for the Nether pile, not a pick first (Decide.runKit: the run's needs, no full kit): \"" + r1 + "\" (queue " + c.skillQueue + ")");
             c.skillQueue.clear(); c.attempts.counters.remove("recoverGear");
             c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64));
             String r2 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
@@ -14022,6 +14024,57 @@ public final class ClaudeBodyTest {
 
     /** Live 16:49 11-05 (-106,64,-6, tick 11767; Day to Day case D, the user: "Couldn't he have slept at his bed ... Most of the time you don't need to dig into a hole for 10 minutes just because the sun is going down"): full HP, food 20, 5 meals, no armor, his bed about 30 off: "the sun's going down and he's out with no armor: under cover before dark", a hole, 7 min of night in it. The game's first spawns in the open are at tick 13188 (12969 in rain), 70 s off; 30 blocks is 6 s at a sprint. Dusk is one priced choice: his bed, his lit mine, the hole last. */
     private static java.util.List<BlockPos> g743Junk = new java.util.ArrayList<>();
+    private static boolean st747(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // his iron kit in his Nether pile, a wooden pick and cobble on him (World 17 20:41:17: "i'll gear up first (short of a sword or axe, a pickaxe, 4+ meals (0), 32+ blocks ...)", then gear_up wanted 33 iron, all of it in the pile): the run needs what the run needs, the kit is in the pile
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.DeathLog.reset(c); c.attempts.counters.remove("recoverGear"); }
+        if (t[0] == 5) {
+            ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+            var fell = new java.util.ArrayList<net.minecraft.world.entity.item.ItemEntity>();
+            for (var it : new net.minecraft.world.item.Item[] {Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS, Items.IRON_SWORD, Items.IRON_PICKAXE, Items.SHIELD}) fell.add(new net.minecraft.world.entity.item.ItemEntity(nether, 12000.5, 70, 12000.5, new ItemStack(it)));
+            fell.add(new net.minecraft.world.entity.item.ItemEntity(nether, 12000.5, 70, 12000.5, new ItemStack(Items.RAW_IRON, 25)));
+            com.claudemod.entity.life.DeathLog.died(c, nether, new BlockPos(12000, 70, 12000), fell);
+            com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.note(c, "the_nether", new BlockPos(12130, 70, 12000), "him", "lit"); // (his Nether portal 130 from the pile: ~23 s each way)
+            c.getInventory().add(new ItemStack(Items.WOODEN_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 10)); c.getFoodData().setFoodLevel(20); c.setHealth(20); c.getInventory().add(new ItemStack(Items.GOLDEN_BOOTS)); // (a gold piece on him: the piglins let him be)
+            String r1 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
+            check(c.skillQueue.stream().noneMatch(st0 -> st0.skill().equals("gear_up")), "recovery: the full kit before the pile that holds it (\"" + r1 + "\", queue " + c.skillQueue + ")");
+            check(r1.contains("portal"), "recovery: a wooden pick, cobble, fed: not off through his portal for the pile (\"" + r1 + "\")");
+            c.skillQueue.clear(); c.tasks.clear(); c.attempts.counters.remove("recoverGear"); c.getInventory().clearContent(); c.getFoodData().setFoodLevel(4);
+            String r2 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
+            var q2 = c.skillQueue.peekFirst();
+            check(q2 != null && (q2.skill().equals("craft") || q2.skill().equals("wooden")) && c.skillQueue.stream().anyMatch(st0 -> st0.skill().equals("gear_up") && st0.target().equals("basic")), "recovery, nothing on him and food 4: not a pick and food first (\"" + r2 + "\", queue " + c.skillQueue + ")");
+            c.skillQueue.clear(); c.tasks.clear(); c.attempts.counters.remove("recoverGear"); c.getInventory().clearContent(); c.getFoodData().setFoodLevel(20); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 10)); // (20:49 live: a stone pick, meals, no armor, no gold)
+            String r3 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
+            var q3 = c.skillQueue.peekFirst();
+            check(r3.contains("portal") && c.skillQueue.stream().noneMatch(st0 -> st0.skill().equals("gear_up") || st0.skill().equals("craft")), "recovery into the Nether, no gold and none to hand: not straight there (the user: an ungeared run done right) (\"" + r3 + "\", queue " + c.skillQueue + ")");
+            c.skillQueue.clear(); c.tasks.clear(); c.attempts.counters.remove("recoverGear"); c.getInventory().add(new ItemStack(Items.GOLD_INGOT, 5));
+            String r4 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1); var q4 = c.skillQueue.peekFirst();
+            check(q4 != null && q4.skill().equals("craft") && q4.target().equals("golden_boots"), "recovery into the Nether, no gold piece but 5 gold on him: not golden boots first (\"" + r4 + "\", queue " + c.skillQueue + ")");
+            c.skillQueue.clear(); c.tasks.clear(); String r5 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
+            check(r5.startsWith("failed") && r5.contains("golden_boots"), "recovery again within the 10 min, boots not made: not a refusal naming them (\"" + r5 + "\")");
+            c.skillQueue.clear(); c.tasks.clear(); c.dropCurrent = true; com.claudemod.entity.life.DeathLog.reset(c); c.getFoodData().setFoodLevel(20); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); c.attempts.counters.remove("recoverGear");
+            pass(stage, t, "the Nether pile with his kit in it: a wooden pick and cobble go straight (\"" + r1 + "\"); empty-handed and hungry, a pick and food first (\"" + r2 + "\"); no gold and none to hand, straight (\"" + r3 + "\"); gold to hand, boots first, then a refusal till made");
+        }
+        return true;
+    }
+    private static int st746In, st746Since; private static float st746Hp;
+    private static boolean st746(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // burning beside a lava fall in his own dry cell (World 17 20:40:59-20:41:02, dead at 20:41:16: "in lava at -108, 50, 10: 1.5 s and not onto -108, 50, 10", his own cell picked as the way out): out to a cell clear of it at once
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        BlockPos me = h.absolutePos(new BlockPos(6, 2, 8));
+        if (t[0] == 10) {
+            for (int x = 0; x <= 14; x++) for (int z = 2; z <= 14; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.NETHERRACK.defaultBlockState(), 2); for (int yy = 2; yy <= 9; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (int yy = 2; yy <= 6; yy++) level.setBlock(me.east().atY(me.getY() + yy - 2), Blocks.LAVA.defaultBlockState(), 2); // (a lava fall beside him, his own cell dry)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(me.getX() + 0.85, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); st746In = 0; st746Since = -1; st746Hp = 20; // (up against it: in his own cell, his body in the fall)
+        }
+        if (t[0] > 10) {
+            if (c.isInLava()) { st746In++; if (st746Since < 0) st746Since = t[0]; }
+            st746Hp = Math.min(st746Hp, c.getHealth());
+            check(level.getFluidState(me).isEmpty(), "setup: his own cell took lava");
+            if (t[0] >= 10 + 100) { c.clearFire(); c.tasks.clear(); c.dropCurrent = true;
+                check(st746In <= 20, "beside a lava fall, his own cell dry: " + st746In + " ticks in lava (want under 1 s), low " + st746Hp + ", at " + c.blockPosition().toShortString());
+                pass(stage, t, "beside a lava fall in his own dry cell: out of it in " + st746In + " ticks, low " + st746Hp); }
+        }
+        return true;
+    }
     private static net.minecraft.world.entity.monster.EnderMan em745; private static double em745Best;
     private static boolean st745(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a calm enderman up a 5-high ledge with no way on foot (World 17 19:26-19:51: "5 up, 28 off ... walkable false", 25 min standing where he was): his walker takes him up to it (dig, steps, a tower), then the hit
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(96))) m.discard(); }
@@ -16611,7 +16664,7 @@ public final class ClaudeBodyTest {
             check(com.claudemod.entity.life.DeathLog.of(c).getLast().pending(), "unseen kit was abandoned");
             c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.attempts.counters.remove("recoverGear");
             String r3 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
-            check(r3.contains("gear up first"), "recovery lost its equipment safety gate: " + r3);
+            check(r3.contains("walking to where I died"), "recovery, nothing on him, the pile in the open at y 70: no pick needed, not walking to it (Decide.runKit): " + r3);
             bone.discard(); com.claudemod.entity.life.DeathLog.reset(c); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
             pass(stage, t, "the junk pile passed over by what fell, the distant kit selected first; unseen items kept and gear gate preserved");
         }

@@ -2209,6 +2209,7 @@ public final class ClaudeBodyTest {
     private static int s375;
     private static void scenarioReset(ClaudeEntity c) {
         com.claudemod.entity.life.PitGuard.reset(c); // (stages 245-247: his holes' caps and skirts)
+        com.claudemod.entity.life.DeathLog.reset(c); // (the test world keeps his death checklist: a stage he died in left piles 2953 off pending, and 817's pearl hunt went to recover them)
         for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
         c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear(); c.attempts.clear(); c.pillarBlocks.clear(); com.claudemod.director.ClaudeLife.bridgeBlocks().clear();
         c.house = null; c.nook = null; c.nooks.clear(); c.farm = null; c.blueprint = null; c.mineShape = null; c.mineCells.clear(); c.mineSpine.clear(); c.mineFace = null; c.stairStart = null;

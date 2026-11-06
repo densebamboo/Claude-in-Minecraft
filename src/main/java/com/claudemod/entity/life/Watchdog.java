@@ -839,7 +839,8 @@ public final class Watchdog {
         Task cur = g.currentTask != null ? g.currentTask : s.started;
         BlockPos t = cur == null ? null : target(cur);
         if (t == null && s.lastTargeted != null) { b.append("(now ").append(cur == null ? "no task" : cur).append("; the last task with a target began ").append((now(g) - s.lastTargetedTick) / 20).append(" s ago)\n"); cur = s.lastTargeted; t = target(cur); }
-        if (t != null) {
+        if (t != null && !(t.distSqr(g.blockPosition()) <= Weights.w("watchdog.read_range", 48) * Weights.w("watchdog.read_range", 48) && lv.hasChunkAt(t))) b.append("target: ").append(cur).append(" -> ").append(t.toShortString()).append(String.format(", %.1f off, past watchdog.read_range or unloaded: not read (a block read or a sight line out there loads chunks on the server thread: the test server hung twice, 06 Nov 04:10 and 04:39, with both ends loaded)", Math.sqrt(t.distToCenterSqr(g.position())))).append('\n');
+        else if (t != null) {
             b.append("target: ").append(cur).append(" -> ").append(t.toShortString()).append(" is ").append(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(lv.getBlockState(t).getBlock()).getPath())
              .append(String.format(", %.1f off (%d across, %d up)", Math.sqrt(t.distToCenterSqr(g.position())), (int) Math.round(Math.sqrt(Math.pow(t.getX() - g.getBlockX(), 2) + Math.pow(t.getZ() - g.getBlockZ(), 2))), t.getY() - g.getBlockY()))
              .append(", in sight ").append(lv.clip(new net.minecraft.world.level.ClipContext(g.getEyePosition(), net.minecraft.world.phys.Vec3.atCenterOf(t), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getBlockPos().equals(t)).append('\n');

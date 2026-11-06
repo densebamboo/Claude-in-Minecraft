@@ -147,8 +147,59 @@ public final class Kit {
             int arrowsOn = g.inventory.count(s -> s.is(Items.ARROW));
             if ((g.inventory.count(s -> s.is(Items.BOW)) > 0 || m.containsKey(Items.BOW)) && arrowsOn < 32 && flint > 0 && feathers > 0) m.put(Items.ARROW, Math.min(32 - arrowsOn, 4 * Math.min(flint, feathers)));
             if (dragonKit) for (Item a : new Item[] {Items.DIAMOND_HELMET, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_BOOTS}) if (!has(g, a)) m.put(a, 1); // and for the End, full diamond armor (never before the Nether: live 12:04 World 15 it held the Nether trip on hours of diamonds)
+            m = byValue(g, m);
         }
         return m;
+    }
+
+    private static final java.util.Map<java.util.UUID, String> orderSaid = new java.util.HashMap<>();
+    /**
+     * The iron-stage pieces (bucket, pick, armor, sword, shield) in the order of their worth per ingot on the next trip, the rest
+     * of the kit where it was (the user 11-06: every fixed rule a weighed decision; was bucket, pick, chest, legs, helmet, boots,
+     * sword, shield whatever he wore). Worth in seconds: armor and a shield by the HP they keep off the trip's hits (kit.trip_hits
+     * through vanilla's armor sum, kit.hp_s an HP), a sword by the fight time it saves, a bucket and a pick by what they open up.
+     */
+    static Map<Item, Integer> byValue(ClaudeEntity g, Map<Item, Integer> m) {
+        java.util.List<Item> ranked = new java.util.ArrayList<>(); for (Item i : m.keySet()) if (ingots(i) > 0) ranked.add(i);
+        if (ranked.size() < 2) return m;
+        java.util.Map<Item, Double> per = new java.util.HashMap<>(); for (Item i : ranked) per.put(i, worth(g, i) / ingots(i));
+        ranked.sort((a, b) -> Double.compare(per.get(b), per.get(a)));
+        Map<Item, Integer> out = new LinkedHashMap<>(); boolean put = false;
+        for (var e : m.entrySet()) { if (ingots(e.getKey()) > 0) { if (!put) { for (Item i : ranked) out.put(i, m.get(i)); put = true; } } else out.put(e.getKey(), e.getValue()); }
+        StringBuilder said = new StringBuilder(); for (Item i : ranked) said.append(said.length() == 0 ? "" : ", ").append(Crafting.name(i)).append(' ').append(Math.round(per.get(i))).append(" s/ingot");
+        if (!said.toString().equals(orderSaid.get(g.getUUID()))) { if (orderSaid.size() > 64) orderSaid.clear(); orderSaid.put(g.getUUID(), said.toString()); com.claudemod.ClaudeMod.LOGGER.info("[Claude kit] the iron kit by worth per ingot on the next trip: {} (Kit.byValue)", said); }
+        return out;
+    }
+    /** Ingots (a diamond as kit.diamond_ingots) a piece costs; 0: not an iron-stage piece. */
+    static double ingots(Item i) {
+        String n = Crafting.name(i); double d = w("kit.diamond_ingots", 3);
+        if (i == Items.BUCKET) return 3; if (i == Items.SHIELD) return 1;
+        if (n.equals("iron_pickaxe")) return 3; if (n.equals("diamond_pickaxe")) return 3 * d;
+        if (n.equals("iron_sword")) return 2; if (n.equals("diamond_sword")) return 2 * d;
+        int[] c = {8, 7, 5, 4}; String[] s = {"chestplate", "leggings", "helmet", "boots"};
+        for (int k = 0; k < 4; k++) { if (n.equals("iron_" + s[k])) return c[k]; if (n.equals("diamond_" + s[k])) return c[k] * d; }
+        return 0;
+    }
+    private static double red(double a, double t, double dmg) { return Math.min(20, Math.max(a / 5, a - dmg / (2 + t / 4))) / 25; }
+    /** Seconds a piece saves on the next trip. */
+    static double worth(ClaudeEntity g, Item i) {
+        double hits = w("kit.trip_hits", 60), dmg = com.claudemod.entity.life.Decide.hitHp(), hpS = w("kit.hp_s", 6);
+        double a = g.getArmorValue(), t = g.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS);
+        if (i == Items.BUCKET) return w("kit.bucket_trip_s", 240); // (falls, lava, a burning, the farm's water, the portal cast: the user, "a bucket first at the iron stage")
+        if (i == Items.SHIELD) return hits * w("kit.shield_block", 0.35) * dmg * (1 - red(a, t, dmg)) * hpS;
+        if (i instanceof net.minecraft.world.item.PickaxeItem) return w(i == Items.DIAMOND_PICKAXE ? "kit.diamond_pick_s" : "kit.iron_pick_s", 900); // (diamonds and gold need iron, obsidian diamond: the goal waits on it)
+        if (i instanceof net.minecraft.world.item.SwordItem sw) {
+            double best = 1; for (int k = 0; k < g.inventory.items.getContainerSize(); k++) if (g.inventory.items.getItem(k).getItem() instanceof net.minecraft.world.item.SwordItem o) best = Math.max(best, 4 + o.getTier().getAttackDamageBonus());
+            double nw = 4 + sw.getTier().getAttackDamageBonus(), mob = w("kit.mob_hp", 20), swing = w("kit.swing_s", 0.625);
+            double saved = w("kit.trip_kills", 15) * Math.max(0, (Math.ceil(mob / best) - Math.ceil(mob / nw)) * swing);
+            return saved + saved * w("kit.fight_hits_per_s", 0.4) * dmg * (1 - red(a, t, dmg)) * hpS;
+        }
+        if (i instanceof net.minecraft.world.item.ArmorItem ai) {
+            var worn = g.getItemBySlot(ai.getEquipmentSlot()); double wd = worn.getItem() instanceof net.minecraft.world.item.ArmorItem wa ? wa.getDefense() : 0, wt = worn.getItem() instanceof net.minecraft.world.item.ArmorItem wa2 ? wa2.getToughness() : 0;
+            double a2 = a - wd + ai.getDefense(), t2 = t - wt + ai.getToughness();
+            return Math.max(0, hits * dmg * (red(a2, t2, dmg) - red(a, t, dmg))) * hpS;
+        }
+        return 0;
     }
 
     /** What the kit asks for in food: an item and a count, or null (he goes as he is). */

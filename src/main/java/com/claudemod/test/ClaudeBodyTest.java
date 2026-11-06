@@ -10479,6 +10479,9 @@ public final class ClaudeBodyTest {
             case 901: return st901(stage, t, c, h, level, mock);
             case 902: return st902(stage, t, c, h, level, mock);
             case 903: return st903(stage, t, c, h, level, mock);
+            case 904: return st904(stage, t, c, h, level, mock);
+            case 905: return st905(stage, t, c, h, level, mock);
+            case 906: return st906(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13534,6 +13537,26 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    /** Stage 904 (hard-rules audit, Kit and progression: the iron kit's fixed order, bucket, pick, chest, legs, helmet, boots, sword, shield, whatever he wore): the order is the worth per ingot on the next trip. */
+    private static boolean st904(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var slots = new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET};
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); for (var sl : slots) c.setItemSlot(sl, ItemStack.EMPTY); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 32)); c.getInventory().add(new ItemStack(Items.TORCH, 64)); c.getInventory().add(new ItemStack(Items.COAL, 32)); c.getInventory().add(new ItemStack(Items.WHITE_BED)); }
+        if (t[0] == 5) {
+            var m = new java.util.ArrayList<>(com.claudemod.director.Kit.missing(c, true).keySet());
+            int sh = m.indexOf(Items.SHIELD), bu = m.indexOf(Items.BUCKET), ch = m.indexOf(Items.IRON_CHESTPLATE), le = m.indexOf(Items.IRON_LEGGINGS), sw = m.indexOf(Items.IRON_SWORD), he = m.indexOf(Items.IRON_HELMET), bo = m.indexOf(Items.IRON_BOOTS);
+            check(sh >= 0 && bu >= 0 && ch >= 0 && le >= 0 && sw >= 0, "bare kit: not all asked: " + m);
+            check(sh < bu && bu < ch && ch < le && le < he && le < bo && sw > he && sw > bo, "bare: the order isn't by worth per ingot (shield, bucket, chest, legs, the small pieces, the sword that kills in the same 4 swings last): " + m);
+            for (var sl : slots) c.setItemSlot(sl, new ItemStack(sl == net.minecraft.world.entity.EquipmentSlot.HEAD ? Items.IRON_HELMET : sl == net.minecraft.world.entity.EquipmentSlot.CHEST ? Items.IRON_CHESTPLATE : sl == net.minecraft.world.entity.EquipmentSlot.LEGS ? Items.IRON_LEGGINGS : Items.IRON_BOOTS));
+        }
+        if (t[0] == 8) { // (armor read off the slots on his tick)
+            var m = new java.util.ArrayList<>(com.claudemod.director.Kit.missing(c, true).keySet());
+            check(m.indexOf(Items.SHIELD) >= 0 && m.indexOf(Items.SHIELD) < m.indexOf(Items.BUCKET) && m.stream().noneMatch(i -> i instanceof net.minecraft.world.item.ArmorItem), "in iron: the shield should still come first, no armor asked: " + m);
+            for (var sl : slots) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+            pass(stage, t, "the iron kit by worth per ingot: bare " + "shield, bucket, chest, legs, small pieces, sword last; in iron the shield before the bucket");
+        }
+        return true;
+    }
     /** Stage 903 (D2D reviews 226/259/260, World 17 11:14-11:27: far walks underground, 79-194 off, away from his mine, no hop and no plan that far: shuffles, "no way even digging", 45-90 s still; the user: "backtrack to get out to the surface and then go back to his mine entrance"): in a pocket 20 down that he came into by 50 blocks of tunnel and a staircase from the west, his walk 90 off at his depth: back out his trail to the open sky; with no trail, a staircase cut up toward it; walking home to the surface with a cave toward it going deeper: back out his trail, not down the cave. */
     private static int s903Out = -1; private static String s903Way = "", s903A = "";
     private static boolean st903(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
@@ -13582,6 +13605,50 @@ public final class ClaudeBodyTest {
         return true;
     }
     /** Stage 901 (D2D reviews 228 and 360, World 17 10:08 and 10:26: a route leg in a 1-deep pond one down from the grass, 2 off; "path=0/1", stalled 8 s, "nothing in the way", the spot dropped): he steps down into it. */
+    /** Stage 905 (D2D review 254, World 17 12:29: a route leg at -54,62,31, water on dirt, the corner of a shallow pond 1 down and diagonal from him; he stood 7 s on "plan reaches false", then wrote it off): he steps into the corner cell. */
+    /** Stage 906 (D2D reviews 277/303, World 17 11:46-11:51: in a cave 26 off his mine's rows and 26 above them, not joined to it; bpWalkTo sent him straight at the nearest row (within 48), NO_PATH, re-fired for 4 min): a cave not joined to his mine goes in by the entrance; one his trail joins goes back along it. */
+    private static boolean st906(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] != 1) return true;
+        BlockPos o = new BlockPos(16000, 80, 16000);
+        scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.nav.Route.forgetTrail(c);
+        for (int x = -4; x <= 56; x++) for (int z = -4; z <= 24; z++) for (int y = -30; y <= 3; y++) level.setBlock(o.offset(x, y, z), (y <= 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+        var b = new com.claudemod.entity.life.MineBlueprint(o.above(), net.minecraft.core.Direction.EAST, 2, 3); b.segments.get(0).n = 20; b.invalidate();
+        b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(true), net.minecraft.core.Direction.EAST, 30, null)); b.invalidate();
+        lnCarve(level, b); c.blueprint = b; c.prefs.put("mine_model", "blueprint"); com.claudemod.director.ClaudeLife.bpSync(c);
+        var rows = b.rows(); BlockPos far = rows.get(rows.size() - 1).feet()[0], mid = rows.get(rows.size() - 12).feet()[0];
+        String[] said = new String[2];
+        for (int run = 0; run < 2; run++) {
+            c.tasks.clear(); com.claudemod.entity.nav.Route.forgetTrail(c);
+            BlockPos me = run == 0 ? mid.offset(0, 10, 20) : mid.offset(0, 0, 12);
+            for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) for (int y = 0; y <= 1; y++) level.setBlock(me.offset(dx, y, dz), Blocks.AIR.defaultBlockState(), 2); // (his cave pocket)
+            if (run == 1) { for (int k = 0; k <= 12; k++) for (int y = 0; y <= 1; y++) level.setBlock(mid.offset(0, y, k), Blocks.AIR.defaultBlockState(), 2); // (a passage from his row out to the pocket, his trail along it)
+                for (int k = 0; k <= 12; k++) { BlockPos f = mid.offset(0, 0, k); c.setPos(f.getX() + 0.5, f.getY(), f.getZ() + 0.5); com.claudemod.entity.nav.Route.step(c); } }
+            c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; com.claudemod.entity.life.Watchdog.teleported(c);
+            boolean ok = com.claudemod.director.ClaudeLife.bpWalkTo(c, far);
+            Task first = c.tasks.peekFirst(); said[run] = String.valueOf(first);
+            boolean toEntrance = first instanceof Task.GoTo g0 && g0.pos().distSqr(b.entrance) <= 2 * 2;
+            if (run == 0) check(ok && toEntrance, "a cave 22 off his rows, not joined to them: the first walk is " + first + ", not his entrance at " + b.entrance.toShortString());
+            else check(ok && !toEntrance && first instanceof Task.GoTo g1 && g1.pos().distSqr(me) <= 13 * 13, "a cave his trail joins to his row: the first walk is " + first + ", not back along it");
+        }
+        c.tasks.clear(); com.claudemod.entity.nav.Route.forgetTrail(c); c.blueprint = null; c.prefs.remove("mine_model");
+        for (int x = -4; x <= 56; x++) for (int z = -4; z <= 24; z++) for (int y = -30; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+        nsHome(c, h, level); pass(stage, t, "not joined: " + said[0] + "; joined by his trail: " + said[1]);
+        return true;
+    }
+    private static int s905At = -1;
+    private static boolean st905(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(4, 2, 8)), to = h.absolutePos(new BlockPos(5, 1, 7));
+        if (t[0] == 1) { scenarioReset(c); flatBox(h); s905At = -1; c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no");
+            for (int x = 5; x <= 9; x++) for (int z = 3; z <= 7; z++) { h.setBlock(new BlockPos(x, 0, z), Blocks.DIRT); h.setBlock(new BlockPos(x, 1, z), Blocks.WATER); }
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.fallDistance = 0; }
+        if (t[0] == 10) c.tasks.add(new Task.GoTo(to, 1.5));
+        if (t[0] > 10 && s905At < 0 && Math.sqrt(c.blockPosition().distSqr(to)) <= 1.5) s905At = t[0] - 10;
+        if (s905At >= 0 || t[0] == 10 + 200) {
+            String at = c.blockPosition().toShortString(); for (int x = 5; x <= 9; x++) for (int z = 3; z <= 7; z++) { h.setBlock(new BlockPos(x, 0, z), Blocks.STONE); h.setBlock(new BlockPos(x, 1, z), Blocks.GRASS_BLOCK); } c.tasks.clear();
+            check(s905At >= 0 && s905At <= 40, "the pond's corner 1 down, diagonal: not in it in " + (s905At < 0 ? "10 s" : s905At + " ticks") + " (at " + at + ")");
+            pass(stage, t, "stepped down into the pond's corner in " + s905At + " ticks"); }
+        return true;
+    }
     private static int s901At = -1;
     private static boolean st901(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos me = h.absolutePos(new BlockPos(4, 2, 8)), to = h.absolutePos(new BlockPos(6, 1, 8));
@@ -18545,7 +18612,7 @@ public final class ClaudeBodyTest {
                 check(m.keySet().stream().noneMatch(dia::contains), "Nether kit: diamond gear asked of a full iron kit with a diamond pick: " + m);
                 c.getInventory().add(new ItemStack(Items.BLAZE_ROD, 6));
                 var m2 = com.claudemod.director.Kit.missing(c, true);
-                check(m2.keySet().containsAll(dia), "dragon kit: full diamond not asked with 6 blaze rods: " + m2);
+                check(m2.keySet().containsAll(java.util.Set.of(Items.DIAMOND_HELMET, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_BOOTS)), "dragon kit: full diamond armor not asked with 6 blaze rods: " + m2); // (full diamond is the armor: an axe or shovel does nothing against the dragon)
                 for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
                 pass(stage, t, "Nether kit asks " + m + "; dragon kit " + m2.keySet().stream().filter(dia::contains).count() + " diamond pieces");
             }

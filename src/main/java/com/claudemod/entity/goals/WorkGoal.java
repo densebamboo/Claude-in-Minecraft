@@ -4617,7 +4617,7 @@ public class WorkGoal extends Goal {
 
     /** Fight or run: hurt, unarmed against a crowd, or a creeper about to blow means run. */
     private net.minecraft.world.phys.Vec3 fleeFrom;
-    private int cornerUntil;
+    private int cornerUntil; private double pricedFightS, pricedRunS;
 
     /** A crowd he'd run from with a wither skeleton in it, and a 2-high gap it can't reach into (FortressFight's wither cover): that wither skeleton, fought from the gap (the chokepoint: one at a time, the tall ones can't follow in). Null: run as before. Live 13:59 11-04: four escape runs, each blocked by a wither skeleton, 20 -> 0 in 10 s; the same kind of gap had held one off a minute before. */
     private net.minecraft.world.entity.LivingEntity gapFoe() {
@@ -4695,6 +4695,7 @@ public class WorkGoal extends Goal {
         double fightNow = t + com.claudemod.entity.life.Decide.hpS(g, g.getHealth(), 0, hp, perHit, most), fightFull = t + com.claudemod.entity.life.Decide.hpS(g, g.getMaxHealth(), 0, hp, perHit, most);
         double later = Math.min(fightFull, allBurn ? burnS : w("flee.avoid_s", 180));
         double run = w("flee.run_s", 20) + com.claudemod.entity.life.Decide.hpS(g, 0, runHits, perHit) + later;
+        pricedFightS = fightNow + (pile ? w("recovery.fight_s", 600) : 0); pricedRunS = run; // (the cornered choice reads them)
         String what = them.size() == 1 ? them.get(0).getType().getDescription().getString() : them.size() + " on him";
         String unpriced = ""; if (say) for (var m : com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(24), m -> m.isAlive() && shoots(m) && !them.contains(m) && g.hasLineOfSight(m))) unpriced += (unpriced.isEmpty() ? "" : ", ") + m.getType().getDescription().getString() + " " + (int) m.distanceTo(g) + " off (" + (m.getTarget() == g ? "on him" : m.getTarget() == null ? "no target" : "on " + m.getTarget().getType().getDescription().getString()) + ")"; // (a shooter with a line on him left out of the price: World 17 09:11, 09:41; the log first, the cause unproven)
         var pick = com.claudemod.entity.life.Decide.choose(g, "fight.flee", what + ", health " + (int) g.getHealth() + ", armor " + g.getArmorValue() + (armed() ? "" : ", unarmed") + (underground ? ", underground" : "") + (unpriced.isEmpty() ? "" : "; shooters with a line on him not priced: " + unpriced), say, java.util.List.of(
@@ -4954,7 +4955,7 @@ public class WorkGoal extends Goal {
             for (int k = 0; k <= 12; k++) { if (standable(lv, e0.above(7 - k))) { e1 = e0.above(7 - k); break; } } // (7 up: a basin's or a valley's rim is an end too, if there's a walk up to it)
             if (e1 == null) { noStand++; continue; }
             if (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, e1, now, 20 * 30)) { recent++; continue; }
-            boolean through = false; for (var m : mobs) { Vec3 tm = m.position().subtract(g.position()).multiply(1, 0, 1); double along = tm.dot(hd); if (tm.length() < 3 && tm.normalize().dot(hd) > 0.8 || along > 0 && along < dist && tm.subtract(hd.scale(along)).length() < (m instanceof net.minecraft.world.entity.monster.Creeper ? w("flee.creeper_clear", 5) : 2.5)) through = true; } // (a creeper by the line: its blast, not its body, World 17 02:19 runs past three, one blew at 1, 20 -> 2) // (any mob ahead on the run's line, not only one within 3: live 13:59 11-04, two runs in a row into a wither skeleton 5 off on the line, 8 a hit, dead)
+            boolean through = false; for (var m : mobs) { Vec3 tm = m.position().subtract(g.position()).multiply(1, 0, 1); double along = tm.dot(hd); if (tm.length() < 3 && tm.normalize().dot(hd) > 0.8 || along > 0 && along < dist + w("flee.short_of_them_blocks", 8) && tm.subtract(hd.scale(along)).length() < (m instanceof net.minecraft.world.entity.monster.Creeper ? w("flee.creeper_clear", 5) : 2.5)) through = true; } // (and one just past the run's end: a run back toward them that stops short of them is no way out; stage 774, 12 back from a dead end into four withers) // (a creeper by the line: its blast, not its body, World 17 02:19 runs past three, one blew at 1, 20 -> 2) // (any mob ahead on the run's line, not only one within 3: live 13:59 11-04, two runs in a row into a wither skeleton 5 off on the line, 8 a hit, dead)
             if (through) { thru++; continue; }
             tried++; var path = g.getNavigation().createPath(e1, 1); double straight = Math.sqrt(e1.distSqr(feet)), walk = 0;
             if (path == null || path.getNodeCount() == 0) { if (nos.size() < 4) nos.add(e1.toShortString()); continue; }
@@ -5120,6 +5121,16 @@ public class WorkGoal extends Goal {
                 && !mobs.stream().allMatch(m -> (com.claudemod.entity.goals.WorkGoal.shoots(m)) && m.distanceTo(g) > 3) // "cornered" by a crossbow 8 blocks off is not a fight to wade into (health 16 to 1 in 10 s)
                 && !(mobs.stream().min(java.util.Comparator.comparingDouble(m -> m.distanceTo(g))).get() instanceof net.minecraft.world.entity.monster.Creeper)) { // and never a creeper: "fighting his way out" of one is the explosion
             var near = mobs.stream().min(java.util.Comparator.comparingDouble(m -> m.distanceTo(g))).get();
+            shouldFlee(near); double fightS = pricedFightS, runS = pricedRunS + w("flee.cornered_run_s", 30); // (fight.flee's own prices, refreshed; the run from a corner costs its dead ends again)
+            double build = w("cover.build_s", 2.5), buildHp = 0; for (var m : mobs) if (m.distanceTo(g) < 4 && !shoots(m)) buildHp += w("fight.mob_hits_per_s", 0.8) * build * mobHit(m);
+            double coverS = build + com.claudemod.entity.life.Decide.hpS(g, 0, buildHp, 3) + w("cover.wait_out_s", 60);
+            var corner = com.claudemod.entity.life.Decide.choose(g, "flee.cornered", (int) g.getHealth() + " HP, " + mobs.size() + " on him, " + near.getType().getDescription().getString() + " " + (int) near.distanceTo(g) + " off", true, java.util.List.of(
+                com.claudemod.entity.life.Decide.Option.of("fight", weakFighter() ? Double.MAX_VALUE / 4 : fightS, weakFighter() ? "bare hands or wood" : "his way out through them"),
+                com.claudemod.entity.life.Decide.Option.of("cover", coverS, "dug in or boxed here, ~" + Math.round(buildHp) + " HP while it goes up"),
+                com.claudemod.entity.life.Decide.Option.of("run", runS, "on, another way")));
+            String pick = corner == null ? "fight" : corner.name();
+            if (pick.equals("run")) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] cornered (health {}): on another way (WorkGoal.doFlee)", (int) g.getHealth()); clearEscape(); pickEscape(mobs); fleeFrom = g.position(); return false; }
+            if (pick.equals("cover") && !weakFighter()) { desperateNow = true; boolean dug = digInFromArrows(); desperateNow = false; if (dug) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] cornered (health {}): digging in", (int) g.getHealth()); return true; } }
             if (weakFighter()) { // bare hands or a wooden sword: "fighting his way out" is 20 punches at 3 damage a bite (five deaths in two minutes at his bed); cover instead
                 desperateNow = true;
                 boolean dug = digInFromArrows();
@@ -5596,7 +5607,8 @@ public class WorkGoal extends Goal {
                 for (var a : mine) g.tasks.addFirst(new Task.GoTo(a.blockPosition(), 1.0));
                 if (!mine.isEmpty()) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] {} of his arrows stuck round the fight: picking them back up (WorkGoal.doAttack)", mine.size());
             }
-            net.minecraft.world.entity.Mob still = died ? level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(8), m0 -> m0 != e && m0.isAlive() && m0.getTarget() == g && m0 instanceof net.minecraft.world.entity.monster.Enemy && !(m0 instanceof net.minecraft.world.entity.monster.RangedAttackMob) && !(m0 instanceof net.minecraft.world.entity.monster.Blaze) && !(m0 instanceof net.minecraft.world.entity.monster.Ghast)).stream().findFirst().orElse(null) : null;
+            net.minecraft.world.entity.Mob still = died ? level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(w("fight.drops_wait_blocks", 16)), // (16, not 8: the next wither 10 off walked in while he stepped out of his gap for bones, stage 774)
+                m0 -> m0 != e && m0.isAlive() && m0.getTarget() == g && m0 instanceof net.minecraft.world.entity.monster.Enemy && !(m0 instanceof net.minecraft.world.entity.monster.RangedAttackMob) && !(m0 instanceof net.minecraft.world.entity.monster.Blaze) && !(m0 instanceof net.minecraft.world.entity.monster.Ghast)).stream().findFirst().orElse(null) : null;
             if (still != null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the drops wait: a {} {} off is still on him (WorkGoal.doAttack)", still.getType().getDescription().getString(), (int) still.distanceTo(g)); g.tasks.addFirst(new Task.Attack(still.getUUID(), Math.max(400, t.maxTicks()))); return true; } // ponytail: stage 553, the pickup after the first wither skeleton dug through his hole's wall for a drop and the second came in by it
             if (died && ticks > 1 && !(g.tasks.peek() instanceof Task.Pickup)) g.tasks.addFirst(new Task.Pickup(80));
             return true;

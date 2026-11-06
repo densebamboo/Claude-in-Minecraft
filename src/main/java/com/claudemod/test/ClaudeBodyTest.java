@@ -10622,6 +10622,7 @@ public final class ClaudeBodyTest {
             case 697: return st697(stage, t, c, h, level, mock);
             case 698: return st698(stage, t, c, h, level, mock);
             case 699: return st699(stage, t, c, h, level, mock);
+            case 676: return st676(stage, t, c, h, level, mock);
             case 659: return st659(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
@@ -17101,6 +17102,26 @@ public final class ClaudeBodyTest {
     }
 
     /** Live 03:36 11-06 World 17: "back up to my iron tunnel at y=16 for a new pair of branches", the user: "he's still doing the same 16 block branching on each side". New pairs were laid at branchLength 16 down the whole tunnel; the push to 64 came only once no room was left. A new branch is laid the full way (64, its room) unless they set a branch length. */
+    private static BlockPos st676From;
+    private static boolean st676(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Reviews 11-06 (FAR_STATION, six an hour): off to a crafting table 18-48 blocks away with 23-55 logs on him. A table is one log; the walk there and back is the dearer one. Here: 40 logs, a table 25 east on open ground, a stone pickaxe to make.
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); }
+        if (t[0] == 5) for (int cx = -1; cx <= 2; cx++) for (int cz = -1; cz <= 1; cz++) { BlockPos p = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(p), 2, p); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 34; x++) for (int z = 0; z <= 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 8; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            level.setBlock(h.absolutePos(new BlockPos(29, 2, 8)), Blocks.CRAFTING_TABLE.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.OAK_LOG, 40)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 3)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            sleepAt(c, h, new BlockPos(4, 2, 8)); c.setHealth(20); c.getFoodData().setFoodLevel(20); level.setDayTime(6000); st676From = c.blockPosition();
+            c.tasks.clear(); c.skillQueue.clear(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "stone_pickaxe", 1));
+        }
+        if (t[0] > 10) {
+            double off = Math.sqrt(c.blockPosition().distSqr(st676From));
+            check(off <= 10, "walked " + (int) off + " toward the table 25 off with 40 logs on him: now=" + c.currentTask + " last=" + c.lastSkillLine);
+            if (c.inventory.count(s -> s.is(Items.STONE_PICKAXE)) > 0) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; pass(stage, t, "stone pickaxe made on the spot, " + (int) off + " from where he stood (" + (t[0] - 10) + " ticks)"); }
+            else if (t[0] > 600) check(false, "no stone pickaxe in 30 s: " + c.lastSkillLine);
+        }
+        return true;
+    }
     private static float st699Min;
     private static boolean st699(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         // Live 06:31 World 17 (-14,68,-23): full health, a shield in his off hand, a creeper on the only way out of his furnace nook; he ran into it, 20 -> 0. Here: a 1-wide dead end, the creeper 5 off at its mouth, walking in.

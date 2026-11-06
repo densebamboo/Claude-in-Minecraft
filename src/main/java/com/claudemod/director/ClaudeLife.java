@@ -8554,6 +8554,19 @@ public final class ClaudeLife {
      * within reach, null (use it); if there's one he can walk to (32 blocks), walk there and redo this step.
      * Null too when there's none (or it couldn't be reached a moment ago): then he places his own.
      */
+    /**
+     * A table there, priced against his own set down here (made from the wood on him, picked back up after): the walk there and back
+     * at a sprint against station.table_make_s (station.table_set_s with one in his pack). Was a rule: any table within 32 (his
+     * mine's) or the search range walked to (reviews 11-06: 18 to 48 blocks off with 23-55 logs on him, six an hour).
+     */
+    private static boolean ownTableBeats(ClaudeEntity g, ServerLevel level, BlockPos at, Skills.Step st) {
+        int r = routeDist(g, g.blockPosition(), at);
+        double his = r >= Integer.MAX_VALUE / 2 ? Double.MAX_VALUE : 2.0 * r / com.claudemod.entity.life.Decide.sprint(), own = g.inventory.count(s -> s.is(Items.CRAFTING_TABLE)) > 0 ? com.claudemod.entity.life.Weights.w("station.table_set_s", 3) : com.claudemod.entity.life.Weights.w("station.table_make_s", 5);
+        var pick = com.claudemod.entity.life.Decide.choose(g, "station.table", st.skill() + " " + st.target() + ", the table at " + at.toShortString() + " " + r + " off", true, List.of(
+                com.claudemod.entity.life.Decide.Option.of("his own here", own, g.inventory.count(s -> s.is(Items.CRAFTING_TABLE)) > 0 ? "set down from his pack, taken back up" : "made from the wood on him, taken back up"),
+                com.claudemod.entity.life.Decide.Option.of("walk to that one", his, r + " blocks there and back")));
+        return pick != null && pick.name().equals("his own here");
+    }
     private static String goToStation(ClaudeEntity g, ServerLevel level, net.minecraft.world.level.block.Block block, Skills.Step st) {
         if (findNear(level, g.blockPosition(), 4, b -> b.is(block)) != null) return null;
         // Working a mine (or just walked to a station for this): don't trek off and back. Put his own down here (picked up after).
@@ -8578,6 +8591,7 @@ public final class ClaudeLife {
                 if (face != null) for (BlockPos f : g.myStations) if (level.isLoaded(f) && level.getBlockState(f).is(Blocks.FURNACE) && f.distSqr(face) <= 96 * 96 && (best == null || f.distSqr(face) < best.distSqr(face))) best = f;
                 if (best != null && (mineStation == null || best.distSqr(face) + 24 * 24 < mineStation.distSqr(face))) mineStation = best;
             }
+            if (block == Blocks.CRAFTING_TABLE && canPlaceOwn && mineStation != null && ownTableBeats(g, level, mineStation, st)) return null;
             Integer failed = mineStation == null ? null : g.attempts.any.get(mineStation);
             if (mineStation != null && (failed == null || g.tickCount - failed > 20 * 60)) {
                 g.tasks.add(new Task.GoTo(mineStation, 2.5));
@@ -8602,6 +8616,7 @@ public final class ClaudeLife {
         all.removeIf(p -> { Integer t = g.attempts.any.get(p); return t != null && g.tickCount - t < 20 * 60; });
         if (all.isEmpty()) return null;
         BlockPos at = all.stream().min(Comparator.comparingDouble(p -> p.distSqr(g.blockPosition()))).get();
+        if (block == Blocks.CRAFTING_TABLE && canPlaceOwn && ownTableBeats(g, level, at, st)) return null;
         g.tasks.add(new Task.GoTo(at, 2.5));
         g.stationWalkTick = g.tickCount;
         g.skillQueue.addFirst(st); // and do it once he's there

@@ -9172,14 +9172,13 @@ public final class ClaudeLife {
         if (g.skillQueue.stream().anyMatch(s -> s.skill().equals("craft") && (s.target().startsWith("iron_") || s.target().startsWith("diamond_")))) return; // the pieces are queued already
         if (g.lastStep != null && Set.of("craft", "gear_up", "smelt").contains(g.lastStep.skill()) && g.currentTask != null) return; // mid-craft right now: after it
         // (a smelt step waiting at the end of "mine 27 ore, then smelt 27" used to switch this off for the whole trip: 21 raw iron on him, no armor, dead)
-        java.util.function.Predicate<ItemStack> iron = s -> s.is(Items.IRON_INGOT) || s.is(Items.RAW_IRON); // raw iron is a furnace away from an ingot: a player counts it (he had 14 raw on him and "no iron for armor")
         boolean fuel = g.inventory.count(s -> s.is(Items.COAL) || s.is(Items.CHARCOAL) || s.is(ItemTags.LOGS) || s.is(ItemTags.PLANKS) || s.is(Items.STICK)) > 0
                 && (g.inventory.count(s -> s.is(Items.RAW_IRON)) == 0 || rawRidesHome(g, level) == null); // (raw on him that smelt sends home is no ingot here: live 06:29-06:37 11-04, "5 iron on hand: making iron_boots" 25 times, the craft "missing iron_ingot" each time)
         boolean smeltHere = fuel && rawRidesHome(g, level) == null; // (raw in his chest is an ingot only where it'd be smelted: D2D review 40, 05:50 World 17, 6 raw in a chest counted, "making iron_pickaxe, iron_sword", "missing iron_ingot", his furnace 60 off; stage 847)
         int ingots = g.inventory.count(s -> s.is(Items.IRON_INGOT) || fuel && s.is(Items.RAW_IRON)); // (raw only with fuel to smelt it: 17:16 "6 iron on hand: making an iron sword now" with 2 raw, no fuel, the rest 228 blocks off, looped and starved their order)
         for (BlockPos p : g.myStations) {
             if (!level.isLoaded(p) || p.distSqr(g.blockPosition()) > 48 * 48) continue;
-            if (level.getBlockEntity(p) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fu) { for (int i = 0; i < 3; i++) if (iron.test(fu.getItem(i))) ingots += fu.getItem(i).getCount(); continue; } // smelted (or smelting) in his furnaces is his too: four furnaces of ingots left behind when he died
+            if (level.getBlockEntity(p) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fu) { if (fu.getItem(2).is(Items.IRON_INGOT)) ingots += fu.getItem(2).getCount(); continue; } // (its output only, what the craft takes (stored()): raw still in the input counted, "2 iron: craft iron_sword", then "village_iron 1", D2D review 257; stage 848) // smelted (or smelting) in his furnaces is his too: four furnaces of ingots left behind when he died
             if (!(level.getBlockEntity(p) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box)) continue;
             for (int i = 0; i < box.getContainerSize(); i++) if (box.getItem(i).is(Items.IRON_INGOT) || smeltHere && box.getItem(i).is(Items.RAW_IRON)) ingots += box.getItem(i).getCount();
         }

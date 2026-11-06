@@ -10638,6 +10638,10 @@ public final class ClaudeBodyTest {
             case 699: return st699(stage, t, c, h, level, mock);
             case 850: return st850(stage, t, c, h, level, mock);
             case 851: return st851(stage, t, c, h, level, mock);
+            case 852: return st852(stage, t, c, h, level, mock);
+            case 853: return st853(stage, t, c, h, level, mock);
+            case 854: return st854(stage, t, c, h, level, mock);
+            case 855: return st855(stage, t, c, h, level, mock);
             case 676: return st676(stage, t, c, h, level, mock);
             case 659: return st659(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
@@ -17544,6 +17548,101 @@ public final class ClaudeBodyTest {
         if (st851Start > 0) {
             if (c.inventory.count(s0 -> s0.is(Items.STONE_SWORD)) > 0) { for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); com.claudemod.entity.life.DeathLog.reset(c); c.skillQueue.clear(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null; pass(stage, t, "a stone sword made before going back to his guarded pile (" + (t[0] - st851Start) / 20 + " s)"); }
             else check(t[0] - st851Start < 20 * 25, "25 s and no sword before going back to his guarded pile: now " + c.currentTask + ", step " + c.lastStep + ", queue " + c.skillQueue);
+        }
+        return true;
+    }
+    private static BlockPos st852Far;
+    private static boolean st852(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 11:14 World 17 (-143,18,-158): in a pocket 2 up from the far end of his own 64-long branch, the strip-mine step's walk back to the level went "in by the entrance": a 190-block GoTo to the mine mouth up top. nearestRow skips branch rows, so the main tunnel 60 off read as "far off his mine".
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; st852Far = null; }
+        if (t[0] == 5) for (int cz = -6; cz <= 1; cz++) for (int cx = -1; cx <= 2; cx++) { BlockPos q = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(q), 2, q); }
+        if (t[0] == 10) {
+            var E = net.minecraft.core.Direction.EAST; var N = net.minecraft.core.Direction.NORTH;
+            var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(new BlockPos(2, 12, 8)), E, 2, 3); b.segments.get(0).n = 8; b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(true), E, 16, null)); b.invalidate();
+            BlockPos mid = b.rows().get(b.rows().size() - 4).first();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.BRANCH, mid.relative(N), N, 64, null)); b.invalidate();
+            b.branchLength = 64; b.branchEvery = 4;
+            st852Far = b.rows().get(b.rows().size() - 1).first();
+            BlockPos at = st852Far.above(2);
+            for (int x = -2; x <= 2; x++) for (int z = -2; z <= 2; z++) { for (int yy = -3; yy <= 12; yy++) level.setBlock(at.offset(x, yy, z), Blocks.STONE.defaultBlockState(), 2); level.setBlock(at.offset(x, 13, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); }
+            level.setBlock(at, Blocks.AIR.defaultBlockState(), 2); level.setBlock(at.above(), Blocks.AIR.defaultBlockState(), 2); // his pocket 2 up from the branch end, rock all round
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint");
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.attempts.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 20) {
+            var b = c.blueprint; c.tasks.clear();
+            boolean ok = com.claudemod.director.ClaudeLife.bpWalkTo(c, b.rows().get(b.rows().size() - 70).first()); // back to the level's tunnel (a new pair's row)
+            Task first = c.tasks.peekFirst(); String q = c.tasks.stream().limit(3).toList().toString();
+            c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            check(ok && first instanceof Task.GoTo, "no walk queued: " + q);
+            check(!(first instanceof Task.GoTo go && go.pos().equals(b.entrance)), "2 up from his own branch end, sent round by the mine's entrance up top: " + q);
+            check(first instanceof Task.GoTo go2 && go2.pos().distSqr(st852Far) <= 12 * 12, "the walk doesn't start along the branch he's at: " + q);
+            pass(stage, t, "from the far end of his branch, the walk back runs along the branch: " + q);
+        }
+        return true;
+    }
+    private static int st853Burns, st853Start;
+    private static boolean st853(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 12:15-12:17 World 17 (-97..-99,-8,-34..-36): walking home along a cave floor, a lava fall from a ledge spread over the floor beside his way; his walk ran its edge, lava three times in 7 s, then twice more, burned to death. Here: a cave corridor 7 wide, a lava fall at its north side spreading on the floor, his walk 26 east past it.
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; st853Burns = 0; st853Start = 0; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = -3; x <= 33; x++) for (int z = 1; z <= 15; z++) for (int yy = 0; yy <= 9; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2);
+            for (int x = 0; x <= 30; x++) for (int z = 5; z <= 11; z++) for (int yy = 2; yy <= 6; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); // the cave
+            for (int x = 11; x <= 13; x++) for (int yy = 2; yy <= 6; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, 4)), Blocks.AIR.defaultBlockState(), 2); // a niche in the north wall
+            level.setBlock(h.absolutePos(new BlockPos(12, 6, 4)), Blocks.LAVA.defaultBlockState(), 3); // the fall: a source up in the niche, pouring onto the floor and spreading
+            level.setDayTime(6000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.getInventory().add(new ItemStack(Items.BUCKET));
+            BlockPos at = h.absolutePos(new BlockPos(1, 2, 8)); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 40, at.getZ() + 0.5);
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.clearFire(); c.tasks.clear(); c.skillQueue.clear(); c.attempts.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 100) { c.tasks.clear(); c.tasks.add(new Task.GoTo(h.absolutePos(new BlockPos(29, 2, 8)), 1.0)); st853Start = t[0]; } // the spread has settled: off he goes
+        if (st853Start > 0) {
+            if (c.isInLava() || c.isOnFire()) { st853Burns++; check(false, "into the lava fall's spread on his walk past it, at " + c.blockPosition().toShortString() + " (health " + (int) c.getHealth() + ", task " + c.currentTask + ")"); }
+            if (c.blockPosition().distSqr(h.absolutePos(new BlockPos(29, 2, 8))) <= 4) pass(stage, t, "past the lava fall without a touch (" + (t[0] - st853Start) + " ticks)");
+            else check(t[0] - st853Start < 20 * 40, "not past the lava fall in 40 s: at " + c.blockPosition().toShortString() + " now " + c.currentTask);
+        }
+        return true;
+    }
+    private static BlockPos st854Bed;
+    private static boolean st854(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 12:28 World 17 (-59,63,30): night by the river, his bed down where he stood, asleep; the game's own night skip woke him, his morning step (it pockets the bed) never ran, and the bed stayed on the riverbank. Here: his bed down, him in it, woken the way the night skip does it.
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; st854Bed = null; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 6; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            level.setDayTime(18000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.BREAD, 4));
+            st854Bed = sleepBed(level, h.absolutePos(new BlockPos(6, 2, 8)), net.minecraft.core.Direction.EAST); c.myStations.add(st854Bed);
+            sleepAt(c, h, new BlockPos(5, 2, 8)); mock[0].teleportTo(c.getX(), c.getY() + 30, c.getZ());
+        }
+        if (t[0] == 14) { var r = c.startSleepInBed(st854Bed); check(c.isSleeping(), "couldn't put him in his bed for the stage: " + r.left()); }
+        if (t[0] == 30) { level.setDayTime(24000 + 1000); c.stopSleepInBed(false, false); } // the night skip: the game sets the morning and wakes the sleepers itself (ServerLevel.wakeUpAllPlayers)
+        if (t[0] > 30) {
+            boolean gone = !level.getBlockState(st854Bed).is(net.minecraft.tags.BlockTags.BEDS);
+            if (gone && c.inventory.count(s0 -> s0.is(net.minecraft.tags.ItemTags.BEDS)) > 0) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "up by the night skip, his bed taken up and on him (" + (t[0] - 30) + " ticks)"); }
+            else check(t[0] < 30 + 20 * 15, "15 s after the night skip woke him, his bed still stands where he slept: " + (gone ? "gone but not on him" : "standing") + ", tasks " + c.tasks.stream().limit(3).toList());
+        }
+        return true;
+    }
+    private static BlockPos st855Far;
+    private static boolean st855(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 12:28 World 17: night by the river with a bed on him: "his nearest nook bed is 132 blocks off by his tunnels: not that one tonight" (a fixed 64 cut), so his bed went down on the riverbank. The user: "he could have easily gone to his mine or the village". Here: a bed of his 40 off, a spare on him, night: the walk is priced against the bed down here.
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; st855Far = null; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); }
+        if (t[0] == 5) for (int cx = -1; cx <= 3; cx++) for (int cz = -1; cz <= 1; cz++) { BlockPos q = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(q), 2, q); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 50; x++) for (int z = 0; z <= 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 6; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            st855Far = sleepBed(level, h.absolutePos(new BlockPos(44, 2, 8)), net.minecraft.core.Direction.EAST); c.myStations.add(st855Far);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.WHITE_BED)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.getInventory().add(new ItemStack(Items.STONE_SWORD));
+            sleepAt(c, h, new BlockPos(4, 2, 8)); mock[0].teleportTo(c.getX(), c.getY() + 40, c.getZ());
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            level.setDayTime(13500);
+        }
+        if (t[0] > 10) {
+            level.setDayTime(13500 + Math.min(t[0], 400));
+            for (BlockPos q : BlockPos.betweenClosed(h.absolutePos(new BlockPos(0, 2, 4)), h.absolutePos(new BlockPos(12, 2, 12)))) if (level.getBlockState(q).is(net.minecraft.tags.BlockTags.BEDS)) check(false, "his bed down where he stood at " + q.toShortString() + " with a bed of his 40 off (tasks " + c.tasks.stream().limit(3).toList() + ")");
+            if (c.isSleeping() || c.blockPosition().distSqr(st855Far) <= 9) { c.stopSleepInBed(false, false); c.tasks.clear(); c.dropCurrent = true; for (BlockPos b : new java.util.ArrayList<>(c.myStations)) c.myStations.remove(b); pass(stage, t, "night: to his bed 40 off, not his spare down where he stood (" + t[0] + " ticks)"); }
+            else check(t[0] < 20 * 30, "30 s into the night and not at his bed 40 off: at " + c.blockPosition().toShortString() + " now " + c.currentTask + " tasks " + c.tasks.stream().limit(3).toList());
         }
         return true;
     }

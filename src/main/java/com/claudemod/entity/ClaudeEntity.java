@@ -191,6 +191,7 @@ public class ClaudeEntity extends ServerPlayer {
     public boolean mineshaftOffered = false; // diamond ore he's seen (to come back for)
     public final java.util.Set<BlockPos> pendingPatches = new java.util.HashSet<>(); // holes he couldn't fill (no blocks on him): filled when he's back with some
     public final java.util.Set<BlockPos> myStations = new java.util.HashSet<>();
+    public BlockPos sleptAt; // the bed he's in tonight: the morning takes it up even when the game's own night skip woke him
     public java.util.Map<BlockPos, Integer> furnaceReadyAt = new java.util.HashMap<>(); // furnaces he loaded, and when the batch is done // every table/furnace he put down himself (this session)
     public final java.util.Set<BlockPos> mineCells = new java.util.HashSet<>(); // every cell of his stairs/tunnel, as dug (the real shape, turns and all)
     public final java.util.List<BlockPos> mineSpine = new java.util.ArrayList<>(); // his walking line through it, entrance to end
@@ -462,6 +463,11 @@ public class ClaudeEntity extends ServerPlayer {
                 res0 += " [burn ticks " + getRemainingFireTicks() + ", on fire " + isOnFire() + ", in " + in + " on " + under + "]";
             }
             ClaudeMod.LOGGER.info("[Claude hurt] {} damage from {}{} at {} (health {} before, hunger {}): " + res0, String.format("%.1f", amount), source.getMsgId(), source.getEntity() == null ? "" : " (" + source.getEntity().getType().getDescription().getString() + (source.getEntity() instanceof net.minecraft.world.entity.Mob mb ? (mb.getTarget() == this ? ", on him" : ", not targeting him") : "") + ")", blockPosition().toShortString(), (int) getHealth(), getFoodData().getFoodLevel());
+            if (source.is(net.minecraft.world.damagesource.DamageTypes.LAVA)) { // which way of his put him in the lava: the path's nodes round him as the planner typed them, and the fluid in each now (live 12:15-12:17 World 17: five touches on one lava fall's edge, no repro in stage 853)
+                var lp = nav.getPath(); StringBuilder nb = new StringBuilder();
+                if (lp != null) for (int k = Math.max(0, lp.getNextNodeIndex() - 3); k < Math.min(lp.getNodeCount(), lp.getNextNodeIndex() + 3); k++) { var nd = lp.getNode(k); var fs = level().getFluidState(new net.minecraft.core.BlockPos(nd.x, nd.y, nd.z)); nb.append(k == lp.getNextNodeIndex() ? " >" : " ").append(nd.x).append(',').append(nd.y).append(',').append(nd.z).append(' ').append(nd.type).append(fs.isEmpty() ? "" : fs.is(net.minecraft.tags.FluidTags.LAVA) ? (fs.isSource() ? " LAVA-src" : " lava-flow" + fs.getAmount()) : " water"); }
+                ClaudeMod.LOGGER.info("[Claude lava] in lava at {} (v {}, sprint {}, jump {}): task {}, path {}{} (ClaudeEntity.hurt)", blockPosition().toShortString(), String.format("%.2f %.2f %.2f", getDeltaMovement().x, getDeltaMovement().y, getDeltaMovement().z), isSprinting(), !onGround(), currentTask, lp == null ? "none" : (lp.getNodeCount() + " nodes:"), nb);
+            }
         }
         return took;
     }

@@ -135,12 +135,15 @@ public final class Decide {
             var vil = com.claudemod.director.ClaudeLife.knownVillage(g, (int) w("night.spot_max_route", 400), s0 -> true);
             if (vil != null) spots.add(new Object[] {"the village's beds", vil.nearestCell(g.position()), w("night.village_bed_find_s", 20)}); // (beds he hasn't seen yet: a look round for one)
         }
+        boolean mineHere = g.blueprint != null && !g.blueprint.isEmpty() && (g.blueprint.touches(me) || com.claudemod.director.ClaudeLife.inHisMine(g, me));
+        if (!mineHere && g.inventory.count(s0 -> s0.is(net.minecraft.tags.ItemTags.BEDS)) > 0) spots.add(new Object[] {"his bed down here", me, w("night.bed_here_s", 60)}); // (the bed he carries, down where he stands: his respawn point out in the open and the bed to take up again; a short walk to his own safety beats it, the user 11-06: "he could have easily gone to his mine or the village")
         for (Object[] sp : spots) {
             BlockPos at = (BlockPos) sp[1];
             String no = ((String) sp[0]).contains("bed") && !((String) sp[0]).contains("village") ? com.claudemod.director.ClaudeLife.bedNoGo(g, level, at) : null; // (the sleep skill's own judgement of the bed: one it won't sleep in is no night's end; World 17 21:12, incident 17: an obstructed bed picked every 20 s, four 87-block legs)
             if (no != null) { said.add(sp[0] + " at " + at.toShortString() + " out (" + no + ")"); continue; }
             Integer picked = g.attempts.counters.get("nightSpot:" + at.asLong());
             if (far && picked != null && g.tickCount - picked < 20 * 60) { said.add(sp[0] + " at " + at.toShortString() + " out (picked " + (g.tickCount - picked) / 20 + " s ago and it didn't give him the night)"); continue; }
+            if (!mineHere && g.blueprint != null && !g.blueprint.isEmpty() && (g.blueprint.touches(at) || com.claudemod.director.ClaudeLife.inHisMine(g, at))) { sp[1] = at = g.blueprint.entrance; } // in his mine: safe at its mouth, his own lit tunnels from there (the user 11-06: distance to safety from the entrance, never to the bed at its far end)
             int dist = com.claudemod.director.ClaudeLife.routeDist(g, me, at);
             if (dist > w("night.spot_max_route", 400)) continue; // (out of any night's reach: not an option)
             double walk = dist / sprint(), out = Math.max(0, walk - toDark), s = walkS(g, level, tod, walk, hostilesAlong(g, me, at)) + (double) sp[2];

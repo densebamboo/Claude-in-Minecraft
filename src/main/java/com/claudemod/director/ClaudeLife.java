@@ -227,17 +227,33 @@ public final class ClaudeLife {
                     g.tasks.stream().limit(4).map(t -> t instanceof Task.GoTo go ? "GoTo " + go.pos().toShortString() : t instanceof Task.Break b ? "Break " + b.pos().toShortString() : t instanceof Task.Place p ? "Place " + p.pos().toShortString() : t.getClass().getSimpleName()).toList());
     }
 
+    /** The morning's call on the bed he slept in, priced: up and on him, or left where it is. A base bed (his nook's, his house's) is where he sleeps again tonight; one down out in the world is his respawn point out there, litter, and no bed on him for the next night. */
+    static boolean travelBed(ClaudeEntity g, BlockPos bed) {
+        boolean base = anyNookBedCell(g, bed) || g.house != null && (bed.equals(g.house.bedHead()) || bed.equals(g.house.bedFoot()));
+        boolean spare = g.inventory.count(s0 -> s0.is(ItemTags.BEDS)) > 0;
+        var w = (java.util.function.BiFunction<String, Double, Double>) com.claudemod.entity.life.Weights::w;
+        var pick = com.claudemod.entity.life.Decide.choose(g, "bed.morning", (base ? "his base's bed" : "his bed out in the world") + " at " + bed.toShortString() + (spare ? ", another on him" : ""), true, java.util.List.of(
+            com.claudemod.entity.life.Decide.Option.of("take it up", w.apply("bed.take_up_s", 3.0) + (base ? w.apply("bed.base_back_s", 60.0) : 0), base ? "and set back in its place tonight" : "a few seconds"),
+            com.claudemod.entity.life.Decide.Option.of("leave it", base ? 0 : w.apply("bed.left_out_s", 40.0) + (spare ? 0 : w.apply("bed.next_night_s", 30.0)), base ? "he sleeps there again" : "his respawn point out there, litter" + (spare ? "" : ", no bed on him for the next night"))));
+        return pick != null && pick.name().equals("take it up");
+    }
     public static void tick(ClaudeEntity g, ServerPlayer player) {
         { String ongoing = g.prefs.get("ongoing_job"); if (ongoing != null && g.tickCount % 20 == 15) { var um = java.util.regex.Pattern.compile("until ([0-9]+) (.+)$").matcher(ongoing.toLowerCase()); boolean uf = um.find(); Item ui = uf ? itemNamedIn(um.group(2)) : null; if (ui == null && uf) ui = itemNamedIn(um.group(2).replaceAll("s( |$)", "$1")); if (ui != null && g.inventory.items.countItem(ui) >= Integer.parseInt(um.group(1))) { ClaudeMod.LOGGER.info("[Claude plan] their job \"{}\" is done: {} {} on him (ClaudeLife tick)", ongoing, g.inventory.items.countItem(ui), Crafting.name(ui)); g.prefs.remove("ongoing_job"); g.playerGoal = "done: " + ongoing; } } } // ponytail: a job with a count ends at the count; live 22:0x 12 pearls on him and "fight hostile next" kept firing
         if (g.justRespawned) respawnTicks().put(g.getUUID(), g.tickCount); // (before anything below clears the flag)
         if (g.tickCount % 100 == 47 && g.level() instanceof ServerLevel clockLevel) { com.claudemod.entity.life.Clocks.pile(g, clockLevel); com.claudemod.entity.life.DeathLog.tick(g, clockLevel); } // his pile's clock kept current, in every dimension: up top, since the Nether branch below returns early (his Nether piles were never looked at, so a despawned one stayed "pending": 12:22 "his drops are gone")
         com.claudemod.entity.life.MindLog.flush(); // his conflict lines, said here (never from inside the logger)
         com.claudemod.entity.life.Whereabouts.tick(g, player); // where they are, as he sees, hears or was told it
+        if (!g.isSleeping() && g.sleptAt != null && g.tickCount % 20 == 0 && g.level() instanceof ServerLevel wl && dayHere(wl)) { // up by the game's own night skip (all asleep: it wakes them itself), the morning below never ran: his bed out by the river stayed, live 12:28 World 17
+            BlockPos bed = g.sleptAt; g.sleptAt = null;
+            if (g.myStations.contains(bed) && travelBed(g, bed) && wl.getBlockState(bed).is(BlockTags.BEDS)) { g.myStations.remove(bed); takeUpBed(wl, bed); g.tasks.addFirst(new Task.Pickup(40)); g.tasks.addFirst(new Task.Break(bed)); }
+            ClaudeMod.LOGGER.info("[Claude life] morning (the night skipped while he slept): up, his bed at {} {}", bed.toShortString(), wl.getBlockState(bed).is(BlockTags.BEDS) ? "pocketed" : "already gone");
+        }
         if (g.isSleeping()) { // in bed: nothing else until morning (a hit wakes him, the game's own rule)
+            g.sleptAt = g.getSleepingPos().map(BlockPos::immutable).orElse(g.sleptAt);
             if (g.tickCount % 20 == 0 && com.claudemod.director.ClaudeLife.dayHere(((ServerLevel) g.level()))) {
-                BlockPos bed = g.getSleepingPos().orElse(null);
+                BlockPos bed = g.getSleepingPos().orElse(null); g.sleptAt = null;
                 g.stopSleepInBed(true, true);
-                if (bed != null && g.myStations.contains(bed)) { g.myStations.remove(bed); g.tasks.addFirst(new Task.Pickup(40)); g.tasks.addFirst(new Task.Break(bed)); } // his bed goes back in his pocket: it travels with him
+                if (bed != null && g.myStations.contains(bed) && travelBed(g, bed)) { g.myStations.remove(bed); takeUpBed((ServerLevel) g.level(), bed); g.tasks.addFirst(new Task.Pickup(40)); g.tasks.addFirst(new Task.Break(bed)); } // his bed goes back in his pocket (taken up on purpose: the dig's bed guard refused it otherwise): it travels with him
                 ClaudeMod.LOGGER.info("[Claude life] morning: up and out of bed{}", bed != null ? ", bed pocketed" : "");
             }
             return;
@@ -1096,7 +1112,7 @@ public final class ClaudeLife {
         BlockPos bed = findNear(level, g.blockPosition(), 3, b -> b.is(BlockTags.BEDS));
         if (bed != null) noteNightBed(g, bed); // (his bed right here tonight: held to it)
         com.claudemod.entity.life.BaseNook bedNook0 = bed != null ? null : nearestNook(g, g.blockPosition(), n0 -> level.isLoaded(n0.bedFoot()) && level.getBlockState(n0.bedFoot()).is(BlockTags.BEDS)); // the nearest nook bed of his, by his tunnels
-        if (bedNook0 != null && routeDist(g, g.blockPosition(), bedNook0.bedFoot()) > 64) { nookSay(g, "bed", "[Claude life] night: his nearest nook bed (" + bedNook0.bedFoot().toShortString() + ") is " + routeDist(g, g.blockPosition(), bedNook0.bedFoot()) + " blocks off by his tunnels: not that one tonight (ClaudeLife.sleepIfNight)"); bedNook0 = null; }
+        if (bedNook0 != null && !(g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.touches(g.blockPosition())) && routeDist(g, g.blockPosition(), bedNook0.bedFoot()) > 64) { /* (down his mine it's his own lit tunnels to it, however far: only out in the open does the walk get priced, below) */ nookSay(g, "bed", "[Claude life] night: his nearest nook bed (" + bedNook0.bedFoot().toShortString() + ") is " + routeDist(g, g.blockPosition(), bedNook0.bedFoot()) + " blocks off by his tunnels: not that one tonight (ClaudeLife.sleepIfNight)"); bedNook0 = null; }
         if (bed == null && bedNook0 != null) { // the bed in his base nook: the nearest bed of his when he is down the mine
             if (g.tasks.stream().noneMatch(t -> t instanceof Task.GoTo) && g.tickCount - bedOutTick > 20 * 30) { bedOutTick = g.tickCount; g.tasks.addFirst(new Task.GoTo(bedNook0.cell(1, com.claudemod.entity.life.BaseNook.DEPTH, 0), 0.8)); ClaudeMod.LOGGER.info("[Claude life] night: to the bed in his nearest base nook at {}", bedNook0.bedFoot().toShortString()); }
             return;
@@ -1135,6 +1151,11 @@ public final class ClaudeLife {
                 if (byChests != null) return;
                 BlockPos nook = bedNook(g, level, bedItem);
                 if (nook != null) return; // (cut and set over the next seconds; the sleep comes round again)
+            }
+            if (g.tickCount - bedOutTick > 20 * 30) { // out in the open with his bed on him: his mine, his house, a bed of his or a village against the bed down here, priced (live 12:28 World 17: his bed down by the river with his mine's mouth 65 off)
+                java.util.List<String> said = new java.util.ArrayList<>(); Object[] pick = com.claudemod.entity.life.Decide.nightSpot(g, level, level.getDayTime() % 24000, said, true); String best = (String) pick[0]; BlockPos to = (BlockPos) pick[1];
+                ClaudeMod.LOGGER.info("[Claude decide] night bed: {}: {} (ClaudeLife.sleepIfNight)", String.join("; ", said), best); // (his mine counts through his bed in it; the mine alone is cover, not a bed: in and out again to sleep)
+                if (to != null && !best.equals("his bed down here") && !best.equals("his lit mine")) { bedOutTick = g.tickCount; g.tasks.addFirst(new Task.GoTo(to, best.equals("the village's beds") ? 4.0 : best.equals("his lit mine") ? 2.0 : 0.8)); return; }
             }
             bed = placeNextTo(g, level, bedItem);
             if (bed == null) { bedSpotFarther(g, level); return; } // (nothing in reach clear of what he knows: the nearest spot that is)
@@ -11371,6 +11392,7 @@ public final class ClaudeLife {
         MineBlueprint b = g.blueprint; if (b == null || b.isEmpty() || dest == null) return false;
         int from = b.nearestRow(g.blockPosition()), to = b.nearestRow(dest);
         if (from < 0 || to < 0) return false;
+        if (b.rowOf(g.blockPosition()) < 0) { List<MineBlueprint.Row> rs = b.rows(); double bd = rs.get(from).first().distSqr(g.blockPosition()); for (int i = 0; i < rs.size(); i++) { double d = rs.get(i).first().distSqr(g.blockPosition()); if (d < bd) { bd = d; from = i; } } } // a branch row counts too (nearestRow skips them): 2 up from a 64-long branch's far end the main tunnel is 60 off, and "far off his mine" sent him round by the entrance up top (live 11:14 World 17, stage 852)
         BlockPos me = g.blockPosition();
         if (from > 0 && b.rowOf(me) < 0 && b.walkCells(from, from).stream().allMatch(p -> p.distSqr(me) > 6 * 6)) { // off his mine: never to the row nearest as the crow flies (the iron row 40 under him had him cutting steps down from the grass; a cave 26 off his rows and not joined to them, NO_PATH re-fired 4 min, D2D reviews 277/303)
             boolean upTop = g.getBlockY() >= g.level().getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.getBlockX(), g.getBlockZ()) - 1;

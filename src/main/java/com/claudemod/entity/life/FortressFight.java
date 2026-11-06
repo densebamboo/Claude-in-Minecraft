@@ -257,6 +257,20 @@ public final class FortressFight {
         return best;
     }
 
+    /**
+     * Seconds the rods still to come cost in blaze fights: per blaze (blaze.rods_per_kill rods each) the approach and the swings
+     * (HuntPatrol.melee), and the fireballs that land (blaze.hits_per_blaze, a shield's blaze.shield_factor of them) at 5 through
+     * his armor (vanilla's sum) plus the burning after (blaze.fire_hp, none on fire resistance), each blaze priced by Decide.hpS
+     * from the given health, at his food or fed.
+     */
+    public static double fightS(ClaudeEntity g, double health, double armor, double tough, boolean shield, boolean fed, int rodsLeft) {
+        double[] m = HuntPatrol.melee(g); double kill = Math.ceil(Weights.w("blaze.hp", 20) / m[0]) * m[1] + Weights.w("blaze.approach_s", 8);
+        double dmg = Weights.w("blaze.fireball_hp", 5), perHit = dmg * (1 - Math.min(20, Math.max(armor / 5, armor - dmg / (2 + tough / 4))) / 25) + (g.hasEffect(net.minecraft.world.effect.MobEffects.FIRE_RESISTANCE) ? 0 : Weights.w("blaze.fire_hp", 3));
+        double hits = Weights.w("blaze.hits_per_blaze", 1.5) * (shield ? Weights.w("blaze.shield_factor", 0.4) : 1), blazes = Math.ceil(Math.max(0, rodsLeft) / Weights.w("blaze.rods_per_kill", 0.5));
+        var fd = g.getFoodData(); double food = fed ? 20 : fd.getFoodLevel(), sat = fed ? Weights.w("food.fed_saturation", 5) : fd.getSaturationLevel();
+        return blazes * (kill + Decide.hpS(g, health, 0, hits * perHit, perHit, (int) Math.ceil(hits) + 2, food, sat));
+    }
+
     public static String blazeRods(ClaudeEntity g, ServerPlayer player, ServerLevel level, Skills.Step st) {
         String target = st.target().toLowerCase();
         int have = rods(g);
@@ -284,6 +298,20 @@ public final class FortressFight {
             ClaudeMod.LOGGER.info("[Claude fight] no shield, {} iron and {} planks' worth on him: a shield first, it blocks every fireball of a volley (FortressFight.blazeRods)", iron, planks + logs * 4);
             return "a shield first (6 planks and an iron ingot): it takes the blazes' fireballs";
         }
+        { // fight now or get ready first, priced (D2D 04:52 World 17: no armor, every fireball the full 5, 20 -> 3 in 18 s, burned to death; the user's rule: a price, never a gate)
+          double tough = g.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS); int left = goal - have;
+          double now = fightS(g, g.getHealth(), g.getArmorValue(), tough, shield, false, left);
+          boolean inVain = HuntPatrol.readiedInVain(g); double readyArmor = inVain ? g.getArmorValue() : Math.max(g.getArmorValue(), Weights.w("blaze.ready_armor", 15)); boolean readyShield = shield || !inVain;
+          double ready = fightS(g, 20, readyArmor, tough, readyShield, true, left);
+          var portal = PortalMap.net(g).portals.stream().filter(p0 -> PortalMap.NETHER.equals(p0.dim)).min(java.util.Comparator.comparingDouble(p0 -> p0.at.distSqr(g.blockPosition()))).orElse(null);
+          double trip = portal == null ? Weights.w("pearls.no_portal_s", 1800) : 2 * (Math.sqrt(portal.at.distSqr(g.blockPosition())) * PortalMap.NETHER_OFF_ROAD / Decide.sprint() + Weights.w("highway.portal_s", 8));
+          var pick = Decide.choose(g, "blaze.ready", left + " rod(s) to go", true, List.of(
+              Decide.Option.of("fight now", now, (int) g.getHealth() + " HP, armor " + g.getArmorValue() + (shield ? ", a shield" : ", no shield")),
+              Decide.Option.of("get ready first", trip + Weights.w("blaze.ready_s", 240) + ready, "through the portal and back ~" + Math.round(trip) + " s, gear_up's kit, then the fight at 20 HP, armor " + (int) readyArmor + (readyShield ? ", a shield" : "") + (inVain ? " (no armor came of the last go)" : ""))));
+          if (pick != null && pick.name().equals("get ready first")) {
+              HuntPatrol.readying(g); g.skillQueue.addFirst(again); g.skillQueue.addFirst(new Skills.Step("enter_portal", "", 1)); g.skillQueue.addFirst(new Skills.Step("gear_up", "", 1)); g.skillQueue.addFirst(new Skills.Step("enter_portal", "", 1));
+              return "getting ready first: through the portal for armor and a shield (the blazes' fireballs at armor " + g.getArmorValue() + " priced ~" + Math.round(now) + " s against ~" + Math.round(trip + Weights.w("blaze.ready_s", 240) + ready) + " s geared)";
+          } }
         observe(g, level);
         List<Blaze> bl = blazesNear(g, level, g.blockPosition(), 32);
         bl.removeIf(b -> !g.hasLineOfSight(b) && b.distanceTo(g) > 12); // in view, or close enough he hears it

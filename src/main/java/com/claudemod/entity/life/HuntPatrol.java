@@ -207,8 +207,7 @@ public final class HuntPatrol {
         // 3. explore for a new one, last
         opts.add(Decide.Option.of("explore for a new forest", w("pearls.search_s", SEARCH_S) + waitS(TYPICAL) + fight, "a search, then a typical forest"));
         // 4. get ready first: full health, fed, a chestplate's worth of armor (gear_up's kit), then the same fight at that (the user's rule: priced, never a gate)
-        { Object[] lr = readied == null ? null : readied.get(g.getUUID()); // (got ready a while ago and his armor's no better: the kit can't give armor now, only health and food)
-          boolean noArmorToHave = lr != null && now(g) - (long) lr[0] < 20 * w("pearls.ready_again_s", 1200) && g.getArmorValue() <= (int) lr[1];
+        { boolean noArmorToHave = readiedInVain(g);
           double readyArmor = noArmorToHave ? g.getArmorValue() : Math.max(g.getArmorValue(), w("pearls.ready_armor", 14)), readyFight = fightS(g, 20, readyArmor, g.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS), true);
           var portal = nether ? PortalMap.net(g).portals.stream().filter(p0 -> PortalMap.NETHER.equals(p0.dim)).min(java.util.Comparator.comparingDouble(p0 -> p0.at.distSqr(g.blockPosition()))).orElse(null) : null;
           double trip = nether ? (portal == null ? w("pearls.no_portal_s", 1800) : 2 * (Math.sqrt(portal.at.distSqr(g.blockPosition())) * road / sprint + w("highway.portal_s", 8))) : 0, cost = w("pearls.ready_s", 240) + trip;
@@ -222,6 +221,8 @@ public final class HuntPatrol {
     }
 
     private static Map<UUID, Object[]> readied; // his last "get ready first": {server tick, armor then}
+    /** He got ready a while ago (pearls or blazes) and his armor's no better: the kit can't give armor now, only health and food. */
+    public static boolean readiedInVain(ClaudeEntity g) { Object[] lr = readied == null ? null : readied.get(g.getUUID()); return lr != null && now(g) - (long) lr[0] < 20 * w("pearls.ready_again_s", 1200) && g.getArmorValue() <= (int) lr[1]; }
     /** He goes to get ready: noted, so a kit that gave no armor isn't promised again. */
     public static void readying(ClaudeEntity g) { if (readied == null) readied = new HashMap<>(); readied.put(g.getUUID(), new Object[] {now(g), g.getArmorValue()}); }
     /** He sets off for that forest: next round, not there and no nearer is a failed trip against it. */

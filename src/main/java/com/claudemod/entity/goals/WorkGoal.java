@@ -4675,11 +4675,13 @@ public class WorkGoal extends Goal {
         them.sort(java.util.Comparator.comparingDouble(m -> m.distanceTo(g)));
         double swing = w("fight.swing_s", 0.6), rate = w("fight.mob_hits_per_s", 0.8) * (armed() ? w("fight.knockback_hits_factor", 0.5) : 1), cool = w("fight.mob_cooldown_s", 1.0); // (a sword or axe knocks each one back: it walks in again before its next swing, about half the hits; HuntPatrol.fightS prices an enderman the same, 0.4. Stage 48: one zombie at 12 HP priced as 3 hits in 2.4 s, he ran)
         double t = 0, hits = 0, hp = 0, runHits = 0, burnS = 0; int most = 0, swings = 0; boolean sprint = g.getFoodData().getFoodLevel() > 6, allBurn = true, anyPace = false;
+        boolean shield = g.getItemBySlot(EquipmentSlot.OFFHAND).is(net.minecraft.world.item.Items.SHIELD) && !g.getCooldowns().isOnCooldown(net.minecraft.world.item.Items.SHIELD);
         for (var m : them) {
             boolean witch = m instanceof net.minecraft.world.entity.monster.Witch; // (harming: 6 at Normal, armor no help)
             double dmg = witch ? w("fight.witch_hit_hp", 6) : mobHit(m); boolean ranged = m instanceof net.minecraft.world.entity.monster.RangedAttackMob && !(m instanceof net.minecraft.world.entity.monster.WitherSkeleton); // (a wither skeleton is a skeleton by class, but a sword, never a bow)
             int k = hitsToKill(m); swings += k; t += k * swing;
-            double h = t * (witch ? w("fight.witch_throws_per_s", 0.33) : rate) + (ranged ? m.distanceTo(g) / w("fight.close_blocks_per_shot", 6) : 0); // (each hits him till it's down: the first for its own time, the next for both; a shooter ~a shot each 6 blocks he closes)
+            double h = t * (witch ? w("fight.witch_throws_per_s", 0.33) : rate) + (ranged ? m.distanceTo(g) / w("fight.close_blocks_per_shot", 6) : 0);
+            if (shoots(m) && shield) h *= w("fight.shield_arrow_factor", 0.25); // (a shield up toward it while he closes in takes its arrows; stage 38 ran from one skeleton with a shield on him after 924759d) // (each hits him till it's down: the first for its own time, the next for both; a shooter ~a shot each 6 blocks he closes)
             hits += h; hp += h * dmg; most += (int) Math.ceil(t / cool) + (ranged ? 2 : 0);
             boolean pace = !sprint || m instanceof net.minecraft.world.entity.monster.Phantom || (m instanceof net.minecraft.world.entity.monster.Zombie z && z.isBaby());
             anyPace |= pace || ranged && !witch; // (the pile: a shooter gets its shots either way, a run avoids no fight with it; review 1292)

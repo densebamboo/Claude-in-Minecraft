@@ -10491,6 +10491,7 @@ public final class ClaudeBodyTest {
             case 914: return st914(stage, t, c, h, level, mock);
             case 915: return st915(stage, t, c, h, level, mock);
             case 916: return st916(stage, t, c, h, level, mock);
+            case 917: return st917(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13646,6 +13647,34 @@ public final class ClaudeBodyTest {
             BlockPos end = p.legs().get(p.legs().size() - 1);
             check(end.getX() - o.getX() >= 12, "the part-way plan ends only " + (end.getX() - o.getX()) + " blocks toward it, at " + end.toShortString());
             nsHome(c, h, level); pass(stage, t, "part way through the rock: " + p.legs().size() + " legs to " + end.toShortString() + " (" + p.digs() + " dug, " + p.nodes() + " nodes, " + p.ms() + " ms)"); }
+        return true;
+    }
+    /** Stage 917 (D2D, LITTER incidents live 15:25:09 World 17): the highway's floor that build_highway laid at -3..-2, 58, 105-109 booked as his temp blocks ("bridge", "step"): litter to take back up. The highway is his build; its blocks stay. */
+    private static boolean st917(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(10600, 64, 6520);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 14; z++) for (int y = -4; y <= 6; y++) nl.setBlock(o.offset(x, y, z), (y < -1 || y == -1 && z <= 1 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2); // (open air ahead of the portal's apron: the rows bridge it)
+            for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, 0), x == -1 || x == 2 || y == -1 || y == 3 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+            nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 1.5, 0f, 0f);
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o, "him", "lit");
+        }
+        if (t[0] == 20) { c.skillQueue.clear(); c.tasks.clear(); String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", o.getX() + " " + o.getY() + " " + (o.getZ() + 40), 1); ClaudeMod.LOGGER.info("[Claude test] 917 build_highway: {}", r); }
+        if (t[0] > 20 && t[0] % 20 == 0 || t[0] == 600) {
+            int laid = 0, booked = 0; String bk = "";
+            for (int x = -1; x <= 2; x++) for (int z = 2; z <= 12; z++) { BlockPos f = o.offset(x, -1, z); if (!nl.getBlockState(f).is(Blocks.COBBLED_DEEPSLATE)) continue; laid++; if (com.claudemod.entity.life.TempLedger.has(c, f)) { booked++; if (bk.length() < 200) bk += f.toShortString() + " "; } }
+            if (laid >= 6 || t[0] == 600) {
+                c.skillQueue.clear(); c.tasks.clear(); com.claudemod.entity.life.Highway.reset(c);
+                for (int x = -6; x <= 6; x++) for (int z = -6; z <= 14; z++) for (int y = -4; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                com.claudemod.entity.life.PortalMap.net(c).portals.clear();
+                check(laid >= 6, "build_highway laid " + laid + " floor blocks in 30 s");
+                check(booked == 0, booked + " of the " + laid + " highway floor blocks booked as his temp blocks (litter): " + bk);
+                nsHome(c, h, level); pass(stage, t, laid + " highway floor blocks laid, none booked as litter");
+            }
+        }
         return true;
     }
     /** Stage 916 (D2D live 15:05 World 17): the highway underway at row 104 of 715, home at his chests with 614 cobbled deepslate in them; the planner's own "take_from_chest cobbled_deepslate x64" went first and build_highway took him through the portal with 64, ~11 rows' worth. build_highway packs its own trip from his chests on the way out. */

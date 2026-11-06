@@ -93,6 +93,7 @@ public final class Highway {
             out.addAll(one); used += need; rows++; for (int k = 0; k < 4; k++) cnt[k] += c1[k];
         }
         if (rows == 0) return blocks(g, player, level, s, next, have, words, st);
+        for (Task k : out) if (k instanceof Task.Place pl) TempLedger.planBuild(g, pl.pos(), "Highway.skill"); // (the highway is his build: its blocks stay, never litter; live 15:25 LITTER on its floor, stage 917)
         g.tasks.addAll(out); g.skillQueue.addFirst(new Skills.Step("build_highway", "@" + words, st.count(), st.where()));
         String r = "highway rows " + (next + 1) + "-" + (next + rows) + " of " + b.rows.size() + ": " + cnt[0] + " lava sealed, " + cnt[1] + " dug, " + cnt[2] + " floor laid, " + cnt[3] + " tunnel shell laid (" + used + " of " + have + " cobbled deepslate)";
         ClaudeMod.LOGGER.info("[Claude highway] {} (Highway.skill)", r);
@@ -214,6 +215,7 @@ public final class Highway {
     /** The next trip's lot, on top of what he carries: as many stacks as his pack holds, a slot or two kept for pickups (the user 11-06: "as many stacks as he can at a time, with maybe 1 or 2 empty inventory slots as a buffer"), no more than the rows left take. */
     static int trip(ClaudeEntity g, int left) {
         int room = 0, free = 0, have = 0; for (int k = 0; k < g.inventory.items.getContainerSize(); k++) { var it = g.inventory.items.getItem(k); if (it.isEmpty()) free++; else if (it.is(BLOCK)) { room += it.getMaxStackSize() - it.getCount(); have += it.getCount(); } }
+        free = com.claudemod.director.ClaudeLife.freeSlotsAfterDump(g); // (take_from_chest puts away what he doesn't need first: D2D 5223cef)
         int fit = room + Math.max(0, free - (int) w("highway.trip_free_slots", 2)) * 64;
         return Math.max(0, Math.min((int) (left * w("highway.blocks_per_row", 2.6)) - have, fit));
     }

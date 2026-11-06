@@ -10529,6 +10529,7 @@ public final class ClaudeBodyTest {
             case 737: return st737(stage, t, c, h, level, mock);
             case 738: return st738(stage, t, c, h, level, mock);
             case 740: return st740(stage, t, c, h, level, mock);
+            case 741: return st741(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13957,6 +13958,22 @@ public final class ClaudeBodyTest {
     }
 
     /** Live 16:49 11-05 (-106,64,-6, tick 11767; Day to Day case D, the user: "Couldn't he have slept at his bed ... Most of the time you don't need to dig into a hole for 10 minutes just because the sun is going down"): full HP, food 20, 5 meals, no armor, his bed about 30 off: "the sun's going down and he's out with no armor: under cover before dark", a hole, 7 min of night in it. The game's first spawns in the open are at tick 13188 (12969 in rain), 70 s off; 30 blocks is 6 s at a sprint. Dusk is one priced choice: his bed, his lit mine, the hole last. */
+    private static boolean st741(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a surface spot under an overhang near his mine is no spot in his mine (World 17 17:22-18:22: the walk to his furnace 3 off by the lake went "26 legs, over the land to his mine, in, down its rows", then the walker back up and out, 58 times in an hour)
+        if (t[0] == 1) lnReset(c);
+        if (t[0] == 10) {
+            var b = lnMine(h, level, c);
+            for (int x = 18; x <= 22; x++) for (int z = 18; z <= 22; z++) for (int y = 18; y <= 21; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.STONE.defaultBlockState(), 2); // (a 4-thick overhang over the grass: Route.under says "under")
+            BlockPos to = h.absolutePos(new BlockPos(20, 14, 20)), me = h.absolutePos(new BlockPos(17, 14, 20));
+            lnStand(c, mock, me, me.west());
+            var legs = com.claudemod.entity.nav.Route.expand(c, level, to, 1.0);
+            check(legs == null || com.claudemod.entity.nav.Route.walkerTakes(legs), "a spot 3 off on the grass under an overhang routed by his mine's door at " + b.entrance.toShortString() + ": " + (legs == null ? "-" : legs.size() + " legs " + legs));
+            for (int x = 19; x <= 21; x++) for (int z = 19; z <= 21; z++) if (x != 20 || z != 20) for (int y = 14; y <= 16; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.SAND.defaultBlockState(), 2); // (the live case: sand in the way, only a dig gets in)
+            c.tasks.clear(); var legs2 = com.claudemod.entity.nav.Route.expand(c, level, to, 1.0);
+            check(legs2 == null || com.claudemod.entity.nav.Route.walkerTakes(legs2), "the spot behind a sand block routed by his mine's door: " + (legs2 == null ? "-" : legs2.size() + " legs " + legs2));
+            c.skillQueue.clear(); c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "a spot under an overhang 3 off on the surface, open or behind sand: his walker's, not the way in by his mine's door");
+        }
+        return true;
+    }
     private static boolean st740(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // the recovery run's worth from what fell (Day to Day 11-05: his checklist kept "the_nether 18,43,51 pending", a wooden pick and 4 planks, newest, while the iron set lay at 192,37,227): a junk pile is never the run's target, in any dimension
         if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.DeathLog.reset(c); }
         if (t[0] == 5) {

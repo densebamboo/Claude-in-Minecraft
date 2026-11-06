@@ -130,6 +130,12 @@ public final class Route {
         boolean meIn = mine && (b.isWalk(me) || b.isWalk(me.above()) || b.isWalk(me.below()) || meNook >= 0)
                 && !(me.distSqr(b.outside()) <= 9 || me.distSqr(b.entrance) <= 9); // at his mine's door he's out already: "up the rows and out" from there replanned to the same door, forever (starving at -20, 66, 76)
         boolean toIn = mine && (b.isWalk(to) || b.isWalk(to.above()) || b.isWalk(to.below()) || toNook >= 0 || under(level, to) && near(b, to, 16));
+        if (toIn && !meIn && !(b.isWalk(to) || b.isWalk(to.above()) || b.isWalk(to.below()) || toNook >= 0)) { // in his mine only by being under cover near it (a cave off it, or a spot by the lake under an overhang): his walker's when a plain walk gets there, not the way in by the door (World 17 17:22-18:22: his furnace 3 off by the lake, "26 legs, over the land to his mine, in, down its rows", the walker back up and out, 58 times)
+            var plain = ActionPath.plan(g, level, me, to, Math.max(within, 1.0), false, 3000, ActionPath.Mode.MAY_DIG, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount); // (MAY_DIG: a block of sand in the way is a dig, not the way round by his door)
+            double door = Math.sqrt(me.distSqr(b.entrance)) + Math.sqrt(b.entrance.distSqr(to)), own = plain == null ? -1 : plain.walks() + 3.0 * plain.digs(); // (the door's way at its shortest, against his own: a dug block ~3 steps)
+            if (plain != null && own < door) { toIn = false; com.claudemod.ClaudeMod.LOGGER.info("[Claude route] to {} ({} off): under cover near his mine, his own way ~{} ({} walks, {} digs) beats in by his door ~{}: his walker's (Route.expand)", to.toShortString(), (int) Math.sqrt(me.distSqr(to)), (int) own, plain.walks(), plain.digs(), (int) door); }
+            else com.claudemod.ClaudeMod.LOGGER.info("[Claude route] to {} ({} off): under cover near his mine, {}: in by his door ~{} (Route.expand)", to.toShortString(), (int) Math.sqrt(me.distSqr(to)), plain == null ? "no way of his own from here" : "his own way ~" + (int) own + " is longer", (int) door);
+        }
         final int meRow = meNook >= 0 ? meNook : mine ? nearestRow(b, me) : -1, toRow = toNook >= 0 ? toNook : mine ? nearestRow(b, to) : -1; // (from or to a pocket: its mouth row)
         boolean meTop = !under(level, me);
         double across = Math.hypot(to.getX() - me.getX(), to.getZ() - me.getZ());

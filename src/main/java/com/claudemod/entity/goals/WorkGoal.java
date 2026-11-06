@@ -439,7 +439,7 @@ public class WorkGoal extends Goal {
             g.urgentAttacker = null;
             ticks = 0; stuck = 0; lastDist = Double.MAX_VALUE;
         }
-        if (!(current instanceof Task.Attack)) shieldDown(); // the shield is for fights: down again for mining, walking, eating
+        if (!(current instanceof Task.Attack) && !(current instanceof Task.Flee)) shieldDown(); // the shield is for fights: down again for mining, walking, eating (a run keeps its own: a lit creeper on it, 06:31)
         if (g.dropCurrent) { // something was put in front of what he's doing (it was re-queued if it still matters)
             g.dropCurrent = false;
             clearCrack();
@@ -4911,6 +4911,21 @@ public class WorkGoal extends Goal {
         mobs.addAll(level().getEntitiesOfClass(net.minecraft.world.entity.monster.Creeper.class, g.getBoundingBox().inflate(16), c -> c.isAlive() && !mobs.contains(c))); // (16, not 12: the run ended with it 12 off, the job turned him round into it, five times over, then it blew) // a creeper within 12 is still on him whatever its target says
         if (ticks == 1) { fleeDead.clear(); fleeLastD = -1; fleeFromIds.clear(); for (var m : mobs) fleeFromIds.add(m.getUUID()); if (fleeSeed != null) fleeFromIds.add(fleeSeed); fleeSeed = null; }
         for (var m : ((ServerLevel) level()).getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(48), m -> m.isAlive() && fleeFromIds.contains(m.getUUID()) && (m.distanceTo(g) < 24 || huntsHim(m)))) if (!mobs.contains(m)) mobs.add(m); // (and past 24 while it still hunts him, up to its follow range: incident 256) // what he's running from stays what he's running from till he's clear of it (out of sight behind him is still on his heels: the run ended a second in and his walk took him back past the witch)
+        // a lit creeper he can't outrun: the shield up, facing it, takes the blast (live 06:31 World 17: the run's way out went past it, 20 -> 0 with a shield in his off hand)
+        if (g.getItemBySlot(EquipmentSlot.OFFHAND).is(net.minecraft.world.item.Items.SHIELD) && !g.getCooldowns().isOnCooldown(net.minecraft.world.item.Items.SHIELD)) {
+            net.minecraft.world.entity.monster.Creeper lit = null;
+            for (var m : mobs) if (m instanceof net.minecraft.world.entity.monster.Creeper cr && cr.getSwellDir() > 0 && (lit == null || cr.distanceTo(g) < lit.distanceTo(g))) lit = cr;
+            if (lit != null) {
+                net.minecraft.world.phys.Vec3 off = g.position().subtract(lit.position()); double away = off.horizontalDistanceSqr() < 1e-6 ? 0 : g.getDeltaMovement().x * off.x / off.horizontalDistance() + g.getDeltaMovement().z * off.z / off.horizontalDistance();
+                double left = (1 - lit.getSwelling(1f)) * 28, out = lit.distanceTo(g) + left * Math.max(0, away); // its fuse left (ticks) and how far he'll be at the bang at the speed he's getting away now (a dead end, or a way out past it, is none: 06:31)
+                if (out < w("creeper.blast_reach", 7)) {
+                    g.getNavigation().stop(); g.setSprinting(false); shieldUp(lit);
+                    if (ticks % 10 == 0 || !g.isUsingItem()) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] a lit creeper {} off, ~{} ticks to the bang: {} blocks at best by then, inside its {}: shield up, facing it (WorkGoal.doFlee)", String.format("%.1f", lit.distanceTo(g)), (int) left, String.format("%.1f", out), (int) w("creeper.blast_reach", 7));
+                    return false;
+                }
+            }
+            if (g.isUsingItem() && g.getUsedItemHand() == InteractionHand.OFF_HAND && lit == null) { boolean other = false; for (var m : mobs) if (incoming(m)) other = true; if (!other) shieldDown(); } // the bang's over (or it went out): down, to run at full speed
+        }
         // cornered (a dungeon, a dead end): running isn't getting him anywhere, so like a player he turns and fights
         if (ticks == 1) fleeFrom = g.position();
         if (ticks >= 30 && ticks % 30 == 0 && !escapeHeld && fleeFrom != null && g.position().distanceTo(fleeFrom) < 2.0 && !mobs.isEmpty() // every 1.5 s of the run, not only its first (live 12:07 11-02: escapes blocked x7 on one block, a spider 20 -> 0, never a swing back)
@@ -6075,6 +6090,7 @@ public class WorkGoal extends Goal {
     /** Something a raised shield would stop: a skeleton about to loose (bow drawn ~half a second), an arrow flying his way, a mob in arm's reach. */
     private boolean incoming(net.minecraft.world.entity.LivingEntity mob) {
         if (!g.getItemBySlot(EquipmentSlot.OFFHAND).is(net.minecraft.world.item.Items.SHIELD)) return false;
+        if (mob instanceof net.minecraft.world.entity.monster.Creeper cr) return cr.getSwellDir() > 0 && cr.distanceTo(g) < w("creeper.blast_reach", 7); // a lit one in reach of its bang: the shield takes it (an unlit one is hit back or left, not shielded)
         if (mob instanceof net.minecraft.world.entity.monster.CrossbowAttackMob && net.minecraft.world.item.CrossbowItem.isCharged(mob.getMainHandItem()) && mob.distanceTo(g) < 24 && mob.hasLineOfSight(g)) return true; // a loaded crossbow on him (a piglin's, a pillager's): it looses any moment and the bolt is there in a tick or two (the arrow-in-flight check below is too late for it); down again while it reloads
         if (mob instanceof net.minecraft.world.entity.monster.AbstractSkeleton sk) {
             if (sk.isUsingItem() && sk.getTicksUsingItem() >= 10 && sk.distanceTo(g) < 24 && g.hasLineOfSight(sk)) return true; // it looses at ~20 ticks; the shield takes 5 to come up

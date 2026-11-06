@@ -92,6 +92,17 @@ public final class Decide {
     /** The share of a hit his armor lets through (armor points over danger.armor_full: vanilla's own curve, roughly). */
     public static double armorF(ClaudeEntity g) { return 1.0 - Math.min(20, g.getArmorValue()) / w("danger.armor_full", 25); }
     public static double hitHp() { return w("danger.hit_hp", 3); }
+    /** Known hostiles that could meet him on the walk from a to b: within danger.walk_side of the line and danger.walk_dy of its height (live 06:17 World 17: 9 known, creepers in the caves under him, priced a 4 s walk to his lit mine at ~650 s; he dug a hole). */
+    public static int hostilesAlong(ClaudeEntity g, BlockPos a, BlockPos b) {
+        net.minecraft.world.phys.Vec3 A = net.minecraft.world.phys.Vec3.atBottomCenterOf(a), AB = net.minecraft.world.phys.Vec3.atBottomCenterOf(b).subtract(A);
+        double l2 = Math.max(1e-6, AB.x * AB.x + AB.z * AB.z), side = w("danger.walk_side", 8), dy = w("danger.walk_dy", 4); int n = 0;
+        for (var m : Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(32), x -> x.isAlive())) {
+            double t = Math.max(0, Math.min(1, ((m.getX() - A.x) * AB.x + (m.getZ() - A.z) * AB.z) / l2));
+            double ex = m.getX() - (A.x + AB.x * t), ez = m.getZ() - (A.z + AB.z * t);
+            if (ex * ex + ez * ez <= side * side && Math.abs(m.getY() - (A.y + AB.y * t)) <= dy) n++;
+        }
+        return n;
+    }
     public static int hostilesKnown(ClaudeEntity g) { int n = 0; for (var m : Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(32), x -> x.isAlive())) n++; return n; }
 
     public static void dusk(ClaudeEntity g, ServerLevel level, long tod) {
@@ -132,7 +143,7 @@ public final class Decide {
             if (far && picked != null && g.tickCount - picked < 20 * 60) { said.add(sp[0] + " at " + at.toShortString() + " out (picked " + (g.tickCount - picked) / 20 + " s ago and it didn't give him the night)"); continue; }
             int dist = com.claudemod.director.ClaudeLife.routeDist(g, me, at);
             if (dist > w("night.spot_max_route", 400)) continue; // (out of any night's reach: not an option)
-            double walk = dist / sprint(), out = Math.max(0, walk - toDark), s = walkS(g, level, tod, walk, hostiles) + (double) sp[2];
+            double walk = dist / sprint(), out = Math.max(0, walk - toDark), s = walkS(g, level, tod, walk, hostilesAlong(g, me, at)) + (double) sp[2];
             said.add(sp[0] + " " + dist + " off " + (s == Double.MAX_VALUE ? "out (the hits on the way would take over half his health)" : "~" + (int) s + " s") + " (" + (int) walk + " s walk" + (out > 0 ? ", " + (int) out + " s of it after the spawns" : ", there before the spawns") + ((double) sp[2] > 0 ? ", " + (int) (double) sp[2] + " s to find one" : "") + ")");
             if (s < bestS) { bestS = s; best = (String) sp[0]; to = at; }
         }

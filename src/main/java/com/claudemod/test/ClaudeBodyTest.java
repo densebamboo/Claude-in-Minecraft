@@ -10619,6 +10619,8 @@ public final class ClaudeBodyTest {
             case 696: return st696(stage, t, c, h, level, mock);
             case 697: return st697(stage, t, c, h, level, mock);
             case 698: return st698(stage, t, c, h, level, mock);
+            case 699: return st699(stage, t, c, h, level, mock);
+            case 659: return st659(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -17051,6 +17053,53 @@ public final class ClaudeBodyTest {
     }
 
     /** Live 03:36 11-06 World 17: "back up to my iron tunnel at y=16 for a new pair of branches", the user: "he's still doing the same 16 block branching on each side". New pairs were laid at branchLength 16 down the whole tunnel; the push to 64 came only once no room was left. A new branch is laid the full way (64, its room) unless they set a branch length. */
+    private static float st699Min;
+    private static boolean st699(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 06:31 World 17 (-14,68,-23): full health, a shield in his off hand, a creeper on the only way out of his furnace nook; he ran into it, 20 -> 0. Here: a 1-wide dead end, the creeper 5 off at its mouth, walking in.
+        if (t[0] == 1) { scenarioReset(c); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -4; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            for (int x = 3; x <= 9; x++) { for (int yy = 2; yy <= 3; yy++) { h.setBlock(new BlockPos(x, yy, 7), Blocks.STONE); h.setBlock(new BlockPos(x, yy, 9), Blocks.STONE); } h.setBlock(new BlockPos(x, 4, 8), Blocks.STONE); }
+            for (int yy = 2; yy <= 3; yy++) h.setBlock(new BlockPos(3, yy, 8), Blocks.STONE); // the dead end's back wall
+            level.setDayTime(6000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 14));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            BlockPos at = h.absolutePos(new BlockPos(4, 2, 8)); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+            mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            var cr = h.spawn(EntityType.CREEPER, new BlockPos(9, 2, 8)); cr.setPersistenceRequired(); cr.setTarget(c); // 5 off at the mouth: he runs, it walks in on him
+        }
+        if (t[0] == 11) st699Min = 20;
+        if (t[0] > 11) st699Min = Math.min(st699Min, c.getHealth());
+        if (t[0] > 14) check(c.isAlive(), "blown up in the dead end with a shield in his off hand (health " + (int) c.getHealth() + ", blocking " + c.isBlocking() + ", now=" + c.currentTask + ")");
+        if (t[0] >= 200) { check(st699Min >= 18, "took the lit creeper's blast down to " + (int) st699Min + " with a shield in his off hand (blocking " + c.isBlocking() + ")"); pass(stage, t, "shield up for the lit creeper he couldn't outrun (health " + (int) c.getHealth() + ")"); }
+        return true;
+    }
+    private static boolean st659(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 06:17 World 17 (review 20): dusk, 9 hostiles known (creepers in the caves under him), "his lit mine 25 off ~650 s (4 s walk, there before the spawns); a hole here ~555 s": the hole. Mobs that can't come at the walk aren't hits on it. Here: his bed clear 24 east, 9 creepers 6 down a trench beside him.
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); }
+        if (t[0] == 5) for (int cx = -1; cx <= 2; cx++) for (int cz = -1; cz <= 1; cz++) { BlockPos p = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(p), 2, p); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 34; x++) for (int z = 0; z <= 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 8; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = -4; x <= 2; x++) for (int z = 0; z <= 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, -6, z)), Blocks.STONE.defaultBlockState(), 2); for (int yy = -5; yy <= 1; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); } // a trench 7 deep west of him
+            sleepHis = sleepBed(level, h.absolutePos(new BlockPos(28, 2, 8)), net.minecraft.core.Direction.EAST); c.myStations.add(sleepHis);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            sleepAt(c, h, new BlockPos(3, 2, 8)); c.setHealth(20); c.getFoodData().setFoodLevel(20); level.setDayTime(12000);
+            for (int i = 0; i < 9; i++) { var cr = EntityType.CREEPER.create(level); BlockPos cp = h.absolutePos(new BlockPos(-2 + i % 3, -5, 6 + i / 3 * 2)); cr.moveTo(cp.getX() + 0.5, cp.getY(), cp.getZ() + 0.5, 0, 0); cr.setNoAi(true); cr.setPersistenceRequired(); level.addFreshEntity(cr); }
+        }
+        if (t[0] > 10 && t[0] < 30) { c.setYRot(90); c.setYHeadRot(90); c.setXRot(55); } // looking down into the trench: he's seen them (live: seen and heard)
+        if (t[0] == 30) {
+            c.tasks.clear(); c.skillQueue.clear(); com.claudemod.entity.life.Decide.dusk(c, level, 12000);
+            final BlockPos bed = sleepHis; boolean to = c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().distSqr(bed) <= 9);
+            String tq = c.tasks.toString() + " " + c.skillQueue; int known = com.claudemod.entity.life.Decide.hostilesKnown(c);
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard();
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            check(known >= 5, "the trench's creepers aren't known to him (" + known + "): the stage proves nothing");
+            check(to, "dusk, his bed clear 24 off, " + known + " creepers known 7 down a trench: not his pick: " + tq);
+            pass(stage, t, "dusk: creepers down a trench (" + known + " known) are no hits on the walk to his bed");
+        }
+        return true;
+    }
     private static int st698Top;
     private static boolean st698(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         // Live 05:41 World 17 (Nether 8,49,2): health 2, nothing to eat, a crossbow piglin 6-7 off: "0 shooter(s)", a 3-high tower, shot off it 2 -> 0. A piglin with a crossbow is a shooter like a skeleton.

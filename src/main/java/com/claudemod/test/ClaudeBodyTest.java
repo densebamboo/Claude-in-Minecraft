@@ -10538,6 +10538,7 @@ public final class ClaudeBodyTest {
             case 745: return st745(stage, t, c, h, level, mock);
             case 746: return st746(stage, t, c, h, level, mock);
             case 747: return st747(stage, t, c, h, level, mock);
+            case 748: return st748(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -11563,7 +11564,7 @@ public final class ClaudeBodyTest {
     private static boolean st527(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // the pearl stage's fight (the user, 19:40): an enderman at him, fought from a 2-deep hole (it can't reach in): dead, one hit taken at most, out of the hole after
         BlockPos me = h.absolutePos(new BlockPos(4, 2, 8));
         if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SHOVEL)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
-            c.tasks.clear(); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); hzLow = 20f; emHoleSeen = false; if (hzMob != null) hzMob.discard(); hzMob = null;
+            c.tasks.clear(); for (int x = -16; x <= 32; x++) for (int z = -16; z <= 32; z++) { for (int yy = -3; yy <= 0; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 13; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); } /* (48 wide: in flatBox's 16 it walked off into earlier stages' pits, "-2 up") */ c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); hzLow = 20f; emHoleSeen = false; if (hzMob != null) hzMob.discard(); hzMob = null;
             com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
         if (t[0] == 10) { var em = EntityType.ENDERMAN.create(level); BlockPos ep = h.absolutePos(new BlockPos(12, 2, 8)); em.moveTo(ep.getX() + 0.5, ep.getY(), ep.getZ() + 0.5, 90, 0); em.setPersistenceRequired(); level.addFreshEntity(em); em.setTarget(c); hzMob = em; c.tasks.add(new Task.Attack(em.getUUID(), 20 * 60)); }
         if (t[0] > 10) { hzLow = Math.min(hzLow, c.getHealth()); if (c.getBlockY() <= me.getY() - 2) emHoleSeen = true; if (hzMob instanceof net.minecraft.world.entity.monster.EnderMan e0 && e0.isAlive() && e0.getTarget() != c) e0.setTarget(c); }
@@ -14026,6 +14027,34 @@ public final class ClaudeBodyTest {
 
     /** Live 16:49 11-05 (-106,64,-6, tick 11767; Day to Day case D, the user: "Couldn't he have slept at his bed ... Most of the time you don't need to dig into a hole for 10 minutes just because the sun is going down"): full HP, food 20, 5 meals, no armor, his bed about 30 off: "the sun's going down and he's out with no armor: under cover before dark", a hole, 7 min of night in it. The game's first spawns in the open are at tick 13188 (12969 in rain), 70 s off; 30 blocks is 6 s at a sprint. Dusk is one priced choice: his bed, his lit mine, the hole last. */
     private static java.util.List<BlockPos> g743Junk = new java.util.ArrayList<>();
+    private static int st748Hit, st748Phase; private static net.minecraft.world.entity.monster.Zombie st748Z;
+    private static boolean st748(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // hit on the run back to his pile out of his armor (World 17 20:51: "fighting back: Piglin" ungeared, the pile 80 off, dead; the user: "avoiding combat altogether until you get suited with your pickups"): away, no fight; in armor, the fight as ever
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); com.claudemod.entity.life.DeathLog.reset(c); st748Phase = 0; st748Hit = -1; }
+        if (t[0] == 5) for (int cx = -1; cx <= 2; cx++) for (int cz = -1; cz <= 2; cz++) { BlockPos p = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(p), 2, p); }
+        BlockPos me = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 10 || t[0] == 200) {
+            for (int x = -16; x <= 32; x++) for (int z = -16; z <= 32; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 6; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard();
+            if (t[0] == 10) { var fell = new java.util.ArrayList<net.minecraft.world.entity.item.ItemEntity>(); fell.add(new net.minecraft.world.entity.item.ItemEntity(level, me.getX() + 300.5, 70, me.getZ() + 0.5, new ItemStack(Items.IRON_CHESTPLATE))); fell.add(new net.minecraft.world.entity.item.ItemEntity(level, me.getX() + 300.5, 70, me.getZ() + 0.5, new ItemStack(Items.IRON_SWORD))); com.claudemod.entity.life.DeathLog.died(c, level, me.offset(300, 0, 0).atY(70), fell); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, t[0] == 200 ? new ItemStack(Items.IRON_CHESTPLATE) : ItemStack.EMPTY);
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.lastStep = new com.claudemod.entity.life.Skills.Step("recover_drops", "", 1); level.setDayTime(6000); // (on his way back to the pile 300 off)
+            st748Z = EntityType.ZOMBIE.create(level); st748Z.moveTo(me.getX() + 2.5, me.getY(), me.getZ() + 0.5, 90, 0); st748Z.setPersistenceRequired(); level.addFreshEntity(st748Z); st748Z.setTarget(c); st748Hit = -1; st748Phase = t[0] == 10 ? 1 : 2;
+        }
+        if (t[0] > 10 && st748Phase > 0) {
+            level.setDayTime(6000); if (st748Z.isAlive() && st748Z.getTarget() != c) st748Z.setTarget(c);
+            if (st748Hit < 0 && c.getHealth() < 20) st748Hit = t[0];
+            if (st748Hit > 0 && t[0] == st748Hit + 10) {
+                boolean fled = c.currentTask instanceof Task.Flee, fought = c.currentTask instanceof Task.Attack;
+                if (st748Phase == 1) { check(fled && !fought, "hit on the run back to his pile out of his armor: " + (fought ? "fighting back" : "doing " + c.currentTask) + ", not away from it"); st748Z.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; st748Phase = 0; }
+                else { check(fought, "hit in his iron chestplate on the run back: not the fight as ever (doing " + c.currentTask + ")"); st748Z.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null; com.claudemod.entity.life.DeathLog.reset(c); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY);
+                    pass(stage, t, "hit on the run back to his pile: out of his armor, away from it; in his chestplate, the fight"); }
+            }
+            check(t[0] < 600, "the zombie never hit him (phase " + st748Phase + ")");
+        }
+        return true;
+    }
     private static boolean st747(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // his iron kit in his Nether pile, a wooden pick and cobble on him (World 17 20:41:17: "i'll gear up first (short of a sword or axe, a pickaxe, 4+ meals (0), 32+ blocks ...)", then gear_up wanted 33 iron, all of it in the pile): the run needs what the run needs, the kit is in the pile
         if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.DeathLog.reset(c); c.attempts.counters.remove("recoverGear"); }
         if (t[0] == 5) {

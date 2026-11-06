@@ -11873,7 +11873,7 @@ public final class ClaudeLife {
     }
 
     /** Wears the best armor he is carrying, and a shield in his off hand. */
-    private static void equipArmor(ClaudeEntity g) {
+    public static void equipArmor(ClaudeEntity g) {
         if (!held(g, net.minecraft.world.entity.EquipmentSlot.OFFHAND) && !g.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND).is(Items.SHIELD)) {
             for (int i = 0; i < g.inventory.items.getContainerSize(); i++) {
                 ItemStack s = g.inventory.items.getItem(i);

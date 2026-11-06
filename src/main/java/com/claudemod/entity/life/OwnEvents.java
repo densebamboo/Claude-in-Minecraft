@@ -90,6 +90,7 @@ public final class OwnEvents {
         int n = orig.getCount() - (rest.isEmpty() ? 0 : rest.getCount());
         if (n <= 0) return;
         Watchdog.pickedUp(g, e.getItemEntity().getUUID(), orig);
+        if (orig.getItem() instanceof net.minecraft.world.item.ArmorItem || orig.is(net.minecraft.world.item.Items.SHIELD)) com.claudemod.director.ClaudeLife.equipArmor(g); // on the moment he picks it up, not at the next 5 s round (the user 11-05: on a run back to his pile he's "suited with your pickups" before any fight)
         String what = id(orig.getItem()); BlockPos at = e.getItemEntity().blockPosition();
         int left = n;
         for (Event l : book(g)) {

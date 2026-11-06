@@ -10569,6 +10569,7 @@ public final class ClaudeBodyTest {
             case 682: return st682(stage, t, c, h, level, mock);
             case 683: return st683(stage, t, c, h, level, mock);
             case 684: return st684(stage, t, c, h, level, mock);
+            case 685: return st685(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -16090,6 +16091,19 @@ public final class ClaudeBodyTest {
             int inChest = level.getBlockEntity(h.absolutePos(chestAt)) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box ? box.countItem(Items.RAW_IRON) : -1;
             if (inChest >= 34) { check(c.inventory.count(x -> x.is(Items.IRON_PICKAXE)) == 1 && c.inventory.count(x -> x.is(Items.COOKED_BEEF)) == 16, "the trip kit went in the chest too: pick " + c.inventory.count(x -> x.is(Items.IRON_PICKAXE)) + ", beef " + c.inventory.count(x -> x.is(Items.COOKED_BEEF))); pass(stage, t, "the raw iron into his chest before the portal, in " + (t[0] - 10) + " ticks; pick and food kept"); }
             else check(t[0] < 400, "set off for the Nether with " + c.inventory.count(x -> x.is(Items.RAW_IRON)) + " raw iron on him, " + inChest + " in his chest 20 off; skills " + c.skillQueue + " tasks " + c.tasks);
+        }
+        return true;
+    }
+
+    /** The weights file: a value saved in config/claude/weights.json is read within 5 s, and a name it lacks is written in with its default. */
+    private static boolean st685(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var f = com.claudemod.entity.life.Weights.file();
+        if (t[0] == 1) { try { java.nio.file.Files.createDirectories(f.getParent()); java.nio.file.Files.writeString(f, "{\"test.tuned\": 7}"); } catch (Exception e) { check(false, "set-up: " + e); } com.claudemod.entity.life.Weights.w("test.default", 2); }
+        if (t[0] == 130) {
+            double v = com.claudemod.entity.life.Weights.w("test.tuned", 3); check(v == 7, "the file says test.tuned 7, he read " + v);
+            String txt = ""; try { txt = java.nio.file.Files.readString(f); } catch (Exception e) { check(false, "read: " + e); }
+            check(txt.contains("\"test.default\": 2.0"), "test.default was not written in with its default: " + txt);
+            pass(stage, t, "weights read from the file and defaults written in");
         }
         return true;
     }

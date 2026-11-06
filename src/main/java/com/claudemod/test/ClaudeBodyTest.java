@@ -10539,6 +10539,8 @@ public final class ClaudeBodyTest {
             case 746: return st746(stage, t, c, h, level, mock);
             case 747: return st747(stage, t, c, h, level, mock);
             case 748: return st748(stage, t, c, h, level, mock);
+            case 749: return st749(stage, t, c, h, level, mock);
+            case 750: return st750(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -14029,6 +14031,57 @@ public final class ClaudeBodyTest {
     /** Live 16:49 11-05 (-106,64,-6, tick 11767; Day to Day case D, the user: "Couldn't he have slept at his bed ... Most of the time you don't need to dig into a hole for 10 minutes just because the sun is going down"): full HP, food 20, 5 meals, no armor, his bed about 30 off: "the sun's going down and he's out with no armor: under cover before dark", a hole, 7 min of night in it. The game's first spawns in the open are at tick 13188 (12969 in rain), 70 s off; 30 blocks is 6 s at a sprint. Dusk is one priced choice: his bed, his lit mine, the hole last. */
     private static java.util.List<BlockPos> g743Junk = new java.util.ArrayList<>();
     private static int st748Hit, st748Phase; private static net.minecraft.world.entity.monster.Zombie st748Z;
+    private static boolean st750(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // dusk with his bed obstructed (World 17 21:12-21:20, incident 17: "the bed at 11, 68, -51 is no bed for him tonight: obstructed", and Decide.dusk sent him to it again every 20 s, four legs of 87 blocks): not his pick; the same bed clear: his pick
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); }
+        if (t[0] == 5) for (int cx = -1; cx <= 2; cx++) for (int cz = -1; cz <= 1; cz++) { BlockPos p = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(p), 2, p); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 34; x++) for (int z = 0; z <= 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 8; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            sleepHis = sleepBed(level, h.absolutePos(new BlockPos(28, 2, 8)), net.minecraft.core.Direction.EAST); c.myStations.add(sleepHis);
+            for (int x = 26; x <= 30; x++) level.setBlock(h.absolutePos(new BlockPos(x, 3, 8)), Blocks.STONE.defaultBlockState(), 2); // (a block over the bed: vanilla won't let him sleep in it)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            sleepAt(c, h, new BlockPos(4, 2, 8)); c.setHealth(20); c.getFoodData().setFoodLevel(20); level.setDayTime(12000);
+        }
+        if (t[0] == 12) {
+            c.tasks.clear(); c.skillQueue.clear(); com.claudemod.entity.life.Decide.dusk(c, level, 12000);
+            final BlockPos bed = sleepHis; boolean to = c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().distSqr(bed) <= 9);
+            check(!to, "dusk, his bed obstructed (a block over it): sent to it anyway: tasks=" + c.tasks);
+            for (int x = 26; x <= 30; x++) level.setBlock(h.absolutePos(new BlockPos(x, 3, 8)), Blocks.AIR.defaultBlockState(), 2);
+            c.tasks.clear(); c.skillQueue.clear(); com.claudemod.entity.life.Decide.dusk(c, level, 12000);
+            boolean to2 = c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().distSqr(bed) <= 9);
+            String tq = c.tasks.toString(); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            check(to2, "dusk, his bed clear 24 off: not his pick: tasks=" + tq);
+            pass(stage, t, "dusk: an obstructed bed of his isn't his pick, the same bed clear is");
+        }
+        return true;
+    }
+    private static int st749At;
+    private static boolean st749(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // his pillar out of a 2-deep hollow (World 17 20:52-20:54 by his mine, incident 214: the dirt at -13, 63, -20 taken up at a step's start, he dropped into the hollow for it, the walk out put it back, 6 times in 60 s): it stays, his step out; a pillar over flat ground still comes back up
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        BlockPos hole = h.absolutePos(new BlockPos(6, 1, 8)), flat = h.absolutePos(new BlockPos(10, 3, 12));
+        if (t[0] == 10) {
+            for (int x = 0; x <= 14; x++) for (int z = 2; z <= 14; z++) for (int yy = 0; yy <= 8; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), yy <= 2 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); // (ground: he stands at y 3)
+            for (int x = 5; x <= 7; x++) for (int yy = 1; yy <= 2; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, 8)), Blocks.AIR.defaultBlockState(), 2); // (a trench 2 deep, 3 long: open at both ends of his cell, so no hole filled flush)
+            level.setDayTime(6000); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIRT, 16)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(hole.getX() + 0.5, hole.getY(), hole.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.tasks.addFirst(new Task.Pillar(1)); st749At = 0;
+        }
+        if (t[0] <= 10) return true;
+        level.setDayTime(6000);
+        if (level.getBlockState(hole).is(Blocks.DIRT)) check(!(c.currentTask instanceof Task.Break cb && cb.pos().equals(hole)) && c.tasks.stream().noneMatch(q -> q instanceof Task.Break b && b.pos().equals(hole)), "the step out of a 2-deep trench queued to come back up (its take-up leaves a hollow he can only pillar out of): now=" + c.currentTask + " tasks=" + c.tasks);
+        if (st749At == 0 && level.getBlockState(hole).is(Blocks.DIRT) && c.onGround() && c.currentTask == null && c.tasks.isEmpty()) { c.teleportTo(flat.getX() + 0.5, flat.getY(), flat.getZ() + 0.5); c.tasks.addFirst(new Task.Pillar(1)); st749At = t[0]; } // (the control: a pillar on flat ground)
+        if (st749At > 0 && t[0] > st749At + 5 && level.getBlockState(flat).is(Blocks.DIRT) && c.onGround() && c.currentTask == null && c.tasks.isEmpty()) {
+            BlockPos stand = h.absolutePos(new BlockPos(8, 3, 11)); c.teleportTo(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5);
+            check(com.claudemod.entity.life.TempLedger.has(c, hole), "setup: the pillar out of the trench isn't on his ledger");
+            check(com.claudemod.entity.life.TempLedger.has(c, flat), "setup: the pillar over flat ground isn't on his ledger");
+            c.lastStep = new com.claudemod.entity.life.Skills.Step("collect", "logs", 3, ""); int n = com.claudemod.entity.life.TempLedger.stepStart(c, level, "collect");
+            boolean holeQ = c.tasks.stream().anyMatch(q -> q instanceof Task.Break b && b.pos().equals(hole)), flatQ = c.tasks.stream().anyMatch(q -> q instanceof Task.Break b && b.pos().equals(flat));
+            String tq = c.tasks.toString(); c.tasks.clear(); c.dropCurrent = true;
+            check(!holeQ, "the step out of a 2-deep trench queued to come back up at the step's start (its take-up leaves a hollow he can only pillar out of): " + n + " " + tq);
+            check(flatQ, "the pillar over flat ground wasn't queued to come back up (litter): " + n + " " + tq);
+            pass(stage, t, "his step out of a 2-deep trench stays; the pillar over flat ground comes back up");
+        }
+        check(t[0] < 10 + 20 * 30, "30 s: trench " + level.getBlockState(hole) + ", flat " + level.getBlockState(flat) + ", at " + c.blockPosition().toShortString() + ", now=" + c.currentTask + " tasks=" + c.tasks);
+        return true;
+    }
     private static boolean st748(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // hit on the run back to his pile out of his armor (World 17 20:51: "fighting back: Piglin" ungeared, the pile 80 off, dead; the user: "avoiding combat altogether until you get suited with your pickups"): away, no fight; in armor, the fight as ever
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); com.claudemod.entity.life.DeathLog.reset(c); st748Phase = 0; st748Hit = -1; }
         if (t[0] == 5) for (int cx = -1; cx <= 2; cx++) for (int cz = -1; cz <= 2; cz++) { BlockPos p = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(p), 2, p); }

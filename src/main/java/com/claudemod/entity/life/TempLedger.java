@@ -192,6 +192,24 @@ public final class TempLedger {
         ClaudeMod.LOGGER.info("[Claude temp] put down {} at {} ({}): {} | {}", e.item, p.toShortString(), why, e.before, e.during);
     }
 
+    /** Taking p back up would leave a hollow he can't walk out of: natural ground under it, and no neighbour he could walk to
+     *  level, a step up (with headroom) or a step down (World 17 20:52-20:54, incident 214: a pillar out of a hollow by his mine
+     *  taken up at each step's start and put back by the walk out, 6 times in 60 s). A tower's upper blocks (his own under them) aren't. */
+    static boolean stepOut(ClaudeEntity g, ServerLevel level, BlockPos p) {
+        if (!solid(level, p.below()) || has(g, p.below())) return false;
+        java.util.function.Predicate<BlockPos> so = q -> !q.equals(p) && solid(level, q), walk = q -> !so.test(q) && !so.test(q.above()) && so.test(q.below());
+        java.util.ArrayDeque<BlockPos> open = new java.util.ArrayDeque<>(); java.util.Set<BlockPos> seen = new java.util.HashSet<>(); open.add(p); seen.add(p);
+        while (!open.isEmpty() && seen.size() < 16) { BlockPos q = open.poll(); // (where he could walk from there without it: a hollow is a few cells, all below the rim)
+            for (Direction d : Direction.Plane.HORIZONTAL) { BlockPos n = q.relative(d);
+                if (Math.abs(n.getX() - p.getX()) > 5 || Math.abs(n.getZ() - p.getZ()) > 5) continue;
+                for (BlockPos m : new BlockPos[] {n, n.above(), n.below()}) {
+                    if (seen.contains(m) || !walk.test(m)) continue;
+                    if (m.getY() > q.getY() && so.test(q.above(2))) continue; // (no headroom for the step up)
+                    if (m.getY() < q.getY() && so.test(n.above())) continue;
+                    if (m.getY() > p.getY()) return false; // (up out of it on foot)
+                    seen.add(m.immutable()); open.add(m.immutable()); } } }
+        return seen.size() < 16;
+    }
     /** Dirt into a hill: his own ground under it, and beside it natural ground that rises past it (the slope it steps up). A lone
      *  pillar has nothing beside it; a raised line over flat ground has nothing higher beside it. */
     static boolean hillStep(ClaudeEntity g, ServerLevel level, BlockPos p) {
@@ -245,6 +263,8 @@ public final class TempLedger {
         { int air = 0; while (air < 4 && level.getBlockState(e.pos.below(air + 1)).getCollisionShape(level, e.pos.below(air + 1)).isEmpty()) air++;
           if (air >= 4) { e.blocked = "a drop of 4+ under it: it stays, the way back over the gap"; return false; }
           for (int d = 1; d <= 3; d++) if (level.getFluidState(e.pos.below(d)).is(net.minecraft.tags.FluidTags.LAVA)) { e.blocked = "over lava: a bridge, it stays (the user 11-05: bridges stay)"; return false; } } /* live 00:05: the tidy at a new step queued his bridge over a 6 drop, the drop guard held it, and the hold asked the user "say 'yes, break it'" for a break nobody ordered */
+        if (stepOut(g, level, e.pos)) { if (!"step out".equals(e.blocked)) ClaudeMod.LOGGER.info("[Claude temp] his {} at {} is his step out of a hollow: taken up, every way out of it is 2+ up, so the next walk out puts it back (a block's worth against a pit trip and a re-place each time by): it stays (TempLedger.takeable)", e.item, e.pos.toShortString()); e.blocked = "step out"; return false; }
+        if ("step out".equals(e.blocked)) e.blocked = ""; // (the hollow opened up since: litter again)
         { boolean open = false; for (Direction d : Direction.values()) { BlockPos n = e.pos.relative(d); if (level.getBlockState(n).getCollisionShape(level, n).isEmpty()) { open = true; break; } }
           if (!open) { if (!"buried".equals(e.blocked)) ClaudeMod.LOGGER.info("[Claude temp] his {} at {} is buried (solid on all six sides): part of the rock now, not litter; left (TempLedger.takeable)", e.item, e.pos.toShortString()); e.blocked = "buried"; return false; } } // live 01:19: a pillar block in his mine, built over since, re-queued and refused every 10 ticks
         for (Direction d : Direction.values()) { BlockPos n = e.pos.relative(d); if (d != Direction.DOWN && !level.getFluidState(n).isEmpty()) { if (!"holds fluid".equals(e.blocked)) ClaudeMod.LOGGER.info("[Claude temp] his {} at {} holds back the {} at {} now: a plug, not litter; it stays (TempLedger.takeable)", e.item, e.pos.toShortString(), level.getFluidState(n).getType().builtInRegistryHolder().key().location().getPath(), n.toShortString()); e.blocked = "holds fluid"; return false; } } // live 02:01 11-05: his 23-min-old scaffold at -91,14,-46 came up and let the water into his tunnel

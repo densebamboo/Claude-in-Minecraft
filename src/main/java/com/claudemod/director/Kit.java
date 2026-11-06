@@ -224,11 +224,12 @@ public final class Kit {
         ServerLevel level = (ServerLevel) g.level();
         var trip = new com.claudemod.entity.life.Food.Stretch(w("kit.trip_sprint_s", 900), 0, 0, 0, (int) w("kit.trip_digs", 2000), (int) w("kit.trip_hits", 60), w("kit.trip_hp", 60), 0);
         var fd = g.getFoodData(); double inHim = Math.max(0, fd.getFoodLevel() - 18) + fd.getSaturationLevel();
-        double carried = 0; int rawN = 0; Item rawCooked = null;
+        double carried = 0; int rawN = 0; Item rawCooked = null; java.util.Map<Item, Integer> rawBy = new java.util.LinkedHashMap<>();
         Item[][] rawToCooked = RAW_COOKED;
         for (int k = 0; k < g.inventory.items.getContainerSize(); k++) { ItemStack st = g.inventory.items.getItem(k); if (!st.has(DataComponents.FOOD)) continue;
             if (!ClaudeLife.rawOrBad(level, st)) carried += pts(st.getItem()) * st.getCount();
-            else for (Item[] rc : rawToCooked) if (st.is(rc[0])) { rawN += st.getCount(); if (rawCooked == null || pts(rc[1]) > pts(rawCooked)) rawCooked = rc[1]; } }
+            else for (Item[] rc : rawToCooked) if (st.is(rc[0])) rawBy.merge(rc[1], st.getCount(), Integer::sum); }
+        for (var e : rawBy.entrySet()) if (rawCooked == null || e.getValue() * pts(e.getKey()) > rawN * pts(rawCooked)) { rawCooked = e.getKey(); rawN = e.getValue(); } // the raw kind he has most food in, its own count (1 raw pork and 4 beef asked "4 cooked_porkchop": a pork errand from nothing, D2D live 14:16; stage 912)
         double need = com.claudemod.entity.life.Food.points(trip) + w("kit.reserve_points", 42) - inHim, shortP = need - carried;
         if (shortP <= 0) return null;
         double meal = w("food.meal_points", 20.8), shortS = w("kit.short_meal_s", 90), sprint = com.claudemod.entity.life.Decide.sprint(), cook = w("kit.cook_s", 5), kill = w("kit.kill_s", 6);

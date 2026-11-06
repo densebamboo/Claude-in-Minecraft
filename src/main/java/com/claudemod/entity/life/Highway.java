@@ -37,10 +37,18 @@ public final class Highway {
     static final Item BLOCK = Items.COBBLED_DEEPSLATE;
     private static double w(String n, double d) { return Weights.w(n, d); }
 
-    static final class State { BridgeBlueprint plan; int portalId = -1; BlockPos dest; boolean said; }
+    static final class State { BridgeBlueprint plan; int portalId = -1; BlockPos dest; boolean said; int built = -1, rows = -1; }
     private static Map<UUID, State> states; // (static: fields added live start null)
     static State state(ClaudeEntity g) { if (states == null) states = new HashMap<>(); return states.computeIfAbsent(g.getUUID(), k -> new State()); }
     public static void reset(ClaudeEntity g) { if (states != null) states.remove(g.getUUID()); }
+    /** The highway underway (portal, destination, rows laid), saved with his portal map: a restart lost it and he walked for the fortress with its deepslate as loose bridge blocks (D2D live 14:19, the user: "bug. he should be building the highway"; stage 913). */
+    public static net.minecraft.nbt.CompoundTag save(ClaudeEntity g) { State s = state(g); if (s.dest == null || s.portalId < 0) return null; var t = new net.minecraft.nbt.CompoundTag(); t.putInt("portal", s.portalId); t.putLong("dest", s.dest.asLong()); t.putInt("built", s.built); t.putInt("rows", s.rows); return t; }
+    public static void load(ClaudeEntity g, net.minecraft.nbt.CompoundTag t) { State s = state(g); s.plan = null; s.portalId = t.getInt("portal"); s.dest = BlockPos.of(t.getLong("dest")); s.built = t.getInt("built"); s.rows = t.getInt("rows"); ClaudeMod.LOGGER.info("[Claude highway] underway from his saved state: portal #{} to {}, {} of {} rows (Highway.load)", s.portalId, s.dest.toShortString(), s.built, s.rows); }
+    /** A highway of his is underway (its block is his building stock, never junk). */
+    public static boolean underway(ClaudeEntity g) { State s = state(g); return s.dest != null && s.portalId >= 0; }
+    /** For his planner: the highway he's building and that build_highway resumes it. */
+    public static String describe(ClaudeEntity g) { State s = state(g); if (s.dest == null || s.portalId < 0) return "";
+        return "\nHIGHWAY UNDERWAY (yours, in the Nether): from portal #" + s.portalId + " to " + s.dest.getX() + " " + s.dest.getY() + " " + s.dest.getZ() + (s.built >= 0 && s.rows > 0 ? ", " + s.built + " of " + s.rows + " rows laid" : "") + "; build_highway (no target) resumes it, and it is your way there: build it on rather than walking or bridging to that spot.\n"; }
     public static BridgeBlueprint plan(ClaudeEntity g) { return state(g).plan; }
 
     /** Where it goes: "x y z" in the words, else "fortress" (the one he scouted, on his atlas). */
@@ -57,6 +65,7 @@ public final class Highway {
             g.skillQueue.addFirst(new Skills.Step("build_highway", words, st.count(), st.where())); g.skillQueue.addFirst(new Skills.Step("enter_portal", "", 1));
             return "the highway's in the Nether: through the portal first";
         }
+        if (s.plan == null && s.dest != null && (words.isBlank() || st.target().startsWith("@"))) words = s.dest.getX() + " " + s.dest.getY() + " " + s.dest.getZ(); // (after a restart: the one underway)
         if (!st.target().startsWith("@") || s.plan == null) { String r = makePlan(g, level, words, s); if (r != null) return r; }
         BridgeBlueprint b = s.plan; int lo = b.lo(), hi = b.hi();
         // where it stands: the first row not finished (read off the world; a row out in unloaded ground isn't, it's ahead)
@@ -98,12 +107,15 @@ public final class Highway {
         for (var p : PortalMap.net(g).portals) {
             if (!PortalMap.NETHER.equals(p.dim)) continue;
             String n = "#" + p.id; byName.put(n, p);
-            if (!"lit".equals(p.state)) { opts.add(Decide.Option.out(n, p.state)); continue; }
+            if (level.isLoaded(p.at) && p.at.distSqr(g.blockPosition()) <= 16 * 16) { String now = PortalMap.stateAt(level, p.at); if (!now.equals(p.state)) { ClaudeMod.LOGGER.info("[Claude portal] #{} is {} now (was {}) (Highway.makePlan)", p.id, now, p.state); p.state = now; } } // (the one he's by, as it is: a record 300 min old said unlit with him stood in it lit, D2D live 13:53; stage 909)
+            boolean flint = g.inventory.count(x -> x.is(net.minecraft.world.item.Items.FLINT_AND_STEEL) || x.is(net.minecraft.world.item.Items.FIRE_CHARGE)) > 0;
+            if (!"lit".equals(p.state) && !("unlit".equals(p.state) && flint)) { opts.add(Decide.Option.out(n, p.state + ("unlit".equals(p.state) ? ", no flint and steel on me" : ""))); continue; }
+            double relight = "lit".equals(p.state) ? 0 : w("highway.relight_s", 4); // (an unlit frame: flint and steel on its bottom obsidian, priced, not ruled out)
             int rowsN = Math.abs(dest.getX() - p.at.getX()) + Math.abs(dest.getZ() - p.at.getZ()); double walk = Math.sqrt(g.blockPosition().distSqr(p.at)) * PortalMap.NETHER_OFF_ROAD / sprint;
-            opts.add(Decide.Option.of(n, rowsN * rowS + walk, rowsN + " rows x " + rowS + " s + " + Math.round(walk) + " s to it"));
+            opts.add(Decide.Option.of(n, rowsN * rowS + walk + relight, rowsN + " rows x " + rowS + " s + " + Math.round(walk) + " s to it" + (relight > 0 ? " + " + Math.round(relight) + " s to relight it" : "")));
         }
         var pick = Decide.choose(g, "highway.portal", "to " + dest.toShortString(), true, opts);
-        if (pick == null) return "failed: no lit Nether portal of mine to start a highway from";
+        if (pick == null) return "failed: no Nether portal on my map to start a highway from (lit, or out with flint and steel on me)";
         var portal = byName.get(pick.name());
         var axis = BridgeBlueprint.facingAxis(level, portal.at);
         if (axis == null) return "failed: portal #" + portal.id + " at " + portal.where() + " isn't standing (no portal block there)";
@@ -169,13 +181,14 @@ public final class Highway {
 
     /** Each leg's built stretch on his portal map, as a highway segment (extended as it grows). */
     static void record(ClaudeEntity g, BridgeBlueprint b, int built) {
+        { State s0 = state(g); s0.built = built; s0.rows = b.rows.size(); }
         for (int leg = 1; leg <= 2; leg++) { BridgeBlueprint.Row a = null, z = null; for (int i = 0; i < built; i++) { var r = b.rows.get(i); if (r.leg() != leg || r.stair()) { if (a != null && z != null && r.leg() == leg) break; continue; } if (a == null) a = r; z = r; }
             if (a != null && z != null && a != z && a.centre().getY() == z.centre().getY()) PortalMap.addSegment(g, PortalMap.NETHER, a.centre(), z.centre(), a.dir().getAxis(), b.width); }
     }
 
     static String finish(ClaudeEntity g, ServerPlayer player, BridgeBlueprint b, String how) {
         String r = "done: the highway from portal #" + state(g).portalId + " to " + b.dest.toShortString() + " is laid, " + b.width + " wide, cobbled deepslate: " + how;
-        ClaudeMod.LOGGER.info("[Claude highway] {} (Highway.finish)", r);
+        ClaudeMod.LOGGER.info("[Claude highway] {} (Highway.finish)", r); state(g).dest = null; // (done: no longer underway)
         if (player != null) com.claudemod.director.ClaudeChat.say(player, "the highway to " + b.dest.toShortString() + " is down (" + b.width + " wide, no rails yet): " + how, "build_highway: done");
         return r;
     }
@@ -183,15 +196,19 @@ public final class Highway {
     /** Out of cobbled deepslate (or short of the next row): where the next lot comes from, priced; the trip queued, then back to building. */
     static String blocks(ClaudeEntity g, ServerPlayer player, ServerLevel level, State s, int next, int have, String words, Skills.Step st) {
         BridgeBlueprint b = s.plan; int left = b.rows.size() - next;
-        int trip = (int) Math.max(64, Math.min(left * w("highway.blocks_per_row", 2.6), w("highway.trip_blocks", 384)));
+        int room = 0, free = 0; for (int k = 0; k < g.inventory.items.getContainerSize(); k++) { var it = g.inventory.items.getItem(k); if (it.isEmpty()) free++; else if (it.is(BLOCK)) room += it.getMaxStackSize() - it.getCount(); }
+        int fit = room + Math.max(0, free - (int) w("highway.trip_free_slots", 2)) * 64; // as many stacks as his pack holds, a slot or two kept for pickups (the user 11-06: "as many stacks as he can at a time, with maybe 1 or 2 empty inventory slots as a buffer")
+        int trip = (int) Math.max(64, Math.min(left * w("highway.blocks_per_row", 2.6), fit));
         int inChests = 0; for (var e : ChestLedger.book(g).values()) if (e.dim() != null && e.dim().endsWith("overworld")) inChests += e.items().getOrDefault(BLOCK, 0);
+        int minFetch = (int) (w("highway.fetch_min_stacks", 5) * 64); // (the user: "if he has less than 5 he can grab he should go mining")
         var portal = PortalMap.byId(g, s.portalId); double sprint = Decide.sprint();
         double toPortal = portal == null ? 0 : Math.sqrt(g.blockPosition().distSqr(portal.at)) / sprint, through = w("highway.portal_s", 8);
         double there = 2 * (toPortal + through), chestS = w("highway.chest_trip_s", 90), mineS = w("highway.mine_s_per_block", 1.2), mineWalk = w("highway.mine_trip_s", 120);
         List<Decide.Option> opts = new ArrayList<>();
-        if (inChests >= trip) opts.add(Decide.Option.of("his chests", there + chestS, inChests + " in his chests; " + Math.round(there) + " s there and back + " + Math.round(chestS) + " s at them"));
+        if (inChests < Math.min(trip, minFetch)) { opts.add(Decide.Option.out("his chests", inChests + " in them, under " + minFetch / 64 + " stacks: not worth the trip, mining")); }
+        else if (inChests >= trip) opts.add(Decide.Option.of("his chests", there + chestS, inChests + " in his chests; " + Math.round(there) + " s there and back + " + Math.round(chestS) + " s at them"));
         else opts.add(Decide.Option.out("his chests", inChests + " in them, " + trip + " wanted"));
-        if (inChests > 0 && inChests < trip) opts.add(Decide.Option.of("chests, then mine the rest", there + chestS + mineWalk + (trip - inChests) * mineS, inChests + " from chests, " + (trip - inChests) + " mined at " + mineS + " s each"));
+        if (inChests >= minFetch && inChests < trip) opts.add(Decide.Option.of("chests, then mine the rest", there + chestS + mineWalk + (trip - inChests) * mineS, inChests + " from chests, " + (trip - inChests) + " mined at " + mineS + " s each"));
         opts.add(Decide.Option.of("strip mine it", there + mineWalk + trip * mineS, trip + " mined at deepslate level at " + mineS + " s each (ore seen on the way gets mined: diamonds for gear)"));
         opts.add(Decide.Option.out("netherrack", "the user: highways are always cobbled deepslate"));
         var pick = Decide.choose(g, "highway.blocks", have + " on him, " + left + " rows left, " + trip + " for this trip", true, opts);

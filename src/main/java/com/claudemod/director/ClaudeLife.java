@@ -8559,11 +8559,12 @@ public final class ClaudeLife {
      * at a sprint against station.table_make_s (station.table_set_s with one in his pack). Was a rule: any table within 32 (his
      * mine's) or the search range walked to (reviews 11-06: 18 to 48 blocks off with 23-55 logs on him, six an hour).
      */
-    private static boolean ownTableBeats(ClaudeEntity g, ServerLevel level, BlockPos at, Skills.Step st) {
+    private static boolean ownTableBeats(ClaudeEntity g, ServerLevel level, BlockPos at, String what) {
         int r = routeDist(g, g.blockPosition(), at);
         double his = r >= Integer.MAX_VALUE / 2 ? Double.MAX_VALUE : 2.0 * r / com.claudemod.entity.life.Decide.sprint(), own = g.inventory.count(s -> s.is(Items.CRAFTING_TABLE)) > 0 ? com.claudemod.entity.life.Weights.w("station.table_set_s", 3) : com.claudemod.entity.life.Weights.w("station.table_make_s", 5);
-        var pick = com.claudemod.entity.life.Decide.choose(g, "station.table", st.skill() + " " + st.target() + ", the table at " + at.toShortString() + " " + r + " off", true, List.of(
-                com.claudemod.entity.life.Decide.Option.of("his own here", own, g.inventory.count(s -> s.is(Items.CRAFTING_TABLE)) > 0 ? "set down from his pack, taken back up" : "made from the wood on him, taken back up"),
+        var pick = com.claudemod.entity.life.Decide.choose(g, "station.table", what + ", the table at " + at.toShortString() + " " + r + " off", true, List.of(
+                baseArea(g, g.blockPosition()) ? com.claudemod.entity.life.Decide.Option.out("his own here", "one set down at his base stays: the base's own table is the one (the user: no tables littered round his house)")
+                    : com.claudemod.entity.life.Decide.Option.of("his own here", own, g.inventory.count(s -> s.is(Items.CRAFTING_TABLE)) > 0 ? "set down from his pack, taken back up" : "made from the wood on him, taken back up"),
                 com.claudemod.entity.life.Decide.Option.of("walk to that one", his, r + " blocks there and back")));
         return pick != null && pick.name().equals("his own here");
     }
@@ -8591,7 +8592,7 @@ public final class ClaudeLife {
                 if (face != null) for (BlockPos f : g.myStations) if (level.isLoaded(f) && level.getBlockState(f).is(Blocks.FURNACE) && f.distSqr(face) <= 96 * 96 && (best == null || f.distSqr(face) < best.distSqr(face))) best = f;
                 if (best != null && (mineStation == null || best.distSqr(face) + 24 * 24 < mineStation.distSqr(face))) mineStation = best;
             }
-            if (block == Blocks.CRAFTING_TABLE && canPlaceOwn && mineStation != null && ownTableBeats(g, level, mineStation, st)) return null;
+            if (block == Blocks.CRAFTING_TABLE && canPlaceOwn && mineStation != null && ownTableBeats(g, level, mineStation, st.skill() + " " + st.target())) return null;
             Integer failed = mineStation == null ? null : g.attempts.any.get(mineStation);
             if (mineStation != null && (failed == null || g.tickCount - failed > 20 * 60)) {
                 g.tasks.add(new Task.GoTo(mineStation, 2.5));
@@ -8616,7 +8617,7 @@ public final class ClaudeLife {
         all.removeIf(p -> { Integer t = g.attempts.any.get(p); return t != null && g.tickCount - t < 20 * 60; });
         if (all.isEmpty()) return null;
         BlockPos at = all.stream().min(Comparator.comparingDouble(p -> p.distSqr(g.blockPosition()))).get();
-        if (block == Blocks.CRAFTING_TABLE && canPlaceOwn && ownTableBeats(g, level, at, st)) return null;
+        if (block == Blocks.CRAFTING_TABLE && canPlaceOwn && ownTableBeats(g, level, at, st.skill() + " " + st.target())) return null;
         g.tasks.add(new Task.GoTo(at, 2.5));
         g.stationWalkTick = g.tickCount;
         g.skillQueue.addFirst(st); // and do it once he's there
@@ -8949,7 +8950,9 @@ public final class ClaudeLife {
 
     private static boolean ensureCraftingTable(ClaudeEntity g, ServerLevel level, Item target) {
         if (tableInReach(g, level) != null) return true;
-        if (g.nook != null && Crafting.needsTable(level, target) && level.isLoaded(g.nook.tableCell()) && g.nook.tableCell().distSqr(g.blockPosition()) <= 32 * 32 && routeDist(g, g.blockPosition(), g.nook.tableCell()) <= 32 && !nookCellInWalk(g, g.nook.tableCell(), "ClaudeLife.ensureCraftingTable")) { // his base's table: the one he crafts at down here (the user: a second table notched 10 blocks from the nook was redundant); its slot empty, the new table goes in it
+        boolean woodOn = g.inventory.count(t -> t.is(Items.CRAFTING_TABLE)) > 0 || g.inventory.count(t -> t.is(ItemTags.PLANKS)) >= 4 || g.inventory.count(t -> t.is(ItemTags.LOGS)) > 0;
+        boolean ownOverNook = woodOn && g.nook != null && Crafting.needsTable(level, target) && level.isLoaded(g.nook.tableCell()) && level.getBlockState(g.nook.tableCell()).is(Blocks.CRAFTING_TABLE) && g.nook.tableCell().distSqr(g.blockPosition()) > 5 * 5 && ownTableBeats(g, level, g.nook.tableCell(), "craft " + Crafting.name(target)); // (live 07:37 World 17: 25 blocks to his nook's table and back with 27 logs on him)
+        if (!ownOverNook && g.nook != null && Crafting.needsTable(level, target) && level.isLoaded(g.nook.tableCell()) && g.nook.tableCell().distSqr(g.blockPosition()) <= 32 * 32 && routeDist(g, g.blockPosition(), g.nook.tableCell()) <= 32 && !nookCellInWalk(g, g.nook.tableCell(), "ClaudeLife.ensureCraftingTable")) { // his base's table: the one he crafts at down here (the user: a second table notched 10 blocks from the nook was redundant); its slot empty, the new table goes in it
             BlockPos tc = g.nook.tableCell(), stand = g.nook.standFor(tc);
             if (!level.getBlockState(tc).is(Blocks.CRAFTING_TABLE) && (g.tasks.stream().anyMatch(t -> t instanceof Task.Place pl && pl.pos().equals(tc) && pl.item() == Items.CRAFTING_TABLE) || (g.currentTask instanceof Task.Place cp && cp.pos().equals(tc)))) return false; // (its table already going in: not queued again; the extra break ran after it was in)
             Integer failed = g.attempts.any.get(tc);
@@ -8970,7 +8973,7 @@ public final class ClaudeLife {
             BlockPos far = findNear(level, g.blockPosition(), 24, b -> b.is(Blocks.CRAFTING_TABLE));
             if (far == null) far = g.myStations.stream().filter(p -> p.distSqr(g.blockPosition()) <= 64 * 64 && level.isLoaded(p) && level.getBlockState(p).is(Blocks.CRAFTING_TABLE)).min(java.util.Comparator.comparingDouble(p -> p.distSqr(g.blockPosition()))).orElse(null); // his own table further down his tunnel: he knows it's there (a pick broke 32 off his mine's table: 15 s of "could not make a crafting table" with 2 planks, live 23:16)
             final BlockPos far0 = far; /* held only by a walk there that failed, or one on its way (a 60 s mark from any walk held the axe's walk after the sword's had got there: live 23:19 11-04, 7 logs by hand) */ boolean goingThere = far != null && (g.currentTask instanceof Task.GoTo gt && gt.pos().equals(far0) || g.tasks.stream().anyMatch(t0 -> t0 instanceof Task.GoTo gt0 && gt0.pos().equals(far0)));
-            if (far != null && far.distSqr(g.blockPosition()) > 5 * 5 && !goingThere && !g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, far, g.tickCount, 20 * 60)) { g.tasks.addFirst(new Task.GoTo(far, 2.0)); nookSay(g, "tableWalk", "[Claude craft] for " + Crafting.name(target) + ": walking to a crafting table at " + far.toShortString() + " (ClaudeLife.ensureCraftingTable)"); return false; }
+            if (far != null && far.distSqr(g.blockPosition()) > 5 * 5 && !goingThere && !g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, far, g.tickCount, 20 * 60) && !(woodOn && ownTableBeats(g, level, far, "craft " + Crafting.name(target)))) { /* (priced: live 08:08 World 17, "his own here" chosen, then this walked him 54 blocks to his mine's) */ g.tasks.addFirst(new Task.GoTo(far, 2.0)); nookSay(g, "tableWalk", "[Claude craft] for " + Crafting.name(target) + ": walking to a crafting table at " + far.toShortString() + " (ClaudeLife.ensureCraftingTable)"); return false; }
         }
         BlockPos near = findNear(level, g.blockPosition(), 5, b -> b.is(Blocks.CRAFTING_TABLE));
         if (near != null && g.inventory.count(t -> t.is(Items.CRAFTING_TABLE)) == 0 && (g.attempts.any.get(near) == null || g.tickCount - g.attempts.any.get(near) > 20 * 60)) { g.tasks.addFirst(new Task.GoTo(near, 1.5)); nookSay(g, "tableWalk", "[Claude craft] for " + Crafting.name(target) + ": walking to a crafting table at " + near.toShortString() + " (ClaudeLife.ensureCraftingTable)"); return false; } // (one he couldn't walk to a moment ago: his own goes down instead) // (one in his pack: down it goes here; a table behind the wall below had him walking at it and the walk dropped every time) // one a few steps off: walk to it (a player crafts at the table, not from across the room)

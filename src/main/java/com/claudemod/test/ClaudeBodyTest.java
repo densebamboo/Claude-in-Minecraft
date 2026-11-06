@@ -10544,6 +10544,7 @@ public final class ClaudeBodyTest {
             case 749: return st749(stage, t, c, h, level, mock);
             case 750: return st750(stage, t, c, h, level, mock);
             case 751: return st751(stage, t, c, h, level, mock);
+            case 752: return st752(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -14140,6 +14141,25 @@ public final class ClaudeBodyTest {
             check(c.attempts.why(com.claudemod.entity.life.Attempts.Kind.WALK, goal) != null, "the failed walk's record went with the jump");
             pass(stage, t, "a jump in place: the failed walk's record held");
         }
+        return true;
+    }
+    private static net.minecraft.world.entity.monster.EnderMan em752; private static boolean st752Dig;
+    private static boolean st752(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // an enderman 17 below out of sight, him at 11 HP and burning (World 17 20:41:00, incident 97: "the Enderman is 17 below, out of sight, no way down on foot: digging down to it", on fire, dead at 20:41:16): not dug down to; at full health and not burning: dug down to as before
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        BlockPos me = h.absolutePos(new BlockPos(6, 21, 8)), ep = h.absolutePos(new BlockPos(6, 4, 8));
+        if (t[0] == 10 || t[0] == 80) {
+            for (int x = 0; x <= 12; x++) for (int z = 2; z <= 14; z++) for (int yy = 1; yy <= 26; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), yy <= 20 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            for (int x = 5; x <= 7; x++) for (int z = 7; z <= 9; z++) for (int yy = 4; yy <= 6; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); // (its pocket, sealed: out of sight)
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard();
+            em752 = net.minecraft.world.entity.EntityType.ENDERMAN.create(level); em752.moveTo(ep.getX() + 0.5, ep.getY(), ep.getZ() + 0.5, 0, 0); em752.setNoAi(true); em752.setPersistenceRequired(); level.addFreshEntity(em752); em752.setTarget(c);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getFoodData().setFoodLevel(20);
+            boolean hurt = t[0] == 10; c.setHealth(hurt ? 11 : 20); c.setRemainingFireTicks(hurt ? 300 : 0); if (!hurt) c.clearFire();
+            c.prefs.put("stay_close", "no"); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); st752Dig = false;
+        }
+        if (t[0] == 12 || t[0] == 82) { c.tasks.clear(); c.tasks.addFirst(new Task.Attack(em752.getUUID(), 20 * 60)); }
+        if ((t[0] > 12 && t[0] < 60) || (t[0] > 82 && t[0] < 130)) { if (t[0] < 60) c.setHealth(Math.max(c.getHealth(), 9)); BlockPos e0 = em752.blockPosition(); if (c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().distSqr(e0) <= 16) || c.currentTask instanceof Task.GoTo cg && cg.pos().distSqr(e0) <= 16) st752Dig = true; }
+        if (t[0] == 60) { c.clearFire(); c.tasks.clear(); c.dropCurrent = true; check(!st752Dig, "at 11 HP and burning (300 fire ticks, no water): dug down 17 to the enderman"); }
+        if (t[0] == 130) { em752.discard(); c.tasks.clear(); c.dropCurrent = true; check(st752Dig, "at full health, not burning: the enderman 17 below not dug down to (as before)"); pass(stage, t, "an enderman 17 below out of sight: not dug down to at 11 HP burning; dug down to at full health"); }
         return true;
     }
     private static int st749At;

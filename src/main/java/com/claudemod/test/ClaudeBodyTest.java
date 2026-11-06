@@ -10566,6 +10566,7 @@ public final class ClaudeBodyTest {
             case 764: return st764(stage, t, c, h, level, mock);
             case 765: return st765(stage, t, c, h, level, mock);
             case 766: return st766(stage, t, c, h, level, mock);
+            case 767: return st767(stage, t, c, h, level, mock);
             case 762: return st762(stage, t, c, h, level, mock);
             case 763: return st763(stage, t, c, h, level, mock);
             case 758: return st758(stage, t, c, h, level, mock);
@@ -14810,6 +14811,29 @@ public final class ClaudeBodyTest {
             check(!(c.currentTask instanceof Task.Flee) || !st766Sk.isAlive(), "running from one skeleton at " + (int) c.getHealth() + " HP with a sword (its arrows in his back)");
             if (!st766Sk.isAlive()) { com.claudemod.entity.life.DeathLog.reset(c); c.lastStep = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "one skeleton fought, not run from: dead in " + (t[0] - st766Start) / 20 + " s, his low " + st766Low); }
             else check(t[0] - st766Start < 20 * 40, "40 s and the skeleton still up (his low " + st766Low + ", doing " + c.currentTask + ")");
+        }
+        return true;
+    }
+    private static int st767Start; private static java.util.List<net.minecraft.world.entity.Mob> st767M = new java.util.ArrayList<>();
+    private static boolean st767(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // on top of his 5-high tower at night, creepers and zombies at its foot 4 out (World 17 06:15-06:20, incident 062037-stuck-22: "creeper 6 blocks off: getting away from it", runs off the top into them, "no closer in 2.5 s", 3+ min): a creeper that can't get within its fuse of him is no reason to run
+        BlockPos me = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st767Start = 0; st767M.clear(); }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(60))) if (!st767M.contains(e)) e.discard();
+        if (t[0] == 10) {
+            for (int x = -16; x <= 32; x++) for (int z = -16; z <= 32; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 24; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (int yy = 0; yy < 5; yy++) { level.setBlock(me.above(yy), Blocks.COBBLESTONE.defaultBlockState(), 2); c.pillarBlocks.add(me.above(yy).immutable()); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16));
+            c.teleportTo(me.getX() + 0.5, me.getY() + 5, me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            level.setDayTime(16000);
+            int[][] at = {{4, 0}, {-4, 0}, {0, 4}, {0, -4}, {3, 3}};
+            for (int i = 0; i < at.length; i++) { var m = (i < 3 ? EntityType.CREEPER : EntityType.ZOMBIE).create(level); m.moveTo(me.getX() + at[i][0] + 0.5, me.getY(), me.getZ() + at[i][1] + 0.5, 0, 0); m.setPersistenceRequired(); level.addFreshEntity(m); m.setTarget(c); st767M.add(m); }
+            c.tasks.add(new Task.Wait(20 * 60, false)); st767Start = t[0]; // (up his tower, waiting them out)
+        }
+        if (st767Start > 0) {
+            level.setDayTime(16000); for (var m : st767M) if (m.isAlive() && m.getTarget() != c) m.setTarget(c);
+            check(c.isAlive(), "dead on his tower");
+            check(!(c.currentTask instanceof Task.Flee), "running off his 5-high tower from creepers at its foot (" + c.blockPosition().toShortString() + ")");
+            if (t[0] - st767Start >= 20 * 20) { check(c.getY() >= me.getY() + 4, "off his tower: at " + c.blockPosition().toShortString()); for (var m : st767M) m.discard(); st767M.clear(); for (int yy = 0; yy < 5; yy++) { level.setBlock(me.above(yy), Blocks.AIR.defaultBlockState(), 2); c.pillarBlocks.remove(me.above(yy)); } c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "20 s on his tower over creepers and zombies, no run"); }
         }
         return true;
     }

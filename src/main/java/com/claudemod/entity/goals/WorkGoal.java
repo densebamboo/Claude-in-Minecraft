@@ -4809,6 +4809,15 @@ public class WorkGoal extends Goal {
         if (end != null && partial) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: no walk all the way to {}, but one that gets him well along it (WorkGoal.pickEscape)", end.toShortString());
         if (end == null && winding != null) { end = winding; fleeDir = windDir; }
         if (end == null) { fleeDir = base; end = BlockPos.containing(g.position().add(fleeDir.scale(16))); for (int k = 0; k <= 6; k++) { if (standable(lv, end.above(4 - k))) { end = end.above(4 - k); break; } }
+            { var p0 = g.getNavigation().createPath(end, 1); var past = p0 == null ? null : walksPast(p0, mobs);
+              if (past != null && !shoots(past)) { // every way out goes by them (a shooter's sight is no place to hold: stage 596's tower) (World 17 06:31: the walk out of his dip went up past the creeper, blown up; stage 768): no run, the reachable cell furthest from them instead
+                BlockPos best = null; double bestD = mobs.stream().mapToDouble(m -> m.distanceTo(g)).min().orElse(0) + 1; int r = (int) w("flee.back_off_blocks", 8);
+                for (BlockPos q : BlockPos.betweenClosed(feet.offset(-r, -2, -r), feet.offset(r, 2, r))) { if (!standable(lv, q)) continue;
+                    double dq = mobs.stream().mapToDouble(m -> m.position().distanceTo(Vec3.atBottomCenterOf(q))).min().orElse(0); if (dq <= bestD) continue;
+                    var pq = g.getNavigation().createPath(q, 0); if (pq == null || !pq.canReach() || walksPast(pq, mobs) != null) continue; best = q.immutable(); bestD = dq; }
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: every way out goes by the {} ({} through a mob): {} (WorkGoal.pickEscape)", past.getType().getDescription().getString(), thru, best == null ? "nowhere further from them to back off to, holding here" : "backing off to " + best.toShortString() + ", " + (int) bestD + " from them");
+                end = best == null ? feet.immutable() : best; fleeDir = Vec3.atCenterOf(end).subtract(g.position()).multiply(1, 0, 1); fleeDir = fleeDir.lengthSqr() < 1e-4 ? base : fleeDir.normalize();
+                setEscape("backoff", end, null); return; } }
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: no run end he can walk to ({} tried, no walk to {}; skipped {} with nowhere to stand, {} tried lately, {} through a mob){}: straight out on the best heading (WorkGoal.pickEscape)", tried, nos, noStand, recent, thru, portalNote); }
         else if (!nos.isEmpty() || !windy.isEmpty() || !portalNote.isEmpty()) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: run end {} has a walk to it{} ({} with none: {}; {} winding: {}) (WorkGoal.pickEscape)", end.toShortString(), portalNote, nos.size(), nos, windy.size(), windy);
         setEscape("run", end.immutable(), null);
@@ -4846,6 +4855,11 @@ public class WorkGoal extends Goal {
             if (d >= 2.0) return 0;
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape run's end at {} reached, them still on him: on from here (WorkGoal.atEscape)", escapeAt.toShortString());
             clearEscape(); pickEscape(mobs); return 0;
+        }
+        if ("backoff".equals(escapeKind)) { // as far from them as he gets without going by them: held there till the run's clock is out (a re-pick here was the same cell, 3 times a tick)
+            if (d >= 1.5) return 0;
+            if (!escapeHeld) { escapeHeld = true; g.setSprinting(false); g.getNavigation().stop(); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: backed off to {}, as far from them as he gets: holding (WorkGoal.atEscape)", escapeAt.toShortString()); }
+            return 1;
         }
         if ("portal".equals(escapeKind)) {
             if (d >= 1.2) return 0;

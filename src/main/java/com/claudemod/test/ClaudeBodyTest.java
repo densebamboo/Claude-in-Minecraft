@@ -10568,6 +10568,7 @@ public final class ClaudeBodyTest {
             case 765: return st765(stage, t, c, h, level, mock);
             case 766: return st766(stage, t, c, h, level, mock);
             case 767: return st767(stage, t, c, h, level, mock);
+            case 768: return st768(stage, t, c, h, level, mock);
             case 762: return st762(stage, t, c, h, level, mock);
             case 763: return st763(stage, t, c, h, level, mock);
             case 758: return st758(stage, t, c, h, level, mock);
@@ -14859,6 +14860,30 @@ public final class ClaudeBodyTest {
             check(c.isAlive(), "dead on his tower");
             check(!(c.currentTask instanceof Task.Flee), "running off his 5-high tower from creepers at its foot (" + c.blockPosition().toShortString() + ")");
             if (t[0] - st767Start >= 20 * 20) { check(c.getY() >= me.getY() + 4, "off his tower: at " + c.blockPosition().toShortString()); for (var m : st767M) m.discard(); st767M.clear(); for (int yy = 0; yy < 5; yy++) { level.setBlock(me.above(yy), Blocks.AIR.defaultBlockState(), 2); c.pillarBlocks.remove(me.above(yy)); } c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "20 s on his tower over creepers and zombies, no run"); }
+        }
+        return true;
+    }
+    private static int st768Start; private static double st768X0; private static net.minecraft.world.entity.monster.Creeper st768C;
+    private static boolean st768(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // in a dip whose one way out is past the creeper (World 17 06:31 at -18,66,-20, his furnace: "no run end he can walk to (... 33 through a mob): straight out on the best heading", the walk out went up past it, blown up): every way out past it is no run
+        BlockPos me = h.absolutePos(new BlockPos(8, 0, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st768Start = 0; st768C = null; }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(60))) if (e != st768C) e.discard();
+        if (t[0] == 10) {
+            for (int x = -16; x <= 32; x++) for (int z = -16; z <= 32; z++) { for (int yy = -2; yy <= 1; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2); for (int yy = 2; yy <= 12; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = 4; x <= 12; x++) for (int z = 4; z <= 12; z++) for (int yy = 0; yy <= 1; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); // the dip, 2 deep, 9 across
+            level.setBlock(h.absolutePos(new BlockPos(12, 0, 8)), Blocks.STONE.defaultBlockState(), 2); // its one step out, on the east side
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.WOODEN_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            level.setDayTime(6000);
+            st768C = EntityType.CREEPER.create(level); BlockPos cp = h.absolutePos(new BlockPos(13, 2, 8)); st768C.moveTo(cp.getX() + 0.5, cp.getY(), cp.getZ() + 0.5, 90, 0); st768C.setPersistenceRequired(); st768C.setNoAi(true); level.addFreshEntity(st768C); // (on the rim by the step out, 5 off: held still so the test is his choice, not its walk)
+            c.tasks.add(new Task.Wait(20 * 60, false)); st768X0 = c.getX(); st768Start = t[0];
+        }
+        if (st768Start > 0) {
+            check(c.isAlive(), "dead in the dip");
+            check(c.getX() < st768X0 + 2.5, "ran toward the creeper on the only way out of the dip (" + String.format("%.1f", c.getX() - st768X0) + " east, doing " + c.currentTask + ")");
+            if (t[0] - st768Start >= 20 * 15) { st768C.discard(); st768C = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY); pass(stage, t, "15 s in the dip, never up the way out past the creeper"); }
         }
         return true;
     }

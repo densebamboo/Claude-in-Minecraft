@@ -10559,6 +10559,7 @@ public final class ClaudeBodyTest {
             case 752: return st752(stage, t, c, h, level, mock);
             case 753: return st753(stage, t, c, h, level, mock);
             case 754: return st754(stage, t, c, h, level, mock);
+            case 758: return st758(stage, t, c, h, level, mock);
             case 756: return st756(stage, t, c, h, level, mock);
             case 760: return st760(stage, t, c, h, level, mock);
             case 755: return st755(stage, t, c, h, level, mock);
@@ -14546,6 +14547,17 @@ public final class ClaudeBodyTest {
         double e = com.claudemod.entity.life.Decide.hpS(c, 20, 0, 4, 3, 0), fe = com.claudemod.entity.life.Food.regenS(c, 4);
         check(Math.abs(e - fe) < 0.01 && e < b, "food 17 with beef: 4 HP priced " + e + " s (a bite then regen), Food says " + fe);
         pass(stage, t, "hpS on Food's regen: fed " + Math.round(a) + " s, hungry with beef " + Math.round(e) + " s, hungry with nothing " + Math.round(b) + " s for 4 HP");
+        return true;
+    }
+    private static boolean st758(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a no-way walk holds while he's in the same area (World 17 00:57: NO_PATH to the warped forest 89 off "back on" a second later from a block lower, 2 off; explore re-picked it every 20 s): a step down is the same area, 2 levels up (his pillar, stage 722) or 9 across is new
+        BlockPos a = h.absolutePos(new BlockPos(8, 3, 8)), far = h.absolutePos(new BlockPos(8, 3, 8)).offset(89, 0, -60);
+        var K = com.claudemod.entity.life.Attempts.Kind.WALK;
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 24000; c.tasks.clear(); c.skillQueue.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(32))) m.discard(); }
+        if (t[0] == 5) { for (int x = 0; x <= 20; x++) for (int z = 0; z <= 16; z++) for (int yy = 1; yy <= 8; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), yy <= 2 || (yy == 3 && x <= 8) ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); // a 1-high step at x 8
+            c.teleportTo(a.getX() + 0.5, a.getY() + 1, a.getZ() + 0.5); }
+        if (t[0] == 15) { c.attempts.fail(K, far, c.tickCount, c.blockPosition(), com.claudemod.entity.life.Attempts.Reason.NO_PATH, "test: the path stops here"); c.teleportTo(a.getX() + 2.5, a.getY(), a.getZ() + 0.5); } // (stood on the step; now off it, a block lower, 2 across)
+        if (t[0] == 25) { check(c.onGround(), "not on the ground off the step"); check(c.attempts.within(K, far, c.tickCount, 20), "a block lower and 2 across, the no-way walk 89 off came back on: " + c.attempts.why(K, far)); c.teleportTo(a.getX() + 0.5, a.getY() + 3, a.getZ() + 0.5); level.setBlock(a.above(1), Blocks.STONE.defaultBlockState(), 2); level.setBlock(a.above(2), Blocks.STONE.defaultBlockState(), 2); } // (2 up a pillar on the step)
+        if (t[0] == 35) { check(!c.attempts.within(K, far, c.tickCount, 20), "2 levels up his pillar the no-way walk stayed skipped (stage 722: one go per level)"); pass(stage, t, "a no-way walk: held a block lower 2 across, a fresh go 2 levels up"); }
         return true;
     }
     private static boolean st754(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // fight or run as one priced choice (shouldFlee -> fleePriced, the user: "every fixed rule a weighted decision"): hit to 5 HP by a lone zombie at night with a stone sword. Food 6, no sprint: the run is caught from behind, so the fight (the old rules ran: "losing, run while he can"); food 20: the run

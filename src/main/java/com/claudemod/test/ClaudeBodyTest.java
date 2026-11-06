@@ -14088,22 +14088,28 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static int st746In, st746Since; private static float st746Hp;
-    private static boolean st746(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // burning beside a lava fall in his own dry cell (World 17 20:40:59-20:41:02, dead at 20:41:16: "in lava at -108, 50, 10: 1.5 s and not onto -108, 50, 10", his own cell picked as the way out): out to a cell clear of it at once
+    private static net.minecraft.world.entity.monster.EnderMan em746;
+    private static boolean st746(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a fight beside two lava falls, his own cell dry (World 17 20:40:59-20:41:02, dead at 20:41:16: falls at -108,50-53,9 and -109,50-53,10 by his cell -108,50,10; "in lava at -108, 50, 10: 1.5 s and not onto -108, 50, 10" while the fight went on, "dropping in to it", "digging down to it", a 7-leg route): out of the lava and kept out, the fight waits
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
         BlockPos me = h.absolutePos(new BlockPos(6, 2, 8));
         if (t[0] == 10) {
             for (int x = 0; x <= 14; x++) for (int z = 2; z <= 14; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.NETHERRACK.defaultBlockState(), 2); for (int yy = 2; yy <= 9; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
-            for (int yy = 2; yy <= 6; yy++) level.setBlock(me.east().atY(me.getY() + yy - 2), Blocks.LAVA.defaultBlockState(), 2); // (a lava fall beside him, his own cell dry)
+            for (BlockPos f : new BlockPos[] {me.west(), me.north()}) { // (two falls by him, as in the dump: each a boxed-in source over a 1-deep pit, so neither spreads at his level)
+                BlockPos src = f.above(4); level.setBlock(f.below(), Blocks.AIR.defaultBlockState(), 2);
+                for (var d : net.minecraft.core.Direction.values()) if (d != net.minecraft.core.Direction.DOWN) level.setBlock(src.relative(d), Blocks.NETHERRACK.defaultBlockState(), 2);
+                level.setBlock(src, Blocks.LAVA.defaultBlockState(), 2);
+                for (int yy = -1; yy <= 3; yy++) level.setBlock(f.above(yy), net.minecraft.world.level.material.Fluids.FLOWING_LAVA.getFlowing(8, true).createLegacyBlock(), 2); }
             c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
-            c.teleportTo(me.getX() + 0.85, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); st746In = 0; st746Since = -1; st746Hp = 20; // (up against it: in his own cell, his body in the fall)
+            em746 = net.minecraft.world.entity.EntityType.ENDERMAN.create(level); BlockPos ep = h.absolutePos(new BlockPos(1, 2, 8)); em746.moveTo(ep.getX() + 0.5, ep.getY(), ep.getZ() + 0.5, -90, 0); em746.setNoAi(true); em746.setPersistenceRequired(); level.addFreshEntity(em746); em746.setTarget(c); // (angry, past the west fall, and it stays put)
+            c.teleportTo(me.getX() + 0.15, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.tasks.addFirst(new Task.Attack(em746.getUUID(), 20 * 60)); st746In = 0; st746Since = -1; st746Hp = 20; // (up against the west fall, his body in it, the fight on)
         }
         if (t[0] > 10) {
             if (c.isInLava()) { st746In++; if (st746Since < 0) st746Since = t[0]; }
             st746Hp = Math.min(st746Hp, c.getHealth());
             check(level.getFluidState(me).isEmpty(), "setup: his own cell took lava");
-            if (t[0] >= 10 + 100) { c.clearFire(); c.tasks.clear(); c.dropCurrent = true;
-                check(st746In <= 20, "beside a lava fall, his own cell dry: " + st746In + " ticks in lava (want under 1 s), low " + st746Hp + ", at " + c.blockPosition().toShortString());
-                pass(stage, t, "beside a lava fall in his own dry cell: out of it in " + st746In + " ticks, low " + st746Hp); }
+            if (t[0] >= 10 + 200) { em746.discard(); c.clearFire(); c.tasks.clear(); c.dropCurrent = true;
+                check(st746In <= 20, "a fight beside two lava falls, his own cell dry: " + st746In + " ticks in lava in 10 s (want under 1 s), low " + st746Hp + ", at " + c.blockPosition().toShortString());
+                pass(stage, t, "a fight beside two lava falls, his own cell dry: " + st746In + " ticks in lava, low " + st746Hp); }
         }
         return true;
     }

@@ -221,8 +221,8 @@ public class WorkGoal extends Goal {
                 if (d < bd) { bd = d; out = q.immutable(); }
             }
             if (out != null && !out.equals(lavaOut)) { lavaOut = out; lavaOutSince = g.tickCount; }
-            if (out != null && g.tickCount - lavaOutSince > 30 + 15 * (int) Math.sqrt(out.distSqr(me))) { lavaOutBad.put(out, g.tickCount); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}: 1.5 s and not onto {}: that way's no good, another (WorkGoal.reflexes)", me.toShortString(), out.toShortString()); lavaOut = null; }
-            if (g.tickCount % 20 < 2) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}: getting out{}", me.toShortString(), out == null ? " (no dry cell near: jumping)" : " to " + out.toShortString() + (dryCells.contains(out) ? " (where he came from)" : ""));
+            if (out != null && g.tickCount - lavaOutSince > 30 + 15 * (int) Math.sqrt(out.distSqr(me))) { lavaOutBad.put(out, g.tickCount); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}: 1.5 s and not onto {}: that way's no good, another; {} (WorkGoal.reflexes)", me.toShortString(), out.toShortString(), lavaWhy(out)); lavaOut = null; }
+            if (g.tickCount % 20 < 2) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}: getting out{}", me.toShortString(), out == null ? " (no dry cell near: jumping)" : " to " + out.toShortString() + (dryCells.contains(out) ? " (where he came from)" : "") + "; " + lavaWhy(out));
             g.getNavigation().stop();
             boolean wallUp = false; // (mining his way out: feet on the floor, no jump; off the ground every block takes 5x as long, vanilla, and the pocket burnt him to death, stage 530)
             if (out == null) { // no dry cell round him (a sealed pocket the lava came into, World 15 22:08: 17 s and dead): out through the wall, the side with no lava behind it, like a player
@@ -258,6 +258,14 @@ public class WorkGoal extends Goal {
     }
 
     private int lavaDigTick = -100;
+    private String lavaWhy(BlockPos out) { // what holds him in the lava, for the log: World 17 20:41 his own dry cell was the way out and he wasn't out of it in 1.5 s, unproven why (stage 746 gets out in 6 ticks)
+        var lv = g.level(); var bb = g.getBoundingBox().deflate(0.001); StringBuilder touch = new StringBuilder();
+        for (BlockPos q : BlockPos.betweenClosed(BlockPos.containing(bb.minX, bb.minY, bb.minZ), BlockPos.containing(bb.maxX, bb.maxY, bb.maxZ))) { var fs = lv.getFluidState(q);
+            if (fs.is(net.minecraft.tags.FluidTags.LAVA) && q.getY() + fs.getHeight(lv, q) >= bb.minY) touch.append(q.toShortString()).append(fs.isSource() ? " source" : " flow " + fs.getAmount() + (fs.getValue(net.minecraft.world.level.material.FlowingFluid.FALLING) ? " falling" : "")).append("; "); }
+        var dm = g.getDeltaMovement();
+        return String.format("at %.2f, %.2f, %.2f moving %.3f, %.3f, %.3f, on ground %s; lava his body touches: %s; the way out's fluid %s; nav done %s, %.2f off the way out's centre; task %s, next %s, step %s",
+            g.getX(), g.getY(), g.getZ(), dm.x, dm.y, dm.z, g.onGround(), touch.length() == 0 ? "none" : touch, out == null ? "-" : lv.getFluidState(out).isEmpty() ? "none" : lv.getFluidState(out).toString(), g.getNavigation().isDone(), out == null ? -1.0 : Math.hypot(g.getX() - out.getX() - 0.5, g.getZ() - out.getZ() - 0.5), current, g.tasks.peek(), g.lastStep == null ? "-" : g.lastStep.skill());
+    }
     @Override
     public void tick() {
         if (g.tickCount % 5 == 0) g.attempts.sweep(); // (failures whose cause no longer holds leave the records the planners read)

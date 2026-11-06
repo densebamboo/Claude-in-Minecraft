@@ -10543,6 +10543,7 @@ public final class ClaudeBodyTest {
             case 748: return st748(stage, t, c, h, level, mock);
             case 749: return st749(stage, t, c, h, level, mock);
             case 750: return st750(stage, t, c, h, level, mock);
+            case 751: return st751(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -14119,6 +14120,25 @@ public final class ClaudeBodyTest {
             String tq = c.tasks.toString(); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
             check(to2, "dusk, his bed clear 24 off: not his pick: tasks=" + tq);
             pass(stage, t, "dusk: an obstructed bed of his isn't his pick, the same bed clear is");
+        }
+        return true;
+    }
+    private static String st751Ch; private static boolean st751Up;
+    private static boolean st751(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a failed walk back on after a jump in place (World 17 20:49:57 and 20:50:08, incident 180: "back on: he stands somewhere new (-19, 82, -13)", a block up from where it failed and from every node of his route, sprint-jumping; the same NO_PATH re-planned for 20 s): in the air is no new standing
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        BlockPos me = h.absolutePos(new BlockPos(6, 2, 8)), goal = h.absolutePos(new BlockPos(12, 2, 8));
+        if (t[0] == 10) {
+            for (int x = 0; x <= 14; x++) for (int z = 2; z <= 14; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int yy = 2; yy <= 8; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); st751Ch = null; st751Up = false;
+        }
+        if (t[0] == 20) { check(c.onGround() && c.blockPosition().equals(me), "setup: not standing at " + me.toShortString() + ": " + c.blockPosition().toShortString()); c.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, goal, c.tickCount, c.blockPosition(), com.claudemod.entity.life.Attempts.Reason.NO_PATH, "(test)"); }
+        if (t[0] >= 20 && t[0] <= 23) c.getJumpControl().jump();
+        if (t[0] > 20 && t[0] <= 40 && !c.onGround() && c.blockPosition().getY() > me.getY()) { st751Up = true; if (st751Ch == null) st751Ch = c.attempts.changed(com.claudemod.entity.life.Attempts.Kind.WALK, goal); }
+        if (t[0] == 41) {
+            check(st751Up, "setup: he never got a block up in his jump");
+            check(st751Ch == null, "a jump in place read as a new standing: the failed walk back on (" + st751Ch + ")");
+            check(c.attempts.why(com.claudemod.entity.life.Attempts.Kind.WALK, goal) != null, "the failed walk's record went with the jump");
+            pass(stage, t, "a jump in place: the failed walk's record held");
         }
         return true;
     }

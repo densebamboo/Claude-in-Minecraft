@@ -1223,7 +1223,7 @@ public class WorkGoal extends Goal {
         double hx = pos.getX() + 0.5 - g.getX(), hz = pos.getZ() + 0.5 - g.getZ(), hd = Math.sqrt(hx * hx + hz * hz);
         if (stuck == 40 && (g.pillarBlocks.contains(standingOn()) || spire(standingOn())) && pos.getY() < g.getBlockY() - 1 && descendStep(pos)) return true; // up on his own pillar: down it first, a hop from up here goes nowhere
         boolean roofed = g.level().dimensionType().hasCeiling(); // (the Nether: the heightmap is the bedrock roof, so "at the surface" never held and long walks never hopped)
-        if (stuck == 40 && hd > 28 && (roofed || g.getBlockY() >= g.level().getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.getBlockX(), g.getBlockZ()) - 3)) { // (at the surface, an overhang over him or not: "sky over his head" left him stalled under a ledge 305 blocks from his mine)
+        if (stuck >= 40 && stuck % 40 == 0 && hd > 28 && (roofed || g.getBlockY() >= g.level().getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.getBlockX(), g.getBlockZ()) - 3)) { // (at the surface, an overhang over him or not: "sky over his head" left him stalled under a ledge 305 blocks from his mine) // (every 2 s of no headway, not at 40 alone: a walk paused by its own step cuts comes back with its clock past 40, and the hop never came, D2D reviews 100/111, 4 min in his cobble pit, stage 902)
             BlockPos mid = null;
             for (double ang : new double[] {0, 40, -40, 80, -80}) { // straight at it first; a hop that just failed: one off to the side instead
                 double r = Math.toRadians(ang), dx = (hx * Math.cos(r) - hz * Math.sin(r)) / hd, dz = (hx * Math.sin(r) + hz * Math.cos(r)) / hd;

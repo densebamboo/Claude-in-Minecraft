@@ -10477,6 +10477,7 @@ public final class ClaudeBodyTest {
             case 849: return st849(stage, t, c, h, level, mock);
             case 900: return st900(stage, t, c, h, level, mock);
             case 901: return st901(stage, t, c, h, level, mock);
+            case 902: return st902(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13528,6 +13529,25 @@ public final class ClaudeBodyTest {
             check(b != null && b.legs().equals(a.legs()), "planned again from the same spot, a different way: " + a.legs() + " then " + (b == null ? "none" : b.legs()));
             pass(stage, t, "his own trail home: " + onTrail + " legs on it, the same way planned again (" + a.legs().size() + " legs, ~" + (int) a.seconds() + " s)");
         }
+        return true;
+    }
+    /** Stage 902 (D2D reviews 100/111, World 17 10:47-10:52: in his cobble pit, the walk to his mine 169 off and 1 up, the rim 2-3 up: the step cuts paused the walk and its clock came back past 40, so the 20-block hop never fired; "NO_PATH the path stops at" his own cell, 4 min in the pit): out of the pit and on his way. */
+    private static int s902Out = -1;
+    private static boolean st902(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(12000, 100, 12000), me = o.offset(0, -5, 0), to = o.offset(80, -2, 0); // (open stone: the test box's own edge walled the way off)
+        if (t[0] % 10 == 0) for (int k = 0; k <= 96; k += 32) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { scenarioReset(c); s902Out = -1; c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 6)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 40));
+            c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no");
+            for (int x = -6; x <= 100; x++) for (int z = -4; z <= 4; z++) for (int y = -8; y <= 4; y++) level.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            for (int x = -2; x <= 0; x++) for (int y = -5; y <= -4; y++) level.setBlock(o.offset(x, y, 0), Blocks.AIR.defaultBlockState(), 2); // (his cobble pocket as the incident grid had it: 3 long, 2 high, rock over it, his feet 5 under the surface)
+            level.setBlock(to, Blocks.AIR.defaultBlockState(), 2); level.setBlock(to.above(), Blocks.AIR.defaultBlockState(), 2); // (the far spot: a dip, 2 up from his feet and under the rim, as his mine's way in was)
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; }
+        if (t[0] == 10) c.tasks.add(new Task.GoTo(to, 1.6));
+        if (t[0] > 10 && s902Out < 0 && c.getBlockY() >= o.getY() && c.getX() - me.getX() >= 4) s902Out = t[0] - 10;
+        if (s902Out >= 0 || t[0] == 10 + 600) { String at = c.blockPosition().toShortString(); c.tasks.clear(); c.dropCurrent = true;
+            for (int x = -6; x <= 100; x++) for (int z = -4; z <= 4; z++) for (int y = -8; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(s902Out >= 0 && s902Out <= 400, "his pit, the walk 80 off and under the rim: not out and on his way in " + (s902Out < 0 ? "30 s" : s902Out + " ticks") + " (at " + at + ", pit floor y " + me.getY() + ")");
+            nsHome(c, h, level); pass(stage, t, "out of the pit and on his way in " + s902Out + " ticks"); }
         return true;
     }
     /** Stage 901 (D2D reviews 228 and 360, World 17 10:08 and 10:26: a route leg in a 1-deep pond one down from the grass, 2 off; "path=0/1", stalled 8 s, "nothing in the way", the spot dropped): he steps down into it. */

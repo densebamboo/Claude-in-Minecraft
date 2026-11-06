@@ -58,7 +58,7 @@ public final class Food {
         bag.sort((a, b) -> Double.compare(b.nutrition() + b.saturation(), a.nutrition() + a.saturation()));
         int n = (int) Math.ceil(Math.max(0, hp));
         for (int h = 0; h < n; h++) {
-            while (food < 20 && sat <= 0 && !bag.isEmpty()) { var f = bag.remove(0); food = Math.min(20, food + f.nutrition()); sat = Math.min(food, sat + f.saturation()); t += f.eatSeconds(); }
+            while ((food < 18 || food < 20 && sat <= 0) && !bag.isEmpty()) { var f = bag.remove(0); food = Math.min(20, food + f.nutrition()); sat = Math.min(food, sat + f.saturation()); t += f.eatSeconds(); }
             if (food >= 20 && sat > 0) t += 0.5;
             else if (food >= 18) t += 4;
             else return t + (n - h) * w("food.no_food_hp_s", 60);

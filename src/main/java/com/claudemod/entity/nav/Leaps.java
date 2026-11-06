@@ -77,10 +77,10 @@ public final class Leaps {
 
     /** The HP he keeps after a drop: 6, +4 with a hostile about (seen, or within 8), +2 with no food on him. */
     public static float margin(ClaudeEntity g) { return 6 + (hostileAbout(g) ? 4 : 0) + (foodOnHim(g) ? 0 : 2); }
-    /** What an HP lost is worth, as a multiple: 1 when it comes back (food 18+ regenerates it, or food on him to eat), 4 when it doesn't (no regen under 18 and nothing to eat: gone till he finds food). Day to Day 16:16 11-05: a 9-block drop at hunger 6, 20 -> 14 for good. */
+    /** What an HP lost is worth, as a multiple: the seconds it takes to come back (Food.sPerHp: his food, his saturation, what he carries) over leaps.hp_s_ref (a fed HP's 4 s), never under 1: about 1 fed or with food on him, ~15 at hunger 6 with nothing to eat (no regen under 18: food.no_food_hp_s). Day to Day 16:16 11-05: a 9-block drop at hunger 6, 20 -> 14 for good. */
     /** Times 1 + leaps.hp_price_per_threat for each threat he knows of within 24, up to 6, that weight raised by the armor he lacks (review 178, World 17 20:50: six falls of 1-6 HP in 21 s, ungeared in the Nether with piglins heard, priced as if alone). Every number on Weights. */
     public static double hpPrice(ClaudeEntity g) {
-        double base = g.getFoodData().getFoodLevel() >= 18 || foodOnHim(g) ? com.claudemod.entity.life.Weights.w("leaps.hp_price_fed", 1) : com.claudemod.entity.life.Weights.w("leaps.hp_price_hungry", 4);
+        double base = com.claudemod.entity.life.Weights.w("leaps.hp_price_fed", 1) * Math.max(1, com.claudemod.entity.life.Food.sPerHp(g, 1) / com.claudemod.entity.life.Weights.w("leaps.hp_s_ref", 4)); // (the seconds an HP takes to come back at his food and what he carries (Food), over a fed HP's 4 s: at hunger 6 with nothing to eat ~15, was a fixed 4; stage 845)
         int n = Math.min((int) com.claudemod.entity.life.Weights.w("leaps.hp_price_threat_cap", 6), threats(g));
         double bare = 1 - Math.min(20, g.getArmorValue()) / 20.0;
         double price = base * (1 + com.claudemod.entity.life.Weights.w("leaps.hp_price_per_threat", 0.5) * n * (1 + com.claudemod.entity.life.Weights.w("leaps.hp_price_unarmored", 0.5) * bare));

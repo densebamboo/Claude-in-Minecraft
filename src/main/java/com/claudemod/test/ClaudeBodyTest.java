@@ -10470,6 +10470,7 @@ public final class ClaudeBodyTest {
             case 842: return st842(stage, t, c, h, level, mock);
             case 843: return st843(stage, t, c, h, level, mock);
             case 844: return st844(stage, t, c, h, level, mock);
+            case 845: return st845(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13501,6 +13502,19 @@ public final class ClaudeBodyTest {
             check(b != null && b.legs().equals(a.legs()), "planned again from the same spot, a different way: " + a.legs() + " then " + (b == null ? "none" : b.legs()));
             pass(stage, t, "his own trail home: " + onTrail + " legs on it, the same way planned again (" + a.legs().size() + " legs, ~" + (int) a.seconds() + " s)");
         }
+        return true;
+    }
+    /** Stage 845 (audit: Leaps.hpPrice onto Food): an HP lost to a drop is priced by the seconds it takes to come back (Food.sPerHp over leaps.hp_s_ref): at hunger 6 with nothing to eat that's food.no_food_hp_s, far dearer than the fixed 4; fed or with food on him, about 1. */
+    private static boolean st845(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 24000; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(32))) m.discard(); }
+        if (t[0] != 5) return true;
+        c.getInventory().clearContent(); c.getFoodData().setFoodLevel(6); c.getFoodData().setSaturation(0);
+        double starving = com.claudemod.entity.nav.Leaps.hpPrice(c), want = com.claudemod.entity.life.Food.sPerHp(c, 1) / com.claudemod.entity.life.Weights.w("leaps.hp_s_ref", 4);
+        c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8)); double withFood = com.claudemod.entity.nav.Leaps.hpPrice(c);
+        c.getInventory().clearContent(); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5); double fed = com.claudemod.entity.nav.Leaps.hpPrice(c);
+        check(starving >= want * 0.99 && starving > 4, "hunger 6, nothing to eat: an HP of falling priced x" + String.format("%.1f", starving) + ", its regen says x" + String.format("%.1f", want));
+        check(withFood <= 1.5 && fed <= 1.5, "with food on him x" + String.format("%.1f", withFood) + ", fed x" + String.format("%.1f", fed) + ": should be about 1");
+        pass(stage, t, "an HP of falling: x" + String.format("%.1f", starving) + " starving with nothing, x" + String.format("%.1f", withFood) + " with beef on him, x" + String.format("%.1f", fed) + " fed");
         return true;
     }
     /** Stage 844 (D2D 04:52 World 17 death: blaze rods with no armor, every fireball the full 5, 20 -> 3 in 18 s, burned): unarmored at a blaze with his portal 40 off, getting ready first is priced and wins; in iron he fights. */

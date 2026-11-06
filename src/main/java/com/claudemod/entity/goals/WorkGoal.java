@@ -706,8 +706,59 @@ public class WorkGoal extends Goal {
     private static java.util.Map<BlockPos, Integer> forcedAt; // when a walk was last tried "for real" (dig allowed) after failing (static: fields added live start null)
     private static java.util.Map<BlockPos, Integer> forcedAt() { if (forcedAt == null) forcedAt = new java.util.HashMap<>(); return forcedAt; }
 
+    /** In his mine or within walk.out_mine_near (6) of it: a row of its blueprint (branches too), a step of its stairs, a nook. A pocket off his own tunnel walks home through the mine, never out through some cave (D2D, his smelting pocket 2 up from a branch end). */
+    private boolean nearHisMine(BlockPos p) {
+        if (com.claudemod.director.ClaudeLife.inHisMine(g, p)) return true;
+        double r2 = Math.pow(com.claudemod.entity.life.Weights.w("walk.out_mine_near", 6), 2);
+        if (g.blueprint != null && !g.blueprint.isEmpty()) for (var row : g.blueprint.rows()) for (BlockPos f : row.feet()) if (f.distSqr(p) <= r2) return true;
+        for (BlockPos sp : g.mineSpine) if (sp.distSqr(p) <= r2) return true;
+        for (var nk : g.nooks) if (nk != null && nk.mouth().distSqr(p) <= r2) return true;
+        return false;
+    }
+
+    /**
+     * Underground, away from his mine, a far walk that gets no nearer: out to the surface first, the way a player does. Two ways,
+     * priced in seconds: back out along his own trail (Route's cells he walked, the nearest one under open sky), or a staircase dug
+     * up from here toward the walk (no trail, or a long one). The walk itself stays queued behind: overland from the top, in by his
+     * mine's entrance. A way that failed lately is not offered again. False when neither is to be had.
+     */
+    private boolean wayOut(BlockPos pos, double within) {
+        ServerLevel lv = (ServerLevel) g.level(); BlockPos here = g.blockPosition();
+        int up = lv.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, here.getX(), here.getZ()) - here.getY();
+        java.util.List<BlockPos> way = null;
+        { java.util.List<BlockPos> back = com.claudemod.entity.nav.Route.wayBack(g, 20 * 60 * 20);
+          java.util.function.Predicate<BlockPos> lava = q -> { for (BlockPos c0 : new BlockPos[] {q, q.above()}) { if (lv.getFluidState(c0).is(net.minecraft.tags.FluidTags.LAVA)) return true; for (Direction d : Direction.values()) if (lv.getFluidState(c0.relative(d)).is(net.minecraft.tags.FluidTags.LAVA)) return true; } return false; }; // (lava in or beside a cell, feet or head: it may have run there since he passed, D2D 12:17)
+          java.util.Set<BlockPos> cells = new java.util.HashSet<>(); for (BlockPos q : back) if (!lava.test(q)) cells.add(q); // (his trail and the open cells beside it: a corner he cut leaves no trail cell between two of its own)
+          for (BlockPos q : back) for (Direction d : Direction.values()) { BlockPos n = q.relative(d); if (lv.getBlockState(n).getCollisionShape(lv, n).isEmpty() && lv.getBlockState(n.above()).getCollisionShape(lv, n.above()).isEmpty() && !lava.test(n)) cells.add(n.immutable()); }
+          BlockPos start = cells.contains(here) ? here : null; double sd = 9;
+          if (start == null) for (BlockPos q : back) { double d0 = q.distSqr(here); if (d0 <= sd) { sd = d0; start = q; } }
+          java.util.Map<BlockPos, BlockPos> came = new java.util.HashMap<>(); java.util.ArrayDeque<BlockPos> fr = new java.util.ArrayDeque<>(); BlockPos top = null;
+          if (start != null) { came.put(start, start); fr.add(start); }
+          while (!fr.isEmpty()) { BlockPos q = fr.poll(); if (lv.canSeeSky(q.above()) && !g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.WALK, q, g.tickCount, 20 * 60)) { top = q; break; }
+              for (Direction d : Direction.values()) { BlockPos n = q.relative(d); if (cells.contains(n) && !came.containsKey(n)) { came.put(n, q); fr.add(n); } } }
+          if (top != null) { way = new java.util.ArrayList<>(); for (BlockPos q = top; ; q = came.get(q)) { way.add(0, q); if (q.equals(start)) break; } } }
+        double sprint = com.claudemod.entity.life.Decide.sprint(), digS = com.claudemod.entity.life.Weights.w("move.dig_down_s_per_block", 1.0);
+        double hx = pos.getX() - here.getX(), hz = pos.getZ() - here.getZ(), hd = Math.max(1, Math.sqrt(hx * hx + hz * hz)), run = up + 30; // (aimed 30 past the staircase's own length: the step cutter only works past the planner's 28, and the planner runs out of time on a 20-up dig, so the cutter must carry him all the way out)
+        int sx = (int) Math.floor(here.getX() + hx / hd * run), sz = (int) Math.floor(here.getZ() + hz / hd * run);
+        BlockPos stairTop = new BlockPos(sx, lv.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, sx, sz), sz);
+        boolean digOk = !g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.WALK, stairTop, g.tickCount, 20 * 60) && !g.inventory.find(st -> st.getItem() instanceof net.minecraft.world.item.PickaxeItem).isEmpty();
+        java.util.List<com.claudemod.entity.life.Decide.Option> opts = new java.util.ArrayList<>();
+        if (way != null) opts.add(com.claudemod.entity.life.Decide.Option.of("back out the way he came", way.size() / sprint + Math.sqrt(way.get(way.size() - 1).distSqr(pos)) / sprint, way.size() + " cells of his trail to the open sky at " + way.get(way.size() - 1).toShortString()));
+        if (digOk) opts.add(com.claudemod.entity.life.Decide.Option.of("dig up from here", 2 * up * digS + run / sprint + Math.sqrt(stairTop.distSqr(pos)) / sprint, "a staircase " + up + " up toward it, to " + stairTop.toShortString()));
+        if (opts.isEmpty()) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} under the surface, the walk to {} {} off: no trail out and no staircase to cut (no pick, or it failed lately)", up, pos.toShortString(), (int) hd); return false; }
+        var pick = com.claudemod.entity.life.Decide.choose(g, "walk.out", (int) hd + " off, " + up + " under the surface, away from his mine", false, opts);
+        if (pick == null) return false;
+        g.tasks.addFirst(new Task.GoTo(pos, within));
+        if (pick.name().startsWith("back")) { for (int k = way.size() - 1; k >= 1; k -= 5) g.tasks.addFirst(new Task.GoTo(way.get(k), 1.2)); } // (a leg every 5 cells back from the open sky, the nearest first)
+        else g.tasks.addFirst(new Task.GoTo(stairTop, 2));
+        hopsTried.put(pick.name().startsWith("back") ? way.get(way.size() - 1) : stairTop, g.tickCount); // (the way out's own walk is the walker's: the step cutter cuts it, never a way out of its own)
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} under the surface, the walk to {} {} off: {} first (WorkGoal.wayOut)", up, pos.toShortString(), (int) hd, pick.name());
+        return true;
+    }
+
     /** A walk farther than his walker plans, or between the surface and his mine: the whole way planned into legs (Route) and put in its place. */
     private boolean routeOut(Task.GoTo t) {
+        if (hopsTried.containsKey(t.pos())) return false; // a hop or a way out of his own: the walker's (a route from underground to his staircase's top went back down it, stage 903)
         if (Math.sqrt(BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()).distSqr(t.pos())) <= t.within()) return false; // there already: the walk ends, no route (live 21:19: "to -16, 68, -20 (0 blocks off): 3 legs", planned 12 times standing on it)
         var legs = com.claudemod.entity.nav.Route.expand(g, level(), t.pos(), t.within());
         if (legs == null || com.claudemod.entity.nav.Route.walkerTakes(legs)) return false;
@@ -1223,6 +1274,7 @@ public class WorkGoal extends Goal {
         double hx = pos.getX() + 0.5 - g.getX(), hz = pos.getZ() + 0.5 - g.getZ(), hd = Math.sqrt(hx * hx + hz * hz);
         if (stuck == 40 && (g.pillarBlocks.contains(standingOn()) || spire(standingOn())) && pos.getY() < g.getBlockY() - 1 && descendStep(pos)) return true; // up on his own pillar: down it first, a hop from up here goes nowhere
         boolean roofed = g.level().dimensionType().hasCeiling(); // (the Nether: the heightmap is the bedrock roof, so "at the surface" never held and long walks never hopped)
+        if ((stuck >= 40 && stuck % 40 == 0 || ticks == 2 && (g.level().canSeeSky(pos.above()) || com.claudemod.director.ClaudeLife.inHisMine(g, pos) || com.claudemod.director.ClaudeLife.touchesMine(g, pos))) && hd > 28 && !roofed && g.getBlockY() < g.level().getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.getBlockX(), g.getBlockZ()) - 3 && !hopsTried.containsKey(pos) && !nearHisMine(g.blockPosition()) && wayOut(pos, within)) return true; // underground far from his mine, a far walk with no headway, or one to the surface or his mine from its start (caves toward it went deeper, live 12:15 "stuck in a cave outside his iron mine"): out to the surface first (the user 11-06: "backtrack to get out to the surface and then go back to his mine entrance"; reviews 226/259/260)
         if (stuck >= 40 && stuck % 40 == 0 && hd > 28 && (roofed || g.getBlockY() >= g.level().getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.getBlockX(), g.getBlockZ()) - 3)) { // (at the surface, an overhang over him or not: "sky over his head" left him stalled under a ledge 305 blocks from his mine) // (every 2 s of no headway, not at 40 alone: a walk paused by its own step cuts comes back with its clock past 40, and the hop never came, D2D reviews 100/111, 4 min in his cobble pit, stage 902)
             BlockPos mid = null;
             for (double ang : new double[] {0, 40, -40, 80, -80}) { // straight at it first; a hop that just failed: one off to the side instead

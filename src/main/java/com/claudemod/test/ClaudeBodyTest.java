@@ -10478,6 +10478,7 @@ public final class ClaudeBodyTest {
             case 900: return st900(stage, t, c, h, level, mock);
             case 901: return st901(stage, t, c, h, level, mock);
             case 902: return st902(stage, t, c, h, level, mock);
+            case 903: return st903(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13530,6 +13531,34 @@ public final class ClaudeBodyTest {
             check(b != null && b.legs().equals(a.legs()), "planned again from the same spot, a different way: " + a.legs() + " then " + (b == null ? "none" : b.legs()));
             pass(stage, t, "his own trail home: " + onTrail + " legs on it, the same way planned again (" + a.legs().size() + " legs, ~" + (int) a.seconds() + " s)");
         }
+        return true;
+    }
+    /** Stage 903 (D2D reviews 226/259/260, World 17 11:14-11:27: far walks underground, 79-194 off, away from his mine, no hop and no plan that far: shuffles, "no way even digging", 45-90 s still; the user: "backtrack to get out to the surface and then go back to his mine entrance"): in a pocket 20 down that he came into by 50 blocks of tunnel and a staircase from the west, his walk 90 off at his depth: back out his trail to the open sky; with no trail, a staircase cut up toward it; walking home to the surface with a cave toward it going deeper: back out his trail, not down the cave. */
+    private static int s903Out = -1; private static String s903Way = "", s903A = "";
+    private static boolean st903(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(14000, 60, 14000), me = o.offset(0, -20, 0), to = o.offset(90, -20, 0);
+        if (t[0] % 10 == 0) for (int k = -96; k <= 96; k += 32) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        for (int run = 0; run < 3; run++) { int t0 = 1 + run * 900; BlockPos goal = run == 2 ? o.offset(90, 1, 0) : to;
+            if (t[0] == t0) { scenarioReset(c); s903Out = -1; s903Way = ""; c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.BREAD, 16));
+                c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); com.claudemod.entity.nav.Route.forgetTrail(c);
+                for (int x = -80; x <= 100; x++) for (int z = -5; z <= 5; z++) for (int y = -30; y <= 4; y++) level.setBlock(o.offset(x, y, z), (y <= 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+                for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) for (int y = -20; y <= -19; y++) { level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); level.setBlock(to.offset(x, y + 20, z), Blocks.AIR.defaultBlockState(), 2); } // (his pocket 20 under the surface; the far one the same at his depth, as his mine level was)
+                java.util.List<BlockPos> in = new java.util.ArrayList<>(); // (the way he came in: 50 west along his level, then a staircase up to the surface, 3 high: all of it away from the walk, past what a path or a plan from here sees)
+                for (int k = 2; k <= 50; k++) { BlockPos f = o.offset(-k, -20, 0); for (int y = 0; y <= 1; y++) level.setBlock(f.above(y), Blocks.AIR.defaultBlockState(), 2); in.add(0, f); }
+                for (int k = 0; k <= 21; k++) { BlockPos f = o.offset(-51 - k, -20 + k, 0); for (int y = 0; y <= 2; y++) level.setBlock(f.above(y), Blocks.AIR.defaultBlockState(), 2); in.add(0, f); }
+                if (run == 2) for (int k = 2; k <= 60; k++) { BlockPos f = o.offset(k, -20 - k / 4, 0); for (int y = 0; y <= 2; y++) level.setBlock(f.above(y), Blocks.AIR.defaultBlockState(), 2); } // (a cave passage east toward it and deeper: headway all the way, the live 12:15 shape)
+                if (run != 1) for (BlockPos f : in) { c.setPos(f.getX() + 0.5, f.getY(), f.getZ() + 0.5); com.claudemod.entity.nav.Route.step(c); } // (his trail down it, the surface end first)
+                com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; if (run != 1) com.claudemod.entity.nav.Route.step(c); }
+            if (t[0] == t0 + 10) c.tasks.add(new Task.GoTo(goal, 1.6));
+            if (t[0] > t0 + 10 && t[0] < t0 + 820) { if (s903Way.isEmpty()) for (Task q : c.tasks) if (q instanceof Task.GoTo gt && !gt.pos().equals(goal)) { s903Way = gt.pos().getX() < me.getX() ? "west, back up his trail" : "east, cut up toward it"; break; }
+                if (s903Out < 0 && level.canSeeSky(c.blockPosition().above())) s903Out = t[0] - t0 - 10; }
+            if (t[0] == t0 + 820) { String at = c.blockPosition().toShortString(); c.tasks.clear(); c.dropCurrent = true;
+                check(s903Out >= 0, (run == 0 ? "his trail in from the surface" : run == 1 ? "no trail" : "a cave toward home going deeper") + ": not out to the open sky in 40 s (at " + at + ", way " + s903Way + ")");
+                check(run != 1 ? s903Way.startsWith("west") : s903Way.startsWith("east"), (run == 0 ? "with his trail in from the west" : run == 1 ? "with no trail" : "a cave toward home going deeper, his trail in from the west") + ": went " + (s903Way.isEmpty() ? "nowhere" : s903Way));
+                if (run == 0) s903A = "trail: " + s903Way + ", out in " + s903Out + " ticks";
+                else if (run == 1) s903A += "; no trail: " + s903Way + ", out in " + s903Out + " ticks";
+                else { for (int x = -80; x <= 100; x++) for (int z = -5; z <= 5; z++) for (int y = -30; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                    nsHome(c, h, level); pass(stage, t, s903A + "; a cave toward home going deeper: " + s903Way + ", out in " + s903Out + " ticks"); } } }
         return true;
     }
     /** Stage 902 (D2D reviews 100/111, World 17 10:47-10:52: in his cobble pit, the walk to his mine 169 off and 1 up, the rim 2-3 up: the step cuts paused the walk and its clock came back past 40, so the 20-block hop never fired; "NO_PATH the path stops at" his own cell, 4 min in the pit): out of the pit and on his way. */

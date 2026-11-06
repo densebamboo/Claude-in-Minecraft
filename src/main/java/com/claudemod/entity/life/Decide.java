@@ -95,31 +95,63 @@ public final class Decide {
     public static int hostilesKnown(ClaudeEntity g) { int n = 0; for (var m : Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(32), x -> x.isAlive())) n++; return n; }
 
     public static void dusk(ClaudeEntity g, ServerLevel level, long tod) {
+        BlockPos me = g.blockPosition(); java.util.List<String> said = new java.util.ArrayList<>();
+        Object[] pick = nightSpot(g, level, tod, said, false); String best = (String) pick[0]; BlockPos to = (BlockPos) pick[1];
+        String key = best;
+        if (to != null) { final BlockPos to0 = to; if (me.distSqr(to0) > 3 * 3 && g.tasks.stream().noneMatch(t -> t instanceof Task.GoTo go && go.pos().distSqr(to0) <= 4) && !(g.currentTask instanceof Task.GoTo cg && cg.pos().distSqr(to0) <= 4)) g.tasks.addFirst(new Task.GoTo(to0, 2.0)); else key = null; }
+        else if (best.equals("hole") && g.skillQueue.stream().noneMatch(s0 -> s0.skill().equals("shelter"))) g.skillQueue.addFirst(new Skills.Step("shelter", "", 1)); else if (best.equals("hole")) key = null;
+        if (key != null) ClaudeMod.LOGGER.info("[Claude decide] dusk (tick {}, the first spawns in {} s, {} hostile(s) known, armor {}): {}: {} (Decide.dusk)", tod, (int) Math.max(0, (level.isThundering() ? tod : level.isRaining() ? 12969 : 13188) - tod) / 20, hostilesKnown(g), g.getArmorValue(), String.join("; ", said), best);
+    }
+
+    /**
+     * The night's spots priced against a hole here (dusk, and the shelter step all night): {name, where} of the best, where null
+     * for the hole or carrying on. far: the shelter step's extra spots, free beds he has seen and a village he knows (a player
+     * knows a village has beds); a spot picked in the last minute is out (the walk or the bed there didn't take: no picking it again in a loop).
+     */
+    public static Object[] nightSpot(ClaudeEntity g, ServerLevel level, long tod, java.util.List<String> said, boolean far) {
         BlockPos me = g.blockPosition();
         long dark = level.isThundering() ? tod : level.isRaining() ? 12969 : 13188;
         double toDark = Math.max(0, dark - tod) / 20.0;
         int hostiles = hostilesKnown(g);
-        java.util.List<String> said = new java.util.ArrayList<>(); String best = "hole"; BlockPos to = null; double bestS = holeS(tod);
+        String best = "hole"; BlockPos to = null; double bestS = holeS(tod);
         if (com.claudemod.director.ClaudeLife.nightGearNo(g, level, me) == null) { best = "carry on out here"; bestS = 0; said.add("carry on out here ~0 s (the night's no danger to him as he is)"); }
         java.util.List<Object[]> spots = new java.util.ArrayList<>();
-        for (BlockPos b : g.myStations) if (level.isLoaded(b) && level.getBlockState(b).is(net.minecraft.tags.BlockTags.BEDS)) spots.add(new Object[] {"his bed", b});
-        if (g.house != null && g.house.shellStands(level) && level.getBlockState(g.house.bedHead()).is(net.minecraft.tags.BlockTags.BEDS)) spots.add(new Object[] {"his house's bed", g.house.bedHead()});
-        if (g.blueprint != null && !g.blueprint.isEmpty()) spots.add(new Object[] {"his lit mine", g.blueprint.entrance});
+        for (BlockPos b : g.myStations) if (level.isLoaded(b) && level.getBlockState(b).is(net.minecraft.tags.BlockTags.BEDS)) spots.add(new Object[] {"his bed", b, 0.0});
+        if (g.house != null && g.house.shellStands(level) && level.getBlockState(g.house.bedHead()).is(net.minecraft.tags.BlockTags.BEDS)) spots.add(new Object[] {"his house's bed", g.house.bedHead(), 0.0});
+        if (g.blueprint != null && !g.blueprint.isEmpty()) spots.add(new Object[] {"his lit mine", g.blueprint.entrance, 0.0});
+        if (far) {
+            for (BlockPos b : com.claudemod.director.ClaudeLife.bedsSeen(g)) if (level.isLoaded(b) && level.getBlockState(b).is(net.minecraft.tags.BlockTags.BEDS)) spots.add(new Object[] {"a free bed", b, 0.0});
+            var vil = com.claudemod.director.ClaudeLife.knownVillage(g, (int) w("night.spot_max_route", 400), s0 -> true);
+            if (vil != null) spots.add(new Object[] {"the village's beds", vil.nearestCell(g.position()), w("night.village_bed_find_s", 20)}); // (beds he hasn't seen yet: a look round for one)
+        }
         for (Object[] sp : spots) {
             BlockPos at = (BlockPos) sp[1];
-            String no = ((String) sp[0]).contains("bed") ? com.claudemod.director.ClaudeLife.bedNoGo(g, level, at) : null; // (the sleep skill's own judgement of the bed: one it won't sleep in is no night's end; World 17 21:12, incident 17: an obstructed bed picked every 20 s, four 87-block legs)
+            String no = ((String) sp[0]).contains("bed") && !((String) sp[0]).contains("village") ? com.claudemod.director.ClaudeLife.bedNoGo(g, level, at) : null; // (the sleep skill's own judgement of the bed: one it won't sleep in is no night's end; World 17 21:12, incident 17: an obstructed bed picked every 20 s, four 87-block legs)
             if (no != null) { said.add(sp[0] + " at " + at.toShortString() + " out (" + no + ")"); continue; }
+            Integer picked = g.attempts.counters.get("nightSpot:" + at.asLong());
+            if (far && picked != null && g.tickCount - picked < 20 * 60) { said.add(sp[0] + " at " + at.toShortString() + " out (picked " + (g.tickCount - picked) / 20 + " s ago and it didn't give him the night)"); continue; }
             int dist = com.claudemod.director.ClaudeLife.routeDist(g, me, at);
             if (dist > w("night.spot_max_route", 400)) continue; // (out of any night's reach: not an option)
-            double walk = dist / sprint(), out = Math.max(0, walk - toDark), s = walkS(g, level, tod, walk, hostiles);
-            said.add(sp[0] + " " + dist + " off " + (s == Double.MAX_VALUE ? "out (the hits on the way would take over half his health)" : "~" + (int) s + " s") + " (" + (int) walk + " s walk" + (out > 0 ? ", " + (int) out + " s of it after the spawns" : ", there before the spawns") + ")");
+            double walk = dist / sprint(), out = Math.max(0, walk - toDark), s = walkS(g, level, tod, walk, hostiles) + (double) sp[2];
+            said.add(sp[0] + " " + dist + " off " + (s == Double.MAX_VALUE ? "out (the hits on the way would take over half his health)" : "~" + (int) s + " s") + " (" + (int) walk + " s walk" + (out > 0 ? ", " + (int) out + " s of it after the spawns" : ", there before the spawns") + ((double) sp[2] > 0 ? ", " + (int) (double) sp[2] + " s to find one" : "") + ")");
             if (s < bestS) { bestS = s; best = (String) sp[0]; to = at; }
         }
         said.add("a hole here ~" + (int) holeS(tod) + " s (the night in it)");
-        String key = best;
-        if (to != null) { final BlockPos to0 = to; if (me.distSqr(to0) > 3 * 3 && g.tasks.stream().noneMatch(t -> t instanceof Task.GoTo go && go.pos().distSqr(to0) <= 4) && !(g.currentTask instanceof Task.GoTo cg && cg.pos().distSqr(to0) <= 4)) g.tasks.addFirst(new Task.GoTo(to0, 2.0)); else key = null; }
-        else if (best.equals("hole") && g.skillQueue.stream().noneMatch(s0 -> s0.skill().equals("shelter"))) g.skillQueue.addFirst(new Skills.Step("shelter", "", 1)); else if (best.equals("hole")) key = null;
-        if (key != null) ClaudeMod.LOGGER.info("[Claude decide] dusk (tick {}, the first spawns in {} s, {} hostile(s) known, armor {}): {}: {} (Decide.dusk)", tod, (int) toDark, hostiles, g.getArmorValue(), String.join("; ", said), best);
+        return new Object[] {best, to};
+    }
+
+    /** The shelter step's night walk: his mine, a bed or a village when one beats the cover here (null: the cover here). */
+    public static String nightWalk(ClaudeEntity g, ServerLevel level, Skills.Step st) {
+        if (level.dimension() != net.minecraft.world.level.Level.OVERWORLD || com.claudemod.director.ClaudeLife.dayHere(level) && !level.isThundering()) return null;
+        long tod = level.getDayTime() % 24000; java.util.List<String> said = new java.util.ArrayList<>();
+        Object[] pick = nightSpot(g, level, tod, said, true); String best = (String) pick[0]; BlockPos to = (BlockPos) pick[1];
+        ClaudeMod.LOGGER.info("[Claude decide] night cover (tick {}, {} hostile(s) known, armor {}, health {}): {}: {} (Decide.nightWalk)", tod, hostilesKnown(g), g.getArmorValue(), (int) g.getHealth(), String.join("; ", said), best);
+        if (to == null) return null;
+        g.attempts.counters.put("nightSpot:" + to.asLong(), g.tickCount);
+        int off = (int) Math.sqrt(g.blockPosition().distSqr(to));
+        if (best.equals("his lit mine")) { g.tasks.add(new Task.GoTo(to, 2.0)); g.skillQueue.addFirst(st); return "night: to my mine for cover, " + off + " blocks off (better than a hole out here)"; } // (at its mouth the shelter step takes him down its rows)
+        if (best.equals("the village's beds")) { g.tasks.add(new Task.GoTo(to, 4.0)); g.skillQueue.addFirst(new Skills.Step("sleep", "", 1)); return "night: to the village, " + off + " blocks off, to sleep in one of its beds"; }
+        g.skillQueue.addFirst(new Skills.Step("sleep", "", 1)); return "night: " + best + " at " + to.toShortString() + ", " + off + " blocks off: going to sleep in it";
     }
 
     /** What a run back to a pile in an unloaded chunk needs first (empty: go now), and the reasons, priced. */

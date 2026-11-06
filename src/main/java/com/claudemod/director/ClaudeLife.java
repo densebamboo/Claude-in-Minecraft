@@ -439,7 +439,7 @@ public final class ClaudeLife {
             if (death.isPresent()) {
                 BlockPos at = death.get().pos();
                 var mobs = ((ServerLevel) g.level()).getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, new net.minecraft.world.phys.AABB(at).inflate(12), m -> m.isAlive());
-                boolean ranged = mobs.stream().anyMatch(m -> m instanceof net.minecraft.world.entity.monster.AbstractSkeleton || m instanceof net.minecraft.world.entity.monster.Pillager
+                boolean ranged = mobs.stream().anyMatch(m -> com.claudemod.entity.goals.WorkGoal.shoots(m)
                         || (m instanceof net.minecraft.world.entity.monster.Drowned && m.getMainHandItem().is(Items.TRIDENT)));
                 boolean armed = g.inventory.count(s -> (s.getItem() instanceof net.minecraft.world.item.SwordItem && !s.is(Items.WOODEN_SWORD)) || (s.getItem() instanceof net.minecraft.world.item.AxeItem && !s.is(Items.WOODEN_AXE))) > 0; // (a wooden sword is not "armed" for a cave with mobs in it: that walk-in killed him twice)
                 if (mobs.size() >= 2 || (!mobs.isEmpty() && (g.getHealth() < 14 || ranged || !armed))) { // more than one, a shooter, hurt, or nothing proper to fight with: wait; a single melee mob he can handle on the way
@@ -1914,6 +1914,7 @@ public final class ClaudeLife {
                         return "failed: no " + animal + " within 48 blocks of you or them; animals are on the surface, explore up top for them";
                     }
                     herd.sort(Comparator.comparingDouble(walk0::applyAsDouble));
+                    if (g.getHealth() > 6) { String no = nightOutsideNo(g, level, herd.get(0).blockPosition()); if (no != null) return no; } // the night rule where the hunt is, not only where he stands (World 17 02:10 11-06: lit at his mine's mouth, out to the river for salmon in the dark)
                     huntLegs().remove(g.getUUID()); huntDir().remove(g.getUUID()); // found some: the search starts fresh next time
                     animalsSeen().put(g.getUUID(), herd.get(0).blockPosition().immutable()); // a player remembers where the animals were
                     herd.sort(Comparator.comparingDouble(walk0::applyAsDouble)); // (by the walk, as picked)
@@ -2911,6 +2912,7 @@ public final class ClaudeLife {
                     ClaudeMod.LOGGER.info("[Claude skill] shelter: in the air at {} ({} to the ground under him): cover decided on landing, {} ticks (ClaudeLife shelter)", String.format("%.1f", g.getY()), drop, wait);
                     return "in the air: cover once I land";
                 }
+                { String go = com.claudemod.entity.life.Decide.nightWalk(g, level, st); if (go != null) return go; } // his mine, a bed or a village, priced against the cover here (the user 11-06: "he could easily go sleep in the village rn ... or in his mine")
                 if (g.shelter()) return "getting under cover here (out of reach, with a lid over me)";
                 { String why = g.noCoverWhyNow(); // a reason that isn't the ground or the blocks (a creeper close, a mob too near to finish it, in the air): that's the answer, not "nothing to tower with"
                   if (why != null && !why.startsWith("no tower to be had") && !why.startsWith("underground with") && !why.startsWith("water ")) { ClaudeMod.LOGGER.info("[Claude skill] shelter: no cover right now: {} (ClaudeLife shelter)", why); return "done: no cover right now: " + why; } }
@@ -11215,7 +11217,9 @@ public final class ClaudeLife {
 
     // ---- the mine as one blueprint (2026-10-28): standing key mine_model = blueprint (default) | legacy (today's code, untouched) ----
     /** A branch pair off a row, never through or along his base nook (old or new). */
-    public static void branchPairFor(ClaudeEntity g, MineBlueprint b, int row, int length) { b.keepOut = p -> inHisNook(g, p) || nookGapCell(g, b, p); b.branchPair(row, length); } // (any nook of his, and its gap round the mouth: the spacing)
+    public static void branchPairFor(ClaudeEntity g, MineBlueprint b, int row, int length) { b.keepOut = p -> inHisNook(g, p) || nookGapCell(g, b, p); int before = b.segments.size(); b.branchPair(row, length);
+        if (!g.prefs.containsKey("branch_length")) for (int k = before; k < b.segments.size(); k++) { MineBlueprint.Segment s0 = b.segments.get(k); if (s0.kind == MineBlueprint.Kind.BRANCH) s0.n = Math.max(s0.n, branchRoom(b, s0, BRANCH_MAX)); } // a new branch goes the full way (to its room, 64 at most) before the next one (the user 11-06: "he's still doing the same 16 block branching on each side"; 16-long pairs down the whole tunnel came first, the push to 64 only once no room was left)
+        b.invalidate(); } // (any nook of his, and its gap round the mouth: the spacing)
     /** A blueprint fix that would dig out one of his nook's stations (its table, chests, bed, furnaces): the nook keeps it (a branch laid through it before the nook was there). Dropped, said once. */
     static boolean nookKeeps(ClaudeEntity g, ServerLevel level, Task t) {
         if (g.nookOld != null) { // one owner: while the move is on, the old pocket's cells are the move's (its swaps, its fill), never the blueprint's breaks or patches; once it ends they're the blueprint's again
@@ -12628,6 +12632,7 @@ public final class ClaudeLife {
                 // keep anything already set aside: an interruption of an interruption still gets back to the job
                 var keep = new java.util.ArrayDeque<Task>(g.tasks);
                 boolean curCover = g.currentTask != null && g.coverTasks().stream().anyMatch(x -> x == g.currentTask);
+                if (curCover && g.currentTask instanceof Task.Wait) g.dropCurrent = true; // their order ends the cover's wait (it runs till dawn); the way out, queued, still comes first (live 02:33 11-06: "go sleep in the village lol", 20+ s more in his hole)
                 if (g.currentTask != null && !curCover) { keep.addFirst(g.currentTask); g.dropCurrent = true; } // (the walk he was on is set aside too: at 04:31 it kept him walking 23 s away from them before their "give me a pick")
                 keep.addAll(g.stashedTasks);
                 g.stashedTasks.clear();
@@ -12638,7 +12643,7 @@ public final class ClaudeLife {
             default -> { // a new job: the old one is dropped for good, not resumed later
                 List<Skills.Step> owed = Errand.queued(g, queue); // (what they asked him to hand over isn't the old job: it stays ahead)
                 clearTasks(g); g.skillQueue.clear(); g.skillQueue.addAll(owed); g.skillQueue.addAll(queue);
-                if (g.currentTask != null && g.coverTasks().stream().noneMatch(x -> x == g.currentTask)) g.dropCurrent = true; // (the old job's task in hand stops too)
+                if (g.currentTask != null && (g.coverTasks().stream().noneMatch(x -> x == g.currentTask) || g.currentTask instanceof Task.Wait)) g.dropCurrent = true; // (the old job's task in hand stops too; in his cover, its wait: their order ends it, the way out still first)
                 g.stashedTasks.clear(); g.resumeAfterCommand = false;
             }
         }

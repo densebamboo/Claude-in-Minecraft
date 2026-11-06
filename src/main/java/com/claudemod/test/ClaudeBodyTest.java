@@ -2213,7 +2213,7 @@ public final class ClaudeBodyTest {
         for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
         c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear(); c.attempts.clear(); c.pillarBlocks.clear(); com.claudemod.director.ClaudeLife.bridgeBlocks().clear();
         c.house = null; c.nook = null; c.nooks.clear(); c.farm = null; c.blueprint = null; c.mineShape = null; c.mineCells.clear(); c.mineSpine.clear(); c.mineFace = null; c.stairStart = null;
-        c.myStations.clear(); c.storageChests.clear(); c.lastGiven.clear(); c.staying = false; c.prefs.remove("stay_close"); c.playerGoal = "";
+        c.myStations.clear(); c.storageChests.clear(); c.lastGiven.clear(); c.staying = false; c.prefs.remove("branch_length"); c.prefs.remove("stay_close"); c.playerGoal = "";
         c.setHealth(20f); c.getFoodData().setFoodLevel(20);
         c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.fallDistance = 0; c.clearFire(); // (the last stage's fall or knock carried into the next: stage 495 began with him dropping onto his spot, seeing over the copper)
         com.claudemod.entity.life.ChestLedger.reset(c);
@@ -2822,7 +2822,7 @@ public final class ClaudeBodyTest {
                             b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(K, h.absolutePos(new BlockPos(3, 6, 5)), E, 4, null)); b.invalidate(); // the level: 4 rows at y 6
                             b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.STAIRS, b.nextStart(true), E, 4, null)); b.invalidate(); // the stairs on down
                             b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(K, b.nextStart(false), E, 2, null)); b.invalidate(); // the deep tunnel: the face
-                            b.branchLength = 2; b.branchEvery = 4; b.branchPair(3, 3);
+                            b.branchLength = 2; b.branchEvery = 4; b.branchPair(3, 3); c.prefs.put("branch_length", "2"); // (short branches by their word: new ones off the second tunnel stay this mine's 2, not the full 64)
                             for (var r : b.rows()) for (BlockPos f : r.feet()) for (int y = 0; y < r.height(); y++) level.setBlockAndUpdate(f.above(y), Blocks.AIR.defaultBlockState());
                             for (var s0 : b.segments) if (s0.kind == com.claudemod.entity.life.MineBlueprint.Kind.BRANCH) { BlockPos end = s0.start.relative(s0.dir, s0.n); level.setBlockAndUpdate(end, Blocks.COBBLESTONE.defaultBlockState()); level.setBlockAndUpdate(end.above(), Blocks.COBBLESTONE.defaultBlockState()); } // both plugged
                             c.blueprint = b; com.claudemod.director.ClaudeLife.bpSync(c);
@@ -10609,6 +10609,12 @@ public final class ClaudeBodyTest {
             case 690: return st690(stage, t, c, h, level, mock);
             case 691: return st691(stage, t, c, h, level, mock);
             case 692: return st692(stage, t, c, h, level, mock);
+            case 693: return st693(stage, t, c, h, level, mock);
+            case 694: return st694(stage, t, c, h, level, mock);
+            case 695: return st695(stage, t, c, h, level, mock);
+            case 696: return st696(stage, t, c, h, level, mock);
+            case 697: return st697(stage, t, c, h, level, mock);
+            case 698: return st698(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -16937,6 +16943,144 @@ public final class ClaudeBodyTest {
             int inChest = level.getBlockEntity(h.absolutePos(chestAt)) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box ? box.countItem(Items.RAW_IRON) : -1;
             if (inChest >= 34) { check(c.inventory.count(x -> x.is(Items.IRON_PICKAXE)) == 1 && c.inventory.count(x -> x.is(Items.COOKED_BEEF)) == 16, "the trip kit went in the chest too: pick " + c.inventory.count(x -> x.is(Items.IRON_PICKAXE)) + ", beef " + c.inventory.count(x -> x.is(Items.COOKED_BEEF))); pass(stage, t, "the raw iron into his chest before the portal, in " + (t[0] - 10) + " ticks; pick and food kept"); }
             else check(t[0] < 400, "set off for the Nether with " + c.inventory.count(x -> x.is(Items.RAW_IRON)) + " raw iron on him, " + inChest + " in his chest 20 off; skills " + c.skillQueue + " tasks " + c.tasks);
+        }
+        return true;
+    }
+
+    /** Live 03:36 11-06 World 17: "back up to my iron tunnel at y=16 for a new pair of branches", the user: "he's still doing the same 16 block branching on each side". New pairs were laid at branchLength 16 down the whole tunnel; the push to 64 came only once no room was left. A new branch is laid the full way (64, its room) unless they set a branch length. */
+    private static int st698Top;
+    private static boolean st698(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 05:41 World 17 (Nether 8,49,2): health 2, nothing to eat, a crossbow piglin 6-7 off: "0 shooter(s)", a 3-high tower, shot off it 2 -> 0. A piglin with a crossbow is a shooter like a skeleton.
+        BlockPos at = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); st698Top = 0; }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -4; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.NETHERRACK); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 40)); c.setHealth(2); c.getFoodData().setFoodLevel(6);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+            mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            var pg = EntityType.PIGLIN.create(level); BlockPos pp = h.absolutePos(new BlockPos(8, 2, 15)); pg.moveTo(pp.getX() + 0.5, pp.getY(), pp.getZ() + 0.5, 180, 0); pg.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.CROSSBOW)); pg.setNoAi(true); pg.setImmuneToZombification(true); pg.setPersistenceRequired(); level.addFreshEntity(pg); // 7 off, in sight: it shot him a moment ago
+            c.setLastHurtByMob(pg);
+            var hk = h.spawn(EntityType.HUSK, new BlockPos(2, 2, 6)); hk.setPersistenceRequired(); hk.setTarget(c);
+        }
+        if (t[0] > 10) {
+            int up = c.getBlockY() - at.getY(); st698Top = Math.max(st698Top, up);
+            BlockPos f = c.blockPosition(); boolean lid = !level.getBlockState(f.above(2)).getCollisionShape(level, f.above(2)).isEmpty();
+            check(!(up >= 2 && !lid), "up a bare tower " + up + " high with a crossbow piglin that just shot him about (no lid), health " + (int) c.getHealth() + ", now=" + c.currentTask + " last=" + c.lastSkillLine);
+            if (t[0] >= 210) { for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); pass(stage, t, "no bare tower with a crossbow piglin about (highest " + st698Top + " up, health " + (int) c.getHealth() + ")"); }
+        }
+        return true;
+    }
+    private static boolean st697(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); c.prefs.remove("branch_length"); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 30; x++) for (int z = -6; z <= 26; z++) { for (int yy = -3; yy <= 12; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, 13, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); }
+            var E = net.minecraft.core.Direction.EAST;
+            var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(new BlockPos(2, 12, 8)), E, 2, 3); b.segments.get(0).n = 8; b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(true), E, 16, null)); b.invalidate();
+            b.branchLength = 16; b.branchEvery = 4;
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int y = 0; y < r.height(); y++) level.setBlock(f.above(y), Blocks.AIR.defaultBlockState(), 2);
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); com.claudemod.director.ClaudeLife.bpSync(c);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.TORCH, 32)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            BlockPos end = b.rows().get(b.rows().size() - 1).first(); c.teleportTo(end.getX() + 0.5, end.getY(), end.getZ() + 0.5);
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); level.setDayTime(1000); c.tasks.clear(); c.skillQueue.clear(); c.attempts.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 20) {
+            var b = c.blueprint; var KB = com.claudemod.entity.life.MineBlueprint.Kind.BRANCH; c.tasks.clear();
+            String line = com.claudemod.director.ClaudeLife.bpAtLevel(c, level, b, h.absolutePos(new BlockPos(0, 4, 0)).getY(), "iron");
+            java.util.List<Integer> ns = new java.util.ArrayList<>(); for (var s0 : b.segments) if (s0.kind == KB) ns.add(s0.n);
+            c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            check(!ns.isEmpty(), "no branch pair laid: " + line);
+            check(ns.stream().allMatch(n -> n >= 64), "new branches laid short of the full 64: " + ns + " (" + line + ")");
+            pass(stage, t, "a new pair laid the full way: " + ns);
+        }
+        return true;
+    }
+
+    static BlockPos s696A, s696B;
+    /** Live 03:13 11-06 World 17: a junk chest pair set into a 1-wide tunnel's south wall (junkChestRound, facing north) came out two singles, west and north ("he just fucked up placing a double chest again"). doPlace's chest front wanted open space past the stand; in a 1-wide tunnel that's the far wall, so the planned front was refused and the plain placement faced him. Both halves face north and join. */
+    private static boolean st696(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 10) {
+            for (int x = 0; x <= 14; x++) for (int z = 4; z <= 12; z++) for (int yy = 1; yy <= 5; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2);
+            for (int x = 1; x <= 13; x++) for (int yy = 2; yy <= 3; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, 8)), Blocks.AIR.defaultBlockState(), 2); // a 1-wide tunnel along x at z 8
+            s696A = h.absolutePos(new BlockPos(6, 2, 9)); s696B = h.absolutePos(new BlockPos(7, 2, 9)); // the south wall's cells
+            for (BlockPos q : new BlockPos[] {s696A, s696B, s696A.above(), s696B.above()}) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.CHEST, 2));
+            sleepAt(c, h, new BlockPos(3, 2, 8)); level.setDayTime(1000); c.tasks.clear(); c.skillQueue.clear();
+            c.tasks.add(new Task.Place(s696A, Items.CHEST, net.minecraft.core.Direction.NORTH)); c.tasks.add(new Task.Place(s696B, Items.CHEST, net.minecraft.core.Direction.NORTH)); }
+        if (t[0] > 10 && (t[0] == 300 || c.tasks.isEmpty() && c.currentTask == null && t[0] > 30)) {
+            var a = level.getBlockState(s696A); var b = level.getBlockState(s696B); c.tasks.clear(); c.dropCurrent = true;
+            check(a.is(Blocks.CHEST) && b.is(Blocks.CHEST), "the chests weren't both placed: " + a + " / " + b);
+            check(a.getValue(net.minecraft.world.level.block.ChestBlock.FACING) == net.minecraft.core.Direction.NORTH && b.getValue(net.minecraft.world.level.block.ChestBlock.FACING) == net.minecraft.core.Direction.NORTH, "the wall pair's fronts aren't both north (into the tunnel): " + a + " / " + b);
+            check(a.getValue(net.minecraft.world.level.block.ChestBlock.TYPE) != net.minecraft.world.level.block.state.properties.ChestType.SINGLE, "two singles, not a double chest: " + a + " / " + b);
+            pass(stage, t, "a wall chest pair in a 1-wide tunnel: one double chest facing into the tunnel");
+        }
+        return true;
+    }
+
+    static BlockPos s695Hay, s695Log, s695Wall, s695Own;
+    /** Live 02:40 11-06 World 17: village_food refused its own hay x3 ("a structure's own block, kept intact"); 02:21 natural oaks in the village left half chopped (reviews 89/128). The intact rule was a refusal of anything in a piece's box that looked like the village. Priced: hay and a tree come down, a house wall stays. */
+    private static boolean st695(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.director.Structures.testPieces().clear(); }
+        if (t[0] == 10) {
+            for (int x = 0; x <= 14; x++) for (int z = 0; z <= 14; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 9; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            s695Hay = h.absolutePos(new BlockPos(6, 2, 8)); level.setBlock(s695Hay, Blocks.HAY_BLOCK.defaultBlockState(), 2);
+            s695Log = h.absolutePos(new BlockPos(9, 2, 4)); level.setBlock(s695Log, Blocks.OAK_LOG.defaultBlockState(), 2); level.setBlock(s695Log.above(), Blocks.OAK_LOG.defaultBlockState(), 2); level.setBlock(s695Log.above(2), Blocks.OAK_LEAVES.defaultBlockState(), 2);
+            s695Wall = h.absolutePos(new BlockPos(9, 2, 11)); level.setBlock(s695Wall, Blocks.OAK_PLANKS.defaultBlockState(), 2);
+            s695Own = h.absolutePos(new BlockPos(4, 2, 4)); level.setBlock(s695Own, Blocks.COBBLESTONE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, s695Own, Blocks.COBBLESTONE.defaultBlockState(), Blocks.AIR.defaultBlockState()); // his own cover block
+            com.claudemod.director.Structures.testPieces().add(new com.claudemod.director.Structures.Piece("village_plains", ggBox(h, new BlockPos(0, 1, 0), new BlockPos(14, 8, 14))));
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_AXE)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); sleepAt(c, h, new BlockPos(7, 2, 7)); level.setDayTime(1000);
+            c.tasks.clear(); c.skillQueue.clear(); c.tasks.add(new Task.Break(s695Hay)); c.tasks.add(new Task.Break(s695Log)); c.tasks.add(new Task.Break(s695Wall)); c.tasks.add(new Task.Break(s695Own)); }
+        if (t[0] == 200) {
+            boolean hay = level.getBlockState(s695Hay).isAir(), log = level.getBlockState(s695Log).isAir(), wall = level.getBlockState(s695Wall).is(Blocks.OAK_PLANKS);
+            com.claudemod.director.Structures.testPieces().clear(); c.tasks.clear(); c.dropCurrent = true;
+            check(hay, "the village's hay bale kept as 'a structure's own block' (village_food's own job)");
+            check(log, "a natural oak in the village's bounds kept as 'a structure's own block'");
+            check(wall, "a house wall (oak planks) in the village broken for a plain Break job");
+            check(level.getBlockState(s695Own).isAir() || !com.claudemod.entity.life.TempLedger.has(c, s695Own), "his own cobble (booked temp) in the village kept as 'a structure's own block'");
+            pass(stage, t, "village: hay and a tree come down, the house wall stays");
+        }
+        return true;
+    }
+
+    static int s694T = -1;
+    /** Live 02:33 11-06 World 17: holding in his night cover, they said "go sleep in the village lol": "on it, heading to the village bed now", then 20+ s more of the cover's Wait (it runs till dawn). The order kept the cover task in hand, its wait-till-dawn too, so the climb out and their order waited for morning. Their order ends the wait; the way out stays first. */
+    private static boolean st694(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); s694T = -1; c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = -2; x <= 20; x++) for (int z = -2; z <= 18; z++) { for (int yy = -1; yy <= 1; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2); for (int yy = 2; yy <= 9; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 4));
+            sleepAt(c, h, new BlockPos(4, 2, 8)); c.setHealth(20); c.getFoodData().setFoodLevel(20); level.setDayTime(14000);
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.skillQueue.clear(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("shelter", "", 1)); }
+        if (t[0] > 14 && s694T < 0 && c.currentTask instanceof Task.Wait && c.coverTasks().stream().anyMatch(x -> x == c.currentTask)) {
+            s693Bed = sleepBed(level, h.absolutePos(new BlockPos(14, 2, 8)), net.minecraft.core.Direction.EAST); com.claudemod.director.ClaudeLife.bedsSeen(c).add(s693Bed);
+            com.claudemod.director.ClaudeLife.command(c, mock[0], steps1("sleep", "", 1, "near_you"), "go sleep in the village lol", "replace"); s694T = t[0]; }
+        if (s694T > 0 && t[0] - s694T <= 100 && !(c.currentTask instanceof Task.Wait && c.coverTasks().stream().anyMatch(x -> x == c.currentTask))) {
+            String cur = String.valueOf(c.currentTask); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; level.setDayTime(1000);
+            pass(stage, t, "their order in his cover: the wait over in " + (t[0] - s694T) + " ticks, now " + cur); }
+        else if (s694T > 0 && t[0] - s694T > 100 || s694T < 0 && t[0] > 600) { String cur = String.valueOf(c.currentTask), tq = c.tasks + " / " + c.skillQueue; c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; level.setDayTime(1000);
+            check(false, s694T < 0 ? "never got into a cover wait to test the order on: " + cur + " " + tq : "their order 100 ticks ago and still in the cover's wait: " + cur + " | " + tq); }
+        return true;
+    }
+
+    static BlockPos s693Bed;
+    /** Live 02:10 11-06 World 17: night, out on stone with an iron pick and no blocks, the shelter step "can't make cover here" x3, then 7 min idle in the open; a village 67 off and his mine 97 off (the user: "he could easily go sleep in the village rn ... or in his mine"). The shelter step knew only his mine within 24, a tower, a hole. Here: a free bed he has seen 24 off on bare stone: the shelter step takes him to sleep in it. */
+    private static boolean st693(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); }
+        if (t[0] == 5) for (int cx = -2; cx <= 2; cx++) for (int cz = -2; cz <= 2; cz++) { BlockPos p = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(p), 2, p); }
+        if (t[0] == 10) {
+            for (int x = -22; x <= 34; x++) for (int z = -18; z <= 34; z++) { for (int yy = -1; yy <= 1; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2); for (int yy = 2; yy <= 8; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            s693Bed = sleepBed(level, h.absolutePos(new BlockPos(28, 2, 8)), net.minecraft.core.Direction.EAST); com.claudemod.director.ClaudeLife.bedsSeen(c).add(s693Bed);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 4));
+            sleepAt(c, h, new BlockPos(4, 2, 8)); c.setHealth(20); c.getFoodData().setFoodLevel(20); level.setDayTime(14000);
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.skillQueue.clear(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("shelter", "", 1)); }
+        if (t[0] > 14) {
+            String line = c.lastSkillLine == null ? "" : c.lastSkillLine;
+            boolean toBed = c.isSleeping() || c.skillQueue.stream().anyMatch(q -> q.skill().equals("sleep")) || c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().distSqr(s693Bed) <= 9) || line.contains("sleep");
+            if (toBed) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; level.setDayTime(1000); pass(stage, t, "night on bare stone, no blocks: the shelter step takes the free bed 24 off (" + line + ")"); }
+            else if (t[0] >= 200 || line.contains("shelter -> failed") || line.contains("getting under cover here") || c.currentTask instanceof Task.Pillar) { String tq = c.tasks + " / " + c.skillQueue; c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; level.setDayTime(1000); check(false, "night on bare stone, a free bed 24 off: not taken: " + line + " | " + tq); }
         }
         return true;
     }

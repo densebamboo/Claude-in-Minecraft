@@ -1898,7 +1898,7 @@ public class WorkGoal extends Goal {
         if (ticks == 1 && com.claudemod.director.ClaudeLife.bridgeBlocks().contains(pos)) com.claudemod.ClaudeMod.LOGGER.info("[Claude temp] taking back {}: he is at {} {} {} onGround {} box {} (WorkGoal.doBreak)", pos.toShortString(), String.format("%.2f", g.getX()), String.format("%.2f", g.getY()), String.format("%.2f", g.getZ()), g.onGround(), g.getBoundingBox());
         if (com.claudemod.director.ClaudeLife.bridgeBlocks().contains(pos) && level.getBlockState(pos).isAir()) { com.claudemod.director.ClaudeLife.bridgeBlocks().remove(pos); return exit("doBreak line 1446"); }
         BlockState state = level.getBlockState(pos);
-        if (!state.isAir() && com.claudemod.entity.nav.ActionPath.structureBlock(level, pos) && !com.claudemod.entity.nav.ActionPath.structureDigOk(level, pos) && !com.claudemod.entity.life.TempLedger.built(g, pos) && !(g.lastStep != null && g.lastStep.skill().equals("light_end_portal")) /* (the portal-room skill's own breaks: its one way in, a stuck door; the roof brick under him was refused 3x a second, live 00:57) */ && !com.claudemod.entity.life.Consent.theirWord(g, pos, "structure", "a structure's own block", null)) { // the user, 17:08: "generally you wanna keep the nether fortress intact" (16:42-16:45 the fortress lost 11 nether bricks to his walks and digs, none of them logged): only a planned way with no way round breaks one (and puts it back), or their own dig_at
+        if (!state.isAir() && com.claudemod.entity.nav.ActionPath.structureBlock(level, pos) && !com.claudemod.entity.nav.ActionPath.structureDigOk(level, pos) && !com.claudemod.entity.life.TempLedger.built(g, pos) && com.claudemod.entity.nav.ActionPath.keepStructure(g, level, pos, state, ticks == 1) && !(g.lastStep != null && g.lastStep.skill().equals("light_end_portal")) /* (the portal-room skill's own breaks: its one way in, a stuck door; the roof brick under him was refused 3x a second, live 00:57) */ && !com.claudemod.entity.life.Consent.theirWord(g, pos, "structure", "a structure's own block", null)) { // the user, 17:08: "generally you wanna keep the nether fortress intact" (16:42-16:45 the fortress lost 11 nether bricks to his walks and digs, none of them logged): only a planned way with no way round breaks one (and puts it back), or their own dig_at
             if (ticks == 1) { com.claudemod.ClaudeMod.LOGGER.info("[Claude dig] not breaking the {} at {}: a structure's own block, kept intact (only a planned way with no way round breaks one, and puts it back) (WorkGoal.doBreak, queued by {})", net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath(), pos.toShortString(), com.claudemod.entity.ClaudeEntity.originOf(current)); com.claudemod.entity.life.MindLog.refused(g, pos, "breaking a structure block [kept intact] queued by " + com.claudemod.entity.ClaudeEntity.originOf(current)); }
             return exit("a structure's own block, kept intact (doBreak)");
         }
@@ -3781,7 +3781,7 @@ public class WorkGoal extends Goal {
                 boolean standable = standable0.test(standP);
                 if (!backed || !standable) continue;
                 double dd = g.distanceToSqr(Vec3.atCenterOf(standP));
-                { BlockPos out = standP.relative(d.getOpposite()); if (!level.getBlockState(out).getCollisionShape(level, out).isEmpty()) continue; } // (no such front: the usual placement below) // the front opens onto the room: a cell with open space past it, never the next cell of the same notch (he stood in the second chest's slot and set the pair sideways)
+                if (t.facing() == null) { BlockPos out = standP.relative(d.getOpposite()); if (!level.getBlockState(out).getCollisionShape(level, out).isEmpty()) continue; } // (a planned front needs no room past the stand: a 1-wide tunnel's wall chest faces the tunnel, its far wall a step behind him; live 03:13 11-06, the junk pair came out west + north) // (no such front: the usual placement below) // the front opens onto the room: a cell with open space past it, never the next cell of the same notch (he stood in the second chest's slot and set the pair sideways)
                 for (Direction s : new Direction[] {d.getClockWise(), d.getCounterClockWise()}) { // a single chest beside it: the new one faces the same way, so they join
                     BlockState bs = level.getBlockState(pos.relative(s));
                     if (bs.getBlock() instanceof net.minecraft.world.level.block.ChestBlock && bs.getValue(net.minecraft.world.level.block.ChestBlock.TYPE) == net.minecraft.world.level.block.state.properties.ChestType.SINGLE && bs.getValue(net.minecraft.world.level.block.ChestBlock.FACING) == d.getOpposite()) dd = -1;
@@ -4523,6 +4523,8 @@ public class WorkGoal extends Goal {
 
     /** Silverfish and endermites while he's above 8 health: 1 damage a bite, swatted, never a crowd to run from (stage 559: six from the portal room's spawner ran him off and he plugged himself out of the room). */
     private boolean pest(net.minecraft.world.entity.Entity m) { return g.getHealth() > 8 && (m instanceof net.minecraft.world.entity.monster.Silverfish || m instanceof net.minecraft.world.entity.monster.Endermite); }
+    /** A mob that shoots him: skeletons, and anything holding a crossbow (pillagers, piglins: live 05:41 World 17, a crossbow piglin read as melee, "0 shooter(s)", a bare tower, shot off it). */
+    public static boolean shoots(net.minecraft.world.entity.Entity m) { return m instanceof net.minecraft.world.entity.monster.AbstractSkeleton || m instanceof net.minecraft.world.entity.monster.CrossbowAttackMob && m instanceof net.minecraft.world.entity.LivingEntity l && l.isHolding(net.minecraft.world.item.Items.CROSSBOW); }
 
     private boolean shouldFlee(net.minecraft.world.entity.Entity foe) { return shouldFlee(foe, false); }
     private boolean shouldFlee(net.minecraft.world.entity.Entity foe, boolean say) {
@@ -4908,7 +4910,7 @@ public class WorkGoal extends Goal {
         // cornered (a dungeon, a dead end): running isn't getting him anywhere, so like a player he turns and fights
         if (ticks == 1) fleeFrom = g.position();
         if (ticks >= 30 && ticks % 30 == 0 && !escapeHeld && fleeFrom != null && g.position().distanceTo(fleeFrom) < 2.0 && !mobs.isEmpty() // every 1.5 s of the run, not only its first (live 12:07 11-02: escapes blocked x7 on one block, a spider 20 -> 0, never a swing back)
-                && !mobs.stream().allMatch(m -> (m instanceof net.minecraft.world.entity.monster.AbstractSkeleton || m instanceof net.minecraft.world.entity.monster.Pillager) && m.distanceTo(g) > 3) // "cornered" by a crossbow 8 blocks off is not a fight to wade into (health 16 to 1 in 10 s)
+                && !mobs.stream().allMatch(m -> (com.claudemod.entity.goals.WorkGoal.shoots(m)) && m.distanceTo(g) > 3) // "cornered" by a crossbow 8 blocks off is not a fight to wade into (health 16 to 1 in 10 s)
                 && !(mobs.stream().min(java.util.Comparator.comparingDouble(m -> m.distanceTo(g))).get() instanceof net.minecraft.world.entity.monster.Creeper)) { // and never a creeper: "fighting his way out" of one is the explosion
             var near = mobs.stream().min(java.util.Comparator.comparingDouble(m -> m.distanceTo(g))).get();
             if (weakFighter()) { // bare hands or a wooden sword: "fighting his way out" is 20 punches at 3 damage a bite (five deaths in two minutes at his bed); cover instead
@@ -4994,7 +4996,7 @@ public class WorkGoal extends Goal {
      */
     private void healUp() {
         // a skeleton still drawing on him: no standing there eating in its sights; cover first (the dig-in), the eating from in there
-        if (!diggingIn() && !com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(20), m -> m.isAlive() && (m instanceof net.minecraft.world.entity.monster.AbstractSkeleton || m instanceof net.minecraft.world.entity.monster.Pillager) && (m.getTarget() == g || m.distanceTo(g) < 10)).isEmpty()) {
+        if (!diggingIn() && !com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(20), m -> m.isAlive() && (com.claudemod.entity.goals.WorkGoal.shoots(m)) && (m.getTarget() == g || m.distanceTo(g) < 10)).isEmpty()) {
             if (digInFromArrows()) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] a skeleton still on him (health {}): under cover before any healing", (int) g.getHealth()); return; }
         }
         if (g.getHealth() >= g.getMaxHealth() - 4) return;
@@ -5064,9 +5066,9 @@ public class WorkGoal extends Goal {
     }
     /** A skeleton (or pillager) he sees, hears or felt within 24, or sensed lately there: what keeps his cover up. Null: none. */
     private String shooterAbout() {
-        for (var m : com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(24), m -> m.isAlive() && (m instanceof net.minecraft.world.entity.monster.AbstractSkeleton || m instanceof net.minecraft.world.entity.monster.Pillager)))
+        for (var m : com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(24), m -> m.isAlive() && (com.claudemod.entity.goals.WorkGoal.shoots(m))))
             return m.getType().getDescription().getString() + " " + (int) m.distanceTo(g) + " off (" + (com.claudemod.entity.life.Perception.seesNow(g, m) ? "in sight" : "heard or felt") + ")";
-        for (var m : com.claudemod.entity.life.Perception.lately(g, 24)) if (m instanceof net.minecraft.world.entity.monster.AbstractSkeleton || m instanceof net.minecraft.world.entity.monster.Pillager) return m.getType().getDescription().getString() + " sensed lately";
+        for (var m : com.claudemod.entity.life.Perception.lately(g, 24)) if (com.claudemod.entity.goals.WorkGoal.shoots(m)) return m.getType().getDescription().getString() + " sensed lately";
         return null;
     }
     private java.util.Map<String, Integer> noCoverSaid; private int shooterHeld = -1, coverHitSaid = -1; // (lazy: fields added live start null)
@@ -5093,8 +5095,8 @@ public class WorkGoal extends Goal {
             digInAt = null;
         }
         var shooters = new java.util.ArrayList<>(com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(24),
-                m -> m.isAlive() && (m instanceof net.minecraft.world.entity.monster.AbstractSkeleton || m instanceof net.minecraft.world.entity.monster.Pillager) && (m.getTarget() == g || m.distanceTo(g) < 12 || m.hasLineOfSight(g)))); // (in sight within 24 counts: one 15 off shot him off a bare tower twice) skeletons and pillagers alike (a bare tower against a crossbow killed him)
-        { var shot = g.getLastHurtByMob(); if ((shot instanceof net.minecraft.world.entity.monster.AbstractSkeleton || shot instanceof net.minecraft.world.entity.monster.Pillager) && shot.isAlive() && g.tickCount - g.getLastHurtByMobTimestamp() < 200 && shot.distanceTo(g) < 32 && !shooters.contains(shot)) shooters.add((net.minecraft.world.entity.monster.Monster) shot); } // what shot him in the last 10 s is a shooter, seen or not, like a player knows (live 18:13 11-04: shot twice, then out of sight: "0 shooter(s)", a bare 3-high dirt tower, shot off it 20 -> 0)
+                m -> m.isAlive() && (com.claudemod.entity.goals.WorkGoal.shoots(m)) && (m.getTarget() == g || m.distanceTo(g) < 12 || m.hasLineOfSight(g)))); // (in sight within 24 counts: one 15 off shot him off a bare tower twice) skeletons and pillagers alike (a bare tower against a crossbow killed him)
+        { var shot = g.getLastHurtByMob(); if ((com.claudemod.entity.goals.WorkGoal.shoots(shot)) && shot.isAlive() && g.tickCount - g.getLastHurtByMobTimestamp() < 200 && shot.distanceTo(g) < 32 && !shooters.contains(shot)) shooters.add((net.minecraft.world.entity.monster.Monster) shot); } // what shot him in the last 10 s is a shooter, seen or not, like a player knows (live 18:13 11-04: shot twice, then out of sight: "0 shooter(s)", a bare 3-high dirt tower, shot off it 20 -> 0)
         int crowd = (int) hostilesNear(14).stream().filter(m -> !pest(m)).count();
         boolean swarmed = ((!armed() || weakKit()) && crowd >= 2) || crowd >= (prepared() ? 4 : 3) // (the combat rule: a crowd is left alone unless he's prepared, iron and food: in iron with a diamond sword and six meals two skeletons and a zombie had him boxed in, live 04:42) a crowd (or two with nothing proper to fight them in): a covered hole or a tower stops them too
                 || (!armed() && crowd >= 1 && !com.claudemod.director.ClaudeLife.dayHere(level)); // unarmed at night with anything on him: running from a zombie as fast as him is how a fresh respawn died twice; two down and a lid
@@ -5178,8 +5180,8 @@ public class WorkGoal extends Goal {
                 ItemStack hutBlocks = solidScaffold();
                 boolean enclosed = hutBlocks.getCount() >= 14 + (ItemStack.isSameItem(hutBlocks, blocks) ? towerH : 0); // walls at his feet and head and a lid up there, on top of what the tower takes
                 double buildTicks = towerH * 10 + (enclosed ? 15 * 5 : 0); // a jump and a place a block up; ~5 ticks a hut block with its aim
-                double arrowsBuilding = shooters.stream().filter(m -> m.hasLineOfSight(g)).mapToDouble(m -> { double d = m.distanceTo(g); return d <= 8 ? 1.0 : d <= 12 ? 0.5 : 0.34; }).sum() * (buildTicks + 20) / 40.0; // (as the hole's: a shot every ~2 s, most miss at range)
-                if (arrowsBuilding * 3 >= g.getHealth() - 4 && !desperate && !desperateNow) return noCover(String.format("%d shooter(s) with a line on him: ~%.0f arrows while a %d-high tower%s goes up, at health %d: out of their sights before any building", shooters.size(), arrowsBuilding, towerH, enclosed ? " and hut" : "", (int) g.getHealth())); // (live 04:55 11-02: building a tower and hut under 2-3 skeletons 3-8 off, 20 -> 0 in 13 s, no armor)
+                double arrowsBuilding = shooters.stream() /* (desperate too: at 2 health the first arrow is the end, live 05:41 World 17 shot off the tower going up) */.filter(m -> m.hasLineOfSight(g)).mapToDouble(m -> { double d = m.distanceTo(g); return d <= 8 ? 1.0 : d <= 12 ? 0.5 : 0.34; }).sum() * (buildTicks + 20) / 40.0; // (as the hole's: a shot every ~2 s, most miss at range)
+                if (arrowsBuilding * 3 >= g.getHealth() - ((desperate || desperateNow) ? 0 : 4)) return noCover(String.format("%d shooter(s) with a line on him: ~%.0f arrows while a %d-high tower%s goes up, at health %d: out of their sights before any building", shooters.size(), arrowsBuilding, towerH, enclosed ? " and hut" : "", (int) g.getHealth())); // (live 04:55 11-02: building a tower and hut under 2-3 skeletons 3-8 off, 20 -> 0 in 13 s, no armor)
                 Direction edge = null; boolean edgeLava = false; int edgeDrop = 0; // a cell beside him with no floor and a long drop or lava under it: a knockback off a bare tower there (or off the climb) is a fall into it
                 for (Direction d : Direction.Plane.HORIZONTAL) {
                     BlockPos n = feet.relative(d);

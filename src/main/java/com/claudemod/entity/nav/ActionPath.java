@@ -155,6 +155,7 @@ public final class ActionPath {
         if (s.isAir() || !s.getFluidState().isEmpty() && s.getCollisionShape(level, p).isEmpty()) return false;
         String b = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(s.getBlock()).getPath();
         if (b.contains("nether_brick") || b.contains("polished_blackstone") || b.equals("gilded_blackstone")) return true;
+        if (s.is(net.minecraft.tags.BlockTags.LOGS) && naturalTree(level, p)) return false; // a tree growing in a village's bounds is a tree, not the village (World 17 02:21, reviews 89/128: oaks left half chopped)
         for (var pc : com.claudemod.director.Structures.piecesNear(level, p, 0)) {
             if (!pc.box().isInside(p)) continue;
             String k = com.claudemod.director.Structures.key(pc.id());
@@ -162,6 +163,27 @@ public final class ActionPath {
             if (com.claudemod.director.Structures.signOf(pc.id(), s) || k.equals("bastion_remnant") && s.is(net.minecraft.world.level.block.Blocks.BLACKSTONE)) return true;
         }
         return false;
+    }
+    /** A log with natural leaves (not persistent: grown, never placed) within 2: a tree's, not a building's. */
+    static boolean naturalTree(ServerLevel level, BlockPos p) {
+        for (BlockPos q : BlockPos.betweenClosed(p.offset(-2, -1, -2), p.offset(2, 2, 2))) { BlockState l = level.getBlockState(q); if (l.getBlock() instanceof net.minecraft.world.level.block.LeavesBlock && !l.getValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT)) return true; }
+        return false;
+    }
+    /**
+     * Whether to keep a structure's block intact against the job that wants it broken (doBreak): its worth to the structure, priced,
+     * against going round or another spot. A village's hay, crops and beds are its stores, his to use (the user: villages used when
+     * useful, beds taken, golem iron; keep the village standing): cheap. Walls, roofs, a fortress's bricks: dear. Was a refusal of
+     * every block in a piece's box that looked like the structure (World 17 02:40: village_food refused its own hay x3, the user had to say "break them").
+     */
+    public static boolean keepStructure(com.claudemod.entity.ClaudeEntity g, ServerLevel level, BlockPos p, BlockState s, boolean say) {
+        if (com.claudemod.entity.life.TempLedger.has(g, p)) return false; // his own block (a cover, a step) set down in its bounds: his to take back, not the structure's (live 03:25 11-06, review 561: his cobble at a village refused as "a structure's own block" every errand)
+        double dear = s.is(net.minecraft.world.level.block.Blocks.HAY_BLOCK) ? com.claudemod.entity.life.Weights.w("structure.dear_s.hay", 3)
+            : s.is(net.minecraft.tags.BlockTags.CROPS) ? com.claudemod.entity.life.Weights.w("structure.dear_s.crop", 3)
+            : s.is(net.minecraft.tags.BlockTags.BEDS) ? com.claudemod.entity.life.Weights.w("structure.dear_s.bed", 5)
+            : com.claudemod.entity.life.Weights.w("structure.dear_s.build", 600); // (a wall, a roof, a fortress brick: a player goes round)
+        var pick = com.claudemod.entity.life.Decide.choose(g, "structure.break", net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(s.getBlock()).getPath() + " at " + p.toShortString(), say,
+            java.util.List.of(com.claudemod.entity.life.Decide.Option.of("break it", dear, "its worth to the structure"), com.claudemod.entity.life.Decide.Option.of("keep it intact", com.claudemod.entity.life.Weights.w("structure.keep_s", 60), "the way round, or another spot for the job")));
+        return pick == null || pick.name().equals("keep it intact");
     }
     static final java.util.Set<String> STRUCT_KEYS = java.util.Set.of("fortress", "bastion_remnant", "village", "desert_pyramid", "jungle_pyramid", "pillager_outpost", "igloo", "mansion", "ocean_ruin", "trail_ruins", "end_city", "stronghold");
     /** Structure cells a planned way digs (no way round): the dig guard lets these through for 5 minutes; tasks() puts each back. */

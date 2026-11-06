@@ -10532,6 +10532,7 @@ public final class ClaudeBodyTest {
             case 741: return st741(stage, t, c, h, level, mock);
             case 742: return st742(stage, t, c, h, level, mock);
             case 743: return st743(stage, t, c, h, level, mock);
+            case 744: return st744(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13962,6 +13963,26 @@ public final class ClaudeBodyTest {
 
     /** Live 16:49 11-05 (-106,64,-6, tick 11767; Day to Day case D, the user: "Couldn't he have slept at his bed ... Most of the time you don't need to dig into a hole for 10 minutes just because the sun is going down"): full HP, food 20, 5 meals, no armor, his bed about 30 off: "the sun's going down and he's out with no armor: under cover before dark", a hole, 7 min of night in it. The game's first spawns in the open are at tick 13188 (12969 in rain), 70 s off; 30 blocks is 6 s at a sprint. Dusk is one priced choice: his bed, his lit mine, the hole last. */
     private static java.util.List<BlockPos> g743Junk = new java.util.ArrayList<>();
+    private static boolean st744(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a block to set with nothing to set it against, only his own cell beside it with support (World 17 19:19:11 in his Nether bore: "nothing to place -184, 55, -2 against: a footing at -184, 55, -1 first", his own feet and the bore's lane, then the bore dug it out, 17 PLACE_BREAKs): no footing in the cells he stands in
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); }
+        BlockPos me = h.absolutePos(new BlockPos(5, 10, 6)), q = me.north();
+        if (t[0] == 10) {
+            for (int x = 0; x <= 10; x++) for (int z = 0; z <= 10; z++) for (int y = 2; y <= 15; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2);
+            for (int x = 0; x <= 10; x++) for (int z = 0; z <= 10; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 8, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, 9, z)), z <= 5 ? Blocks.LAVA.defaultBlockState() : Blocks.STONE.defaultBlockState(), 2); } // (a lava pool, north of his ledge, a block below it)
+            for (int z = 6; z <= 10; z++) { level.setBlock(h.absolutePos(new BlockPos(4, 10, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(6, 10, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(4, 11, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(6, 11, z)), Blocks.STONE.defaultBlockState(), 2); } // (his 1-wide way, walled)
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.NETHERRACK, 32)); c.setHealth(20);
+            q = me.north().north(); // (the cell to set: over the lava, 2 ahead, its only neighbour with support his way's mouth beside him)
+        }
+        if (t[0] == 12) { c.tasks.clear(); c.tasks.addFirst(new Task.Place(me.north(), Items.NETHERRACK)); }
+        if (t[0] > 12) {
+            BlockPos feet = c.blockPosition();
+            boolean intoHim = c.tasks.stream().anyMatch(x -> x instanceof Task.Place pl && (pl.pos().equals(feet) || pl.pos().equals(feet.above()) || pl.pos().equals(me) || pl.pos().equals(me.above()))) || (c.currentTask instanceof Task.Place cp && (cp.pos().equals(me) || cp.pos().equals(me.above())));
+            check(!intoHim, "a footing queued in the cells he stands in (" + me.toShortString() + "): now=" + c.currentTask + " tasks=" + c.tasks);
+            check(level.getBlockState(me).isAir(), "his own cell at " + me.toShortString() + " filled: " + level.getBlockState(me));
+            if (t[0] >= 72) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "nothing to set the block over the lava against: no footing in his own cell, the place " + (level.getBlockState(me.north()).isAir() ? "left" : "made") + " (" + level.getBlockState(me.north()) + ")"); }
+        }
+        return true;
+    }
     private static boolean st743(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // his pile with zombies by it at night: the valuables, then straight for his bed, no cobble; by day with none about: all of it (the user 11-05: "if it's safe he can just pick it up, if he senses danger or his health is low he should grab and run ... It should be weighed")
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(96))) m.discard(); }
         if (t[0] == 5) for (int cx = -1; cx <= 3; cx++) for (int cz = -1; cz <= 2; cz++) { BlockPos p = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(p), 2, p); }

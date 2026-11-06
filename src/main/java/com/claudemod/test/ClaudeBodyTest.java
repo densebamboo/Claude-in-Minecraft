@@ -10593,6 +10593,7 @@ public final class ClaudeBodyTest {
             case 772: return st772(stage, t, c, h, level, mock);
             case 773: return st773(stage, t, c, h, level, mock);
             case 774: return st774(stage, t, c, h, level, mock);
+            case 775: return st775(stage, t, c, h, level, mock);
             case 762: return st762(stage, t, c, h, level, mock);
             case 763: return st763(stage, t, c, h, level, mock);
             case 758: return st758(stage, t, c, h, level, mock);
@@ -15463,6 +15464,34 @@ public final class ClaudeBodyTest {
             check(c.isAlive() && c.level() == nl, "dead to four wither skeletons on the bridge at " + (t[0] - st770Start) / 20 + " s (low " + st770Low + ")");
             double near = 99; int alive = 0; for (var w : st770W) if (w.isAlive()) { alive++; near = Math.min(near, w.distanceTo(c)); }
             if (t[0] - st770Start >= 20 * 40) { check(st770Low > 0, "?"); for (var w : st770W) w.discard(); nsHome(c, h, level); c.setHealth(20); pass(stage, t, "alive 40 s with four wither skeletons on him on the bridge (" + alive + " left, nearest " + (int) near + ", low " + st770Low + ")"); }
+        }
+        return true;
+    }
+    private static int st775Start; private static float st775Low; private static java.util.List<net.minecraft.world.entity.monster.Blaze> st775B = new java.util.ArrayList<>();
+    private static boolean st775(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // three blazes 12 off in a fortress hall, no armor, health 7, iron sword, fed, a doorway 4 behind him into a side passage out of their sight (audit WG shouldFlee: "blazes: never flee, fought" held for any count at any health): the run out of their sight is priced against the fight, alive
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(10300, 80, 6200);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st775Start = -1; st775Low = 20; st775B.clear(); }
+        if (t[0] > 4 && t[0] % 10 == 0) for (int cx = -2; cx <= 2; cx++) for (int cz = -2; cz <= 2; cz++) { BlockPos q = o.offset(cx * 16, 0, cz * 16); nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(q), 2, q); }
+        if (t[0] > 10 && t[0] % 5 == 0) { for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) if (!st775B.contains(e)) e.discard(); for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.projectile.SmallFireball.class, new net.minecraft.world.phys.AABB(o).inflate(60))) if (st775Start < 0) e.discard(); }
+        if (t[0] == 10) { // a hall 24 x 14 x 8 of nether bricks inside thick netherrack; a doorway in the west wall 4 behind him into a passage that turns north (out of the hall's sight)
+            for (int x = -20; x <= 20; x++) for (int z = -14; z <= 14; z++) for (int y = -3; y <= 11; y++) nl.setBlock(o.offset(x, y, z), Blocks.NETHERRACK.defaultBlockState(), 2);
+            for (int x = -4; x <= 19; x++) for (int z = -7; z <= 6; z++) { nl.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); for (int y = 0; y <= 7; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = -9; x <= -5; x++) for (int y = 0; y <= 1; y++) nl.setBlock(o.offset(x, y, 0), Blocks.AIR.defaultBlockState(), 2); // (the doorway and passage west)
+            for (int z = -8; z <= 0; z++) for (int y = 0; y <= 1; y++) nl.setBlock(o.offset(-9, y, z), Blocks.AIR.defaultBlockState(), 2); // (then north)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 90f, 0f); c.setHealth(7); c.getFoodData().setFoodLevel(16); c.getFoodData().setSaturation(0);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null; c.pillarBlocks.clear();
+        }
+        if (t[0] == 20) { com.claudemod.entity.life.Perception.reset(c); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f);
+            for (int k = 0; k < 3; k++) { var b = EntityType.BLAZE.create(nl); b.moveTo(o.getX() + 12.5, o.getY() + 2, o.getZ() - 3.5 + k * 3, 90, 0); b.setPersistenceRequired(); nl.addFreshEntity(b); b.setTarget(c); st775B.add(b); }
+            st775Start = t[0]; }
+        if (st775Start > 0) {
+            for (var b : st775B) if (b.isAlive() && b.getTarget() != c) b.setTarget(c);
+            st775Low = Math.min(st775Low, c.getHealth());
+            check(c.isAlive() && c.level() == nl, "dead to three blazes at " + (t[0] - st775Start) / 20 + " s (low " + st775Low + ", health 7 at the start)");
+            if (t[0] - st775Start >= 20 * 40) { int alive = 0; for (var b : st775B) { if (b.isAlive()) alive++; b.discard(); } nsHome(c, h, level); c.setHealth(20); pass(stage, t, "alive 40 s with three blazes on him at 7 HP (" + alive + " left, low " + st775Low + ")"); }
         }
         return true;
     }

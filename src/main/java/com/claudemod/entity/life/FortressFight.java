@@ -263,10 +263,12 @@ public final class FortressFight {
      * his armor (vanilla's sum) plus the burning after (blaze.fire_hp, none on fire resistance), each blaze priced by Decide.hpS
      * from the given health, at his food or fed.
      */
-    public static double fightS(ClaudeEntity g, double health, double armor, double tough, boolean shield, boolean fed, int rodsLeft) {
+    public static double fightS(ClaudeEntity g, double health, double armor, double tough, boolean shield, boolean fed, int rodsLeft) { return fightS(g, health, armor, tough, shield, fed, rodsLeft, -1); }
+    /** The same for a given number of blazes (blazesN >= 0), not rods: the fight-or-run price on the ones in front of him (Loops, WorkGoal.shouldFlee). */
+    public static double fightS(ClaudeEntity g, double health, double armor, double tough, boolean shield, boolean fed, int rodsLeft, double blazesN) {
         double[] m = HuntPatrol.melee(g); double kill = Math.ceil(Weights.w("blaze.hp", 20) / m[0]) * m[1] + Weights.w("blaze.approach_s", 8);
         double dmg = Weights.w("blaze.fireball_hp", 5), perHit = dmg * (1 - Math.min(20, Math.max(armor / 5, armor - dmg / (2 + tough / 4))) / 25) + (g.hasEffect(net.minecraft.world.effect.MobEffects.FIRE_RESISTANCE) ? 0 : Weights.w("blaze.fire_hp", 3));
-        double hits = Weights.w("blaze.hits_per_blaze", 1.5) * (shield ? Weights.w("blaze.shield_factor", 0.4) : 1), blazes = Math.ceil(Math.max(0, rodsLeft) / Weights.w("blaze.rods_per_kill", 0.5));
+        double hits = Weights.w("blaze.hits_per_blaze", 1.5) * (shield ? Weights.w("blaze.shield_factor", 0.4) : 1), blazes = blazesN >= 0 ? blazesN : Math.ceil(Math.max(0, rodsLeft) / Weights.w("blaze.rods_per_kill", 0.5));
         var fd = g.getFoodData(); double food = fed ? 20 : fd.getFoodLevel(), sat = fed ? Weights.w("food.fed_saturation", 5) : fd.getSaturationLevel();
         return blazes * (kill + Decide.hpS(g, health, 0, hits * perHit, perHit, (int) Math.ceil(hits) + 2, food, sat));
     }

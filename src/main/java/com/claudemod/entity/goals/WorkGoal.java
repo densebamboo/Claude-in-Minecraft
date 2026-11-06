@@ -2917,6 +2917,33 @@ public class WorkGoal extends Goal {
         for (Direction d : Direction.values()) { BlockState n = level.getBlockState(p.relative(d)); if (!n.isAir() && n.getFluidState().isEmpty() && !n.canBeReplaced()) return true; }
         return false;
     }
+    /** Blocks for the bore's floor, mined first, as a player tops up before a crossing: a pocket into the nearest side wall (square to the bore, within 8, a block of it in sight), its 3x3 face a step, about 9 a step and no walking about; then back to the lip, the drops swept. What's behind the face he finds as he digs (doBreak keeps its own guards: lava he knows of, a structure's blocks). False when no wall is in sight. */
+    private boolean boreStock(Task.Bore t, int want, String why) {
+        ServerLevel level = level(); BlockPos me = g.blockPosition(); net.minecraft.world.phys.Vec3 eye = g.getEyePosition();
+        Direction side = null; int at = 99;
+        for (Direction sd : new Direction[] {boreDir.getClockWise(), boreDir.getCounterClockWise(), boreDir.getOpposite()}) for (int i = 1; i <= 8 && i < at; i++) {
+            BlockPos q = me.relative(sd, i);
+            if (boreRock(level, q) && com.claudemod.entity.life.Perception.clear(level, eye, net.minecraft.world.phys.Vec3.atCenterOf(q.relative(sd.getOpposite())))) { side = sd; at = i; break; }
+            if (!level.getBlockState(q).isAir() || !level.getBlockState(q.above()).isAir()) break;
+        }
+        if (side == null) return false;
+        Direction across = side.getClockWise(); int slices = Math.min(12, (want + 8) / 9 + 1);
+        java.util.List<Task> out = new java.util.ArrayList<>();
+        for (int i = 0; i < slices; i++) {
+            BlockPos c = me.relative(side, at + i);
+            for (int y : new int[] {0, 1, 2}) for (int a : new int[] {0, -1, 1}) out.add(new Task.Break(c.offset(across.getStepX() * a, y, across.getStepZ() * a).immutable()));
+            out.add(new Task.GoTo(c.immutable(), 0.5));
+        }
+        out.add(new Task.GoTo(me.immutable(), 0.5)); out.add(new Task.Pickup(Math.min(400, 60 + 10 * slices)));
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] blocks for the floor ({}): a pocket {} slices into the {} wall {} off at {} first, about 9 a slice (WorkGoal.boreStock)", why, slices, side.getName(), at, me.relative(side, at).toShortString());
+        g.tasks.addFirst(t); for (int i = out.size() - 1; i >= 0; i--) g.tasks.addFirst(out.get(i));
+        return true;
+    }
+    /** Rock the bore floors with (it drops itself), not a structure's, not his own build. */
+    private boolean boreRock(ServerLevel level, BlockPos q) {
+        var s = level.getBlockState(q); boolean self = false; for (var it : BORE_FILL) if (s.getBlock().asItem() == it) self = true;
+        return self && !com.claudemod.entity.nav.ActionPath.structureBlock(level, q) && !com.claudemod.entity.life.TempLedger.built(g, q);
+    }
     private boolean doBore(Task.Bore t) {
         ServerLevel level = level();
         if (!t.equals(boreRun)) { boreRun = t; boreDir = null; boreAxis0 = null; boreCol = null; boreTries = 0; boreYOff = 0; boreLaneOff = 0; boreDetour = 0; boreClean = 0; boreStill = 0; boreSteps = 0; boreStart = g.tickCount; boreFrom = g.blockPosition().immutable();
@@ -2953,6 +2980,11 @@ public class WorkGoal extends Goal {
         if (ny > me.getY()) way.add(me.above(2)); else if (ny < me.getY()) way.add(f.above(2));
         java.util.List<Task> todo = new java.util.ArrayList<>();
         net.minecraft.world.item.Item fill = null; for (var it : BORE_FILL) if (g.inventory.count(x -> x.is(it)) > 0) { fill = it; break; }
+        { BlockPos u1 = me.below(), u2 = me.below(2), fl0 = f.below(); // on real ground at the lip of a gap or lava: enough on him for the whole stretch first, none or some (out on it there's nothing to mine; before the plugs, which floor lava with what he has)
+          if (off == 0 && !level.getBlockState(fl0).isFaceSturdy(level, fl0, Direction.UP) && level.getBlockState(u1).isFaceSturdy(level, u1, Direction.UP) && level.getBlockState(u2).isFaceSturdy(level, u2, Direction.UP)) {
+            int k = 0; boolean hot = false; for (int i = 0; i < 64; i++) { BlockPos q = f.relative(boreDir, i).below(); if (level.getBlockState(q).isFaceSturdy(level, q, Direction.UP)) break; k++; for (int d = 0; d <= 3; d++) if (level.getFluidState(q.below(d)).is(net.minecraft.tags.FluidTags.LAVA)) hot = true; }
+            int need = k * (hot ? 3 : 1) + 2, on = 0; for (var it : BORE_FILL) on += g.inventory.count(x -> x.is(it));
+            if (on < need && boreStock(t, need - on, k + " across ahead takes " + need + ", " + on + " on him")) return true; } }
         // lava in view by the opened way, or in it: a block in it first (he sees what the dig showed him, never into the rock)
         java.util.List<BlockPos> mine0 = new java.util.ArrayList<>(java.util.List.of(me, me.above())); if (level.getBlockState(me.above(2)).isAir() || level.getFluidState(me.above(2)).is(net.minecraft.tags.FluidTags.LAVA)) mine0.add(me.above(2)); // (the cell over his head when it's open: a step down leaves the one he left open, and lava runs down it onto him, stage 818)
         if (fill != null) for (BlockPos c : mine0) for (Direction d : Direction.values()) { BlockPos q = c.relative(d); // lava come up to where he stands (a flow down his own tunnel, stage 818's way back): plugged before anything ahead
@@ -2980,7 +3012,7 @@ public class WorkGoal extends Goal {
         BlockPos fl = f.below(); var fls = level.getBlockState(fl);
         boolean overLava = level.getFluidState(fl).is(net.minecraft.tags.FluidTags.LAVA) || level.getFluidState(fl.below()).is(net.minecraft.tags.FluidTags.LAVA); // (his own floor over it still counts: its rails and wall come after it; stage 820 got none)
         if (todo.isEmpty() && (!fls.isFaceSturdy(level, fl, Direction.UP) || fls.is(net.minecraft.world.level.block.Blocks.MAGMA_BLOCK))) {
-            if (fill == null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] no block on him to floor {} with: the bore ends at {} (WorkGoal.doBore)", fl.toShortString(), me.toShortString()); boreRun = null; return true; }
+            if (fill == null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] no block on him to floor {} with, and none mined from where he stands: the bore ends at {} (WorkGoal.doBore)", fl.toShortString(), me.toShortString()); boreRun = null; return true; }
             if (fls.is(net.minecraft.world.level.block.Blocks.MAGMA_BLOCK)) todo.add(new Task.Break(fl));
             todo.add(new Task.Place(fl, fill));
         }

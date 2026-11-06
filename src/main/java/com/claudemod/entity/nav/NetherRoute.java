@@ -161,7 +161,7 @@ public final class NetherRoute {
                 if (d > 0 && down.size() < 3 && y - d >= minY && stand(x, y - d, z)) down.add(y - d);
             }
             List<Integer> all = new ArrayList<>(up); all.addAll(down);
-            if (up.isEmpty() && y + 8 <= maxY) { boolean ok = true; for (int yy = y; yy <= y + 9 && ok; yy++) { BlockState s = bs(x, yy, z); ok = !lava(s) && s.getDestroySpeed(level, BlockPos.ZERO) >= 0; } if (ok) all.add(y + 8); } // nothing to stand on above within 32 (an open shaft, or rock): 8 up its column, a pillar or steps cut (538 11-05: under a fortress deck 37 over him, no way up once the shaft read as the air it is)
+            if (up.isEmpty() && y + 8 <= maxY) { boolean ok = true; for (int yy = y; yy <= y + 9 && ok; yy++) ok = bs(x, yy, z).isAir(); if (ok) all.add(y + 8); } // an open shaft he's seen, nothing to stand on within 32 up: 8 up it, a pillar (538 11-05: under a fortress deck 37 over him, no way up once the shaft read as the air it is). Never in rock: there every column offered it and searches ran 12000 nodes, 2+ s (535)
             if (!all.contains(y) && !lava(bs(x, y, z)) && !lava(bs(x, y + 1, z)) && bs(x, y, z).getDestroySpeed(level, BlockPos.ZERO) >= 0 && bs(x, y + 1, z).getDestroySpeed(level, BlockPos.ZERO) >= 0) all.add(y);
             c = all.stream().mapToInt(Integer::intValue).toArray(); standCache.put(k, c); return c;
         }

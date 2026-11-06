@@ -8422,7 +8422,8 @@ public final class ClaudeBodyTest {
                             } else check(t[0] - sleepT0 < 600, "one bed choice: not in bed after 30 s: first=" + sleepLine + " last=" + c.lastSkillLine + " now=" + c.currentTask + " tasks=" + c.tasks + " at " + c.blockPosition().toShortString());
                         }
                     }
-                    case 301 -> { // dusk, dark in 7 s, his own bed ~62 by the walk, nothing in his pack: no walk to it; under cover where he is within 20 s, never 6 toward the bed
+                    case 301, 739 -> { // dusk, dark in 7 s, his own bed ~62 by the walk, nothing in his pack. 301: 3 hearts, food 6, two zombies he sees on the way: the walk's hits price it out (Decide.walkS), under cover where he is within 20 s, never 6 toward the bed. 739, the same 3 hearts with no threats: the walk is cheaper than a hole (the user 11-05: a bed most nights, the hole last), to his bed and asleep
+                        final boolean thr301 = stage[0] == 301;
                         if (t[0] == 1) { sleepReset(c, level); com.claudemod.director.ClaudeLife.lavaSeen(c).clear(); c.planning = false; c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(96))) m.discard(); }
                         if (t[0] == 5) for (int cx = -1; cx <= 5; cx++) for (int cz = -1; cz <= 2; cz++) { BlockPos p = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(p), 2, p); }
                         if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
@@ -8436,11 +8437,21 @@ public final class ClaudeBodyTest {
                             c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.BREAD, 8));
                             sleepAt(c, h, new BlockPos(4, 2, 8)); BlockPos mo = h.absolutePos(new BlockPos(4, 2, 14)); mock[0].teleportTo(mo.getX() + 0.5, mo.getY(), mo.getZ() + 0.5); c.prefs.put("stay_close", "no");
                             c.setHealth(20); c.getFoodData().setFoodLevel(20); level.setDayTime(13050); bedMaxX = c.getBlockX();
+                            c.setHealth(6); c.getFoodData().setFoodLevel(6); c.getInventory().clearContent(); // (3 hearts, no regen and nothing to eat, both: the low-health night rule's case; only the zombies differ)
+                            if (thr301) { c.setYRot(-90); c.setYHeadRot(-90); // (facing east, down the way to his bed: he sees them)
+                                for (int zx : new int[] {14, 18}) { var z = net.minecraft.world.entity.EntityType.ZOMBIE.create(level); BlockPos zp = h.absolutePos(new BlockPos(zx, 2, zx == 14 ? 7 : 9)); z.moveTo(zp.getX() + 0.5, zp.getY(), zp.getZ() + 0.5, 90, 0); z.setNoAi(true); z.setPersistenceRequired(); level.addFreshEntity(z); } }
                         }
-                        if (t[0] == 12) { c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("sleep", "", 1)); sleepT0 = t[0]; } // (his own sleep, as the sundown rule queues it)
+                        if (t[0] == (thr301 ? 30 : 12)) { if (thr301) level.setDayTime(13050); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("sleep", "", 1)); sleepT0 = t[0]; } // (his own sleep, as the sundown rule queues it)
                         if (sleepT0 > 0 && t[0] > sleepT0) {
                             int start = h.absolutePos(new BlockPos(4, 2, 8)).getX(); bedMaxX = Math.max(bedMaxX, c.getBlockX());
-                            if (sleepLine.isEmpty() && c.lastSkillLine != null && c.lastSkillLine.startsWith("sleep")) { sleepLine = c.lastSkillLine; check(sleepLine.contains("before dark") && sleepLine.contains("more than"), "night walk cap: the sleep skill should pass his bed 62 off over for the clock: " + sleepLine); }
+                            if (sleepLine.isEmpty() && c.lastSkillLine != null && c.lastSkillLine.startsWith("sleep")) sleepLine = c.lastSkillLine;
+                            if (!thr301) { // the twin: the walk is worth it
+                                check(!c.holdingNight() || c.blockPosition().distSqr(sleepHis) <= 3 * 3, "dusk walk: dug in with no threat, his bed 62 off (" + sleepLine + ")");
+                                if (c.isSleeping()) pass(stage, t, "dusk, dark in 7 s, no threats: to his bed 62 off and asleep in " + (t[0] - sleepT0) / 20 + " s (" + sleepLine + ")");
+                                else check(t[0] - sleepT0 < 600, "dusk walk: not asleep in his bed 62 off 30 s on: " + sleepLine + " now=" + c.currentTask + " at " + c.blockPosition().toShortString());
+                                break;
+                            }
+                            if (!sleepLine.isEmpty()) check(sleepLine.contains("more than") && sleepLine.contains("hostile"), "night walk cap: the sleep skill should price his bed 62 off out for the zombies on the way: " + sleepLine);
                             check(bedMaxX - start <= 6, "night walk cap: he went " + (bedMaxX - start) + " toward his bed 62 off at dusk (" + sleepLine + ", now=" + c.currentTask + ")");
                             if (c.holdingNight()) pass(stage, t, "dusk, dark in 7 s, his bed 62 off: no walk to it; under cover where he is (" + (t[0] - sleepT0) + " ticks; " + sleepLine + ")");
                             else check(t[0] - sleepT0 < 400, "night walk cap: not under cover 20 s on: first=" + sleepLine + " last=" + c.lastSkillLine + " now=" + c.currentTask + " tasks=" + c.tasks + " at " + c.blockPosition().toShortString());
@@ -10516,6 +10527,7 @@ public final class ClaudeBodyTest {
             case 735: return st735(stage, t, c, h, level, mock);
             case 736: return st736(stage, t, c, h, level, mock);
             case 737: return st737(stage, t, c, h, level, mock);
+            case 738: return st738(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13935,6 +13947,31 @@ public final class ClaudeBodyTest {
             check(!(rule.skill().equals("gear_up") && r.startsWith("done: through the portal")), "the rules' step in the Nether was gear_up, a no-op there: " + r);
             c.tasks.clear(); c.skillQueue.clear(); c.playerGoal = null; c.dropCurrent = true; nsHome(c, h, level);
             pass(stage, t, "the rules' step in the Nether does something: " + rule.skill() + " " + rule.target()); return true;
+        }
+        return true;
+    }
+
+    /** Live 16:49 11-05 (-106,64,-6, tick 11767; Day to Day case D, the user: "Couldn't he have slept at his bed ... Most of the time you don't need to dig into a hole for 10 minutes just because the sun is going down"): full HP, food 20, 5 meals, no armor, his bed about 30 off: "the sun's going down and he's out with no armor: under cover before dark", a hole, 7 min of night in it. The game's first spawns in the open are at tick 13188 (12969 in rain), 70 s off; 30 blocks is 6 s at a sprint. Dusk is one priced choice: his bed, his lit mine, the hole last. */
+    private static boolean st738(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(2, 1, 8)), head = h.absolutePos(new BlockPos(54, 1, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 60; x++) for (int z = 0; z <= 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 1; y <= 6; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+            var st = Blocks.RED_BED.defaultBlockState().setValue(net.minecraft.world.level.block.BedBlock.FACING, net.minecraft.core.Direction.NORTH);
+            level.setBlock(head.south(), st.setValue(net.minecraft.world.level.block.BedBlock.PART, net.minecraft.world.level.block.state.properties.BedPart.FOOT), 3);
+            level.setBlock(head, st.setValue(net.minecraft.world.level.block.BedBlock.PART, net.minecraft.world.level.block.state.properties.BedPart.HEAD), 3);
+            c.myStations.add(head.immutable());
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.DIRT, 16)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 5));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.playerGoal = "beat the ender dragon";
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            level.setDayTime(11700);
+        }
+        if (t[0] > 10 && !level.getGameRules().getBoolean(net.minecraft.world.level.GameRules.RULE_DAYLIGHT)) level.setDayTime(level.getDayTime() + 1); // (the test world's clock may stand: run it)
+        if (t[0] > 10) {
+            boolean hole = c.skillQueue.stream().anyMatch(s0 -> s0.skill().equals("shelter")) || (c.lastSkillLine != null && c.lastSkillLine.startsWith("shelter"));
+            check(!hole, "dusk, his bed 52 off, 70 s to the first spawns: a hole instead (" + c.lastSkillLine + ")");
+            if (c.blockPosition().distSqr(head) <= 4 * 4 || c.isSleeping()) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.myStations.remove(head); level.setBlock(head, Blocks.AIR.defaultBlockState(), 3); level.setBlock(head.south(), Blocks.AIR.defaultBlockState(), 3); level.setDayTime(1000); pass(stage, t, "dusk, no armor: to his bed 52 off in " + (t[0] - 10) / 20 + " s, no hole"); return true; }
+            if (t[0] == 10 + 20 * 40) { level.setDayTime(1000); check(false, "dusk: not at his bed 52 off in 40 s (at " + c.blockPosition().toShortString() + ", " + c.currentTask + ", queue " + c.tasks.stream().limit(3).toList() + ", skills " + c.skillQueue + ")"); }
         }
         return true;
     }

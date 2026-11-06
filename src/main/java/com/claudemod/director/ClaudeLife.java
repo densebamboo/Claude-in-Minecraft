@@ -65,6 +65,11 @@ public final class ClaudeLife {
           if (home && !com.claudemod.director.ClaudeLife.dayHere(lv) && !g.isSleeping() && (g.getHealth() <= 6 || (g.getFoodData().getFoodLevel() <= 6 && foodToEat(g, true) == null)) && !(g.currentTask instanceof Task.Attack) && !(g.currentTask instanceof Task.Flee)) {
             BlockPos bed = null; for (BlockPos p : g.myStations) if (lv.isLoaded(p) && lv.getBlockState(p).is(BlockTags.BEDS) && p.distSqr(g.blockPosition()) <= 64 * 64 && (bed == null || p.distSqr(g.blockPosition()) < bed.distSqr(g.blockPosition()))) bed = p;
             if (bed == null) bed = freeBedNear(g, lv, 32);
+            if (bed != null && g.blockPosition().distSqr(bed) > 8 * 8) { // the walk priced against a night in a hole here (Decide.walkS: the hits he'd expect on it, his health), not taken whatever it costs
+                long tod1 = lv.getDayTime() % 24000; int hk = com.claudemod.entity.life.Decide.hostilesKnown(g), d1 = routeDist(g, g.blockPosition(), bed);
+                double ws = com.claudemod.entity.life.Decide.walkS(g, lv, tod1, d1 / 5.6, hk), hs = com.claudemod.entity.life.Decide.holeS(tod1);
+                if (ws > hs) { nookSay(g, "lowbed" + bed.asLong(), "[Claude life] night at " + (int) Math.ceil(g.getHealth()) + " health: his bed at " + bed.toShortString() + " ~" + (d1 + 2) / 5 * 5 + " off is " + (ws == Double.MAX_VALUE ? "out (the hits on the way, " + hk + " hostile(s) known, would take over half his health)" : "~" + (int) ws / 5 * 5 + " s") + " against a hole here ~" + (int) hs / 30 * 30 + " s: not walked to (Decide.walkS)"); bed = null; }
+            }
             if (bed != null) {
                 final BlockPos b = bed;
                 boolean toBed = (g.currentTask instanceof Task.GoTo go && go.pos().distSqr(b) <= 9) || g.tasks.stream().anyMatch(t -> t instanceof Task.GoTo go2 && go2.pos().distSqr(b) <= 9);
@@ -327,19 +332,7 @@ public final class ClaudeLife {
             boolean onHisTower = g.pillarBlocks.contains(g.blockPosition().below()) || g.currentTask instanceof Task.Pillar || g.tasks.peek() instanceof Task.Pillar; // up his own tower (a skytower sees the sky and is still cover): sheltered already (re-sent every 10 s, he rebuilt the same tower over and over)
             BlockPos freeBed = freeBedNear(g, ((ServerLevel) g.level()), 32); // a free bed close by (a village): he sleeps the night away instead of digging in
             if (freeBed != null && !g.staying && (g.lessonOpen == null || g.lessonOpen.isEmpty()) && sleepNotNow(g) == null && tod >= 12542 && tod < 13000 && g.skillQueue.stream().noneMatch(s0 -> s0.skill().equals("sleep")) && !"sleep".equals(g.lastStep == null ? "" : g.lastStep.skill())) { g.skillQueue.addFirst(new Skills.Step("sleep", "", 1)); ClaudeMod.LOGGER.info("[Claude life] sleep time (tod {}): a bed at {}, the sleep skill takes it from here", tod, freeBed.toShortString()); } // (it pushed a walk to the nook bed every 10 s from 11600, before a bed can be used, and the dig pulled him back each time: pacing at 02:50)
-            boolean geared = pastEarly(g); // (the user: a diamond chestplate on, he heads for his bed or his mine, never a hole; holes are for the early game or low health)
-            boolean ownBedNear = false; for (BlockPos sb : g.myStations) if (sb.distSqr(g.blockPosition()) <= 48 * 48 && ((ServerLevel) g.level()).isLoaded(sb) && ((ServerLevel) g.level()).getBlockState(sb).is(BlockTags.BEDS)) { ownBedNear = true; break; } // (his own bed in the night rule's 48: that's tonight's plan; this sent him to his mine door while sleepIfNight sent him to his bed 30 off, every 5 s, live 13:38)
-            if (geared && freeBed == null && !ownBedNear && tod >= 11600 && tod < 13000 && ((ServerLevel) g.level()).canSeeSky(g.blockPosition()) && !onHisTower) { // (low or not: home to heal, never a hole)
-                BlockPos safe = null; String what = null; ServerLevel lv0 = ((ServerLevel) g.level());
-                if (g.house != null && g.house.shellStands(lv0) && lv0.getBlockState(g.house.bedHead()).is(BlockTags.BEDS) && g.house.centre().distSqr(g.blockPosition()) <= 160 * 160) { safe = g.house.centre(); what = "his house and bed"; }
-                if (g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.entrance.distSqr(g.blockPosition()) <= 160 * 160 && (safe == null || g.blueprint.entrance.distSqr(g.blockPosition()) < safe.distSqr(g.blockPosition()))) { safe = g.blueprint.entrance; what = "his lit mine"; }
-                final BlockPos safe0 = safe;
-                if (safe0 != null && g.tasks.stream().noneMatch(t -> t instanceof Task.GoTo go && go.pos().equals(safe0))) { g.tasks.addFirst(new Task.GoTo(safe0, 2.0)); ClaudeMod.LOGGER.info("[Claude life] the sun's going down: geared, so back to {} at {} for the night, not a hole", what, safe0.toShortString()); }
-            }
-            if (freeBed == null && !geared && tod >= 11600 && tod < 13000 && ((ServerLevel) g.level()).canSeeSky(g.blockPosition()) && !onHisTower && g.getArmorValue() < 10 && g.skillQueue.stream().noneMatch(s0 -> s0.skill().equals("shelter"))) {
-                g.skillQueue.addFirst(new Skills.Step("shelter", "", 1));
-                ClaudeMod.LOGGER.info("[Claude life] the sun's going down (time {}) and he's out with no armor: under cover before dark", tod);
-            }
+            if (freeBed == null && tod >= 11600 && tod < 13000 && ((ServerLevel) g.level()).canSeeSky(g.blockPosition()) && !onHisTower) com.claudemod.entity.life.Decide.dusk(g, (ServerLevel) g.level(), tod); // (one priced choice: his bed, his house, his lit mine, carry on, or the hole last; the user 11-05)
         }
         if (g.tickCount % 200 == 61) { boolean day = com.claudemod.director.ClaudeLife.dayHere(((ServerLevel) g.level())); if (day && !dawnSeen().getOrDefault(g.getUUID(), true)) { g.failCount.clear(); ClaudeMod.LOGGER.info("[Claude life] morning: what failed in the dark gets another go");
                 BlockPos slept = g.getRespawnPosition(); BlockPos home1 = PlayerProfile.baseOrigin(player); // a bed he put down out in the field for the night: up it comes in the morning and goes with him (the user: a bed and a table left lying under a tree)
@@ -720,10 +713,12 @@ public final class ClaudeLife {
         double perTick = g.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED).getBaseValue() * 2.158 * 1.3; // blocks a tick, sprinting (base 0.1: 5.6 a second)
         long light = tod >= 12542 ? 23460 - tod : 23460 - 12542; // till the game wakes him
         if (g.commandActive) { why[0] = "their order: a bed I reach by morning, " + light / 20 + " s off"; return light * perTick; }
-        if (nightOutsideNo(g, level, g.blockPosition()) == null) { why[0] = "geared for the night or lit up: a bed I reach by morning"; return light * perTick; }
-        long dark = level.isRaining() ? 12969 : 13188; // the game's first hostile spawns in the open
-        if (tod < dark) { why[0] = "it's dark in " + (dark - tod) / 20 + " s and I'm not geared for the night"; return (dark - tod) * perTick; }
-        why[0] = "it's dark already and I'm not geared for it: no farther than " + NIGHT_BED_RANGE; return NIGHT_BED_RANGE;
+        if (nightGearNo(g, level, g.blockPosition()) == null) { why[0] = "geared for the night or lit up: a bed I reach by morning"; return light * perTick; }
+        // not geared: the farthest walk priced under a night in a hole here (the hits he'd expect on it, his health; Decide.walkS), not a clock cutoff (the user 11-05: a bed or his mine most nights, the hole last)
+        int hostiles = com.claudemod.entity.life.Decide.hostilesKnown(g); double hole = com.claudemod.entity.life.Decide.holeS(tod), w = 0;
+        while (w + 5 <= light / 20.0 && com.claudemod.entity.life.Decide.walkS(g, level, tod, w + 5, hostiles) <= hole) w += 5;
+        why[0] = "not geared for the night: " + (int) w + " s of walk is what's worth it over a hole here (" + hostiles + " hostile(s) known, health " + (int) g.getHealth() + ", armor " + g.getArmorValue() + ")";
+        return Math.max(w * 20 * perTick, 4);
     }
     /** His own sleep found no bed he can use in time and none to set down: the night where he is, under cover (the night hold), logged. */
     private static String nightWhereHeIs(ClaudeEntity g, ServerPlayer player, String whyNo) {
@@ -6404,6 +6399,10 @@ public final class ClaudeLife {
 
     public static String nightOutsideNo(ClaudeEntity g, ServerLevel level, BlockPos at) {
         { long tod9 = level.getDayTime() % 24000; if ((tod9 < 12500 || tod9 > 23500) && !level.isThundering()) return null; } // by the clock: rain darkens the sky and isDay() said "night" at noon, so he sat in his hole through a rainy midday (a thunderstorm does spawn mobs: that one still counts)
+        return nightGearNo(g, level, at);
+    }
+    /** The night rule without its clock: whether the coming night out here is one he can take as he is (Decide.dusk asks it before dark). */
+    public static String nightGearNo(ClaudeEntity g, ServerLevel level, BlockPos at) {
         if (pastEarly(g)) return null; // past the early game the night is his bed, his mine or the work, never a hole, low or not (a diamond chestplate and a stone sword read as "not geared": a hole every night)
         if (level.getBrightness(net.minecraft.world.level.LightLayer.SKY, at) < 4) return null; // underground: not the open
         if (level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, at) >= 8 && level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, g.blockPosition()) >= 8) return null; // lit up (his base)

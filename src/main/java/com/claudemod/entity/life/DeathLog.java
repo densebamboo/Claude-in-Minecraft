@@ -34,6 +34,8 @@ public final class DeathLog {
         public String status; public int loadedTicks; public boolean wasNear;
         Death(String dim, BlockPos at, long time, String what, String status, int loadedTicks) { this.dim = dim; this.at = at; this.time = time; this.what = what; this.status = status; this.loadedTicks = loadedTicks; }
         public boolean pending() { return status.equals("pending"); }
+        /** Anything in what fell worth a run of its own (worthTrip); a pile of planks and a wooden pick is picked up only on his way. */
+        public boolean worth() { for (String part : what.split(", ")) if (worthTrip(part.split(" ")[0])) return true; return false; }
         String line() { return dim + "\t" + at.getX() + "\t" + at.getY() + "\t" + at.getZ() + "\t" + time + "\t" + status + "\t" + loadedTicks + "\t" + what; }
     }
 
@@ -96,12 +98,17 @@ public final class DeathLog {
     /** He gives a pile up on purpose (they said so, or it isn't worth the risk). */
     public static void abandon(ClaudeEntity g, Death d, String why) { d.status = "abandoned: " + why; save(g); ClaudeMod.LOGGER.info("[Claude deaths] his pile at {} in {}: {}", d.at.toShortString(), d.dim, d.status); }
 
-    /** The pending pile to go for: the nearest in this dimension, else the newest elsewhere; null when none. */
+    /** The user's rule for a run back to a pile: iron or better, or the gear the dragon path needs; the rest isn't worth the trip. */
+    public static boolean worthTrip(String id) {
+        return id.startsWith("iron_") || id.equals("raw_iron") || id.contains("diamond") || id.contains("netherite") || id.equals("emerald") || id.equals("shield") || id.equals("bow") || id.endsWith("_bed") || id.equals("ender_pearl") || id.equals("blaze_rod");
+    }
+
+    /** The pending pile to go for: the nearest worth a trip in this dimension, else the newest worth a trip elsewhere; null when none. A pile with nothing worth it (worthTrip, by what fell) is never the run's target, here or elsewhere: it's picked up only if it lies on his way (Day to Day 11-05: a wooden pick and planks in the Nether, newest, chosen over the iron set). */
     public static Death next(ClaudeEntity g, String dim) {
         Death best = null;
-        for (Death d : of(g)) if (d.pending() && d.dim.equals(dim) && (best == null || g.blockPosition().distSqr(d.at) < g.blockPosition().distSqr(best.at))) best = d;
+        for (Death d : of(g)) if (d.pending() && d.worth() && d.dim.equals(dim) && (best == null || g.blockPosition().distSqr(d.at) < g.blockPosition().distSqr(best.at))) best = d;
         if (best != null) return best;
-        for (Death d : of(g)) if (d.pending()) best = d; // (newest: last on the list)
+        for (Death d : of(g)) if (d.pending() && d.worth()) best = d; // (newest: last on the list)
         return best;
     }
 
@@ -112,7 +119,7 @@ public final class DeathLog {
         int from = Math.max(0, l.size() - 6);
         for (int i = l.size() - 1; i >= from; i--) { Death d = l.get(i);
             sb.append("   - ").append(d.dim).append(" at ").append(d.at.toShortString()).append(d.time > 0 ? ", " + (level.getGameTime() - d.time) / 1200 + " min ago" : "")
-              .append(": ").append(d.status.toUpperCase().startsWith("PENDING") ? "PENDING" : d.status).append(d.dim.equals(level.dimension().location().getPath()) ? "" : " (other dimension: through your portal)")
+              .append(": ").append(d.status.toUpperCase().startsWith("PENDING") ? (d.worth() ? "PENDING" : "PENDING, nothing iron or better in it: not worth a trip, picked up only on your way") : d.status).append(d.dim.equals(level.dimension().location().getPath()) ? "" : " (other dimension: through your portal)")
               .append("; fell: ").append(d.what.length() > 160 ? d.what.substring(0, 160) + "..." : d.what).append("\n"); }
         return sb.toString();
     }

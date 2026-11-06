@@ -3961,7 +3961,7 @@ public final class ClaudeLife {
                 if (drops.isEmpty()) return "done: nothing of yours left on the ground" + (death.isPresent() ? " where you died" : "") + ": it despawned or someone took it, none of it came back to my pack"; // ponytail: live 15:06 the planner read the bare line as "my 40 stacks are already back in my pack"
                 // the user's rule: if it wasn't iron or better, it's not worth picking up (a stone-age pile 40 blocks down a cave had him circling the cave mouth for ten minutes, then dead in it)
                 boolean ironUp = drops.stream().anyMatch(d -> { String id = BuiltInRegistries.ITEM.getKey(d.getItem().getItem()).getPath();
-                    return id.startsWith("iron_") || id.equals("raw_iron") || id.contains("diamond") || id.contains("netherite") || id.equals("emerald") || id.equals("shield") || id.equals("bow") || id.endsWith("_bed") || id.equals("ender_pearl") || id.equals("blaze_rod"); });
+                    return com.claudemod.entity.life.DeathLog.worthTrip(id); });
                 if (!ironUp && g.blockPosition().distSqr(spot) > 12 * 12) {
                     if (dn != null && spot.equals(dn.at) && level.isPositionEntityTicking(spot)) {
                         com.claudemod.entity.life.DeathLog.abandon(g, dn, "looked: nothing iron or better worth the trip");

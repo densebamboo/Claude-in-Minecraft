@@ -1098,7 +1098,7 @@ public final class ClaudeBodyTest {
                         }
                     }
                     case 52 -> { // his drops lie at the end of his mine and he's outside it: he goes in at the entrance and along it, not straight at the spot
-                        if (t[0] == 1) { c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear(); }
+                        if (t[0] == 1) { c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear();  com.claudemod.entity.life.DeathLog.reset(c); } // (the checklist kept an earlier stage's pile worth a trip, and it beat this scene's)
                         if (t[0] == 10) {
                             for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -3; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
                             for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(48))) it.discard();
@@ -10528,6 +10528,7 @@ public final class ClaudeBodyTest {
             case 736: return st736(stage, t, c, h, level, mock);
             case 737: return st737(stage, t, c, h, level, mock);
             case 738: return st738(stage, t, c, h, level, mock);
+            case 740: return st740(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13956,6 +13957,26 @@ public final class ClaudeBodyTest {
     }
 
     /** Live 16:49 11-05 (-106,64,-6, tick 11767; Day to Day case D, the user: "Couldn't he have slept at his bed ... Most of the time you don't need to dig into a hole for 10 minutes just because the sun is going down"): full HP, food 20, 5 meals, no armor, his bed about 30 off: "the sun's going down and he's out with no armor: under cover before dark", a hole, 7 min of night in it. The game's first spawns in the open are at tick 13188 (12969 in rain), 70 s off; 30 blocks is 6 s at a sprint. Dusk is one priced choice: his bed, his lit mine, the hole last. */
+    private static boolean st740(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // the recovery run's worth from what fell (Day to Day 11-05: his checklist kept "the_nether 18,43,51 pending", a wooden pick and 4 planks, newest, while the iron set lay at 192,37,227): a junk pile is never the run's target, in any dimension
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.DeathLog.reset(c); }
+        if (t[0] == 5) {
+            ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+            java.util.function.BiFunction<ServerLevel, net.minecraft.world.item.Item[], java.util.List<net.minecraft.world.entity.item.ItemEntity>> pile = (lv, its) -> { var l = new java.util.ArrayList<net.minecraft.world.entity.item.ItemEntity>(); for (net.minecraft.world.item.Item it : its) l.add(new net.minecraft.world.entity.item.ItemEntity(lv, 0.5, 70, 0.5, new ItemStack(it))); return l; };
+            BlockPos iron = new BlockPos(192, 37, 227), junk = new BlockPos(18, 43, 51);
+            com.claudemod.entity.life.DeathLog.died(c, nether, iron, pile.apply(nether, new net.minecraft.world.item.Item[] {Items.IRON_CHESTPLATE, Items.IRON_SWORD, Items.IRON_PICKAXE, Items.SHIELD, Items.RAW_IRON, Items.OAK_LOG}));
+            com.claudemod.entity.life.DeathLog.died(c, nether, junk, pile.apply(nether, new net.minecraft.world.item.Item[] {Items.WOODEN_PICKAXE, Items.BIRCH_PLANKS, Items.STICK, Items.CRAFTING_TABLE}));
+            var n1 = com.claudemod.entity.life.DeathLog.next(c, "overworld");
+            check(n1 != null && n1.at.equals(iron), "pile worth: from the overworld his run is to " + (n1 == null ? "none" : n1.dim + " " + n1.at.toShortString() + " (" + n1.what + ")") + ", not the iron set at " + iron.toShortString());
+            BlockPos me = c.blockPosition(), nearJ = me.offset(6, 0, 0), farI = me.offset(40, 0, 0);
+            com.claudemod.entity.life.DeathLog.died(c, level, farI, pile.apply(level, new net.minecraft.world.item.Item[] {Items.DIAMOND_PICKAXE, Items.IRON_INGOT}));
+            com.claudemod.entity.life.DeathLog.died(c, level, nearJ, pile.apply(level, new net.minecraft.world.item.Item[] {Items.COBBLESTONE, Items.DIRT, Items.WOODEN_SWORD}));
+            var n2 = com.claudemod.entity.life.DeathLog.next(c, "overworld");
+            check(n2 != null && n2.at.equals(farI), "pile worth: here his run is to " + (n2 == null ? "none" : n2.at.toShortString() + " (" + n2.what + ")") + ", not the diamond pick 40 off");
+            com.claudemod.entity.life.DeathLog.reset(c);
+            pass(stage, t, "the run's pile by what fell: the Nether iron set over the newer junk pile, the diamond pick 40 off over the cobble 6 off");
+        }
+        return true;
+    }
     private static boolean st738(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos me = h.absolutePos(new BlockPos(2, 1, 8)), head = h.absolutePos(new BlockPos(54, 1, 8));
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.commandActive = false; c.prefs.put("stay_close", "no"); }
@@ -16363,17 +16384,14 @@ public final class ClaudeBodyTest {
             com.claudemod.entity.life.DeathLog.died(c, level, junk, java.util.List.of(bone));
             com.claudemod.entity.life.DeathLog.died(c, level, kit, java.util.List.of(new net.minecraft.world.entity.item.ItemEntity(level, kit.getX(), kit.getY(), kit.getZ(), new ItemStack(Items.RAW_IRON, 10))));
             check(level.isPositionEntityTicking(junk) && !level.isPositionEntityTicking(kit), "setup: junk must be loaded, distant kit unloaded");
-            String r1 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
-            check(!com.claudemod.entity.life.DeathLog.of(c).getFirst().pending() && c.skillQueue.stream().anyMatch(s -> s.skill().equals("recover_drops")), "rejected junk still blocks the next pile: " + r1);
-            c.tasks.clear(); c.skillQueue.clear();
-            String r2 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
+            String r2 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1); // (by what fell, the bone pile is no run's target: the kit is the first decision, 740)
             check(r2.contains("walking to where I died") && c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo gt && gt.pos().equals(kit)), "nearby junk hid the unloaded kit instead of walking to look: " + r2);
             check(com.claudemod.entity.life.DeathLog.of(c).getLast().pending(), "unseen kit was abandoned");
             c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.attempts.counters.remove("recoverGear");
             String r3 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
             check(r3.contains("gear up first"), "recovery lost its equipment safety gate: " + r3);
             bone.discard(); com.claudemod.entity.life.DeathLog.reset(c); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
-            pass(stage, t, "junk retired and distant kit selected within two decisions; unseen items kept and gear gate preserved");
+            pass(stage, t, "the junk pile passed over by what fell, the distant kit selected first; unseen items kept and gear gate preserved");
         }
         return true;
     }

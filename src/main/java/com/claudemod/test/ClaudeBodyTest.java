@@ -10510,6 +10510,7 @@ public final class ClaudeBodyTest {
             case 732: return st732(stage, t, c, h, level, mock);
             case 733: return st733(stage, t, c, h, level, mock);
             case 734: return st734(stage, t, c, h, level, mock);
+            case 735: return st735(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13869,6 +13870,30 @@ public final class ClaudeBodyTest {
             check(!(rule.skill().equals("gear_up") && r.startsWith("done: through the portal")), "the rules' step in the Nether was gear_up, a no-op there: " + r);
             c.tasks.clear(); c.skillQueue.clear(); c.playerGoal = null; c.dropCurrent = true; nsHome(c, h, level);
             pass(stage, t, "the rules' step in the Nether does something: " + rule.skill() + " " + rule.target()); return true;
+        }
+        return true;
+    }
+
+    /** Live 14:47-14:5x 11-05 (Nether bore 184,58,337..342; Day to Day review): "could not find a spot to put a crafting table" then "couldn't make a stone_pickaxe on the spot: table false" every dig, 185 lines: the wear rule's stone pick for rock wants a table, and the notch for it goes only into overworld rock or earth: netherrack was never a wall. */
+    private static boolean st735(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(5480, 70, 5960);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            nsArena(nl, o, 6, 3, 3, 5);
+            for (int x = -6; x <= 6; x++) for (int z = -3; z <= 3; z++) for (int y = 0; y <= 4; y++) nl.setBlock(o.offset(x, y, z), (z == 0 && y <= 1 ? Blocks.AIR : Blocks.NETHERRACK).defaultBlockState(), 2); // (his bore: 1 wide, 2 high, east-west through netherrack)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 8)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.commandActive = false; c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 12000;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.tasks.clear(); c.skillQueue.clear();
+        }
+        if (t[0] == 20) {
+            check(c.level() == nl, "bore table: not in the Nether");
+            boolean made = com.claudemod.director.ClaudeLife.craftToolNow(c, Blocks.NETHERRACK.defaultBlockState(), Items.STONE_PICKAXE);
+            boolean tableComing = c.tasks.stream().anyMatch(q -> q instanceof Task.Place pl && pl.item() == Items.CRAFTING_TABLE);
+            String q = c.tasks.stream().limit(4).toList().toString(); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; nsHome(c, h, level);
+            check(made || tableComing, "a stone pick for netherrack in his bore, 32 cobble and logs on him: no table, no pick (queue " + q + ")");
+            pass(stage, t, "a stone pick in a netherrack bore: " + (made ? "made" : "its table going into a notch") + " " + q); return true;
         }
         return true;
     }

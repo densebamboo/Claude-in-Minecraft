@@ -8911,7 +8911,9 @@ public final class ClaudeLife {
                 return false;
             }
         }
-        boolean placed = placeNextTo(g, level, Items.CRAFTING_TABLE) != null;
+        BlockPos tableAt = placeNextTo(g, level, Items.CRAFTING_TABLE);
+        boolean placed = tableAt != null && level.getBlockState(tableAt).is(Blocks.CRAFTING_TABLE); // (a notch only queues the dig and the table: no craft against a table that isn't there yet, the vanilla rule; the craft comes once it stands)
+        if (tableAt != null && !placed) { ClaudeMod.LOGGER.info("[Claude skill] a crafting table going into the notch at {}: the craft once it stands (ClaudeLife.ensureCraftingTable)", tableAt.toShortString()); return false; }
         if (placed) g.tablePlacedTick = g.tickCount;
         if (!placed) ClaudeMod.LOGGER.info("[Claude skill] could not find a spot to put a crafting table at {}", g.blockPosition().toShortString());
         return placed;
@@ -8937,7 +8939,7 @@ public final class ClaudeLife {
                 BlockState wall = level.getBlockState(p);
                 boolean solidWall = !wall.isAir() && !wall.canBeReplaced() && wall.getDestroySpeed(level, p) >= 0 && !wall.hasBlockEntity()
                         && wall.getFluidState().isEmpty() && !(g.getTarget() instanceof ServerPlayer o && protectedBlock(g, o, p))
-                        && (wall.is(BlockTags.BASE_STONE_OVERWORLD) || wall.is(BlockTags.STONE_ORE_REPLACEABLES) || wall.is(BlockTags.DEEPSLATE_ORE_REPLACEABLES) || wall.is(BlockTags.DIRT) || wall.is(Blocks.GRAVEL) || wall.is(Blocks.SAND) || wall.is(Blocks.SANDSTONE) || wall.is(Blocks.RED_SANDSTONE) || wall.is(Blocks.RED_SAND) || wall.is(BlockTags.TERRACOTTA)) // (a desert mine is sandstone all the way: no notch there left him with a broken pick and no table, 10 s loop) // a notch goes into rock or earth, never a tree (under a canopy he set a furnace into a trunk and cobbled the trunk after)
+                        && (wall.is(BlockTags.BASE_STONE_OVERWORLD) || wall.is(BlockTags.BASE_STONE_NETHER) || wall.is(BlockTags.STONE_ORE_REPLACEABLES) || wall.is(BlockTags.DEEPSLATE_ORE_REPLACEABLES) || wall.is(BlockTags.DIRT) || wall.is(Blocks.GRAVEL) || wall.is(Blocks.SAND) || wall.is(Blocks.SANDSTONE) || wall.is(Blocks.RED_SANDSTONE) || wall.is(Blocks.RED_SAND) || wall.is(BlockTags.TERRACOTTA)) // (a desert mine is sandstone all the way: no notch there left him with a broken pick and no table, 10 s loop) // a notch goes into rock or earth, never a tree (under a canopy he set a furnace into a trunk and cobbled the trunk after)
                         && !wall.is(BlockTags.LOGS) && !wall.is(BlockTags.LEAVES);
                 if (!solidWall || g.inventory.count(t -> t.is(item)) == 0) continue;
                 if (inHisNook(g, p) || (g.house != null && g.house.roleAt(p) != null) || (g.farm != null && g.farm.touches(p))) { ClaudeMod.LOGGER.info("[Claude life] no notch for his {} at {}: a cell of his {} (ClaudeLife.placeNextTo)", Crafting.name(item), p.toShortString(), inHisNook(g, p) ? "base nook" : g.house != null && g.house.roleAt(p) != null ? "house" : "farm"); continue; }

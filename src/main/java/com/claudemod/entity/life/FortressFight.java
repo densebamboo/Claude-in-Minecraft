@@ -263,6 +263,19 @@ public final class FortressFight {
      * his armor (vanilla's sum) plus the burning after (blaze.fire_hp, none on fire resistance), each blaze priced by Decide.hpS
      * from the given health, at his food or fed.
      */
+    /** Blazes out by their spawner: fight on at his health, or back out past its 16 blocks (it stops spawning), heal to full and come back to fight at full health. True: back out. */
+    public static boolean swarmBackOut(ClaudeEntity g, int n, boolean shield, boolean fed, BlockPos spawner) {
+        double armor = g.getArmorValue(), tough = g.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS);
+        double on = fightS(g, g.getHealth(), armor, tough, shield, fed, 0, n);
+        double fb = Weights.w("blaze.fireball_hp", 5), perB = fb * (1 - Math.min(20, Math.max(armor / 5.0, armor - fb / (2 + tough / 4))) / 25) + Weights.w("blaze.fire_hp", 3);
+        double walk = 2 * Math.max(0, Weights.w("blaze.spawner_range_blocks", 17) - Math.sqrt(spawner.distSqr(g.blockPosition()))) / Decide.sprint();
+        double leaveHp = n * Weights.w("blaze.backout_exposed_s", 3) * Weights.w("blaze.shots_per_s", 0.6) * Weights.w("blaze.shot_hit_chance", 0.5) * perB * (shield ? Weights.w("blaze.shield_factor", 0.4) : 1);
+        double back = walk + Decide.hpS(g, 0, leaveHp, perB) + Food.regenS(g, g.getMaxHealth() - Math.max(1, g.getHealth() - leaveHp)) + fightS(g, g.getMaxHealth(), armor, tough, shield, fed, 0, n);
+        var pick = Decide.choose(g, "blaze.swarm", n + " blazes out by the spawner, health " + (int) g.getHealth() + ", armor " + (int) armor + (shield ? ", a shield" : ""), true, java.util.List.of(
+            Decide.Option.of("fight on", on, "at " + (int) g.getHealth() + " HP"),
+            Decide.Option.of("back out and heal", back, "past its " + (int) Weights.w("blaze.spawner_range_blocks", 17) + " blocks ~" + Math.round(walk) + " s there and back, ~" + Math.round(leaveHp) + " HP of fireballs leaving, then the fight at full health")));
+        return pick != null && pick.name().equals("back out and heal");
+    }
     public static double fightS(ClaudeEntity g, double health, double armor, double tough, boolean shield, boolean fed, int rodsLeft) { return fightS(g, health, armor, tough, shield, fed, rodsLeft, -1); }
     /** The same for a given number of blazes (blazesN >= 0), not rods: the fight-or-run price on the ones in front of him (Loops, WorkGoal.shouldFlee). */
     public static double fightS(ClaudeEntity g, double health, double armor, double tough, boolean shield, boolean fed, int rodsLeft, double blazesN) {
@@ -364,7 +377,7 @@ public final class FortressFight {
                 return "failed: the blazes stay out of sword reach, I know of no spawner to fight them at, and I've no bow and arrows (a bow, or their spawner, is what this needs)";
             }
         }
-        if (bl.size() >= 4 && g.getHealth() <= 12 && spawner != null) { // swarming and he's losing: a spawner only works with a player within 16 (torches don't stop a blaze spawner: blazes spawn in any light), so out of its range and heal
+        if (bl.size() >= 2 && g.getHealth() < g.getMaxHealth() && spawner != null && swarmBackOut(g, bl.size(), shield, food > 0, spawner)) { // swarming and he's losing: a spawner only works with a player within 16 (torches don't stop a blaze spawner: blazes spawn in any light), so out of its range and heal; priced (blaze.swarm), was "4+ blazes at health 12 or less"
             g.skillQueue.addFirst(again); g.tasks.add(new Task.Flee(20 * 12));
             ClaudeMod.LOGGER.info("[Claude fight] {} blazes out and health {}: backing out past the spawner's 16 blocks to heal (it stops spawning without a player in range) (FortressFight.blazeRods)", bl.size(), (int) g.getHealth());
             return "too many blazes (" + bl.size() + ") at health " + (int) g.getHealth() + ": backing out of the spawner's range to heal, then back in";

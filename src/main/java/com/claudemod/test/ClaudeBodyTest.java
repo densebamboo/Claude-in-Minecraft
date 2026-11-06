@@ -10595,6 +10595,8 @@ public final class ClaudeBodyTest {
             case 773: return st773(stage, t, c, h, level, mock);
             case 774: return st774(stage, t, c, h, level, mock);
             case 775: return st775(stage, t, c, h, level, mock);
+            case 776: return st776(stage, t, c, h, level, mock, true);
+            case 777: return st776(stage, t, c, h, level, mock, false);
             case 762: return st762(stage, t, c, h, level, mock);
             case 763: return st763(stage, t, c, h, level, mock);
             case 758: return st758(stage, t, c, h, level, mock);
@@ -15494,6 +15496,42 @@ public final class ClaudeBodyTest {
             check(c.isAlive() && c.level() == nl, "dead to four wither skeletons on the bridge at " + (t[0] - st770Start) / 20 + " s (low " + st770Low + ")");
             double near = 99; int alive = 0; for (var w : st770W) if (w.isAlive()) { alive++; near = Math.min(near, w.distanceTo(c)); }
             if (t[0] - st770Start >= 20 * 40) { check(st770Low > 0, "?"); for (var w : st770W) w.discard(); nsHome(c, h, level); c.setHealth(20); pass(stage, t, "alive 40 s with four wither skeletons on him on the bridge (" + alive + " left, nearest " + (int) near + ", low " + st770Low + ")"); }
+        }
+        return true;
+    }
+    private static java.util.List<net.minecraft.world.entity.monster.Blaze> st776B = new java.util.ArrayList<>();
+    private static boolean st776(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock, boolean geared) { // four blazes out by their spawner, blaze_rods (audit FortressFight: "4+ blazes at HP<=12: back out 12 s" whatever his gear): 776 full diamond and a shield at 12 HP, fights on; 777 iron and a shield at 9 HP, backs out to heal
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(10300, 80, 6600), cage = o.offset(6, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.commandActive = false; st776B.clear(); }
+        if (t[0] > 4 && t[0] % 10 == 0) for (int cx = -2; cx <= 2; cx++) for (int cz = -2; cz <= 2; cz++) { BlockPos q = o.offset(cx * 16, 0, cz * 16); nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(q), 2, q); }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) if (!st776B.contains(e)) e.discard();
+        if (t[0] == 10) { // a brick hall 40 x 12 x 8 inside thick netherrack, a blaze spawner 6 east of him
+            for (int x = -24; x <= 24; x++) for (int z = -10; z <= 10; z++) for (int y = -3; y <= 11; y++) nl.setBlock(o.offset(x, y, z), Blocks.NETHERRACK.defaultBlockState(), 2);
+            for (int x = -20; x <= 20; x++) for (int z = -6; z <= 6; z++) { nl.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); for (int y = 0; y <= 7; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            nl.setBlock(cage, Blocks.SPAWNER.defaultBlockState(), 2); if (nl.getBlockEntity(cage) instanceof net.minecraft.world.level.block.entity.SpawnerBlockEntity sb) sb.setEntityId(EntityType.BLAZE, nl.getRandom());
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            if (!geared) { c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); }
+            if (geared) { c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.DIAMOND_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.DIAMOND_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.DIAMOND_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.DIAMOND_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); }
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setHealth(geared ? 12 : 9); c.getFoodData().setFoodLevel(17); c.getFoodData().setSaturation(0); // (under 18: no regen before the test, as live mid-fight)
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null; c.pillarBlocks.clear(); c.lastSkillLine = null;
+        }
+        if (t[0] == 20) { com.claudemod.entity.life.Perception.reset(c); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); com.claudemod.entity.life.Perception.noteSignTest(c, cage, "a mob spawner");
+            for (int k = 0; k < 4; k++) { var b = EntityType.BLAZE.create(nl); b.moveTo(o.getX() + 4.5, o.getY() + 1, o.getZ() - 3.5 + k * 2, 90, 0); b.setNoAi(true); b.setPersistenceRequired(); nl.addFreshEntity(b); st776B.add(b); } // (still: the choice is the test, not the fight)
+            c.setHealth(geared ? 12 : 9); c.lastSkillLine = null;
+            if (!geared) { boolean back = com.claudemod.entity.life.FortressFight.swarmBackOut(c, 4, true, true, cage); // (direct: at 9 HP blaze.ready sends him home first, before the swarm choice)
+                for (var b : st776B) b.discard(); c.setHealth(20); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY); nsHome(c, h, level);
+                check(back, "iron and a shield, 4 blazes at 9 HP by their spawner: priced fighting on over backing out to heal"); pass(stage, t, "iron and a shield at 9 HP: backs out"); return true; }
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("blaze_rods", "", 3, "near_you")); }
+        if (t[0] > 20) {
+            check(c.isAlive(), "dead with four still blazes");
+            String line = c.lastSkillLine;
+            if (line != null) { boolean backed = line.contains("too many blazes");
+                for (var b : st776B) b.discard(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.lastSkillLine = null; for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY); nsHome(c, h, level);
+                check(backed != geared, (geared ? "full diamond and a shield, 4 blazes still in reach at 12 HP: backed out to heal anyway" : "iron and a shield, 4 blazes at 9 HP: fought on") + " (\"" + line + "\")");
+                pass(stage, t, (geared ? "geared: fights on" : "bare: backs out") + " (\"" + line + "\")"); }
+            check(t[0] < 20 * 30, "no blaze_rods line in 30 s (now " + c.currentTask + ")");
         }
         return true;
     }

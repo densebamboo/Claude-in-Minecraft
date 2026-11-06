@@ -10642,6 +10642,7 @@ public final class ClaudeBodyTest {
             case 853: return st853(stage, t, c, h, level, mock);
             case 854: return st854(stage, t, c, h, level, mock);
             case 855: return st855(stage, t, c, h, level, mock);
+            case 856: return st856(stage, t, c, h, level, mock);
             case 676: return st676(stage, t, c, h, level, mock);
             case 659: return st659(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
@@ -17548,6 +17549,28 @@ public final class ClaudeBodyTest {
         if (st851Start > 0) {
             if (c.inventory.count(s0 -> s0.is(Items.STONE_SWORD)) > 0) { for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); com.claudemod.entity.life.DeathLog.reset(c); c.skillQueue.clear(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null; pass(stage, t, "a stone sword made before going back to his guarded pile (" + (t[0] - st851Start) / 20 + " s)"); }
             else check(t[0] - st851Start < 20 * 25, "25 s and no sword before going back to his guarded pile: now " + c.currentTask + ", step " + c.lastStep + ", queue " + c.skillQueue);
+        }
+        return true;
+    }
+    private static int st856Start; private static net.minecraft.world.entity.animal.IronGolem st856G;
+    private static boolean st856(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 12:48 World 17: village_iron at the village's edge, iron golems seen 74 and 81 off below him; the skill looked 32 round only: "no golem in sight: the smith's chest then", no chest, back to strip-mining. Here: a golem 50 east in plain view: he goes for it.
+        BlockPos me = h.absolutePos(new BlockPos(2, 2, 4));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; st856Start = 0; com.claudemod.entity.life.Perception.reset(c); c.prefs.put("village_mode", "raid"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(96), m -> !m.getUUID().equals(c.getUUID()))) m.discard(); }
+        if (t[0] == 5) for (int cx = -1; cx <= 4; cx++) for (int cz = -1; cz <= 1; cz++) { BlockPos q = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(q), 2, q); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 60; x++) for (int z = -2; z <= 10; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 8; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            level.setDayTime(6000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_AXE)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.DIRT, 16)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(-90); c.setYHeadRot(-90); c.setXRot(0); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            mock[0].teleportTo(me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5);
+            st856G = EntityType.IRON_GOLEM.create(level); BlockPos gp = me.offset(50, 0, 0); st856G.moveTo(gp.getX() + 0.5, gp.getY(), gp.getZ() + 0.5, 0, 0); st856G.setNoAi(true); st856G.setPersistenceRequired(); level.addFreshEntity(st856G);
+        }
+        if (t[0] == 40) { c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("village_iron", "", 1, "near_you")); st856Start = t[0]; }
+        if (st856Start > 0) {
+            boolean onIt = c.distanceTo(st856G) < 12 || c.currentTask instanceof Task.Attack || c.tasks.stream().anyMatch(k -> k instanceof Task.Attack);
+            if (onIt) { st856G.discard(); c.skillQueue.clear(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.prefs.remove("village_mode"); pass(stage, t, "went for the golem seen 50 off (" + (int) c.distanceTo(st856G) + " from it)"); }
+            else if (t[0] - st856Start >= 20 * 30) { st856G.discard(); c.skillQueue.clear(); c.tasks.clear(); c.prefs.remove("village_mode"); check(false, "30 s and not after the golem seen 50 east: at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ", step " + c.lastStep + ", queue " + c.skillQueue); }
         }
         return true;
     }

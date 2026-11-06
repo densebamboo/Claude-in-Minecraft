@@ -3729,15 +3729,24 @@ public final class ClaudeLife {
                 }
                 // village_iron
                 if (!raid) { g.skillQueue.addFirst(new Skills.Step("loot", "blacksmith", 1, st.where())); return "guest mode: the smith's chest; the golem stays"; }
-                var golems = level.getEntitiesOfClass(net.minecraft.world.entity.animal.IronGolem.class, g.getBoundingBox().inflate(32), e -> e.isAlive() && g.hasLineOfSight(e));
+                var golems = new java.util.ArrayList<>(level.getEntitiesOfClass(net.minecraft.world.entity.animal.IronGolem.class, g.getBoundingBox().inflate(96), e -> e.isAlive() && (com.claudemod.entity.life.Perception.aware(g, e) || e.distanceTo(g) <= 32 && g.hasLineOfSight(e)))); // (what he knows of, or sees this moment)
+                golems.sort(java.util.Comparator.comparingDouble(e -> e.distanceToSqr(g)));
+                if (!golems.isEmpty() && !(golems.get(0).distanceTo(g) <= 32 && g.hasLineOfSight(golems.get(0)))) { // one he saw further off (live 12:48 World 17: 74 and 81 off, below him, and "no golem in sight"): over to it, like a player
+                    var far = golems.get(0); net.minecraft.world.phys.Vec3 at = com.claudemod.entity.life.Perception.believedAt(g, far); BlockPos ap = at == null ? far.blockPosition() : BlockPos.containing(at);
+                    if (far.distanceTo(g) > 12 && !g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, ap, g.tickCount, 20 * 60)) { // (the walker marks a failed walk itself; marking it first made the walker skip it)
+                        g.tasks.add(new Task.GoTo(ap, 8.0)); g.skillQueue.addFirst(st);
+                        return "walking over to the iron golem I saw at " + ap.toShortString() + " (" + (int) far.distanceTo(g) + " blocks)";
+                    }
+                }
+                golems.removeIf(e -> !(e.distanceTo(g) <= 32 && g.hasLineOfSight(e))); // (the fight wants it in sight and near)
                 if (golems.isEmpty()) {
                     BlockPos mid = Structures.nearestPiece(g, level, g.blockPosition(), "village", 96);
                     if (mid != null && mid.distSqr(g.blockPosition()) > 10 * 10 && !g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, mid, g.tickCount, 20 * 300)) { // once: the golem walks the village; a player goes and looks
-                        g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, mid, g.tickCount);
-                        g.tasks.add(new Task.GoTo(mid, 3.0));
+                        g.tasks.add(new Task.GoTo(mid, 3.0)); // (no fail mark first: the walker skipped a walk marked failed, live 12:48)
                         g.skillQueue.addFirst(st);
                         return "no golem in sight: into the village's middle at " + mid.toShortString() + " to look for it";
                     }
+                    com.claudemod.ClaudeMod.LOGGER.info("[Claude skill] village_iron: no golem known within 96 and no walk into the village: its nearest seen cell {} ({}) (ClaudeLife village_iron)", mid == null ? "none within 96" : mid.toShortString(), mid == null ? "-" : mid.distSqr(g.blockPosition()) <= 10 * 10 ? "within 10 of him" : "walked there in the last 5 min");
                     g.skillQueue.addFirst(new Skills.Step("loot", "blacksmith", 1, st.where())); return "no golem in sight: the smith's chest then";
                 }
                 if (g.getHealth() < 12 || g.inventory.count(s -> s.has(net.minecraft.core.component.DataComponents.FOOD)) < 4) return "failed: a golem hits for 7-21: 6 hearts and 4 meals first";

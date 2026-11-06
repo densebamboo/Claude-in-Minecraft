@@ -4875,7 +4875,7 @@ public class WorkGoal extends Goal {
         var mobs = hostilesNear(14);
         mobs.addAll(level().getEntitiesOfClass(net.minecraft.world.entity.monster.Creeper.class, g.getBoundingBox().inflate(16), c -> c.isAlive() && !mobs.contains(c))); // (16, not 12: the run ended with it 12 off, the job turned him round into it, five times over, then it blew) // a creeper within 12 is still on him whatever its target says
         if (ticks == 1) { fleeDead.clear(); fleeLastD = -1; fleeFromIds.clear(); for (var m : mobs) fleeFromIds.add(m.getUUID()); if (fleeSeed != null) fleeFromIds.add(fleeSeed); fleeSeed = null; }
-        for (var m : ((ServerLevel) level()).getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(24), m -> m.isAlive() && fleeFromIds.contains(m.getUUID()))) if (!mobs.contains(m)) mobs.add(m); // what he's running from stays what he's running from till he's clear of it (out of sight behind him is still on his heels: the run ended a second in and his walk took him back past the witch)
+        for (var m : ((ServerLevel) level()).getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(48), m -> m.isAlive() && fleeFromIds.contains(m.getUUID()) && (m.distanceTo(g) < 24 || huntsHim(m)))) if (!mobs.contains(m)) mobs.add(m); // (and past 24 while it still hunts him, up to its follow range: incident 256) // what he's running from stays what he's running from till he's clear of it (out of sight behind him is still on his heels: the run ended a second in and his walk took him back past the witch)
         // cornered (a dungeon, a dead end): running isn't getting him anywhere, so like a player he turns and fights
         if (ticks == 1) fleeFrom = g.position();
         if (ticks >= 30 && ticks % 30 == 0 && !escapeHeld && fleeFrom != null && g.position().distanceTo(fleeFrom) < 2.0 && !mobs.isEmpty() // every 1.5 s of the run, not only its first (live 12:07 11-02: escapes blocked x7 on one block, a spider 20 -> 0, never a swing back)
@@ -4927,6 +4927,7 @@ public class WorkGoal extends Goal {
             if (!g.getNavigation().moveTo(dest.x, dest.y, dest.z, 1.4)) g.getMoveControl().setWantedPosition(dest.x, dest.y, dest.z, 1.4);
         }
         if (ticks > 20 && !escapeHeld && !(escapeAt != null && !"run".equals(escapeKind)) && mobs.stream().allMatch(m -> m.distanceTo(g) > 16 || (m.distanceTo(g) > 10 && !com.claudemod.entity.life.Perception.clear((ServerLevel) level(), m.getEyePosition(), g.getEyePosition())))) { // well clear, and out of their sight: the run worked
+            if (!clearOfHunters(mobs)) { if (g.horizontalCollision && g.onGround()) g.getJumpControl().jump(); return false; }
             g.setSprinting(false); if (g.urgentAttacker != null) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] clear of them: the hit he took while running is left behind, no fight for it (WorkGoal.doFlee)"); g.urgentAttacker = null;
             clearEscape();
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] got clear of them ({} ticks of running)", ticks);
@@ -4935,6 +4936,27 @@ public class WorkGoal extends Goal {
         }
         if (g.horizontalCollision && g.onGround()) g.getJumpControl().jump();
         return false;
+    }
+
+    /** Still after him: it has him as its target and he's inside its follow range (past it, the mob drops him). */
+    private boolean huntsHim(net.minecraft.world.entity.Mob m) { return m.getTarget() == g && m.distanceTo(g) < m.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.FOLLOW_RANGE); }
+    private int fleeHuntSaid = -1000;
+    /**
+     * Far enough off, but is anything still hunting him? (World 17 22:14, incident 256: "got clear" 16 off a zombie still after him,
+     * his job walked him back into it, 20 -> 10.) One still on him: back to his job (it follows him there: flee.hunted_hits of its
+     * hits) against running on till he's past its follow range (the gap at his pace less its chase pace), priced and said.
+     */
+    private boolean clearOfHunters(java.util.List<? extends net.minecraft.world.entity.Mob> mobs) {
+        net.minecraft.world.entity.Mob h = null; for (var m : mobs) if (huntsHim(m) && (h == null || m.distanceTo(g) < h.distanceTo(g))) h = m;
+        if (h == null) return true;
+        double d = h.distanceTo(g), range = h.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.FOLLOW_RANGE);
+        double pace = (g.getFoodData().getFoodLevel() > 6 ? com.claudemod.entity.life.Decide.sprint() : w("move.walk_blocks_per_s", 4.3)) - w("flee.chase_blocks_per_s", 2.5);
+        var back = com.claudemod.entity.life.Decide.Option.of("back to his job", com.claudemod.entity.life.Decide.hpS(g, 0, w("flee.hunted_hits", 2) * mobHit(h), mobHit(h)), "it follows him there");
+        var on = pace <= 0.1 ? com.claudemod.entity.life.Decide.Option.out("run on", "it keeps his pace")
+                : com.claudemod.entity.life.Decide.Option.of("run on", (range - d) / pace, Math.round(range - d) + " blocks to its follow range " + Math.round(range));
+        boolean say = g.tickCount - fleeHuntSaid >= 100; if (say) fleeHuntSaid = g.tickCount;
+        var pick = com.claudemod.entity.life.Decide.choose(g, "flee.clear", h.getType().getDescription().getString() + " " + Math.round(d) + " off still after him, health " + (int) g.getHealth(), say, java.util.List.of(back, on));
+        return pick != on;
     }
 
     /**

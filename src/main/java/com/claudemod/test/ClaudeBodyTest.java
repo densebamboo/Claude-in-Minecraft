@@ -10554,6 +10554,7 @@ public final class ClaudeBodyTest {
             case 752: return st752(stage, t, c, h, level, mock);
             case 753: return st753(stage, t, c, h, level, mock);
             case 754: return st754(stage, t, c, h, level, mock);
+            case 755: return st755(stage, t, c, h, level, mock);
             case 759: return st759(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
@@ -14423,6 +14424,29 @@ public final class ClaudeBodyTest {
         if (t[0] > 6) {
             if (c.getY() < node.getY() + 1.5 && c.onGround()) pass(stage, t, "on the shaft's lip, endermen in it, his next node 2 down it: in after " + (t[0] - st759Start) / 20.0 + " s");
             else check(t[0] - st759Start < 20 * 10, "10 s on the shaft's lip, never dropped in: at " + String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ()) + ", doing " + c.currentTask);
+        }
+        return true;
+    }
+    private static int st755Hit, st755Hits; private static float st755Hp; private static net.minecraft.world.entity.monster.Zombie st755Z;
+    private static boolean st755(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // unarmed, a lone zombie hunting him by his job (World 17 22:14:18-27, incident 256: "got clear of them" 16 off, the job walked him back into it, hit at 18, 23 and 27 s, 20 -> 10): the run lasts till it's off him, no second hit from walking back into it
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); st755Hit = -1; st755Hits = 0; }
+        if (t[0] == 5) for (int cx = -3; cx <= 4; cx++) for (int cz = -3; cz <= 4; cz++) { BlockPos p = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(p), 2, p); }
+        BlockPos me = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 10) {
+            for (int x = -48; x <= 64; x++) for (int z = -48; z <= 64; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 6; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIRT, 3));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            c.tasks.add(new Task.GoTo(me, 1.0)); c.tasks.add(new Task.Wait(20 * 60, false)); // (his job, here: back to it once he's clear)
+            level.setDayTime(6000);
+            st755Z = EntityType.ZOMBIE.create(level); st755Z.moveTo(me.getX() + 2.5, me.getY(), me.getZ() + 0.5, 90, 0); st755Z.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.LEATHER_HELMET)); st755Z.setPersistenceRequired(); level.addFreshEntity(st755Z); st755Z.setTarget(c); st755Hp = 20;
+        }
+        if (t[0] > 10) {
+            level.setDayTime(6000); c.getFoodData().setFoodLevel(20);
+            if (c.getHealth() < st755Hp - 0.5f) { st755Hits++; if (st755Hit < 0) st755Hit = t[0]; com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 755: hit {} at t {} ({} -> {}), doing {}", st755Hits, t[0], (int) st755Hp, (int) c.getHealth(), c.currentTask); }
+            st755Hp = c.getHealth();
+            if (st755Hit > 0) check(st755Hits < 2, "unarmed, a lone zombie hunting him: hit again " + (t[0] - st755Hit) / 20 + " s after the first (the run ended with it still after him and the job walked him back into it), doing " + c.currentTask + ", it " + (int) st755Z.distanceTo(c) + " off");
+            if (st755Hit > 0 && t[0] >= st755Hit + 20 * 30) { st755Z.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "a lone zombie hunting him unarmed: one hit, then away till it was off him, never walked back into"); }
+            check(t[0] < 20 * 20 || st755Hit > 0, "the zombie never hit him");
         }
         return true;
     }

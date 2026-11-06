@@ -3583,6 +3583,9 @@ public class WorkGoal extends Goal {
             com.claudemod.ClaudeMod.LOGGER.info("[Claude patch] {} at {} waits for {} at {}: the whole pocket picked up before closing (WorkGoal.doPlace)", t.item(), pos.toShortString(), inside.get(0).getItem().getHoverName().getString(), inside.get(0).blockPosition().toShortString());
             return exit("mine drop still in the pocket: pickup first (WorkGoal.doPlace)");
         }
+        if (!inside.isEmpty() && !wetBy && com.claudemod.director.ClaudeLife.dropsWorth(inside) < w("place.hold_worth", 15) && level.getBlockState(pos.above()).getCollisionShape(level, pos.above()).isEmpty() && level.getFluidState(pos.above()).isEmpty()) { // junk in a cell open above: the block pushes it up onto itself, where he walks (vanilla), nothing sealed in; no climb into the hole for it (stage 836: every highway floor swap held for its own netherrack)
+            if (ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the {} in {} pops up onto the block when it goes in (open above, junk): placing, no hold (WorkGoal.doPlace)", inside.get(0).getItem().getHoverName().getString(), pos.toShortString());
+            inside = java.util.List.of(); }
         { String hk = "hold:" + pos.asLong(); Integer held = g.attempts.counters.get(hk); // held for this drop a moment ago and it's still there: the pickup couldn't get it; it's left (logged) and the block goes in (04:33 a furnace held 6 times in 30 s for a drop the pickup never went for)
           if (!inside.isEmpty() && !wetBy && held != null && g.tickCount - held < 20 * 30 && com.claudemod.director.ClaudeLife.dropsWorth(inside) >= 15) { // a valuable pile is never sealed in (live 11:36: 3 diamonds in his branch's floor holes, the patch went over them after a 2.5 s hold): he steps down into the hole for it; can't: the hole stays open
             String wk = "walkin:" + pos.asLong(); Integer w = g.attempts.counters.get(wk);

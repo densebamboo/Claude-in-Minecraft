@@ -10466,6 +10466,7 @@ public final class ClaudeBodyTest {
             case 839: return st839(stage, t, c, h, level, mock);
             case 840: return st840(stage, t, c, h, level, mock);
             case 841: return st841(stage, t, c, h, level, mock);
+            case 836: return st836(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13382,6 +13383,60 @@ public final class ClaudeBodyTest {
     /** The kit's asks without its food (food is priced by the trip since 44abd0e; helpers: stage 37's method sits at the 64 KB limit). */
     private static long gearCount(java.util.Map<net.minecraft.world.item.Item, Integer> m) { return m.keySet().stream().filter(i -> !i.components().has(net.minecraft.core.component.DataComponents.FOOD)).count(); }
     private static boolean onlyDiamondGear(java.util.Map<net.minecraft.world.item.Item, Integer> m) { return m.keySet().stream().allMatch(i -> i.components().has(net.minecraft.core.component.DataComponents.FOOD) || net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(i).getPath().startsWith("diamond_")); }
+    /**
+     * Stage 836, the highway skill (the user 11-05: "he should be building the nether highway to it", nether-bridge-spec, first
+     * pass "2 wide without rails"): his portal, a place 20 south and 6 east. A netherrack wall on the way (a tunnel), lava under
+     * one stretch, a lava pocket beside the floor further on. With no cobbled deepslate the blocks trip is priced and queued
+     * (portal, collect, portal, back); with 128 he lays all of it: every floor cell cobbled deepslate, the walkway open and dry,
+     * the pocket sealed, at a player's pace, and the legs on his portal map.
+     */
+    private static long s836Start;
+    private static boolean st836(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(9200, 64, 5120);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            var rack = Blocks.NETHERRACK.defaultBlockState(); var air = Blocks.AIR.defaultBlockState(); var lava = Blocks.LAVA.defaultBlockState();
+            for (int x = -10; x <= 20; x++) for (int z = -6; z <= 30; z++) for (int y = -4; y <= 6; y++) {
+                boolean wall = z >= 5 && z <= 8 && y >= 0, gap = z >= 11 && z <= 12 && (y == -1 || y == -2), pocket = x == -1 && (z == 15 || z == 16) && y == -1;
+                nl.setBlock(o.offset(x, y, z), y < 0 ? (gap || pocket ? lava : rack) : wall ? rack : air, 2);
+            }
+            for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, 0), x == -1 || x == 2 || y == -1 || y == 3 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+            nsKit(c); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 1.5, 0f, 0f);
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o, "him", "lit");
+        }
+        String dest = (o.getX() + 6) + " " + o.getY() + " " + (o.getZ() + 20);
+        if (t[0] == 20) { // no blocks: the trip for them, priced and queued
+            c.skillQueue.clear(); String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", dest, 1);
+            ClaudeMod.LOGGER.info("[Claude test] 836 no blocks -> {}", r);
+            var q = new java.util.ArrayList<>(c.skillQueue);
+            check(r.contains("out of cobbled deepslate") && q.size() >= 4 && q.get(0).skill().equals("enter_portal") && q.stream().anyMatch(x -> x.skill().equals("collect") && x.target().equals("cobbled_deepslate")) && q.stream().anyMatch(x -> x.skill().equals("build_highway")), "no blocks: no trip queued: " + r + " queue " + q);
+            var b = com.claudemod.entity.life.Highway.plan(c);
+            check(b != null && b.width == 2 && !b.rails && b.rows.size() >= 20, "the plan isn't 2 wide without rails, 20+ rows: " + b);
+            c.skillQueue.clear(); c.tasks.clear();
+            c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64));
+            r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", dest, 1); s836Start = t[0];
+            ClaudeMod.LOGGER.info("[Claude test] 836 with 128 -> {}", r);
+        }
+        if (t[0] > 20) {
+            var b = com.claudemod.entity.life.Highway.plan(c);
+            check(c.isAlive() && c.getHealth() > 10, "hurt building the highway: " + c.getHealth() + " at " + c.blockPosition().toShortString());
+            int n = b == null ? 0 : com.claudemod.entity.life.Highway.next(nl, b);
+            if (b != null && n >= b.rows.size()) {
+                for (int z = 15; z <= 16; z++) check(!nl.getFluidState(o.offset(-1, -1, z)).is(net.minecraft.tags.FluidTags.LAVA) || nl.getBlockState(o.offset(0, -1, z)).is(Blocks.COBBLED_DEEPSLATE), "the lava pocket beside the floor at z+" + z + " not sealed off");
+                var segs = com.claudemod.entity.life.PortalMap.net(c).segments;
+                check(!segs.isEmpty(), "the highway's legs aren't on his portal map");
+                long took = t[0] - s836Start;
+                check(took < 20 * 150, "the highway took " + took / 20 + " s for " + b.rows.size() + " rows (a player: well under 150 s)");
+                nsHome(c, h, level); pass(stage, t, "the highway laid: " + b.rows.size() + " rows, 2 wide, in " + took / 20 + " s; " + segs.size() + " segment(s) on his map");
+                return true;
+            }
+            check(t[0] - s836Start < 20 * 200, "the highway's stuck at row " + n + " of " + (b == null ? "?" : b.rows.size()) + ": at " + c.blockPosition().toShortString() + " now=" + c.currentTask + " tasks=" + c.tasks.size() + " queue=" + c.skillQueue);
+        }
+        return true;
+    }
     private static java.util.List<net.minecraft.world.entity.Entity> s835Mobs = new java.util.ArrayList<>(); private static String s835Asked = "";
     /** Stage 835 (review 105, 21:40 World 17): 6 meals and 5 raw on him, the only food about salmon 9 deep, no livestock: the kit asks for no fish it can't reach (live: "hunting 6 salmon", then "OUT_OF_REACH a fish 6+ deep"). */
     private static boolean st835(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

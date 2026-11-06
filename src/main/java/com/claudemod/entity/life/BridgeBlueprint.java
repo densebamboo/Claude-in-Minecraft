@@ -39,6 +39,8 @@ public final class BridgeBlueprint {
     public final List<Row> rows = new ArrayList<>();
     public final Map<BlockPos, Role> roles = new LinkedHashMap<>();
     public int stairFrom = -1, stairLeg = 0; public String why = "";
+    /** The first pass (the user: "2 wide without rails first, then build the railing and widen when needed"): no rails on open rows; tunnel rows keep their walls and roof. */
+    public boolean rails = true;
 
     private BridgeBlueprint(BlockPos portal, BlockPos dest, Direction leg1, Direction leg2, BlockPos pivot, int width) { this.portal = portal.immutable(); this.dest = dest.immutable(); this.leg1 = leg1; this.leg2 = leg2; this.pivot = pivot.immutable(); this.width = width; this.lo = -(width / 2); this.hi = width - 1 - width / 2; }
 
@@ -65,7 +67,8 @@ public final class BridgeBlueprint {
      * along the axis it faces, to the destination (a foot cell). Null if the destination is on the portal's own plane line.
      */
     private static int facingFirst(Direction.Axis facing, BlockPos p, BlockPos dest) { return Integer.signum(facing == Direction.Axis.X ? dest.getX() - p.getX() : dest.getZ() - p.getZ()); }
-    public static BridgeBlueprint plan(ServerLevel level, BlockPos portalCell, Direction.Axis facing, BlockPos dest, int width) {
+    public static BridgeBlueprint plan(ServerLevel level, BlockPos portalCell, Direction.Axis facing, BlockPos dest, int width) { return plan(level, portalCell, facing, dest, width, true); }
+    public static BridgeBlueprint plan(ServerLevel level, BlockPos portalCell, Direction.Axis facing, BlockPos dest, int width, boolean rails) {
         Direction.Axis other = facing == Direction.Axis.X ? Direction.Axis.Z : Direction.Axis.X;
         BlockPos portalSpot = portalCell;
         if (level != null && level.getBlockState(portalCell).is(Blocks.NETHER_PORTAL)) { // the floor lined up with the frame's outer edges: its columns span the frame, not the portal cell he named
@@ -73,11 +76,12 @@ public final class BridgeBlueprint {
             BlockPos a = portalCell, z = portalCell;
             for (int k = 0; k < 23 && level.getBlockState(a.relative(along.getOpposite())).is(Blocks.NETHER_PORTAL); k++) a = a.relative(along.getOpposite());
             for (int k = 0; k < 23 && level.getBlockState(z.relative(along)).is(Blocks.NETHER_PORTAL); k++) z = z.relative(along);
-            int lo0 = -(width / 2);
+            int lo0 = -(width / 2), cells = (int) Math.round(Math.sqrt(a.distSqr(z))) + 1;
             int dirIn = facingFirst(facing, portalCell, dest); Direction l1 = Direction.fromAxisAndDirection(facing, dirIn > 0 ? Direction.AxisDirection.POSITIVE : Direction.AxisDirection.NEGATIVE);
             Direction right = l1.getClockWise();
-            BlockPos edgeLo = right == along ? a.relative(along.getOpposite()) : z.relative(along); // the frame's outer cell on the side his columns start (lo)
-            portalCell = edgeLo.relative(right, -lo0);
+            BlockPos cellLo = right == along ? a : z; // the portal cell on the side his columns start (lo)
+            int off = width >= cells + 2 ? -1 : Math.max(0, (cells - width) / 2); // (as wide as the frame: lined up with its outer edges; narrower, a first pass: centred on the portal's opening)
+            portalCell = cellLo.relative(right, off - lo0);
         }
         int d1 = facing == Direction.Axis.X ? dest.getX() - portalCell.getX() : dest.getZ() - portalCell.getZ();
         int d2 = other == Direction.Axis.X ? dest.getX() - portalCell.getX() : dest.getZ() - portalCell.getZ();
@@ -86,7 +90,7 @@ public final class BridgeBlueprint {
         Direction l2 = d2 == 0 ? null : Direction.fromAxisAndDirection(other, d2 > 0 ? Direction.AxisDirection.POSITIVE : Direction.AxisDirection.NEGATIVE);
         BlockPos floor0 = portalCell.below();
         BlockPos pivot = floor0.relative(l1, Math.abs(d1));
-        BridgeBlueprint b = new BridgeBlueprint(portalSpot, dest, l1, l2, pivot, Math.max(1, width));
+        BridgeBlueprint b = new BridgeBlueprint(portalSpot, dest, l1, l2, pivot, Math.max(1, width)); b.rails = rails;
         int n1 = Math.abs(d1) + (l2 == null ? 0 : b.lateralMax(l2, l1)); // (leg 1 runs on over the corner square)
         int k2from = l2 == null ? 0 : b.lateralMin(l1, l2), n2 = Math.abs(d2);
         // the staircase: in the middle of the longer leg, MARGIN rows clear of the portal, the pivot and the destination
@@ -111,7 +115,7 @@ public final class BridgeBlueprint {
             b.rows.add(new Row(c, l2, 2, k, stair, false));
         }
         b.lay(level);
-        b.why += width + " wide, leg 1 " + l1.getName() + " " + Math.abs(d1) + (l2 == null ? "" : ", pivot at " + pivot.toShortString() + ", leg 2 " + l2.getName() + " " + n2) + (leg == 0 ? ", level all the way" : ", " + steps + " step(s) " + (dy > 0 ? "up" : "down") + " in leg " + leg + " from row " + s0);
+        b.why += width + " wide" + (rails ? "" : ", no rails yet") + ", leg 1 " + l1.getName() + " " + Math.abs(d1) + (l2 == null ? "" : ", pivot at " + pivot.toShortString() + ", leg 2 " + l2.getName() + " " + n2) + (leg == 0 ? ", level all the way" : ", " + steps + " step(s) " + (dy > 0 ? "up" : "down") + " in leg " + leg + " from row " + s0);
         return b;
     }
 
@@ -126,7 +130,7 @@ public final class BridgeBlueprint {
             List<BlockPos> rails = new ArrayList<>();
             for (int o : new int[] {lo - 1, hi + 1}) { BlockPos q = r.centre().relative(right, o); if (!floor.contains(q) && !floor.contains(q.below()) && !floor.contains(q.above())) rails.add(q.above().immutable()); } // (a rail over another row's floor would block the turn, or a step)
             boolean rock = false;
-            if (level != null) {
+            if (level != null && level.hasChunkAt(r.centre())) { // (a row out in unloaded ground isn't read: no chunk loads for a plan 700 rows long; the builder reads each row as it gets there)
                 for (int o = lo; o <= hi && !rock; o++) for (int y = 1; y <= HEADROOM && !rock; y++) { BlockPos q = r.centre().relative(right, o).above(y); if (!level.getBlockState(q).getCollisionShape(level, q).isEmpty()) rock = true; }
                 for (BlockPos q : rails) if (!rock && !level.getBlockState(q).getCollisionShape(level, q).isEmpty()) rock = true;
             }
@@ -138,13 +142,13 @@ public final class BridgeBlueprint {
                 if (rock) roles.put(f.above(HEADROOM + 1), Role.ROOF);
             }
             for (BlockPos q : rails) {
-                if (roles.get(q) == Role.FLOOR || roles.get(q) == Role.WALK) continue;
+                if (roles.get(q) == Role.FLOOR || roles.get(q) == Role.WALK || !rock && !this.rails) continue;
                 roles.put(q, rock ? Role.WALL : Role.RAIL);
                 if (rock) { for (int y = 1; y < HEADROOM; y++) if (roles.get(q.above(y)) != Role.WALK) roles.put(q.above(y), Role.WALL); roles.put(q.above(HEADROOM), Role.ROOF); }
             }
         }
         // the corner post: where leg 1's outer rail ends and leg 2's begins, diagonal to both
-        if (leg2 != null) {
+        if (leg2 != null && this.rails) {
             Row last1 = null, first2 = null; for (Row r : rows) { if (r.leg() == 1) last1 = r; if (r.leg() == 2 && first2 == null) first2 = r; }
             if (last1 != null && first2 != null) {
                 Direction r1 = leg1.getClockWise(); int out1 = r1 == leg2 ? lo - 1 : hi + 1; // (leg 1's rail on the side away from leg 2)

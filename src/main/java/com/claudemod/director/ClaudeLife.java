@@ -11619,7 +11619,7 @@ public final class ClaudeLife {
                   if (grow == null || (ri >= 0 && (gi < 0 || ri < gi)) || (ri == gi && b.segments.indexOf(s0) < b.segments.indexOf(grow))) grow = s0; } // the user: an order of operations, the first branch down the tunnel first (its pair partner next), each to its checkpoint, never hopping to whichever end is nearest // the nearest one he can push, not the shortest anywhere (that sent him 120 blocks back down the tunnel)
             }
             if (grow != null) {
-                int oldN = grow.n; grow.n = branchRoom(b, grow, Math.min(BRANCH_MAX, grow.n + b.branchLength)); b.invalidate();
+                int oldN = grow.n; grow.n = branchRoom(b, grow, BRANCH_MAX); b.invalidate(); /* the whole branch in one push (the user 11-05 23:45: "he should go the full 64 before switching to the next branch"; 16 at a time had him cap each piece and switch, stage 688) */
                 bpSync(g); if (grow.n <= oldN) { g.attempts.counters.put("branchDone:" + grow.start.asLong(), g.tickCount); ClaudeMod.LOGGER.info("[Claude life] branch at {} can't go on past {} (lava, water or his plug at its end): done, the next one", grow.start.toShortString(), oldN); return "that branch is done (it ends at lava): on to the next"; } // (no growth is no progress: "12 to 12" over and over, 04:14 and 05:30)
                 int si = b.segments.indexOf(grow), first = -1, last = -1; List<MineBlueprint.Row> rs1 = b.rows();
                 for (int i = 0; i < rs1.size(); i++) if (rs1.get(i).segment() == si) { if (rs1.get(i).index() >= oldN - 1 && first < 0) first = i; last = i; }
@@ -11723,10 +11723,10 @@ public final class ClaudeLife {
                 if (s0.n < (b.branchLength > 0 ? b.branchLength : 8) / 2) continue; // a stub cut short (water, a cave): not one to push on
                 if (!branchWalkable(level, s0)) continue; // a plug or a cave-in part-way along it: no way to its end, so nothing past it can be dug from the tunnel
                 { BlockPos past = s0.start.relative(s0.dir, s0.n); net.minecraft.world.level.block.state.BlockState ps = level.getBlockState(past); if (level.getFluidState(past).is(net.minecraft.tags.FluidTags.LAVA) || lavaNear(g, level, past) || dryPlug(g, level, past)) continue; } /* (one short of lava the goal keeps: the stone at its end, the lava one on; it "went on from 9 to 9" again and again, 04:14) */ // ends at water or at his plug of it: that branch is done (the user: plug it and move on), never pushed on into the same water again (he re-dug into it and re-plugged for 40 s)
-                if (grow == null || s0.n < grow.n) grow = s0;
+                { int ri = b.rowOf(s0.start.relative(s0.dir.getOpposite())), gi = grow == null ? Integer.MAX_VALUE : b.rowOf(grow.start.relative(grow.dir.getOpposite())); if (grow == null || (ri >= 0 && (gi < 0 || ri < gi)) || (ri == gi && b.segments.indexOf(s0) < b.segments.indexOf(grow))) grow = s0; } // the first branch down the tunnel, its partner next, as above (was: the shortest anywhere, so the push hopped side to side, 16 at a time: the user 11-05 23:45)
             }
             if (grow != null) {
-                int oldN = grow.n; grow.n = branchRoom(b, grow, Math.min(BRANCH_MAX, grow.n + (b.branchLength > 0 ? b.branchLength : 8))); b.invalidate();
+                int oldN = grow.n; grow.n = branchRoom(b, grow, BRANCH_MAX); b.invalidate(); /* the whole branch in one push, as above (stage 688) */
                 bpSync(g); if (grow.n <= oldN) { g.attempts.counters.put("branchDone:" + grow.start.asLong(), g.tickCount); ClaudeMod.LOGGER.info("[Claude life] branch at {} can't go on past {} (lava, water or his plug at its end): done, the next one", grow.start.toShortString(), oldN); return "that branch is done (it ends at lava): on to the next"; } // (no growth is no progress: "12 to 12" over and over, 04:14 and 05:30)
                 int si = b.segments.indexOf(grow), first = -1, last = -1; List<MineBlueprint.Row> rs1 = b.rows();
                 for (int i = 0; i < rs1.size(); i++) if (rs1.get(i).segment() == si) { if (rs1.get(i).index() >= oldN - 1 && first < 0) first = i; last = i; }

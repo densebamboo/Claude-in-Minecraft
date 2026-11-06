@@ -10549,6 +10549,7 @@ public final class ClaudeBodyTest {
             case 750: return st750(stage, t, c, h, level, mock);
             case 751: return st751(stage, t, c, h, level, mock);
             case 752: return st752(stage, t, c, h, level, mock);
+            case 753: return st753(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -10582,6 +10583,7 @@ public final class ClaudeBodyTest {
             case 685: return st685(stage, t, c, h, level, mock);
             case 686: return st686(stage, t, c, h, level, mock);
             case 687: return st687(stage, t, c, h, level, mock);
+            case 688: return st688(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -14270,6 +14272,29 @@ public final class ClaudeBodyTest {
         if (t[0] == 130) { em752.discard(); c.tasks.clear(); c.dropCurrent = true; check(st752Dig, "at full health, not burning: the enderman 17 below not dug down to (as before)"); pass(stage, t, "an enderman 17 below out of sight: not dug down to at 11 HP burning; dug down to at full health"); }
         return true;
     }
+    private static net.minecraft.world.entity.monster.Creeper cr753; private static double st753D0; private static boolean st753Plugged;
+    private static boolean st753(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // his escape's plug still to go in, him back on the creeper's side of the gap (World 17 22:21:27-31, death 313: "creeper 5 blocks off: getting away from it" and "the plug for the gap at -79, 56, 125 still to go in: placing it before anything" in turn every 5 ticks, the creeper 5 -> 2, 18.3 at 6 HP): away from it, no plug from their side
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        BlockPos gap = h.absolutePos(new BlockPos(6, 2, 8)), at = h.absolutePos(new BlockPos(6, 2, 5)), me = h.absolutePos(new BlockPos(6, 2, 10));
+        if (t[0] == 10) {
+            for (int x = 0; x <= 14; x++) for (int z = 0; z <= 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int yy = 2; yy <= 6; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), z == 8 && yy <= 4 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+            level.setBlock(gap, Blocks.AIR.defaultBlockState(), 2); level.setBlock(gap.above(), Blocks.AIR.defaultBlockState(), 2); // (the 1-wide gap in the wall)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.DIRT, 16)); c.setHealth(8); c.getFoodData().setFoodLevel(20); level.setDayTime(6000);
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); st753Plugged = false;
+            cr753 = net.minecraft.world.entity.EntityType.CREEPER.create(level); BlockPos cp = h.absolutePos(new BlockPos(6, 2, 14)); cr753.moveTo(cp.getX() + 0.5, cp.getY(), cp.getZ() + 0.5, 180, 0); cr753.setPersistenceRequired(); level.addFreshEntity(cr753); cr753.setTarget(c);
+        }
+        if (t[0] == 12) { c.work.plugPendingForTest(gap, at, Items.DIRT); st753D0 = c.distanceTo(cr753); }
+        if (t[0] > 12) {
+            if (c.getZ() > gap.getZ() + 1 && !level.getBlockState(gap).isAir()) st753Plugged = true;
+            if (t[0] == 12 + 40 || !c.isAlive() || !cr753.isAlive()) {
+                double d1 = cr753.isAlive() ? c.distanceTo(cr753) : -1; cr753.discard(); c.tasks.clear(); c.dropCurrent = true; c.setHealth(20);
+                check(!st753Plugged, "the gap plugged from the creeper's side: it shuts him in with it");
+                check(d1 > st753D0, "the creeper " + String.format("%.1f", st753D0) + " -> " + String.format("%.1f", d1) + " off in 2 s (alive " + c.isAlive() + "): no getting away from it");
+                pass(stage, t, "back on the creeper's side of his gap: away from it (" + String.format("%.1f", st753D0) + " -> " + String.format("%.1f", d1) + "), no plug from their side");
+            }
+        }
+        return true;
+    }
     private static int st749At;
     private static boolean st749(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // his pillar out of a 2-deep hollow (World 17 20:52-20:54 by his mine, incident 214: the dirt at -13, 63, -20 taken up at a step's start, he dropped into the hollow for it, the walk out put it back, 6 times in 60 s): it stays, his step out; a pillar over flat ground still comes back up
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
@@ -16370,6 +16395,37 @@ public final class ClaudeBodyTest {
         return true;
     }
 
+    /** The user 11-05 23:45: "he's still branching like 32 blocks and then going to the other side ... he should go the full 64 before switching to the next branch" (live: "goes on from 16 to 32", the shortest branch next, a pair partner each push). Here: two pairs, every branch 8 long, him at the end of one: one push takes that branch to 64, and it's the one he's on. */
+    private static boolean st688(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 30; x++) for (int z = -6; z <= 26; z++) { for (int yy = -3; yy <= 12; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, 13, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); }
+            var E = net.minecraft.core.Direction.EAST; var KB = com.claudemod.entity.life.MineBlueprint.Kind.BRANCH;
+            var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(new BlockPos(2, 12, 8)), E, 2, 3); b.segments.get(0).n = 8; b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(true), E, 8, null)); b.invalidate();
+            b.branchLength = 8; b.branchEvery = 4; b.branchPair(11, 8); b.branchPair(15, 8);
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int y = 0; y < r.height(); y++) level.setBlock(f.above(y), Blocks.AIR.defaultBlockState(), 2);
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); com.claudemod.director.ClaudeLife.bpSync(c);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.TORCH, 32)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            com.claudemod.entity.life.MineBlueprint.Segment on = null; for (var s0 : b.segments) if (on == null && s0.kind == KB && s0.dir == net.minecraft.core.Direction.SOUTH) on = s0;
+            BlockPos end = on.start.relative(on.dir, on.n - 1); c.teleportTo(end.getX() + 0.5, end.getY(), end.getZ() + 0.5);
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); level.setDayTime(1000); c.tasks.clear(); c.skillQueue.clear(); c.attempts.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 20) {
+            var b = c.blueprint; var KB = com.claudemod.entity.life.MineBlueprint.Kind.BRANCH; java.util.Map<Object, Integer> before = new java.util.IdentityHashMap<>(); for (var s0 : b.segments) if (s0.kind == KB) before.put(s0, s0.n);
+            BlockPos me = c.blockPosition(); c.tasks.clear();
+            String line = com.claudemod.director.ClaudeLife.bpAtLevel(c, level, b, h.absolutePos(new BlockPos(0, 4, 0)).getY(), "iron");
+            com.claudemod.entity.life.MineBlueprint.Segment grown = null; for (var s0 : b.segments) if (s0.kind == KB && s0.n > before.get(s0)) grown = s0;
+            c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            check(grown != null, "no branch pushed on: " + line);
+            boolean mine = false; for (int k = 0; k < before.get(grown); k++) if (grown.start.relative(grown.dir, k).equals(me)) mine = true;
+            check(mine, "the push went to the branch at " + grown.start.toShortString() + " (" + grown.dir + "), not the one he stands at the end of (" + me.toShortString() + "): " + line);
+            check(grown.n >= 64, "his branch pushed " + before.get(grown) + " -> " + grown.n + ", not the full 64 in one go: " + line);
+            pass(stage, t, "his branch from " + before.get(grown) + " to " + grown.n + " in one push, the one he's on");
+        }
+        return true;
+    }
+
     /** Live 21:55 World 17: the golem job's tower, 3 up from his ground, with the golem a block higher: he swung with his feet at 72.50, its top at 72.70, still in its reach; one hit 20 -> 3, then dead. Here: the golem on a block, his stand beside it a block lower: no swing at it till he stands over its top. */
     private static net.minecraft.world.entity.animal.IronGolem s687G; private static boolean s687Seen;
     private static boolean st687(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
@@ -16409,13 +16465,14 @@ public final class ClaudeBodyTest {
         return true;
     }
 
-    /** The weights file: a value saved in config/claude/weights.json is read within 5 s, and a name it lacks is written in with its default. */
+    /** The weights files: a value set in config/claude/weights.json is read within 5 s; a default goes to weights-defaults.json, never into the user's file. */
     private static boolean st685(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         var f = com.claudemod.entity.life.Weights.file();
         if (t[0] == 1) { try { java.nio.file.Files.createDirectories(f.getParent()); java.nio.file.Files.writeString(f, "{\"test.tuned\": 7}"); } catch (Exception e) { check(false, "set-up: " + e); } com.claudemod.entity.life.Weights.w("test.default", 2); }
         if (t[0] == 130) {
             double v = com.claudemod.entity.life.Weights.w("test.tuned", 3); check(v == 7, "the file says test.tuned 7, he read " + v);
-            String txt = ""; try { txt = java.nio.file.Files.readString(f); } catch (Exception e) { check(false, "read: " + e); }
+            String txt = "", own = ""; try { txt = java.nio.file.Files.readString(com.claudemod.entity.life.Weights.defaultsFile()); own = java.nio.file.Files.readString(f); } catch (Exception e) { check(false, "read: " + e); }
+            check(!own.contains("test.default"), "a default was written into the user's own weights.json (it would pin it): " + own);
             check(txt.contains("\"test.default\": 2.0"), "test.default was not written in with its default: " + txt);
             pass(stage, t, "weights read from the file and defaults written in");
         }

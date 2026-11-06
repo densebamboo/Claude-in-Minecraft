@@ -1025,7 +1025,7 @@ public class WorkGoal extends Goal {
         // One planner (navigation-as-action-planning): the moment the vanilla path doesn't reach, or after a second without getting
         // nearer, the way is planned over moves (walk, jump, drop, swim, climb, a door, a block put down, and in MAY_DIG a block dug)
         // with the etiquette in the costs, once per spot per 3 s. No way at all: the walk ends now, one line, the spot off for a minute.
-        if (com.claudemod.entity.body.Controls.refusedLately(g, 10) && routeReaches) { routeReaches = false; if (!pos.equals(refusedSaidFor)) { refusedSaidFor = pos.immutable(); com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] his body refused the path's step on the walk to {} (2+ up, or lava): the path doesn't really reach, the walk's own plan takes it (WorkGoal.walkTo)", pos.toShortString()); } } // (said once a walk: it was 4 a second, Day to Day) // (live 2026-11-01, 3 times: the probe's path 2 up by a fortress, he stood till the 20 s give-up; 03:53 a vanilla path over a lava drop ActionPath had turned down)
+        if (com.claudemod.entity.body.Controls.refusedLately(g, 10) && routeReaches) { routeReaches = false; if (!pos.equals(refusedSaidFor)) { refusedSaidFor = pos.immutable(); com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] his body refused the path's step on the walk to {} (2+ up, or lava): the path doesn't really reach, the walk's own plan takes it (WorkGoal.walkTo)", pos.toShortString()); com.claudemod.entity.body.Controls.traceMoves(g, 40); } } // (said once a walk: it was 4 a second, Day to Day) // (live 2026-11-01, 3 times: the probe's path 2 up by a fortress, he stood till the 20 s give-up; 03:53 a vanilla path over a lava drop ActionPath had turned down)
         boolean deepWater = g.isInWater() && !com.claudemod.entity.body.Controls.wading(g);
         if (ticks == 2 && !routeReaches && !g.onGround() && !g.isInWater() && !g.onClimbable()) airPlanFor = pos.immutable(); // (in the air on tick 2: the plan waits for the landing, stage 385)
         if (((ticks == 2 || ticks <= 40 && pos.equals(airPlanFor)) && !routeReaches || stuck == 20 || stuck > 20 && stuck % 200 == 20) && d >= 2 && d <= 28 && !walkNoDig && !routeReaches && !deepWater && !(inHole() && g.isInWater()) // (a dry hole: planned like any walk, MAY_DIG; a flooded one stays the cutter's) (airborne on tick 2: planned once landed, up to tick 40; the partial path had walked him into a trench, stage 385)
@@ -4754,6 +4754,8 @@ public class WorkGoal extends Goal {
         escapeKind = "run"; escapeAt = end.immutable(); escapeGap = null; escapeHeld = false; escapeSince = g.tickCount; escapeBest = g.position().distanceTo(Vec3.atBottomCenterOf(end)); escapeBestTick = g.tickCount;
         fleeDir = new Vec3(side.getStepX(), 0, side.getStepZ());
     }
+    /** (tests) An escape through the gap held from at, its plug queued and still to go in. */
+    public void plugPendingForTest(BlockPos gap, BlockPos at, net.minecraft.world.item.Item plug) { setEscape("gap", at.immutable(), gap.immutable()); escapeHeld = true; escapePlugged = true; g.tasks.addFirst(new Task.Place(gap.above().immutable(), plug)); g.tasks.addFirst(new Task.Place(gap.immutable(), plug)); }
     private void setEscape(String kind, BlockPos at, BlockPos gap) {
         escapeKind = kind; escapeAt = at; escapeGap = gap; escapeHeld = false; escapePlugged = false; escapeSince = g.tickCount; escapeBest = g.position().distanceTo(Vec3.atBottomCenterOf(at)); escapeBestTick = g.tickCount; escapePicks++;
     }
@@ -4806,7 +4808,16 @@ public class WorkGoal extends Goal {
             boolean open = lv.getBlockState(gp).getCollisionShape(lv, gp).isEmpty() || lv.getBlockState(gp.above()).getCollisionShape(lv, gp.above()).isEmpty();
             boolean queued = g.tasks.stream().anyMatch(x -> x instanceof Task.Place pl && (pl.pos().equals(gp) || pl.pos().equals(gp.above())));
             boolean inIt = mobs.stream().anyMatch(m -> m.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(gp).minmax(new net.minecraft.world.phys.AABB(gp.above()))));
-            if (open && queued && !inIt) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the plug for the gap at {} still to go in: placing it before anything (WorkGoal.atEscape)", gp.toShortString()); return 2; }
+            if (open && queued && !inIt) { // the plug, priced against running on: it shuts them out only from the gap's far side (World 17 22:21:27-31, death 313: back on the creeper's side, "placing it before anything" ended each flee on its first tick, the creeper 5 -> 2)
+                Vec3 gc = Vec3.atBottomCenterOf(gp), safe = Vec3.atBottomCenterOf(escapeAt).subtract(gc).multiply(1, 0, 1);
+                java.util.function.ToDoubleFunction<Vec3> side = q -> q.subtract(gc).multiply(1, 0, 1).dot(safe);
+                boolean heSafe = side.applyAsDouble(g.position()) > 0.1; var mobSafe = mobs.stream().filter(m -> side.applyAsDouble(m.position()) > 0.1 && m.distanceTo(g) < 8).findFirst().orElse(null);
+                var plugIt = heSafe && mobSafe == null ? com.claudemod.entity.life.Decide.Option.of("plug it", com.claudemod.entity.life.Weights.w("escape.plug_s", 1), "two blocks across it")
+                        : com.claudemod.entity.life.Decide.Option.out("plug it", heSafe ? "a " + mobSafe.getType().getDescription().getString() + " " + (int) mobSafe.distanceTo(g) + " off on his side of it" : "he's on their side of it: a plug shuts him in with them");
+                var pick = com.claudemod.entity.life.Decide.choose(g, "escape.plug", "the gap at " + gp.toShortString() + ", health " + (int) g.getHealth(), plugIt.no() != null, java.util.List.of(plugIt, com.claudemod.entity.life.Decide.Option.of("run on", com.claudemod.entity.life.Weights.w("escape.run_on_s", 8), "a fresh way off")));
+                if (pick == plugIt) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the plug for the gap at {} still to go in: placing it before anything (WorkGoal.atEscape)", gp.toShortString()); return 2; }
+                g.tasks.removeIf(x -> x instanceof Task.Place pl && (pl.pos().equals(gp) || pl.pos().equals(gp.above()))); clearEscape(); return 0;
+            }
             if (!open && mobs.stream().noneMatch(m -> m.distanceTo(g) < 4)) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the gap at {} is plugged, none of them this side: the run's over (WorkGoal.atEscape)", gp.toShortString()); return 2; }
         }
         // holding: on his spot, facing the gap, a swing at whatever is in reach once the swing is charged

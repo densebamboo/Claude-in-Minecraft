@@ -157,7 +157,11 @@ public final class Controls {
      * walking direction as forward/strafe relative to where he's facing, so he can look at one thing and
      * walk toward another like a real player. Sneaking walks at sneak speed; holding space swims up.
      */
+    private static final java.util.Map<java.util.UUID, int[]> TRACE = new java.util.HashMap<>(); // (until tick, last cell's hash)
+    /** Log his moves for the next ticks (cell by cell: where the steer came from and what the lava guard said); World 17 22:07:10, death 240: after "his body refused the path's step" he was in lava a block off his cell, nothing said how. */
+    public static void traceMoves(Player p, int ticks) { TRACE.put(p.getUUID(), new int[] {p.tickCount + ticks, 0}); }
     public static void apply(Player p, Look look, Move move, Jump jump, PlayerNav nav) {
+        String guard = "not run (no walk)", from = "nav";
         if (p instanceof com.claudemod.entity.ClaudeEntity ce0) { // a fall is never silent (live 10:53 World 15: 4.5 s with no line from a Nether ledge into a lava lake 18 down)
             if (p.onGround() || p.isInWater() || p.isInLava()) { if (FALLING.remove(p.getUUID()) != null && p.isInLava()) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] the fall ended in lava at {} (Controls.apply)", p.blockPosition().toShortString()); }
             else if (p.fallDistance > 3 && !FALLING.containsKey(p.getUUID()) && com.claudemod.entity.nav.Leaps.control(p) == null) { FALLING.put(p.getUUID(), p.blockPosition().immutable()); int depth = 0; net.minecraft.core.BlockPos q = p.blockPosition(); while (depth < 64 && p.level().getBlockState(q).getCollisionShape(p.level(), q).isEmpty() && p.level().getFluidState(q).isEmpty()) { depth++; q = q.below(); }
@@ -182,11 +186,12 @@ public final class Controls {
         double speed = nav.speed();
         if (nav.wantsJump()) jumpNow = true;
         if (walk == null) {
-            walk = move.steer();
+            walk = move.steer(); from = "move";
             speed = move.speed();
         }
         look.apply(walk);
         net.minecraft.world.level.pathfinder.Path planned = nav.getPath(); net.minecraft.world.level.pathfinder.Node nextNode = planned != null && !planned.isDone() ? planned.getNextNode() : null;
+        if (walk != null && walk.lengthSqr() > 1e-4) guard = p.isInLava() ? "skipped (in lava)" : "clear";
         if (walk != null && walk.lengthSqr() > 1e-4 && !p.isInLava()) { /* lava ahead is never a step: live 01:05 and 01:22 a spin by the Nether portal walked him into the same lava pocket at -10 70 -5 twice (the lip guard below only knew drops) */
             Vec3 ld = walk.normalize();
             double hv = Math.sqrt(p.getDeltaMovement().x * p.getDeltaMovement().x + p.getDeltaMovement().z * p.getDeltaMovement().z);
@@ -197,7 +202,7 @@ public final class Controls {
                 net.minecraft.core.BlockPos ah = net.minecraft.core.BlockPos.containing(p.getX() + ld.x * reach + sd.x * k, p.getY() + 0.1, p.getZ() + ld.z * reach + sd.z * k);
                 if (ah.equals(p.blockPosition())) continue;
                 boolean lavaAt = lavaCell(p, ah);
-                if (lavaAt && k != 0) { walk = ld.subtract(sd.scale(k * 2.0)).normalize(); continue outer; } // (only his shoulder would touch it: steered off that side, not stopped; walking a lava hole's edge stalled him dead) // ponytail: live 19:13 -153,51,-956: a shoulder hit at reach 0.45 stopped him dead 40+ s, the lava beside him not ahead
+                if (lavaAt && k != 0) { walk = ld.subtract(sd.scale(k * 2.0)).normalize(); guard = "steered off lava at his shoulder " + ah.toShortString() + " (the new way not looked at)"; continue outer; } // (only his shoulder would touch it: steered off that side, not stopped; walking a lava hole's edge stalled him dead) // ponytail: live 19:13 -153,51,-956: a shoulder hit at reach 0.45 stopped him dead 40+ s, the lava beside him not ahead
                 if (lavaAt && nextNode != null && Math.abs(nextNode.x - p.getBlockX()) == 1 && Math.abs(nextNode.z - p.getBlockZ()) == 1 && Math.abs(nextNode.y - p.getBlockY()) <= 1) { // a diagonal step whose corner is over lava: round the other corner, one straight step then the next, like a player (stage 538: the path's diagonal past a lava pool's corner and the guard's stop, 2 min stood still at -49 102 89)
                     net.minecraft.core.BlockPos corner = null;
                     for (net.minecraft.core.BlockPos cc : new net.minecraft.core.BlockPos[] {new net.minecraft.core.BlockPos(nextNode.x, p.getBlockY(), p.getBlockZ()), new net.minecraft.core.BlockPos(p.getBlockX(), p.getBlockY(), nextNode.z)}) {
@@ -208,7 +213,7 @@ public final class Controls {
                         break outer; }
                 }
                 if (lavaAt) {
-                    p.setSprinting(false); walk = null; refusedStep(p);
+                    p.setSprinting(false); walk = null; refusedStep(p); guard = "stopped: lava ahead at " + ah.toShortString();
                     Vec3 v = p.getDeltaMovement(); if (reach < 1.0 && v.x * ld.x + v.z * ld.z > 0) p.setDeltaMovement(0, v.y, 0); // (and his slide stopped: the inputs off alone still carried him in)
                     if (p instanceof com.claudemod.entity.ClaudeEntity ce && ce.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] lava ahead at {}: not stepping (Controls.apply)", ah.toShortString());
                     break outer;
@@ -270,6 +275,8 @@ public final class Controls {
                 if (drop >= 4 && !water) { jumpNow = false; p.setJumping(false); if (reach > 1) { p.setSprinting(false); walk = walk.scale(0.3); } else walk = null; break; } // a block out: ease off; at the lip: stop
             }
         }
+        { int[] tr = TRACE.get(p.getUUID()); if (tr != null) { if (p.tickCount > tr[0]) TRACE.remove(p.getUUID()); else { int cell = p.blockPosition().hashCode() * 31 + guard.hashCode(); if (cell != tr[1]) { tr[1] = cell;
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude move] trace: at {}, {}, {} ({}), moving {}, {}, {}, on ground {}, in lava {}; steer from {} {}, next node {}; lava guard: {} (Controls.apply)", String.format("%.2f", p.getX()), String.format("%.2f", p.getY()), String.format("%.2f", p.getZ()), p.blockPosition().toShortString(), String.format("%.2f", p.getDeltaMovement().x), String.format("%.2f", p.getDeltaMovement().y), String.format("%.2f", p.getDeltaMovement().z), p.onGround(), p.isInLava(), from, walk == null ? "none" : String.format("%.2f %.2f", walk.x, walk.z), nextNode == null ? "none" : nextNode.x + "," + nextNode.y + "," + nextNode.z, guard); } } } }
         if (p.onGround() && p instanceof com.claudemod.entity.ClaudeEntity) LAST_GROUND.put(p.getUUID(), String.format("on " + p.level().getBlockState(p.getOnPos()).getBlock().getName().getString() + " at " + p.getOnPos().toShortString() + ", at %.3f %.2f %.3f, v %.2f %.2f %.2f, walk %s, next node %s, sprint %s, jump %s, safeStep %s, move goal %s", p.getX(), p.getY(), p.getZ(), p.getDeltaMovement().x, p.getDeltaMovement().y, p.getDeltaMovement().z, walk == null ? "none" : String.format("%.2f %.2f", walk.x, walk.z), nextNode == null ? "none" : nextNode.x + "," + nextNode.y + "," + nextNode.z, p.isSprinting(), jumpNow, safeStep, move.debug())); // (what carried him off an edge: proved from this, not guessed)
         if (walk != null && walk.lengthSqr() > 1e-4) {
             double yaw = p.getYRot() * Mth.DEG_TO_RAD;

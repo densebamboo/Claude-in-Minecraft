@@ -319,7 +319,7 @@ public final class ActionPath {
         List<net.minecraft.world.phys.Vec3> avoid = List.of();
         int airRefused; // moves turned down as a longer swim under water than half his air
         float hurtNow; // the HP the drops on the way to the node being expanded took (no regen counted)
-        final float hp, margin; // his health now; the HP he keeps after any drop (Leaps.margin)
+        final float hp, margin; final double hpPrice; // his health now; the HP he keeps after any drop (Leaps.margin); what an HP is worth to him now (Leaps.hpPrice: dear when he can't regen it)
         final java.util.Map<String, String> refused = new java.util.LinkedHashMap<>(); // drops / jumps turned down, and why
         final Map<BlockPos, String> bent = new HashMap<>(); // MAY_BEND: cells a soft rule of his kept, with the rule
         private java.util.Set<BlockPos> myWater; // the water he's in (joined cells from his feet and head, 256 at most): empty when he's dry
@@ -341,7 +341,7 @@ public final class ActionPath {
             return sight.computeIfAbsent(k, kk -> Leaps.seesOver(level, lip, lip.relative(d), land));
         }
         /** What losing hp costs as a move: 3 a heart-half, and steeply past 4 (a player keeps his health for what comes next). */
-        static double hpCost(float hp) { return hp <= 0 ? 0 : 1 + hp * 3 + (hp > 4 ? (hp - 4) * (hp - 4) * 1.5 : 0); }
+        double hpCost(float hp) { return hp <= 0 ? 0 : (1 + hp * 3 + (hp > 4 ? (hp - 4) * (hp - 4) * 1.5 : 0)) * hpPrice; }
         /** -1: too close to a threat to stand there; else what being near them adds. */
         double avoidCost(BlockPos t) {
             double add = 0; net.minecraft.world.phys.Vec3 c = net.minecraft.world.phys.Vec3.atBottomCenterOf(t);
@@ -350,7 +350,7 @@ public final class ActionPath {
         }
         Costs(ClaudeEntity g, ServerLevel level, boolean canPlace, Mode mode, Map<BlockPos, Integer> failedAt, int now) {
             this.g = g; this.level = level; this.canPlace = canPlace; this.mode = mode; this.failedAt = failedAt; this.now = now;
-            this.hp = Leaps.health(g); this.margin = Leaps.margin(g);
+            this.hp = Leaps.health(g); this.margin = Leaps.margin(g); this.hpPrice = Leaps.hpPrice(g);
             this.maxPuts = !canPlace ? 0 : g.inventory.count(s -> s.is(net.minecraft.world.item.Items.DIRT) || s.is(net.minecraft.world.item.Items.GRASS_BLOCK) || s.is(net.minecraft.world.item.Items.COBBLESTONE)
                     || s.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE) || s.is(net.minecraft.world.item.Items.ANDESITE) || s.is(net.minecraft.world.item.Items.DIORITE) || s.is(net.minecraft.world.item.Items.GRANITE)
                     || s.is(net.minecraft.world.item.Items.TUFF) || s.is(net.minecraft.world.item.Items.DEEPSLATE) || s.is(net.minecraft.world.item.Items.STONE) || s.is(net.minecraft.world.item.Items.CALCITE)

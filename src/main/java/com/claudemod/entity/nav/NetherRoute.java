@@ -220,7 +220,7 @@ public final class NetherRoute {
             if (failedNear(cx, ny, cz)) sec += 20; // (a leg that ended there failed in the last 2 min: the way round it, never the same spot again; live -303,87,-63, a 40 s shuffle re-planned onto the node that failed)
             if (dy < -3) { // a sheer fall into that column (nothing to cut steps in): its damage against what he keeps (Leaps.margin)
                 boolean sheer = true; for (int yy = ny + 1; yy <= y; yy++) if (solid(cx, yy, cz)) { sheer = false; break; }
-                if (sheer) { float hp = -dy - 3; if (Leaps.health(g) - hp < Leaps.margin(g)) return null; sec += 1 + hp * 1.5; }
+                if (sheer) { float hp = -dy - 3; if (Leaps.health(g) - hp < Leaps.margin(g)) return null; sec += 1 + hp * 1.5 * Leaps.hpPrice(g); }
             }
             return new double[] {sec, digs, puts};
         }

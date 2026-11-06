@@ -10438,6 +10438,7 @@ public final class ClaudeBodyTest {
             case 822: return st822(stage, t, c, h, level, mock);
             case 823: return st823(stage, t, c, h, level, mock);
             case 824: return st824(stage, t, c, h, level, mock);
+            case 825: return st825(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13270,6 +13271,34 @@ public final class ClaudeBodyTest {
             if (Math.abs(c.getX() - to.getX() - 0.5) + Math.abs(c.getZ() - to.getZ() - 0.5) <= 4 && Math.abs(c.getY() - to.getY()) <= 2) { int s0 = (t[0] - s824T0) / 20; check(s0 <= 75, "there, but slow: " + s0 + " s for 87 blocks"); nsHome(c, h, level); pass(stage, t, "off his bridge over the lava-sea cavern to the ledge 87 off in " + s0 + " s"); return true; }
             check(!(c.currentTask == null && c.tasks.isEmpty() && t[0] - s824T0 > 60), "the walk gave up at " + c.blockPosition().toShortString() + " after " + (t[0] - s824T0) / 20 + " s");
             check(t[0] - s824T0 < 20 * 150, "150 s and not there: at " + c.blockPosition().toShortString() + " now " + c.currentTask + " queue " + c.tasks);
+        }
+        return true;
+    }
+
+    /** Live 16:16 11-05 (Day to Day): at hunger 6 with no food on him, his Nether route took a 9-block drop, 20 -> 14 HP he couldn't regen. Here: a ledge, a sheer 9 down to the floor that leads to the goal 34 off, him at food 6 with nothing to eat and a pick. HP he can't get back is dear: he digs his way down, no fall damage. */
+    private static int s825T0;
+    private static boolean st825(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(9000, 64, 6120), to = o.offset(34, -9, 0);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); s825T0 = 0; }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(20, 0, 0)), 3, o.offset(20, 0, 0));
+            for (int x = -8; x <= 44; x++) for (int z = -6; z <= 6; z++) for (int y = -12; y <= 7; y++) {
+                boolean open = Math.abs(z) <= 4 && y <= 5 && (x >= -4 && x <= 8 ? y >= 0 : x >= 9 && x <= 40 && y >= -9);
+                nl.setBlock(o.offset(x, y, z), open ? Blocks.AIR.defaultBlockState() : Blocks.NETHERRACK.defaultBlockState(), 2);
+            }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 16));
+            c.setHealth(20); c.getFoodData().setFoodLevel(6); c.getFoodData().setSaturation(0); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 6.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 30) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.tasks.add(new com.claudemod.entity.life.Task.GoTo(to, 2)); s825T0 = t[0]; }
+        if (s825T0 > 0 && t[0] > s825T0) {
+            c.getFoodData().setFoodLevel(6); // (held: the stage is about the price of HP he can't regen, not his hunt for food)
+            check(c.getHealth() >= 19.5f, "hurt on the way down at food 6 with no food (HP he can't regen): " + c.getHealth() + " HP at " + c.blockPosition().toShortString() + " after " + (t[0] - s825T0) / 20 + " s");
+            if (Math.abs(c.getX() - to.getX() - 0.5) + Math.abs(c.getZ() - to.getZ() - 0.5) <= 4 && Math.abs(c.getY() - to.getY()) <= 2) { int s0 = (t[0] - s825T0) / 20; check(s0 <= 40, "there unhurt, but slow: " + s0 + " s"); nsHome(c, h, level); pass(stage, t, "down the 9-block cliff with no fall damage at food 6, there in " + s0 + " s"); return true; }
+            check(!(c.currentTask == null && c.tasks.isEmpty() && t[0] - s825T0 > 60), "the walk gave up at " + c.blockPosition().toShortString());
+            check(t[0] - s825T0 < 20 * 90, "90 s and not there: at " + c.blockPosition().toShortString() + " now " + c.currentTask);
         }
         return true;
     }

@@ -77,6 +77,8 @@ public final class Leaps {
 
     /** The HP he keeps after a drop: 6, +4 with a hostile about (seen, or within 8), +2 with no food on him. */
     public static float margin(ClaudeEntity g) { return 6 + (hostileAbout(g) ? 4 : 0) + (foodOnHim(g) ? 0 : 2); }
+    /** What an HP lost is worth, as a multiple: 1 when it comes back (food 18+ regenerates it, or food on him to eat), 4 when it doesn't (no regen under 18 and nothing to eat: gone till he finds food). Day to Day 16:16 11-05: a 9-block drop at hunger 6, 20 -> 14 for good. */
+    public static double hpPrice(ClaudeEntity g) { return g.getFoodData().getFoodLevel() >= 18 || foodOnHim(g) ? 1 : 4; }
     public static String marginWhy(ClaudeEntity g) { return "keep " + (int) margin(g) + (hostileAbout(g) ? ", a hostile about" : "") + (foodOnHim(g) ? "" : ", no food on me"); }
     static boolean foodOnHim(ClaudeEntity g) { return g.inventory.count(s -> s.has(net.minecraft.core.component.DataComponents.FOOD)) > 0; }
     static boolean hostileAbout(ClaudeEntity g) {

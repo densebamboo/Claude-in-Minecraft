@@ -59,7 +59,7 @@ public final class NetherRoute {
             Node n = open.poll();
             Double was = best.get(key(n.x, n.y, n.z)); if (was != null && was < n.g - 1e-9) continue;
             double hz = Math.hypot(n.x - to.getX(), n.z - to.getZ());
-            if (hz <= 8 && Math.abs(n.y - to.getY()) <= 6 && r.stand(n.x, n.y, n.z)) return done(r, n, false, expanded, t0, from, to);
+            if (hz <= 8 && Math.abs(n.y - to.getY()) <= 6 && (r.stand(n.x, n.y, n.z) || r.standNear(n.x, n.y, n.z))) return done(r, n, false, expanded, t0, from, to);
             double hn = h(n.x, n.y, n.z, to) + Math.abs(n.y - to.getY()) * WALK; if (r.stand(n.x, n.y, n.z) && hn < nearH) { nearH = hn; near = n; } // ponytail: the part-way end counts height off the goal as a full walk each way (live 16:38: h's 0.15 a block down made the column 42 over the goal "nearest", 23 pillared up to then come 42 down)
             for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) {
                 if (dx == 0 && dz == 0) continue;
@@ -150,6 +150,8 @@ public final class NetherRoute {
             if (!f.getFluidState().isEmpty() || !hd.getFluidState().isEmpty() || f.is(BlockTags.FIRE)) return false;
             return u.getFluidState().isEmpty() && !u.is(Blocks.MAGMA_BLOCK) && u.isFaceSturdy(level, up, net.minecraft.core.Direction.UP);
         }
+        /** A spot to stand on within 2 across and 1 up or down: the grid is 4 apart, a 3-wide deck between its columns is still arrived at (538: the fortress's corridors fell between them, "no way" in 12000 nodes; the walker plans that last bit in full). */
+        boolean standNear(int x, int y, int z) { for (int dx = -2; dx <= 2; dx++) for (int dz = -2; dz <= 2; dz++) for (int dy = -1; dy <= 1; dy++) if (stand(x + dx, y + dy, z + dz)) return true; return false; }
         /** The heights a move into column (x, z) from height y may end at: the standing heights within 32 up and down (the nearest three each way), and y itself (a tunnel or a bridge on at his level). */
         int[] heights(int x, int y, int z) {
             long k = key(x, y, z); int[] c = standCache.get(k); if (c != null) return c;

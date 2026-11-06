@@ -184,7 +184,9 @@ public final class ClaudeLife {
             } else if (!nightRefusal) {
                 g.failCount.remove(failKey);
             }
-            if (result.startsWith("failed") || result.startsWith("done:")) {
+            if (nightRefusal && !g.skillQueue.isEmpty()) { // only this step waits on the clock: the rest of the plan goes on (live 13:16 World 17, review 522: village_iron refused at night cleared strip_mine 17 and smelt 17 with it, then 2-4 min idle in his mine)
+                ClaudeMod.LOGGER.info("[Claude plan] {} waits on the clock; the rest of the plan goes on meanwhile: {} (ClaudeLife.runWork)", step.skill(), g.skillQueue);
+            } else if (result.startsWith("failed") || result.startsWith("done:")) {
                 g.skillQueue.clear();                    // the plan no longer holds; think again at once (a failure stood him idle 15 s each time; the plan gap, spinning() and planRepeats catch the loops)
                 g.nextPlanTick = result.startsWith("failed") ? Math.max(g.tickCount, g.planStartTick + PLAN_GAP_TICKS) : g.tickCount;
             }

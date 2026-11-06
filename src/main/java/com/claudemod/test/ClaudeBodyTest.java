@@ -10652,6 +10652,7 @@ public final class ClaudeBodyTest {
             case 858: return st858(stage, t, c, h, level, mock);
             case 859: return st859(stage, t, c, h, level, mock);
             case 860: return st860(stage, t, c, h, level, mock);
+            case 861: return st861(stage, t, c, h, level, mock);
             case 676: return st676(stage, t, c, h, level, mock);
             case 659: return st659(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
@@ -17811,6 +17812,28 @@ public final class ClaudeBodyTest {
                 check(on, "20 s at the furnace with his kit short and a pig 8 off in sight, not after it: now " + c.currentTask + ", queue " + c.tasks);
                 pass(stage, t, "went for the pig 8 off while the chicken cooked, " + (t[0] - st860Start) + " ticks"); }
         }
+        return true;
+    }
+    private static int st861Start;
+    private static boolean st861(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 13:16 World 17 (review 522/381): obtain iron_ingot 20 -> [village_iron, strip_mine iron_ore 17, smelt 17]; village_iron "failed: it's night", the whole queue cleared with it, then "the clock holds his step, no filler": 2-4 min idle in his mine at y16. Here: underground at night, no armor, [collect porkchop 2 (night-refused), craft oak_planks 4]: the planks still get made.
+        BlockPos me = h.absolutePos(new BlockPos(4, 2, 4));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; st861Start = 0; c.failCount.clear(); c.failReason.clear(); c.attempts.counters.remove("timeWait"); c.attempts.counters.remove("timeWaitRefusals"); }
+        if (t[0] == 10) {
+            for (int x = -2; x <= 10; x++) for (int z = -2; z <= 10; z++) for (int yy = 1; yy <= 6; yy++) { boolean in = x >= 0 && x <= 8 && z >= 0 && z <= 8 && yy >= 2 && yy <= 4; level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), in ? Blocks.AIR.defaultBlockState() : Blocks.STONE.defaultBlockState(), 2); }
+            level.setDayTime(18000);
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.OAK_LOG, 4)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 4));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            mock[0].teleportTo(me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5);
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("collect", "porkchop", 2)); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "oak_planks", 4)); st861Start = t[0];
+        }
+        if (st861Start > 0 && c.lastSkillLine != null && c.lastSkillLine.startsWith("collect porkchop") && c.lastSkillLine.contains("failed")) { // the moment of the refusal: the rest of his plan still there
+            String q = c.skillQueue.toString(); boolean kept = c.skillQueue.stream().anyMatch(k -> k.skill().equals("craft") && k.target().equals("oak_planks") && k.count() == 4);
+            String line = c.lastSkillLine; c.skillQueue.clear(); c.tasks.clear(); c.dropCurrent = true; level.setDayTime(1000); st861Start = 0;
+            check(kept, "the night refusal cleared the rest of his plan: queue " + q + " after " + line);
+            pass(stage, t, "the night refusal dropped only its own step; the craft after it stays: " + q);
+        } else if (st861Start > 0 && t[0] - st861Start >= 20 * 15) { st861Start = 0; c.skillQueue.clear(); level.setDayTime(1000); check(false, "the porkchop step never ran in 15 s: last " + c.lastSkillLine); }
         return true;
     }
     private static BlockPos st852Far;

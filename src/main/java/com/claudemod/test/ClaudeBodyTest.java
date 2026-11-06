@@ -10578,6 +10578,7 @@ public final class ClaudeBodyTest {
             case 770: return st770(stage, t, c, h, level, mock);
             case 771: return st771(stage, t, c, h, level, mock);
             case 772: return st772(stage, t, c, h, level, mock);
+            case 773: return st773(stage, t, c, h, level, mock);
             case 762: return st762(stage, t, c, h, level, mock);
             case 763: return st763(stage, t, c, h, level, mock);
             case 758: return st758(stage, t, c, h, level, mock);
@@ -14997,6 +14998,33 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    private static int st773Start, st773Hits; private static float st773Low, st773Last; private static java.util.List<net.minecraft.world.entity.Mob> st773M = new java.util.ArrayList<>();
+    private static boolean st773(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a cave hall, two skeletons 10 off across it and a zombie on him, health 10, no armor, no blocks; a side passage 3 off the other way, out of their sight (World 17 09:40, 10:19: runs across open cave in the skeletons' sight, shot dead): out of their sight, alive
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8)).above(20);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st773Start = -1; st773Low = 20; st773Hits = 0; st773M.clear(); }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) if (!st773M.contains(e)) e.discard();
+        if (t[0] == 10) { // solid stone, a hall x -12..12, z -12..12, 4 high, lit; a passage 2 high off its east wall at z 0 running east 20, then a turn north 10
+            for (int x = -20; x <= 40; x++) for (int z = -20; z <= 20; z++) for (int y = -2; y <= 6; y++) {
+                boolean hall = Math.abs(x) <= 12 && Math.abs(z) <= 12 && y >= 0 && y <= 3, pass1 = x > 12 && x <= 30 && z == 0 && y >= 0 && y <= 1, pass2 = x == 30 && z < 0 && z >= -10 && y >= 0 && y <= 1;
+                level.setBlock(o.offset(x, y, z), hall || pass1 || pass2 ? Blocks.AIR.defaultBlockState() : Blocks.STONE.defaultBlockState(), 2); }
+            for (int x = -12; x <= 12; x += 6) for (int z = -12; z <= 12; z += 6) level.setBlock(o.offset(x, 3, z), Blocks.GLOWSTONE.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.teleportTo(o.getX() + 9.5, o.getY(), o.getZ() + 0.5); c.setHealth(10); c.getFoodData().setFoodLevel(17); c.getFoodData().setSaturation(0);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.pillarBlocks.clear(); mock[0].teleportTo(o.getX() + 0.5, o.getY() + 60, o.getZ() + 0.5);
+        }
+        if (t[0] == 20) { com.claudemod.entity.life.Perception.reset(c); c.tasks.clear(); c.currentTask = null; c.teleportTo(o.getX() + 9.5, o.getY(), o.getZ() + 0.5);
+            for (int k = 0; k < 2; k++) { var sk = EntityType.SKELETON.create(level); sk.moveTo(o.getX() - 0.5, o.getY(), o.getZ() + (k == 0 ? -3.5 : 4.5), 0, 0); sk.setPersistenceRequired(); sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW)); level.addFreshEntity(sk); sk.setTarget(c); st773M.add(sk); }
+            var z = EntityType.ZOMBIE.create(level); z.moveTo(o.getX() + 6.5, o.getY(), o.getZ() + 0.5, 0, 0); z.setPersistenceRequired(); level.addFreshEntity(z); z.setTarget(c); st773M.add(z);
+            st773Start = t[0]; st773Last = c.getHealth(); }
+        if (st773Start > 0) {
+            for (var m : st773M) if (m.isAlive() && m.getTarget() != c) m.setTarget(c);
+            c.getFoodData().setFoodLevel(17); c.getFoodData().setSaturation(0);
+            if (c.getHealth() < st773Last) st773Hits++; st773Last = c.getHealth(); st773Low = Math.min(st773Low, c.getHealth());
+            check(c.isAlive(), "dead to two skeletons across the hall and a zombie at " + (t[0] - st773Start) / 20 + " s (" + st773Hits + " hits, he was at " + c.blockPosition().toShortString() + ")");
+            if (t[0] - st773Start >= 20 * 40) { for (var m : st773M) m.discard(); c.setHealth(20); pass(stage, t, "alive 40 s: " + st773Hits + " hits, low " + st773Low + ", at " + c.blockPosition().toShortString()); }
+        }
+        return true;
+    }
     private static int st772Start; private static float st772Low; private static java.util.List<net.minecraft.world.entity.Mob> st772M = new java.util.ArrayList<>();
     private static boolean st772(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a creeper walking in on him, a skeleton 10 off up a pillar shooting, iron sword, shield, no armor, health 20 (World 17 08:18 death 158/164: "hitting it back, armed and healthy", the same tick "breaking off the fight" as it began to hiss, ran from it 1 off, blown up): the creeper dealt with (hit back or got clear of), alive
         BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
@@ -15022,10 +15050,10 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
-    private static String st771Odds; private static int st771Start; private static float st771Low; private static java.util.List<net.minecraft.world.entity.Mob> st771M = new java.util.ArrayList<>();
+    private static String st771Odds, st771Seen; private static boolean st771Knew; private static int st771Start; private static float st771Low; private static java.util.List<net.minecraft.world.entity.Mob> st771M = new java.util.ArrayList<>();
     private static boolean st771(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // no armor, iron sword, health 12, two zombies on him and a skeleton 13 off up a pillar with a line on him (World 17 09:11 and 09:41: fight.flee priced the zombie alone, "on with that one", shot dead): the skeleton is in the price, alive
         BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
-        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st771Start = -1; st771Low = 20; st771Odds = null; st771M.clear(); }
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st771Start = -1; st771Low = 20; st771Odds = null; st771Seen = null; st771Knew = false; st771M.clear(); }
         if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) if (!st771M.contains(e)) e.discard();
         if (t[0] == 10) {
             for (int x = -40; x <= 40; x++) for (int z = -40; z <= 40; z++) { level.setBlock(o.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 6; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
@@ -15043,7 +15071,9 @@ public final class ClaudeBodyTest {
         if (st771Start > 0) {
             for (var m : st771M) if (m.isAlive() && m.getTarget() != c) m.setTarget(c);
             st771Low = Math.min(st771Low, c.getHealth());
-            if (st771Odds == null) try { var fo = c.work.getClass().getDeclaredField("fightOdds"); fo.setAccessible(true); String odds = (String) fo.get(c.work); if (odds != null && odds.contains(" on him")) { st771Odds = odds; check(odds.startsWith("3 on him"), "the skeleton 13 off with a line on him left out of his fight-or-run price: " + odds); } } catch (ReflectiveOperationException e) { check(false, "fightOdds: " + e); }
+            try { var fo = c.work.getClass().getDeclaredField("fightOdds"); fo.setAccessible(true); String odds = (String) fo.get(c.work); var sk0 = st771M.get(2); boolean knows = sk0.isAlive() && c.hasLineOfSight(sk0) && com.claudemod.entity.life.Perception.known(c, net.minecraft.world.entity.monster.Skeleton.class, c.getBoundingBox().inflate(24), m -> m == sk0).size() > 0; boolean knew = st771Knew; st771Knew = knows; if (odds != null && odds.contains(" on him") && !odds.equals(st771Seen)) { st771Seen = odds; if (!knew) odds = null; } else odds = null; // (a price made while he knew of it: the one read the tick it changed, with him knowing a tick before)
+               if (odds != null && knows && st771M.get(0).isAlive() && st771M.get(1).isAlive()) { st771Odds = odds; // (once he knows of it and sees it, with both zombies still up: he can't price what he hasn't sensed)
+                check(odds.startsWith("3 on him"), "the skeleton 13 off with a line on him left out of his fight-or-run price: " + odds); } } catch (ReflectiveOperationException e) { check(false, "fightOdds: " + e); }
             check(c.isAlive(), "dead to two zombies and a skeleton 13 off at " + (t[0] - st771Start) / 20 + " s (low " + st771Low + ")");
             if (t[0] - st771Start >= 20 * 45) { for (var m : st771M) m.discard(); c.setHealth(20); level.setDayTime(6000); pass(stage, t, "alive 45 s with two zombies and a skeleton on him, low " + st771Low); }
         }

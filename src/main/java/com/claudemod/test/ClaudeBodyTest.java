@@ -10545,6 +10545,7 @@ public final class ClaudeBodyTest {
             case 750: return st750(stage, t, c, h, level, mock);
             case 751: return st751(stage, t, c, h, level, mock);
             case 752: return st752(stage, t, c, h, level, mock);
+            case 753: return st753(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -14161,6 +14162,29 @@ public final class ClaudeBodyTest {
         if ((t[0] > 12 && t[0] < 60) || (t[0] > 82 && t[0] < 130)) { if (t[0] < 60) c.setHealth(Math.max(c.getHealth(), 9)); BlockPos e0 = em752.blockPosition(); if (c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().distSqr(e0) <= 16) || c.currentTask instanceof Task.GoTo cg && cg.pos().distSqr(e0) <= 16) st752Dig = true; }
         if (t[0] == 60) { c.clearFire(); c.tasks.clear(); c.dropCurrent = true; check(!st752Dig, "at 11 HP and burning (100 fire ticks, no water): dug down 17 to the enderman"); }
         if (t[0] == 130) { em752.discard(); c.tasks.clear(); c.dropCurrent = true; check(st752Dig, "at full health, not burning: the enderman 17 below not dug down to (as before)"); pass(stage, t, "an enderman 17 below out of sight: not dug down to at 11 HP burning; dug down to at full health"); }
+        return true;
+    }
+    private static net.minecraft.world.entity.monster.Creeper cr753; private static double st753D0; private static boolean st753Plugged;
+    private static boolean st753(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // his escape's plug still to go in, him back on the creeper's side of the gap (World 17 22:21:27-31, death 313: "creeper 5 blocks off: getting away from it" and "the plug for the gap at -79, 56, 125 still to go in: placing it before anything" in turn every 5 ticks, the creeper 5 -> 2, 18.3 at 6 HP): away from it, no plug from their side
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        BlockPos gap = h.absolutePos(new BlockPos(6, 2, 8)), at = h.absolutePos(new BlockPos(6, 2, 5)), me = h.absolutePos(new BlockPos(6, 2, 10));
+        if (t[0] == 10) {
+            for (int x = 0; x <= 14; x++) for (int z = 0; z <= 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int yy = 2; yy <= 6; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), z == 8 && yy <= 4 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+            level.setBlock(gap, Blocks.AIR.defaultBlockState(), 2); level.setBlock(gap.above(), Blocks.AIR.defaultBlockState(), 2); // (the 1-wide gap in the wall)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.DIRT, 16)); c.setHealth(8); c.getFoodData().setFoodLevel(20); level.setDayTime(6000);
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); st753Plugged = false;
+            cr753 = net.minecraft.world.entity.EntityType.CREEPER.create(level); BlockPos cp = h.absolutePos(new BlockPos(6, 2, 14)); cr753.moveTo(cp.getX() + 0.5, cp.getY(), cp.getZ() + 0.5, 180, 0); cr753.setPersistenceRequired(); level.addFreshEntity(cr753); cr753.setTarget(c);
+        }
+        if (t[0] == 12) { c.work.plugPendingForTest(gap, at, Items.DIRT); st753D0 = c.distanceTo(cr753); }
+        if (t[0] > 12) {
+            if (c.getZ() > gap.getZ() + 1 && !level.getBlockState(gap).isAir()) st753Plugged = true;
+            if (t[0] == 12 + 40 || !c.isAlive() || !cr753.isAlive()) {
+                double d1 = cr753.isAlive() ? c.distanceTo(cr753) : -1; cr753.discard(); c.tasks.clear(); c.dropCurrent = true; c.setHealth(20);
+                check(!st753Plugged, "the gap plugged from the creeper's side: it shuts him in with it");
+                check(d1 > st753D0, "the creeper " + String.format("%.1f", st753D0) + " -> " + String.format("%.1f", d1) + " off in 2 s (alive " + c.isAlive() + "): no getting away from it");
+                pass(stage, t, "back on the creeper's side of his gap: away from it (" + String.format("%.1f", st753D0) + " -> " + String.format("%.1f", d1) + "), no plug from their side");
+            }
+        }
         return true;
     }
     private static int st749At;

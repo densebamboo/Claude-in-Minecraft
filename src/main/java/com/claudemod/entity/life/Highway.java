@@ -62,11 +62,9 @@ public final class Highway {
         State s = state(g);
         String words = st.target() == null ? "" : st.target().replaceFirst("^@", "");
         if (level.dimension() != net.minecraft.world.level.Level.NETHER) { // (his highways are in the Nether: through the portal first)
-            int fetch = 0;
-            if (s.dest != null && s.rows > 0 && !st.target().startsWith("@")) { // the one underway: his pack topped up from his chests to the trip on the way out, once (live 15:05: the planner's own 64 taken of 614, ~11 rows' worth; stage 916)
-                int have = g.inventory.count(x -> x.is(BLOCK)); fetch = Math.min(chestCount(g), trip(g, s.rows - Math.max(0, s.built)) - have); }
+            var top = st.target().startsWith("@") ? null : topUpStep(g); // the one underway: his pack topped up from his chests on the way out, once (live 15:05: the planner's own 64 taken of 614, ~11 rows' worth; stage 916)
             g.skillQueue.addFirst(new Skills.Step("build_highway", "@" + words, st.count(), st.where())); g.skillQueue.addFirst(new Skills.Step("enter_portal", "", 1));
-            if (fetch >= 64) { g.skillQueue.addFirst(new Skills.Step("take_from_chest", "cobbled_deepslate", fetch)); return "the highway's in the Nether: " + fetch + " cobbled deepslate from my chests first (a full pack), then through the portal"; }
+            if (top != null) { g.skillQueue.addFirst(top); return "the highway's in the Nether: " + top.count() + " cobbled deepslate from my chests first (a full pack), then through the portal"; }
             return "the highway's in the Nether: through the portal first";
         }
         if (s.plan == null && s.dest != null && (words.isBlank() || st.target().startsWith("@"))) words = s.dest.getX() + " " + s.dest.getY() + " " + s.dest.getZ(); // (after a restart: the one underway)
@@ -213,18 +211,25 @@ public final class Highway {
         return r;
     }
 
-    /** The next trip's lot: as many stacks as his pack holds, a slot or two kept for pickups (the user 11-06: "as many stacks as he can at a time, with maybe 1 or 2 empty inventory slots as a buffer"), no more than the rows left take. */
+    /** The next trip's lot, on top of what he carries: as many stacks as his pack holds, a slot or two kept for pickups (the user 11-06: "as many stacks as he can at a time, with maybe 1 or 2 empty inventory slots as a buffer"), no more than the rows left take. */
     static int trip(ClaudeEntity g, int left) {
-        int room = 0, free = 0; for (int k = 0; k < g.inventory.items.getContainerSize(); k++) { var it = g.inventory.items.getItem(k); if (it.isEmpty()) free++; else if (it.is(BLOCK)) room += it.getMaxStackSize() - it.getCount(); }
+        int room = 0, free = 0, have = 0; for (int k = 0; k < g.inventory.items.getContainerSize(); k++) { var it = g.inventory.items.getItem(k); if (it.isEmpty()) free++; else if (it.is(BLOCK)) { room += it.getMaxStackSize() - it.getCount(); have += it.getCount(); } }
         int fit = room + Math.max(0, free - (int) w("highway.trip_free_slots", 2)) * 64;
-        return (int) Math.max(64, Math.min(left * w("highway.blocks_per_row", 2.6), fit));
+        return Math.max(0, Math.min((int) (left * w("highway.blocks_per_row", 2.6)) - have, fit));
+    }
+    /** The take_from_chest step for this trip's lot: a highway underway, him in the overworld, his chests holding a stack or more of what he's short; null otherwise. Also a side job while he waits on a furnace (D2D: "staring in the furnace again", live 15:3x). */
+    public static Skills.Step topUpStep(ClaudeEntity g) {
+        State s = state(g);
+        if (s.dest == null || s.rows <= 0 || g.level().dimension() == net.minecraft.world.level.Level.NETHER) return null;
+        int fetch = Math.min(chestCount(g), trip(g, s.rows - Math.max(0, s.built)));
+        return fetch >= 64 ? new Skills.Step("take_from_chest", "cobbled_deepslate", fetch) : null;
     }
     static int chestCount(ClaudeEntity g) { int n = 0; for (var e : ChestLedger.book(g).values()) if (e.dim() != null && e.dim().endsWith("overworld")) n += e.items().getOrDefault(BLOCK, 0); return n; }
 
     /** Out of cobbled deepslate (or short of the next row): where the next lot comes from, priced; the trip queued, then back to building. */
     static String blocks(ClaudeEntity g, ServerPlayer player, ServerLevel level, State s, int next, int have, String words, Skills.Step st) {
         BridgeBlueprint b = s.plan; int left = b.rows.size() - next;
-        int trip = trip(g, left), inChests = chestCount(g);
+        int trip = Math.max(64, trip(g, left)), inChests = chestCount(g);
         int minFetch = (int) (w("highway.fetch_min_stacks", 5) * 64); // (the user: "if he has less than 5 he can grab he should go mining")
         var portal = PortalMap.byId(g, s.portalId); double sprint = Decide.sprint();
         double toPortal = portal == null ? 0 : Math.sqrt(g.blockPosition().distSqr(portal.at)) / sprint, through = w("highway.portal_s", 8);

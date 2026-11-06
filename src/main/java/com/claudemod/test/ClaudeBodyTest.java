@@ -10643,6 +10643,7 @@ public final class ClaudeBodyTest {
             case 854: return st854(stage, t, c, h, level, mock);
             case 855: return st855(stage, t, c, h, level, mock);
             case 856: return st856(stage, t, c, h, level, mock);
+            case 858: return st858(stage, t, c, h, level, mock);
             case 676: return st676(stage, t, c, h, level, mock);
             case 659: return st659(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
@@ -17571,6 +17572,39 @@ public final class ClaudeBodyTest {
             boolean onIt = c.distanceTo(st856G) < 12 || c.currentTask instanceof Task.Attack || c.tasks.stream().anyMatch(k -> k instanceof Task.Attack);
             if (onIt) { st856G.discard(); c.skillQueue.clear(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.prefs.remove("village_mode"); pass(stage, t, "went for the golem seen 50 off (" + (int) c.distanceTo(st856G) + " from it)"); }
             else if (t[0] - st856Start >= 20 * 30) { st856G.discard(); c.skillQueue.clear(); c.tasks.clear(); c.prefs.remove("village_mode"); check(false, "30 s and not after the golem seen 50 east: at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ", step " + c.lastStep + ", queue " + c.skillQueue); }
+        }
+        return true;
+    }
+    private static boolean st858(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 13:33/13:45 World 17, the user: "i dont like how he's placing crafting tables, furnaces, and chests in his branches directly. he should place them in the tunnel rather than the branches themselves". Here: his mine carved, him at the end of a 12-long branch with a furnace to set: its notch is on the main tunnel.
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; }
+        if (t[0] == 5) for (int cz = -2; cz <= 1; cz++) for (int cx = -1; cx <= 3; cx++) { BlockPos q = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(q), 2, q); }
+        if (t[0] == 10) {
+            var E = net.minecraft.core.Direction.EAST; var N = net.minecraft.core.Direction.NORTH;
+            var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(new BlockPos(2, 12, 8)), E, 2, 3); b.segments.get(0).n = 8; b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(true), E, 16, null)); b.invalidate();
+            BlockPos mid = b.rows().get(b.rows().size() - 6).first();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.BRANCH, mid.relative(N), N, 12, null)); b.invalidate();
+            int x0 = Integer.MAX_VALUE, y0 = x0, z0 = x0, x1 = Integer.MIN_VALUE, y1 = x1, z1 = x1;
+            for (BlockPos q : b.roles().keySet()) { x0 = Math.min(x0, q.getX()); y0 = Math.min(y0, q.getY()); z0 = Math.min(z0, q.getZ()); x1 = Math.max(x1, q.getX()); y1 = Math.max(y1, q.getY()); z1 = Math.max(z1, q.getZ()); }
+            for (BlockPos q : BlockPos.betweenClosed(x0 - 3, y0 - 2, z0 - 3, x1 + 3, y1 + 2, z1 + 3)) level.setBlock(q, Blocks.STONE.defaultBlockState(), 2);
+            for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK) level.setBlock(e.getKey(), Blocks.AIR.defaultBlockState(), 2);
+            BlockPos end = b.rows().get(b.rows().size() - 1).first(); // the branch's far end
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint");
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.FURNACE)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            c.teleportTo(end.getX() + 0.5, end.getY(), end.getZ() + 0.5); mock[0].teleportTo(end.getX() + 0.5, end.getY() + 40, end.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.attempts.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 20) {
+            var b = c.blueprint; c.tasks.clear();
+            BlockPos p = com.claudemod.director.ClaudeLife.testPlaceNextTo(c, level, Items.FURNACE);
+            String q = c.tasks.stream().limit(3).toList().toString(); String where = "";
+            boolean byBranch = false, byTunnel = false;
+            if (p != null) for (net.minecraft.core.Direction d : net.minecraft.core.Direction.values()) { BlockPos n = p.relative(d); int r = b.rowOf(n); if (r < 0 || !b.isWalk(n)) continue; var k = b.segments.get(b.rows().get(r).segment()).kind; if (k == com.claudemod.entity.life.MineBlueprint.Kind.BRANCH) byBranch = true; else byTunnel = true; where += n.toShortString() + "=" + k + " "; }
+            c.tasks.clear(); c.dropCurrent = true; c.notches.clear(); c.myStations.clear(); c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            check(p != null, "no spot for the furnace at all: " + q);
+            check(!byBranch && byTunnel, "his furnace's notch at " + p.toShortString() + " opens on " + where + "(a branch, not the tunnel): " + q);
+            pass(stage, t, "the furnace's notch at " + p.toShortString() + " on the main tunnel (" + where.trim() + "), walk first: " + q);
         }
         return true;
     }

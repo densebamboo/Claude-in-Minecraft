@@ -9039,20 +9039,40 @@ public final class ClaudeLife {
     /** Places a block from his inventory right next to him (instantly; a player would too). */
     /** (tests: where a station of his would go down from where he stands) */
     public static BlockPos placeStation(ClaudeEntity g, ServerLevel level, Item item) { return placeNextTo(g, level, item); }
+    /** Where a station goes in his blueprint mine: where he stands, unless that's a branch; then the main tunnel by the branch's mouth, priced against leaving it in the branch (the user 11-06: "he should place them in the tunnel rather than the branches themselves"). */
+    static java.util.List<BlockPos> stationCells(ClaudeEntity g, Item item) {
+        MineBlueprint b = g.blueprint; BlockPos me = g.blockPosition(); java.util.List<BlockPos> here = java.util.List.of(me);
+        int r = b.rowOf(me); if (r < 0) r = b.rowOf(me.below()); if (r < 0) return here;
+        var rs = b.rows(); var seg = b.segments.get(rs.get(r).segment());
+        if (seg.kind != MineBlueprint.Kind.BRANCH && seg.kind != MineBlueprint.Kind.RUN) return here;
+        int m = b.rowOf(seg.start.relative(seg.dir.getOpposite()));
+        if (m < 0) { ClaudeMod.LOGGER.info("[Claude life] his {} in a branch at {}: the branch's mouth isn't on his mine's rows, here then (ClaudeLife.stationCells)", Crafting.name(item), me.toShortString()); return here; }
+        double walk = 2 * Math.sqrt(me.distSqr(rs.get(m).first())) / com.claudemod.entity.life.Decide.sprint();
+        var pick = com.claudemod.entity.life.Decide.choose(g, "mine.station", Crafting.name(item) + " from " + me.toShortString(), false, java.util.List.of(
+                com.claudemod.entity.life.Decide.Option.of("in the tunnel", walk, "there and back from the branch's mouth at " + rs.get(m).first().toShortString()),
+                com.claudemod.entity.life.Decide.Option.of("here in the branch", com.claudemod.entity.life.Weights.w("mine.station_in_branch_s", 120), "in the dig's way, clutter in a branch")));
+        if (pick == null || !pick.name().equals("in the tunnel")) return here;
+        java.util.List<BlockPos> t = new java.util.ArrayList<>();
+        for (int d : new int[] {2, -2, 3, -3, 1, -1, 0}) { int i = m + d; /* (two rows off the mouth first: between branch pairs, clear of the branch) */ if (i < 0 || i >= rs.size()) continue; var k = b.segments.get(rs.get(i).segment()).kind; if (k == MineBlueprint.Kind.BRANCH || k == MineBlueprint.Kind.RUN) continue; for (BlockPos f : rs.get(i).feet()) t.add(f.immutable()); }
+        return t.isEmpty() ? here : t;
+    }
+    public static BlockPos testPlaceNextTo(ClaudeEntity g, ServerLevel level, Item item) { return placeNextTo(g, level, item); }
+
     private static BlockPos placeNextTo(ClaudeEntity g, ServerLevel level, Item item) {
         if (!(item instanceof net.minecraft.world.item.BlockItem bi)) return null;
         boolean utility = item == Items.CRAFTING_TABLE || item == Items.FURNACE || item == Items.CHEST;
         Direction ahead = corridorDir(g, g.blockPosition());
-        if (utility && !level.canSeeSky(g.blockPosition())) { // underground only: on the surface it just goes on the ground
+        java.util.List<BlockPos> ats = utility && g.blueprint != null && !g.blueprint.isEmpty() ? stationCells(g, item) : java.util.List.of(g.blockPosition());
+        if (utility && !level.canSeeSky(g.blockPosition())) for (BlockPos at : ats) { Direction aheadAt = corridorDir(g, at); // underground only: on the surface it just goes on the ground
             // Like a player in a mine: carve a notch into the side wall and set it in there, flush.
             // the torch wall is for torches: tables and furnaces go in the other wall
-            Direction torchWall = "left".equals(shape(g).torchSide) ? ahead.getCounterClockWise() : ahead.getClockWise();
-            for (Direction side : new Direction[] {torchWall.getOpposite(), torchWall, ahead.getOpposite()}) { // the far wall first; the torch wall or the wall behind him if that one won't do (a notch beats no table at all)
+            Direction torchWall = "left".equals(shape(g).torchSide) ? aheadAt.getCounterClockWise() : aheadAt.getClockWise();
+            for (Direction side : new Direction[] {torchWall.getOpposite(), torchWall, aheadAt.getOpposite()}) { // the far wall first; the torch wall or the wall behind him if that one won't do (a notch beats no table at all)
                 // out past the open tunnel (a 2-wide stair's other column is walkway, not wall) to the first real wall
-                BlockPos p = g.blockPosition().relative(side);
+                BlockPos p = at.relative(side);
                 boolean hole = false;
                 for (int k = 0; k < 4 && level.getBlockState(p).getCollisionShape(level, p).isEmpty(); k++) { if (!isMineCell(g, p) && g.mineShape != null) hole = true; p = p.relative(side); }
-                if (hole || Math.sqrt(p.distSqr(g.blockPosition())) > 4) continue; // too far to reach, or across a hole in the wall (an ore pocket): that gets patched, not furnished
+                if (hole || Math.sqrt(p.distSqr(at)) > 4) continue; // too far to reach, or across a hole in the wall (an ore pocket): that gets patched, not furnished
                 BlockState wall = level.getBlockState(p);
                 boolean solidWall = !wall.isAir() && !wall.canBeReplaced() && wall.getDestroySpeed(level, p) >= 0 && !wall.hasBlockEntity()
                         && wall.getFluidState().isEmpty() && !(g.getTarget() instanceof ServerPlayer o && protectedBlock(g, o, p))
@@ -9072,8 +9092,8 @@ public final class ClaudeLife {
                 if (torchBy) continue;
                 // ponytail: the notch is mined instantly (a 1-block side job); a slow version would queue a Break first
                 g.tasks.addFirst(new Task.Place(p.immutable(), item)); // right click it in, facing him like a player's would
-                g.tasks.addFirst(new Task.Break(p.immutable())); // mined with the pick like any block (it used to vanish instantly: no dig time, no tool wear)
-                ClaudeMod.LOGGER.info("[Claude life] a notch for his {} at {} ({} of him at {})", Crafting.name(item), p.toShortString(), side.getName(), g.blockPosition().toShortString());
+                g.tasks.addFirst(new Task.Break(p.immutable())); if (!at.equals(g.blockPosition())) g.tasks.addFirst(new Task.GoTo(at, 0.6)); // (the notch is in the tunnel by the branch: there first) // mined with the pick like any block (it used to vanish instantly: no dig time, no tool wear)
+                ClaudeMod.LOGGER.info("[Claude life] a notch for his {} at {} ({} of him at {})", Crafting.name(item), p.toShortString(), side.getName(), at.toShortString());
                 g.notches.add(p.immutable()); noteStation(g, p); return p; // (the notch first: noted before it, the table read as a field station, got picked up on the way out and left a hole in his stair wall)
             }
         }

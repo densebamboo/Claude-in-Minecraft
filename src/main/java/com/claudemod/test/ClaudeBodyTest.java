@@ -10563,6 +10563,7 @@ public final class ClaudeBodyTest {
             case 679: return st679(stage, t, c, h, level, mock);
             case 680: return st680(stage, t, c, h, level, mock);
             case 681: return st681(stage, t, c, h, level, mock);
+            case 682: return st682(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -16005,6 +16006,23 @@ public final class ClaudeBodyTest {
             int inChest = level.getBlockEntity(h.absolutePos(chestAt)) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box ? box.countItem(Items.RAW_IRON) : -1;
             if (inChest >= 34) { check(c.inventory.count(x -> x.is(Items.IRON_PICKAXE)) == 1 && c.inventory.count(x -> x.is(Items.COOKED_BEEF)) == 16, "the trip kit went in the chest too: pick " + c.inventory.count(x -> x.is(Items.IRON_PICKAXE)) + ", beef " + c.inventory.count(x -> x.is(Items.COOKED_BEEF))); pass(stage, t, "the raw iron into his chest before the portal, in " + (t[0] - 10) + " ticks; pick and food kept"); }
             else check(t[0] < 400, "set off for the Nether with " + c.inventory.count(x -> x.is(Items.RAW_IRON)) + " raw iron on him, " + inChest + " in his chest 20 off; skills " + c.skillQueue + " tasks " + c.tasks);
+        }
+        return true;
+    }
+
+    private static net.minecraft.world.entity.monster.EnderMan s682Em; private static double s682Dot;
+    /** Live 19:26-19:51 World 17: 25 min calling one calm enderman over by its eyes, never angered. The log: "vanilla stare check: dot 0.90632 vs 0.99914 needed", xRot 13 at one 12 deg above him. His one-enderman-at-a-time gaze rule ran only when ClaudeLife.endermanTime (rods first) said so; with 0 rods every enderman got "eyes off", the one he was after too. Here: no rods, iron kit, a calm enderman 10 off his Attack target: within 4 s his view is inside vanilla's stare cone. */
+    private static boolean st682(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(4, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
+            c.tasks.clear(); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s682Dot = -2; if (s682Em != null) s682Em.discard(); s682Em = null;
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+        if (t[0] == 10) { var em = EntityType.ENDERMAN.create(level); BlockPos ep = h.absolutePos(new BlockPos(14, 2, 8)); em.moveTo(ep.getX() + 0.5, ep.getY(), ep.getZ() + 0.5, 90, 0); em.setNoAi(true); em.setPersistenceRequired(); level.addFreshEntity(em); s682Em = em; c.tasks.add(new Task.Attack(em.getUUID(), 20 * 60)); }
+        if (t[0] > 10 && t[0] <= 90 && s682Em != null) { var v = c.getViewVector(1.0F).normalize(); var to = new net.minecraft.world.phys.Vec3(s682Em.getX() - c.getX(), s682Em.getEyeY() - c.getEyeY(), s682Em.getZ() - c.getZ()); s682Dot = Math.max(s682Dot, v.dot(to.normalize()) - (1.0 - 0.025 / to.length())); }
+        if (t[0] == 91) {
+            double margin = s682Dot; if (s682Em != null) s682Em.discard(); s682Em = null; c.tasks.clear(); c.currentTask = null;
+            check(margin > 0, "his eyes never came inside the stare cone of the enderman he was after (best margin " + String.format("%.5f", margin) + "); rods " + c.inventory.count(x -> x.is(Items.BLAZE_ROD)));
+            pass(stage, t, "no rods, his eyes on the enderman he set out to fight, inside vanilla's stare cone");
         }
         return true;
     }

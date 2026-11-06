@@ -4541,7 +4541,7 @@ public class WorkGoal extends Goal {
         boolean underground = underground((ServerLevel) g.level(), g.blockPosition()); // (rock over him: a tree's leaves are the open)
         boolean armored = false; for (EquipmentSlot sl : EquipmentSlot.values()) if (sl.isArmor() && !g.getItemBySlot(sl).isEmpty()) armored = true;
         // (down a cave: no rule any more, the run there is priced with its dark hits, fight.flee: "running in the dark is how you die"; one zombie fought bare, two only in armor (two bare took 11 health in 3 s))
-        if (foe instanceof net.minecraft.world.entity.monster.Witch w) { int toKill = hitsToKill(w); fightOdds = "kill it in " + toKill + ", its potions kill him in about " + (int) Math.ceil(g.getHealth() / 6.0); return !(toKill <= 3 || (armored && !weakFighter() && g.getHealth() > 12)); } // a witch: rushed and killed when that's quick (close in it throws slow and heals only between throws), else out of its sight; "no armor: run" ran from one a hit from dead, in its sight for 20 s // potions from range, over walls, by day too: no armor or no real sword, get out of its range (meleeing one with a wooden axe at 12 health killed him)
+        // (a witch: no rule any more, fleePriced prices her: her potions (fight.witch_hit_hp, through armor) every fight.witch_throws_per_s, and she can't keep pace with a sprint (flee.witch_hits); stages 158 rush a hurt one, 159 run from a full one bare)
         return fleePriced(foe, crowd, underground, say);
     }
 
@@ -4567,13 +4567,14 @@ public class WorkGoal extends Goal {
         double swing = w("fight.swing_s", 0.6), rate = w("fight.mob_hits_per_s", 0.8) * (armed() ? w("fight.knockback_hits_factor", 0.5) : 1), cool = w("fight.mob_cooldown_s", 1.0); // (a sword or axe knocks each one back: it walks in again before its next swing, about half the hits; HuntPatrol.fightS prices an enderman the same, 0.4. Stage 48: one zombie at 12 HP priced as 3 hits in 2.4 s, he ran)
         double t = 0, hits = 0, hp = 0, runHits = 0, burnS = 0; int most = 0, swings = 0; boolean sprint = g.getFoodData().getFoodLevel() > 6, allBurn = true, anyPace = false;
         for (var m : them) {
-            double dmg = mobHit(m); boolean ranged = m instanceof net.minecraft.world.entity.monster.RangedAttackMob;
+            boolean witch = m instanceof net.minecraft.world.entity.monster.Witch; // (harming: 6 at Normal, armor no help)
+            double dmg = witch ? w("fight.witch_hit_hp", 6) : mobHit(m); boolean ranged = m instanceof net.minecraft.world.entity.monster.RangedAttackMob;
             int k = hitsToKill(m); swings += k; t += k * swing;
-            double h = t * rate + (ranged ? m.distanceTo(g) / w("fight.close_blocks_per_shot", 6) : 0); // (each hits him till it's down: the first for its own time, the next for both; a shooter ~a shot each 6 blocks he closes)
+            double h = t * (witch ? w("fight.witch_throws_per_s", 0.33) : rate) + (ranged ? m.distanceTo(g) / w("fight.close_blocks_per_shot", 6) : 0); // (each hits him till it's down: the first for its own time, the next for both; a shooter ~a shot each 6 blocks he closes)
             hits += h; hp += h * dmg; most += (int) Math.ceil(t / cool) + (ranged ? 2 : 0);
-            boolean pace = !sprint || ranged || m instanceof net.minecraft.world.entity.monster.Phantom || (m instanceof net.minecraft.world.entity.monster.Zombie z && z.isBaby());
+            boolean pace = !sprint || ranged && !witch || m instanceof net.minecraft.world.entity.monster.Phantom || (m instanceof net.minecraft.world.entity.monster.Zombie z && z.isBaby());
             anyPace |= pace;
-            runHits += (pace ? w("flee.chase_hits", 3) : m.distanceTo(g) < 4 ? w("flee.hits_breaking_off", 0.7) : 0) * dmg;
+            runHits += (witch && sprint ? w("flee.witch_hits", 1) : pace ? w("flee.chase_hits", 3) : m.distanceTo(g) < 4 ? w("flee.hits_breaking_off", 0.7) : 0) * dmg;
             boolean burning = m.isOnFire() && !m.fireImmune() && g.level().isDay(); allBurn &= burning; burnS = Math.max(burnS, m.getHealth() / w("flee.burn_hp_per_s", 1.0));
         }
         double perHit = hits > 0 ? hp / hits : 3;

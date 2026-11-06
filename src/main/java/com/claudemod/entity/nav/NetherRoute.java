@@ -60,7 +60,7 @@ public final class NetherRoute {
             Double was = best.get(key(n.x, n.y, n.z)); if (was != null && was < n.g - 1e-9) continue;
             double hz = Math.hypot(n.x - to.getX(), n.z - to.getZ());
             if (hz <= 8 && Math.abs(n.y - to.getY()) <= 6 && (r.stand(n.x, n.y, n.z) || r.standNear(n.x, n.y, n.z))) return done(r, n, false, expanded, t0, from, to);
-            double hn = h(n.x, n.y, n.z, to) + Math.abs(n.y - to.getY()) * WALK; if (r.stand(n.x, n.y, n.z) && hn < nearH) { nearH = hn; near = n; } // ponytail: the part-way end counts height off the goal as a full walk each way (live 16:38: h's 0.15 a block down made the column 42 over the goal "nearest", 23 pillared up to then come 42 down)
+            double hn = h(n.x, n.y, n.z, to) + Math.abs(n.y - to.getY()) * WALK; if (hn < nearH) { nearH = hn; near = n; } // (any node the moves reach: a tunnel's end is stood on once dug; counting only cells standable as they are, a way through rock never made headway and "no way in the loaded land" came back every few seconds, D2D live 14:00, stage 910) // ponytail: the part-way end counts height off the goal as a full walk each way (live 16:38: h's 0.15 a block down made the column 42 over the goal "nearest", 23 pillared up to then come 42 down)
             for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) {
                 if (dx == 0 && dz == 0) continue;
                 int cx = n.x + dx * S, cz = n.z + dz * S;

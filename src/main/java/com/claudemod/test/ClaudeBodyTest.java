@@ -10482,6 +10482,7 @@ public final class ClaudeBodyTest {
             case 904: return st904(stage, t, c, h, level, mock);
             case 905: return st905(stage, t, c, h, level, mock);
             case 906: return st906(stage, t, c, h, level, mock);
+            case 910: return st910(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13612,6 +13613,28 @@ public final class ClaudeBodyTest {
     }
     /** Stage 901 (D2D reviews 228 and 360, World 17 10:08 and 10:26: a route leg in a 1-deep pond one down from the grass, 2 off; "path=0/1", stalled 8 s, "nothing in the way", the spot dropped): he steps down into it. */
     /** Stage 905 (D2D review 254, World 17 12:29: a route leg at -54,62,31, water on dirt, the corner of a shallow pond 1 down and diagonal from him; he stood 7 s on "plan reaches false", then wrote it off): he steps into the corner cell. */
+    /** Stage 910 (D2D live 14:00 World 17, the Nether: go_to the fortress 509 off, "no way in the loaded land (12001 nodes, 3020 ms)" from 16, 43, 55, every few seconds, he stood still): rock all round, the way is a tunnel; the part-way end counted only cells he could stand on as they are, so no tunnel node ever made headway. A part-way plan toward it. */
+    private static boolean st910(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(9600, 64, 5520);
+        if (t[0] % 10 == 0) for (int k = -16; k <= 96; k += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); }
+        if (t[0] == 10) {
+            for (int x = -8; x <= 80; x++) for (int z = -8; z <= 8; z++) for (int y = -6; y <= 10; y++) nl.setBlock(o.offset(x, y, z), Blocks.NETHERRACK.defaultBlockState(), 2);
+            for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) for (int y = 0; y <= 1; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            nsKit(c); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 20) {
+            BlockPos dest = o.offset(400, 0, 0);
+            var p = com.claudemod.entity.nav.NetherRoute.plan(c, nl, o, dest);
+            for (int x = -8; x <= 80; x++) for (int z = -8; z <= 8; z++) for (int y = -6; y <= 10; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(p != null && !p.legs().isEmpty(), "rock all round, the goal 400 off: no plan at all (a tunnel part way is the way)");
+            BlockPos end = p.legs().get(p.legs().size() - 1);
+            check(end.getX() - o.getX() >= 12, "the part-way plan ends only " + (end.getX() - o.getX()) + " blocks toward it, at " + end.toShortString());
+            nsHome(c, h, level); pass(stage, t, "part way through the rock: " + p.legs().size() + " legs to " + end.toShortString() + " (" + p.digs() + " dug, " + p.nodes() + " nodes, " + p.ms() + " ms)"); }
+        return true;
+    }
     /** Stage 906 (D2D reviews 277/303, World 17 11:46-11:51: in a cave 26 off his mine's rows and 26 above them, not joined to it; bpWalkTo sent him straight at the nearest row (within 48), NO_PATH, re-fired for 4 min): a cave not joined to his mine goes in by the entrance; one his trail joins goes back along it. */
     private static boolean st906(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (t[0] != 1) return true;

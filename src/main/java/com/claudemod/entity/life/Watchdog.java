@@ -37,6 +37,7 @@ public final class Watchdog {
     public static final int SKILL_WINDOW = 20 * 300;
 
     static final class St {
+        final java.util.Map<String, Integer> placeGaveUp = new java.util.HashMap<>(); // item|cell -> tick of its last give-up (PLACE_REPEAT)
         int dragTicks; String dragBlock = ""; BlockPos dragAt; // walking into a block (leaves, a wall) and sliding along it
         int wetSince = -1; double wetX, wetY, wetZ;              // in water since, from where
         String wetDoing = "nothing"; boolean wetWalk;             // what he was at in the water (the walk ends as he lands)
@@ -466,10 +467,23 @@ public final class Watchdog {
         for (var d : net.minecraft.core.Direction.values()) { var n = l.getBlockState(p.relative(d)); if (!n.canOcclude() || n.isAir()) return false; }
         return true;
     }
+    /** A placement given up (WorkGoal's "placing X at P gave up"): the same item at the same cell again within 10 s is PLACE_REPEAT (Day to Day review 98/15/29, 11-05: tables and saplings into a filled cell or his own). */
+    public static void placeGaveUp(ClaudeEntity g, net.minecraft.world.item.Item item, BlockPos p, String why) {
+        if (!on()) return; St s = st(g);
+        String name = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item).getPath(), k = name + "|" + p.asLong();
+        if (s.placeGaveUp.size() > 128) s.placeGaveUp.clear();
+        Integer t0 = s.placeGaveUp.put(k, now(g));
+        if (t0 != null && now(g) - t0 <= 200) fileOnce(g, "PLACE_REPEAT", "PLACE_REPEAT|" + k, String.format("placing %s at %s gave up again %d s after the last time (%s); he's at %s", name, p.toShortString(), (now(g) - t0) / 20, why, g.blockPosition().toShortString()));
+    }
     /** At an action's start: its player-pace estimate (SLOW), and ore targeted with no face open to see it by (SIGHT). */
     private static void paceAndSight(ClaudeEntity g, St s, Task t) {
         s.startEst = -1; s.startWhat = "";
         if (t instanceof Task.GoTo) { s.walked = 0; s.pathLen = -1; s.lastWX = g.getX(); s.lastWZ = g.getZ(); s.lastWX0 = g.getX(); s.lastWZ0 = g.getZ(); }
+        if (on() && t instanceof Task.GoTo go && s.startDist >= 20 && g.lastStep != null && java.util.Set.of("craft", "obtain", "gear_up").contains(g.lastStep.skill())) { // a walk to an old crafting table with a new one on him (4 planks) (FAR_STATION; Day to Day review 260/27, 11-05: 24 and 51 blocks)
+            int planks = g.inventory.count(x -> x.is(net.minecraft.tags.ItemTags.PLANKS)), logs = g.inventory.count(x -> x.is(net.minecraft.tags.ItemTags.LOGS));
+            if (planks >= 4 || logs >= 1) for (BlockPos q : BlockPos.betweenClosed(go.pos().offset(-2, -1, -2), go.pos().offset(2, 1, 2))) if (g.level().isLoaded(q) && g.level().getBlockState(q).is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE)) {
+                fileOnce(g, "FAR_STATION", "FAR_STATION|" + q.asLong(), String.format("off to the crafting table at %s, %.0f away, for step %s, with %d planks and %d logs on him (a table is 4 planks)", q.toShortString(), s.startDist, g.lastStep.skill(), planks, logs)); break; }
+        }
         BlockPos st0 = t instanceof Task.FurnaceLoad x ? x.pos() : t instanceof Task.Smelt x ? x.pos() : t instanceof Task.Deposit x ? x.pos() : null;
         if (on() && st0 != null && s.startDist > 10) { // a furnace (an empty one) or a chest of his within 6 would do (FAR_STATION)
             boolean furnace = !(t instanceof Task.Deposit);

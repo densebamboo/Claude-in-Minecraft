@@ -22,6 +22,7 @@ public final class FortressEnds {
 
     /** An end: its last deck cell (feet), the way out of it, and the cell he stands in just outside it (the way in or out joins there). */
     public record End(BlockPos deck, Direction out, BlockPos outside) {}
+    public static volatile End picked; public static volatile String pickedAmong = ""; // the last end Route chose and the ends it weighed (stage 538: never back to one he left while he knew the same ends)
 
     static boolean deck(ServerLevel level, BlockPos feet) {
         if (!level.isLoaded(feet)) return false;
@@ -64,14 +65,14 @@ public final class FortressEnds {
         return out;
     }
 
-    /** The way into the fortress whose deck holds {@code to}: the end nearest {@code from} (straight line), or null (no deck there, or no end). */
-    public static End entry(com.claudemod.entity.ClaudeEntity g, ServerLevel level, BlockPos from, BlockPos to) {
-        BlockPos d0 = deckNear(level, to); if (d0 == null) return null;
-        End best = null; double bd = Double.MAX_VALUE;
+    /** The ways into the fortress whose deck holds {@code to}: its seen ends (all, when none is seen yet), nearest first by the walk there and along the deck; the caller prices each by its planned route (538, 11-05: the nearest by a straight line from where he stood flipped north to east and back for 2 min, each end's way round passing the other). */
+    public static List<End> entries(com.claudemod.entity.ClaudeEntity g, ServerLevel level, BlockPos from, BlockPos to) {
+        BlockPos d0 = deckNear(level, to); if (d0 == null) return List.of();
         List<End> all = ends(level, d0); boolean any = false; for (End e : all) if (seen(g, e)) any = true;
-        for (End e : all) { if (any && !seen(g, e)) continue; double d = e.outside().distSqr(from); if (d < bd) { bd = d; best = e; } }
-        if (best != null && !any) com.claudemod.director.ClaudeLife.nookSay(g, "fortressEnd", "[Claude route] no end of the fortress at " + d0.toShortString() + " seen yet: heading for where the bridge he saw runs out, at " + best.deck().toShortString() + " (FortressEnds.entry)");
-        return best;
+        List<End> out = new java.util.ArrayList<>(); for (End e : all) if (!any || seen(g, e)) out.add(e);
+        out.sort(java.util.Comparator.comparingDouble(e -> Math.sqrt(e.outside().distSqr(from)) + Math.sqrt(e.deck().distSqr(d0))));
+        if (!out.isEmpty() && !any) com.claudemod.director.ClaudeLife.nookSay(g, "fortressEnd", "[Claude route] no end of the fortress at " + d0.toShortString() + " seen yet: heading for where the bridge he saw runs out, at " + out.get(0).deck().toShortString() + " (FortressEnds.entries)");
+        return out.subList(0, Math.min(out.size(), (int) com.claudemod.entity.life.Weights.w("fortress.ends_priced", 3)));
     }
 
     /** The way out of the fortress he stands on toward {@code to}: the end nearest it, or null. */

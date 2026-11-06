@@ -78,7 +78,23 @@ public final class Leaps {
     /** The HP he keeps after a drop: 6, +4 with a hostile about (seen, or within 8), +2 with no food on him. */
     public static float margin(ClaudeEntity g) { return 6 + (hostileAbout(g) ? 4 : 0) + (foodOnHim(g) ? 0 : 2); }
     /** What an HP lost is worth, as a multiple: 1 when it comes back (food 18+ regenerates it, or food on him to eat), 4 when it doesn't (no regen under 18 and nothing to eat: gone till he finds food). Day to Day 16:16 11-05: a 9-block drop at hunger 6, 20 -> 14 for good. */
-    public static double hpPrice(ClaudeEntity g) { return g.getFoodData().getFoodLevel() >= 18 || foodOnHim(g) ? 1 : 4; }
+    /** Times 1 + leaps.hp_price_per_threat for each threat he knows of within 24, up to 6, that weight raised by the armor he lacks (review 178, World 17 20:50: six falls of 1-6 HP in 21 s, ungeared in the Nether with piglins heard, priced as if alone). Every number on Weights. */
+    public static double hpPrice(ClaudeEntity g) {
+        double base = g.getFoodData().getFoodLevel() >= 18 || foodOnHim(g) ? com.claudemod.entity.life.Weights.w("leaps.hp_price_fed", 1) : com.claudemod.entity.life.Weights.w("leaps.hp_price_hungry", 4);
+        int n = Math.min((int) com.claudemod.entity.life.Weights.w("leaps.hp_price_threat_cap", 6), threats(g));
+        double bare = 1 - Math.min(20, g.getArmorValue()) / 20.0;
+        double price = base * (1 + com.claudemod.entity.life.Weights.w("leaps.hp_price_per_threat", 0.5) * n * (1 + com.claudemod.entity.life.Weights.w("leaps.hp_price_unarmored", 0.5) * bare));
+        if (n > 0) { Integer last = PRICE_SAID.get(g.getUUID()); if (last == null || g.tickCount - last >= 200 || g.tickCount < last) { PRICE_SAID.put(g.getUUID(), g.tickCount); com.claudemod.ClaudeMod.LOGGER.info("[Claude route] an HP of falling priced x{} ({} threat(s) he knows of within 24, armor {}, food {}) (Leaps.hpPrice)", String.format("%.1f", price), n, g.getArmorValue(), g.getFoodData().getFoodLevel()); } }
+        return price;
+    }
+    private static final java.util.Map<java.util.UUID, Integer> PRICE_SAID = new java.util.HashMap<>();
+    /** Hostiles he knows of (seen or heard) within 24: a calm zombified piglin is none, a piglin is one only when he wears no gold. */
+    static int threats(ClaudeEntity g) {
+        boolean gold = false; for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) { var it = g.getItemBySlot(sl); if (it.is(net.minecraft.world.item.Items.GOLDEN_HELMET) || it.is(net.minecraft.world.item.Items.GOLDEN_CHESTPLATE) || it.is(net.minecraft.world.item.Items.GOLDEN_LEGGINGS) || it.is(net.minecraft.world.item.Items.GOLDEN_BOOTS)) gold = true; }
+        final boolean gold0 = gold;
+        return com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(24), m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy
+                && !(m instanceof net.minecraft.world.entity.NeutralMob nm && !nm.isAngry()) && !(gold0 && m instanceof net.minecraft.world.entity.monster.piglin.Piglin)).size();
+    }
     public static String marginWhy(ClaudeEntity g) { return "keep " + (int) margin(g) + (hostileAbout(g) ? ", a hostile about" : "") + (foodOnHim(g) ? "" : ", no food on me"); }
     static boolean foodOnHim(ClaudeEntity g) { return g.inventory.count(s -> s.has(net.minecraft.core.component.DataComponents.FOOD)) > 0; }
     static boolean hostileAbout(ClaudeEntity g) {

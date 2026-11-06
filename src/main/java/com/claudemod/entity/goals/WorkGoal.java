@@ -494,7 +494,7 @@ public class WorkGoal extends Goal {
                             exitWhy = "paused for " + here.size() + " job(s) in reach, the walk queued after them"; yield true; } }
                     yield (ticks == 1 && routeOut(t)) || walkTo(t.pos(), t.within()); }
                 case Task.Break t -> { exitWhy = null; boolean fin = doBreak(t.pos()); if (fin) { var bs0 = g.level().getBlockState(t.pos()); if (!bs0.isAir() && bs0.getFluidState().isEmpty() && !bs0.canBeReplaced()) { boolean again = g.tasks.stream().anyMatch(q0 -> q0 instanceof Task.Break b0 && b0.pos().equals(t.pos())); StackTraceElement[] st0 = Thread.currentThread().getStackTrace(); com.claudemod.ClaudeMod.LOGGER.info("[Claude dig] {} at {} left standing after {} ticks{} (he's at {})", net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(bs0.getBlock()).getPath(), t.pos().toShortString(), ticks, again ? ", back in the queue" : ", dropped", g.blockPosition().toShortString() + (exitWhy == null ? "" : "; why: " + exitWhy) + "; queued by " + com.claudemod.entity.ClaudeEntity.originOf(t)); com.claudemod.entity.life.MindLog.refused(g, t.pos(), "breaking " + net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(bs0.getBlock()).getPath() + (exitWhy == null ? "" : " [" + exitWhy + "]") + " queued by " + com.claudemod.entity.ClaudeEntity.originOf(t)); if (!again) com.claudemod.entity.life.Parked.refused(g, t, exitWhy); } } yield fin; } // every dig that ends without the block broken says so (the user: path cells at -17, -17/-18, -150 skipped with no line in the log)
-                case Task.Place t -> { exitWhy = null; boolean fin = doPlace(t); if (fin && exitWhy != null && !g.level().getBlockState(t.pos()).is(net.minecraft.world.level.block.Block.byItem(t.item()))) { com.claudemod.ClaudeMod.LOGGER.info("[Claude dig] placing {} at {} gave up (he's at {}); why: {}", net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(t.item()).getPath(), t.pos().toShortString(), g.blockPosition().toShortString(), exitWhy + "; queued by " + com.claudemod.entity.ClaudeEntity.originOf(t)); com.claudemod.entity.life.MindLog.refused(g, t.pos(), "placing [" + exitWhy + "] queued by " + com.claudemod.entity.ClaudeEntity.originOf(t));  com.claudemod.entity.life.Parked.refused(g, t, exitWhy); } yield fin; }
+                case Task.Place t -> { exitWhy = null; boolean fin = doPlace(t); if (fin && exitWhy != null && !g.level().getBlockState(t.pos()).is(net.minecraft.world.level.block.Block.byItem(t.item()))) { com.claudemod.ClaudeMod.LOGGER.info("[Claude dig] placing {} at {} gave up (he's at {}); why: {}", net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(t.item()).getPath(), t.pos().toShortString(), g.blockPosition().toShortString(), exitWhy + "; queued by " + com.claudemod.entity.ClaudeEntity.originOf(t)); com.claudemod.entity.life.MindLog.refused(g, t.pos(), "placing [" + exitWhy + "] queued by " + com.claudemod.entity.ClaudeEntity.originOf(t)); com.claudemod.entity.life.Watchdog.placeGaveUp(g, t.item(), t.pos(), exitWhy);  com.claudemod.entity.life.Parked.refused(g, t, exitWhy); } yield fin; }
                 case Task.UseDoor t -> doDoor(t);
                 case Task.Chest t -> doChest(t);
                 case Task.Wait t -> doWait(t);
@@ -556,6 +556,11 @@ public class WorkGoal extends Goal {
      * spot next to it (or a level below/above, for a log on a slope), closest to him. Falls back to pos.
      */
     private BlockPos standSpotBeside(BlockPos pos) { return standSpotBeside(pos, true); }
+    /** The path really ends at {@code aim}: vanilla's ground pathing turns an air target into the ground under it and calls that reached (538 11-05: a route leg 13 up an open shaft, "reached" where he stood, 188 ticks still and the planner never asked, three times over). */
+    private static boolean reaches(net.minecraft.world.level.pathfinder.Path p, BlockPos aim, double within) {
+        if (p == null || !p.canReach()) return false; var end = p.getEndNode();
+        return end == null || Math.abs(end.y - aim.getY()) <= Math.max(within, com.claudemod.entity.life.Weights.w("walk.reach_dy", 1));
+    }
 
     /** The cell beside him (same level or one up) that is open and floored, to step out of the one he's in; null if there's none. */
     private BlockPos stepOutSpot(BlockPos in) {
@@ -824,7 +829,7 @@ public class WorkGoal extends Goal {
                 BlockPos aim = standSpotBeside(pos);
                 g.getNavigation().moveTo(aim.getX() + 0.5, aim.getY(), aim.getZ() + 0.5, 0.9);
                 var p = g.getNavigation().getPath();
-                routeReaches = p != null && p.canReach();
+                routeReaches = reaches(p, aim, within);
                 lastDist = Math.sqrt(g.blockPosition().distSqr(pos)); stuck = 121; // (past every wait: the next step right away if there's still no route)
             }
             return false;
@@ -892,7 +897,7 @@ public class WorkGoal extends Goal {
             BlockPos aim = standSpotBeside(pos);
             g.getNavigation().moveTo(aim.getX() + 0.5, aim.getY(), aim.getZ() + 0.5, 0.9);
             var path = g.getNavigation().getPath();
-            routeReaches = path != null && path.canReach();
+            routeReaches = reaches(path, aim, within);
             if (routeReaches) for (int i = Math.max(1, path.getNextNodeIndex()); i < path.getNodeCount(); i++) { var b = path.getNode(i); double ay = i == path.getNextNodeIndex() ? g.getY() : path.getNode(i - 1).y; // (the next step against his feet, as Controls judges it: the start node can sit a block over them)
                 if (b.y - ay > 1.25 && !g.level().getBlockState(new BlockPos(b.x, b.y, b.z)).is(net.minecraft.tags.BlockTags.CLIMBABLE) && !g.level().getBlockState(new BlockPos(b.x, b.y - 1, b.z)).is(net.minecraft.tags.BlockTags.CLIMBABLE)) { routeReaches = false; if (ticks % 200 == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] the way to {} has a step {} up at {},{},{}: not his way, planning his own (WorkGoal.walkTo)", pos.toShortString(), String.format("%.1f", b.y - ay), b.x, b.y, b.z); break; } }
             if (current instanceof Task.GoTo && path != null && path.getNodeCount() > 0) { // a crowd of hostiles on the way: round them, or not this walk (he walked through the pack on his death pile, twice)

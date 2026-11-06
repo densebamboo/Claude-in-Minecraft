@@ -10454,6 +10454,8 @@ public final class ClaudeBodyTest {
             case 826: return st826(stage, t, c, h, level, mock);
             case 827: return st827(stage, t, c, h, level, mock);
             case 828: return st828(stage, t, c, h, level, mock);
+            case 829: return st829(stage, t, c, h, level, mock);
+            case 830: return st830(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -10860,6 +10862,7 @@ public final class ClaudeBodyTest {
     }
     private static int w15Done = -1, w15Built = -1; private static float w15Low = 20f; private static String w15Route = "";
     /** A fortress reach on World 15's own Nether: built a slice a tick, him dropped at {@code start} with the kit he had live, the walk to {@code deck}; done standing on fortress bricks within 30 of it, alive. */
+    private static final java.util.List<BlockPos> w15Ends = new java.util.ArrayList<>(); private static String w15Among = "";
     private static boolean w15Reach(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, String box, BlockPos start, BlockPos deck, int secs, String what) {
         ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
         W15 w = w15(nether, box);
@@ -10874,9 +10877,15 @@ public final class ClaudeBodyTest {
         if (c.level() == nether) { w15Low = Math.min(w15Low, c.getHealth()); for (var m : nether.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(w.x0() - 32, 0, w.z0() - 32, w.x1() + 32, 128, w.z1() + 32))) m.discard(); } // (the route under test: no natural ghast or blaze on it)
         if (t[0] == t0) c.tasks.add(new Task.GoTo(deck, 1.5));
         if (t[0] > t0 && (t[0] - t0) % 200 == 0) w15Route += " " + c.blockPosition().toShortString().replace(" ", "");
+        if (t[0] == t0) { w15Ends.clear(); w15Among = ""; com.claudemod.entity.nav.FortressEnds.picked = null; }
+        { var pe = com.claudemod.entity.nav.FortressEnds.picked; String am = com.claudemod.entity.nav.FortressEnds.pickedAmong;
+          if (pe != null && !am.equals(w15Among)) { w15Among = am; w15Ends.clear(); } // (new ends known: a fresh choice, a player's too)
+          if (pe != null && (w15Ends.isEmpty() || !w15Ends.get(w15Ends.size() - 1).equals(pe.deck()))) w15Ends.add(pe.deck()); } // (each end he turned to, in order, while he knew the same ends)
         if (t[0] > t0 && w15Done < 0 && c.level() == nether && c.onGround() && com.claudemod.entity.life.FortressScout.onFortress(c) && Math.hypot(c.getX() - deck.getX(), c.getZ() - deck.getZ()) <= 30) w15Done = t[0];
         boolean dead = !c.isAlive() || c.level() != nether;
         if (w15Done > 0 || dead || t[0] == t0 + 20 * secs) {
+            { int back = 0; for (int i = 2; i < w15Ends.size(); i++) if (w15Ends.subList(0, i - 1).contains(w15Ends.get(i))) back++; // an end left and turned back to: the 538 shuffle (north, east, north, ... for 2 min)
+              check(back == 0, what + ": turned back to a fortress end he'd left " + back + " time(s): " + w15Ends); }
             check(w15Done > 0 && !dead, what + ": not on the fortress in " + secs + " s (alive " + c.isAlive() + ", in " + c.level().dimension().location() + ", at " + c.blockPosition().toShortString() + ", low " + w15Low + ", task " + c.currentTask + ", queue " + c.tasks.size() + ", ticks " + c.tickCount + ", removed " + c.isRemoved() + ", entity-ticking " + nether.isPositionEntityTicking(c.blockPosition()) + ", in list " + (level.getServer().getPlayerList().getPlayer(c.getUUID()) == c) + "; every 10 s:" + w15Route + ")");
             String how = what + ": on the fortress at " + c.blockPosition().toShortString() + " in " + (w15Done - t0) / 20 + " s, low " + w15Low + " HP, " + c.inventory.count(x -> x.is(Items.COBBLESTONE) || x.is(Items.COBBLED_DEEPSLATE)) + " cobble left; every 10 s:" + w15Route;
             c.tasks.clear(); c.dropCurrent = true; c.clearFire(); c.setHealth(20f); c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
@@ -13342,6 +13351,63 @@ public final class ClaudeBodyTest {
     /** Live 16:25 11-05 (incident death-46): at 4 HP and food 3 the planner sent him for porkchop, the collect skill hunted a hoglin in the open like a pig, and it killed him; at 16:16 a baby hoglin's kill gave nothing. Here: 6 HP, food 3, no armor, 16 netherrack and a sword, an adult hoglin 14 off and a baby 5 off. The expert's way: the baby left (it drops nothing), the adult fought from 2 up a pillar it can't reach; porkchop, no hit taken. */
     private static int s826T0; private static net.minecraft.world.entity.monster.hoglin.Hoglin s826A, s826B;
     /** Stage 828 (Day to Day 18:47, World 17: "walk no path vs bridge short of blocks (34 of 147) vs bore no pick or blocks: walk", stuck, given up): 819's lava lake with an iron pick and no blocks on him. Netherrack is all round him: mined first, then the bridge; never in lava, across within 120 s. */
+    private static BlockPos s830A;
+    /** Stage 830 (Day to Day review 11-05): PLACE_REPEAT, a crafting table set into a filled cell twice within 10 s (98/15/29); FAR_STATION, a 24-block walk to an old crafting table on a craft step with 8 planks on him (260/27). Both filed. */
+    private static boolean st830(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var W = com.claudemod.entity.life.Watchdog.recentKinds;
+        try {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 24000; c.tasks.clear(); c.skillQueue.clear(); c.prefs.put("stay_close", "no"); W.clear(); c.lastStep = null; com.claudemod.entity.life.Watchdog.linesInTests = true;
+            s830A = h.absolutePos(new BlockPos(3, 40, 30)); level.getChunk(s830A.east(28));
+            for (int x = -4; x <= 30; x++) for (int z = -4; z <= 4; z++) for (int y = -1; y <= 3; y++) level.setBlockAndUpdate(s830A.offset(x, y, z), y == -1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState());
+            level.setBlockAndUpdate(s830A.offset(2, 0, 0), Blocks.STONE.defaultBlockState()); // (the filled cell)
+            level.setBlockAndUpdate(s830A.offset(26, 0, 2), Blocks.CRAFTING_TABLE.defaultBlockState()); // (the old table, 24+ off)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE, 2)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 8));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(s830A.getX() + 0.5, s830A.getY(), s830A.getZ() + 0.5); c.fallDistance = 0;
+        }
+        if (t[0] == 20 || t[0] == 60) c.tasks.add(new com.claudemod.entity.life.Task.Place(s830A.offset(2, 0, 0).immutable(), Items.CRAFTING_TABLE)); // (queued again 2 s after it gave up, as a job re-queues it live; two at once are one task to the queue)
+        if (t[0] > 20 && W.contains("PLACE_REPEAT") && c.lastStep == null) { c.tasks.clear(); c.dropCurrent = true; c.lastStep = new com.claudemod.entity.life.Skills.Step("craft", "stick", 4); c.tasks.add(new com.claudemod.entity.life.Task.GoTo(s830A.offset(25, 0, 2).immutable(), 1.5)); }
+        if (W.contains("PLACE_REPEAT") && W.contains("FAR_STATION")) { com.claudemod.entity.life.Watchdog.linesInTests = false; c.tasks.clear(); c.lastStep = null; pass(stage, t, "a table set twice into a filled cell, and a 24-block walk to an old table with 8 planks on him: both filed (tick " + t[0] + ")"); return true; }
+        check(t[0] < 20 * 40, "40 s and not both filed: " + W);
+        return true;
+        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; c.lastStep = null; throw e; }
+    }
+    private static String s829Calm = ""; private static java.util.List<net.minecraft.world.entity.Mob> s829Mobs = new java.util.ArrayList<>();
+    /** Stage 829 (review 178, World 17 20:50: 1-6 HP falls one after another, ungeared in the Nether with piglins heard): a 9-block cliff (6 HP off its lip) and a way round down 3-block ledges 12 north. Alone, the drop (as before: HP that comes back); two piglins he sees and no gold on him, the ledges. The walk planner, no digging or placing. */
+    private static boolean st829(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(9100, 64, 5800), top = o.offset(0, 9, 0), to = o.offset(3, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); s829Calm = ""; for (var m : s829Mobs) m.discard(); s829Mobs.clear(); }
+        if (t[0] > 10 && t[0] % 10 == 0 && c.level() == nl) { nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition()); for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40), e -> !s829Mobs.contains(e))) e.discard(); } // (nsTick, sparing the stage's own piglins)
+        if (t[0] == 10) {
+            for (int x = -14; x <= 20; x++) for (int z = -16; z <= 14; z++) for (int y = -2; y <= 14; y++) {
+                boolean ground = y <= -1, cliff = x <= 0 && y <= 8, ledge = z == -12 && (x == 1 && y <= 5 || x == 2 && y <= 2);
+                nl.setBlock(o.offset(x, y, z), ground || cliff || ledge ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            }
+            nsKit(c); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); // (ungeared, no gold: as live) c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, top.getX() + 0.5, top.getY(), top.getZ() + 0.5, -90f, 35f); c.fallDistance = 0;
+        }
+        if (t[0] == 30) { c.tasks.clear(); c.skillQueue.clear();
+            var p0 = com.claudemod.entity.nav.ActionPath.plan(c, nl, c.blockPosition(), to, 1.0, false, 3000, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, null, 0);
+            check(p0 != null, "alone: no way down at all");
+            float hp0 = 0; for (var a : p0.acts()) if (a instanceof com.claudemod.entity.nav.ActionPath.Act.Leap l) hp0 += l.hp();
+            check(hp0 > 0, "alone: the ledges, not the drop (" + p0.acts().size() + " acts): the cliff's 6 HP should be worth it with nothing about");
+            s829Calm = "alone the drop (" + hp0 + " HP, price " + String.format("%.1f", com.claudemod.entity.nav.Leaps.hpPrice(c)) + ")";
+            for (int[] at : new int[][] {{16, 0}, {16, 3}}) { var pg = EntityType.PIGLIN.create(nl); pg.moveTo(o.getX() + at[0] + 0.5, o.getY(), o.getZ() + at[1] + 0.5, 90, 0); pg.setNoAi(true); pg.setPersistenceRequired(); nl.addFreshEntity(pg); s829Mobs.add(pg); }
+            c.setYRot(-90f); c.setXRot(35f); c.setYHeadRot(-90f); }
+        if (t[0] == 55) { c.setYRot(-90f); c.setXRot(25f); c.setYHeadRot(-90f); com.claudemod.entity.life.Perception.lookNow(c); com.claudemod.entity.life.Perception.glance(c); } // (a look their way, as he'd turn to a sound)
+        if (t[0] == 60) {
+            double price = com.claudemod.entity.nav.Leaps.hpPrice(c);
+            var p1 = com.claudemod.entity.nav.ActionPath.plan(c, nl, c.blockPosition(), to, 1.0, false, 3000, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, null, 0);
+            check(p1 != null, "with piglins: no way down at all");
+            float hp1 = 0; for (var a : p1.acts()) if (a instanceof com.claudemod.entity.nav.ActionPath.Act.Leap l) hp1 += l.hp();
+            check(price > 2, "two piglins in sight, no gold, no armor: an HP priced at only " + String.format("%.1f", price));
+            check(hp1 == 0, "two piglins in sight: still the drop, " + hp1 + " HP at price " + String.format("%.1f", price));
+            for (var m : s829Mobs) m.discard(); s829Mobs.clear(); nsHome(c, h, level);
+            pass(stage, t, s829Calm + "; two piglins in sight, no gold, the ledges (" + p1.acts().size() + " acts, price " + String.format("%.1f", price) + ")");
+        }
+        return true;
+    }
     private static int s828T0;
     private static boolean st828(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

@@ -340,7 +340,7 @@ public final class Route {
                 if (!open(level, feet, fs) || !open(level, feet.above(), hs)) continue;
                 if (fs.getFluidState().is(FluidTags.LAVA) || hs.getFluidState().is(FluidTags.LAVA) || gs.getFluidState().is(FluidTags.LAVA)) { c = new Col(BAD, false, 0); break; }
                 boolean water = fs.getFluidState().is(FluidTags.WATER) && hs.getFluidState().isEmpty(); // at the water's top: swimming
-                boolean ground = !gs.getCollisionShape(level, feet.below()).isEmpty() || gs.getFluidState().is(FluidTags.WATER);
+                boolean ground = !gs.getCollisionShape(level, feet.below()).isEmpty() || water && gs.getFluidState().is(FluidTags.WATER); // (water under him is footing only swimming at its top: the air over a lake read as dry land, routes "over the land" straight across it with no swim counted, 173 / stage 846)
                 if (!ground && !water) continue; // (open air under: falls on to a lower candidate)
                 if (gs.is(BlockTags.LEAVES)) continue; // (a tree's canopy is no footing: legs up on it had him pillar 5 high to reach them)
                 if (gs.is(Blocks.MAGMA_BLOCK) || gs.is(Blocks.CACTUS) || gs.is(Blocks.CAMPFIRE) || gs.is(Blocks.SOUL_CAMPFIRE) || fs.is(Blocks.FIRE) || fs.is(Blocks.SWEET_BERRY_BUSH) || fs.is(Blocks.POWDER_SNOW) || fs.is(Blocks.CACTUS)) { c = new Col(BAD, false, 0); break; }

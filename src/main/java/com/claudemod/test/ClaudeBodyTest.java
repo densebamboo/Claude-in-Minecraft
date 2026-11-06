@@ -10471,6 +10471,7 @@ public final class ClaudeBodyTest {
             case 843: return st843(stage, t, c, h, level, mock);
             case 844: return st844(stage, t, c, h, level, mock);
             case 845: return st845(stage, t, c, h, level, mock);
+            case 846: return st846(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13510,6 +13511,32 @@ public final class ClaudeBodyTest {
             var b = com.claudemod.entity.nav.NetherRoute.plan(c, level, c.blockPosition(), to);
             check(b != null && b.legs().equals(a.legs()), "planned again from the same spot, a different way: " + a.legs() + " then " + (b == null ? "none" : b.legs()));
             pass(stage, t, "his own trail home: " + onTrail + " legs on it, the same way planned again (" + a.legs().size() + " legs, ~" + (int) a.seconds() + " s)");
+        }
+        return true;
+    }
+    /** Stage 846 (173 and D2D's reviews 176/218/560/875/984/1195/1247/1248/1282: World 17's lake by his base, 1-3 b/s in it, 30-55 s a crossing, "no check of a way round on land"): a lake 32 across between him and the spot 40 off (past Route.FAR: the land plan), dry land round it ~52 blocks: a player walks round. The land plan read the air on the lake as ground (water under it), so it routed across "over the land" with no swim counted. */
+    private static int s846In, s846T0;
+    private static boolean st846(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(7800, 70, 7200);
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 24000; }
+        if (t[0] == 10) {
+            for (int x = -6; x <= 46; x++) for (int z = -14; z <= 14; z++) for (int y = -4; y <= 6; y++) {
+                boolean lake = x >= 4 && x <= 36 && z >= -5 && z <= 5 && y >= -3 && y <= -1;
+                level.setBlock(o.offset(x, y, z), (y > -1 ? Blocks.AIR : lake ? Blocks.WATER : y == -1 ? Blocks.GRASS_BLOCK : Blocks.STONE).defaultBlockState(), 2);
+            }
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) m.discard();
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.fallDistance = 0; c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no"); mock[0].teleportTo(o.getX() + 0.5, o.getY() + 20, o.getZ() + 0.5);
+        }
+        if (t[0] == 30) { c.tasks.clear(); c.tasks.add(new Task.GoTo(o.offset(40, 0, 0), 1.5)); s846In = 0; s846T0 = t[0]; }
+        if (t[0] > 30) {
+            if (c.isInWater()) s846In++;
+            boolean there = c.blockPosition().distSqr(o.offset(40, 0, 0)) <= 2 * 2;
+            if (there || t[0] - s846T0 > 20 * 25) {
+                double took = (t[0] - s846T0) / 20.0, wet = s846In / 20.0;
+                check(there, "the lake: not there in 25 s, at " + c.blockPosition().toShortString() + ", " + wet + " s in the water");
+                check(wet <= 1.0 && took <= 14, "the lake: " + took + " s, " + wet + " s of it in the water (round it is ~52 blocks, ~9 s at a sprint; across, 32 swimming)");
+                pass(stage, t, "round the lake in " + took + " s, " + wet + " s in the water");
+            }
         }
         return true;
     }

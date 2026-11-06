@@ -8032,7 +8032,7 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
-        if (stage[0] >= 494 && stage[0] <= 849 && stages494(stage, t, c, h, level, mock)) return true;
+        if (stage[0] >= 494 && stage[0] <= 949 && stages494(stage, t, c, h, level, mock)) return true;
         if (stage[0] >= 279 && stage[0] <= 285) {
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Whereabouts.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.ExactSpot.reset(c); com.claudemod.director.Primitives.reset(c);
                 c.planning = false; c.failCount.clear(); c.commandResults.clear(); c.commandActive = false; c.lastSkillLine = ""; c.lastStep = null; c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600; esWaitT = -1; esMark = -1; esFake = ""; }
@@ -10474,6 +10474,8 @@ public final class ClaudeBodyTest {
             case 846: return st846(stage, t, c, h, level, mock);
             case 847: return st847(stage, t, c, h, level, mock);
             case 848: return st848(stage, t, c, h, level, mock);
+            case 849: return st849(stage, t, c, h, level, mock);
+            case 900: return st900(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13523,6 +13525,47 @@ public final class ClaudeBodyTest {
             check(b != null && b.legs().equals(a.legs()), "planned again from the same spot, a different way: " + a.legs() + " then " + (b == null ? "none" : b.legs()));
             pass(stage, t, "his own trail home: " + onTrail + " legs on it, the same way planned again (" + a.legs().size() + " legs, ~" + (int) a.seconds() + " s)");
         }
+        return true;
+    }
+    /** Stage 900 (D2D review 241, World 17 08:40: pack full, "nothing junk in it", bones, wart and nether bricks dropped while 2 stone swords sat by 2 iron ones): the stone swords go, the stone picks stay (his picks for rock), the bone stays. */
+    private static boolean st900(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard(); }
+        if (t[0] == 5) {
+            var inv = c.getInventory(); inv.clearContent();
+            inv.items.set(0, new ItemStack(Items.IRON_PICKAXE)); inv.selected = 0; inv.items.set(1, new ItemStack(Items.IRON_SWORD)); inv.items.set(2, new ItemStack(Items.STONE_SWORD)); inv.items.set(3, new ItemStack(Items.STONE_SWORD));
+            inv.items.set(4, new ItemStack(Items.STONE_PICKAXE)); inv.items.set(5, new ItemStack(Items.STONE_PICKAXE)); inv.items.set(6, new ItemStack(Items.BONE, 2)); inv.items.set(7, new ItemStack(Items.TORCH, 64)); inv.items.set(8, new ItemStack(Items.TORCH, 1));
+            for (int i = 9; i < inv.items.size(); i++) inv.items.set(i, new ItemStack(Items.BIRCH_LOG, 16));
+            com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+            int stoneSw = c.inventory.count(x -> x.is(Items.STONE_SWORD)), stonePk = c.inventory.count(x -> x.is(Items.STONE_PICKAXE)), bone = c.inventory.count(x -> x.is(Items.BONE)), iron = c.inventory.count(x -> x.is(Items.IRON_SWORD));
+            for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard();
+            inv.clearContent();
+            check(stoneSw == 0, "full pack: " + stoneSw + " stone sword(s) kept by an iron one (bone " + bone + ")");
+            check(stonePk == 2 && bone == 2 && iron == 1, "full pack: stone picks " + stonePk + ", bone " + bone + ", iron sword " + iron + " (want 2, 2, 1)");
+            pass(stage, t, "the stone swords went, the stone picks, the bone and the iron sword stayed");
+        }
+        return true;
+    }
+    /** Stage 849 (D2D review 243, World 17 08:41: an enderman 38 below, out of sight, priced 38 x 1 s straight down; lava under it, the walk ended at once 30 short): sealed in bedrock 40 below he leaves it; 12 below through stone he digs down (the way read down the line to it: blocks to dig, off at bedrock or lava). */
+    private static net.minecraft.world.entity.Entity s849Mob; private static boolean s849Went; private static String s849A = "";
+    private static boolean st849(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(9240, 150, 6320);
+        if (t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+        for (int run = 0; run < 2; run++) { int t0 = 1 + run * 120; var fill = run == 0 ? Blocks.BEDROCK : Blocks.STONE; int dd = run == 0 ? 40 : 12;
+            if (t[0] == t0) { scenarioReset(c); if (s849Mob != null) s849Mob.discard(); s849Mob = null; s849Went = false;
+                for (int x = -4; x <= 4; x++) for (int z = -4; z <= 4; z++) for (int y = -42; y <= 2; y++) { boolean wall = Math.abs(x) == 4 || Math.abs(z) == 4 || y == -dd - 2, pocket = y >= -dd && y <= -dd + 2 && Math.abs(x) <= 1 && Math.abs(z) <= 1;
+                    level.setBlock(o.offset(x, y, z), (wall ? Blocks.BEDROCK : pocket || y >= 0 ? Blocks.AIR : fill).defaultBlockState(), 2); }
+                c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+                c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); c.skillQueue.clear();
+                com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; c.setHealth(20); c.getFoodData().setFoodLevel(20); }
+            if (t[0] == t0 + 15) { var e = net.minecraft.world.entity.EntityType.ENDERMAN.create(level); e.moveTo(o.getX() + 0.5, o.getY() - dd, o.getZ() + 0.5); e.setNoAi(true); e.setPersistenceRequired(); level.addFreshEntity(e); s849Mob = e; c.tasks.add(new Task.Attack(e.getUUID(), 600)); }
+            if (t[0] > t0 + 15 && t[0] < t0 + 100 && s849Mob != null) for (var k : c.tasks) if (k instanceof Task.GoTo gt && gt.pos().distSqr(s849Mob.blockPosition()) <= 4) s849Went = true;
+            if (t[0] == t0 + 100) {
+                if (run == 0) { check(!s849Went, "sealed in bedrock 40 below: he set off digging down to it anyway (tasks " + c.tasks + ")"); s849A = "sealed: left it"; }
+                else { check(s849Went, "12 of stone over it, a pick on him: never dug down to it (tasks " + c.tasks + ", at " + c.blockPosition().toShortString() + ")");
+                    if (s849Mob != null) s849Mob.discard(); s849Mob = null; c.tasks.clear();
+                    for (int x = -4; x <= 4; x++) for (int z = -4; z <= 4; z++) for (int y = -42; y <= 2; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                    nsHome(c, h, level); pass(stage, t, "enderman 40 below sealed: " + s849A + "; 12 below through stone: dug down"); }
+            } }
         return true;
     }
     /** Stage 848 (D2D review 257, 06:50 World 17: "2 iron and 0 diamonds on hand: making craft iron_sword", then "need iron_ingot first: village_iron 1"): iron in his furnaces counts as what the craft can take, the output, not raw still in the input. */

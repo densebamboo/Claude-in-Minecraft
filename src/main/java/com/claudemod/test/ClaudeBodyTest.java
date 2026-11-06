@@ -10490,6 +10490,7 @@ public final class ClaudeBodyTest {
             case 913: return st913(stage, t, c, h, level, mock);
             case 914: return st914(stage, t, c, h, level, mock);
             case 915: return st915(stage, t, c, h, level, mock);
+            case 916: return st916(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13643,6 +13644,32 @@ public final class ClaudeBodyTest {
             BlockPos end = p.legs().get(p.legs().size() - 1);
             check(end.getX() - o.getX() >= 12, "the part-way plan ends only " + (end.getX() - o.getX()) + " blocks toward it, at " + end.toShortString());
             nsHome(c, h, level); pass(stage, t, "part way through the rock: " + p.legs().size() + " legs to " + end.toShortString() + " (" + p.digs() + " dug, " + p.nodes() + " nodes, " + p.ms() + " ms)"); }
+        return true;
+    }
+    /** Stage 916 (D2D live 15:05 World 17): the highway underway at row 104 of 715, home at his chests with 614 cobbled deepslate in them; the planner's own "take_from_chest cobbled_deepslate x64" went first and build_highway took him through the portal with 64, ~11 rows' worth. build_highway packs its own trip from his chests on the way out. */
+    private static boolean st916(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(18800, 80, 18800), box = o.offset(-3, 0, 0);
+        if (t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.ChestLedger.reset(c);
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) { level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            level.setBlock(box, Blocks.CHEST.defaultBlockState(), 2);
+            if (level.getBlockEntity(box) instanceof net.minecraft.world.Container ch) for (int k = 0; k < 10; k++) ch.setItem(k, new ItemStack(Items.COBBLED_DEEPSLATE, 64));
+            c.storageChests.add(box);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 20)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; }
+        if (t[0] == 10) {
+            com.claudemod.entity.life.ChestLedger.look(c, level, box);
+            var p = com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, new BlockPos(-3, 59, 1), "him", "lit");
+            var tag = new net.minecraft.nbt.CompoundTag(); tag.putInt("portal", p.id); tag.putLong("dest", new BlockPos(310, 33, 402).asLong()); tag.putInt("built", 104); tag.putInt("rows", 715);
+            com.claudemod.entity.life.Highway.load(c, tag);
+            int free = 0; for (int k = 0; k < c.getInventory().items.size(); k++) if (c.getInventory().items.get(k).isEmpty()) free++;
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", "", 1);
+            int take = 0; for (var q : c.skillQueue) if (q.skill().equals("take_from_chest") && q.target().equals("cobbled_deepslate")) take += q.count();
+            c.skillQueue.clear(); c.tasks.clear(); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.ChestLedger.reset(c); c.storageChests.remove(box);
+            level.setBlock(box, Blocks.AIR.defaultBlockState(), 2);
+            int want = Math.min(640, (free - 2) * 64);
+            check(take >= want - 64, "home, the highway underway, 64 on him, 640 in his chest, " + free + " slots free: took " + take + " (" + want + " fit with 2 slots kept): " + r);
+            nsHome(c, h, level); pass(stage, t, "packed " + take + " from his chest on the way out: " + r); }
         return true;
     }
     /** Stage 915 (D2D live 15:05-15:07 World 17, the user: "bug"): the highway underway from #3 (row 104) re-chosen after the restart; #4, nearer the fortress and on record "unlit" with flint and steel on him, picked "to relight", its frame no longer there: "isn't standing", every call, 3 conflicts in 33 s. The one underway goes on from its own portal. */

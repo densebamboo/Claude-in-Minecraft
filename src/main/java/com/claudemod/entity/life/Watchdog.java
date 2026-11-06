@@ -477,6 +477,18 @@ public final class Watchdog {
             if (!st.isDamageableItem() || st.getDamageValue() < st.getMaxDamage() * Weights.w("watch.dup_worn", 0.75)) return st.isDamageableItem() ? (st.getMaxDamage() - st.getDamageValue()) + " of " + st.getMaxDamage() + " uses left" : st.getCount() + " packed"; }
         return null;
     }
+    /** STEP_DONE_IGNORED (Day to Day, review 117: "strip_mine iron_ore x9 -> no iron yet: pushing my branch" with 14-20 raw iron on him): a step goes on with "no X yet" while his pack already holds its count of X (tools and armor not counted). */
+    public static String stepDone(ClaudeEntity g, Skills.Step st, String result) {
+        if (st == null || result == null || st.count() <= 0) return null;
+        var m = java.util.regex.Pattern.compile("\\bno ([a-z_]+(?: [a-z_]+)?) yet").matcher(result.toLowerCase()); if (!m.find()) return null;
+        String what = m.group(1).trim().replace(' ', '_'); int have = 0; java.util.Set<String> kinds = new java.util.TreeSet<>();
+        for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { var it = g.inventory.items.getItem(i); if (it.isEmpty() || it.isDamageableItem()) continue;
+            String id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(it.getItem()).getPath(); if (!id.contains(what)) continue; have += it.getCount(); kinds.add(id); }
+        if (have < st.count()) return null;
+        String d = String.format("step %s %s x%d said \"%s\" with %d %s on him already, at %s", st.skill(), st.target(), st.count(), result.length() > 120 ? result.substring(0, 120) : result, have, String.join("/", kinds), g.blockPosition().toShortString());
+        if (on()) fileOnce(g, "STEP_DONE_IGNORED", "STEP_DONE_IGNORED|" + st.skill() + "|" + st.target() + "|" + now(g) / 1200, d);
+        return d;
+    }
     /** DUP_CRAFT (Day to Day, review 111/126): a tool or station made with one already on him in good shape. */
     public static void dupCraft(ClaudeEntity g, net.minecraft.world.item.Item target, String had) {
         if (!on()) return; String name = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(target).getPath();

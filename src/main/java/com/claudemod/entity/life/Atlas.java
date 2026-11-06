@@ -114,6 +114,8 @@ public final class Atlas {
         ClaudeMod.LOGGER.info("[Claude atlas] {} seen at {} in {} ({} spot(s) of it on record) (Atlas.note)", biome, p.toShortString(), dim(l), spots.size());
     }
 
+    /** Every spot of that biome on his atlas here (not the quiet check: callers price that). */
+    public static List<BlockPos> spots(ClaudeEntity g, ServerLevel l, String biome) { var m = book(g).places.get(dim(l)); List<BlockPos> s = m == null ? null : m.get(biome); return s == null ? List.of() : new ArrayList<>(s); }
     /** The nearest spot of that biome he has seen in this world, or null. */
     public static BlockPos find(ClaudeEntity g, ServerLevel l, String biome) {
         var m = book(g).places.get(dim(l)); if (m == null) return null;

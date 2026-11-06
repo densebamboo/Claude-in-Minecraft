@@ -426,20 +426,35 @@ public final class FortressScout {
             boolean hot = false; for (int d = 1; d <= 3; d++) if (level.getFluidState(c.below(d)).is(net.minecraft.tags.FluidTags.LAVA)) hot = true;
             if (!hot && level.getBlockState(c.below()).isFaceSturdy(level, c.below(), net.minecraft.core.Direction.UP)) open++; else lava++; // (a gap is paved like lava)
         }
-        double boreS = can ? BORE_S * (n + Math.abs(dy)) : Double.MAX_VALUE; // (the line through rock he can't see into)
+        double boreRowS = Weights.w("travel.bore_s", BORE_S), bridgeRowS = Weights.w("travel.bridge_s", BRIDGE_S), walkRowS = Weights.w("travel.walk_s", WALK_S), wallS = Weights.w("travel.wall_s", WALL_S), mineS = Weights.w("travel.mine_s", MINE_S);
+        double[] wear = pickWear(g); // {seconds of pick per dig, digs left in his picks}: a 2-high bore is 2 digs a block, his pick's wear priced in (a stone pick is 131 uses)
+        int boreDigs = 2 * (n + Math.abs(dy));
+        double boreS = can ? boreRowS * (n + Math.abs(dy)) + boreDigs * wear[0] + Math.max(0, boreDigs - wear[1]) * Weights.w("travel.no_pick_dig_s", 4) : Double.MAX_VALUE; // (the line through rock he can't see into; digs past his picks' last use: by hand)
         var shooter = shooterInSight(g); // a knock off a bridge is the fall: the expert's cut is a wall block on the shooter's side over the lava, its time priced in (the user 11-05: a cost, not a ban)
         int need = lava * (shooter != null ? 4 : 3), have = g.inventory.count(it -> it.is(net.minecraft.world.item.Items.NETHERRACK) || it.is(net.minecraft.world.item.Items.COBBLESTONE) || it.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE) || it.is(net.minecraft.world.item.Items.BLACKSTONE)) + rock * 2; // a floor and two rails a block of lava (and a wall under fire); the rock on the way gives 2 a block
         int mine = lava > 0 ? Math.max(0, need - have) : 0; // blocks short: netherrack is all round him in the Nether, mined first at a pick's pace
-        double bridgeS = can && lava > 0 ? MINE_S * mine + (BRIDGE_S + (shooter != null ? WALL_S : 0)) * lava + WALK_S * open + BORE_S * (rock + Math.abs(dy)) : Double.MAX_VALUE;
+        int bridgeDigs = mine + 2 * (rock + Math.abs(dy));
+        double bridgeS = can && lava > 0 ? mineS * mine + (bridgeRowS + (shooter != null ? wallS : 0)) * lava + walkRowS * open + boreRowS * (rock + Math.abs(dy)) + bridgeDigs * wear[0] + Math.max(0, bridgeDigs - wear[1]) * Weights.w("travel.no_pick_dig_s", 4) : Double.MAX_VALUE;
         var path = g.getNavigation().createPath(to, 2); double walkS = Double.MAX_VALUE; int nodes = 0;
-        if (path != null && path.canReach()) { nodes = path.getNodeCount(); double len = 0; for (int i = 1; i < nodes; i++) len += Math.sqrt(path.getNode(i).distanceToSqr(path.getNode(i - 1))); walkS = WALK_S * len; }
+        if (path != null && path.canReach()) { nodes = path.getNodeCount(); double len = 0; for (int i = 1; i < nodes; i++) len += Math.sqrt(path.getNode(i).distanceToSqr(path.getNode(i - 1))); walkS = walkRowS * len; }
         if (lava > 0) boreS = bridgeS; // (lava he can see on the line: the bore meets it too and paves it, the same line at the same price; short of blocks, neither can)
         String pick = walkS <= bridgeS && walkS <= boreS ? "walk" : bridgeS <= boreS ? "bridge" : "bore";
         lastTravel = String.format("to %s: walk %s vs bridge %s vs bore %s: %s", to.toShortString(), walkS == Double.MAX_VALUE ? "no path" : String.format("~%.0f s (%d steps)", walkS, nodes),
                 bridgeS == Double.MAX_VALUE ? (!can ? "no pick" : "no lava in sight on the line") : String.format("~%.0f s (%s%d paved over lava%s, %d open, %d through rock)", bridgeS, mine > 0 ? mine + " blocks to mine first, " : "", lava, shooter == null ? "" : ", walled against the " + shooter.getType().getDescription().getString().toLowerCase(), open, rock),
-                boreS == Double.MAX_VALUE ? "no pick" : String.format("~%.0f s", boreS), pick);
+                boreS == Double.MAX_VALUE ? "no pick" : String.format("~%.0f s (%d digs, pick wear %.2f s a dig, %d uses left)", boreS, boreDigs, wear[0], (int) wear[1]), pick);
         ClaudeMod.LOGGER.info("[Claude route] {} (FortressScout.travel)", lastTravel);
         return pick.equals("walk") ? new Task.GoTo(to, 3) : new Task.Bore(to, to.getY());
+    }
+    /** His picks' wear: {seconds a dig costs of the best pick (its replacement priced over its uses: travel.pick_replace_s.<tier>), digs left in all his picks}. */
+    static double[] pickWear(ClaudeEntity g) {
+        double perDig = 0, left = 0, bestTier = -1;
+        for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { var it = g.inventory.items.getItem(i); if (!(it.getItem() instanceof net.minecraft.world.item.PickaxeItem)) continue;
+            left += it.getMaxDamage() - it.getDamageValue();
+            String tier = it.is(net.minecraft.world.item.Items.NETHERITE_PICKAXE) ? "netherite" : it.is(net.minecraft.world.item.Items.DIAMOND_PICKAXE) ? "diamond" : it.is(net.minecraft.world.item.Items.IRON_PICKAXE) ? "iron" : it.is(net.minecraft.world.item.Items.STONE_PICKAXE) ? "stone" : it.is(net.minecraft.world.item.Items.GOLDEN_PICKAXE) ? "gold" : "wood";
+            double rank = switch (tier) { case "netherite" -> 5; case "diamond" -> 4; case "iron" -> 3; case "stone" -> 2; case "gold" -> 1; default -> 0; };
+            double replace = Weights.w("travel.pick_replace_s." + tier, switch (tier) { case "netherite" -> 3600; case "diamond" -> 1200; case "iron" -> 300; case "stone" -> 30; case "gold" -> 200; default -> 20; });
+            if (rank > bestTier) { bestTier = rank; perDig = replace / Math.max(1, it.getMaxDamage()); } }
+        return new double[] {perDig, left};
     }
     /** Nether travel by bore: a pickaxe and 16+ blocks to floor with. */
     public static boolean bores(ClaudeEntity g, ServerLevel level) {

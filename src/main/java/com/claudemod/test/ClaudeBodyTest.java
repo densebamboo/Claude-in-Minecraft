@@ -735,7 +735,7 @@ public final class ClaudeBodyTest {
                             mock[0].teleportTo(at.getX() + 2.5, at.getY(), at.getZ() + 0.5);
                             c.storageChests.clear(); c.myStations.clear(); // (an earlier stage's chest of diamonds counted as his)
                             var missing = com.claudemod.director.Kit.missing(c, true);
-                            check(missing.size() == 7 && !missing.containsKey(Items.BREAD) && missing.containsKey(Items.DIAMOND_CHESTPLATE) && !missing.containsKey(Items.IRON_CHESTPLATE), "kit: with 31 diamonds want 4 diamond armor + sword + shield + diamond pick, got " + com.claudemod.director.Kit.describe(missing));
+                            check(gearCount(missing) == 7 && !missing.containsKey(Items.BREAD) && missing.containsKey(Items.DIAMOND_CHESTPLATE) && !missing.containsKey(Items.IRON_CHESTPLATE), "kit: with 31 diamonds want 4 diamond armor + sword + shield + diamond pick, got " + com.claudemod.director.Kit.describe(missing));
                             String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "gear_up", "", 1);
                             ClaudeMod.LOGGER.info("[Claude test] stage 37 gear_up -> {}", r);
                             check(r.startsWith("gearing up"), "gear_up: " + r);
@@ -746,7 +746,7 @@ public final class ClaudeBodyTest {
                             for (var a : new net.minecraft.world.item.Item[] {Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS}) armor &= c.getItemBySlot(((net.minecraft.world.item.ArmorItem) a).getEquipmentSlot()).getItem() instanceof net.minecraft.world.item.ArmorItem w && w.getDefense() >= ((net.minecraft.world.item.ArmorItem) a).getDefense(); // iron or better (with diamonds on him he goes straight to diamond)
                             boolean sword = c.inventory.count(s -> s.is(Items.IRON_SWORD) || s.is(Items.DIAMOND_SWORD) || s.is(Items.NETHERITE_SWORD)) > 0, shield = c.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND).is(Items.SHIELD);
                             if (armor && sword && shield) {
-                                check(com.claudemod.director.Kit.missing(c, true).keySet().stream().allMatch(i -> net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(i).getPath().startsWith("diamond_")), "kit: still missing " + com.claudemod.director.Kit.describe(com.claudemod.director.Kit.missing(c, true))); // (the diamond gear is the deeper trip after this)
+                                check(onlyDiamondGear(com.claudemod.director.Kit.missing(c, true)), "kit: still missing " + com.claudemod.director.Kit.describe(com.claudemod.director.Kit.missing(c, true))); // (the diamond gear is the deeper trip after this)
                                 for (var sw : new net.minecraft.world.item.Item[] {Items.IRON_SWORD, Items.DIAMOND_SWORD, Items.NETHERITE_SWORD}) { int sl = c.getInventory().findSlotMatchingItem(new ItemStack(sw)); if (sl >= 0) c.getInventory().removeItem(sl, 1); } // and without the sword (iron or the diamond one his diamonds covered), a cave trip stops for the kit first
                                 c.gearTick = -100000; c.tasks.clear(); c.skillQueue.clear();
                                 String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "explore_cave", "", 1);
@@ -10461,6 +10461,8 @@ public final class ClaudeBodyTest {
             case 833: return st833(stage, t, c, h, level, mock);
             case 834: return st834(stage, t, c, h, level, mock);
             case 835: return st835(stage, t, c, h, level, mock);
+            case 837: return st837(stage, t, c, h, level, mock);
+            case 838: return st838(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13371,6 +13373,9 @@ public final class ClaudeBodyTest {
     /** Stage 828 (Day to Day 18:47, World 17: "walk no path vs bridge short of blocks (34 of 147) vs bore no pick or blocks: walk", stuck, given up): 819's lava lake with an iron pick and no blocks on him. Netherrack is all round him: mined first, then the bridge; never in lava, across within 120 s. */
     private static BlockPos s830A;
     /** Stage 830 (Day to Day review 11-05): PLACE_REPEAT, a crafting table set into a filled cell twice within 10 s (98/15/29); FAR_STATION, a 24-block walk to an old crafting table on a craft step with 8 planks on him (260/27). Both filed. */
+    /** The kit's asks without its food (food is priced by the trip since 44abd0e; helpers: stage 37's method sits at the 64 KB limit). */
+    private static long gearCount(java.util.Map<net.minecraft.world.item.Item, Integer> m) { return m.keySet().stream().filter(i -> !i.components().has(net.minecraft.core.component.DataComponents.FOOD)).count(); }
+    private static boolean onlyDiamondGear(java.util.Map<net.minecraft.world.item.Item, Integer> m) { return m.keySet().stream().allMatch(i -> i.components().has(net.minecraft.core.component.DataComponents.FOOD) || net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(i).getPath().startsWith("diamond_")); }
     private static java.util.List<net.minecraft.world.entity.Entity> s835Mobs = new java.util.ArrayList<>(); private static String s835Asked = "";
     /** Stage 835 (review 105, 21:40 World 17): 6 meals and 5 raw on him, the only food about salmon 9 deep, no livestock: the kit asks for no fish it can't reach (live: "hunting 6 salmon", then "OUT_OF_REACH a fish 6+ deep"). */
     private static boolean st835(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
@@ -13397,6 +13402,50 @@ public final class ClaudeBodyTest {
             for (var e : s835Mobs) e.discard(); s835Mobs.clear(); c.getInventory().clearContent(); c.myStations.clear(); level.setBlock(o.offset(4, 0, 3), Blocks.AIR.defaultBlockState(), 3);
             pass(stage, t, "deep fish left alone by the kit (asks: " + s835Asked + "), then his furnace's salmon taken (" + m.get(Items.COOKED_SALMON) + ")");
         }
+        return true;
+    }
+    /** Stage 838 (the user 01:19 11-06: "engage enderman weighted higher than explore"): on the hunt in a warped forest, the old blind explore leg queued; an enderman steps into view 8 ahead: the walk stops and he goes for it within 5 s (live 00:57-01:18: explore walked him off with 5 within 48). */
+    private static net.minecraft.world.entity.monster.EnderMan s838E; private static int s838T;
+    private static boolean st838(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(6536, 70, 5920), o2 = o.offset(200, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.HuntPatrol.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.Atlas.reset(c); s838E = null; }
+        if (t[0] > 10 && t[0] % 10 == 0 && c.level() == nl) { nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition()); for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40), e -> e != s838E)) e.discard(); }
+        if (t[0] == 10) {
+            var src = level.getServer().createCommandSourceStack().withSuppressedOutput().withLevel(nl);
+            for (int x = -30; x <= 30; x++) for (int z = -30; z <= 30; z++) for (int y = -2; y <= 8; y++)
+                nl.setBlock(o.offset(x, y, z), (y < 0 ? (y == -1 ? Blocks.WARPED_NYLIUM : Blocks.NETHERRACK) : y >= 6 || Math.abs(x) == 30 || Math.abs(z) == 30 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2);
+            level.getServer().getCommands().performPrefixedCommand(src, "fillbiome " + (o.getX() - 30) + " " + (o.getY() - 4) + " " + (o.getZ() - 30) + " " + (o.getX() + 30) + " " + (o.getY() + 10) + " " + (o.getZ() + 30) + " minecraft:warped_forest");
+            nsKit(c); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 900;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+            com.claudemod.entity.life.Atlas.note(c, nl, "warped_forest", o); com.claudemod.entity.life.Atlas.note(c, nl, "warped_forest", o2);
+        }
+        if (t[0] == 30) { c.tasks.clear(); c.skillQueue.clear(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("explore", "warped_forest", 1)); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("ender_pearls", "ender_pearl", 12)); }
+        if (t[0] == 70) {
+            var look = c.getLookAngle(); double lx = look.x, lz = look.z, n = Math.max(1e-3, Math.sqrt(lx * lx + lz * lz));
+            BlockPos at = BlockPos.containing(c.getX() + lx / n * 8, o.getY(), c.getZ() + lz / n * 8);
+            s838E = net.minecraft.world.entity.EntityType.ENDERMAN.create(nl); s838E.moveTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); s838E.setNoAi(true); s838E.setPersistenceRequired(); nl.addFreshEntity(s838E); s838T = t[0];
+            ClaudeMod.LOGGER.info("[Claude test] 838 an enderman at {}, he's at {} now {} skills {}", at.toShortString(), c.blockPosition().toShortString(), c.currentTask, c.skillQueue);
+        }
+        if (t[0] > 70 && s838E != null) {
+            check(c.isAlive(), "dead");
+            if (c.currentTask instanceof Task.Attack || !s838E.isAlive()) { int s0 = (t[0] - s838T) / 20; s838E.discard(); nsHome(c, h, level); pass(stage, t, "the walk stopped for the enderman 8 ahead: after it in " + s0 + " s"); return true; }
+            check(t[0] - s838T < 20 * 5, "an enderman 8 ahead in view and no go at it in 5 s: at " + c.blockPosition().toShortString() + " now " + c.currentTask + " skills " + c.skillQueue);
+        }
+        return true;
+    }
+    /** Stage 837: STEP_DONE_IGNORED (review 117): "no iron yet" with 14 raw iron on him is filed; with none, or only an iron pick, it isn't. */
+    private static boolean st837(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] != 2) { if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 24000; } return true; }
+        var W = com.claudemod.entity.life.Watchdog.recentKinds; boolean was = com.claudemod.entity.life.Watchdog.linesInTests; com.claudemod.entity.life.Watchdog.linesInTests = true;
+        var step = new com.claudemod.entity.life.Skills.Step("strip_mine", "iron_ore", 9); String said = "no iron yet: pushing my branch 12 more";
+        try {
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.RAW_IRON, 14)); W.clear();
+            check(com.claudemod.entity.life.Watchdog.stepDone(c, step, said) != null && W.contains("STEP_DONE_IGNORED"), "14 raw iron on him, 'no iron yet' for 9: not filed (" + W + ")");
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.RAW_IRON, 3)); W.clear();
+            check(com.claudemod.entity.life.Watchdog.stepDone(c, step, said) == null && !W.contains("STEP_DONE_IGNORED"), "an iron pick and 3 raw iron for 9: filed (" + W + ")");
+        } finally { com.claudemod.entity.life.Watchdog.linesInTests = was; c.getInventory().clearContent(); }
+        pass(stage, t, "STEP_DONE_IGNORED: 'no iron yet' with 14 raw iron filed, with 3 and a pick not");
         return true;
     }
     /** Stage 834: DUP_CRAFT, a stone pickaxe made with a good one on him and a table made with one packed are filed; a stone pickaxe made with his worn down to 11 uses is not. */

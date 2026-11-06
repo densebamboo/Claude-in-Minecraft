@@ -1,5 +1,6 @@
 package com.claudemod.entity.life;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -104,6 +105,7 @@ public final class HuntPatrol {
                 Long last = b.walked.get(cell(p.getX(), p.getZ())); boolean fresh = last != null && now - last < 20 * 120 && now >= last;
                 if (hunt > 0.05 && !fresh) { score += 4 * hunt; w.append(String.format("endermen there %.1f; ", hunt)); } // ponytail: ground he walked in the last 2 min was seen empty, so old sightings there don't pull him back (the -44/-70 pacing)
                 if (fresh) { score -= 4; w.append("walked ").append((now - last) / 20).append(" s ago; "); }
+                int lv = lavaNear(level, p); if (lv > 0) { score -= lv * w("pearls.spot_lava", 0.5); w.append(lv).append(" lava by it; "); } // (footing: a spot by lava is a poor place to fight an enderman, D2D 01:0x "right next to the lava")
                 int bio = biomeScore(level, p); score += bio; if (bio != 0) w.append(level.getBiome(p).unwrapKey().map(k -> k.location().getPath()).orElse("?")).append(' ').append(bio > 0 ? "+" : "").append(bio).append("; ");
                 if (b.heading != null) { double turn = Math.cos(a - b.heading); score += 1.5 * turn; if (turn > 0.7) w.append("on his heading; "); }
                 score -= Math.abs(d - ds[0]) * 0.02;
@@ -132,5 +134,75 @@ public final class HuntPatrol {
         why[0] = "heading " + Perception.compassOf(new net.minecraft.world.phys.Vec3(Math.cos(bestA), 0, Math.sin(bestA))) + " to " + best.toShortString() + ": " + bwhy;
         ClaudeMod.LOGGER.info("[Claude skill] ender_pearls patrol: {} ({} cells walked, {} with endermen on record) (HuntPatrol.next)", why[0], b.walked.size(), b.hunt.size());
         return best;
+    }
+
+    // ---- the pearl hunt's next move, one priced choice (the user 01:19 11-06: "the pearl step should have engage enderman weighted higher than explore, and if there are no endermen nearby then patrol known forests and explore for new forests should be next respectively. a good forest should be expansive though") ----
+    private static double w(String n, double d) { return Weights.w(n, d); }
+    /** What the round does: "engage" (em, its believed spot), "patrol" (the forest he's in), "go" (to another forest he knows), "explore" (find a new one). */
+    public record Next(String kind, net.minecraft.world.entity.monster.EnderMan em, BlockPos to, String why) {}
+    private static Map<UUID, Object[]> trips; // his last "go": {spot, server tick, start distance}; a go that didn't get him there counts against that forest
+    private static Map<UUID, Map<Long, Integer>> tripFails;
+    static Map<Long, Integer> fails(ClaudeEntity g) { if (tripFails == null) tripFails = new HashMap<>(); return tripFails.computeIfAbsent(g.getUUID(), k -> new HashMap<>()); }
+    /** Seconds till an enderman turns up in a warped forest of that area (square blocks). */
+    static double waitS(double area) { return 60 * 1000 / (RATE * Math.max(16, area)); }
+    /** A warped forest he knows of, sized by the spots of it on his atlas round it (they're 48 apart: more of them, the bigger it is). */
+    static double knownArea(java.util.List<BlockPos> spots, BlockPos at) { int n = 0; for (BlockPos q : spots) if (q.distSqr(at) <= 96 * 96) n++; return Math.max(TYPICAL, n * w("pearls.area_per_spot", 2000)); }
+    /** Lava within 2 of a spot (cells): a fight or a stand there risks a knock into it. */
+    static int lavaNear(ServerLevel level, BlockPos p) { int n = 0; for (BlockPos q : BlockPos.betweenClosed(p.offset(-2, -2, -2), p.offset(2, 1, 2))) if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) n++; return n; }
+
+    public static Next decide(ClaudeEntity g, ServerLevel level, boolean nether) {
+        java.util.List<Decide.Option> opts = new ArrayList<>(); Map<String, Next> acts = new HashMap<>();
+        double sprint = Decide.sprint(), road = nether ? PortalMap.NETHER_OFF_ROAD : 1.2;
+        // a go last round that didn't get him there: against that forest from now on (D2D: the 'there' leg priced ~50 s failed across a lava lake again and again)
+        if (trips != null && trips.get(g.getUUID()) instanceof Object[] tr) { BlockPos to = (BlockPos) tr[0]; double d0 = (double) tr[2];
+            if (g.blockPosition().distSqr(to) > 24 * 24 && Math.sqrt(g.blockPosition().distSqr(to)) > d0 - 16) { int f = fails(g).merge(to.asLong(), 1, Integer::sum); ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: the trip to the forest at {} got nowhere ({} off, was {}): {} failed trip(s) there on record (HuntPatrol.decide)", to.toShortString(), (int) Math.sqrt(g.blockPosition().distSqr(to)), (int) d0, f); }
+            trips.remove(g.getUUID()); }
+        boolean sword = g.inventory.count(x -> x.is(net.minecraft.world.item.Items.IRON_SWORD) || x.is(net.minecraft.world.item.Items.DIAMOND_SWORD) || x.is(net.minecraft.world.item.Items.NETHERITE_SWORD)) > 0;
+        // 1. engage: each enderman he sees or heard within 48, not one he's let be (his armor and health in hpS, his sword in the fight's length)
+        for (var m : Perception.known(g, net.minecraft.world.entity.monster.EnderMan.class, g.getBoundingBox().inflate(48, 16, 48), x -> x.isAlive())) {
+            if (letBe(g, m.getUUID())) continue;
+            var at = Perception.believedAt(g, m); if (at == null) continue;
+            boolean sees = Perception.seesNow(g, m); BlockPos ap = BlockPos.containing(at); double d = at.distanceTo(g.position());
+            int lava = lavaNear(level, ap); double dy = Math.abs(ap.getY() - g.getBlockY());
+            double s = d * road / sprint + w("pearls.fight_s", 12) * (sword ? 1 : w("pearls.weak_sword_factor", 2)) + lava * w("pearls.lava_near_s", 8) + dy * w("pearls.climb_s", 3) + (sees ? 0 : w("pearls.heard_s", 15)) + Decide.hpS(g, w("pearls.enderman_hits", 1.5));
+            String n = "enderman " + (int) d + " off" + (sees ? "" : " (heard)") + " #" + acts.size();
+            opts.add(Decide.Option.of(n, s, (sees ? "in sight" : "heard about " + ap.toShortString()) + (lava > 0 ? ", " + lava + " lava by it" : "") + (dy > 2 ? ", " + (int) dy + " up/down" : "") + (sword ? "" : ", no iron+ sword") + ", " + (int) g.getHealth() + " HP, armor " + g.getArmorValue()));
+            acts.put(n, new Next("engage", m, ap, n));
+        }
+        // 2. patrol: the forest he's in, then each one on his atlas, by size (bigger: an enderman sooner), the trip, its failed trips
+        String here = level.getBiome(g.blockPosition()).unwrapKey().map(k -> k.location().getPath()).orElse("");
+        if (here.equals("warped_forest")) { boolean quiet = Atlas.quietAt(g, level, g.blockPosition()); double area = forestArea(g, level), s = waitS(area) * (quiet ? w("pearls.quiet_factor", 3) : 1);
+            opts.add(Decide.Option.of("patrol this forest", s, "about " + (int) area + " square blocks seen" + (quiet ? ", judged quiet" : "")));
+            acts.put("patrol this forest", new Next("patrol", null, null, "this forest, ~" + (int) area + " square blocks")); }
+        var spots = Atlas.spots(g, level, "warped_forest");
+        java.util.List<BlockPos> far = new ArrayList<>(); for (BlockPos q : spots) if (q.distSqr(g.blockPosition()) > 48 * 48) { boolean dup = false; for (BlockPos f0 : far) if (f0.distSqr(q) <= 96 * 96) dup = true; if (!dup) far.add(q); }
+        for (BlockPos q : far) { double d = Math.sqrt(q.distSqr(g.blockPosition())), area = knownArea(spots, q); int f = fails(g).getOrDefault(q.asLong(), 0); boolean quiet = Atlas.quietAt(g, level, q);
+            double s = d * road / sprint + f * w("pearls.trip_fail_s", 120) + waitS(area) * (quiet ? w("pearls.quiet_factor", 3) : 1);
+            String n = "the forest at " + q.toShortString();
+            opts.add(Decide.Option.of(n, s, (int) d + " off, ~" + (int) area + " square blocks" + (f > 0 ? ", " + f + " failed trip(s)" : "") + (quiet ? ", judged quiet" : "")));
+            acts.put(n, new Next("go", null, q, n)); }
+        // 3. explore for a new one, last
+        opts.add(Decide.Option.of("explore for a new forest", w("pearls.search_s", SEARCH_S) + waitS(TYPICAL), "a search, then a typical forest"));
+        acts.put("explore for a new forest", new Next("explore", null, null, "a new forest"));
+        var pick = Decide.choose(g, "pearls.next", (here.isEmpty() ? "" : here + ", ") + g.blockPosition().toShortString(), true, opts);
+        Next nx = acts.get(pick.name());
+        if ("go".equals(nx.kind()) && acts.containsKey("patrol this forest")) Atlas.quiet(g, level, g.blockPosition()); // (the one he's in judged the poorer bet: priced as such from now on)
+        return nx;
+    }
+
+    /** He sets off for that forest: next round, not there and no nearer is a failed trip against it. */
+    public static void going(ClaudeEntity g, BlockPos to) { if (trips == null) trips = new HashMap<>(); trips.put(g.getUUID(), new Object[] {to.immutable(), now(g), Math.sqrt(to.distSqr(g.blockPosition()))}); }
+    /** Each tick: on a hunt (ender_pearls in his plan), a walk with an enderman coming into view stops, so the hunt weighs it (the user: "engage enderman weighted higher than explore"; live 00:57-01:18 explore walked him off with 5 within 48). */
+    public static void tick(ClaudeEntity g) {
+        if (g.tickCount % 10 != 0 || g.tasks.isEmpty() && g.currentTask == null || !(g.level() instanceof ServerLevel level)) return; // (the walk running is current, off the list)
+        boolean hunting = false; for (var s0 : g.skillQueue) if ("ender_pearls".equals(s0.skill())) hunting = true; if (!hunting) return;
+        for (var t : g.tasks) if (!(t instanceof Task.GoTo) && !(t instanceof Task.Bore)) return; // (only walks: a fight, a pickup or a dig runs on)
+        if (g.currentTask != null && !(g.currentTask instanceof Task.GoTo) && !(g.currentTask instanceof Task.Bore)) return;
+        for (var m : Perception.known(g, net.minecraft.world.entity.monster.EnderMan.class, g.getBoundingBox().inflate(32, 12, 32), x -> x.isAlive()))
+            if (Perception.seesNow(g, m) && !letBe(g, m.getUUID())) {
+                ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: an enderman {} off came into view on the walk: the walk stops, the hunt weighs it (HuntPatrol.tick)", (int) m.distanceTo(g));
+                g.tasks.clear(); g.dropCurrent = true;
+                while (!g.skillQueue.isEmpty() && !"ender_pearls".equals(g.skillQueue.peekFirst().skill())) ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: {} dropped for the enderman in view (HuntPatrol.tick)", g.skillQueue.pollFirst()); // (explore re-queues its next leg ahead of the hunt: it would walk him off again)
+                return; }
     }
 }

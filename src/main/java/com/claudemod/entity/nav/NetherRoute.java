@@ -106,6 +106,9 @@ public final class NetherRoute {
         }
         long ms = (System.nanoTime() - t0) / 1000000;
         Plan p = new Plan(legs, partial, end.g, end.digs, end.puts, climb, nodes, ms);
+        { int onTrail = 0, unseen = 0; for (int i = 1; i < path.size(); i++) { Node b = path.get(i); if (Route.walked(r.g, new BlockPos(b.x, b.y, b.z)) || Route.walked(r.g, new BlockPos(b.x, b.y - 1, b.z))) onTrail++; else if (!r.known(b.x, b.y - 1, b.z)) unseen++; }
+          BlockPos trailNear = null; double td = Double.MAX_VALUE; for (BlockPos q : Route.wayBack(r.g, Integer.MAX_VALUE)) { double d = q.distSqr(to); if (d < td) { td = d; trailNear = q; } }
+          com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: its {} nodes: {} on his trail, {} on ground he hasn't seen; his trail ({} cells) comes within {} of the goal{} (NetherRoute.done)", from.toShortString(), to.toShortString(), path.size() - 1, onTrail, unseen, Route.wayBack(r.g, Integer.MAX_VALUE).size(), trailNear == null ? "-" : (int) Math.sqrt(td), trailNear == null ? "" : " at " + trailNear.toShortString()); } // (D2D 01:50: "a rough time pathing back to his portal"; is his own way back on record, and does the plan use it? proven before a fix)
         com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: {} legs over {} nodes{}, about {} s: {} dug, {} put down, {} up ({} searched, {} ms; unseen cells read as netherrack) (NetherRoute.plan)",
                 from.toShortString(), to.toShortString(), legs.size(), path.size(), partial ? " (part way)" : "", (int) end.g, end.digs, end.puts, climb, nodes, ms);
         return p;

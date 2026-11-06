@@ -1249,6 +1249,7 @@ public class WorkGoal extends Goal {
                 int before = g.tasks.size(); g.tasks.removeIf(x -> x instanceof Task.GoTo n && g.blueprint.touches(n.pos()));
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] can't get to his mine's way in at {}: the {} legs down it dropped", g.blueprint.entrance.toShortString(), before - g.tasks.size());
             }
+            if (!leg && !toABlock) { var w0 = g.attempts.why(com.claudemod.entity.life.Attempts.Kind.WALK, pos); if (com.claudemod.entity.life.Decide.walkRefused(g, (ServerLevel) g.level(), pos, within, w0 == null ? "no cause" : w0.reason() + (w0.detail().isEmpty() ? "" : " " + w0.detail()))) return true; } // (a refused walk is a conflict he decides: his other ways priced, Decide)
             g.tasks.addFirst(new Task.Pickup(60));
             ServerLevel lv = (ServerLevel) g.level();
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't get to {} ({} on {}; he's at {}), skipping that spot",

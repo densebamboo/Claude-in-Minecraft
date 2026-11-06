@@ -10513,6 +10513,7 @@ public final class ClaudeBodyTest {
             case 734: return st734(stage, t, c, h, level, mock);
             case 735: return st735(stage, t, c, h, level, mock);
             case 736: return st736(stage, t, c, h, level, mock);
+            case 737: return st737(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13900,6 +13901,30 @@ public final class ClaudeBodyTest {
             check(!(rule.skill().equals("gear_up") && r.startsWith("done: through the portal")), "the rules' step in the Nether was gear_up, a no-op there: " + r);
             c.tasks.clear(); c.skillQueue.clear(); c.playerGoal = null; c.dropCurrent = true; nsHome(c, h, level);
             pass(stage, t, "the rules' step in the Nether does something: " + rule.skill() + " " + rule.target()); return true;
+        }
+        return true;
+    }
+
+    /** Live 16:29-16:33 11-05 (Nether 16,44,56, his drop pile 175 off at 191,34,223; Day to Day: "your conflict-to-decision repro, live"): NetherRoute "no way in the loaded land", the walker "no way at all", "stuck: no way even digging", a step off and the same plan again every 3 s, 2.5 min on one block; the watchdog's ladder only swapped to the next item of the same pile. Nobody weighed his other ways there (the bore he carried the pick and blocks for). On a conflict he decides: his options priced, the cheapest taken, the prices said. */
+    private static int s737T0, s737C;
+    private static boolean st737(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12000, 64, 6000), to = o.offset(120, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); s737T0 = 0; s737C = -1; }
+        if (t[0] >= 10 && t[0] % 10 == 0) for (int k = 0; k <= 3; k++) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(40 * k, 0, 0)), 3, o.offset(40 * k, 0, 0));
+        if (t[0] == 20) { // (a beam of solid netherrack, a 2-high pocket at each end: no walk, no route; a bore straight through)
+            for (int x = -12; x <= 132; x++) for (int z = -12; z <= 12; z++) for (int y = -10; y <= 14; y++) { boolean pocket = (x >= -1 && x <= 1 || x >= 119 && x <= 121) && Math.abs(z) <= 1 && (y == 0 || y == 1); nl.setBlock(o.offset(x, y, z), pocket ? Blocks.AIR.defaultBlockState() : Blocks.NETHERRACK.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64)); c.getInventory().add(new ItemStack(Items.BREAD, 16));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600; c.commandActive = false;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 40) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.attempts.clear(); c.tasks.add(new com.claudemod.entity.life.Task.GoTo(to, 1.5)); s737T0 = t[0]; }
+        if (s737T0 > 0 && t[0] > s737T0) {
+            check(c.isAlive() && !c.isInLava(), "dead or in lava at " + c.blockPosition().toShortString());
+            if (s737C < 0 && c.getX() - o.getX() > 3) s737C = t[0]; // (on his way: out of the first pocket)
+            if (Math.abs(c.getX() - to.getX() - 0.5) + Math.abs(c.getZ() - to.getZ() - 0.5) <= 3) { nsHome(c, h, level); pass(stage, t, "a goal 120 off through solid netherrack, no walk: on his way in " + (s737C - s737T0) / 20 + " s, there in " + (t[0] - s737T0) / 20 + " s"); return true; }
+            check(s737C > 0 || t[0] - s737T0 < 20 * 20, "20 s and still in his pocket with no way there decided: at " + c.blockPosition().toShortString() + " now " + c.currentTask + " queue " + c.tasks.stream().limit(3).toList());
+            check(t[0] - s737T0 < 20 * 180, "180 s and not there: at " + c.blockPosition().toShortString() + " now " + c.currentTask);
         }
         return true;
     }

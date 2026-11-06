@@ -92,7 +92,7 @@ public final class Highway {
         }
         if (rows == 0) return blocks(g, player, level, s, next, have, words, st);
         g.tasks.addAll(out); g.skillQueue.addFirst(new Skills.Step("build_highway", "@" + words, st.count(), st.where()));
-        String r = "highway rows " + (next + 1) + "-" + (next + rows) + " of " + b.rows.size() + ": " + cnt[0] + " lava sealed, " + cnt[1] + " dug, " + cnt[2] + " floor laid, " + cnt[3] + " tunnel holes walled (" + used + " of " + have + " cobbled deepslate)";
+        String r = "highway rows " + (next + 1) + "-" + (next + rows) + " of " + b.rows.size() + ": " + cnt[0] + " lava sealed, " + cnt[1] + " dug, " + cnt[2] + " floor laid, " + cnt[3] + " tunnel shell laid (" + used + " of " + have + " cobbled deepslate)";
         ClaudeMod.LOGGER.info("[Claude highway] {} (Highway.skill)", r);
         g.noteDoing("building the highway to " + b.dest.toShortString() + ", row " + (next + 1) + " of " + b.rows.size());
         return r;
@@ -102,20 +102,25 @@ public final class Highway {
     static String makePlan(ClaudeEntity g, ServerLevel level, String words, State s) {
         BlockPos dest = destination(g, level, words);
         if (dest == null) return "failed: no fortress on my map yet, and no x y z given: find_fortress first";
+        var going = s.portalId >= 0 && s.dest != null && s.dest.distManhattan(dest) <= 2 ? PortalMap.byId(g, s.portalId) : null;
+        if (going != null && level.isLoaded(going.at)) going.state = PortalMap.stateAt(level, going.at);
+        if (going != null && "lit".equals(going.state) && BridgeBlueprint.facingAxis(level, going.at) != null) { // the highway underway goes on from its own portal, not chosen again each call (live 15:05: re-chosen from #3 at row 104 to #4, a frame no longer there)
+            var b = BridgeBlueprint.plan(level, going.at, BridgeBlueprint.facingAxis(level, going.at), dest, (int) Math.max(1, w("highway.first_width", 2)), false);
+            if (b != null) { s.plan = b; s.dest = dest.immutable(); ClaudeMod.LOGGER.info("[Claude highway] resuming from portal #{}: {} (Highway.makePlan)", going.id, b); return null; }
+        }
         List<Decide.Option> opts = new ArrayList<>(); Map<String, PortalMap.Portal> byName = new HashMap<>();
         double rowS = w("highway.row_s", 6), sprint = Decide.sprint();
         for (var p : PortalMap.net(g).portals) {
             if (!PortalMap.NETHER.equals(p.dim)) continue;
             String n = "#" + p.id; byName.put(n, p);
             if (level.isLoaded(p.at) && p.at.distSqr(g.blockPosition()) <= 16 * 16) { String now = PortalMap.stateAt(level, p.at); if (!now.equals(p.state)) { ClaudeMod.LOGGER.info("[Claude portal] #{} is {} now (was {}) (Highway.makePlan)", p.id, now, p.state); p.state = now; } } // (the one he's by, as it is: a record 300 min old said unlit with him stood in it lit, D2D live 13:53; stage 909)
-            boolean flint = g.inventory.count(x -> x.is(net.minecraft.world.item.Items.FLINT_AND_STEEL) || x.is(net.minecraft.world.item.Items.FIRE_CHARGE)) > 0;
-            if (!"lit".equals(p.state) && !("unlit".equals(p.state) && flint)) { opts.add(Decide.Option.out(n, p.state + ("unlit".equals(p.state) ? ", no flint and steel on me" : ""))); continue; }
-            double relight = "lit".equals(p.state) ? 0 : w("highway.relight_s", 4); // (an unlit frame: flint and steel on its bottom obsidian, priced, not ruled out)
+            if (!"lit".equals(p.state)) { opts.add(Decide.Option.out(n, p.state + ("unlit".equals(p.state) ? ": the plan reads its face off the lit portal, relight it first" : ""))); continue; } // shortcut: an unlit frame is out (live 15:05 picked #4 "to relight", its frame gone); price a relight step once enter/light runs before the plan
+            double relight = 0;
             int rowsN = Math.abs(dest.getX() - p.at.getX()) + Math.abs(dest.getZ() - p.at.getZ()); double walk = Math.sqrt(g.blockPosition().distSqr(p.at)) * PortalMap.NETHER_OFF_ROAD / sprint;
             opts.add(Decide.Option.of(n, rowsN * rowS + walk + relight, rowsN + " rows x " + rowS + " s + " + Math.round(walk) + " s to it" + (relight > 0 ? " + " + Math.round(relight) + " s to relight it" : "")));
         }
         var pick = Decide.choose(g, "highway.portal", "to " + dest.toShortString(), true, opts);
-        if (pick == null) return "failed: no Nether portal on my map to start a highway from (lit, or out with flint and steel on me)";
+        if (pick == null) return "failed: no lit Nether portal on my map to start a highway from (an unlit one is relit first)";
         var portal = byName.get(pick.name());
         var axis = BridgeBlueprint.facingAxis(level, portal.at);
         if (axis == null) return "failed: portal #" + portal.id + " at " + portal.where() + " isn't standing (no portal block there)";
@@ -129,6 +134,10 @@ public final class Highway {
 
     static boolean lava(ServerLevel level, BlockPos p) { return level.getFluidState(p).is(FluidTags.LAVA); }
     static boolean solid(ServerLevel level, BlockPos p) { var st = level.getBlockState(p); return !st.canBeReplaced() && !st.getCollisionShape(level, p).isEmpty(); }
+    /** Rock, for the tunnel test: solid and not a tree's (stems, wart blocks, shroomlight, leaves). */
+    static boolean rock(ServerLevel level, BlockPos p) { if (!solid(level, p)) return false; var st = level.getBlockState(p); return !(st.is(net.minecraft.tags.BlockTags.LOGS) || st.is(net.minecraft.tags.BlockTags.WART_BLOCKS) || st.is(net.minecraft.world.level.block.Blocks.SHROOMLIGHT) || st.is(net.minecraft.tags.BlockTags.LEAVES)); }
+    /** A shell block left as it is: a portal frame, bedrock, anything with contents. */
+    static boolean keep(ServerLevel level, BlockPos p) { var st = level.getBlockState(p); return st.is(net.minecraft.world.level.block.Blocks.OBSIDIAN) || st.is(net.minecraft.world.level.block.Blocks.CRYING_OBSIDIAN) || st.getDestroySpeed(level, p) < 0 || st.hasBlockEntity(); }
     static boolean fortress(ServerLevel level, BridgeBlueprint.Row r, int lo, int hi) {
         Direction right = r.dir().getClockWise();
         for (int o = lo; o <= hi; o++) for (int y = 0; y <= 3; y++) { BlockPos q = r.centre().relative(right, o).above(y); if (net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level.getBlockState(q).getBlock()).getPath().contains("nether_brick")) return true; }
@@ -157,7 +166,7 @@ public final class Highway {
      * before it), the walkway dug (lava in it plugged then dug), the floor laid (rock in it dug out first), a tunnel row's holes
      * walled and roofed, then onto it. Returns the blocks it places; c: {sealed, dug, floor, holes}.
      */
-    static int rowTasks(ServerLevel level, BridgeBlueprint.Row r, int lo, int hi, List<Task> out, int[] c) {
+    public static int rowTasks(ServerLevel level, BridgeBlueprint.Row r, int lo, int hi, List<Task> out, int[] c) {
         Direction right = r.dir().getClockWise(); int placed = 0;
         int[] cols = new int[hi - lo + 1]; { int k = 0; cols[k++] = 0; for (int o = 1; k < cols.length; o++) { if (o <= hi && k < cols.length) cols[k++] = o; if (-o >= lo && k < cols.length) cols[k++] = -o; } } // (from his line outward)
         Set<BlockPos> own = new HashSet<>(); List<BlockPos> floor = new ArrayList<>(), walk = new ArrayList<>();
@@ -168,13 +177,20 @@ public final class Highway {
         for (BlockPos q : seal) { out.add(new Task.Place(q, BLOCK)); placed++; c[0]++; }
         for (BlockPos q : walk) { if (lava(level, q)) { out.add(new Task.Place(q, BLOCK)); out.add(new Task.Break(q)); placed++; c[1]++; } else if (solid(level, q)) { out.add(new Task.Break(q)); c[1]++; } }
         for (BlockPos f : floor) { var st = level.getBlockState(f); if (st.is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE)) continue; if (solid(level, f)) { out.add(new Task.Break(f)); c[1]++; } out.add(new Task.Place(f, BLOCK)); placed++; c[2]++; }
-        boolean tunnel = false; // (rock beside or over the walkway: a tunnel row, its shell closed where the rock has holes)
         List<BlockPos> shell = new ArrayList<>();
         for (int y = 1; y <= 3; y++) for (int o : new int[] {lo - 1, hi + 1}) shell.add(r.centre().relative(right, o).above(y).immutable());
         for (int o : cols) shell.add(r.centre().relative(right, o).above(4).immutable());
-        for (BlockPos q : walk) if (solid(level, q)) tunnel = true;
-        for (BlockPos q : shell) if (solid(level, q)) tunnel = true;
-        if (tunnel) for (BlockPos q : shell) if (!solid(level, q) && !seal.contains(q)) { out.add(new Task.Place(q, BLOCK)); placed++; c[3]++; }
+        // a tunnel row only through rock: most of its shell rock, trees not counted (a stray block or two walled the open air by portal #3, the user's "arches", live 13:59; "nether trees ... can just be railing"; stage 914)
+        int rockN = 0; for (BlockPos q : shell) if (rock(level, q)) rockN++;
+        boolean tunnel = rockN >= shell.size() * w("highway.tunnel_rock_share", 0.5);
+        if (tunnel) for (BlockPos q : shell) { // the whole shell cobbled deepslate, the netherrack in it replaced (the user: "replace all the blocks and not build it into the netherrack")
+            var st = level.getBlockState(q);
+            if (seal.contains(q) || st.is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE) || keep(level, q)) continue;
+            if (solid(level, q)) { boolean lavaBehind = false; for (Direction d : Direction.values()) if (!own.contains(q.relative(d)) && lava(level, q.relative(d))) lavaBehind = true;
+                if (lavaBehind) continue; // (it holds lava back: kept, not opened to swap)
+                out.add(new Task.Break(q)); c[1]++; }
+            out.add(new Task.Place(q, BLOCK)); placed++; c[3]++;
+        }
         out.add(new Task.GoTo(r.centre().above(), 0.6));
         return placed;
     }

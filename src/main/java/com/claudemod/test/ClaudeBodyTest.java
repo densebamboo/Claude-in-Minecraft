@@ -10488,6 +10488,8 @@ public final class ClaudeBodyTest {
             case 911: return st911(stage, t, c, h, level, mock);
             case 912: return st912(stage, t, c, h, level, mock);
             case 913: return st913(stage, t, c, h, level, mock);
+            case 914: return st914(stage, t, c, h, level, mock);
+            case 915: return st915(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13643,6 +13645,68 @@ public final class ClaudeBodyTest {
             nsHome(c, h, level); pass(stage, t, "part way through the rock: " + p.legs().size() + " legs to " + end.toShortString() + " (" + p.digs() + " dug, " + p.nodes() + " nodes, " + p.ms() + " ms)"); }
         return true;
     }
+    /** Stage 915 (D2D live 15:05-15:07 World 17, the user: "bug"): the highway underway from #3 (row 104) re-chosen after the restart; #4, nearer the fortress and on record "unlit" with flint and steel on him, picked "to relight", its frame no longer there: "isn't standing", every call, 3 conflicts in 33 s. The one underway goes on from its own portal. */
+    private static boolean st915(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(10400, 64, 6320);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            for (int x = -6; x <= 8; x++) for (int z = -6; z <= 14; z++) for (int y = -4; y <= 6; y++) nl.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2);
+            for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, 0), x == -1 || x == 2 || y == -1 || y == 3 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+            nsKit(c); c.getInventory().add(new ItemStack(Items.FLINT_AND_STEEL)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 1.5, 0f, 0f);
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o, "him", "lit");
+        }
+        if (t[0] == 20) {
+            String dest = (o.getX() + 4) + " " + o.getY() + " " + (o.getZ() + 300);
+            c.skillQueue.clear(); String r0 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", dest, 1);
+            c.skillQueue.clear(); c.tasks.clear();
+            var tag = com.claudemod.entity.life.PortalMap.save(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.load(c, tag); // (a restart)
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(4, 0, 40), "unknown", "unlit"); // (a nearer portal on record, out past 16 so read from the record, its frame gone)
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", "", 1);
+            c.skillQueue.clear(); c.tasks.clear(); com.claudemod.entity.life.Highway.reset(c);
+            for (int x = -6; x <= 8; x++) for (int z = -6; z <= 14; z++) for (int y = -4; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            com.claudemod.entity.life.PortalMap.net(c).portals.clear();
+            check(!r0.startsWith("failed"), "setup: the first build_highway failed: " + r0);
+            check(!r.startsWith("failed"), "the highway underway from his lit portal, a nearer frame on record unlit and gone: " + r);
+            nsHome(c, h, level); pass(stage, t, "resumed from its own portal: " + r); }
+        return true;
+    }
+    /** Stage 914 (the user 11-06 ~15:00 via D2D: "i dont like the arches he's building next to the portal. it should just be rail (or tunnel) ... replace all the blocks and not build it into the netherrack"; "tunneling through nether trees doesn't have to be a shell lol it can just be railing"; live 13:59 and 14:56, rows 1-6 by portal #3: 1-4 blocks dug, then 8 shell holes walled in open air): a row is a tunnel only through rock, and then its whole shell is cobbled deepslate; a tree row is an open row. */
+    private static boolean st914(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(10200, 64, 6120);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            for (int x = -4; x <= 4; x++) for (int z = -2; z <= 9; z++) for (int y = -3; y <= 6; y++) nl.setBlock(o.offset(x, y, z), (y < -1 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2);
+            // row A (z 1): open air, a stray block in the walkway and one where a wall would go
+            nl.setBlock(o.offset(0, 1, 1), Blocks.NETHERRACK.defaultBlockState(), 2); nl.setBlock(o.offset(-1, 1, 1), Blocks.NETHERRACK.defaultBlockState(), 2);
+            // row B (z 4): through solid netherrack
+            for (int x = -3; x <= 3; x++) for (int y = -1; y <= 5; y++) nl.setBlock(o.offset(x, y, 4), Blocks.NETHERRACK.defaultBlockState(), 2);
+            // row C (z 7): a crimson tree across it: stems in the walkway, wart over it and down one side, the other side open
+            for (int y = 0; y <= 3; y++) nl.setBlock(o.offset(0, y, 7), Blocks.CRIMSON_STEM.defaultBlockState(), 2);
+            for (int x = -1; x <= 1; x++) nl.setBlock(o.offset(x, 3, 7), Blocks.NETHER_WART_BLOCK.defaultBlockState(), 2);
+            for (int y = 0; y <= 2; y++) nl.setBlock(o.offset(-1, y, 7), Blocks.NETHER_WART_BLOCK.defaultBlockState(), 2);
+            nl.setBlock(o.offset(1, 3, 7), Blocks.SHROOMLIGHT.defaultBlockState(), 2);
+        }
+        if (t[0] == 12) {
+            int[] zs = {1, 4, 7}; String[] name = {"open row with 2 stray blocks", "rock row", "tree row"}; String why = "";
+            for (int i = 0; i < 3; i++) {
+                var r = new com.claudemod.entity.life.BridgeBlueprint.Row(o.offset(0, -1, zs[i]), net.minecraft.core.Direction.SOUTH, 1, i + 1, false, false);
+                java.util.List<Task> out = new java.util.ArrayList<>(); com.claudemod.entity.life.Highway.rowTasks(nl, r, -1, 0, out, new int[4]);
+                java.util.Set<BlockPos> up = new java.util.HashSet<>(); for (var k : out) if (k instanceof com.claudemod.entity.life.Task.Place pl && pl.pos().getY() > r.centre().getY()) up.add(pl.pos());
+                // the shell: walls at x+2 and x-1, 3 high, the roof over x and x+1 (south-facing row, its columns at x and x+1)
+                java.util.Set<BlockPos> shell = new java.util.HashSet<>(); for (int y = 1; y <= 3; y++) { shell.add(r.centre().offset(2, y, 0)); shell.add(r.centre().offset(-1, y, 0)); } shell.add(r.centre().offset(0, 4, 0)); shell.add(r.centre().offset(1, 4, 0));
+                if (i == 1) { check(up.equals(shell), name[i] + ": the whole shell placed as cobbled deepslate (netherrack replaced), got " + up.size() + " of 8: " + up); why += name[i] + " 8/8 shell; "; }
+                else { check(up.isEmpty(), name[i] + ": no walls or roof (an open row), got " + up.size() + " placed above the floor: " + up); why += name[i] + " open; "; }
+            }
+            for (int x = -4; x <= 4; x++) for (int z = -2; z <= 9; z++) for (int y = -3; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            nsHome(c, h, level); pass(stage, t, why);
+        }
+        return true;
+    }
     /** Stage 913 (D2D live 14:19 World 17, the user: "bug. he should be building the highway"): the highway at row 68 of 715 lived only in memory; after the 14:08 restart his planner never heard of it and sent him walking to the fortress. Saved with his portal map, in his planner's view, resumed by build_highway. */
     private static boolean st913(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
@@ -13748,7 +13812,8 @@ public final class ClaudeBodyTest {
                 com.claudemod.entity.life.PortalMap.net(c).portals.get(0).state = "unlit"; // (the stale record as the skill reads it: his 2 s look round may have put it right already)
                 c.skillQueue.clear(); c.tasks.clear(); String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", dest, 1);
                 c.skillQueue.clear(); c.tasks.clear(); com.claudemod.entity.life.Highway.reset(c);
-                check(!r.startsWith("failed: no lit"), (run == 0 ? "the portal lit beside him, its record stale" : "an unlit portal, flint and steel on him") + ": " + r);
+                if (run == 0) check(!r.startsWith("failed"), "the portal lit beside him, its record stale: " + r);
+                else check(!r.contains("isn't standing"), "an unlit portal: picked, then the plan can't read its face (live 15:05, #4): " + r); // (the plan reads the facing off the portal blocks: an unlit frame is out until relit)
                 if (run == 1) { for (int x = -10; x <= 20; x++) for (int z = -6; z <= 30; z++) for (int y = -4; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
                     com.claudemod.entity.life.PortalMap.net(c).portals.clear(); nsHome(c, h, level); pass(stage, t, "a stale record read again and an unlit portal priced with its relight"); }
             } }

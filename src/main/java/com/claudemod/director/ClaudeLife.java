@@ -526,10 +526,10 @@ public final class ClaudeLife {
     private static void sideJobWhileCooking(ClaudeEntity g, ServerPlayer player) {
         if (!(g.currentTask instanceof Task.FurnaceTake ft) || g.tickCount - g.sideJobTick < 100) return; // (a look every 5 s: back from a side job with time still on the batch, the next one)
         ServerLevel level = ((ServerLevel) g.level());
-        if (!(level.getBlockEntity(ft.pos()) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f) || f.getItem(0).getCount() < 2) return;
+        if (!(level.getBlockEntity(ft.pos()) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f) || f.getItem(0).getCount() < 2) { if (g.tickCount % 200 == 0) ClaudeMod.LOGGER.info("[Claude life] at the furnace: no side job, {} (ClaudeLife.sideJobWhileCooking)", level.getBlockEntity(ft.pos()) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f9 ? "under 2 items left in it (" + f9.getItem(0).getCount() + ")" : "no furnace at " + ft.pos().toShortString()); return; }
         if (!level.getBlockState(ft.pos()).getValue(net.minecraft.world.level.block.AbstractFurnaceBlock.LIT)) { if (g.tickCount - g.sideJobTick >= 20 * 30) { g.sideJobTick = g.tickCount; ClaudeMod.LOGGER.info("[Claude life] his furnace at {} has gone out with {} {} still in it: no side job, back to it (ClaudeLife.sideJobWhileCooking)", ft.pos().toShortString(), f.getItem(0).getCount(), f.getItem(0).getHoverName().getString()); } return; } // nothing cooking: "while it cooks" sent him chopping for 40 min round a dead furnace, 5 cod in it, food 5 (live 07:37-08:18)
         long tod0 = level.getDayTime() % 24000;
-        if ((tod0 >= 11600 && g.getArmorValue() < 10) || nightOutsideNo(g, level, g.blockPosition()) != null) return; // dusk or the dark with no kit: no side trips (it pulled him out of his fresh cover at sundown for trees 84 blocks off)
+        if ((tod0 >= 11600 && g.getArmorValue() < 10) || nightOutsideNo(g, level, g.blockPosition()) != null) { if (g.tickCount % 200 == 0) ClaudeMod.LOGGER.info("[Claude life] at the furnace: no side job, the time (day time {}, armor {}, the night rule: {}) (ClaudeLife.sideJobWhileCooking)", tod0, g.getArmorValue(), nightOutsideNo(g, level, g.blockPosition())); return; } // dusk or the dark with no kit: no side trips (it pulled him out of his fresh cover at sundown for trees 84 blocks off)
         g.sideJobTick = g.tickCount;
         { java.util.List<Task> own = new ArrayList<>(); for (Task q : g.tasks) if (q instanceof Task.Pickup || q instanceof Task.Replant || q instanceof Task.FinishTree || q instanceof Task.ChopTree || q instanceof Task.Break || q instanceof Task.Place || q instanceof Task.WallTorch) own.add(q);
           if (!own.isEmpty()) { // his own work still queued (a felled tree's drops and its sapling): that, while it cooks, then the furnace; no new side job pushing it back every round (live 06:00 World 15: the pickups and the replant behind a new tree, round after round, the drops left to despawn)
@@ -550,7 +550,7 @@ public final class ClaudeLife {
         boolean anyJob = (g.mineFace != null && !g.mineIsTunnel && inHisMine(g, g.blockPosition()) && g.blockPosition().distSqr(g.mineFace) <= 8 * 8)
             || (tree != null && g.inventory.count(st -> st.is(net.minecraft.tags.ItemTags.LOGS)) < 64)
             || (g.mineFace != null && g.blockPosition().distSqr(g.mineFace) <= 12 * 12) || !g.pillarBlocks.isEmpty() || free != null;
-        if (!anyJob) return; // nothing nearby to do: keep waiting, queue untouched (clearing and re-adding it logged "dropping FurnaceTake" every 5 s, live 01:05 World 15)
+        if (!anyJob) { int logs9 = 0; for (int i9 = 0; i9 < g.inventory.items.getContainerSize(); i9++) if (g.inventory.items.getItem(i9).is(net.minecraft.tags.ItemTags.LOGS)) logs9 += g.inventory.items.getItem(i9).getCount(); ClaudeMod.LOGGER.info("[Claude life] at the furnace: no side job near ({}s left; tree within {}: {}, logs on him {}; his mine's face {}; plan step free of the batch: {}; his blocks about: {}) (ClaudeLife.sideJobWhileCooking)", left, treeRange, tree == null ? "none" : tree.toShortString(), logs9, g.mineFace == null ? "none" : (int) Math.sqrt(g.blockPosition().distSqr(g.mineFace)) + " off", free == null ? "none" : free.skill() + " " + free.target(), g.pillarBlocks.size()); return; } // nothing nearby to do: keep waiting, queue untouched (clearing and re-adding it logged "dropping FurnaceTake" every 5 s, live 01:05 World 15)
         List<Task> rest = new ArrayList<>(g.tasks);
         clearTasks(g);
         String r = null;
@@ -566,7 +566,7 @@ public final class ClaudeLife {
         } else if (!g.pillarBlocks.isEmpty()) { // the cover blocks he left about: down while it cooks
             tidyLitter(g, level); r = "tidying the blocks i left";
         }
-        if (g.tasks.isEmpty()) { g.tasks.addAll(rest); return; } // nothing useful to do nearby: keep waiting
+        if (g.tasks.isEmpty()) { ClaudeMod.LOGGER.info("[Claude life] at the furnace: the side job queued nothing ({}): waiting ({}s left) (ClaudeLife.sideJobWhileCooking)", r, left); g.tasks.addAll(rest); return; } // nothing useful to do nearby: keep waiting
         dropCurrent(g); // off the furnace for now...
         g.tasks.add(ft);      // ...and back to it after
         g.tasks.addAll(rest);

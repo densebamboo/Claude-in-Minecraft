@@ -4564,20 +4564,21 @@ public class WorkGoal extends Goal {
         if (them.isEmpty()) { fightOdds = "nothing on him"; return false; }
         them.sort(java.util.Comparator.comparingDouble(m -> m.distanceTo(g)));
         double swing = w("fight.swing_s", 0.6), rate = w("fight.mob_hits_per_s", 0.8) * (armed() ? w("fight.knockback_hits_factor", 0.5) : 1), cool = w("fight.mob_cooldown_s", 1.0); // (a sword or axe knocks each one back: it walks in again before its next swing, about half the hits; HuntPatrol.fightS prices an enderman the same, 0.4. Stage 48: one zombie at 12 HP priced as 3 hits in 2.4 s, he ran)
-        double t = 0, hits = 0, hp = 0, runHits = 0, burnS = 0; int most = 0, swings = 0; boolean sprint = g.getFoodData().getFoodLevel() > 6, allBurn = true;
+        double t = 0, hits = 0, hp = 0, runHits = 0, burnS = 0; int most = 0, swings = 0; boolean sprint = g.getFoodData().getFoodLevel() > 6, allBurn = true, anyPace = false;
         for (var m : them) {
             double dmg = mobHit(m); boolean ranged = m instanceof net.minecraft.world.entity.monster.RangedAttackMob;
             int k = hitsToKill(m); swings += k; t += k * swing;
             double h = t * rate + (ranged ? m.distanceTo(g) / w("fight.close_blocks_per_shot", 6) : 0); // (each hits him till it's down: the first for its own time, the next for both; a shooter ~a shot each 6 blocks he closes)
             hits += h; hp += h * dmg; most += (int) Math.ceil(t / cool) + (ranged ? 2 : 0);
             boolean pace = !sprint || ranged || m instanceof net.minecraft.world.entity.monster.Phantom || (m instanceof net.minecraft.world.entity.monster.Zombie z && z.isBaby());
+            anyPace |= pace;
             runHits += (pace ? w("flee.chase_hits", 3) : m.distanceTo(g) < 4 ? w("flee.hits_breaking_off", 0.7) : 0) * dmg;
             boolean burning = m.isOnFire() && !m.fireImmune() && g.level().isDay(); allBurn &= burning; burnS = Math.max(burnS, m.getHealth() / w("flee.burn_hp_per_s", 1.0));
         }
         double perHit = hits > 0 ? hp / hits : 3;
         if (underground) runHits += w("flee.dark_hits", 1.0) * perHit;
         boolean pile = g.getArmorValue() == 0 && (g.lastStep != null && g.lastStep.skill().equals("recover_drops") || g.skillQueue.stream().anyMatch(s0 -> s0.skill().equals("recover_drops")))
-                && com.claudemod.entity.life.DeathLog.next(g, g.level().dimension().location().getPath()) != null;
+                && com.claudemod.entity.life.DeathLog.next(g, g.level().dimension().location().getPath()) != null && !anyPace; // (one that keeps pace with him gets its hits either way: running avoids no fight, review 1292)
         double fightNow = t + com.claudemod.entity.life.Decide.hpS(g, g.getHealth(), 0, hp, perHit, most), fightFull = t + com.claudemod.entity.life.Decide.hpS(g, g.getMaxHealth(), 0, hp, perHit, most);
         double later = Math.min(fightFull, allBurn ? burnS : w("flee.avoid_s", 180));
         double run = w("flee.run_s", 20) + com.claudemod.entity.life.Decide.hpS(g, 0, runHits, perHit) + later;
@@ -4637,7 +4638,8 @@ public class WorkGoal extends Goal {
 
     /** What a hit of its does to him through his armor (vanilla armor: up to 80% off). */
     private double mobHit(net.minecraft.world.entity.LivingEntity mob) {
-        double raw = mob.getAttributes().hasAttribute(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE)
+        boolean archer = shoots(mob); // (its arrows, not its melee: World 17 05:18, a skeleton priced at 2 a hit, arrows of 5 and 3 in his back; stage 766)
+        double raw = archer ? w("fight.arrow_hit_hp", 4) : mob.getAttributes().hasAttribute(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE)
                 ? mob.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE) : 3.0;
         return Math.max(1.0, raw * (1.0 - Math.min(20, g.getArmorValue()) / 25.0));
     }

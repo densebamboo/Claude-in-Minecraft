@@ -10564,6 +10564,7 @@ public final class ClaudeBodyTest {
             case 754: return st754(stage, t, c, h, level, mock);
             case 764: return st764(stage, t, c, h, level, mock);
             case 765: return st765(stage, t, c, h, level, mock);
+            case 766: return st766(stage, t, c, h, level, mock);
             case 762: return st762(stage, t, c, h, level, mock);
             case 763: return st763(stage, t, c, h, level, mock);
             case 758: return st758(stage, t, c, h, level, mock);
@@ -14754,6 +14755,34 @@ public final class ClaudeBodyTest {
                 for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) e.discard(); nsHome(c, h, level); c.setHealth(20);
                 pass(stage, t, "a run toward his portal past the mob: " + Math.round(st765D0) + " -> " + Math.round(d)); }
             check(t[0] - st765Start < 20 * 20, "the run never ended");
+        }
+        return true;
+    }
+    private static int st766Start; private static float st766Low; private static net.minecraft.world.entity.monster.Skeleton st766Sk;
+    private static boolean st766(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // one skeleton with a bow on him at 16 HP, no armor, an iron sword, on his way to his pile (World 17 05:18:08, review 1292: "fight ~661 s (4 swings, ~6 HP of hits, his pile on it); run ~318 s (~8 HP getting away)": he ran, arrows of 5 and 3 in his back, 16 -> 1): its arrows priced as arrows, the fight
+        BlockPos me = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st766Start = 0; st766Low = 20; st766Sk = null; com.claudemod.entity.life.DeathLog.reset(c); }
+        if (t[0] == 5) for (int cx = -3; cx <= 3; cx++) for (int cz = -2; cz <= 2; cz++) { BlockPos q = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(q), 2, q); }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(60))) if (e != st766Sk) e.discard();
+        if (t[0] == 10) {
+            for (int x = -40; x <= 40; x++) for (int z = -24; z <= 40; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int yy = 2; yy <= 24; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(16); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            level.setDayTime(18000);
+            BlockPos pile = me.offset(-30, 0, 0); var fell = new java.util.ArrayList<net.minecraft.world.entity.item.ItemEntity>(); fell.add(new net.minecraft.world.entity.item.ItemEntity(level, pile.getX() + 0.5, pile.getY(), pile.getZ() + 0.5, new ItemStack(Items.IRON_CHESTPLATE)));
+            com.claudemod.entity.life.DeathLog.died(c, level, pile, fell); // (his pile 30 west, out of his armor: the fight carries recovery.fight_s)
+            c.lastStep = new com.claudemod.entity.life.Skills.Step("recover_drops", "", 1);
+            st766Sk = EntityType.SKELETON.create(level); st766Sk.moveTo(me.getX() + 10.5, me.getY(), me.getZ() + 0.5, 90, 0); st766Sk.setPersistenceRequired(); st766Sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW)); level.addFreshEntity(st766Sk); st766Sk.setTarget(c);
+            c.tasks.add(new Task.Wait(20 * 60, false)); st766Start = t[0];
+        }
+        if (st766Start > 0) {
+            level.setDayTime(18000); if (st766Sk.isAlive() && st766Sk.getTarget() != c) st766Sk.setTarget(c);
+            st766Low = Math.min(st766Low, c.getHealth());
+            check(c.isAlive(), "dead to one skeleton (low " + st766Low + ")");
+            check(!(c.currentTask instanceof Task.Flee) || !st766Sk.isAlive(), "running from one skeleton at " + (int) c.getHealth() + " HP with a sword (its arrows in his back)");
+            if (!st766Sk.isAlive()) { com.claudemod.entity.life.DeathLog.reset(c); c.lastStep = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "one skeleton fought, not run from: dead in " + (t[0] - st766Start) / 20 + " s, his low " + st766Low); }
+            else check(t[0] - st766Start < 20 * 40, "40 s and the skeleton still up (his low " + st766Low + ", doing " + c.currentTask + ")");
         }
         return true;
     }

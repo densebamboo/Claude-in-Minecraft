@@ -10562,6 +10562,7 @@ public final class ClaudeBodyTest {
             case 753: return st753(stage, t, c, h, level, mock);
             case 754: return st754(stage, t, c, h, level, mock);
             case 762: return st762(stage, t, c, h, level, mock);
+            case 763: return st763(stage, t, c, h, level, mock);
             case 758: return st758(stage, t, c, h, level, mock);
             case 756: return st756(stage, t, c, h, level, mock);
             case 760: return st760(stage, t, c, h, level, mock);
@@ -14647,6 +14648,37 @@ public final class ClaudeBodyTest {
                 for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
                 pass(stage, t, "a run with his way west behind it: " + Math.round(st762D0) + " -> " + Math.round(d) + " from where he's going"); }
             check(t[0] - st762Start < 20 * 20, "the run never ended");
+        }
+        return true;
+    }
+    private static int st763Start, st763Hit; private static float st763Low; private static net.minecraft.world.entity.monster.Blaze st763B;
+    private static boolean st763(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a blaze 27 off shooting him at his job in the open (World 17 04:52:31, the fortress at 277,62,445: "hit by a Blaze that isn't on him (32 blocks off, health 17): healing up, not running", walked on in its fire 17 -> 0 with 23 meals on him): it's on him by its line of fire, not 24 blocks
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); st763Start = 0; st763Hit = 0; st763Low = 20; }
+        if (t[0] == 5) for (int cx = -3; cx <= 4; cx++) for (int cz = -4; cz <= 3; cz++) { BlockPos p = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(p), 2, p); }
+        BlockPos me = h.absolutePos(new BlockPos(8, 2, 8)), dest = h.absolutePos(new BlockPos(8, 2, -40));
+        if (t[0] == 10) {
+            for (int x = -40; x <= 56; x++) for (int z = -56; z <= 40; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.NETHER_BRICKS.defaultBlockState(), 2); for (int yy = 2; yy <= 24; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 23)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 32));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            level.setDayTime(6000);
+            st763B = EntityType.BLAZE.create(level); st763B.moveTo(me.getX() + 27.5, me.getY() + 2, me.getZ() + 0.5, 90, 0); st763B.setPersistenceRequired(); level.addFreshEntity(st763B); st763B.setTarget(c);
+            c.tasks.add(new Task.Wait(20 * 90, false)); // (his job, in its view: live he went on with his walk in its fire)
+        }
+        if (t[0] > 10) {
+            if (st763B != null && st763B.isAlive() && st763B.getTarget() != c) st763B.setTarget(c);
+            if (t[0] % 100 == 0 && st763B != null) com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 763: t {} blaze alive {} at {} {} off, target him {}, sight {}, he at {} doing {}", t[0], st763B.isAlive(), st763B.blockPosition().toShortString(), (int) st763B.distanceTo(c), st763B.getTarget() == c, st763B.hasLineOfSight(c), c.blockPosition().toShortString(), c.currentTask);
+            if (t[0] == 60 && st763Start == 0) { c.hurt(level.damageSources().mobAttack(st763B), 5.0f); c.setRemainingFireTicks(100); } // (its first fireball for sure: at 27 off its spread misses for a minute at a time)
+            st763Low = Math.min(st763Low, c.getHealth());
+            if (st763Start == 0 && c.getHealth() < 20) { st763Start = t[0]; com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 763: first hit at t {} ({} off)", t[0], st763B == null ? -1 : (int) st763B.distanceTo(c)); }
+            check(c.isAlive(), "dead to a blaze 30 off on an open walk (low " + st763Low + ")");
+            if (st763Start > 0 && t[0] == st763Start + 100) check(!(c.currentTask instanceof Task.Wait) || !st763B.isAlive() || !st763B.hasLineOfSight(c), "5 s after a blaze 27 off hit him, still at his job in its line of fire (doing " + c.currentTask + ")");
+            if (st763Start > 0 && t[0] >= st763Start + 20 * 25) {
+                check(st763Low >= 6 || !st763B.isAlive(), "a blaze 30 off took him to " + st763Low + " in 25 s, doing " + c.currentTask);
+                boolean bAlive = st763B.isAlive(); st763B.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+                pass(stage, t, "a blaze 30 off: low " + st763Low + " in 25 s, blaze " + (bAlive ? "alive" : "dead"));
+            }
+            check(t[0] < 20 * 60, "the blaze never hit him in 60 s");
         }
         return true;
     }

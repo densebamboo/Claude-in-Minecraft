@@ -408,7 +408,7 @@ public class WorkGoal extends Goal {
             }
             // Gone, dead or far off, or hurt by a stray hit with nothing actually on him: nothing to fight or run from.
             // Running from a mob that isn't there is how he looped at 6 health; a player steps clear and eats.
-            if (!(foe instanceof net.minecraft.world.entity.LivingEntity l) || !l.isAlive() || foe.distanceTo(g) > 24 || (shouldFlee(foe) && hostilesNear(14).isEmpty() && foe.distanceTo(g) > 8)) { // (a mob 2 blocks off that just hit him is on him, whatever its target says: "healing up" there is how a skeleton killed him)
+            if (!(foe instanceof net.minecraft.world.entity.LivingEntity l) || !l.isAlive() || foe.distanceTo(g) > 24 && !(foe instanceof net.minecraft.world.entity.Mob fm && huntsHim(fm)) || (shouldFlee(foe) && hostilesNear(14).isEmpty() && foe.distanceTo(g) > 8)) { // (a mob 2 blocks off that just hit him is on him, whatever its target says: "healing up" there is how a skeleton killed him) // (past 24 but within its follow range and after him, it's on him: World 17 04:52:31, a blaze 32 off "isn't on him", he walked on in its fire 17 -> 0, stage 763)
                 if (foe != null) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] hit by a {} that isn't on him ({} blocks off, health {}): healing up, not running", foe.getType().getDescription().getString(), (int) foe.distanceTo(g), (int) g.getHealth());
                 else com.claudemod.ClaudeMod.LOGGER.info("[Claude life] hit by a mob that's gone from the world now (health {}): nothing to fight, healing up (WorkGoal.tick)", (int) g.getHealth());
                 g.urgentAttacker = null;

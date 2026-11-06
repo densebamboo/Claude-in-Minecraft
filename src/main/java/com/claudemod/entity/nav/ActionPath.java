@@ -99,9 +99,11 @@ public final class ActionPath {
         open.add(new Node(from.immutable(), 0, w * h(from, to), null, List.of(), 0, 0f, c.water(from.above()) ? (g.getMaxAirSupply() - Math.max(0, g.getAirSupply())) / 10 : 0));
         best.put(from.immutable(), open.peek());
         int expanded = 0; long t0 = System.nanoTime();
+        final boolean scarce = c.maxPuts < 2 * (Math.abs(from.getX() - to.getX()) + Math.abs(from.getY() - to.getY()) + Math.abs(from.getZ() - to.getZ())) + 16; // blocks that can run short on this way: then fewer puts is a way of its own (with plenty, 538 expanded each cell ~3 times for it, out of nodes under a fortress)
         while (!open.isEmpty() && expanded++ < budget) {
             if ((expanded & 255) == 0 && System.nanoTime() - t0 > 500_000_000L) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] plan {} -> {} stopped at 500 ms ({} nodes of {}): no way found in time (ActionPath.plan)", from.toShortString(), to.toShortString(), expanded, budget); break; } // (no budget in time: 3.8 s freezes, "Can't keep up" 172x on 11-04)
             Node n = open.poll();
+            { Node b0 = best.get(n.feet); if (b0 != n && b0.g() <= n.g() && (!scarce || b0.puts() <= n.puts()) && b0.wet() <= n.wet() && b0.hurt() <= n.hurt()) { expanded--; continue; } } // (a stale entry: a way here no worse was expanded already)
             double dd = Math.sqrt(n.feet.distSqr(to));
             if (dd <= within) { coverNote(c, from, to); leapNote(c, from, to, n); Plan pl = unwind(n); if (mode == Mode.MAY_BEND) { Map<BlockPos, String> b = new java.util.LinkedHashMap<>(); for (Act a : pl.acts()) if (a instanceof Act.Dig dg && c.bent.containsKey(dg.pos())) b.put(dg.pos(), c.bent.get(dg.pos())); lastBent = b; } return pl; }
             c.hurtNow = n.hurt;
@@ -112,13 +114,15 @@ public final class ActionPath {
                 if (nw > g.getMaxAirSupply() / 20) { c.airRefused++; continue; } // a swim under water no longer than half his air (~10 ticks a cell): a player turns back from an unknown flooded passage while he still can (live 12:02 11-04: 10 cells in, drowned)
                 double ng = n.g + m.cost;
                 Node was = best.get(m.feet);
-                if (was != null && was.g() <= ng && was.puts() <= np && was.wet() <= nw && was.hurt() <= nh) continue;
+                if (was != null && was.g() <= ng && (!scarce || was.puts() <= np) && was.wet() <= nw && was.hurt() <= nh) continue;
                 Node nn = new Node(m.feet, ng, ng + w * h(m.feet, to), n, m.acts, np, nh, nw);
                 if (was == null || was.g() > ng) best.put(m.feet, nn);
                 open.add(nn);
             }
         }
         coverNote(c, from, to); leapNote(c, from, to, null);
+        { Node near = null; for (Node k : best.values()) if (near == null || h(k.feet, to) < h(near.feet, to)) near = k;
+          com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} -> {}: no way: {} ({} of {} nodes, {} cells reached, {} blocks to put; nearest {}, {} off) (ActionPath.plan)", from.toShortString(), to.toShortString(), open.isEmpty() ? "every cell reachable tried" : "the search budget ran out", expanded, budget, best.size(), c.maxPuts, near == null ? "-" : near.feet.toShortString(), near == null ? "-" : String.format("%.1f", Math.sqrt(near.feet.distSqr(to)))); }
         return null; // (a partial route to the closest spot is not what a player does: he'd rather pick another way)
     }
 

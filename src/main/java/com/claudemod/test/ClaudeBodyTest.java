@@ -10452,6 +10452,7 @@ public final class ClaudeBodyTest {
             case 824: return st824(stage, t, c, h, level, mock);
             case 825: return st825(stage, t, c, h, level, mock);
             case 826: return st826(stage, t, c, h, level, mock);
+            case 827: return st827(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13328,6 +13329,32 @@ public final class ClaudeBodyTest {
 
     /** Live 16:25 11-05 (incident death-46): at 4 HP and food 3 the planner sent him for porkchop, the collect skill hunted a hoglin in the open like a pig, and it killed him; at 16:16 a baby hoglin's kill gave nothing. Here: 6 HP, food 3, no armor, 16 netherrack and a sword, an adult hoglin 14 off and a baby 5 off. The expert's way: the baby left (it drops nothing), the adult fought from 2 up a pillar it can't reach; porkchop, no hit taken. */
     private static int s826T0; private static net.minecraft.world.entity.monster.hoglin.Hoglin s826A, s826B;
+    private static int s827Built = -1;
+    /** Stage 827: World 15's crag at the foot of the near fortress's support pillar (538 stalled there, 11-05: every ActionPath call ran out of nodes, ~3 expansions a cell): the tower legs 8 and 16 up, open air beside the bricks, planned within the walker's own budget. */
+    private static boolean st827(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        W15 w = w15(nether, "w15_pocket"); BlockPos from = new BlockPos(-74, 49, 131);
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); s827Built = -1; c.nextPlanTick = c.tickCount + 20 * 900;
+            c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 34)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(nether, (w.x0() + w.x1()) / 2 + 0.5, w.y1() + 6, (w.z0() + w.z1()) / 2 + 0.5, 0, 0); c.setNoGravity(true); }
+        if (t[0] >= 20 && s827Built < 0 && w15Slice(nether, w, t[0] - 20)) s827Built = t[0];
+        if (s827Built < 0 || t[0] < s827Built + 20) return true;
+        if (t[0] == s827Built + 20) { c.setNoGravity(false); c.teleportTo(nether, from.getX() + 0.5, from.getY(), from.getZ() + 0.5, 0, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.tasks.clear(); c.fallDistance = 0; return true; }
+        if (t[0] < s827Built + 30) return true;
+        StringBuilder how = new StringBuilder();
+        for (int up : new int[] {8, 16}) {
+            BlockPos to = new BlockPos(-77, from.getY() + up, 135); int budget = 3000 + 400 * Math.max(0, up - 4); // (WorkGoal.climbBudget)
+            long t0 = System.nanoTime();
+            var plan = com.claudemod.entity.nav.ActionPath.plan(c, nether, c.blockPosition(), to, 1.5, true, budget, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, null, 0); String which = "plain";
+            if (plan == null) { plan = com.claudemod.entity.nav.ActionPath.plan(c, nether, c.blockPosition(), to, 1.5, true, budget * 2, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, null, 0, java.util.List.of(), 2.5); which = "greedy"; } // (WorkGoal.walkTo's Nether retry)
+            long ms = (System.nanoTime() - t0) / 1_000_000;
+            check(plan != null, "the tower leg " + up + " up from " + c.blockPosition().toShortString() + " to " + to.toShortString() + ": no way, plain or greedy (" + ms + " ms)");
+            how.append(up).append(" up (").append(which).append("): ").append(plan.acts().size()).append(" acts, ").append(plan.puts()).append(" put, ").append(plan.digs()).append(" dug, ").append(ms).append(" ms; ");
+        }
+        c.tasks.clear(); BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, back.getX() + 0.5, back.getY(), back.getZ() + 0.5, 0, 0); c.getInventory().clearContent();
+        pass(stage, t, "the tower legs by the fortress pillar planned: " + how);
+        return true;
+    }
     private static boolean st826(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
         BlockPos o = new BlockPos(9000, 64, 6320);

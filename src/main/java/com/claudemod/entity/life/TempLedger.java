@@ -288,7 +288,7 @@ public final class TempLedger {
         if (DragonFight.active(g)) return 0;
         if (cleanupWaits(g)) return 0; // Live Nov 4 01:13: a 53-walk tidy and the urgent bed trip kept cancelling one another.
         String was = lastSkill.put(g.getUUID(), skill);
-        if (java.util.Set.of("craft", "smelt", "obtain").contains(skill)) return 0;
+        if (java.util.Set.of("craft", "smelt", "obtain", "gear_up").contains(skill)) return 0; // (gear_up only plans the crafts and smelts that use them: live 14:18 World 17, his furnace taken up for gear_up and put down a block over for its smelt; walking off still takes them, TempLedger.leaving)
         if (skill.equals(was) && !"craft".equals(was)) return 0; // the same job going on (its next step): what it put down may still be its own
         List<Entry> near = new ArrayList<>();
         for (Entry e : book(g).values()) if (e.pos.distSqr(g.blockPosition()) <= 6 * 6 && level.isLoaded(e.pos) && !level.getBlockState(e.pos).canBeReplaced() && his(level, e) && doneWith(g, level, e, true) && takeable(g, level, e)) near.add(e); // (his block only: another's in the cell comes off the ledger on the tick)

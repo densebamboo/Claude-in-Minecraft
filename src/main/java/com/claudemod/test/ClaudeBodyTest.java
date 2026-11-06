@@ -10645,6 +10645,8 @@ public final class ClaudeBodyTest {
             case 855: return st855(stage, t, c, h, level, mock);
             case 856: return st856(stage, t, c, h, level, mock);
             case 858: return st858(stage, t, c, h, level, mock);
+            case 859: return st859(stage, t, c, h, level, mock);
+            case 860: return st860(stage, t, c, h, level, mock);
             case 676: return st676(stage, t, c, h, level, mock);
             case 659: return st659(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
@@ -17628,6 +17630,46 @@ public final class ClaudeBodyTest {
             check(p != null, "no spot for the furnace at all: " + q);
             check(!byBranch && byTunnel, "his furnace's notch at " + p.toShortString() + " opens on " + where + "(a branch, not the tunnel): " + q);
             pass(stage, t, "the furnace's notch at " + p.toShortString() + " on the main tunnel (" + where.trim() + "), walk first: " + q);
+        }
+        return true;
+    }
+    private static boolean st859(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 14:18 World 17 (the user: "he broke his furnace and placed it back down to cook a different type of food"): "off to gear_up: his furnace back up first", then gear_up's smelt put it down again a block over. Here: his furnace beside him, a smelt done, gear_up starts: the furnace stays.
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; com.claudemod.entity.life.TempLedger.reset(c); }
+        if (t[0] == 10) {
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 8)), p = me.west(2); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.planning = false; c.busy = false;
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); level.setDayTime(1000);
+            level.setBlock(p, Blocks.FURNACE.defaultBlockState(), 3); com.claudemod.entity.life.TempLedger.placed(c, level, p, Blocks.FURNACE.defaultBlockState(), Blocks.AIR.defaultBlockState());
+            com.claudemod.entity.life.TempLedger.stepStart(c, level, "smelt");
+            int n = com.claudemod.entity.life.TempLedger.stepStart(c, level, "gear_up");
+            String q = c.tasks.toString(); boolean breaks = c.tasks.contains(new Task.Break(p));
+            c.tasks.clear(); c.dropCurrent = true; level.setBlock(p, Blocks.AIR.defaultBlockState(), 3); com.claudemod.entity.life.TempLedger.reset(c);
+            check(n == 0 && !breaks, "gear_up after a smelt took his furnace back up (" + n + "): " + q);
+            pass(stage, t, "gear_up leaves the furnace standing for the smelts it plans");
+        }
+        return true;
+    }
+    private static int st860Start; private static net.minecraft.world.entity.animal.Pig st860P; private static BlockPos st860F;
+    private static boolean st860(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 14:17:33 World 17 (the user: "he's staring into his furnace again instead of hunting"): 3 chicken cooking 29 s, his kit a meal short, a pig 7-8 off: "no side job near". Here: chicken cooking, a pig 8 off in sight, his kit short: he goes for the pig while it cooks.
+        BlockPos me = h.absolutePos(new BlockPos(4, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; st860Start = 0; com.claudemod.entity.life.Perception.reset(c); c.prefs.put("stay_close", "no"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64), m -> !m.getUUID().equals(c.getUUID()))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 24; x++) for (int z = -4; z <= 20; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 8; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            level.setDayTime(1000); st860F = me.west();
+            level.setBlock(st860F, Blocks.FURNACE.defaultBlockState(), 3); c.myStations.add(st860F);
+            if (level.getBlockEntity(st860F) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fb) { fb.setItem(0, new ItemStack(Items.CHICKEN, 4)); fb.setItem(1, new ItemStack(Items.COAL, 2)); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 2));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(-90); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            st860P = EntityType.PIG.create(level); BlockPos pp = me.east(8); st860P.moveTo(pp.getX() + 0.5, pp.getY(), pp.getZ() + 0.5, 0, 0); st860P.setNoAi(true); st860P.setPersistenceRequired(); level.addFreshEntity(st860P);
+        }
+        if (t[0] == 40) { c.tasks.add(new Task.FurnaceTake(st860F)); st860Start = t[0]; }
+        if (st860Start > 0) {
+            boolean on = !st860P.isAlive() || c.currentTask instanceof Task.Attack a && a.target().equals(st860P.getUUID()) || c.tasks.stream().anyMatch(k -> k instanceof Task.Attack a2 && a2.target().equals(st860P.getUUID()));
+            if (on || t[0] - st860Start >= 20 * 20) { st860P.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.myStations.remove(st860F); level.setBlock(st860F, Blocks.AIR.defaultBlockState(), 3);
+                check(on, "20 s at the furnace with his kit short and a pig 8 off in sight, not after it: now " + c.currentTask + ", queue " + c.tasks);
+                pass(stage, t, "went for the pig 8 off while the chicken cooked, " + (t[0] - st860Start) + " ticks"); }
         }
         return true;
     }

@@ -10578,6 +10578,7 @@ public final class ClaudeBodyTest {
             case 685: return st685(stage, t, c, h, level, mock);
             case 686: return st686(stage, t, c, h, level, mock);
             case 687: return st687(stage, t, c, h, level, mock);
+            case 688: return st688(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -16258,6 +16259,37 @@ public final class ClaudeBodyTest {
             int inChest = level.getBlockEntity(h.absolutePos(chestAt)) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box ? box.countItem(Items.RAW_IRON) : -1;
             if (inChest >= 34) { check(c.inventory.count(x -> x.is(Items.IRON_PICKAXE)) == 1 && c.inventory.count(x -> x.is(Items.COOKED_BEEF)) == 16, "the trip kit went in the chest too: pick " + c.inventory.count(x -> x.is(Items.IRON_PICKAXE)) + ", beef " + c.inventory.count(x -> x.is(Items.COOKED_BEEF))); pass(stage, t, "the raw iron into his chest before the portal, in " + (t[0] - 10) + " ticks; pick and food kept"); }
             else check(t[0] < 400, "set off for the Nether with " + c.inventory.count(x -> x.is(Items.RAW_IRON)) + " raw iron on him, " + inChest + " in his chest 20 off; skills " + c.skillQueue + " tasks " + c.tasks);
+        }
+        return true;
+    }
+
+    /** The user 11-05 23:45: "he's still branching like 32 blocks and then going to the other side ... he should go the full 64 before switching to the next branch" (live: "goes on from 16 to 32", the shortest branch next, a pair partner each push). Here: two pairs, every branch 8 long, him at the end of one: one push takes that branch to 64, and it's the one he's on. */
+    private static boolean st688(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 30; x++) for (int z = -6; z <= 26; z++) { for (int yy = -3; yy <= 12; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, 13, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); }
+            var E = net.minecraft.core.Direction.EAST; var KB = com.claudemod.entity.life.MineBlueprint.Kind.BRANCH;
+            var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(new BlockPos(2, 12, 8)), E, 2, 3); b.segments.get(0).n = 8; b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(true), E, 8, null)); b.invalidate();
+            b.branchLength = 8; b.branchEvery = 4; b.branchPair(11, 8); b.branchPair(15, 8);
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int y = 0; y < r.height(); y++) level.setBlock(f.above(y), Blocks.AIR.defaultBlockState(), 2);
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); com.claudemod.director.ClaudeLife.bpSync(c);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.TORCH, 32)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            com.claudemod.entity.life.MineBlueprint.Segment on = null; for (var s0 : b.segments) if (on == null && s0.kind == KB && s0.dir == net.minecraft.core.Direction.SOUTH) on = s0;
+            BlockPos end = on.start.relative(on.dir, on.n - 1); c.teleportTo(end.getX() + 0.5, end.getY(), end.getZ() + 0.5);
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); level.setDayTime(1000); c.tasks.clear(); c.skillQueue.clear(); c.attempts.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 20) {
+            var b = c.blueprint; var KB = com.claudemod.entity.life.MineBlueprint.Kind.BRANCH; java.util.Map<Object, Integer> before = new java.util.IdentityHashMap<>(); for (var s0 : b.segments) if (s0.kind == KB) before.put(s0, s0.n);
+            BlockPos me = c.blockPosition(); c.tasks.clear();
+            String line = com.claudemod.director.ClaudeLife.bpAtLevel(c, level, b, h.absolutePos(new BlockPos(0, 4, 0)).getY(), "iron");
+            com.claudemod.entity.life.MineBlueprint.Segment grown = null; for (var s0 : b.segments) if (s0.kind == KB && s0.n > before.get(s0)) grown = s0;
+            c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            check(grown != null, "no branch pushed on: " + line);
+            boolean mine = false; for (int k = 0; k < before.get(grown); k++) if (grown.start.relative(grown.dir, k).equals(me)) mine = true;
+            check(mine, "the push went to the branch at " + grown.start.toShortString() + " (" + grown.dir + "), not the one he stands at the end of (" + me.toShortString() + "): " + line);
+            check(grown.n >= 64, "his branch pushed " + before.get(grown) + " -> " + grown.n + ", not the full 64 in one go: " + line);
+            pass(stage, t, "his branch from " + before.get(grown) + " to " + grown.n + " in one push, the one he's on");
         }
         return true;
     }

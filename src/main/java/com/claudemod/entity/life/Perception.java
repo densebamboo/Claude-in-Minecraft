@@ -240,6 +240,7 @@ public final class Perception {
         Mind m = mind(g); int now = g.tickCount; List<net.minecraft.world.entity.Mob> out = new ArrayList<>();
         for (Entity e : g.level().getEntities(g, g.getBoundingBox().inflate(r + 16), x -> x.isAlive() && x instanceof net.minecraft.world.entity.Mob && x instanceof net.minecraft.world.entity.monster.Enemy)) {
             net.minecraft.world.entity.Mob mob = (net.minecraft.world.entity.Mob) e; Contact last = null;
+            if (mob instanceof net.minecraft.world.entity.NeutralMob nm && !nm.isAngryAt(g)) continue; // (a calm zombified piglin or enderman is no threat: World 17 05:31, 3+ min in his hole at 2 HP for one heard 7 off, stage 764)
             for (Contact c : new Contact[] {m.seen.get(e.getUUID()), m.heard.get(e.getUUID()), m.felt.get(e.getUUID())}) if (c != null && (last == null || c.tick > last.tick)) last = c;
             if (last != null && now - last.tick <= Math.max(HEARD_MEMORY, mob.getAmbientSoundInterval() * 3) && last.at.distanceTo(g.position()) <= r) out.add(mob);
         }

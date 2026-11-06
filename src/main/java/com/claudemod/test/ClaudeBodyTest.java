@@ -10562,6 +10562,7 @@ public final class ClaudeBodyTest {
             case 752: return st752(stage, t, c, h, level, mock);
             case 753: return st753(stage, t, c, h, level, mock);
             case 754: return st754(stage, t, c, h, level, mock);
+            case 764: return st764(stage, t, c, h, level, mock);
             case 762: return st762(stage, t, c, h, level, mock);
             case 763: return st763(stage, t, c, h, level, mock);
             case 758: return st758(stage, t, c, h, level, mock);
@@ -14694,6 +14695,28 @@ public final class ClaudeBodyTest {
             }
             check(t[0] < 20 * 60, "the blaze never hit him in 60 s");
         }
+        return true;
+    }
+    private static int st764Hold; private static net.minecraft.world.entity.monster.ZombifiedPiglin st764Z;
+    private static boolean st764(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // in his hole at 2 HP, no food, a calm zombified piglin 7 off (World 17 05:31-05:35 in the Nether, incident 053419-stuck-1374: "holding in his cover" 3+ min for a neutral one he heard, on his way home to eat): a calm neutral is no threat to hold for
+        BlockPos at = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st764Hold = -1; st764Z = null; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -4; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.NETHERRACK); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            level.setDayTime(6000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.NETHERRACK, 16)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.setHealth(2); c.getFoodData().setFoodLevel(10); c.getFoodData().setSaturation(0);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.pillarBlocks.clear();
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); check(c.work.shelter(), "no hole dug (" + c.noCoverWhyNow() + ")"); }
+        if (t[0] > 20 && st764Hold < 0 && c.currentTask instanceof Task.Wait && c.work.holdingCover()) { st764Hold = t[0]; st764Z = (net.minecraft.world.entity.monster.ZombifiedPiglin) h.spawn(EntityType.ZOMBIFIED_PIGLIN, new BlockPos(15, 2, 8)); st764Z.setPersistenceRequired(); st764Z.setNoAi(true); }
+        if (st764Hold > 0) {
+            if (st764Z != null && t[0] % 40 == 0) st764Z.playAmbientSound(); // (its grunts, heard now and then: live it was "heard about 7 off")
+            check(c.isAlive(), "dead in the hole");
+            if (!c.work.holdingCover()) { st764Z.discard(); c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "out of his hole " + (t[0] - st764Hold) / 20 + " s in, a calm zombified piglin 7 off"); }
+            else check(t[0] - st764Hold < 20 * 30, "30 s holding in his hole at 2 HP, no food, for a calm zombified piglin 7 off");
+        }
+        if (t[0] > 20 && st764Hold < 0) check(t[0] < 400, "never settled in a hole: at " + c.blockPosition() + ", now=" + c.currentTask + " tasks=" + c.tasks);
         return true;
     }
     private static boolean st754(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // fight or run as one priced choice (shouldFlee -> fleePriced, the user: "every fixed rule a weighted decision"): hit to 5 HP by a lone zombie at night with a stone sword. Food 6, no sprint: the run is caught from behind, so the fight (the old rules ran: "losing, run while he can"); food 20: the run

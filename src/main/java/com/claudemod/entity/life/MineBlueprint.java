@@ -496,11 +496,20 @@ public final class MineBlueprint {
         a = Math.max(0, Math.min(rs.size() - 1, a)); b = Math.max(0, Math.min(rs.size() - 1, b));
         List<Integer> route = rowRoute(a, b);
         if (route.isEmpty()) { out.add(rs.get(b).first()); return out; } // (a record that doesn't join up: straight to it, the walker finds the way)
-        for (int k = 0; k < route.size(); k++) { // a stop only where the way bends or steps (and every 12 rows on the flat): a leg end every 3 rows was a hitch at every branch mouth (the user)
-            Row rk = rs.get(route.get(k)); Kind kk = segments.get(rk.segment()).kind;
-            boolean change = k + 1 < route.size() && (rs.get(route.get(k + 1)).segment() != rk.segment() || rs.get(route.get(k + 1)).dir() != rk.dir() || rs.get(route.get(k + 1)).first().getY() != rk.first().getY());
-            if (k == 0 || k == route.size() - 1 || change || (kk != Kind.FLAT && kk != Kind.RUN && kk != Kind.BRANCH && k % 3 == 0) || k % 12 == 0) out.add(rk.first());
+        for (int k = 0; k < route.size(); k++) { // a stop only where the way bends or its slope changes (and every 12 rows): a leg end every 3 rows was a hitch at every branch mouth (the user)
+            Row rk = rs.get(route.get(k));
+            boolean change = k + 1 < route.size() && (rs.get(route.get(k + 1)).segment() != rk.segment() || rs.get(route.get(k + 1)).dir() != rk.dir()
+                    || k > 0 && rs.get(route.get(k + 1)).first().getY() - rk.first().getY() != rk.first().getY() - rs.get(route.get(k - 1)).first().getY()); // (a stop at every step down made each step its own one-block walk: never a sprint, 1.9 blocks/s up his stairs, live 15:29 11-06, stage 864)
+            if (k == 0 || k == route.size() - 1 || change || k % 12 == 0) out.add(rk.first());
         }
+        return out;
+    }
+
+    /** Every row's feet cell from row a to row b along the mine (walkCells keeps only the stops). */
+    public List<BlockPos> routeFeet(int a, int b) {
+        List<Row> rs = rows(); List<BlockPos> out = new ArrayList<>();
+        if (rs.isEmpty()) return out;
+        for (int i : rowRoute(Math.max(0, Math.min(rs.size() - 1, a)), Math.max(0, Math.min(rs.size() - 1, b)))) out.add(rs.get(i).first());
         return out;
     }
 

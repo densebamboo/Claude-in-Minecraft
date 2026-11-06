@@ -182,16 +182,16 @@ public final class Route {
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude route] his own {} stands in his mine's way in at {}: taken up on the way in (Route.expand)", qs.getBlock().getName().getString(), q.toShortString());
             }
             legs.add(out); slack.add(1.5); legs.add(b.entrance); slack.add(0.8);
-            if (flooded(level, b.walkCells(0, toRow), "down")) return null;
+            if (flooded(level, b.routeFeet(0, toRow), "down")) return null;
             for (BlockPos p : b.walkCells(0, toRow)) { legs.add(p); slack.add(0.8); }
             why = land + " to his mine, in, down its rows";
         } else if (meIn && !toIn && across > FAR) { // out of his mine to somewhere off it: up the rows, out, then over the land (planned from the door)
-            if (flooded(level, b.walkCells(meRow, 0), "up")) return null;
+            if (flooded(level, b.routeFeet(meRow, 0), "up")) return null;
             for (BlockPos p : b.walkCells(meRow, 0)) { legs.add(p); slack.add(0.8); }
             legs.add(b.entrance); slack.add(0.8); legs.add(b.outside()); slack.add(1.5);
             return finish(g, to, within, legs, slack, true, "up his mine's rows and out, then over the land");
         } else if (meIn && toIn && across > FAR) { // along his mine: its rows as they join
-            if (flooded(level, b.walkCells(meRow, toRow), "along")) return null;
+            if (flooded(level, b.routeFeet(meRow, toRow), "along")) return null;
             for (BlockPos p : b.walkCells(meRow, toRow)) { legs.add(p); slack.add(0.8); }
             why = meNook >= 0 || toNook >= 0 ? "along his mine's rows (from or to his nook's mouth row)" : "along his mine's rows";
         } else if (!meIn && !toIn && meTop && across > FAR && !under(level, to)) { // over the land

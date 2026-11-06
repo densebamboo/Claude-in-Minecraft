@@ -29,10 +29,15 @@ public final class Kit {
 
     static final Item[] IRON_ARMOR = {Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS};
 
-    /** Good food on him (nothing raw, rotten or poisonous), as items. */
+    /**
+     * Good food on him (nothing raw, rotten or poisonous), in meals by food value: nutrition + saturation over food.meal_points
+     * (a cooked steak's 20.8), the same points the kit's food is priced in. Was a count of items: 8 dried kelp read as 8 meals
+     * and "6+ meals down the mine: food waits" let him work on with nothing (audit "the food targets disagree", stage 843).
+     */
     public static int food(ClaudeEntity g) {
-        ServerLevel level = (ServerLevel) g.level();
-        return g.inventory.count(s -> s.has(DataComponents.FOOD) && !ClaudeLife.rawOrBad(level, s));
+        ServerLevel level = (ServerLevel) g.level(); double p = 0;
+        for (int k = 0; k < g.inventory.items.getContainerSize(); k++) { ItemStack st = g.inventory.items.getItem(k); if (st.has(DataComponents.FOOD) && !ClaudeLife.rawOrBad(level, st)) p += pts(st.getItem()) * st.getCount(); }
+        return (int) Math.round(p / w("food.meal_points", 20.8));
     }
 
     /** The cave kit is the overworld's (its iron, its cows, his chests): through the portal on his own run with 4+ meals on him, it's behind him till he's home, nothing of it to do where he is. What gear_up, the dragon roadmap and the rules all go by. */

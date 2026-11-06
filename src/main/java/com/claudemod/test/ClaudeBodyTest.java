@@ -10468,6 +10468,7 @@ public final class ClaudeBodyTest {
             case 841: return st841(stage, t, c, h, level, mock);
             case 836: return st836(stage, t, c, h, level, mock);
             case 842: return st842(stage, t, c, h, level, mock);
+            case 843: return st843(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13497,6 +13498,31 @@ public final class ClaudeBodyTest {
             var b = com.claudemod.entity.nav.NetherRoute.plan(c, level, c.blockPosition(), to);
             check(b != null && b.legs().equals(a.legs()), "planned again from the same spot, a different way: " + a.legs() + " then " + (b == null ? "none" : b.legs()));
             pass(stage, t, "his own trail home: " + onTrail + " legs on it, the same way planned again (" + a.legs().size() + " legs, ~" + (int) a.seconds() + " s)");
+        }
+        return true;
+    }
+    /** Stage 843 (audit "the food targets disagree"): a meal is food value, not an item. 8 dried kelp (~13 food points, under one steak) down his mine counted as "8 meals", so "6+ meals down the mine: food waits" let him work on with nothing to eat. */
+    private static boolean st843(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(7600, 30, 7000);
+        if (t[0] == 1) scenarioReset(c);
+        if (t[0] == 10) {
+            for (int x = -3; x <= 3; x++) for (int z = -3; z <= 3; z++) for (int y = -1; y <= 14; y++) level.setBlock(o.offset(x, y, z), (Math.abs(x) <= 1 && Math.abs(z) <= 1 && (y == 0 || y == 1) ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 900;
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.fallDistance = 0;
+        }
+        if (t[0] == 20) {
+            c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 6)); int beef = com.claudemod.director.Kit.food(c);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DRIED_KELP, 8)); int kelp = com.claudemod.director.Kit.food(c);
+            for (var it : new net.minecraft.world.item.Item[] {Items.IRON_SWORD, Items.STONE_PICKAXE, Items.STONE_PICKAXE, Items.STONE_AXE, Items.WATER_BUCKET, Items.SHIELD}) c.getInventory().add(new ItemStack(it));
+            c.getInventory().add(new ItemStack(Items.TORCH, 64)); c.getInventory().add(new ItemStack(Items.COAL, 32)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 40));
+            c.skillQueue.clear(); c.gearTick = -100000;
+            var miss = com.claudemod.director.Kit.missing(c, false);
+            String r = com.claudemod.director.ClaudeLife.gearFirstNow(c, level, new com.claudemod.entity.life.Skills.Step("strip_mine", "diamond_ore", 3), false);
+            var q = new java.util.ArrayList<>(c.skillQueue); c.skillQueue.clear(); c.getInventory().clearContent();
+            check(beef == 6, "6 cooked beef count as " + beef + " meals");
+            check(kelp <= 1, "8 dried kelp count as " + kelp + " meals");
+            check(r != null && q.stream().anyMatch(x -> net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.withDefaultNamespace(x.target())).components().has(net.minecraft.core.component.DataComponents.FOOD)), "8 dried kelp down his mine: no food on the way (" + r + "; kit missing " + miss + "; queue " + q + ")");
+            nsHome(c, h, level); pass(stage, t, "a meal by food value: 6 beef = " + beef + ", 8 kelp = " + kelp + "; down the mine on kelp, the kit goes for food (" + r + ")");
         }
         return true;
     }

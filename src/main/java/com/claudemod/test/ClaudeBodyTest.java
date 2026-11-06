@@ -10463,6 +10463,8 @@ public final class ClaudeBodyTest {
             case 835: return st835(stage, t, c, h, level, mock);
             case 837: return st837(stage, t, c, h, level, mock);
             case 838: return st838(stage, t, c, h, level, mock);
+            case 839: return st839(stage, t, c, h, level, mock);
+            case 840: return st840(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13404,6 +13406,52 @@ public final class ClaudeBodyTest {
             for (var e : s835Mobs) e.discard(); s835Mobs.clear(); c.getInventory().clearContent(); c.myStations.clear(); level.setBlock(o.offset(4, 0, 3), Blocks.AIR.defaultBlockState(), 3);
             pass(stage, t, "deep fish left alone by the kit (asks: " + s835Asked + "), then his furnace's salmon taken (" + m.get(Items.COOKED_SALMON) + ")");
         }
+        return true;
+    }
+    /**
+     * Stage 839 (D2D 01:50, "a rough time pathing back to his portal"): his own trail home is the expert's way. In the rock, a
+     * straight tunnel he sees runs 36 to the goal; the tunnel he walked runs beside it, 4 over, joined at both ends (40). The
+     * route takes his trail (netherroute.walked_factor); planned again from the same spot, it keeps the same moves (netherroute.kept_factor).
+     */
+    private static boolean st839(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; com.claudemod.entity.life.FarSight.forgetSurfaces(c); com.claudemod.entity.nav.Route.forgetTrail(c);
+            for (int x = 0; x <= 12; x++) for (int z = 0; z <= 44; z++) for (int y = 1; y <= 8; y++) {
+                boolean head = y == 2 || y == 3, straight = x == 4 && z >= 4 && z <= 40, mine = x == 8 && z >= 4 && z <= 40, joins = (z == 4 || z == 40) && x >= 4 && x <= 8;
+                level.setBlock(h.absolutePos(new BlockPos(x, y, z)), head && (straight || mine || joins) ? Blocks.AIR.defaultBlockState() : Blocks.NETHERRACK.defaultBlockState(), 2);
+            }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.setHealth(20f);
+            c.tasks.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 3) { // his trail: out along the side tunnel and back to the start (the cells he stood in)
+            for (int z = 40; z >= 4; z--) { BlockPos q = h.absolutePos(new BlockPos(8, 2, z)); c.setPos(q.getX() + 0.5, q.getY(), q.getZ() + 0.5); com.claudemod.entity.nav.Route.step(c); }
+            for (int x = 8; x >= 4; x--) { BlockPos q = h.absolutePos(new BlockPos(x, 2, 4)); c.setPos(q.getX() + 0.5, q.getY(), q.getZ() + 0.5); com.claudemod.entity.nav.Route.step(c); }
+        }
+        if (t[0] == 6) {
+            BlockPos to = h.absolutePos(new BlockPos(4, 2, 44)), mineX = h.absolutePos(new BlockPos(8, 2, 0));
+            var a = com.claudemod.entity.nav.NetherRoute.plan(c, level, c.blockPosition(), to);
+            check(a != null, "no Nether route at all");
+            long onTrail = a.legs().stream().filter(q -> q.getX() == mineX.getX()).count();
+            check(onTrail >= 2, "the route took the tunnel he never walked over his own trail beside it: legs " + a.legs());
+            var b = com.claudemod.entity.nav.NetherRoute.plan(c, level, c.blockPosition(), to);
+            check(b != null && b.legs().equals(a.legs()), "planned again from the same spot, a different way: " + a.legs() + " then " + (b == null ? "none" : b.legs()));
+            pass(stage, t, "his own trail home: " + onTrail + " legs on it, the same way planned again (" + a.legs().size() + " legs, ~" + (int) a.seconds() + " s)");
+        }
+        return true;
+    }
+    /** Stage 840 (D2D 01:57 World 17: unarmored, 19 HP, no food, an iron sword, an enderman engaged as if free; 17 -> 9 in 10 s): the fight is dear like that, fair with a chestplate, fed and whole. */
+    private static boolean st840(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] != 2) { if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 24000; } return true; }
+        c.getInventory().clearContent(); for (var sl : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET}) c.setItemSlot(sl, ItemStack.EMPTY);
+        c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.setHealth(19); c.getFoodData().setFoodLevel(6);
+        double bare = com.claudemod.entity.life.HuntPatrol.fightS(c, 19, 0, 0, false), low = com.claudemod.entity.life.HuntPatrol.fightS(c, 10, 14, 0, false); // (02:01 live death: 10 HP, armor 14, hunger 8, no food)
+        c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.GOLDEN_HELMET)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+        double geared = com.claudemod.entity.life.HuntPatrol.fightS(c, 20, 8, 0, false); // (armor is read off the slots on his next tick: given, not read)
+        for (var sl : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST}) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+        check(bare > 400, "unarmored, 19 HP, unfed: an enderman fight priced only " + Math.round(bare) + " s");
+        check(low > 400, "10 HP, armor 14, no regen (the 02:01 death): priced only " + Math.round(low) + " s");
+        check(geared < bare / 2 && geared < low, "a chestplate, fed and whole: priced " + Math.round(geared) + " s (bare " + Math.round(bare) + ")");
+        pass(stage, t, "an enderman fight: " + Math.round(bare) + " s unarmored at 19 HP unfed, " + Math.round(low) + " s at 10 HP armor 14 unfed, " + Math.round(geared) + " s with a chestplate, fed and whole");
         return true;
     }
     /** Stage 838 (the user 01:19 11-06: "engage enderman weighted higher than explore"): on the hunt in a warped forest, the old blind explore leg queued; an enderman steps into view 8 ahead: the walk stops and he goes for it within 5 s (live 00:57-01:18: explore walked him off with 5 within 48). */

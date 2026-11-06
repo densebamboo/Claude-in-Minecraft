@@ -150,6 +150,29 @@ public final class HuntPatrol {
     /** Lava within 2 of a spot (cells): a fight or a stand there risks a knock into it. */
     static int lavaNear(ServerLevel level, BlockPos p) { int n = 0; for (BlockPos q : BlockPos.betweenClosed(p.offset(-2, -2, -2), p.offset(2, 1, 2))) if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) n++; return n; }
 
+    /** His melee: {damage a swing, seconds a swing} with the best sword on him (a fist: 1 a swing). */
+    static double[] melee(ClaudeEntity g) {
+        double dmg = 1; for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { var it = g.inventory.items.getItem(i);
+            double d = it.is(net.minecraft.world.item.Items.NETHERITE_SWORD) ? 8 : it.is(net.minecraft.world.item.Items.DIAMOND_SWORD) ? 7 : it.is(net.minecraft.world.item.Items.IRON_SWORD) ? 6 : it.is(net.minecraft.world.item.Items.STONE_SWORD) ? 5 : it.is(net.minecraft.world.item.Items.WOODEN_SWORD) || it.is(net.minecraft.world.item.Items.GOLDEN_SWORD) ? 4 : 1; dmg = Math.max(dmg, d); }
+        return new double[] {dmg, dmg > 1 ? 0.625 : 0.25};
+    }
+    /**
+     * An enderman fight, in seconds of his time (D2D 01:57 World 17: unarmored, 19 HP, no food, an iron sword: 7 swings, ~4 of its
+     * 7-HP hits, 17 -> 9 in 10 s; it was priced as 1.5 HP). Its 40 HP at his swing's damage is the fight's length; it lands about 0.4 hits a
+     * second on a swordsman (knockback keeps it off him half the time), 7 a hit (Normal) through his armor; hpS weighs that HP at his health and food.
+     * At the given health and armor factor (a "ready" what-if), or his own.
+     */
+    public static double fightS(ClaudeEntity g, double health, double armor, double tough, boolean fed) {
+        double[] m = melee(g); double swings = Math.ceil(w("pearls.enderman_hp", 40) / m[0]), len = swings * m[1];
+        double dmg = w("pearls.enderman_hit_hp", 7), perHit = dmg * (1 - Math.min(20, Math.max(armor / 5, armor - dmg / (2 + tough / 4))) / 25); // (vanilla's armor sum: armor 14 takes a 7 to ~4)
+        double hits = len * w("pearls.enderman_hits_per_s", 0.4), hp = hits * perHit;
+        double s0 = len + w("pearls.fight_s", 4) + Decide.hpS(g, health, 0, hp, perHit, (int) Math.ceil(len) + 1);
+        if (fed && g.getFoodData().getFoodLevel() < 18) s0 -= hp * (w("danger.s_per_hp_no_regen", 30) - w("danger.s_per_hp", 10)); // (a what-if fed: his HP back at the fed pace)
+        return s0;
+    }
+    /** At his own health, armor and food. */
+    public static double fightS(ClaudeEntity g) { return fightS(g, g.getHealth(), g.getArmorValue(), g.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS), false); }
+
     public static Next decide(ClaudeEntity g, ServerLevel level, boolean nether) {
         java.util.List<Decide.Option> opts = new ArrayList<>(); Map<String, Next> acts = new HashMap<>();
         double sprint = Decide.sprint(), road = nether ? PortalMap.NETHER_OFF_ROAD : 1.2;
@@ -157,6 +180,7 @@ public final class HuntPatrol {
         if (trips != null && trips.get(g.getUUID()) instanceof Object[] tr) { BlockPos to = (BlockPos) tr[0]; double d0 = (double) tr[2];
             if (g.blockPosition().distSqr(to) > 24 * 24 && Math.sqrt(g.blockPosition().distSqr(to)) > d0 - 16) { int f = fails(g).merge(to.asLong(), 1, Integer::sum); ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: the trip to the forest at {} got nowhere ({} off, was {}): {} failed trip(s) there on record (HuntPatrol.decide)", to.toShortString(), (int) Math.sqrt(g.blockPosition().distSqr(to)), (int) d0, f); }
             trips.remove(g.getUUID()); }
+        double fight = fightS(g); // (every way to a pearl ends in this fight: priced on each option, the same at his gear)
         boolean sword = g.inventory.count(x -> x.is(net.minecraft.world.item.Items.IRON_SWORD) || x.is(net.minecraft.world.item.Items.DIAMOND_SWORD) || x.is(net.minecraft.world.item.Items.NETHERITE_SWORD)) > 0;
         // 1. engage: each enderman he sees or heard within 48, not one he's let be (his armor and health in hpS, his sword in the fight's length)
         for (var m : Perception.known(g, net.minecraft.world.entity.monster.EnderMan.class, g.getBoundingBox().inflate(48, 16, 48), x -> x.isAlive())) {
@@ -164,25 +188,33 @@ public final class HuntPatrol {
             var at = Perception.believedAt(g, m); if (at == null) continue;
             boolean sees = Perception.seesNow(g, m); BlockPos ap = BlockPos.containing(at); double d = at.distanceTo(g.position());
             int lava = lavaNear(level, ap); double dy = Math.abs(ap.getY() - g.getBlockY());
-            double s = d * road / sprint + w("pearls.fight_s", 12) * (sword ? 1 : w("pearls.weak_sword_factor", 2)) + lava * w("pearls.lava_near_s", 8) + dy * w("pearls.climb_s", 3) + (sees ? 0 : w("pearls.heard_s", 15)) + Decide.hpS(g, w("pearls.enderman_hits", 1.5));
+            double s = d * road / sprint + fight + lava * w("pearls.lava_near_s", 8) + dy * w("pearls.climb_s", 3) + (sees ? 0 : w("pearls.heard_s", 15));
             String n = "enderman " + (int) d + " off" + (sees ? "" : " (heard)") + " #" + acts.size();
-            opts.add(Decide.Option.of(n, s, (sees ? "in sight" : "heard about " + ap.toShortString()) + (lava > 0 ? ", " + lava + " lava by it" : "") + (dy > 2 ? ", " + (int) dy + " up/down" : "") + (sword ? "" : ", no iron+ sword") + ", " + (int) g.getHealth() + " HP, armor " + g.getArmorValue()));
+            opts.add(Decide.Option.of(n, s, (sees ? "in sight" : "heard about " + ap.toShortString()) + (lava > 0 ? ", " + lava + " lava by it" : "") + (dy > 2 ? ", " + (int) dy + " up/down" : "") + (sword ? "" : ", no iron+ sword") + ", fight ~" + Math.round(fight) + " s at " + (int) g.getHealth() + " HP, armor " + g.getArmorValue() + ", food " + g.getFoodData().getFoodLevel()));
             acts.put(n, new Next("engage", m, ap, n));
         }
         // 2. patrol: the forest he's in, then each one on his atlas, by size (bigger: an enderman sooner), the trip, its failed trips
         String here = level.getBiome(g.blockPosition()).unwrapKey().map(k -> k.location().getPath()).orElse("");
-        if (here.equals("warped_forest")) { boolean quiet = Atlas.quietAt(g, level, g.blockPosition()); double area = forestArea(g, level), s = waitS(area) * (quiet ? w("pearls.quiet_factor", 3) : 1);
+        if (here.equals("warped_forest")) { boolean quiet = Atlas.quietAt(g, level, g.blockPosition()); double area = forestArea(g, level), s = waitS(area) * (quiet ? w("pearls.quiet_factor", 3) : 1) + fight;
             opts.add(Decide.Option.of("patrol this forest", s, "about " + (int) area + " square blocks seen" + (quiet ? ", judged quiet" : "")));
             acts.put("patrol this forest", new Next("patrol", null, null, "this forest, ~" + (int) area + " square blocks")); }
         var spots = Atlas.spots(g, level, "warped_forest");
         java.util.List<BlockPos> far = new ArrayList<>(); for (BlockPos q : spots) if (q.distSqr(g.blockPosition()) > 48 * 48) { boolean dup = false; for (BlockPos f0 : far) if (f0.distSqr(q) <= 96 * 96) dup = true; if (!dup) far.add(q); }
         for (BlockPos q : far) { double d = Math.sqrt(q.distSqr(g.blockPosition())), area = knownArea(spots, q); int f = fails(g).getOrDefault(q.asLong(), 0); boolean quiet = Atlas.quietAt(g, level, q);
-            double s = d * road / sprint + f * w("pearls.trip_fail_s", 120) + waitS(area) * (quiet ? w("pearls.quiet_factor", 3) : 1);
+            double s = d * road / sprint + f * w("pearls.trip_fail_s", 120) + waitS(area) * (quiet ? w("pearls.quiet_factor", 3) : 1) + fight;
             String n = "the forest at " + q.toShortString();
             opts.add(Decide.Option.of(n, s, (int) d + " off, ~" + (int) area + " square blocks" + (f > 0 ? ", " + f + " failed trip(s)" : "") + (quiet ? ", judged quiet" : "")));
             acts.put(n, new Next("go", null, q, n)); }
         // 3. explore for a new one, last
-        opts.add(Decide.Option.of("explore for a new forest", w("pearls.search_s", SEARCH_S) + waitS(TYPICAL), "a search, then a typical forest"));
+        opts.add(Decide.Option.of("explore for a new forest", w("pearls.search_s", SEARCH_S) + waitS(TYPICAL) + fight, "a search, then a typical forest"));
+        // 4. get ready first: full health, fed, a chestplate's worth of armor (gear_up's kit), then the same fight at that (the user's rule: priced, never a gate)
+        { Object[] lr = readied == null ? null : readied.get(g.getUUID()); // (got ready a while ago and his armor's no better: the kit can't give armor now, only health and food)
+          boolean noArmorToHave = lr != null && now(g) - (long) lr[0] < 20 * w("pearls.ready_again_s", 1200) && g.getArmorValue() <= (int) lr[1];
+          double readyArmor = noArmorToHave ? g.getArmorValue() : Math.max(g.getArmorValue(), w("pearls.ready_armor", 14)), readyFight = fightS(g, 20, readyArmor, g.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS), true);
+          var portal = nether ? PortalMap.net(g).portals.stream().filter(p0 -> PortalMap.NETHER.equals(p0.dim)).min(java.util.Comparator.comparingDouble(p0 -> p0.at.distSqr(g.blockPosition()))).orElse(null) : null;
+          double trip = nether ? (portal == null ? w("pearls.no_portal_s", 1800) : 2 * (Math.sqrt(portal.at.distSqr(g.blockPosition())) * road / sprint + w("highway.portal_s", 8))) : 0, cost = w("pearls.ready_s", 240) + trip;
+          opts.add(Decide.Option.of("get ready first", cost + readyFight, (nether ? "through the portal and back (~" + Math.round(trip) + " s), " : "") + "gear_up's kit (~" + Math.round(w("pearls.ready_s", 240)) + " s: food, armor), then the fight ~" + Math.round(readyFight) + " s at 20 HP, armor " + (int) readyArmor + (noArmorToHave ? " (no armor came of the last go)" : "")));
+          acts.put("get ready first", new Next("ready", null, null, "the kit first")); }
         acts.put("explore for a new forest", new Next("explore", null, null, "a new forest"));
         var pick = Decide.choose(g, "pearls.next", (here.isEmpty() ? "" : here + ", ") + g.blockPosition().toShortString(), true, opts);
         Next nx = acts.get(pick.name());
@@ -190,6 +222,9 @@ public final class HuntPatrol {
         return nx;
     }
 
+    private static Map<UUID, Object[]> readied; // his last "get ready first": {server tick, armor then}
+    /** He goes to get ready: noted, so a kit that gave no armor isn't promised again. */
+    public static void readying(ClaudeEntity g) { if (readied == null) readied = new HashMap<>(); readied.put(g.getUUID(), new Object[] {now(g), g.getArmorValue()}); }
     /** He sets off for that forest: next round, not there and no nearer is a failed trip against it. */
     public static void going(ClaudeEntity g, BlockPos to) { if (trips == null) trips = new HashMap<>(); trips.put(g.getUUID(), new Object[] {to.immutable(), now(g), Math.sqrt(to.distSqr(g.blockPosition()))}); }
     /** Each tick: on a hunt (ender_pearls in his plan), a walk with an enderman coming into view stops, so the hunt weighs it (the user: "engage enderman weighted higher than explore"; live 00:57-01:18 explore walked him off with 5 within 48). */

@@ -10550,6 +10550,7 @@ public final class ClaudeBodyTest {
             case 751: return st751(stage, t, c, h, level, mock);
             case 752: return st752(stage, t, c, h, level, mock);
             case 753: return st753(stage, t, c, h, level, mock);
+            case 754: return st754(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -14292,6 +14293,33 @@ public final class ClaudeBodyTest {
                 check(d1 > st753D0, "the creeper " + String.format("%.1f", st753D0) + " -> " + String.format("%.1f", d1) + " off in 2 s (alive " + c.isAlive() + "): no getting away from it");
                 pass(stage, t, "back on the creeper's side of his gap: away from it (" + String.format("%.1f", st753D0) + " -> " + String.format("%.1f", d1) + "), no plug from their side");
             }
+        }
+        return true;
+    }
+    private static int st754Hit, st754Phase; private static net.minecraft.world.entity.monster.Zombie st754Z;
+    private static boolean st754(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // fight or run as one priced choice (shouldFlee -> fleePriced, the user: "every fixed rule a weighted decision"): hit to 5 HP by a lone zombie at night with a stone sword. Food 6, no sprint: the run is caught from behind, so the fight (the old rules ran: "losing, run while he can"); food 20: the run
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); st754Phase = 0; st754Hit = -1; }
+        if (t[0] == 5) for (int cx = -1; cx <= 2; cx++) for (int cz = -1; cz <= 2; cz++) { BlockPos p = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(p), 2, p); }
+        BlockPos me = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 10 || t[0] == 200) {
+            for (int x = -16; x <= 32; x++) for (int z = -16; z <= 32; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 6; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(8); c.getFoodData().setFoodLevel(t[0] == 10 ? 6 : 20); c.getFoodData().setSaturation(0); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            level.setDayTime(18000);
+            st754Z = EntityType.ZOMBIE.create(level); st754Z.moveTo(me.getX() + 2.5, me.getY(), me.getZ() + 0.5, 90, 0); st754Z.setPersistenceRequired(); level.addFreshEntity(st754Z); st754Z.setTarget(c); st754Hit = -1; st754Phase = t[0] == 10 ? 1 : 2;
+        }
+        if (t[0] > 10 && st754Phase > 0) {
+            level.setDayTime(18000); if (st754Z.isAlive() && st754Z.getTarget() != c) st754Z.setTarget(c);
+            if (st754Phase == 1) c.getFoodData().setFoodLevel(6); else c.getFoodData().setFoodLevel(20);
+            if (st754Hit < 0 && c.getHealth() < 8) st754Hit = t[0];
+            if (st754Hit > 0 && t[0] == st754Hit + 10) {
+                boolean fled = c.currentTask instanceof Task.Flee, fought = c.currentTask instanceof Task.Attack;
+                if (st754Phase == 1) { check(fought, "hit to " + (int) c.getHealth() + " at food 6 (no sprint): " + (fled ? "running, caught from behind" : "doing " + c.currentTask) + ", not the fight"); st754Z.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; st754Phase = 0; }
+                else { check(fled && !fought, "hit to " + (int) c.getHealth() + " at food 20: " + (fought ? "fighting on" : "doing " + c.currentTask) + ", not away"); st754Z.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+                    pass(stage, t, "fight or run priced: at 5 HP unable to sprint, the fight; able to, the run"); }
+            }
+            check(t[0] < 600, "the zombie never hit him (phase " + st754Phase + ")");
         }
         return true;
     }

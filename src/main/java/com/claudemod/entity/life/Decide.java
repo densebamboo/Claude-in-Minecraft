@@ -60,12 +60,15 @@ public final class Decide {
      * danger.min_hp_left costs danger.under_floor_s, and the chance they kill him danger.death_s. A steep price, never a refusal:
      * at 2 HP one zombie hit is death, so even a short walk in the dark prices high; at full health the same walk is cheap.
      */
-    public static double hpS(ClaudeEntity g, double sure, double hits, double perHit) {
-        double per = g.getFoodData().getFoodLevel() >= 18 ? w("danger.s_per_hp", 10) : w("danger.s_per_hp_no_regen", 30), h0 = g.getHealth() - Math.max(0, sure);
+    public static double hpS(ClaudeEntity g, double sure, double hits, double perHit) { return hpS(g, g.getHealth(), sure, hits, perHit, Integer.MAX_VALUE); }
+    /** The same at the given health, with at most `most` hits able to land (a mob's swing has its cooldown: a 2 s fight with one zombie is 2-3 hits, never 6). */
+    public static double hpS(ClaudeEntity g, double health, double sure, double hits, double perHit, int most) {
+        double per = g.getFoodData().getFoodLevel() >= 18 ? w("danger.s_per_hp", 10) : w("danger.s_per_hp_no_regen", 30), h0 = health - Math.max(0, sure);
         double s = (Math.max(0, sure) + Math.max(0, hits)) * per;
         if (h0 <= 0) return s + w("danger.death_s", 1800);
         double floor = w("danger.min_hp_left", 4), ph = Math.max(0.5, perHit), lam = Math.max(0, hits) / ph;
-        return s + atLeast(lam, (int) Math.ceil(h0 / ph)) * w("danger.death_s", 1800) + atLeast(lam, (int) Math.ceil((h0 - floor) / ph)) * w("danger.under_floor_s", 300);
+        int kDie = (int) Math.ceil(h0 / ph), kFloor = (int) Math.ceil((h0 - floor) / ph);
+        return s + (kDie > most ? 0 : atLeast(lam, kDie)) * w("danger.death_s", 1800) + (kFloor > most ? 0 : atLeast(lam, kFloor)) * w("danger.under_floor_s", 300);
     }
     /** Hits at hitHp() each (a zombie's, Normal) through his armor. */
     public static double hpS(ClaudeEntity g, double hits) { return hpS(g, 0, hits, hitHp() * armorF(g)); }

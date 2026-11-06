@@ -427,12 +427,9 @@ public class WorkGoal extends Goal {
             if (retreat && (current != null || !g.tasks.isEmpty())) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] retreating at health {}: the job there ({} tasks) is dropped, not walked back into", (int) g.getHealth(), g.tasks.size()); com.claudemod.director.ClaudeLife.clearTasks(g); }
             else if (current != null && g.tasks.peek() != current) { clearCrack(); g.tasks.addFirst(current); } // (once: not a copy of it every time this fires)
             com.claudemod.director.ClaudeLife.craftSwordIfCan(g, (ServerLevel) g.level()); // something's on him: a sword if he can make one
-            boolean run = shouldFlee(foe);
+            boolean run = shouldFlee(foe, true);
             if (run) { var gf = gapFoe(); if (gf != null) { run = false; g.urgentAttacker = gf.getUUID(); } } // (a crowd with a wither skeleton in it: the fight from a gap it can't reach into, never a run past them)
-            if (!run && g.getArmorValue() == 0 && (g.lastStep != null && g.lastStep.skill().equals("recover_drops") || g.skillQueue.stream().anyMatch(s0 -> s0.skill().equals("recover_drops")))) { // on the run back to his pile, out of his armor: away, never the fight, till he's in what fell (the user 11-05: "going straight for the pile is a valid strategy, you just have to do it right by avoiding combat altogether until you get suited with your pickups"; World 17 20:51, "fighting back: Piglin" ungeared, the pile 80 off, dead)
-                var dn0 = com.claudemod.entity.life.DeathLog.next(g, g.level().dimension().location().getPath());
-                if (dn0 != null) { run = true; com.claudemod.ClaudeMod.LOGGER.info("[Claude decide] hit by a {} on his run back to his pile at {} in {}, no armor on: away from it, no fight till he's in what fell (WorkGoal.tick)", foe == null ? "?" : foe.getType().getDescription().getString(), dn0.at.toShortString(), dn0.dim); }
-            }
+            // (on the run back to his pile out of his armor: the pile rides on the fight, priced in fleePriced: recovery.fight_s)
             current = run ? new Task.Flee(600) : new Task.Attack(g.urgentAttacker, 300); if (run) fleeSeed = g.urgentAttacker; // (the one that set him running is what he runs from, seen or not) // (the run ends when he's clear of them, above; 30 s is only the backstop: 8 s cut it off 15 blocks from a witch)
             g.currentTask = current; // what he's doing right now (the chat and the logs read this)
             g.dropCurrent = false; // a drop meant for the job he was on (re-queued above) must not kill this fight the same tick (that re-armed the same fight every 5 ticks, 750 tasks deep)
@@ -4523,7 +4520,8 @@ public class WorkGoal extends Goal {
     /** Silverfish and endermites while he's above 8 health: 1 damage a bite, swatted, never a crowd to run from (stage 559: six from the portal room's spawner ran him off and he plugged himself out of the room). */
     private boolean pest(net.minecraft.world.entity.Entity m) { return g.getHealth() > 8 && (m instanceof net.minecraft.world.entity.monster.Silverfish || m instanceof net.minecraft.world.entity.monster.Endermite); }
 
-    private boolean shouldFlee(net.minecraft.world.entity.Entity foe) {
+    private boolean shouldFlee(net.minecraft.world.entity.Entity foe) { return shouldFlee(foe, false); }
+    private boolean shouldFlee(net.minecraft.world.entity.Entity foe, boolean say) {
         if (foe instanceof net.minecraft.world.entity.LivingEntity l0 && outOfItsReach(l0)) return false; // it can't get him up there: no reason to run (an iron golem under his 3-high tower read as a lost fight)
         if (com.claudemod.entity.life.FortressFight.coverMob(foe) && g.getHealth() > 6 && foe instanceof net.minecraft.world.entity.LivingEntity lf && com.claudemod.entity.life.FortressFight.coverFor(g, (ServerLevel) g.level(), lf) != null) { fightOdds = "from cover"; return false; } // a blaze or wither skeleton with cover at hand: the cover fight backs into it itself (running in the open from fireballs is how it goes wrong)
         if (g.tickCount < cornerUntil && !(foe instanceof net.minecraft.world.entity.monster.Creeper)) return false; // cornered a moment ago: fight, no more running into the wall
@@ -4531,24 +4529,58 @@ public class WorkGoal extends Goal {
         if (foe instanceof net.minecraft.world.entity.monster.WitherSkeleton) { fightOdds = "wither skeletons: as fast as him, no outrunning them on foot; fought from a 2-high gap or 3 up a pillar (coverFight)"; return false; } // (World 15 19:00:10: he ran from 2 at 6 health, they kept pace, dead in a second)
         if (foe instanceof net.minecraft.world.entity.monster.EnderMan) { fightOdds = "endermen: no outrunning a teleporter; fought (endermanHole for cover)"; return false; } // ponytail: live 18:43 death, he ran from 3 angry endermen and took 7 a hit from behind, 20 -> 0 in 24 s without one swing back
         if (foe instanceof net.minecraft.world.entity.monster.Creeper c && c.distanceTo(g) < 5 && ((c.getSwellDir() > 0 && !canHitNow(c)) || !armed() || g.getHealth() <= 10)) return true; // hissing and he can't hit it right now (or can't fight it): run
-        int n = (int) hostilesNear(10).stream().filter(m -> !pest(m) && !(m instanceof net.minecraft.world.entity.monster.Phantom) && !(m instanceof net.minecraft.world.entity.monster.Creeper && m.distanceTo(g) > 6)).count(); // the crowd that running gets him away from: no phantoms overhead (no outrunning them), no creeper 12-19 off (live 12:07 11-02: those made one spider '4 on him' and he ran instead of 2-3 axe hits)
+        java.util.List<net.minecraft.world.entity.Mob> crowd = hostilesNear(10).stream().filter(m -> !pest(m) && !(m instanceof net.minecraft.world.entity.monster.Phantom) && !(m instanceof net.minecraft.world.entity.monster.Creeper && m.distanceTo(g) > 6)).toList(); int n = crowd.size(); // the crowd that running gets him away from: no phantoms overhead (no outrunning them), no creeper 12-19 off (live 12:07 11-02: those made one spider '4 on him' and he ran instead of 2-3 axe hits)
         // three or more on him is a crowd whatever he's holding: get out of their reach (tower or dig in) and fight from there
         boolean underground = underground((ServerLevel) g.level(), g.blockPosition()); // (rock over him: a tree's leaves are the open)
         boolean armored = false; for (EquipmentSlot sl : EquipmentSlot.values()) if (sl.isArmor() && !g.getItemBySlot(sl).isEmpty()) armored = true;
-        if (underground && !weakFighter() && g.getHealth() > 8 && n <= (armored ? 2 : 1) && !(foe instanceof net.minecraft.world.entity.monster.Creeper)) return false; // down a cave with a real sword: running in the dark is how you die; one zombie gets fought bare, two only in armor (two bare took 11 health in 3 s)
+        // (down a cave: no rule any more, the run there is priced with its dark hits, fight.flee: "running in the dark is how you die"; one zombie fought bare, two only in armor (two bare took 11 health in 3 s))
         if (foe instanceof net.minecraft.world.entity.monster.Witch w) { int toKill = hitsToKill(w); fightOdds = "kill it in " + toKill + ", its potions kill him in about " + (int) Math.ceil(g.getHealth() / 6.0); return !(toKill <= 3 || (armored && !weakFighter() && g.getHealth() > 12)); } // a witch: rushed and killed when that's quick (close in it throws slow and heals only between throws), else out of its sight; "no armor: run" ran from one a hit from dead, in its sight for 20 s // potions from range, over walls, by day too: no armor or no real sword, get out of its range (meleeing one with a wooden axe at 12 health killed him)
-        if ((g.getHealth() <= 10 && n >= 2) || ((!armed() || weakFighter()) && n >= 2) || n >= (prepared() ? 4 : 3)) { fightOdds = n + " on him" + (prepared() ? " (prepared: a crowd is 4+)" : ""); return true; } // (the combat rule: a crowd is left alone unless he's prepared, iron and food: in iron with a diamond sword and six meals he ran from two skeletons and a zombie at 17 health, live 04:42)
-        // One on one: size it up like a player. Winning the race: see it through, even at low health (running from a mob as fast as
-        // you with it two hits from dead is how you die). Losing it: leave now, while there's health to run with, not at a heart and a half.
-        if (foe instanceof net.minecraft.world.entity.LivingEntity l && !(foe instanceof net.minecraft.world.entity.monster.Creeper)) {
-            int toKill = hitsToKill(l), toDie = hitsToDie(l);
-            fightOdds = "kill it in " + toKill + ", dead in " + toDie;
-            if (l instanceof net.minecraft.world.entity.monster.AbstractSkeleton) { int closing = (int) Math.ceil(l.distanceTo(g) / 6.0); return g.getHealth() <= 6 && toDie <= toKill + closing; } // a shooter: closing in is the plan; at low health only if the numbers say he'd lose (it shoots ~once per 6 blocks he sprints). "kill it in 3, dead in 6" in iron backed off, hid in four spots in its line of fire and died
-            boolean losing = toDie * 1.6 < toKill; // ~1.6 swings of his per hit it lands (sword 0.6s, a zombie ~1s)
-            if (!losing) return false;
-            return g.getHealth() > 6 || toKill > 2; // losing: run while he can; at the end, only a mob two hits from dead is worth finishing
+        return fleePriced(foe, crowd, underground, say);
+    }
+
+    /**
+     * Fight or run, one priced choice (Decide.choose "fight.flee"), seconds of his time each:
+     * the fight is its swings (fight.swing_s each, hitsToKill) and the hits he takes till they're down, each one on him swinging
+     * (fight.mob_hits_per_s, its cooldown capping them: fight.mob_cooldown_s) till it's dead, a shooter's shots while he closes in;
+     * the run is its time (flee.run_s), the hits he takes breaking off (flee.hits_breaking_off from each within 4) or all the way
+     * from one that keeps pace (shooters, baby zombies, phantoms, anything once he can't sprint: flee.chase_hits), more in the
+     * dark underground (flee.dark_hits), and then the same mobs met again: fought at full health, or kept away from
+     * (flee.avoid_s; a mob burning in the sun only its health in seconds), whichever is cheaper. So at full health he fights
+     * what he'd fight anyway, low health makes the fight now dear and the later one not, and a fight he'd lose now or later is
+     * kept away from. On the run back to his pile out of his armor the pile rides on the fight (recovery.fight_s: the user
+     * 11-05, "avoiding combat altogether until you get suited with your pickups"). Replaces the crowd, one-on-one, cave,
+     * skeleton, HP 6 and recovery-run rules.
+     */
+    private static double w(String name, double dflt) { return com.claudemod.entity.life.Weights.w(name, dflt); }
+    private boolean fleePriced(net.minecraft.world.entity.Entity foe, java.util.List<net.minecraft.world.entity.Mob> crowd, boolean underground, boolean say) {
+        java.util.List<net.minecraft.world.entity.LivingEntity> them = new java.util.ArrayList<>(crowd);
+        if (foe instanceof net.minecraft.world.entity.LivingEntity lf && lf.isAlive() && !them.contains(lf)) them.add(lf);
+        if (them.isEmpty()) { fightOdds = "nothing on him"; return false; }
+        them.sort(java.util.Comparator.comparingDouble(m -> m.distanceTo(g)));
+        double swing = w("fight.swing_s", 0.6), rate = w("fight.mob_hits_per_s", 0.8), cool = w("fight.mob_cooldown_s", 1.0);
+        double t = 0, hits = 0, hp = 0, runHits = 0, burnS = 0; int most = 0, swings = 0; boolean sprint = g.getFoodData().getFoodLevel() > 6, allBurn = true;
+        for (var m : them) {
+            double dmg = mobHit(m); boolean ranged = m instanceof net.minecraft.world.entity.monster.RangedAttackMob;
+            int k = hitsToKill(m); swings += k; t += k * swing;
+            double h = t * rate + (ranged ? m.distanceTo(g) / w("fight.close_blocks_per_shot", 6) : 0); // (each hits him till it's down: the first for its own time, the next for both; a shooter ~a shot each 6 blocks he closes)
+            hits += h; hp += h * dmg; most += (int) Math.ceil(t / cool) + (ranged ? 2 : 0);
+            boolean pace = !sprint || ranged || m instanceof net.minecraft.world.entity.monster.Phantom || (m instanceof net.minecraft.world.entity.monster.Zombie z && z.isBaby());
+            runHits += (pace ? w("flee.chase_hits", 3) : m.distanceTo(g) < 4 ? w("flee.hits_breaking_off", 0.7) : 0) * dmg;
+            boolean burning = m.isOnFire() && !m.fireImmune() && g.level().isDay(); allBurn &= burning; burnS = Math.max(burnS, m.getHealth() / w("flee.burn_hp_per_s", 1.0));
         }
-        return g.getHealth() <= 6;
+        double perHit = hits > 0 ? hp / hits : 3;
+        if (underground) runHits += w("flee.dark_hits", 1.0) * perHit;
+        boolean pile = g.getArmorValue() == 0 && (g.lastStep != null && g.lastStep.skill().equals("recover_drops") || g.skillQueue.stream().anyMatch(s0 -> s0.skill().equals("recover_drops")))
+                && com.claudemod.entity.life.DeathLog.next(g, g.level().dimension().location().getPath()) != null;
+        double fightNow = t + com.claudemod.entity.life.Decide.hpS(g, g.getHealth(), 0, hp, perHit, most), fightFull = t + com.claudemod.entity.life.Decide.hpS(g, g.getMaxHealth(), 0, hp, perHit, most);
+        double later = Math.min(fightFull, allBurn ? burnS : w("flee.avoid_s", 180));
+        double run = w("flee.run_s", 20) + com.claudemod.entity.life.Decide.hpS(g, 0, runHits, perHit) + later;
+        String what = them.size() == 1 ? them.get(0).getType().getDescription().getString() : them.size() + " on him";
+        var pick = com.claudemod.entity.life.Decide.choose(g, "fight.flee", what + ", health " + (int) g.getHealth() + ", armor " + g.getArmorValue() + (armed() ? "" : ", unarmed") + (underground ? ", underground" : ""), say, java.util.List.of(
+            com.claudemod.entity.life.Decide.Option.of("fight", fightNow + (pile ? w("recovery.fight_s", 600) : 0), swings + " swings, ~" + Math.round(hp) + " HP of hits" + (pile ? ", his pile on it out of his armor" : "")),
+            com.claudemod.entity.life.Decide.Option.of("run", run, "~" + Math.round(runHits) + " HP getting away, then " + (later == fightFull ? "the fight at full health" : allBurn ? "keeping away while it burns" : "keeping away from them"))));
+        fightOdds = what + ": fight ~" + Math.round(fightNow) + " s (kill in " + swings + ", ~" + Math.round(hp) + " HP of hits)" + (pile ? " + his pile" : "") + ", run ~" + Math.round(run) + " s";
+        return pick != null && pick.name().equals("run");
     }
 
     private String fightOdds = ""; // the last sizing-up, for the log
@@ -4587,11 +4619,13 @@ public class WorkGoal extends Goal {
     }
 
     /** Hits it needs to land on him, with his armor counted. */
-    private int hitsToDie(net.minecraft.world.entity.LivingEntity mob) {
+    private int hitsToDie(net.minecraft.world.entity.LivingEntity mob) { return (int) Math.ceil(g.getHealth() / mobHit(mob)); }
+
+    /** What a hit of its does to him through his armor (vanilla armor: up to 80% off). */
+    private double mobHit(net.minecraft.world.entity.LivingEntity mob) {
         double raw = mob.getAttributes().hasAttribute(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE)
                 ? mob.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE) : 3.0;
-        double after = Math.max(1.0, raw * (1.0 - Math.min(20, g.getArmorValue()) / 25.0)); // (vanilla armor: up to 80% off)
-        return (int) Math.ceil(g.getHealth() / after);
+        return Math.max(1.0, raw * (1.0 - Math.min(20, g.getArmorValue()) / 25.0));
     }
 
     private Vec3 fleeDir; // the way he's running: picked once, kept till it's blocked

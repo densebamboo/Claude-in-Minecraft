@@ -10570,6 +10570,7 @@ public final class ClaudeBodyTest {
             case 766: return st766(stage, t, c, h, level, mock);
             case 767: return st767(stage, t, c, h, level, mock);
             case 768: return st768(stage, t, c, h, level, mock);
+            case 769: return st769(stage, t, c, h, level, mock);
             case 762: return st762(stage, t, c, h, level, mock);
             case 763: return st763(stage, t, c, h, level, mock);
             case 758: return st758(stage, t, c, h, level, mock);
@@ -14909,6 +14910,38 @@ public final class ClaudeBodyTest {
             check(c.getX() < st768X0 + 2.5, "ran toward the creeper on the only way out of the dip (" + String.format("%.1f", c.getX() - st768X0) + " east, doing " + c.currentTask + ")");
             if (t[0] - st768Start >= 20 * 15) { st768C.discard(); st768C = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY); pass(stage, t, "15 s in the dip, never up the way out past the creeper"); }
         }
+        return true;
+    }
+    private static int st769Hold, st769Out; private static float st769Low; private static net.minecraft.world.entity.monster.Skeleton st769Sk;
+    private static boolean st769(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // in his hole in the Nether at 2 HP, food 17, nothing to eat (no regen: the hole heals nothing), a skeleton camped above, his lit portal 24 off to the side (World 17 05:18-05:24: 5 min holding at 2 HP, then "tunnelling out 16 blocks west and coming up there" on an open ledge in the shooter's view, dead): out of the hole toward his way home, under the rock, up where it can't see him
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(9800, 64, 6000), portal = o.offset(1, 0, 24);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st769Hold = -1; st769Out = -1; st769Low = 20; st769Sk = null; }
+        if (t[0] > 4 && t[0] % 10 == 0) for (int cx = -3; cx <= 3; cx++) for (int cz = -3; cz <= 4; cz++) { BlockPos q = o.offset(cx * 16, 0, cz * 16); nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(q), 2, q); }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(70))) if (e != st769Sk) e.discard(); if (t[0] > 4 && t[0] <= 22) for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(70))) e.discard(); // (the last run's drops: gone)
+        if (t[0] == 10) {
+            for (int x = -30; x <= 30; x++) for (int z = -30; z <= 40; z++) for (int y = -8; y <= 7; y++) nl.setBlock(o.offset(x, y, z), (x >= -12 && x <= 1 && Math.abs(z) <= 2 && y >= 0 && y <= 3) || (x >= -1 && x <= 4 && z >= 22 && z <= 26 && y >= -1 && y <= 5) ? Blocks.AIR.defaultBlockState() : Blocks.NETHERRACK.defaultBlockState(), 2);
+            for (int x = 0; x <= 3; x++) for (int y = -1; y <= 4; y++) { boolean frame = x == 0 || x == 3 || y == -1 || y == 4; nl.setBlock(o.offset(x, y, 24), frame ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 8));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.setHealth(2); c.getFoodData().setFoodLevel(17); c.getFoodData().setSaturation(0);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null; c.pillarBlocks.clear();
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, portal, "him", "lit");
+        }
+        if (t[0] == 20) { com.claudemod.entity.life.Perception.reset(c); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); check(c.work.shelter(), "no cover (" + c.noCoverWhyNow() + ")"); }
+        if (t[0] > 20 && st769Hold < 0 && c.currentTask instanceof Task.Wait && c.work.holdingCover()) { st769Hold = t[0]; c.tasks.add(new Task.GoTo(portal, 1.5)); // (on his way home to it, as live: after the hold)
+           
+            st769Sk = EntityType.SKELETON.create(nl); st769Sk.moveTo(o.getX() - 7.5, o.getY(), o.getZ() + 0.5, 0, 0); st769Sk.setPersistenceRequired(); st769Sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW)); nl.addFreshEntity(st769Sk); st769Sk.setTarget(c); }
+        if (t[0] < 20 || st769Hold < 0) c.setHealth(2);
+        if (st769Hold > 0) {
+            c.getFoodData().setFoodLevel(17); c.getFoodData().setSaturation(0); if (st769Sk.isAlive() && st769Sk.getTarget() != c) st769Sk.setTarget(c);
+            if (st769Out < 0 && !c.work.holdingCover()) { st769Out = t[0]; com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 769: out of the hold after {} s at {}", (t[0] - st769Hold) / 20, c.blockPosition().toShortString()); }
+            st769Low = Math.min(st769Low, c.getHealth());
+            boolean home = c.level() != nl || c.blockPosition().closerThan(portal, 3.5);
+            check(c.isAlive(), "dead at 2 HP with nothing to eat (out of the hold " + (st769Out < 0 ? "never" : (st769Out - st769Hold) / 20 + " s in") + ")");
+            if (home) { if (c.level() == nl) { st769Sk.discard(); } nsHome(c, h, level); c.setHealth(20); pass(stage, t, "home by his portal: out of the hole " + (st769Out - st769Hold) / 20 + " s in, " + (t[0] - st769Hold) / 20 + " s all told, low " + st769Low); }
+            else check(t[0] - st769Hold < 20 * 120, "2 min at 2 HP with nothing to eat and no regen, not at his portal 24 off (at " + c.blockPosition().toShortString() + ", out of the hold " + (st769Out < 0 ? "never" : (st769Out - st769Hold) / 20 + " s in") + ", doing " + c.currentTask + ")");
+        }
+        if (t[0] > 20 && st769Hold < 0) check(t[0] < 400, "never settled in a hole: at " + c.blockPosition() + ", now=" + c.currentTask + " tasks=" + c.tasks);
         return true;
     }
     private static boolean st754(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // fight or run as one priced choice (shouldFlee -> fleePriced, the user: "every fixed rule a weighted decision"): hit to 5 HP by a lone zombie at night with a stone sword. Food 6, no sprint: the run is caught from behind, so the fight (the old rules ran: "losing, run while he can"); food 20: the run

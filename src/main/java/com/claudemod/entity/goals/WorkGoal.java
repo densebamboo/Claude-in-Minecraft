@@ -2983,7 +2983,7 @@ public class WorkGoal extends Goal {
             boreDir = Math.abs(dx) >= Math.abs(dz) ? (dx > 0 ? Direction.EAST : Direction.WEST) : (dz > 0 ? Direction.SOUTH : Direction.NORTH);
         if (boreAxis0 == null) boreAxis0 = boreDir.getAxis();
         if (!g.onGround() && !g.isInWater() && !g.isInLava()) return false; // (mid-step: the body lands first)
-        int wantY = Math.max(level.getMinBuildHeight() + 5, Math.min(120, t.y() + boreYOff));
+        int wantY = Math.max(Math.min(me.getY(), level.getMinBuildHeight() + 5), Math.min(120, t.y() + boreYOff)); // (the floor band: never down into it, never pulled up out of it either: 3 off the bottom it climbed him into the open under a husk; stage 635)
         int ny = me.getY() + Integer.signum(wantY - me.getY());
         BlockPos laneOf = boreDir.getAxis() == boreAxis0 ? boreFrom : goal; // (the L's lanes: the first leg on his start's line, the second on the goal's)
         int lane = (boreDir.getAxis() == Direction.Axis.X ? laneOf.getZ() : laneOf.getX()) + boreLaneOff;
@@ -4130,32 +4130,18 @@ public class WorkGoal extends Goal {
                     return true;
                 }
             }
-            if (g.getHealth() < 8 && !hostilesNear(12).isEmpty() && !(com.claudemod.director.ClaudeLife.dayHere(g.level()) && ticks > 20 * 45 && digInAt != null && !tunnelOut().contains(digInAt))) return false; // (by day, 45 s in and no tunnel out tried yet: the tunnel-out below gets its go; walled in a cave at 6 health he sat 5 minutes with zombies that never burn down there) // at a few hearts with mobs still right there: the cover holds, however long (coming down at 1 health into them is a death, not a plan)
+            if (g.getHealth() < 8 && !hostilesNear(12).isEmpty() && !(com.claudemod.director.ClaudeLife.dayHere(g.level()) && ticks > 20 * w("cover.leave_first_s", 5) && digInAt != null && !tunnelOut().contains(digInAt))) return false; // (by day, 45 s in and no tunnel out tried yet: the tunnel-out below gets its go; walled in a cave at 6 health he sat 5 minutes with zombies that never burn down there) // at a few hearts with mobs still right there: the cover holds, however long (coming down at 1 health into them is a death, not a plan)
             if (ticks % 100 == 51 && hostilesNear(8).isEmpty()) lately.stream().filter(m -> m instanceof net.minecraft.world.entity.monster.Creeper || m.distanceTo(g) <= 8).findFirst().ifPresent(m -> com.claudemod.ClaudeMod.LOGGER.info("[Claude life] staying in his cover: {} heard about {} off lately, out of sight (a creeper waits under you) (doWait)", m.getType().getDescription().getString(), (int) m.distanceTo(g)));
             String shooter = shooterAbout(); // a skeleton he sees, hears or sensed lately: what a box is for; it stays up while that's about, whatever the wait's own clock says (live 04:43: down after 7 s with the skeleton 9-15 off)
             if (ticks > 40 && g.commandActive && g.getHealth() >= 14 && hostilesNear(6).isEmpty() && shooter == null && !hurtAndHunted && !holdingNight()) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] their order waiting, health {}, nothing within 6: out of his cover at {} for it (WorkGoal.doWait)", (int) g.getHealth(), digInAt == null ? "?" : digInAt.toShortString()); return true; } // (17:08 geared by them, ordered "go" twice, he held 3 min for a phantom)
             if (ticks > 40 && hostilesNear(8).isEmpty() && shooter == null && !hurtAndHunted && !holdingNight() && lately.stream().noneMatch(m -> !(m instanceof net.minecraft.world.entity.monster.Phantom && armed() && !weakKit()) && (m instanceof net.minecraft.world.entity.monster.Creeper || m.distanceTo(g) <= 8))) { /* (a phantom overhead doesn't pin an armed, armored player in a hole) */ com.claudemod.ClaudeMod.LOGGER.info("[Claude life] nothing about his cover at {} any more (none in sight, heard or sensed lately): out after {} s (WorkGoal.doWait)", digInAt == null ? "?" : digInAt.toShortString(), ticks / 20); return true; } // quiet out there: back to it (not at night with no gear: quiet now is a zombie in a minute; every rule that walked him out of his hole died to it)
             boolean caveCover = digInAt != null && underground((ServerLevel) g.level(), digInAt); // (down here the sun never clears them: day or night, the minute is the same)
             if ((com.claudemod.director.ClaudeLife.dayHere(g.level()) || caveCover) && g.getHealth() >= 14 && ticks > 20 * 60 && !phantomNight && !holdingNight()) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {}, health {}, a minute in his cover with {} still about: out to deal with it (WorkGoal.doWait)", caveCover ? "in a cave" : "daylight", (int) g.getHealth(), shooter != null ? shooter : "something"); return true; } // (six minutes in a hole at 17 health in broad daylight is not a player)
-            // hurt, in the hole by day, mobs still camped on top and no food to heal with: a player tunnels out sideways and comes up out of their sight, he doesn't sit till the cap dumps him into them
-            if (com.claudemod.director.ClaudeLife.dayHere(g.level()) && g.getHealth() < 14 && ticks > 20 * 45 && digInAt != null && (walled || g.getY() <= digInAt.getY() - 1) && !enemiesNear(24).isEmpty() && tunnelOut().add(digInAt.immutable())) { // (marked tried only when there's someone to tunnel away from: a skeleton sensed 28 off burned it, and the hold at <8 health never let him out)
-                var near = enemiesNear(24); // camped anywhere about, not just right on the lid
-                if (!near.isEmpty()) {
-                    near.sort(java.util.Comparator.comparingDouble(x -> x.distanceToSqr(g)));
-                    var m = near.get(0);
-                    Direction away = Direction.getNearest(g.getX() - m.getX(), 0, g.getZ() - m.getZ());
-                    BlockPos feet = g.blockPosition();
-                    java.util.List<Task> dig = new java.util.ArrayList<>();
-                    for (int i = 1; i <= 16; i++) { BlockPos f = feet.relative(away, i); dig.add(new Task.Break(f.immutable())); dig.add(new Task.Break(f.above().immutable())); if (i % 4 == 0) dig.add(new Task.GoTo(f.immutable(), 0.9)); }
-                    BlockPos end = feet.relative(away, 16);
-                    dig.add(new Task.Break(end.above(2).immutable())); dig.add(new Task.Break(end.above(3).immutable())); // the way up at the far end
-                    dig.add(new Task.Pickup(20)); dig.add(new Task.Pillar(2)); dig.add(new Task.Pickup(20));
-                    g.tasks.removeAll(digInTasks);
-                    for (int i = dig.size() - 1; i >= 0; i--) g.tasks.addFirst(dig.get(i));
-                    com.claudemod.ClaudeMod.LOGGER.info("[Claude life] hurt in the hole by day with {} mob(s) camped on top: tunnelling out 16 blocks {} and coming up there", near.size(), away.getName());
-                    return true;
-                }
-            }
+            // hurt in his cover by day (or under rock, where the clock means nothing), something camped about: hold, or tunnel out under the
+            // rock toward where he's going, priced: the hold by what it heals (nothing, with no food and food under 18: then it only waits
+            // the camper out), each tunnel by its digs, the cells a mob there sees into, and the trip left after it (World 17 05:24: 5 min
+            // at 2 HP in the Nether healing nothing, then 16 blocks "away" and up on an open ledge in the skeleton's view, dead; stage 769)
+            if (com.claudemod.director.ClaudeLife.dayHere(g.level()) && g.getHealth() < 14 && ticks > 20 * w("cover.leave_first_s", 5) && ticks % 20 == 0 && digInAt != null && (walled || g.getY() <= digInAt.getY() - 1) && !enemiesNear(24).isEmpty() && !tunnelOut().contains(digInAt) && leaveCover(ticks)) return true;
             if (hurtAndHunted) return false;
             if (holdingNight()) { // the night in here, till first light: no time-out
                 if (holdLogged != digInTick) { holdLogged = digInTick; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] covered at {} for the night ({}): holding here till first light", digInAt.toShortString(), tower ? "up his tower" : walled ? "walled in" : "in his hole"); }
@@ -4167,6 +4153,70 @@ public class WorkGoal extends Goal {
         if (t.atPlayer() && g.getTarget() instanceof net.minecraft.world.entity.player.Player tp && com.claudemod.entity.life.Whereabouts.believed(g, tp) != null) g.getLookControl().setLookAt(com.claudemod.entity.life.Whereabouts.believed(g, tp).add(0, 1.6, 0)); // (where he believes they are: not through a hill at them)
         return ticks >= t.ticks();
     }
+
+    /** Out of his cover hurt with something camped about: hold vs a 16-block tunnel each way, priced (Decide "cover.leave"). True: tunnel queued. */
+    private boolean leaveCover(int ticks) {
+        ServerLevel lv = (ServerLevel) g.level(); BlockPos feet = g.blockPosition(); var near = enemiesNear(24);
+        BlockPos dest = null; for (Task x : g.tasks) if (x instanceof Task.GoTo gt) dest = gt.pos(); // where he's on his way to
+        double hp = g.getHealth(), want = Math.max(0, w("cover.leave_hp", 14) - hp), perHit = 0; for (var m : near) perHit = Math.max(perHit, mobHit(m));
+        double heal = com.claudemod.entity.life.Food.regenS(g, want), wait = w("cover.camper_leaves_s", 300);
+        java.util.List<com.claudemod.entity.life.Decide.Option> opts = new java.util.ArrayList<>();
+        opts.add(com.claudemod.entity.life.Decide.Option.of("hold", Math.min(heal, wait) + (dest == null ? 0 : Math.sqrt(feet.distSqr(dest)) * w("cover.trip_block_s", 1.5)), heal < wait ? "heals to " + (int) (hp + want) + " in ~" + Math.round(heal) + " s" : "heals nothing (food " + g.getFoodData().getFoodLevel() + ", none on him): waits the camper out"));
+        int len = (int) w("cover.tunnel_blocks", 16); java.util.Map<String, Integer> lens = new java.util.HashMap<>();
+        for (int depth : new int[] {0, (int) w("cover.tunnel_down_blocks", 3)}) for (Direction d : Direction.Plane.HORIZONTAL) { // (level, or down under the floor first: under a cave's floor nothing out there sees in)
+            String name = (depth > 0 ? "down " + depth + ", " : "") + "tunnel " + d.getName(); BlockPos base = feet.below(depth);
+            double dig = 0; int seen = 0, n = 0; String no = null;
+            for (int k = 1; k <= depth && no == null; k++) { BlockPos c = feet.below(k); BlockState st = lv.getBlockState(c); float pr = st.getDestroyProgress(g, lv, c); if (!lv.getFluidState(c).isEmpty() || pr <= 0 || st.hasBlockEntity()) no = "the way down " + k + " under him won't dig"; else dig += 1 / pr / 20.0 + w("cover.dig_step_s", 0.25); }
+            boolean stop = false; int least = (int) w("cover.tunnel_min_blocks", 4);
+            for (int i = 1; i <= len && no == null && !stop; i++) {
+                if (dest != null && base.relative(d, i - 1).distSqr(dest) <= 4) break; // (there already)
+                n = i; String block = null;
+                for (BlockPos c : new BlockPos[] {base.relative(d, i), base.relative(d, i).above()}) {
+                    BlockState st = lv.getBlockState(c);
+                    if (!lv.getFluidState(c).isEmpty() || st.is(net.minecraft.world.level.block.Blocks.BEDROCK) || st.hasBlockEntity()) { block = "fluid or unbreakable " + i + " in"; break; }
+                    float pr = st.getDestroyProgress(g, lv, c);
+                    if (!st.getCollisionShape(lv, c).isEmpty()) { if (pr <= 0 || st.requiresCorrectToolForDrops() && g.inventory.find(x -> x.isCorrectToolForDrops(st)).isEmpty()) { block = st.getBlock().getName().getString() + " " + i + " in, past his tools"; break; } dig += 1 / pr / 20.0 + w("cover.dig_step_s", 0.25); }
+                    if (opensToThem(lv, c, base, d, depth, feet, near)) seen++;
+                }
+                if (block == null && lv.getBlockState(base.relative(d, i).below()).getCollisionShape(lv, base.relative(d, i).below()).isEmpty()) { block = "no floor " + i + " in (" + base.relative(d, i).below().toShortString() + ")"; }
+                if (block != null) { if (i - 1 >= least) { n = i - 1; stop = true; } else no = block; } // (short of what stops it: still out of their reach and sight, if it's long enough to be)
+            }
+            if (no != null || n == 0) { opts.add(com.claudemod.entity.life.Decide.Option.out(name, no == null ? "goes nowhere nearer" : no)); continue; }
+            BlockPos end = base.relative(d, n); lens.put(name, n);
+            double rest = dest == null ? 0 : Math.sqrt(end.distSqr(dest)) * w("cover.trip_block_s", 1.5);
+            double hits = seen * w("cover.seen_cell_hits", 0.5);
+            opts.add(com.claudemod.entity.life.Decide.Option.of(name, dig + n * w("cover.tunnel_walk_s", 0.3) + rest + (hits > 0 ? com.claudemod.entity.life.Decide.hpS(g, hp, 0, hits, perHit, Integer.MAX_VALUE) : 0), n + " blocks, ~" + Math.round(dig) + " s digging, " + seen + " cell(s) in their sight" + (dest == null ? "" : ", " + (int) Math.sqrt(end.distSqr(dest)) + " left to " + dest.toShortString())));
+        }
+        var pick = com.claudemod.entity.life.Decide.choose(g, "cover.leave", "health " + (int) hp + ", " + near.size() + " about" + (dest == null ? "" : ", on his way to " + dest.toShortString()), false, opts);
+        if (pick != null && (ticks % 600 == 0 || !pick.name().equals(lastLeave))) com.claudemod.entity.life.Decide.choose(g, "cover.leave", "health " + (int) hp + ", " + near.size() + " about" + (dest == null ? "" : ", on his way to " + dest.toShortString()), true, opts);
+        lastLeave = pick == null ? "hold" : pick.name();
+        if (pick == null || "hold".equals(pick.name())) return false;
+        int depth = pick.name().startsWith("down ") ? Integer.parseInt(pick.name().substring(5, pick.name().indexOf(','))) : 0; Direction d = Direction.byName(pick.name().substring(pick.name().lastIndexOf(' ') + 1)); int n = lens.get(pick.name());
+        BlockPos end = feet.below(depth).relative(d, n);
+        leaveBore = new Task.Bore(end.immutable(), end.getY());
+        java.util.List<Task> dig = new java.util.ArrayList<>(); for (int k = 1; k <= depth; k++) dig.add(new Task.Break(feet.below(k).immutable())); dig.add(leaveBore); // (the bore's own steps: dug and walked as one, no walker to turn it back at the camper; no coming up at the end: the camper follows him along the top, what's next is the planner's)
+        tunnelOut().add(digInAt.immutable()); g.tasks.removeAll(digInTasks);
+        for (int i = dig.size() - 1; i >= 0; i--) g.tasks.addFirst(dig.get(i));
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude life] hurt in his cover with {} about: {}, {} blocks (WorkGoal.leaveCover)", near.size(), pick.name(), n);
+        return true;
+    }
+    /** A tunnel cell that, dug, opens onto air one of them sees (from where it stands or a step or two round it: a camper moves): the open side of the tunnel is where it sees him and gets in. */
+    private boolean opensToThem(ServerLevel lv, BlockPos c, BlockPos base, Direction d, int depth, BlockPos feet, java.util.List<net.minecraft.world.entity.Mob> near) {
+        for (Direction dd : Direction.values()) {
+            BlockPos n = c.relative(dd);
+            if (dd == Direction.DOWN || n.equals(feet) || n.equals(feet.above()) || n.getX() == feet.getX() && n.getZ() == feet.getZ() && n.getY() < feet.getY() && n.getY() >= feet.getY() - depth) continue; // (his own cover and shaft)
+            int along = d.getAxis() == Direction.Axis.X ? (n.getX() - base.getX()) * d.getStepX() : (n.getZ() - base.getZ()) * d.getStepZ();
+            boolean onLine = (d.getAxis() == Direction.Axis.X ? n.getZ() == base.getZ() : n.getX() == base.getX()) && along >= 1 && (n.getY() == base.getY() || n.getY() == base.getY() + 1);
+            if (onLine || !lv.getBlockState(n).getCollisionShape(lv, n).isEmpty()) continue; // (the tunnel itself, or rock: closed)
+            Vec3 nc = Vec3.atCenterOf(n);
+            for (var m : near) for (Vec3 off : new Vec3[] {Vec3.ZERO, new Vec3(2, 0, 0), new Vec3(-2, 0, 0), new Vec3(0, 0, 2), new Vec3(0, 0, -2)}) {
+                Vec3 eye = m.getEyePosition().add(off); BlockPos eb = BlockPos.containing(eye); if (!lv.getBlockState(eb).getCollisionShape(lv, eb).isEmpty()) continue;
+                if (eb.equals(n) || lv.clip(new net.minecraft.world.level.ClipContext(eye, nc, net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, m)).getType() == net.minecraft.world.phys.HitResult.Type.MISS) return true;
+            }
+        }
+        return false;
+    }
+    private String lastLeave = ""; private Task leaveBore; // (the tunnel out of his cover: under rock, out of their sight, it is the cover while it runs)
 
     /** A chest with a solid block on it won't open, for him too: his own chest gets that block broken out (and the space kept clear). True if queued. */
     private boolean unblockChest(BlockPos pos, Task retry) {
@@ -5118,6 +5168,7 @@ public class WorkGoal extends Goal {
     private boolean coverGap; // the last digInFromArrows said no for now: a melee mob too close to finish the cover (the cover proximity rule), so he runs for the gap
     private boolean noCoverGap(String why) { coverGap = true; return noCover(why); }
     private boolean digInFromArrows() {
+        if (leaveBore != null && current == leaveBore) return noCover("tunnelling out of his cover under the rock: the tunnel is his cover"); // (World 17 05:24 fix: a skeleton heard above walled him in every block of it, 12 times; stage 769)
         coverGap = false;
         ServerLevel level = level();
         BlockPos feet = g.blockPosition();

@@ -10563,6 +10563,7 @@ public final class ClaudeBodyTest {
             case 753: return st753(stage, t, c, h, level, mock);
             case 754: return st754(stage, t, c, h, level, mock);
             case 764: return st764(stage, t, c, h, level, mock);
+            case 765: return st765(stage, t, c, h, level, mock);
             case 762: return st762(stage, t, c, h, level, mock);
             case 763: return st763(stage, t, c, h, level, mock);
             case 758: return st758(stage, t, c, h, level, mock);
@@ -14717,6 +14718,37 @@ public final class ClaudeBodyTest {
             else check(t[0] - st764Hold < 20 * 30, "30 s holding in his hole at 2 HP, no food, for a calm zombified piglin 7 off");
         }
         if (t[0] > 20 && st764Hold < 0) check(t[0] < 400, "never settled in a hole: at " + c.blockPosition() + ", now=" + c.currentTask + " tasks=" + c.tasks);
+        return true;
+    }
+    private static int st765Start; private static double st765D0; private static net.minecraft.world.entity.monster.Skeleton st765Sk;
+    private static boolean st765(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // in the Nether at 2 HP with nothing to eat, his portal home 20 east and a mob between (World 17 05:41:48, 8,52,2: "his portal at -3,59,1 is through them", the run went north away from it, dead to the next bolt): the run goes round them toward his portal
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(9600, 64, 5600), portal = o.offset(21, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st765Start = 0; }
+        if (t[0] > 4 && t[0] % 10 == 0) for (int cx = -2; cx <= 3; cx++) for (int cz = -2; cz <= 2; cz++) { BlockPos q = o.offset(cx * 16, 0, cz * 16); nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(q), 2, q); }
+        if (t[0] == 10) {
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) e.discard();
+            for (int x = -25; x <= 37; x++) for (int z = -25; z <= 25; z++) for (int y = -3; y <= 9; y++) nl.setBlock(o.offset(x, y, z), y < 0 || y == 9 || x == -25 || x == 37 || z == -25 || z == 25 ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); // (walled and roofed: the Nether's own lava stays out)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 16));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.setHealth(2); c.getFoodData().setFoodLevel(10); c.getFoodData().setSaturation(0);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            for (int x = 20; x <= 23; x++) for (int y = -1; y <= 4; y++) { boolean frame = x == 20 || x == 23 || y == -1 || y == 4; nl.setBlock(o.offset(x, y, 0), frame ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2); } // (a real lit portal: his map drops one it can't see)
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, portal, "him", "lit");
+        }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) if (e != st765Sk) e.discard(); // (the test world keeps the last run's: only this one's)
+        if (t[0] == 20) { var sk = EntityType.SKELETON.create(nl); st765Sk = sk; sk.moveTo(o.getX() + 8.5, o.getY(), o.getZ() + 0.5, 90, 0); sk.setPersistenceRequired(); sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, ItemStack.EMPTY); nl.addFreshEntity(sk); sk.setTarget(c); c.tasks.add(new Task.Wait(20, false)); }
+        if (t[0] == 200 && st765Start == 0) check(false, "10 s and he never knew the skeleton 8 off");
+        if (st765Start == 0 && t[0] >= 30 && c.level() == nl && !com.claudemod.entity.life.Perception.known(c, net.minecraft.world.entity.monster.Skeleton.class, c.getBoundingBox().inflate(16), net.minecraft.world.entity.EntitySelector.ENTITY_STILL_ALIVE).isEmpty()) {
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.tasks.add(new Task.Flee(20 * 6)); st765D0 = Math.sqrt(c.blockPosition().distSqr(portal)); st765Start = t[0]; for (var sk0 : nl.getEntitiesOfClass(net.minecraft.world.entity.monster.Skeleton.class, c.getBoundingBox().inflate(20))) com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 765: run from a skeleton {} off, its target him {}, sight {}", (int) sk0.distanceTo(c), sk0.getTarget() == c, sk0.hasLineOfSight(c)); }
+        if (st765Start > 0 && t[0] > st765Start + 2) {
+            boolean running = c.currentTask instanceof Task.Flee;
+            if (!running && t[0] - st765Start > 20 || !c.isAlive()) { double d = Math.sqrt(c.blockPosition().distSqr(portal));
+                check(c.isAlive(), "dead on the run");
+                check(d < st765D0 - 2, "the run took him from his portal at 2 HP with nothing to eat (" + Math.round(st765D0) + " -> " + Math.round(d) + "), at " + c.blockPosition().toShortString());
+                for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) e.discard(); nsHome(c, h, level); c.setHealth(20);
+                pass(stage, t, "a run toward his portal past the mob: " + Math.round(st765D0) + " -> " + Math.round(d)); }
+            check(t[0] - st765Start < 20 * 20, "the run never ended");
+        }
         return true;
     }
     private static boolean st754(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // fight or run as one priced choice (shouldFlee -> fleePriced, the user: "every fixed rule a weighted decision"): hit to 5 HP by a lone zombie at night with a stone sword. Food 6, no sprint: the run is caught from behind, so the fight (the old rules ran: "losing, run while he can"); food 20: the run

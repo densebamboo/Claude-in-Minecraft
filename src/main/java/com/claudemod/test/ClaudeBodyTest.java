@@ -1246,7 +1246,7 @@ public final class ClaudeBodyTest {
                             for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -3; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
                             c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.WOODEN_PICKAXE));
                             c.setHealth(4); c.getFoodData().setFoodLevel(16); com.claudemod.director.ClaudeLife.noteFoodTrip(c);
-                            check(com.claudemod.director.Kit.foodChoice(c) == Items.BEEF, "hurt: food choice should be raw beef, was " + com.claudemod.director.Kit.foodChoice(c));
+                            { var fn = com.claudemod.director.Kit.foodNow(c); check(fn != null && fn.item() == Items.BEEF, "hurt: food choice should be raw beef, was " + fn); }
                             c.mineShape = null; c.mineCells.clear(); c.mineSpine.clear(); c.mineFace = null;
                             c.stairStart = at0(h).offset(60, 0, 0); c.stairDir = net.minecraft.core.Direction.EAST; // a mine on record, 60 blocks off
                             BlockPos at = at0(h);
@@ -10467,6 +10467,7 @@ public final class ClaudeBodyTest {
             case 840: return st840(stage, t, c, h, level, mock);
             case 841: return st841(stage, t, c, h, level, mock);
             case 836: return st836(stage, t, c, h, level, mock);
+            case 842: return st842(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13493,6 +13494,28 @@ public final class ClaudeBodyTest {
             var b = com.claudemod.entity.nav.NetherRoute.plan(c, level, c.blockPosition(), to);
             check(b != null && b.legs().equals(a.legs()), "planned again from the same spot, a different way: " + a.legs() + " then " + (b == null ? "none" : b.legs()));
             pass(stage, t, "his own trail home: " + onTrail + " legs on it, the same way planned again (" + a.legs().size() + " legs, ~" + (int) a.seconds() + " s)");
+        }
+        return true;
+    }
+    /** Stage 842 (audit "the food targets disagree"): hurt with nothing to eat and 3 cows by, the kit's food is the priced ask (Kit.foodAsk, raw: no furnace wait), not a fixed 16 of the most-seen animal. */
+    private static final java.util.List<net.minecraft.world.entity.Entity> s842Mobs = new java.util.ArrayList<>();
+    private static boolean st842(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(7400, 70, 6800);
+        if (t[0] == 1) { scenarioReset(c); for (var e : s842Mobs) e.discard(); s842Mobs.clear(); }
+        if (t[0] == 10) {
+            for (int x = -24; x <= 24; x++) for (int z = -24; z <= 24; z++) for (int y = -2; y <= 6; y++) level.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.GRASS_BLOCK : Blocks.AIR).defaultBlockState(), 2);
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.nextPlanTick = c.tickCount + 20 * 900;
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.fallDistance = 0; c.setHealth(8); c.getFoodData().setFoodLevel(14); c.getFoodData().setSaturation(0);
+        }
+        if (t[0] == 15) for (int i = 0; i < 3; i++) { var cw = net.minecraft.world.entity.EntityType.COW.create(level); cw.moveTo(o.getX() + 10.5, o.getY(), o.getZ() + 0.5 + i * 2); cw.setNoAi(true); cw.setPersistenceRequired(); level.addFreshEntity(cw); s842Mobs.add(cw); }
+        if (t[0] == 70) { // (past the kit's 2 s memo)
+            c.skillQueue.clear(); c.gearTick = -100000;
+            String r = com.claudemod.director.ClaudeLife.gearFirstNow(c, level, new com.claudemod.entity.life.Skills.Step("strip_mine", "diamond_ore", 3), false);
+            var q = new java.util.ArrayList<>(c.skillQueue); var food = q.stream().filter(st0 -> st0.target().contains("beef")).findFirst().orElse(null); var fa = com.claudemod.director.Kit.foodAsk(c); // (memo: the same pick gearFirst saw)
+            for (var e : s842Mobs) e.discard(); s842Mobs.clear(); c.skillQueue.clear(); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            check(food != null && fa != null && food.count() == fa.count() && food.target().equals("beef"), "hurt, nothing to eat, 3 cows: the priced kit food is " + fa + ", the kit asked " + (food == null ? "no beef" : food.count() + " " + food.target()) + " (" + r + "; queue " + q + ")");
+            pass(stage, t, "hurt with 3 cows by: " + food.count() + " raw beef, the priced ask (" + fa + ")");
         }
         return true;
     }

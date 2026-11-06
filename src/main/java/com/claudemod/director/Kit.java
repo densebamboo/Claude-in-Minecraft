@@ -28,7 +28,6 @@ public final class Kit {
     private Kit() {}
 
     static final Item[] IRON_ARMOR = {Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS};
-    static final int FOOD_WANT = 16; // the user, after a day of deaths that all started hungry: a real stack of food before caves (was 8)
 
     /** Good food on him (nothing raw, rotten or poisonous), as items. */
     public static int food(ClaudeEntity g) {
@@ -170,7 +169,7 @@ public final class Kit {
         var trip = new com.claudemod.entity.life.Food.Stretch(w("kit.trip_sprint_s", 900), 0, 0, 0, (int) w("kit.trip_digs", 2000), (int) w("kit.trip_hits", 60), w("kit.trip_hp", 60), 0);
         var fd = g.getFoodData(); double inHim = Math.max(0, fd.getFoodLevel() - 18) + fd.getSaturationLevel();
         double carried = 0; int rawN = 0; Item rawCooked = null;
-        Item[][] rawToCooked = {{Items.PORKCHOP, Items.COOKED_PORKCHOP}, {Items.BEEF, Items.COOKED_BEEF}, {Items.MUTTON, Items.COOKED_MUTTON}, {Items.CHICKEN, Items.COOKED_CHICKEN}, {Items.RABBIT, Items.COOKED_RABBIT}, {Items.COD, Items.COOKED_COD}, {Items.SALMON, Items.COOKED_SALMON}};
+        Item[][] rawToCooked = RAW_COOKED;
         for (int k = 0; k < g.inventory.items.getContainerSize(); k++) { ItemStack st = g.inventory.items.getItem(k); if (!st.has(DataComponents.FOOD)) continue;
             if (!ClaudeLife.rawOrBad(level, st)) carried += pts(st.getItem()) * st.getCount();
             else for (Item[] rc : rawToCooked) if (st.is(rc[0])) { rawN += st.getCount(); if (rawCooked == null || pts(rc[1]) > pts(rawCooked)) rawCooked = rc[1]; } }
@@ -236,21 +235,17 @@ public final class Kit {
         return fa;
     }
 
-    /** The cooked meat of whatever animal there's most of around him (hunting what's there, not a cow he can't find). */
-    public static Item foodChoice(ClaudeEntity g) {
-        var box = g.getBoundingBox().inflate(48);
-        var level = g.level();
-        int cows = level.getEntitiesOfClass(Cow.class, box).size(), pigs = level.getEntitiesOfClass(Pig.class, box).size(),
-                sheep = level.getEntitiesOfClass(Sheep.class, box).size(), hens = level.getEntitiesOfClass(Chicken.class, box).size();
-        int best = Math.max(Math.max(cows, pigs), Math.max(sheep, hens));
-        boolean raw = g.getHealth() <= 8 && food(g) == 0; // hurt with nothing to eat: raw beef now beats cooked beef after a furnace trip (raw chicken stays off the menu)
-        if (best == 0) { // no livestock about: the fish in the water are food too (a sword in the river, then the furnace)
-            int salmon = level.getEntitiesOfClass(net.minecraft.world.entity.animal.Salmon.class, box).size(), cod = level.getEntitiesOfClass(net.minecraft.world.entity.animal.Cod.class, box).size();
-            if (salmon + cod > 0) return salmon >= cod ? (raw ? Items.SALMON : Items.COOKED_SALMON) : (raw ? Items.COD : Items.COOKED_COD);
-        }
-        if (best == 0 || best == cows) return raw ? Items.BEEF : Items.COOKED_BEEF;
-        return best == pigs ? (raw ? Items.PORKCHOP : Items.COOKED_PORKCHOP) : best == sheep ? (raw ? Items.MUTTON : Items.COOKED_MUTTON) : raw && cows + pigs + sheep > 0 ? Items.BEEF : Items.COOKED_CHICKEN;
+    /**
+     * The food to go for now, hurt or starving with nothing on him: the kit's priced ask (foodAsk), as the raw meat when he's
+     * hurt with nothing to eat (eaten as it drops, no furnace wait first; raw chicken stays cooked: it can sicken him). Null when
+     * the pricing says go as he is.
+     */
+    public static FoodAsk foodNow(ClaudeEntity g) {
+        FoodAsk fa = foodAsk(g); if (fa == null || !(g.getHealth() <= 8 && food(g) == 0)) return fa;
+        for (Item[] rc : RAW_COOKED) if (rc[1] == fa.item() && rc[0] != Items.CHICKEN) return new FoodAsk(rc[0], fa.count());
+        return fa;
     }
+    static final Item[][] RAW_COOKED = {{Items.PORKCHOP, Items.COOKED_PORKCHOP}, {Items.BEEF, Items.COOKED_BEEF}, {Items.MUTTON, Items.COOKED_MUTTON}, {Items.CHICKEN, Items.COOKED_CHICKEN}, {Items.RABBIT, Items.COOKED_RABBIT}, {Items.COD, Items.COOKED_COD}, {Items.SALMON, Items.COOKED_SALMON}};
 
     /** The wool colour he has 3 or more of (enough for a bed), or null. */
     public static String woolForBed(ClaudeEntity g) {

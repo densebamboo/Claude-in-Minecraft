@@ -14153,12 +14153,12 @@ public final class ClaudeBodyTest {
             for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard();
             em752 = net.minecraft.world.entity.EntityType.ENDERMAN.create(level); em752.moveTo(ep.getX() + 0.5, ep.getY(), ep.getZ() + 0.5, 0, 0); em752.setNoAi(true); em752.setPersistenceRequired(); level.addFreshEntity(em752); em752.setTarget(c);
             c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getFoodData().setFoodLevel(20);
-            boolean hurt = t[0] == 10; c.setHealth(hurt ? 11 : 20); c.setRemainingFireTicks(hurt ? 300 : 0); if (!hurt) c.clearFire();
+            boolean hurt = t[0] == 10; c.setHealth(hurt ? 11 : 20); c.setRemainingFireTicks(hurt ? 100 : 0); if (!hurt) c.clearFire();
             c.prefs.put("stay_close", "no"); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); st752Dig = false;
         }
         if (t[0] == 12 || t[0] == 82) { c.tasks.clear(); c.tasks.addFirst(new Task.Attack(em752.getUUID(), 20 * 60)); }
         if ((t[0] > 12 && t[0] < 60) || (t[0] > 82 && t[0] < 130)) { if (t[0] < 60) c.setHealth(Math.max(c.getHealth(), 9)); BlockPos e0 = em752.blockPosition(); if (c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().distSqr(e0) <= 16) || c.currentTask instanceof Task.GoTo cg && cg.pos().distSqr(e0) <= 16) st752Dig = true; }
-        if (t[0] == 60) { c.clearFire(); c.tasks.clear(); c.dropCurrent = true; check(!st752Dig, "at 11 HP and burning (300 fire ticks, no water): dug down 17 to the enderman"); }
+        if (t[0] == 60) { c.clearFire(); c.tasks.clear(); c.dropCurrent = true; check(!st752Dig, "at 11 HP and burning (100 fire ticks, no water): dug down 17 to the enderman"); }
         if (t[0] == 130) { em752.discard(); c.tasks.clear(); c.dropCurrent = true; check(st752Dig, "at full health, not burning: the enderman 17 below not dug down to (as before)"); pass(stage, t, "an enderman 17 below out of sight: not dug down to at 11 HP burning; dug down to at full health"); }
         return true;
     }

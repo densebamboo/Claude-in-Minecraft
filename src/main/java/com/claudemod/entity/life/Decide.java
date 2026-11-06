@@ -26,6 +26,51 @@ public final class Decide {
      */
     /** The night in a hole dug here, in seconds of his time: its dig and the rest of the night lost in it. */
     private static double w(String name, double def) { return Weights.w(name, def); } // (every number in a weighing is tunable: config/claude/weights.json)
+    // ---- the common piece: every weighed choice is options priced in seconds of his time, fed to choose() ----
+    /** One option: its name, its price in seconds, null or why it can't be taken (out), and what the price is made of. */
+    public record Option(String name, double s, String no, String detail) {
+        public static Option of(String name, double s, String detail) { return new Option(name, s, null, detail == null ? "" : detail); }
+        public static Option out(String name, String no) { return new Option(name, Double.MAX_VALUE, no, ""); }
+    }
+    /** The cheapest option he can take (null: none), and, when say, one [Claude decide] line with every price: "area (context): a ~N s (..); b out (..): a". */
+    public static Option choose(ClaudeEntity g, String area, String context, boolean say, java.util.List<Option> options) {
+        Option best = null; for (Option o : options) if (o.no() == null && (best == null || o.s() < best.s())) best = o;
+        if (say) { java.util.List<String> said = new java.util.ArrayList<>(); for (Option o : options) said.add(o.no() != null ? o.name() + " out (" + o.no() + ")" : o.name() + " ~" + Math.round(o.s()) + " s" + (o.detail().isEmpty() ? "" : " (" + o.detail() + ")"));
+            ClaudeMod.LOGGER.info("[Claude decide] {}{}: {}: {} (Decide.choose)", area, context == null || context.isEmpty() ? "" : " (" + context + ")", String.join("; ", said), best == null ? "none he can take" : best.name()); }
+        return best;
+    }
+    /** The tick the game's first spawns can come in the open (light 0): 13188, 12969 in rain, now in thunder. */
+    public static long darkAt(ServerLevel level, long tod) { return level.isThundering() ? tod : level.isRaining() ? 12969 : 13188; }
+    /**
+     * The HP he can expect to lose over the next s seconds out in the open from tick tod: each hostile he knows of ~a hit every
+     * 1/danger.hits_per_s_per_hostile s while he passes; the night's spawns (from darkAt to dawn, 23460) at danger.hits_per_s_open_night;
+     * the Nether's own at danger.hits_per_s_nether; his armor takes its share. The one danger estimate every price calls.
+     * shortcut: a player's rough odds, not a mob-aware route; take a route's own exposure once ActionPath/NetherRoute price it.
+     */
+    public static double danger(ClaudeEntity g, ServerLevel level, long tod, double s, int hostiles) {
+        double rate = w("danger.hits_per_s_per_hostile", 0.15) * hostiles * s;
+        if (level.dimension() == net.minecraft.world.level.Level.NETHER) rate += w("danger.hits_per_s_nether", 0.02) * s;
+        else if (!level.dimensionType().hasFixedTime()) { double toDark = Math.max(0, darkAt(level, tod) - tod) / 20.0, toDawn = tod > 23460 ? 0 : (23460 - tod) / 20.0; rate += Math.max(0, Math.min(s, toDawn) - toDark) * w("danger.hits_per_s_open_night", 0.05); }
+        return hitHp() * armorF(g) * rate;
+    }
+    /**
+     * HP lost, as seconds of his time. Sure damage (fire left, a fall) comes off his health first; the hits are a chance, each
+     * perHit HP (through his armor), expected hits/perHit of them. Every HP costs danger.s_per_hp to win back by eating
+     * (danger.s_per_hp_no_regen under food 18, vanilla's regen line); on top, the chance enough hits land to put him under
+     * danger.min_hp_left costs danger.under_floor_s, and the chance they kill him danger.death_s. A steep price, never a refusal:
+     * at 2 HP one zombie hit is death, so even a short walk in the dark prices high; at full health the same walk is cheap.
+     */
+    public static double hpS(ClaudeEntity g, double sure, double hits, double perHit) {
+        double per = g.getFoodData().getFoodLevel() >= 18 ? w("danger.s_per_hp", 10) : w("danger.s_per_hp_no_regen", 30), h0 = g.getHealth() - Math.max(0, sure);
+        double s = (Math.max(0, sure) + Math.max(0, hits)) * per;
+        if (h0 <= 0) return s + w("danger.death_s", 1800);
+        double floor = w("danger.min_hp_left", 4), ph = Math.max(0.5, perHit), lam = Math.max(0, hits) / ph;
+        return s + atLeast(lam, (int) Math.ceil(h0 / ph)) * w("danger.death_s", 1800) + atLeast(lam, (int) Math.ceil((h0 - floor) / ph)) * w("danger.under_floor_s", 300);
+    }
+    /** Hits at hitHp() each (a zombie's, Normal) through his armor. */
+    public static double hpS(ClaudeEntity g, double hits) { return hpS(g, 0, hits, hitHp() * armorF(g)); }
+    /** The chance of k or more hits when lam are expected (Poisson). */
+    static double atLeast(double lam, int k) { if (k <= 0) return 1; double term = Math.exp(-lam), cum = term; for (int i = 1; i < k; i++) { term *= lam / i; cum += term; } return Math.max(0, 1 - cum); }
     /** Seconds a block at a sprint, the walk prices' speed. */
     public static double sprint() { return w("move.sprint_blocks_per_s", 5.6); }
     public static double holeS(long tod) { return w("night.hole_dig_s", 10) + Math.max(0, 23460 - Math.max(tod, 12542)) / 20.0; }
@@ -33,20 +78,15 @@ public final class Decide {
      * A walk of walkS seconds through the open from now (tick tod), priced in seconds of his time: the walk plus the hits he can
      * expect on it (each known hostile ~0.15 a second while he passes; one every 20 s once the game's first spawns can come: light 0
      * in the open, tick 13188, 12969 in rain, now in thunder; his armor takes its share), 3 HP a hit (Normal), 10 s an HP to win back.
-     * MAX_VALUE when what he'd expect to take is over half his health or leaves him under 2 hearts: not a walk to make, whatever it saves.
+     * The hits are priced by hpS (their chance to put him under his floor or kill him): a price, not a refusal.
      * shortcut: rates are a player's rough odds, not a mob-aware route; take Big Picture's ActionPath/NetherRoute hit estimate once it lands.
      */
     public static double walkS(ClaudeEntity g, ServerLevel level, long tod, double walkS, int hostiles) {
-        long dark = level.isThundering() ? tod : level.isRaining() ? 12969 : 13188;
-        double toDark = Math.max(0, dark - tod) / 20.0, armorF = armorF(g);
-        double dmg = hitHp() * armorF * (w("danger.hits_per_s_per_hostile", 0.15) * hostiles * walkS + Math.max(0, walkS - toDark) * w("danger.hits_per_s_open_night", 0.05));
-        return tooMuch(g, dmg) ? Double.MAX_VALUE : walkS + dmg * w("danger.s_per_hp", 10); // (no walk that may take half his health or leave him under 2 hearts: a hard limit at 10 HP kept a 3-heart player from an 11 s walk with nothing about)
+        return walkS + hpS(g, danger(g, level, tod, walkS, hostiles)); // (the hits priced by their chances, hpS: a price, not a refusal) // (no walk that may take half his health or leave him under 2 hearts: a hard limit at 10 HP kept a 3-heart player from an 11 s walk with nothing about)
     }
     /** The share of a hit his armor lets through (armor points over danger.armor_full: vanilla's own curve, roughly). */
     public static double armorF(ClaudeEntity g) { return 1.0 - Math.min(20, g.getArmorValue()) / w("danger.armor_full", 25); }
     public static double hitHp() { return w("danger.hit_hp", 3); }
-    /** Damage he won't take for anything a walk saves: over danger.max_hp_share of his health, or leaving him under danger.min_hp_left. */
-    public static boolean tooMuch(ClaudeEntity g, double dmg) { return dmg > Math.min(g.getHealth() - w("danger.min_hp_left", 4), g.getHealth() * w("danger.max_hp_share", 0.5)); }
     public static int hostilesKnown(ClaudeEntity g) { int n = 0; for (var m : Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(32), x -> x.isAlive())) n++; return n; }
 
     public static void dusk(ClaudeEntity g, ServerLevel level, long tod) {
@@ -105,7 +145,8 @@ public final class Decide {
             if (!gold) {
                 double there = (runS < 0 ? w("recovery.nether_run_s_unknown", 60) : runS) * 2, armorF = armorF(g), dmg = there * w("recovery.piglin_hits_per_s_no_gold", 0.05) * w("recovery.piglin_hit_hp", 7) * armorF; // (~a piglin hit every 20 s in the open Nether without gold, 7 HP: a player's rough odds; shortcut: the route's own biomes and the piglins Perception knows of, once travel() prices them)
                 int goldHere = com.claudemod.director.ClaudeLife.haveFor(g, level, net.minecraft.world.item.Items.GOLD_INGOT); // (his pack and his chests)
-                if (dmg > g.getHealth() * w("danger.max_hp_share", 0.5) && goldHere >= 4) { first.add(new Skills.Step("craft", "golden_boots", 1)); said.add("golden boots first (" + goldHere + " gold to hand: a craft): no gold piece, ~" + (int) dmg + " HP of piglin hits on the ~" + (int) there + " s there and back is over half his " + (int) g.getHealth() + " (armor " + g.getArmorValue() + ")"); }
+                var gp = goldHere < 4 ? null : choose(g, "recovery.gold_piece", "", false, java.util.List.of(Option.of("golden boots first", w("recovery.gold_boots_craft_s", 15), ""), Option.of("straight there", hpS(g, 0, dmg, w("recovery.piglin_hit_hp", 7) * armorF), ""))); // (the boots' craft against the piglin hits priced as his time, hpS)
+                if (gp != null && gp.name().equals("golden boots first")) { first.add(new Skills.Step("craft", "golden_boots", 1)); said.add("golden boots first (" + goldHere + " gold to hand: a craft): no gold piece, ~" + (int) dmg + " HP of piglin hits on the ~" + (int) there + " s there and back, ~" + (int) hpS(g, 0, dmg, w("recovery.piglin_hit_hp", 7) * armorF) + " s of his time at " + (int) g.getHealth() + " health (armor " + g.getArmorValue() + "), against the boots' ~" + (int) w("recovery.gold_boots_craft_s", 15) + " s"); }
                 else said.add("no gold piece" + (goldHere >= 4 ? "" : " and none to hand") + ": ~" + (int) dmg + " HP of piglin hits on the ~" + (int) there + " s if he fights; straight there, no fights till he's in what fell (the user 11-05: \"avoiding combat altogether until you get suited with your pickups\")");
             } else said.add("a gold piece on him: the piglins let him be");
         }
@@ -132,10 +173,9 @@ public final class Decide {
         int hostiles = 0; for (var m : Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(32).minmax(new net.minecraft.world.phys.AABB(spot).inflate(16)), x -> x.isAlive())) hostiles++;
         long tod = level.getDayTime() % 24000; boolean night = !level.dimensionType().hasFixedTime() && (level.isThundering() || tod >= (level.isRaining() ? 12969 : 13188) && tod <= 23460) && level.canSeeSky(spot.above());
         double armorF = armorF(g), tJunk = w("recovery.s_per_junk_stack", 1.5) * junk.size();
-        double dmg = hitHp() * armorF * (w("danger.hits_per_s_per_hostile", 0.15) * hostiles + (night ? w("danger.hits_per_s_open_night", 0.05) : 0)) * tJunk, perHP = g.getFoodData().getFoodLevel() >= 18 ? w("danger.s_per_hp", 10) : w("danger.s_per_hp_no_regen", 30); // (food 18: vanilla's regen line)
-        boolean tooMuch = tooMuch(g, dmg);
-        double stay = dmg * perHP, worth = com.claudemod.director.ClaudeLife.dropsWorth(junk) * w("recovery.s_per_worth_point", 1);
-        if (!tooMuch && stay <= worth) return new Grab(all, null, "a plain pickup: the " + junk.size() + " other stack(s) worth ~" + (int) worth + " s, the ~" + (int) tJunk + " s on them ~" + (int) stay + " s of hits (" + hostiles + " hostile(s) known" + (night ? ", the open night" : "") + ")");
+        double dmg = hitHp() * armorF * (w("danger.hits_per_s_per_hostile", 0.15) * hostiles + (night ? w("danger.hits_per_s_open_night", 0.05) : 0)) * tJunk;
+        double stay = hpS(g, dmg), worth = com.claudemod.director.ClaudeLife.dropsWorth(junk) * w("recovery.s_per_worth_point", 1);
+        if (stay <= worth) return new Grab(all, null, "a plain pickup: the " + junk.size() + " other stack(s) worth ~" + (int) worth + " s, the ~" + (int) tJunk + " s on them ~" + (int) stay + " s of hits (" + hostiles + " hostile(s) known" + (night ? ", the open night" : "") + ")");
         BlockPos to = null; String toName = null; double bd = Double.MAX_VALUE;
         if (level.dimension() == net.minecraft.world.level.Level.NETHER) { for (var p : PortalMap.net(g).portals) if (PortalMap.NETHER.equals(p.dim) && "lit".equals(p.state) && p.at.distSqr(spot) < bd) { bd = p.at.distSqr(spot); to = p.at; toName = "his portal at " + p.where(); } }
         else {
@@ -143,7 +183,7 @@ public final class Decide {
             if (g.house != null && g.house.shellStands(level) && g.house.bedHead().distSqr(spot) < bd) { bd = g.house.bedHead().distSqr(spot); to = g.house.bedHead(); toName = "his house"; }
             if (g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.entrance.distSqr(spot) < bd) { bd = g.blueprint.entrance.distSqr(spot); to = g.blueprint.entrance; toName = "his mine's door"; }
         }
-        String why = "grab and run: the " + junk.size() + " other stack(s) worth ~" + (int) worth + " s against " + (tooMuch ? "hits past half his health" : "~" + (int) stay + " s of hits") + " in the ~" + (int) tJunk + " s on them (" + hostiles + " hostile(s) known" + (night ? ", the open night" : "") + ", health " + (int) g.getHealth() + ", armor " + g.getArmorValue() + "): the " + val.size() + " valuable stack(s), then " + (to == null ? "away (no safe spot of his known)" : "straight for " + toName);
+        String why = "grab and run: the " + junk.size() + " other stack(s) worth ~" + (int) worth + " s against ~" + (int) stay + " s of hits in the ~" + (int) tJunk + " s on them (" + hostiles + " hostile(s) known" + (night ? ", the open night" : "") + ", health " + (int) g.getHealth() + ", armor " + g.getArmorValue() + "): the " + val.size() + " valuable stack(s), then " + (to == null ? "away (no safe spot of his known)" : "straight for " + toName);
         return new Grab(val, to, why);
     }
 

@@ -4486,8 +4486,9 @@ public class WorkGoal extends Goal {
     private boolean outOfItsReach(net.minecraft.world.entity.LivingEntity m) {
         if (m instanceof net.minecraft.world.entity.monster.Spider || m instanceof net.minecraft.world.entity.monster.Creeper || m instanceof net.minecraft.world.entity.monster.RangedAttackMob
                 || m instanceof net.minecraft.world.entity.FlyingMob || m.isNoGravity()) return false;
-        if (!(m instanceof net.minecraft.world.entity.animal.IronGolem || m instanceof net.minecraft.world.entity.monster.Monster)) return false;
-        return g.getY() >= m.getBoundingBox().maxY + 0.05; // (in the air settling onto his tower top counts: the fight starts as the last block goes in)
+        if (!(m instanceof net.minecraft.world.entity.animal.IronGolem || m instanceof net.minecraft.world.entity.monster.Monster || m instanceof net.minecraft.world.entity.monster.hoglin.Hoglin)) return false; // (a hoglin is an Animal, not a Monster, in 1.21: it fights like one)
+        double y = g.getY(); BlockPos f0 = g.blockPosition(); for (int d = 0; d <= 1; d++) { BlockPos q = f0.below(d); if (!g.level().getBlockState(q).getCollisionShape(g.level(), q).isEmpty()) { y = Math.max(y, q.getY() + 1); break; } } // (in the air settling onto his tower top counts: the fight starts as the last block goes in, him still rising; read by his height then, he "lost" the fight and jumped off, stage 826)
+        return y >= m.getBoundingBox().maxY + 0.05;
     }
 
     /** Swings to kill it with the best weapon he carries (the one he'll be holding once the fight starts). */
@@ -4934,6 +4935,7 @@ public class WorkGoal extends Goal {
         if ((diamondChest || shieldKit) && armed() && g.getHealth() >= 10 && phantoms.isEmpty() && !swarmed && !desperate && !desperateNow) return noCover((diamondChest ? "a diamond chestplate" : "iron, a shield") + " and a sword: no hole, he fights or keeps on home"); // diamond gear: no hole for a skeleton or a crowd, he fights or keeps on home (the user: hiding is for the early game; with a diamond chestplate he runs to his bed or mine; he sat in a hole 2 minutes on the way home)
         if (armed() && !swarmed && !desperate && !desperateNow && phantoms.isEmpty() && shooters.size() == 1 && shooters.get(0).distanceTo(g) <= 4.5 && Math.abs(shooters.get(0).getY() - g.getY()) <= 2 && g.getHealth() >= 8) return noCover("a lone " + shooters.get(0).getType().getDescription().getString() + " " + (int) shooters.get(0).distanceTo(g) + " off: closer than any wall takes to build, he goes for it (self-defence, food or not)"); // (01:54 11-04: a skeleton 3 off shot him 20 -> 0 while he built a 13-block wall; an expert kills it in 2-3 swings)
         if (!level.getEntitiesOfClass(net.minecraft.world.entity.monster.Creeper.class, g.getBoundingBox().inflate(8), c -> c.isAlive()).isEmpty()) return noCover("a creeper within 8: distance is the only cover from one"); // a creeper that close just walks up to the hole and blows it in: distance is the only cover from one
+        if (g.tasks.peek() instanceof Task.Pillar pu && pu.steps() > 0 || g.currentTask instanceof Task.Pillar pc && pc.steps() > 0) return noCover("his tower is going up: that's his cover, finished first (1 up, read as \"already up his tower\", it was stopped in a hoglin's reach, stage 826)");
         int openSides = 0; for (Direction d : Direction.Plane.HORIZONTAL) if (level.getBlockState(feet.below().relative(d)).getCollisionShape(level, feet.below().relative(d)).isEmpty()) openSides++; // (his own blocks under him at ground level are a hole filled back in, not a tower: live 19:05 11-04 he held on flat ground on that and a creeper walked up)
         if ((g.pillarBlocks.contains(feet.below()) || g.pillarBlocks.contains(feet.below(2))) && openSides >= 3) { // already up his own tower (its wait got dropped by a replan): stay up, no second tower on top of it
             boolean roofed = !level.getBlockState(feet.above(2)).getCollisionShape(level, feet.above(2)).isEmpty();
@@ -5234,10 +5236,10 @@ public class WorkGoal extends Goal {
             return false;
         } // (the pearl stage: from a 2-deep hole it can't reach into) // a blaze or a wither skeleton: from cover, like an expert (FortressFight)
         // losing the fight: break off and get away, like a player would (fighting on at 3 hearts is how you die)
-        if ((mob instanceof net.minecraft.world.entity.monster.Monster || mob instanceof net.minecraft.world.entity.animal.IronGolem) && shouldFlee(mob)) {
+        if ((mob instanceof net.minecraft.world.entity.monster.Monster || mob instanceof net.minecraft.world.entity.animal.IronGolem || mob instanceof net.minecraft.world.entity.monster.hoglin.Hoglin) && shouldFlee(mob)) { // (the hoglin: never counted, so a losing fight with one at 4 HP went on to his death, 16:25 11-05)
             var gf = gapFoe(); if (gf != null && gf != mob) { g.tasks.addFirst(new Task.Attack(gf.getUUID(), 600)); return true; } // (a crowd with a wither skeleton in it: the fight from a gap it can't reach into, never a run past them)
             g.tasks.addFirst(new Task.Flee(160));
-            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] breaking off the fight (health {}, {} within 10; {}) (WorkGoal.doAttack)", (int) g.getHealth(), hostilesNear(10).size(), fightOdds);
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] breaking off the fight with the {}{} {} off (health {}, {} within 10; {}; he's at y {}, its top {}) (WorkGoal.doAttack)", mob instanceof net.minecraft.world.entity.AgeableMob am && am.isBaby() ? "baby " : "", mob.getType().getDescription().getString(), String.format("%.1f", mob.distanceTo(g)), (int) g.getHealth(), hostilesNear(10).size(), fightOdds, String.format("%.2f", g.getY()), String.format("%.2f", mob.getBoundingBox().maxY));
             return true;
         }
         if (shootAt(mob)) return false; // bow work: it stays out there and dies, or it closes and the sword takes over
@@ -5287,7 +5289,7 @@ public class WorkGoal extends Goal {
             if (g.getAttackStrengthScale(0.5f) >= 0.95f && mob.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0) { // (3 to the nearest point of it, like a player's reach: to its middle, a golem from his tower top read as out of reach)
                 reachWaitStart = -1;
                 int cj = critJump().getOrDefault(g.getUUID(), -100);
-                if (g.onGround() && !g.isInWater() && !g.isPassenger() && (mob instanceof net.minecraft.world.entity.monster.Monster || mob instanceof net.minecraft.world.entity.animal.IronGolem) && g.getHealth() > 8 && g.getFoodData().getFoodLevel() > 6 && g.tickCount - cj > 20) { critJump().put(g.getUUID(), g.tickCount); g.getJumpControl().jump(); return false; } // the jump first: the swing on the way down is a critical hit (x1.5), the way a player fights
+                if (g.onGround() && !g.isInWater() && !g.isPassenger() && (mob instanceof net.minecraft.world.entity.monster.Monster || mob instanceof net.minecraft.world.entity.animal.IronGolem || mob instanceof net.minecraft.world.entity.monster.hoglin.Hoglin) && g.getHealth() > 8 && g.getFoodData().getFoodLevel() > 6 && g.tickCount - cj > 20) { critJump().put(g.getUUID(), g.tickCount); g.getJumpControl().jump(); return false; } // the jump first: the swing on the way down is a critical hit (x1.5), the way a player fights
                 if (!g.onGround() && g.getDeltaMovement().y > 0.0 && g.tickCount - cj <= 12) return false; // still going up: the crit wants the fall
                 g.getLookControl().faceNow(mob.getBoundingBox().getCenter());
                 shieldDown(); // a swing lowers the shield (it goes back up next tick if it's still needed)

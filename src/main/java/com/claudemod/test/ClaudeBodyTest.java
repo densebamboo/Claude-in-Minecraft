@@ -10439,6 +10439,7 @@ public final class ClaudeBodyTest {
             case 823: return st823(stage, t, c, h, level, mock);
             case 824: return st824(stage, t, c, h, level, mock);
             case 825: return st825(stage, t, c, h, level, mock);
+            case 826: return st826(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13299,6 +13300,38 @@ public final class ClaudeBodyTest {
             if (Math.abs(c.getX() - to.getX() - 0.5) + Math.abs(c.getZ() - to.getZ() - 0.5) <= 4 && Math.abs(c.getY() - to.getY()) <= 2) { int s0 = (t[0] - s825T0) / 20; check(s0 <= 40, "there unhurt, but slow: " + s0 + " s"); nsHome(c, h, level); pass(stage, t, "down the 9-block cliff with no fall damage at food 6, there in " + s0 + " s"); return true; }
             check(!(c.currentTask == null && c.tasks.isEmpty() && t[0] - s825T0 > 60), "the walk gave up at " + c.blockPosition().toShortString());
             check(t[0] - s825T0 < 20 * 90, "90 s and not there: at " + c.blockPosition().toShortString() + " now " + c.currentTask);
+        }
+        return true;
+    }
+
+    /** Live 16:25 11-05 (incident death-46): at 4 HP and food 3 the planner sent him for porkchop, the collect skill hunted a hoglin in the open like a pig, and it killed him; at 16:16 a baby hoglin's kill gave nothing. Here: 6 HP, food 3, no armor, 16 netherrack and a sword, an adult hoglin 14 off and a baby 5 off. The expert's way: the baby left (it drops nothing), the adult fought from 2 up a pillar it can't reach; porkchop, no hit taken. */
+    private static int s826T0; private static net.minecraft.world.entity.monster.hoglin.Hoglin s826A, s826B;
+    private static boolean st826(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(9000, 64, 6320);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); s826T0 = 0; if (s826A != null) s826A.discard(); if (s826B != null) s826B.discard(); s826A = s826B = null; }
+        if (t[0] > 10 && t[0] % 10 == 0 && c.level() == nl) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
+        if (t[0] == 10) {
+            nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+            for (int x = -16; x <= 16; x++) for (int z = -16; z <= 16; z++) for (int y = -2; y <= 8; y++) { boolean edge = Math.abs(x) == 16 || Math.abs(z) == 16 || y == 8; nl.setBlock(o.offset(x, y, z), y < 0 || edge ? (y == -1 ? Blocks.CRIMSON_NYLIUM : Blocks.NETHERRACK).defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 16));
+            for (var sl : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET}) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.setHealth(6); c.getFoodData().setFoodLevel(3); c.getFoodData().setSaturation(0); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 15) {
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard(); // (the test world is kept between runs: the last run's hoglins load with the chunk, after t 10)
+            s826A = net.minecraft.world.entity.EntityType.HOGLIN.create(nl); s826A.moveTo(o.getX() + 14.5, o.getY(), o.getZ() + 0.5, 90, 0); s826A.setImmuneToZombification(true); nl.addFreshEntity(s826A);
+            s826B = net.minecraft.world.entity.EntityType.HOGLIN.create(nl); s826B.moveTo(o.getX() + 0.5, o.getY(), o.getZ() + 5.5, 0, 0); s826B.setBaby(true); s826B.setImmuneToZombification(true); nl.addFreshEntity(s826B);
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("collect", "porkchop", 1)); s826T0 = t[0]; }
+        if (s826T0 > 0 && t[0] > s826T0) {
+            c.getFoodData().setFoodLevel(3);
+            check(c.getHealth() >= 5.5f, "hit by the hoglin: " + c.getHealth() + " HP at " + c.blockPosition().toShortString() + " after " + (t[0] - s826T0) + " ticks, now " + c.currentTask + "; hoglins " + nl.getEntitiesOfClass(net.minecraft.world.entity.monster.hoglin.Hoglin.class, new net.minecraft.world.phys.AABB(o).inflate(20)).stream().map(x -> (x.isBaby() ? "baby " : "adult ") + x.blockPosition().toShortString() + " " + String.format("%.1f", x.distanceTo(c))).toList());
+            check(s826B == null || s826B.isAlive(), "killed the baby hoglin (it drops nothing)");
+            if (c.inventory.count(x -> x.is(Items.PORKCHOP)) > 0) { int s0 = (t[0] - s826T0) / 20; s826B.discard(); nsHome(c, h, level); pass(stage, t, "porkchop from the adult hoglin, fought from 2 up, the baby left, no hit taken, in " + s0 + " s"); return true; }
+            check(t[0] - s826T0 < 20 * 60, "60 s and no porkchop: at " + c.blockPosition().toShortString() + " now " + c.currentTask + " queue " + c.tasks + " skills " + c.skillQueue);
         }
         return true;
     }

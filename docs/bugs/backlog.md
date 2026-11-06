@@ -370,3 +370,17 @@ Also open from today:
 - **Shooters on the way home**: 2 min under skeleton fire at 120,32,127 at food 6, mostly shield-blocked but 3 hits landed. Price the route's exposure to a shooter he sees (cover, a wall block, the way round) as travel() does for the bridge; HP he can't regen is dear (Leaps.hpPrice).
 - **Portal choice by price** (review 16:1x): at food 6 with no food he set off on a 479-block walk to lit portal #3, then later planned "relight #4 60 off". Price the nearest usable portal (relighting it: flint and steel or a fire charge, the frame's state) against walking to a lit one, with his state (food, HP he can't regen).
 - **Food before a long trip** (15:52): the fortress trip queued with 0 meals and food falling. Price a long Nether job against his food (item 1): eat or get food first, a cost not a rule.
+- **No gold in the Nether, priced** (the user 16:40: "You don't NEED to go into the nether with gold. You should probably traverse the nether with one, but if you don't it should be calculated as to what exactly you are doing."): the route prices the piglin risk with no gold on him by the piglin biomes crossed (crimson forest, nether wastes, bastions), the piglins seen, and the time spent there. Loops has the decision side.
+- **Walk round mobs, priced** (the user 17:05: "A lot of times he can path around mobs to not get hit too while he's fleeing to a safe space."): ActionPath and overworld walks price the cells near hostiles he knows (seen, heard, sensed): melee reach 2-3 round zombies, a creeper's blast and fuse, spiders that climb, skeletons' line of fire, by where they'll be (they move). The way round wins when it's cheaper than the hits. ActionPath.Costs.avoidCost exists already: start there. The same cost feeds the expected hits Loops' decision system (case D: dusk, bed vs mine vs hole) puts on a route. Stage: a flee to his bed past 2-3 zombies on open ground.
+  Nether too (the user asked, 11-05): one cost both planners read. NetherRoute has no mob pricing at all today; ActionPath's avoidCost only applies for callers that pass an avoid list. The Nether's cast:
+  - hoglins and magma cubes: melee;
+  - piglins: hostile only without a gold piece (priced by that);
+  - zombified piglins: neutral unless angry (Leaps.java:86 reads that);
+  - skeletons, blazes and ghasts: by line of fire;
+  - wither skeletons: near fortresses.
+  Known means seen, heard or sensed, never through walls. A Nether flee to his portal or a bridge counts the way round. Live: the skeleton fire at 120,32,127 and the walk to the hoglins.
+- **More evidence (review 16:37-17:31)**:
+  - Trip worth: 17:2x, about 120 blocks (79 legs) to his chest at -174,-58,-16 for one flint, with 126 gravel in his mine's junk chest and gravel close to dig.
+  - Food order: 17:2x, walked 87 home from the lake, then about 84 back toward it for a cow, with cows in view near the house (3 WASTED_WALKs). 16:3x, after a respawn at food 20, salmon x16 came before any tools.
+  - Swim vs land: 17:1x, 50+ s in water on a walk to the mine (air warnings, stuck at the lake edge); 17:00, 70 s in water over 39 blocks to set furnaces.
+- **Red on main (11-05 17:40, also without the hoglin fix)**: 32 (water pit: still at y 3), 234 (the block behind the tower learned unseen), 235/237 (house builds stall on a cow search), 236 (after the new world: [tower]), 554 (unreachable enderman never let be).

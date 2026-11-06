@@ -10566,6 +10566,8 @@ public final class ClaudeBodyTest {
             case 680: return st680(stage, t, c, h, level, mock);
             case 681: return st681(stage, t, c, h, level, mock);
             case 682: return st682(stage, t, c, h, level, mock);
+            case 683: return st683(stage, t, c, h, level, mock);
+            case 684: return st684(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -16059,6 +16061,49 @@ public final class ClaudeBodyTest {
             int inChest = level.getBlockEntity(h.absolutePos(chestAt)) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box ? box.countItem(Items.RAW_IRON) : -1;
             if (inChest >= 34) { check(c.inventory.count(x -> x.is(Items.IRON_PICKAXE)) == 1 && c.inventory.count(x -> x.is(Items.COOKED_BEEF)) == 16, "the trip kit went in the chest too: pick " + c.inventory.count(x -> x.is(Items.IRON_PICKAXE)) + ", beef " + c.inventory.count(x -> x.is(Items.COOKED_BEEF))); pass(stage, t, "the raw iron into his chest before the portal, in " + (t[0] - 10) + " ticks; pick and food kept"); }
             else check(t[0] < 400, "set off for the Nether with " + c.inventory.count(x -> x.is(Items.RAW_IRON)) + " raw iron on him, " + inChest + " in his chest 20 off; skills " + c.skillQueue + " tasks " + c.tasks);
+        }
+        return true;
+    }
+
+    /** Live 20:44 World 17: he respawned 2 blocks from his chest with 32 cobble and 640 cobbled deepslate, walked off for salmon and logs, and 100 off the furnace wanted 8 cobble: "common stuff in a far chest" was never fetched past 24, and "no fresh hole out here, it waits till I'm back by my mine" was a refusal nothing acted on. Here: dirt ground, no stone showing, his chest 28 off with 32 cobble: collect cobblestone 8 goes to the chest. */
+    private static boolean st684(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos chestAt = new BlockPos(30, 2, 2);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.myStations.clear(); c.storageChests.clear(); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 34; x++) for (int z = 0; z < 6; z++) { for (int yy = -1; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.DIRT); for (int yy = 2; yy <= 5; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            h.setBlock(chestAt, Blocks.CHEST); BlockPos ch = h.absolutePos(chestAt);
+            if (level.getBlockEntity(ch) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity cbe) cbe.setItem(0, new ItemStack(Items.COBBLESTONE, 32));
+            c.myStations.add(ch); c.storageChests.add(ch); com.claudemod.entity.life.ChestLedger.reset(c); com.claudemod.entity.life.ChestLedger.look(c, level, ch);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.WOODEN_PICKAXE)); c.tasks.clear();
+            BlockPos me = h.absolutePos(new BlockPos(2, 2, 2)); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+        }
+        if (t[0] == 20) {
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "cobblestone", 8);
+            BlockPos ch = h.absolutePos(chestAt);
+            boolean toChest = c.tasks.stream().anyMatch(k -> k instanceof Task.Chest kc && kc.pos().equals(ch));
+            check(toChest, "collect cobblestone 8 with 32 in his chest 28 off and no stone showing did not go to the chest: \"" + r + "\", tasks " + c.tasks);
+            c.tasks.clear(); pass(stage, t, "the cobble from his chest 28 off: " + r);
+        }
+        return true;
+    }
+
+    /** Live 20:41 World 17: burned to death beside a lava fall (-108, 50-53, 9 and -109, 50-53, 10). ActionPath walked -107, 49, 10 -> -108, 50, 10 between the two flowing columns: lava in the feet cell or under him is priced, beside his feet or head was free. Here: a floor 3 wide, a lava fall beside the middle of the straight line, the way 1 lane over open: the way keeps off the lava. */
+    private static boolean st683(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(2, 2, 3)), goal = h.absolutePos(new BlockPos(14, 2, 3));
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.tasks.clear(); c.nextPlanTick = c.tickCount + 20 * 600;
+            for (int x = 0; x < 17; x++) for (int z = 0; z < 7; z++) { h.setBlock(new BlockPos(x, 1, z), z >= 1 && z <= 5 ? Blocks.NETHERRACK : Blocks.AIR); for (int y = 2; y <= 7; y++) h.setBlock(new BlockPos(x, y, z), Blocks.AIR); }
+            h.setBlock(new BlockPos(8, 0, 2), Blocks.NETHERRACK); h.setBlock(new BlockPos(8, 1, 2), Blocks.AIR); h.setBlock(new BlockPos(8, 7, 2), Blocks.LAVA);
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(-90); c.setXRot(10); }
+        if (t[0] > 10 && t[0] < 260) { c.getLookControl().setLookAt(h.absolutePos(new BlockPos(8, 3, 2)).getCenter()); com.claudemod.entity.life.Perception.lookNow(c); }
+        if (t[0] == 260) {
+            BlockPos lavaAt = h.absolutePos(new BlockPos(8, 2, 2));
+            check(level.getFluidState(lavaAt).is(net.minecraft.tags.FluidTags.LAVA), "set-up: no lava fall at " + lavaAt.toShortString());
+            check(com.claudemod.entity.life.Perception.knowsLava(c, lavaAt), "set-up: he never saw the lava fall at " + lavaAt.toShortString());
+            var plan = com.claudemod.entity.nav.ActionPath.plan(c, level, c.blockPosition(), goal, 1.0, false, 4000);
+            check(plan != null, "no way to the end of the floor at all");
+            for (var a : plan.acts()) if (a instanceof com.claudemod.entity.nav.ActionPath.Act.Walk w) for (net.minecraft.core.Direction d : net.minecraft.core.Direction.Plane.HORIZONTAL) for (int up = 0; up <= 1; up++) {
+                BlockPos n0 = w.feet().relative(d).above(up); check(!level.getFluidState(n0).is(net.minecraft.tags.FluidTags.LAVA), "his way steps at " + w.feet().toShortString() + " with lava beside it at " + n0.toShortString() + ": " + plan.acts()); }
+            pass(stage, t, "the way keeps a block off the lava fall (" + plan.walks() + " walks)");
         }
         return true;
     }

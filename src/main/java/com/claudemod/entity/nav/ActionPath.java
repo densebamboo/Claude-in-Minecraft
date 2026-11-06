@@ -510,6 +510,7 @@ public final class ActionPath {
                     if (mine(t)) cost *= 0.7; // his own tunnels: the way he knows
                     if (stray(feet.below())) cost += 3; // (stepping off his own pillar in his nook's pocket: dearer than digging it down under him, so the way in takes the whole tower down, never leaves its foot in front of his chest)
                     cost += failPenalty(t);
+                    { double lb = 0; for (Direction hd : Direction.Plane.HORIZONTAL) for (int up = -1; up <= 1; up++) { BlockPos n0 = t.relative(hd).above(up); var lf = level.getFluidState(n0); if (!lf.is(net.minecraft.tags.FluidTags.LAVA) || !com.claudemod.entity.life.Perception.knowsLava(g, n0)) continue; lb = Math.max(lb, up < 0 ? 4 : lf.isSource() ? 10 : 14); } cost += lb; } // a step with lava beside his feet or head (a fall's flow spreads into the cell, a knock-back or a strafe puts him in it) or at the floor beside him (one step sideways off the shore): priced, so a way a block off wins, the only way still walked (the user 11-05 20:45: "steer away from standing near lava in the nether... path around lava falls"; World 17 20:41, burned beside one at -108, 50, 9)
                     { double av = avoidCost(t); if (av < 0) continue; cost += av; } // (a crowd of hostiles: round them, like a player)
                     acts.add(new Act.Walk(t.immutable()));
                     out.add(new Move(t.immutable(), cost, acts));

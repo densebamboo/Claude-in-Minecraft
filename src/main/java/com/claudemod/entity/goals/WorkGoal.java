@@ -4561,7 +4561,7 @@ public class WorkGoal extends Goal {
         if (foe instanceof net.minecraft.world.entity.LivingEntity lf && lf.isAlive() && !them.contains(lf)) them.add(lf);
         if (them.isEmpty()) { fightOdds = "nothing on him"; return false; }
         them.sort(java.util.Comparator.comparingDouble(m -> m.distanceTo(g)));
-        double swing = w("fight.swing_s", 0.6), rate = w("fight.mob_hits_per_s", 0.8), cool = w("fight.mob_cooldown_s", 1.0);
+        double swing = w("fight.swing_s", 0.6), rate = w("fight.mob_hits_per_s", 0.8) * (armed() ? w("fight.knockback_hits_factor", 0.5) : 1), cool = w("fight.mob_cooldown_s", 1.0); // (a sword or axe knocks each one back: it walks in again before its next swing, about half the hits; HuntPatrol.fightS prices an enderman the same, 0.4. Stage 48: one zombie at 12 HP priced as 3 hits in 2.4 s, he ran)
         double t = 0, hits = 0, hp = 0, runHits = 0, burnS = 0; int most = 0, swings = 0; boolean sprint = g.getFoodData().getFoodLevel() > 6, allBurn = true;
         for (var m : them) {
             double dmg = mobHit(m); boolean ranged = m instanceof net.minecraft.world.entity.monster.RangedAttackMob;

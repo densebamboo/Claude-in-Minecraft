@@ -15,6 +15,11 @@ import java.util.concurrent.CompletableFuture;
 public final class LogReviewer {
     static final int EVERY = 20 * 300, MIN_LINES = 30, KEEP = 1500, MAX_FINDINGS = 6, REMEMBER = 30;
     private static final String[] SKIP = {"[Claude pack]", "[Claude read]", "[Claude plan] thinking", "[Claude test]", "[Claude incident] REVIEW", "[Claude review]"};
+    /** Lines plain code writes when it flags something itself: a finding resting only on them is already on file. */
+    private static final String[] PLAIN = {"[Claude incident]", "[Claude litter]", "[Claude conflict]", "[Claude move] spin"};
+    private static final java.util.regex.Pattern SPOT = java.util.regex.Pattern.compile("(-?\\d+), ?(-?\\d+), ?(-?\\d+)");
+    /** Spots findings named this hour: {times, first tick}. */
+    private static final java.util.Map<String, int[]> seen = new java.util.HashMap<>();
     private static final java.util.ArrayDeque<String> buf = new java.util.ArrayDeque<>();
     private static final java.util.ArrayDeque<String> reported = new java.util.ArrayDeque<>();
     private static final java.util.concurrent.ConcurrentLinkedQueue<JsonObject> found = new java.util.concurrent.ConcurrentLinkedQueue<>();
@@ -32,8 +37,16 @@ public final class LogReviewer {
 
     public static void tick(ClaudeEntity g) {
         for (JsonObject f; (f = found.poll()) != null; ) {
-            StringBuilder ls = new StringBuilder(); for (var l : f.getAsJsonArray("lines")) ls.append("\n    | ").append(l.getAsString());
-            Watchdog.incident(g, "REVIEW", f.get("what").getAsString() + "\n  expert: " + f.get("expert").getAsString() + ls);
+            String what = f.get("what").getAsString();
+            StringBuilder ls = new StringBuilder(); boolean plain = true, any = false;
+            for (var l : f.getAsJsonArray("lines")) { String l0 = l.getAsString(); ls.append("\n    | ").append(l0); any = true; boolean p0 = false; for (String k : PLAIN) if (l0.contains(k)) p0 = true; if (!p0) plain = false; }
+            if (any && plain) { ClaudeMod.LOGGER.info("[Claude review] not filed, plain code flagged it already: {}", what); continue; } // (its incident is on file; the user 11-05: half the findings restated detector lines)
+            java.util.List<String> spots = new java.util.ArrayList<>(); for (var m = SPOT.matcher(what); m.find(); ) spots.add(m.group(1) + "," + m.group(2) + "," + m.group(3));
+            int times = 0; for (String sp : spots) { int[] v = seen.get(sp); if (v != null && g.tickCount - v[1] < 20 * 3600) times = Math.max(times, v[0]); }
+            for (String sp : spots) { int[] v = seen.get(sp); if (v == null || g.tickCount - v[1] >= 20 * 3600) seen.put(sp, new int[] {1, g.tickCount}); else v[0]++; }
+            if (times == 2) { Watchdog.incident(g, "REVIEW_STILL", what + " (the same spot in 3 reviews within the hour: still not fixed)" + ls); continue; } // one loud line for an issue that stays, not a quiet re-file every pass
+            if (times > 0) { ClaudeMod.LOGGER.info("[Claude review] not filed again, the same spot as a finding {} time(s) this hour: {}", times, what); continue; }
+            Watchdog.incident(g, "REVIEW", what + "\n  expert: " + f.get("expert").getAsString() + ls);
         }
         if (inFlight || g.pref("log_review", "on").equals("off") || (com.claudemod.entity.ClaudeSpawner.testing && call == null)) return;
         if (lastAt == Integer.MIN_VALUE || g.tickCount < lastAt) { lastAt = g.tickCount; return; } // (a new body: the clock starts here)
@@ -58,7 +71,7 @@ public final class LogReviewer {
     /** Stages: due now again, the memory of what was reported kept. */
     public static void reset2(ClaudeEntity g) { lastAt = g.tickCount - EVERY; }
     /** Stages: the clock to "due now", the buffer and memory empty. */
-    public static void reset(ClaudeEntity g) { lastAt = g.tickCount - EVERY; inFlight = false; found.clear(); synchronized (buf) { buf.clear(); } synchronized (reported) { reported.clear(); } }
+    public static void reset(ClaudeEntity g) { lastAt = g.tickCount - EVERY; inFlight = false; found.clear(); seen.clear(); synchronized (buf) { buf.clear(); } synchronized (reported) { reported.clear(); } }
 
     private static String prompt;
     static String prompt() {

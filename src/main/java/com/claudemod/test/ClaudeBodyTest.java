@@ -10550,6 +10550,10 @@ public final class ClaudeBodyTest {
             case 673: return st673(stage, t, c, h, level, mock);
             case 674: return st674(stage, t, c, h, level, mock);
             case 675: return st675(stage, t, c, h, level, mock);
+            case 677: return st677(stage, t, c, h, level, mock);
+            case 678: return st678(stage, t, c, h, level, mock);
+            case 679: return st679(stage, t, c, h, level, mock);
+            case 680: return st680(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -15759,6 +15763,91 @@ public final class ClaudeBodyTest {
         if (t[0] > 20 && c.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(goal)) < 2.0) { pass(stage, t, "across his bridge to the goal in " + (t[0] - 20) + " ticks, no lava"); return true; }
         if (t[0] == 620) { BlockPos at = c.blockPosition(); c.tasks.clear(); c.dropCurrent = true;
             check(false, "on his own bridge over the lava sea: 30 s and not at 129,36,396 (real), at " + at.toShortString() + " (" + c.currentTask + ")"); }
+        return true;
+    }
+
+    /** The user 11-05: half the review findings restated plain detectors and the same open issue was re-filed every pass. A finding resting only on detector lines is not filed; the same spot is filed once an hour, and a third sighting is one REVIEW_STILL. (The model is faked.) */
+    private static boolean st678(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        try {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.prefs.put("log_review", "on");
+            com.claudemod.entity.life.LogReviewer.call = u -> java.util.concurrent.CompletableFuture.completedFuture("{\"findings\":[{\"what\":\"left dirt at 9, 9, 9\",\"expert\":\"take it\",\"lines\":[\"00:00:01 [Claude litter] left his dirt at 9, 9, 9\"]},{\"what\":\"walked to 5, 6, 7 and back\",\"expert\":\"stay\",\"lines\":[\"00:00:02 [Claude walk] GoTo 5, 6, 7\"]}]}");
+            com.claudemod.entity.life.LogReviewer.reset(c); com.claudemod.entity.life.Watchdog.lastIncident = "";
+            for (int i = 0; i < 40; i++) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] stage 678 line {}", i);
+        }
+        for (int k = 0; k < 3; k++) if (t[0] == 6 + 6 * k) {
+            String last = com.claudemod.entity.life.Watchdog.lastIncident;
+            check(!last.contains("dirt at 9, 9, 9"), "pass " + (k + 1) + ": a finding resting only on a [Claude litter] line was filed: " + last);
+            if (k == 0) check(last.startsWith("REVIEW: walked to 5, 6, 7"), "pass 1: the new finding was not filed: " + last);
+            if (k == 1) check(last.isEmpty(), "pass 2: the same spot was filed again: " + last);
+            if (k == 2) check(last.startsWith("REVIEW_STILL: walked to 5, 6, 7"), "pass 3: the third sighting raised no REVIEW_STILL: " + last);
+            com.claudemod.entity.life.Watchdog.lastIncident = ""; com.claudemod.entity.life.LogReviewer.reset2(c);
+            for (int i = 0; i < 40; i++) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] stage 678 pass {} line {}", k, i);
+        }
+        if (t[0] == 24) { com.claudemod.entity.life.LogReviewer.call = null; c.prefs.remove("log_review"); pass(stage, t, "detector-only findings dropped, a spot filed once, the third sighting one REVIEW_STILL"); }
+        } catch (AssertionError e) { com.claudemod.entity.life.LogReviewer.call = null; throw e; }
+        return true;
+    }
+
+    /** Live 14:41 11-05 World 17: he set off for the Nether from beside his chest with 34 raw iron and lost it with him at 16:25 (his stash ran once a minute, within 16 of a chest). The user: "it should fire whenever he plans to enter the nether or end". Here: his chest 20 off, 34 raw iron, his pick and food on him, the portal step queued: the iron goes in the chest, the pick and food stay on him. */
+    private static boolean st679(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos chestAt = new BlockPos(22, 2, 2);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.myStations.clear(); c.storageChests.clear(); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 26; x++) for (int z = 0; z < 6; z++) { for (int yy = -1; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE); for (int yy = 2; yy <= 5; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            h.setBlock(chestAt, Blocks.CHEST); BlockPos ch = h.absolutePos(chestAt);
+            c.myStations.add(ch); c.storageChests.add(ch); com.claudemod.entity.life.ChestLedger.reset(c); com.claudemod.entity.life.ChestLedger.look(c, level, ch);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.RAW_IRON, 34)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            BlockPos me = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null; c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("enter_portal", "home", 1, "near_you"));
+        }
+        if (t[0] > 10) {
+            int inChest = level.getBlockEntity(h.absolutePos(chestAt)) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box ? box.countItem(Items.RAW_IRON) : -1;
+            if (inChest >= 34) { check(c.inventory.count(x -> x.is(Items.IRON_PICKAXE)) == 1 && c.inventory.count(x -> x.is(Items.COOKED_BEEF)) == 16, "the trip kit went in the chest too: pick " + c.inventory.count(x -> x.is(Items.IRON_PICKAXE)) + ", beef " + c.inventory.count(x -> x.is(Items.COOKED_BEEF))); pass(stage, t, "the raw iron into his chest before the portal, in " + (t[0] - 10) + " ticks; pick and food kept"); }
+            else check(t[0] < 400, "set off for the Nether with " + c.inventory.count(x -> x.is(Items.RAW_IRON)) + " raw iron on him, " + inChest + " in his chest 20 off; skills " + c.skillQueue + " tasks " + c.tasks);
+        }
+        return true;
+    }
+
+    /** The user 11-05: "He doesn't need torches in the nether or end". Live 14:12 World 17 the Nether kit listed "12 torch" and "3 charcoal" for them. On the dragon run with his portal lit the kit has no torches or light coal in it; his mining trips pack their own (packForTrip). */
+    private static boolean st680(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            String goal0 = c.playerGoal; BlockPos portal0 = com.claudemod.director.ClaudeLife.hisPortal.get(c.getUUID());
+            try {
+                c.playerGoal = "beat the ender dragon"; com.claudemod.director.ClaudeLife.hisPortal.put(c.getUUID(), h.absolutePos(new BlockPos(3000, 2, 3000)));
+                c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COAL, 4)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 20)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 20));
+                var m = com.claudemod.director.Kit.missing(c, true);
+                check(!m.containsKey(Items.TORCH) && !m.containsKey(Items.CHARCOAL) && !m.containsKey(Items.COAL), "the Nether/End kit still wants light: " + m);
+                c.playerGoal = goal0 == null ? "" : goal0; com.claudemod.director.ClaudeLife.hisPortal.remove(c.getUUID());
+                var m2 = com.claudemod.director.Kit.missing(c, true);
+                check(m2.containsKey(Items.TORCH), "off the dragon run (no portal), the cave kit lost its torches: " + m2);
+            } finally { c.playerGoal = goal0 == null ? "" : goal0; if (portal0 != null) com.claudemod.director.ClaudeLife.hisPortal.put(c.getUUID(), portal0); else com.claudemod.director.ClaudeLife.hisPortal.remove(c.getUUID()); }
+            pass(stage, t, "no torches in the Nether/End kit; the cave kit keeps them");
+        }
+        return true;
+    }
+
+    private static boolean st677(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 14:12 11-05 World 17: 38 raw iron on him, no cobble; his nook's 6 furnaces 86 blocks off (past Procure's 64): the plan said "craft furnace 1", and he dug a pit by his house for cobble.
+        BlockPos o = h.absolutePos(new BlockPos(1, 2, 1));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.RAW_IRON, 38)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            var plan0 = com.claudemod.director.Procure.plan(c, level, Items.IRON_CHESTPLATE, 1); // no furnace anywhere: the plan makes one (a furnace planned in the nugget way that failed was kept as planned: the plan smelted with none)
+            check(plan0.steps().stream().anyMatch(s0 -> s0.skill().equals("craft") && s0.target().contains("furnace")), "no furnace anywhere: the plan smelts with no furnace " + plan0.steps());
+            BlockPos fur = o.east(86); level.setBlock(fur.below(), Blocks.STONE.defaultBlockState(), 2); level.setBlock(fur, Blocks.FURNACE.defaultBlockState(), 2); c.myStations.add(fur);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.RAW_IRON, 38)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            var plan = com.claudemod.director.Procure.plan(c, level, Items.IRON_CHESTPLATE, 1);
+            boolean craftsFurnace = plan.steps().stream().anyMatch(s0 -> s0.skill().equals("craft") && s0.target().contains("furnace"));
+            c.getInventory().add(new ItemStack(Items.COBBLESTONE, 8));
+            var plan2 = com.claudemod.director.Procure.plan(c, level, Items.IRON_CHESTPLATE, 1);
+            boolean craftsFurnace2 = plan2.steps().stream().anyMatch(s0 -> s0.skill().equals("craft") && s0.target().contains("furnace"));
+            c.myStations.remove(fur); level.setBlock(fur, Blocks.AIR.defaultBlockState(), 2);
+            check(!craftsFurnace, "no cobble on him, his own furnace 86 off: the plan still makes a new furnace " + plan.steps());
+            check(craftsFurnace2, "8 cobble on him, his furnace 86 off: the plan walks 86 blocks instead of making one on the spot " + plan2.steps());
+            pass(stage, t, "his own furnace counts when he can't make one on the spot; with the cobble on him he makes one");
+        }
         return true;
     }
 

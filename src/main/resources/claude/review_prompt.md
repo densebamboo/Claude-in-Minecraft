@@ -17,4 +17,6 @@ What is NOT a bug: waiting where the player told him to stay (the log says "stay
 
 Report each real finding once, the clearest examples only, most costly first, at most 6. For each: what he did, what an expert would have done instead, and the exact log lines it rests on (copied verbatim, 1-4 lines, with their times). If nothing in the window is below an expert's standard, return no findings.
 
+Plain code already flags some things itself: [Claude incident], [Claude litter] and [Claude conflict] lines, and [Claude move] spin lines. A finding that rests only on those lines is not filed, so spend your findings on what no line flags: judgement, wasted time, a worse way, claims that contradict the log. Quote the ordinary lines that show it.
+
 You may be given findings already reported from earlier windows. Do not report those again unless this window shows something new about them (it got worse, a new spot, a new cause); the same scaffold still standing is not new.

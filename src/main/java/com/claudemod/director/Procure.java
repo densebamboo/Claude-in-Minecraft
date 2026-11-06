@@ -142,7 +142,11 @@ public final class Procure {
             start.putAll(have); // his chests and furnaces count too (the craft/smelt skills fetch from them): no "mine 1 more ore" with 15 ingots in the chest
             // his own stations a walk off count too (the craft walks back to them): he climbed out of his mine at y -58 for a log to make a table, his mine's table 20 blocks down the tunnel
             boolean ownTable = false, ownFurnace = false;
-            for (net.minecraft.core.BlockPos p : g.myStations) { if (p.distSqr(g.blockPosition()) > 64 * 64 || !level.isLoaded(p)) continue; if (level.getBlockState(p).is(Blocks.CRAFTING_TABLE)) ownTable = true; if (level.getBlockState(p).is(Blocks.FURNACE)) ownFurnace = true; }
+            // priced by what he carries, no distance cutoff: with the stuff for one on him a new one is made on the spot; without it, his own stations count wherever they are (the trip home is needed for the stuff anyway).
+            // (live 14:12 11-05: 6 furnaces and 17 ingots at his nook 86 off, past the old 64: "craft furnace 1", no cobble on him, a pit dug by his house)
+            int stoneOn = 0, planksOn = 0; for (var e0 : pocket.entrySet()) { if (new ItemStack(e0.getKey()).is(net.minecraft.tags.ItemTags.STONE_CRAFTING_MATERIALS)) stoneOn += e0.getValue(); if (new ItemStack(e0.getKey()).is(net.minecraft.tags.ItemTags.PLANKS)) planksOn += e0.getValue(); }
+            for (net.minecraft.core.BlockPos p : g.myStations) { if (!level.isLoaded(p)) continue;
+                if (level.getBlockState(p).is(Blocks.CRAFTING_TABLE) && planksOn < 4) ownTable = true; if (level.getBlockState(p).is(Blocks.FURNACE) && stoneOn < 8) ownFurnace = true; }
             String mode = g.pref("village_mode", "useful"); // a village he saw, out of sight: its hay, golem and beds count too, the nearest worthwhile one (the user 11-04)
             var vil = ClaudeLife.knownVillage(g, "village_iron", level);
             int bales0 = ClaudeLife.villageHayInSight(g, level); if (bales0 == 0 && ClaudeLife.knownVillage(g, "village_food", level) != null) bales0 = mode.equals("raid") ? 8 : 4;
@@ -207,7 +211,7 @@ public final class Procure {
                 }
                 int out = Math.max(1, r.getResultItem(level.registryAccess()).getCount());
                 int crafts = (n + out - 1) / out;
-                Map<Item, Integer> snap = new HashMap<>(have);
+                Map<Item, Integer> snap = new HashMap<>(have); boolean table1 = table, furnace1 = furnace; // a table or furnace planned in a way that fails is not planned (the nugget way planned the furnace, failed, and the smelt then had none: live plans smelted with no furnace)
                 int mark = steps.size();
                 String rr = Crafting.isBig(r) ? needTable(deeper, depth + 1) : null;
                 if (rr == null) for (Ingredient ing : r.getIngredients()) {
@@ -220,7 +224,7 @@ public final class Procure {
                     if (crafts * out > n) have.merge(item, crafts * out - n, Integer::sum); // the extra sticks stay in his pocket
                     return null;
                 }
-                have = snap;
+                have = snap; table = table1; furnace = furnace1;
                 steps.subList(mark, steps.size()).clear();
                 if (why == null) why = rr;
             }
@@ -228,7 +232,7 @@ public final class Procure {
                 var r = holder.value();
                 if (!r.getResultItem(level.registryAccess()).is(item) || r.getIngredients().isEmpty()) continue;
                 if (java.util.Arrays.stream(r.getIngredients().get(0).getItems()).allMatch(net.minecraft.world.item.ItemStack::isDamageableItem)) continue; // (never his gear into the furnace: live 13:17 World 15 his iron swords smelted into nuggets for a shield)
-                Map<Item, Integer> snap = new HashMap<>(have);
+                Map<Item, Integer> snap = new HashMap<>(have); boolean table1 = table, furnace1 = furnace; // a table or furnace planned in a way that fails is not planned (the nugget way planned the furnace, failed, and the smelt then had none: live plans smelted with no furnace)
                 int mark = steps.size();
                 String rr = needFurnace(deeper, depth + 1);
                 if (rr == null) rr = needAny(r.getIngredients().get(0), n, deeper, depth + 1);
@@ -237,7 +241,7 @@ public final class Procure {
                     steps.add(new Skills.Step("smelt", Crafting.name(item), n));
                     return null;
                 }
-                have = snap;
+                have = snap; table = table1; furnace = furnace1;
                 steps.subList(mark, steps.size()).clear();
                 if (why == null) why = rr;
             }

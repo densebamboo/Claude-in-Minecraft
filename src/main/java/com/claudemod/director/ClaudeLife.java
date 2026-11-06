@@ -3458,7 +3458,7 @@ public final class ClaudeLife {
             }
             case "fight_dragon": return com.claudemod.entity.life.DragonFight.skill(g, player, level, st); // the kit, back to the lit End portal, in; in the End the crystals (bow; caged ones by pillar) then the dragon (bow in flight, sword on the perch)
             case "light_end_portal": return com.claudemod.entity.life.StrongholdRoom.skill(g, player, level, st); // the stronghold from its bricks: in, its corridors walked by sight to the portal room, the spawner broken, the frames filled
-            case "find_stronghold": return com.claudemod.entity.life.EyeHunt.skill(g, player, level, st); // the Overworld: eyes thrown and watched, two headings crossed, walked, thrown till one goes down, a staircase down to the stone bricks
+            case "find_stronghold": { String sv = stashForTrip(g, level, st); if (sv != null) return sv; return com.claudemod.entity.life.EyeHunt.skill(g, player, level, st); } // (off to the End: what he won't use goes in his storage first) // the Overworld: eyes thrown and watched, two headings crossed, walked, thrown till one goes down, a staircase down to the stone bricks
             case "find_fortress": return com.claudemod.entity.life.FortressScout.skill(g, player, level, st); // the Nether: he picks the heading (the structure grid), legs along the ground, a look round from each end, each leg noted
             case "enter_portal": {
                 if (level.dimension() == net.minecraft.world.level.Level.END) { // the End's way home: the exit portal on the fountain in the middle, open once the dragon's dead (live 04:07, "go through the portal" read as a follow)
@@ -3470,6 +3470,7 @@ public final class ClaudeLife {
                     return "to the exit portal on the fountain at " + ep.toShortString() + ", " + (int) Math.sqrt(ep.distSqr(g.blockPosition())) + " off";
                 }
                 if (level.dimension() == net.minecraft.world.level.Level.OVERWORLD && !g.commandActive && Kit.food(g) < 6) { String kit = gearFirst(g, level, st, false); if (kit != null) return kit; } // the trip packing rule holds for the Nether: food before he goes in (he went in with 1 meal and hunted beef in the Nether, 744954f)
+                { String sv = stashForTrip(g, level, st); if (sv != null) return sv; } // into the Nether: what he won't use there goes in his storage first
                 { String rp = com.claudemod.entity.life.PortalMap.enterStep(g, level, st, target); if (rp != null) return rp; } // their words: home / back / fortress / my portal (PortalMap.resolve); an unlit one relit // into a lit portal: stand in it 4 s, the game does the rest; both coordinate pairs noted
                 BlockPos portal = findNear(level, g.blockPosition(), 24, b -> b.is(Blocks.NETHER_PORTAL));
                 if (portal == null) { /* the portal he lit and saved (hisPortal): 33 blocks off it, "no lit portal within 24", and the planner went to mine iron for a bucket to cast a new one (live 18:08) */
@@ -5792,6 +5793,20 @@ public final class ClaudeLife {
         out.sort(Comparator.comparingInt(d::get)); return out;
     }
     /** His chests (or stations) nearest first by his tunnels. */
+    /** Before a trip to the Nether or the End, the valuables he won't use there go into his storage while it is in reach (the user 11-05: 34 raw iron went into the Nether with him and burnt with him; "it should fire whenever he plans to enter the nether or end"). What the trip needs stays on him (WorkGoal.keeps: tools, armor, food, torches, wood, fuel, arrows, pearls, eyes). Null when nothing to do; else the line, with the store step queued first (and then, if given, the step that asked). */
+    static String stashForTrip(ClaudeEntity g, ServerLevel level, Skills.Step then) {
+        if (g.commandActive || level.dimension() != net.minecraft.world.level.Level.OVERWORLD || g.skillQueue.stream().anyMatch(s0 -> s0.skill().equals("store")) || (g.lastStep != null && g.lastStep.skill().equals("store"))) return null; // (once per departure: the store just ran)
+        java.util.function.Predicate<ItemStack> val = x -> !com.claudemod.entity.goals.WorkGoal.keeps(x) && (x.is(Items.DIAMOND) || x.is(Items.EMERALD) || x.is(Items.GOLD_INGOT) || x.is(Items.RAW_GOLD) || x.is(Items.ANCIENT_DEBRIS) || x.is(Items.NETHERITE_SCRAP) || x.is(Items.IRON_INGOT) || x.is(Items.RAW_IRON) || x.is(Items.LAPIS_LAZULI) || x.is(Items.REDSTONE) || x.is(Items.RAW_COPPER) || x.is(Items.COPPER_INGOT));
+        int n = g.inventory.count(val);
+        if (n == 0) return null;
+        BlockPos chest = null; for (BlockPos sc : byRoute(g, g.storageChests)) if (level.isLoaded(sc) && level.getBlockState(sc).is(Blocks.CHEST) && sc.distSqr(g.blockPosition()) <= 64 * 64 && !g.attempts.any.containsKey(sc)) { chest = sc; break; } // (the store skill's reach; one he just failed to walk to is not it)
+        if (chest == null) { Integer lg = g.attempts.counters.get("tripStashSaid"); if (lg != null && g.tickCount - lg < 20 * 300) return null; g.attempts.counters.put("tripStashSaid", g.tickCount); ClaudeMod.LOGGER.info("[Claude life] {} valuables on him for the trip, and none of his storage in reach to leave them in: they go with him (ClaudeLife.stashForTrip)", n); return null; }
+        if (then != null) g.skillQueue.addFirst(then);
+        g.skillQueue.addFirst(new Skills.Step("store", "", 1));
+        ClaudeMod.LOGGER.info("[Claude life] {} valuables on him he won't use on the trip: into his storage at {} first (ClaudeLife.stashForTrip)", n, chest.toShortString());
+        return "first my valuables into my storage at " + chest.toShortString() + ", then the trip";
+    }
+
     public static List<BlockPos> byRoute(ClaudeEntity g, java.util.Collection<BlockPos> ps) {
         List<BlockPos> out = new ArrayList<>(ps); java.util.Map<BlockPos, Integer> d = new java.util.HashMap<>(); BlockPos me = g.blockPosition();
         for (BlockPos p : out) d.put(p, routeDist(g, me, p));

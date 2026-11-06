@@ -10552,6 +10552,7 @@ public final class ClaudeBodyTest {
             case 752: return st752(stage, t, c, h, level, mock);
             case 753: return st753(stage, t, c, h, level, mock);
             case 754: return st754(stage, t, c, h, level, mock);
+            case 759: return st759(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -10588,6 +10589,7 @@ public final class ClaudeBodyTest {
             case 688: return st688(stage, t, c, h, level, mock);
             case 689: return st689(stage, t, c, h, level, mock);
             case 690: return st690(stage, t, c, h, level, mock);
+            case 691: return st691(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -14354,6 +14356,27 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    private static int st759Start;
+    private static boolean st759(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // on the lip of a 1x2 shaft 2 deep, his path's next node 2 down it, two calm endermen standing in it (World 17 01:29:00 -172.6,57,-4.97, spin-54: shuffle, "his own way", the same plan, 45 s+; the user: "2 enderman standing in it blocking him"): he deals with them (hit out, wait, or round), never the same plan round and round
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(32))) m.discard(); }
+        BlockPos node = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 5) {
+            for (int x = 2; x <= 14; x++) for (int z = 2; z <= 14; z++) for (int yy = 0; yy <= 7; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.NETHERRACK.defaultBlockState(), 2);
+            for (int x = 4; x <= 8; x++) for (int z = 6; z <= 8; z++) for (int yy = 4; yy <= 5; yy++) if (!(x == 8 && z == 6)) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.CAVE_AIR.defaultBlockState(), 2); // his walk in, the cell over the shaft walled east (x 9) and south (z 9)
+            for (int yy = 2; yy <= 3; yy++) { level.setBlock(h.absolutePos(new BlockPos(8, yy, 8)), Blocks.CAVE_AIR.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(9, yy, 8)), Blocks.CAVE_AIR.defaultBlockState(), 2); } // the shaft: 1x2 (x 8-9), 2 deep under his cell
+            level.setBlock(h.absolutePos(new BlockPos(9, 1, 8)), Blocks.CAVE_AIR.defaultBlockState(), 2); // (its east column a block deeper)
+            for (BlockPos ep : new BlockPos[] {h.absolutePos(new BlockPos(8, 2, 8)), h.absolutePos(new BlockPos(9, 1, 8))}) { var em = EntityType.ENDERMAN.create(level); em.moveTo(ep.getX() + 0.5, ep.getY(), ep.getZ() + 0.5, 0, 0); em.setNoAi(true); em.setPersistenceRequired(); level.addFreshEntity(em); } // the user, 01:29: "2 enderman standing in it blocking him" (calm, standing there)
+            BlockPos me = h.absolutePos(new BlockPos(8, 4, 8));
+            c.getInventory().clearContent(); c.teleportTo(me.getX() + 0.4, me.getY(), me.getZ() - 0.04); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); // (z -0.04 off the cell's edge: his box on the block at z 7, the hole under the rest of him)
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            c.tasks.add(new Task.GoTo(node, 1.5)); c.tasks.add(new Task.Wait(20 * 60, false)); st759Start = t[0];
+        }
+        if (t[0] > 6) {
+            if (c.getY() < node.getY() + 1.5 && c.onGround()) pass(stage, t, "on the shaft's lip, endermen in it, his next node 2 down it: in after " + (t[0] - st759Start) / 20.0 + " s");
+            else check(t[0] - st759Start < 20 * 10, "10 s on the shaft's lip, never dropped in: at " + String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ()) + ", doing " + c.currentTask);
+        }
+        return true;
+    }
     private static int st749At;
     private static boolean st749(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // his pillar out of a 2-deep hollow (World 17 20:52-20:54 by his mine, incident 214: the dirt at -13, 63, -20 taken up at a step's start, he dropped into the hollow for it, the walk out put it back, 6 times in 60 s): it stays, his step out; a pillar over flat ground still comes back up
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
@@ -16450,6 +16473,25 @@ public final class ClaudeBodyTest {
             int inChest = level.getBlockEntity(h.absolutePos(chestAt)) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box ? box.countItem(Items.RAW_IRON) : -1;
             if (inChest >= 34) { check(c.inventory.count(x -> x.is(Items.IRON_PICKAXE)) == 1 && c.inventory.count(x -> x.is(Items.COOKED_BEEF)) == 16, "the trip kit went in the chest too: pick " + c.inventory.count(x -> x.is(Items.IRON_PICKAXE)) + ", beef " + c.inventory.count(x -> x.is(Items.COOKED_BEEF))); pass(stage, t, "the raw iron into his chest before the portal, in " + (t[0] - 10) + " ticks; pick and food kept"); }
             else check(t[0] < 400, "set off for the Nether with " + c.inventory.count(x -> x.is(Items.RAW_IRON)) + " raw iron on him, " + inChest + " in his chest 20 off; skills " + c.skillQueue + " tasks " + c.tasks);
+        }
+        return true;
+    }
+
+    static net.minecraft.world.entity.monster.EnderMan s691E;
+    /** Live 01:29 and 01:35 11-06 World 17 (incident spin-54): the way on was a drop down a narrow shaft with two endermen standing in it; he shuffled and hopped at its lip for minutes, re-planning the same drop. The user: "there were 2 enderman standing in it blocking him from moving", and for the perch case "he should hit the enderman or push it off". A mob packed in the cell his way needs: hit it out, go round, or wait, decided at once. */
+    private static boolean st691(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.tasks.clear(); c.skillQueue.clear();
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = 1; yy <= 5; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.NETHERRACK); for (int yy = 6; yy <= 10; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            for (int yy = 2; yy <= 5; yy++) h.setBlock(new BlockPos(8, yy, 8), Blocks.AIR); // the shaft, 1x1, 4 deep onto the corridor's floor at y 1
+            for (int x = 9; x <= 13; x++) for (int yy = 2; yy <= 3; yy++) h.setBlock(new BlockPos(x, yy, 8), Blocks.AIR); // the corridor on from its foot
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            BlockPos me = h.absolutePos(new BlockPos(6, 6, 8)); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            s691E = EntityType.ENDERMAN.create(level); BlockPos ep = h.absolutePos(new BlockPos(8, 2, 8)); s691E.moveTo(ep.getX() + 0.5, ep.getY(), ep.getZ() + 0.5, 0, 0); s691E.setNoAi(true); s691E.setPersistenceRequired(); level.addFreshEntity(s691E);
+            c.tasks.add(new Task.GoTo(h.absolutePos(new BlockPos(13, 2, 8)), 1.0)); }
+        if (t[0] > 1 && s691E != null) {
+            boolean hit = s691E.getHealth() < s691E.getMaxHealth(), there = c.blockPosition().distSqr(h.absolutePos(new BlockPos(13, 2, 8))) <= 2;
+            if (hit || there) { s691E.discard(); c.tasks.clear(); c.dropCurrent = true; pass(stage, t, (hit ? "hit the enderman in his way" : "got past it") + " in " + t[0] / 20 + " s"); return true; }
+            if (t[0] == 20 * 40) { s691E.discard(); c.tasks.clear(); check(false, "an enderman packed in the shaft his way drops down: 40 s, no hit and not past, at " + c.blockPosition().toShortString() + " doing " + c.currentTask); }
         }
         return true;
     }

@@ -370,6 +370,7 @@ public class ClaudeEntity extends ServerPlayer {
     private void mtLoop(com.claudemod.entity.life.Task.GoTo go, net.minecraft.world.level.pathfinder.Node nx) {
         BlockPos b = blockPosition();
         if (!b.equals(mtLoopAt)) { mtLoopAt = b; mtLoopN = 0; }
+        if (go != null && nx != null && work.mobInCell(go, new BlockPos(nx.x, nx.y, nx.z))) { mtLoopN = 0; return; } // a mob standing where his next step goes: dealt with as a choice, not the same plan again (World 17 01:29, two endermen in the hole)
         if (++mtLoopN < 2 || go == null) return;
         mtLoopN = 0;
         String nodeBlocks = nx == null ? "none" : level().getBlockState(new BlockPos(nx.x, nx.y - 1, nx.z)).getBlock().getName().getString() + " under / " + level().getBlockState(new BlockPos(nx.x, nx.y, nx.z)).getBlock().getName().getString() + " / " + level().getBlockState(new BlockPos(nx.x, nx.y + 1, nx.z)).getBlock().getName().getString() + " head";
@@ -386,7 +387,7 @@ public class ClaudeEntity extends ServerPlayer {
         String to = currentTask instanceof com.claudemod.entity.life.Task.GoTo go ? go.pos().toShortString() : "-";
         var nx = nav.getPath() != null && !nav.isDone() ? nav.getPath().getNextNode() : null; String node = nx == null ? "none" : nx.x + "," + nx.y + "," + nx.z;
         // stall: walking, hardly moving for 10+ ticks
-        if (h < 0.03 && onGround()) { if (++mtStall == 10 && tickCount > mtQuietUntil) { ClaudeMod.LOGGER.info("[Claude move] stall at {} doing {} to {} next node {} (y {})", where, doing, to, node, String.format("%.2f", getY())); mtQuietUntil = tickCount + 20; } } else mtStall = 0;
+        if (h < 0.03 && onGround()) { if (++mtStall == 10 && tickCount > mtQuietUntil) { ClaudeMod.LOGGER.info("[Claude move] stall at {} doing {} to {} next node {} (y {})", where, doing, to, node, String.format("%.2f", getY())); mtQuietUntil = tickCount + 20; if (nx != null && currentTask instanceof com.claudemod.entity.life.Task.GoTo g1) work.mobInCell(g1, new BlockPos(nx.x, nx.y, nx.z)); } } else mtStall = 0;
         // reversal: the way he moves flips back on itself, 3 times within 2 s
         if (h > 0.05) { net.minecraft.world.phys.Vec3 dir = new net.minecraft.world.phys.Vec3(d.x / h, 0, d.z / h);
             if (mtLastDir != null && dir.dot(mtLastDir) < -0.5) { if (tickCount - mtFlipStart > 40) { mtFlipStart = tickCount; mtFlips = 0; } if (++mtFlips == 3 && tickCount > mtQuietUntil) { ClaudeMod.LOGGER.info("[Claude move] shuffle at {} doing {} to {} next node {}", where, doing, to, node); mtQuietUntil = tickCount + 40;  mtLoop(currentTask instanceof com.claudemod.entity.life.Task.GoTo g0 ? g0 : null, nx); } }

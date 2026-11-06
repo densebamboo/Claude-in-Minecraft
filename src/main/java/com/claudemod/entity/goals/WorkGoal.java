@@ -5702,6 +5702,40 @@ public class WorkGoal extends Goal {
         g.setSprinting(false); cfMove(best, 1.0);
         return false;
     }
+    private final java.util.Map<java.util.UUID, BlockPos> mobWaited = new java.util.HashMap<>(); // a mob he waited out in a cell of his way: still there after the wait, waiting again is out
+    /**
+     * A mob standing where his walk's next step goes (World 17 01:29, the user: "he was trying to drop in a hole and there were 2 enderman
+     * standing in it blocking him"; 00:53 an enderman and a baby piglin on his perch, "he should hit the enderman or push it off"): stalled or
+     * shuffling there, one priced choice, walk.mob_in_cell. Hit it out (its kill, the hits it gives back while he does; an enderman on a
+     * pearl hunt is the job itself; a piglin or a golem out: they all turn on him), wait for it to move (walk.mob_wait_s, once a mob and cell),
+     * or another way (the walk written off with the mob as its cause: back on when it moves off, Attempts). True: dealt with.
+     */
+    public boolean mobInCell(Task.GoTo go, BlockPos node) {
+        if (!(g.level() instanceof ServerLevel level)) return false;
+        BlockPos feet = g.blockPosition(); int lo = Math.min(node.getY(), feet.getY()), hi = Math.max(node.getY(), feet.getY()) + 1;
+        net.minecraft.world.phys.AABB way = new net.minecraft.world.phys.AABB(node.getX(), lo, node.getZ(), node.getX() + 1, hi + 1, node.getZ() + 1).deflate(0.05); // (the step's cell, its head room, and the column down to it on a drop)
+        var in = level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, way, e -> e != g && e.isAlive() && !(e instanceof net.minecraft.world.entity.player.Player));
+        if (in.isEmpty()) return false;
+        var m = in.stream().min(java.util.Comparator.comparingDouble(e -> e.distanceToSqr(g))).get();
+        String what = m.getType().getDescription().getString();
+        boolean pearls = m instanceof net.minecraft.world.entity.monster.EnderMan && g.lastStep != null && g.lastStep.skill().equals("ender_pearls") || m instanceof net.minecraft.world.entity.monster.EnderMan && g.skillQueue.stream().anyMatch(s0 -> s0.skill().equals("ender_pearls"));
+        com.claudemod.entity.life.Decide.Option hit;
+        if (m instanceof net.minecraft.world.entity.monster.piglin.AbstractPiglin || m instanceof net.minecraft.world.entity.monster.ZombifiedPiglin || m instanceof net.minecraft.world.entity.animal.IronGolem || m instanceof net.minecraft.world.entity.npc.Villager)
+            hit = com.claudemod.entity.life.Decide.Option.out("hit it out", "a " + what + ": hit one and the rest of them turn on him");
+        else { int k = hitsToKill(m); double t = k * w("fight.swing_s", 0.6); boolean back = m instanceof net.minecraft.world.entity.monster.Enemy || m instanceof net.minecraft.world.entity.NeutralMob;
+            double hp = back ? t * w("fight.mob_hits_per_s", 0.8) * mobHit(m) : 0;
+            hit = com.claudemod.entity.life.Decide.Option.of("hit it out", t + com.claudemod.entity.life.Decide.hpS(g, 0, hp, mobHit(m)) - (pearls ? w("walk.mob_in_cell_pearl_s", 60) : 0), k + " swings" + (back ? ", ~" + Math.round(hp) + " HP back" : "") + (pearls ? ", its pearl the job" : "")); }
+        var wait = node.equals(mobWaited.get(m.getUUID())) ? com.claudemod.entity.life.Decide.Option.out("wait for it to move", "waited once, it stayed")
+                : com.claudemod.entity.life.Decide.Option.of("wait for it to move", w("walk.mob_wait_s", 15), "it wanders off");
+        var round = com.claudemod.entity.life.Decide.Option.of("another way", w("walk.mob_round_s", 45), "the walk to " + go.pos().toShortString() + " off till it moves");
+        var pick = com.claudemod.entity.life.Decide.choose(g, "walk.mob_in_cell", in.size() + " " + what + (in.size() > 1 ? "s" : "") + " in his next step " + node.toShortString() + ", he at " + feet.toShortString(), true, java.util.List.of(hit, wait, round));
+        if (pick == null) return false;
+        g.getNavigation().stop(); g.setSprinting(false);
+        if (pick == hit) { g.tasks.addFirst(go); for (var e : in) if (!(e instanceof net.minecraft.world.entity.monster.piglin.AbstractPiglin)) g.tasks.addFirst(new Task.Attack(e.getUUID(), 20 * 30)); g.dropCurrent = true; return true; }
+        if (pick == wait) { mobWaited.put(m.getUUID(), node.immutable()); g.tasks.addFirst(go); g.tasks.addFirst(new Task.Wait((int) (20 * w("walk.mob_wait_s", 15)), false)); g.dropCurrent = true; return true; }
+        g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, go.pos(), g.tickCount, feet, com.claudemod.entity.life.Attempts.Reason.BLOCKED_MOB, "a " + what + " in his step " + node.toShortString(), m.getUUID());
+        g.dropCurrent = true; return true;
+    }
     private int airborneTick = -100;
     private BlockPos airPlanFor; // (the walk whose tick-2 plan was put off: he was in the air)
     private BlockPos refusedSaidFor; // (the walk the refused-step line was last said for)

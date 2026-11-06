@@ -164,9 +164,10 @@ public final class ActionPath {
         }
         return false;
     }
-    /** A log with natural leaves (not persistent: grown, never placed) within 2: a tree's, not a building's. */
+    /** A log with natural leaves (not persistent: grown, never placed) within 2 of it or of its trunk's top: a tree's, not a building's (an oak's lower trunk is 3+ below its leaves: live 06:59 World 17, left half chopped by a village). */
     static boolean naturalTree(ServerLevel level, BlockPos p) {
-        for (BlockPos q : BlockPos.betweenClosed(p.offset(-2, -1, -2), p.offset(2, 2, 2))) { BlockState l = level.getBlockState(q); if (l.getBlock() instanceof net.minecraft.world.level.block.LeavesBlock && !l.getValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT)) return true; }
+        BlockPos top = p; for (int k = 0; k < 32 && level.getBlockState(top.above()).is(net.minecraft.tags.BlockTags.LOGS); k++) top = top.above();
+        for (BlockPos c : new BlockPos[] {p, top}) for (BlockPos q : BlockPos.betweenClosed(c.offset(-2, -1, -2), c.offset(2, 2, 2))) { BlockState l = level.getBlockState(q); if (l.getBlock() instanceof net.minecraft.world.level.block.LeavesBlock && !l.getValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT)) return true; }
         return false;
     }
     /**

@@ -101,25 +101,7 @@ public final class Kit {
         if (noBed && woolForBed(g) != null) m.put(bedChoice(g), 1); // the wool's already in his pocket: one craft, done first
         boolean nookBed = !noBed && g.inventory.count(s -> s.is(net.minecraft.tags.ItemTags.BEDS)) == 0 && ClaudeLife.nookWantsBed(g) != null; // a nook of his with no bed: one bed per nook (3 wool of a colour + 3 planks), planned like his first
         if (nookBed && woolForBed(g) != null) m.put(bedChoice(g), 1);
-        int f0 = food(g);
-        int rawMeat = g.inventory.count(s -> s.has(DataComponents.FOOD) && ClaudeLife.rawOrBad((ServerLevel) g.level(), s) && !s.is(Items.ROTTEN_FLESH) && !s.is(Items.SPIDER_EYE) && !s.is(Items.POISONOUS_POTATO)); // raw meat is a furnace away from food, not a trip away
-        int short0 = FOOD_WANT - f0, beyondRaw = short0 - rawMeat;
-        if (short0 > 0 && (beyondRaw <= 2 || rawMeat >= 6) && rawMeat > 0) short0 = Math.min(short0, rawMeat); // (6+ raw on him: cook those first, the rest is a top-up for later; 13 raw porkchops by his furnaces and he set off up the stairs to hunt 16 cows) // a trip across the map for one more cow is not worth it: cook what he has
-        if (short0 > 0 && f0 >= 10) { // a top-up, not a need: only if there's food within reach (15 meals on him and 400 blocks walked for 6 beef, a skeleton on the way)
-            boolean near = ClaudeLife.preyInReach(g, (ServerLevel) g.level()) // (one he can walk to: sheep up a mountain 57 across are no top-up)
-                    || !g.level().getEntitiesOfClass(net.minecraft.world.entity.animal.AbstractFish.class, g.getBoundingBox().inflate(24)).isEmpty();
-            if (!near && ClaudeLife.villageHayInSight(g, (ServerLevel) g.level()) > 0) near = true; // (a village's hay counts)
-            if (!near) short0 = 0;
-        }
-        Item cookedRaw = null; // the cooked form of the raw meat he carries: cooking that is the job, not a hunt for some other animal
-        for (Item[] rc : new Item[][]{{Items.PORKCHOP, Items.COOKED_PORKCHOP}, {Items.BEEF, Items.COOKED_BEEF}, {Items.MUTTON, Items.COOKED_MUTTON}, {Items.CHICKEN, Items.COOKED_CHICKEN}, {Items.RABBIT, Items.COOKED_RABBIT}, {Items.COD, Items.COOKED_COD}, {Items.SALMON, Items.COOKED_SALMON}})
-            if (cookedRaw == null && g.inventory.count(st -> st.is(rc[0])) >= short0) cookedRaw = rc[1];
-        if (short0 > 0 && cookedRaw != null && f0 >= 10 && rawMeat < 8) { boolean furnaceBy = false; for (net.minecraft.core.BlockPos q : g.myStations) if (q.closerThan(g.blockPosition(), 16) && g.level().getBlockState(q).is(net.minecraft.world.level.block.Blocks.FURNACE)) furnaceBy = true; if (!furnaceBy) short0 = 0; } // (the smelt skill's own rule: a few raws ride home to his furnaces, never a furnace out here; live 03:17 the kit asked for 1 cooked chicken, smelt said "cooks at home", and gear_up asked again every few seconds)
-        if (short0 > 0 && cookedRaw == null) { // a village's hay bales in sight: bread, 3 a bale, beats a hunt across the map (he walked 300 blocks for cows past a village's hay)
-            int bales = ClaudeLife.villageHayInSight(g, (ServerLevel) g.level());
-            if (bales > 0) { int bread = Math.min(short0, bales * 3); m.put(Items.BREAD, bread); short0 -= bread; }
-        }
-        if (short0 > 0) m.put(cookedRaw != null ? cookedRaw : foodChoice(g), short0);
+        { FoodAsk fa = foodAsk(g); if (fa != null) m.put(fa.item(), fa.count()); } // (the food: how much the trip takes, from where it's cheapest, priced: Kit.foodAsk)
         boolean sheepAbout = !g.level().getEntitiesOfClass(Sheep.class, g.getBoundingBox().inflate(48)).isEmpty();
         if ((noBed || nookBed) && sheepAbout && !m.containsKey(bedChoice(g))) m.put(bedChoice(g), 1); // sleeping keeps the phantoms off (3 wool off sheep, 3 planks); no sheep about: the bed waits for the next flock he passes, never a 350-block trek for wool on day one
         if (!sword(g, false)) m.put(Items.STONE_SWORD, 1); // something to fight with from the first evening
@@ -163,6 +145,79 @@ public final class Kit {
             if (dragonKit) for (Item a : new Item[] {Items.DIAMOND_HELMET, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_BOOTS}) if (!has(g, a)) m.put(a, 1); // and for the End, full diamond armor (never before the Nether: live 12:04 World 15 it held the Nether trip on hours of diamonds)
         }
         return m;
+    }
+
+    /** What the kit asks for in food: an item and a count, or null (he goes as he is). */
+    public record FoodAsk(Item item, int count) {}
+    private static final java.util.Map<java.util.UUID, Object[]> foodAskMemo = new java.util.HashMap<>();
+    private static double w(String name, double def) { return com.claudemod.entity.life.Weights.w(name, def); }
+    /** Food points (nutrition + saturation) in one of the item. */
+    static double pts(Item i) { var f = new ItemStack(i).get(DataComponents.FOOD); return f == null ? 0 : f.nutrition() + f.saturation(); }
+    /**
+     * The kit's food (the user 11-05: every fixed rule a weighed decision; review 105 / 384: salmon chased 6+ deep as a fixed
+     * 16-item target, a furnace of cooked salmon left for more). How much: the trip's food points (Food: a stretch on kit.trip_*,
+     * by default about the old 16 meals) and a reserve, less what's in him and on him. From where: each source priced in seconds
+     * (one [Claude decide] line when it changes): the raw meat he carries cooked, each kind of animal about (the walk to the
+     * nearest, a kill each, the cooking), fish near the surface (the deep ones out), a village's hay, a search for animals;
+     * every option pays for what it leaves uncovered at kit.short_meal_s a meal, and going as he is pays it all.
+     */
+    public static FoodAsk foodAsk(ClaudeEntity g) {
+        Object[] memo = foodAskMemo.get(g.getUUID()); if (memo != null && g.tickCount - (int) memo[0] >= 0 && g.tickCount - (int) memo[0] < 40) return (FoodAsk) memo[1];
+        FoodAsk fa = foodAsk0(g); if (foodAskMemo.size() > 64) foodAskMemo.clear(); foodAskMemo.put(g.getUUID(), new Object[] {g.tickCount, fa}); return fa;
+    }
+    private static FoodAsk foodAsk0(ClaudeEntity g) {
+        ServerLevel level = (ServerLevel) g.level();
+        var trip = new com.claudemod.entity.life.Food.Stretch(w("kit.trip_sprint_s", 900), 0, 0, 0, (int) w("kit.trip_digs", 2000), (int) w("kit.trip_hits", 60), w("kit.trip_hp", 60), 0);
+        var fd = g.getFoodData(); double inHim = Math.max(0, fd.getFoodLevel() - 18) + fd.getSaturationLevel();
+        double carried = 0; int rawN = 0; Item rawCooked = null;
+        Item[][] rawToCooked = {{Items.PORKCHOP, Items.COOKED_PORKCHOP}, {Items.BEEF, Items.COOKED_BEEF}, {Items.MUTTON, Items.COOKED_MUTTON}, {Items.CHICKEN, Items.COOKED_CHICKEN}, {Items.RABBIT, Items.COOKED_RABBIT}, {Items.COD, Items.COOKED_COD}, {Items.SALMON, Items.COOKED_SALMON}};
+        for (int k = 0; k < g.inventory.items.getContainerSize(); k++) { ItemStack st = g.inventory.items.getItem(k); if (!st.has(DataComponents.FOOD)) continue;
+            if (!ClaudeLife.rawOrBad(level, st)) carried += pts(st.getItem()) * st.getCount();
+            else for (Item[] rc : rawToCooked) if (st.is(rc[0])) { rawN += st.getCount(); if (rawCooked == null || pts(rc[1]) > pts(rawCooked)) rawCooked = rc[1]; } }
+        double need = com.claudemod.entity.life.Food.points(trip) + w("kit.reserve_points", 42) - inHim, shortP = need - carried;
+        if (shortP <= 0) return null;
+        double meal = w("food.meal_points", 20.8), shortS = w("kit.short_meal_s", 90), sprint = com.claudemod.entity.life.Decide.sprint(), cook = w("kit.cook_s", 5), kill = w("kit.kill_s", 6);
+        java.util.List<com.claudemod.entity.life.Decide.Option> opts = new java.util.ArrayList<>(); java.util.Map<String, FoodAsk> asks = new java.util.HashMap<>();
+        opts.add(com.claudemod.entity.life.Decide.Option.of("as he is", shortP / meal * shortS, (int) Math.ceil(shortP / meal) + " meal(s) short, found on the way"));
+        if (rawN > 0) { // his own raw meat, at a furnace of his close by (the smelt skill's rule: a few raws ride home, never a furnace set down out here; live 03:17 the kit asked and smelt said "cooks at home", every few seconds)
+            double fur = Double.MAX_VALUE; for (var q : g.myStations) if (level.getBlockState(q).is(net.minecraft.world.level.block.Blocks.FURNACE)) fur = Math.min(fur, Math.sqrt(q.distSqr(g.blockPosition())));
+            int n = (int) Math.min(rawN, Math.ceil(shortP / pts(rawCooked))); double left = Math.max(0, shortP - n * pts(rawCooked));
+            if (fur > w("kit.cook_furnace_range", 16)) opts.add(com.claudemod.entity.life.Decide.Option.out("cook his raw", rawN + " raw, no furnace of his within " + (int) w("kit.cook_furnace_range", 16) + ": they cook at home"));
+            else { opts.add(com.claudemod.entity.life.Decide.Option.of("cook his raw", fur / sprint + n * cook + left / meal * shortS, n + " to cook")); asks.put("cook his raw", new FoodAsk(rawCooked, n)); } }
+        { // his stores: cooked food in his chests (as of his last look) and his furnaces' output close by (review 384: 5 cooked salmon left in his furnace for a hunt 70 off)
+          Item best = null; int have = 0; for (var e : ClaudeLife.stored(g, level).entrySet()) { ItemStack st = new ItemStack(e.getKey()); if (!st.has(DataComponents.FOOD) || ClaudeLife.rawOrBad(level, st)) continue; if (best == null || pts(e.getKey()) * e.getValue() > pts(best) * have) { best = e.getKey(); have = e.getValue(); } }
+          if (best != null) { final Item bi = best; double far = Double.MAX_VALUE;
+            for (var sp : com.claudemod.entity.life.ChestLedger.where(g, level, x -> x.is(bi))) far = Math.min(far, Math.sqrt(sp.pos().distSqr(g.blockPosition())));
+            for (var q : g.myStations) if (level.isLoaded(q) && level.getBlockEntity(q) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f && f.getItem(2).is(bi)) far = Math.min(far, Math.sqrt(q.distSqr(g.blockPosition())));
+            if (far < Double.MAX_VALUE) { int n = (int) Math.min(have, Math.ceil(shortP / pts(bi))); double left = Math.max(0, shortP - n * pts(bi));
+              String nm = "his stores (" + Crafting.name(bi) + ")"; opts.add(com.claudemod.entity.life.Decide.Option.of(nm, far / sprint + w("kit.take_s", 3) + left / meal * shortS, have + " there, " + (int) far + " off")); asks.put(nm, new FoodAsk(bi, n)); } } }
+        Object[][] herds = {{Cow.class, Items.COOKED_BEEF, 2.0}, {Pig.class, Items.COOKED_PORKCHOP, 2.0}, {Sheep.class, Items.COOKED_MUTTON, 1.5}, {Chicken.class, Items.COOKED_CHICKEN, 1.0}};
+        var box = g.getBoundingBox().inflate(w("kit.prey_range", 48));
+        for (Object[] hd : herds) { @SuppressWarnings("unchecked") var cls = (Class<? extends net.minecraft.world.entity.animal.Animal>) hd[0]; Item item = (Item) hd[1]; double yield = (double) hd[2];
+            var near = new java.util.ArrayList<>(level.getEntitiesOfClass(cls, box, a -> a.isAlive() && !a.isBaby())); if (near.isEmpty()) continue;
+            String name = "hunt " + net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(near.get(0).getType()).getPath();
+            near.sort(java.util.Comparator.comparingDouble(g::distanceToSqr)); double walk = ClaudeLife.preyWalk(g, level, near.get(0));
+            if (walk < 0) { opts.add(com.claudemod.entity.life.Decide.Option.out(name, near.size() + " about, no walk to the nearest")); continue; }
+            int k = (int) Math.min(near.size(), Math.ceil(shortP / (yield * pts(item)))); double got = k * yield * pts(item), left = Math.max(0, shortP - got);
+            opts.add(com.claudemod.entity.life.Decide.Option.of(name, walk / sprint + k * (kill + yield * cook) + left / meal * shortS, k + " of " + near.size() + ", nearest " + (int) walk + " walk"));
+            asks.put(name, new FoodAsk(item, (int) Math.ceil(Math.min(got, shortP) / pts(item)))); }
+        { var fishBox = g.getBoundingBox().inflate(w("kit.fish_range", 24));
+          var fish = level.getEntitiesOfClass(net.minecraft.world.entity.animal.AbstractFish.class, fishBox, f -> f.isAlive() && (f instanceof net.minecraft.world.entity.animal.Salmon || f instanceof net.minecraft.world.entity.animal.Cod));
+          var shallow = fish.stream().filter(f -> ClaudeLife.shallowFish(level, f)).sorted(java.util.Comparator.comparingDouble(g::distanceToSqr)).toList();
+          if (!fish.isEmpty() && shallow.isEmpty()) opts.add(com.claudemod.entity.life.Decide.Option.out("fish", fish.size() + " about, all too deep to reach"));
+          else if (!shallow.isEmpty()) { long sal = shallow.stream().filter(f -> f instanceof net.minecraft.world.entity.animal.Salmon).count(); Item item = sal * 2 >= shallow.size() ? Items.COOKED_SALMON : Items.COOKED_COD;
+            int k = (int) Math.min(shallow.size(), Math.ceil(shortP / pts(item))); double left = Math.max(0, shortP - k * pts(item));
+            opts.add(com.claudemod.entity.life.Decide.Option.of("fish", Math.sqrt(g.distanceToSqr(shallow.get(0))) / sprint + k * (w("kit.fish_s", 15) + cook) + left / meal * shortS, k + " of " + shallow.size() + " near the top"));
+            asks.put("fish", new FoodAsk(item, k)); } }
+        { int bales = ClaudeLife.villageHayInSight(g, level); if (bales > 0) { int bread = (int) Math.min(bales * 3, Math.ceil(shortP / pts(Items.BREAD))); double left = Math.max(0, shortP - bread * pts(Items.BREAD));
+            opts.add(com.claudemod.entity.life.Decide.Option.of("village bread", w("kit.hay_walk_s", 20) + bread / 3.0 * w("kit.bale_s", 4) + left / meal * shortS, bales + " bale(s) in sight")); asks.put("village bread", new FoodAsk(Items.BREAD, bread)); } }
+        { int k = (int) Math.ceil(shortP / (2 * pts(Items.COOKED_BEEF)));
+          opts.add(com.claudemod.entity.life.Decide.Option.of("search for animals", w("kit.search_s", 120) + k * (kill + 2 * cook), k + " cows' worth")); asks.put("search for animals", new FoodAsk(Items.COOKED_BEEF, 2 * k)); }
+        var pick = com.claudemod.entity.life.Decide.choose(g, "kit.food", "", false, opts);
+        StringBuilder said = new StringBuilder(); for (var o : opts) said.append(said.length() == 0 ? "" : "; ").append(o.no() != null ? o.name() + " out (" + o.no() + ")" : o.name() + " ~" + Math.round(o.s()) + " s" + (o.detail().isEmpty() ? "" : " (" + o.detail() + ")"));
+        FoodAsk fa = pick == null ? null : asks.get(pick.name());
+        ClaudeLife.nookSay(g, "kitFood", "[Claude decide] kit.food (" + (int) shortP + " food points short of the trip's " + (int) need + ", " + (int) carried + " on him): " + said + ": " + (pick == null ? "none" : pick.name()) + (fa == null ? "" : " -> " + fa.count() + " " + Crafting.name(fa.item())) + " (Kit.foodAsk)");
+        return fa;
     }
 
     /** The cooked meat of whatever animal there's most of around him (hunting what's there, not a cow he can't find). */

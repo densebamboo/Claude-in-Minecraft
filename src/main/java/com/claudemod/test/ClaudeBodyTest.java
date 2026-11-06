@@ -10460,6 +10460,7 @@ public final class ClaudeBodyTest {
             case 832: return st832(stage, t, c, h, level, mock);
             case 833: return st833(stage, t, c, h, level, mock);
             case 834: return st834(stage, t, c, h, level, mock);
+            case 835: return st835(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13366,6 +13367,34 @@ public final class ClaudeBodyTest {
     /** Stage 828 (Day to Day 18:47, World 17: "walk no path vs bridge short of blocks (34 of 147) vs bore no pick or blocks: walk", stuck, given up): 819's lava lake with an iron pick and no blocks on him. Netherrack is all round him: mined first, then the bridge; never in lava, across within 120 s. */
     private static BlockPos s830A;
     /** Stage 830 (Day to Day review 11-05): PLACE_REPEAT, a crafting table set into a filled cell twice within 10 s (98/15/29); FAR_STATION, a 24-block walk to an old crafting table on a craft step with 8 planks on him (260/27). Both filed. */
+    private static java.util.List<net.minecraft.world.entity.Entity> s835Mobs = new java.util.ArrayList<>(); private static String s835Asked = "";
+    /** Stage 835 (review 105, 21:40 World 17): 6 meals and 5 raw on him, the only food about salmon 9 deep, no livestock: the kit asks for no fish it can't reach (live: "hunting 6 salmon", then "OUT_OF_REACH a fish 6+ deep"). */
+    private static boolean st835(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(3, 40, 520));
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 24000; for (var e : s835Mobs) e.discard(); s835Mobs.clear();
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) e.discard();
+            for (int x = -6; x <= 30; x++) for (int z = -6; z <= 6; z++) { level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = 10; x <= 14; x++) for (int z = -2; z <= 2; z++) { level.setBlock(o.offset(x, -12, z), Blocks.STONE.defaultBlockState(), 2); for (int y = -11; y <= -1; y++) level.setBlock(o.offset(x, y, z), Blocks.WATER.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.APPLE, 4)); c.getInventory().add(new ItemStack(Items.COOKED_PORKCHOP, 2)); c.getInventory().add(new ItemStack(Items.BEEF, 2)); c.getInventory().add(new ItemStack(Items.SALMON, 3)); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); // (his pack at 21:40: 6 meals, 5 raw) c.getInventory().add(new ItemStack(Items.TORCH, 32)); c.getInventory().add(new ItemStack(Items.COAL, 16));
+            level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(12, 0, 0)), 3, o);
+            c.getFoodData().setFoodLevel(20); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); return true; }
+        if (t[0] == 2) { for (int i = 0; i < 3; i++) { var f = h.spawn(EntityType.SALMON, new BlockPos(3 + 11 + i, 40 - 10, 520)); f.setNoAi(true); f.setPersistenceRequired(); s835Mobs.add(f); } return true; } // (a tick after the ticket: spawned into an entity-loaded chunk)
+        if (t[0] == 4) {
+            int fish = level.getEntitiesOfClass(net.minecraft.world.entity.animal.Salmon.class, c.getBoundingBox().inflate(48)).size(); check(fish == 3, "the 3 salmon aren't there: " + fish + " (" + s835Mobs.stream().map(e -> e.isAlive() + "/" + e.getRemovalReason() + "@" + e.blockPosition().toShortString() + " in " + level.getBlockState(e.blockPosition()).getBlock()).toList() + ", he is at " + c.blockPosition().toShortString() + ")");
+            var m = com.claudemod.director.Kit.missing(c, false); java.util.List<String> foods = new java.util.ArrayList<>(); for (var e : m.entrySet()) if (e.getKey().components().has(net.minecraft.core.component.DataComponents.FOOD)) foods.add(e.getValue() + " " + e.getKey());
+            check(m.keySet().stream().noneMatch(i -> i == Items.COOKED_SALMON || i == Items.SALMON || i == Items.COOKED_COD || i == Items.COD), "6 meals on him and the salmon 9 deep: the kit still asks for fish: " + foods);
+            s835Asked = foods.isEmpty() ? "no food" : String.join(", ", foods);
+            BlockPos fp = o.offset(4, 0, 3); level.setBlock(fp, Blocks.FURNACE.defaultBlockState(), 3); // (review 384: his furnace by him with 10 cooked salmon in it)
+            if (level.getBlockEntity(fp) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f) f.setItem(2, new ItemStack(Items.COOKED_SALMON, 10)); c.myStations.add(fp.immutable());
+        }
+        if (t[0] == 50) { // (past the kit's 2 s memo)
+            var m = com.claudemod.director.Kit.missing(c, false);
+            check(m.getOrDefault(Items.COOKED_SALMON, 0) > 0 && m.keySet().stream().noneMatch(i -> i != Items.COOKED_SALMON && i.components().has(net.minecraft.core.component.DataComponents.FOOD)), "10 cooked salmon in his furnace 5 off: the kit should take those, asks " + m);
+            for (var e : s835Mobs) e.discard(); s835Mobs.clear(); c.getInventory().clearContent(); c.myStations.clear(); level.setBlock(o.offset(4, 0, 3), Blocks.AIR.defaultBlockState(), 3);
+            pass(stage, t, "deep fish left alone by the kit (asks: " + s835Asked + "), then his furnace's salmon taken (" + m.get(Items.COOKED_SALMON) + ")");
+        }
+        return true;
+    }
     /** Stage 834: DUP_CRAFT, a stone pickaxe made with a good one on him and a table made with one packed are filed; a stone pickaxe made with his worn down to 11 uses is not. */
     private static boolean st834(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (t[0] != 2) { if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 24000; } return true; }

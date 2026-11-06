@@ -10492,6 +10492,7 @@ public final class ClaudeBodyTest {
             case 915: return st915(stage, t, c, h, level, mock);
             case 916: return st916(stage, t, c, h, level, mock);
             case 917: return st917(stage, t, c, h, level, mock);
+            case 918: return st918(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13651,6 +13652,39 @@ public final class ClaudeBodyTest {
             nsHome(c, h, level); pass(stage, t, "part way through the rock: " + p.legs().size() + " legs to " + end.toShortString() + " (" + p.digs() + " dug, " + p.nodes() + " nodes, " + p.ms() + " ms)"); }
         return true;
     }
+    /** Stage 918 (the user 11-06 ~15:35 via D2D: "replace the step blocks with stair blocks for faster access once the iron and diamond levels are established"): a 10-step blueprint staircase, stair blocks on him: stair_steps puts one in every riser, facing the way up, within player pace, none of them litter. */
+    private static boolean st918(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(19200, 80, 19200);
+        if (t[0] % 10 == 0 || t[0] < 10) for (int k = -16; k <= 16; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(1000);
+            for (int x = -3; x <= 14; x++) for (int z = -3; z <= 4; z++) for (int y = -14; y <= 5; y++) level.setBlock(o.offset(x, y, z), (y <= 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            var b = new com.claudemod.entity.life.MineBlueprint(o.above(), net.minecraft.core.Direction.EAST, 2, 3); b.segments.get(0).n = 10; c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.prefs.put("stay_close", "no"); com.claudemod.director.ClaudeLife.bpSync(c);
+            for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK) level.setBlock(e.getKey(), Blocks.AIR.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE_STAIRS, 24)); /* (stone: no entrance arch yet, it waits for iron) */ c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            BlockPos at = b.rows().get(3).first();
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, at.getX() + 0.5, at.getY(), at.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f); }
+        if (t[0] == 5) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+        if (t[0] == 10) { ClaudeMod.LOGGER.info("[Claude test] 918 blueprint {} rows, {} risers, {} to do, mode {}", c.blueprint == null ? -1 : c.blueprint.rows().size(), c.blueprint == null ? -1 : c.blueprint.risers().size(), com.claudemod.entity.life.MineStairs.todo(c, level).size(), c.pref("mine_model", "?")); String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "stair_steps", "", 1); ClaudeMod.LOGGER.info("[Claude test] 918 stair_steps: {}", r); s918 = r; }
+        if (t[0] > 10 && t[0] % 20 == 0) {
+            var risers = c.blueprint.risers(); int ok = 0; String bad = "";
+            for (var e : risers.entrySet()) { var st = level.getBlockState(e.getKey());
+                if (st.getBlock() instanceof net.minecraft.world.level.block.StairBlock && st.getValue(net.minecraft.world.level.block.StairBlock.FACING) == e.getValue() && st.getValue(net.minecraft.world.level.block.StairBlock.HALF) == net.minecraft.world.level.block.state.properties.Half.BOTTOM) ok++;
+                else if (bad.length() < 160) bad += e.getKey().toShortString() + "=" + st.getBlock().getName().getString() + " "; }
+            if (ok == risers.size() || t[0] >= 20 * 60) {
+                int lit = 0; for (BlockPos q : risers.keySet()) if (com.claudemod.entity.life.TempLedger.has(c, q)) lit++;
+                String line = com.claudemod.entity.life.MineStairs.describe(c);
+                c.tasks.clear(); c.skillQueue.clear(); c.blueprint = null; c.dropCurrent = true;
+                for (int x = -3; x <= 14; x++) for (int z = -3; z <= 4; z++) for (int y = -14; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(risers.size() == 18, "a 10-step staircase 2 wide has 18 risers, the blueprint gave " + risers.size());
+                check(ok == risers.size(), ok + " of " + risers.size() + " risers a stair facing up in " + (t[0] - 10) / 20 + " s (" + s918 + "); not: " + bad);
+                check(lit == 0, lit + " of the stair blocks booked as litter");
+                check(line.isEmpty(), "a mine at y 80, not down to diamond level: the planner already offers the swap: " + line);
+                pass(stage, t, ok + " stair blocks in " + (t[0] - 10) / 20 + " s");
+            }
+        }
+        return true;
+    }
+    private static String s918 = "";
     /** Stage 917 (D2D, LITTER incidents live 15:25:09 World 17): the highway's floor that build_highway laid at -3..-2, 58, 105-109 booked as his temp blocks ("bridge", "step"): litter to take back up. The highway is his build; its blocks stay. */
     private static boolean st917(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

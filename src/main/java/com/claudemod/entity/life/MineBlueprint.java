@@ -106,6 +106,15 @@ public final class MineBlueprint {
         rows = out; return out;
     }
 
+    /** The step risers of his main line: the floor block a stairs row stands on where the next row is a step down straight on (a stair block there walks up with no jump), with the way up. */
+    public Map<BlockPos, Direction> risers() {
+        Map<BlockPos, Direction> out = new java.util.LinkedHashMap<>(); List<Row> rs = rows();
+        for (int i = 0; i + 1 < rs.size(); i++) { Row a = rs.get(i), b = rs.get(i + 1);
+            if (segments.get(a.segment()).kind != Kind.STAIRS || !b.first().equals(a.first().relative(a.dir()).below())) continue;
+            for (BlockPos f : a.feet()) out.put(f.below().immutable(), a.dir().getOpposite()); }
+        return out;
+    }
+
     /** Every cell's role; cells outside the shape and its shell are absent. */
     public Map<BlockPos, Role> roles() {
         if (roles != null) return roles;

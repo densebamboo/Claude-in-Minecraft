@@ -137,6 +137,15 @@ public final class Highway {
 
     static boolean lava(ServerLevel level, BlockPos p) { return level.getFluidState(p).is(FluidTags.LAVA); }
     static boolean solid(ServerLevel level, BlockPos p) { var st = level.getBlockState(p); return !st.canBeReplaced() && !st.getCollisionShape(level, p).isEmpty(); }
+    /** A cell of the highway underway (its cross-section: floor, walkway, rails or walls, roof) near p: the highway's to lay or dig, not another system's to fill (Loops 88: doBore filled -3,59,5 and -3,61,5, build_highway dug them out 11 s later). */
+    public static boolean owns(ClaudeEntity g, BlockPos p) {
+        BridgeBlueprint b = state(g).plan; if (b == null) return false;
+        for (var r : b.rows) { BlockPos c = r.centre(); if (Math.abs(c.getX() - p.getX()) + Math.abs(c.getZ() - p.getZ()) > 8) continue;
+            int y = p.getY() - c.getY(); if (y < 0 || y > 4) continue;
+            Direction right = r.dir().getClockWise();
+            for (int o = b.lo() - 1; o <= b.hi() + 1; o++) { BlockPos q = c.relative(right, o); if (q.getX() == p.getX() && q.getZ() == p.getZ()) return true; } }
+        return false;
+    }
     /** Rock, for the tunnel test: solid and not a tree's (stems, wart blocks, shroomlight, leaves). */
     static boolean rock(ServerLevel level, BlockPos p) { if (!solid(level, p)) return false; var st = level.getBlockState(p); return !(st.is(net.minecraft.tags.BlockTags.LOGS) || st.is(net.minecraft.tags.BlockTags.WART_BLOCKS) || st.is(net.minecraft.world.level.block.Blocks.SHROOMLIGHT) || st.is(net.minecraft.tags.BlockTags.LEAVES)); }
     /** A shell block left as it is: a portal frame, bedrock, anything with contents. */

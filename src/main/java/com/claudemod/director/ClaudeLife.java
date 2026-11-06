@@ -6424,11 +6424,17 @@ public final class ClaudeLife {
         { long tod9 = level.getDayTime() % 24000; if ((tod9 < 12500 || tod9 > 23500) && !level.isThundering()) return null; } // by the clock: rain darkens the sky and isDay() said "night" at noon, so he sat in his hole through a rainy midday (a thunderstorm does spawn mobs: that one still counts)
         return nightGearNo(g, level, at);
     }
+    /** A far cell let through by the night rule's light checks, logged (World 17 21:45:41: village_iron walked him 139 blocks out of his lit mine at tick ~13620, ungeared, the rule at the village's cell passing, which way unknown; 20 -> 2 HP). */
+    private static void nightPass(ClaudeEntity g, ServerLevel level, BlockPos at, String why) {
+        long tod = level.getDayTime() % 24000; if (tod < 12500 || tod > 23500 || at.distSqr(g.blockPosition()) <= 16 * 16) return;
+        String k = "nightPass:" + at.asLong(); Integer t0 = g.attempts.counters.get(k); if (t0 != null && g.tickCount - t0 < 20 * 30) return; g.attempts.counters.put(k, g.tickCount);
+        ClaudeMod.LOGGER.info("[Claude decide] night, ungeared: {} ({} off) passes the night rule as {}; he stands at {} (sky light {}, block light {}), step {} (ClaudeLife.nightGearNo)", at.toShortString(), (int) Math.sqrt(at.distSqr(g.blockPosition())), why, g.blockPosition().toShortString(), level.getBrightness(net.minecraft.world.level.LightLayer.SKY, g.blockPosition()), level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, g.blockPosition()), g.lastStep == null ? "-" : g.lastStep.skill());
+    }
     /** The night rule without its clock: whether the coming night out here is one he can take as he is (Decide.dusk asks it before dark). */
     public static String nightGearNo(ClaudeEntity g, ServerLevel level, BlockPos at) {
         if (pastEarly(g)) return null; // past the early game the night is his bed, his mine or the work, never a hole, low or not (a diamond chestplate and a stone sword read as "not geared": a hole every night)
-        if (level.getBrightness(net.minecraft.world.level.LightLayer.SKY, at) < 4) return null; // underground: not the open
-        if (level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, at) >= 8 && level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, g.blockPosition()) >= 8) return null; // lit up (his base)
+        if (level.getBrightness(net.minecraft.world.level.LightLayer.SKY, at) < 4) { nightPass(g, level, at, "underground there (sky light " + level.getBrightness(net.minecraft.world.level.LightLayer.SKY, at) + ", loaded " + level.isLoaded(at) + ")"); return null; } // underground: not the open
+        if (level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, at) >= 8 && level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, g.blockPosition()) >= 8) { nightPass(g, level, at, "lit up there (block light " + level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, at) + ") and where he stands (" + level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, g.blockPosition()) + ")"); return null; } // lit up (his base)
         var chest = g.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST);
         boolean ironArmor = chest.is(Items.IRON_CHESTPLATE) || chest.is(Items.DIAMOND_CHESTPLATE) || chest.is(Items.NETHERITE_CHESTPLATE);
         boolean ironSword = g.inventory.count(x -> x.is(Items.IRON_SWORD) || x.is(Items.DIAMOND_SWORD) || x.is(Items.NETHERITE_SWORD)) > 0;

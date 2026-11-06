@@ -61,7 +61,10 @@ public final class Decide {
         if (g.house != null && g.house.shellStands(level) && level.getBlockState(g.house.bedHead()).is(net.minecraft.tags.BlockTags.BEDS)) spots.add(new Object[] {"his house's bed", g.house.bedHead()});
         if (g.blueprint != null && !g.blueprint.isEmpty()) spots.add(new Object[] {"his lit mine", g.blueprint.entrance});
         for (Object[] sp : spots) {
-            BlockPos at = (BlockPos) sp[1]; int dist = com.claudemod.director.ClaudeLife.routeDist(g, me, at);
+            BlockPos at = (BlockPos) sp[1];
+            String no = ((String) sp[0]).contains("bed") ? com.claudemod.director.ClaudeLife.bedNoGo(g, level, at) : null; // (the sleep skill's own judgement of the bed: one it won't sleep in is no night's end; World 17 21:12, incident 17: an obstructed bed picked every 20 s, four 87-block legs)
+            if (no != null) { said.add(sp[0] + " at " + at.toShortString() + " out (" + no + ")"); continue; }
+            int dist = com.claudemod.director.ClaudeLife.routeDist(g, me, at);
             if (dist > w("night.spot_max_route", 400)) continue; // (out of any night's reach: not an option)
             double walk = dist / sprint(), out = Math.max(0, walk - toDark), s = walkS(g, level, tod, walk, hostiles);
             said.add(sp[0] + " " + dist + " off " + (s == Double.MAX_VALUE ? "out (the hits on the way would take over half his health)" : "~" + (int) s + " s") + " (" + (int) walk + " s walk" + (out > 0 ? ", " + (int) out + " s of it after the spawns" : ", there before the spawns") + ")");
@@ -136,7 +139,7 @@ public final class Decide {
         BlockPos to = null; String toName = null; double bd = Double.MAX_VALUE;
         if (level.dimension() == net.minecraft.world.level.Level.NETHER) { for (var p : PortalMap.net(g).portals) if (PortalMap.NETHER.equals(p.dim) && "lit".equals(p.state) && p.at.distSqr(spot) < bd) { bd = p.at.distSqr(spot); to = p.at; toName = "his portal at " + p.where(); } }
         else {
-            for (BlockPos b : g.myStations) if (level.isLoaded(b) && level.getBlockState(b).is(net.minecraft.tags.BlockTags.BEDS) && b.distSqr(spot) < bd) { bd = b.distSqr(spot); to = b; toName = "his bed at " + b.toShortString(); }
+            for (BlockPos b : g.myStations) if (level.isLoaded(b) && level.getBlockState(b).is(net.minecraft.tags.BlockTags.BEDS) && b.distSqr(spot) < bd && com.claudemod.director.ClaudeLife.bedNoGo(g, level, b) == null) { bd = b.distSqr(spot); to = b; toName = "his bed at " + b.toShortString(); }
             if (g.house != null && g.house.shellStands(level) && g.house.bedHead().distSqr(spot) < bd) { bd = g.house.bedHead().distSqr(spot); to = g.house.bedHead(); toName = "his house"; }
             if (g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.entrance.distSqr(spot) < bd) { bd = g.blueprint.entrance.distSqr(spot); to = g.blueprint.entrance; toName = "his mine's door"; }
         }

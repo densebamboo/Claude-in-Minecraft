@@ -10533,6 +10533,8 @@ public final class ClaudeBodyTest {
             case 740: return st740(stage, t, c, h, level, mock);
             case 741: return st741(stage, t, c, h, level, mock);
             case 742: return st742(stage, t, c, h, level, mock);
+            case 743: return st743(stage, t, c, h, level, mock);
+            case 744: return st744(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -10559,6 +10561,7 @@ public final class ClaudeBodyTest {
             case 678: return st678(stage, t, c, h, level, mock);
             case 679: return st679(stage, t, c, h, level, mock);
             case 680: return st680(stage, t, c, h, level, mock);
+            case 681: return st681(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -14016,6 +14019,66 @@ public final class ClaudeBodyTest {
     }
 
     /** Live 16:49 11-05 (-106,64,-6, tick 11767; Day to Day case D, the user: "Couldn't he have slept at his bed ... Most of the time you don't need to dig into a hole for 10 minutes just because the sun is going down"): full HP, food 20, 5 meals, no armor, his bed about 30 off: "the sun's going down and he's out with no armor: under cover before dark", a hole, 7 min of night in it. The game's first spawns in the open are at tick 13188 (12969 in rain), 70 s off; 30 blocks is 6 s at a sprint. Dusk is one priced choice: his bed, his lit mine, the hole last. */
+    private static java.util.List<BlockPos> g743Junk = new java.util.ArrayList<>();
+    private static boolean st744(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a block to set with nothing to set it against, only his own cell beside it with support (World 17 19:19:11 in his Nether bore: "nothing to place -184, 55, -2 against: a footing at -184, 55, -1 first", his own feet and the bore's lane, then the bore dug it out, 17 PLACE_BREAKs): no footing in the cells he stands in
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); }
+        BlockPos me = h.absolutePos(new BlockPos(5, 10, 6)), q = me.north();
+        if (t[0] == 10) {
+            for (int x = 0; x <= 10; x++) for (int z = 0; z <= 10; z++) for (int y = 2; y <= 15; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2);
+            for (int x = 0; x <= 10; x++) for (int z = 0; z <= 10; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 8, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, 9, z)), z <= 5 ? Blocks.LAVA.defaultBlockState() : Blocks.STONE.defaultBlockState(), 2); } // (a lava pool, north of his ledge, a block below it)
+            for (int z = 6; z <= 10; z++) { level.setBlock(h.absolutePos(new BlockPos(4, 10, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(6, 10, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(4, 11, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(6, 11, z)), Blocks.STONE.defaultBlockState(), 2); } // (his 1-wide way, walled)
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.NETHERRACK, 32)); c.setHealth(20);
+            q = me.north().north(); // (the cell to set: over the lava, 2 ahead, its only neighbour with support his way's mouth beside him)
+        }
+        if (t[0] == 12) { c.tasks.clear(); c.tasks.addFirst(new Task.Place(me.north(), Items.NETHERRACK)); }
+        if (t[0] > 12) {
+            BlockPos feet = c.blockPosition();
+            boolean intoHim = c.tasks.stream().anyMatch(x -> x instanceof Task.Place pl && (pl.pos().equals(feet) || pl.pos().equals(feet.above()) || pl.pos().equals(me) || pl.pos().equals(me.above()))) || (c.currentTask instanceof Task.Place cp && (cp.pos().equals(me) || cp.pos().equals(me.above())));
+            check(!intoHim, "a footing queued in the cells he stands in (" + me.toShortString() + "): now=" + c.currentTask + " tasks=" + c.tasks);
+            check(level.getBlockState(me).isAir(), "his own cell at " + me.toShortString() + " filled: " + level.getBlockState(me));
+            if (t[0] >= 72) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "nothing to set the block over the lava against: no footing in his own cell, the place " + (level.getBlockState(me.north()).isAir() ? "left" : "made") + " (" + level.getBlockState(me.north()) + ")"); }
+        }
+        return true;
+    }
+    private static boolean st743(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // his pile with zombies by it at night: the valuables, then straight for his bed, no cobble; by day with none about: all of it (the user 11-05: "if it's safe he can just pick it up, if he senses danger or his health is low he should grab and run ... It should be weighed")
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(96))) m.discard(); }
+        if (t[0] == 5) for (int cx = -1; cx <= 3; cx++) for (int cz = -1; cz <= 2; cz++) { BlockPos p = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(p), 2, p); }
+        if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(h.absolutePos(new BlockPos(24, 2, 8))), 3, h.absolutePos(new BlockPos(24, 2, 8)));
+        if (t[0] == 10) {
+            for (int x = -4; x <= 40; x++) for (int z = 0; z <= 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 8; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(64))) it.discard();
+            sleepHis = sleepBed(level, h.absolutePos(new BlockPos(1, 2, 12)), net.minecraft.core.Direction.EAST); c.myStations.add(sleepHis);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            sleepAt(c, h, new BlockPos(4, 2, 8)); c.setYRot(-90); c.setYHeadRot(-90); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            BlockPos pile = h.absolutePos(new BlockPos(24, 2, 8)); g743Junk.clear(); var fell = new java.util.ArrayList<net.minecraft.world.entity.item.ItemEntity>();
+            fell.add(new net.minecraft.world.entity.item.ItemEntity(level, pile.getX() + 0.5, pile.getY() + 0.2, pile.getZ() + 0.5, new ItemStack(Items.IRON_SWORD)));
+            fell.add(new net.minecraft.world.entity.item.ItemEntity(level, pile.getX() + 1.5, pile.getY() + 0.2, pile.getZ() + 0.5, new ItemStack(Items.IRON_CHESTPLATE)));
+            for (int i = 0; i < 8; i++) { BlockPos j = h.absolutePos(new BlockPos(22 + i % 4, 2, 10 + i / 4)); g743Junk.add(j); fell.add(new net.minecraft.world.entity.item.ItemEntity(level, j.getX() + 0.5, j.getY() + 0.2, j.getZ() + 0.5, new ItemStack(i < 6 ? Items.COBBLESTONE : Items.DIRT, 64))); }
+            for (var e : fell) { e.setDeltaMovement(0, 0, 0); level.addFreshEntity(e); }
+            com.claudemod.entity.life.DeathLog.died(c, level, pile, fell); // (his death checklist: where recover_drops looks)
+            for (int zx : new int[] {6, 10}) { var z = net.minecraft.world.entity.EntityType.ZOMBIE.create(level); BlockPos zp = h.absolutePos(new BlockPos(29, 2, zx)); z.moveTo(zp.getX() + 0.5, zp.getY(), zp.getZ() + 0.5, 90, 0); z.setNoAi(true); z.setPersistenceRequired(); level.addFreshEntity(z); }
+            level.setDayTime(14000);
+        }
+        if (t[0] > 10 && t[0] < 30) level.setDayTime(14000);
+        java.util.function.Predicate<Task> toJunk = q -> q instanceof Task.GoTo go && g743Junk.stream().anyMatch(j -> j.distSqr(go.pos()) <= 1);
+        java.util.function.Predicate<Task> toBed = q -> q instanceof Task.GoTo go && go.pos().distSqr(sleepHis) <= 9;
+        if (t[0] == 30) {
+            c.tasks.clear(); c.skillQueue.clear(); String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
+            check(c.tasks.stream().noneMatch(toJunk), "night, two zombies he sees by his pile: the cobble queued too (" + r + "; " + c.tasks + ")");
+            check(!c.tasks.isEmpty() && toBed.test(c.tasks.peekLast()), "night, two zombies by his pile: no run for his bed after the valuables (" + r + "; last " + c.tasks.peekLast() + ")");
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Zombie.class, c.getBoundingBox().inflate(64))) m.discard(); com.claudemod.entity.life.Perception.reset(c); level.setDayTime(6000);
+        }
+        if (t[0] == 40) {
+            c.tasks.clear(); c.skillQueue.clear(); String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
+            check(c.tasks.stream().filter(toJunk).count() >= 6, "day, nothing about: the cobble left (" + r + "; " + c.tasks + ")");
+            check(c.tasks.stream().noneMatch(toBed), "day, nothing about: a run for his bed after his pile (" + c.tasks + ")");
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(64))) it.discard();
+            pass(stage, t, "his pile: zombies by it at night, the iron then straight for his bed (no cobble); by day, all of it, no run");
+        }
+        return true;
+    }
     private static boolean st742(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // night at 2 HP, mobs he sees, his bed 50 off (World 17 18:25: each flee run that "got clear" was followed by "night at 2 health: to his bed before anything else", tasks cleared, back toward the mobs, 3 times in 26 s): the bed walk is priced, and out
         if (t[0] == 1) { scenarioReset(c); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(96))) m.discard(); }
         if (t[0] == 10) {
@@ -15922,6 +15985,31 @@ public final class ClaudeBodyTest {
             if (inChest >= 34) { check(c.inventory.count(x -> x.is(Items.IRON_PICKAXE)) == 1 && c.inventory.count(x -> x.is(Items.COOKED_BEEF)) == 16, "the trip kit went in the chest too: pick " + c.inventory.count(x -> x.is(Items.IRON_PICKAXE)) + ", beef " + c.inventory.count(x -> x.is(Items.COOKED_BEEF))); pass(stage, t, "the raw iron into his chest before the portal, in " + (t[0] - 10) + " ticks; pick and food kept"); }
             else check(t[0] < 400, "set off for the Nether with " + c.inventory.count(x -> x.is(Items.RAW_IRON)) + " raw iron on him, " + inChest + " in his chest 20 off; skills " + c.skillQueue + " tasks " + c.tasks);
         }
+        return true;
+    }
+
+    /** The user 11-05 19:15: "make the logging cheaper and more optimized". The reviewer read ~127k chars a call (5M tokens a day): a fifth his 10 s where lines, then spin and take-off lines plain code covers, then loops repeating one line dozens of times. Here: 10 where lines -> every third kept; spins, take-offs and task-age lines left out; 40 lines differing only in numbers -> 3 kept and "37 more lines like this". */
+    private static boolean st681(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        try {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.prefs.put("log_review", "on");
+            com.claudemod.entity.life.LogReviewer.call = u -> java.util.concurrent.CompletableFuture.completedFuture("{\"findings\":[]}");
+            com.claudemod.entity.life.LogReviewer.reset(c); com.claudemod.entity.life.LogReviewer.lastAsked = "";
+            for (int i = 0; i < 10; i++) { com.claudemod.ClaudeMod.LOGGER.info("[Claude where] (live build) at {}, 64, 0 st681", i); com.claudemod.ClaudeMod.LOGGER.info("[Claude where]   task age {}t st681", i); }
+            for (int i = 0; i < 5; i++) { com.claudemod.ClaudeMod.LOGGER.info("[Claude move] spin at {}, 64, 0 st681", i); com.claudemod.ClaudeMod.LOGGER.info("[Claude leap] jump from {}, 64, 0: take-off at 0.5 along st681", i); }
+            for (int i = 0; i < 40; i++) com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] GoTo {}, 64, {} ended at once st681", i, i * 2);
+        }
+        if (t[0] == 6) {
+            String a = com.claudemod.entity.life.LogReviewer.lastAsked;
+            check(!a.isEmpty(), "no review call was made");
+            check(a.split("live build\\) at", -1).length - 1 == 4, "every third where line should stay (4 of 10): " + a);
+            check(!a.contains("spin at") && !a.contains("take-off") && !a.contains("task age"), "spin, take-off or task-age lines reached the reviewer: " + a);
+            check(a.split("ended at once st681", -1).length - 1 == 3, "the 40 alike lines should be 3 kept (and one count line): " + a);
+            check(a.contains("(37 more lines like this"), "no count line for the folded lines: " + a);
+            com.claudemod.entity.life.LogReviewer.call = null; c.prefs.remove("log_review");
+            pass(stage, t, "where lines thinned, spin/take-off/task-age left out, 40 alike lines folded to 3 and a count");
+        }
+        } catch (AssertionError e) { com.claudemod.entity.life.LogReviewer.call = null; throw e; }
         return true;
     }
 

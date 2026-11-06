@@ -66,6 +66,40 @@ public final class Decide {
         if (key != null) ClaudeMod.LOGGER.info("[Claude decide] dusk (tick {}, the first spawns in {} s, {} hostile(s) known, armor {}): {}: {} (Decide.dusk)", tod, (int) toDark, hostiles, g.getArmorValue(), String.join("; ", said), best);
     }
 
+    /** His drops to fetch and, when he grabs and runs, where to run to (null: a plain pickup, then he carries on). */
+    public record Grab(java.util.List<net.minecraft.world.entity.item.ItemEntity> fetch, BlockPos runTo, String why) {}
+    /**
+     * At his pile (the user 11-05: "if it's safe he can just pick it up, if he senses danger or his health is low he should grab
+     * and run ... It should be weighed"): the valuables first always (DeathLog.worthTrip); the rest priced. The seconds the junk
+     * would keep him there (~1.5 a stack) cost the hits he'd expect in them (the hostiles he knows of, the open night, his armor,
+     * as walkS) at 10 s an HP he can win back by eating, 30 s one he can't; against the junk's worth (dropsWorth, ~1 s a point).
+     * Staying dearer, or past half his health: grab the valuables and run for the nearest safety (his portal in the Nether; his
+     * bed, his house's bed or his lit mine at home). The pickup itself resets their clock; a death on the way out leaves a fresh
+     * pile nearer safety, so the run is worth taking more often than the fight.
+     */
+    public static Grab grabAndRun(ClaudeEntity g, ServerLevel level, BlockPos spot, java.util.List<net.minecraft.world.entity.item.ItemEntity> drops) {
+        java.util.List<net.minecraft.world.entity.item.ItemEntity> val = new java.util.ArrayList<>(), junk = new java.util.ArrayList<>();
+        for (var d : drops) (DeathLog.worthTrip(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(d.getItem().getItem()).getPath()) ? val : junk).add(d);
+        java.util.List<net.minecraft.world.entity.item.ItemEntity> all = new java.util.ArrayList<>(val); all.addAll(junk);
+        if (val.isEmpty() || junk.isEmpty()) return new Grab(all, null, "");
+        int hostiles = 0; for (var m : Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(32).minmax(new net.minecraft.world.phys.AABB(spot).inflate(16)), x -> x.isAlive())) hostiles++;
+        long tod = level.getDayTime() % 24000; boolean night = !level.dimensionType().hasFixedTime() && (level.isThundering() || tod >= (level.isRaining() ? 12969 : 13188) && tod <= 23460) && level.canSeeSky(spot.above());
+        double armorF = 1.0 - Math.min(20, g.getArmorValue()) / 25.0, tJunk = 1.5 * junk.size();
+        double dmg = 3 * armorF * (0.15 * hostiles + (night ? 1 / 20.0 : 0)) * tJunk, perHP = g.getFoodData().getFoodLevel() >= 18 ? 10 : 30;
+        boolean tooMuch = dmg > Math.min(g.getHealth() - 4, g.getHealth() / 2);
+        double stay = dmg * perHP, worth = com.claudemod.director.ClaudeLife.dropsWorth(junk);
+        if (!tooMuch && stay <= worth) return new Grab(all, null, "a plain pickup: the " + junk.size() + " other stack(s) worth ~" + (int) worth + " s, the ~" + (int) tJunk + " s on them ~" + (int) stay + " s of hits (" + hostiles + " hostile(s) known" + (night ? ", the open night" : "") + ")");
+        BlockPos to = null; String toName = null; double bd = Double.MAX_VALUE;
+        if (level.dimension() == net.minecraft.world.level.Level.NETHER) { for (var p : PortalMap.net(g).portals) if (PortalMap.NETHER.equals(p.dim) && "lit".equals(p.state) && p.at.distSqr(spot) < bd) { bd = p.at.distSqr(spot); to = p.at; toName = "his portal at " + p.where(); } }
+        else {
+            for (BlockPos b : g.myStations) if (level.isLoaded(b) && level.getBlockState(b).is(net.minecraft.tags.BlockTags.BEDS) && b.distSqr(spot) < bd) { bd = b.distSqr(spot); to = b; toName = "his bed at " + b.toShortString(); }
+            if (g.house != null && g.house.shellStands(level) && g.house.bedHead().distSqr(spot) < bd) { bd = g.house.bedHead().distSqr(spot); to = g.house.bedHead(); toName = "his house"; }
+            if (g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.entrance.distSqr(spot) < bd) { bd = g.blueprint.entrance.distSqr(spot); to = g.blueprint.entrance; toName = "his mine's door"; }
+        }
+        String why = "grab and run: the " + junk.size() + " other stack(s) worth ~" + (int) worth + " s against " + (tooMuch ? "hits past half his health" : "~" + (int) stay + " s of hits") + " in the ~" + (int) tJunk + " s on them (" + hostiles + " hostile(s) known" + (night ? ", the open night" : "") + ", health " + (int) g.getHealth() + ", armor " + g.getArmorValue() + "): the " + val.size() + " valuable stack(s), then " + (to == null ? "away (no safe spot of his known)" : "straight for " + toName);
+        return new Grab(val, to, why);
+    }
+
     /** A walk to goal was refused by every way his walker has (why). True if he took one of his other ways (queued); false: the caller's skip stands. */
     public static boolean walkRefused(ClaudeEntity g, ServerLevel level, BlockPos goal, double within, String why) {
         var mine = took.computeIfAbsent(g.getUUID(), k -> new java.util.HashMap<>());

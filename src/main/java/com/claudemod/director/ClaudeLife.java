@@ -3996,12 +3996,15 @@ public final class ClaudeLife {
                 drops.sort(Comparator.comparingDouble(i -> i.distanceToSqr(g)));
                 boolean viaMine = g.mineFace != null && !inHisMine(g, g.blockPosition()) && (inHisMine(g, spot) || spot.distSqr(g.mineFace) <= 16 * 16 || (spot.getY() < g.getBlockY() - 12 && Math.abs(spot.getX() - g.mineFace.getX()) + Math.abs(spot.getZ() - g.mineFace.getZ()) <= 64)); // deep under him near his mine: down the mine, not overland to the spot 95 blocks above it
                 if (viaMine) queueRouteToMine(g, level); // they're down his mine: in at the entrance and along it, like a player (not overland to the spot above them)
+                var grab = com.claudemod.entity.life.Decide.grabAndRun(g, level, spot, drops); // (the valuables first; the rest, or a run for safety, priced)
+                if (!grab.why().isEmpty()) ClaudeMod.LOGGER.info("[Claude decide] his pile at {}: {} (Decide.grabAndRun)", spot.toShortString(), grab.why());
                 int hops = 0;
-                for (var d : drops) {
+                for (var d : grab.fetch()) {
                     if (hops++ >= 24) break;
                     wayTo(g, level, d.blockPosition(), 1.0);
                     g.tasks.add(new Task.Pickup(40));
                 }
+                if (grab.runTo() != null) g.tasks.add(new Task.GoTo(grab.runTo(), 3.0)); // (the way back starts at the last valuable)
                 var clock = com.claudemod.entity.life.Clocks.pile(g, level);
                 return "going to get my stuff back (" + drops.size() + " stacks at " + spot.toShortString() + ")" + (viaMine ? " down my mine" : "") + ", keeping it"
                         + (clock == null || clock.stacks() == 0 ? "" : " (" + com.claudemod.entity.life.Clocks.fmt(clock.left()) + " left on them" + (clock.ticking() ? "" : ", frozen while unloaded") + ", ~" + (int) Math.ceil(com.claudemod.entity.life.Clocks.eta(g.blockPosition(), spot)) + "s away)");

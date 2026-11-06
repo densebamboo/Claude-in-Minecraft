@@ -250,15 +250,16 @@ public final class Watchdog {
         if (r[0] > 3) r[0] = 3;
         String tried = s.tried.getOrDefault(k, "the straight way");
         if (r[0] == 1 && !(t instanceof Task.Leap) && com.claudemod.director.ClaudeLife.escapeStuck(g, (ServerLevel) g.level(), t)) {
-            s.tried.put(k, tried + ", digging/bridging/pillaring to it");
+            s.tried.put(k, tried + ", a way of his own planned to it (digs, bridges or a pillar where it needed them)");
             ClaudeMod.LOGGER.info("[Claude watchdog] {}: rung 1, his own way to it (dig, bridge, pillar, swim) in front (Watchdog.climb)", k);
             return;
         }
         if (r[0] <= 2) {
+            boolean noOwnWay = r[0] == 1 && !(t instanceof Task.Leap); // (escapeStuck just looked and found none; a second trip had its plan already, a leap never asks)
             r[0] = 2;
             int n = 0; for (var it = g.tasks.iterator(); it.hasNext(); ) if (k.equals(key(it.next()))) { it.remove(); n++; }
             mark(g, t);
-            s.tried.put(k, tried + (tried.contains("digging") ? "" : ", digging/bridging (no way found)") + ", going round");
+            s.tried.put(k, tried + (noOwnWay ? ", no way to dig, bridge or pillar to it found" : "") + ", going round"); // (was "digging/bridging (no way found)" whatever had been tried: D2D reviews 16 and 84, a dig dropped after 1 tick and no bridge, said as tried)
             ClaudeMod.LOGGER.info("[Claude watchdog] {}: rung 2, written off ({} queued copies dropped): the way round, another spot for the job (Watchdog.climb)", k, n);
             return;
         }

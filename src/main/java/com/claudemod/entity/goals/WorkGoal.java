@@ -4610,6 +4610,14 @@ public class WorkGoal extends Goal {
     }
 
     /** What a swing with this does: the attack-damage modifiers only (compute() would lump attack speed in and call a stone sword a 2.6). */
+    /** Swings a second at full charge: 4 plus the item's attack speed modifier (sword 1.6, axe 0.8-1.0). */
+    public static double weaponSpeed(ItemStack s) {
+        double[] sp = {4.0};
+        s.getAttributeModifiers().forEach(EquipmentSlot.MAINHAND, (attr, mod) -> {
+            if (attr.is(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_SPEED) && mod.operation() == net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_VALUE) sp[0] += mod.amount();
+        });
+        return Math.max(0.1, sp[0]);
+    }
     public static double weaponDamage(ItemStack s) {
         double[] dmg = {1.0};
         s.getAttributeModifiers().forEach(EquipmentSlot.MAINHAND, (attr, mod) -> {
@@ -6384,7 +6392,7 @@ public class WorkGoal extends Goal {
         for (int i = 0; i < g.inventory.items.getContainerSize(); i++) {
             ItemStack s = g.inventory.items.getItem(i);
             if (!(s.getItem() instanceof net.minecraft.world.item.SwordItem) && !(s.getItem() instanceof net.minecraft.world.item.AxeItem)) continue;
-            double dmg = weaponDamage(s);
+            double dmg = weaponDamage(s) * weaponSpeed(s); // damage a second: a wooden axe's 7 a hit at 0.8 swings a second loses to an iron sword's 6 at 1.6 (live 02:01 11-06, he died to an enderman swinging a wooden axe, the sword in his pack)
             if (dmg > bestDmg) { bestDmg = dmg; best = s; }
         }
         if (!best.isEmpty()) g.hold(best);

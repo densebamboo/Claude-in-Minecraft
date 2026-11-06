@@ -10593,6 +10593,7 @@ public final class ClaudeBodyTest {
             case 689: return st689(stage, t, c, h, level, mock);
             case 690: return st690(stage, t, c, h, level, mock);
             case 691: return st691(stage, t, c, h, level, mock);
+            case 692: return st692(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -16547,6 +16548,22 @@ public final class ClaudeBodyTest {
             if (inChest >= 34) { check(c.inventory.count(x -> x.is(Items.IRON_PICKAXE)) == 1 && c.inventory.count(x -> x.is(Items.COOKED_BEEF)) == 16, "the trip kit went in the chest too: pick " + c.inventory.count(x -> x.is(Items.IRON_PICKAXE)) + ", beef " + c.inventory.count(x -> x.is(Items.COOKED_BEEF))); pass(stage, t, "the raw iron into his chest before the portal, in " + (t[0] - 10) + " ticks; pick and food kept"); }
             else check(t[0] < 400, "set off for the Nether with " + c.inventory.count(x -> x.is(Items.RAW_IRON)) + " raw iron on him, " + inChest + " in his chest 20 off; skills " + c.skillQueue + " tasks " + c.tasks);
         }
+        return true;
+    }
+
+    static net.minecraft.world.entity.monster.Zombie s692Z;
+    /** Live 02:01 11-06 World 17, death to an enderman: "holding wooden axe" with an iron sword in his pack. equipWeapon picked the most damage a hit (wooden axe 7 > iron sword 6), never the swing rate (0.8/s vs 1.6/s: 5.6 vs 9.6 a second). His blade for a melee fight: the most damage a second. */
+    private static boolean st692(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.tasks.clear(); c.skillQueue.clear();
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { h.setBlock(new BlockPos(x, 1, z), Blocks.STONE); for (int yy = 2; yy <= 6; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.WOODEN_AXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            BlockPos me = h.absolutePos(new BlockPos(5, 2, 8)); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            s692Z = EntityType.ZOMBIE.create(level); BlockPos zp = h.absolutePos(new BlockPos(7, 2, 8)); s692Z.moveTo(zp.getX() + 0.5, zp.getY(), zp.getZ() + 0.5, 90, 0); s692Z.setNoAi(true); s692Z.setPersistenceRequired(); level.addFreshEntity(s692Z);
+            c.tasks.add(new Task.Attack(s692Z.getUUID(), 20 * 10)); }
+        if (t[0] > 1 && s692Z != null && (s692Z.getHealth() < s692Z.getMaxHealth() || t[0] == 200)) {
+            String held = c.getMainHandItem().getItem().toString(); s692Z.discard(); c.tasks.clear(); c.dropCurrent = true;
+            check(c.getMainHandItem().is(Items.IRON_SWORD), "fighting with " + held + " while an iron sword is in his pack (wooden axe 5.6 a second, iron sword 9.6)");
+            pass(stage, t, "the iron sword in hand"); }
         return true;
     }
 

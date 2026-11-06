@@ -10559,6 +10559,7 @@ public final class ClaudeBodyTest {
             case 752: return st752(stage, t, c, h, level, mock);
             case 753: return st753(stage, t, c, h, level, mock);
             case 754: return st754(stage, t, c, h, level, mock);
+            case 762: return st762(stage, t, c, h, level, mock);
             case 758: return st758(stage, t, c, h, level, mock);
             case 756: return st756(stage, t, c, h, level, mock);
             case 760: return st760(stage, t, c, h, level, mock);
@@ -14558,6 +14559,32 @@ public final class ClaudeBodyTest {
         if (t[0] == 15) { c.attempts.fail(K, far, c.tickCount, c.blockPosition(), com.claudemod.entity.life.Attempts.Reason.NO_PATH, "test: the path stops here"); c.teleportTo(a.getX() + 2.5, a.getY(), a.getZ() + 0.5); } // (stood on the step; now off it, a block lower, 2 across)
         if (t[0] == 25) { check(c.onGround(), "not on the ground off the step"); check(c.attempts.within(K, far, c.tickCount, 20), "a block lower and 2 across, the no-way walk 89 off came back on: " + c.attempts.why(K, far)); c.teleportTo(a.getX() + 0.5, a.getY() + 3, a.getZ() + 0.5); level.setBlock(a.above(1), Blocks.STONE.defaultBlockState(), 2); level.setBlock(a.above(2), Blocks.STONE.defaultBlockState(), 2); } // (2 up a pillar on the step)
         if (t[0] == 35) { check(!c.attempts.within(K, far, c.tickCount, 20), "2 levels up his pillar the no-way walk stayed skipped (stage 722: one go per level)"); pass(stage, t, "a no-way walk: held a block lower 2 across, a fresh go 2 levels up"); }
+        return true;
+    }
+    private static double st762D0; private static int st762Start;
+    private static boolean st762(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a run from a skeleton between him and where he's going (World 17 02:16, the user: "1 skeleton in front of him and he went so wide he was running parallel to the village ... ended up running away and hiding"; four run ends east toward his portal): the run sidesteps toward his way, never back off it
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); }
+        if (t[0] == 5) for (int cx = -5; cx <= 2; cx++) for (int cz = -2; cz <= 2; cz++) { BlockPos p = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(p), 2, p); }
+        BlockPos me = h.absolutePos(new BlockPos(16, 2, 8)), dest = h.absolutePos(new BlockPos(-44, 2, 8));
+        if (t[0] == 10) {
+            for (int x = -56; x <= 40; x++) for (int z = -24; z <= 40; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 6; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(16); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            level.setDayTime(6000);
+            var sk = EntityType.SKELETON.create(level); sk.moveTo(me.getX() - 7.5, me.getY(), me.getZ() + 1.0, 90, 0); // (the one mob, in front of him: live it was the only one)
+            sk.setPersistenceRequired(); level.addFreshEntity(sk); sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, ItemStack.EMPTY); sk.setTarget(c); // (live, no bow: it comes at him, never a shot that changes the test)
+            c.tasks.add(new Task.Wait(20, false));
+        }
+        if (t[0] == 1) st762Start = 0;
+        if (t[0] == 200 && st762Start == 0) check(false, "10 s and he never knew the skeleton 7 off");
+        if (st762Start == 0 && t[0] >= 30 && !com.claudemod.entity.life.Perception.known(c, net.minecraft.world.entity.monster.Skeleton.class, c.getBoundingBox().inflate(16), net.minecraft.world.entity.EntitySelector.ENTITY_STILL_ALIVE).isEmpty()) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.tasks.add(new Task.Flee(20 * 6)); c.tasks.add(new Task.GoTo(dest, 1.5)); st762D0 = Math.sqrt(c.blockPosition().distSqr(dest)); st762Start = t[0]; } // (a second after it's there: the run from what he's seen, red762c ran from nothing)
+        if (st762Start > 0 && t[0] > st762Start + 2) {
+            boolean running = c.currentTask instanceof Task.Flee;
+            if (!running && t[0] - st762Start > 20) { double d = Math.sqrt(c.blockPosition().distSqr(dest));
+                check(d <= st762D0 + 2, "the run took him " + Math.round(d - st762D0) + " further from where he's going (" + Math.round(st762D0) + " -> " + Math.round(d) + "), at " + c.blockPosition().toShortString());
+                for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+                pass(stage, t, "a run with his way west behind it: " + Math.round(st762D0) + " -> " + Math.round(d) + " from where he's going"); }
+            check(t[0] - st762Start < 20 * 20, "the run never ended");
+        }
         return true;
     }
     private static boolean st754(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // fight or run as one priced choice (shouldFlee -> fleePriced, the user: "every fixed rule a weighted decision"): hit to 5 HP by a lone zombie at night with a stone sword. Food 6, no sprint: the run is caught from behind, so the fight (the old rules ran: "losing, run while he can"); food 20: the run

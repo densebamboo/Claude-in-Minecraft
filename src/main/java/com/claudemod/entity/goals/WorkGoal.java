@@ -4704,7 +4704,7 @@ public class WorkGoal extends Goal {
     public BlockPos pickEscapeNow(java.util.List<? extends net.minecraft.world.entity.Mob> mobs) { pickEscape(mobs); return escapeAt; } // (tests)
     /** The mob a walk takes him a block nearer than he is and within reach of (a creeper's blast 4, a hit 2.5), or null (stage 668). */
     private net.minecraft.world.entity.Mob walksPast(net.minecraft.world.level.pathfinder.Path path, java.util.List<? extends net.minecraft.world.entity.Mob> mobs) {
-        for (var m : mobs) { double r = m instanceof net.minecraft.world.entity.monster.Creeper ? 4 : 2.5, now = m.position().distanceTo(g.position());
+        for (var m : mobs) { double r = m instanceof net.minecraft.world.entity.monster.Creeper ? w("flee.creeper_clear", 5) : 2.5, now = m.position().distanceTo(g.position());
             for (int n = 1; n < path.getNodeCount(); n++) { double d = Vec3.atBottomCenterOf(path.getNode(n).asBlockPos()).distanceTo(m.position()); if (d < r && d < now - 1) return m; } } // (a block nearer at least: the first node beside him is a hair nearer on a run away too, stage 596)
         return null;
     }
@@ -4759,8 +4759,25 @@ public class WorkGoal extends Goal {
         java.util.List<Vec3> heads = new java.util.ArrayList<>(); String portalNote = "";
         com.claudemod.entity.life.PortalMap.Portal known = null; double kd = 128;
         for (var p0 : com.claudemod.entity.life.PortalMap.net(g).portals) { if (!com.claudemod.entity.life.PortalMap.dim(lv).equals(p0.dim) || p0.at == null || "gone".equals(p0.state)) continue; double d0 = Math.sqrt(p0.at.distSqr(feet)); if (d0 < kd) { kd = d0; known = p0; } }
-        if (known != null) { Vec3 tp = Vec3.atCenterOf(known.at).subtract(g.position()).multiply(1, 0, 1); if (tp.lengthSqr() > 1e-4) { tp = tp.normalize(); if (tp.dot(away) > -0.2) { heads.add(tp); portalNote = ", toward his portal at " + known.at.toShortString() + " (" + (int) kd + " off)"; } else portalNote = ", his portal at " + known.at.toShortString() + " is through them"; } }
-        for (int r : new int[] {0, 30, -30, 60, -60, 90, -90, 120, -120, 150, -150, 180}) { double a = Math.toRadians(r); heads.add(new Vec3(base.x * Math.cos(a) - base.z * Math.sin(a), 0, base.x * Math.sin(a) + base.z * Math.cos(a))); }
+        BlockPos dest = null; for (Task x : g.tasks) if (x instanceof Task.GoTo gt) dest = gt.pos(); // where he's on his way to: the last walk queued behind the run (World 17 02:16, the village 63 west: four runs east toward his portal, dug in further off than he started)
+        boolean nether = lv.dimension() == net.minecraft.world.level.Level.NETHER;
+        if (known != null && dest != null && !nether) portalNote = ", his portal at " + known.at.toShortString() + " not first: he's on his way to " + dest.toShortString();
+        else if (known != null) { Vec3 tp = Vec3.atCenterOf(known.at).subtract(g.position()).multiply(1, 0, 1); if (tp.lengthSqr() > 1e-4) { tp = tp.normalize(); if (tp.dot(away) > -0.2) { heads.add(tp); portalNote = ", toward his portal at " + known.at.toShortString() + " (" + (int) kd + " off)"; } else portalNote = ", his portal at " + known.at.toShortString() + " is through them"; } }
+        java.util.List<Vec3> turns = new java.util.ArrayList<>(); for (int r : new int[] {0, 30, -30, 60, -60, 90, -90, 120, -120, 150, -150, 180}) { double a = Math.toRadians(r); turns.add(new Vec3(base.x * Math.cos(a) - base.z * Math.sin(a), 0, base.x * Math.sin(a) + base.z * Math.cos(a))); }
+        if (dest != null && dest.distSqr(feet) > 8 * 8) { // the headings that clear them, cheapest first: the walk the run costs him (blocks off his way, at a sprint) and how near it cuts by them
+            Vec3 toDest = Vec3.atCenterOf(dest).subtract(g.position()).multiply(1, 0, 1).normalize(); final Vec3 aw = away;
+            double lostS = w("flee.dest_weight", 1.0) / com.claudemod.entity.life.Decide.sprint(), nearS = w("flee.toward_them_s", 8), keep = w("flee.keep_off_blocks", 6), awayS = w("flee.away_s", 1);
+            final java.util.List<? extends net.minecraft.world.entity.Entity> ms = mobs;
+            java.util.function.ToDoubleFunction<Vec3> price = hd -> { // (16 out: the blocks it takes off his way, or puts on it, at a sprint; how near the run takes him to each of them; a little for not turning his back on them)
+                double s0 = -16 * hd.dot(toDest) * lostS + awayS * (1 - hd.dot(aw)) / 2;
+                for (var m : ms) { Vec3 tm = m.position().subtract(g.position()).multiply(1, 0, 1); double along = Math.max(0, Math.min(16, tm.dot(hd))), near = tm.subtract(hd.scale(along)).length();
+                    s0 += nearS * Math.max(0, (keep - near) / keep); } // (a side step keeps him as far off as now: no price; the closest pass, not the angle. World 17 02:16: one skeleton in front, every sideways heading priced as "toward them", he ran 31 further from the village)
+                return s0; };
+            turns.sort(java.util.Comparator.comparingDouble(price));
+            if (!turns.isEmpty()) com.claudemod.ClaudeMod.LOGGER.info("[Claude decide] flee.heading (on his way to {}, {} off): {} heading(s) clear of them, best first: {} (WorkGoal.pickEscape)", dest.toShortString(), (int) Math.sqrt(dest.distSqr(feet)), turns.size(),
+                turns.stream().limit(4).map(hd -> com.claudemod.entity.life.Perception.compassOf(hd) + " ~" + Math.round(price.applyAsDouble(hd)) + " s").toList());
+        }
+        heads.addAll(turns);
         BlockPos end = null; int tried = 0; java.util.List<String> nos = new java.util.ArrayList<>();
         int noStand = 0, recent = 0, thru = 0; boolean partial = false; BlockPos winding = null; Vec3 windDir = null; java.util.List<String> windy = new java.util.ArrayList<>();
         search:
@@ -4770,7 +4787,7 @@ public class WorkGoal extends Goal {
             for (int k = 0; k <= 12; k++) { if (standable(lv, e0.above(7 - k))) { e1 = e0.above(7 - k); break; } } // (7 up: a basin's or a valley's rim is an end too, if there's a walk up to it)
             if (e1 == null) { noStand++; continue; }
             if (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, e1, now, 20 * 30)) { recent++; continue; }
-            boolean through = false; for (var m : mobs) { Vec3 tm = m.position().subtract(g.position()).multiply(1, 0, 1); double along = tm.dot(hd); if (tm.length() < 3 && tm.normalize().dot(hd) > 0.8 || along > 0 && along < dist && tm.subtract(hd.scale(along)).length() < 2.5) through = true; } // (any mob ahead on the run's line, not only one within 3: live 13:59 11-04, two runs in a row into a wither skeleton 5 off on the line, 8 a hit, dead)
+            boolean through = false; for (var m : mobs) { Vec3 tm = m.position().subtract(g.position()).multiply(1, 0, 1); double along = tm.dot(hd); if (tm.length() < 3 && tm.normalize().dot(hd) > 0.8 || along > 0 && along < dist && tm.subtract(hd.scale(along)).length() < (m instanceof net.minecraft.world.entity.monster.Creeper ? w("flee.creeper_clear", 5) : 2.5)) through = true; } // (a creeper by the line: its blast, not its body, World 17 02:19 runs past three, one blew at 1, 20 -> 2) // (any mob ahead on the run's line, not only one within 3: live 13:59 11-04, two runs in a row into a wither skeleton 5 off on the line, 8 a hit, dead)
             if (through) { thru++; continue; }
             tried++; var path = g.getNavigation().createPath(e1, 1); double straight = Math.sqrt(e1.distSqr(feet)), walk = 0;
             if (path == null || path.getNodeCount() == 0) { if (nos.size() < 4) nos.add(e1.toShortString()); continue; }

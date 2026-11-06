@@ -16301,13 +16301,14 @@ public final class ClaudeBodyTest {
         return true;
     }
 
-    /** The weights file: a value saved in config/claude/weights.json is read within 5 s, and a name it lacks is written in with its default. */
+    /** The weights files: a value set in config/claude/weights.json is read within 5 s; a default goes to weights-defaults.json, never into the user's file. */
     private static boolean st685(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         var f = com.claudemod.entity.life.Weights.file();
         if (t[0] == 1) { try { java.nio.file.Files.createDirectories(f.getParent()); java.nio.file.Files.writeString(f, "{\"test.tuned\": 7}"); } catch (Exception e) { check(false, "set-up: " + e); } com.claudemod.entity.life.Weights.w("test.default", 2); }
         if (t[0] == 130) {
             double v = com.claudemod.entity.life.Weights.w("test.tuned", 3); check(v == 7, "the file says test.tuned 7, he read " + v);
-            String txt = ""; try { txt = java.nio.file.Files.readString(f); } catch (Exception e) { check(false, "read: " + e); }
+            String txt = "", own = ""; try { txt = java.nio.file.Files.readString(com.claudemod.entity.life.Weights.defaultsFile()); own = java.nio.file.Files.readString(f); } catch (Exception e) { check(false, "read: " + e); }
+            check(!own.contains("test.default"), "a default was written into the user's own weights.json (it would pin it): " + own);
             check(txt.contains("\"test.default\": 2.0"), "test.default was not written in with its default: " + txt);
             pass(stage, t, "weights read from the file and defaults written in");
         }

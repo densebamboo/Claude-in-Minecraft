@@ -10472,6 +10472,7 @@ public final class ClaudeBodyTest {
             case 844: return st844(stage, t, c, h, level, mock);
             case 845: return st845(stage, t, c, h, level, mock);
             case 846: return st846(stage, t, c, h, level, mock);
+            case 847: return st847(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13512,6 +13513,28 @@ public final class ClaudeBodyTest {
             var b = com.claudemod.entity.nav.NetherRoute.plan(c, level, c.blockPosition(), to);
             check(b != null && b.legs().equals(a.legs()), "planned again from the same spot, a different way: " + a.legs() + " then " + (b == null ? "none" : b.legs()));
             pass(stage, t, "his own trail home: " + onTrail + " legs on it, the same way planned again (" + a.legs().size() + " legs, ~" + (int) a.seconds() + " s)");
+        }
+        return true;
+    }
+    /** Stage 847 (D2D review 40, 05:50 World 17: "6 iron and 0 diamonds on hand (pocket and chests): making craft iron_pickaxe 1, craft iron_sword 1", 0 ingots, the craft "missing iron_ingot"): raw iron in his chest counts only where it would be smelted (fuel, no furnace 40+ off it rides home to), the same as the raw on him. */
+    private static boolean st847(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(8000, 70, 7400);
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 24000; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 64; x++) for (int z = -4; z <= 4; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            level.setBlock(o.offset(2, 0, 0), Blocks.CHEST.defaultBlockState(), 3); level.setBlock(o.offset(60, 0, 0), Blocks.FURNACE.defaultBlockState(), 3);
+            if (level.getBlockEntity(o.offset(2, 0, 0)) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box) box.setItem(0, new ItemStack(Items.RAW_IRON, 6));
+            c.myStations.clear(); c.myStations.add(o.offset(2, 0, 0)); c.myStations.add(o.offset(60, 0, 0));
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.OAK_LOG, 8)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.STONE_SWORD));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.fallDistance = 0; c.setHealth(20); c.prefs.put("stay_close", "no");
+        }
+        if (t[0] == 20) {
+            c.skillQueue.clear(); c.lastStep = null; c.tasks.clear();
+            com.claudemod.entity.ClaudeSpawner.testing = false; try { com.claudemod.director.ClaudeLife.ironPiecemealNow(c, level); } finally { com.claudemod.entity.ClaudeSpawner.testing = true; }
+            var q = new java.util.ArrayList<>(c.skillQueue); c.skillQueue.clear(); c.myStations.clear(); c.getInventory().clearContent();
+            level.setBlock(o.offset(2, 0, 0), Blocks.AIR.defaultBlockState(), 3); level.setBlock(o.offset(60, 0, 0), Blocks.AIR.defaultBlockState(), 3);
+            check(q.stream().noneMatch(x -> x.skill().equals("craft") && x.target().startsWith("iron_")), "0 ingots, 6 raw in his chest, his furnace 60 off: iron crafts queued anyway " + q);
+            pass(stage, t, "raw iron in his chest that rides home isn't counted as ingots: queue " + q);
         }
         return true;
     }

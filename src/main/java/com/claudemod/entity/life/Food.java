@@ -49,8 +49,10 @@ public final class Food {
      * hunger's under 20, each bite its own eating time): vanilla's regen stepped HP by HP. With nothing left to eat under food 18, every HP
      * still to go costs food.no_food_hp_s (finding food first): a price, never a refusal.
      */
-    public static double regenS(ClaudeEntity g, double hp) {
-        var fd = g.getFoodData(); double food = fd.getFoodLevel(), sat = fd.getSaturationLevel(), t = 0;
+    public static double regenS(ClaudeEntity g, double hp) { var fd = g.getFoodData(); return regenS(g, hp, fd.getFoodLevel(), fd.getSaturationLevel()); }
+    /** The same from the given food and saturation (a what-if: fed after gear_up, HuntPatrol.fightS). */
+    public static double regenS(ClaudeEntity g, double hp, double food, double sat) {
+        double t = 0;
         java.util.List<FoodProperties> bag = new java.util.ArrayList<>();
         for (int i = 0; i < g.getInventory().getContainerSize(); i++) { ItemStack s = g.getInventory().getItem(i); var f = props(s); if (f != null && !bad(s)) for (int k = 0; k < s.getCount() && bag.size() < 64; k++) bag.add(f); }
         bag.sort((a, b) -> Double.compare(b.nutrition() + b.saturation(), a.nutrition() + a.saturation()));
@@ -65,5 +67,6 @@ public final class Food {
         return t;
     }
     /** Seconds an HP over the next hp HP (regenS / hp): the per-HP price the decisions use. */
-    public static double sPerHp(ClaudeEntity g, double hp) { return hp <= 0 ? 0 : regenS(g, hp) / Math.max(1, Math.ceil(hp)); }
+    public static double sPerHp(ClaudeEntity g, double hp) { var fd = g.getFoodData(); return sPerHp(g, hp, fd.getFoodLevel(), fd.getSaturationLevel()); }
+    public static double sPerHp(ClaudeEntity g, double hp, double food, double sat) { return hp <= 0 ? 0 : regenS(g, hp, food, sat) / Math.max(1, Math.ceil(hp)); }
 }

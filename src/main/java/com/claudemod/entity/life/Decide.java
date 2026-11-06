@@ -55,15 +55,17 @@ public final class Decide {
     }
     /**
      * HP lost, as seconds of his time. Sure damage (fire left, a fall) comes off his health first; the hits are a chance, each
-     * perHit HP (through his armor), expected hits/perHit of them. Every HP costs danger.s_per_hp to win back by eating
-     * (danger.s_per_hp_no_regen under food 18, vanilla's regen line); on top, the chance enough hits land to put him under
+     * perHit HP (through his armor), expected hits/perHit of them. Every HP costs what Food.sPerHp says it takes to win back
+     * (vanilla's regen at his food and saturation, eating what he carries; food.no_food_hp_s an HP with nothing to eat); on top, the chance enough hits land to put him under
      * danger.min_hp_left costs danger.under_floor_s, and the chance they kill him danger.death_s. A steep price, never a refusal:
      * at 2 HP one zombie hit is death, so even a short walk in the dark prices high; at full health the same walk is cheap.
      */
     public static double hpS(ClaudeEntity g, double sure, double hits, double perHit) { return hpS(g, g.getHealth(), sure, hits, perHit, Integer.MAX_VALUE); }
     /** The same at the given health, with at most `most` hits able to land (a mob's swing has its cooldown: a 2 s fight with one zombie is 2-3 hits, never 6). */
-    public static double hpS(ClaudeEntity g, double health, double sure, double hits, double perHit, int most) {
-        double per = g.getFoodData().getFoodLevel() >= 18 ? w("danger.s_per_hp", 10) : w("danger.s_per_hp_no_regen", 30), h0 = health - Math.max(0, sure);
+    public static double hpS(ClaudeEntity g, double health, double sure, double hits, double perHit, int most) { var fd = g.getFoodData(); return hpS(g, health, sure, hits, perHit, most, fd.getFoodLevel(), fd.getSaturationLevel()); }
+    /** The same at the given food and saturation (a what-if: "ready" after gear_up, fed). */
+    public static double hpS(ClaudeEntity g, double health, double sure, double hits, double perHit, int most, double food, double sat) {
+        double per = Food.sPerHp(g, Math.max(0, sure) + Math.max(0, hits), food, sat), h0 = health - Math.max(0, sure); // (vanilla regen at his food and saturation, eating what he carries: Big Picture's Food)
         double s = (Math.max(0, sure) + Math.max(0, hits)) * per;
         if (h0 <= 0) return s + w("danger.death_s", 1800);
         double floor = w("danger.min_hp_left", 4), ph = Math.max(0.5, perHit), lam = Math.max(0, hits) / ph;

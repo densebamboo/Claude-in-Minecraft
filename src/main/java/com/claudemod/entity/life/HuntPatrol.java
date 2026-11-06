@@ -166,8 +166,7 @@ public final class HuntPatrol {
         double[] m = melee(g); double swings = Math.ceil(w("pearls.enderman_hp", 40) / m[0]), len = swings * m[1];
         double dmg = w("pearls.enderman_hit_hp", 7), perHit = dmg * (1 - Math.min(20, Math.max(armor / 5, armor - dmg / (2 + tough / 4))) / 25); // (vanilla's armor sum: armor 14 takes a 7 to ~4)
         double hits = len * w("pearls.enderman_hits_per_s", 0.4), hp = hits * perHit;
-        double s0 = len + w("pearls.fight_s", 4) + Decide.hpS(g, health, 0, hp, perHit, (int) Math.ceil(len) + 1);
-        if (fed && g.getFoodData().getFoodLevel() < 18) s0 -= hp * (w("danger.s_per_hp_no_regen", 30) - w("danger.s_per_hp", 10)); // (a what-if fed: his HP back at the fed pace)
+        double s0 = len + w("pearls.fight_s", 4) + Decide.hpS(g, health, 0, hp, perHit, (int) Math.ceil(len) + 1, fed ? 20 : g.getFoodData().getFoodLevel(), fed ? w("food.fed_saturation", 5) : g.getFoodData().getSaturationLevel());
         return s0;
     }
     /** At his own health, armor and food. */

@@ -10559,6 +10559,7 @@ public final class ClaudeBodyTest {
             case 752: return st752(stage, t, c, h, level, mock);
             case 753: return st753(stage, t, c, h, level, mock);
             case 754: return st754(stage, t, c, h, level, mock);
+            case 756: return st756(stage, t, c, h, level, mock);
             case 760: return st760(stage, t, c, h, level, mock);
             case 755: return st755(stage, t, c, h, level, mock);
             case 759: return st759(stage, t, c, h, level, mock);
@@ -14531,6 +14532,22 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static int st754Hit, st754Phase; private static net.minecraft.world.entity.monster.Zombie st754Z;
+    private static boolean st756(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // HP as seconds on Food's regen (agreed with Big Picture: one food function): fed and saturated an HP is half a second back, hungry with nothing to eat it's the hunt for food; no flat 10 / 30 s
+        if (t[0] != 1) return true;
+        scenarioReset(c); c.nextPlanTick = c.tickCount + 24000; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.setHealth(20);
+        var fd = c.getFoodData();
+        fd.setFoodLevel(20); fd.setSaturation(20);
+        double a = com.claudemod.entity.life.Decide.hpS(c, 20, 0, 4, 3, 0), fa = com.claudemod.entity.life.Food.regenS(c, 4); // (most 0: no chance terms, the regen alone)
+        check(Math.abs(a - fa) < 0.01, "food 20, saturation 20: 4 HP priced " + a + " s, Food's regen says " + fa);
+        fd.setFoodLevel(17); fd.setSaturation(0);
+        double b = com.claudemod.entity.life.Decide.hpS(c, 20, 0, 4, 3, 0), fb = com.claudemod.entity.life.Food.regenS(c, 4);
+        check(Math.abs(b - fb) < 0.01 && b > a, "food 17, nothing to eat: 4 HP priced " + b + " s, Food's regen (finding food) says " + fb);
+        c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 5));
+        double e = com.claudemod.entity.life.Decide.hpS(c, 20, 0, 4, 3, 0), fe = com.claudemod.entity.life.Food.regenS(c, 4);
+        check(Math.abs(e - fe) < 0.01 && e < b, "food 17 with beef: 4 HP priced " + e + " s (a bite then regen), Food says " + fe);
+        pass(stage, t, "hpS on Food's regen: fed " + Math.round(a) + " s, hungry with beef " + Math.round(e) + " s, hungry with nothing " + Math.round(b) + " s for 4 HP");
+        return true;
+    }
     private static boolean st754(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // fight or run as one priced choice (shouldFlee -> fleePriced, the user: "every fixed rule a weighted decision"): hit to 5 HP by a lone zombie at night with a stone sword. Food 6, no sprint: the run is caught from behind, so the fight (the old rules ran: "losing, run while he can"); food 20: the run
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); st754Phase = 0; st754Hit = -1; }
         if (t[0] == 5) for (int cx = -1; cx <= 2; cx++) for (int cz = -1; cz <= 2; cz++) { BlockPos p = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(p), 2, p); }
@@ -14538,7 +14555,7 @@ public final class ClaudeBodyTest {
         if (t[0] == 10 || t[0] == 200) {
             for (int x = -16; x <= 32; x++) for (int z = -16; z <= 32; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 6; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
             for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard();
-            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); if (t[0] == 200) c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 4)); // (fed: food on him, Food prices his HP back by eating it)
             c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(8); c.getFoodData().setFoodLevel(t[0] == 10 ? 6 : 20); c.getFoodData().setSaturation(0); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
             level.setDayTime(18000);
             st754Z = EntityType.ZOMBIE.create(level); st754Z.moveTo(me.getX() + 2.5, me.getY(), me.getZ() + 0.5, 90, 0); st754Z.setPersistenceRequired(); level.addFreshEntity(st754Z); st754Z.setTarget(c); st754Hit = -1; st754Phase = t[0] == 10 ? 1 : 2;

@@ -10657,6 +10657,7 @@ public final class ClaudeBodyTest {
             case 859: return st859(stage, t, c, h, level, mock);
             case 860: return st860(stage, t, c, h, level, mock);
             case 861: return st861(stage, t, c, h, level, mock);
+            case 862: return st862(stage, t, c, h, level, mock);
             case 676: return st676(stage, t, c, h, level, mock);
             case 659: return st659(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
@@ -17955,6 +17956,32 @@ public final class ClaudeBodyTest {
             check(kept, "the night refusal cleared the rest of his plan: queue " + q + " after " + line);
             pass(stage, t, "the night refusal dropped only its own step; the craft after it stays: " + q);
         } else if (st861Start > 0 && t[0] - st861Start >= 20 * 15) { st861Start = 0; c.skillQueue.clear(); level.setDayTime(1000); check(false, "the porkchop step never ran in 15 s: last " + c.lastSkillLine); }
+        return true;
+    }
+    private static int st862Start; private static BlockPos st862C;
+    private static boolean st862(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 15:05 World 17 (the user: "he should be able to inventory dump anything he doesnt need ... in his chests"): at his chests for highway deepslate with 2 free slots, bones, eggs, feathers and the like on him: 64 taken. Here: a full pack of things he doesn't need, 384 deepslate in his chest: he puts the rest away and takes the 384.
+        BlockPos me = h.absolutePos(new BlockPos(4, 2, 4));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; st862Start = 0; com.claudemod.entity.life.ChestLedger.reset(c); }
+        if (t[0] == 10) {
+            for (int x = -2; x <= 10; x++) for (int z = -2; z <= 10; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int yy = 2; yy <= 5; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            level.setDayTime(1000); st862C = me.east(2);
+            level.setBlock(st862C, Blocks.CHEST.defaultBlockState(), 3); c.myStations.add(st862C); c.storageChests.add(st862C);
+            if (level.getBlockEntity(st862C) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity cb) { for (int i = 0; i < 6; i++) cb.setItem(i, new ItemStack(Items.COBBLED_DEEPSLATE, 64)); }
+            com.claudemod.entity.life.ChestLedger.look(c, level, st862C);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 12));
+            net.minecraft.world.item.Item[] stuff = {Items.BONE, Items.EGG, Items.FEATHER, Items.STRING, Items.GUNPOWDER, Items.FLINT, Items.LEATHER, Items.WHEAT_SEEDS, Items.RAW_COPPER, Items.LAPIS_LAZULI, Items.ROTTEN_FLESH, Items.SPIDER_EYE, Items.BIRCH_SAPLING, Items.OAK_SAPLING, Items.CLAY_BALL, Items.SUGAR_CANE, Items.PAPER, Items.GLASS, Items.SAND, Items.QUARTZ, Items.WHITE_WOOL, Items.APPLE, Items.BRICK, Items.REDSTONE, Items.EMERALD, Items.ARROW, Items.INK_SAC, Items.BOOK, Items.AMETHYST_SHARD, Items.GOLD_NUGGET, Items.NAME_TAG, Items.SADDLE, Items.BOWL, Items.SLIME_BALL};
+            for (net.minecraft.world.item.Item it : stuff) { int free = 0; for (int i = 0; i < c.inventory.items.getContainerSize(); i++) if (c.inventory.items.getItem(i).isEmpty()) free++; if (free <= 2) break; c.getInventory().add(new ItemStack(it, 3)); }
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("take_from_chest", "cobbled_deepslate", 384)); st862Start = t[0];
+        }
+        if (st862Start > 0) {
+            int got = c.getInventory().countItem(Items.COBBLED_DEEPSLATE);
+            boolean idle = t[0] - st862Start > 60 && c.tasks.isEmpty() && c.currentTask == null;
+            if (got >= 384 || idle || t[0] - st862Start >= 20 * 30) { st862Start = 0; String q = c.skillQueue.toString(); c.skillQueue.clear(); c.tasks.clear(); c.dropCurrent = true; c.storageChests.remove(st862C); c.myStations.remove(st862C); level.setBlock(st862C, Blocks.AIR.defaultBlockState(), 3);
+                check(got >= 384, "at his chest for 384 deepslate with a pack of things he doesn't need: took " + got + " (queue " + q + ")");
+                pass(stage, t, "put the rest away and took the " + got + " deepslate"); }
+        }
         return true;
     }
     private static BlockPos st852Far;

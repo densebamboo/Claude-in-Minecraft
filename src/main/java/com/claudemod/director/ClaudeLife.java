@@ -1629,6 +1629,31 @@ public final class ClaudeLife {
     private static java.util.Map<java.util.UUID, String> fillerFor() { if (fillerFor == null) fillerFor = new java.util.HashMap<>(); return fillerFor; }
 
     /** The rule work worth starting while the planner thinks and safe to break off when the plan lands: cover in the dark, food, his own mine's next blocks, wood by day (never the kit: it crafts and puts stations down). */
+    /**
+     * Room in his pack for n of item, at his chests: short of it, what he doesn't need goes into his storage first (Task.Deposit
+     * keeps tools, food, torches, the stations, logs to a stack). The user, 11-06: "he should be able to inventory dump anything he
+     * doesnt need ... in his chests" (15:05 World 17: 2 free slots at his chests, bones, eggs, feathers on him, 64 deepslate taken
+     * for a 384 trip). The storage chest nearest the one he takes from (within 16). True if a deposit was queued.
+     */
+    public static boolean makeRoomAt(ClaudeEntity g, ServerLevel level, BlockPos at, Item item, int n) {
+        int stack = item.getDefaultMaxStackSize(), room = 0;
+        for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { ItemStack s = g.inventory.items.getItem(i); if (s.isEmpty()) room += stack; else if (s.is(item)) room += stack - s.getCount(); }
+        if (room >= n) return false;
+        BlockPos box = null; double bd = 16 * 16 + 1;
+        for (BlockPos sc : g.storageChests) { if (!level.isLoaded(sc) || !level.getBlockState(sc).is(Blocks.CHEST) || isJunkChest(g, sc)) continue; double d = sc.distSqr(at); if (d < bd) { bd = d; box = sc; } }
+        if (box == null) { ClaudeMod.LOGGER.info("[Claude chest] room for {} {} short ({} on hand): no storage chest of his within 16 of {} to put the rest in (ClaudeLife.makeRoomAt)", n, Crafting.name(item), room, at.toShortString()); return false; }
+        g.tasks.add(new Task.GoTo(box, 2)); g.tasks.add(new Task.Deposit(box));
+        ClaudeMod.LOGGER.info("[Claude chest] room for {} {}: {} in his pack; what he doesn't need goes into {} first (ClaudeLife.makeRoomAt)", n, Crafting.name(item), room, box.toShortString());
+        return true;
+    }
+
+    /** Pack slots free once a Deposit has stored what he doesn't need (what Deposit keeps, cobble and junk stay). */
+    public static int freeSlotsAfterDump(ClaudeEntity g) {
+        int n = 0;
+        for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { ItemStack s = g.inventory.items.getItem(i); if (s.isEmpty() || !com.claudemod.entity.goals.WorkGoal.keeps(s) && !cobbleItem(s) && !junkItem(s)) n++; }
+        return n;
+    }
+
     static Skills.Step fillerStep(ClaudeEntity g, ServerPlayer player) {
         Skills.Step r = ruleStep(g, player);
         boolean mineReady = Kit.missing(g, false).isEmpty() && !g.inventory.find(s -> s.getItem() instanceof net.minecraft.world.item.PickaxeItem).isEmpty();
@@ -3032,6 +3057,7 @@ public final class ClaudeLife {
                 final Item want = want0; final int have0 = g.inventory.count(x -> x.is(want));
                 int inChests = com.claudemod.entity.life.ChestLedger.count(g, level, want), left = Math.min(count, inChests);
                 List<String> from = new ArrayList<>();
+                { var first = com.claudemod.entity.life.ChestLedger.where(g, level, x -> x.is(want)); if (!first.isEmpty()) makeRoomAt(g, level, first.get(0).pos(), want, Math.min(count, inChests)); } // room for it first: what he doesn't need goes in (the user, 11-06)
                 for (var sp : com.claudemod.entity.life.ChestLedger.where(g, level, x -> x.is(want))) {
                     if (left <= 0) break;
                     int n = Math.min(left, sp.count()); left -= n;

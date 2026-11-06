@@ -13550,7 +13550,7 @@ public final class ClaudeBodyTest {
                 if (run != 1) for (BlockPos f : in) { c.setPos(f.getX() + 0.5, f.getY(), f.getZ() + 0.5); com.claudemod.entity.nav.Route.step(c); } // (his trail down it, the surface end first)
                 com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; if (run != 1) com.claudemod.entity.nav.Route.step(c); }
             if (t[0] == t0 + 10) c.tasks.add(new Task.GoTo(goal, 1.6));
-            if (t[0] > t0 + 10 && t[0] < t0 + 820) { if (s903Way.isEmpty()) for (Task q : c.tasks) if (q instanceof Task.GoTo gt && !gt.pos().equals(goal)) { s903Way = gt.pos().getX() < me.getX() ? "west, back up his trail" : "east, cut up toward it"; break; }
+            if (t[0] > t0 + 10 && t[0] < t0 + 820) { if (s903Way.isEmpty()) for (Task q : c.tasks) if (q instanceof Task.GoTo gt && !gt.pos().equals(goal) && Math.abs(gt.pos().getX() - me.getX()) > 2) { s903Way = gt.pos().getX() < me.getX() ? "west, back up his trail" : "east, cut up toward it"; break; } // (the first leg clearly one way: a trail's first leg can be the pocket cell beside him)
                 if (s903Out < 0 && level.canSeeSky(c.blockPosition().above())) s903Out = t[0] - t0 - 10; }
             if (t[0] == t0 + 820) { String at = c.blockPosition().toShortString(); c.tasks.clear(); c.dropCurrent = true;
                 check(s903Out >= 0, (run == 0 ? "his trail in from the surface" : run == 1 ? "no trail" : "a cave toward home going deeper") + ": not out to the open sky in 40 s (at " + at + ", way " + s903Way + ")");

@@ -10574,6 +10574,8 @@ public final class ClaudeBodyTest {
             case 683: return st683(stage, t, c, h, level, mock);
             case 684: return st684(stage, t, c, h, level, mock);
             case 685: return st685(stage, t, c, h, level, mock);
+            case 686: return st686(stage, t, c, h, level, mock);
+            case 687: return st687(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -16216,6 +16218,45 @@ public final class ClaudeBodyTest {
             int inChest = level.getBlockEntity(h.absolutePos(chestAt)) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box ? box.countItem(Items.RAW_IRON) : -1;
             if (inChest >= 34) { check(c.inventory.count(x -> x.is(Items.IRON_PICKAXE)) == 1 && c.inventory.count(x -> x.is(Items.COOKED_BEEF)) == 16, "the trip kit went in the chest too: pick " + c.inventory.count(x -> x.is(Items.IRON_PICKAXE)) + ", beef " + c.inventory.count(x -> x.is(Items.COOKED_BEEF))); pass(stage, t, "the raw iron into his chest before the portal, in " + (t[0] - 10) + " ticks; pick and food kept"); }
             else check(t[0] < 400, "set off for the Nether with " + c.inventory.count(x -> x.is(Items.RAW_IRON)) + " raw iron on him, " + inChest + " in his chest 20 off; skills " + c.skillQueue + " tasks " + c.tasks);
+        }
+        return true;
+    }
+
+    /** Live 21:55 World 17: the golem job's tower, 3 up from his ground, with the golem a block higher: he swung with his feet at 72.50, its top at 72.70, still in its reach; one hit 20 -> 3, then dead. Here: the golem on a block, his stand beside it a block lower: no swing at it till he stands over its top. */
+    private static net.minecraft.world.entity.animal.IronGolem s687G; private static boolean s687Seen;
+    private static boolean st687(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; s687Seen = false;
+            for (int x = 0; x < 11; x++) for (int z = 0; z < 11; z++) { h.setBlock(new BlockPos(x, 1, z), Blocks.GRASS_BLOCK); for (int y = 2; y <= 9; y++) h.setBlock(new BlockPos(x, y, z), Blocks.AIR); }
+            h.setBlock(new BlockPos(5, 2, 5), Blocks.STONE);
+            s687G = EntityType.IRON_GOLEM.create(level); BlockPos gp = h.absolutePos(new BlockPos(5, 3, 5)); s687G.moveTo(gp.getX() + 0.5, gp.getY(), gp.getZ() + 0.5, 0, 0); s687G.setNoAi(true); s687G.setPersistenceRequired(); level.addFreshEntity(s687G);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_AXE)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.DIRT, 16)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8)); c.tasks.clear(); c.skillQueue.clear();
+            BlockPos me = h.absolutePos(new BlockPos(7, 2, 5)); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.tasks.add(new Task.Wait(12, false)); c.tasks.add(new Task.Pillar(3)); c.tasks.add(new Task.Attack(s687G.getUUID(), 20 * 90)); c.tasks.add(new Task.Pillar(-3)); }
+        if (t[0] > 1 && !s687Seen && s687G != null && s687G.getHealth() < s687G.getMaxHealth()) { s687Seen = true; double feet = c.getY(), top = s687G.getBoundingBox().maxY;
+            s687G.discard(); c.tasks.clear(); c.dropCurrent = true;
+            check(feet >= top, "his first swing at the golem from y " + String.format("%.2f", feet) + ", its top " + String.format("%.2f", top) + ": in its reach");
+            pass(stage, t, "first swing from y " + String.format("%.2f", feet) + " over its top " + String.format("%.2f", top)); }
+        if (t[0] == 900 && !s687Seen) { if (s687G != null) s687G.discard(); c.tasks.clear(); check(false, "no swing at the golem in 45 s: at " + c.blockPosition().toShortString() + ", " + c.currentTask + " queue " + c.tasks); }
+        return true;
+    }
+
+    /** Live 21:10 World 17 (REVIEW-15/16): a crafting table set in a notch 140 off his mine ran his mine's "ore shows through the hole: mined first, then the patch": he chased a copper vein hole to hole, 12 of his 18 cobble into patches, the table never stood, then no cobble for the furnace. Here: his mine 120 off, a notch with copper ore beside it: the table goes in, no cobble spent. */
+    private static boolean st686(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos cell = new BlockPos(5, 2, 2);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.prefs.put("mine_model", "blueprint");
+            for (int x = 0; x < 11; x++) for (int z = 0; z < 7; z++) { h.setBlock(new BlockPos(x, 1, z), Blocks.STONE); for (int y = 2; y <= 4; y++) h.setBlock(new BlockPos(x, y, z), Blocks.AIR); }
+            for (int x = 4; x <= 6; x++) for (int z = 3; z <= 5; z++) h.setBlock(new BlockPos(x, 2, z), Blocks.STONE);
+            h.setBlock(new BlockPos(5, 2, 3), Blocks.COPPER_ORE); h.setBlock(new BlockPos(5, 2, 4), Blocks.COPPER_ORE); h.setBlock(new BlockPos(5, 3, 3), Blocks.COPPER_ORE);
+            var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(new BlockPos(2, 2, 2)).offset(120, 0, 0), net.minecraft.core.Direction.EAST, 2, 4); b.segments.get(0).n = 6; c.blueprint = b;
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 18)); c.tasks.clear(); c.skillQueue.clear();
+            BlockPos me = h.absolutePos(new BlockPos(3, 2, 2)); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.tasks.add(new Task.Place(h.absolutePos(cell), Items.CRAFTING_TABLE)); }
+        if (t[0] == 120) {
+            int cob = c.getInventory().countItem(Items.COBBLESTONE); boolean table = level.getBlockState(h.absolutePos(cell)).is(Blocks.CRAFTING_TABLE);
+            c.tasks.clear(); c.dropCurrent = true; c.blueprint = null;
+            check(cob == 18, "a crafting table 120 off his mine spent " + (18 - cob) + " cobble on patches (table there: " + table + ", copper left at the notch: " + level.getBlockState(h.absolutePos(new BlockPos(5, 2, 3))).is(Blocks.COPPER_ORE) + ")");
+            check(table, "the crafting table never went into the notch");
+            pass(stage, t, "the table in the notch, no patches 120 off his mine");
         }
         return true;
     }

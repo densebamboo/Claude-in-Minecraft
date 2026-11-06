@@ -297,7 +297,7 @@ public class WorkGoal extends Goal {
             // armed, healthy and it isn't hissing yet: hit it (knocks it back) instead of being chased around by it
             boolean busyOther = !creepers.isEmpty() && current instanceof Task.Attack ca0 && !ca0.target().equals(creepers.get(0).getUUID())
                     && !(g.level() instanceof ServerLevel sl0 && (sl0.getEntity(ca0.target()) instanceof net.minecraft.world.entity.animal.Animal || sl0.getEntity(ca0.target()) instanceof net.minecraft.world.entity.animal.AbstractFish)); // in a fight with something else (a fish on the end of his sword is no fight: a creeper walked up while he hunted salmon and blew him up, 27 through full iron)
-            if (!creepers.isEmpty() && armed() && !weakFighter() && g.getHealth() > 10 && (creepers.get(0).getSwellDir() <= 0 || canHitNow(creepers.get(0))) && !busyOther) { // a real sword only: five wooden-sword swings on a creeper is a funeral (death 18)
+            if (!creepers.isEmpty() && armed() && !weakFighter() && g.getHealth() > 10 && (creepers.get(0).getSwellDir() <= 0 || hitsBeforeBang(creepers.get(0))) && !busyOther) { // a real sword only: five wooden-sword swings on a creeper is a funeral (death 18)
                 g.urgentAttacker = creepers.get(0).getUUID();
                 com.claudemod.director.ClaudeLife.nookSay(g, "creeperHit", "[Claude life] a creeper close and not hissing yet: hitting it back, armed and healthy (WorkGoal.tick)");
                 creepers = java.util.List.of();
@@ -4535,6 +4535,12 @@ public class WorkGoal extends Goal {
     }
 
     /** In reach with a charged swing: a hit lands right now (and knocks it back). */
+    /** His swing lands on this creeper before it blows: in reach and in sight, armed, the sword back up (0.9) with creeper.hit_margin_ticks to spare of its fuse. */
+    private boolean hitsBeforeBang(net.minecraft.world.entity.monster.Creeper c) {
+        if (!armed() || c.getBoundingBox().distanceToSqr(g.getEyePosition()) > 9.0 || !g.hasLineOfSight(c)) return false;
+        double ready = Math.max(0, 0.9 - g.getAttackStrengthScale(0f)) * g.getCurrentItemAttackStrengthDelay(), fuse = (1 - c.getSwelling(1f)) * 30;
+        return c.getSwellDir() <= 0 || ready + w("creeper.hit_margin_ticks", 3) < fuse;
+    }
     private boolean canHitNow(net.minecraft.world.entity.Entity e) {
         return armed() && g.getAttackStrengthScale(0.5f) >= 0.9f && e.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0 && g.hasLineOfSight(e);
     }
@@ -4585,7 +4591,7 @@ public class WorkGoal extends Goal {
         if (foe instanceof net.minecraft.world.entity.monster.Blaze) { fightOdds = "blazes: no outrunning them in the open; fought, out of their sight when hurt (coverFight, blazeRetreat)"; return false; } // (live 12:06: the crowd rule ran him from 6 blazes with no gap to break their sight, 20 -> 0 in 7 s, their backs to them all the way)
         // (wither skeletons: no rule any more, fleePriced prices them: their hits through armor, the Wither on each (fight.wither_hp_per_s for its fight.wither_s), and they walk at 0.25, short of his sprint. World 17 08:50: "can't outrun them" kept him fighting four on a bridge with no gap, 20 -> 0 in 2 s; stage 770)
         if (foe instanceof net.minecraft.world.entity.monster.EnderMan) { fightOdds = "endermen: no outrunning a teleporter; fought (endermanHole for cover)"; return false; } // ponytail: live 18:43 death, he ran from 3 angry endermen and took 7 a hit from behind, 20 -> 0 in 24 s without one swing back
-        if (foe instanceof net.minecraft.world.entity.monster.Creeper c && c.distanceTo(g) < 5 && ((c.getSwellDir() > 0 && !canHitNow(c)) || !armed() || g.getHealth() <= 10)) return true; // hissing and he can't hit it right now (or can't fight it): run
+        if (foe instanceof net.minecraft.world.entity.monster.Creeper c && c.distanceTo(g) < 5 && ((c.getSwellDir() > 0 && !hitsBeforeBang(c)) || !armed() || g.getHealth() <= 10)) return true; // (hissing but his swing lands first: the hit knocks it out of its fuse; World 17 08:18, the tick said "hit it back" and this said "run" the same tick, he turned his back 1 off; stage 772) // hissing and he can't hit it right now (or can't fight it): run
         java.util.List<net.minecraft.world.entity.Mob> crowd = hostilesNear(10).stream().filter(m -> !pest(m) && !(m instanceof net.minecraft.world.entity.monster.Phantom) && !(m instanceof net.minecraft.world.entity.monster.Creeper && m.distanceTo(g) > 6)).toList(); int n = crowd.size(); // the crowd that running gets him away from: no phantoms overhead (no outrunning them), no creeper 12-19 off (live 12:07 11-02: those made one spider '4 on him' and he ran instead of 2-3 axe hits)
         // three or more on him is a crowd whatever he's holding: get out of their reach (tower or dig in) and fight from there
         boolean underground = underground((ServerLevel) g.level(), g.blockPosition()); // (rock over him: a tree's leaves are the open)
@@ -4984,6 +4990,11 @@ public class WorkGoal extends Goal {
             if (lit != null) {
                 net.minecraft.world.phys.Vec3 off = g.position().subtract(lit.position()); double away = off.horizontalDistanceSqr() < 1e-6 ? 0 : g.getDeltaMovement().x * off.x / off.horizontalDistance() + g.getDeltaMovement().z * off.z / off.horizontalDistance();
                 double left = (1 - lit.getSwelling(1f)) * 28, out = lit.distanceTo(g) + left * Math.max(0, away); // its fuse left (ticks) and how far he'll be at the bang at the speed he's getting away now (a dead end, or a way out past it, is none: 06:31)
+                if (out < w("creeper.blast_reach", 7) && hitsBeforeBang(lit)) { // his swing lands before the bang: the hit knocks it back out of its fuse, the shield only takes the blast (behind it a skeleton shot him 4 times while he faced one down for 10 s; stage 772)
+                    g.getNavigation().stop(); g.setSprinting(false); if (g.isUsingItem() && g.getUsedItemHand() == InteractionHand.OFF_HAND) shieldDown(); equipWeapon(); g.getLookControl().setLookAt(lit);
+                    if (canHitNow(lit)) { g.attack(lit); g.swing(InteractionHand.MAIN_HAND); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] a lit creeper {} off, ~{} ticks to the bang: hit first, knocked back out of its fuse (WorkGoal.doFlee)", String.format("%.1f", lit.distanceTo(g)), (int) left); }
+                    return false;
+                }
                 if (out < w("creeper.blast_reach", 7)) {
                     g.getNavigation().stop(); g.setSprinting(false); shieldUp(lit);
                     if (ticks % 10 == 0 || !g.isUsingItem()) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] a lit creeper {} off, ~{} ticks to the bang: {} blocks at best by then, inside its {}: shield up, facing it (WorkGoal.doFlee)", String.format("%.1f", lit.distanceTo(g)), (int) left, String.format("%.1f", out), (int) w("creeper.blast_reach", 7));

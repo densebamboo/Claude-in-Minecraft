@@ -10573,6 +10573,7 @@ public final class ClaudeBodyTest {
             case 769: return st769(stage, t, c, h, level, mock);
             case 770: return st770(stage, t, c, h, level, mock);
             case 771: return st771(stage, t, c, h, level, mock);
+            case 772: return st772(stage, t, c, h, level, mock);
             case 762: return st762(stage, t, c, h, level, mock);
             case 763: return st763(stage, t, c, h, level, mock);
             case 758: return st758(stage, t, c, h, level, mock);
@@ -14911,6 +14912,31 @@ public final class ClaudeBodyTest {
             check(c.isAlive(), "dead in the dip");
             check(c.getX() < st768X0 + 2.5, "ran toward the creeper on the only way out of the dip (" + String.format("%.1f", c.getX() - st768X0) + " east, doing " + c.currentTask + ")");
             if (t[0] - st768Start >= 20 * 15) { st768C.discard(); st768C = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY); pass(stage, t, "15 s in the dip, never up the way out past the creeper"); }
+        }
+        return true;
+    }
+    private static int st772Start; private static float st772Low; private static java.util.List<net.minecraft.world.entity.Mob> st772M = new java.util.ArrayList<>();
+    private static boolean st772(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a creeper walking in on him, a skeleton 10 off up a pillar shooting, iron sword, shield, no armor, health 20 (World 17 08:18 death 158/164: "hitting it back, armed and healthy", the same tick "breaking off the fight" as it began to hiss, ran from it 1 off, blown up): the creeper dealt with (hit back or got clear of), alive
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st772Start = -1; st772Low = 20; st772M.clear(); }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) if (!st772M.contains(e)) e.discard();
+        if (t[0] == 10) {
+            for (int x = -40; x <= 40; x++) for (int z = -40; z <= 40; z++) { level.setBlock(o.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 6; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            level.setDayTime(18000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8)); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(17); c.getFoodData().setSaturation(2);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.pillarBlocks.clear(); mock[0].teleportTo(o.getX() + 0.5, o.getY() + 40, o.getZ() + 0.5);
+        }
+        if (t[0] == 20) { com.claudemod.entity.life.Perception.reset(c); c.tasks.clear(); c.currentTask = null;
+            for (int y = -1; y <= 2; y++) level.setBlock(o.offset(-10, y, 3), Blocks.STONE.defaultBlockState(), 2);
+            var sk = EntityType.SKELETON.create(level); sk.moveTo(o.getX() - 9.5, o.getY() + 3, o.getZ() + 3.5, 0, 0); sk.setPersistenceRequired(); sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW)); level.addFreshEntity(sk); sk.setTarget(c); st772M.add(sk);
+            var cr = EntityType.CREEPER.create(level); cr.moveTo(o.getX() + 6.5, o.getY(), o.getZ() + 0.5, 0, 0); cr.setPersistenceRequired(); level.addFreshEntity(cr); cr.setTarget(c); st772M.add(cr);
+            st772Start = t[0]; }
+        if (st772Start > 0) {
+            for (var m : st772M) if (m.isAlive() && m.getTarget() != c) m.setTarget(c);
+            st772Low = Math.min(st772Low, c.getHealth());
+            check(c.isAlive(), "dead to the creeper with a skeleton shooting at " + (t[0] - st772Start) / 20 + " s (low " + st772Low + ")");
+            if (t[0] - st772Start >= 20 * 30) { boolean crAlive = st772M.get(1).isAlive(); for (var m : st772M) m.discard(); c.setHealth(20); level.setDayTime(6000); pass(stage, t, "alive 30 s with a creeper walking in and a skeleton shooting, low " + st772Low + ", creeper " + (crAlive ? "still about" : "dead")); }
         }
         return true;
     }

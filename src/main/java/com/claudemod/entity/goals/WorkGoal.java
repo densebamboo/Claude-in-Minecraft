@@ -1301,7 +1301,8 @@ public class WorkGoal extends Goal {
     }
     public boolean holdingNight() {
         if (!holdingCover()) return false;
-        return com.claudemod.director.ClaudeLife.nightOutsideNo(g, (ServerLevel) g.level(), digInAt.above(Math.max(0, digInRise) + 3)) != null; // (judged above the cover: at a tower's foot the tower itself shades the cell, it read as "underground" and the hold never started)
+        long tod = g.level().getDayTime() % 24000; double toDawn = (tod < 23460 ? 23460 - tod : 24000 - tod + 23460) / 20.0;
+        return com.claudemod.director.ClaudeLife.nightOutsideNo(g, (ServerLevel) g.level(), digInAt.above(Math.max(0, digInRise) + 3), toDawn) != null; // (the hold is "in here or out till dawn": the whole night is the trip priced, never one job's 30 s) // (judged above the cover: at a tower's foot the tower itself shades the cell, it read as "underground" and the hold never started)
     }
     /** A cell of the cover he's making or in (its blocks, its digs): no other job's step, route or take-back touches it. */
     public boolean coverCell(BlockPos p) { return coverCellsNow().contains(p); }

@@ -10556,6 +10556,7 @@ public final class ClaudeBodyTest {
             case 752: return st752(stage, t, c, h, level, mock);
             case 753: return st753(stage, t, c, h, level, mock);
             case 754: return st754(stage, t, c, h, level, mock);
+            case 760: return st760(stage, t, c, h, level, mock);
             case 755: return st755(stage, t, c, h, level, mock);
             case 759: return st759(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
@@ -14496,6 +14497,26 @@ public final class ClaudeBodyTest {
             if (st755Hit > 0) check(st755Hits < 2, "unarmed, a lone zombie hunting him: hit again " + (t[0] - st755Hit) / 20 + " s after the first (the run ended with it still after him and the job walked him back into it), doing " + c.currentTask + ", it " + (int) st755Z.distanceTo(c) + " off");
             if (st755Hit > 0 && t[0] >= st755Hit + 20 * 30) { st755Z.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "a lone zombie hunting him unarmed: one hit, then away till it was off him, never walked back into"); }
             check(t[0] < 20 * 20 || st755Hit > 0, "the zombie never hit him");
+        }
+        return true;
+    }
+    private static int st760Start;
+    private static boolean st760(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // night, nothing on him, a tree 8 off, nothing hostile about (World 17 22:07: respawned at night, 2 logs for a pick to get his gear back, "collect logs -> failed: it's night and I'm not geared for the open", the night sat out): a short trip priced, not refused
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); }
+        BlockPos me = h.absolutePos(new BlockPos(4, 2, 8));
+        if (t[0] == 10) {
+            for (int x = -8; x <= 24; x++) for (int z = -8; z <= 24; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 9; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (int yy = 2; yy <= 6; yy++) level.setBlock(h.absolutePos(new BlockPos(12, yy, 8)), Blocks.OAK_LOG.defaultBlockState(), 2);
+            for (int dx = -2; dx <= 2; dx++) for (int dz = -2; dz <= 2; dz++) for (int yy = 5; yy <= 7; yy++) { BlockPos q = h.absolutePos(new BlockPos(12 + dx, yy, 8 + dz)); if (level.getBlockState(q).isAir()) level.setBlock(q, Blocks.OAK_LEAVES.defaultBlockState().setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true), 2); }
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            level.setDayTime(14000); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("collect", "logs", 2)); st760Start = t[0];
+        }
+        if (t[0] > 10) {
+            level.setDayTime(14000); c.getFoodData().setFoodLevel(20);
+            int logs = c.getInventory().countItem(Items.OAK_LOG);
+            if (logs >= 2) pass(stage, t, "night, a tree 8 off, nothing about: 2 logs in " + (t[0] - st760Start) / 20 + " s, the trip priced not refused");
+            else check(t[0] - st760Start < 20 * 45, "45 s on, " + logs + " logs: the 8-block trip at night refused, doing " + c.currentTask + ", step " + c.lastStep);
         }
         return true;
     }

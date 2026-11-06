@@ -6423,9 +6423,34 @@ public final class ClaudeLife {
         return g.inventory.count(s -> s.getItem() instanceof net.minecraft.world.item.ArmorItem a && a.getMaterial().is(net.minecraft.world.item.ArmorMaterials.DIAMOND)) > 0;
     }
 
-    public static String nightOutsideNo(ClaudeEntity g, ServerLevel level, BlockPos at) {
+    public static String nightOutsideNo(ClaudeEntity g, ServerLevel level, BlockPos at) { return nightOutsideNo(g, level, at, -1); }
+    /** The same with the time he'd be out given (outS < 0: the trip to at and back plus night.job_s; the night hold asks for the whole night, toDawn). */
+    public static String nightOutsideNo(ClaudeEntity g, ServerLevel level, BlockPos at, double outS) {
         { long tod9 = level.getDayTime() % 24000; if ((tod9 < 12500 || tod9 > 23500) && !level.isThundering()) return null; } // by the clock: rain darkens the sky and isDay() said "night" at noon, so he sat in his hole through a rainy midday (a thunderstorm does spawn mobs: that one still counts)
-        return nightGearNo(g, level, at);
+        String no = nightGearNo(g, level, at); if (no == null) return null;
+        // not geared for the open: priced, not refused (the audit, night family; World 17 22:07: respawned at night with nothing, 2 logs for a pick to get his gear back,
+        // "collect logs -> failed: it's night", the night sat out in his mine): the trip's expected hits (Decide.danger over its length, as hpS) against the night waited out
+        long tod = level.getDayTime() % 24000; double toDawn = (tod < 23460 ? 23460 - tod : 24000 - tod + 23460) / 20.0;
+        double tripS = outS >= 0 ? outS : 2 * Math.sqrt(at.distSqr(g.blockPosition())) / com.claudemod.entity.life.Decide.sprint() + com.claudemod.entity.life.Weights.w("night.job_s", 30);
+        double hp = com.claudemod.entity.life.Decide.danger(g, level, tod, tripS, com.claudemod.entity.life.Decide.hostilesKnown(g));
+        var go = com.claudemod.entity.life.Decide.Option.of("go now", nightOutS(g, level, at, tripS), "~" + Math.round(tripS) + " s out, ~" + String.format("%.1f", hp) + " HP of hits expected");
+        var wait = com.claudemod.entity.life.Decide.Option.of("wait for first light", toDawn * com.claudemod.entity.life.Weights.w("night.wait_cost_per_s", 0.25), Math.round(toDawn) + " s to dawn");
+        String k = "nightPrice:" + at.asLong(); Integer t0 = g.attempts.counters.get(k); boolean say = t0 == null || g.tickCount - t0 >= 20 * 30 || g.tickCount < t0; if (say) g.attempts.counters.put(k, g.tickCount);
+        var pick = com.claudemod.entity.life.Decide.choose(g, "night.out", at.toShortString() + " " + (int) Math.sqrt(at.distSqr(g.blockPosition())) + " off, " + no.substring(no.indexOf('(') + 1, no.indexOf(')')) + ", health " + (int) g.getHealth(), say, java.util.List.of(go, wait));
+        return pick == go ? null : no;
+    }
+    /**
+     * The night's price of a trip out to at, in seconds (0 by day, underground, lit or geared): the hits Decide.danger expects over it
+     * (outS < 0: there and back at a sprint plus night.job_s), through hpS. For a job's own option next to its others (a night hunt
+     * against eating what he has), so the job's worth is weighed where it's known.
+     */
+    public static double nightOutS(ClaudeEntity g, ServerLevel level, BlockPos at, double outS) {
+        { long tod9 = level.getDayTime() % 24000; if ((tod9 < 12500 || tod9 > 23500) && !level.isThundering()) return 0; }
+        if (nightGearNo(g, level, at) == null) return 0;
+        long tod = level.getDayTime() % 24000;
+        double tripS = outS >= 0 ? outS : 2 * Math.sqrt(at.distSqr(g.blockPosition())) / com.claudemod.entity.life.Decide.sprint() + com.claudemod.entity.life.Weights.w("night.job_s", 30);
+        double hp = com.claudemod.entity.life.Decide.danger(g, level, tod, tripS, com.claudemod.entity.life.Decide.hostilesKnown(g));
+        return com.claudemod.entity.life.Decide.hpS(g, 0, hp, com.claudemod.entity.life.Decide.hitHp() * com.claudemod.entity.life.Decide.armorF(g));
     }
     /** A far cell let through by the night rule's light checks, logged (World 17 21:45:41: village_iron walked him 139 blocks out of his lit mine at tick ~13620, ungeared, the rule at the village's cell passing, which way unknown; 20 -> 2 HP). */
     private static void nightPass(ClaudeEntity g, ServerLevel level, BlockPos at, String why) {

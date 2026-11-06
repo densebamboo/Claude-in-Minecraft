@@ -10586,6 +10586,8 @@ public final class ClaudeBodyTest {
             case 686: return st686(stage, t, c, h, level, mock);
             case 687: return st687(stage, t, c, h, level, mock);
             case 688: return st688(stage, t, c, h, level, mock);
+            case 689: return st689(stage, t, c, h, level, mock);
+            case 690: return st690(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -16449,6 +16451,39 @@ public final class ClaudeBodyTest {
             if (inChest >= 34) { check(c.inventory.count(x -> x.is(Items.IRON_PICKAXE)) == 1 && c.inventory.count(x -> x.is(Items.COOKED_BEEF)) == 16, "the trip kit went in the chest too: pick " + c.inventory.count(x -> x.is(Items.IRON_PICKAXE)) + ", beef " + c.inventory.count(x -> x.is(Items.COOKED_BEEF))); pass(stage, t, "the raw iron into his chest before the portal, in " + (t[0] - 10) + " ticks; pick and food kept"); }
             else check(t[0] < 400, "set off for the Nether with " + c.inventory.count(x -> x.is(Items.RAW_IRON)) + " raw iron on him, " + inChest + " in his chest 20 off; skills " + c.skillQueue + " tasks " + c.tasks);
         }
+        return true;
+    }
+
+    static net.minecraft.world.entity.monster.EnderMan s690E;
+    /** Live 00:57 11-06 World 17: the patrol found his warped forest "quiet" (its size against a trip), and with two endermen in plain view he set off over a lava lake for another, the mark never lifted. A quiet mark with an enderman in his sight: not quiet. */
+    private static boolean st690(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.tasks.clear(); c.skillQueue.clear();
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { h.setBlock(new BlockPos(x, 1, z), Blocks.NETHERRACK); for (int yy = 2; yy <= 8; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            BlockPos me = h.absolutePos(new BlockPos(3, 2, 8)); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            s690E = EntityType.ENDERMAN.create(level); BlockPos ep = h.absolutePos(new BlockPos(10, 2, 8)); s690E.moveTo(ep.getX() + 0.5, ep.getY(), ep.getZ() + 0.5, 90, 0); s690E.setNoAi(true); s690E.setPersistenceRequired(); level.addFreshEntity(s690E);
+            com.claudemod.entity.life.Atlas.quiet(c, level, me); }
+        if (t[0] > 1 && t[0] < 60 && s690E != null) c.getLookControl().setLookAt(s690E.getX(), s690E.getEyeY() - 1.5, s690E.getZ());
+        if (t[0] == 60) { boolean q = com.claudemod.entity.life.Atlas.quietAt(c, level, c.blockPosition()); boolean saw = com.claudemod.entity.life.Perception.seesNow(c, s690E); s690E.discard();
+            check(saw, "the enderman 7 off in front of him, never seen (the stage's own setup)");
+            check(!q, "an enderman in his sight and the forest still marked quiet: he'd leave it for another");
+            pass(stage, t, "the quiet mark dropped with an enderman in sight"); }
+        return true;
+    }
+
+    /** The user 11-06 00:47: "he is littering WAY too many blocks in the nether and digging way too much unnecessarily. they should be weighted way lower than just navigating the terrain on foot" (World 17, 00:17-00:45: 145 blocks put down, 69 of them bridges). A netherrack floor: (A) a 3-high wall across his way with its end 8 to the side, (B) a 2-wide pit with ground round it 10 to the side. Both ways round on foot: nothing dug, nothing put down. */
+    private static boolean st689(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.tasks.clear(); c.skillQueue.clear();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.WOODEN_PICKAXE)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 32)); }
+        if (t[0] == 10 || t[0] == 20) { boolean wall = t[0] == 10;
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -3; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.NETHERRACK); for (int yy = 2; yy <= 9; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            if (wall) { for (int z = 0; z <= 10; z++) for (int yy = 2; yy <= 4; yy++) h.setBlock(new BlockPos(8, yy, z), Blocks.NETHERRACK); } // its end at z 10: round it is ~8 more than straight
+            else { for (int x = 7; x <= 8; x++) for (int z = 0; z <= 12; z++) for (int yy = -3; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); } // the pit, z 0..12: ground round it at z 13
+            BlockPos me = h.absolutePos(new BlockPos(3, 2, 4)), to = h.absolutePos(new BlockPos(13, 2, 4));
+            var plan = com.claudemod.entity.nav.ActionPath.plan(c, level, me, to, 1.0, true, 6000);
+            String what = wall ? "a wall with its end 8 to the side" : "a 2-wide pit with ground 10 to the side";
+            check(plan != null, "no plan at all past " + what);
+            check(plan.digs() == 0 && plan.puts() == 0, "past " + what + ": " + plan.digs() + " dug, " + plan.puts() + " put down, " + plan.walks() + " walked: on foot round it, like a player");
+            if (!wall) pass(stage, t, "both ways round on foot (" + plan.walks() + " steps round the pit)"); }
         return true;
     }
 

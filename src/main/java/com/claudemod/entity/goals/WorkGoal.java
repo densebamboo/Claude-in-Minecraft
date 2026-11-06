@@ -6208,7 +6208,8 @@ public class WorkGoal extends Goal {
         if ((g.onGround() || swimming) && g.getY() < pillarFeet.getY() + 1.1) g.getJumpControl().jump(); // (in water: keep swimming up)
         boolean high = g.getY() >= pillarFeet.getY() + 1.0;
         if (!high && (pillarTicks < 30 || !g.onGround()) && pillarTicks < (swimming ? 120 : 60)) return false; // still on the way up: let the jump (or the swim) finish
-        if (!high) { dbg("jump too low y=" + g.getY() + " feet=" + pillarFeet.getY() + " jumping=" + g.jumpInput() + " delay=" + g.jumpDelay() + " ground=" + g.onGround() + " sneak=" + g.isShiftKeyDown() + " dy=" + g.getDeltaMovement().y + " ticks=" + pillarTicks + " holding=" + g.getMainHandItem() + " above: " + level.getBlockState(g.blockPosition().above()).getBlock() + "/" + level.getBlockState(g.blockPosition().above(2)).getBlock() + "/" + level.getBlockState(g.blockPosition().above(3)).getBlock()); return true; } // the jump didn't make it (low ceiling, slab...): give up towering
+        String inCell = ""; for (net.minecraft.world.entity.Entity e0 : level.getEntities(g, new net.minecraft.world.phys.AABB(pillarFeet).expandTowards(0, 2, 0))) inCell += " " + e0.getType().getDescription().getString() + String.format("@%.1f,%.1f,%.1f", e0.getX(), e0.getY(), e0.getZ()); // (the mobs in or over the cell: live 00:53 11-06, an enderman and a baby piglin on his perch, cause unproven)
+        if (!high) { dbg("in the cell:" + (inCell.isEmpty() ? " none" : inCell) + "; jump too low y=" + g.getY() + " feet=" + pillarFeet.getY() + " jumping=" + g.jumpInput() + " delay=" + g.jumpDelay() + " ground=" + g.onGround() + " sneak=" + g.isShiftKeyDown() + " dy=" + g.getDeltaMovement().y + " ticks=" + pillarTicks + " holding=" + g.getMainHandItem() + " above: " + level.getBlockState(g.blockPosition().above()).getBlock() + "/" + level.getBlockState(g.blockPosition().above(2)).getBlock() + "/" + level.getBlockState(g.blockPosition().above(3)).getBlock()); return true; } // the jump didn't make it (low ceiling, slab...): give up towering
         // right click the top of the block he jumped off: the new block goes where his feet were
         boolean already = !level.getBlockState(pillarFeet).getCollisionShape(level, pillarFeet).isEmpty(); // landed on something there anyway
         if (already) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] tower at {}: {} there already, up a level without a block of his (y {}) (WorkGoal.doPillar)", pillarFeet.toShortString(), name(level.getBlockState(pillarFeet)), String.format("%.2f", g.getY())); pillarDone++; pillarPhase = 0; return pillarDone >= t.steps(); } // up a level either way (not his block to take down)
@@ -6216,7 +6217,7 @@ public class WorkGoal extends Goal {
         else g.useOn(pillarFeet.below(), Direction.UP);
         if (level.getBlockState(pillarFeet).getCollisionShape(level, pillarFeet).isEmpty()) { // the game didn't take it (yet): click again next tick, jump again if he lands
             if (pillarTicks < 40) return false;
-            dbg("place failed at " + pillarFeet + " y=" + g.getY() + " held=" + g.getMainHandItem());
+            dbg("in the cell:" + (inCell.isEmpty() ? " none" : inCell) + "; place failed at " + pillarFeet + " y=" + g.getY() + " held=" + g.getMainHandItem());
             return true;
         }
         // only a tower he'll come back down (to reach a tree, glowstone, ore up in a ceiling) goes on the list to take down;

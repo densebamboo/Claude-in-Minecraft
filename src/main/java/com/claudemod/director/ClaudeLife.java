@@ -258,6 +258,7 @@ public final class ClaudeLife {
             if (g.planning && g.tickCount - g.planStartTick > 20 * 45) g.planning = false;
             if (g.tickCount % 200 == 3) logWhere(g, player, g.level() == player.level() ? g.distanceTo(player) : -1);
             if (g.tickCount % 1200 == 9) ClaudeMod.LOGGER.info("[Claude life] away in {} at {} (health {}, food {})", g.level().dimension().location(), g.blockPosition().toShortString(), (int) g.getHealth(), g.getFoodData().getFoodLevel());
+            sideJobWhileCooking(g, player); // (away too: the Nether skipped it, and he stared at 10 porkchop cooking for 100 s, live 00:49 11-06)
             runWork(g, player);
             return;
         }
@@ -529,7 +530,7 @@ public final class ClaudeLife {
         if (!(level.getBlockEntity(ft.pos()) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f) || f.getItem(0).getCount() < 2) { if (g.tickCount % 200 == 0) ClaudeMod.LOGGER.info("[Claude life] at the furnace: no side job, {} (ClaudeLife.sideJobWhileCooking)", level.getBlockEntity(ft.pos()) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f9 ? "under 2 items left in it (" + f9.getItem(0).getCount() + ")" : "no furnace at " + ft.pos().toShortString()); return; }
         if (!level.getBlockState(ft.pos()).getValue(net.minecraft.world.level.block.AbstractFurnaceBlock.LIT)) { if (g.tickCount - g.sideJobTick >= 20 * 30) { g.sideJobTick = g.tickCount; ClaudeMod.LOGGER.info("[Claude life] his furnace at {} has gone out with {} {} still in it: no side job, back to it (ClaudeLife.sideJobWhileCooking)", ft.pos().toShortString(), f.getItem(0).getCount(), f.getItem(0).getHoverName().getString()); } return; } // nothing cooking: "while it cooks" sent him chopping for 40 min round a dead furnace, 5 cod in it, food 5 (live 07:37-08:18)
         long tod0 = level.getDayTime() % 24000;
-        if ((tod0 >= 11600 && g.getArmorValue() < 10) || nightOutsideNo(g, level, g.blockPosition()) != null) { if (g.tickCount % 200 == 0) ClaudeMod.LOGGER.info("[Claude life] at the furnace: no side job, the time (day time {}, armor {}, the night rule: {}) (ClaudeLife.sideJobWhileCooking)", tod0, g.getArmorValue(), nightOutsideNo(g, level, g.blockPosition())); return; } // dusk or the dark with no kit: no side trips (it pulled him out of his fresh cover at sundown for trees 84 blocks off)
+        if (level.dimension() == net.minecraft.world.level.Level.OVERWORLD && ((tod0 >= 11600 && g.getArmorValue() < 10) || nightOutsideNo(g, level, g.blockPosition()) != null)) { /* (the overworld's clock: no night in the Nether) */ if (g.tickCount % 200 == 0) ClaudeMod.LOGGER.info("[Claude life] at the furnace: no side job, the time (day time {}, armor {}, the night rule: {}) (ClaudeLife.sideJobWhileCooking)", tod0, g.getArmorValue(), nightOutsideNo(g, level, g.blockPosition())); return; } // dusk or the dark with no kit: no side trips (it pulled him out of his fresh cover at sundown for trees 84 blocks off)
         g.sideJobTick = g.tickCount;
         { java.util.List<Task> own = new ArrayList<>(); for (Task q : g.tasks) if (q instanceof Task.Pickup || q instanceof Task.Replant || q instanceof Task.FinishTree || q instanceof Task.ChopTree || q instanceof Task.Break || q instanceof Task.Place || q instanceof Task.WallTorch) own.add(q);
           if (!own.isEmpty()) { // his own work still queued (a felled tree's drops and its sapling): that, while it cooks, then the furnace; no new side job pushing it back every round (live 06:00 World 15: the pickups and the replant behind a new tree, round after round, the drops left to despawn)
@@ -11628,7 +11629,7 @@ public final class ClaudeLife {
                     int n1 = bpReconcile(g, level, first, last, false);
                     g.tasks.add(new Task.MineVisibleOres(3)); g.tasks.add(new Task.Pickup(20));
                     if (grow.n <= oldN) { g.attempts.counters.put("branchDone:" + grow.start.asLong(), g.tickCount); ClaudeMod.LOGGER.info("[Claude life] branch at {} can't go on past {} (cut back at lava, water or his plug): done, the next one", grow.start.toShortString(), oldN); return "that branch is done (it ends at lava): on to the next"; } /* (after the reconcile: the lava cut-back comes there, the sync before it still showed it longer, 05:37) */ ClaudeMod.LOGGER.info("[Claude life] blueprint: no {} yet: his branch at {} goes on from {} to {} before the tunnel ({} task(s))", ore, grow.start.toShortString(), oldN, grow.n, n1);
-                    return "no " + ore + " yet: pushing my branch at " + grow.start.toShortString() + " on to " + grow.n + " long";
+                    { Item want7 = oreDrop(target); int have7 = want7 == null ? 0 : haveFor(g, level, want7); return (have7 > 0 ? have7 + " of " + count + " " + ore + " so far" : "no " + ore + " yet") + ": pushing my branch at " + grow.start.toShortString() + " on to " + grow.n + " long"; } // (review 117: "no iron yet" with 6 of 9 on him)
                 }
                 grow.n = oldN; b.invalidate();
             }

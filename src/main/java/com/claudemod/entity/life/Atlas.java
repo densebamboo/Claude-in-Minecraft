@@ -47,8 +47,13 @@ public final class Atlas {
     public static boolean quietAt(ClaudeEntity g, ServerLevel l, BlockPos p) {
         if (quiet == null || !quiet.containsKey(g.getUUID())) return false;
         List<BlockPos> q = quiet.get(g.getUUID()).get(dim(l)); if (q == null) return false;
-        for (BlockPos x : q) if (x.distSqr(p) <= 64 * 64) return true;
-        return false;
+        boolean in = false; for (BlockPos x : q) if (x.distSqr(p) <= 64 * 64) in = true;
+        if (!in) return false;
+        for (net.minecraft.world.entity.monster.EnderMan e : l.getEntitiesOfClass(net.minecraft.world.entity.monster.EnderMan.class, g.getBoundingBox().inflate(48))) if (Perception.seesNow(g, e)) { // (the verdict was odds; an enderman in sight is the thing itself: live 00:57 11-06, two in view and he set off over a lava lake for "another" forest)
+            q.removeIf(x -> x.distSqr(p) <= 64 * 64);
+            ClaudeMod.LOGGER.info("[Claude atlas] an enderman in sight at {} ({} off): the warped forest at {} isn't quiet after all, back on the hunt's list (Atlas.quietAt)", e.blockPosition().toShortString(), (int) e.distanceTo(g), p.toShortString());
+            return false; }
+        return true;
     }
     static Book book(ClaudeEntity g) { if (books == null) books = new HashMap<>(); return books.computeIfAbsent(g.getUUID(), k -> new Book()); }
     public static void reset(ClaudeEntity g) { if (books != null) books.remove(g.getUUID()); }

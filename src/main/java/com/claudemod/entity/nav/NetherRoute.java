@@ -191,6 +191,7 @@ public final class NetherRoute {
         double[] move(int x, int y, int z, int cx, int ny, int cz) {
             double len = Math.hypot(cx - x, cz - z); int steps = (int) Math.ceil(len);
             double sec = len * WALK; int digs = 0, puts = 0;
+            double PUT = com.claudemod.entity.life.Weights.w("netherroute.put_s", 2.2); // (a put out here is also one to go back for and take up: ~12 walk-blocks; was 0.6, 3 walk-blocks, and he bridged tree to tree, the user 11-06)
             int dy = ny - y;
             if (dy > 1) sec += (dy - 1) * CLIMB; // steps cut up or a pillar
             if (dy < -3) sec += (-dy - 3) * DESCEND; // steps dug down, or a drop he can take
@@ -203,7 +204,7 @@ public final class NetherRoute {
                 for (int yy = Math.min(prevPy, py); yy <= Math.max(prevPy, py) + 1; yy++) { // (every cell of height this step passes, feet to head: a steep step down sampled one cell a block and planned through bedrock under it, stage 545)
                     double d0 = dig(px, yy, pz);
                     if (d0 < 0) return null;
-                    if (d0 > 0) { sec += d0; digs++; }
+                    if (d0 > 0) { sec += d0 + com.claudemod.entity.life.Weights.w("netherroute.dig_extra_s", 1.0); digs++; } // (the swing, the pickup and the hole left: the user 11-06, "digging way too much unnecessarily")
                 }
                 prevPy = py;
                 if (dy > 0 && i == 1) { double d2 = dig(x, y + 2, z); if (d2 < 0 && solid(x, y + 2, z)) return null; } // (head room over him to step or pillar up)

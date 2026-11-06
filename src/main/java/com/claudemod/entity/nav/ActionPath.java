@@ -488,7 +488,7 @@ public final class ActionPath {
                         if (passable(q)) { if (water(q)) cost += 1.5; continue; }
                         double sec = digSeconds(q);
                         if (sec < 0) { ok = false; break; }
-                        cost += 1.5 + sec * 2; acts.add(new Act.Dig(q.immutable()));
+                        cost += com.claudemod.entity.life.Weights.w("path.dig_base", 6) + sec * com.claudemod.entity.life.Weights.w("path.dig_per_s", 5.6); acts.add(new Act.Dig(q.immutable())); // (in walk-steps: his dig time at a sprint's 5.6 b/s plus the swing, the pickup and the hole; the user 11-06: digging and putting down weighed well under walking the terrain)
                     }
                     boolean lavaFloor = dy == 0 && canPlace && level.getFluidState(t.below()).is(net.minecraft.tags.FluidTags.LAVA) && !floor(t) && !reserved.contains(t.below()); // a gap over lava: a block put into the lava is the way across (a player bridging a lava lake), never a jump
                     if (!ok || hurts(t, lavaFloor)) continue; // (magma underfoot, a cactus, fire: a player goes round)
@@ -504,7 +504,7 @@ public final class ActionPath {
                         { Integer pf = g.attempts.of(com.claudemod.entity.life.Attempts.Kind.PLACE).get(under); if (pf != null && now - pf < 20 * 300) continue; } // ponytail: the body's own place memory (WorkGoal.doPlace refuses for 5 min), so the plan and the body agree; live 14:22, the body refused this put (no face he can reach) and the plan made the same put 3 times in 9 s: a put that failed lately is off the plan, the way round instead
                         boolean overLava = false; for (int k = 1; k <= 64 && !overLava; k++) { BlockPos q = under.below(k); if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) overLava = true; else if (solid(q)) break; }
                         boolean onBridge = false; for (int k = 1; k <= 64; k++) { BlockPos q = feet.below(k); if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) { onBridge = true; break; } if (solid(q)) break; }
-                        cost += 3 + ((lavaFloor || overLava) && !onBridge ? 16 : 0); /* (a lava bridge, into it or over it however far down, paid once, stepping off real ground: a way over land wins. Per cell, 8 a block ran both searches out of budget on a 12-wide crossing; a price stopping at a depth made the bridge one higher, on a pillar, the cheap way; stages 386 and 541) */ acts.add(new Act.Put(under.immutable()));
+                        cost += com.claudemod.entity.life.Weights.w("path.put_bridge", 12) + ((lavaFloor || overLava) && !onBridge ? 16 : 0); /* (a block put down out here is also one to go back for and take up: ~2 s, 12 walk-steps; the user 11-06: tree to tree on bridges in a warped forest) */ /* (a lava bridge, into it or over it however far down, paid once, stepping off real ground: a way over land wins. Per cell, 8 a block ran both searches out of budget on a 12-wide crossing; a price stopping at a depth made the bridge one higher, on a pillar, the cheap way; stages 386 and 541) */ acts.add(new Act.Put(under.immutable()));
                     }
                     if (dy < 0 && water(t)) cost += 1; // a drop into water: fine, a bit slower
                     if (mine(t)) cost *= 0.7; // his own tunnels: the way he knows
@@ -656,10 +656,10 @@ public final class ActionPath {
             if (canPlace && (!swimming || floor(feet) && level.getFluidState(feet.above()).isEmpty())) {
                 BlockPos up = feet.above();
                 List<Act> acts = new ArrayList<>();
-                double cost = 4;
+                double cost = com.claudemod.entity.life.Weights.w("path.put_tower", 14); // (a tower step: the jump, the put, and the take-down after)
                 BlockPos head = feet.above(2);
                 boolean ok = true;
-                if (!passable(head)) { double sec = digSeconds(head); if (sec < 0) ok = false; else { cost += 1.5 + sec * 2; acts.add(new Act.Dig(head.immutable())); } }
+                if (!passable(head)) { double sec = digSeconds(head); if (sec < 0) ok = false; else { cost += com.claudemod.entity.life.Weights.w("path.dig_base", 6) + sec * com.claudemod.entity.life.Weights.w("path.dig_per_s", 5.6); acts.add(new Act.Dig(head.immutable())); } }
                 if (ok && !passable(up)) ok = false;
                 if (reserved.contains(feet) || !level.getBlockState(feet).canBeReplaced()) ok = false; // (another job's cell: the stump a sapling is for; a vine he hangs in takes no block)
                 if (ok) { acts.add(new Act.Put(feet.immutable())); acts.add(new Act.Walk(up.immutable())); out.add(new Move(up.immutable(), cost + failPenalty(up), acts)); }

@@ -4715,12 +4715,13 @@ public class WorkGoal extends Goal {
         ServerLevel lv = (ServerLevel) g.level(); double hp = 0, step = 1 / com.claudemod.entity.life.Decide.sprint();
         for (var e : mobs) {
             if (!(e instanceof net.minecraft.world.entity.LivingEntity m) || !m.isAlive() || !shoots(m) || m.distanceTo(g) > 24) continue;
-            double seenS = 0; Vec3 eye = m.getEyePosition();
+            double seenS = 0; java.util.List<Vec3> eyes = new java.util.ArrayList<>(); for (Vec3 off : new Vec3[] {Vec3.ZERO, new Vec3(3, 0, 0), new Vec3(-3, 0, 0), new Vec3(0, 0, 3), new Vec3(0, 0, -3)}) { Vec3 e0 = m.getEyePosition().add(off); BlockPos eb = BlockPos.containing(e0); if (off == Vec3.ZERO || lv.getBlockState(eb).getCollisionShape(lv, eb).isEmpty() && lv.getBlockState(eb.below()).getCollisionShape(lv, eb.below()).isEmpty()) eyes.add(e0); } // (where it stands and a few steps round: it moves; behind one pillar is no cover from a skeleton that steps off it)
+            java.util.function.Predicate<Vec3> sees = pt -> eyes.stream().anyMatch(e0 -> com.claudemod.entity.life.Perception.clear(lv, e0, pt));
             for (int i = 1; i <= 16; i++) {
                 Vec3 at = g.position().add(hd.scale(i)); BlockPos f = BlockPos.containing(at);
                 if (!lv.getBlockState(f.above()).getCollisionShape(lv, f.above()).isEmpty() || !lv.getBlockState(f).getCollisionShape(lv, f).isEmpty() && !lv.getBlockState(f.above(2)).getCollisionShape(lv, f.above(2)).isEmpty()) { // (a wall: he stops at the last step in view)
-                    if (com.claudemod.entity.life.Perception.clear(lv, eye, g.position().add(hd.scale(i - 1)).add(0, 1.6, 0))) seenS += w("flee.stuck_exposed_s", 4); break; }
-                if (com.claudemod.entity.life.Perception.clear(lv, eye, at.add(0, 1.6, 0))) { seenS += step; if (i == 16) seenS += w("flee.open_exposed_s", 6); } // (still in its sight 16 out: open ground, it follows and shoots on; World 17 05:18, arrows of 5 and 3 in his back on the run, 16 -> 1)
+                    if (sees.test(g.position().add(hd.scale(i - 1)).add(0, 1.6, 0))) seenS += w("flee.stuck_exposed_s", 4); break; }
+                if (sees.test(at.add(0, 1.6, 0))) { seenS += step; if (i == 16) seenS += w("flee.open_exposed_s", 6); } // (still in its sight 16 out: open ground, it follows and shoots on; World 17 05:18, arrows of 5 and 3 in his back on the run, 16 -> 1)
             }
             hp += seenS * w("flee.shots_per_s", 0.5) * w("flee.shot_hit_chance", 0.7) * mobHit(m);
         }

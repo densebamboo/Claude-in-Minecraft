@@ -209,10 +209,26 @@ public final class Kit {
             int k = (int) Math.min(shallow.size(), Math.ceil(shortP / pts(item))); double left = Math.max(0, shortP - k * pts(item));
             opts.add(com.claudemod.entity.life.Decide.Option.of("fish", Math.sqrt(g.distanceToSqr(shallow.get(0))) / sprint + k * (w("kit.fish_s", 15) + cook) + left / meal * shortS, k + " of " + shallow.size() + " near the top"));
             asks.put("fish", new FoodAsk(item, k)); } }
+        boolean nether = level.dimensionType().ultraWarm();
+        if (nether) { // the Nether's own meat: hoglins (crimson forest), 2-4 pork each, fought from 2 up (collect's hoglin tower), cooked at a furnace of his or one set down here (D2D 01:46 World 17: 1 meal, "search for animals" took him back to the portal for cows)
+            var hogs = new java.util.ArrayList<>(level.getEntitiesOfClass(net.minecraft.world.entity.monster.hoglin.Hoglin.class, g.getBoundingBox().inflate(w("kit.prey_range", 48)), a -> a.isAlive() && !a.isBaby()));
+            double fur = Double.MAX_VALUE; for (var q : g.myStations) if (level.getBlockState(q).is(net.minecraft.world.level.block.Blocks.FURNACE)) fur = Math.min(fur, Math.sqrt(q.distSqr(g.blockPosition())));
+            double furnaceS = fur <= w("kit.cook_furnace_range", 16) ? fur / sprint : w("kit.nether_furnace_s", 45); // (none near: 8 blackstone or cobble dug and a furnace set down)
+            double per = w("kit.hoglin_pork", 3) * pts(Items.COOKED_PORKCHOP), fightS = w("kit.hoglin_kill_s", 12) + com.claudemod.entity.life.Decide.hpS(g, w("kit.hoglin_hp", 2));
+            int k = (int) Math.ceil(shortP / per); double reach; String where;
+            if (!hogs.isEmpty()) { hogs.sort(java.util.Comparator.comparingDouble(g::distanceToSqr)); k = Math.min(k, hogs.size()); reach = Math.sqrt(g.distanceToSqr(hogs.get(0))) * com.claudemod.entity.life.PortalMap.NETHER_OFF_ROAD / sprint; where = k + " of " + hogs.size() + " hoglin(s), nearest " + (int) Math.sqrt(g.distanceToSqr(hogs.get(0))) + " off"; }
+            else { net.minecraft.core.BlockPos cf = com.claudemod.entity.life.Atlas.find(g, level, "crimson_forest"); reach = cf == null ? Double.MAX_VALUE : Math.sqrt(cf.distSqr(g.blockPosition())) * com.claudemod.entity.life.PortalMap.NETHER_OFF_ROAD / sprint + w("kit.hoglin_search_s", 60); where = cf == null ? null : "a crimson forest at " + cf.toShortString(); }
+            if (reach == Double.MAX_VALUE) opts.add(com.claudemod.entity.life.Decide.Option.out("hunt hoglins", "none in sight and no crimson forest on my map"));
+            else { double left = Math.max(0, shortP - k * per); int pork = (int) Math.ceil(Math.min(k * per, shortP) / pts(Items.COOKED_PORKCHOP));
+              opts.add(com.claudemod.entity.life.Decide.Option.of("hunt hoglins", reach + k * fightS + furnaceS + pork * cook + left / meal * shortS, where + (fur <= w("kit.cook_furnace_range", 16) ? ", his furnace " + (int) fur + " off" : ", a furnace set down here")));
+              asks.put("hunt hoglins", new FoodAsk(Items.COOKED_PORKCHOP, pork)); }
+        }
         { int bales = ClaudeLife.villageHayInSight(g, level); if (bales > 0) { int bread = (int) Math.min(bales * 3, Math.ceil(shortP / pts(Items.BREAD))); double left = Math.max(0, shortP - bread * pts(Items.BREAD));
             opts.add(com.claudemod.entity.life.Decide.Option.of("village bread", w("kit.hay_walk_s", 20) + bread / 3.0 * w("kit.bale_s", 4) + left / meal * shortS, bales + " bale(s) in sight")); asks.put("village bread", new FoodAsk(Items.BREAD, bread)); } }
         { int k = (int) Math.ceil(shortP / (2 * pts(Items.COOKED_BEEF)));
-          opts.add(com.claudemod.entity.life.Decide.Option.of("search for animals", w("kit.search_s", 120) + k * (kill + 2 * cook), k + " cows' worth")); asks.put("search for animals", new FoodAsk(Items.COOKED_BEEF, 2 * k)); }
+          double home = 0; if (nether) { var pt = com.claudemod.entity.life.PortalMap.net(g).portals.stream().filter(p0 -> com.claudemod.entity.life.PortalMap.NETHER.equals(p0.dim) && "lit".equals(p0.state)).min(java.util.Comparator.comparingDouble(p0 -> p0.at.distSqr(g.blockPosition()))).orElse(null);
+            home = pt == null ? w("kit.no_portal_s", 1800) : 2 * (Math.sqrt(pt.at.distSqr(g.blockPosition())) * com.claudemod.entity.life.PortalMap.NETHER_OFF_ROAD / sprint + w("highway.portal_s", 8)); } // (no animals in the Nether: through his portal for them, and back)
+          opts.add(com.claudemod.entity.life.Decide.Option.of("search for animals", home + w("kit.search_s", 120) + k * (kill + 2 * cook), k + " cows' worth" + (nether ? ", through the portal and back ~" + Math.round(home) + " s" : ""))); asks.put("search for animals", new FoodAsk(Items.COOKED_BEEF, 2 * k)); }
         var pick = com.claudemod.entity.life.Decide.choose(g, "kit.food", "", false, opts);
         StringBuilder said = new StringBuilder(); for (var o : opts) said.append(said.length() == 0 ? "" : "; ").append(o.no() != null ? o.name() + " out (" + o.no() + ")" : o.name() + " ~" + Math.round(o.s()) + " s" + (o.detail().isEmpty() ? "" : " (" + o.detail() + ")"));
         FoodAsk fa = pick == null ? null : asks.get(pick.name());

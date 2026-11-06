@@ -10465,6 +10465,7 @@ public final class ClaudeBodyTest {
             case 838: return st838(stage, t, c, h, level, mock);
             case 839: return st839(stage, t, c, h, level, mock);
             case 840: return st840(stage, t, c, h, level, mock);
+            case 841: return st841(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13437,6 +13438,28 @@ public final class ClaudeBodyTest {
             var b = com.claudemod.entity.nav.NetherRoute.plan(c, level, c.blockPosition(), to);
             check(b != null && b.legs().equals(a.legs()), "planned again from the same spot, a different way: " + a.legs() + " then " + (b == null ? "none" : b.legs()));
             pass(stage, t, "his own trail home: " + onTrail + " legs on it, the same way planned again (" + a.legs().size() + " legs, ~" + (int) a.seconds() + " s)");
+        }
+        return true;
+    }
+    /** Stage 841 (D2D 01:46 World 17): in the Nether with 1 meal and two hoglins 14 off, the kit's food is hoglin pork, not "search for animals" (cows, through the portal home). */
+    private static final java.util.List<net.minecraft.world.entity.Entity> s841Mobs = new java.util.ArrayList<>();
+    private static boolean st841(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(6936, 70, 6320);
+        if (t[0] == 1) { scenarioReset(c); for (var e : s841Mobs) e.discard(); s841Mobs.clear(); }
+        if (t[0] > 10 && t[0] % 10 == 0 && c.level() == nl) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
+        if (t[0] == 10) {
+            for (int x = -24; x <= 24; x++) for (int z = -24; z <= 24; z++) for (int y = -2; y <= 6; y++) nl.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.CRIMSON_NYLIUM : y == 6 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2);
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+            nsKit(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 1)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 900;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 15) for (int i = 0; i < 2; i++) { var hg = net.minecraft.world.entity.EntityType.HOGLIN.create(nl); hg.moveTo(o.getX() + 14.5, o.getY(), o.getZ() + 0.5 + i * 2); hg.setNoAi(true); hg.setPersistenceRequired(); nl.addFreshEntity(hg); s841Mobs.add(hg); }
+        if (t[0] == 70) { // (past the kit's 2 s memo)
+            var fa = com.claudemod.director.Kit.foodAsk(c);
+            for (var e : s841Mobs) e.discard(); s841Mobs.clear(); c.getInventory().clearContent();
+            check(fa != null && fa.item() == Items.COOKED_PORKCHOP, "1 meal in the Nether, two hoglins 14 off: the kit asks " + (fa == null ? "nothing" : fa.count() + " " + fa.item()));
+            nsHome(c, h, level); pass(stage, t, "the Nether kit food is hoglin pork: " + fa.count() + " cooked porkchop");
         }
         return true;
     }

@@ -17122,7 +17122,7 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
-    private static float st699Min;
+    private static float st699Min; private static net.minecraft.world.entity.Mob st699Sk; private static int st699Hits;
     private static boolean st699(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         // Live 06:31 World 17 (-14,68,-23): full health, a shield in his off hand, a creeper on the only way out of his furnace nook; he ran into it, 20 -> 0. Here: a 1-wide dead end, the creeper 5 off at its mouth, walking in.
         if (t[0] == 1) { scenarioReset(c); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
@@ -17137,11 +17137,13 @@ public final class ClaudeBodyTest {
             BlockPos at = h.absolutePos(new BlockPos(4, 2, 8)); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
             mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
             var cr = h.spawn(EntityType.CREEPER, new BlockPos(9, 2, 8)); cr.setPersistenceRequired(); cr.setTarget(c); // 5 off at the mouth: he runs, it walks in on him
+            var sk = EntityType.SKELETON.create(level); BlockPos sp = h.absolutePos(new BlockPos(1, 2, 8)); sk.moveTo(sp.getX() + 0.5, sp.getY(), sp.getZ() + 0.5, 0, 0); sk.setNoAi(true); sk.setPersistenceRequired(); level.addFreshEntity(sk); st699Sk = sk; // behind him (past the back wall): its arrows land on him while the shield is up (live 08:18)
         }
-        if (t[0] == 11) st699Min = 20;
+        if (t[0] == 11) { st699Min = 20; st699Hits = 0; }
+        if (t[0] > 11 && st699Sk != null && c.isUsingItem() && t[0] % 4 == 0) { c.invulnerableTime = 0; c.hurt(level.damageSources().mobAttack(st699Sk), 1.0f); st699Hits++; } // a hit from behind while the shield is up (live: the skeleton's arrow 3 ticks before the bang)
         if (t[0] > 11) st699Min = Math.min(st699Min, c.getHealth());
         if (t[0] > 14) check(c.isAlive(), "blown up in the dead end with a shield in his off hand (health " + (int) c.getHealth() + ", blocking " + c.isBlocking() + ", now=" + c.currentTask + ")");
-        if (t[0] >= 200) { check(st699Min >= 18, "took the lit creeper's blast down to " + (int) st699Min + " with a shield in his off hand (blocking " + c.isBlocking() + ")"); pass(stage, t, "shield up for the lit creeper he couldn't outrun (health " + (int) c.getHealth() + ")"); }
+        if (t[0] >= 200) { check(st699Hits > 0, "never hit from behind while the shield was up: the stage proves nothing"); check(st699Min >= 16, "took the lit creeper's blast down to " + (int) st699Min + " with a shield in his off hand (blocking " + c.isBlocking() + ")"); pass(stage, t, "shield up for the lit creeper he couldn't outrun (health " + (int) c.getHealth() + ")"); }
         return true;
     }
     private static boolean st659(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

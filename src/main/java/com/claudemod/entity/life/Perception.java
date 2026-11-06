@@ -181,7 +181,8 @@ public final class Perception {
     /** Doing something with his hands at a block or a station: his eyes are on that, not turned to a sound. */
     static boolean precise(ClaudeEntity g) {
         Task t = g.currentTask;
-        return t instanceof Task.Break || t instanceof Task.Place || t instanceof Task.Pillar || t instanceof Task.FurnaceLoad || t instanceof Task.FurnaceTake || t instanceof Task.Deposit || t instanceof Task.Attack || t instanceof Task.WallTorch;
+        return t instanceof Task.Break || t instanceof Task.Place || t instanceof Task.Pillar || t instanceof Task.FurnaceLoad || t instanceof Task.FurnaceTake || t instanceof Task.Deposit || t instanceof Task.Attack || t instanceof Task.WallTorch
+                || g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.SHIELD); // a raised shield faces what it's up for: an arrow from behind doesn't swing it round (live 08:18 World 17: turned to the skeleton that hit him 3 ticks before the creeper's bang)
     }
 
     // ---- hearing ----

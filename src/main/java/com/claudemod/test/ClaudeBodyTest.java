@@ -10558,6 +10558,7 @@ public final class ClaudeBodyTest {
             case 678: return st678(stage, t, c, h, level, mock);
             case 679: return st679(stage, t, c, h, level, mock);
             case 680: return st680(stage, t, c, h, level, mock);
+            case 681: return st681(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
             case 563: return st563(stage, t, c, h, level, mock);
             case 561: return st561(stage, t, c, h, level, mock);
@@ -15906,6 +15907,31 @@ public final class ClaudeBodyTest {
             if (inChest >= 34) { check(c.inventory.count(x -> x.is(Items.IRON_PICKAXE)) == 1 && c.inventory.count(x -> x.is(Items.COOKED_BEEF)) == 16, "the trip kit went in the chest too: pick " + c.inventory.count(x -> x.is(Items.IRON_PICKAXE)) + ", beef " + c.inventory.count(x -> x.is(Items.COOKED_BEEF))); pass(stage, t, "the raw iron into his chest before the portal, in " + (t[0] - 10) + " ticks; pick and food kept"); }
             else check(t[0] < 400, "set off for the Nether with " + c.inventory.count(x -> x.is(Items.RAW_IRON)) + " raw iron on him, " + inChest + " in his chest 20 off; skills " + c.skillQueue + " tasks " + c.tasks);
         }
+        return true;
+    }
+
+    /** The user 11-05 19:15: "make the logging cheaper and more optimized". The reviewer read ~127k chars a call (5M tokens a day): a fifth his 10 s where lines, then spin and take-off lines plain code covers, then loops repeating one line dozens of times. Here: 10 where lines -> every third kept; spins, take-offs and task-age lines left out; 40 lines differing only in numbers -> 3 kept and "37 more lines like this". */
+    private static boolean st681(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        try {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.prefs.put("log_review", "on");
+            com.claudemod.entity.life.LogReviewer.call = u -> java.util.concurrent.CompletableFuture.completedFuture("{\"findings\":[]}");
+            com.claudemod.entity.life.LogReviewer.reset(c); com.claudemod.entity.life.LogReviewer.lastAsked = "";
+            for (int i = 0; i < 10; i++) { com.claudemod.ClaudeMod.LOGGER.info("[Claude where] (live build) at {}, 64, 0 st681", i); com.claudemod.ClaudeMod.LOGGER.info("[Claude where]   task age {}t st681", i); }
+            for (int i = 0; i < 5; i++) { com.claudemod.ClaudeMod.LOGGER.info("[Claude move] spin at {}, 64, 0 st681", i); com.claudemod.ClaudeMod.LOGGER.info("[Claude leap] jump from {}, 64, 0: take-off at 0.5 along st681", i); }
+            for (int i = 0; i < 40; i++) com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] GoTo {}, 64, {} ended at once st681", i, i * 2);
+        }
+        if (t[0] == 6) {
+            String a = com.claudemod.entity.life.LogReviewer.lastAsked;
+            check(!a.isEmpty(), "no review call was made");
+            check(a.split("live build\\) at", -1).length - 1 == 4, "every third where line should stay (4 of 10): " + a);
+            check(!a.contains("spin at") && !a.contains("take-off") && !a.contains("task age"), "spin, take-off or task-age lines reached the reviewer: " + a);
+            check(a.split("ended at once st681", -1).length - 1 == 3, "the 40 alike lines should be 3 kept (and one count line): " + a);
+            check(a.contains("(37 more lines like this"), "no count line for the folded lines: " + a);
+            com.claudemod.entity.life.LogReviewer.call = null; c.prefs.remove("log_review");
+            pass(stage, t, "where lines thinned, spin/take-off/task-age left out, 40 alike lines folded to 3 and a count");
+        }
+        } catch (AssertionError e) { com.claudemod.entity.life.LogReviewer.call = null; throw e; }
         return true;
     }
 

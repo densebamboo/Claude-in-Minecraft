@@ -10469,6 +10469,7 @@ public final class ClaudeBodyTest {
             case 836: return st836(stage, t, c, h, level, mock);
             case 842: return st842(stage, t, c, h, level, mock);
             case 843: return st843(stage, t, c, h, level, mock);
+            case 844: return st844(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13498,6 +13499,42 @@ public final class ClaudeBodyTest {
             var b = com.claudemod.entity.nav.NetherRoute.plan(c, level, c.blockPosition(), to);
             check(b != null && b.legs().equals(a.legs()), "planned again from the same spot, a different way: " + a.legs() + " then " + (b == null ? "none" : b.legs()));
             pass(stage, t, "his own trail home: " + onTrail + " legs on it, the same way planned again (" + a.legs().size() + " legs, ~" + (int) a.seconds() + " s)");
+        }
+        return true;
+    }
+    /** Stage 844 (D2D 04:52 World 17 death: blaze rods with no armor, every fireball the full 5, 20 -> 3 in 18 s, burned): unarmored at a blaze with his portal 40 off, getting ready first is priced and wins; in iron he fights. */
+    private static final java.util.List<net.minecraft.world.entity.Entity> s844Mobs = new java.util.ArrayList<>(); private static String s844Bare = "";
+    private static boolean st844(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(7240, 70, 6320);
+        var armor = new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET};
+        if (t[0] == 1) { scenarioReset(c); for (var e : s844Mobs) e.discard(); s844Mobs.clear(); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); }
+        if (t[0] > 10 && t[0] % 10 == 0 && c.level() == nl) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
+        if (t[0] == 10) {
+            for (int x = -24; x <= 44; x++) for (int z = -16; z <= 16; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.NETHER_BRICKS : Blocks.AIR).defaultBlockState(), 2);
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) e.discard();
+            nsKit(c); c.getInventory().clearContent(); for (var sl : armor) c.setItemSlot(sl, ItemStack.EMPTY); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 23)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 900;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(40, 0, 0), "him", "lit");
+        }
+        if (t[0] == 15) { var b = net.minecraft.world.entity.EntityType.BLAZE.create(nl); b.moveTo(o.getX() + 10.5, o.getY() + 2, o.getZ() + 0.5); b.setNoAi(true); b.setPersistenceRequired(); nl.addFreshEntity(b); s844Mobs.add(b); }
+        if (t[0] == 40) {
+            c.skillQueue.clear(); c.tasks.clear(); c.setHealth(20);
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "blaze_rods", "blaze_rod", 7);
+            var q = new java.util.ArrayList<>(c.skillQueue); c.skillQueue.clear(); c.tasks.clear(); s844Bare = r;
+            check(q.stream().anyMatch(x -> x.skill().equals("gear_up")), "no armor, a blaze 10 off, his portal 40 off: straight at it (" + r + "; queue " + q + ")");
+            c.setItemSlot(armor[0], new ItemStack(Items.IRON_HELMET)); c.setItemSlot(armor[1], new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(armor[2], new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(armor[3], new ItemStack(Items.IRON_BOOTS));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+        }
+        if (t[0] == 46) { // (armor is read off the slots on his tick)
+            c.skillQueue.clear(); c.tasks.clear(); c.setHealth(20);
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "blaze_rods", "blaze_rod", 7);
+            var q = new java.util.ArrayList<>(c.skillQueue); c.skillQueue.clear(); c.tasks.clear();
+            for (var e : s844Mobs) e.discard(); s844Mobs.clear(); for (var sl : armor) c.setItemSlot(sl, ItemStack.EMPTY); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY); c.getInventory().clearContent();
+            check(q.stream().noneMatch(x -> x.skill().equals("gear_up")), "in iron with a shield (armor " + c.getArmorValue() + "): sent to get ready anyway (" + r + "; queue " + q + ")");
+            nsHome(c, h, level); pass(stage, t, "blaze rods: unarmored -> " + s844Bare + "; in iron and a shield -> " + r);
         }
         return true;
     }

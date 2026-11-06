@@ -10456,6 +10456,10 @@ public final class ClaudeBodyTest {
             case 828: return st828(stage, t, c, h, level, mock);
             case 829: return st829(stage, t, c, h, level, mock);
             case 830: return st830(stage, t, c, h, level, mock);
+            case 831: return st831(stage, t, c, h, level, mock);
+            case 832: return st832(stage, t, c, h, level, mock);
+            case 833: return st833(stage, t, c, h, level, mock);
+            case 834: return st834(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13359,6 +13363,110 @@ public final class ClaudeBodyTest {
     /** Stage 828 (Day to Day 18:47, World 17: "walk no path vs bridge short of blocks (34 of 147) vs bore no pick or blocks: walk", stuck, given up): 819's lava lake with an iron pick and no blocks on him. Netherrack is all round him: mined first, then the bridge; never in lava, across within 120 s. */
     private static BlockPos s830A;
     /** Stage 830 (Day to Day review 11-05): PLACE_REPEAT, a crafting table set into a filled cell twice within 10 s (98/15/29); FAR_STATION, a 24-block walk to an old crafting table on a craft step with 8 planks on him (260/27). Both filed. */
+    /** Stage 834: DUP_CRAFT, a stone pickaxe made with a good one on him and a table made with one packed are filed; a stone pickaxe made with his worn down to 11 uses is not. */
+    private static boolean st834(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] != 2) { if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 24000; } return true; }
+        var W = com.claudemod.entity.life.Watchdog.recentKinds; boolean was = com.claudemod.entity.life.Watchdog.linesInTests; com.claudemod.entity.life.Watchdog.linesInTests = true;
+        try {
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.STICK, 8)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 16)); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE));
+            W.clear(); var r = com.claudemod.entity.life.Crafting.craft(level, c.inventory, Items.STONE_PICKAXE, 1, true);
+            check(r.made() == 1 && W.contains("DUP_CRAFT"), "a stone pickaxe made with a good one on him: not filed (made " + r.made() + ", " + W + ")");
+            c.getInventory().clearContent(); var worn = new ItemStack(Items.STONE_PICKAXE); worn.setDamageValue(120); c.getInventory().add(worn); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.STICK, 8)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 16));
+            W.clear(); r = com.claudemod.entity.life.Crafting.craft(level, c.inventory, Items.STONE_PICKAXE, 1, true);
+            check(r.made() == 1 && !W.contains("DUP_CRAFT"), "a stone pickaxe made with his worn to 11 uses: filed (" + W + ")");
+            c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE)); W.clear(); r = com.claudemod.entity.life.Crafting.craft(level, c.inventory, Items.CRAFTING_TABLE, 1, true);
+            check(r.made() == 1 && W.contains("DUP_CRAFT"), "a table made with one packed: not filed (made " + r.made() + ", " + W + ")");
+        } finally { com.claudemod.entity.life.Watchdog.linesInTests = was; c.getInventory().clearContent(); }
+        pass(stage, t, "DUP_CRAFT: a good pick and a packed table made again filed, a worn pick's replacement not");
+        return true;
+    }
+    /** Stage 833 (22:38 World 17, "7 legs, over the land", then 29.8 s swimming): a route over a channel too long to walk round says how much of it is swimming. */
+    private static boolean st833(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(3, 40, 400));
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 24000;
+            for (int x = -4; x <= 64; x++) for (int z = -70; z <= 70; z++) { boolean wet = x >= 20 && x < 40;
+                level.setBlock(o.offset(x, -2, z), Blocks.STONE.defaultBlockState(), 2); level.setBlock(o.offset(x, -1, z), wet ? Blocks.WATER.defaultBlockState() : Blocks.STONE.defaultBlockState(), 2);
+                level.setBlock(o.offset(x, 0, z), wet ? Blocks.WATER.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); for (int y = 1; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.fallDistance = 0; return true; }
+        if (t[0] == 10) {
+            com.claudemod.entity.nav.Route.lastWhy = "";
+            var plan = com.claudemod.entity.nav.Route.expand(c, level, o.offset(60, 0, 0), 1.5); String why = com.claudemod.entity.nav.Route.lastWhy;
+            check(plan != null && !plan.isEmpty(), "no route over the channel: " + why);
+            int at = why.indexOf(" of its "), open = why.lastIndexOf('(', Math.max(0, at));
+            check(why.contains("over the land") && why.contains(" blocks swimming)") && at > 0 && open >= 0, "the route doesn't say it swims: \"" + why + "\"");
+            int sw = Integer.parseInt(why.substring(open + 1, at)); check(sw >= 18 && sw <= 24, "the channel is 20 across, the route says " + sw + " swimming: " + why);
+            c.tasks.clear(); pass(stage, t, "the route says its swim: " + why);
+        }
+        return true;
+    }
+    private static BlockPos s832O; private static int s832Bores;
+    /**
+     * Stage 832 (live 20:49 World 17): his pile 80 blocks west through the rock, a portal's frame between him and it, a stone pick.
+     * One bore for the trip (was one per stack: 28 in a tick), never a dig queued into the frame (was its obsidian 3 times, a TRIP).
+     */
+    private static boolean st832(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        ServerLevel nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER); var W = com.claudemod.entity.life.Watchdog.recentKinds;
+        if (t[0] == 1) { s832O = new BlockPos(9600, 64, 6400); scenarioReset(c); W.clear(); s832Bores = 0; c.nextPlanTick = c.tickCount + 24000; c.prefs.put("stay_close", "no"); com.claudemod.entity.life.Watchdog.linesInTests = true;
+            nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(s832O.offset(-48, 0, 0)), 4, s832O);
+            var rack = Blocks.NETHERRACK.defaultBlockState(); var air = Blocks.AIR.defaultBlockState(); var obs = Blocks.OBSIDIAN.defaultBlockState();
+            for (int x = -96; x <= 10; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 7; y++) { boolean open = (x >= 2 && x <= 6 && Math.abs(z) <= 3 || x >= -86 && x <= -78 && Math.abs(z) <= 3) && y >= 0 && y <= 3; nl.setBlock(s832O.offset(x, y, z), open ? air : rack, 2); }
+            for (int x = -2; x <= 1; x++) for (int y = 0; y <= 4; y++) nl.setBlock(s832O.offset(x, y, 0), x == -2 || x == 1 || y == 0 || y == 4 ? obs : air, 2 | 16); // (the frame, in the rock between him and the pile)
+            for (int x = -1; x <= 0; x++) for (int y = 1; y <= 3; y++) nl.setBlock(s832O.offset(x, y, 0), Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+            for (int x = -2; x <= 1; x++) for (int y = 1; y <= 3; y++) for (int z : new int[] {-1, 1}) nl.setBlock(s832O.offset(x, y, z), air, 2); // (its two faces open, the way a portal stands)
+            nsKit(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); // (two picks: 80 through the rock is ~160 digs, one stone pick is 131) c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.lastStep = null;
+            BlockPos at = s832O.offset(-82, 0, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(nl, at.getX() + 0.5, at.getY(), at.getZ() + 0.5, 0, 0);
+            var fell = new java.util.ArrayList<net.minecraft.world.entity.item.ItemEntity>();
+            for (var it0 : new net.minecraft.world.item.Item[] {Items.IRON_INGOT, Items.GOLD_INGOT, Items.COAL, Items.DIAMOND, Items.REDSTONE, Items.OAK_LOG, Items.TORCH, Items.BREAD, Items.FLINT, Items.STRING, Items.BONE, Items.ARROW}) {
+                var it = new net.minecraft.world.entity.item.ItemEntity(nl, at.getX() + 0.5 + (fell.size() % 3 - 1), at.getY() + 0.1, at.getZ() + 0.5 + (fell.size() / 4 - 1), new ItemStack(it0, 5), 0, 0, 0); nl.addFreshEntity(it); fell.add(it); }
+            com.claudemod.director.ClaudeLife.markOwnDrops(c); com.claudemod.entity.life.DeathLog.died(c, nl, at, fell);
+            c.teleportTo(nl, s832O.getX() + 2.5, s832O.getY(), s832O.getZ() + 0.5, 90, 0); // (beside the frame, his line through it: live he set off from the portal itself) com.claudemod.entity.life.Watchdog.teleported(c); c.fallDistance = 0;
+            c.setLastDeathLocation(java.util.Optional.of(net.minecraft.core.GlobalPos.of(nl.dimension(), at)));
+            return true; }
+        if (t[0] == 20) c.skillQueue.addFirst(new com.claudemod.entity.life.Skills.Step("recover_drops", "", 1));
+        if (t[0] > 10 && t[0] % 10 == 0) for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(s832O).inflate(110, 20, 20))) e.discard();
+        if (t[0] > 20) { int n = (c.currentTask instanceof Task.Bore ? 1 : 0) + (int) c.tasks.stream().filter(q -> q instanceof Task.Bore).count(); s832Bores = Math.max(s832Bores, n);
+            for (Task q : c.tasks) if (q instanceof Task.Break b && nl.getBlockState(b.pos()).is(Blocks.OBSIDIAN)) check(false, "a dig queued into the portal's frame at " + b.pos().toShortString() + " (" + c.tasks.size() + " queued)"); }
+        boolean framed = true; for (int y = 0; y <= 4; y++) if (!nl.getBlockState(s832O.offset(1, y, 0)).is(Blocks.OBSIDIAN)) framed = false;
+        check(framed, "the portal's frame was dug");
+        check(!W.contains("TRIP") && !W.contains("CONFLICT"), "a trip or conflict on the way: " + W);
+        boolean there = c.level() == nl && c.blockPosition().distSqr(s832O.offset(-82, 0, 0)) <= 9;
+        if (there || t[0] >= 20 * 150) {
+            check(there, "not at his pile in 150 s: at " + c.blockPosition().toShortString() + ", doing " + c.currentTask + ", " + c.tasks.size() + " queued, bores at once " + s832Bores);
+            check(s832Bores <= 1, s832Bores + " bores queued at once for one trip");
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; nsHome(c, h, level);
+            pass(stage, t, "to his pile 80 off through the rock in " + (t[0] - 20) / 20 + " s with one bore, round the portal's frame, frame whole, no trip");
+        }
+        return true;
+    }
+    private static double s831Want; private static int s831T;
+    /** Stage 831: Food, vanilla's numbers: regen and eating stepped HP by HP, meals for a stretch; then the game's own regen against the prediction (6 HP at food 20, saturation 20: 3 s). */
+    private static boolean st831(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var F = com.claudemod.entity.life.Food.class; var fd = c.getFoodData();
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 24000; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
+            fd.setFoodLevel(20); fd.setSaturation(20);
+            double a = com.claudemod.entity.life.Food.regenS(c, 10); check(Math.abs(a - 5) < 0.01, "food 20, saturation 20, nothing on him: 10 HP in 5 s, said " + a);
+            fd.setFoodLevel(18); fd.setSaturation(0);
+            double b = com.claudemod.entity.life.Food.regenS(c, 3); check(Math.abs(b - (4 + 2 * com.claudemod.entity.life.Weights.w("food.no_food_hp_s", 60))) < 0.01, "food 18, nothing on him: one HP in 4 s, then none (food under 18), said " + b);
+            c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 5)); c.getInventory().add(new ItemStack(Items.ROTTEN_FLESH, 5)); fd.setFoodLevel(17);
+            double e = com.claudemod.entity.life.Food.regenS(c, 4); check(Math.abs(e - (1.6 + 2.0)) < 0.01, "food 17 with beef: a bite (1.6 s) then 4 HP at 0.5 s, said " + e);
+            fd.setFoodLevel(20); fd.setSaturation(5);
+            double m = com.claudemod.entity.life.Food.meals(c, com.claudemod.entity.life.Food.Stretch.of(600, 0, 0, 0)); // 10 min sprinting: 3360 blocks, 336 exhaustion, 84 points, 7 in him, 77 / 20.8
+            check(m > 3.5 && m < 3.9, "10 min of sprinting at food 20, saturation 5: ~3.7 meals of beef, said " + String.format("%.2f", m));
+            double z = com.claudemod.entity.life.Food.meals(c, com.claudemod.entity.life.Food.Stretch.of(5, 0, 0, 0)); check(z == 0, "5 s of sprinting fed already: 0 meals, said " + z);
+            c.getInventory().clearContent(); fd.setFoodLevel(20); fd.setSaturation(20); c.setHealth(14f);
+            s831Want = com.claudemod.entity.life.Food.regenS(c, 6); s831T = -1;
+            return true;
+        }
+        if (s831T < 0 && c.getHealth() >= 20f) s831T = t[0] - 1;
+        if (s831T >= 0 || t[0] > 400) {
+            check(s831T >= 0, "his health never came back: " + c.getHealth());
+            check(Math.abs(s831T / 20.0 - s831Want) <= 0.6, "the game's regen took " + s831T / 20.0 + " s for 6 HP, Food said " + s831Want);
+            pass(stage, t, "Food: regen and bites as vanilla steps them, meals for a sprint; the game healed 6 HP in " + s831T / 20.0 + " s, Food said " + s831Want);
+        }
+        return true;
+    }
     private static boolean st830(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         var W = com.claudemod.entity.life.Watchdog.recentKinds;
         try {

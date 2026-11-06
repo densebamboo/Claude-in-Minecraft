@@ -3998,10 +3998,10 @@ public final class ClaudeLife {
                 if (viaMine) queueRouteToMine(g, level); // they're down his mine: in at the entrance and along it, like a player (not overland to the spot above them)
                 var grab = com.claudemod.entity.life.Decide.grabAndRun(g, level, spot, drops); // (the valuables first; the rest, or a run for safety, priced)
                 if (!grab.why().isEmpty()) ClaudeMod.LOGGER.info("[Claude decide] his pile at {}: {} (Decide.grabAndRun)", spot.toShortString(), grab.why());
-                int hops = 0;
+                int hops = 0; BlockPos legFrom = g.blockPosition();
                 for (var d : grab.fetch()) {
                     if (hops++ >= 24) break;
-                    wayTo(g, level, d.blockPosition(), 1.0);
+                    wayTo(g, level, legFrom, d.blockPosition(), 1.0); legFrom = d.blockPosition(); // (each leg from the drop before: one bore for the trip there, not one per stack, live 20:49 World 17: 28 bores, his portal's frame queued 3 times)
                     g.tasks.add(new Task.Pickup(40));
                 }
                 if (grab.runTo() != null) g.tasks.add(new Task.GoTo(grab.runTo(), 3.0)); // (the way back starts at the last valuable)
@@ -5573,8 +5573,10 @@ public final class ClaudeLife {
     private static java.util.Map<String, String> nookSaid;
     /** A line said once per change (a decision re-made every round says itself when what it saw changes, not every 2 s). */
     /** A walk there; a long Nether leg (48+) by FortressScout.travel first: a bridge or bore when that's the fastest, the walk finishing it (Day to Day 18:48 World 17: recover_drops walked 240 blocks, "no way in the loaded land", till the pile despawned). */
-    static void wayTo(ClaudeEntity g, ServerLevel level, BlockPos to, double within) {
-        if (level.dimension() == net.minecraft.world.level.Level.NETHER && g.blockPosition().distSqr(to) > 48 * 48) { Task tr = com.claudemod.entity.life.FortressScout.travel(g, level, to); if (tr instanceof Task.Bore) g.tasks.add(tr); }
+    static void wayTo(ClaudeEntity g, ServerLevel level, BlockPos to, double within) { wayTo(g, level, g.blockPosition(), to, within); }
+    /** The same from where the leg starts (the end of the walk queued before it). */
+    static void wayTo(ClaudeEntity g, ServerLevel level, BlockPos from, BlockPos to, double within) {
+        if (level.dimension() == net.minecraft.world.level.Level.NETHER && from.distSqr(to) > 48 * 48) { Task tr = com.claudemod.entity.life.FortressScout.travel(g, level, to); if (tr instanceof Task.Bore) g.tasks.add(tr); }
         g.tasks.add(new Task.GoTo(to, within));
     }
     public static void nookSay(ClaudeEntity g, String key, String line) { if (nookSaid == null || nookSaid.size() > 256) nookSaid = new java.util.HashMap<>(); if (!line.equals(nookSaid.put(g.getUUID() + key, line))) ClaudeMod.LOGGER.info(line); }

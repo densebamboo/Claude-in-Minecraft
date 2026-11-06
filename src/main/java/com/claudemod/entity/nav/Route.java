@@ -152,7 +152,7 @@ public final class Route {
         if (toIn && !meIn) { // down his mine from outside it: over the land to its way in, in, down the rows
             if (!meTop) return null; // (in a cave off his mine: his walker)
             BlockPos out = b.outside();
-            double off = Math.hypot(out.getX() - me.getX(), out.getZ() - me.getZ());
+            double off = Math.hypot(out.getX() - me.getX(), out.getZ() - me.getZ()); String land = "over the land";
             if (off > 4 || Math.abs(out.getY() - me.getY()) > 1) { // (under his door, down the cave beside it, is not at it: 5 below it at -18, 62, -29 the walker stalled at the foot of the wall, 04:52)
                 Surface s = surface(g, level, me, out);
                 if (s == null && off > FAR) return null;
@@ -169,7 +169,7 @@ public final class Route {
                 }
                 else if (s == null) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] no way over the land from {} to his mine's door at {} ({} below it): the legs to the door stay, the climb his walker's (Route.expand)", me.toShortString(), out.toShortString(), out.getY() - me.getY());
                 else {
-                    for (BlockPos p : s.legs) { legs.add(p); slack.add(1.5); }
+                    land = s.say(land); for (BlockPos p : s.legs) { legs.add(p); slack.add(1.5); }
                     if (s.partial) return finish(g, to, within, legs, slack, true, "to his mine's way in (as far as the plan goes: planned again from there)");
                 }
             }
@@ -184,7 +184,7 @@ public final class Route {
             legs.add(out); slack.add(1.5); legs.add(b.entrance); slack.add(0.8);
             if (flooded(level, b.walkCells(0, toRow), "down")) return null;
             for (BlockPos p : b.walkCells(0, toRow)) { legs.add(p); slack.add(0.8); }
-            why = "over the land to his mine, in, down its rows";
+            why = land + " to his mine, in, down its rows";
         } else if (meIn && !toIn && across > FAR) { // out of his mine to somewhere off it: up the rows, out, then over the land (planned from the door)
             if (flooded(level, b.walkCells(meRow, 0), "up")) return null;
             for (BlockPos p : b.walkCells(meRow, 0)) { legs.add(p); slack.add(0.8); }
@@ -198,8 +198,8 @@ public final class Route {
             Surface s = surface(g, level, me, to);
             if (s == null) return null;
             for (BlockPos p : s.legs) { legs.add(p); slack.add(1.5); }
-            if (s.partial) return finish(g, to, within, legs, slack, true, "over the land (as far as the plan goes: planned again from there)");
-            why = "over the land";
+            if (s.partial) return finish(g, to, within, legs, slack, true, s.say("over the land") + " (as far as the plan goes: planned again from there)");
+            why = s.say("over the land");
         } else return null;
         List<Task> plan = finish(g, to, within, legs, slack, false, why);
         if (plan != null && !takeUp.isEmpty()) { // after the leg to his door: the station broken (in reach from there) and picked up, then in
@@ -276,6 +276,7 @@ public final class Route {
     private static final List<Task> MARK = List.of(new Task.Wait(0, false)); // (alongRoutes: "his walker takes it")
 
     /** The legs as GoTos, the walk's own end last (a leg too, or, when the plan stops short, left to be planned again from there). */
+    public static volatile String lastWhy = ""; // the last route's why, as said (stage 833)
     private static List<Task> finish(ClaudeEntity g, BlockPos to, double within, List<BlockPos> legs, List<Double> slack, boolean again, String why) {
         List<Task> out = new ArrayList<>(); Set<BlockPos> mark = new HashSet<>();
         BlockPos last = null, me = g.blockPosition(); boolean started = false;
@@ -288,7 +289,7 @@ public final class Route {
         out.add(new Task.GoTo(to, within)); if (!again) mark.add(to.immutable());
         Active a = new Active(to.immutable(), within, mark, out, !again, g.tickCount);
         active.put(g.getUUID(), a); List<Active> rs = routes.computeIfAbsent(g.getUUID(), k -> new ArrayList<>()); rs.add(a); while (rs.size() > 8) rs.remove(0);
-        com.claudemod.ClaudeMod.LOGGER.info("[Claude route] to {} ({} blocks off): {} legs, {}", to.toShortString(), (int) Math.sqrt(g.blockPosition().distSqr(to)), out.size(), why);
+        lastWhy = why; com.claudemod.ClaudeMod.LOGGER.info("[Claude route] to {} ({} blocks off): {} legs, {}", to.toShortString(), (int) Math.sqrt(g.blockPosition().distSqr(to)), out.size(), why);
         return out;
     }
 
@@ -316,7 +317,10 @@ public final class Route {
 
     // ---- over the land: A* over the ground's columns ----
 
-    private record Surface(List<BlockPos> legs, boolean partial, double cost) {}
+    private record Surface(List<BlockPos> legs, boolean partial, double cost, int blocks, int swim) {
+        /** "over the land", and how much of it is swimming (22:38 World 17: "7 legs, over the land", then 29.8 s in the water). */
+        String say(String what) { return what + (swim > 0 ? " (" + swim + " of its " + blocks + " blocks swimming)" : ""); }
+    }
     private static final int BAD = Integer.MIN_VALUE, UNKNOWN = Integer.MIN_VALUE + 1;
     private record Col(int feet, boolean water, double extra) {}
 
@@ -341,7 +345,7 @@ public final class Route {
                 if (gs.is(BlockTags.LEAVES)) continue; // (a tree's canopy is no footing: legs up on it had him pillar 5 high to reach them)
                 if (gs.is(Blocks.MAGMA_BLOCK) || gs.is(Blocks.CACTUS) || gs.is(Blocks.CAMPFIRE) || gs.is(Blocks.SOUL_CAMPFIRE) || fs.is(Blocks.FIRE) || fs.is(Blocks.SWEET_BERRY_BUSH) || fs.is(Blocks.POWDER_SNOW) || fs.is(Blocks.CACTUS)) { c = new Col(BAD, false, 0); break; }
                 if (fs.getFluidState().is(FluidTags.WATER) && !water) continue; // under the water's top: not a walk
-                c = new Col(y, water, water ? 2.0 : 0); // (swimming is slower than walking)
+                c = new Col(y, water, water ? com.claudemod.entity.life.Weights.w("route.swim_extra", 2.0) : 0); // (swimming is slower than walking)
                 break;
             }
         }
@@ -416,7 +420,7 @@ public final class Route {
                 boolean swim = c.water || here.water;
                 if (dy >= 3) continue; // a cliff: round it (a 2-high step is cut into, below)
                 if (dy <= -4 && !c.water) continue; // a drop that hurts: round it, unless into water
-                double cost = (d[0] != 0 && d[1] != 0 ? 1.414 : 1.0) * (swim ? 2.5 : 1.0) + (dy == 1 ? 0.4 : 0) + (dy == 2 ? 16.0 : 0) + (dy <= -2 ? 1.0 : 0) + c.extra + (unk ? 0.5 : 0)
+                double cost = (d[0] != 0 && d[1] != 0 ? 1.414 : 1.0) * (swim ? com.claudemod.entity.life.Weights.w("route.swim_factor", 2.5) : 1.0) + (dy == 1 ? 0.4 : 0) + (dy == 2 ? 16.0 : 0) + (dy <= -2 ? 1.0 : 0) + c.extra + (unk ? 0.5 : 0)
                         + (atDy < 0 && feet < deep ? 0.5 * (deep - feet) : 0); // (under both ends by more than 4: dear, a ravine's floor only when the spot's down there or nothing else gets there)
                 if (d[0] != 0 && d[1] != 0) { // a diagonal: both sides open at about this height (no corner cutting through a trunk)
                     Col a = col(level, cache, n.x + d[0], n.z, n.feet), b2 = col(level, cache, n.x, n.z + d[1], n.feet);
@@ -430,7 +434,7 @@ public final class Route {
             }
         }
         boolean partial = goal == Long.MIN_VALUE;
-        if (atDy >= 0) return partial ? null : new Surface(List.of(), false, goalG); // (a length asked for, not legs)
+        if (atDy >= 0) return partial ? null : new Surface(List.of(), false, goalG, 0, 0); // (a length asked for, not legs)
         long end = partial ? closest : goal;
         boolean edge = false; for (Long k = end; k != null && !edge; k = parent.get(k)) { int[] q = at.get(k); edge = unknown.contains(key(q[0], q[1])); }
         com.claudemod.ClaudeMod.LOGGER.info("[Claude route] land plan {} -> {}: {} columns looked at, {} ms{}", from.toShortString(), to.toShortString(), expanded, (System.nanoTime() - t0) / 1_000_000, !partial ? "" : edge ? " (to the loaded land's edge)" : " (no way through found: as near as it gets)");
@@ -458,7 +462,8 @@ public final class Route {
         }
         if (legs.isEmpty()) return null;
         com.claudemod.entity.life.PitGuard.planned(g, level, path.subList(0, cut)); // (a hole by his door this way skirts: noted, the second time closed)
-        return new Surface(legs, partial, goalG);
+        int swim = 0; for (int i = 1; i < cut; i++) if (col(level, cache, (int) path.get(i)[0], (int) path.get(i)[1], (int) path.get(i)[2]).water) swim++;
+        return new Surface(legs, partial, goalG, cut, swim);
     }
     /** The nearest ring round the spot (1 = its 3x3, up to 4) with a column he can stand in within 2 of its height; -1: none within 4. */
     private static int standRing(ServerLevel level, Map<Long, Col> cache, int tx, int tz, int ty) {

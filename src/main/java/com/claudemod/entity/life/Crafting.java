@@ -24,6 +24,7 @@ public final class Crafting {
     public record Result(int made, String missing, boolean needsTable) {}
 
     public static Result craft(Level level, ClaudeInventory inv, Item target, int count, boolean hasTable) {
+        String had = count == 1 ? Watchdog.dupHeld(inv, target) : null; // (a tool or station he already carries in good shape: DUP_CRAFT once made)
         int made = 0;
         String missing = null;
         boolean needsTable = false;
@@ -32,6 +33,7 @@ public final class Crafting {
             if (r.made() == 0) { missing = r.missing(); needsTable = r.needsTable(); break; }
             made += r.made();
         }
+        if (made > 0 && had != null && inv.player() instanceof com.claudemod.entity.ClaudeEntity g) Watchdog.dupCraft(g, target, had);
         return new Result(made, missing, needsTable);
     }
 

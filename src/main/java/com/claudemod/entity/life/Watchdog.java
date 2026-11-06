@@ -468,6 +468,20 @@ public final class Watchdog {
         return true;
     }
     /** A placement given up (WorkGoal's "placing X at P gave up"): the same item at the same cell again within 10 s is PLACE_REPEAT (Day to Day review 98/15/29, 11-05: tables and saplings into a filled cell or his own). */
+    /** The one of this tool or station he carries already, in good shape (worn under watch.dup_worn of its life), said for the line; null: none, or it's not a tool or station. */
+    public static String dupHeld(ClaudeInventory inv, net.minecraft.world.item.Item target) {
+        boolean kind = target instanceof net.minecraft.world.item.DiggerItem || target instanceof net.minecraft.world.item.SwordItem || target instanceof net.minecraft.world.item.ShieldItem
+                || target == net.minecraft.world.item.Items.CRAFTING_TABLE || target == net.minecraft.world.item.Items.FURNACE || target == net.minecraft.world.item.Items.SMOKER || target == net.minecraft.world.item.Items.BLAST_FURNACE;
+        if (!kind) return null;
+        for (int i = 0; i < inv.items.getContainerSize(); i++) { var st = inv.items.getItem(i); if (!st.is(target)) continue;
+            if (!st.isDamageableItem() || st.getDamageValue() < st.getMaxDamage() * Weights.w("watch.dup_worn", 0.75)) return st.isDamageableItem() ? (st.getMaxDamage() - st.getDamageValue()) + " of " + st.getMaxDamage() + " uses left" : st.getCount() + " packed"; }
+        return null;
+    }
+    /** DUP_CRAFT (Day to Day, review 111/126): a tool or station made with one already on him in good shape. */
+    public static void dupCraft(ClaudeEntity g, net.minecraft.world.item.Item target, String had) {
+        if (!on()) return; String name = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(target).getPath();
+        fileOnce(g, "DUP_CRAFT", "DUP_CRAFT|" + name + "|" + now(g) / 1200, String.format("made a %s with one on him already (%s); step %s, at %s", name, had, g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target(), g.blockPosition().toShortString()));
+    }
     public static void placeGaveUp(ClaudeEntity g, net.minecraft.world.item.Item item, BlockPos p, String why) {
         if (!on()) return; St s = st(g);
         String name = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item).getPath(), k = name + "|" + p.asLong();

@@ -28,6 +28,8 @@ public final class ClaudeInventory {
     /** The 36 main slots as a container (hotbar first, then the backpack). */
     public final Container items;
 
+    /** Whose it is. */
+    public net.minecraft.world.entity.player.Player player() { return inv.player; }
     public ClaudeInventory(Inventory inv) {
         this.inv = inv;
         this.items = new MainSlots(inv);

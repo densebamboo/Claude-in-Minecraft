@@ -10535,6 +10535,7 @@ public final class ClaudeBodyTest {
             case 742: return st742(stage, t, c, h, level, mock);
             case 743: return st743(stage, t, c, h, level, mock);
             case 744: return st744(stage, t, c, h, level, mock);
+            case 745: return st745(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -14020,6 +14021,26 @@ public final class ClaudeBodyTest {
 
     /** Live 16:49 11-05 (-106,64,-6, tick 11767; Day to Day case D, the user: "Couldn't he have slept at his bed ... Most of the time you don't need to dig into a hole for 10 minutes just because the sun is going down"): full HP, food 20, 5 meals, no armor, his bed about 30 off: "the sun's going down and he's out with no armor: under cover before dark", a hole, 7 min of night in it. The game's first spawns in the open are at tick 13188 (12969 in rain), 70 s off; 30 blocks is 6 s at a sprint. Dusk is one priced choice: his bed, his lit mine, the hole last. */
     private static java.util.List<BlockPos> g743Junk = new java.util.ArrayList<>();
+    private static net.minecraft.world.entity.monster.EnderMan em745; private static double em745Best;
+    private static boolean st745(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a calm enderman up a 5-high ledge with no way on foot (World 17 19:26-19:51: "5 up, 28 off ... walkable false", 25 min standing where he was): his walker takes him up to it (dig, steps, a tower), then the hit
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(96))) m.discard(); }
+        if (t[0] == 5) for (int cx = -1; cx <= 2; cx++) for (int cz = -1; cz <= 2; cz++) { BlockPos p = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(p), 2, p); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 30; x++) for (int z = 0; z <= 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 12; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), x >= 14 && yy <= 6 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); } // (a 5-high cliff from x 14, its top at y 7)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            em745 = net.minecraft.world.entity.EntityType.ENDERMAN.create(level); BlockPos ep = h.absolutePos(new BlockPos(20, 7, 8)); em745.moveTo(ep.getX() + 0.5, ep.getY(), ep.getZ() + 0.5, 90, 0); em745.setNoAi(true); em745.setPersistenceRequired(); level.addFreshEntity(em745); // (calm, and it stays put: NoAi)
+            level.setDayTime(6000); em745Best = 99;
+        }
+        if (t[0] == 12) { c.tasks.clear(); c.skillQueue.clear(); c.tasks.addFirst(new Task.Attack(em745.getUUID(), 20 * 60)); }
+        if (t[0] > 12) {
+            if (t[0] < 900) level.setDayTime(6000);
+            double d = c.position().distanceTo(em745.position()); em745Best = Math.min(em745Best, d);
+            if (d <= 4.0 || !em745.isAlive()) { em745.discard(); c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "a calm enderman 5 up a ledge with no way on foot: up to it in " + (t[0] - 12) / 20 + " s (" + String.format("%.1f", d) + " off)"); }
+            else check(t[0] - 12 < 20 * 45, "a calm enderman 5 up a ledge with no way on foot: not within 4 of it in 45 s (best " + String.format("%.1f", em745Best) + ", at " + c.blockPosition().toShortString() + ", now=" + c.currentTask + " tasks=" + c.tasks + ")");
+        }
+        return true;
+    }
     private static boolean st744(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a block to set with nothing to set it against, only his own cell beside it with support (World 17 19:19:11 in his Nether bore: "nothing to place -184, 55, -2 against: a footing at -184, 55, -1 first", his own feet and the bore's lane, then the bore dug it out, 17 PLACE_BREAKs): no footing in the cells he stands in
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); }
         BlockPos me = h.absolutePos(new BlockPos(5, 10, 6)), q = me.north();

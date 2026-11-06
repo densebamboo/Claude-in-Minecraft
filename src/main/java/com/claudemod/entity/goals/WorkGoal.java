@@ -5449,6 +5449,13 @@ public class WorkGoal extends Goal {
         // Otherwise get as close as walking allows, then bridge the rest of the way.
         if (pathGetsCloser(path, mob.position())) { g.setSprinting(true); g.getNavigation().moveTo(path, 1.3); return false; }
         g.setSprinting(false);
+        if (Math.abs(dy) > 3 && mob instanceof net.minecraft.world.entity.monster.EnderMan) { // (an enderman: its pearl is worth the climb; a zombie boxed 7 up waits on its out-of-sight clock, 640) more than a bridge's 3 up or down and no way on foot: his walker's way to it (dig, steps, a tower), then the fight; a way it has refused already ends the fight (World 17 19:26-19:51: a calm enderman 5 up, 28 off, "walkable false", 25 min standing still: bridgeToward gives up past 3 up, and nothing said so)
+            BlockPos at = mob.blockPosition();
+            if (g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.WALK, at, g.tickCount, 0)) { var w = g.attempts.why(com.claudemod.entity.life.Attempts.Kind.WALK, at); com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the {} at {} ({} up, {} off): no way on foot and his walker refused the way there ({}): leaving it (WorkGoal.doAttack)", mob.getType().getDescription().getString(), at.toShortString(), (int) dy, (int) horiz, w == null ? "no cause on file" : w.reason() + (w.detail().isEmpty() ? "" : " " + w.detail())); return true; }
+            g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.GoTo(at, 3));
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the {} at {} is {} up, {} off, no way on foot: his walker's way there (dig, steps or a tower), then the fight (WorkGoal.doAttack)", mob.getType().getDescription().getString(), at.toShortString(), (int) dy, (int) horiz);
+            return true;
+        }
         bridgeToward(mob.position(), 8); // (a chase over lava: a bow or the shore is the better trade under fire)
         return false;
     }

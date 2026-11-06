@@ -1878,7 +1878,7 @@ public final class ClaudeBodyTest {
                             level.setBlock(hb.cell(0, 3, 0), Blocks.AIR.defaultBlockState(), 3); level.setBlock(hb.cell(0, 3, 2), Blocks.AIR.defaultBlockState(), 3); level.setBlock(hb.cell(6, 4, 1), Blocks.DIRT.defaultBlockState(), 3); // a hole in the left wall, dirt stuffed in the right
                             level.setBlock(hb.cell(3, 0, 1), Blocks.AIR.defaultBlockState(), 3); level.setBlock(hb.cell(3, 0, 0), Blocks.AIR.defaultBlockState(), 3); // the door gone
                             level.setBlock(hb.bedHead(), Blocks.AIR.defaultBlockState(), 3); level.setBlock(hb.bedFoot(), Blocks.AIR.defaultBlockState(), 3); // the bed gone
-                            c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 16)); c.getInventory().add(new ItemStack(Items.OAK_DOOR)); c.getInventory().add(new ItemStack(Items.WHITE_BED));
+                            c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 16)); c.getInventory().add(new ItemStack(Items.OAK_DOOR)); oldBed85(level, c, hb); // no bed in his pack: his old one 3 outside the house, a block over it (live World 17: under the foundation, obstructed every night)
                             var nbt = hb.toNbt(); var back = com.claudemod.entity.life.HouseBlueprint.fromNbt(nbt);
                             check(back.origin.equals(hb.origin) && back.facing == hb.facing && java.util.Objects.equals(back.wood, hb.wood), "house NBT: round trip lost something: " + back + " vs " + hb);
                         }
@@ -1888,7 +1888,7 @@ public final class ClaudeBodyTest {
                             boolean groveGiven = level.getBlockState(c.house.grove().get(0).below()).is(Blocks.GRASS_BLOCK); /* the grass under the first grove spot is the flag: the test floor is not grass */
                             if (c.house.complete(level) && idle && t[0] > 60 && !groveGiven) { c.getInventory().add(new ItemStack(Items.OAK_SAPLING, 4)); for (BlockPos spot : c.house.grove()) { level.setBlock(spot.below(), Blocks.GRASS_BLOCK.defaultBlockState(), 3); level.setBlock(spot, Blocks.AIR.defaultBlockState(), 3); } }
                             int saplings = 0; for (BlockPos spot : c.house.grove()) if (level.getBlockState(spot).is(net.minecraft.tags.BlockTags.SAPLINGS)) saplings++;
-                            if (c.house.complete(level) && idle && t[0] > 60 && groveGiven && saplings >= 3) pass(stage, t, "the house was repaired by the upkeep pass: wall, door and bed back; " + saplings + " saplings in the grove (" + t[0] + " ticks)");
+                            if (c.house.complete(level) && idle && t[0] > 60 && groveGiven && saplings >= 3) pass(stage, t, "the house was repaired by the upkeep pass: wall, door and his old bed moved in; " + saplings + " saplings in the grove (" + t[0] + " ticks)");
                             else if (t[0] >= 4000) check(false, "house repair: not done in 200 s: " + c.house.stage(level) + " missing " + c.house.missing + " tasks=" + c.tasks);
                         }
                     }
@@ -10628,6 +10628,8 @@ public final class ClaudeBodyTest {
             case 697: return st697(stage, t, c, h, level, mock);
             case 698: return st698(stage, t, c, h, level, mock);
             case 699: return st699(stage, t, c, h, level, mock);
+            case 850: return st850(stage, t, c, h, level, mock);
+            case 851: return st851(stage, t, c, h, level, mock);
             case 676: return st676(stage, t, c, h, level, mock);
             case 659: return st659(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
@@ -17303,6 +17305,58 @@ public final class ClaudeBodyTest {
         if (t[0] >= 200) { check(st699Hits > 0, "never hit from behind while the shield was up: the stage proves nothing"); check(st699Min >= 16, "took the lit creeper's blast down to " + (int) st699Min + " with a shield in his off hand (blocking " + c.isBlocking() + ")"); pass(stage, t, "shield up for the lit creeper he couldn't outrun (health " + (int) c.getHealth() + ")"); }
         return true;
     }
+    private static BlockPos st850Run; private static int st850End;
+    private static boolean st850(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 09:41 World 17: a walk queued east, three on him, he ran; the run over at health 9, the walk's old nodes took him 30 blocks back into the skeletons he'd run from. Here: a walk along z 8 to x 30, three husks from the south, unarmed: he runs north; after the run he must go on to x 30 from where he is, not back to the walk's first nodes.
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); st850Run = null; st850End = 0; }
+        if (t[0] == 5) for (int cx = -1; cx <= 2; cx++) for (int cz = -2; cz <= 1; cz++) { BlockPos p = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(p), 2, p); }
+        if (t[0] == 10) {
+            for (int x = -6; x <= 34; x++) for (int z = -24; z <= 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int yy = 2; yy <= 6; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            level.setDayTime(6000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            BlockPos at = h.absolutePos(new BlockPos(4, 2, 8)); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+            mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); for (int x = 5; x <= 30; x++) c.tasks.add(new Task.GoTo(h.absolutePos(new BlockPos(x, 2, 8)), 0.9)); // the walk, node by node
+            for (int i = 0; i < 3; i++) { var hk = h.spawn(EntityType.HUSK, new BlockPos(3 + i, 2, 10)); hk.setPersistenceRequired(); hk.setTarget(c); }
+        }
+        if (t[0] == 14 && st850Run == null) { var hk = level.getEntitiesOfClass(net.minecraft.world.entity.monster.Husk.class, c.getBoundingBox().inflate(16)).stream().findFirst().orElse(null); if (hk != null) { c.invulnerableTime = 0; c.hurt(level.damageSources().mobAttack(hk), 3.0f); } } // the first one's hit: he sizes them up
+        if (t[0] > 10 && st850Run == null && c.currentTask instanceof Task.Flee) st850Run = c.blockPosition();
+        if (st850Run != null && st850End == 0 && Math.sqrt(c.blockPosition().distSqr(st850Run)) >= 10) { for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); st850End = t[0]; } // out of their reach: they're gone, the run ends
+        if (st850End > 0 && t[0] > st850End + 5) {
+            BlockPos old = h.absolutePos(new BlockPos(6, 2, 8)), end = h.absolutePos(new BlockPos(30, 2, 8));
+            check(Math.sqrt(c.blockPosition().distSqr(old)) > 3, "after the run he walked back to the old walk's first nodes at " + old.toShortString() + " (run from " + st850Run.toShortString() + ", tasks " + c.tasks.stream().limit(3).toList() + ")");
+            if (Math.sqrt(c.blockPosition().distSqr(end)) <= 2) pass(stage, t, "after the run he went on to the walk's end from where he was (" + (t[0] - st850End) + " ticks)");
+            else check(t[0] - st850End < 600, "after the run, not at the walk's end in 30 s: at " + c.blockPosition().toShortString() + " now " + c.currentTask + " tasks " + c.tasks.stream().limit(3).toList());
+        } else if (t[0] > 400 && st850Run == null) check(false, "never ran from three husks unarmed (now " + c.currentTask + ", health " + (int) c.getHealth() + ")");
+        return true;
+    }
+    private static int st851Start;
+    private static boolean st851(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 09:41-09:44 World 17: killed by mobs, respawned with nothing; "waiting: nothing proper to fight with" 50 s with cobble in his chest, then in unarmed on the despawn clock, dead again. Here: his iron pile 20 east, a husk on it, cobble, sticks and planks on him, no sword: a stone sword first.
+        BlockPos me = h.absolutePos(new BlockPos(4, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; st851Start = 0; com.claudemod.entity.life.DeathLog.reset(c); c.failCount.remove("recover_drops"); com.claudemod.entity.life.Perception.reset(c); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(64))) it.discard(); }
+        if (t[0] == 5) for (int cx = -1; cx <= 2; cx++) for (int cz = -1; cz <= 1; cz++) { BlockPos q = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(q), 2, q); }
+        if (t[0] == 10) {
+            for (int x = -6; x <= 34; x++) for (int z = -8; z <= 24; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int yy = 2; yy <= 8; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            level.setBlock(h.absolutePos(new BlockPos(2, 2, 8)), Blocks.CRAFTING_TABLE.defaultBlockState(), 2);
+            level.setDayTime(6000);
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 4)); c.getInventory().add(new ItemStack(Items.STICK, 2)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 2)); c.getInventory().add(new ItemStack(Items.BREAD, 4));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            mock[0].teleportTo(me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5);
+            BlockPos pile = me.offset(20, 0, 0); var fell = new java.util.ArrayList<net.minecraft.world.entity.item.ItemEntity>();
+            for (var st0 : new ItemStack[] {new ItemStack(Items.IRON_CHESTPLATE), new ItemStack(Items.IRON_LEGGINGS), new ItemStack(Items.IRON_INGOT, 6)}) { var ie = new net.minecraft.world.entity.item.ItemEntity(level, pile.getX() + 0.5, pile.getY(), pile.getZ() + 0.5, st0); ie.setDeltaMovement(0, 0, 0); level.addFreshEntity(ie); fell.add(ie); }
+            com.claudemod.director.ClaudeLife.markOwnDrops(c); com.claudemod.entity.life.DeathLog.died(c, level, pile, fell);
+            var hk = EntityType.HUSK.create(level); hk.moveTo(pile.getX() + 0.5, pile.getY(), pile.getZ() + 0.5, 0, 0); hk.setNoAi(true); hk.setPersistenceRequired(); level.addFreshEntity(hk); // standing over his things
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("recover_drops", "", 1)); st851Start = t[0];
+        }
+        if (st851Start > 0) {
+            if (c.inventory.count(s0 -> s0.is(Items.STONE_SWORD)) > 0) { for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); com.claudemod.entity.life.DeathLog.reset(c); c.skillQueue.clear(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null; pass(stage, t, "a stone sword made before going back to his guarded pile (" + (t[0] - st851Start) / 20 + " s)"); }
+            else check(t[0] - st851Start < 20 * 25, "25 s and no sword before going back to his guarded pile: now " + c.currentTask + ", step " + c.lastStep + ", queue " + c.skillQueue);
+        }
+        return true;
+    }
     private static boolean st659(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         // Live 06:17 World 17 (review 20): dusk, 9 hostiles known (creepers in the caves under him), "his lit mine 25 off ~650 s (4 s walk, there before the spawns); a hole here ~555 s": the hole. Mobs that can't come at the walk aren't hits on it. Here: his bed clear 24 east, 9 creepers 6 down a trench beside him.
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); }
@@ -17328,6 +17382,8 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    private static void oldBed85(ServerLevel level, ClaudeEntity c, com.claudemod.entity.life.HouseBlueprint hb) { BlockPos ob = sleepBed(level, hb.cell(-3, 0, 1), hb.facing); c.myStations.add(ob); level.setBlock(ob.above(), Blocks.COBBLESTONE.defaultBlockState(), 3); level.setBlock(bedFootOf85(level, ob).above(), Blocks.COBBLESTONE.defaultBlockState(), 3); }
+    private static BlockPos bedFootOf85(ServerLevel level, BlockPos head) { var st = level.getBlockState(head); return st.hasProperty(net.minecraft.world.level.block.BedBlock.FACING) ? head.relative(st.getValue(net.minecraft.world.level.block.BedBlock.FACING).getOpposite()) : head; }
     private static int st698Top;
     private static boolean st698(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         // Live 05:41 World 17 (Nether 8,49,2): health 2, nothing to eat, a crossbow piglin 6-7 off: "0 shooter(s)", a 3-high tower, shot off it 2 -> 0. A piglin with a crossbow is a shooter like a skeleton.

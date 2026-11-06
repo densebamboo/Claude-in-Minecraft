@@ -5030,6 +5030,7 @@ public class WorkGoal extends Goal {
             if (mobs.isEmpty()) clearEscape();
             if (g.urgentAttacker != null) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the run's over ({}): the hit he took while running is left behind, no fight for it (WorkGoal.doFlee)", mobs.isEmpty() ? "nothing after him" : "out of time, " + ticks + " ticks");
             g.urgentAttacker = null; // whatever hit him while he ran is behind him now: no running again from a mob that's gone
+            staleWalk();
             healUp();
             return true;
         }
@@ -5090,6 +5091,19 @@ public class WorkGoal extends Goal {
      * Clear of them and hurt: eat to heal (a full hunger bar heals fast), and badly hurt, hang back a while first (a player
      * doesn't walk back in at 3 hearts). One eat and one wait at most: never a pile of them from a run of hits.
      */
+    /** The walk queued before the run still starts where the run began: only its end is kept, walked to from where he is now (live 09:41 World 17: the run over at health 9, the old path's nodes walked him 30 blocks back into the two skeletons he'd run from; shot dead). */
+    private void staleWalk() {
+        java.util.List<Task> l = new java.util.ArrayList<>(g.tasks);
+        int i = 0; while (i < l.size() && !(l.get(i) instanceof Task.GoTo || l.get(i) instanceof Task.Leap)) i++;
+        int j = i; while (j < l.size() && (l.get(j) instanceof Task.GoTo || l.get(j) instanceof Task.Leap)) j++;
+        if (j - i < 2) return;
+        BlockPos head = l.get(i) instanceof Task.GoTo go ? go.pos() : ((Task.Leap) l.get(i)).from();
+        if (head.distSqr(g.blockPosition()) <= 4 * 4) return; // (still on it: nothing stale)
+        Task last = l.get(j - 1); BlockPos end = last instanceof Task.GoTo go ? go.pos() : ((Task.Leap) last).land();
+        l.subList(i, j).clear(); l.add(i, new Task.GoTo(end, last instanceof Task.GoTo go ? go.within() : 0.9));
+        g.tasks.clear(); g.tasks.addAll(l);
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the run's over at {}: the walk queued before it started back at {} ({} steps): dropped, on to its end {} from here (WorkGoal.staleWalk)", g.blockPosition().toShortString(), head.toShortString(), j - i, end.toShortString());
+    }
     private void healUp() {
         // a skeleton still drawing on him: no standing there eating in its sights; cover first (the dig-in), the eating from in there
         if (!diggingIn() && !com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(20), m -> m.isAlive() && (com.claudemod.entity.goals.WorkGoal.shoots(m)) && (m.getTarget() == g || m.distanceTo(g) < 10)).isEmpty()) {

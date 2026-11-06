@@ -3988,6 +3988,11 @@ public final class ClaudeLife {
                 boolean anyWeapon = false; for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { var it = g.inventory.items.getItem(i).getItem(); if (it instanceof net.minecraft.world.item.SwordItem || it instanceof net.minecraft.world.item.AxeItem) { anyWeapon = true; break; } }
                 boolean worthIt = !guard.isEmpty() && worth >= 20 * risk && g.getHealth() >= 8 && (properSword || (worth >= 80 && anyWeapon && !creeper)); // never empty-handed into a guarded cave, never by a creeper without a real sword (pockets empty after a respawn, he walked into 3 mobs and a creeper for a 232 pile and blew up)
                 if (!guard.isEmpty()) ClaudeMod.LOGGER.info("[Claude life] his drops at {}: worth {} against risk {} ({} mob(s){}{}, {}, {}): {}", spot.toShortString(), worth, risk, guard.size(), shooter ? ", a shooter" : "", creeper ? ", a creeper" : "", com.claudemod.director.ClaudeLife.dayHere(level) ? "day" : "night", properSword ? "sword in hand" : "no proper sword", worthIt ? "going in" : "waiting");
+                if (!properSword && haveFor(g, level, Items.COBBLESTONE) + haveFor(g, level, Items.COBBLED_DEEPSLATE) >= 2) { // back to where something killed him, with nothing to fight with: a stone sword first, like a player (live 09:41-09:44 World 17: the plan's "with a sword this time" lost to this step, 50 s "waiting: nothing proper to fight with" with cobble in his chest 9 off, then in unarmed on the clock: 7 mobs, dead)
+                    g.skillQueue.addFirst(st); g.skillQueue.addFirst(new Skills.Step("craft", "stone_sword", 1));
+                    ClaudeMod.LOGGER.info("[Claude life] his drops at {}: no proper sword on him ({} mob(s) seen there): stone_sword first (ClaudeLife recover_drops)", spot.toShortString(), guard.size());
+                    return "going back for my things at " + spot.toShortString() + " with nothing to fight with: making a stone sword first";
+                }
                 if (!worthIt && (guard.size() >= 2 || (!guard.isEmpty() && (shooter || !properSword || g.getHealth() < 14)))) { // walking in on them with a wooden sword and no armor is how he died twice: wait them out (or get a sword first)
                     g.tasks.add(new Task.Wait(200, false));
                     g.skillQueue.addFirst(st);
@@ -11208,6 +11213,15 @@ public final class ClaudeLife {
         }
         if (g.blockPosition().distSqr(h.centre()) > 24 * 24 || g.skillQueue.stream().anyMatch(st -> st.skill().equals("build_my_place"))) return;
         if (shellOnly && h.shellStands(level) && !houseHoled(level, h) && level.getBlockState(h.bedFoot()).is(BlockTags.BEDS)) return; // (shut, bed in: nothing to do mid-job)
+        if (!level.getBlockState(h.bedHead()).is(BlockTags.BEDS) && !level.getBlockState(h.bedFoot()).is(BlockTags.BEDS) && g.inventory.count(s0 -> s0.is(ItemTags.BEDS)) == 0 && g.tasks.stream().noneMatch(t -> t instanceof Task.Break)) { // the house's bed spot empty, none in his pack: his bed out by the house is the one that goes in, like a player moves his (live World 17: his old bed under the foundation, a block over it, "obstructed" every night, a tower till morning)
+            for (BlockPos b : new ArrayList<>(g.myStations)) {
+                if (!level.isLoaded(b) || !level.getBlockState(b).is(BlockTags.BEDS) || b.distSqr(h.centre()) > 24 * 24) continue;
+                BlockPos hd = bedHeadOf(level, b); if (hd == null || hd.equals(h.bedHead())) continue;
+                g.myStations.remove(b); takeUpBed(level, hd); g.tasks.add(new Task.Break(hd.immutable())); g.tasks.add(new Task.Pickup(60));
+                ClaudeMod.LOGGER.info("[Claude life] his house's bed spot at {} is empty and his bed at {} is out by it ({}): taking it up to put in the house (ClaudeLife.hbUpkeep)", h.bedHead().toShortString(), hd.toShortString(), java.util.Objects.requireNonNullElse(bedNoGo(g, level, hd), "free"));
+                return;
+            }
+        }
         int queued = 0; for (Task t : g.tasks) if (t instanceof Task.Place || t instanceof Task.Break) queued++;
         if (queued >= 8) return;
         ServerPlayer owner = player;

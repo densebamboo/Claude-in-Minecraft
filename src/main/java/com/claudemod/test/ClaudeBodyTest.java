@@ -10512,6 +10512,7 @@ public final class ClaudeBodyTest {
             case 733: return st733(stage, t, c, h, level, mock);
             case 734: return st734(stage, t, c, h, level, mock);
             case 735: return st735(stage, t, c, h, level, mock);
+            case 736: return st736(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13899,6 +13900,33 @@ public final class ClaudeBodyTest {
             check(!(rule.skill().equals("gear_up") && r.startsWith("done: through the portal")), "the rules' step in the Nether was gear_up, a no-op there: " + r);
             c.tasks.clear(); c.skillQueue.clear(); c.playerGoal = null; c.dropCurrent = true; nsHome(c, h, level);
             pass(stage, t, "the rules' step in the Nether does something: " + rule.skill() + " " + rule.target()); return true;
+        }
+        return true;
+    }
+
+    /** Live 14:46:59-14:47:12 11-05 (Nether bore over lava at 186,48,78..93; Day to Day review): lava level with his line put the bore up 2 over it; 16 clean columns on, still out over the lava, the line dropped back down, so the next floor cell (186,48,93) had nothing to go against: "no face in sight", and the bore queued that same place again every tick ("it failed there 0s ago", 43 lines in 3 s) till its 12 tries ran out. Back down to the line only where there's ground under it. */
+    private static int s736T0, s736Max; private static java.util.Map<BlockPos, Integer> s736N = new java.util.HashMap<>(); private static int s736Was;
+    private static boolean st736(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(9000, 64, 5840), to = o.offset(30, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); s736Max = 0; s736N.clear(); s736Was = 0; }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) { // (he's 2 over his line on a ledge, open air ahead down to y-10, the far shore at the line from x 22: as live, up over the lava with the line back down)
+            nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(16, 0, 0)), 3, o.offset(16, 0, 0));
+            for (int x = -4; x <= 34; x++) for (int z = -4; z <= 4; z++) for (int y = -12; y <= 8; y++) {
+                boolean rock = y == -12 || y == 8 || Math.abs(z) == 4 || x == -4 || x == 34 || (x <= 0 && y <= 1) || (x >= 22 && y <= -1);
+                nl.setBlock(o.offset(x, y, z), rock ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            }
+            nsKit(c); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY() + 2, o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 30) { c.tasks.clear(); c.skillQueue.clear(); c.tasks.add(new com.claudemod.entity.life.Task.Bore(to, to.getY())); s736T0 = t[0]; }
+        if (t[0] > 30) {
+            check(c.isAlive(), "dead at " + c.blockPosition().toShortString());
+            for (var e : c.attempts.of(com.claudemod.entity.life.Attempts.Kind.PLACE).keySet()) s736N.putIfAbsent(e.immutable(), 1);
+            check(s736N.isEmpty(), "a floor cell he could not set (no face: the step down out over open air): " + s736N.keySet().stream().map(BlockPos::toShortString).toList());
+            if (Math.abs(c.getX() - to.getX() - 0.5) + Math.abs(c.getZ() - to.getZ() - 0.5) <= 3) { int s0 = (t[0] - s736T0) / 20; nsHome(c, h, level); pass(stage, t, "bored on from 2 over his line across open air to the shore in " + s0 + " s, no floor cell failed"); return true; }
+            check(t[0] - s736T0 < 20 * 90, "90 s and not across: at " + c.blockPosition().toShortString() + " now " + c.currentTask);
         }
         return true;
     }

@@ -2941,7 +2941,13 @@ public class WorkGoal extends Goal {
             boolean side = false; for (Direction sd : new Direction[] {boreDir.getClockWise(), boreDir.getCounterClockWise()}) for (int yy = 0; yy <= 1; yy++) if (level.getFluidState(f.relative(sd).above(yy)).is(net.minecraft.tags.FluidTags.LAVA)) side = true;
             if (side || level.getFluidState(f).is(net.minecraft.tags.FluidTags.LAVA)) { int up = me.getY() + 2 - t.y(); if (boreYOff < up) { boreYOff = up; boreClean = 0; com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] lava level with {}: the line goes up to y {} over it (WorkGoal.doBore)", f.toShortString(), t.y() + boreYOff); } ny = me.getY() + 1; f = me.relative(boreDir).atY(ny); }
         }
-        if (!f.equals(boreCol)) { if (++boreClean >= 16 && (boreYOff != 0 || boreLaneOff != 0)) { boreYOff = 0; boreLaneOff = 0; boreDetour = 0; } boreCol = f.immutable(); boreTries = 0; boreStill = 0; } // (16 clean columns past a detour: back on the line)
+        if (off == 0 && ny < me.getY()) { BlockPos dfl = me.relative(boreDir).atY(ny).below(); // back down to the line only where there's ground under the step (live 14:47:10 11-05: back on the line out over the lava, the floor 2 down had nothing to go against, the same place asked every tick)
+            if (level.getBlockState(dfl).getCollisionShape(level, dfl).isEmpty() && level.getBlockState(dfl.below()).getCollisionShape(level, dfl.below()).isEmpty()) {
+                ny = me.getY(); f = me.relative(boreDir).atY(ny);
+                if (!f.equals(boreCol)) com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] the line is down at y {}, nothing under {} to step down onto: on level at y {} till there's ground (WorkGoal.doBore)", wantY, dfl.toShortString(), ny);
+            }
+        }
+        if (!f.equals(boreCol)) { if (++boreClean >= 16 && (boreYOff != 0 || boreLaneOff != 0)) { com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] 16 clean columns at {}: back on the line (y {}, lane {} -> y {}, lane 0) (WorkGoal.doBore)", f.toShortString(), t.y() + boreYOff, boreLaneOff, t.y()); boreYOff = 0; boreLaneOff = 0; boreDetour = 0; } boreCol = f.immutable(); boreTries = 0; boreStill = 0; } // (16 clean columns past a detour: back on the line)
         java.util.List<BlockPos> way = new java.util.ArrayList<>(java.util.List.of(f, f.above()));
         if (ny > me.getY()) way.add(me.above(2)); else if (ny < me.getY()) way.add(f.above(2));
         java.util.List<Task> todo = new java.util.ArrayList<>();

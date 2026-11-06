@@ -10453,6 +10453,7 @@ public final class ClaudeBodyTest {
             case 825: return st825(stage, t, c, h, level, mock);
             case 826: return st826(stage, t, c, h, level, mock);
             case 827: return st827(stage, t, c, h, level, mock);
+            case 828: return st828(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13329,6 +13330,35 @@ public final class ClaudeBodyTest {
 
     /** Live 16:25 11-05 (incident death-46): at 4 HP and food 3 the planner sent him for porkchop, the collect skill hunted a hoglin in the open like a pig, and it killed him; at 16:16 a baby hoglin's kill gave nothing. Here: 6 HP, food 3, no armor, 16 netherrack and a sword, an adult hoglin 14 off and a baby 5 off. The expert's way: the baby left (it drops nothing), the adult fought from 2 up a pillar it can't reach; porkchop, no hit taken. */
     private static int s826T0; private static net.minecraft.world.entity.monster.hoglin.Hoglin s826A, s826B;
+    /** Stage 828 (Day to Day 18:47, World 17: "walk no path vs bridge short of blocks (34 of 147) vs bore no pick or blocks: walk", stuck, given up): 819's lava lake with an iron pick and no blocks on him. Netherrack is all round him: mined first, then the bridge; never in lava, across within 120 s. */
+    private static int s828T0;
+    private static boolean st828(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(9000, 64, 5560), to = o.offset(40, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            for (int x = -16; x <= 46; x++) for (int z = -16; z <= 16; z++) for (int y = -5; y <= 8; y++) { // (rock 12 deep round the room, as the Nether is: a pocket for blocks has something to dig)
+                boolean hollow = x >= -3 && x <= 43 && Math.abs(z) <= 4 && y >= 0 && y <= 6, lake = x >= 3 && x <= 36 && Math.abs(z) <= 4 && y >= -4 && y <= -1;
+                nl.setBlock(o.offset(x, y, z), hollow ? Blocks.AIR.defaultBlockState() : lake ? Blocks.LAVA.defaultBlockState() : Blocks.NETHERRACK.defaultBlockState(), 2);
+            }
+            nsKit(c); c.getInventory().clearOrCountMatchingItems(st -> st.is(Items.DIAMOND_PICKAXE), -1, c.inventoryMenu.getCraftSlots()); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 30) {
+            c.tasks.clear(); c.skillQueue.clear();
+            var tr = com.claudemod.entity.life.FortressScout.travel(c, nl, to);
+            check(!com.claudemod.entity.life.FortressScout.lastTravel.endsWith(": walk"), "the walk with no path picked: " + com.claudemod.entity.life.FortressScout.lastTravel);
+            c.tasks.add(tr); s828T0 = t[0];
+        }
+        if (t[0] > 30) {
+            check(!c.isInLava() && c.isAlive(), "in lava or dead at " + c.blockPosition().toShortString() + " after " + (t[0] - s828T0) / 20 + " s");
+            if (Math.abs(c.getX() - to.getX() - 0.5) + Math.abs(c.getZ() - to.getZ() - 0.5) <= 3) { int s0 = (t[0] - s828T0) / 20; String m = "across the lava lake with no blocks to start in " + s0 + " s: " + com.claudemod.entity.life.FortressScout.lastTravel; nsHome(c, h, level); pass(stage, t, m); return true; }
+            check(!(c.currentTask == null && c.tasks.isEmpty() && t[0] - s828T0 > 40), "stopped at " + c.blockPosition().toShortString() + " after " + (t[0] - s828T0) / 20 + " s, " + c.inventory.count(x -> x.is(Items.NETHERRACK)) + " netherrack on him");
+            check(t[0] - s828T0 < 20 * 120, "120 s and not across: at " + c.blockPosition().toShortString() + " now " + c.currentTask + ", " + c.inventory.count(x -> x.is(Items.NETHERRACK)) + " netherrack on him");
+        }
+        return true;
+    }
     private static int s827Built = -1;
     /** Stage 827: World 15's crag at the foot of the near fortress's support pillar (538 stalled there, 11-05: every ActionPath call ran out of nodes, ~3 expansions a cell): the tower legs 8 and 16 up, open air beside the bricks, planned within the walker's own budget. */
     private static boolean st827(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

@@ -3952,7 +3952,7 @@ public final class ClaudeLife {
                 var around = new net.minecraft.world.phys.AABB(spot).inflate(12);
                 var drops = new ArrayList<>(level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, around, i -> i.isAlive() && !g.isGift(i)));
                 if (drops.isEmpty() && death.isPresent() && spot.equals(death.get()) && g.blockPosition().distSqr(spot) > 48 * 48 && !level.isPositionEntityTicking(spot)) { /* (a ticking chunk with nothing in it: the pile is gone) */ // far off, its chunk unloaded: the pile can't be seen from here, so go and look (the fortress pile read "nothing left" from 300 off)
-                    g.tasks.add(new Task.GoTo(spot.immutable(), 6)); g.skillQueue.addFirst(new Skills.Step("recover_drops", "", 1));
+                    wayTo(g, level, spot.immutable(), 6); g.skillQueue.addFirst(new Skills.Step("recover_drops", "", 1));
                     ClaudeMod.LOGGER.info("[Claude life] recover_drops: his death spot {} is {} off, out of sight: walking there to look (ClaudeLife recover_drops)", spot.toShortString(), (int) Math.sqrt(g.blockPosition().distSqr(spot)));
                     return "walking to where I died at " + spot.toShortString() + " to look for my things"; } // drifted off in the water, or lying a way from where he fell: still his
                 if (drops.isEmpty()) drops = new ArrayList<>(ownDropsNear(g, level, 64));
@@ -3999,7 +3999,7 @@ public final class ClaudeLife {
                 int hops = 0;
                 for (var d : drops) {
                     if (hops++ >= 24) break;
-                    g.tasks.add(new Task.GoTo(d.blockPosition(), 1.0));
+                    wayTo(g, level, d.blockPosition(), 1.0);
                     g.tasks.add(new Task.Pickup(40));
                 }
                 var clock = com.claudemod.entity.life.Clocks.pile(g, level);
@@ -4344,7 +4344,7 @@ public final class ClaudeLife {
                 }
                 if (bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.touches(g.blockPosition()) && dest.getY() > g.getBlockY() + 8 && !g.blueprint.touches(dest)) bpWalkTo(g, g.blueprint.entrance); // in his mine and the spot's up top: out by his mine's rows first, like a player takes his stairs (a 93-block walk from his y 16 tunnel had no path and failed every plan)
                 boolean exactSpot = target != null && target.trim().matches("-?\\d+[ _,]+-?\\d+[ _,]+-?\\d+"); // coordinates they gave: that block, not 3 from it ("stand at -34 -55 -221": he stopped 1-2 off every time and said he was on it, 14:16-14:28)
-                g.tasks.add(new Task.GoTo(dest, exactSpot ? 0.5 : lmAt != null ? 0.8 : "near_them".equals(st.where()) ? 3 : 2)); // (a landmark: up on it, not 2 under a bridge)
+                wayTo(g, level, dest, exactSpot ? 0.5 : lmAt != null ? 0.8 : "near_them".equals(st.where()) ? 3 : 2); // (a landmark: up on it, not 2 under a bridge)
                 com.claudemod.entity.life.ExactSpot.near(g, player, dest); // (its arrival: his feet against the spot and their block, into the job's results, never "there" from the walk ending)
                 ClaudeMod.LOGGER.info("[Claude walk] go_to {} -> walking to {} ({} blocks; {} task(s) queued, busy {})", target, dest.toShortString(), (int) Math.sqrt(dest.distSqr(g.blockPosition())), g.tasks.size(), g.busy);
                 return "heading over there";
@@ -5569,6 +5569,11 @@ public final class ClaudeLife {
     public static int nookGap(MineBlueprint b) { return branchEveryOf(b) - 1; }
     private static java.util.Map<String, String> nookSaid;
     /** A line said once per change (a decision re-made every round says itself when what it saw changes, not every 2 s). */
+    /** A walk there; a long Nether leg (48+) by FortressScout.travel first: a bridge or bore when that's the fastest, the walk finishing it (Day to Day 18:48 World 17: recover_drops walked 240 blocks, "no way in the loaded land", till the pile despawned). */
+    static void wayTo(ClaudeEntity g, ServerLevel level, BlockPos to, double within) {
+        if (level.dimension() == net.minecraft.world.level.Level.NETHER && g.blockPosition().distSqr(to) > 48 * 48) { Task tr = com.claudemod.entity.life.FortressScout.travel(g, level, to); if (tr instanceof Task.Bore) g.tasks.add(tr); }
+        g.tasks.add(new Task.GoTo(to, within));
+    }
     public static void nookSay(ClaudeEntity g, String key, String line) { if (nookSaid == null || nookSaid.size() > 256) nookSaid = new java.util.HashMap<>(); if (!line.equals(nookSaid.put(g.getUUID() + key, line))) ClaudeMod.LOGGER.info(line); }
 
     /** The nook frame with its mouth at row k of segment seg: in the wall without torches, the mouth 2 rows along the tunnel. */

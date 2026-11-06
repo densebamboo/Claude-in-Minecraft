@@ -401,7 +401,7 @@ public final class FortressScout {
         return null;
     }
     /** Paces, seconds a block: a tunnel through rock he can't see into (stage 816: 500 blocks of rock, caves and lava in 197 s), a bridge over open lava (a floor and two rails a block: stage 819, 34 blocks in 35 s), a sprint over ground. A player knows these paces, not what's in the rock. */
-    public static final double BORE_S = 0.4, BRIDGE_S = 0.9, WALK_S = 0.2, WALL_S = 0.3;
+    public static final double BORE_S = 0.4, BRIDGE_S = 0.9, WALK_S = 0.2, WALL_S = 0.3, MINE_S = 0.5; // MINE_S: a block of netherrack for the floor, walked to, dug and picked up
     /** The nearest blaze, ghast or skeleton he knows of within 48 that can see him, or null. */
     public static net.minecraft.world.entity.Mob shooterInSight(ClaudeEntity g) {
         for (var m : Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(48), x -> x.isAlive() && (x instanceof net.minecraft.world.entity.monster.Blaze || x instanceof net.minecraft.world.entity.monster.Ghast || x instanceof net.minecraft.world.entity.monster.AbstractSkeleton)))
@@ -416,7 +416,7 @@ public final class FortressScout {
      * it meets them); their prices differ by what he can see. Logged with all three.
      */
     public static Task travel(ClaudeEntity g, ServerLevel level, BlockPos to) {
-        BlockPos me = g.blockPosition(); boolean can = bores(g, level);
+        BlockPos me = g.blockPosition(); boolean can = level.dimension() == net.minecraft.world.level.Level.NETHER && g.inventory.count(x -> x.getItem() instanceof net.minecraft.world.item.PickaxeItem) > 0; // (a pick is the tool: blocks short are mined first, the bore tops itself up; Day to Day 18:47 World 17: an iron pick, "short of blocks (34 of 147)", the walk with no path picked)
         int dx = to.getX() - me.getX(), dz = to.getZ() - me.getZ(), dy = to.getY() - me.getY(), n = Math.abs(dx) + Math.abs(dz);
         int lava = 0, open = 0, rock = 0; Vec3 eye = g.getEyePosition(); int x = me.getX(), z = me.getZ();
         for (int k = 1; k <= n; k++) { // the L: the longer axis first, as the bore goes
@@ -429,15 +429,15 @@ public final class FortressScout {
         double boreS = can ? BORE_S * (n + Math.abs(dy)) : Double.MAX_VALUE; // (the line through rock he can't see into)
         var shooter = shooterInSight(g); // a knock off a bridge is the fall: the expert's cut is a wall block on the shooter's side over the lava, its time priced in (the user 11-05: a cost, not a ban)
         int need = lava * (shooter != null ? 4 : 3), have = g.inventory.count(it -> it.is(net.minecraft.world.item.Items.NETHERRACK) || it.is(net.minecraft.world.item.Items.COBBLESTONE) || it.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE) || it.is(net.minecraft.world.item.Items.BLACKSTONE)) + rock * 2; // a floor and two rails a block of lava (and a wall under fire); the rock on the way gives 2 a block
-        boolean short_ = lava > 0 && have < need;
-        double bridgeS = can && lava > 0 && !short_ ? (BRIDGE_S + (shooter != null ? WALL_S : 0)) * lava + WALK_S * open + BORE_S * (rock + Math.abs(dy)) : Double.MAX_VALUE;
+        int mine = lava > 0 ? Math.max(0, need - have) : 0; // blocks short: netherrack is all round him in the Nether, mined first at a pick's pace
+        double bridgeS = can && lava > 0 ? MINE_S * mine + (BRIDGE_S + (shooter != null ? WALL_S : 0)) * lava + WALK_S * open + BORE_S * (rock + Math.abs(dy)) : Double.MAX_VALUE;
         var path = g.getNavigation().createPath(to, 2); double walkS = Double.MAX_VALUE; int nodes = 0;
         if (path != null && path.canReach()) { nodes = path.getNodeCount(); double len = 0; for (int i = 1; i < nodes; i++) len += Math.sqrt(path.getNode(i).distanceToSqr(path.getNode(i - 1))); walkS = WALK_S * len; }
         if (lava > 0) boreS = bridgeS; // (lava he can see on the line: the bore meets it too and paves it, the same line at the same price; short of blocks, neither can)
         String pick = walkS <= bridgeS && walkS <= boreS ? "walk" : bridgeS <= boreS ? "bridge" : "bore";
         lastTravel = String.format("to %s: walk %s vs bridge %s vs bore %s: %s", to.toShortString(), walkS == Double.MAX_VALUE ? "no path" : String.format("~%.0f s (%d steps)", walkS, nodes),
-                bridgeS == Double.MAX_VALUE ? (!can ? "no pick or blocks" : short_ ? "short of blocks (" + have + " of " + need + ")" : "no lava in sight on the line") : String.format("~%.0f s (%d paved over lava%s, %d open, %d through rock)", bridgeS, lava, shooter == null ? "" : ", walled against the " + shooter.getType().getDescription().getString().toLowerCase(), open, rock),
-                boreS == Double.MAX_VALUE ? "no pick or blocks" : String.format("~%.0f s", boreS), pick);
+                bridgeS == Double.MAX_VALUE ? (!can ? "no pick" : "no lava in sight on the line") : String.format("~%.0f s (%s%d paved over lava%s, %d open, %d through rock)", bridgeS, mine > 0 ? mine + " blocks to mine first, " : "", lava, shooter == null ? "" : ", walled against the " + shooter.getType().getDescription().getString().toLowerCase(), open, rock),
+                boreS == Double.MAX_VALUE ? "no pick" : String.format("~%.0f s", boreS), pick);
         ClaudeMod.LOGGER.info("[Claude route] {} (FortressScout.travel)", lastTravel);
         return pick.equals("walk") ? new Task.GoTo(to, 3) : new Task.Bore(to, to.getY());
     }

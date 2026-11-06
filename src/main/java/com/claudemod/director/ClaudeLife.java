@@ -62,12 +62,12 @@ public final class ClaudeLife {
     private static void runWork(ClaudeEntity g, ServerPlayer player) {
         boolean together = g.level() == player.level(), home = g.level().dimension() == net.minecraft.world.level.Level.OVERWORLD;
         { ServerLevel lv = (ServerLevel) g.level(); // night with no health or nothing to eat, a bed in reach: the bed before any plan (the user: flaws in his decisions are bugs; he said "heading to my bed" and went cow hunting up top at half a heart)
-          if (home && !com.claudemod.director.ClaudeLife.dayHere(lv) && !g.isSleeping() && (g.getHealth() <= 6 || (g.getFoodData().getFoodLevel() <= 6 && foodToEat(g, true) == null)) && !(g.currentTask instanceof Task.Attack) && !(g.currentTask instanceof Task.Flee)) {
-            BlockPos bed = null; for (BlockPos p : g.myStations) if (lv.isLoaded(p) && lv.getBlockState(p).is(BlockTags.BEDS) && p.distSqr(g.blockPosition()) <= 64 * 64 && (bed == null || p.distSqr(g.blockPosition()) < bed.distSqr(g.blockPosition()))) bed = p;
+          if (home && !com.claudemod.director.ClaudeLife.dayHere(lv) && !g.isSleeping() && (g.getHealth() <= com.claudemod.entity.life.Weights.w("night.low_hp_bed", 6) || (g.getFoodData().getFoodLevel() <= 6 && foodToEat(g, true) == null)) && !(g.currentTask instanceof Task.Attack) && !(g.currentTask instanceof Task.Flee)) {
+            BlockPos bed = null; for (BlockPos p : g.myStations) if (lv.isLoaded(p) && lv.getBlockState(p).is(BlockTags.BEDS) && p.distSqr(g.blockPosition()) <= com.claudemod.entity.life.Weights.w("night.low_hp_bed_radius", 64) * com.claudemod.entity.life.Weights.w("night.low_hp_bed_radius", 64) && (bed == null || p.distSqr(g.blockPosition()) < bed.distSqr(g.blockPosition()))) bed = p;
             if (bed == null) bed = freeBedNear(g, lv, 32);
             if (bed != null && g.blockPosition().distSqr(bed) > 8 * 8) { // the walk priced against a night in a hole here (Decide.walkS: the hits he'd expect on it, his health), not taken whatever it costs
                 long tod1 = lv.getDayTime() % 24000; int hk = com.claudemod.entity.life.Decide.hostilesKnown(g), d1 = routeDist(g, g.blockPosition(), bed);
-                double ws = com.claudemod.entity.life.Decide.walkS(g, lv, tod1, d1 / 5.6, hk), hs = com.claudemod.entity.life.Decide.holeS(tod1);
+                double ws = com.claudemod.entity.life.Decide.walkS(g, lv, tod1, d1 / com.claudemod.entity.life.Decide.sprint(), hk), hs = com.claudemod.entity.life.Decide.holeS(tod1);
                 if (ws > hs) { nookSay(g, "lowbed" + bed.asLong(), "[Claude life] night at " + (int) Math.ceil(g.getHealth()) + " health: his bed at " + bed.toShortString() + " ~" + (d1 + 2) / 5 * 5 + " off is " + (ws == Double.MAX_VALUE ? "out (the hits on the way, " + hk + " hostile(s) known, would take over half his health)" : "~" + (int) ws / 5 * 5 + " s") + " against a hole here ~" + (int) hs / 30 * 30 + " s: not walked to (Decide.walkS)"); bed = null; }
             }
             if (bed != null) {

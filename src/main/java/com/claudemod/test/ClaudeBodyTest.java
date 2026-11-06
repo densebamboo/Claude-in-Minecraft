@@ -10530,6 +10530,7 @@ public final class ClaudeBodyTest {
             case 738: return st738(stage, t, c, h, level, mock);
             case 740: return st740(stage, t, c, h, level, mock);
             case 741: return st741(stage, t, c, h, level, mock);
+            case 742: return st742(stage, t, c, h, level, mock);
             case 653: return st653(stage, t, c, h, level, mock);
             case 654: return st654(stage, t, c, h, level, mock);
             case 655: return st655(stage, t, c, h, level, mock);
@@ -13958,6 +13959,26 @@ public final class ClaudeBodyTest {
     }
 
     /** Live 16:49 11-05 (-106,64,-6, tick 11767; Day to Day case D, the user: "Couldn't he have slept at his bed ... Most of the time you don't need to dig into a hole for 10 minutes just because the sun is going down"): full HP, food 20, 5 meals, no armor, his bed about 30 off: "the sun's going down and he's out with no armor: under cover before dark", a hole, 7 min of night in it. The game's first spawns in the open are at tick 13188 (12969 in rain), 70 s off; 30 blocks is 6 s at a sprint. Dusk is one priced choice: his bed, his lit mine, the hole last. */
+    private static boolean st742(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // night at 2 HP, mobs he sees, his bed 50 off (World 17 18:25: each flee run that "got clear" was followed by "night at 2 health: to his bed before anything else", tasks cleared, back toward the mobs, 3 times in 26 s): the bed walk is priced, and out
+        if (t[0] == 1) { scenarioReset(c); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(96))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 60; x++) for (int z = 0; z <= 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 8; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            sleepHis = sleepBed(level, h.absolutePos(new BlockPos(54, 2, 8)), net.minecraft.core.Direction.EAST); c.myStations.add(sleepHis);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 41));
+            sleepAt(c, h, new BlockPos(4, 2, 8)); c.setYRot(90); c.setYHeadRot(90); // (facing west, at them)
+            for (int zx : new int[] {-2, -1, 0}) { var z = net.minecraft.world.entity.EntityType.ZOMBIE.create(level); BlockPos zp = h.absolutePos(new BlockPos(zx, 2, 6 + zx + 2)); z.moveTo(zp.getX() + 0.5, zp.getY(), zp.getZ() + 0.5, -90, 0); z.setNoAi(true); z.setPersistenceRequired(); level.addFreshEntity(z); }
+            c.setHealth(2); c.getFoodData().setFoodLevel(16); level.setDayTime(14000); bedMaxX = c.getBlockX();
+        }
+        if (t[0] > 10 && level.getGameRules().getBoolean(net.minecraft.world.level.GameRules.RULE_DAYLIGHT) == false) level.setDayTime(14000);
+        if (t[0] > 12) {
+            boolean toBed = (c.currentTask instanceof Task.GoTo go && go.pos().distSqr(sleepHis) <= 9) || c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go2 && go2.pos().distSqr(sleepHis) <= 9);
+            check(!toBed, "2 HP at night, 3 zombies in sight: the walk to his bed 50 off queued anyway (now=" + c.currentTask + " tasks=" + c.tasks + ")");
+            bedMaxX = Math.max(bedMaxX, c.getBlockX());
+            check(bedMaxX - h.absolutePos(new BlockPos(4, 2, 8)).getX() <= 8, "2 HP at night: he went " + (bedMaxX - h.absolutePos(new BlockPos(4, 2, 8)).getX()) + " toward his bed 50 off");
+            if (t[0] >= 12 + 100) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Zombie.class, c.getBoundingBox().inflate(32))) m.discard(); pass(stage, t, "night at 2 HP with zombies in sight: no walk to his bed 50 off in 5 s (priced out), now " + c.currentTask); }
+        }
+        return true;
+    }
     private static boolean st741(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a surface spot under an overhang near his mine is no spot in his mine (World 17 17:22-18:22: the walk to his furnace 3 off by the lake went "26 legs, over the land to his mine, in, down its rows", then the walker back up and out, 58 times in an hour)
         if (t[0] == 1) lnReset(c);
         if (t[0] == 10) {

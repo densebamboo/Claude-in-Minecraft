@@ -10633,6 +10633,7 @@ public final class ClaudeBodyTest {
             case 797: return st797(stage, t, c, h, level, mock);
             case 798: return st798(stage, t, c, h, level, mock);
             case 799: return st799(stage, t, c, h, level, mock);
+            case 739: return st739(stage, t, c, h, level, mock);
             case 793: return st793(stage, t, c, h, level, mock);
             case 786: return st786(stage, t, c, h, level, mock);
             case 780: return st780(stage, t, c, h, level, mock);
@@ -16694,6 +16695,31 @@ public final class ClaudeBodyTest {
             check(dropped, "the 45 s rung didn't drop the stuck torch (now " + c.currentTask + ")");
             check(!back, "the torch he was stuck 45 s on queued again at once, in front of what would get him out");
             pass(stage, t, "the stuck torch off the queue while its cause holds");
+        }
+        return true;
+    }
+    private static int st739T;
+    private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(10300, 80, 7600);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st739T = -1; }
+        if (t[0] > 4 && t[0] % 10 == 0) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+        if (t[0] == 10) {
+            for (int x = -4; x <= 4; x++) for (int z = -4; z <= 4; z++) for (int y = -1; y <= 4; y++) nl.setBlock(o.offset(x, y, z), y == -1 || y == 4 || Math.abs(x) == 4 || Math.abs(z) == 4 ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 3);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 2)); // 2 meals: under the trip's 6, the food check runs
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 30) {
+            var step = new com.claudemod.entity.life.Skills.Step("build_highway", "@242 60 509", 1, ""); c.lastStep = step; c.skillQueue.add(step); // the highway's own re-queued step, its target a spot
+            c.tasks.clear(); c.currentTask = null; for (int i = 0; i < 6; i++) c.tasks.add(new Task.Wait(20 * 60 + i, false)); st739T = t[0]; // his queue, standing in for the made route
+        }
+        if (st739T > 0 && t[0] == st739T + 230) { // past a food check (every 200 ticks)
+            int left = c.tasks.size() + (c.currentTask != null ? 1 : 0);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            check(left >= 5, "his queue was wiped (" + left + " of 6 left): the food check read the step's target \"@242 60 509\" as an item and his brain crashed");
+            pass(stage, t, "a step's spot target read as no item, his queue kept");
         }
         return true;
     }

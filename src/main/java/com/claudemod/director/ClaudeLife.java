@@ -8675,7 +8675,8 @@ public final class ClaudeLife {
     }
 
     static Item item(String t) {
-        var it = BuiltInRegistries.ITEM.getOptional(net.minecraft.resources.ResourceLocation.withDefaultNamespace(t));
+        var rl = t == null ? null : net.minecraft.resources.ResourceLocation.tryBuild("minecraft", t); if (rl == null) return null; // a target that's no item name ("@242 60 509", a step's spot): no item; withDefaultNamespace threw, the brain catch cleared his queue every food check (live 06:44 11-07, stage 739)
+        var it = BuiltInRegistries.ITEM.getOptional(rl);
         if (it.isPresent() && it.get() != Items.AIR) return it.get();
         if (t != null && t.startsWith("raw_") && t.length() > 4) { Item r0 = item(t.substring(4)); if (r0 != null && r0.components().get(net.minecraft.core.component.DataComponents.FOOD) != null) return r0; } // (raw fish is plain "cod"/"salmon": "smelt raw_cod: no such item" tripped 11:08 11-02)
         if (t != null && t.startsWith("gold_") && !t.equals("gold_ingot") && !t.equals("gold_nugget") && !t.equals("gold_block") && !t.equals("gold_ore")) return item("golden_" + t.substring(5)); /* the name players say: "gold boots" is golden_boots (live 01:14: "no such item 'gold_boots'") */

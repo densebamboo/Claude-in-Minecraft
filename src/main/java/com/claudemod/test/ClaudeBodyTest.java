@@ -10509,6 +10509,8 @@ public final class ClaudeBodyTest {
             case 932: return st932(stage, t, c, h, level, mock);
             case 933: return st933(stage, t, c, h, level, mock);
             case 934: return st934(stage, t, c, h, level, mock);
+            case 952: return st952(stage, t, c, h, level, mock);
+            case 951: return st951(stage, t, c, h, level, mock);
             case 948: return st948(stage, t, c, h, level, mock);
             case 950: return st950(stage, t, c, h, level, mock);
             case 949: return st949(stage, t, c, h, level, mock);
@@ -14181,6 +14183,54 @@ public final class ClaudeBodyTest {
             String q = c.tasks.toString(); c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.blueprint = bpWas; c.stairStart = ssWas; c.dropCurrent = true;
             check(onIt, "coal in plain view 10 off, no mine: \"" + r + "\" (tasks " + (q.length() > 200 ? q.substring(0, 200) : q) + ")");
             pass(stage, t, "\"" + r + "\"");
+        }
+        return true;
+    }
+    /** Stage 951 (D2D review 093255-93 11-07, live 09:30-09:36 at -311,-58,-13: "inventory full in his mine: putting the spare blocks in the junk chest", then "junk chest: 0 stacks in, cobble stacks kept {cobblestone=2}", every 10 s for a minute, his 14-leg route planned again each time; 403 cobbled deepslate for the highway on him): his round counted the deepslate as his kept stone, the chest didn't. On the highway job with 7 stacks of deepslate and 2 of cobble, the cobble goes in, the deepslate stays. */
+    private static BlockPos s951C;
+    private static boolean st951(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            BlockPos d = lnRow(b, 1, 6).immutable();
+            net.minecraft.core.Direction side = null; for (var dd : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && !com.claudemod.director.ClaudeLife.isMineCell(c, d.relative(dd)) && level.getBlockState(d.relative(dd)).isSolid()) side = dd;
+            check(side != null, "setup: no wall beside row 6");
+            s951C = d.relative(side).immutable(); level.setBlock(s951C, Blocks.CHEST.defaultBlockState(), 2); level.setBlock(s951C.above(), Blocks.AIR.defaultBlockState(), 2); c.prefs.put("junk_chests", s951C.getX() + " " + s951C.getY() + " " + s951C.getZ());
+            var inv = c.getInventory(); inv.clearContent();
+            for (int i = 0; i < 7; i++) inv.items.set(i, new ItemStack(Items.COBBLED_DEEPSLATE, 64));
+            inv.items.set(7, new ItemStack(Items.COBBLESTONE, 64)); inv.items.set(8, new ItemStack(Items.COBBLESTONE, 42));
+            for (int i = 0; i < inv.items.size(); i++) if (inv.items.get(i).isEmpty()) inv.items.set(i, new ItemStack(Items.OAK_LOG, 64));
+            inv.selected = 0;
+            lnStand(c, mock, lnRow(b, 1, 3), b.entrance); c.tasks.clear(); c.skillQueue.clear();
+            c.lastStep = new com.claudemod.entity.life.Skills.Step("collect", "cobbled_deepslate", 640); // (the highway's stone: what he's mining for)
+            check(com.claudemod.director.ClaudeLife.deepslateWanted(c), "setup: deepslate not wanted");
+            com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+        }
+        if (t[0] > 10) {
+            int cob = c.getInventory().countItem(Items.COBBLESTONE), ds = c.getInventory().countItem(Items.COBBLED_DEEPSLATE);
+            if (cob == 0 && c.currentTask == null && c.tasks.isEmpty()) {
+                c.getInventory().clearContent(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); c.prefs.remove("junk_chests"); c.lastStep = null;
+                check(ds == 7 * 64, "the highway's deepslate went in the junk chest: " + ds + " left of " + 7 * 64);
+                pass(stage, t, "the cobble in his junk chest, his " + ds + " deepslate kept (" + (t[0] - 10) + " ticks)"); return true;
+            }
+            if (t[0] % 100 == 0 && c.currentTask == null && c.tasks.isEmpty()) com.claudemod.director.ClaudeLife.dumpJunkTest(c); // (his life loop's next look: the round again, as live)
+            check(t[0] < 400, "the cobble still on him after 19 s (" + cob + ", deepslate " + ds + "): now " + c.currentTask + " queue " + c.tasks.stream().limit(4).toList());
+        }
+        return true;
+    }
+    /** Stage 952 (D2D review 084849-142 11-07: the highway to 242,60,509 done at 07:17; at 08:42 a new one queued, he left for the portal with 0 cobbled deepslate, his pack 2 free slots of copper, sand, logs and cobble, and ran out at row 404, 401 blocks from his portal): a build_highway queued with none underway, in the overworld. Before the portal his pack is filled for it, as the packing rule says. */
+    private static boolean st952(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); com.claudemod.entity.life.Highway.reset(c); }
+        if (t[0] == 5) {
+            var inv = c.getInventory(); int k = 0;
+            Object[][] pack = { {Items.BIRCH_LOG, 30}, {Items.COBBLESTONE, 64}, {Items.COBBLESTONE, 60}, {Items.COOKED_BEEF, 5}, {Items.COOKED_MUTTON, 4}, {Items.COOKED_PORKCHOP, 7}, {Items.CRAFTING_TABLE, 1}, {Items.DIAMOND_PICKAXE, 1}, {Items.IRON_AXE, 1}, {Items.IRON_SWORD, 1},
+                {Items.LAPIS_LAZULI, 22}, {Items.LEATHER, 14}, {Items.OAK_LOG, 39}, {Items.RAW_COPPER, 64}, {Items.RAW_COPPER, 37}, {Items.RAW_IRON, 20}, {Items.SAND, 10}, {Items.STICK, 4}, {Items.STONE_PICKAXE, 1}, {Items.STONE_PICKAXE, 1}, {Items.WHEAT_SEEDS, 4}, {Items.WHITE_WOOL, 4},
+                {Items.GUNPOWDER, 2}, {Items.FEATHER, 2}, {Items.EGG, 2}, {Items.BONE_MEAL, 1}, {Items.CHEST, 1}, {Items.STONE_AXE, 1}, {Items.WOODEN_HOE, 1}, {Items.OAK_PLANKS, 3}, {Items.IRON_INGOT, 1}, {Items.BROWN_WOOL, 1}, {Items.COOKED_SALMON, 1} };
+            for (Object[] p : pack) inv.items.set(k++, new ItemStack((net.minecraft.world.item.Item) p[0], (Integer) p[1]));
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("build_highway", "fortress", 1));
+            var pk = com.claudemod.entity.life.Highway.packStep(c);
+            c.skillQueue.clear(); inv.clearContent();
+            check(pk != null && pk.target().equals("cobbled_deepslate") && pk.count() >= 5 * 64, "a new highway queued, 0 cobbled deepslate on him: no pack before the portal (" + pk + ")");
+            pass(stage, t, "packs first: " + pk);
         }
         return true;
     }

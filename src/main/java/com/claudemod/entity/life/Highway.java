@@ -358,12 +358,15 @@ public final class Highway {
      */
     public static Skills.Step packStep(ClaudeEntity g) {
         State s = state(g);
-        if (s.dest == null || s.portalId < 0 || s.rows <= 0 || g.level().dimension() != net.minecraft.world.level.Level.OVERWORLD) return null;
+        if (g.level().dimension() != net.minecraft.world.level.Level.OVERWORLD) return null;
         if (g.lastStep != null && g.lastStep.skill().equals("collect") && g.lastStep.target().equals("cobbled_deepslate")) return null;
-        int missing = trip(g, s.rows - Math.max(0, s.built));
+        boolean planned = s.dest != null && s.portalId >= 0 && s.rows > 0; // (callers only ask with a build_highway on his queue)
+        // a new highway is planned once he's through the portal: a full pack for it, the packing rule (D2D review 084849 11-07: the last one done at 07:17, the next queued at 08:42, "nothing underway" read as nothing to pack; out at row 404 with 1, 401 blocks back)
+        // shortcut: a full pack, not the new plan's length; size it from the destination if over-packing a short one ever costs a trip
+        int missing = trip(g, planned ? s.rows - Math.max(0, s.built) : (int) w("highway.unplanned_rows", 1000));
         int have0 = g.inventory.count(x -> x.is(BLOCK)); if (missing < w("highway.pack_min_short", 64) || have0 >= w("highway.fetch_min_stacks", 5) * 64) return null; // (5 stacks on him is a trip: back down his mine for the last 105 of 759, 654 on him, live 19:53 11-06; the user: "the minimum of stacks each time")
         int have = g.inventory.count(x -> x.is(BLOCK));
-        ClaudeMod.LOGGER.info("[Claude highway] packing for the highway before the portal: {} on him, room for {} more of this trip (Highway.packStep)", have, missing);
+        ClaudeMod.LOGGER.info("[Claude highway] packing for the highway before the portal{}: {} on him, room for {} more of this trip (Highway.packStep)", planned ? "" : " (a new one, planned once he's through: a full pack)", have, missing);
         return new Skills.Step("collect", "cobbled_deepslate", have + missing);
     }
     static int chestCount(ClaudeEntity g) { int n = 0; for (var e : ChestLedger.book(g).values()) if (e.dim() != null && e.dim().endsWith("overworld")) n += e.items().getOrDefault(BLOCK, 0); return n; }

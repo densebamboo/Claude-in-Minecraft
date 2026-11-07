@@ -68,9 +68,16 @@ public final class FortressScout {
     public static List<Leg> legs(ClaudeEntity g) { return state(g).legs; }
     public static BlockPos found(ClaudeEntity g) { // (this run's, else the one on his atlas: World 15, seen 3 times in a day and scouted for again after each restart)
         BlockPos f = state(g).found; if (g.level() instanceof ServerLevel sl) { BlockPos a0 = Atlas.find(g, sl, "fortress"); if (a0 != null && (f == null || a0.distSqr(g.blockPosition()) < f.distSqr(g.blockPosition()))) f = a0; } // (the nearest he knows: World 15 23:55 one 94 off and him bound for one 200 off)
-        if (f != null && g.level() instanceof ServerLevel sl2 && sl2.isLoaded(f)) { BlockPos deck = FortressFight.deckCell(sl2, f); if (deck != null) return deck; } // (its deck, never the brick seen from below)
+        if (f != null && g.level() instanceof ServerLevel sl2 && sl2.isLoaded(f)) { BlockPos deck = deck(sl2, f); if (deck != null) return deck; } // (its deck, never the brick seen from below)
         return f;
     }
+    /** Where a fortress seen at p is walked: up the brick column from p (a pillar seen from the lava sea climbs to its bridge; live 14:19 World 17, his atlas said y 33 and the highway went down to the lava), then the deck cell nearest there; null if none. */
+    public static BlockPos deck(ServerLevel level, BlockPos p) {
+        BlockPos top = p;
+        for (int k = 0; k < 96 && level.isLoaded(top.above()) && fortressBlock(level.getBlockState(top.above())); k++) top = top.above();
+        return FortressFight.deckCell(level, top);
+    }
+    static boolean fortressBlock(net.minecraft.world.level.block.state.BlockState s) { return net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(s.getBlock()).getPath().contains("nether_brick"); }
     /** On the fortress: a fortress block (nether bricks, its fence, its stairs) under his feet or the one below that. */
     // ---- on the fortress: along its deck to the parts he hasn't walked (Day to Day 21:26 World 15: "find the spawner room" sent him off the fortress, 71 blocks over the netherrack) ----
     private static java.util.Map<java.util.UUID, java.util.Set<Long>> deckSeen;

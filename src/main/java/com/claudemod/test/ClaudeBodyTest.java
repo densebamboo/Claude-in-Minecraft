@@ -10493,6 +10493,7 @@ public final class ClaudeBodyTest {
             case 916: return st916(stage, t, c, h, level, mock);
             case 917: return st917(stage, t, c, h, level, mock);
             case 918: return st918(stage, t, c, h, level, mock);
+            case 919: return st919(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13651,6 +13652,33 @@ public final class ClaudeBodyTest {
             BlockPos end = p.legs().get(p.legs().size() - 1);
             check(end.getX() - o.getX() >= 12, "the part-way plan ends only " + (end.getX() - o.getX()) + " blocks toward it, at " + end.toShortString());
             nsHome(c, h, level); pass(stage, t, "part way through the rock: " + p.legs().size() + " legs to " + end.toShortString() + " (" + p.digs() + " dug, " + p.nodes() + " nodes, " + p.ms() + " ms)"); }
+        return true;
+    }
+    /** Stage 919 (D2D live 15:48-15:50 World 17, the user: "not sure why he opted to build the highway staircase down to lava level", "going down to lava level is counterproductive because im assuming the fortress is much higher than that"): the fortress on his atlas at y 33 (a brick he saw: a pillar's foot at the lava sea), the staircase put in the middle of leg 1, rows 200-715 at the lava sea, 6 lava sealed every 3 rows. The fortress is where its deck is; the staircase goes where the rows cost least. */
+    private static boolean st919(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(10800, 70, 6720), foot = o.offset(-30, -37, 30);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(foot), 2, foot);
+        if (t[0] == 10) {
+            for (int x = -34; x <= 6; x++) for (int z = -6; z <= 34; z++) for (int y = -40; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, 0), x == -1 || x == 2 || y == -1 || y == 3 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+            for (int y = 0; y < 32; y++) nl.setBlock(foot.above(y), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // a fortress pillar from the lava sea up to its bridge
+            for (int x = -1; x <= 1; x++) for (int z = -3; z <= 3; z++) nl.setBlock(foot.offset(x, 32, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // the bridge deck, its top at y 65
+            for (int z = -3; z <= 3; z++) nl.setBlock(foot.offset(-1, 33, z), Blocks.NETHER_BRICK_FENCE.defaultBlockState(), 2); // its railing
+        }
+        if (t[0] == 20) {
+            BlockPos deck = com.claudemod.entity.life.FortressScout.deck(nl, foot);
+            com.claudemod.entity.life.Atlas.note(c, nl, "fortress", foot);
+            BlockPos dest = com.claudemod.entity.life.Highway.destination(c, nl, "");
+            var b = com.claudemod.entity.life.BridgeBlueprint.plan(nl, o, net.minecraft.core.Direction.Axis.Z, new BlockPos(o.getX() + 20, 33, o.getZ() + 300), 2, false);
+            int low = 0; for (var r : b.rows) if (r.centre().getY() <= 34) low++;
+            for (int x = -34; x <= 6; x++) for (int z = -6; z <= 34; z++) for (int y = -40; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            com.claudemod.entity.life.Atlas.reset(c);
+            check(deck != null && deck.getY() == foot.getY() + 33, "a fortress pillar from y " + foot.getY() + " up to its deck at y " + (foot.getY() + 32) + ": read as feet at " + deck);
+            check(dest != null && dest.getY() == foot.getY() + 33, "the fortress on his atlas at the pillar's foot, loaded: the highway aims at " + dest + ", not the deck at y " + (foot.getY() + 33));
+            check(low <= 40, "a 320-row highway from y 70 to y 33 at the lava sea: " + low + " rows at the lava sea (" + b.why + ")");
+            nsHome(c, h, level); pass(stage, t, "deck at " + deck.toShortString() + ", " + low + " rows at the lava sea: " + b.why); }
         return true;
     }
     /** Stage 918 (the user 11-06 ~15:35 via D2D: "replace the step blocks with stair blocks for faster access once the iron and diamond levels are established"): a 10-step blueprint staircase, stair blocks on him: stair_steps puts one in every riser, facing the way up, within player pace, none of them litter. */

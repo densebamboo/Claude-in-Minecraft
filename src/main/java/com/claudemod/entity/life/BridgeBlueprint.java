@@ -99,6 +99,27 @@ public final class BridgeBlueprint {
         int leg = steps == 0 ? 0 : free2 >= free1 && free2 >= steps ? 2 : free1 >= steps ? 1 : free2 >= free1 ? 2 : 1;
         int legLen = leg == 1 ? Math.abs(d1) : n2;
         int s0 = leg == 0 ? -1 : Math.max(0, (legLen - steps) / 2);
+        if (leg != 0) { // where the staircase goes, priced: every row at the height it would have, lava to seal, rock to dig, air to bridge where the ground is loaded, the lava sea dear (live 15:48: the middle of leg 1 put 500 rows at the lava sea, the user: "going down to lava level is counterproductive"); the spec's margins as a price
+            List<BlockPos> cs = new ArrayList<>(); List<Direction> ds = new ArrayList<>();
+            for (int k = 1; k <= n1; k++) { cs.add(floor0.relative(l1, k)); ds.add(l1); }
+            if (l2 != null) for (int k = k2from; k <= n2; k++) { BlockPos c = pivot.relative(l2, k); cs.add(new BlockPos(c.getX(), floor0.getY(), c.getZ())); ds.add(l2); }
+            int n = cs.size(); double[] pa = new double[n + 1], pb = new double[n + 1];
+            for (int i = 0; i < n; i++) { pa[i + 1] = pa[i] + rowCost(level, cs.get(i), ds.get(i), b.lo, b.hi); pb[i + 1] = pb[i] + rowCost(level, cs.get(i).above(dy), ds.get(i), b.lo, b.hi); }
+            double near = Weights.w("highway.stair_near_end_s", 120), bestC = Double.MAX_VALUE, midC = Double.NaN; int bestLeg = leg, bestS = s0;
+            for (int lg = 1; lg <= (l2 == null ? 1 : 2); lg++) {
+                int kFirst = lg == 1 ? 0 : k2from - 1, kLast = (lg == 1 ? Math.abs(d1) : n2) - steps; // s0 range: stair rows s0+1 .. s0+steps inside the leg
+                for (int s = kFirst; s <= kLast; s++) {
+                    int j = lg == 1 ? s : n1 + (s + 1 - k2from); if (j < 0 || j + steps > n) continue;
+                    double cost = pa[j] + (pa[j + steps] - pa[j] + pb[j + steps] - pb[j]) / 2 + (pb[n] - pb[j + steps]);
+                    int fromStart = lg == 1 ? s : s + 1 - k2from, toEnd = (lg == 1 ? Math.abs(d1) : n2) - (s + steps);
+                    if (fromStart < MARGIN || toEnd < MARGIN) cost += near;
+                    cost += Math.abs(s - (lg == 1 ? Math.abs(d1) : n2) / 2.0) * 1e-6; // (a tie: the leg's middle, as before)
+                    if (lg == leg && s == s0) midC = cost;
+                    if (cost < bestC) { bestC = cost; bestLeg = lg; bestS = s; }
+                }
+            }
+            if (bestC < Double.MAX_VALUE) { if (bestLeg != leg || bestS != s0) b.why += "staircase priced to leg " + bestLeg + " row " + bestS + " (~" + Math.round(bestC) + " s of rows, the middle ~" + (Double.isNaN(midC) ? "-" : String.valueOf(Math.round(midC))) + " s); "; leg = bestLeg; s0 = bestS; legLen = leg == 1 ? Math.abs(d1) : n2; }
+        }
         if (leg != 0 && (leg == 1 ? free1 : free2) < steps) b.why += "the staircase is closer than " + MARGIN + " rows to an end (leg " + leg + " is " + legLen + " long for " + steps + " steps); ";
         b.stairLeg = leg; b.stairFrom = s0;
         int sign = Integer.signum(dy);
@@ -117,6 +138,19 @@ public final class BridgeBlueprint {
         b.lay(level);
         b.why += width + " wide" + (rails ? "" : ", no rails yet") + ", leg 1 " + l1.getName() + " " + Math.abs(d1) + (l2 == null ? "" : ", pivot at " + pivot.toShortString() + ", leg 2 " + l2.getName() + " " + n2) + (leg == 0 ? ", level all the way" : ", " + steps + " step(s) " + (dy > 0 ? "up" : "down") + " in leg " + leg + " from row " + s0);
         return b;
+    }
+
+    /** Seconds a row costs at that floor: lava round it to seal, rock in its walkway to dig, air under its floor to bridge (loaded ground only), and the lava sea's own price (walking at lava level: ghasts, falls, plugs). */
+    static double rowCost(ServerLevel level, BlockPos floor, Direction dir, int lo, int hi) {
+        double s = 0;
+        if (level != null && level.dimension() == net.minecraft.world.level.Level.NETHER && floor.getY() <= Weights.w("highway.lava_sea_floor_y", 34)) s += Weights.w("highway.lava_sea_row_s", 30);
+        if (level == null || !level.hasChunkAt(floor)) return s;
+        Direction right = dir.getClockWise(); double seal = Weights.w("highway.seal_s", 2), dig = Weights.w("highway.dig_s", 0.7), bridge = Weights.w("highway.bridge_s", 0.5);
+        for (int o = lo - 1; o <= hi + 1; o++) for (int y = 0; y <= 4; y++) { BlockPos q = floor.relative(right, o).above(y);
+            if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) { s += seal; continue; }
+            boolean in = o >= lo && o <= hi, solid = !level.getBlockState(q).getCollisionShape(level, q).isEmpty();
+            if (in && y == 0 && !solid) s += bridge; else if (in && y >= 1 && y <= 3 && solid) s += dig; }
+        return s;
     }
 
     /** Every cell's role, from the rows: floor, rails (outside the floor), walkway air; rows meeting rock get walls and a roof. */

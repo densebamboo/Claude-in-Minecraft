@@ -52,10 +52,12 @@ public final class Highway {
     public static BridgeBlueprint plan(ClaudeEntity g) { return state(g).plan; }
 
     /** Where it goes: "x y z" in the words, else "fortress" (the one he scouted, on his atlas). */
-    static BlockPos destination(ClaudeEntity g, ServerLevel level, String words) {
+    public static BlockPos destination(ClaudeEntity g, ServerLevel level, String words) {
         var m = java.util.regex.Pattern.compile("(-?\\d+)[ ,]+(-?\\d+)[ ,]+(-?\\d+)").matcher(words == null ? "" : words);
         if (m.find()) return new BlockPos(Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)), Integer.parseInt(m.group(3)));
-        BlockPos f = FortressScout.found(g); return f != null ? f : Atlas.find(g, level, "fortress");
+        BlockPos f = FortressScout.found(g); if (f == null) f = Atlas.find(g, level, "fortress");
+        if (f != null && level.isLoaded(f)) { BlockPos dk = FortressScout.deck(level, f); if (dk != null) f = dk; } // (its deck, not the brick on record; stage 919)
+        return f;
     }
 
     public static String skill(ClaudeEntity g, ServerPlayer player, ServerLevel level, com.claudemod.entity.life.Skills.Step st) {
@@ -67,6 +69,8 @@ public final class Highway {
             if (top != null) { g.skillQueue.addFirst(top); return "the highway's in the Nether: " + top.count() + " cobbled deepslate from my chests first (a full pack), then through the portal"; }
             return "the highway's in the Nether: through the portal first";
         }
+        if (s.dest != null && level.isLoaded(s.dest)) { BlockPos dk = FortressScout.deck(level, s.dest); // the fortress's deck once its ground is loaded: the height on record may be a brick seen from below (stage 919)
+            if (dk != null && dk.getY() != s.dest.getY() && Math.abs(dk.getX() - s.dest.getX()) + Math.abs(dk.getZ() - s.dest.getZ()) <= 24) { ClaudeMod.LOGGER.info("[Claude highway] the destination {} is a fortress deck at {}: planned again to its height (Highway.skill)", s.dest.toShortString(), dk.toShortString()); s.dest = dk.immutable(); s.plan = null; words = ""; } }
         if (s.plan == null && s.dest != null && (words.isBlank() || st.target().startsWith("@"))) words = s.dest.getX() + " " + s.dest.getY() + " " + s.dest.getZ(); // (after a restart: the one underway)
         if (!st.target().startsWith("@") || s.plan == null) { String r = makePlan(g, level, words, s); if (r != null) return r; }
         BridgeBlueprint b = s.plan; int lo = b.lo(), hi = b.hi();
@@ -105,7 +109,7 @@ public final class Highway {
     static String makePlan(ClaudeEntity g, ServerLevel level, String words, State s) {
         BlockPos dest = destination(g, level, words);
         if (dest == null) return "failed: no fortress on my map yet, and no x y z given: find_fortress first";
-        var going = s.portalId >= 0 && s.dest != null && s.dest.distManhattan(dest) <= 2 ? PortalMap.byId(g, s.portalId) : null;
+        var going = s.portalId >= 0 && s.dest != null && Math.abs(s.dest.getX() - dest.getX()) + Math.abs(s.dest.getZ() - dest.getZ()) <= 2 ? PortalMap.byId(g, s.portalId) : null; // (by x z: its height may be put right at the deck)
         if (going != null && level.isLoaded(going.at)) going.state = PortalMap.stateAt(level, going.at);
         if (going != null && "lit".equals(going.state) && BridgeBlueprint.facingAxis(level, going.at) != null) { // the highway underway goes on from its own portal, not chosen again each call (live 15:05: re-chosen from #3 at row 104 to #4, a frame no longer there)
             var b = BridgeBlueprint.plan(level, going.at, BridgeBlueprint.facingAxis(level, going.at), dest, (int) Math.max(1, w("highway.first_width", 2)), false);

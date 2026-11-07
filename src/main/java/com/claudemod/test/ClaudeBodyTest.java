@@ -10608,6 +10608,7 @@ public final class ClaudeBodyTest {
             case 776: return st776(stage, t, c, h, level, mock, true);
             case 777: return st776(stage, t, c, h, level, mock, false);
             case 779: return st779(stage, t, c, h, level, mock);
+            case 787: return st787(stage, t, c, h, level, mock);
             case 786: return st786(stage, t, c, h, level, mock);
             case 780: return st780(stage, t, c, h, level, mock);
             case 781: return st781(stage, t, c, h, level, mock);
@@ -15994,6 +15995,32 @@ public final class ClaudeBodyTest {
             for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) e.discard();
             pass(stage, t, "the junk toss made room with dirt and stone, the 3 stone picks kept");
         }
+        return true;
+    }
+    private static boolean st787(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 23:17:52-23:19:02 World 17 ("he's buggin"): the kit "search for animals -> cooked_beef", "collect beef x12 -> hunting 6 cow for beef" and every kill a salmon (the herd takes any food mob in), the smelt of cooked_beef with no beef, three rounds and 122 s in the lake. The kit's pick is the animal hunted
+        BlockPos o = new BlockPos(19400, 80, 18000), pool = o.offset(12, -1, 0);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -16; k <= 48; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(1000);
+            for (int x = -10; x <= 40; x++) for (int z = -10; z <= 10; z++) { level.setBlock(o.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = -3; x <= 3; x++) for (int z = -3; z <= 3; z++) for (int y = -3; y <= 0; y++) { boolean rim = Math.abs(x) == 3 || Math.abs(z) == 3; level.setBlock(pool.offset(x, y, z), y == -3 || rim ? Blocks.STONE.defaultBlockState() : Blocks.WATER.defaultBlockState(), 2); } // a pond at the grass, salmon at its top
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 3));
+            c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5);
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f); }
+        if (t[0] == 8) { for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) e.discard();
+            for (int k = 0; k < 3; k++) { var f = net.minecraft.world.entity.EntityType.SALMON.create(level); f.moveTo(pool.getX() + 0.5 + k - 1, pool.getY(), pool.getZ() + 0.5, 0, 0); f.setNoAi(true); f.setPersistenceRequired(); level.addFreshEntity(f); } }
+        if (t[0] == 14) {
+            var fa = com.claudemod.director.Kit.foodAsk(c); int fishN = level.getEntitiesOfClass(net.minecraft.world.entity.animal.Salmon.class, new net.minecraft.world.phys.AABB(pool).inflate(6)).size();
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "beef", 8);
+            boolean atFish = false; for (Task q : c.tasks) if (q instanceof Task.Attack a && level.getEntity(a.target()) instanceof net.minecraft.world.entity.animal.Salmon) atFish = true;
+            if (c.currentTask instanceof Task.Attack a0 && level.getEntity(a0.target()) instanceof net.minecraft.world.entity.animal.Salmon) atFish = true;
+            String q0 = String.valueOf(c.tasks);
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) e.discard();
+            for (int x = -10; x <= 40; x++) for (int z = -10; z <= 10; z++) for (int y = -4; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(fishN == 3, "setup: 3 salmon in the pond, saw " + fishN);
+            check(fa != null && fa.item() == Items.COOKED_BEEF, "setup: the kit should search for animals (cooked_beef), it asked " + (fa == null ? "nothing" : fa.count() + " " + fa.item()));
+            check(!atFish, "the kit's beef: salmon hunted as the herd (" + r + "; " + q0 + ")");
+            nsHome(c, h, level); pass(stage, t, "the kit's beef: no salmon hunted as cows (" + r + ")"); }
         return true;
     }
     private static int st779Start;

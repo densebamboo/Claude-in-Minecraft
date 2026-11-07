@@ -10603,6 +10603,7 @@ public final class ClaudeBodyTest {
             case 776: return st776(stage, t, c, h, level, mock, true);
             case 777: return st776(stage, t, c, h, level, mock, false);
             case 779: return st779(stage, t, c, h, level, mock);
+            case 780: return st780(stage, t, c, h, level, mock);
             case 762: return st762(stage, t, c, h, level, mock);
             case 763: return st763(stage, t, c, h, level, mock);
             case 758: return st758(stage, t, c, h, level, mock);
@@ -15668,6 +15669,38 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    private static boolean st780(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // audit Recovery "nothing iron or better and over 12 off: abandoned": a stone-age kit (pick, sword, axe, torches, food) 26 off in the open by day is worth the 10 s run; a pile of cobble and dirt there is not
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.DeathLog.reset(c); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(96))) m.discard(); }
+        if (t[0] == 5) for (int cx = -1; cx <= 3; cx++) for (int cz = -1; cz <= 2; cz++) { BlockPos p = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(p), 2, p); }
+        BlockPos pile = h.absolutePos(new BlockPos(30, 2, 8));
+        java.util.function.Predicate<Task> toPile = q -> q instanceof Task.GoTo go && go.pos().distSqr(pile) <= 4 * 4;
+        if (t[0] == 10 || t[0] == 40) {
+            if (t[0] == 10) for (int x = -4; x <= 40; x++) for (int z = 0; z <= 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 8; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(64))) it.discard();
+            com.claudemod.entity.life.DeathLog.reset(c);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.WOODEN_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            sleepAt(c, h, new BlockPos(4, 2, 8)); c.setHealth(20); c.getFoodData().setFoodLevel(20); level.setDayTime(6000);
+            var fell = new java.util.ArrayList<net.minecraft.world.entity.item.ItemEntity>();
+            ItemStack[] what = t[0] == 10 ? new ItemStack[] {new ItemStack(Items.STONE_PICKAXE), new ItemStack(Items.STONE_SWORD), new ItemStack(Items.STONE_AXE), new ItemStack(Items.TORCH, 16), new ItemStack(Items.COOKED_BEEF, 6)}
+                : new ItemStack[] {new ItemStack(Items.COBBLESTONE, 64), new ItemStack(Items.DIRT, 64)};
+            for (int i = 0; i < what.length; i++) { var e = new net.minecraft.world.entity.item.ItemEntity(level, pile.getX() + 0.5 + i % 2, pile.getY() + 0.2, pile.getZ() + 0.5, what[i]); e.setDeltaMovement(0, 0, 0); level.addFreshEntity(e); fell.add(e); }
+            com.claudemod.entity.life.DeathLog.died(c, level, pile, fell);
+        }
+        if (t[0] == 30) {
+            c.tasks.clear(); c.skillQueue.clear(); String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
+            check(c.tasks.stream().anyMatch(toPile), "a stone-age kit 26 off in the open by day: no run for it (" + r + "; " + c.tasks + ")");
+            check(!r.contains("leaving it") && !r.contains("nothing of yours"), "a stone-age kit 26 off in the open by day: given up (" + r + ")");
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 60) {
+            c.tasks.clear(); c.skillQueue.clear(); String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
+            check(c.tasks.stream().noneMatch(toPile), "cobble and dirt 26 off: a run for them (" + r + "; " + c.tasks + ")");
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; com.claudemod.entity.life.DeathLog.reset(c);
+            for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(64))) it.discard();
+            pass(stage, t, "his pile priced: the stone-age kit 26 off fetched, the cobble and dirt left");
+        }
+        return true;
+    }
     private static int st779Start;
     private static boolean st779(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a bore down to a line far below, along a soul sand floor 1 thick over a drop (live 14:50-14:56 World 17, 158,62,173 in a soul sand valley: on soul sand his blockPosition is the soul sand's cell, the bore dug it as his step and wanted a floor under it with no face to set it on, refused 6 min till the user teleported him): he walks the soul sand on
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
@@ -19498,7 +19531,7 @@ public final class ClaudeBodyTest {
         // Live 01:25: an old bone pile kept winning recovery selection over the newer mine kit.
         if (t[0] == 1) { scenarioReset(c); flatBox(h); c.nextPlanTick = c.tickCount + 12000; com.claudemod.entity.life.DeathLog.reset(c); }
         if (t[0] == 10) {
-            BlockPos me = h.absolutePos(new BlockPos(1, 2, 1)), junk = h.absolutePos(new BlockPos(14, 2, 14)), kit = new BlockPos(12000, 70, 12000);
+            BlockPos me = h.absolutePos(new BlockPos(1, 2, 1)), junk = h.absolutePos(new BlockPos(14, 2, 14)), kit = new BlockPos(me.getX() + 300, 70, me.getZ()); level.setDayTime(6000); // (300 off at y 70 as before: unloaded, and a run a player takes for 10 raw iron by day; millions off it no longer pays)
             c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
             c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 4));
             var bone = new net.minecraft.world.entity.item.ItemEntity(level, junk.getX() + 0.5, junk.getY(), junk.getZ() + 0.5, new ItemStack(Items.BONE)); level.addFreshEntity(bone);

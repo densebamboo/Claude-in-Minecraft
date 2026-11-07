@@ -4076,16 +4076,18 @@ public final class ClaudeLife {
                 if (drops.isEmpty() && g.playerGoal != null && g.playerGoal.toLowerCase().matches("(?s).*(recover|gear back|drops|death spot|old gear).*")) g.playerGoal = ""; // the drops are gone: so is that goal (it outlived every restart, "back. still on it: recover_drops" and the same question asked four times)
                 if (drops.isEmpty() && dn != null && level.isPositionEntityTicking(dn.at)) com.claudemod.entity.life.DeathLog.abandon(g, dn, "looked: nothing left there");
                 if (drops.isEmpty()) return "done: nothing of yours left on the ground" + (death.isPresent() ? " where you died" : "") + ": it despawned or someone took it, none of it came back to my pack"; // ponytail: live 15:06 the planner read the bare line as "my 40 stacks are already back in my pack"
-                // the user's rule: if it wasn't iron or better, it's not worth picking up (a stone-age pile 40 blocks down a cave had him circling the cave mouth for ten minutes, then dead in it)
-                boolean ironUp = drops.stream().anyMatch(d -> { String id = BuiltInRegistries.ITEM.getKey(d.getItem().getItem()).getPath();
-                    return com.claudemod.entity.life.DeathLog.worthTrip(id); });
-                if (!ironUp && g.blockPosition().distSqr(spot) > 12 * 12) {
-                    if (dn != null && spot.equals(dn.at) && level.isPositionEntityTicking(spot)) {
-                        com.claudemod.entity.life.DeathLog.abandon(g, dn, "looked: nothing iron or better worth the trip");
-                        if (com.claudemod.entity.life.DeathLog.next(g, dimHere) != null) g.skillQueue.addFirst(new Skills.Step("recover_drops", "", 1));
+                // the run there priced (recovery.trip; was "nothing iron or better and over 12 off: abandoned"): what lies there, as the time to get it again, against the walk there and back and the hits on it (a stone-age pile 40 blocks down a cave once had him circling the cave mouth for ten minutes, then dead in it)
+                if (g.blockPosition().distSqr(spot) > 12 * 12) { // (one in reach is a pickup, not a run)
+                    double worthS = dropsWorth(drops) * com.claudemod.entity.life.Weights.w("recovery.trip_s_per_point", 3), tripS = com.claudemod.entity.life.DeathLog.tripS(g, dimHere, spot);
+                    var pick = com.claudemod.entity.life.Decide.choose(g, "recovery.trip", drops.size() + " stack(s) of his at " + spot.toShortString() + ", " + (int) Math.sqrt(g.blockPosition().distSqr(spot)) + " off", true, java.util.List.of(
+                        com.claudemod.entity.life.Decide.Option.of("go for them", tripS, "the walk there and back, the hits on it"), com.claudemod.entity.life.Decide.Option.of("leave them", worthS, "the time to get them again")));
+                    if (pick.name().equals("leave them")) {
+                        if (dn != null && spot.equals(dn.at) && level.isPositionEntityTicking(spot)) {
+                            com.claudemod.entity.life.DeathLog.abandon(g, dn, "looked: worth ~" + (int) worthS + " s, the run ~" + (int) tripS + " s");
+                            if (com.claudemod.entity.life.DeathLog.next(g, dimHere) != null) g.skillQueue.addFirst(new Skills.Step("recover_drops", "", 1));
+                        }
+                        return "done: what I dropped at " + spot.toShortString() + " (~" + (int) worthS + " s to get again) isn't worth the ~" + (int) tripS + " s run there and back; leaving it";
                     }
-                    ClaudeMod.LOGGER.info("[Claude life] his drops at {}: nothing iron or better among {} piles, not worth the trip", spot.toShortString(), drops.size());
-                    return "done: nothing iron or better in what I dropped at " + spot.toShortString() + "; not worth the trip, leaving it";
                 }
                 String race = com.claudemod.entity.life.Clocks.race(g, player, level, spot); // the despawn clock against the run there: a race he can't win is not run (the user told him it was gone; his clock had known)
                 if (race != null) { if (g.playerGoal != null && g.playerGoal.toLowerCase().matches("(?s).*(recover|gear back|drops|death spot|old gear).*")) g.playerGoal = ""; return race; }
@@ -6941,9 +6943,13 @@ public final class ClaudeLife {
     /** What a pile of his drops is worth, roughly in "cobblestone units": the things that take a trip to replace count most. */
     public static int dropsWorth(List<net.minecraft.world.entity.item.ItemEntity> drops) {
         int w = 0;
-        for (var d : drops) {
-            ItemStack s = d.getItem(); String id = BuiltInRegistries.ITEM.getKey(s.getItem()).getPath(); int n = s.getCount();
-            int each = id.contains("diamond") ? (s.getItem() instanceof net.minecraft.world.item.ArmorItem || s.getItem() instanceof net.minecraft.world.item.TieredItem ? 120 : 40)
+        for (var d : drops) { ItemStack s = d.getItem(); int n = s.getCount(); w += worthEach(s) * (s.getMaxStackSize() == 1 ? 1 : n); } // gear once per piece, everything that stacks per item (8 diamonds read as 1 and were left to despawn)
+        return w;
+    }
+    /** One of an item, in dropsWorth's points. */
+    public static int worthEach(ItemStack s) {
+        String id = BuiltInRegistries.ITEM.getKey(s.getItem()).getPath();
+        int each = id.contains("diamond") ? (s.getItem() instanceof net.minecraft.world.item.ArmorItem || s.getItem() instanceof net.minecraft.world.item.TieredItem ? 120 : 40)
                     : id.contains("netherite") ? 200
                     : id.startsWith("iron_") && (s.getItem() instanceof net.minecraft.world.item.ArmorItem || s.getItem() instanceof net.minecraft.world.item.TieredItem) ? 40
                     : id.equals("iron_ingot") || id.equals("raw_iron") ? 6 : id.contains("gold") ? 5 : id.equals("emerald") ? 15
@@ -6951,9 +6957,7 @@ public final class ClaudeLife {
                     : s.getItem() instanceof net.minecraft.world.item.TieredItem ? 8 : s.getItem() instanceof net.minecraft.world.item.ArmorItem ? 10
                     : id.equals("torch") || id.equals("coal") || id.equals("arrow") || id.equals("string") || id.equals("flint") || id.equals("feather") ? 1
                     : s.get(net.minecraft.core.component.DataComponents.FOOD) != null ? 1 : 0;
-            w += each * (s.getMaxStackSize() == 1 ? 1 : n); // gear once per piece, everything that stacks per item (8 diamonds read as 1 and were left to despawn)
-        }
-        return w;
+        return each;
     }
 
     /** The same fix (a block to place or break there) is already in his queue. */

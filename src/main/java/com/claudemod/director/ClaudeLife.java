@@ -2029,9 +2029,10 @@ public final class ClaudeLife {
                     herd.sort(Comparator.comparingDouble(walk0::applyAsDouble));
                     if (g.getHealth() > 6) { String no = nightOutsideNo(g, level, herd.get(0).blockPosition()); if (no != null) return no; } // the night rule where the hunt is, not only where he stands (World 17 02:10 11-06: lit at his mine's mouth, out to the river for salmon in the dark)
                     huntLegs().remove(g.getUUID()); huntDir().remove(g.getUUID()); // found some: the search starts fresh next time
-                    animalsSeen().put(g.getUUID(), herd.get(0).blockPosition().immutable()); // a player remembers where the animals were
                     herd.sort(Comparator.comparingDouble(walk0::applyAsDouble)); // (by the walk, as picked)
                     int n = Math.min(16, herd.size()); // the whole herd in sight, not four of it (the user: "look how many animals are around him, he should kill all of them"): one trip stocks him up
+                    if (herd.size() > n) animalsSeen().put(g.getUUID(), herd.get(n).blockPosition().immutable()); // a player remembers where animals are left (one he doesn't kill)
+                    else if (animalsSeen().remove(g.getUUID()) != null | dropSavedAnimals(player)) ClaudeMod.LOGGER.info("[Claude skill] collect {}: the whole herd taken here, no animal spot kept (ClaudeLife collect)", animal); // (the spot of a herd he wiped out sent him 321 blocks to an empty field, live 07:32 11-07)
                     if (g.distanceTo(herd.get(0)) > 24) g.tasks.add(new Task.GoTo(herd.get(0).blockPosition(), 6)); // a way off: the walk first
                     if (animal.equals("hoglin") && com.claudemod.director.Kit.buildingBlocks(g) >= 2) { g.tasks.add(new Task.Pillar(2)); ClaudeMod.LOGGER.info("[Claude skill] collect {}: hoglins from 2 up a pillar, where they can't reach him, hitting down (ClaudeLife collect)", target); } // (the expert's way: a hoglin hits for up to 8 and throws you; its reach doesn't go up 2. Live death 16:25 11-05: hunted in the open at 4 HP) (the fight's own clock is 20 s; a 60-block walk ate it and he went home empty-handed)
                     for (int i = 0; i < n; i++) g.tasks.add(new Task.Attack(herd.get(i).getUUID(), 400)); // (all of it, then one sweep: the drops last 5 minutes; a kill whose next is far off sweeps first, WorkGoal.doAttack)
@@ -9336,6 +9337,13 @@ public final class ClaudeLife {
         if (job != null && !job.skill().equals("obtain") && g.skillQueue.stream().noneMatch(s0 -> s0.skill().equals(job.skill()) && s0.target().equals(job.target()))) g.skillQueue.addFirst(job);
         g.skillQueue.addFirst(new Skills.Step("obtain", Crafting.name(fa.item()), fa.count()));
         ClaudeMod.LOGGER.info("[Claude life] {} meal(s) left in {} (food {}, health {}){}: off for {} {} first, then {} ({} task(s) set aside) (ClaudeLife.netherFood)", meals, level.dimension().location().getPath(), g.getFoodData().getFoodLevel(), (int) g.getHealth(), starving ? ", nothing to eat" : "", fa.count(), Crafting.name(fa.item()), job == null ? "the work" : job.skill() + " " + job.target(), n);
+    }
+
+    /** The saved animal spot off his saved state too (else the minute's restore puts it straight back). True if there was one. */
+    static boolean dropSavedAnimals(ServerPlayer player) {
+        var tag = player == null ? null : PlayerProfile.mine(player);
+        if (tag == null || !tag.contains("animals")) return false;
+        tag.remove("animals"); PlayerProfile.setMine(player, tag); return true;
     }
 
     static void tripFoodCheck(ClaudeEntity g, ServerLevel level) {

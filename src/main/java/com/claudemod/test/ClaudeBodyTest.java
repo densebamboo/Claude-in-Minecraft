@@ -10738,6 +10738,7 @@ public final class ClaudeBodyTest {
             case 893: return st893(stage, t, c, h, level, mock);
             case 894: return st894(stage, t, c, h, level, mock);
             case 895: return st895(stage, t, c, h, level, mock);
+            case 896: return st896(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -20035,6 +20036,29 @@ public final class ClaudeBodyTest {
             pass(stage, t, r);
         }
         } catch (RuntimeException ex) { nsHome(c, h, level); throw ex; }
+        return true;
+    }
+
+    /** Stage 896 (D2D reviews 52/30 of 07:27-07:35, live 07:32 11-07 World 17): "no cow here: back to where the animals were last, 203, 72, 216 (321 blocks)": the spot he'd kept was the herd he wiped out there, an empty field. Here: 3 cows by him, collect beef x14: he takes all 3, and no animal spot is kept. */
+    private static boolean st896(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(20200, 80, 19200);
+        if (t[0] == 1 || t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(1000);
+            for (int x = -12; x <= 12; x++) for (int z = -12; z <= 12; z++) { level.setBlock(o.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no");
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f); }
+        if (t[0] == 8) { for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new net.minecraft.world.phys.AABB(o).inflate(60), e -> e instanceof net.minecraft.world.entity.Mob || e instanceof net.minecraft.world.entity.item.ItemEntity)) e.discard();
+            for (int k = 0; k < 3; k++) { var cw = net.minecraft.world.entity.EntityType.COW.create(level); cw.moveTo(o.getX() + 4.5 + 2 * k, o.getY(), o.getZ() + 0.5, 0, 0); cw.setNoAi(true); cw.setPersistenceRequired(); level.addFreshEntity(cw); } }
+        if (t[0] == 14) {
+            try { var f = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("animalsSeen"); f.setAccessible(true); ((java.util.Map<?, ?>) f.invoke(null)).remove(c.getUUID()); } catch (ReflectiveOperationException ex) { throw new RuntimeException(ex); }
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "beef", 14);
+            Object kept; try { var f = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("animalsSeen"); f.setAccessible(true); kept = ((java.util.Map<?, ?>) f.invoke(null)).get(c.getUUID()); } catch (ReflectiveOperationException ex) { throw new RuntimeException(ex); }
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.prefs.remove("stay_close");
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new net.minecraft.world.phys.AABB(o).inflate(60), e -> e instanceof net.minecraft.world.entity.Mob || e instanceof net.minecraft.world.entity.item.ItemEntity)) e.discard();
+            check(r.startsWith("hunting 3"), "3 cows by him, collect beef x14: " + r);
+            check(kept == null, "he takes all 3 cows, and keeps their spot " + kept + " as where the animals are");
+            nsHome(c, h, level); pass(stage, t, r + "; no spot kept");
+        }
         return true;
     }
 

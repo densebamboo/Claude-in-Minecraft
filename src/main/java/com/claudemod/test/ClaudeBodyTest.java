@@ -10751,6 +10751,7 @@ public final class ClaudeBodyTest {
             case 894: return st894(stage, t, c, h, level, mock);
             case 895: return st895(stage, t, c, h, level, mock);
             case 896: return st896(stage, t, c, h, level, mock);
+            case 898: return st898(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -20359,6 +20360,25 @@ public final class ClaudeBodyTest {
             pass(stage, t, r);
         }
         } catch (RuntimeException ex) { nsHome(c, h, level); throw ex; }
+        return true;
+    }
+
+    /** Stage 898 (D2D review 085356-191, live 08:26-09:01 11-07 World 17, -303,-56,38): a roof patch in his mine waited on 2 gravel on the walkway floor 2.5 under it ("mine drop still in the pocket: pickup first") while his pickup skipped that gravel ("junk, with 165 building blocks on him already"): 113 give-ups in 35 min. The drop the pickup won't take is no wait: the patch goes in. */
+    private static BlockPos s898P;
+    private static boolean st898(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            var row = b.rows().stream().filter(r0 -> r0.segment() == 1 && r0.index() == 3).findFirst().get();
+            BlockPos r = row.first();
+            net.minecraft.core.Direction side = null; for (var d : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && !com.claudemod.director.ClaudeLife.isMineCell(c, r.relative(d)) && level.getBlockState(r.relative(d)).is(Blocks.STONE)) side = d;
+            s898P = r.below().immutable(); level.setBlock(s898P, Blocks.AIR.defaultBlockState(), 2); // (a hole in his walkway floor, in sight from where he stands: he places from there, as live from 2 off)
+            BlockPos along = r.relative(row.dir()); var drop = new net.minecraft.world.entity.item.ItemEntity(level, along.getX() + 0.5, along.getY(), along.getZ() + 0.5, new ItemStack(Items.GRAVEL, 2)); drop.setDeltaMovement(0, 0, 0); level.addFreshEntity(drop); // (the gravel on his walkway floor a cell along, ~2 off the hole: within the patch's 2.6, past where he stands to place, as live: 2.5 under his roof patch, he 2 off)
+            c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 40)); // (over a stack of building blocks: the pickup skips junk)
+            BlockPos me = r.relative(row.dir().getOpposite()); lnStand(c, mock, me, b.entrance); c.tasks.clear(); c.skillQueue.clear();
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.tasks.add(new Task.Place(s898P, Items.COBBLESTONE)); }
+        if (t[0] > 20 && level.getBlockState(s898P).is(Blocks.COBBLESTONE)) { c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); pass(stage, t, "the hole patched, the junk gravel left on his floor (" + t[0] + " ticks)"); return true; }
+        if (t[0] > 20) check(t[0] < 200, "the patch at " + s898P.toShortString() + " not in after 9 s with junk gravel beside it his pickup skips, now " + c.currentTask + " queue " + c.tasks.stream().limit(6).toList());
         return true;
     }
 

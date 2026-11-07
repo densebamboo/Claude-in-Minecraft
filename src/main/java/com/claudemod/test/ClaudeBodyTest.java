@@ -10661,6 +10661,7 @@ public final class ClaudeBodyTest {
             case 1005: return st1005(stage, t, c, h, level, mock);
             case 1006: return st1006(stage, t, c, h, level, mock);
             case 1007: return st1007(stage, t, c, h, level, mock);
+            case 1008: return st1008(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -17592,6 +17593,34 @@ public final class ClaudeBodyTest {
             if (t[0] == 74 + 20 * 15) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
                 check(st1007Edges <= 3, "the dig of the ore by known lava at " + st1007O.toShortString() + " queued " + st1007Edges + " times in 15 s after the guard refused it");
                 pass(stage, t, "the refused dig by lava not re-queued on and on (" + st1007Edges + ")"); }
+        }
+        return true;
+    }
+    private static int st1008T; private static BlockPos st1008C;
+    private static boolean st1008(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D hourly 1 (live 14:49:45-14:49:59 World 17, his mine at -331,-58,-20, 6d60005 live): his upkeep's mine torches that aren't slots (branch mouths, 11-15 off) still dropped "past 8", the furnace's side job handed over to them every round
+        if (t[0] == 1) { resetLoot(c, mock[0]); st1008T = -1; st1008C = null; }
+        if (t[0] == 10) {
+            buildStairs(h, 0);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.TORCH, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("mine_model", "blueprint");
+            var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(stairFeet(0, 6)), net.minecraft.core.Direction.EAST, 2, 4); b.segments.get(0).n = 11; c.blueprint = b;
+            com.claudemod.director.ClaudeLife.bpSync(c);
+            BlockPos at = h.absolutePos(stairFeet(1, 6)); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            net.minecraft.core.Direction wall = null; double best = 99;
+            for (BlockPos q : BlockPos.betweenClosed(at.offset(-16, -10, -16), at.offset(16, 4, 16))) {
+                if (!b.isWalk(q) || b.isTorchSlot(q) || !level.getBlockState(q).isAir() || !b.isWalk(q.below()) && level.getBlockState(q.below()).isAir()) continue;
+                double d = Math.sqrt(q.distSqr(at)); if (d <= 9 || d > 15 || d >= best) continue;
+                for (net.minecraft.core.Direction dd : net.minecraft.core.Direction.Plane.HORIZONTAL) if (b.isShell(q.relative(dd)) && !level.getBlockState(q.relative(dd)).isAir()) { st1008C = q.immutable(); wall = dd; best = d; break; }
+            }
+            check(st1008C != null, "setup: no walkway cell 9-15 off with a wall beside it");
+            c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.add(new Task.WallTorch(st1008C, wall)); st1008T = t[0]; // a torch his upkeep queues in his mine that isn't one of its slots (live: the branch mouths)
+        }
+        if (st1008T > 0 && t[0] > st1008T) {
+            boolean lit = false; for (BlockPos q : new BlockPos[] {st1008C, st1008C.above()}) if (level.getBlockState(q).is(Blocks.WALL_TORCH) || level.getBlockState(q).is(Blocks.TORCH)) lit = true;
+            boolean gone = !(c.currentTask instanceof Task.WallTorch) && c.tasks.stream().noneMatch(q -> q instanceof Task.WallTorch);
+            if (lit || gone && t[0] > st1008T + 40 || t[0] == st1008T + 20 * 30) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+                check(lit, "the mine torch at " + st1008C.toShortString() + " (" + String.format("%.1f", Math.sqrt(st1008C.distSqr(c.blockPosition()))) + " off, not a slot) never went up: dropped " + gone);
+                pass(stage, t, "a mine torch past 8 that isn't a slot walked to and put up"); }
         }
         return true;
     }

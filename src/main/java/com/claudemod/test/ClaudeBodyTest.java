@@ -10645,6 +10645,7 @@ public final class ClaudeBodyTest {
             case 798: return st798(stage, t, c, h, level, mock);
             case 799: return st799(stage, t, c, h, level, mock);
             case 739: return st739(stage, t, c, h, level, mock);
+            case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
             case 778: return st778(stage, t, c, h, level, mock);
             case 761: return st761(stage, t, c, h, level, mock);
@@ -17109,6 +17110,32 @@ public final class ClaudeBodyTest {
                 check(!dug && !sent, "the hole at " + st785H.toShortString() + " in a pocket sealed by his own patch: sent into it (" + sent + "), his patch dug (" + dug + ")");
                 check(!placeLeft, "the patch of a hole in a sealed pocket still on his queue after 6 s");
                 pass(stage, t, "a hole sealed off by his own patch: done, his patch kept"); }
+        }
+        return true;
+    }
+    private static int st1000T; private static net.minecraft.world.entity.monster.Creeper st1000Cr; private static net.minecraft.world.entity.monster.Zombie st1000Z;
+    private static boolean st1000(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D hourly (live 08:44:39-08:44:50 World 17, by his house at 14,70,-46): a zombie and a creeper on him, full health, armor 19: the creeper reflex ran him off; at each run's end the fight came back as the better way, with the zombie (the nearest), walking him back into the creeper's 7: run, fight, run, x3
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1000T = -1; if (st1000Cr != null) st1000Cr.discard(); if (st1000Z != null) st1000Z.discard(); st1000Cr = null; st1000Z = null; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.DIAMOND_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.DIAMOND_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.DIAMOND_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            BlockPos me = h.absolutePos(new BlockPos(2, 2, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var z = EntityType.ZOMBIE.create(level); BlockPos zp = me.east(8); z.moveTo(zp.getX() + 0.5, zp.getY(), zp.getZ() + 0.5, 90, 0); z.setNoAi(true); z.setPersistenceRequired(); level.addFreshEntity(z); z.setTarget(c); st1000Z = z;
+            var cr = EntityType.CREEPER.create(level); BlockPos cp = me.east(10).south(1); cr.moveTo(cp.getX() + 0.5, cp.getY(), cp.getZ() + 0.5, 90, 0); cr.setNoAi(true); cr.setPersistenceRequired(); level.addFreshEntity(cr); cr.setTarget(c); st1000Cr = cr; // (both after him; the creeper just past the zombie, as live)
+        }
+        if (t[0] == 12) { c.setYRot(-90f); c.setYHeadRot(-90f); c.yBodyRot = -90f; c.setXRot(0); com.claudemod.entity.life.Perception.lookNow(c); c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Flee(600)); } // (seen: both are in his sight)
+        if (t[0] == 14) { c.work.runEndForTest(); st1000T = t[0]; } // (the run's end reached)
+        if (st1000T > 0) {
+            java.util.UUID fought = c.currentTask instanceof Task.Attack a ? a.target() : c.tasks.stream().filter(q -> q instanceof Task.Attack).map(q -> ((Task.Attack) q).target()).findFirst().orElse(null);
+            if (fought != null || t[0] - st1000T >= 40) {
+                boolean creeperFirst = fought != null && fought.equals(st1000Cr.getUUID());
+                st1000Cr.discard(); st1000Z.discard(); st1000Cr = null; st1000Z = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+                for (var sl : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET}) c.setItemSlot(sl, ItemStack.EMPTY);
+                check(fought != null, "at the run's end, full health in diamond: no fight taken up in 2 s");
+                check(creeperFirst, "at the run's end the fight went to the zombie with a creeper after him too: the creeper reflex breaks that fight off at once (run, fight, run)");
+                pass(stage, t, "at the run's end, the creeper first");
+            }
         }
         return true;
     }

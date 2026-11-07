@@ -10725,6 +10725,7 @@ public final class ClaudeBodyTest {
             case 890: return st890(stage, t, c, h, level, mock);
             case 891: return st891(stage, t, c, h, level, mock);
             case 892: return st892(stage, t, c, h, level, mock);
+            case 893: return st893(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -19677,6 +19678,30 @@ public final class ClaudeBodyTest {
             pass(stage, t, "the food first: " + q);
         }
         } catch (RuntimeException ex) { nsHome(c, h, level); throw ex; }
+        return true;
+    }
+
+    /** Stage 893 (live 03:43 11-07 World 17, the walk into the 04:23 death): building his highway with 243 deepslate and 70 basalt on him, the pickup sweep went for a netherrack drop at the deck's open edge and walked him off it into the basalt below. Here: a 2-wide deck over a 5-deep drop, 64 cobbled deepslate on him, a netherrack and a basalt drop at its edge 3 off: the sweep leaves them. */
+    private static boolean st893(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(20000, 80, 19000);
+        if (t[0] == 1 || t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(1000);
+            for (int x = -8; x <= 8; x++) for (int z = -6; z <= 6; z++) { level.setBlock(o.offset(x, -6, z), Blocks.STONE.defaultBlockState(), 2); for (int y = -5; y <= 4; y++) level.setBlock(o.offset(x, y, z), (y == -1 && (z == 0 || z == 1) ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.getFoodData().setFoodLevel(20); c.setHealth(20); c.prefs.put("stay_close", "no");
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f); }
+        if (t[0] == 10) { for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new net.minecraft.world.phys.AABB(o).inflate(30), e -> e instanceof net.minecraft.world.entity.Mob || e instanceof net.minecraft.world.entity.item.ItemEntity)) e.discard();
+            var a = new net.minecraft.world.entity.item.ItemEntity(level, o.getX() + 3.5, o.getY(), o.getZ() + 1.8, new ItemStack(Items.NETHERRACK)); a.setDeltaMovement(0, 0, 0); level.addFreshEntity(a);
+            var b = new net.minecraft.world.entity.item.ItemEntity(level, o.getX() - 3.5, o.getY() - 5, o.getZ() + 3.5, new ItemStack(Items.BASALT)); b.setDeltaMovement(0, 0, 0); level.addFreshEntity(b);
+            c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Pickup(100)); }
+        if (t[0] == 10 + 20 * 6) {
+            int left = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(12), net.minecraft.world.entity.item.ItemEntity::isAlive).size();
+            double y = c.getY(); int junk = c.getInventory().countItem(Items.NETHERRACK) + c.getInventory().countItem(Items.BASALT);
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.prefs.remove("stay_close");
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(30), e -> true)) e.discard();
+            check(junk == 0 && y >= o.getY() - 0.5, "64 deepslate on him, a netherrack at the deck's edge and a basalt down the drop: the sweep took " + junk + " junk, he's at y " + String.format("%.1f", y) + " (deck " + o.getY() + "), " + left + " drop(s) left");
+            nsHome(c, h, level); pass(stage, t, "junk left lying, he stayed on the deck");
+        }
         return true;
     }
 

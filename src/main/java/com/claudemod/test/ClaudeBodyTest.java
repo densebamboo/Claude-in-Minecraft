@@ -10498,6 +10498,7 @@ public final class ClaudeBodyTest {
             case 921: return st921(stage, t, c, h, level, mock);
             case 922: return st922(stage, t, c, h, level, mock);
             case 923: return st923(stage, t, c, h, level, mock);
+            case 924: return st924(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13677,6 +13678,36 @@ public final class ClaudeBodyTest {
             BlockPos end = p.legs().get(p.legs().size() - 1);
             check(end.getX() - o.getX() >= 12, "the part-way plan ends only " + (end.getX() - o.getX()) + " blocks toward it, at " + end.toShortString());
             nsHome(c, h, level); pass(stage, t, "part way through the rock: " + p.legs().size() + " legs to " + end.toShortString() + " (" + p.digs() + " dug, " + p.nodes() + " nodes, " + p.ms() + " ms)"); }
+        return true;
+    }
+    /** Stage 924 (D2D review 30, live 22:05 World 17): his highway south from the portal (x -3) to z ~509, then east; him on the east leg at 4,59,509, the route to the portal: "0 on his trail, ... his trail (661 cells) comes within 0 of the goal", 81 s of digging beside it (its grid every 4 from him lands on the highway's wall and the rock beside, never its 2-wide walkway; the wall 40 s to dig since a25582c). The trail that reaches the goal is walked. */
+    private static boolean st924(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(11600, 64, 7520), him = o.offset(14, 0, 30);
+        java.util.Set<BlockPos> W = new java.util.LinkedHashSet<>(); for (int z = 0; z <= 31; z++) for (int x = 0; x <= 1; x++) W.add(o.offset(x, 0, z)); for (int x = 0; x <= 16; x++) for (int z = 30; z <= 31; z++) W.add(o.offset(x, 0, z)); // the walkway: south 31 from the goal, then east 16
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) for (int k = 0; k <= 32; k += 16) for (int m = 0; m <= 32; m += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, m)), 2, o.offset(k, 0, m));
+        if (t[0] == 12) {
+            for (int x = -8; x <= 24; x++) for (int z = -8; z <= 40; z++) for (int y = -3; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.NETHERRACK.defaultBlockState(), 2);
+            for (BlockPos p : W) { nl.setBlock(p.below(), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); for (int y = 0; y <= 2; y++) nl.setBlock(p.above(y), Blocks.AIR.defaultBlockState(), 2); nl.setBlock(p.above(3), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2);
+                for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) if (!W.contains(p.relative(d))) for (int y = 0; y <= 2; y++) nl.setBlock(p.relative(d).above(y), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); } // its shell
+            com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(0, -1, 0), o.offset(0, -1, 31), net.minecraft.core.Direction.Axis.Z, 2);
+            com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(0, -1, 30), o.offset(16, -1, 30), net.minecraft.core.Direction.Axis.X, 2);
+            c.teleportTo(nl, him.getX() + 0.5, him.getY(), him.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 15) { com.claudemod.entity.nav.Route.forgetTrail(c); // (after the dimension change: it forgets the trail on arrival) his walk out: down the first leg, along the second to here
+            for (int z = 0; z <= 30; z++) { c.setPos(o.getX() + 0.5, o.getY(), o.getZ() + z + 0.5); com.claudemod.entity.nav.Route.step(c); }
+            for (int x = 1; x <= 14; x++) { c.setPos(o.getX() + x + 0.5, o.getY(), o.getZ() + 30.5); com.claudemod.entity.nav.Route.step(c); }
+        }
+        if (t[0] == 18) {
+            var p = com.claudemod.entity.nav.NetherRoute.plan(c, nl, him, o);
+            int on = 0; if (p != null) for (BlockPos q : p.legs()) if (W.contains(q)) on++;
+            String why = p == null ? "no plan" : p.legs().size() + " legs, " + on + " in the highway, " + p.digs() + " dug, ~" + (int) p.seconds() + " s, partial " + p.partial() + ": " + p.legs();
+            for (int x = -8; x <= 24; x++) for (int z = -8; z <= 40; z++) for (int y = -3; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            com.claudemod.entity.nav.Route.forgetTrail(c); com.claudemod.entity.life.PortalMap.net(c).segments.clear();
+            check(p != null && !p.partial() && p.digs() == 0 && on == p.legs().size(), "along his highway back to the portal, 45 cells (on its trail): the route " + why);
+            nsHome(c, h, level); pass(stage, t, why);
+        }
         return true;
     }
     /** Stage 923 (the user 11-06 ~20:10 via D2D, World 17 east leg at z ~402: "he's making some gaps in the shell ... it should be a full shell instead of like 2 wide gaps in the middle of 2 shells with rails"): a tunnel through netherrack with a 2-row open pocket in it; the pocket rows are shelled too, one shell end to end. */

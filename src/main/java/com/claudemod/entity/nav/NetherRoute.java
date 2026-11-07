@@ -37,7 +37,8 @@ public final class NetherRoute {
 
     static final int S = 4;            // the grid: one node every 4 blocks across
     static final int LEG_NODES = 3;    // a leg end every 3 nodes (about 12 blocks)
-    static final int BUDGET = 12000;   // nodes expanded per plan
+    static final int BUDGET = 12000;   // nodes expanded per plan (nether.route_budget)
+    public static int testBudget = 0;  // (a stage cuts it to make the budget run out on a small map)
     static final double WALK = 1 / 5.6, CLIMB = 0.9, DESCEND = 0.35, PUT = 0.6, LAVA_RISK = 2.5, SHORE_RISK = 0.8;
 
     /** The plan: leg ends (feet cells), whether it stops short of the goal (the land past it not loaded), its cost in seconds, and what it does. */
@@ -47,6 +48,34 @@ public final class NetherRoute {
 
     /** The way from {@code from} to within reach of {@code to}, or null when the loaded land holds none in the budget. */
     public static Plan plan(ClaudeEntity g, ServerLevel level, BlockPos from, BlockPos to) {
+        // his own trail, when it runs from him to the goal: a way he's walked, priced against the search (live 22:05 11-06: 661 cells to the portal unused, the search ran out of nodes and dug at the rock nearest the goal; stage 924)
+        Plan tp = trail(g, from, to); double straight = h(from.getX(), from.getY(), from.getZ(), to);
+        if (tp != null && tp.seconds() <= straight * com.claudemod.entity.life.Weights.w("nether.trail_ok_ratio", 1.5)) return tp;
+        Plan sp = search(g, level, from, to);
+        if (tp == null) return sp;
+        double est = sp == null ? Double.MAX_VALUE : sp.partial() && !sp.legs().isEmpty() ? sp.seconds() + h(sp.legs().get(sp.legs().size() - 1).getX(), sp.legs().get(sp.legs().size() - 1).getY(), sp.legs().get(sp.legs().size() - 1).getZ(), to) : sp.seconds();
+        if (tp.seconds() < est) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: his trail, ~{} s, over the search's ~{} s{} (NetherRoute.plan)", from.toShortString(), to.toShortString(), (int) tp.seconds(), sp == null ? "-" : String.valueOf((int) est), sp != null && sp.partial() ? " (part way, the rest at a sprint)" : ""); return tp; }
+        return sp;
+    }
+
+    /** Along his trail, from the cell of it nearest him to the cell nearest the goal: leg ends every 8 cells and at each height change of 2; null when it doesn't run from within 6 of him to within 8 of the goal, or has a gap. */
+    static Plan trail(ClaudeEntity g, BlockPos from, BlockPos to) {
+        long t0 = System.nanoTime(); List<BlockPos> tr = Route.wayBack(g, Integer.MAX_VALUE); if (tr.size() < 2) return null;
+        int ia = -1, ib = -1; double da = Double.MAX_VALUE, db = Double.MAX_VALUE;
+        for (int i = 0; i < tr.size(); i++) { BlockPos q = tr.get(i); double a = q.distSqr(from), b = q.distSqr(to); if (a < da) { da = a; ia = i; } if (b < db) { db = b; ib = i; } }
+        if (da > 36 || db > 64 || ia == ib) return null;
+        int step = ia < ib ? 1 : -1, climb = 0, since = 0; double s = Math.sqrt(da) * WALK; List<BlockPos> legs = new ArrayList<>(); BlockPos prev = tr.get(ia), lastEnd = prev;
+        for (int i = ia + step; i != ib + step; i += step) {
+            BlockPos q = tr.get(i); double d = Math.sqrt(prev.distSqr(q)); if (d > 4) return null; // (a gap: the trail isn't one walk there)
+            s += d * WALK + Math.max(0, q.getY() - prev.getY()) * 0.5; climb += Math.max(0, q.getY() - prev.getY());
+            if (++since >= 8 || i == ib || Math.abs(q.getY() - lastEnd.getY()) >= 2) { legs.add(q); lastEnd = q; since = 0; }
+            prev = q;
+        }
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: along his trail, {} cells, {} legs, ~{} s (the straight sprint ~{} s) (NetherRoute.trail)", from.toShortString(), to.toShortString(), Math.abs(ib - ia), legs.size(), (int) s, (int) h(from.getX(), from.getY(), from.getZ(), to));
+        return new Plan(legs, false, s, 0, 0, climb, 0, (System.nanoTime() - t0) / 1000000);
+    }
+
+    private static Plan search(ClaudeEntity g, ServerLevel level, BlockPos from, BlockPos to) {
         long t0 = System.nanoTime();
         com.claudemod.entity.life.FarSight.lookAllRound(g, level); // (a look all round first: the way is planned over what he sees)
         Reader r = new Reader(g, level); r.to = to;
@@ -55,7 +84,8 @@ public final class NetherRoute {
         Node start = new Node(from.getX(), from.getY(), from.getZ(), 0, h(from.getX(), from.getY(), from.getZ(), to), null, 0, 0);
         open.add(start); best.put(key(start.x, start.y, start.z), 0.0);
         Node near = start; double nearH = start.f + Math.abs(start.y - to.getY()) * WALK; int expanded = 0; boolean edge = false;
-        while (!open.isEmpty() && expanded++ < BUDGET) {
+        int budget = testBudget > 0 ? testBudget : (int) com.claudemod.entity.life.Weights.w("nether.route_budget", BUDGET);
+        while (!open.isEmpty() && expanded++ < budget) {
             Node n = open.poll();
             Double was = best.get(key(n.x, n.y, n.z)); if (was != null && was < n.g - 1e-9) continue;
             double hz = Math.hypot(n.x - to.getX(), n.z - to.getZ());
@@ -77,7 +107,7 @@ public final class NetherRoute {
                 }
             }
         }
-        if (near != start && (edge || open.isEmpty() || expanded >= BUDGET) && Math.hypot(near.x - to.getX(), near.z - to.getZ()) < Math.hypot(from.getX() - to.getX(), from.getZ() - to.getZ()) - 12) {
+        if (near != start && (edge || open.isEmpty() || expanded >= budget) && Math.hypot(near.x - to.getX(), near.z - to.getZ()) < Math.hypot(from.getX() - to.getX(), from.getZ() - to.getZ()) - 12) {
             com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: {} (searched {} nodes): as far as {} for now, planned again from there (NetherRoute.plan)", from.toShortString(), to.toShortString(), edge ? "the land past it isn't loaded" : "no whole way in the budget", expanded, new BlockPos(near.x, near.y, near.z).toShortString());
             return done(r, near, true, expanded, t0, from, to);
         }

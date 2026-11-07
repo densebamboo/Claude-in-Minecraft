@@ -4680,7 +4680,7 @@ public class WorkGoal extends Goal {
     public static boolean shoots(net.minecraft.world.entity.Entity m) { return m instanceof net.minecraft.world.entity.monster.AbstractSkeleton && !(m instanceof net.minecraft.world.entity.monster.WitherSkeleton) || m instanceof net.minecraft.world.entity.monster.CrossbowAttackMob && m instanceof net.minecraft.world.entity.LivingEntity l && l.isHolding(net.minecraft.world.item.Items.CROSSBOW); }
 
     private boolean shouldFlee(net.minecraft.world.entity.Entity foe) { return shouldFlee(foe, false); }
-    private boolean shouldFlee(net.minecraft.world.entity.Entity foe, boolean say) {
+    private boolean shouldFlee(net.minecraft.world.entity.Entity foe, boolean say) { pricedFightS = Double.NaN; pricedRunS = Double.NaN; // (each call prices afresh: the cornered choice read a blaze fight left over from the last zombie as "~0 s", 775)
         if (foe instanceof net.minecraft.world.entity.LivingEntity l0 && outOfItsReach(l0)) return false; // it can't get him up there: no reason to run (an iron golem under his 3-high tower read as a lost fight)
         if (com.claudemod.entity.life.FortressFight.coverMob(foe) && g.getHealth() > 6 && foe instanceof net.minecraft.world.entity.LivingEntity lf && com.claudemod.entity.life.FortressFight.coverFor(g, (ServerLevel) g.level(), lf) != null) { fightOdds = "from cover"; return false; } // a blaze or wither skeleton with cover at hand: the cover fight backs into it itself (running in the open from fireballs is how it goes wrong)
         if (foe instanceof net.minecraft.world.entity.monster.Blaze) { // blazes: fight or run, priced; the fight by Big Picture's FortressFight.fightS (kill time, the fireballs that land, a shield's share), the run by their fireballs on his back while they keep pace (they fly). Was "never flee: fought", audit WG shouldFlee
@@ -4696,7 +4696,7 @@ public class WorkGoal extends Goal {
             var pickB = com.claudemod.entity.life.Decide.choose(g, "fight.flee", nb + " blaze(s), health " + (int) g.getHealth() + ", armor " + g.getArmorValue() + (shieldB ? ", shield" : ""), say, java.util.List.of(
                 com.claudemod.entity.life.Decide.Option.of("fight", fightB, "FortressFight.fightS, from cover where he has it"),
                 com.claudemod.entity.life.Decide.Option.of("run", runB, "~" + Math.round(runHp) + " HP of fireballs getting " + (hideB != null ? "out of their sight at " + hideB.toShortString() : "away in the open") + ", then them again or kept away from")));
-            fightOdds = nb + " blaze(s): fight ~" + Math.round(fightB) + " s, run ~" + Math.round(runB) + " s";
+            fightOdds = nb + " blaze(s): fight ~" + Math.round(fightB) + " s, run ~" + Math.round(runB) + " s"; pricedFightS = fightB; pricedRunS = runB;
             return pickB != null && pickB.name().equals("run"); }
         // (wither skeletons: no rule any more, fleePriced prices them: their hits through armor, the Wither on each (fight.wither_hp_per_s for its fight.wither_s), and they walk at 0.25, short of his sprint. World 17 08:50: "can't outrun them" kept him fighting four on a bridge with no gap, 20 -> 0 in 2 s; stage 770)
         // (endermen: no rule any more, fleePriced prices them: a teleporter keeps pace with any run (flee.chase_hits), so the run is dear and the fight usually wins; low enough, the price says otherwise. Was a flat "never flee", audit WG shouldFlee; the 18:43 death it came from was a run priced as cheap)
@@ -5201,11 +5201,11 @@ public class WorkGoal extends Goal {
                 && !mobs.stream().allMatch(m -> (com.claudemod.entity.goals.WorkGoal.shoots(m)) && m.distanceTo(g) > 3) // "cornered" by a crossbow 8 blocks off is not a fight to wade into (health 16 to 1 in 10 s)
                 && !(mobs.stream().min(java.util.Comparator.comparingDouble(m -> m.distanceTo(g))).get() instanceof net.minecraft.world.entity.monster.Creeper)) { // and never a creeper: "fighting his way out" of one is the explosion
             var near = mobs.stream().min(java.util.Comparator.comparingDouble(m -> m.distanceTo(g))).get();
-            shouldFlee(near); double fightS = pricedFightS, runS = pricedRunS + w("flee.cornered_run_s", 30); // (fight.flee's own prices, refreshed; the run from a corner costs its dead ends again)
+            shouldFlee(near); boolean unpriced = Double.isNaN(pricedFightS); double fightS = unpriced ? Double.MAX_VALUE / 4 : pricedFightS, runS = (Double.isNaN(pricedRunS) ? w("flee.run_s", 20) : pricedRunS) + w("flee.cornered_run_s", 30); // (fight.flee's own prices, refreshed; the run from a corner costs its dead ends again)
             double build = w("cover.build_s", 2.5), buildHp = 0; for (var m : mobs) if (m.distanceTo(g) < 4 && !shoots(m)) buildHp += w("fight.mob_hits_per_s", 0.8) * build * mobHit(m);
             double coverS = build + com.claudemod.entity.life.Decide.hpS(g, 0, buildHp, 3) + w("cover.wait_out_s", 60);
             var corner = com.claudemod.entity.life.Decide.choose(g, "flee.cornered", (int) g.getHealth() + " HP, " + mobs.size() + " on him, " + near.getType().getDescription().getString() + " " + (int) near.distanceTo(g) + " off", true, java.util.List.of(
-                com.claudemod.entity.life.Decide.Option.of("fight", weakFighter() ? Double.MAX_VALUE / 4 : fightS, weakFighter() ? "bare hands or wood" : "his way out through them"),
+                unpriced ? com.claudemod.entity.life.Decide.Option.out("fight", "not priced: " + fightOdds) : com.claudemod.entity.life.Decide.Option.of("fight", weakFighter() ? Double.MAX_VALUE / 4 : fightS, weakFighter() ? "bare hands or wood" : "his way out through them"),
                 com.claudemod.entity.life.Decide.Option.of("cover", coverS, "dug in or boxed here, ~" + Math.round(buildHp) + " HP while it goes up"),
                 com.claudemod.entity.life.Decide.Option.of("run", runS, "on, another way")));
             String pick = corner == null ? "fight" : corner.name();

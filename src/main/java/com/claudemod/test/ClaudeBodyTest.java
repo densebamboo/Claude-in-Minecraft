@@ -10624,6 +10624,7 @@ public final class ClaudeBodyTest {
             case 792: return st792(stage, t, c, h, level, mock);
             case 794: return st794(stage, t, c, h, level, mock);
             case 795: return st795(stage, t, c, h, level, mock);
+            case 793: return st793(stage, t, c, h, level, mock);
             case 786: return st786(stage, t, c, h, level, mock);
             case 780: return st780(stage, t, c, h, level, mock);
             case 781: return st781(stage, t, c, h, level, mock);
@@ -16420,6 +16421,25 @@ public final class ClaudeBodyTest {
             check(!st795Filled, "a put-back queued into his own planned tunnel at " + st795Walk + " (his mine wants it dug)");
             if (c.inventory.count(s -> s.is(Items.DIAMOND)) > 0) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); pass(stage, t, "the diamond in " + (t[0] - st795T) / 20.0 + " s through his own tunnel's cells, nothing put back in them"); return true; }
             check(t[0] - st795T < 20 * 15, "the diamond not got in 15 s (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ", tasks " + c.tasks + ")");
+        }
+        return true;
+    }
+    private static int st793T; private static BlockPos st793Head;
+    private static boolean st793(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D review 106 (live 01:03:44 World 17, -279,-56,-27): up in an ore hole one above his tunnel's floor for the gold, the fill of his head cell queued: the way out was looked for round the head cell (no floor up there), none found, "never a block under himself" at once, re-queued, PLACE_REPEAT, parked. The way out is from where he stands: down into the tunnel, then the block
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st793T = -1; }
+        if (t[0] == 10) {
+            for (int x = 0; x <= 8; x++) for (int z = 0; z <= 10; z++) for (int y = 1; y <= 6; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.DEEPSLATE.defaultBlockState(), 2);
+            for (int z = 1; z <= 9; z++) for (int y = 2; y <= 3; y++) level.setBlock(h.absolutePos(new BlockPos(3, y, z)), Blocks.AIR.defaultBlockState(), 2); // his tunnel along z, 2 high
+            BlockPos feet = h.absolutePos(new BlockPos(4, 3, 5)).immutable(); st793Head = feet.above().immutable(); level.setBlock(feet, Blocks.AIR.defaultBlockState(), 2); level.setBlock(st793Head, Blocks.AIR.defaultBlockState(), 2); // the ore hole off its side, its floor one above the tunnel's
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(32))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 32)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.teleportTo(feet.getX() + 0.5, feet.getY(), feet.getZ() + 0.5); c.setHealth(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 15) { c.tasks.clear(); c.tasks.add(new Task.Place(st793Head, Items.COBBLED_DEEPSLATE)); st793T = t[0]; }
+        if (st793T > 0) {
+            if (level.getBlockState(st793Head).is(Blocks.COBBLED_DEEPSLATE)) { check(!c.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(st793Head)), "the block went in with his head in the cell"); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "down out of the hole and its head cell filled in " + (t[0] - st793T) / 20.0 + " s, from " + c.blockPosition().toShortString()); return true; }
+            check(c.tasks.stream().anyMatch(q -> q instanceof Task.Place p && p.pos().equals(st793Head)) || c.currentTask instanceof Task.Place cp && cp.pos().equals(st793Head) || t[0] - st793T < 3, "the fill of his head cell dropped (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ", tasks " + c.tasks + ")");
+            check(t[0] - st793T < 20 * 5, "his head cell not filled in 5 s (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ", tasks " + c.tasks + ")");
         }
         return true;
     }

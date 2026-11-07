@@ -10620,6 +10620,7 @@ public final class ClaudeBodyTest {
             case 789: return st789(stage, t, c, h, level, mock);
             case 790: return st790(stage, t, c, h, level, mock);
             case 791: return st791(stage, t, c, h, level, mock);
+            case 792: return st792(stage, t, c, h, level, mock);
             case 786: return st786(stage, t, c, h, level, mock);
             case 780: return st780(stage, t, c, h, level, mock);
             case 781: return st781(stage, t, c, h, level, mock);
@@ -16255,7 +16256,7 @@ public final class ClaudeBodyTest {
             java.util.Set<Integer> before = new java.util.HashSet<>(); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) before.add(it.getId());
             com.claudemod.director.ClaudeLife.dumpJunkTest(c);
             int n = 0; StringBuilder bad = new StringBuilder();
-            for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) { if (before.contains(it.getId())) continue; n++; if (it.getDeltaMovement().x >= 0) bad.append(it.getItem().getCount()).append(' ').append(it.getItem().getItem()).append(" at dx ").append(String.format("%.2f", it.getDeltaMovement().x)).append("; "); }
+            for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) { if (before.contains(it.getId())) continue; n++; if (it.getDeltaMovement().x > 0.1) bad.append(it.getItem().getCount()).append(' ').append(it.getItem().getItem()).append(" at dx ").append(String.format("%.2f", it.getDeltaMovement().x)).append("; "); }
             c.tasks.clear(); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard(); inv.clearContent();
             check(n > 0, "the toss threw nothing from a full pack");
             check(bad.length() == 0, "thrown toward his work (east), where he walks over it: " + bad);
@@ -16316,6 +16317,26 @@ public final class ClaudeBodyTest {
             check(black >= 64 && black <= 128, "pack: blackstone " + black + " after it (want two stacks of stone all told)");
             check(free >= 4, "pack: only " + free + " free slot(s) after it");
             pass(stage, t, "basalt and magma out, " + black + " blackstone kept, " + free + " slots free");
+        }
+        return true;
+    }
+    private static boolean st792(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D review 41 (live 00:53:30 World 17, in the open at 1,67,-163): granite and tuff thrown away from his walk east, then the walk dropped for a block of his back west (TempLedger.leaving) and he walked over the junk: THROW_LOOP. Out in the open the toss goes off to the side of his way, where neither way takes him
+        if (t[0] == 1) { scenarioReset(c); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard(); }
+        if (t[0] == 5) {
+            var inv = c.getInventory(); inv.clearContent();
+            inv.items.set(0, new ItemStack(Items.DIAMOND_PICKAXE)); inv.selected = 0;
+            inv.items.set(1, new ItemStack(Items.GRANITE, 22)); inv.items.set(2, new ItemStack(Items.TUFF, 24));
+            for (int i = 3; i < inv.items.size(); i++) inv.items.set(i, new ItemStack(Items.COOKED_BEEF, 16));
+            BlockPos work = c.blockPosition().east(9);
+            c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.GoTo(work, 1.0)); c.setYRot(-90f); c.setYHeadRot(-90f);
+            java.util.Set<Integer> before = new java.util.HashSet<>(); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) before.add(it.getId());
+            com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+            int n = 0; StringBuilder bad = new StringBuilder();
+            for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) { if (before.contains(it.getId())) continue; n++; var v = it.getDeltaMovement(); if (Math.abs(v.x) >= Math.abs(v.z)) bad.append(it.getItem().getCount()).append(' ').append(it.getItem().getItem()).append(String.format(" (dx %.2f, dz %.2f); ", v.x, v.z)); }
+            c.tasks.clear(); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard(); inv.clearContent();
+            check(n > 0, "the toss threw nothing from a full pack");
+            check(bad.length() == 0, "thrown along his way (east-west), where a turn back walks over it: " + bad);
+            pass(stage, t, n + " stack(s) thrown off to the side of his way");
         }
         return true;
     }

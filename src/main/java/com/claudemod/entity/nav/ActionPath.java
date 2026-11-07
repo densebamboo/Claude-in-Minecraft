@@ -248,6 +248,25 @@ public final class ActionPath {
         if (!level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(q).inflate(2), m -> m.isAlive() && m.getTarget() == c.g).isEmpty()) return " (kept: opens onto a mob after him)";
         return " (kept: no tool for it, or a protected block)";
     }
+    /**
+     * The greedy search's weight for this way: what the straight line costs a block (a dug cell, a bridge block over a gap, more
+     * over lava, a tower step a block up) over the heuristic's count, never under 2.5. A fixed 2.5 found stage 535's bridge, but
+     * a lava gap costs ~28 a block and a tower 14 a step up: the search spread over the shelf round him and ran out of budget
+     * (D2D reviews 105317-38, 13 over lava, "no way" then a bore at 0.4 b/s; 104811-26, a ledge 8 up, four searches then a tower).
+     */
+    public static double lineWeight(ServerLevel level, BlockPos from, BlockPos to) {
+        double hh = h(from, to); if (hh < 1) return 2.5;
+        double cost = Math.max(0, to.getY() - from.getY()) * com.claudemod.entity.life.Weights.w("path.put_tower", 14);
+        int n = Math.max(Math.abs(to.getX() - from.getX()), Math.abs(to.getZ() - from.getZ()));
+        for (int i = 1; i <= n; i++) {
+            BlockPos c = new BlockPos(from.getX() + Math.round((to.getX() - from.getX()) * (float) i / n), from.getY() + Math.round((to.getY() - from.getY()) * (float) i / n), from.getZ() + Math.round((to.getZ() - from.getZ()) * (float) i / n));
+            for (BlockPos q : new BlockPos[] {c, c.above()}) if (!level.getBlockState(q).getCollisionShape(level, q).isEmpty()) cost += com.claudemod.entity.life.Weights.w("path.dig_base", 6) * 0.5;
+            if (level.getBlockState(c.below()).getCollisionShape(level, c.below()).isEmpty()) { cost += com.claudemod.entity.life.Weights.w("path.put_bridge", 12);
+                for (int k = 1; k <= 12; k++) { var st = level.getBlockState(c.below(k)); if (st.getFluidState().is(net.minecraft.tags.FluidTags.LAVA)) { cost += 16; break; } if (!st.getCollisionShape(level, c.below(k)).isEmpty()) break; } }
+            else cost += 1;
+        }
+        return Math.max(2.5, Math.min(com.claudemod.entity.life.Weights.w("path.greedy_w_max", 30), cost / hh));
+    }
     private static double h(BlockPos a, BlockPos b) {
         double dx = Math.abs(a.getX() - b.getX()), dy = Math.abs(a.getY() - b.getY()), dz = Math.abs(a.getZ() - b.getZ());
         return Math.max(dx, dz) + Math.min(dx, dz) * 0.2 + dy * 1.2; // (0.6 was admissible but blew the search budget before the dig way: stage 61 failed, NO_PATH; backlog)

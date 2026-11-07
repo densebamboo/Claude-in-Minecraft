@@ -10516,6 +10516,7 @@ public final class ClaudeBodyTest {
             case 960: return st960(stage, t, c, h, level, mock);
             case 961: return st961(stage, t, c, h, level, mock);
             case 962: return st962(stage, t, c, h, level, mock);
+            case 963: return st963(stage, t, c, h, level, mock);
             case 955: return st955(stage, t, c, h, level, mock);
             case 954: return st954(stage, t, c, h, level, mock);
             case 953: return st953(stage, t, c, h, level, mock);
@@ -14496,6 +14497,40 @@ public final class ClaudeBodyTest {
             for (int x = -16; x <= 8; x++) for (int z = -4; z <= 4; z++) for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
             check(b.equals(to) && take == 11, "11 diamonds wanted, 2 in a chest 4 off, 11 in one 12 off: the trip goes to " + (to == null ? "none" : to.equals(a) ? "the near one" : to.equals(b) ? "the full one" : to.toShortString()) + " for " + take + ": \"" + r + "\"");
             pass(stage, t, "one trip to the chest with all 11: \"" + r + "\"");
+        }
+        return true;
+    }
+    /** Stage 963 (D2D review 105317-38 11-07, 10:50:36: a 13-block walk 129,40,259 -> 116,40,258 over a lava lake 9 down, "no way" in three searches (3001/6001 nodes, the greedy w 2.5 too), then a bore straight over it at about 0.4 b/s): the Nether, his shelf, a lava lake 13 across and 41 wide, the far shelf. A bridge over it, no bore, in a player's time. */
+    private static int s963Done, s963Bore;
+    private static boolean st963(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        final int ox = 4300, oz = 4300;
+        BlockPos me = new BlockPos(ox + 1, 40, oz), goal = new BlockPos(ox + 17, 40, oz);
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); s963Done = -1; s963Bore = 0; c.nextPlanTick = c.tickCount + 20 * 900; c.prefs.put("stay_close", "no");
+            c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(nether, me.getX() + 0.5, 110, me.getZ() + 0.5, 0, 0); c.setNoGravity(true); }
+        if (t[0] >= 20 && t[0] < 20 + 26) { int x = t[0] - 20 - 3; // (a slice a tick: x -3 to 22)
+            for (int z = -22; z <= 22; z++) for (int y = 26; y <= 62; y++) {
+                boolean wall = Math.abs(z) >= 21 || x == -3 || x == 22 || y <= 28 || y >= 61, shelf = (x <= 2 || x >= 16) && y <= 39, lava = !shelf && y <= 31;
+                nether.setBlock(new BlockPos(ox + x, y, oz + z), (wall || shelf ? Blocks.NETHERRACK : lava ? Blocks.LAVA : Blocks.AIR).defaultBlockState(), 2); } }
+        if (t[0] == 50) { c.setNoGravity(false); c.teleportTo(nether, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.tasks.clear(); c.fallDistance = 0; c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); }
+        if (t[0] > 50 && c.level() == nether) for (var m : nether.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(ox - 10, 0, oz - 30, ox + 30, 128, oz + 30))) m.discard();
+        if (t[0] == 60) { c.tasks.clear(); c.tasks.add(new Task.GoTo(goal, 1.5)); }
+        if (t[0] > 60 && s963Done < 0) {
+            if (c.currentTask instanceof Task.Bore || c.tasks.stream().anyMatch(k -> k instanceof Task.Bore)) s963Bore++;
+            if (c.onGround() && c.blockPosition().distSqr(goal) <= 2 * 2) s963Done = t[0];
+        }
+        boolean dead = !c.isAlive() || c.level() != nether;
+        if (s963Done > 0 || dead || t[0] == 60 + 20 * 60) {
+            double took = s963Done > 0 ? (s963Done - 60) / 20.0 : 60;
+            check(s963Done > 0 && !dead, "13 over a lava lake: not across in 60 s (at " + c.blockPosition().toShortString() + ", task " + c.currentTask + ")");
+            check(s963Bore == 0, "13 over a lava lake: a bore for it (" + s963Bore + " ticks of one), not a bridge");
+            check(took <= 30, "13 over a lava lake: " + took + " s (a bridge is ~15 s)");
+            String how = "across in " + took + " s, no bore";
+            c.tasks.clear(); c.dropCurrent = true; c.clearFire(); c.setHealth(20f); c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); if (c.isAlive()) c.teleportTo(level, back.getX() + 0.5, back.getY(), back.getZ() + 0.5, 0, 0); com.claudemod.entity.life.Watchdog.teleported(c);
+            pass(stage, t, how);
         }
         return true;
     }

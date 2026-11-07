@@ -254,7 +254,9 @@ public final class Decide {
             boolean out = before != null && before.option().equals("bore") && !gained;
             said.add("bore straight there ~" + (int) s + " s (" + n + " blocks of line" + (out ? "; out: the last bore here got him no nearer" : "") + ")");
             if (!out && s < bestS) { best = "bore"; bestS = s; }
-        } else said.add("bore: out (" + (level.dimension() == net.minecraft.world.level.Level.NETHER ? "no pick or under 16 blocks to floor with" : "only in the Nether") + ")");
+        } else { boolean pick = g.inventory.count(x -> x.getItem() instanceof net.minecraft.world.item.PickaxeItem) > 0; // the reason that holds, not both (D2D review 111514-93: "no pick or under 16" with a diamond pick on him)
+            int fl = g.inventory.count(x -> x.is(net.minecraft.world.item.Items.NETHERRACK) || x.is(net.minecraft.world.item.Items.COBBLESTONE) || x.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE) || x.is(net.minecraft.world.item.Items.BLACKSTONE));
+            said.add("bore: out (" + (level.dimension() != net.minecraft.world.level.Level.NETHER ? "only in the Nether" : !pick ? "no pick" : fl + " blocks to floor with, under 16") + ")"); }
         if (best == null) { best = "skip"; said.add("none of his own fits: the spot skipped as before"); } // (not priced against his own ways: a think still needs a way there after it)
         ClaudeMod.LOGGER.info("[Claude decide] the walk to {} ({} off) was refused ({}): {}: {} (Decide.walkRefused)", goal.toShortString(), (int) d, why, String.join("; ", said), best);
         mine.put(goal.immutable(), new Took(best, d));

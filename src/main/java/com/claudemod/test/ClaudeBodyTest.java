@@ -10511,6 +10511,10 @@ public final class ClaudeBodyTest {
             case 934: return st934(stage, t, c, h, level, mock);
             case 957: return st957(stage, t, c, h, level, mock);
             case 956: return st956(stage, t, c, h, level, mock);
+            case 958: return st958(stage, t, c, h, level, mock);
+            case 959: return st959(stage, t, c, h, level, mock);
+            case 960: return st960(stage, t, c, h, level, mock);
+            case 961: return st961(stage, t, c, h, level, mock);
             case 955: return st955(stage, t, c, h, level, mock);
             case 954: return st954(stage, t, c, h, level, mock);
             case 953: return st953(stage, t, c, h, level, mock);
@@ -14355,6 +14359,113 @@ public final class ClaudeBodyTest {
                 check(!bOre, "the diamond behind at " + s957B.toShortString() + " left in the rock after " + (t[0] - s957T) / 20 + " s (at " + at + ", " + q + ")");
                 check(aPatched, "the hole at " + s957A.toShortString() + " not patched");
                 pass(stage, t, "both diamonds out (" + dia + " on him), then one patch, in " + (t[0] - s957T) / 20.0 + " s"); }
+        }
+        return true;
+    }
+    /** Stage 958 (D2D reviews 101230-37/38 11-07, 10:09: "craft bucket -> smelt iron_ingot 3", 3 raw iron taken from his chest, back in for the other 17 0 s later (REPEAT_FETCH), then "smelt iron_ingot x40" with 20 in hand: the step counted every chest's raws, the trip went to one): 20 raw iron in his chest 3 off, 3 more in one 60 off, none on him. The first fetch takes all 20 in one go for a step of 20, and with them on him the far chest's 3 are left. */
+    private static BlockPos s958Me = BlockPos.ZERO, s959Me = BlockPos.ZERO, s961Me = BlockPos.ZERO;
+    private static boolean st958(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.myStations.clear(); com.claudemod.entity.life.ChestLedger.reset(c); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); }
+        if (t[0] > 8 && t[0] % 5 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 4, c.blockPosition());
+        if (t[0] == 10) { s958Me = c.blockPosition(); } BlockPos me = s958Me, near = me.offset(3, 0, 0), far = me.offset(60, 0, 0); // (fixed at setup: he can drift a block before the check)
+        if (t[0] == 10) {
+            for (int x = -8; x <= 64; x++) for (int z = -4; z <= 4; z++) { level.setBlock(me.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            level.setBlock(near, Blocks.CHEST.defaultBlockState(), 3); level.setBlock(far, Blocks.CHEST.defaultBlockState(), 3);
+            if (level.getBlockEntity(near) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity b) b.setItem(0, new ItemStack(Items.RAW_IRON, 20));
+            if (level.getBlockEntity(far) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity b) b.setItem(0, new ItemStack(Items.RAW_IRON, 3));
+            c.myStations.add(near.immutable()); c.myStations.add(far.immutable()); com.claudemod.entity.life.ChestLedger.look(c, level, near); com.claudemod.entity.life.ChestLedger.look(c, level, far);
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 16)); c.getInventory().add(new ItemStack(Items.FURNACE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.getFoodData().setFoodLevel(20);
+        }
+        if (t[0] == 20) {
+            c.tasks.clear(); c.skillQueue.clear();
+            String r1 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "iron_ingot", 3);
+            int take = 0; for (var k : c.tasks) if (k instanceof com.claudemod.entity.life.Task.Chest ch && ch.take() && ch.pos().equals(near)) take = ch.max();
+            int step1 = c.skillQueue.isEmpty() ? -1 : c.skillQueue.peekFirst().count();
+            c.tasks.clear(); c.skillQueue.clear();
+            // the trip made: the 20 on him, the chest empty
+            if (level.getBlockEntity(near) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity b) b.clearContent();
+            com.claudemod.entity.life.ChestLedger.look(c, level, near); c.getInventory().add(new ItemStack(Items.RAW_IRON, 20));
+            String r2 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "iron_ingot", Math.max(1, step1));
+            String q = String.valueOf(c.tasks); boolean toFar = false; for (var k : c.tasks) if (k instanceof com.claudemod.entity.life.Task.Chest ch && ch.pos().equals(far) || k instanceof com.claudemod.entity.life.Task.GoTo gt && gt.pos().distSqr(far) < 9) toFar = true;
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.getInventory().clearContent(); c.myStations.clear(); com.claudemod.entity.life.ChestLedger.reset(c);
+            for (int x = -8; x <= 64; x++) for (int z = -4; z <= 4; z++) for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(take == 20 && step1 == 20, "20 raw iron in his chest 3 off, smelt 3: the trip takes " + take + " for a step of " + step1 + " (all 20, one trip, a step of 20): \"" + r1 + "\"");
+            check(!toFar && r2 != null && !r2.contains("in my chest"), "20 on him, 3 more 60 off: back out for those (" + r2 + "; " + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+            pass(stage, t, "one trip for all 20, a step of 20, the far 3 left: \"" + r2 + "\"");
+        }
+        return true;
+    }
+    /** Stage 959 (D2D review 101230-39 11-07, 10:07:21: "smelting 9 salmon and 7 oak_log in 3 furnaces", the salmon in all 3, the logs after it in one furnace 4+3, IDLE_FURNACES and SMALL_BATCH): 3 furnaces, 9 salmon and a charcoal step for 7 logs. The furnaces are shared by load: every load goes in before the first take. */
+    private static boolean st959(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.myStations.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); }
+        if (t[0] > 8 && t[0] % 5 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 4, c.blockPosition());
+        if (t[0] == 10) { s959Me = c.blockPosition(); } BlockPos me = s959Me; // (fixed at setup: he can drift before the check)
+        if (t[0] == 10) {
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) { level.setBlock(me.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int z = -1; z <= 1; z++) { level.setBlock(me.offset(2, 0, z), Blocks.FURNACE.defaultBlockState(), 3); c.myStations.add(me.offset(2, 0, z).immutable()); }
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.SALMON, 9)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 7)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 30));
+            c.getFoodData().setFoodLevel(20);
+        }
+        if (t[0] == 20) {
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("smelt", "charcoal", 7));
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "cooked_salmon", 9);
+            var ts = new java.util.ArrayList<>(c.tasks); String q = String.valueOf(ts);
+            int firstTake = -1, lastLoad = -1; java.util.Set<BlockPos> logF = new java.util.HashSet<>(), fishF = new java.util.HashSet<>();
+            for (int i = 0; i < ts.size(); i++) { var k = ts.get(i);
+                if (k instanceof com.claudemod.entity.life.Task.FurnaceTake && firstTake < 0) firstTake = i;
+                if (k instanceof com.claudemod.entity.life.Task.FurnaceLoad fl) { lastLoad = i; (fl.input() == Items.OAK_LOG ? logF : fishF).add(fl.pos()); } }
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.getInventory().clearContent(); c.myStations.clear();
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(!logF.isEmpty() && !fishF.isEmpty() && lastLoad < firstTake, "9 salmon and 7 logs, 3 furnaces: a load after the first take (logs in " + logF.size() + ", salmon in " + fishF.size() + "): \"" + r + "\" " + (q.length() > 300 ? q.substring(0, 300) : q));
+            pass(stage, t, "salmon in " + fishF.size() + " furnace(s), logs in " + logF.size() + ", all loaded at once: \"" + r + "\"");
+        }
+        return true;
+    }
+    /** Stage 960 (D2D review 103221-315 11-07, 10:30:06: "collect cobbled_deepslate x140 -> done: already have 142", then "strip_mine cobbled_deepslate x140 -> done" 3 times and "skipped strip_mine: failed 3 times in a row"; the planner read it as "my mine cobble step is failing"): collect for cobble runs the mine's dig, which put its own step back on the queue each round while collect carries on too. His mine, away from its face, collect cobblestone two rounds: only the collect step stays queued, no strip_mine copies piling up behind it. */
+    private static boolean st960(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); com.claudemod.entity.life.ChestLedger.reset(c); }
+        if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            var inv = c.getInventory(); inv.clearContent(); inv.add(new ItemStack(Items.IRON_PICKAXE)); inv.add(new ItemStack(Items.IRON_SWORD)); inv.add(new ItemStack(Items.TORCH, 64)); inv.add(new ItemStack(Items.COOKED_BEEF, 32)); inv.add(new ItemStack(Items.OAK_LOG, 32)); inv.add(new ItemStack(Items.COBBLESTONE, 10)); inv.selected = 0;
+            c.getFoodData().setFoodLevel(20);
+            lnStand(c, mock, lnRow(b, 1, 0), b.entrance); c.tasks.clear(); c.skillQueue.clear();
+        }
+        if (t[0] == 20 || t[0] == 21) {
+            c.tasks.clear(); c.skillQueue.removeIf(s -> s.skill().equals("collect"));
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "cobblestone", 140);
+            if (t[0] == 21) {
+                var q = new java.util.ArrayList<>(c.skillQueue); long digs = q.stream().filter(s -> s.skill().equals("strip_mine") || s.skill().equals("dig_down")).count();
+                c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.getInventory().clearContent();
+                check(r != null && !r.startsWith("done") && !r.startsWith("failed"), "collect cobblestone in his mine: \"" + r + "\"");
+                check(digs == 0, "two rounds of collect cobblestone: " + digs + " dig step(s) left queued behind it " + q + " (\"" + r + "\")");
+                pass(stage, t, "collect carries on alone: queue " + q + " (\"" + r + "\")");
+            }
+        }
+        return true;
+    }
+    /** Stage 961 (D2D reviews 112832-56 and REVIEW_STILL 11:33 11-07, gear_up after his death: iron ingots out of 16,67,-46 for the iron sword, again for the shield, again for the bucket, REPEAT_FETCH): 15 ingots in his chest 3 off, none on him, craft iron_sword with a shield and a bucket queued after it. One trip takes the 6 all three use. */
+    private static boolean st961(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.myStations.clear(); com.claudemod.entity.life.ChestLedger.reset(c); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); }
+        if (t[0] > 8 && t[0] % 5 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 4, c.blockPosition());
+        if (t[0] == 10) { s961Me = c.blockPosition(); } BlockPos me = s961Me, near = me.offset(3, 0, 0);
+        if (t[0] == 10) {
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) { level.setBlock(me.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            level.setBlock(near, Blocks.CHEST.defaultBlockState(), 3); level.setBlock(me.offset(-2, 0, 0), Blocks.CRAFTING_TABLE.defaultBlockState(), 3);
+            if (level.getBlockEntity(near) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity b) b.setItem(0, new ItemStack(Items.IRON_INGOT, 15));
+            c.myStations.add(near.immutable()); com.claudemod.entity.life.ChestLedger.look(c, level, near);
+            c.getInventory().add(new ItemStack(Items.STICK, 8)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 20)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.getFoodData().setFoodLevel(20);
+        }
+        if (t[0] == 20) {
+            c.tasks.clear(); c.skillQueue.clear();
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "shield", 1)); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "bucket", 1));
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "craft", "iron_sword", 1);
+            int take = 0; for (var k : c.tasks) if (k instanceof com.claudemod.entity.life.Task.Chest ch && ch.take() && ch.pos().equals(near)) take = ch.max();
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.getInventory().clearContent(); c.myStations.clear(); com.claudemod.entity.life.ChestLedger.reset(c);
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(take == 6, "iron sword, then a shield and a bucket queued, 15 ingots in his chest: the trip takes " + take + " (2 + 1 + 3 = 6, one trip): \"" + r + "\"");
+            pass(stage, t, "one trip for the 6 ingots the three crafts use: \"" + r + "\"");
         }
         return true;
     }

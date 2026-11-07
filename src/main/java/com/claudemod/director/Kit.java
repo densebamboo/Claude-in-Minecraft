@@ -230,6 +230,9 @@ public final class Kit {
                 + (rod ? "a fishing rod" : string >= 2 ? "no rod, " + string + " string for one" : "no fishing rod and no string for one (fish only by hand in shallow water)")
                 + ", " + (wheat >= 3 ? wheat + " wheat (bread)" : "no wheat (bread needs a grown farm first: minutes, not food now)") + (char) 10;
     }
+    private static final java.util.Map<java.util.UUID, String> foodPick = new java.util.HashMap<>();
+    /** The kit is short and its pick is cooking the raw food he carries (smelt's "cooks at home" gives way only to that). */
+    public static boolean cooksRaw(ClaudeEntity g) { return foodAsk(g) != null && "cook his raw".equals(foodPick.get(g.getUUID())); }
     public static FoodAsk foodAsk(ClaudeEntity g) {
         Object[] memo = foodAskMemo.get(g.getUUID()); if (memo != null && g.tickCount - (int) memo[0] >= 0 && g.tickCount - (int) memo[0] < 40) return (FoodAsk) memo[1];
         FoodAsk fa = foodAsk0(g); if (foodAskMemo.size() > 64) foodAskMemo.clear(); foodAskMemo.put(g.getUUID(), new Object[] {g.tickCount, fa}); return fa;
@@ -313,7 +316,7 @@ public final class Kit {
           opts.add(com.claudemod.entity.life.Decide.Option.of("search for animals", searchS.applyAsDouble(shortP), k + " cows' worth" + (nether ? ", through the portal and back ~" + Math.round(home) + " s" : ""))); asks.put("search for animals", new FoodAsk(Items.COOKED_BEEF, 2 * k)); }
         var pick = com.claudemod.entity.life.Decide.choose(g, "kit.food", "", false, opts);
         StringBuilder said = new StringBuilder(); for (var o : opts) said.append(said.length() == 0 ? "" : "; ").append(o.no() != null ? o.name() + " out (" + o.no() + ")" : o.name() + " ~" + Math.round(o.s()) + " s" + (o.detail().isEmpty() ? "" : " (" + o.detail() + ")"));
-        FoodAsk fa = pick == null ? null : asks.get(pick.name());
+        FoodAsk fa = pick == null ? null : asks.get(pick.name()); foodPick.put(g.getUUID(), pick == null ? null : pick.name());
         foodSaid.put(g.getUUID(), (int) shortP + " food points short (" + (int) carried + " on him): " + said + "; the pick: " + (pick == null ? "none" : pick.name()) + (fa == null ? "" : " -> " + fa.count() + " " + Crafting.name(fa.item())));
         ClaudeLife.nookSay(g, "kitFood", "[Claude decide] kit.food (" + (int) shortP + " food points short of the trip's " + (int) need + ", " + (int) carried + " on him): " + said + ": " + (pick == null ? "none" : pick.name()) + (fa == null ? "" : " -> " + fa.count() + " " + Crafting.name(fa.item())) + " (Kit.foodAsk)");
         return fa;

@@ -2127,8 +2127,10 @@ public final class ClaudeLife {
                 if (cobble && pointedTree == null && !"looked_at".equals(st.where()) && (!"here".equals(st.where()) || bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && inHisMine(g, g.blockPosition())) && !pointingAtIt && !hurtNow  && !faceFarDown && !atHouse) { // ("here": a handful out of the rock by him, the kit's three for a spare pick)
                     boolean starting = g.stairStart == null && g.mineFace == null;
                     final String rock = target.equals("cobbled_deepslate") ? "cobbled_deepslate" : "cobble"; // (deepslate only comes from rock below y 0: as "cobble" it went to his y 16 level for stone, live 15:56 11-06, stage 865)
+                    var queuedBefore = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Skills.Step, Boolean>()); queuedBefore.addAll(g.skillQueue);
                     String r = runSkill(g, player, new Skills.Step(g.mineFace != null && g.mineIsTunnel ? "strip_mine" : "dig_down", rock, Math.max(4, count) /* the total he wants: the dig says done once he has it (32/5 = 7 against 17 on him said done at once, live 23:40 11-04, the trip packer round in circles) */));
                     if (r.startsWith("failed") && r.contains("strip_mine from here")) r = runSkill(g, player, new Skills.Step("strip_mine", rock, Math.max(4, count))); // the stairs can't go deeper: the tunnel gives it
+                    g.skillQueue.removeIf(s0 -> !queuedBefore.contains(s0) && (s0.skill().equals("strip_mine") || s0.skill().equals("dig_down")) && s0.target().equals(rock)); // collect is the step that carries on: the dig's own copy piled up one a round, 3 left "done" in a row read as failing (D2D review 103221-315 11-07)
                     boolean mineNoGood = r.startsWith("failed") || r.contains("lake in the way") || r.contains("water right by") || r.contains("dry ground"); // (water at the mine: a few blocks of cobble don't need the mine at all)
                     if (!mineNoGood) { if (!r.startsWith("done")) g.skillQueue.addFirst(st); return (starting ? "starting my mine for the cobble: " : "getting the cobble by digging my mine further: ") + r; } // (back on until the dig says "done: already have N": one push of 131 cells for 384, or one cut short by lava, ended the step with 2 on him, live 16:46 11-06, stage 870)
                     clearTasks(g); // (the walk to dry ground that was queued: the rock here comes first)
@@ -3272,7 +3274,7 @@ public final class ClaudeLife {
                 if (item == null) return "failed: no such item '" + target + "'";
                 { var fd = new ItemStack(item).get(net.minecraft.core.component.DataComponents.FOOD); // cooking a few raws while fed and carrying cooked food: they ride home to his furnaces (live 11:51 World 15: "cook my raw salmon" for 2, a furnace's cobble dug out of a fresh hole 130 from his mine)
                   if (fd != null && !g.commandActive && g.getFoodData().getFoodLevel() >= 18 && Kit.food(g) >= 4) { int raws = g.inventory.count(x -> x.get(net.minecraft.core.component.DataComponents.FOOD) != null && rawOrBad(level, x) && !x.is(Items.ROTTEN_FLESH) && !x.is(Items.SPIDER_EYE)); boolean furnaceBy = reachableFurnace(g, level, g.blockPosition(), 16) != null;
-                    if (raws < 8 && !furnaceBy && Kit.foodAsk(g) == null) return "done: " + raws + " raw food isn't worth a furnace out here (fed, cooked food on me): it cooks at my furnaces back home"; } } // (4+ cooked meals only: with 3 the pearl hunt refused "under 4 meals" and this refused the cooking, three plans in 14 s, 11:18 11-05, stage 723)
+                    if (raws < 8 && !furnaceBy && !Kit.cooksRaw(g)) return "done: " + raws + " raw food isn't worth a furnace out here (fed, cooked food on me): it cooks at my furnaces back home"; } } // (4+ cooked meals only: with 3 the pearl hunt refused "under 4 meals" and this refused the cooking, three plans in 14 s, 11:18 11-05, stage 723)
                 Item input = smeltInput(level, g, item);
                 if (input == null && Set.of(Items.COOKED_BEEF, Items.COOKED_PORKCHOP, Items.COOKED_MUTTON, Items.COOKED_CHICKEN).contains(item)) { // meat is meat: cook what he has
                     for (Item alt : List.of(Items.COOKED_BEEF, Items.COOKED_PORKCHOP, Items.COOKED_MUTTON, Items.COOKED_CHICKEN)) {
@@ -3298,7 +3300,7 @@ public final class ClaudeLife {
                     BlockPos homeF = rawRidesHome(g, level);
                     if (homeF != null) return "done: the " + Crafting.name(input) + " rides home to my furnace at " + homeF.toShortString() + " (" + (int) Math.sqrt(homeF.distSqr(g.blockPosition())) + " off): no new furnace out here";
                 }
-                if ((input == Items.RAW_IRON || input == Items.RAW_GOLD) && com.claudemod.entity.life.ChestLedger.count(g, level, input) > 0 && g.inventory.count(t -> t.is(input)) + com.claudemod.entity.life.ChestLedger.count(g, level, input) > count) { String got0 = fromMyChests(g, level, t -> t.is(input), new Skills.Step(st.skill(), st.target(), g.inventory.count(t -> t.is(input)) + com.claudemod.entity.life.ChestLedger.count(g, level, input), st.where())); if (got0 != null) return got0; } // the rest of the lot from his chests too, one trip (live 01:25 11-05: 3 cooked, then 8 fetched for the chestplate, then 7)
+                if ((input == Items.RAW_IRON || input == Items.RAW_GOLD) && com.claudemod.entity.life.ChestLedger.where(g, level, t -> t.is(input)).stream().anyMatch(sp -> sp.dist() <= com.claudemod.entity.life.Weights.w("smelt.rest_chest_blocks", 24))) { String got0 = fromMyChests(g, level, t -> t.is(input), st); if (got0 != null) return got0; } // the rest of the lot from his chests too, one trip (live 01:25 11-05: 3 cooked, then 8 fetched for the chestplate, then 7)
                 if ((input == Items.RAW_IRON || input == Items.RAW_GOLD || !g.commandActive && input == Items.RAW_COPPER) && g.inventory.count(t -> t.is(input)) > count) { int all0 = g.inventory.count(t -> t.is(input)); g.skillQueue.addFirst(new Skills.Step(st.skill(), st.target(), all0, st.where())); return "smelting all " + all0 + " " + Crafting.name(input) + " at once, not just " + count; } // the whole lot at once, like a player (live 12:03 World 15: 2 of 11 raw iron, for the craft's shortfall) // (iron and gold on their job too: "go" made the pickaxe's 3 of 26)
                 int toCook = Math.min(count, g.inventory.count(t -> t.is(input)));
                 boolean coal = g.inventory.count(t -> t.is(Items.COAL) || t.is(Items.CHARCOAL)) * 8 >= toCook;
@@ -7238,22 +7240,34 @@ public final class ClaudeLife {
         try { return new BlockPos(Integer.parseInt(n[0]), Integer.parseInt(n[1]), Integer.parseInt(n[2])); } catch (NumberFormatException e) { return null; }
     }
 
+    /** How many of this item one craft step uses (its recipe's share times the crafts), or -1 when its recipe doesn't take it. */
+    static int craftShare(ServerLevel level, Skills.Step st, Item bi) {
+        Item out = item(st.target()); if (out == null) return -1;
+        for (var h : Crafting.recipesFor(level, out)) { int per = 0; for (var ing : h.value().getIngredients()) if (!ing.isEmpty() && ing.test(new ItemStack(bi))) per++; if (per > 0) { int outN = Math.max(1, h.value().getResultItem(level.registryAccess()).getCount()); return per * Math.max(1, (st.count() + outN - 1) / outN); } }
+        return -1;
+    }
     /** His chests are part of his inventory: what he needs and stored, he goes and gets (then runs the step again). Null if none has it. */
     private static String fromMyChests(ClaudeEntity g, ServerLevel level, Predicate<ItemStack> want, Skills.Step st) {
-        BlockPos best = null; Item bi0 = null; double bestD = Double.MAX_VALUE; // his chests by his last look in each (his ledger, from anywhere: 7 diamonds 190 off at his nook were "none" past 48): the nearest that has it (the user: "use the closest one available")
+        BlockPos best = null; Item bi0 = null; double bestD = Double.MAX_VALUE; int bestN = 0, bestWalk = 0; // his chests by his last look in each (his ledger, from anywhere: 7 diamonds 190 off at his nook were "none" past 48): the nearest that has it (the user: "use the closest one available")
         for (var sp : com.claudemod.entity.life.ChestLedger.where(g, level, want)) {
             { Integer failed = g.attempts.any.get(sp.pos()); if (failed != null && g.tickCount - failed < 20 * 300) continue; } // one he couldn't walk to a moment ago (the walker says so fast now)
-            best = sp.pos(); bi0 = sp.item(); bestD = sp.pos().distSqr(g.blockPosition()); break;
+            best = sp.pos(); bi0 = sp.item(); bestD = sp.pos().distSqr(g.blockPosition()); bestN = sp.count(); bestWalk = sp.dist(); break;
         }
         if (best == null) return null;
         ItemStack bestIn = new ItemStack(bi0);
         if (bestIn.is(Items.COBBLESTONE) || bestIn.is(Items.COBBLED_DEEPSLATE) || bestIn.is(Items.DIRT) || bestIn.is(Items.STONE) || bestIn.is(Items.GRAVEL) || bestIn.is(Items.SAND)) { final Item ci = bestIn.getItem(); int walkTo = 0; for (var sp0 : com.claudemod.entity.life.ChestLedger.where(g, level, want)) if (sp0.pos().equals(best)) { walkTo = sp0.dist(); break; } java.util.function.Predicate<BlockState> drops = b0 -> ci == Items.COBBLESTONE || ci == Items.COBBLED_DEEPSLATE ? b0.is(BlockTags.STONE_ORE_REPLACEABLES) || b0.is(BlockTags.DEEPSLATE_ORE_REPLACEABLES) : ci == Items.DIRT ? b0.is(Blocks.DIRT) || b0.is(Blocks.GRASS_BLOCK) : ci == Items.GRAVEL ? b0.is(Blocks.GRAVEL) : ci == Items.SAND ? b0.is(Blocks.SAND) : b0.is(Blocks.STONE); boolean showing = findAll(level, g.blockPosition(), 10, drops, 40).stream().anyMatch(b0 -> touchesAir(level, b0)); double chestS = walkTo / com.claudemod.entity.life.Weights.w("supply.walk_blocks_per_s", 4.5), digS = Math.max(1, st.count()) * com.claudemod.entity.life.Weights.w("supply.dig_s_per_block", 0.8) + (showing ? com.claudemod.entity.life.Weights.w("supply.dig_find_showing_s", 3) : com.claudemod.entity.life.Weights.w("supply.dig_find_hidden_s", 25)); ClaudeMod.LOGGER.info("[Claude decide] {} {}: his chest at {} ({} by his ways, ~{} s) vs digging it here (~{} s, {}): {} (ClaudeLife.fromMyChests)", Math.max(1, st.count()), Crafting.name(ci), best.toShortString(), walkTo, (int) chestS, (int) digS, showing ? "it shows within 10" : "none showing within 10", chestS < digS ? "the chest" : "dug here"); if (chestS >= digS) return null; } // (was: common stuff in a chest past 24 never fetched; live 20:44 World 17 he walked off from 32 cobble 2 blocks from his bed for salmon and logs, then had no cobble 100 off, no stone showing, and "it waits till I'm back by my mine" forever. The user: fixed rules go, weighted choices instead) // common stuff in a far chest: dug where he stands instead (100 blocks and down his mine for 3 cobble, with stone under his feet)
         final Item bi = bestIn.getItem(); int onHim = g.inventory.count(x -> x.is(bi));
         int need = st.count(); // a craft wants the recipe's share of it, not the craft count (a diamond chestplate took its 8 diamonds out one chest trip at a time)
-        if ("craft".equals(st.skill())) { Item out = item(st.target()); if (out != null) for (var h : Crafting.recipesFor(level, out)) { int per = 0; for (var ing : h.value().getIngredients()) if (!ing.isEmpty() && ing.test(new ItemStack(bi))) per++; if (per > 0) { int outN = Math.max(1, h.value().getResultItem(level.registryAccess()).getCount()); need = per * Math.max(1, (st.count() + outN - 1) / outN); break; } } }
+        if ("craft".equals(st.skill())) { int sh = craftShare(level, st, bi); if (sh > 0) need = sh; }
         if ("craft".equals(st.skill())) { // pack and chests together still short: no walk to the chest for a craft that fails anyway (the diamond leggings, the user); the same chests the search above uses (a 48-block count missed the iron 60 off: the bucket looped)
             int inChests = com.claudemod.entity.life.ChestLedger.count(g, level, bi); // (his ledger: the same chests the search above uses)
             if (onHim + inChests < need) return null;
+        }
+        if ("craft".equals(st.skill())) { int more = 0; for (Skills.Step q : g.skillQueue) if ("craft".equals(q.skill())) more += Math.max(0, craftShare(level, q, bi)); // one trip for every queued craft's share (live 11:27 11-07, gear_up: ingots out of 16,67,-46 for the sword, again for the shield, again for the bucket; diamonds 34 and 75 off in turn)
+            if (more > 0) { ClaudeMod.LOGGER.info("[Claude life] {} for {}: {} more for the crafts queued after it, one trip (ClaudeLife.fromMyChests)", Crafting.name(bi), st.target(), more); need += more; } }
+        if ("smelt".equals(st.skill()) && (bi == Items.RAW_IRON || bi == Items.RAW_GOLD) && onHim + bestN > need) { // the whole lot in that chest comes in one trip and smelts at once (live 10:09 11-07: 3 taken for the bucket, then back in for the other 17 0 s later)
+            ClaudeMod.LOGGER.info("[Claude life] smelt {}: all {} {} in his chest at {} comes too, not just {} (ClaudeLife.fromMyChests)", st.target(), bestN, Crafting.name(bi), best.toShortString(), need);
+            need = onHim + bestN; st = new Skills.Step(st.skill(), st.target(), need, st.where());
         }
         if (best.distSqr(g.blockPosition()) > 64 * 64 && !g.tasks.isEmpty()) { ClaudeMod.LOGGER.info("[Claude life] off to his chest at {} ({} off): the work queued here waits for when he passes again: dropped {} (ClaudeLife.fromMyChests)", best.toShortString(), (int) Math.sqrt(best.distSqr(g.blockPosition())), g.tasks); g.tasks.clear(); } // (a nook round queued at 234,-58,237 rode along: diamonds in hand at home, he walked 358 blocks back down for it before the craft, live 23:46)
         g.tasks.add(new Task.GoTo(best, 2)); // (only now: queued before the check, a walk to the chest went ahead even when the fetch was called off)
@@ -12381,9 +12395,16 @@ public final class ClaudeLife {
         }
         // batches: each job split evenly over all the furnaces (the user: all of them at once, in groups): 32 raw iron in six furnaces is 6,6,5,5,5,5, not 8,8,8,8
         List<Object[]> batches = new ArrayList<>();
-        for (Object[] l : loads) {
-            int n = (int) l[1], parts = Math.max(1, Math.min(furnaces.size(), Math.max((n + 7) / 8, n / 3))); // the user: a furnace per 8 (one coal's worth), never one item each in six furnaces burning six fuels
-            for (int k = 0; k < parts; k++) { int c = n / parts + (k < n % parts ? 1 : 0); if (c > 0) batches.add(new Object[] {l[0], c}); }
+        int[] parts = new int[loads.size()]; int sum = 0;
+        for (int k = 0; k < loads.size(); k++) { int n = (int) loads.get(k)[1]; parts[k] = Math.max(1, Math.min(furnaces.size(), Math.max((n + 7) / 8, n / 3))); sum += parts[k]; }
+        while (sum > furnaces.size()) { // two kinds: the furnaces shared by load, not the first kind in all of them and the second queued behind it in one (live 10:07 11-07: 9 salmon in 3, then 7 logs 4+3 in one furnace, two stood empty)
+            int k0 = -1; for (int k = 0; k < parts.length; k++) if (parts[k] > 1 && (k0 < 0 || (int) loads.get(k)[1] / (double) (parts[k] - 1) < (int) loads.get(k0)[1] / (double) (parts[k0] - 1))) k0 = k;
+            if (k0 < 0) break; // more kinds than furnaces: the rest go after
+            parts[k0]--; sum--;
+        }
+        for (int k0 = 0; k0 < loads.size(); k0++) { Object[] l = loads.get(k0);
+            int n = (int) l[1], parts0 = parts[k0]; // the user: a furnace per 8 (one coal's worth), never one item each in six furnaces burning six fuels
+            for (int k = 0; k < parts0; k++) { int c = n / parts0 + (k < n % parts0 ? 1 : 0); if (c > 0) batches.add(new Object[] {l[0], c}); }
         }
         // assign: a furnace takes one kind of item; same-kind batches can share
         Item[] kind = new Item[furnaces.size()];

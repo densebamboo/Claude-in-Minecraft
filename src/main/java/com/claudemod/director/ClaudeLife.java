@@ -9351,12 +9351,20 @@ public final class ClaudeLife {
      */
     /** The trip packing rule mid-trip (the user: back up for food under 6 meals): the kit check ran only as a step started, and one strip_mine step's 200 digs ran 30 minutes down to 0 meals, then a cave fight at 2 health (live 02:13-02:44 11-07; stage 889). Under the line partway through a dig, the dig waits and the kit's food plan goes first; at night down his mine gearFirst still keeps him working till first light. */
     /** Away from home: under the trip's meals (the trip packing rule), or hungry with nothing to eat: the kit's priced food (hoglins, or through his portal for animals) before the job, the job after. Says why either way. */
+    public static void netherFoodTest(ClaudeEntity g, ServerLevel level) { foodTripTicks().remove(g.getUUID()); netherFood(g, level); } // (tests: an earlier stage's food-trip clock cleared)
     static void netherFood(ClaudeEntity g, ServerLevel level) {
         boolean starving = g.getFoodData().getFoodLevel() <= 6 && foodToEat(g, true) == null;
         int meals = Kit.food(g);
         if (g.commandActive || !starving && (meals >= com.claudemod.entity.life.Weights.w("trip.food_back_meals", 6) || g.lastStep == null)) return;
         if (g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee || g.currentTask instanceof Task.Eat || g.currentTask instanceof Task.FurnaceTake || g.tickCount - foodTripTick(g) < 20 * 300) return;
         for (Skills.Step s0 : g.skillQueue) { Item f0 = item(s0.target()); if (f0 != null && f0.components().has(net.minecraft.core.component.DataComponents.FOOD)) return; } // the food's on its way already
+        if (level.dimension() == net.minecraft.world.level.Level.NETHER && com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.hoglin.Hoglin.class, g.getBoundingBox().inflate(24), h0 -> h0.isAlive()).isEmpty()) { // back up for food means home (the user's trip rule): through his portal along the way he knows, the kit packed there; never a hunt off into unknown Nether (live 10:49 11-07: 3 meals, a 255-block crimson forest trip off his highway, shot dead on his own bridge over lava at 11:21, stage 1051)
+            noteFoodTrip(g); Skills.Step job = g.lastStep; int n = g.tasks.size(); clearTasks(g); g.dropCurrent = true;
+            if (job != null && !job.skill().equals("obtain") && !job.skill().equals("enter_portal") && g.skillQueue.stream().noneMatch(s0 -> s0.skill().equals(job.skill()) && s0.target().equals(job.target()))) g.skillQueue.addFirst(job);
+            g.skillQueue.addFirst(new Skills.Step("enter_portal", "home", 1));
+            ClaudeMod.LOGGER.info("[Claude life] {} meal(s) left in the_nether (food {}, health {}){}: home through his portal for food, no hoglin in sight; then {} ({} task(s) set aside) (ClaudeLife.netherFood)", meals, g.getFoodData().getFoodLevel(), (int) g.getHealth(), starving ? ", nothing to eat" : "", job == null ? "-" : job.skill() + " " + job.target(), n);
+            return;
+        }
         var fa = Kit.foodNow(g); noteFoodTrip(g);
         if (fa == null) { ClaudeMod.LOGGER.info("[Claude life] {} meal(s) left in {} (food {}): no food trip, the pricing says go as he is (kit.food line above) (ClaudeLife.netherFood)", meals, level.dimension().location().getPath(), g.getFoodData().getFoodLevel()); return; }
         Skills.Step job = g.lastStep; int n = g.tasks.size(); clearTasks(g); g.dropCurrent = true;

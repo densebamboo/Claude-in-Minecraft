@@ -10767,6 +10767,7 @@ public final class ClaudeBodyTest {
             case 898: return st898(stage, t, c, h, level, mock);
             case 899: return st899(stage, t, c, h, level, mock);
             case 1050: return st1050(stage, t, c, h, level, mock);
+            case 1051: return st1051(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -20700,6 +20701,23 @@ public final class ClaudeBodyTest {
             pass(stage, t, r);
         }
         } catch (RuntimeException ex) { nsHome(c, h, level); throw ex; }
+        return true;
+    }
+
+    /** Stage 1051 (live 10:49 11-07 World 17): 3 meals left in the Nether on his highway job: "off for 9 cooked_porkchop first" sent him 255 blocks off his highway to a crimson forest; at 11:21 he was shot dead on his own bridge over lava out there. Back up for food means home (the user's trip rule): through his portal, the food packed at home; a hoglin in sight is the only hunt. Here: 3 meals, the highway job, no hoglin: home through the portal first, the job after. */
+    private static boolean st1051(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); }
+        if (t[0] == 10) {
+            var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_PORKCHOP, 3)); c.getFoodData().setFoodLevel(20); c.setHealth(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.commandActive = false; c.lastStep = new com.claudemod.entity.life.Skills.Step("build_highway", "fortress", 1);
+            com.claudemod.director.ClaudeLife.netherFoodTest(c, nl);
+            var first = c.skillQueue.peekFirst();
+            check(first != null && first.skill().equals("enter_portal"), "3 meals in the Nether, no hoglin in sight: the first step is " + first + " (queue " + c.skillQueue + "), not home through his portal");
+            check(c.skillQueue.stream().anyMatch(s -> s.skill().equals("build_highway")), "the highway job dropped: queue " + c.skillQueue);
+            c.skillQueue.clear(); c.lastStep = null; c.getInventory().clearContent(); c.dropCurrent = true;
+            pass(stage, t, "home through his portal for food, the highway after: " + first); return true;
+        }
         return true;
     }
 

@@ -5408,18 +5408,9 @@ public final class ClaudeLife {
                 if (c != null) { g.storageChests.add(c.immutable()); g.tasks.addFirst(new Task.Deposit(c.immutable())); ClaudeMod.LOGGER.info("[Claude life] inventory full and no storage near: a chest at {} for it", c.toShortString()); return; }
             }
         }
-        { BlockPos work = null; java.util.List<Task> ahead = new java.util.ArrayList<>(); if (g.currentTask != null) ahead.add(g.currentTask); ahead.addAll(g.tasks); // a toss goes away from his work, like a player's: thrown at his feet, he walked back over it and his body took it all back up (live 11:10: the same 6 stacks thrown every 5 s)
-          for (Task t : ahead) { if (t instanceof Task.Break b) work = b.pos(); else if (t instanceof Task.GoTo w) work = w.pos(); else if (t instanceof Task.Place pl) work = pl.pos(); if (work != null) break; }
-          // ponytail: netherrack is junk but the toss below keeps 2 stacks of it as his building stone: counted here it turned him round every 5 s to throw nothing, spinning him off his walks (live 14:30)
-          if (work != null && inv.items.stream().anyMatch(s0 -> !s0.isEmpty() && junkItem(s0) && !s0.is(Items.NETHERRACK))) { double dx = g.getX() - (work.getX() + 0.5), dz = g.getZ() - (work.getZ() + 0.5); if (dx * dx + dz * dz > 0.01) { g.setYRot((float) Math.toDegrees(Math.atan2(dz, dx)) - 90f); g.setXRot(-25f); ClaudeMod.LOGGER.info("[Claude life] junk thrown away from his work at {} (ClaudeLife.dumpJunk)", work.toShortString()); } }
-          else if (work == null && inv.items.stream().anyMatch(s0 -> !s0.isEmpty() && junkItem(s0) && !s0.is(Items.NETHERRACK))) { // ponytail: live 13:24, idle in a Nether nook: 64 netherrack thrown at the rock every 5 s, landed at his feet, his body took it back; thrown the most open way instead
-            Direction best = null; int bestOpen = -1; BlockPos eye = BlockPos.containing(g.getEyePosition());
-            for (Direction d : Direction.Plane.HORIZONTAL) { int open = 0; for (int k = 1; k <= 4 && g.level().getBlockState(eye.relative(d, k)).getCollisionShape(g.level(), eye.relative(d, k)).isEmpty(); k++) open++; if (open > bestOpen) { bestOpen = open; best = d; } }
-            if (bestOpen < 2) { if (g.tickCount % 600 < 100) ClaudeMod.LOGGER.info("[Claude life] inventory full but nowhere to throw here ({} clear): the junk stays on him till he's somewhere open (ClaudeLife.dumpJunk)", bestOpen); return; } // (1 clear cell on his stronghold stair: it landed at his feet, his body took it back, a throw every 5 s, live 00:33)
-            g.setYRot(best.toYRot()); g.setXRot(-25f); ClaudeMod.LOGGER.info("[Claude life] junk thrown the most open way, {} ({} clear) (ClaudeLife.dumpJunk)", best, bestOpen); } }
         java.util.Set<Item> junk = JUNK;
         java.util.Map<Item, Integer> kept = new java.util.HashMap<>();
-        int n = 0; StringBuilder thrown = new StringBuilder();
+        java.util.List<Integer> toss = new java.util.ArrayList<>(); // what this toss throws, picked before he turns: the turn away from his work is for that, not for the junk list alone (spare cobble and a 4th stone pick went at his feet in his highway tunnel, walked over and taken back, live 22:00:39 / 22:57, stage 788)
         for (int i = 0; i < inv.items.size(); i++) {
             var st = inv.items.get(i);
             if (st.isEmpty() || i == inv.selected) continue;
@@ -5427,6 +5418,20 @@ public final class ClaudeLife {
             if (st.is(Items.COBBLED_DEEPSLATE) && deepslateWanted(g)) continue; // the highway's block, his to lay (D2D reviews 943/125: a full pack threw out 53 of it as junk)
             if (cobble && kept.merge(Items.COBBLESTONE, 1, Integer::sum) <= 2) continue; // two stacks of stone all told, cobble and cobbled deepslate together, as a player keeps (live 10:18 World 15: two of each, 238 stone in 4 slots, and the sugar dropped and picked back up every 7 s instead)
             if (!cobble && !junk.contains(st.getItem()) && !superseded(g, st, i)) continue;
+            toss.add(i);
+        }
+        { BlockPos work = null; java.util.List<Task> ahead = new java.util.ArrayList<>(); if (g.currentTask != null) ahead.add(g.currentTask); ahead.addAll(g.tasks); // a toss goes away from his work, like a player's: thrown at his feet, he walked back over it and his body took it all back up (live 11:10: the same 6 stacks thrown every 5 s)
+          for (Task t : ahead) { if (t instanceof Task.Break b) work = b.pos(); else if (t instanceof Task.GoTo w) work = w.pos(); else if (t instanceof Task.Place pl) work = pl.pos(); if (work != null) break; }
+          // ponytail: netherrack is junk but the toss below keeps 2 stacks of it as his building stone: counted here it turned him round every 5 s to throw nothing, spinning him off his walks (live 14:30)
+          if (work != null && !toss.isEmpty()) { double dx = g.getX() - (work.getX() + 0.5), dz = g.getZ() - (work.getZ() + 0.5); if (dx * dx + dz * dz > 0.01) { g.setYRot((float) Math.toDegrees(Math.atan2(dz, dx)) - 90f); g.setXRot(-25f); ClaudeMod.LOGGER.info("[Claude life] junk thrown away from his work at {} (ClaudeLife.dumpJunk)", work.toShortString()); } }
+          else if (work == null && !toss.isEmpty()) { // ponytail: live 13:24, idle in a Nether nook: 64 netherrack thrown at the rock every 5 s, landed at his feet, his body took it back; thrown the most open way instead
+            Direction best = null; int bestOpen = -1; BlockPos eye = BlockPos.containing(g.getEyePosition());
+            for (Direction d : Direction.Plane.HORIZONTAL) { int open = 0; for (int k = 1; k <= 4 && g.level().getBlockState(eye.relative(d, k)).getCollisionShape(g.level(), eye.relative(d, k)).isEmpty(); k++) open++; if (open > bestOpen) { bestOpen = open; best = d; } }
+            if (bestOpen < 2) { if (g.tickCount % 600 < 100) ClaudeMod.LOGGER.info("[Claude life] inventory full but nowhere to throw here ({} clear): the junk stays on him till he's somewhere open (ClaudeLife.dumpJunk)", bestOpen); return; } // (1 clear cell on his stronghold stair: it landed at his feet, his body took it back, a throw every 5 s, live 00:33)
+            g.setYRot(best.toYRot()); g.setXRot(-25f); ClaudeMod.LOGGER.info("[Claude life] junk thrown the most open way, {} ({} clear) (ClaudeLife.dumpJunk)", best, bestOpen); } }
+        int n = 0; StringBuilder thrown = new StringBuilder();
+        for (int i : toss) {
+            var st = inv.items.get(i);
             thrown.append(st.getCount()).append(' ').append(st.getItem()).append(' ');
             var e = g.drop(st.copy(), false, true);
             if (e != null) g.markGift(e); // a normal toss (vanilla pickup delay); he just doesn't go back for it

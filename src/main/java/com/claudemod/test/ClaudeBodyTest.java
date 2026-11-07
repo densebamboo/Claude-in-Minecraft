@@ -13760,7 +13760,7 @@ public final class ClaudeBodyTest {
         }
         if (t[0] == 20) { net.minecraft.world.entity.monster.MagmaCube m = null; for (int k = 0; k < 3; k++) { var m0 = net.minecraft.world.entity.EntityType.MAGMA_CUBE.create(nl); m0.setSize(2, true); m0.moveTo(o.getX() + 4.5, o.getY() - 1, o.getZ() + 3.5 + 2 * k, 0f, 0f); nl.addFreshEntity(m0); if (m == null) m = m0; } // (three big ones, as the delta's: live he had 6 close)
             c.tasks.clear(); c.skillQueue.clear(); c.tasks.add(new com.claudemod.entity.life.Task.Attack(m.getUUID(), 20 * 30)); s932T = t[0]; }
-        if (t[0] > 20) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear(); s932MinY = Math.min(s932MinY, c.getY()); if (c.getX() >= o.getX() + 2.3) s932MinY = Math.min(s932MinY, -1000); } // (off its side counts as off it)
+        if (t[0] > 20) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear(); if (!nl.getEntitiesOfClass(net.minecraft.world.entity.monster.MagmaCube.class, new net.minecraft.world.phys.AABB(o).inflate(30)).isEmpty()) { s932MinY = Math.min(s932MinY, c.getY()); if (c.getX() >= o.getX() + 2.3) s932MinY = Math.min(s932MinY, -1000); } } // (off its side counts as off it; only in the fight: a cream picked up off the ledge after the last cube, back up a step, is a fair pickup)
         if (s932T > 0 && t[0] % 20 == 0) {
             boolean alive = !nl.getEntitiesOfClass(net.minecraft.world.entity.monster.MagmaCube.class, new net.minecraft.world.phys.AABB(o).inflate(30)).isEmpty();
             boolean off = s932MinY < o.getY() - 1.5;

@@ -323,8 +323,9 @@ public class WorkGoal extends Goal {
                 ticks = 0; stuck = 0; lastDist = Double.MAX_VALUE;
             }
         }
-        if (g.tickCount % 20 == 3 && !(current instanceof Task.Flee) && !(current instanceof Task.Attack) && g.getHealth() <= 4 && !diggingIn() && g.tickCount - desperateTick > 20 * 90
-                && !g.isSleeping() && com.claudemod.director.ClaudeLife.foodToEat(g, true) == null && (!(g.getBlockY() >= g.level().getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.getBlockX(), g.getBlockZ()) - 4 && !com.claudemod.director.ClaudeLife.dayHere(g.level()) ? enemiesNear(24) : hostilesNear(16)).isEmpty() || enemiesNear(16).size() >= 3)) {
+        if (g.tickCount % 20 == 3 && !(current instanceof Task.Flee) && !(current instanceof Task.Attack) && g.getHealth() < g.getMaxHealth() && !diggingIn() && g.tickCount - desperateTick > 20 * 90
+                && !g.isSleeping() && com.claudemod.director.ClaudeLife.foodToEat(g, true) == null && (!(g.getBlockY() >= g.level().getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.getBlockX(), g.getBlockZ()) - 4 && !com.claudemod.director.ClaudeLife.dayHere(g.level()) ? enemiesNear(24) : hostilesNear(16)).isEmpty() || enemiesNear(16).size() >= 3)
+                && coverPays("nothing to eat", enemiesNear(24).size())) { // (priced, cover.dig_in: was "health 4 or less")
             desperateTick = g.tickCount; // (once per 90s whether or not cover could be made: no second-by-second spam when it can't) // a heart or two, nothing to eat, something hunting him: under cover, now
             if (current != null) { clearCrack(); g.tasks.addFirst(current); }
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] at health {} with nothing to eat and {} hostile(s) about: holing up", (int) g.getHealth(), enemiesNear(24).size());
@@ -346,7 +347,8 @@ public class WorkGoal extends Goal {
         // Nothing to fight with or in, hostiles closing, dark or hurt: under cover now, before the first hit (a fresh respawn at night died idle, then "while wait" in a hole with no lid)
         if (g.tickCount % 20 == 11 && !(current instanceof Task.Flee) && !(current instanceof Task.Attack) && !diggingIn() && !g.isSleeping() && weakKit()
                 && !((g.getHealth() >= 14 || g.inventory.count(x -> !x.isEmpty()) <= 4) && g.lastStep != null && g.lastStep.skill().equals("recover_drops")) // healthy and running for his things before they vanish (his whole iron kit): not pulled back into cover every 2 s
-                && (!com.claudemod.director.ClaudeLife.dayHere(g.level()) || g.getHealth() < 10) && !com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(12), m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy && (m.getTarget() == g || m.distanceTo(g) < 6 || g.level().canSeeSky(g.blockPosition()))).isEmpty()) { // (underground: only one that's after him or close; anything in the cave within 12 kept him on a tower at 2 health for good)
+                && !com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(12), m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy && (m.getTarget() == g || m.distanceTo(g) < 6 || g.level().canSeeSky(g.blockPosition()))).isEmpty()
+                && coverPays("weak kit", com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(12), m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy).size())) { // (priced, cover.dig_in: was "night, or health under 10") // (underground: only one that's after him or close; anything in the cave within 12 kept him on a tower at 2 health for good)
             if (current != null) { clearCrack(); g.tasks.addFirst(current); }
             desperateNow = true;
             boolean dug = digInFromArrows();
@@ -355,9 +357,10 @@ public class WorkGoal extends Goal {
             else if (current != null) { g.tasks.pollFirst(); }
         }
         // Phantoms out at night (someone's insomnia): working in the open just bleeds hearts; under cover till morning, like a player with no bed
-        if (g.tickCount % 40 == 17 && !(current instanceof Task.Flee) && !(current instanceof Task.Attack) && !diggingIn() && (g.getHealth() < 16 || weakKit())
+        if (g.tickCount % 40 == 17 && !(current instanceof Task.Flee) && !(current instanceof Task.Attack) && !diggingIn()
                 && !com.claudemod.director.ClaudeLife.dayHere(g.level()) && g.level().canSeeSky(g.blockPosition()) && !g.isSleeping()
-                && !g.level().getEntitiesOfClass(net.minecraft.world.entity.monster.Phantom.class, g.getBoundingBox().inflate(32), m -> m.isAlive()).isEmpty()) {
+                && !g.level().getEntitiesOfClass(net.minecraft.world.entity.monster.Phantom.class, g.getBoundingBox().inflate(32), m -> m.isAlive()).isEmpty()
+                && coverPays("phantoms", g.level().getEntitiesOfClass(net.minecraft.world.entity.monster.Phantom.class, g.getBoundingBox().inflate(32), m -> m.isAlive()).size() * (weakKit() ? 2 : 1))) { // (priced, cover.dig_in: was "health under 16 or a weak kit"; a weak kit can't swat them, counted twice)
             if (current != null) { clearCrack(); g.tasks.addFirst(current); }
             desperateNow = true;
             boolean dug = digInFromArrows();
@@ -4621,6 +4624,23 @@ public class WorkGoal extends Goal {
     }
 
     /** Nothing much to fight with or in: a wooden weapon at best, or no armor on at all. Two mobs are a crowd for him then (a fresh respawn at night died twice "armed" with a wooden sword). */
+    /** Under cover now, or on with what he's doing among n hostiles (cover.dig_in): the HP he can expect to lose out here over cover.look_ahead_s (Decide.danger at his armor, priced by hpS: his health, food, the death odds) against building cover and waiting it out. True: cover. Logged when cover wins. */
+    private boolean coverPays(String why, int n) {
+        ServerLevel lv = (ServerLevel) g.level(); long tod = lv.getDayTime() % 24000;
+        double perHit = com.claudemod.entity.life.Decide.hitHp() * com.claudemod.entity.life.Decide.armorF(g);
+        double onHp = com.claudemod.entity.life.Decide.danger(g, lv, tod, w("cover.look_ahead_s", 10), Math.max(1, n));
+        double build = w("cover.build_s", 2.5), buildHp = 0; // (the hits while he builds it: shooters with a line on him keep firing at a tower, melee within 4 swing; 596, two skeletons in the day: a tower under their fire)
+        for (var m : com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(24), x -> x.isAlive() && x instanceof net.minecraft.world.entity.monster.Enemy)) {
+            if (shoots(m) && m.hasLineOfSight(g)) buildHp += build * w("flee.shots_per_s", 0.5) * w("flee.shot_hit_chance", 0.7) * mobHit(m);
+            else if (m.distanceTo(g) < 4) buildHp += build * w("fight.mob_hits_per_s", 0.8) * mobHit(m); }
+        double on = com.claudemod.entity.life.Decide.hpS(g, 0, onHp, perHit), cover = build + com.claudemod.entity.life.Decide.hpS(g, 0, buildHp, perHit) + w("cover.wait_out_s", 60);
+        var opts = java.util.List.of(com.claudemod.entity.life.Decide.Option.of("cover", cover, "build " + build + " s (~" + String.format("%.1f", buildHp) + " HP while he does), wait it out ~" + Math.round(w("cover.wait_out_s", 60)) + " s"),
+            com.claudemod.entity.life.Decide.Option.of("carry on", on, "~" + String.format("%.1f", onHp) + " HP to expect out here over " + Math.round(w("cover.look_ahead_s", 10)) + " s"));
+        String ctx = why + ", " + n + " hostile(s), health " + (int) g.getHealth() + ", armor " + g.getArmorValue() + (com.claudemod.director.ClaudeLife.dayHere(lv) ? "" : ", night");
+        var pick = com.claudemod.entity.life.Decide.choose(g, "cover.dig_in", ctx, false, opts);
+        if (pick == null || !pick.name().equals("cover")) return false;
+        com.claudemod.entity.life.Decide.choose(g, "cover.dig_in", ctx, true, opts); return true;
+    }
     private boolean weakKit() {
         boolean proper = !g.inventory.find(s -> (s.getItem() instanceof net.minecraft.world.item.SwordItem && !s.is(net.minecraft.world.item.Items.WOODEN_SWORD)) || (s.getItem() instanceof net.minecraft.world.item.AxeItem && !s.is(net.minecraft.world.item.Items.WOODEN_AXE))).isEmpty();
         boolean armor = false;

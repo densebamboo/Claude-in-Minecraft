@@ -290,8 +290,9 @@ public final class TempLedger {
         String was = lastSkill.put(g.getUUID(), skill);
         if (java.util.Set.of("craft", "smelt", "obtain", "gear_up").contains(skill)) return 0; // (gear_up only plans the crafts and smelts that use them: live 14:18 World 17, his furnace taken up for gear_up and put down a block over for its smelt; walking off still takes them, TempLedger.leaving)
         if (skill.equals(was) && !"craft".equals(was)) return 0; // the same job going on (its next step): what it put down may still be its own
-        List<Entry> near = new ArrayList<>();
-        for (Entry e : book(g).values()) if (e.pos.distSqr(g.blockPosition()) <= 6 * 6 && level.isLoaded(e.pos) && !level.getBlockState(e.pos).canBeReplaced() && his(level, e) && doneWith(g, level, e, true) && takeable(g, level, e)) near.add(e); // (his block only: another's in the cell comes off the ledger on the tick)
+        List<Entry> near = new ArrayList<>(); BlockPos me = g.blockPosition(); net.minecraft.world.phys.Vec3 eye = g.getEyePosition();
+        boolean foes = !Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(12), m -> m.isAlive()).isEmpty(); // (leaving's rules here too: live 03:29 11-07 a 202-min-old bridge block 4 down beside lava, a magma cube heard on it: a 1 HP drop, a fight, a 14-leg climb back for one block; review 531)
+        if (!foes) for (Entry e : book(g).values()) if (e.pos.distSqr(me) <= 6 * 6 && level.isLoaded(e.pos) && handy(g, level, e, me, eye) && !level.getBlockState(e.pos).canBeReplaced() && his(level, e) && doneWith(g, level, e, true) && takeable(g, level, e)) near.add(e); // (his block only: another's in the cell comes off the ledger on the tick)
         int cover = 0; for (Entry e : book(g).values()) if (e.pos.distSqr(g.blockPosition()) <= 6 * 6 && g.coverCell(e.pos)) cover++;
         if (cover > 0) ClaudeMod.LOGGER.info("[Claude temp] off to {}: {} block(s) of the cover he's in left standing, the cover's own steps take them down (TempLedger.stepStart)", skill, cover);
         if (near.isEmpty()) return 0;
@@ -354,6 +355,11 @@ public final class TempLedger {
         }
     }
 
+    /** On his level (a cell up or down), or in reach and in sight: one he'd climb back down to is the climb's (taking it would undo the climb, the old loop). */
+    static boolean handy(ClaudeEntity g, ServerLevel level, Entry e, BlockPos me, net.minecraft.world.phys.Vec3 eye) {
+        return Math.abs(e.pos.getY() - me.getY()) <= 1 || eye.distanceTo(net.minecraft.world.phys.Vec3.atCenterOf(e.pos)) <= com.claudemod.entity.goals.WorkGoal.BREAK_REACH && e.pos.equals(level.clip(new net.minecraft.world.level.ClipContext(eye, net.minecraft.world.phys.Vec3.atCenterOf(e.pos), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getBlockPos());
+    }
+
     /**
      * He's setting off (a walk under way, or next in his queue) for somewhere 24+ past blocks of his he's done with, within 16 of
      * him: they come back up first, the way a player takes up his step before he goes (05:26 a step 6.7 off was out of the step
@@ -372,7 +378,7 @@ public final class TempLedger {
         BlockPos me = g.blockPosition(); net.minecraft.world.phys.Vec3 eye = g.getEyePosition(); final BlockPos to = dest;
         java.util.function.Predicate<Entry> due = e -> level.isLoaded(e.pos) && e.pos.distSqr(me) <= 16 * 16 && e.pos.distSqr(to) > 24 * 24 && !e.why.equals("craft table") && !e.why.equals("furnace")
                 && !level.getBlockState(e.pos).canBeReplaced() && his(level, e)
-                && (Math.abs(e.pos.getY() - me.getY()) <= 1 || eye.distanceTo(net.minecraft.world.phys.Vec3.atCenterOf(e.pos)) <= com.claudemod.entity.goals.WorkGoal.BREAK_REACH && e.pos.equals(level.clip(new net.minecraft.world.level.ClipContext(eye, net.minecraft.world.phys.Vec3.atCenterOf(e.pos), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getBlockPos())) // (in reach AND in sight: 02:2x a block 2 below behind the floor he stood on was queued, the walker refused every stand spot, a 3x CONFLICT)
+                && handy(g, level, e, me, eye) // (in reach AND in sight: 02:2x a block 2 below behind the floor he stood on was queued, the walker refused every stand spot, a 3x CONFLICT)
                 && !(e.triedAt >= 0 && g.tickCount - e.triedAt < 40) && !g.attempts.within(Attempts.Kind.BREAK, e.pos, g.tickCount, 20 * 60) && !Watchdog.off(g, new Task.Break(e.pos)) /* its break failed (a structure block in the way, live 01:30): not re-queued every 2 s */ && !(!com.claudemod.director.ClaudeLife.dayHere(level) && level.canSeeSky(e.pos) && !"light".equals(e.why))
                 && doneWith(g, level, e, false) && takeable(g, level, e)
                 && !e.pos.equals(me.below()) && !e.pos.equals(me) && legs.stream().noneMatch(l -> l.distSqr(e.pos) <= 2 * 2); // still on the way: the route's legs climb over it (01:40 he pillared up for the route, took the pillar down "leaving", fell, pillared again: a loop)

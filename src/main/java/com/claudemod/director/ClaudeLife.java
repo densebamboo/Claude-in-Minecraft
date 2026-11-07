@@ -273,6 +273,7 @@ public final class ClaudeLife {
             if (g.tickCount % 100 == 0) dumpJunk(g); // ponytail: live 13:20, 320 netherrack and 0 free slots in the Nether: this branch never dumped, pickups and crafts failed
             if (g.tickCount % 20 == 10 && g.getFoodData().getFoodLevel() < 20 && !(g.currentTask instanceof Task.Eat) && !(g.tasks.peekFirst() instanceof Task.Eat)) { Item f0 = foodToEat(g, true); if (f0 != null) g.tasks.addFirst(new Task.Eat(f0)); } // ponytail: live 15:36 an Eat queued at the END of a 18-leg route (recover_drops) blocked this the whole walk: food 20 -> 6, 63 beef in the pack, killed by a magma cube // (no lava-edge hold: it kept him from eating at all while stuck by lava, live 12:23-12:49 11-05 health 4 food 13; eating is no riskier there than standing)
             if (g.tickCount % 20 == 11 && foodToEat(g, true) == null) eatIfHungry(g, player); // ponytail: the user 16:50, nothing to eat in the Nether: hoglins in the crimson forest, cooked into porkchops (this branch never ran the hunt)
+            if (g.tickCount % 200 == 77) netherFood(g, (ServerLevel) g.level()); // the food trip away from home too: eatIfHungry only takes an animal in sight with no monster within 16, never true here (live 04:00-04:23 11-07: 6 meals in, 45 min on the highway, starved to 0 and a magma cube finished him)
             mlg(g, (ServerLevel) g.level());
             if (g.planning && g.tickCount - g.planStartTick > 20 * 45) g.planning = false;
             if (g.tickCount % 200 == 3) logWhere(g, player, g.level() == player.level() ? g.distanceTo(player) : -1);
@@ -381,6 +382,7 @@ public final class ClaudeLife {
         if (!onTheirOrder) homeUpkeep(g, player);
         if (g.tickCount % 40 == 29 && !onTheirOrder) mineDeathRepair(g, ((ServerLevel) g.level())); // where he died in his mine: lit and walled the moment he's back by it
         if (g.tickCount % 60 == 21 && !onTheirOrder && g.level().dimension() == net.minecraft.world.level.Level.OVERWORLD) { if (bpMode(g)) bpIntegrity(g, ((ServerLevel) g.level())); else mineIntegrity(g, ((ServerLevel) g.level())); } // the user's rule: in his mine, if there's air, patch it, before anything else
+        if (g.tickCount % 200 == 77 && !onTheirOrder && g.level().dimension() == net.minecraft.world.level.Level.OVERWORLD) tripFoodCheck(g, (ServerLevel) g.level()); // the trip packing rule mid-trip, not only as a step starts
         if (g.tickCount % 1200 == 333 && g.level().dimension() == net.minecraft.world.level.Level.OVERWORLD && bpMode(g) && inHisMine(g, g.blockPosition())) bpShellAudit(g, ((ServerLevel) g.level())); // (logging: the holes left in his shell, for the "missing patchwork" cause)
         if (g.tickCount % 40 == 13 && !g.commandActive && !com.claudemod.entity.ClaudeSpawner.testing && !(g.currentTask instanceof Task.Attack) && !(g.currentTask instanceof Task.Flee) && !(g.currentTask instanceof Task.Break)
                 && ((g.currentTask == null && g.tasks.isEmpty()) || (g.lastStep != null && java.util.Set.of("string", "bone", "bone_meal", "arrow", "fishing_rod", "bow").contains(g.lastStep.target())))) { // the user: a distraction from the job in hand is a bug; only when idle, or when string/bones are the job (it broke off a walk to his mine for a skeleton) // the user: a player knows spiders and cobwebs mean string, skeletons bones and arrows, and takes them when they're about
@@ -5304,7 +5306,7 @@ public final class ClaudeLife {
     }
     static int spareStacks(ClaudeEntity g) {
         java.util.Map<Item, Integer> kept = new java.util.HashMap<>(); int n = 0; final boolean ds = deepslateWanted(g);
-        for (var st : g.getInventory().items) { if (st.isEmpty() || com.claudemod.entity.goals.WorkGoal.keeps(st) || ds && st.is(Items.COBBLED_DEEPSLATE)) continue; if (cobbleItem(st)) { if (kept.merge(Items.COBBLESTONE, 1, Integer::sum) > 2) n++; } else if (junkItem(st)) n++; } // (what Deposit keeps never counts: 06:27 a junk round every 10 s that stored 0) (two stacks of stone all told, as his toss keeps: 2 a kind here was "nothing spare" while the toss threw 2 stacks on his tunnel floor, 3 times in a minute, 05:17 11-05, stage 713)
+        for (var st : g.getInventory().items) { if (!st.isEmpty() && ds && st.is(Items.COBBLED_DEEPSLATE)) { kept.merge(Items.COBBLESTONE, 1, Integer::sum); continue; } /* (the highway's deepslate is his stone: cobble past it is spare) */ if (st.isEmpty() || com.claudemod.entity.goals.WorkGoal.keeps(st)) continue; if (cobbleItem(st)) { if (kept.merge(Items.COBBLESTONE, 1, Integer::sum) > 2) n++; } else if (junkItem(st)) n++; } // (what Deposit keeps never counts: 06:27 a junk round every 10 s that stored 0) (two stacks of stone all told, as his toss keeps: 2 a kind here was "nothing spare" while the toss threw 2 stacks on his tunnel floor, 3 times in a minute, 05:17 11-05, stage 713)
         return n;
     }
 
@@ -5419,7 +5421,7 @@ public final class ClaudeLife {
             var st = inv.items.get(i);
             if (st.isEmpty() || i == inv.selected) continue;
             boolean cobble = st.is(Items.COBBLESTONE) || st.is(Items.COBBLED_DEEPSLATE) || st.is(Items.NETHERRACK) || st.is(Items.BLACKSTONE); // (blackstone: stone for his tools and furnaces, in the two stacks; netherrack too: his Nether building block, booths and bridges)
-            if (st.is(Items.COBBLED_DEEPSLATE) && deepslateWanted(g)) continue; // the highway's block, his to lay (D2D reviews 943/125: a full pack threw out 53 of it as junk)
+            if (st.is(Items.COBBLED_DEEPSLATE) && deepslateWanted(g)) { kept.merge(Items.COBBLESTONE, 1, Integer::sum); continue; } // the highway's block, his to lay (D2D reviews 943/125: a full pack threw out 53 of it as junk); and his stone too: cobble on top of it is spare (live 02:03 11-07: 645 deepslate and 2 stacks of cobble kept, 0 slots free, fishing with nowhere for the catch; the user: highway trips are deepslate only)
             if (cobble && kept.merge(Items.COBBLESTONE, 1, Integer::sum) <= 2) continue; // two stacks of stone all told, cobble and cobbled deepslate together, as a player keeps (live 10:18 World 15: two of each, 238 stone in 4 slots, and the sugar dropped and picked back up every 7 s instead)
             if (!cobble && !junk.contains(st.getItem()) && !superseded(g, st, i)) continue;
             toss.add(i);
@@ -9162,6 +9164,10 @@ public final class ClaudeLife {
         if (!Crafting.needsTable(level, target)) return false;
         if (g.inventory.count(t -> t.is(Items.CRAFTING_TABLE)) == 0) {
             Crafting.Result r = Crafting.craft(level, g.inventory, Items.CRAFTING_TABLE, 1, false);
+            if (r.made() == 0 && String.valueOf(r.missing()).contains("room")) { // a full pack, not no wood: his spare out, then the table (live 02:21 11-07: "missing room in my pack (it's full)", then "no planks or logs on him" with 31 logs and 6 planks, the table never made; reviews 59/60/12/130)
+                dumpJunk(g); r = Crafting.craft(level, g.inventory, Items.CRAFTING_TABLE, 1, false);
+                if (r.made() == 0 && String.valueOf(r.missing()).contains("room")) { ClaudeMod.LOGGER.info("[Claude skill] no room in his pack for a crafting table's planks, and nothing spare to throw: the table waits (ClaudeLife.ensureCraftingTable)"); return false; }
+            }
             if (r.made() == 0) {
                 ClaudeMod.LOGGER.info("[Claude skill] could not make a crafting table: missing {}", r.missing());
                 boolean askedCraft = g.lastStep != null && g.lastStep.skill().equals("craft"); // (his step in hand is a craft: the table's chain is part of it, wood fetched however it comes)
@@ -9305,6 +9311,34 @@ public final class ClaudeLife {
      * when he's kitted out, they told him not to bother, he went for it not long ago (no looping on a kit he can't finish),
      * or it can't be had here (then he goes on as he is; the log says what was missing).
      */
+    /** The trip packing rule mid-trip (the user: back up for food under 6 meals): the kit check ran only as a step started, and one strip_mine step's 200 digs ran 30 minutes down to 0 meals, then a cave fight at 2 health (live 02:13-02:44 11-07; stage 889). Under the line partway through a dig, the dig waits and the kit's food plan goes first; at night down his mine gearFirst still keeps him working till first light. */
+    /** Away from home: under the trip's meals (the trip packing rule), or hungry with nothing to eat: the kit's priced food (hoglins, or through his portal for animals) before the job, the job after. Says why either way. */
+    static void netherFood(ClaudeEntity g, ServerLevel level) {
+        boolean starving = g.getFoodData().getFoodLevel() <= 6 && foodToEat(g, true) == null;
+        int meals = Kit.food(g);
+        if (g.commandActive || !starving && (meals >= com.claudemod.entity.life.Weights.w("trip.food_back_meals", 6) || g.lastStep == null)) return;
+        if (g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee || g.currentTask instanceof Task.Eat || g.currentTask instanceof Task.FurnaceTake || g.tickCount - foodTripTick(g) < 20 * 300) return;
+        for (Skills.Step s0 : g.skillQueue) { Item f0 = item(s0.target()); if (f0 != null && f0.components().has(net.minecraft.core.component.DataComponents.FOOD)) return; } // the food's on its way already
+        var fa = Kit.foodNow(g); noteFoodTrip(g);
+        if (fa == null) { ClaudeMod.LOGGER.info("[Claude life] {} meal(s) left in {} (food {}): no food trip, the pricing says go as he is (kit.food line above) (ClaudeLife.netherFood)", meals, level.dimension().location().getPath(), g.getFoodData().getFoodLevel()); return; }
+        Skills.Step job = g.lastStep; int n = g.tasks.size(); clearTasks(g); g.dropCurrent = true;
+        if (job != null && !job.skill().equals("obtain") && g.skillQueue.stream().noneMatch(s0 -> s0.skill().equals(job.skill()) && s0.target().equals(job.target()))) g.skillQueue.addFirst(job);
+        g.skillQueue.addFirst(new Skills.Step("obtain", Crafting.name(fa.item()), fa.count()));
+        ClaudeMod.LOGGER.info("[Claude life] {} meal(s) left in {} (food {}, health {}){}: off for {} {} first, then {} ({} task(s) set aside) (ClaudeLife.netherFood)", meals, level.dimension().location().getPath(), g.getFoodData().getFoodLevel(), (int) g.getHealth(), starving ? ", nothing to eat" : "", fa.count(), Crafting.name(fa.item()), job == null ? "the work" : job.skill() + " " + job.target(), n);
+    }
+
+    static void tripFoodCheck(ClaudeEntity g, ServerLevel level) {
+        if (g.commandActive || g.lastStep == null || !java.util.Set.of("strip_mine", "dig_down").contains(g.lastStep.skill()) || g.tasks.isEmpty()) return;
+        if (g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee || g.currentTask instanceof Task.FurnaceTake) return;
+        if (Kit.food(g) >= com.claudemod.entity.life.Weights.w("trip.food_back_meals", 6)) return;
+        for (Skills.Step s0 : g.skillQueue) { Item f0 = item(s0.target()); if (f0 != null && f0.components().has(net.minecraft.core.component.DataComponents.FOOD)) return; } // the food's on its way already
+        int gt = g.gearTick; g.gearTick = -100000;
+        String r = gearFirst(g, level, g.lastStep, false);
+        if (r == null) { g.gearTick = gt; return; }
+        int n = g.tasks.size(); clearTasks(g); g.dropCurrent = true;
+        ClaudeMod.LOGGER.info("[Claude life] {} meal(s) left partway through {} {}: the dig waits ({} task(s) set aside), the food first: {} (ClaudeLife.tripFoodCheck)", Kit.food(g), g.lastStep.skill(), g.lastStep.target(), n, r);
+    }
+
     private static String gearFirst(ClaudeEntity g, ServerLevel level, Skills.Step st, boolean full) {
         boolean hurt = g.getHealth() <= 8 && g.getFoodData().getFoodLevel() < 18 && foodToEat(g, true) == null && Kit.food(g) == 0
                 && g.skillQueue.stream().noneMatch(s -> s.skill().equals("obtain") && s.target().startsWith("cooked")); // health only comes back with food: that trip comes first, whatever was planned

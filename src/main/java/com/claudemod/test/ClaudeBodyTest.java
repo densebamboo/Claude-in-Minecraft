@@ -10716,6 +10716,11 @@ public final class ClaudeBodyTest {
             case 885: return st885(stage, t, c, h, level, mock);
             case 886: return st886(stage, t, c, h, level, mock);
             case 887: return st887(stage, t, c, h, level, mock);
+            case 888: return st888(stage, t, c, h, level, mock);
+            case 889: return st889(stage, t, c, h, level, mock);
+            case 890: return st890(stage, t, c, h, level, mock);
+            case 891: return st891(stage, t, c, h, level, mock);
+            case 892: return st892(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -19463,6 +19468,137 @@ public final class ClaudeBodyTest {
                 check(temp, "the table he set down in his mine with his old one standing: kept for good (" + newT + "), not taken back up as he moves on");
                 nsHome(c, h, level); pass(stage, t, "his own table set down, the pick made in " + (t[0] - s887Start) + " ticks, the table only for now at " + newT);
             }
+        }
+        return true;
+    }
+    private static boolean st888(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // the user 11-07 02:06 "he's fishing with a full inventory lol" (live 02:03 World 17: 645 cobbled deepslate for the highway, 64+26 cobblestone kept as "two stacks of stone", 0 slots free, a rod cast with nowhere for the catch). The highway's deepslate is his stone: cobble on top of it is spare, out it goes, the deepslate stays
+        if (t[0] == 1) { scenarioReset(c); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard(); }
+        if (t[0] == 5) {
+            var inv = c.getInventory(); inv.clearContent(); c.skillQueue.clear(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("build_highway", "fortress", 1, "near_you"));
+            inv.items.set(0, new ItemStack(Items.DIAMOND_PICKAXE)); inv.selected = 0;
+            for (int i = 1; i <= 10; i++) inv.items.set(i, new ItemStack(Items.COBBLED_DEEPSLATE, 64));
+            inv.items.set(11, new ItemStack(Items.COBBLESTONE, 64)); inv.items.set(12, new ItemStack(Items.COBBLESTONE, 26));
+            for (int i = 13; i < inv.items.size(); i++) inv.items.set(i, new ItemStack(Items.COOKED_SALMON, 16));
+            com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+            int deep = c.inventory.count(x -> x.is(Items.COBBLED_DEEPSLATE)), cob = c.inventory.count(x -> x.is(Items.COBBLESTONE)), free = 0; for (var st0 : inv.items) if (st0.isEmpty()) free++;
+            for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard(); inv.clearContent(); c.skillQueue.clear();
+            check(deep == 640, "the highway's deepslate: " + deep + " of 640 left after the clear-out");
+            check(cob == 0, "pack full on a highway trip, 640 deepslate on him: " + cob + " cobblestone still kept as his stone");
+            check(free >= 2, "pack: only " + free + " free slot(s) after it");
+            pass(stage, t, "the cobble out, the highway's deepslate kept, " + free + " slots free");
+        }
+        return true;
+    }
+    /** Stage 890 (D2D reviews 386/408, live 02:50-02:52 World 17): food 6, health 15, nothing to eat, the kit's food priced: "hunt sheep ~790 s (4 of 4, nearest 2 walk); search for animals ~232 s (7 cows' worth)": the sheep option paid 90 s a meal for what it left (as if never found), the search was one 120 s look for 7 cows; five empty 50-block legs east past the sheep. Here: 4 sheep 2-8 off, no cows: the kit asks for the mutton. */
+    private static boolean st890(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(19600, 80, 18600);
+        if (t[0] == 1 || t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(1000);
+            for (int x = -12; x <= 12; x++) for (int z = -12; z <= 12; z++) { level.setBlock(o.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD));
+            c.getFoodData().setFoodLevel(6); c.getFoodData().setSaturation(0); c.setHealth(15); c.prefs.put("stay_close", "no");
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f); }
+        if (t[0] == 8) { for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new net.minecraft.world.phys.AABB(o).inflate(60), e -> e instanceof net.minecraft.world.entity.Mob || e instanceof net.minecraft.world.entity.item.ItemEntity)) e.discard();
+            for (int k = 0; k < 4; k++) { var sh = net.minecraft.world.entity.EntityType.SHEEP.create(level); sh.moveTo(o.getX() + 2.5 + 2 * k, o.getY(), o.getZ() + 0.5, 0, 0); sh.setNoAi(true); sh.setPersistenceRequired(); level.addFreshEntity(sh); } }
+        if (t[0] == 60) {
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+            var fa = com.claudemod.director.Kit.foodAsk(c);
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new net.minecraft.world.phys.AABB(o).inflate(60), e -> e instanceof net.minecraft.world.entity.Mob || e instanceof net.minecraft.world.entity.item.ItemEntity)) e.discard();
+            c.getFoodData().setFoodLevel(20); c.setHealth(20); c.prefs.remove("stay_close");
+            check(fa != null && fa.item() == Items.COOKED_MUTTON, "food 6, nothing on him, 4 sheep 2-8 off and no cows: the kit asked " + (fa == null ? "nothing" : fa.count() + " " + fa.item()) + ", not the sheep beside him");
+            nsHome(c, h, level); pass(stage, t, "the sheep beside him first: " + fa.count() + " cooked mutton");
+        }
+        return true;
+    }
+
+    /** Stage 891 (D2D review 531, live 03:29 11-07 World 17): off to enter_portal, the job-start tidy took his 202-min-old bridge block 4 down beside the lava, a magma cube heard on it: a 1 HP drop, a fight, a 14-leg climb back for one block (leaving's own rules keep to his level or in reach, and wait out foes). Here: his block 4 down, 2 over, out of reach: the tidy leaves it. */
+    private static boolean st891(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(19800, 80, 18800);
+        if (t[0] == 1 || t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.TempLedger.reset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(1000);
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) { level.setBlock(o.offset(x, -6, z), Blocks.STONE.defaultBlockState(), 2); for (int y = -5; y <= 4; y++) level.setBlock(o.offset(x, y, z), (y == -1 && x <= 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.getFoodData().setFoodLevel(20); c.setHealth(20); c.prefs.put("stay_close", "no");
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f); }
+        if (t[0] == 10) { BlockPos b = o.offset(2, -5, 0); level.setBlock(b, Blocks.COBBLESTONE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, b, Blocks.COBBLESTONE.defaultBlockState(), Blocks.AIR.defaultBlockState()); }
+        if (t[0] == 20) {
+            c.tasks.clear(); c.currentTask = null;
+            int n = com.claudemod.entity.life.TempLedger.stepStart(c, level, "enter_portal");
+            boolean queued = c.tasks.stream().anyMatch(q -> q instanceof Task.Break);
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.prefs.remove("stay_close"); com.claudemod.entity.life.TempLedger.reset(c);
+            check(n == 0 && !queued, "his block 5 down, 2 over, out of reach: the job-start tidy queued " + n + " to take it back (a drop down for one block)");
+            nsHome(c, h, level); pass(stage, t, "his block 5 down out of reach left for the way back");
+        }
+        return true;
+    }
+
+    /** Stage 892 (live 03:25-04:23 11-07 World 17, the death at 131, 57, 498): 6 meals into the Nether for the highway, down to 0, then food 6 to 0 with nothing to eat, a magma cube always about: the Nether branch's only food rule (eatIfHungry) wants an animal in sight with no monster within 16, so no food trip ever, starved, a magma cube finished him, his diamond kit on the ground. Here: the Nether, food 5, nothing to eat, a magma cube 10 off, hoglins 20 off, on build_highway: a food step queued (and said) within 15 s. */
+    private static boolean st892(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(5600, 70, 5600);
+        if (t[0] == 1) { scenarioReset(c); try { var f = com.claudemod.director.ClaudeLife.class.getDeclaredField("foodTripTicks"); f.setAccessible(true); if (f.get(null) instanceof java.util.Map<?, ?> m) m.remove(c.getUUID()); } catch (ReflectiveOperationException ex) { } }
+        if (t[0] % 10 == 0) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+        try {
+        if (t[0] == 10) {
+            nsArena(nl, o, 24, 24, 24, 10);
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64));
+            for (var es : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET})
+                c.setItemSlot(es, new ItemStack(es == net.minecraft.world.entity.EquipmentSlot.HEAD ? Items.DIAMOND_HELMET : es == net.minecraft.world.entity.EquipmentSlot.CHEST ? Items.DIAMOND_CHESTPLATE : es == net.minecraft.world.entity.EquipmentSlot.LEGS ? Items.DIAMOND_LEGGINGS : Items.DIAMOND_BOOTS));
+            c.setHealth(17); c.getFoodData().setFoodLevel(5); c.getFoodData().setSaturation(0); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = new com.claudemod.entity.life.Skills.Step("build_highway", "fortress", 1, "");
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 14) {
+            var mc = net.minecraft.world.entity.EntityType.MAGMA_CUBE.create(nl); mc.moveTo(o.getX() + 10.5, o.getY(), o.getZ() + 0.5, 0, 0); mc.setNoAi(true); mc.setPersistenceRequired(); nl.addFreshEntity(mc);
+            for (int k = 0; k < 2; k++) { var hg = net.minecraft.world.entity.EntityType.HOGLIN.create(nl); hg.moveTo(o.getX() - 18.5 - 2 * k, o.getY(), o.getZ() + 0.5, 0, 0); hg.setNoAi(true); hg.setPersistenceRequired(); nl.addFreshEntity(hg); }
+        }
+        boolean food = false; for (var st : c.skillQueue) { var fi = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.withDefaultNamespace(st.target().replace("minecraft:", "").replaceAll("[^a-z0-9_]", ""))); if (fi.components().has(net.minecraft.core.component.DataComponents.FOOD)) food = true; }
+        if (t[0] > 20 && (food || t[0] > 20 * 16)) {
+            String q = c.skillQueue.toString();
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+            c.getFoodData().setFoodLevel(20); c.setHealth(20); c.lastStep = null; c.prefs.remove("stay_close");
+            for (var es : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET}) c.setItemSlot(es, ItemStack.EMPTY);
+            nsHome(c, h, level);
+            check(food, "the Nether, food 5, nothing to eat, a magma cube 10 off, hoglins 20 off, on build_highway: 15 s and no food step: queue " + q);
+            pass(stage, t, "the food first: " + q);
+        }
+        } catch (RuntimeException ex) { nsHome(c, h, level); throw ex; }
+        return true;
+    }
+
+    /** Stage 889 (live 02:13-02:44 11-07 World 17: "strip_mine iron_ore x22" queued ~200 digs and ran 30 minutes; the kit check only runs as a step starts, so his meals ran to 0 down there, then a cave of 5 mobs took him to 2 health). The trip packing rule (the user: back up for food under 6 meals) mid-trip: by day, 1 meal, a strip_mine's digs queued: the food first, the dig after. */
+    private static boolean st889(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(20000, 80, 19000);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -16; k <= 48; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 36; x++) for (int z = -5; z <= 5; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.DEEPSLATE.defaultBlockState(), 2);
+            var E = net.minecraft.core.Direction.EAST;
+            var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 30, null)); b.invalidate();
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            BlockPos me = b.rows().get(28).first();
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = b.rows().get(29).first(); c.mineIsTunnel = true; level.setDayTime(1000);
+            c.mineShape = new ClaudeEntity.MineShape(2, 3, 4, 8, 6, "right"); c.mineCells.clear(); for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) c.mineCells.add(f.above(yy).immutable());
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 1)); c.getInventory().add(new ItemStack(Items.TORCH, 32)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 32)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no"); mock[0].teleportTo(level, me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 20) {
+            c.lastStep = new com.claudemod.entity.life.Skills.Step("strip_mine", "iron_ore", 22, "near_you"); c.gearTick = c.tickCount; // a trip under way: its kit checked a moment ago, as it started
+            for (int k = 0; k < 40; k++) c.tasks.add(new Task.Break(o.offset(34, 0, 0).above(k % 3).relative(net.minecraft.core.Direction.SOUTH, k / 3 % 2)));
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("tripFoodCheck", ClaudeEntity.class, ServerLevel.class); m.setAccessible(true); m.invoke(null, c, level); } catch (NoSuchMethodException ex) { /* main: no mid-trip check at all */ } catch (ReflectiveOperationException ex) { throw new RuntimeException(ex); }
+            long digs = c.tasks.stream().filter(q -> q instanceof Task.Break).count(); String q = c.skillQueue.toString();
+            boolean foodFirst = false; // (a food step before the mine's: its table and furnace crafts may lead it)
+            for (var st : c.skillQueue) { if (st.skill().equals("strip_mine")) break; var fi = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.withDefaultNamespace(st.target().replace("minecraft:", "").replaceAll("[^a-z0-9_]", ""))); if (fi != null && fi.components().has(net.minecraft.core.component.DataComponents.FOOD)) { foodFirst = true; break; } }
+            boolean digAfter = c.skillQueue.stream().anyMatch(s -> s.skill().equals("strip_mine"));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; c.prefs.remove("stay_close"); c.lastStep = null; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY);
+            for (int x = -4; x <= 36; x++) for (int z = -5; z <= 5; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(foodFirst && digs == 0, "1 meal on him partway through a strip_mine by day: " + digs + " digs still queued, queue " + q + " (back up for food under 6 meals)");
+            check(digAfter, "the food first, but the strip_mine wasn't put back after it: queue " + q);
+            nsHome(c, h, level); pass(stage, t, "the food first, the dig after: " + q);
         }
         return true;
     }

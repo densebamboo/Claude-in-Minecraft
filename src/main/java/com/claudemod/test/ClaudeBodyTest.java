@@ -10495,6 +10495,8 @@ public final class ClaudeBodyTest {
             case 918: return st918(stage, t, c, h, level, mock);
             case 919: return st919(stage, t, c, h, level, mock);
             case 920: return st920(stage, t, c, h, level, mock);
+            case 921: return st921(stage, t, c, h, level, mock);
+            case 922: return st922(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13658,6 +13660,73 @@ public final class ClaudeBodyTest {
             BlockPos end = p.legs().get(p.legs().size() - 1);
             check(end.getX() - o.getX() >= 12, "the part-way plan ends only " + (end.getX() - o.getX()) + " blocks toward it, at " + end.toShortString());
             nsHome(c, h, level); pass(stage, t, "part way through the rock: " + p.legs().size() + " legs to " + end.toShortString() + " (" + p.digs() + " dug, " + p.nodes() + " nodes, " + p.ms() + " ms)"); }
+        return true;
+    }
+    /** Stage 921 (D2D review 72, live 16:31 World 17): tunnel rows through netherrack, each wall's netherrack swapped for deepslate; the netherrack popped into the wall's hole, "grab it, then the patch" held the place for a pickup with no way to it, given up, queued again. A junk drop in the highway's own swap is no hold. */
+    private static int s921T;
+    private static boolean st921(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER); var W = com.claudemod.entity.life.Watchdog.recentKinds;
+        BlockPos o = new BlockPos(11000, 64, 6920);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); W.clear(); com.claudemod.entity.life.Watchdog.linesInTests = true; }
+        nsTick(nl, c, o, t);
+        try {
+        if (t[0] == 10) {
+            for (int x = -6; x <= 6; x++) for (int z = -4; z <= 16; z++) for (int y = -3; y <= 7; y++) nl.setBlock(o.offset(x, y, z), (y < 0 || z >= 3 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2); // (rock from z 3 on: tunnel rows)
+            for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, 0), x == -1 || x == 2 || y == -1 || y == 3 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+            nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 1.5, 0f, 0f);
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o, "him", "lit");
+        }
+        if (t[0] == 20) { c.skillQueue.clear(); c.tasks.clear(); String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", o.getX() + " " + o.getY() + " " + (o.getZ() + 60), 1); ClaudeMod.LOGGER.info("[Claude test] 921 build_highway: {}", r); s921T = t[0]; }
+        if (t[0] > 20) { c.nextPlanTick = c.tickCount + 20 * 600; if (c.skillQueue.stream().noneMatch(q -> q.skill().equals("build_highway"))) c.skillQueue.removeIf(q -> !q.skill().equals("build_highway")); }
+        if (t[0] > 20 && t[0] % 20 == 0) {
+            int done = 0; for (int z = 3; z <= 9; z++) { boolean ok = true; for (int x = -1; x <= 2; x++) for (int y = 0; y <= 4; y++) { boolean wall = x == -1 || x == 2, shell = wall ? y >= 1 && y <= 3 : y == 0 || y == 4; if (wall && (y == 0 || y == 4)) continue; var st = nl.getBlockState(o.offset(x, y - 1, z)); if (shell ? !st.is(Blocks.COBBLED_DEEPSLATE) : !st.isAir()) ok = false; /* (the corners by the floor and roof are no part of it) */ } if (ok) done++; }
+            if (done >= 6 || t[0] >= s921T + 20 * 90) {
+                String w = W.toString(); c.skillQueue.clear(); c.tasks.clear(); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.Watchdog.linesInTests = false;
+                for (int x = -6; x <= 6; x++) for (int z = -4; z <= 16; z++) for (int y = -3; y <= 7; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(24))) e.discard();
+                com.claudemod.entity.life.PortalMap.net(c).portals.clear();
+                check(done >= 6, "tunnel rows through netherrack: " + done + " of 7 rows with their whole shell deepslate in " + (t[0] - s921T) / 20 + " s");
+                check((t[0] - s921T) / 20 <= 40, "6 tunnel rows took " + (t[0] - s921T) / 20 + " s (a player ~30: dig, floor, walls, roof, on; no waits on the netherrack each wall swap pops)");
+                check(!w.contains("PLACE_BREAK") && !w.contains("CONFLICT"), "tunnel rows: filed " + w + " (last " + com.claudemod.entity.life.Watchdog.lastIncident + ")");
+                nsHome(c, h, level); pass(stage, t, done + " tunnel rows in " + (t[0] - s921T) / 20 + " s, filed " + w);
+            }
+        }
+        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
+        return true;
+    }
+    /** Stage 922 (D2D review 408/409, live 15:44 World 17, the staircase over the lava sea): a step a row down in open air has no face to place on; scaffold put, then dug out by the row ("PLACE_BREAK" at -3,43,203 and -3,42,205). The step's support goes in under it and stays. */
+    private static int s922T;
+    private static boolean st922(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER); var W = com.claudemod.entity.life.Watchdog.recentKinds;
+        BlockPos o = new BlockPos(11200, 80, 7120);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); W.clear(); com.claudemod.entity.life.Watchdog.linesInTests = true; }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(0, 0, 20)), 2, o.offset(0, 0, 20));
+        try {
+        if (t[0] == 10) {
+            for (int x = -6; x <= 6; x++) for (int z = -4; z <= 30; z++) for (int y = -12; y <= 6; y++) nl.setBlock(o.offset(x, y, z), (y == -12 || y < 0 && z <= 1 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2); // (open air ahead, 11 deep)
+            for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, 0), x == -1 || x == 2 || y == -1 || y == 3 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+            nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 1.5, 0f, 0f);
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o, "him", "lit");
+        }
+        if (t[0] == 20) { c.skillQueue.clear(); c.tasks.clear(); String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", o.getX() + " " + (o.getY() - 4) + " " + (o.getZ() + 26), 1); ClaudeMod.LOGGER.info("[Claude test] 922 build_highway: {}", r); s922T = t[0]; }
+        if (t[0] > 20) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] > 20 && t[0] % 20 == 0) {
+            boolean fin = c.skillQueue.stream().noneMatch(q -> q.skill().equals("build_highway")) && c.tasks.isEmpty() && c.currentTask == null;
+            if (fin || t[0] >= s922T + 20 * 150) {
+                int steps = 0, ok = 0; var b0 = com.claudemod.entity.life.BridgeBlueprint.plan(nl, o, net.minecraft.core.Direction.Axis.Z, new BlockPos(o.getX(), o.getY() - 4, o.getZ() + 26), 2, false);
+                for (var r : b0.rows) { if (r.stair()) steps++; if (nl.getBlockState(r.centre()).is(Blocks.COBBLED_DEEPSLATE)) ok++; }
+                String w = W.toString(); c.skillQueue.clear(); c.tasks.clear(); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.Watchdog.linesInTests = false;
+                for (int x = -6; x <= 6; x++) for (int z = -4; z <= 30; z++) for (int y = -12; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+                com.claudemod.entity.life.PortalMap.net(c).portals.clear();
+                check(steps == 4 && ok == b0.rows.size(), "a highway 4 down over open air: " + ok + " of " + b0.rows.size() + " rows' floor laid (" + steps + " stair rows) in " + (t[0] - s922T) / 20 + " s");
+                check(!w.contains("PLACE_BREAK"), "the staircase over open air: filed " + w + " (last " + com.claudemod.entity.life.Watchdog.lastIncident + ")");
+                nsHome(c, h, level); pass(stage, t, ok + " rows, " + steps + " steps, in " + (t[0] - s922T) / 20 + " s, filed " + w);
+            }
+        }
+        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
         return true;
     }
     /** Stage 920 (D2D live 16:39 World 17, incidents 99-101): out of his mine for enter_portal, one walk as 3 legs of ~17 (Route.expand, a flight a leg since f9a77d2): WASTED_TRIP "walked 17 blocks ... and did nothing there in 10 s" at each leg's end, the next leg already under way. A leg with the next leg queued behind it is no trip; the walk's end is what's judged. */

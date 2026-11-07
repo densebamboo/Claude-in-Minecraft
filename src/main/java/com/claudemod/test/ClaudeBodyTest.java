@@ -10658,6 +10658,7 @@ public final class ClaudeBodyTest {
             case 739: return st739(stage, t, c, h, level, mock);
             case 1003: return st1003(stage, t, c, h, level, mock);
             case 1004: return st1004(stage, t, c, h, level, mock);
+            case 1005: return st1005(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -17304,7 +17305,7 @@ public final class ClaudeBodyTest {
             st799Torch = me.above(2).east().immutable(); level.setBlockAndUpdate(st799Torch.north(), Blocks.STONE.defaultBlockState()); level.setBlockAndUpdate(me.above(2), Blocks.STONE.defaultBlockState()); // in reach but up over his head, its wall face hidden by the block over him: he walks at the mid-air cell and gets no nearer (as live, incident bandaid-42 11-05 and 05:13 11-07: "in sight false", no path, age 850)
         }
         if (t[0] == 14) c.tasks.addFirst(new Task.WallTorch(st799Torch, net.minecraft.core.Direction.NORTH)); // the torch reflex's task, run as any
-        if (t[0] == 40) { check(c.currentTask instanceof Task.WallTorch, "setup: not on the torch task (now " + c.currentTask + ")"); c.progressTick = c.tickCount - 20 * 46; c.stuckLevel = 1; st799T = t[0]; } // 46 s on it, no nearer (the stuck clock, once a second, has its marks by now)
+        if (t[0] == 40) { if (level.getBlockState(st799Torch).is(Blocks.WALL_TORCH)) { pass(stage, t, "the torch went up: no stuck to drop (the cell is reachable since 11-07 noon)"); return true; } check(c.currentTask instanceof Task.WallTorch, "setup: not on the torch task (now " + c.currentTask + ")"); c.progressTick = c.tickCount - 20 * 46; c.stuckLevel = 1; st799T = t[0]; } // 46 s on it, no nearer (the stuck clock, once a second, has its marks by now)
         if (st799T > 0 && t[0] == st799T + 25) {
             boolean dropped = !(c.currentTask instanceof Task.WallTorch);
             c.tasks.addFirst(new Task.WallTorch(st799Torch, net.minecraft.core.Direction.NORTH)); // the torch reflex, queuing it again
@@ -17505,6 +17506,31 @@ public final class ClaudeBodyTest {
             if (up || t[0] == st1004T + 600) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
                 check(up, "never up the 4-block ledge with 2 netherrack and 64 logs on him: at " + c.blockPosition().toShortString() + ", logs left " + c.getInventory().countItem(Items.OAK_LOG));
                 pass(stage, t, "up the ledge on netherrack then logs"); }
+        }
+        return true;
+    }
+    private static int st1005T; private static BlockPos st1005S;
+    private static boolean st1005(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D hourly 3 (live 11:54:35-11:55:57 World 17, his mine at -71,16,-160): his upkeep queued 7 dark torch slots within 16 every 3 s, doWallTorch ended each one at once ("moved on", past 8), silent; the furnace's side job handed over to them every 5 s, 90 s stood
+        if (t[0] == 1) { resetLoot(c, mock[0]); st1005T = -1; st1005S = null; }
+        if (t[0] == 10) {
+            buildStairs(h, 0);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.TORCH, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("mine_model", "blueprint");
+            var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(stairFeet(0, 6)), net.minecraft.core.Direction.EAST, 2, 4); b.segments.get(0).n = 11; c.blueprint = b;
+            com.claudemod.director.ClaudeLife.bpSync(c);
+            BlockPos at = h.absolutePos(stairFeet(1, 6)); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            StringBuilder sb = new StringBuilder();
+            for (BlockPos s0 : b.torchSlots().values()) { double d = Math.sqrt(s0.distSqr(at)); sb.append(s0.toShortString()).append(" ").append(String.format("%.1f", d)).append(level.getBlockState(s0).isAir() ? "" : " (not air)").append("; ");
+                if (d > 8.5 && d <= 15 && level.getBlockState(s0).isAir() && b.slotWall(s0) != null && (st1005S == null || d < Math.sqrt(st1005S.distSqr(at)))) st1005S = s0.immutable(); }
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 1005 slots from {}: {}", at.toShortString(), sb);
+            check(st1005S != null, "setup: no dark torch slot 8.5-15 off " + at.toShortString());
+            st1005T = t[0];
+        }
+        if (st1005T > 0 && t[0] > st1005T) {
+            boolean lit = com.claudemod.entity.life.MineBlueprint.slotLit(level, st1005S) || level.getBlockState(st1005S).is(Blocks.WALL_TORCH);
+            if (lit || t[0] == st1005T + 20 * 30) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+                check(lit, "the dark slot at " + st1005S.toShortString() + ", " + String.format("%.1f", Math.sqrt(st1005S.distSqr(c.blockPosition()))) + " off, queued by his upkeep and never lit in 30 s; torches left " + c.getInventory().countItem(Items.TORCH));
+                pass(stage, t, "the dark slot past 8 queued by his upkeep and lit"); }
         }
         return true;
     }

@@ -11736,7 +11736,7 @@ public final class ClaudeLife {
         if (g.inventory.count(x -> x.is(Items.TORCH)) > 0) { // his mine lit as he passes, by distance: a branch's rows sit elsewhere in the row list than his, so one dug dark (no torches on him, 22:23 11-06) stayed dark; the mouths weren't in this sweep at all (the user 11-07: "missing a lot of torches on top of the right hand side tunnel entrances, and he's also skipped branches torches"; stage 886)
             BlockPos me1 = g.blockPosition();
             for (BlockPos s0 : b.torchSlots().values()) {
-                if (s0.distSqr(me1) > 16 * 16 || !level.getBlockState(s0).isAir() || !level.getFluidState(s0).isEmpty() || MineBlueprint.slotLit(level, s0)) continue;
+                if (s0.distSqr(me1) > com.claudemod.entity.life.Weights.w("torch.slot_walk_back", 16) * com.claudemod.entity.life.Weights.w("torch.slot_walk_back", 16) || !level.getBlockState(s0).isAir() || !level.getFluidState(s0).isEmpty() || MineBlueprint.slotLit(level, s0)) continue;
                 Direction wd = b.slotWall(s0); if (wd == null || !MineBlueprint.solid(level, s0.relative(wd))) continue;
                 Task wt = new Task.WallTorch(s0, wd); if (!ts.contains(wt)) ts.add(wt);
             }

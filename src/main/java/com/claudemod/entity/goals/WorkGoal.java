@@ -2698,7 +2698,8 @@ public class WorkGoal extends Goal {
         boolean slot = com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.isTorchSlot(t.pos()); // a slot of his blueprint mine: exactly there. The eye-level guess read the world mid-dig: a step's bottom block still to dig lifted the torch a block, a floor mined out for ore dropped it one (world 14's stairs: 0, +1, -1 off the step)
         BlockPos pos = slot ? t.pos() : eyeLevel(level, t.pos(), t.wall());
         BlockPos wall = pos.relative(t.wall());
-        if (ticks == 1 && pos.distSqr(g.blockPosition()) > 8 * 8) return true; // he's moved on from that dark spot: not worth walking back for
+        { double back = slot ? com.claudemod.entity.life.Weights.w("torch.slot_walk_back", 16) : com.claudemod.entity.life.Weights.w("torch.walk_back", 8); // a slot of his mine: as far as his upkeep queues one (8 here, 16 there: 7 slots re-queued every 3 s and each dropped at once, live 11:54 11-07, stage 1005)
+          if (ticks == 1 && pos.distSqr(g.blockPosition()) > back * back) { com.claudemod.ClaudeMod.LOGGER.info("[Claude torch] the torch at {} is {} off, past {}: he's moved on from that dark spot (WorkGoal.doWallTorch)", pos.toShortString(), (int) Math.sqrt(pos.distSqr(g.blockPosition())), (int) back); return true; } } // he's moved on from that dark spot: not worth walking back for
         BlockState onto = level.getBlockState(wall);
         if (onto.hasBlockEntity() || onto.is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE)) return true; // never a torch stuck on a table or furnace
         if (ticks == 1 && slot && com.claudemod.entity.life.MineBlueprint.slotLit(level, pos)) return true; // (its slot has its torch already)

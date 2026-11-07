@@ -216,6 +216,20 @@ public final class Kit {
      * nearest, a kill each, the cooking), fish near the surface (the deep ones out), a village's hay, a search for animals;
      * every option pays for what it leaves uncovered at kit.short_meal_s a meal, and going as he is pays it all.
      */
+    private static final java.util.Map<java.util.UUID, String> foodSaid = new java.util.HashMap<>();
+    /**
+     * The trip's food for the planner, when he's short: the kit's own priced options from where he stands (what's in view, how
+     * far, what's out and why) and the means he has for the rest. D2D review 083848 11-07: told only "you see: no creatures",
+     * the planner wrote "fight chicken" 75 off, bread with no wheat, cod with no rod or string; each failed and it guessed again.
+     */
+    public static String foodLine(ClaudeEntity g) {
+        if (foodAsk(g) == null) return "";
+        int string = g.inventory.count(x -> x.is(Items.STRING)), wheat = g.inventory.count(x -> x.is(Items.WHEAT)) + 9 * g.inventory.count(x -> x.is(Items.HAY_BLOCK));
+        boolean rod = g.inventory.count(x -> x.is(Items.FISHING_ROD)) > 0;
+        return "FOOD FOR THE TRIP, weighed from here in seconds: " + foodSaid.getOrDefault(g.getUUID(), "?") + ". Plan the pick (obtain it); the rest of your means: "
+                + (rod ? "a fishing rod" : string >= 2 ? "no rod, " + string + " string for one" : "no fishing rod and no string for one (fish only by hand in shallow water)")
+                + ", " + (wheat >= 3 ? wheat + " wheat (bread)" : "no wheat (bread needs a grown farm first: minutes, not food now)") + (char) 10;
+    }
     public static FoodAsk foodAsk(ClaudeEntity g) {
         Object[] memo = foodAskMemo.get(g.getUUID()); if (memo != null && g.tickCount - (int) memo[0] >= 0 && g.tickCount - (int) memo[0] < 40) return (FoodAsk) memo[1];
         FoodAsk fa = foodAsk0(g); if (foodAskMemo.size() > 64) foodAskMemo.clear(); foodAskMemo.put(g.getUUID(), new Object[] {g.tickCount, fa}); return fa;
@@ -299,6 +313,7 @@ public final class Kit {
         var pick = com.claudemod.entity.life.Decide.choose(g, "kit.food", "", false, opts);
         StringBuilder said = new StringBuilder(); for (var o : opts) said.append(said.length() == 0 ? "" : "; ").append(o.no() != null ? o.name() + " out (" + o.no() + ")" : o.name() + " ~" + Math.round(o.s()) + " s" + (o.detail().isEmpty() ? "" : " (" + o.detail() + ")"));
         FoodAsk fa = pick == null ? null : asks.get(pick.name());
+        foodSaid.put(g.getUUID(), (int) shortP + " food points short (" + (int) carried + " on him): " + said + "; the pick: " + (pick == null ? "none" : pick.name()) + (fa == null ? "" : " -> " + fa.count() + " " + Crafting.name(fa.item())));
         ClaudeLife.nookSay(g, "kitFood", "[Claude decide] kit.food (" + (int) shortP + " food points short of the trip's " + (int) need + ", " + (int) carried + " on him): " + said + ": " + (pick == null ? "none" : pick.name()) + (fa == null ? "" : " -> " + fa.count() + " " + Crafting.name(fa.item())) + " (Kit.foodAsk)");
         return fa;
     }

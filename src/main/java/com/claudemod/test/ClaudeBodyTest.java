@@ -10509,6 +10509,8 @@ public final class ClaudeBodyTest {
             case 932: return st932(stage, t, c, h, level, mock);
             case 933: return st933(stage, t, c, h, level, mock);
             case 934: return st934(stage, t, c, h, level, mock);
+            case 955: return st955(stage, t, c, h, level, mock);
+            case 954: return st954(stage, t, c, h, level, mock);
             case 953: return st953(stage, t, c, h, level, mock);
             case 952: return st952(stage, t, c, h, level, mock);
             case 951: return st951(stage, t, c, h, level, mock);
@@ -14259,6 +14261,45 @@ public final class ClaudeBodyTest {
             c.getInventory().clearContent();
             check(fa != null && fa.item() == Items.COOKED_CHICKEN, "(b) 3 chickens 20 off, no cows: the kit's ask " + (fa == null ? "none" : fa.count() + " " + fa.item()));
             pass(stage, t, "the cow in view, then the chickens in view: " + fa.count() + " " + fa.item());
+        }
+        return true;
+    }
+    /** Stage 954 (D2D review 092303-39 11-07: "inventory full: threw out 1 stacks of junk: 2 rotten_flesh" at 09:22:43 and again at :48, 92 food points short for the trip): a full pack of logs and 2 rotten flesh, no food on him. His toss keeps the flesh: it's food while he's short. */
+    private static boolean st954(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard(); }
+        if (t[0] == 5) {
+            var inv = c.getInventory(); inv.clearContent();
+            inv.items.set(0, new ItemStack(Items.IRON_SWORD)); inv.selected = 0; inv.items.set(5, new ItemStack(Items.ROTTEN_FLESH, 2));
+            for (int i = 0; i < inv.items.size(); i++) if (inv.items.get(i).isEmpty()) inv.items.set(i, new ItemStack(Items.OAK_LOG, 64));
+            check(com.claudemod.director.Kit.foodAsk(c) != null, "setup: the kit isn't short of food");
+            com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+            int flesh = c.getInventory().countItem(Items.ROTTEN_FLESH); boolean thrown = !level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16), e -> e.getItem().is(Items.ROTTEN_FLESH)).isEmpty();
+            for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard();
+            inv.clearContent(); c.tasks.clear();
+            check(flesh == 2 && !thrown, "rotten flesh thrown out as junk while short of food (" + flesh + " left on him)");
+            pass(stage, t, "the rotten flesh kept, short of food");
+        }
+        return true;
+    }
+    /** Stage 955 (D2D review 083848-112..116 11-07: the planner, told only "you see: no creatures", wrote "fight chicken" with the chicken 75 off, "obtain bread" with no wheat, "fish cod" with no rod or string; each failed in 0 s and it guessed again, and 51 s went on seeds for a farm with no plot): short of trip food, a chicken 20 off, no rod, string or wheat. The plan's situation carries the kit's priced food options and his means. */
+    private static boolean st955(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); }
+        if (t[0] > 8 && t[0] % 5 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 4, c.blockPosition());
+        BlockPos me = c.blockPosition();
+        if (t[0] == 10) {
+            for (int x = -6; x <= 30; x++) for (int z = -6; z <= 6; z++) { level.setBlock(me.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD));
+            var ch = EntityType.CHICKEN.create(level); ch.moveTo(me.getX() + 20.5, me.getY(), me.getZ() + 0.5, 0, 0); ch.setNoAi(true); ch.setPersistenceRequired(); level.addFreshEntity(ch);
+        }
+        if (t[0] == 60) { // (past the kit's 40-tick memo from the stage before)
+            check(!level.getEntitiesOfClass(net.minecraft.world.entity.animal.Chicken.class, c.getBoundingBox().inflate(30)).isEmpty(), "setup: no chicken by him");
+            String sit = com.claudemod.director.ClaudeLife.situation(c, mock[0]);
+            int i = sit.indexOf("FOOD FOR THE TRIP"); String line = i < 0 ? "" : sit.substring(i, Math.max(i, sit.indexOf((char) 10, i)));
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard();
+            c.getInventory().clearContent();
+            check(i >= 0, "short of trip food: the plan's situation has no food line");
+            check(line.contains("hunt chicken") && line.contains("no fishing rod and no string") && line.contains("no wheat"), "the food line misses the chicken in view or his means: " + line);
+            pass(stage, t, line.length() > 220 ? line.substring(0, 220) + "..." : line);
         }
         return true;
     }

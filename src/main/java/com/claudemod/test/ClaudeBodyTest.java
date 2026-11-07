@@ -18476,11 +18476,16 @@ public final class ClaudeBodyTest {
             c.skillQueue.clear(); c.tasks.clear();
             String r2 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", "", 1);
             var p2 = com.claudemod.entity.life.Highway.plan(c); String d2 = com.claudemod.entity.life.Highway.describe(c);
-            c.skillQueue.clear(); c.tasks.clear(); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear();
+            c.skillQueue.clear(); c.tasks.clear();
+            com.claudemod.entity.life.Atlas.note(c, nl, "fortress", o.offset(40, 0, 30)); // (live 20:51: "build the highway to the fortress" planned a new one to the nearest fortress record, 242,60,509, a fork at the old z445 stub)
+            String r3 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", "fortress", 1);
+            var p3 = com.claudemod.entity.life.Highway.plan(c);
+            c.skillQueue.clear(); c.tasks.clear(); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.Atlas.reset(c);
             for (int x = -6; x <= 6; x++) for (int z = -4; z <= 16; z++) for (int y = -3; y <= 7; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
             check(p1 != null, "877: no highway planned to the spot: " + r1);
             check(!r2.startsWith("failed") && p2 != null && p2.dest.equals(p1.dest) && d2.equals(d1), "build_highway with no target didn't resume the one underway (to " + p1.dest.toShortString() + "): " + r2 + " | now " + (p2 == null ? "no plan" : "to " + p2.dest.toShortString()));
-            nsHome(c, h, level); pass(stage, t, "no target: the one underway resumed (" + r2 + ")");
+            check(!r3.startsWith("failed") && p3 != null && p3.dest.equals(p1.dest), "build_highway \"fortress\" planned a new highway (to " + (p3 == null ? "none" : p3.dest.toShortString()) + ") instead of the one underway to " + p1.dest.toShortString() + ": " + r3);
+            nsHome(c, h, level); pass(stage, t, "no target and \"fortress\": the one underway resumed (" + r2 + ")");
         }
         } catch (Exception e) { throw e; }
         return true;

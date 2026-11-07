@@ -10622,6 +10622,7 @@ public final class ClaudeBodyTest {
             case 790: return st790(stage, t, c, h, level, mock);
             case 791: return st791(stage, t, c, h, level, mock);
             case 792: return st792(stage, t, c, h, level, mock);
+            case 794: return st794(stage, t, c, h, level, mock);
             case 786: return st786(stage, t, c, h, level, mock);
             case 780: return st780(stage, t, c, h, level, mock);
             case 781: return st781(stage, t, c, h, level, mock);
@@ -16370,6 +16371,25 @@ public final class ClaudeBodyTest {
             check(n > 0, "the toss threw nothing from a full pack");
             check(bad.length() == 0, "thrown along his way (east-west), where a turn back walks over it: " + bad);
             pass(stage, t, n + " stack(s) thrown off to the side of his way");
+        }
+        return true;
+    }
+    private static int st794T; private static net.minecraft.world.entity.monster.Creeper st794Cr;
+    private static boolean st794(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D (live 02:39:03-40 World 17, a cave at -113,22,-229): broke off a creeper fight he'd priced at ~13 s against ~106 s of running (it hissed above him, out of his reach), then ran on from run end to run end for 35 s, never asking again; the creeper caught him there, 19 -> 8. At a run's end with the fight priced cheaper again: the fight
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st794T = -1; if (st794Cr != null) st794Cr.discard(); st794Cr = null; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.DIAMOND_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            BlockPos me = h.absolutePos(new BlockPos(2, 2, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var cr = EntityType.CREEPER.create(level); BlockPos sp = me.east(10); cr.moveTo(sp.getX() + 0.5, sp.getY(), sp.getZ() + 0.5, 90, 0); cr.setNoAi(true); cr.setPersistenceRequired(); level.addFreshEntity(cr); st794Cr = cr; // (after him, 10 off and in sight, its hiss over)
+        }
+        if (t[0] == 12) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Flee(600)); }
+        if (t[0] == 14) { c.work.runEndForTest(); st794T = t[0]; } // (the run's end reached)
+        if (st794T > 0) {
+            boolean fights = c.currentTask instanceof Task.Attack a && a.target().equals(st794Cr.getUUID()) || c.tasks.stream().anyMatch(q -> q instanceof Task.Attack a2 && a2.target().equals(st794Cr.getUUID()));
+            if (fights) { st794Cr.discard(); st794Cr = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; for (var sl : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET}) c.setItemSlot(sl, ItemStack.EMPTY); pass(stage, t, "at the run's end: the fight, " + (t[0] - st794T) + " ticks after"); return true; }
+            check(t[0] - st794T < 20 * 2, "at the run's end, a creeper 10 off he'd kill in a few swings, the fight never asked again: on running (now " + c.currentTask + ", tasks " + c.tasks + ")");
         }
         return true;
     }

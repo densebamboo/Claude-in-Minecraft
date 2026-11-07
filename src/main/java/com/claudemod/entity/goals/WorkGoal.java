@@ -5101,6 +5101,8 @@ public class WorkGoal extends Goal {
         escapeKind = "run"; escapeAt = end.immutable(); escapeGap = null; escapeHeld = false; escapeSince = g.tickCount; escapeBest = g.position().distanceTo(Vec3.atBottomCenterOf(end)); escapeBestTick = g.tickCount;
         fleeDir = new Vec3(side.getStepX(), 0, side.getStepZ());
     }
+    /** (tests) A run under way whose end is where he stands: the next flee tick is the run's end. */
+    public void runEndForTest() { setEscape("run", g.blockPosition().immutable(), null); }
     /** (tests) An escape through the gap held from at, its plug queued and still to go in. */
     public void plugPendingForTest(BlockPos gap, BlockPos at, net.minecraft.world.item.Item plug) { setEscape("gap", at.immutable(), gap.immutable()); escapeHeld = true; escapePlugged = true; g.tasks.addFirst(new Task.Place(gap.above().immutable(), plug)); g.tasks.addFirst(new Task.Place(gap.immutable(), plug)); }
     private void setEscape(String kind, BlockPos at, BlockPos gap) {
@@ -5122,6 +5124,10 @@ public class WorkGoal extends Goal {
         ServerLevel lv = level(); double d = g.position().distanceTo(Vec3.atBottomCenterOf(escapeAt));
         if ("run".equals(escapeKind)) {
             if (d >= 2.0) return 0;
+            String odds0 = fightOdds; double pf0 = pricedFightS, pr0 = pricedRunS; // (the re-ask leaves the run's own sizing-up as it was: the cornered choice and the log read it)
+            net.minecraft.world.entity.Mob runFrom = null; for (var m : mobs) if (m.isAlive() && shouldFlee(m)) { runFrom = m; break; } // (at each run's end the fight is asked again: what broke it off (a creeper's hiss out of his reach) may be over, live 02:39 World 17: 35 s of runs from a creeper priced ~13 s to kill, caught in a cave, 19 -> 8, stage 794)
+            if (runFrom == null && !mobs.isEmpty()) { var m0 = mobs.stream().min(java.util.Comparator.comparingDouble(m -> m.distanceTo(g))).get(); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape run's end at {} reached: the fight with the {} {} off is the better way again ({}): turning to it (WorkGoal.atEscape)", escapeAt.toShortString(), m0.getType().getDescription().getString(), (int) m0.distanceTo(g), fightOdds); clearEscape(); g.tasks.addFirst(new Task.Attack(m0.getUUID(), 20 * 30)); return 2; }
+            fightOdds = odds0; pricedFightS = pf0; pricedRunS = pr0;
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape run's end at {} reached, them still on him: on from here (WorkGoal.atEscape)", escapeAt.toShortString());
             clearEscape(); pickEscape(mobs); return 0;
         }

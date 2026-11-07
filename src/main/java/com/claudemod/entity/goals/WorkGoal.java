@@ -3597,6 +3597,21 @@ public class WorkGoal extends Goal {
     private java.util.Map<BlockPos, Integer> stepOutSince; // a cell he stands in that's to be filled -> when he first stepped out of it
     private java.util.Map<BlockPos, Integer> stepOutSince() { if (stepOutSince == null) stepOutSince = new java.util.HashMap<>(); if (stepOutSince.size() > 256) stepOutSince.clear(); return stepOutSince; }
     /** The walk he was sent on for this placement failed (a WALK failure at dest since he was sent; not sent yet: one a moment ago, which his walker skips anyway). */
+    /** The air round a hole in his mine's rock, when it's a closed pocket (never reaching a walk cell of his mine or him) with a block of his own build in its seal: that block, else null. */
+    private BlockPos sealedByHisBuild(ServerLevel level, BlockPos hole) {
+        if (!com.claudemod.director.ClaudeLife.bpMode(g) || g.blueprint == null || g.blueprint.isEmpty()) return null;
+        java.util.ArrayDeque<BlockPos> open = new java.util.ArrayDeque<>(); java.util.Set<BlockPos> seen = new java.util.HashSet<>(); open.add(hole.immutable()); seen.add(hole.immutable());
+        BlockPos his = null, me = g.blockPosition(); int cap = (int) w("patch.pocket_cells", 48);
+        while (!open.isEmpty()) {
+            BlockPos q = open.poll();
+            if (g.blueprint.isWalk(q) || q.equals(me) || q.equals(me.above()) || seen.size() > cap) return null; // open to his mine, or no small pocket
+            for (Direction d : Direction.values()) { BlockPos n = q.relative(d); if (seen.contains(n)) continue;
+                if (level.getBlockState(n).getCollisionShape(level, n).isEmpty() || !level.getFluidState(n).isEmpty()) { seen.add(n.immutable()); open.add(n.immutable()); }
+                else if (his == null && com.claudemod.entity.life.TempLedger.built(g, n)) his = n.immutable(); }
+        }
+        return his;
+    }
+
     private boolean walkFailedSince(BlockPos dest, BlockPos forPos) {
         Integer f = g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK).get(dest);
         if (f == null) return false;
@@ -4070,6 +4085,7 @@ public class WorkGoal extends Goal {
                     boolean hotLine = false; for (int k = 1; k <= 4; k++) { BlockPos q = BlockPos.containing(g.getX() + (view.getX() + 0.5 - g.getX()) * k / 4, view.getY(), g.getZ() + (view.getZ() + 0.5 - g.getZ()) * k / 4); for (int dy = 0; dy <= 2; dy++) if (level.getFluidState(q.above(dy)).is(net.minecraft.tags.FluidTags.LAVA)) hotLine = true; } // (the nudge is a straight move: lava at his feet, head or just over it on the line, falling or not, and the walk takes it instead, round or not at all; D2D urgent 06:44 11-07: a nudge for a bore block stepped him into lava falling through 131,62,511, 20 -> 10)
                     if (!hotLine && view.distSqr(feet0) <= 4 && view.getY() <= feet0.getY() && feet0.getY() - view.getY() <= 1) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(view.getX() + 0.5, view.getY(), view.getZ() + 0.5, 0.5); g.tasks.addFirst(t); g.tasks.addFirst(new Task.Wait(10, false)); return exit("a block or two off: a nudge to " + view.toShortString() + ", a walk there lands a block short (doPlace 2838)"); } // a block or two off: a nudge, a walk there lands a block short
                     if (view.distSqr(feet0) <= 4 && view.getY() > feet0.getY()) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the spot that sees a face to set {} against is a step up at {} (he's at {}): the walker there, its jump; a nudge only slides along the ground (WorkGoal.doPlace)", pos.toShortString(), view.toShortString(), feet0.toShortString()); // (live 07:52 and 15:20 world 14: nudged at a spot one up, he never moved, and it gave up: doPlace 2838, then 2844)
+                    { BlockPos seal = sealedByHisBuild(level, pos); if (seal != null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude patch] the hole at {} is shut off from his mine by his own patch at {}: no opening left, nothing to fill (the view at {} is only reached through it) (WorkGoal.doPlace)", pos.toShortString(), seal.toShortString(), view.toShortString()); return true; } } // (live 09:03-09:16 11-07: sent into a sealed vein pocket, the route dug his patch to get in and put it back, 13 min; stage 785)
                     sentFor().put(pos.immutable(), g.tickCount); g.tasks.addFirst(t); g.tasks.addFirst(new Task.GoTo(view, 0.5)); return exit("doPlace line 2839");
                 }
                 viewTry().remove(pos);

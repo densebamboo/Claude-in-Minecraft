@@ -10643,6 +10643,7 @@ public final class ClaudeBodyTest {
             case 798: return st798(stage, t, c, h, level, mock);
             case 799: return st799(stage, t, c, h, level, mock);
             case 739: return st739(stage, t, c, h, level, mock);
+            case 785: return st785(stage, t, c, h, level, mock);
             case 778: return st778(stage, t, c, h, level, mock);
             case 761: return st761(stage, t, c, h, level, mock);
             case 757: return st757(stage, t, c, h, level, mock);
@@ -17027,6 +17028,37 @@ public final class ClaudeBodyTest {
             check(kept, "his patch at " + st778W.toShortString() + " dug out: " + level.getBlockState(st778W).getBlock());
             check(!refused, "the old ore dig of his own patch refused by his wall guard (a conflict of two of his systems): the ore's out, the dig is done");
             pass(stage, t, "an ore dig whose ore is out and patched: done, his patch kept");
+        }
+        return true;
+    }
+    private static int st785T; private static BlockPos st785W, st785P, st785H;
+    private static boolean st785(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D (live 09:03-09:16 World 17, his mine at -311,-58,-33): a vein pocket behind his wall, its opening patched by his upkeep; the patch of a hole inside it sent him to a view cell in the pocket, the route dug his own patch to get in, put it back, again: 13 min
+        if (t[0] == 1) { resetLoot(c, mock[0]); st785T = -1; }
+        if (t[0] == 10) {
+            buildStairs(h, 0);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("mine_model", "blueprint"); c.prefs.put("torches_while_digging", "no");
+            var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(stairFeet(0, 6)), net.minecraft.core.Direction.EAST, 2, 4); b.segments.get(0).n = 11; c.blueprint = b;
+            com.claudemod.director.ClaudeLife.bpSync(c);
+            BlockPos at = h.absolutePos(stairFeet(1, 6)); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            net.minecraft.core.Direction side = null; for (net.minecraft.core.Direction d : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && b.isShell(at.relative(d)) && !b.touches(at.relative(d, 2))) side = d;
+            check(side != null, "setup: no wall side at " + at.toShortString());
+            st785W = at.relative(side).immutable(); st785P = at.relative(side, 2).immutable(); st785H = st785P.above().east().immutable();
+            for (int dx = -1; dx <= 1; dx++) for (int dy = -1; dy <= 2; dy++) for (int dz = -1; dz <= 1; dz++) { BlockPos q = st785P.offset(dx, dy, dz); if (!b.touches(q)) level.setBlock(q, Blocks.DEEPSLATE.defaultBlockState(), 2); } // rock round the pocket
+            level.setBlock(st785P, Blocks.AIR.defaultBlockState(), 2); level.setBlock(st785P.above(), Blocks.AIR.defaultBlockState(), 2); level.setBlock(st785H, Blocks.AIR.defaultBlockState(), 2); // the vein's pocket: room to stand in, a hole beside its top (as live: view -313,-57,-33, hole -312,-56,-34)
+            com.claudemod.entity.life.TempLedger.planBuild(c, st785W, "ClaudeLife.bpIntegrity"); level.setBlock(st785W, Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, st785W, Blocks.COBBLED_DEEPSLATE.defaultBlockState(), Blocks.AIR.defaultBlockState()); // its opening patched by his upkeep
+            check(com.claudemod.entity.life.TempLedger.built(c, st785W), "setup: the patch at " + st785W.toShortString() + " not his build");
+            BlockPos away = h.absolutePos(stairFeet(4, 6)); c.teleportTo(away.getX() + 0.5, away.getY(), away.getZ() + 0.5); // a few cells along his tunnel (live: at -311,-58,-30, the view 3 off): a walk to the view, not a nudge
+        }
+        if (t[0] == 14) { c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); c.tasks.add(new Task.Place(st785H, Items.COBBLED_DEEPSLATE)); st785T = t[0]; } // the patch of the hole inside it, queued before the seal
+        if (st785T > 0 && t[0] > st785T && t[0] <= st785T + 120) {
+            boolean dug = !level.getBlockState(st785W).is(Blocks.COBBLED_DEEPSLATE);
+            boolean sent = c.currentTask instanceof Task.GoTo go && go.pos().equals(st785P) || c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo g2 && g2.pos().equals(st785P));
+            boolean placeLeft = c.currentTask instanceof Task.Place pl && pl.pos().equals(st785H) || c.tasks.stream().anyMatch(q -> q instanceof Task.Place p2 && p2.pos().equals(st785H));
+            if (dug || sent || t[0] == st785T + 120 || !placeLeft && t[0] > st785T + 20) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+                check(!dug && !sent, "the hole at " + st785H.toShortString() + " in a pocket sealed by his own patch: sent into it (" + sent + "), his patch dug (" + dug + ")");
+                check(!placeLeft, "the patch of a hole in a sealed pocket still on his queue after 6 s");
+                pass(stage, t, "a hole sealed off by his own patch: done, his patch kept"); }
         }
         return true;
     }

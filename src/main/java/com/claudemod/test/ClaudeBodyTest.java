@@ -10607,6 +10607,7 @@ public final class ClaudeBodyTest {
             case 780: return st780(stage, t, c, h, level, mock);
             case 781: return st781(stage, t, c, h, level, mock);
             case 782: return st782(stage, t, c, h, level, mock);
+            case 783: return st783(stage, t, c, h, level, mock);
             case 762: return st762(stage, t, c, h, level, mock);
             case 763: return st763(stage, t, c, h, level, mock);
             case 758: return st758(stage, t, c, h, level, mock);
@@ -15799,6 +15800,25 @@ public final class ClaudeBodyTest {
             check(!(c.currentTask instanceof Task.Pillar) && c.tasks.stream().noneMatch(q -> q instanceof Task.Pillar), "a climb up into rock queued as his way out of the floor's hole (at " + c.blockPosition().toShortString() + ", head " + c.blockPosition().above(2).toShortString() + " " + level.getBlockState(c.blockPosition().above(2)).getBlock() + ")");
             if (c.inventory.count(x -> x.is(Items.REDSTONE)) >= 4) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "the redstone out of the hole in " + (t[0] - st782T) / 20.0 + " s, no climb into rock"); }
             else check(t[0] - st782T < 20 * 10, "the redstone never picked up in 10 s (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ", tasks " + c.tasks + ")");
+        }
+        return true;
+    }
+    private static int st783T; private static BlockPos st783B, st783C;
+    private static boolean st783(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // reviews 110/140 (live 20:18, 20:20 World 17): a route leg to a cell with one netherrack in it, in reach, more legs queued: "the walk ends at once" and the leg dropped for a re-plan. A player with a diamond pick takes the block and keeps the leg
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st783T = -1; }
+        if (t[0] == 10) {
+            for (int x = -2; x <= 18; x++) for (int z = 2; z <= 8; z++) for (int y = 1; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), (y >= 2 && y <= 3 && z == 5 && x >= 0 && x <= 16) ? Blocks.AIR.defaultBlockState() : Blocks.NETHERRACK.defaultBlockState(), 2); // a 1x2 corridor in netherrack
+            st783B = h.absolutePos(new BlockPos(6, 2, 5)).immutable(); st783C = h.absolutePos(new BlockPos(14, 2, 5)).immutable();
+            level.setBlock(st783B, Blocks.NETHERRACK.defaultBlockState(), 2); // the leg's cell: one netherrack in it, the head cell open
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 32));
+            BlockPos me = h.absolutePos(new BlockPos(3, 2, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(-90); c.setHealth(20); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 15) { c.tasks.clear(); c.tasks.add(new Task.GoTo(st783B, 1.0)); c.tasks.add(new Task.GoTo(st783C, 1.0)); st783T = t[0]; }
+        if (st783T > 0) {
+            check(!(c.currentTask instanceof Task.GoTo go && go.pos().equals(st783C) && !level.getBlockState(st783B).isAir()), "the leg to " + st783B.toShortString() + " dropped with the netherrack still in it: on to " + st783C.toShortString() + " (tasks " + c.tasks + ")");
+            if (c.blockPosition().distSqr(st783C) <= 2) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "the netherrack in the leg's cell taken, both legs walked, in " + (t[0] - st783T) / 20.0 + " s"); }
+            else check(t[0] - st783T < 20 * 15, "never reached the second leg's end in 15 s (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ", tasks " + c.tasks + ")");
         }
         return true;
     }

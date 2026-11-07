@@ -707,6 +707,8 @@ public class WorkGoal extends Goal {
     }
 
     private static java.util.Map<BlockPos, Integer> forcedAt; // when a walk was last tried "for real" (dig allowed) after failing (static: fields added live start null)
+    private static java.util.Map<BlockPos, Integer> legDug; // a route leg's cell he broke a block out of, when (static: fields added live start null)
+    private static java.util.Map<BlockPos, Integer> legDug() { if (legDug == null) legDug = new java.util.HashMap<>(); return legDug; }
     private static java.util.Map<BlockPos, Integer> forcedAt() { if (forcedAt == null) forcedAt = new java.util.HashMap<>(); return forcedAt; }
 
     /** In his mine or within walk.out_mine_near (6) of it: a row of its blueprint (branches too), a step of its stairs, a nook. A pocket off his own tunnel walks home through the mine, never out through some cave (D2D, his smelting pocket 2 up from a branch end). */
@@ -843,6 +845,13 @@ public class WorkGoal extends Goal {
         }
         BlockPos feetCell = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); // (on farmland or a slab his feet sit a little down into the block: the cell he is in, not the block under him)
         double d = Math.sqrt(feetCell.distSqr(pos));
+        if (!g.level().getBlockState(pos).getCollisionShape(g.level(), pos).isEmpty() && inReach(pos) && g.tasks.peekFirst() instanceof Task.GoTo && g.level().getBlockState(pos).getDestroySpeed(g.level(), pos) >= 0
+                && g.tickCount - legDug().getOrDefault(pos.immutable(), -100000) > 20 * 20) { // a leg of a route whose cell has a block in it: the player's way, the block and on (reviews 110/140: one basalt, one netherrack, a diamond pick on him, the leg dropped for a re-plan); once per cell, doBreak's guards decide
+            legDug().put(pos.immutable(), g.tickCount); if (legDug().size() > 64) legDug().clear();
+            g.tasks.addFirst(new Task.GoTo(pos, within)); g.tasks.addFirst(new Task.Break(pos.immutable()));
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] the walk to {}: {} in the leg's cell, in reach: breaking it and walking on (WorkGoal.walkTo)", pos.toShortString(), g.level().getBlockState(pos).getBlock().getName().getString());
+            return true;
+        }
         if (!g.level().getBlockState(pos).getCollisionShape(g.level(), pos).isEmpty() && inReach(pos)) { if (g.tasks.peekFirst() instanceof Task.GoTo) com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] the walk to {} ends at once: {} is there, in reach, with more walks queued (a route cell not dug?) (WorkGoal.walkTo)", pos.toShortString(), g.level().getBlockState(pos).getBlock().getName().getString()); return true; } // a walk to a block (a trunk, ore): in reach of it is there // ponytail: live 15:35 a route walk into a cell planned dug vanished silently, 30 s stuck: logged to prove it
         if (walkSince.size() > 64) { walkSince.values().removeIf(t0 -> g.tickCount - t0 > 20 * 60); walkBest.keySet().retainAll(walkSince.keySet()); }
         if (walkTask != current) { walkTask = current; walkKept.clear(); walkFor = null; } // (each job's walks start their clocks afresh)

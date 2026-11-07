@@ -126,7 +126,7 @@ public final class ActionPath {
         if (!open.isEmpty()) { StringBuilder ln = new StringBuilder(); int n0 = Math.max(Math.abs(to.getX() - from.getX()), Math.max(Math.abs(to.getY() - from.getY()), Math.abs(to.getZ() - from.getZ()))); // the budget ran out: the straight line's solid cells and what each is to him (review 306, 22:52 11-06: 6 along his own tunnel "no way"; the cause never said)
           for (int k = 1; k <= Math.min(n0, 24) && ln.length() < 600; k++) { BlockPos q0 = new BlockPos(from.getX() + Math.round((float) (to.getX() - from.getX()) * k / n0), from.getY() + Math.round((float) (to.getY() - from.getY()) * k / n0), from.getZ() + Math.round((float) (to.getZ() - from.getZ()) * k / n0));
             for (BlockPos q : new BlockPos[] {q0, q0.above()}) { var qs = level.getBlockState(q); if (qs.getCollisionShape(level, q).isEmpty()) continue;
-              ln.append(" ").append(q.toShortString()).append("=").append(qs.getBlock().getName().getString()).append(qs.getDestroySpeed(level, q) < 0 ? " (unbreakable)" : c.hisBuild(q) ? " (his build" + (c.bp && c.g.blueprint.isShell(q) ? ": his mine's shell" : "") + ")" : c.structure(q) ? " (a structure's)" : " (a dig)").append(";"); } }
+              ln.append(" ").append(q.toShortString()).append("=").append(qs.getBlock().getName().getString()).append(qs.getDestroySpeed(level, q) < 0 ? " (unbreakable)" : c.hisBuild(q) ? " (his build" + (c.bp && c.g.blueprint.isShell(q) ? ": his mine's shell" : "") + ")" : c.structure(q) ? " (a structure's)" : digWhy(c, q)).append(";"); } }
           com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} -> {}: the straight line's solid cells:{} (ActionPath.plan)", from.toShortString(), to.toShortString(), ln.length() == 0 ? " none" : ln.toString()); }
         return null; // (a partial route to the closest spot is not what a player does: he'd rather pick another way)
     }
@@ -196,6 +196,22 @@ public final class ActionPath {
     private static final Map<BlockPos, Long> STRUCT_OK = new HashMap<>();
     public static boolean structureDigOk(ServerLevel level, BlockPos p) { Long t = STRUCT_OK.get(p); return t != null && level.getGameTime() - t < 20 * 300 && level.getGameTime() >= t; }
 
+    /** The straight-line log's word on a cell he'd dig: its price as the plan reads it, or the rule that keeps it (the label "a dig" on every refused cell hid the cause: review 40, 00:53 11-07, 27 of stone "a dig" each and no way found). */
+    private static String digWhy(Costs c, BlockPos q) {
+        double sec = c.digSeconds(q);
+        if (sec >= 0) return " (a dig, " + String.format("%.1f", sec) + " s)";
+        ServerLevel level = c.level; var s = level.getBlockState(q);
+        if (c.closed.contains(q)) return " (kept: closed to this plan)";
+        if (c.g.coverCell(q)) return " (kept: his cover)";
+        if (c.mode == Mode.NO_DIG) return " (kept: no digging on this walk)";
+        if (s.is(net.minecraft.tags.BlockTags.LOGS)) return " (kept: the tree rule)";
+        String hz = com.claudemod.director.ClaudeLife.hazard(c.g, level, q, 1); if (hz != null) return " (kept: a hazard, " + hz + ")";
+        if (c.lavaBy(q)) return " (kept: lava by it)";
+        for (Direction d : Direction.values()) if (!level.getFluidState(q.relative(d)).isEmpty()) return " (kept: holds " + (level.getFluidState(q.relative(d)).is(net.minecraft.tags.FluidTags.LAVA) ? "lava" : "water") + " back at " + q.relative(d).toShortString() + ")";
+        if (s.getBlock() instanceof net.minecraft.world.level.block.FallingBlock) return " (kept: it falls on him)";
+        if (!level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(q).inflate(2), m -> m.isAlive() && m.getTarget() == c.g).isEmpty()) return " (kept: opens onto a mob after him)";
+        return " (kept: no tool for it, or a protected block)";
+    }
     private static double h(BlockPos a, BlockPos b) {
         double dx = Math.abs(a.getX() - b.getX()), dy = Math.abs(a.getY() - b.getY()), dz = Math.abs(a.getZ() - b.getZ());
         return Math.max(dx, dz) + Math.min(dx, dz) * 0.2 + dy * 1.2; // (0.6 was admissible but blew the search budget before the dig way: stage 61 failed, NO_PATH; backlog)

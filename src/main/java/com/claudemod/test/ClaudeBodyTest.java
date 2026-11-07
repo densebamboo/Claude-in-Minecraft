@@ -18037,7 +18037,7 @@ public final class ClaudeBodyTest {
         if (t[0] >= 10 && t[0] < 10 + 34) { int x = t[0] - 10 - 3; for (int z = -9; z <= 9; z++) for (int y = 60; y <= 82; y++) nether.setBlock(new BlockPos(ox + x, y, oz + z), hwBlock(x, y, z), 2 | 16); }
         if (t[0] == 50) { c.setNoGravity(false); c.teleportTo(nether, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, -90f, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.fallDistance = 0; c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); }
         if (t[0] == 60) {
-            var plan = com.claudemod.entity.nav.ActionPath.plan(c, nether, me, far, 1.0, true, 20000);
+            var plan = com.claudemod.entity.nav.ActionPath.plan(c, nether, me, far, 1.0, true, 20000); if (plan == null) plan = com.claudemod.entity.nav.ActionPath.plan(c, nether, me, far, 1.0, true, 20000, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, c.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), c.tickCount, java.util.List.of(), 2.5); // (as walkTo: the plain search, then the weighted one)
             check(plan != null, "no plan across the lava from 8 back");
             var ts = com.claudemod.entity.nav.ActionPath.tasks(plan, me, Items.COBBLESTONE, far, 1.0, nether);
             long places = ts.stream().filter(x -> x instanceof Task.Place).count();

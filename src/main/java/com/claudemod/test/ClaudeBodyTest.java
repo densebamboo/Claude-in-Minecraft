@@ -10615,6 +10615,7 @@ public final class ClaudeBodyTest {
             case 787: return st787(stage, t, c, h, level, mock);
             case 788: return st788(stage, t, c, h, level, mock);
             case 789: return st789(stage, t, c, h, level, mock);
+            case 790: return st790(stage, t, c, h, level, mock);
             case 786: return st786(stage, t, c, h, level, mock);
             case 780: return st780(stage, t, c, h, level, mock);
             case 781: return st781(stage, t, c, h, level, mock);
@@ -16174,6 +16175,25 @@ public final class ClaudeBodyTest {
             if (level.getBlockState(st789Hole).is(Blocks.COBBLED_DEEPSLATE)) { boolean out = !c.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(st789Hole)); check(out, "the block went in with him in the cell"); int refusals = c.attempts.counters.getOrDefault("conflict:" + st789Hole.asLong(), 0); check(refusals == 0, "stepping out first was booked as " + refusals + " refusal(s) of the fill (3 park it for 2 min, live 22:50:53)"); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "out of the hole and the hole filled in " + (t[0] - st789T) / 20.0 + " s"); return true; }
             check(c.tasks.stream().anyMatch(q -> q instanceof Task.Place p && p.pos().equals(st789Hole)) || c.currentTask instanceof Task.Place cp && cp.pos().equals(st789Hole) || t[0] - st789T < 3, "the fill of the hole he stood in dropped (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ", tasks " + c.tasks + ")");
             check(t[0] - st789T < 20 * 5, "the hole not filled in 5 s (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ", tasks " + c.tasks + ")");
+        }
+        return true;
+    }
+    private static int st790T; private static BlockPos st790B, st790C;
+    private static boolean st790(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D 337 (live 22:57 World 17, 5,62,509 and 7,62,509) and 23:08:22 (41,32,479): a block his highway / bore just put down sat in a route leg planned before it; the walker's leg dig (783's "one netherrack in the leg") took his own build out again. His build stays: the walk goes round it
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st790T = -1; }
+        if (t[0] == 10) {
+            for (int x = -2; x <= 18; x++) for (int z = 2; z <= 8; z++) for (int y = 1; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), (y >= 2 && y <= 3 && (z == 5 || z == 6) && x >= 0 && x <= 16) ? Blocks.AIR.defaultBlockState() : Blocks.NETHERRACK.defaultBlockState(), 2); // a 2-wide corridor
+            st790B = h.absolutePos(new BlockPos(6, 2, 5)).immutable(); st790C = h.absolutePos(new BlockPos(14, 2, 5)).immutable();
+            level.setBlock(st790B, Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.builtCells(c).put(st790B, "WorkGoal.doBore:3133"); // his bore's block in the leg's cell
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 32));
+            BlockPos me = h.absolutePos(new BlockPos(3, 2, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(-90); c.setHealth(20); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 15) { c.tasks.clear(); c.tasks.add(new Task.GoTo(st790B, 1.0)); c.tasks.add(new Task.GoTo(st790C, 1.0)); st790T = t[0]; }
+        if (st790T > 0) {
+            check(level.getBlockState(st790B).is(Blocks.COBBLED_DEEPSLATE), "his bore's block in the leg's cell dug out by the walk (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ")");
+            if (c.blockPosition().distSqr(st790C) <= 2) { c.tasks.clear(); c.dropCurrent = true; com.claudemod.entity.life.TempLedger.builtCells(c).remove(st790B); pass(stage, t, "round his own block, both legs walked, in " + (t[0] - st790T) / 20.0 + " s"); }
+            else check(t[0] - st790T < 20 * 15, "never reached the second leg's end in 15 s (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ", tasks " + c.tasks + ")");
         }
         return true;
     }

@@ -4816,6 +4816,22 @@ public class WorkGoal extends Goal {
     private int hitsToDie(net.minecraft.world.entity.LivingEntity mob) { return (int) Math.ceil(g.getHealth() / mobHit(mob)); }
 
     /** What a hit of its does to him through his armor (vanilla armor: up to 80% off). */
+    /** Holding a gap (escape.gap_hold): they come through one at a time, so each lands its hits only while it is the one he's killing (its swings, fight.swing_s each, hitsToKill), priced at his health by hpS; against running on: flee.run_s, the hits breaking off from those within 4, then the same mobs met again at full health or kept away from (flee.avoid_s). Null: hold; else why not, with both prices. */
+    private String gapHoldNo(java.util.List<? extends net.minecraft.world.entity.Mob> mobs) {
+        double swing = w("fight.swing_s", 0.6), rate = w("fight.mob_hits_per_s", 0.8) * (armed() ? w("fight.knockback_hits_factor", 0.5) : 1), cool = w("fight.mob_cooldown_s", 1.0);
+        double t = 0, hits = 0, hp = 0, offHp = 0; int most = 0, n = 0;
+        for (var m : mobs) { if (!m.isAlive() || m.getTarget() != g || m.distanceTo(g) > 24 || shoots(m)) continue; n++;
+            int k = hitsToKill(m); double tm = k * swing, h = tm * rate, dmg = mobHit(m); t += tm; hits += h; hp += h * dmg; most += (int) Math.ceil(tm / cool);
+            if (m.distanceTo(g) < 4) offHp += w("flee.hits_breaking_off", 0.7) * dmg; }
+        if (n == 0) return null;
+        double perHit = hits > 0 ? hp / hits : 3;
+        double hold = t + com.claudemod.entity.life.Decide.hpS(g, g.getHealth(), 0, hp, perHit, most);
+        double run = w("flee.run_s", 20) + com.claudemod.entity.life.Decide.hpS(g, 0, offHp, perHit) + Math.min(t + com.claudemod.entity.life.Decide.hpS(g, g.getMaxHealth(), 0, hp, perHit, most), w("flee.avoid_s", 180));
+        if (hold <= run) return null;
+        com.claudemod.entity.life.Decide.choose(g, "escape.gap_hold", n + " after him single file, health " + (int) g.getHealth() + ", armor " + g.getArmorValue(), true, java.util.List.of(
+            com.claudemod.entity.life.Decide.Option.of("hold", hold, "one at a time, ~" + String.format("%.1f", hp) + " HP"), com.claudemod.entity.life.Decide.Option.of("run on", run, "~" + String.format("%.1f", offHp) + " HP breaking off")));
+        return "holding ~" + Math.round(hold) + " s against running on ~" + Math.round(run) + " s";
+    }
     private double mobHit(net.minecraft.world.entity.LivingEntity mob) {
         boolean archer = shoots(mob); // (its arrows, not its melee: World 17 05:18, a skeleton priced at 2 a hit, arrows of 5 and 3 in his back; stage 766)
         double raw = archer ? w("fight.arrow_hit_hp", 4) : mob.getAttributes().hasAttribute(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE)
@@ -5115,7 +5131,7 @@ public class WorkGoal extends Goal {
             }
             long after = mobs.stream().filter(m -> m.getTarget() == g).count();
             boolean armored = false; for (EquipmentSlot sl : EquipmentSlot.values()) if (sl.isArmor() && !g.getItemBySlot(sl).isEmpty()) armored = true;
-            if (after > 3 || weakFighter() || !armored || g.getHealth() < 12) { runOnPast(after + " after him, " + (int) g.getHealth() + " health, " + plug.getCount() + " blocks to plug it: too many to trade hits with one at a time"); return 0; } // (holding it against six cost him 20 health in 14 s and his life; through the gap they come single file and he outruns them)
+            String holdNo = gapHoldNo(mobs); if (holdNo != null) { runOnPast(after + " after him, " + (int) g.getHealth() + " health, " + plug.getCount() + " blocks to plug it: " + holdNo); return 0; } // (priced, escape.gap_hold: was "more than 3 after him, a weak fighter, no armor or under 12 health") // (holding it against six cost him 20 health in 14 s and his life; through the gap they come single file and he outruns them)
             escapeSwings = 0;
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] holding the gap at {} from {}: one at a time as they come through ({} blocks to plug it, health {}) (WorkGoal.atEscape)", escapeGap == null ? "?" : escapeGap.toShortString(), escapeAt.toShortString(), plug.getCount(), (int) g.getHealth());
         }
@@ -5138,7 +5154,7 @@ public class WorkGoal extends Goal {
             if (!open && mobs.stream().noneMatch(m -> m.distanceTo(g) < 4)) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the gap at {} is plugged, none of them this side: the run's over (WorkGoal.atEscape)", gp.toShortString()); return 2; }
         }
         // holding: on his spot, facing the gap, a swing at whatever is in reach once the swing is charged
-        if (g.getHealth() < 10) { runOnPast("health " + (int) g.getHealth() + " holding it"); return 0; }
+        { String holdNo = gapHoldNo(mobs); if (holdNo != null) { runOnPast("health " + (int) g.getHealth() + " holding it: " + holdNo); return 0; } } // (priced: was "under 10 health")
         if (mobs.stream().noneMatch(m -> m.getTarget() == g && m.distanceTo(g) < 24)) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] nothing after him any more at the gap {}: the hold's over (WorkGoal.atEscape)", escapeGap == null ? "?" : escapeGap.toShortString()); g.setSprinting(false); clearEscape(); return 2; }
         if (d > 0.6) g.getMoveControl().setWantedPosition(escapeAt.getX() + 0.5, escapeAt.getY(), escapeAt.getZ() + 0.5, 1.0);
         if (d > 3.5) { escapeHeld = false; escapeBest = d; escapeBestTick = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] knocked {} off his spot by the gap: back to it (WorkGoal.atEscape)", String.format("%.1f", d)); return 0; }

@@ -579,9 +579,13 @@ public final class ClaudeLife {
             meat.sort(java.util.Comparator.comparingDouble(a -> a.distanceToSqr(g)));
             for (var a : meat) if (2 * com.claudemod.entity.life.Clocks.eta(g.blockPosition(), a.blockPosition()) + kill <= budget) { prey = a; break; }
         }
+        boolean mineSide = false; // his mine while it cooks, priced: the walk to its face and back against standing here the rest of the batch (was: a face within 12, live 19:51 11-06 "his mine's face 60 off", 30 s watching; the user: "nearby busy work he can do. in this context mining")
+        if (g.mineFace != null && f.getItem(0).getCount() >= 2 && g.level().dimension() == net.minecraft.world.level.Level.OVERWORLD) { double walkS = 2 * com.claudemod.entity.life.Clocks.eta(g.blockPosition(), g.mineFace);
+            var pickM = com.claudemod.entity.life.Decide.choose(g, "smelt.side_mine", left + " s left on the batch, his mine face " + (int) Math.sqrt(g.blockPosition().distSqr(g.mineFace)) + " off", true, java.util.List.of(com.claudemod.entity.life.Decide.Option.of("wait at the furnace", left, "the rest of the batch stood here"), com.claudemod.entity.life.Decide.Option.of("mine meanwhile", walkS + com.claudemod.entity.life.Weights.w("smelt.side_mine_s", 5), Math.round(walkS) + " s there and back, the batch waits in the furnace")));
+            mineSide = pickM != null && pickM.name().startsWith("mine"); }
         boolean anyJob = prey != null || (g.mineFace != null && !g.mineIsTunnel && inHisMine(g, g.blockPosition()) && g.blockPosition().distSqr(g.mineFace) <= 8 * 8)
             || (tree != null && g.inventory.count(st -> st.is(net.minecraft.tags.ItemTags.LOGS)) < 64)
-            || (g.mineFace != null && g.blockPosition().distSqr(g.mineFace) <= 12 * 12) || !g.pillarBlocks.isEmpty() || free != null;
+            || mineSide || !g.pillarBlocks.isEmpty() || free != null;
         if (!anyJob) { int logs9 = 0; for (int i9 = 0; i9 < g.inventory.items.getContainerSize(); i9++) if (g.inventory.items.getItem(i9).is(net.minecraft.tags.ItemTags.LOGS)) logs9 += g.inventory.items.getItem(i9).getCount(); ClaudeMod.LOGGER.info("[Claude life] at the furnace: no side job near ({}s left; kit short of food: " + (Kit.foodAsk(g) != null ? "yes, no animal in reach of the clock" : "no") + "; tree within {}: {}, logs on him {}; his mine's face {}; plan step free of the batch: {}; his blocks about: {}) (ClaudeLife.sideJobWhileCooking)", left, treeRange, tree == null ? "none" : tree.toShortString(), logs9, g.mineFace == null ? "none" : (int) Math.sqrt(g.blockPosition().distSqr(g.mineFace)) + " off", free == null ? "none" : free.skill() + " " + free.target(), g.pillarBlocks.size()); return; } // nothing nearby to do: keep waiting, queue untouched (clearing and re-adding it logged "dropping FurnaceTake" every 5 s, live 01:05 World 15)
         List<Task> rest = new ArrayList<>(g.tasks);
         clearTasks(g);
@@ -593,8 +597,7 @@ public final class ClaudeLife {
             r = "his kit's short of food: the " + prey.getType().getDescription().getString().toLowerCase() + " " + (int) prey.distanceTo(g) + " off while it cooks";
         } else if (tree != null && g.inventory.count(st -> st.is(net.minecraft.tags.ItemTags.LOGS)) < 64) { // (logs only while he's short of them: 179 on him and still "a few logs while it cooks", 544 by 08:18) // (trees in sight of the furnace only: "a few logs while it cooks" walked him 77 blocks off and 56 back for 3 salmon) // up top (leaves overhead count: canSeeSky said no under a tree and he watched 6 mutton cook for 45 s)
             r = runSkill(g, player, new Skills.Step("collect", "logs", logs));
-        } else if (g.mineFace != null && f.getItem(0).getCount() >= 2 && g.blockPosition().distSqr(g.mineFace) <= 12 * 12) { // (2 items is 20 s: a batch split over a row of furnaces never reached 6 in any one, and he stood watching charcoal for over a minute) // underground off his mine with a long smelt on (20 raw iron, 70 s stood watching four furnaces): a few blocks of his tunnel meanwhile
-            r = runSkill(g, player, new Skills.Step("strip_mine", "iron_ore", 2));
+        } else if (mineSide) { boolean deep = g.getBlockY() < 0; r = runSkill(g, player, new Skills.Step("strip_mine", deep ? "diamond_ore" : "iron_ore", haveFor(g, level, deep ? Items.DIAMOND : Items.RAW_IRON) + 2));
         } else if (free != null) { // his plan's next step meanwhile: the batch waits in the furnace, its take queued after
             r = runSkill(g, player, free);
             if (!g.tasks.isEmpty()) g.skillQueue.remove(free); // (it queued work: done here, not again from the plan; nothing queued: it stays where it was)
@@ -9263,6 +9266,7 @@ public final class ClaudeLife {
     private static String gearFirst(ClaudeEntity g, ServerLevel level, Skills.Step st, boolean full) {
         boolean hurt = g.getHealth() <= 8 && g.getFoodData().getFoodLevel() < 18 && foodToEat(g, true) == null && Kit.food(g) == 0
                 && g.skillQueue.stream().noneMatch(s -> s.skill().equals("obtain") && s.target().startsWith("cooked")); // health only comes back with food: that trip comes first, whatever was planned
+        if (!hurt && g.currentTask instanceof Task.FurnaceTake) return null; // a side job while his batch cooks: no new trip, and the food the kit wants is that batch (the side job's strip mine went "kit first: missing 12 cooked_beef", stage 876)
         boolean upTop = g.getBlockY() >= level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.getBlockX(), g.getBlockZ()) - 4;
         boolean starvedKit = (upTop || g.getArmorValue() == 0 && !com.claudemod.director.ClaudeLife.dayHere(level)) && Kit.food(g) < 6; // (and down the mine with no armor: after a respawn he walked back down at night with no food, armor or torches inside the 10-minute gap and got cornered at 2 health) // up top with under 6 meals: checked every time (25 s after "shelter till first light" he walked to the mine through the once-a-minute gap)
         int torchesNow = g.inventory.count(s0 -> s0.is(Items.TORCH)), coalNow = g.inventory.count(s0 -> s0.is(Items.COAL) || s0.is(Items.CHARCOAL));

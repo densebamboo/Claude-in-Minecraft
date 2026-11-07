@@ -73,7 +73,7 @@ public final class Highway {
         }
         if (s.dest != null && level.isLoaded(s.dest)) { BlockPos dk = FortressScout.deck(level, s.dest); // the fortress's deck once its ground is loaded: the height on record may be a brick seen from below (stage 919)
             if (dk != null && dk.getY() != s.dest.getY() && Math.abs(dk.getX() - s.dest.getX()) + Math.abs(dk.getZ() - s.dest.getZ()) <= 24) { ClaudeMod.LOGGER.info("[Claude highway] the destination {} is a fortress deck at {}: planned again to its height (Highway.skill)", s.dest.toShortString(), dk.toShortString()); s.dest = dk.immutable(); s.plan = null; words = ""; } }
-        if (s.plan == null && s.dest != null && (words.isBlank() || st.target().startsWith("@"))) words = s.dest.getX() + " " + s.dest.getY() + " " + s.dest.getZ(); // (after a restart: the one underway)
+        if (s.dest != null && (words.isBlank() || st.target().startsWith("@"))) words = s.dest.getX() + " " + s.dest.getY() + " " + s.dest.getZ(); // (no target: the one underway, after a restart or not; the planner's plain build_highway planned a new one to the fortress on his map, 271,65,445 against the deck 310,33,402 underway: a fork at row 401, live 20:08 11-06, stage 877)
         if (!st.target().startsWith("@") || s.plan == null) { String r = makePlan(g, level, words, s); if (r != null) return r; }
         BridgeBlueprint b = s.plan; int lo = b.lo(), hi = b.hi();
         // where it stands: the first row not finished (read off the world; a row out in unloaded ground isn't, it's ahead)
@@ -256,7 +256,7 @@ public final class Highway {
         if (s.dest == null || s.portalId < 0 || s.rows <= 0 || g.level().dimension() != net.minecraft.world.level.Level.OVERWORLD) return null;
         if (g.lastStep != null && g.lastStep.skill().equals("collect") && g.lastStep.target().equals("cobbled_deepslate")) return null;
         int missing = trip(g, s.rows - Math.max(0, s.built));
-        if (missing < w("highway.pack_min_short", 64)) return null;
+        int have0 = g.inventory.count(x -> x.is(BLOCK)); if (missing < w("highway.pack_min_short", 64) || have0 >= w("highway.fetch_min_stacks", 5) * 64) return null; // (5 stacks on him is a trip: back down his mine for the last 105 of 759, 654 on him, live 19:53 11-06; the user: "the minimum of stacks each time")
         int have = g.inventory.count(x -> x.is(BLOCK));
         ClaudeMod.LOGGER.info("[Claude highway] packing for the highway before the portal: {} on him, room for {} more of this trip (Highway.packStep)", have, missing);
         return new Skills.Step("collect", "cobbled_deepslate", have + missing);

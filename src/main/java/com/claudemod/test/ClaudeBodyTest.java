@@ -10676,6 +10676,8 @@ public final class ClaudeBodyTest {
             case 873: return st873(stage, t, c, h, level, mock);
             case 874: return st874(stage, t, c, h, level, mock);
             case 875: return st875(stage, t, c, h, level, mock);
+            case 876: return st876(stage, t, c, h, level, mock);
+            case 877: return st877(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -18357,6 +18359,69 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    private static boolean st877(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 20:08 World 17: at row 525 of the highway to the fortress deck (310,33,402, "of 715"), the planner's plain "build_highway" planned it again from the fortress on his map (271,65,445, "of 719"): that plan's row 401 (the corner at -3,59,402) unbuilt, a walk 123 blocks back to it, then the deck re-read and back: CONFLICT. Here: a highway planned to a spot, then "build_highway" with no target: the same highway resumed, not a new one.
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(11400, 64, 6920);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); }
+        nsTick(nl, c, o, t);
+        try {
+        if (t[0] == 10) {
+            for (int x = -6; x <= 6; x++) for (int z = -4; z <= 16; z++) for (int y = -3; y <= 7; y++) nl.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2);
+            for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, 0), x == -1 || x == 2 || y == -1 || y == 3 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+            nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 1.5, 0f, 0f);
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o, "him", "lit");
+        }
+        if (t[0] == 20) {
+            c.skillQueue.clear(); c.tasks.clear();
+            String r1 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", o.getX() + " " + o.getY() + " " + (o.getZ() + 60), 1);
+            var p1 = com.claudemod.entity.life.Highway.plan(c); String d1 = com.claudemod.entity.life.Highway.describe(c);
+            c.skillQueue.clear(); c.tasks.clear();
+            String r2 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", "", 1);
+            var p2 = com.claudemod.entity.life.Highway.plan(c); String d2 = com.claudemod.entity.life.Highway.describe(c);
+            c.skillQueue.clear(); c.tasks.clear(); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear();
+            for (int x = -6; x <= 6; x++) for (int z = -4; z <= 16; z++) for (int y = -3; y <= 7; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(p1 != null, "877: no highway planned to the spot: " + r1);
+            check(!r2.startsWith("failed") && p2 != null && p2.dest.equals(p1.dest) && d2.equals(d1), "build_highway with no target didn't resume the one underway (to " + p1.dest.toShortString() + "): " + r2 + " | now " + (p2 == null ? "no plan" : "to " + p2.dest.toShortString()));
+            nsHome(c, h, level); pass(stage, t, "no target: the one underway resumed (" + r2 + ")");
+        }
+        } catch (Exception e) { throw e; }
+        return true;
+    }
+    private static int st876Start; private static BlockPos st876F;
+    private static boolean st876(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 19:50-19:51 World 17 (the user: "he's staring into his furnace again lol"; "it should be related to his queue or nearby busy work he can do. in this context mining probably"): 6 porkchop cooking in his nook at -58, "no side job near (29s left ... his mine's face 60 off)", 30 s of watching. Here: 865's mine with its -58 run 40 long, a furnace at the run's start cooking 6 porkchop, the face ~36 off: he goes mining while it cooks.
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; st876Start = 0; }
+        if (t[0] == 10) {
+            BlockPos at = h.absolutePos(new BlockPos(2, 0, 8)); var E = net.minecraft.core.Direction.EAST;
+            var b = new com.claudemod.entity.life.MineBlueprint(new BlockPos(at.getX(), 20, at.getZ()), E, 2, 3); b.segments.get(0).n = 5; b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 12, null)); b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.STAIRS, b.nextStart(true), E, 74, null)); b.invalidate();
+            BlockPos runStart = b.nextStart(false);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, runStart, E, 40, null)); b.invalidate();
+            b.branchLength = 16; b.branchEvery = 4;
+            for (var r : b.rows()) for (BlockPos f : r.feet()) { level.setBlock(f.below(), Blocks.DEEPSLATE.defaultBlockState(), 2); for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2); }
+            BlockPos face = b.rows().get(b.rows().size() - 1).first(), me = b.rows().get(b.rows().size() - 38).first();
+            st876F = me.north(); level.setBlock(st876F, Blocks.FURNACE.defaultBlockState(), 3); c.myStations.add(st876F);
+            if (level.getBlockEntity(st876F) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fb) { fb.setItem(0, new ItemStack(Items.PORKCHOP, 6)); fb.setItem(1, new ItemStack(Items.COAL, 2)); }
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = face; c.mineIsTunnel = true; level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 4)); c.getInventory().add(new ItemStack(Items.TORCH, 64)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 62)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.COAL, 26)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); // (his live pack: 62 logs, coal)
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no"); mock[0].teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 1.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null; c.nextPlanTick = c.tickCount + 20 * 600;
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 876 furnace {} face {} ({} off)", st876F.toShortString(), face.toShortString(), (int) Math.sqrt(face.distSqr(me)));
+        }
+        if (t[0] == 30) { c.tasks.add(new Task.FurnaceTake(st876F)); st876Start = t[0]; }
+        if (st876Start > 0) {
+            boolean off = c.tasks.stream().anyMatch(k -> k instanceof Task.Break) || c.currentTask instanceof Task.Break;
+            if (off || t[0] - st876Start >= 20 * 15) { boolean took = c.tasks.stream().anyMatch(k -> k instanceof Task.FurnaceTake) || c.currentTask instanceof Task.FurnaceTake; String q = c.tasks.stream().limit(4).toList().toString();
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.myStations.remove(st876F); level.setBlock(st876F, Blocks.AIR.defaultBlockState(), 3); c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; c.prefs.remove("stay_close");
+                check(off, "15 s at the furnace with 6 porkchop cooking and his mine face ~36 off, no mining: now " + q);
+                check(took, "off mining with no FurnaceTake left: the porkchop forgotten: " + q);
+                pass(stage, t, "off to his mine while it cooks, " + (t[0] - st876Start) + " ticks"); st876Start = 0; }
+        }
+        return true;
+    }
     private static BlockPos st875Rock, st875Ore;
     private static boolean st875(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         // Live 19:46 World 17 (the user: "im pretty sure he has enough deepslate lol"): collect cobbled_deepslate x512 with 517 on him, 171 tasks of the branch push still queued and being dug. Here: the step's count on him, its push queued (rock 300 off so none of it gets done): the rock and the walks go, the ore stays.
@@ -18431,6 +18496,9 @@ public final class ClaudeBodyTest {
             String r2 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", "", 1);
             boolean packed2 = c.skillQueue.stream().anyMatch(s -> s.skill().equals("collect") && s.target().equals("cobbled_deepslate") && s.count() > 120 + 64);
             String q2 = c.skillQueue.toString();
+            c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null; for (int i = 0; i < 5; i++) c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); // 440 on him: 5+ stacks is a trip (live 19:53: back down his mine for the last 105 of 759 with 654 on him)
+            String r3 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", "", 1); boolean packed3 = c.skillQueue.stream().anyMatch(s -> s.skill().equals("collect") && s.target().equals("cobbled_deepslate"));
+            check(!packed3, "build_highway with 440 on him (5+ stacks) sent him to collect more first: " + r3 + "; queue " + c.skillQueue);
             c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; com.claudemod.entity.life.Highway.reset(c);
             check(packed1, "enter_portal back to the highway with 120 and room for more: no pack first (" + r1 + "; queue " + q1 + ")");
             check(packed2, "build_highway from the overworld with 120 and room for more: no pack first (" + r2 + "; queue " + q2 + ")");

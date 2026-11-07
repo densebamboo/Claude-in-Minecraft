@@ -2079,7 +2079,7 @@ public final class ClaudeLife {
                     String r = runSkill(g, player, new Skills.Step(g.mineFace != null && g.mineIsTunnel ? "strip_mine" : "dig_down", rock, Math.max(4, count) /* the total he wants: the dig says done once he has it (32/5 = 7 against 17 on him said done at once, live 23:40 11-04, the trip packer round in circles) */));
                     if (r.startsWith("failed") && r.contains("strip_mine from here")) r = runSkill(g, player, new Skills.Step("strip_mine", rock, Math.max(4, count))); // the stairs can't go deeper: the tunnel gives it
                     boolean mineNoGood = r.startsWith("failed") || r.contains("lake in the way") || r.contains("water right by") || r.contains("dry ground"); // (water at the mine: a few blocks of cobble don't need the mine at all)
-                    if (!mineNoGood) return (starting ? "starting my mine for the cobble: " : "getting the cobble by digging my mine further: ") + r;
+                    if (!mineNoGood) { if (!r.startsWith("done")) g.skillQueue.addFirst(st); return (starting ? "starting my mine for the cobble: " : "getting the cobble by digging my mine further: ") + r; } // (back on until the dig says "done: already have N": one push of 131 cells for 384, or one cut short by lava, ended the step with 2 on him, live 16:46 11-06, stage 870)
                     clearTasks(g); // (the walk to dry ground that was queued: the rock here comes first)
                     ClaudeMod.LOGGER.info("[Claude life] the mine can't be dug on for cobble right now ({}): a few blocks of stone out of the rock here instead", r);
                 }

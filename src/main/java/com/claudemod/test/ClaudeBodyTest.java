@@ -10669,6 +10669,7 @@ public final class ClaudeBodyTest {
             case 862: return st862(stage, t, c, h, level, mock);
             case 864: return st864(stage, t, c, h, level, mock);
             case 865: return st865(stage, t, c, h, level, mock);
+            case 870: return st870(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -18315,6 +18316,32 @@ public final class ClaudeBodyTest {
             String q = c.tasks.stream().limit(4).toList().toString(); c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null;
             check(!r.contains("y=16") && high < 0, "collect cobbled_deepslate sent him up to stone (result: " + r + "; highest task y " + high + "; " + q + ")");
             pass(stage, t, "deepslate from a level below y 0: " + r + " (highest task y " + high + ")");
+        }
+        return true;
+    }
+    private static boolean st870(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 16:46 World 17: lava cut his -58 branch short, "collect cobbled_deepslate 384" ended after that one push with 2 on him and enter_portal took him back to the highway with nothing. Here: 865's mine, a collect for 384 with none on him: the step must stay queued until he has them.
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; }
+        if (t[0] == 10) {
+            BlockPos at = h.absolutePos(new BlockPos(2, 0, 8)); var E = net.minecraft.core.Direction.EAST;
+            var b = new com.claudemod.entity.life.MineBlueprint(new BlockPos(at.getX(), 20, at.getZ()), E, 2, 3); b.segments.get(0).n = 5; b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 12, null)); b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.STAIRS, b.nextStart(true), E, 74, null)); b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 6, null)); b.invalidate();
+            b.branchLength = 16; b.branchEvery = 4;
+            BlockPos face = b.rows().get(b.rows().size() - 1).first();
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = face; c.mineIsTunnel = true; level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 16)); c.getInventory().add(new ItemStack(Items.TORCH, 64));
+            c.teleportTo(face.getX() + 0.5, face.getY(), face.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.attempts.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 20) {
+            c.tasks.clear(); c.skillQueue.clear();
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "cobbled_deepslate", 384);
+            String q = c.skillQueue.toString(); boolean kept = c.skillQueue.stream().anyMatch(s -> s.skill().equals("collect") && s.target().equals("cobbled_deepslate"));
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null;
+            check(kept, "collect cobbled_deepslate 384 ended after one push with none on him (result: " + r + "; queue " + q + ")");
+            pass(stage, t, "collect stays queued while short: " + r);
         }
         return true;
     }

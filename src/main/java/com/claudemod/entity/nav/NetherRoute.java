@@ -139,7 +139,7 @@ public final class NetherRoute {
         /** A cell he hasn't seen, walked or stood by reads as netherrack: rock at its dig price till he sees it (never a cave he never saw). */
         final net.minecraft.world.phys.Vec3 eye; final double sight; // where he looks from as he plans, and how far he sees (the Nether's fog)
         boolean known(int x, int y, int z) { if (to != null && Math.abs(x - to.getX()) <= 8 && Math.abs(y - to.getY()) <= 8 && Math.abs(z - to.getZ()) <= 8) return true;
-            return knownMemo.computeIfAbsent(key(x, y, z), k -> com.claudemod.entity.life.FarSight.known(g, x, y, z)
+            return knownMemo.computeIfAbsent(key(x, y, z), k -> com.claudemod.entity.life.FarSight.known(g, x, y, z) || com.claudemod.entity.life.PortalMap.nearHighway(g, com.claudemod.entity.life.PortalMap.NETHER, x, y, z, 32, 8, 4) // (his own highway: read as it is, never as unseen rock; the user 11-06 21:07 "he's not using the highway for pathing")
                 || (x + 0.5 - eye.x) * (x + 0.5 - eye.x) + (y + 0.5 - eye.y) * (y + 0.5 - eye.y) + (z + 0.5 - eye.z) * (z + 0.5 - eye.z) <= sight * sight && com.claudemod.entity.life.Perception.clear(level, eye, new net.minecraft.world.phys.Vec3(x + 0.5, y + 0.5, z + 0.5)) && seen(x, y, z)); }
         private boolean seen(int x, int y, int z) { com.claudemod.entity.life.FarSight.sawCell(g, x, y, z); return true; } // (in plain view from where he stands: the void he looks across is air, not rock (Day to Day 15:17 11-05: the route tunnelled through the air over a lava sea); the ray fan alone leaves holes a block wide at 10 off; out to his sight, not 24: a void past a 24 cut-off read as floor again, stage 535)
         BlockState bs(int x, int y, int z) { LevelChunk c = chunk(x, z); return c == null || y < minY - 1 || y > maxY + 3 ? Blocks.BEDROCK.defaultBlockState() : !known(x, y, z) ? Blocks.NETHERRACK.defaultBlockState() : c.getBlockState(new BlockPos(x, y, z)); }
@@ -188,6 +188,7 @@ public final class NetherRoute {
                 digCache.put(s, c);
             }
             if (c < 0) return -1;
+            if (com.claudemod.entity.life.PortalMap.highwayBlock(g, com.claudemod.entity.life.PortalMap.NETHER, p, s)) return c + com.claudemod.entity.life.Weights.w("netherroute.highway_dig_s", 40); // (his own highway: walked, never dug through for a shortcut; the user 11-06 21:07 "he's not using the highway for pathing")
             return c + (known(x, y, z) && ActionPath.structureBlock(level, p) && !com.claudemod.entity.life.TempLedger.built(g, p) ? 40 : 0); // (a fortress's own block: very dear, round it or its doorways)
         }
         /** {seconds, digs, puts} for the move from (x, y, z) to (cx, ny, cz), or null when it can't be made. */

@@ -172,6 +172,28 @@ public final class PortalMap {
     }
 
     /** The segment a crossing along {@code axis} at floor {@code floor} should join: same axis, its floor within 1, its centre line within its width of this one, and this cell within 8 of its ends along it. Null if none. */
+    /** A block of a highway of his on record: the cobble he laid for its floor, rails or shell (dear to dig: live 21:07 11-06 the route went down through its floor at z 240 and tunnelled at y 52). */
+    public static boolean highwayBlock(ClaudeEntity g, String dim, BlockPos p, net.minecraft.world.level.block.state.BlockState s) {
+        return (s.is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE) || s.is(net.minecraft.world.level.block.Blocks.COBBLESTONE)) && inHighway(g, dim, p.getX(), p.getY(), p.getZ());
+    }
+    /** A cell of a highway of his on record, floor to roof and a rail or wall either side. */
+    public static boolean inHighway(ClaudeEntity g, String dim, int x, int y, int z) { return nearHighway(g, dim, x, y, z, 0, 0, 0); }
+    /**
+     * A cell he knows as it is from building a highway of his: the highway itself, what's under it down to {@code below} (he
+     * looked down as he laid it: a bridge's void is air, live 21:07 11-06 the route read it as rock and planned legs in the air
+     * over the lava at -2,52,240), {@code side} more either side (the drop off its edge, seen as he went), and {@code past}
+     * beyond its ends (he stood there).
+     */
+    public static boolean nearHighway(ClaudeEntity g, String dim, int x, int y, int z, int below, int side, int past) {
+        for (Segment sg : net(g).segments) {
+            if (!sg.dim.equals(dim)) continue;
+            int dy = y - sg.y(); if (dy < -below || dy > 4) continue;
+            int across = sg.axis == Direction.Axis.X ? z : x, al = sg.axis == Direction.Axis.X ? x : z;
+            if (Math.abs(across - sg.line()) > sg.width + 1 + side) continue;
+            if (al >= sg.lo() - past && al <= sg.hi() + past) return true;
+        }
+        return false;
+    }
     public static Segment segmentFor(ClaudeEntity g, String dim, BlockPos floor, Direction.Axis axis) {
         Segment best = null; int bd = Integer.MAX_VALUE;
         for (Segment s : net(g).segments) {

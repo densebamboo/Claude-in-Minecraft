@@ -10683,6 +10683,7 @@ public final class ClaudeBodyTest {
             case 876: return st876(stage, t, c, h, level, mock);
             case 877: return st877(stage, t, c, h, level, mock);
             case 878: return st878(stage, t, c, h, level, mock);
+            case 879: return st879(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -18540,6 +18541,34 @@ public final class ClaudeBodyTest {
                 check(off, "15 s at the furnace with 6 porkchop cooking and his mine face ~36 off, no mining: now " + q);
                 check(took, "off mining with no FurnaceTake left: the porkchop forgotten: " + q);
                 pass(stage, t, "off to his mine while it cooks, " + (t[0] - st876Start) + " ticks"); st876Start = 0; }
+        }
+        return true;
+    }
+    /** Stage 879 (the user 11-06 21:07 World 17: "he went the most retarded way possible. he's not using the highway for pathing"): his highway at z 240 is a bridge over a lava sea 28 down; the route to -32,54,215 read the cells under it as unseen netherrack and planned legs in the air at -2,52,240 and -2,52,233 ("Air on Air"), the walker found no way, the bore fell, 28 cobble went on pillars back up. Here: a bridge over lava, a ledge 5 lower off its side; the route's legs stand on something. */
+    private static boolean st879(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(9600, 64, 5720);
+        if (t[0] % 10 == 0) for (int k = -16; k <= 96; k += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(0, 0, k)), 3, o.offset(0, 0, k));
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); }
+        if (t[0] == 10) {
+            for (int x = -16; x <= 12; x++) for (int z = -4; z <= 70; z++) for (int y = -22; y <= 8; y++) nl.setBlock(o.offset(x, y, z), (y <= -21 ? Blocks.NETHERRACK : y == -20 ? Blocks.LAVA : Blocks.AIR).defaultBlockState(), 2); // a lava sea 20 down
+            for (int z = 0; z <= 60; z++) for (int x = -1; x <= 2; x++) nl.setBlock(o.offset(x, -1, z), (x == -1 || x == 2 ? Blocks.COBBLED_DEEPSLATE : Blocks.COBBLED_DEEPSLATE).defaultBlockState(), 2); // the bridge, 2 wide and its rail rows
+            for (int z = 0; z <= 60; z++) { nl.setBlock(o.offset(-1, 0, z), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); nl.setBlock(o.offset(2, 0, z), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); } // rails
+            for (int x = -16; x <= -6; x++) for (int z = 54; z <= 62; z++) for (int y = -19; y <= -6; y++) nl.setBlock(o.offset(x, y, z), Blocks.NETHERRACK.defaultBlockState(), 2); // a ledge off its west side, 5 lower
+            for (int z = 54; z <= 62; z++) for (int y = -5; y <= -1; y++) for (int x = -5; x <= -2; x++) nl.setBlock(o.offset(x, y, z), Blocks.NETHERRACK.defaultBlockState(), 2); // and the slope up to the bridge's far end
+            com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(0, -1, 0), o.offset(0, -1, 60), net.minecraft.core.Direction.Axis.Z, 2);
+            nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 28)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 4.5, 0f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 20) {
+            BlockPos to = o.offset(-12, -5, 58);
+            var p = com.claudemod.entity.nav.NetherRoute.plan(c, nl, o.offset(0, 0, 4), to);
+            String air = ""; int airN = 0; if (p != null) for (BlockPos l : p.legs()) { boolean under = false; for (int k = 1; k <= 3 && !under; k++) under = !nl.getBlockState(l.below(k)).getCollisionShape(nl, l.below(k)).isEmpty(); if (!under && nl.getBlockState(l).isAir()) { air += " " + l.toShortString(); airN++; } }
+            for (int x = -16; x <= 12; x++) for (int z = -4; z <= 70; z++) for (int y = -22; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            com.claudemod.entity.life.PortalMap.net(c).segments.clear();
+            check(p != null && !p.legs().isEmpty(), "no way to the ledge at all (along the bridge and down the slope at its end)");
+            check(airN <= p.puts(), "legs planned in the air with no block put down for them (the void by his bridge read as unseen rock):" + air + ", " + p.puts() + " put | legs " + p.legs());
+            nsHome(c, h, level); pass(stage, t, "no legs in the air under his bridge: " + p.legs().size() + " legs, " + p.digs() + " dug, " + p.puts() + " put, " + String.format("%.0f", p.seconds()) + " s");
         }
         return true;
     }

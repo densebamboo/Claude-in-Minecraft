@@ -2145,7 +2145,7 @@ public final class ClaudeLife {
                 }
                 BlockPos from = center(g, player, st);
                 List<BlockPos> found = pointedTree != null ? new ArrayList<>(List.of(pointedTree)) : findAll(level, from, 24, want::test, 60);
-                { int n0 = found.size(); found.removeIf(q -> hisBuildKeeps(g, level, q)); if (found.size() < n0) ClaudeMod.LOGGER.info("[Claude skill] collect {}: {} of the {} near him are his build's own (mine wall, door cap, house): not those (ClaudeLife.runSkill)", target, n0 - found.size(), n0); }
+                { int n0 = found.size(); found.removeIf(q -> hisBuildKeeps(g, level, q) || com.claudemod.entity.life.PortalMap.highwayBlock(g, com.claudemod.entity.life.PortalMap.dim(level), q, level.getBlockState(q))); if (found.size() < n0) ClaudeMod.LOGGER.info("[Claude skill] collect {}: {} of the {} near him are his build's own (mine wall, door cap, house, highway): not those (ClaudeLife.runSkill)", target, n0 - found.size(), n0); } // (his highway too: live 00:02 11-07 "collect cobbled_deepslate x64 -> spotted 60", its own blocks, its end back from 78 to 72; stage 885)
                 found.removeIf(q -> isStorageSpot(g, q)); // his storage stays: "the chests" never means those ; if (g.house != null) found.removeIf(q -> g.house.isStructure(q)); // nor his house: its log posts are no tree
                 if (pointedTree == null) found.removeIf(b -> !touchesAir(level, b) || PlayerProfile.placedBy(player).contains(b));
                 if (pointedTree == null) { int own = 0; for (var it = found.iterator(); it.hasNext(); ) if (com.claudemod.entity.life.TempLedger.has(g, it.next())) { it.remove(); own++; } if (own > 0) ClaudeMod.LOGGER.info("[Claude skill] collect {}: {} near him are his own blocks put down on a way (bridge, pillar, step): no quarry, not those (ClaudeLife.runSkill)", target, own); } // (his tuff bridge over lava was "6 cobblestone nearby": half an hour back and forth to it, live 08:16-08:45 11-05, stage 716)
@@ -2198,6 +2198,10 @@ public final class ClaudeLife {
                     return "heading up my stairs and out of the mine for wood";
                 }
                 if (found.isEmpty()) {
+                    if (cobble && level.dimension() != net.minecraft.world.level.Level.OVERWORLD) { // no stone or deepslate grows here: it's from his mine, through the portal (his highway's own blocks taken instead, live 00:02 11-07; then "heading inland" to the Nether's roof; stage 885)
+                        ClaudeMod.LOGGER.info("[Claude skill] collect {} in {}: none here but his own builds; it comes from his mine in the Overworld (ClaudeLife.runSkill)", target, level.dimension().location().getPath());
+                        return "failed: no " + target + " in the " + level.dimension().location().getPath().replace("the_", "") + " but my own builds: it comes from my mine in the Overworld, through the portal";
+                    }
                     if (underground) {
                         if (g.mineFace != null && target.contains("ore")) {
                             String r = runSkill(g, player, new Skills.Step("strip_mine", target, Math.max(1, count)));

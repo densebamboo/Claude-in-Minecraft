@@ -10700,6 +10700,7 @@ public final class ClaudeBodyTest {
             case 882: return st882(stage, t, c, h, level, mock);
             case 883: return st883(stage, t, c, h, level, mock);
             case 884: return st884(stage, t, c, h, level, mock);
+            case 885: return st885(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -19018,6 +19019,32 @@ public final class ClaudeBodyTest {
             level.setBlock(o.offset(40, 0, 0), Blocks.AIR.defaultBlockState(), 3);
             check(q.stream().anyMatch(x -> x.skill().equals("craft") && x.target().equals("diamond_sword")) && q.stream().noneMatch(x -> x.skill().equals("craft") && x.target().equals("iron_sword")), "10 diamonds on him, a stone sword, the iron 40 off in his chest: no diamond sword, the walk for iron instead: queue " + q);
             pass(stage, t, "spare diamonds make his sword: queue " + q);
+        }
+        return true;
+    }
+    /** Stage 885 (the user 11-07 00:04: "he shouldnt have broken his own blocks"; live 00:02 World 17: out of cobbled deepslate at his highway's end, "collect cobbled_deepslate x64 -> spotted 60 cobbled_deepslate blocks nearby, going to mine 60": his highway's floor, walls and roof, its end back from 78 to 72). Here: his highway on record, cobbled deepslate floor, walls and roof, none on him: the collect takes none of it. */
+    private static boolean st885(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(9800, 64, 5920);
+        if (t[0] % 10 == 0) for (int k = -16; k <= 48; k += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(0, 0, k)), 3, o.offset(0, 0, k));
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); }
+        if (t[0] == 10) {
+            for (int x = -8; x <= 8; x++) for (int z = -4; z <= 40; z++) for (int y = -3; y <= 6; y++) nl.setBlock(o.offset(x, y, z), (y < -1 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2);
+            for (int z = 0; z <= 30; z++) for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, z), (x == -1 || x == 2 || y == -1 || y == 3 ? Blocks.COBBLED_DEEPSLATE : Blocks.AIR).defaultBlockState(), 2); // his highway: floor, walls, roof
+            com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(0, -1, 0), o.offset(0, -1, 30), net.minecraft.core.Direction.Axis.Z, 2);
+            nsKit(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 15.5, 0f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 20) {
+            c.skillQueue.clear(); c.tasks.clear();
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "cobbled_deepslate", 64);
+            long hw = c.tasks.stream().filter(q -> q instanceof Task.Break b && com.claudemod.entity.life.PortalMap.inHighway(c, com.claudemod.entity.life.PortalMap.NETHER, b.pos().getX(), b.pos().getY(), b.pos().getZ())).count();
+            c.skillQueue.clear(); c.tasks.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear();
+            for (int x = -8; x <= 8; x++) for (int z = -4; z <= 40; z++) for (int y = -3; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(hw == 0, "collect cobbled_deepslate in his highway, none on him: " + hw + " of its own blocks queued to break (" + r + ")");
+            check(r.startsWith("failed") && r.contains("Overworld") && !r.contains("inland"), "none in the Nether but his highway: no wander for it, a failure the planner sends home (" + r + ")");
+            nsHome(c, h, level); pass(stage, t, "his highway left standing: " + r);
         }
         return true;
     }

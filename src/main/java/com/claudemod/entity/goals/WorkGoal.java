@@ -971,14 +971,14 @@ public class WorkGoal extends Goal {
             if (routeReaches) for (int i = Math.max(1, path.getNextNodeIndex()); i < path.getNodeCount(); i++) { var b = path.getNode(i); double ay = i == path.getNextNodeIndex() ? g.getY() : path.getNode(i - 1).y; // (the next step against his feet, as Controls judges it: the start node can sit a block over them)
                 if (b.y - ay > 1.25 && !g.level().getBlockState(new BlockPos(b.x, b.y, b.z)).is(net.minecraft.tags.BlockTags.CLIMBABLE) && !g.level().getBlockState(new BlockPos(b.x, b.y - 1, b.z)).is(net.minecraft.tags.BlockTags.CLIMBABLE)) { routeReaches = false; if (ticks % 200 == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] the way to {} has a step {} up at {},{},{}: not his way, planning his own (WorkGoal.walkTo)", pos.toShortString(), String.format("%.1f", b.y - ay), b.x, b.y, b.z); break; } }
             if (current instanceof Task.GoTo && path != null && path.getNodeCount() > 0) { // a crowd of hostiles on the way: round them, or not this walk (he walked through the pack on his death pile, twice)
-                java.util.List<net.minecraft.world.phys.Vec3> threats = new java.util.ArrayList<>(); int onRoute = 0;
+                java.util.List<net.minecraft.world.phys.Vec3> threats = new java.util.ArrayList<>(); int onRoute = 0; java.util.List<net.minecraft.world.entity.Mob> blockers = new java.util.ArrayList<>();
                 if (ticks <= 2) { float yaw = (float) Math.toDegrees(Math.atan2(-(pos.getX() + 0.5 - g.getX()), pos.getZ() + 0.5 - g.getZ())); g.setYRot(yaw); g.setYHeadRot(yaw); g.yBodyRot = yaw; com.claudemod.entity.life.Perception.lookNow(g); } // a player looks the way he's going before he sets off: what's on the way is seen before the way is chosen
                 for (var m : enemiesNear(24)) {
                     if (!(m.distanceTo(g) < 8 || g.hasLineOfSight(m))) continue; // (what he can see or hear close by, nothing through walls)
                     threats.add(m.position());
                     if (pest(m)) continue; // (two silverfish from the portal room's spawner kept him out of its doorway 3 times, stage 559)
                     if (m instanceof net.minecraft.world.entity.monster.Blaze || m instanceof net.minecraft.world.entity.FlyingMob) continue; // fliers hover off the floor: they shoot, they don't block a way (06:07 four blazes over his own rods 4 off kept every pick_up walk from starting, rods left to despawn)
-                    for (int i = path.getNextNodeIndex(); i < path.getNodeCount(); i++) if (path.getNode(i).asBlockPos().distSqr(m.blockPosition()) < 9) { onRoute++; break; }
+                    for (int i = path.getNextNodeIndex(); i < path.getNodeCount(); i++) if (path.getNode(i).asBlockPos().distSqr(m.blockPosition()) < 9) { onRoute++; blockers.add(m); break; }
                 }
                 int crowd = !armed() || weakKit() ? 1 : 2;
                 if (onRoute >= crowd && pos.distSqr(g.blockPosition()) > 4) {
@@ -995,6 +995,12 @@ public class WorkGoal extends Goal {
                     }
                     { var hm = nearestHostile(); g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, pos, g.tickCount, g.blockPosition(), com.claudemod.entity.life.Attempts.Reason.BLOCKED_MOB, onRoute + " hostile(s) on the way, no way round them", hm == null ? null : hm.getUUID()); }
                     com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} hostile(s) between him and {} ({}): not walking through them", onRoute, pos.toShortString(), armed() ? "a crowd" : "unarmed");
+                    { int held = 0; Vec3 me0 = g.position(); // the legs of his way queued straight after, past the same ones: they wait with this one, not a search round them each (BP on D2D review 536, live 03:29:42: three magma cubes across his highway, 9 legs, 9 searches of 500 ms, stage 797)
+                      while (g.tasks.peekFirst() instanceof Task.GoTo nx) { Vec3 to = Vec3.atBottomCenterOf(nx.pos()).subtract(me0).multiply(1, 0, 1); double len = to.length(); boolean past = false;
+                        if (len > 1e-3) for (var m : blockers) { Vec3 tm = m.position().subtract(me0).multiply(1, 0, 1); double along = tm.dot(to) / len; if (along > 0 && along < len && tm.subtract(to.scale(along / len)).length() < 3) { past = true; break; } }
+                        if (!past) break;
+                        g.tasks.pollFirst(); held++; g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, nx.pos(), g.tickCount, g.blockPosition(), com.claudemod.entity.life.Attempts.Reason.BLOCKED_MOB, "behind the same " + onRoute + " hostile(s) as the leg to " + pos.toShortString(), blockers.isEmpty() ? null : blockers.get(0).getUUID()); }
+                      if (held > 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the next {} leg(s) of his way go past the same {} hostile(s): they wait with it (WorkGoal.walkTo)", held, onRoute); }
                     return true;
                 }
             }

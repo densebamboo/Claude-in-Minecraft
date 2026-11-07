@@ -10628,6 +10628,7 @@ public final class ClaudeBodyTest {
             case 794: return st794(stage, t, c, h, level, mock);
             case 795: return st795(stage, t, c, h, level, mock);
             case 796: return st796(stage, t, c, h, level, mock);
+            case 797: return st797(stage, t, c, h, level, mock);
             case 793: return st793(stage, t, c, h, level, mock);
             case 786: return st786(stage, t, c, h, level, mock);
             case 780: return st780(stage, t, c, h, level, mock);
@@ -16560,6 +16561,26 @@ public final class ClaudeBodyTest {
             check(level.getBlockState(st796B).is(Blocks.COBBLED_DEEPSLATE) || t[0] - st796T > 20 * 30, "his own way block in the leg's cell dug out by the walk's leg dig (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ")");
             if (c.blockPosition().distSqr(st796C) <= 2) { c.tasks.clear(); c.dropCurrent = true; com.claudemod.entity.life.TempLedger.reset(c); pass(stage, t, "round his own way block, both legs walked, in " + (t[0] - st796T) / 20.0 + " s"); }
             else check(t[0] - st796T < 20 * 15, "never reached the second leg's end in 15 s (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ", tasks " + c.tasks + ")");
+        }
+        return true;
+    }
+    private static int st797T; private static java.util.List<BlockPos> st797Legs; private static java.util.List<net.minecraft.world.entity.Mob> st797M = new java.util.ArrayList<>();
+    private static boolean st797(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // BP on D2D review 536 (live 03:29:42-03:30:04 World 17, his highway at -3,60,392): three magma cubes across his 2-wide way; the first leg searched round them (500 ms cap), "no way round them", then the route's next leg searched again through the same cubes, and the next: 9 searches. The legs behind the same mobs wait with the first
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st797T = -1; for (var m : st797M) m.discard(); st797M.clear(); }
+        if (t[0] == 10) {
+            for (int x = -2; x <= 30; x++) for (int z = 2; z <= 8; z++) for (int y = 1; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), (y >= 2 && y <= 3 && (z == 5 || z == 6) && x >= 0 && x <= 28) ? Blocks.AIR.defaultBlockState() : Blocks.NETHERRACK.defaultBlockState(), 2); // a 2-wide way
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            for (int[] p : new int[][] {{9, 5}, {9, 6}, {10, 5}}) { var z = EntityType.ZOMBIE.create(level); BlockPos sp = h.absolutePos(new BlockPos(p[0], 2, p[1])); z.moveTo(sp.getX() + 0.5, sp.getY(), sp.getZ() + 0.5, 90, 0); z.setNoAi(true); z.setPersistenceRequired(); level.addFreshEntity(z); st797M.add(z); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            BlockPos me = h.absolutePos(new BlockPos(2, 2, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(-90); c.setHealth(20); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            st797Legs = new java.util.ArrayList<>(); for (int x : new int[] {14, 18, 22, 26}) st797Legs.add(h.absolutePos(new BlockPos(x, 2, 5)).immutable());
+        }
+        if (t[0] == 15) { c.tasks.clear(); for (BlockPos l : st797Legs) c.tasks.add(new Task.GoTo(l, 1.0)); st797T = t[0]; }
+        if (st797T > 0 && (t[0] - st797T > 20 * 3 || c.tasks.stream().noneMatch(q -> q instanceof Task.GoTo) && !(c.currentTask instanceof Task.GoTo))) {
+            int searched = 0; try { var f = com.claudemod.entity.goals.WorkGoal.class.getDeclaredField("plannedAt"); f.setAccessible(true); @SuppressWarnings("unchecked") var m = (java.util.Map<BlockPos, Integer>) f.get(null); if (m != null) for (BlockPos l : st797Legs) if (m.containsKey(l.above(500))) searched++; } catch (ReflectiveOperationException e) { check(false, "plannedAt: " + e); }
+            for (var m : st797M) m.discard(); st797M.clear(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            check(searched <= 1, "the way round the same zombies searched again for each leg behind them: " + searched + " of " + st797Legs.size() + " legs");
+            pass(stage, t, searched + " search(es) round them for " + st797Legs.size() + " legs behind them");
         }
         return true;
     }

@@ -15,6 +15,10 @@ public final class Controls {
     private Controls() {}
 
     /** Mouse: turn toward a point, a little each tick like a person (not a snap). */
+    /** Times the walk was sent back to a skipped step (stage 946 counts them). */
+    public static int backToSkipped;
+    /** His height for a step's rise: on a stair's low half (y .5), its top half (y+1), a walk up, no jump (live 07:19 11-07: fortress stairs read as 2 up, "back to" the step he stood in, 3x a second; stage 946). */
+    static double stairY(net.minecraft.world.entity.Entity p) { return p.level().getBlockState(p.blockPosition()).getBlock() instanceof net.minecraft.world.level.block.StairBlock ? Math.max(p.getY(), p.getBlockY() + 1.0) : p.getY(); }
     public static final class Look {
         private final Player p;
         private Vec3 want;
@@ -238,11 +242,11 @@ public final class Controls {
               for (double r : new double[] {0.35, 0.7, Math.min(2.0, 0.35 + hv * 5)}) { net.minecraft.core.BlockPos c0 = net.minecraft.core.BlockPos.containing(p.getX() + vx * r, p.getY() + 0.1, p.getZ() + vz * r); if (!c0.equals(p.blockPosition()) && (lavaCell(p, c0) || hurtingDrop(p, c0))) { lv = true; break; } }
               if (lv) { p.setDeltaMovement(0, Math.min(v.y, 0), 0); p.setSprinting(false); p.setJumping(false); jumpNow = false; if (walk != null && walk.x * vx + walk.z * vz > 0) walk = null;
                   if (p instanceof com.claudemod.entity.ClaudeEntity ce && ce.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] sliding toward lava at {}: stopped (Controls.apply)", p.blockPosition().toShortString()); } } }
-        if (nextNode != null && walk != null && p.onGround() && !p.onClimbable() && !p.level().getBlockState(new net.minecraft.core.BlockPos(nextNode.x, nextNode.y - 1, nextNode.z)).is(net.minecraft.tags.BlockTags.CLIMBABLE) && !p.level().getBlockState(new net.minecraft.core.BlockPos(nextNode.x, nextNode.y, nextNode.z)).is(net.minecraft.tags.BlockTags.CLIMBABLE) && nextNode.y - p.getY() > 1.25 && /* (his real height: off 82.88, a top of 84 is a 1.1 jump, World 15 04:4x) */  Math.abs(nextNode.x + 0.5 - p.getX()) <= 1.6 && Math.abs(nextNode.z + 0.5 - p.getZ()) <= 1.6) { // the path's next step is 2+ up: no jump makes that (1.25 at most); jumped at, the hop carried him off a 1-block bridge 18 up (stage 538: 15 HP). Stood still: the walk's own planner cuts steps or towers
+        if (nextNode != null && walk != null && p.onGround() && !p.onClimbable() && !p.level().getBlockState(new net.minecraft.core.BlockPos(nextNode.x, nextNode.y - 1, nextNode.z)).is(net.minecraft.tags.BlockTags.CLIMBABLE) && !p.level().getBlockState(new net.minecraft.core.BlockPos(nextNode.x, nextNode.y, nextNode.z)).is(net.minecraft.tags.BlockTags.CLIMBABLE) && nextNode.y - stairY(p) > 1.25 && /* (his real height: off 82.88, a top of 84 is a 1.1 jump, World 15 04:4x; on a stair, its top half, stage 946) */  Math.abs(nextNode.x + 0.5 - p.getX()) <= 1.6 && Math.abs(nextNode.z + 0.5 - p.getZ()) <= 1.6) { // the path's next step is 2+ up: no jump makes that (1.25 at most); jumped at, the hop carried him off a 1-block bridge 18 up (stage 538: 15 HP). Stood still: the walk's own planner cuts steps or towers
             walk = null; jumpNow = false; p.setJumping(false); p.setSprinting(false);
             int ni = planned.getNextNodeIndex(); net.minecraft.world.level.pathfinder.Node prev = ni > 0 ? planned.getNode(ni - 1) : null;
             if (prev != null && prev.y - p.getY() <= 1.25 && prev.y - p.getY() > 0.4 && Math.abs(prev.x + 0.5 - p.getX()) <= 1.6 && Math.abs(prev.z + 0.5 - p.getZ()) <= 1.6) { // the step before it was skipped, never stood on (live 01:17: a 1-up stair at -864,36,1679 passed, then the next 2 up): back to it
-                planned.setNextNodeIndex(ni - 1);
+                planned.setNextNodeIndex(ni - 1); backToSkipped++;
                 { var lv0 = p.level(); var cA = new net.minecraft.core.BlockPos(prev.x, p.getBlockY(), p.getBlockZ()); var cB = new net.minecraft.core.BlockPos(p.getBlockX(), p.getBlockY(), prev.z); // (the cells round the way back to it, at his feet and head: 11:15 11-05 it went "back to that one" 139 times in 7.5 s and the log couldn't say what kept him off it)
                   com.claudemod.ClaudeMod.LOGGER.info("[Claude move] the path's next step at {},{},{} is 2 up from {}; the step before it at {},{},{} was skipped: back to that one (he's at {}, {}, {}, moving {}, {}; on the way back: {} {} / {} {} beside, {} over his head, {} over the step) (Controls.apply)", nextNode.x, nextNode.y, nextNode.z, p.blockPosition().toShortString(), prev.x, prev.y, prev.z,
                       String.format("%.2f", p.getX()), String.format("%.2f", p.getY()), String.format("%.2f", p.getZ()), String.format("%.2f", p.getDeltaMovement().x), String.format("%.2f", p.getDeltaMovement().z),

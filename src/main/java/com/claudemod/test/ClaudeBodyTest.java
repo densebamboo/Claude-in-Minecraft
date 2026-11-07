@@ -10509,6 +10509,7 @@ public final class ClaudeBodyTest {
             case 932: return st932(stage, t, c, h, level, mock);
             case 933: return st933(stage, t, c, h, level, mock);
             case 934: return st934(stage, t, c, h, level, mock);
+            case 946: return st946(stage, t, c, h, level, mock);
             case 945: return st945(stage, t, c, h, level, mock);
             case 944: return st944(stage, t, c, h, level, mock);
             case 942: return st942(stage, t, c, h, level, mock);
@@ -14042,6 +14043,37 @@ public final class ClaudeBodyTest {
             check(!burnt, "burned on the bore by two cells of lava");
             check(there, "the bore not through in " + s + " s: at " + at);
             pass(stage, t, "plugged and level, through in " + s + " s");
+        }
+        return true;
+    }
+    /** Stage 946 (D2D review 209 11-07, live 07:19 on fortress stairs: "the path's next step at 263,56,510 is 2 up from 262,54,510; the step before it was skipped: back to that one", 3 times a second, from a stair's low half): a flight of 6 nether brick stairs up to a deck. He walks up it like a player, at a player's pace. */
+    private static int s946T, s946Back;
+    private static boolean st946(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13000, 70, 7900); BlockPos top = o.offset(11, 6, 0);
+        if (t[0] == 1) { scenarioReset(c); s946T = -1; s946Back = 0; }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 5) {
+            for (int x = -3; x <= 13; x++) for (int z = -3; z <= 3; z++) for (int y = -2; y <= 10; y++) {
+                int rise = Math.max(0, Math.min(6, x)); // (x 1..6: a stair at floor + x, the deck from x 7 at floor + 6)
+                var st = y < 0 ? Blocks.NETHER_BRICKS.defaultBlockState() : Math.abs(z) > 1 ? Blocks.AIR.defaultBlockState() : y < rise - 1 || x > 6 && y < 6 ? Blocks.NETHER_BRICKS.defaultBlockState() : x >= 1 && x <= 6 && y == x - 1 ? Blocks.NETHER_BRICK_STAIRS.defaultBlockState().setValue(net.minecraft.world.level.block.StairBlock.FACING, net.minecraft.core.Direction.EAST) : Blocks.AIR.defaultBlockState();
+                nl.setBlock(o.offset(x, y, z), st, 2);
+            }
+            nsKit(c); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.skillQueue.clear(); c.tasks.add(new com.claudemod.entity.life.Task.GoTo(top, 0.5)); s946T = t[0]; s946Back = com.claudemod.entity.body.Controls.backToSkipped; }
+        if (s946T > 0) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear(); }
+        boolean there = s946T > 0 && c.blockPosition().getX() >= top.getX() - 1 && c.getY() >= top.getY() - 0.1;
+        if (s946T > 0 && (there || t[0] >= s946T + 20 * 15)) {
+            double s = (t[0] - s946T) / 20.0; String at = c.blockPosition().toShortString(); int back = com.claudemod.entity.body.Controls.backToSkipped - s946Back;
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            for (int x = -3; x <= 13; x++) for (int z = -3; z <= 3; z++) for (int y = -2; y <= 10; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            nsHome(c, h, level);
+            check(there, "not up the 6 stairs in " + s + " s: at " + at);
+            check(back == 0, "sent back to a skipped step " + back + " time(s) on a plain flight of stairs (a shuffle)");
+            check(s <= 4.5, "up 6 stairs and 5 across in " + s + " s: a player walks it in about 3");
+            pass(stage, t, "up the stairs in " + s + " s");
         }
         return true;
     }

@@ -10664,6 +10664,7 @@ public final class ClaudeBodyTest {
             case 861: return st861(stage, t, c, h, level, mock);
             case 862: return st862(stage, t, c, h, level, mock);
             case 864: return st864(stage, t, c, h, level, mock);
+            case 865: return st865(stage, t, c, h, level, mock);
             case 676: return st676(stage, t, c, h, level, mock);
             case 659: return st659(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
@@ -18086,6 +18087,33 @@ public final class ClaudeBodyTest {
             check(kept, "the night refusal cleared the rest of his plan: queue " + q + " after " + line);
             pass(stage, t, "the night refusal dropped only its own step; the craft after it stays: " + q);
         } else if (st861Start > 0 && t[0] - st861Start >= 20 * 15) { st861Start = 0; c.skillQueue.clear(); level.setDayTime(1000); check(false, "the porkchop step never ran in 15 s: last " + c.lastSkillLine); }
+        return true;
+    }
+    private static boolean st865(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 15:56 World 17: out of highway deepslate, "collect cobbled_deepslate x256 -> getting the cobble by digging my mine further: back up to my cobble tunnel at y=16 for a new pair of branches": stone at y 16 gives cobblestone, never deepslate. Here: his mine with an iron level at y 16 and a level at -58, at its -58 face: collect cobbled_deepslate must work a level below y 0.
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; }
+        if (t[0] == 10) {
+            BlockPos at = h.absolutePos(new BlockPos(2, 0, 8)); var E = net.minecraft.core.Direction.EAST;
+            var b = new com.claudemod.entity.life.MineBlueprint(new BlockPos(at.getX(), 20, at.getZ()), E, 2, 3); b.segments.get(0).n = 5; b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 12, null)); b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.STAIRS, b.nextStart(true), E, 74, null)); b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 6, null)); b.invalidate();
+            b.branchLength = 16; b.branchEvery = 4;
+            BlockPos face = b.rows().get(b.rows().size() - 1).first();
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = face; c.mineIsTunnel = true; level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 16)); c.getInventory().add(new ItemStack(Items.TORCH, 64));
+            c.teleportTo(face.getX() + 0.5, face.getY(), face.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.attempts.clear(); c.dropCurrent = true;
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 865 levels: {}", b);
+        }
+        if (t[0] == 20) {
+            c.tasks.clear();
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "cobbled_deepslate", 256);
+            int high = Integer.MIN_VALUE; for (Task q : c.tasks) { BlockPos p = q instanceof Task.GoTo go ? go.pos() : q instanceof Task.Break br ? br.pos() : null; if (p != null) high = Math.max(high, p.getY()); }
+            String q = c.tasks.stream().limit(4).toList().toString(); c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null;
+            check(!r.contains("y=16") && high < 0, "collect cobbled_deepslate sent him up to stone (result: " + r + "; highest task y " + high + "; " + q + ")");
+            pass(stage, t, "deepslate from a level below y 0: " + r + " (highest task y " + high + ")");
+        }
         return true;
     }
     private static int st864Phase, st864Start, st864Down; private static BlockPos st864Top, st864Bottom;

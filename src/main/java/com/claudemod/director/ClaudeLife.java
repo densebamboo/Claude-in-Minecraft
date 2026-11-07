@@ -2074,8 +2074,9 @@ public final class ClaudeLife {
                 if (cobble && pointedTree == null && !pointingAtIt && !"looked_at".equals(st.where()) && !"here".equals(st.where())) { final Item stoneIt = target.equals("cobbled_deepslate") ? Items.COBBLED_DEEPSLATE : target.equals("stone") ? Items.STONE : Items.COBBLESTONE; int have0 = 0; for (int i0 = 0; i0 < g.inventory.items.getContainerSize(); i0++) { ItemStack s1 = g.inventory.items.getItem(i0); if (target.equals("rock") ? s1.is(ItemTags.STONE_CRAFTING_MATERIALS) : s1.is(stoneIt)) have0 += s1.getCount(); } if (have0 < Math.max(1, count)) { String got = fromMyChests(g, level, s0 -> target.equals("rock") ? s0.is(ItemTags.STONE_CRAFTING_MATERIALS) : s0.is(stoneIt), st); if (got != null) return got; } } /* only what he lacks: with it on him the chest was emptied into his pack, 0 -> 517 cobble, live 22:26 World 17 */ // his chests first, then the mine: cobble stored is cobble (the user 11-05: "he has a perfectly good mine and probably chests full of it"; fromMyChests prices the walk against the dig)
                 if (cobble && pointedTree == null && !"looked_at".equals(st.where()) && (!"here".equals(st.where()) || bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && inHisMine(g, g.blockPosition())) && !pointingAtIt && !hurtNow  && !faceFarDown && !atHouse) { // ("here": a handful out of the rock by him, the kit's three for a spare pick)
                     boolean starting = g.stairStart == null && g.mineFace == null;
-                    String r = runSkill(g, player, new Skills.Step(g.mineFace != null && g.mineIsTunnel ? "strip_mine" : "dig_down", "cobble", Math.max(4, count) /* the total he wants: the dig says done once he has it (32/5 = 7 against 17 on him said done at once, live 23:40 11-04, the trip packer round in circles) */));
-                    if (r.startsWith("failed") && r.contains("strip_mine from here")) r = runSkill(g, player, new Skills.Step("strip_mine", "cobble", Math.max(4, count))); // the stairs can't go deeper: the tunnel gives it
+                    final String rock = target.equals("cobbled_deepslate") ? "cobbled_deepslate" : "cobble"; // (deepslate only comes from rock below y 0: as "cobble" it went to his y 16 level for stone, live 15:56 11-06, stage 865)
+                    String r = runSkill(g, player, new Skills.Step(g.mineFace != null && g.mineIsTunnel ? "strip_mine" : "dig_down", rock, Math.max(4, count) /* the total he wants: the dig says done once he has it (32/5 = 7 against 17 on him said done at once, live 23:40 11-04, the trip packer round in circles) */));
+                    if (r.startsWith("failed") && r.contains("strip_mine from here")) r = runSkill(g, player, new Skills.Step("strip_mine", rock, Math.max(4, count))); // the stairs can't go deeper: the tunnel gives it
                     boolean mineNoGood = r.startsWith("failed") || r.contains("lake in the way") || r.contains("water right by") || r.contains("dry ground"); // (water at the mine: a few blocks of cobble don't need the mine at all)
                     if (!mineNoGood) return (starting ? "starting my mine for the cobble: " : "getting the cobble by digging my mine further: ") + r;
                     clearTasks(g); // (the walk to dry ground that was queued: the rock here comes first)
@@ -11670,15 +11671,16 @@ public final class ClaudeLife {
 
     static String bpStripMine(ClaudeEntity g, ServerPlayer player, ServerLevel level, Skills.Step st, String target, int count) {
         if (g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.entrance.distSqr(g.blockPosition()) > 32 * 32 && g.blueprint.rowOf(g.blockPosition()) < 0 && level.canSeeSky(g.blockPosition().above()) && !com.claudemod.entity.ClaudeSpawner.testing) { String dark = nightOutsideNo(g, level, g.blockPosition()); if (dark != null) return "failed: it's night, I'm out in the open " + (int) Math.sqrt(g.blueprint.entrance.distSqr(g.blockPosition())) + " blocks from my mine and not geared for it: the walk there waits for morning"; } // (nightfall 120 blocks out: the walk to the mine across open ground met three zombies)
-        if ((target.contains("cobble") || target.equals("stone") || target.equals("rock")) && g.inventory.count(s0 -> s0.is(ItemTags.STONE_TOOL_MATERIALS)) >= Math.max(1, count))
-            return "done: already have " + g.inventory.count(s0 -> s0.is(ItemTags.STONE_TOOL_MATERIALS)) + " cobblestone";
+        final boolean deepslate = target.equals("cobbled_deepslate"); // (only rock below y 0 gives it: his deepest level, never the stone up at y 16)
+        if ((target.contains("cobble") || target.equals("stone") || target.equals("rock")) && g.inventory.count(s0 -> deepslate ? s0.is(Items.COBBLED_DEEPSLATE) : s0.is(ItemTags.STONE_TOOL_MATERIALS)) >= Math.max(1, count))
+            return "done: already have " + g.inventory.count(s0 -> deepslate ? s0.is(Items.COBBLED_DEEPSLATE) : s0.is(ItemTags.STONE_TOOL_MATERIALS)) + (deepslate ? " cobbled deepslate" : " cobblestone");
         if (!target.contains("cobble") && !target.equals("stone") && !target.equals("rock")) { // a few blocks of cobble out of the tunnel: no trip prep (the prep's own cobble came from here: pack -> collect cobble -> strip_mine -> pack, 80 times an hour)
             String kit = gearFirst(g, level, st, false); if (kit != null) return kit;
             String pack = packForTrip(g, level, st); if (pack != null) return pack;
             String wood = stockUpWood(g, player, st, level); if (wood != null) return wood;
         }
         String ore = target.replace("_ore", "").replace("raw_", "").replace("deepslate_", "");
-        Integer bestY = BEST_Y.get(ore); if (bestY == null) bestY = 16;
+        Integer bestY = deepslate ? BEST_Y.get("diamond") : BEST_Y.get(ore); if (bestY == null) bestY = 16;
         // the user (2026-11-01): mining for iron specifically goes to the iron level's branches (y16), late game too; the old "iron off the diamond level's walls" rule had him strip y-58 for 4 iron and find none
         var oreBlock = BuiltInRegistries.BLOCK.get(net.minecraft.resources.ResourceLocation.withDefaultNamespace(ore + "_ore"));
         String tool = ensureToolFor(g, player, level, oreBlock == Blocks.AIR ? Blocks.STONE.defaultBlockState() : oreBlock.defaultBlockState(), st); if (tool != null) return tool;

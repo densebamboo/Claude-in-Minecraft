@@ -10660,6 +10660,7 @@ public final class ClaudeBodyTest {
             case 1004: return st1004(stage, t, c, h, level, mock);
             case 1005: return st1005(stage, t, c, h, level, mock);
             case 1006: return st1006(stage, t, c, h, level, mock);
+            case 1007: return st1007(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -17562,6 +17563,35 @@ public final class ClaudeBodyTest {
                 check(!dug && !sent && !failedP, "the hole at " + st1006H.toShortString() + " in a pocket sealed by his own patch: sent into it (" + sent + "), his patch dug (" + dug + "), a place failure (NO_FACE) logged (" + failedP + ")");
                 check(!placeLeft, "the patch of a hole in a sealed pocket still on his queue after 6 s");
                 pass(stage, t, "a hole sealed off by his own patch: done, his patch kept"); }
+        }
+        return true;
+    }
+    private static int st1007T, st1007Edges; private static boolean st1007Was; private static BlockPos st1007O;
+    private static boolean st1007(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D hourly 2+7 (live 13:58:40-13:59:48 World 17, his mine at -331,-58,12): diamond ore in his wall with lava he knew behind it; the guard refused the dig, the watchdog wrote it off ("not run", no new refusal), the old refusal cleared as he stood somewhere new: MineVisibleOres' "another look" re-queued it every 2 ticks, 45 s stuck
+        if (t[0] == 1) { resetLoot(c, mock[0]); st1007T = -1; st1007Edges = 0; st1007Was = false; }
+        if (t[0] == 10) {
+            buildStairs(h, 0);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("mine_model", "blueprint"); c.prefs.put("torches_while_digging", "no");
+            var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(stairFeet(0, 6)), net.minecraft.core.Direction.EAST, 2, 4); b.segments.get(0).n = 11; c.blueprint = b;
+            com.claudemod.director.ClaudeLife.bpSync(c);
+            BlockPos at = h.absolutePos(stairFeet(1, 6)); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            net.minecraft.core.Direction side = null; for (net.minecraft.core.Direction d : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && b.isShell(at.relative(d).above()) && !b.touches(at.relative(d, 2).above())) side = d;
+            check(side != null, "setup: no wall side at " + at.toShortString());
+            st1007O = at.relative(side).above().immutable(); BlockPos lava = at.relative(side, 2).above().immutable();
+            for (int dx = -2; dx <= 2; dx++) for (int dy = -2; dy <= 2; dy++) for (int dz = -2; dz <= 2; dz++) { BlockPos q = lava.offset(dx, dy, dz); if (!b.touches(q) && !q.equals(st1007O)) level.setBlock(q, Blocks.DEEPSLATE.defaultBlockState(), 2); } // a shell round the pool
+            for (int dx = -1; dx <= 1; dx++) for (int dy = -1; dy <= 1; dy++) for (int dz = -1; dz <= 1; dz++) { BlockPos q = lava.offset(dx, dy, dz); if (!b.touches(q) && !q.equals(st1007O)) level.setBlock(q, Blocks.LAVA.defaultBlockState(), 2); } // the pool behind it: lava all round the cell behind the ore, no face to plug it against (live: the pool at -331,-58,16)
+            level.setBlock(st1007O, Blocks.DEEPSLATE_DIAMOND_ORE.defaultBlockState(), 2); level.setBlock(lava, Blocks.LAVA.defaultBlockState(), 2);
+            com.claudemod.director.ClaudeLife.lavaSeen(c).add(lava); // he knows the lava behind it (live: by its drip)
+        }
+        if (t[0] == 14) { c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); c.tasks.add(new Task.MineVisibleOres(3)); st1007T = t[0]; }
+        if (t[0] == 74) { com.claudemod.entity.life.Watchdog.writtenOff(c, com.claudemod.entity.life.Watchdog.key(new Task.Break(st1007O)), "test: picked again"); c.attempts.forget(st1007O); c.tasks.addFirst(new Task.MineVisibleOres(3)); } // the live state at 13:59: the dig written off by the watchdog ("not run", so no new refusal), the old refusal cleared ("back on: he stands somewhere new"), his upkeep's MineVisibleOres queued
+        if (st1007T > 0 && t[0] > 74) {
+            boolean now = c.currentTask instanceof Task.Break b0 && b0.pos().equals(st1007O) || c.tasks.stream().anyMatch(q -> q instanceof Task.Break b1 && b1.pos().equals(st1007O));
+            if (now && !st1007Was) st1007Edges++; st1007Was = now;
+            if (t[0] == 74 + 20 * 15) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+                check(st1007Edges <= 3, "the dig of the ore by known lava at " + st1007O.toShortString() + " queued " + st1007Edges + " times in 15 s after the guard refused it");
+                pass(stage, t, "the refused dig by lava not re-queued on and on (" + st1007Edges + ")"); }
         }
         return true;
     }

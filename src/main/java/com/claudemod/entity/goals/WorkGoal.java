@@ -2766,7 +2766,7 @@ public class WorkGoal extends Goal {
             if (!exposed && !(ownMine && com.claudemod.director.ClaudeLife.seenOre(g).contains(p))) continue; // (ore he saw and then sealed behind his own patch: still his to fetch, the user)
             final BlockState ore = st;
             if (g.inventory.find(s -> s.isCorrectToolForDrops(ore)).isEmpty()) { if (p.distSqr(at) <= 36) com.claudemod.ClaudeMod.LOGGER.info("[Claude ore] skipping {} at {}: no pick for it yet", ore.getBlock().getName().getString(), p.toShortString()); continue; } // can't take it yet
-            if (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.BREAK, p, g.tickCount, 20 * 300) || g.attempts.within(com.claudemod.entity.life.Attempts.Kind.REACH, p, g.tickCount, 20 * 300)) continue; // (no way to it: doBreak drops it for 300 s, so not queued either; 05:2x a redstone 15 blocks off re-queued every few s) // (refused a moment ago, lava behind it or out of reach: not asked for again every sweep, 05:31)
+            if (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.BREAK, p, g.tickCount, 20 * 300) || g.attempts.within(com.claudemod.entity.life.Attempts.Kind.REACH, p, g.tickCount, 20 * 300) || com.claudemod.entity.life.Watchdog.off(g, new Task.Break(p))) continue; /* (written off by the watchdog too: "not run" leaves no new refusal, the old one cleared as he stood somewhere new, and this re-queued it every 2 ticks, 45 s, live 13:59 11-07, stage 1007) */ // (no way to it: doBreak drops it for 300 s, so not queued either; 05:2x a redstone 15 blocks off re-queued every few s) // (refused a moment ago, lava behind it or out of reach: not asked for again every sweep, 05:31)
             ores.add(p.immutable());
             if (ores.size() >= 24) break;
         }
@@ -2797,7 +2797,7 @@ public class WorkGoal extends Goal {
             while (!todo.isEmpty() && all.size() < 64) { // the whole vein, however big
                 BlockPos c = todo.poll();
                 for (BlockPos n : BlockPos.betweenClosed(c.offset(-1, -1, -1), c.offset(1, 1, 1))) { // edges and corners too: veins run diagonal
-                    if (!level.getBlockState(n).is(kind)) continue;
+                    if (!level.getBlockState(n).is(kind)) continue; if (com.claudemod.entity.life.Watchdog.skipBreak(g, n)) continue; // (the vein grown from a good ore pulled the refused one back in)
                     if (ownMine) { boolean shows = false; for (Direction dd : Direction.values()) { BlockState nn = level.getBlockState(n.relative(dd)); if (nn.isAir() || !nn.canOcclude()) shows = true; } if (!shows) continue; } // in his mine: only the vein he can see (showing to air), never tunnelling after hidden ore (03:05: chased a vein blind to y 5, ten under his floor)
                     if (all.add(n.immutable())) todo.add(n.immutable());
                 }

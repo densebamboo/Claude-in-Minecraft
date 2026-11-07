@@ -12247,8 +12247,11 @@ public final class ClaudeLife {
 
     /** Before a fight: make the best sword he can from what he carries (no detours; a fight can't wait). */
     /** Diamonds are theirs while they've asked for diamonds or diamond gear; otherwise, on his own, he spends them like any player. */
-    static boolean diamondsReserved(ClaudeEntity g) {
-        String goal = (g.playerGoal == null ? "" : g.playerGoal).toLowerCase();
+    public static boolean diamondsReserved(ClaudeEntity g) {
+        String whose = g.prefs.get("diamonds_for"); // read from their order's context by the planner (the user 11-06: "it should be context based")
+        if ("him".equals(whose)) return false;
+        if ("them".equals(whose)) return true;
+        String goal = (g.playerGoal == null ? "" : g.playerGoal).toLowerCase(); // unset (he asked them, no answer yet): kept for them meanwhile
         String ongoing = g.prefs.getOrDefault("ongoing_job", "").toLowerCase();
         return (goal.contains("diamond") && !goal.startsWith("done")) || ongoing.contains("diamond");
     }

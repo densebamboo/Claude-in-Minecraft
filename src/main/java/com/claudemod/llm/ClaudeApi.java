@@ -165,7 +165,7 @@ public final class ClaudeApi {
                "new_goal": {"type": "string"},
                "plan_change": {"type": "string", "enum": ["none", "replace", "add_after", "do_first"]},
                "standing": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["key", "value"],
-                 "properties": {"key": {"type": "string", "enum": ["torches_while_digging", "torch_every", "torch_side", "tunnel_width", "new_mine", "stay_close", "build_with", "pick_up_stations", "tunnel_height", "branch_every", "branch_length", "ongoing_job", "storage_at", "gear_before_caves", "mine_heading", "village_mode", "mine_model", "house_model"]},
+                 "properties": {"key": {"type": "string", "enum": ["torches_while_digging", "torch_every", "torch_side", "tunnel_width", "new_mine", "stay_close", "build_with", "pick_up_stations", "tunnel_height", "branch_every", "branch_length", "ongoing_job", "storage_at", "gear_before_caves", "mine_heading", "village_mode", "mine_model", "house_model", "diamonds_for"]},
                    "value": {"type": "string"}}}},
                "steps": {"type": "array", "items": {"type": "object", "additionalProperties": false,
                  "required": ["skill", "target", "count", "where"],

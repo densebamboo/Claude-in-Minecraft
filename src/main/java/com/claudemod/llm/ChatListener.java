@@ -111,7 +111,7 @@ public final class ChatListener {
         String action = reply.get("action").getAsString();
         com.claudemod.ClaudeMod.LOGGER.info("[Claude reply] action={} change={} goal=\"{}\" steps={}", action, reply.get("plan_change").getAsString(), goal, reply.getAsJsonArray("steps"));
         g.awaitingAnswerUntil = 0; // they said something back ("good", "sure"): that's the answer, carry on
-        if (!goal.isBlank() && !action.equals("fight")) ClaudeLife.theirGoal(g, goal);
+        if (!goal.isBlank() && !action.equals("fight")) { ClaudeLife.theirGoal(g, goal); g.prefs.remove("diamonds_for"); } // (whose diamonds is per order: the new one's standing says it again, or it's unset)
         if (reply.getAsJsonArray("standing").size() > 0) ClaudeLife.standing(g, reply.getAsJsonArray("standing"));
         switch (action) {
             case "follow" -> ClaudeLife.follow(g, player);

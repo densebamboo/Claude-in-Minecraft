@@ -10666,6 +10666,7 @@ public final class ClaudeBodyTest {
             case 862: return st862(stage, t, c, h, level, mock);
             case 864: return st864(stage, t, c, h, level, mock);
             case 865: return st865(stage, t, c, h, level, mock);
+            case 866: return st866(stage, t, c, h, level, mock);
             case 676: return st676(stage, t, c, h, level, mock);
             case 659: return st659(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
@@ -18111,6 +18112,29 @@ public final class ClaudeBodyTest {
             check(kept, "the night refusal cleared the rest of his plan: queue " + q + " after " + line);
             pass(stage, t, "the night refusal dropped only its own step; the craft after it stays: " + q);
         } else if (st861Start > 0 && t[0] - st861Start >= 20 * 15) { st861Start = 0; c.skillQueue.clear(); level.setDayTime(1000); check(false, "the porkchop step never ran in 15 s: last " + c.lastSkillLine); }
+        return true;
+    }
+    private static com.google.gson.JsonObject st866Reply(String goal, String whose) {
+        var r = rtReply("on it"); r.addProperty("new_goal", goal);
+        if (whose != null) { var s = new com.google.gson.JsonObject(); s.addProperty("key", "diamonds_for"); s.addProperty("value", whose); r.getAsJsonArray("standing").add(s); }
+        return r;
+    }
+    private static boolean st866(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 16:0x World 17 ("go mine for diamonds to get cobbled deepslate"; the user: diamonds he finds are his to gear up with, "it should be context based"): the goal "get cobbled deepslate for the highway from diamond level" reserved every diamond for them, by the word alone. Whose they are is the planner's read of the order (standing diamonds_for), per order.
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 10) {
+            com.claudemod.llm.ChatListener.handle(mock[0], st866Reply("get cobbled deepslate for the highway from diamond level", "him"), "on it", "go mine for diamonds to get cobbled deepslate");
+            boolean a = com.claudemod.director.ClaudeLife.diamondsReserved(c);
+            com.claudemod.llm.ChatListener.handle(mock[0], st866Reply("get diamonds for them", "them"), "on it", "get me 5 diamonds");
+            boolean b = com.claudemod.director.ClaudeLife.diamondsReserved(c);
+            com.claudemod.llm.ChatListener.handle(mock[0], st866Reply("build a house by the farm", null), "on it", "build a house by the farm");
+            boolean d = com.claudemod.director.ClaudeLife.diamondsReserved(c); String left = c.prefs.get("diamonds_for");
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.playerGoal = ""; c.prefs.remove("diamonds_for");
+            check(!a, "deepslate from diamond level, diamonds his by their words' context: still reserved for them");
+            check(b, "\"get me 5 diamonds\": not reserved for them");
+            check(!d && left == null, "a new order without a say on diamonds kept the last one's (" + left + ", reserved " + d + ")");
+            pass(stage, t, "whose diamonds follows each order's context");
+        }
         return true;
     }
     private static boolean st865(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

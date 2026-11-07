@@ -10501,6 +10501,7 @@ public final class ClaudeBodyTest {
             case 924: return st924(stage, t, c, h, level, mock);
             case 925: return st925(stage, t, c, h, level, mock);
             case 926: return st926(stage, t, c, h, level, mock);
+            case 927: return st927(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13683,6 +13684,41 @@ public final class ClaudeBodyTest {
             BlockPos end = p.legs().get(p.legs().size() - 1);
             check(end.getX() - o.getX() >= 12, "the part-way plan ends only " + (end.getX() - o.getX()) + " blocks toward it, at " + end.toShortString());
             nsHome(c, h, level); pass(stage, t, "part way through the rock: " + p.legs().size() + " legs to " + end.toShortString() + " (" + p.digs() + " dug, " + p.nodes() + " nodes, " + p.ms() + " ms)"); }
+        return true;
+    }
+    /** Stage 927 (D2D 23:20: "holes left in the highway would be clutter and a bug of their own"; 926's way onto the highway ends at its wall): he steps in through the highway's shell from the rock beside it, and the shell block comes back behind him. */
+    private static int s927T = -1;
+    private static boolean st927(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER); var Wd = com.claudemod.entity.life.Watchdog.recentKinds;
+        BlockPos o = new BlockPos(12200, 64, 8120), him = o.offset(4, 0, 10), in = o.offset(1, 0, 10);
+        java.util.Set<BlockPos> W = new java.util.LinkedHashSet<>(); for (int z = 0; z <= 20; z++) for (int x = 0; x <= 1; x++) W.add(o.offset(x, 0, z));
+        java.util.Set<BlockPos> shell = new java.util.LinkedHashSet<>(); for (BlockPos p : W) { shell.add(p.below()); shell.add(p.above(3)); for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) if (!W.contains(p.relative(d))) for (int y = 0; y <= 2; y++) shell.add(p.relative(d).above(y).immutable()); }
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); Wd.clear(); com.claudemod.entity.life.Watchdog.linesInTests = true; s927T = -1; }
+        nsTick(nl, c, o, t);
+        try {
+        if (t[0] == 10) {
+            for (int x = -6; x <= 10; x++) for (int z = -4; z <= 24; z++) for (int y = -4; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.NETHERRACK.defaultBlockState(), 2);
+            for (BlockPos p : W) for (int y = 0; y <= 2; y++) nl.setBlock(p.above(y), Blocks.AIR.defaultBlockState(), 2);
+            for (BlockPos p : shell) { nl.setBlock(p, Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); }
+            for (int x = 3; x <= 5; x++) for (int z = 9; z <= 11; z++) for (int y = 0; y <= 1; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); // his pocket in the rock, beside the highway's east wall
+            com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(0, -1, 0), o.offset(0, -1, 20), net.minecraft.core.Direction.Axis.Z, 2);
+            nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 32)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, him.getX() + 0.5, him.getY(), him.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 14) for (BlockPos p : shell) if (!com.claudemod.entity.life.TempLedger.built(c, p)) com.claudemod.entity.life.TempLedger.builtCells(c).put(p.immutable(), "Highway.skill"); // (on his builds, as the rows leave them)
+        if (t[0] == 20) { c.tasks.clear(); c.skillQueue.clear(); c.tasks.add(new com.claudemod.entity.life.Task.GoTo(in, 0.6)); s927T = t[0]; }
+        if (t[0] > 20) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear(); }
+        if (t[0] > 20 && t[0] % 20 == 0 && (c.tasks.isEmpty() && c.currentTask == null || t[0] >= s927T + 20 * 40)) {
+            boolean inside = W.contains(c.blockPosition()); int holes = 0; String hs = "";
+            for (BlockPos p : shell) if (!nl.getBlockState(p).is(Blocks.COBBLED_DEEPSLATE)) { holes++; hs += " " + p.toShortString() + "=" + nl.getBlockState(p).getBlock().getName().getString(); }
+            String w = Wd.toString(), at = c.blockPosition().toShortString(); c.tasks.clear(); com.claudemod.entity.life.Watchdog.linesInTests = false;
+            for (int x = -6; x <= 10; x++) for (int z = -4; z <= 24; z++) for (int y = -4; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            com.claudemod.entity.life.PortalMap.net(c).segments.clear(); for (BlockPos p : shell) com.claudemod.entity.life.TempLedger.builtCells(c).remove(p);
+            check(inside, "into his highway from the rock beside it: he's at " + at + " after " + (t[0] - s927T) / 20 + " s (filed " + w + ")");
+            check(holes == 0, "into his highway through its wall: " + holes + " hole(s) left in its shell:" + hs);
+            nsHome(c, h, level); pass(stage, t, "in at " + at + " in " + (t[0] - s927T) / 20 + " s, shell whole, filed " + w);
+        }
+        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
         return true;
     }
     /** Stage 926 (D2D 23:10, the user: "why is he not pathing on the highway? he keeps digging up and aroud or down instead of using the highway path"; live 23:05:14 Nether 27,39,492 -> -3,59,1: 19 under the highway's floor and beside it, after a restart (no trail): 25 legs, 11 dug, 11 put down, 36 up, none of them on it). Off the highway: up onto it where it's nearest, then along it. */

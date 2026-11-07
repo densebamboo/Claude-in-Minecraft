@@ -2946,7 +2946,7 @@ public class WorkGoal extends Goal {
             for (BlockPos q : new BlockPos[] {s0.above(), s0}) { if (!ok) break; BlockState qs = level.getBlockState(q); if (qs.getCollisionShape(level, q).isEmpty()) continue; if (qs.getDestroySpeed(level, q) < 0 || qs.hasBlockEntity() || !level.getFluidState(q).isEmpty()) ok = false; else dig.add(q.immutable()); }
             if (ok && !dig.isEmpty()) {
                 net.minecraft.world.item.Item fill = s0.getY() < 0 ? net.minecraft.world.item.Items.COBBLED_DEEPSLATE : net.minecraft.world.item.Items.COBBLESTONE;
-                for (BlockPos q : dig) g.tasks.addFirst(new Task.Place(q, fill)); // the wall back after (queued first: his mine's shell guard lets a cell out only with its patch-back on the queue)
+                for (BlockPos q : dig) if (bp.isShell(q)) g.tasks.addFirst(new Task.Place(q, fill)); // his wall back after (queued first: his mine's shell guard lets a cell out only with its patch-back on the queue); a cell of his own planned tunnel stays open, his mine digs it anyway (live 03:10:06: "his mine wants it dug out, then a pickup wants it filled", D2D review 461)
                 g.tasks.addFirst(again); g.tasks.addFirst(new Task.GoTo(s0.immutable(), 0.5));
                 for (BlockPos q : dig) g.tasks.addFirst(new Task.Break(q));
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude pickup] {} at {}: {} up in the pocket, out of reach from {}: opening his wall at {} for the step in, the grab, then the wall back (WorkGoal.doPickup)", nearest.getItem().getHoverName().getString(), ip.toShortString(), String.format("%.1f", dy), g.blockPosition().toShortString(), dig);

@@ -10623,6 +10623,7 @@ public final class ClaudeBodyTest {
             case 791: return st791(stage, t, c, h, level, mock);
             case 792: return st792(stage, t, c, h, level, mock);
             case 794: return st794(stage, t, c, h, level, mock);
+            case 795: return st795(stage, t, c, h, level, mock);
             case 786: return st786(stage, t, c, h, level, mock);
             case 780: return st780(stage, t, c, h, level, mock);
             case 781: return st781(stage, t, c, h, level, mock);
@@ -16390,6 +16391,35 @@ public final class ClaudeBodyTest {
             boolean fights = c.currentTask instanceof Task.Attack a && a.target().equals(st794Cr.getUUID()) || c.tasks.stream().anyMatch(q -> q instanceof Task.Attack a2 && a2.target().equals(st794Cr.getUUID()));
             if (fights) { st794Cr.discard(); st794Cr = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; for (var sl : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET}) c.setItemSlot(sl, ItemStack.EMPTY); pass(stage, t, "at the run's end: the fight, " + (t[0] - st794T) + " ticks after"); return true; }
             check(t[0] - st794T < 20 * 2, "at the run's end, a creeper 10 off he'd kill in a few swings, the fight never asked again: on running (now " + c.currentTask + ", tasks " + c.tasks + ")");
+        }
+        return true;
+    }
+    private static int st795T; private static boolean st795Filled; private static java.util.List<BlockPos> st795Walk;
+    private static boolean st795(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D review 461 (live 03:10:01-14 World 17, -291,-58,-54): a diamond up in a pocket, his wall opened toward it (87f25e3), but those cells were his mine's own planned tunnel: the put-back filled a cell his mine wants dug ("claimed by two of his systems"), then dug again. Only shell goes back; a tunnel cell he'd dig anyway stays open
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.OwnEvents.reset(c); c.prefs.put("stay_close", "no"); c.prefs.put("mine_model", "blueprint"); c.nextPlanTick = c.tickCount + 20 * 600; st795T = -1; st795Filled = false; }
+        if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
+        if (t[0] == 10) {
+            level.setDayTime(6000);
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 18; z++) for (int yy = -1; yy <= 9; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.DEEPSLATE);
+            var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(new BlockPos(4, 2, 16)), net.minecraft.core.Direction.NORTH, 2, 3);
+            b.segments.clear(); b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, h.absolutePos(new BlockPos(4, 2, 16)), net.minecraft.core.Direction.NORTH, 12, null)); b.invalidate();
+            for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK && e.getKey().getZ() >= h.absolutePos(new BlockPos(0, 0, 10)).getZ()) level.setBlockAndUpdate(e.getKey(), Blocks.AIR.defaultBlockState());
+            c.blueprint = b;
+            BlockPos hole = h.absolutePos(new BlockPos(6, 4, 8)); level.setBlockAndUpdate(hole, Blocks.AIR.defaultBlockState()); // an ore hole in the side wall (shell), up and 2 ahead of his face: what's in the way of it is his wall
+            st795Walk = java.util.List.of(h.absolutePos(new BlockPos(5, 2, 9)).immutable(), h.absolutePos(new BlockPos(5, 3, 9)).immutable());
+            check(b.isWalk(st795Walk.get(0)) && b.isWalk(st795Walk.get(1)), "setup: the cells toward it aren't his planned tunnel");
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(32))) e.discard();
+            BlockPos me = h.absolutePos(new BlockPos(5, 2, 10)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) { BlockPos hole = h.absolutePos(new BlockPos(6, 4, 8)); var it = new net.minecraft.world.entity.item.ItemEntity(level, hole.getX() + 0.5, hole.getY() + 0.05, hole.getZ() + 0.5, new ItemStack(Items.DIAMOND)); it.setDeltaMovement(0, 0, 0); level.addFreshEntity(it); }
+        if (t[0] == 16) { c.tasks.clear(); c.tasks.add(new Task.Pickup(400)); st795T = t[0]; }
+        if (st795T > 0) {
+            for (BlockPos q : st795Walk) if (c.tasks.stream().anyMatch(x -> x instanceof Task.Place p && p.pos().equals(q)) || c.currentTask instanceof Task.Place cp && cp.pos().equals(q)) st795Filled = true;
+            check(!st795Filled, "a put-back queued into his own planned tunnel at " + st795Walk + " (his mine wants it dug)");
+            if (c.inventory.count(s -> s.is(Items.DIAMOND)) > 0) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); pass(stage, t, "the diamond in " + (t[0] - st795T) / 20.0 + " s through his own tunnel's cells, nothing put back in them"); return true; }
+            check(t[0] - st795T < 20 * 15, "the diamond not got in 15 s (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ", tasks " + c.tasks + ")");
         }
         return true;
     }

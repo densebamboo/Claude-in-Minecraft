@@ -102,8 +102,11 @@ public class ClaudeEntity extends ServerPlayer {
     /** Each block's last claim: which system queued a dig or a fill there, and when (the user: cell ownership, for debugging). */
     private static final java.util.Map<Long, String[]> CLAIM = new java.util.HashMap<>();
     public final ArrayDeque<Task> tasks = new ArrayDeque<>() {
-        @Override public void addFirst(Task t) { noteOrigin(t); if (!com.claudemod.entity.life.Parked.blocks(ClaudeEntity.this, t)) super.addFirst(t); } // (a refused upkeep patch, parked: not taken again till something changed)
-        @Override public void addLast(Task t) { noteOrigin(t); if (!com.claudemod.entity.life.Parked.blocks(ClaudeEntity.this, t)) super.addLast(t); }
+        @Override public void addFirst(Task t) { noteOrigin(t); if (!com.claudemod.entity.life.Parked.blocks(ClaudeEntity.this, t) && !torchStuck(t)) super.addFirst(t); } // (a refused upkeep patch, parked: not taken again till something changed)
+        @Override public void addLast(Task t) { noteOrigin(t); if (!com.claudemod.entity.life.Parked.blocks(ClaudeEntity.this, t) && !torchStuck(t)) super.addLast(t); }
+        /** A torch spot he got stuck on (the 45 s rung put it on record with its cause): not queued again while that holds (stage 799). */
+        private boolean torchStuck(Task t) { if (!(t instanceof Task.WallTorch w) || attempts == null || !attempts.skipped(com.claudemod.entity.life.Attempts.Kind.PLACE, w.pos(), tickCount, 0)) return false; if (tickCount - torchStuckSaid > 200) { torchStuckSaid = tickCount; ClaudeMod.LOGGER.info("[Claude life] the torch at {}: stuck on it before, not queued again while that holds (ClaudeEntity.tasks)", w.pos().toShortString()); } return true; }
+        private int torchStuckSaid = -100000;
         @Override public void clear() { dropNote(size(), "clear"); super.clear(); }
         @Override public boolean removeIf(java.util.function.Predicate<? super Task> f) { int n = size(); boolean r = super.removeIf(f); dropNote(n - size(), "removeIf"); return r; }
     };

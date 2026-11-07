@@ -10632,6 +10632,7 @@ public final class ClaudeBodyTest {
             case 796: return st796(stage, t, c, h, level, mock);
             case 797: return st797(stage, t, c, h, level, mock);
             case 798: return st798(stage, t, c, h, level, mock);
+            case 799: return st799(stage, t, c, h, level, mock);
             case 793: return st793(stage, t, c, h, level, mock);
             case 786: return st786(stage, t, c, h, level, mock);
             case 780: return st780(stage, t, c, h, level, mock);
@@ -16672,6 +16673,27 @@ public final class ClaudeBodyTest {
             check(logs == 17 * 64 && food >= 64, "for room he threw out his logs or food (logs " + logs + ", food " + food + ")");
             if (dia > 0 && t[0] - st798T >= 40) { int stone = c.inventory.count(s -> s.is(Items.COBBLESTONE)); check(stone < 104, "the stone thrown for room picked back up (" + stone + ")"); for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) e.discard(); c.getInventory().clearContent(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "a stack of stone out for the diamond, in " + (t[0] - st798T) / 20.0 + " s, " + stone + " stone kept"); return true; }
             check(t[0] - st798T < 20 * 8, "the diamond not picked up in 8 s with a pack full of logs, stone and food (now " + c.currentTask + ")");
+        }
+        return true;
+    }
+    private static int st799T; private static BlockPos st799Torch;
+    private static boolean st799(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D reviews 10/17 (live 05:13-06:35 World 17, -303,-58,-22): stuck 45 s on a WallTorch (a mid-air cell, no path), the rung dropped only that task with no failure on record; the torch reflex queued it again in front of the planner's way out (dig_at), three stucks, the plan dropped, the same plan again: over an hour. A torch spot he got stuck on stays off the queue while the cause holds
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st799T = -1; flatBox(h); }
+        if (t[0] == 10) {
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.TORCH, 32)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            st799Torch = me.above(2).east().immutable(); level.setBlockAndUpdate(st799Torch.north(), Blocks.STONE.defaultBlockState()); level.setBlockAndUpdate(me.above(2), Blocks.STONE.defaultBlockState()); // in reach but up over his head, its wall face hidden by the block over him: he walks at the mid-air cell and gets no nearer (as live, incident bandaid-42 11-05 and 05:13 11-07: "in sight false", no path, age 850)
+        }
+        if (t[0] == 14) c.tasks.addFirst(new Task.WallTorch(st799Torch, net.minecraft.core.Direction.NORTH)); // the torch reflex's task, run as any
+        if (t[0] == 40) { check(c.currentTask instanceof Task.WallTorch, "setup: not on the torch task (now " + c.currentTask + ")"); c.progressTick = c.tickCount - 20 * 46; c.stuckLevel = 1; st799T = t[0]; } // 46 s on it, no nearer (the stuck clock, once a second, has its marks by now)
+        if (st799T > 0 && t[0] == st799T + 25) {
+            boolean dropped = !(c.currentTask instanceof Task.WallTorch);
+            c.tasks.addFirst(new Task.WallTorch(st799Torch, net.minecraft.core.Direction.NORTH)); // the torch reflex, queuing it again
+            boolean back = c.tasks.stream().anyMatch(q -> q instanceof Task.WallTorch w && w.pos().equals(st799Torch)) || c.currentTask instanceof Task.WallTorch cw && cw.pos().equals(st799Torch);
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.stuckLevel = 0; c.attempts.clear();
+            check(dropped, "the 45 s rung didn't drop the stuck torch (now " + c.currentTask + ")");
+            check(!back, "the torch he was stuck 45 s on queued again at once, in front of what would get him out");
+            pass(stage, t, "the stuck torch off the queue while its cause holds");
         }
         return true;
     }

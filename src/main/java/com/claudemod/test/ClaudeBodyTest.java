@@ -10616,6 +10616,7 @@ public final class ClaudeBodyTest {
             case 788: return st788(stage, t, c, h, level, mock);
             case 789: return st789(stage, t, c, h, level, mock);
             case 790: return st790(stage, t, c, h, level, mock);
+            case 791: return st791(stage, t, c, h, level, mock);
             case 786: return st786(stage, t, c, h, level, mock);
             case 780: return st780(stage, t, c, h, level, mock);
             case 781: return st781(stage, t, c, h, level, mock);
@@ -16194,6 +16195,24 @@ public final class ClaudeBodyTest {
             check(level.getBlockState(st790B).is(Blocks.COBBLED_DEEPSLATE), "his bore's block in the leg's cell dug out by the walk (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ")");
             if (c.blockPosition().distSqr(st790C) <= 2) { c.tasks.clear(); c.dropCurrent = true; com.claudemod.entity.life.TempLedger.builtCells(c).remove(st790B); pass(stage, t, "round his own block, both legs walked, in " + (t[0] - st790T) / 20.0 + " s"); }
             else check(t[0] - st790T < 20 * 15, "never reached the second leg's end in 15 s (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ", tasks " + c.tasks + ")");
+        }
+        return true;
+    }
+    private static boolean st791(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D review 38 (live 00:00:58-00:01:13 World 17, his Nether highway): a pack of 192 basalt, 94+64 blackstone, magma blocks from the swap; "nothing junk in it", so 1 magma, then 3 basalt, then 4 magma dropped, one small stack a time, while the dig kept filling it. Basalt and magma are junk; blackstone is stone, two stacks of stone all told
+        if (t[0] == 1) { scenarioReset(c); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard(); }
+        if (t[0] == 5) {
+            var inv = c.getInventory(); inv.clearContent();
+            inv.items.set(0, new ItemStack(Items.DIAMOND_PICKAXE)); inv.selected = 0;
+            for (int i = 1; i <= 3; i++) inv.items.set(i, new ItemStack(Items.BASALT, 64));
+            inv.items.set(4, new ItemStack(Items.BLACKSTONE, 64)); inv.items.set(5, new ItemStack(Items.BLACKSTONE, 30)); inv.items.set(6, new ItemStack(Items.BLACKSTONE, 64)); inv.items.set(7, new ItemStack(Items.MAGMA_BLOCK, 4));
+            for (int i = 8; i < inv.items.size(); i++) inv.items.set(i, new ItemStack(Items.COOKED_SALMON, 16));
+            com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+            int basalt = c.inventory.count(x -> x.is(Items.BASALT)), magma = c.inventory.count(x -> x.is(Items.MAGMA_BLOCK)), black = c.inventory.count(x -> x.is(Items.BLACKSTONE)), free = 0; for (var st0 : inv.items) if (st0.isEmpty()) free++;
+            for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard(); inv.clearContent();
+            check(basalt == 0 && magma == 0, "pack: basalt " + basalt + ", magma " + magma + " kept after the clear-out (junk from the highway's swap)");
+            check(black >= 64 && black <= 128, "pack: blackstone " + black + " after it (want two stacks of stone all told)");
+            check(free >= 4, "pack: only " + free + " free slot(s) after it");
+            pass(stage, t, "basalt and magma out, " + black + " blackstone kept, " + free + " slots free");
         }
         return true;
     }

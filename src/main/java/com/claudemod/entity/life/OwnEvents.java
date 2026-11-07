@@ -92,6 +92,7 @@ public final class OwnEvents {
         Watchdog.pickedUp(g, e.getItemEntity().getUUID(), orig);
         if (orig.getItem() instanceof net.minecraft.world.item.ArmorItem || orig.is(net.minecraft.world.item.Items.SHIELD)) com.claudemod.director.ClaudeLife.equipArmor(g); // on the moment he picks it up, not at the next 5 s round (the user 11-05: on a run back to his pile he's "suited with your pickups" before any fight)
         String what = id(orig.getItem()); BlockPos at = e.getItemEntity().blockPosition();
+        if (!com.claudemod.director.ClaudeLife.junkItem(orig) && !orig.is(net.minecraft.world.item.Items.COBBLESTONE) && !orig.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE)) ClaudeMod.LOGGER.info("[Claude pickup] got {} {} at {} (OwnEvents.onPickup)", n, what, at.toShortString()); // (a walk-over pickup logged nothing: the reviewer read a patch over a picked-up diamond as burying it, D2D review 69; junk and cobble unlogged, too many)
         int left = n;
         for (Event l : book(g)) {
             if (left <= 0) break;

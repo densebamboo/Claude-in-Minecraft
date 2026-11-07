@@ -3597,7 +3597,7 @@ public class WorkGoal extends Goal {
             }
             stepOutSince().remove(pos);
             if (out != null) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] standing in the hole at {}: 2 s of stepping out to {} didn't get him out, not placing it under himself (this round)", pos.toShortString(), out.toShortString());
-            for (var it = g.tasks.iterator(); it.hasNext(); ) if (it.next() instanceof Task.Place p2 && p2.pos().equals(pos)) it.remove(); return exit("where he's standing: never a block there (feet and head footings fed each other, 76 drops in 3 minutes) (doPlace 2584)"); } // where he's standing: never a block there (feet and head "footings" fed each other, 76 drops in 3 minutes)
+            for (var it = g.tasks.iterator(); it.hasNext(); ) if (it.next() instanceof Task.Place p2 && p2.pos().equals(pos)) it.remove(); return exit("where he stands: never a block under himself, out of the hole first (doPlace 2584)"); } // where he's standing: never a block there (feet and head "footings" fed each other, 76 drops in 3 minutes)
         if (ticks == 1 && !(stepOutSince != null && stepOutSince.containsKey(pos)) && placeRetries.merge(pos.below(20000).immutable(), 1, Integer::sum) > 20) { // (not while he's stepping out of the cell: that has its own 2 s) // ponytail: tries kept far below the world in placeRetries (no new fields live); a placement that keeps coming back and never takes is dropped, not a 4-minute loop (his tower roof re-queued itself every tick)
             placeRetries.remove(pos.below(20000));
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] placing at {} has failed 20 times: dropping it", pos.toShortString());

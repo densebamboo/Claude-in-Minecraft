@@ -10606,6 +10606,7 @@ public final class ClaudeBodyTest {
             case 779: return st779(stage, t, c, h, level, mock);
             case 780: return st780(stage, t, c, h, level, mock);
             case 781: return st781(stage, t, c, h, level, mock);
+            case 782: return st782(stage, t, c, h, level, mock);
             case 762: return st762(stage, t, c, h, level, mock);
             case 763: return st763(stage, t, c, h, level, mock);
             case 758: return st758(stage, t, c, h, level, mock);
@@ -15769,6 +15770,36 @@ public final class ClaudeBodyTest {
             check(fa != null && fa.item() == Items.COOKED_BEEF, "setup: the kit should search for animals (cooked_beef), it asked " + (fa == null ? "nothing" : fa.count() + " " + fa.item()));
             check(targets.stream().distinct().count() == 1 || targets.stream().distinct().count() == targets.size(), "the collect step flipped kinds: " + targets + " (" + String.join(" / ", said) + ")");
             nsHome(c, h, level); pass(stage, t, "one answer for the kit's food: " + targets + " (" + String.join(" / ", said) + ")"); }
+        return true;
+    }
+    private static int st782T; private static BlockPos st782Dust;
+    private static boolean st782(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 20:29:56 World 17: in an ore hole under his floor where the tunnel isn't dug yet (rock a block over his head), redstone a cell down beside him: "up 1 the way he'd climb out" / "no head room to tower" every tick. A climb into rock is no way out: he takes the dust
+        if (t[0] == 1) { scenarioReset(c); c.blueprint = null; c.skillQueue.clear(); c.mineShape = null; c.mineCells.clear(); c.mineSpine.clear(); c.mineFace = null; c.stairStart = null; c.storageChests.clear(); c.myStations.clear(); c.nook = null; c.nextPlanTick = c.tickCount + 20 * 600; st782T = -1; c.prefs.put("stay_close", "no"); }
+        if (t[0] > 10 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
+        if (t[0] == 10) {
+            for (int x = -8; x <= 24; x++) for (int z = 0; z <= 16; z++) { for (int yy = -1; yy <= 12; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.DEEPSLATE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, 13, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 14; yy <= 18; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(new BlockPos(-6, 12, 8)), net.minecraft.core.Direction.EAST, 2, 3); b.segments.get(0).n = 8; b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(true), net.minecraft.core.Direction.EAST, 16, null)); b.invalidate();
+            var rs = b.rows();
+            for (int i = 0; i < rs.size() - 4; i++) { var r = rs.get(i); for (BlockPos f : r.feet()) for (int y = 0; y < r.height(); y++) level.setBlock(f.above(y), Blocks.AIR.defaultBlockState(), 2); } // the last 4 rows not dug yet
+            c.prefs.put("mine_model", "blueprint"); c.blueprint = b; com.claudemod.director.ClaudeLife.bpSync(c);
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(48))) e.discard();
+            BlockPos dug = rs.get(rs.size() - 5).first(); mock[0].teleportTo(dug.getX() + 0.5, dug.getY(), dug.getZ() + 0.5);
+            BlockPos f1 = rs.get(rs.size() - 2).first(), feet = f1.below();
+            net.minecraft.core.Direction side = null; for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) if (b.roleAt(f1.relative(d)) == com.claudemod.entity.life.MineBlueprint.Role.WALL) { side = d; break; }
+            st782Dust = feet.relative(side).below().immutable();
+            for (BlockPos q : new BlockPos[] {feet, f1, st782Dust, st782Dust.above()}) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2); // his feet in the floor's hole, his head in the undug walk cell, the rock over that; the ore's cell a step down beside him
+            check(b.roleAt(feet) == com.claudemod.entity.life.MineBlueprint.Role.FLOOR && b.isWalk(f1) && !level.getBlockState(f1.above()).isAir(), "setup: feet in a floor cell, head in a walk cell, rock over it");
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 32)); c.getInventory().add(new ItemStack(Items.TORCH, 16));
+            c.teleportTo(feet.getX() + 0.5, feet.getY(), feet.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); level.setDayTime(1000); c.tasks.clear(); c.attempts.clear(); c.dropCurrent = true;
+            var drop = new net.minecraft.world.entity.item.ItemEntity(level, st782Dust.getX() + 0.5, st782Dust.getY() + 0.1, st782Dust.getZ() + 0.5, new ItemStack(Items.REDSTONE, 4)); drop.setDeltaMovement(0, 0, 0); level.addFreshEntity(drop);
+        }
+        if (t[0] == 15) { c.tasks.clear(); c.tasks.add(new Task.Pickup(100)); st782T = t[0]; }
+        if (st782T > 0) {
+            check(!(c.currentTask instanceof Task.Pillar) && c.tasks.stream().noneMatch(q -> q instanceof Task.Pillar), "a climb up into rock queued as his way out of the floor's hole (at " + c.blockPosition().toShortString() + ", head " + c.blockPosition().above(2).toShortString() + " " + level.getBlockState(c.blockPosition().above(2)).getBlock() + ")");
+            if (c.inventory.count(x -> x.is(Items.REDSTONE)) >= 4) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "the redstone out of the hole in " + (t[0] - st782T) / 20.0 + " s, no climb into rock"); }
+            else check(t[0] - st782T < 20 * 10, "the redstone never picked up in 10 s (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ", tasks " + c.tasks + ")");
+        }
         return true;
     }
     private static int st779Start;

@@ -66,7 +66,9 @@ public final class Highway {
         if (level.dimension() != net.minecraft.world.level.Level.NETHER) { // (his highways are in the Nether: through the portal first)
             var top = st.target().startsWith("@") ? null : topUpStep(g); // the one underway: his pack topped up from his chests on the way out, once (live 15:05: the planner's own 64 taken of 614, ~11 rows' worth; stage 916)
             g.skillQueue.addFirst(new Skills.Step("build_highway", "@" + words, st.count(), st.where())); g.skillQueue.addFirst(new Skills.Step("enter_portal", "", 1));
+            var pack = st.target().startsWith("@") ? null : packStep(g); if (pack != null) g.skillQueue.addFirst(pack); // (the rest of the trip after his chests: mined)
             if (top != null) { g.skillQueue.addFirst(top); return "the highway's in the Nether: " + top.count() + " cobbled deepslate from my chests first (a full pack), then through the portal"; }
+            if (pack != null) return "the highway's in the Nether: " + pack.count() + " cobbled deepslate on me first (a full pack), then through the portal";
             return "the highway's in the Nether: through the portal first";
         }
         if (s.dest != null && level.isLoaded(s.dest)) { BlockPos dk = FortressScout.deck(level, s.dest); // the fortress's deck once its ground is loaded: the height on record may be a brick seen from below (stage 919)
@@ -241,6 +243,23 @@ public final class Highway {
         if (s.dest == null || s.rows <= 0 || g.level().dimension() == net.minecraft.world.level.Level.NETHER) return null;
         int fetch = Math.min(chestCount(g), trip(g, s.rows - Math.max(0, s.built)));
         return fetch >= 64 ? new Skills.Step("take_from_chest", "cobbled_deepslate", fetch) : null;
+    }
+    /**
+     * Before he goes back to the highway from the overworld: room in his pack for a stack or more of this trip's
+     * deepslate (trip(): what fits with highway.trip_free_slots free) is filled first, a collect (his chests first, then
+     * mining). Null when the pack is full enough, or when the collect just ran (what he got is what he takes).
+     * Live 18:14 11-06: after a restart dropped the queued collect, he went back with 307 of 384; the user: "is he not
+     * taking the minimum of stacks each time".
+     */
+    public static Skills.Step packStep(ClaudeEntity g) {
+        State s = state(g);
+        if (s.dest == null || s.portalId < 0 || s.rows <= 0 || g.level().dimension() != net.minecraft.world.level.Level.OVERWORLD) return null;
+        if (g.lastStep != null && g.lastStep.skill().equals("collect") && g.lastStep.target().equals("cobbled_deepslate")) return null;
+        int missing = trip(g, s.rows - Math.max(0, s.built));
+        if (missing < w("highway.pack_min_short", 64)) return null;
+        int have = g.inventory.count(x -> x.is(BLOCK));
+        ClaudeMod.LOGGER.info("[Claude highway] packing for the highway before the portal: {} on him, room for {} more of this trip (Highway.packStep)", have, missing);
+        return new Skills.Step("collect", "cobbled_deepslate", have + missing);
     }
     static int chestCount(ClaudeEntity g) { int n = 0; for (var e : ChestLedger.book(g).values()) if (e.dim() != null && e.dim().endsWith("overworld")) n += e.items().getOrDefault(BLOCK, 0); return n; }
 

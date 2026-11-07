@@ -3578,6 +3578,7 @@ public final class ClaudeLife {
                     return "to the exit portal on the fountain at " + ep.toShortString() + ", " + (int) Math.sqrt(ep.distSqr(g.blockPosition())) + " off";
                 }
                 if (level.dimension() == net.minecraft.world.level.Level.OVERWORLD && !g.commandActive && Kit.food(g) < 6) { String kit = gearFirst(g, level, st, false); if (kit != null) return kit; } // the trip packing rule holds for the Nether: food before he goes in (he went in with 1 meal and hunted beef in the Nether, 744954f)
+                if (level.dimension() == net.minecraft.world.level.Level.OVERWORLD && !g.commandActive && g.skillQueue.stream().anyMatch(s0 -> s0.skill().equals("build_highway"))) { var pk = com.claudemod.entity.life.Highway.packStep(g); if (pk != null) { g.skillQueue.addFirst(st); g.skillQueue.addFirst(pk); return "a full pack for the highway first: " + pk.count() + " cobbled deepslate on me, then through the portal"; } } // (back to his highway with a part pack: 307 of 384 after a restart dropped the collect, live 18:14 11-06, stage 873)
                 { String sv = stashForTrip(g, level, st); if (sv != null) return sv; } // into the Nether: what he won't use there goes in his storage first
                 { String rp = com.claudemod.entity.life.PortalMap.enterStep(g, level, st, target); if (rp != null) return rp; } // their words: home / back / fortress / my portal (PortalMap.resolve); an unlit one relit // into a lit portal: stand in it 4 s, the game does the rest; both coordinate pairs noted
                 BlockPos portal = findNear(level, g.blockPosition(), 24, b -> b.is(Blocks.NETHER_PORTAL));
@@ -7708,18 +7709,21 @@ public final class ClaudeLife {
         return g.mineDir;
     }
 
+    private static int torchWhyAt; // (static: fields added live start 0)
+    /** Why no torch went up here, every 10 s at most (the user 19:40 11-06: "dug this entire branch without placing a single torch"; the returns were silent). */
+    private static void torchWhy(ClaudeEntity g, ServerLevel level, BlockPos feet, String why) { if (g.tickCount - torchWhyAt < 200) return; torchWhyAt = g.tickCount; ClaudeMod.LOGGER.info("[Claude torch] no torch at {} (block light {}, {} torches on him): {} (ClaudeLife.lightTheMine)", feet.toShortString(), level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, feet), g.inventory.count(t -> t.is(Items.TORCH)), why); }
     private static void lightTheMine(ClaudeEntity g, ServerLevel level) {
         if (g.mineFace == null || g.mineDir == null || "no".equals(g.pref("torches_while_digging", "yes"))) return;
         BlockPos feet = g.blockPosition();
-        if (level.canSeeSky(feet) || !inHisMine(g, feet)) return;
-        if (level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, feet) > 5) return; // lit well enough
+        if (level.canSeeSky(feet) || !inHisMine(g, feet)) { torchWhy(g, level, feet, level.canSeeSky(feet) ? "under the sky" : "not in his mine by its record"); return; }
+        if (level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, feet) > 5) { torchWhy(g, level, feet, "lit well enough"); return; } // lit well enough
         if (g.inventory.count(t -> t.is(Items.TORCH)) == 0) return;
         if (g.currentTask instanceof Task.WallTorch || g.tasks.peek() instanceof Task.WallTorch) return;
         // Evenly spaced: a torch already within his spacing (placed, or coming up as he digs) means this dark bit is just between two
         int every = Math.max(3, shape(g).torchEvery);
-        for (Task t : g.tasks) if (t instanceof Task.WallTorch w && w.pos().distManhattan(feet) <= every * 2) return;
+        for (Task t : g.tasks) if (t instanceof Task.WallTorch w && w.pos().distManhattan(feet) <= every * 2) { torchWhy(g, level, feet, "a torch queued at " + w.pos().toShortString() + " (" + g.tasks.size() + " tasks queued)"); return; }
         for (BlockPos q : BlockPos.betweenClosed(feet.offset(-every + 1, -every + 1, -every + 1), feet.offset(every - 1, every - 1, every - 1)))
-            if (level.getBlockState(q).is(Blocks.WALL_TORCH) || level.getBlockState(q).is(Blocks.TORCH)) return;
+            if (level.getBlockState(q).is(Blocks.WALL_TORCH) || level.getBlockState(q).is(Blocks.TORCH)) { torchWhy(g, level, feet, "a torch within " + every + " at " + q.toShortString()); return; }
         String side = shape(g).torchSide;
         Direction going = g.mineDir; // in a side branch: that branch's way out from the main tunnel
         if (g.mineIsTunnel) {
@@ -7735,7 +7739,7 @@ public final class ClaudeLife {
             for (int k = 0; k < 5 && level.getBlockState(s.relative(w)).getCollisionShape(level, s.relative(w)).isEmpty(); k++) s = s.relative(w);
             if (level.getBlockState(s).canBeReplaced() && level.getBlockState(s.relative(w)).isFaceSturdy(level, s.relative(w), w.getOpposite())) { spot = s; wall = w; break; }
         }
-        if (spot == null) { darkSkip().put(feet.immutable(), g.tickCount); return; } // no wall to hang one on here (a cave both sides): not asked again for a minute
+        if (spot == null) { darkSkip().put(feet.immutable(), g.tickCount); torchWhy(g, level, feet, "no wall to hang one on"); return; } // no wall to hang one on here (a cave both sides): not asked again for a minute
         if (g.tickCount - darkSkip().getOrDefault(feet.immutable(), -100000) < 20 * 60) return;
         g.tasks.addFirst(new Task.WallTorch(spot, wall));
         ClaudeMod.LOGGER.info("[Claude life] dark spot in the mine at {}: torch on the {} wall", feet.toShortString(), side);
@@ -8396,6 +8400,8 @@ public final class ClaudeLife {
     private static final java.util.Map<String, Integer> BEST_Y = java.util.Map.of(
             "diamond", -58, "redstone", -58, "gold", -16, "lapis", 0, "iron", 16, "copper", 48, "coal", 16, "emerald", 232); // coal at the iron level: one mine, coal off its walls and the stairs down (branches at y48 "not even close to y16", the user)
 
+    /** His branch end at lava he noted when a branch hit it (his lava list: known without seeing it, kept over a restart; live 19:23 11-06 he walked out to each lava-cut branch to find it again, stage 874). */
+    static boolean lavaListedAt(ClaudeEntity g, BlockPos past) { for (BlockPos q : lavaSeen(g)) { int dy = q.getY() - past.getY(); if (Math.abs(q.getX() - past.getX()) <= 1 && Math.abs(q.getZ() - past.getZ()) <= 1 && dy >= -1 && dy <= 3) return true; } return false; }
     private static boolean lavaNear(ClaudeEntity g, ServerLevel level, BlockPos p) { // lava he knows of: in sight, or touching his own mine's open cells (a player finds it when the dig opens it); never lava sealed in the rock, nor a structure he hasn't found (the user: his mine turned at the top for no reason he could have seen)
         for (BlockPos q : BlockPos.betweenClosed(p.offset(-1, -1, -1), p.offset(1, 2, 1))) {
             if (!level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) continue;
@@ -9352,6 +9358,7 @@ public final class ClaudeLife {
         List<Skills.Step> crafts = new ArrayList<>(); int total = ingots;
         // diamonds first, unless they're theirs (the user 11-04: "he can gear up with diamond armor"): the diamond pick (the Nether wants one), then the best pieces the rest covers, his chests counted
         int dia = diamondsReserved(g) ? 0 : g.inventory.count(s -> s.is(Items.DIAMOND)) + stored(g, level).getOrDefault(Items.DIAMOND, 0), diaTotal = dia;
+        if (diamondsReserved(g) && g.tickCount % 6000 == 50) { int d0 = g.inventory.count(s -> s.is(Items.DIAMOND)) + stored(g, level).getOrDefault(Items.DIAMOND, 0); if (d0 >= 4) ClaudeMod.LOGGER.info("[Claude armor] {} diamonds (pocket and chests) kept for them, no diamond pieces made: diamonds_for {}, goal \"{}\", ongoing \"{}\" (ClaudeLife.ironPiecemeal)", d0, g.prefs.getOrDefault("diamonds_for", "unset"), g.playerGoal, g.prefs.getOrDefault("ongoing_job", "")); } // (the user 19:45 11-06: "he has enough for a full set"; nothing said why)
         boolean diaPick = g.inventory.count(s -> s.is(Items.DIAMOND_PICKAXE) || s.is(Items.NETHERITE_PICKAXE)) > 0; java.util.Set<Item> byDia = new java.util.HashSet<>();
         if (!diaPick && dia >= 3) { crafts.add(new Skills.Step("craft", "diamond_pickaxe", 1)); dia -= 3; diaPick = true; }
         Item[] dPieces = {Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_HELMET, Items.DIAMOND_BOOTS}, dIron = {Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_HELMET, Items.IRON_BOOTS}; int[] dCost = {8, 7, 5, 4};
@@ -11849,7 +11856,7 @@ public final class ClaudeLife {
                 if (g.attempts.counters.containsKey("branchDone:" + s0.start.asLong())) continue; if (s0.kind != MineBlueprint.Kind.BRANCH || s0.start.getY() != face.getY() || s0.n >= BRANCH_MAX || s0.n < half) continue; // (the user: each branch to its checkpoint, 32, or till it hits something to block off; then the next one)
                 if (!branchWalkable(level, s0)) continue;
                 BlockPos past = s0.start.relative(s0.dir, s0.n); BlockState ps = level.getBlockState(past);
-                if (level.getFluidState(past).is(net.minecraft.tags.FluidTags.LAVA) || lavaNear(g, level, past) || dryPlug(g, level, past) || ps.hasBlockEntity()) continue; /* (one short of the lava the goal keeps: "9 to 9" over and over, 04:14-04:19) */ // ends at water, lava or his own plug: that one's done
+                if (level.getFluidState(past).is(net.minecraft.tags.FluidTags.LAVA) || lavaNear(g, level, past) || lavaListedAt(g, past) || dryPlug(g, level, past) || ps.hasBlockEntity()) continue; /* (one short of the lava the goal keeps: "9 to 9" over and over, 04:14-04:19) */ // ends at water, lava or his own plug: that one's done
                 boolean beside = false; // a branch running alongside his tunnel (the one off the pivot corner, pushed 16 on beside the main run: the user) is done, never pushed
                 for (int k = 0; k < s0.n + b.branchLength && !beside; k++) { BlockPos q = s0.start.relative(s0.dir, k); for (Direction h : new Direction[] {s0.dir.getClockWise(), s0.dir.getCounterClockWise()}) for (int y = 0; y < 2; y++) { BlockPos w = q.relative(h).above(y); if (b.isWalk(w) && b.rowOf(w) >= 0 && b.segments.get(b.rows().get(b.rowOf(w)).segment()).kind != MineBlueprint.Kind.BRANCH) beside = true; } }
                 if (beside) continue;
@@ -11862,10 +11869,10 @@ public final class ClaudeLife {
                 int si = b.segments.indexOf(grow), first = -1, last = -1; List<MineBlueprint.Row> rs1 = b.rows();
                 for (int i = 0; i < rs1.size(); i++) if (rs1.get(i).segment() == si) { if (rs1.get(i).index() >= oldN - 1 && first < 0) first = i; last = i; }
                 if (first >= 0) {
-                    bpWalkTo(g, rs1.get(first).first()); g.tasks.add(new Task.GoTo(rs1.get(first).first(), 1.0)); // along his rows from wherever he is to the branch's end (via its mouth only when he's out in the tunnel: from its end, 54 blocks back to the mouth and out again, 00:49 11-05)
+                    int tasks0 = g.tasks.size(); bpWalkTo(g, rs1.get(first).first()); g.tasks.add(new Task.GoTo(rs1.get(first).first(), 1.0)); // along his rows from wherever he is to the branch's end (via its mouth only when he's out in the tunnel: from its end, 54 blocks back to the mouth and out again, 00:49 11-05)
                     int n1 = bpReconcile(g, level, first, last, false);
                     g.tasks.add(new Task.MineVisibleOres(3)); g.tasks.add(new Task.Pickup(20));
-                    if (grow.n <= oldN) { g.attempts.counters.put("branchDone:" + grow.start.asLong(), g.tickCount); ClaudeMod.LOGGER.info("[Claude life] branch at {} can't go on past {} (cut back at lava, water or his plug): done, the next one", grow.start.toShortString(), oldN); return "that branch is done (it ends at lava): on to the next"; } /* (after the reconcile: the lava cut-back comes there, the sync before it still showed it longer, 05:37) */ ClaudeMod.LOGGER.info("[Claude life] blueprint: no {} yet: his branch at {} goes on from {} to {} before the tunnel ({} task(s))", ore, grow.start.toShortString(), oldN, grow.n, n1);
+                    if (grow.n <= oldN) { while (g.tasks.size() > tasks0) g.tasks.removeLast(); /* (the walk out to it was queued before the cut-back: 89 blocks for nothing, branch after branch, live 19:23 11-06, stage 874) */ g.attempts.counters.put("branchDone:" + grow.start.asLong(), g.tickCount); ClaudeMod.LOGGER.info("[Claude life] branch at {} can't go on past {} (cut back at lava, water or his plug): done, the next one", grow.start.toShortString(), oldN); return "that branch is done (it ends at lava): on to the next"; } /* (after the reconcile: the lava cut-back comes there, the sync before it still showed it longer, 05:37) */ ClaudeMod.LOGGER.info("[Claude life] blueprint: no {} yet: his branch at {} goes on from {} to {} before the tunnel ({} task(s))", ore, grow.start.toShortString(), oldN, grow.n, n1);
                     { Item want7 = oreDrop(target); int have7 = want7 == null ? 0 : haveFor(g, level, want7); return (have7 > 0 ? have7 + " of " + count + " " + ore + " so far" : "no " + ore + " yet") + ": pushing my branch at " + grow.start.toShortString() + " on to " + grow.n + " long"; } // (review 117: "no iron yet" with 6 of 9 on him)
                 }
                 grow.n = oldN; b.invalidate();
@@ -11960,7 +11967,7 @@ public final class ClaudeLife {
                 if (s0.kind != MineBlueprint.Kind.BRANCH || s0.start.getY() != levelY || s0.n >= BRANCH_MAX) continue;
                 if (s0.n < (b.branchLength > 0 ? b.branchLength : 8) / 2) continue; // a stub cut short (water, a cave): not one to push on
                 if (!branchWalkable(level, s0)) continue; // a plug or a cave-in part-way along it: no way to its end, so nothing past it can be dug from the tunnel
-                { BlockPos past = s0.start.relative(s0.dir, s0.n); net.minecraft.world.level.block.state.BlockState ps = level.getBlockState(past); if (level.getFluidState(past).is(net.minecraft.tags.FluidTags.LAVA) || lavaNear(g, level, past) || dryPlug(g, level, past)) continue; } /* (one short of lava the goal keeps: the stone at its end, the lava one on; it "went on from 9 to 9" again and again, 04:14) */ // ends at water or at his plug of it: that branch is done (the user: plug it and move on), never pushed on into the same water again (he re-dug into it and re-plugged for 40 s)
+                { BlockPos past = s0.start.relative(s0.dir, s0.n); net.minecraft.world.level.block.state.BlockState ps = level.getBlockState(past); if (level.getFluidState(past).is(net.minecraft.tags.FluidTags.LAVA) || lavaNear(g, level, past) || lavaListedAt(g, past) || dryPlug(g, level, past)) continue; } /* (one short of lava the goal keeps: the stone at its end, the lava one on; it "went on from 9 to 9" again and again, 04:14) */ // ends at water or at his plug of it: that branch is done (the user: plug it and move on), never pushed on into the same water again (he re-dug into it and re-plugged for 40 s)
                 { int ri = b.rowOf(s0.start.relative(s0.dir.getOpposite())), gi = grow == null ? Integer.MAX_VALUE : b.rowOf(grow.start.relative(grow.dir.getOpposite())); if (grow == null || (ri >= 0 && (gi < 0 || ri < gi)) || (ri == gi && b.segments.indexOf(s0) < b.segments.indexOf(grow))) grow = s0; } // the first branch down the tunnel, its partner next, as above (was: the shortest anywhere, so the push hopped side to side, 16 at a time: the user 11-05 23:45)
             }
             if (grow != null) {
@@ -11969,10 +11976,10 @@ public final class ClaudeLife {
                 int si = b.segments.indexOf(grow), first = -1, last = -1; List<MineBlueprint.Row> rs1 = b.rows();
                 for (int i = 0; i < rs1.size(); i++) if (rs1.get(i).segment() == si) { if (rs1.get(i).index() >= oldN - 1 && first < 0) first = i; last = i; }
                 if (first >= 0) {
-                    bpWalkTo(g, rs1.get(first).first()); g.tasks.add(new Task.GoTo(rs1.get(first).first(), 1.0)); // along his rows from wherever he is to the branch's end: down his tunnel and into the branch from out there, straight on from its end (never back to its mouth first: 00:49 11-05, stage 707)
+                    int tasks0 = g.tasks.size(); bpWalkTo(g, rs1.get(first).first()); g.tasks.add(new Task.GoTo(rs1.get(first).first(), 1.0)); // along his rows from wherever he is to the branch's end: down his tunnel and into the branch from out there, straight on from its end (never back to its mouth first: 00:49 11-05, stage 707)
                     int n1 = bpReconcile(g, level, first, last, false);
                     g.tasks.add(new Task.MineVisibleOres(3)); g.tasks.add(new Task.Pickup(20));
-                    if (grow.n <= oldN) { g.attempts.counters.put("branchDone:" + grow.start.asLong(), g.tickCount); ClaudeMod.LOGGER.info("[Claude life] branch at {} can't go on past {} (cut back at lava, water or his plug): done, the next one", grow.start.toShortString(), oldN); return "that branch is done (it ends at lava): on to the next"; } /* (after the reconcile: the lava cut-back comes there, the sync before it still showed it longer, 05:37) */ ClaudeMod.LOGGER.info("[Claude life] blueprint: no {} yet: his branch at {} goes on from {} to {} ({} task(s))", ore, grow.start.toShortString(), oldN, grow.n, n1);
+                    if (grow.n <= oldN) { while (g.tasks.size() > tasks0) g.tasks.removeLast(); /* (the walk out to it was queued before the cut-back: 89 blocks for nothing, branch after branch, live 19:23 11-06, stage 874) */ g.attempts.counters.put("branchDone:" + grow.start.asLong(), g.tickCount); ClaudeMod.LOGGER.info("[Claude life] branch at {} can't go on past {} (cut back at lava, water or his plug): done, the next one", grow.start.toShortString(), oldN); return "that branch is done (it ends at lava): on to the next"; } /* (after the reconcile: the lava cut-back comes there, the sync before it still showed it longer, 05:37) */ ClaudeMod.LOGGER.info("[Claude life] blueprint: no {} yet: his branch at {} goes on from {} to {} ({} task(s))", ore, grow.start.toShortString(), oldN, grow.n, n1);
                     return "no " + ore + " yet: pushing my branch at " + grow.start.toShortString() + " on to " + grow.n + " long";
                 }
             }

@@ -10673,6 +10673,8 @@ public final class ClaudeBodyTest {
             case 870: return st870(stage, t, c, h, level, mock);
             case 871: return st871(stage, t, c, h, level, mock);
             case 872: return st872(stage, t, c, h, level, mock);
+            case 873: return st873(stage, t, c, h, level, mock);
+            case 874: return st874(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -18351,6 +18353,65 @@ public final class ClaudeBodyTest {
             String q = c.tasks.stream().limit(4).toList().toString(); c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null;
             check(!r.contains("y=16") && high < 0, "collect cobbled_deepslate sent him up to stone (result: " + r + "; highest task y " + high + "; " + q + ")");
             pass(stage, t, "deepslate from a level below y 0: " + r + " (highest task y " + high + ")");
+        }
+        return true;
+    }
+    private static BlockPos st874End;
+    private static boolean st874(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 19:23 World 17 (the user: "he's just running to the end of each one and back"): after a restart, collect cobbled_deepslate pushed each old branch in turn; the push queued the walk to its end, the reconcile then found the lava at its head (-207,-57,8, on his lava list) and called it done, the walk stayed queued: 89 blocks out for nothing, branch after branch. Here: 865's mine, a 20-long branch off its -58 face with lava at the head cell past its end, on his lava list: no walk to that branch's end.
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; }
+        if (t[0] == 10) {
+            BlockPos at = h.absolutePos(new BlockPos(2, 0, 8)); var E = net.minecraft.core.Direction.EAST; var N = net.minecraft.core.Direction.NORTH;
+            var b = new com.claudemod.entity.life.MineBlueprint(new BlockPos(at.getX(), 20, at.getZ()), E, 2, 3); b.segments.get(0).n = 5; b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 12, null)); b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.STAIRS, b.nextStart(true), E, 74, null)); b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 6, null)); b.invalidate();
+            b.branchLength = 16; b.branchEvery = 4;
+            BlockPos face = b.rows().get(b.rows().size() - 1).first();
+            BlockPos start = face.west(2).north();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.BRANCH, start, N, 20, null)); b.invalidate();
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            st874End = start.relative(N, 20); BlockPos lava = start.relative(N, 21).above(); level.setBlock(st874End.above(), Blocks.DEEPSLATE.defaultBlockState(), 2); // (out of his sight behind the rock at its end, as live: he was 89 off)
+            level.setBlock(st874End, Blocks.DEEPSLATE.defaultBlockState(), 2); level.setBlock(lava, Blocks.LAVA.defaultBlockState(), 2);
+            com.claudemod.director.ClaudeLife.lavaSeen(c).addFirst(lava.above());
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = face; c.mineIsTunnel = true; level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 16)); c.getInventory().add(new ItemStack(Items.TORCH, 64));
+            c.teleportTo(face.getX() + 0.5, face.getY(), face.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.attempts.clear(); c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 20) {
+            c.tasks.clear();
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "strip_mine", "cobbled_deepslate", 384);
+            BlockPos far = null; for (Task q : c.tasks) if (q instanceof Task.GoTo go && go.pos().distSqr(st874End) <= 4 * 4) far = go.pos();
+            String q = c.tasks.stream().limit(5).toList().toString();
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; com.claudemod.director.ClaudeLife.lavaSeen(c).clear();
+            check(far == null, "a walk to the end of the branch whose head is at known lava, queued for nothing: " + far + " (result: " + r + "; " + q + ")");
+            pass(stage, t, "no walk out to a branch that ends at lava: " + r);
+        }
+        return true;
+    }
+    private static boolean st873(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 18:11-18:16 World 17: a restart dropped his queued collect for 384; the planner sent him "enter_portal, build_highway" with 307 on him, room in his pack for more (the user: "is he not taking the minimum of stacks each time"). Here: a highway underway (300 of 719 rows), him in the overworld with 120 and an emptyish pack: both ways back (enter_portal with build_highway behind it, and build_highway) pack first.
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; }
+        if (t[0] == 10) {
+            var tag = new net.minecraft.nbt.CompoundTag(); tag.putInt("portal", 3); tag.putLong("dest", new BlockPos(310, 33, 402).asLong()); tag.putInt("built", 300); tag.putInt("rows", 719);
+            com.claudemod.entity.life.Highway.load(c, tag);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 16)); c.getInventory().add(new ItemStack(Items.TORCH, 32)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 56));
+            c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null; c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600; c.setHealth(20); c.getFoodData().setFoodLevel(20);
+        }
+        if (t[0] == 20) {
+            c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null; c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("build_highway", "", 1));
+            String r1 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "enter_portal", "back", 1);
+            boolean packed1 = c.skillQueue.stream().anyMatch(s -> s.skill().equals("collect") && s.target().equals("cobbled_deepslate") && s.count() > 120 + 64);
+            String q1 = c.skillQueue.toString();
+            c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null;
+            String r2 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", "", 1);
+            boolean packed2 = c.skillQueue.stream().anyMatch(s -> s.skill().equals("collect") && s.target().equals("cobbled_deepslate") && s.count() > 120 + 64);
+            String q2 = c.skillQueue.toString();
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; com.claudemod.entity.life.Highway.reset(c);
+            check(packed1, "enter_portal back to the highway with 120 and room for more: no pack first (" + r1 + "; queue " + q1 + ")");
+            check(packed2, "build_highway from the overworld with 120 and room for more: no pack first (" + r2 + "; queue " + q2 + ")");
+            pass(stage, t, "packs first: " + r1 + " | " + r2);
         }
         return true;
     }

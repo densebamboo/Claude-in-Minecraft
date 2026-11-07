@@ -187,7 +187,9 @@ public final class ClaudeLife {
             if (nightRefusal && !g.skillQueue.isEmpty()) { // only this step waits on the clock: the rest of the plan goes on (live 13:16 World 17, review 522: village_iron refused at night cleared strip_mine 17 and smelt 17 with it, then 2-4 min idle in his mine)
                 ClaudeMod.LOGGER.info("[Claude plan] {} waits on the clock; the rest of the plan goes on meanwhile: {} (ClaudeLife.runWork)", step.skill(), g.skillQueue);
             } else if (result.startsWith("failed") || result.startsWith("done:")) {
+                boolean pile = !step.skill().equals("recover_drops") && g.skillQueue.stream().anyMatch(s0 -> s0.skill().equals("recover_drops")) && g.failCount.getOrDefault(failKey, 0) < 2; // the run to his death pile is his rule, not the plan's: it outlives a replan (live 11:47 11-07: "smelt iron_ingot -> done: rides home" cleared it, the Nether pile forgotten for a beef hunt, stage 1050)
                 g.skillQueue.clear();                    // the plan no longer holds; think again at once (a failure stood him idle 15 s each time; the plan gap, spinning() and planRepeats catch the loops)
+                if (pile) { g.skillQueue.add(new Skills.Step("recover_drops", "", 1)); ClaudeMod.LOGGER.info("[Claude plan] {} ended ({}): the plan's thought again, the run to his pile stays on (ClaudeLife.runWork)", step.skill(), result.length() > 60 ? result.substring(0, 60) : result); }
                 g.nextPlanTick = result.startsWith("failed") ? Math.max(g.tickCount, g.planStartTick + PLAN_GAP_TICKS) : g.tickCount;
             }
             try { com.claudemod.entity.life.Watchdog.quickReturn(g, line); } catch (RuntimeException e) { ClaudeMod.LOGGER.warn("[Claude watchdog] quickReturn threw", e); }

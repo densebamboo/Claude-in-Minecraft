@@ -8033,7 +8033,7 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
-        if (stage[0] >= 494 && stage[0] <= 1049 && stages494(stage, t, c, h, level, mock)) return true;
+        if (stage[0] >= 494 && stage[0] <= 1099 && stages494(stage, t, c, h, level, mock)) return true;
         if (stage[0] >= 279 && stage[0] <= 285) {
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Whereabouts.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.ExactSpot.reset(c); com.claudemod.director.Primitives.reset(c);
                 c.planning = false; c.failCount.clear(); c.commandResults.clear(); c.commandActive = false; c.lastSkillLine = ""; c.lastStep = null; c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600; esWaitT = -1; esMark = -1; esFake = ""; }
@@ -10765,6 +10765,7 @@ public final class ClaudeBodyTest {
             case 896: return st896(stage, t, c, h, level, mock);
             case 898: return st898(stage, t, c, h, level, mock);
             case 899: return st899(stage, t, c, h, level, mock);
+            case 1050: return st1050(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -20664,6 +20665,32 @@ public final class ClaudeBodyTest {
             pass(stage, t, r);
         }
         } catch (RuntimeException ex) { nsHome(c, h, level); throw ex; }
+        return true;
+    }
+
+    /** Stage 1050 (live 11:47 11-07 World 17): the run to his Nether pile was on (recover_drops queued behind craft golden_boots); an iron_helmet craft cut in, its "smelt iron_ingot -> done: the raw_iron rides home" cleared the whole skill queue for a replan, and the pile went with it: a beef hunt instead, the diamond kit left lying. A step's done/failed rethinks the plan, never his death-pile run. Here: a step that ends "done:" ahead of recover_drops; recover_drops still runs. */
+    private static boolean st1050(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.DeathLog.reset(c); c.setLastDeathLocation(java.util.Optional.empty()); }
+        if (t[0] == 10) {
+            for (int x = -2; x <= 34; x++) for (int z = 0; z <= 12; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 6; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            c.mineFace = null; c.blueprint = null; c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 10)); BlockPos me = h.absolutePos(new BlockPos(2, 2, 6)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            BlockPos pile = h.absolutePos(new BlockPos(30, 2, 6)); var fell = new java.util.ArrayList<net.minecraft.world.entity.item.ItemEntity>();
+            fell.add(new net.minecraft.world.entity.item.ItemEntity(level, pile.getX() + 0.5, pile.getY() + 0.2, pile.getZ() + 0.5, new ItemStack(Items.DIAMOND_PICKAXE)));
+            for (var e : fell) { e.setDeltaMovement(0, 0, 0); level.addFreshEntity(e); }
+            com.claudemod.entity.life.DeathLog.died(c, level, pile, fell);
+            c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null; c.recoverPending = false; c.commandActive = false; c.nextPlanTick = c.tickCount + 12000;
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("strip_mine", "cobblestone", 1)); // ("done: already have 10 cobblestone": a done that rethinks the plan)
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("recover_drops", "", 1));
+        }
+        if (t[0] > 10) {
+            boolean ran = c.lastStep != null && c.lastStep.skill().equals("recover_drops") || c.skillQueue.stream().anyMatch(s -> s.skill().equals("recover_drops")) && c.lastStep != null && !c.lastStep.skill().equals("strip_mine");
+            if (c.lastStep != null && c.lastStep.skill().equals("recover_drops")) {
+                for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(64))) it.discard();
+                c.skillQueue.clear(); c.tasks.clear(); c.recoverPending = false; c.dropCurrent = true; c.lastStep = null; com.claudemod.entity.life.DeathLog.reset(c);
+                pass(stage, t, "the run to his pile ran after a step's done cleared the plan (" + (t[0] - 10) + " ticks)"); return true;
+            }
+            check(t[0] < 220, "the run to his pile is gone after a step's done: step " + c.lastStep + ", queue " + c.skillQueue + " (ran " + ran + ")");
+        }
         return true;
     }
 

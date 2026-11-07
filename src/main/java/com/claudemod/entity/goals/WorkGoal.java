@@ -1015,6 +1015,21 @@ public class WorkGoal extends Goal {
                             return true;
                         }
                     }
+                    if (!blockers.isEmpty() && armed()) { // no way round them: clearing them priced against waiting for them to move off (review 536, live 03:29: three magma cubes across his highway in his diamond kit, the walk written off and the route stalled; stage 940)
+                        blockers.sort(java.util.Comparator.comparingDouble(m -> m.distanceTo(g)));
+                        shouldFlee(blockers.get(0), false); double fightS = pricedFightS; // shortcut: prices the nearest blocker and the hostiles within 10 of him, not blockers further on the way; they come in as he closes
+                        if (!Double.isNaN(fightS)) {
+                            var pick = com.claudemod.entity.life.Decide.choose(g, "walk.blocked", onRoute + " hostile(s) on the way to " + pos.toShortString() + " and no way round them, health " + (int) g.getHealth() + ", armor " + g.getArmorValue(), true, java.util.List.of(
+                                com.claudemod.entity.life.Decide.Option.of("clear them", fightS, "the fight as fight.flee prices it" + (fightOdds == null ? "" : " (" + fightOdds + ")") + ", then on"),
+                                com.claudemod.entity.life.Decide.Option.of("wait", w("walk.blocked_wait_s", 90), "for them to move off his way; the walk written off till then")));
+                            if (pick != null && pick.name().equals("clear them")) {
+                                g.tasks.addFirst(new Task.GoTo(pos.immutable(), within));
+                                for (int i = blockers.size() - 1; i >= 0; i--) g.tasks.addFirst(new Task.Attack(blockers.get(i).getUUID(), 20 * 30));
+                                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} hostile(s) between him and {}, no way round: clearing them, then on (WorkGoal.walkTo)", onRoute, pos.toShortString());
+                                return true;
+                            }
+                        }
+                    }
                     { var hm = nearestHostile(); g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, pos, g.tickCount, g.blockPosition(), com.claudemod.entity.life.Attempts.Reason.BLOCKED_MOB, onRoute + " hostile(s) on the way, no way round them", hm == null ? null : hm.getUUID()); }
                     com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} hostile(s) between him and {} ({}): not walking through them", onRoute, pos.toShortString(), armed() ? "a crowd" : "unarmed");
                     { int held = 0; Vec3 me0 = g.position(); // the legs of his way queued straight after, past the same ones: they wait with this one, not a search round them each (BP on D2D review 536, live 03:29:42: three magma cubes across his highway, 9 legs, 9 searches of 500 ms, stage 797)

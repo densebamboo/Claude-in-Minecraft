@@ -10509,6 +10509,7 @@ public final class ClaudeBodyTest {
             case 932: return st932(stage, t, c, h, level, mock);
             case 933: return st933(stage, t, c, h, level, mock);
             case 934: return st934(stage, t, c, h, level, mock);
+            case 940: return st940(stage, t, c, h, level, mock);
             case 939: return st939(stage, t, c, h, level, mock);
             case 938: return st938(stage, t, c, h, level, mock);
             case 937: return st937(stage, t, c, h, level, mock);
@@ -13879,6 +13880,38 @@ public final class ClaudeBodyTest {
             check(s <= 12, "8 blocks of basalt and 5 lava pockets plugged: " + s + " s (a player ~8; main went round them 5 times, 16 s)");
             check(hp >= 16, "health " + hp + " getting there");
             pass(stage, t, "through in " + s + " s, health " + hp);
+        }
+        return true;
+    }
+    /** Stage 940 (Loops/D2D review 536 11-07, live 03:29: three magma cubes on his 2-wide highway over the deltas between him and every leg, "3 hostile(s) on the way, no way round them", the walk written off and the route stalled; an expert in his kit clears them): a 2-wide railed bridge over lava, 3 medium magma cubes standing on it (no AI: they hold the way as they did), him armed and fed, a walk 18 along it. He prices the fight against waiting, clears them and gets there. */
+    private static int s940T;
+    private static boolean st940(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(11900, 70, 7900); BlockPos goal = o.offset(0, 0, 18);
+        if (t[0] == 1) { scenarioReset(c); s940T = -1; }
+        if (t[0] % 10 == 0 || t[0] < 10) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(0, 0, 10)), 2, o.offset(0, 0, 10));
+        if (t[0] == 5) {
+            for (int x = -4; x <= 5; x++) for (int z = -3; z <= 22; z++) for (int y = -4; y <= 4; y++) nl.setBlock(o.offset(x, y, z), (y == -4 ? Blocks.LAVA : y == -1 && x >= 0 && x <= 1 ? Blocks.COBBLED_DEEPSLATE : y == 0 && (x == -1 || x == 2) ? Blocks.COBBLED_DEEPSLATE : Blocks.AIR).defaultBlockState(), 2); // (his highway: floor at y-1, rails at y, lava 3 under)
+            nl.getFluidTicks().clearArea(net.minecraft.world.level.levelgen.structure.BoundingBox.fromCorners(o.offset(-4, -4, -3), o.offset(5, 4, 22)));
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+            for (int[] q : new int[][] {{0, 8}, {1, 9}, {0, 10}}) { var mc = net.minecraft.world.entity.EntityType.MAGMA_CUBE.create(nl); mc.setSize(2, true); mc.setNoAi(true); mc.moveTo(o.getX() + q[0] + 0.5, o.getY(), o.getZ() + q[1] + 0.5, 0f, 0f); nl.addFreshEntity(mc); }
+            nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.skillQueue.clear(); c.tasks.add(new com.claudemod.entity.life.Task.GoTo(goal, 0.5)); s940T = t[0]; }
+        if (t[0] > 20) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear(); }
+        boolean there = t[0] > 20 && c.blockPosition().distManhattan(goal) <= 1;
+        if (s940T > 0 && (there || t[0] >= s940T + 20 * 60)) {
+            double s = (t[0] - s940T) / 20.0; String at = c.blockPosition().toShortString(); float hp = c.getHealth();
+            int left = nl.getEntitiesOfClass(net.minecraft.world.entity.monster.MagmaCube.class, new net.minecraft.world.phys.AABB(o).inflate(30)).size();
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.clearFire();
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new net.minecraft.world.phys.AABB(o).inflate(40), e -> !(e instanceof ClaudeEntity) && !(e instanceof net.minecraft.world.entity.player.Player))) e.discard();
+            for (int x = -4; x <= 5; x++) for (int z = -3; z <= 22; z++) for (int y = -4; y <= 4; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            nsHome(c, h, level);
+            check(there, "3 magma cubes on his 2-wide highway, him armed and fed: at " + at + " after " + s + " s, not at " + goal.toShortString() + " (" + left + " cube(s) still about)");
+            check(s <= 45, "clearing 3 medium cubes and walking on: " + s + " s (a player ~20)");
+            check(hp >= 8, "health " + hp + " by the end");
+            pass(stage, t, "cleared and there in " + s + " s, health " + hp);
         }
         return true;
     }

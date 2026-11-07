@@ -10624,6 +10624,7 @@ public final class ClaudeBodyTest {
             case 792: return st792(stage, t, c, h, level, mock);
             case 794: return st794(stage, t, c, h, level, mock);
             case 795: return st795(stage, t, c, h, level, mock);
+            case 796: return st796(stage, t, c, h, level, mock);
             case 793: return st793(stage, t, c, h, level, mock);
             case 786: return st786(stage, t, c, h, level, mock);
             case 780: return st780(stage, t, c, h, level, mock);
@@ -16440,6 +16441,28 @@ public final class ClaudeBodyTest {
             if (level.getBlockState(st793Head).is(Blocks.COBBLED_DEEPSLATE)) { check(!c.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(st793Head)), "the block went in with his head in the cell"); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "down out of the hole and its head cell filled in " + (t[0] - st793T) / 20.0 + " s, from " + c.blockPosition().toShortString()); return true; }
             check(c.tasks.stream().anyMatch(q -> q instanceof Task.Place p && p.pos().equals(st793Head)) || c.currentTask instanceof Task.Place cp && cp.pos().equals(st793Head) || t[0] - st793T < 3, "the fill of his head cell dropped (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ", tasks " + c.tasks + ")");
             check(t[0] - st793T < 20 * 5, "his head cell not filled in 5 s (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ", tasks " + c.tasks + ")");
+        }
+        return true;
+    }
+    private static int st796T; private static BlockPos st796B, st796C;
+    private static boolean st796(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D review 686 (live 04:13:43-51 World 17, 125,62,516): a route leg into a cell his own nerd-pole had just filled; the leg dig (783's "one block in the leg") broke his pillar under him, block by block. A block of his own put down on a way (pillar, bridge, step) is never the leg's "block in the way": the walk re-plans
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st796T = -1; }
+        if (t[0] == 10) {
+            for (int x = -2; x <= 18; x++) for (int z = 2; z <= 8; z++) for (int y = 1; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), (y >= 2 && y <= 3 && (z == 5 || z == 6) && x >= 0 && x <= 16) ? Blocks.AIR.defaultBlockState() : Blocks.NETHERRACK.defaultBlockState(), 2); // a 2-wide corridor
+            st796B = h.absolutePos(new BlockPos(6, 2, 5)).immutable(); st796C = h.absolutePos(new BlockPos(14, 2, 5)).immutable();
+            level.setBlock(st796B, Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2);
+            Task was = c.currentTask; c.currentTask = new Task.Pillar(1); com.claudemod.entity.life.TempLedger.placed(c, level, st796B, Blocks.COBBLED_DEEPSLATE.defaultBlockState(), Blocks.AIR.defaultBlockState()); c.currentTask = was; // his own block, put down on a way
+            check(com.claudemod.entity.life.TempLedger.has(c, st796B) && !com.claudemod.entity.life.TempLedger.built(c, st796B), "setup: the block isn't on his ledger as one of his way blocks");
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 32));
+            BlockPos me = h.absolutePos(new BlockPos(3, 2, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(-90); c.setHealth(20); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 15) { c.tasks.clear(); c.tasks.add(new Task.GoTo(st796B, 1.0)); c.tasks.add(new Task.GoTo(st796C, 1.0)); st796T = t[0]; }
+        if (st796T > 0) {
+            check(level.getBlockState(st796B).is(Blocks.COBBLED_DEEPSLATE) || !(c.currentTask instanceof Task.Break || c.tasks.stream().anyMatch(q -> q instanceof Task.Break b && b.pos().equals(st796B))) && c.blockPosition().distSqr(st796C) <= 2, "his own way block in the leg's cell dug out by the walk (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ")");
+            check(level.getBlockState(st796B).is(Blocks.COBBLED_DEEPSLATE) || t[0] - st796T > 20 * 30, "his own way block in the leg's cell dug out by the walk's leg dig (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ")");
+            if (c.blockPosition().distSqr(st796C) <= 2) { c.tasks.clear(); c.dropCurrent = true; com.claudemod.entity.life.TempLedger.reset(c); pass(stage, t, "round his own way block, both legs walked, in " + (t[0] - st796T) / 20.0 + " s"); }
+            else check(t[0] - st796T < 20 * 15, "never reached the second leg's end in 15 s (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ", tasks " + c.tasks + ")");
         }
         return true;
     }

@@ -94,7 +94,7 @@ public final class Highway {
         for (int i = next; i < (apron ? 1 : b.rows.size()) && rows < batch; i++) {
             var r = b.rows.get(i);
             if (!level.hasChunkAt(r.centre()) || fortress(level, r, lo, hi)) break;
-            List<Task> one = new ArrayList<>(); int[] c1 = new int[4]; int need = rowTasks(level, r, lo, hi, one, c1);
+            List<Task> one = new ArrayList<>(); int[] c1 = new int[4]; int need = rowTasks(level, r, lo, hi, one, c1, shelled(level, b, i, lo, hi));
             if (used + need > have) break;
             out.addAll(one); used += need; rows++; for (int k = 0; k < 4; k++) cnt[k] += c1[k];
         }
@@ -187,7 +187,28 @@ public final class Highway {
      * before it), the walkway dug (lava in it plugged then dug), the floor laid (rock in it dug out first), a tunnel row's holes
      * walled and roofed, then onto it. Returns the blocks it places; c: {sealed, dug, floor, holes}.
      */
-    public static int rowTasks(ServerLevel level, BridgeBlueprint.Row r, int lo, int hi, List<Task> out, int[] c) {
+    public static int rowTasks(ServerLevel level, BridgeBlueprint.Row r, int lo, int hi, List<Task> out, int[] c) { return rowTasks(level, r, lo, hi, out, c, rockRow(level, r, lo, hi)); }
+    /** A row's shell cells: its walls 3 high, its roof over the walkway. */
+    static List<BlockPos> shell(BridgeBlueprint.Row r, int lo, int hi) {
+        Direction right = r.dir().getClockWise(); List<BlockPos> shell = new ArrayList<>();
+        for (int y = 1; y <= 3; y++) for (int o : new int[] {lo - 1, hi + 1}) shell.add(r.centre().relative(right, o).above(y).immutable());
+        for (int o = lo; o <= hi; o++) shell.add(r.centre().relative(right, o).above(4).immutable());
+        return shell;
+    }
+    /** A tunnel row: most of its shell rock, trees not counted (a stray block or two walled the open air by portal #3, the user's "arches", live 13:59; "nether trees ... can just be railing"; stage 914). A shell laid is rock too. */
+    static boolean rockRow(ServerLevel level, BridgeBlueprint.Row r, int lo, int hi) {
+        var shell = shell(r, lo, hi); int rockN = 0; for (BlockPos q : shell) if (rock(level, q)) rockN++;
+        return rockN >= shell.size() * w("highway.tunnel_rock_share", 0.5);
+    }
+    /** Row i shelled: a tunnel row, or a short open stretch with tunnel rows close on both sides, the shell carried through it (the user 11-06: "it should be a full shell instead of like 2 wide gaps in the middle of 2 shells with rails"; stage 923). */
+    static boolean shelled(ServerLevel level, BridgeBlueprint b, int i, int lo, int hi) {
+        if (rockRow(level, b.rows.get(i), lo, hi)) return true;
+        int gap = (int) w("highway.shell_gap_rows", 6); boolean back = false, ahead = false;
+        for (int k = 1; k <= gap && !back; k++) back = i - k >= 0 && level.hasChunkAt(b.rows.get(i - k).centre()) && rockRow(level, b.rows.get(i - k), lo, hi);
+        for (int k = 1; k <= gap && back && !ahead; k++) ahead = i + k < b.rows.size() && level.hasChunkAt(b.rows.get(i + k).centre()) && rockRow(level, b.rows.get(i + k), lo, hi);
+        return back && ahead;
+    }
+    public static int rowTasks(ServerLevel level, BridgeBlueprint.Row r, int lo, int hi, List<Task> out, int[] c, boolean tunnel) {
         Direction right = r.dir().getClockWise(); int placed = 0;
         int[] cols = new int[hi - lo + 1]; { int k = 0; cols[k++] = 0; for (int o = 1; k < cols.length; o++) { if (o <= hi && k < cols.length) cols[k++] = o; if (-o >= lo && k < cols.length) cols[k++] = -o; } } // (from his line outward)
         Set<BlockPos> own = new HashSet<>(); List<BlockPos> floor = new ArrayList<>(), walk = new ArrayList<>();
@@ -198,12 +219,7 @@ public final class Highway {
         for (BlockPos q : seal) { out.add(new Task.Place(q, BLOCK)); placed++; c[0]++; }
         for (BlockPos q : walk) { if (lava(level, q)) { out.add(new Task.Place(q, BLOCK)); out.add(new Task.Break(q)); placed++; c[1]++; } else if (solid(level, q)) { out.add(new Task.Break(q)); c[1]++; } }
         for (BlockPos f : floor) { var st = level.getBlockState(f); if (st.is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE)) continue; if (solid(level, f)) { out.add(new Task.Break(f)); c[1]++; } out.add(new Task.Place(f, BLOCK)); placed++; c[2]++; }
-        List<BlockPos> shell = new ArrayList<>();
-        for (int y = 1; y <= 3; y++) for (int o : new int[] {lo - 1, hi + 1}) shell.add(r.centre().relative(right, o).above(y).immutable());
-        for (int o : cols) shell.add(r.centre().relative(right, o).above(4).immutable());
-        // a tunnel row only through rock: most of its shell rock, trees not counted (a stray block or two walled the open air by portal #3, the user's "arches", live 13:59; "nether trees ... can just be railing"; stage 914)
-        int rockN = 0; for (BlockPos q : shell) if (rock(level, q)) rockN++;
-        boolean tunnel = rockN >= shell.size() * w("highway.tunnel_rock_share", 0.5);
+        List<BlockPos> shell = shell(r, lo, hi);
         if (tunnel) for (BlockPos q : shell) { // the whole shell cobbled deepslate, the netherrack in it replaced (the user: "replace all the blocks and not build it into the netherrack")
             var st = level.getBlockState(q);
             if (seal.contains(q) || st.is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE) || keep(level, q)) continue;

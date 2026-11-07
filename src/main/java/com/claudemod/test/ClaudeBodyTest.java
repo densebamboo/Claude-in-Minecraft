@@ -10675,6 +10675,7 @@ public final class ClaudeBodyTest {
             case 872: return st872(stage, t, c, h, level, mock);
             case 873: return st873(stage, t, c, h, level, mock);
             case 874: return st874(stage, t, c, h, level, mock);
+            case 875: return st875(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -18353,6 +18354,28 @@ public final class ClaudeBodyTest {
             String q = c.tasks.stream().limit(4).toList().toString(); c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null;
             check(!r.contains("y=16") && high < 0, "collect cobbled_deepslate sent him up to stone (result: " + r + "; highest task y " + high + "; " + q + ")");
             pass(stage, t, "deepslate from a level below y 0: " + r + " (highest task y " + high + ")");
+        }
+        return true;
+    }
+    private static BlockPos st875Rock, st875Ore;
+    private static boolean st875(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 19:46 World 17 (the user: "im pretty sure he has enough deepslate lol"): collect cobbled_deepslate x512 with 517 on him, 171 tasks of the branch push still queued and being dug. Here: the step's count on him, its push queued (rock 300 off so none of it gets done): the rock and the walks go, the ore stays.
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; }
+        if (t[0] == 10) {
+            BlockPos me = h.absolutePos(new BlockPos(8, 2, 8));
+            st875Rock = me.offset(300, -2, 0); st875Ore = me.offset(300, -2, 2);
+            level.setBlock(st875Rock, Blocks.DEEPSLATE.defaultBlockState(), 2); level.setBlock(st875Ore, Blocks.DEEPSLATE_DIAMOND_ORE.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); for (int i = 0; i < 8; i++) c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; c.dropCurrent = true;
+            c.lastStep = new com.claudemod.entity.life.Skills.Step("collect", "cobbled_deepslate", 500);
+            c.tasks.clear(); c.tasks.add(new Task.Wait(200, false)); c.tasks.add(new Task.GoTo(st875Rock, 1.0)); c.tasks.add(new Task.Break(st875Rock)); c.tasks.add(new Task.Break(st875Ore)); c.tasks.add(new Task.Pickup(20));
+        }
+        if (t[0] == 60) {
+            boolean rock = c.tasks.stream().anyMatch(q -> q instanceof Task.Break b && b.pos().equals(st875Rock)), ore = c.tasks.stream().anyMatch(q -> q instanceof Task.Break b && b.pos().equals(st875Ore)), walk = c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo);
+            String q = c.tasks.toString(); c.tasks.clear(); c.lastStep = null; c.dropCurrent = true;
+            check(!rock && !walk, "512 of 500 on him and the push's rock still queued (rock " + rock + ", walk " + walk + "): " + q);
+            check(ore, "the ore of the push was dropped with the rock: " + q);
+            pass(stage, t, "the count met: the rock left, the ore kept");
         }
         return true;
     }

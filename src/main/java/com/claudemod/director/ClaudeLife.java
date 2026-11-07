@@ -323,6 +323,7 @@ public final class ClaudeLife {
         if (g.tickCount % 40 == 7 || g.isInWater() && g.tickCount % 5 == 0) fillBucket(g, ((ServerLevel) g.level())); // (standing in the water he just threw under himself: scooped at once, before he walks off and leaves it flooding his stairs) // an empty bucket and water in reach: fill it (and take back the water he threw)
         if (g.tickCount % 100 == 0) equipArmor(g);
         if (g.tickCount % 100 == 50) ironPiecemeal(g, ((ServerLevel) g.level())); // armor a piece at a time as the ingots come in
+        if (g.tickCount % 20 == 13) collectMet(g, ((ServerLevel) g.level())); // the count reached mid-push: the rest of the rock left in the wall
         if (g.tickCount % 20 == 0 && g.urgentAttacker == null) guard(g, player);
         if (g.tickCount % 20 == 10) eatIfHungry(g, player);
         String ongoing = g.prefs.get("ongoing_job"); // an open-ended job they gave him: it stays the goal until they end it
@@ -7709,6 +7710,15 @@ public final class ClaudeLife {
         return g.mineDir;
     }
 
+    /** A collect (or strip mine) for rock with its count on him: the rest of that push's plain-rock digging is dropped; the ore, the patches, torches and pickups stay. The user 19:46 11-06: "im pretty sure he has enough deepslate" (517 of 512, 171 tasks of the push still queued); stage 875. */
+    static void collectMet(ClaudeEntity g, ServerLevel level) {
+        var st = g.lastStep; if (st == null || st.count() <= 0 || !(st.skill().equals("collect") || st.skill().equals("strip_mine"))) return;
+        Item it = st.target().equals("cobbled_deepslate") ? Items.COBBLED_DEEPSLATE : st.target().equals("cobblestone") || st.target().equals("cobble") ? Items.COBBLESTONE : null;
+        if (it == null || g.inventory.count(s -> s.is(it)) < st.count()) return;
+        int before = g.tasks.size();
+        g.tasks.removeIf(t -> t instanceof Task.GoTo || t instanceof Task.Break b && level.getBlockState(b.pos()).is(net.minecraft.tags.BlockTags.BASE_STONE_OVERWORLD));
+        if (g.tasks.size() < before) ClaudeMod.LOGGER.info("[Claude life] {} {}: {} on him of {}: the rest of the dig left ({} task(s) dropped; ore, patches, torches and pickups kept) (ClaudeLife.collectMet)", st.skill(), st.target(), g.inventory.count(s -> s.is(it)), st.count(), before - g.tasks.size());
+    }
     private static int torchWhyAt; // (static: fields added live start 0)
     /** Why no torch went up here, every 10 s at most (the user 19:40 11-06: "dug this entire branch without placing a single torch"; the returns were silent). */
     private static void torchWhy(ClaudeEntity g, ServerLevel level, BlockPos feet, String why) { if (g.tickCount - torchWhyAt < 200) return; torchWhyAt = g.tickCount; ClaudeMod.LOGGER.info("[Claude torch] no torch at {} (block light {}, {} torches on him): {} (ClaudeLife.lightTheMine)", feet.toShortString(), level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, feet), g.inventory.count(t -> t.is(Items.TORCH)), why); }

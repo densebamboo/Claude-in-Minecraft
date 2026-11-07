@@ -10504,6 +10504,7 @@ public final class ClaudeBodyTest {
             case 927: return st927(stage, t, c, h, level, mock);
             case 928: return st928(stage, t, c, h, level, mock);
             case 929: return st929(stage, t, c, h, level, mock);
+            case 930: return st930(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13688,6 +13689,30 @@ public final class ClaudeBodyTest {
             BlockPos end = p.legs().get(p.legs().size() - 1);
             check(end.getX() - o.getX() >= 12, "the part-way plan ends only " + (end.getX() - o.getX()) + " blocks toward it, at " + end.toShortString());
             nsHome(c, h, level); pass(stage, t, "part way through the rock: " + p.legs().size() + " legs to " + end.toShortString() + " (" + p.digs() + " dug, " + p.nodes() + " nodes, " + p.ms() + " ms)"); }
+        return true;
+    }
+    /** Stage 930 (D2D review 47, live 23:22 World 17): collect cobble with no torches and his mine face far down: "a few steps down right here", cut the way he faced; he faced his mine's entrance, so the steps dug at its shell (guard: "not digging through his mine's wall at -16,67,-20"), and the dirt by it was walked round to and queued again and again. The steps go a way that keeps clear of his mine. */
+    private static boolean st930(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(19600, 80, 19800);
+        if (t[0] % 10 == 0 || t[0] < 10) for (int k = -16; k <= 16; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(1000);
+            for (int x = -12; x <= 16; x++) for (int z = -10; z <= 10; z++) for (int y = -16; y <= 5; y++) level.setBlock(o.offset(x, y, z), (y <= -3 ? Blocks.STONE : y <= -1 ? Blocks.DIRT : y == 0 ? Blocks.GRASS_BLOCK : Blocks.AIR).defaultBlockState(), 2); // grass and dirt over the stone: none shows
+            var b = new com.claudemod.entity.life.MineBlueprint(o.above(), net.minecraft.core.Direction.EAST, 2, 3); b.segments.get(0).n = 14; c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.prefs.put("stay_close", "no"); com.claudemod.director.ClaudeLife.bpSync(c);
+            for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK) level.setBlock(e.getKey(), Blocks.AIR.defaultBlockState(), 2);
+            c.mineFace = b.rows().get(b.rows().size() - 1).first().immutable();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); // (no torches: not kitted for his dark mine)
+            BlockPos at = o.offset(-2, 1, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, at.getX() + 0.5, at.getY(), at.getZ() + 0.5, -90f, 0f); c.setYRot(-90f); c.setYHeadRot(-90f); c.fallDistance = 0; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f); }
+        if (t[0] == 5) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+        if (t[0] == 10) {
+            c.tasks.clear(); c.skillQueue.clear(); c.setYRot(-90f); c.setYHeadRot(-90f);
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "cobblestone", 8);
+            String bad = ""; int digs = 0; for (var k : c.tasks) if (k instanceof com.claudemod.entity.life.Task.Break bk) { digs++; if (com.claudemod.director.ClaudeLife.isMineCell(c, bk.pos()) || com.claudemod.director.ClaudeLife.touchesMine(c, bk.pos())) bad += " " + bk.pos().toShortString(); }
+            String face = c.mineFace == null ? "-" : (c.getBlockY() - c.mineFace.getY()) + " down";
+            c.tasks.clear(); c.skillQueue.clear(); c.blueprint = null; c.mineFace = null; c.dropCurrent = true;
+            for (int x = -12; x <= 16; x++) for (int z = -10; z <= 10; z++) for (int y = -16; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(digs > 0, "collect cobble with no stone showing, no torches, his mine face " + face + ": nothing queued (" + r + ")");
+            check(bad.isEmpty(), "the steps down for cobble beside his mine's entrance, facing it: digs in or against his mine at" + bad + " (" + r + ")");
+            pass(stage, t, digs + " digs, none in his mine: " + r); }
         return true;
     }
     /** Stage 929 (Loops 23:00, D2D reviews 24/275/294/116/134/104; live 21:58:39 CONFLICT "3 times in 14 s: [Claude portal] highway segment extended: 2 wide along z from -3, 58, 2 to -3, 58, 482"): every highway batch put the segment on record again and said "extended" with nothing new; the same spot 3 times in 60 s read as a conflict. Only news is said. */

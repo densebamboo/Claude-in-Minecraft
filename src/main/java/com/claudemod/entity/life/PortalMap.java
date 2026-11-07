@@ -236,9 +236,10 @@ public final class PortalMap {
     public static Segment addSegment(ClaudeEntity g, String dim, BlockPos a, BlockPos b, Direction.Axis axis, int width) {
         Segment s = segmentFor(g, dim, a, axis); if (s == null) s = segmentFor(g, dim, b, axis);
         if (s != null && s.width == width) {
+            int lo0 = s.lo(), hi0 = s.hi();
             int lo = Math.min(s.lo(), Math.min(s.along(a), s.along(b))), hi = Math.max(s.hi(), Math.max(s.along(a), s.along(b))), line = s.line(), y = s.y();
             s.a = axis == Direction.Axis.X ? new BlockPos(lo, y, line) : new BlockPos(line, y, lo); s.b = axis == Direction.Axis.X ? new BlockPos(hi, y, line) : new BlockPos(line, y, hi);
-            ClaudeMod.LOGGER.info("[Claude portal] highway segment extended: {} (PortalMap.addSegment)", s.describe()); return s;
+            if (s.lo() != lo0 || s.hi() != hi0) ClaudeMod.LOGGER.info("[Claude portal] highway segment extended: {} (PortalMap.addSegment)", s.describe()); return s; // (only news: each batch put it on record again, the same line 3 times in 60 s read as a conflict, live 21:58 11-06; stage 929)
         }
         s = new Segment(); s.dim = dim; s.a = a.immutable(); s.b = b.immutable(); s.axis = axis; s.width = width; net(g).segments.add(s);
         ClaudeMod.LOGGER.info("[Claude portal] highway segment on record: {} ({} on record) (PortalMap.addSegment)", s.describe(), net(g).segments.size()); return s;

@@ -10503,6 +10503,7 @@ public final class ClaudeBodyTest {
             case 926: return st926(stage, t, c, h, level, mock);
             case 927: return st927(stage, t, c, h, level, mock);
             case 928: return st928(stage, t, c, h, level, mock);
+            case 929: return st929(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13686,6 +13687,23 @@ public final class ClaudeBodyTest {
             BlockPos end = p.legs().get(p.legs().size() - 1);
             check(end.getX() - o.getX() >= 12, "the part-way plan ends only " + (end.getX() - o.getX()) + " blocks toward it, at " + end.toShortString());
             nsHome(c, h, level); pass(stage, t, "part way through the rock: " + p.legs().size() + " legs to " + end.toShortString() + " (" + p.digs() + " dug, " + p.nodes() + " nodes, " + p.ms() + " ms)"); }
+        return true;
+    }
+    /** Stage 929 (Loops 23:00, D2D reviews 24/275/294/116/134/104; live 21:58:39 CONFLICT "3 times in 14 s: [Claude portal] highway segment extended: 2 wide along z from -3, 58, 2 to -3, 58, 482"): every highway batch put the segment on record again and said "extended" with nothing new; the same spot 3 times in 60 s read as a conflict. Only news is said. */
+    private static boolean st929(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER); var W = com.claudemod.entity.life.Watchdog.recentKinds;
+        BlockPos o = new BlockPos(12600, 70, 8520);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); W.clear(); com.claudemod.entity.life.Watchdog.linesInTests = true; }
+        try {
+        if (t[0] >= 10 && t[0] <= 70 && t[0] % 20 == 10) { // four batches (the first puts it on record, then three, nothing new laid between them
+            var b0 = com.claudemod.entity.life.BridgeBlueprint.plan(nl, o, net.minecraft.core.Direction.Axis.Z, o.offset(0, 0, 30), 2, false);
+            com.claudemod.entity.life.Highway.record(c, b0, 20); }
+        if (t[0] == 140) {
+            String w = W.toString(), last = com.claudemod.entity.life.Watchdog.lastIncident; int n = com.claudemod.entity.life.PortalMap.net(c).segments.size();
+            com.claudemod.entity.life.PortalMap.net(c).segments.clear(); com.claudemod.entity.life.Watchdog.linesInTests = false;
+            check(!w.contains("CONFLICT"), "the same highway put on record 4 times with nothing new: filed " + w + " (last " + last + ")");
+            pass(stage, t, n + " segment(s), filed " + w); }
+        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
         return true;
     }
     /** Stage 928 (the user 11-06 23:20 via D2D: "he should be able to recognize it. if someone else connects their path to the highway he should be able to figure that out as well"): over an open cavern, his highway a bridge on record and someone's 1-wide cobble bridge joined to its side, an L he never walked; him at its far end (no trail). The road he sees is walked, back onto his highway and along it; no bridge of his own laid beside theirs. */

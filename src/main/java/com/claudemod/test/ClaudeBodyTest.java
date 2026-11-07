@@ -10696,6 +10696,7 @@ public final class ClaudeBodyTest {
             case 880: return st880(stage, t, c, h, level, mock);
             case 881: return st881(stage, t, c, h, level, mock);
             case 882: return st882(stage, t, c, h, level, mock);
+            case 883: return st883(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -18914,6 +18915,38 @@ public final class ClaudeBodyTest {
             nsHome(c, h, level); pass(stage, t, "the blocked walk said, not queued again: " + r3);
         }
         } catch (RuntimeException ex) { nsHome(c, h, level); throw ex; }
+        return true;
+    }
+    /** Stage 883 (the user 11-06 23:22: "he's like running around in this pit under his portal instead of going into his mine"): collect cobbled_deepslate x517 at y 66, his mine face 120 down, 0 torches, 61 logs: "no torches for my dark mine: a few steps down right here", a pit by the portal (no deepslate up there). Here: up at his mine's top, no torches, logs: the light made first, not a dig right there. */
+    private static boolean st883(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; }
+        if (t[0] == 10) {
+            BlockPos at = h.absolutePos(new BlockPos(2, 0, 8)); var E = net.minecraft.core.Direction.EAST;
+            var b = new com.claudemod.entity.life.MineBlueprint(new BlockPos(at.getX(), 20, at.getZ()), E, 2, 3); b.segments.get(0).n = 5; b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 12, null)); b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.STAIRS, b.nextStart(true), E, 74, null)); b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 20, null)); b.invalidate();
+            b.branchLength = 16; b.branchEvery = 4;
+            for (var r : b.rows()) for (BlockPos f : r.feet()) { level.setBlock(f.below(), Blocks.DEEPSLATE.defaultBlockState(), 2); for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2); }
+            BlockPos face = b.rows().get(b.rows().size() - 1).first(), me = b.rows().get(2).first();
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = face; c.mineIsTunnel = true; level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 59)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 32)); c.getInventory().add(new ItemStack(Items.FURNACE)); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no"); mock[0].teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 1.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 20) {
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "cobbled_deepslate", 517);
+            String q = c.skillQueue.toString(); int torches = c.getInventory().countItem(Items.TORCH); var first = c.skillQueue.peekFirst(); boolean prepFirst = torches > 0 || first != null && !"collect".equals(first.skill()) && (first.skill().contains("smelt") || first.skill().contains("craft"));
+            boolean light = torches > 0 || q.contains("charcoal") || q.contains("torch") || r.toLowerCase().contains("torch") || r.toLowerCase().contains("charcoal");
+            BlockPos near = c.blueprint.rows().get(c.blueprint.rows().size() - 6).first(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.teleportTo(near.getX() + 0.5, near.getY(), near.getZ() + 0.5); // and by the face, where strip_mine makes the light: the prep in front of the collect, not behind it (live 23:23:38 "going round in circles")
+            String r2 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "cobbled_deepslate", 517); String q2 = c.skillQueue.toString(); var first2 = c.skillQueue.peekFirst();
+            boolean prepFirst2 = first2 != null && (first2.skill().contains("smelt") || first2.skill().contains("craft"));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; c.prefs.remove("stay_close");
+            check(light, "0 torches, no coal, 59 logs, collect 517 deepslate from his mine's top: no light made, a dig right here instead: " + r + " | queue " + q);
+            check(prepFirst, "the light prep sits behind the collect itself (it reruns first: the 23:23 loop \"going round in circles\"): " + r + " | queue " + q);
+            check(prepFirst2, "by the face: the light prep queued behind the collect itself (it reruns first: the 23:23 loop): " + r2 + " | queue " + q2);
+            pass(stage, t, "his light first: " + r + " | queue " + q + "; by the face: " + q2);
+        }
         return true;
     }
     private static int st878Done;

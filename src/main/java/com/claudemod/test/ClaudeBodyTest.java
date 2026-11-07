@@ -10509,6 +10509,7 @@ public final class ClaudeBodyTest {
             case 932: return st932(stage, t, c, h, level, mock);
             case 933: return st933(stage, t, c, h, level, mock);
             case 934: return st934(stage, t, c, h, level, mock);
+            case 957: return st957(stage, t, c, h, level, mock);
             case 956: return st956(stage, t, c, h, level, mock);
             case 955: return st955(stage, t, c, h, level, mock);
             case 954: return st954(stage, t, c, h, level, mock);
@@ -14322,6 +14323,35 @@ public final class ClaudeBodyTest {
             check(fa != null && fa.item() == Items.COOKED_BEEF && fa.count() == 6, "6 raw beef and a furnace on him: the kit's ask " + (fa == null ? "none" : fa.count() + " " + fa.item()) + " (cooking his raw is 6)");
             check(r != null && !r.startsWith("done:") && !r.startsWith("failed"), "the kit's cook, then the smelt: \"" + r + "\" (" + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
             pass(stage, t, "the kit cooks his raw with the furnace on him: \"" + r + "\"");
+        }
+        return true;
+    }
+    /** Stage 957 (D2D review 102732-253 11-07, 10:25:50: diamond at -318,-57,-32 mined, patched at :52, a second diamond right behind it seen at :57, the patch queued to be dug out at 10:26:03): his mine, a diamond showing in its wall and another hidden behind it. The second comes out before any patch, and the patch goes in once. */
+    private static BlockPos s957A, s957B; private static int s957T, s957PatchedWithB;
+    private static boolean st957(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); s957T = -1; s957PatchedWithB = 0; }
+        if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            BlockPos d = lnRow(b, 1, 6).immutable();
+            net.minecraft.core.Direction side = null; for (var dd : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && !com.claudemod.director.ClaudeLife.isMineCell(c, d.relative(dd)) && level.getBlockState(d.relative(dd)).isSolid()) side = dd;
+            check(side != null, "setup: no wall beside row 6");
+            s957A = d.relative(side).immutable(); s957B = d.relative(side, 2).immutable();
+            level.setBlock(s957A, Blocks.DIAMOND_ORE.defaultBlockState(), 2); level.setBlock(s957B, Blocks.DIAMOND_ORE.defaultBlockState(), 2);
+            var inv = c.getInventory(); inv.clearContent(); inv.add(new ItemStack(Items.IRON_PICKAXE)); inv.add(new ItemStack(Items.COBBLESTONE, 32)); inv.selected = 0;
+            lnStand(c, mock, d, b.entrance); c.tasks.clear(); c.skillQueue.clear();
+            c.tasks.add(new com.claudemod.entity.life.Task.MineVisibleOres(4)); s957T = t[0];
+        }
+        if (s957T > 0) { c.nextPlanTick = c.tickCount + 12000; c.skillQueue.clear();
+            boolean aPatched = !level.getBlockState(s957A).isAir() && !level.getBlockState(s957A).is(Blocks.DIAMOND_ORE), bOre = level.getBlockState(s957B).is(Blocks.DIAMOND_ORE);
+            if (aPatched && bOre) s957PatchedWithB++;
+            boolean done = c.currentTask == null && c.tasks.isEmpty();
+            if (done || t[0] >= s957T + 20 * 30) {
+                String at = c.blockPosition().toShortString(), q = String.valueOf(c.tasks); int dia = c.getInventory().countItem(Items.DIAMOND); int was = s957PatchedWithB;
+                c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); c.getInventory().clearContent();
+                check(was == 0, "his wall patched at " + s957A.toShortString() + " with the diamond behind it still in the rock (" + was + " ticks)");
+                check(!bOre, "the diamond behind at " + s957B.toShortString() + " left in the rock after " + (t[0] - s957T) / 20 + " s (at " + at + ", " + q + ")");
+                check(aPatched, "the hole at " + s957A.toShortString() + " not patched");
+                pass(stage, t, "both diamonds out (" + dia + " on him), then one patch, in " + (t[0] - s957T) / 20.0 + " s"); }
         }
         return true;
     }

@@ -2832,6 +2832,7 @@ public class WorkGoal extends Goal {
             }
         }
         if (!ores.isEmpty()) steps.add(new Task.Pickup(Math.min(400, 60 + 20 * ores.size()))); // every drop (a big vein needs time), before moving on
+        if (inOwnTunnel && filler != net.minecraft.world.item.Items.AIR) steps.add(new Task.MineVisibleOres(t.radius())); // another look before any patch: ore the digs just showed is the same vein, out first (the mine work order rule; D2D review 102732-253 11-07: the diamond at -318,-57,-32 patched 2 s after, a second one behind it, the patch dug out again)
         // back into his mine where he stood, so the patches go in from the mine side (never sealing himself into a pocket)
         if ((inOwnTunnel && filler != net.minecraft.world.item.Items.AIR) || sideTrip) steps.add(new Task.GoTo(at, 0.6));
         // In his own mine: then fill the holes back flush (walls, floor, ceiling), so the mine keeps its shape. Never a cave.

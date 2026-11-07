@@ -380,6 +380,7 @@ public final class ClaudeLife {
         if (!onTheirOrder) homeUpkeep(g, player);
         if (g.tickCount % 40 == 29 && !onTheirOrder) mineDeathRepair(g, ((ServerLevel) g.level())); // where he died in his mine: lit and walled the moment he's back by it
         if (g.tickCount % 60 == 21 && !onTheirOrder && g.level().dimension() == net.minecraft.world.level.Level.OVERWORLD) { if (bpMode(g)) bpIntegrity(g, ((ServerLevel) g.level())); else mineIntegrity(g, ((ServerLevel) g.level())); } // the user's rule: in his mine, if there's air, patch it, before anything else
+        if (g.tickCount % 1200 == 333 && g.level().dimension() == net.minecraft.world.level.Level.OVERWORLD && bpMode(g) && inHisMine(g, g.blockPosition())) bpShellAudit(g, ((ServerLevel) g.level())); // (logging: the holes left in his shell, for the "missing patchwork" cause)
         if (g.tickCount % 40 == 13 && !g.commandActive && !com.claudemod.entity.ClaudeSpawner.testing && !(g.currentTask instanceof Task.Attack) && !(g.currentTask instanceof Task.Flee) && !(g.currentTask instanceof Task.Break)
                 && ((g.currentTask == null && g.tasks.isEmpty()) || (g.lastStep != null && java.util.Set.of("string", "bone", "bone_meal", "arrow", "fishing_rod", "bow").contains(g.lastStep.target())))) { // the user: a distraction from the job in hand is a bug; only when idle, or when string/bones are the job (it broke off a walk to his mine for a skeleton) // the user: a player knows spiders and cobwebs mean string, skeletons bones and arrows, and takes them when they're about
             stringRound(g, ((ServerLevel) g.level()));
@@ -11491,6 +11492,22 @@ public final class ClaudeLife {
     }
 
     /** The integrity tick in blueprint mode: the rows round him made right (shell solid, walk open), a few at a time, at the front of his queue. */
+    /** Logging only (the user 11-06: "missing a lot of patchwork ... walls, floors, ceilings of his branches"): his mine's open shell cells near him, and what's become of each one's patch. */
+    static void bpShellAudit(ClaudeEntity g, ServerLevel level) {
+        MineBlueprint b = g.blueprint; if (b == null || b.isEmpty()) return;
+        BlockPos me = g.blockPosition(); int[] by = new int[4]; List<String> open = new ArrayList<>();
+        for (var e : b.roles().entrySet()) {
+            BlockPos p = e.getKey(); MineBlueprint.Role role = e.getValue();
+            if (role == MineBlueprint.Role.WALK || p.distSqr(me) > 24 * 24 || !level.isLoaded(p) || !level.getBlockState(p).getCollisionShape(level, p).isEmpty()) continue;
+            if (g.landingCells.contains(p) || g.notches.contains(p) || anyNookBedCell(g, p) || level.getBlockState(p).is(Blocks.TORCH) || level.getBlockState(p).is(Blocks.WALL_TORCH)) continue; // (open on purpose)
+            by[role.ordinal()]++;
+            if (open.size() < 12) { Integer att = g.attempts.any.get(p); int r = -1; for (Direction d : Direction.values()) if (r < 0) r = b.rowOf(p.relative(d)); final boolean branch = r >= 0 && b.segments.get(b.rows().get(r).segment()).kind == MineBlueprint.Kind.BRANCH;
+                boolean queued = g.tasks.stream().anyMatch(t -> t instanceof Task.Place pl && pl.pos().equals(p));
+                open.add(role.name().toLowerCase() + " " + p.toShortString() + " (" + (int) Math.sqrt(p.distSqr(me)) + " off" + (branch ? ", branch" : "") + (queued ? ", queued" : "") + (g.pendingPatches.contains(p) ? ", pending" : "") + (att != null ? ", last try " + (g.tickCount - att) / 20 + " s ago" : "") + (level.getFluidState(p).isEmpty() ? "" : ", " + level.getFluidState(p).getType().toString().replace("minecraft:", "")) + ")"); }
+        }
+        if (by[1] + by[2] + by[3] > 0) ClaudeMod.LOGGER.info("[Claude mine] shell audit at {}: {} open within 24 (floors {}, walls {}, ceilings {}): {} (ClaudeLife.bpShellAudit)", me.toShortString(), by[1] + by[2] + by[3], by[1], by[2], by[3], open);
+    }
+
     static void bpIntegrity(ClaudeEntity g, ServerLevel level) {
         MineBlueprint b = g.blueprint;
         if (b == null || b.isEmpty() || g.isSleeping() || g.getHealth() < 10 || g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee) return;

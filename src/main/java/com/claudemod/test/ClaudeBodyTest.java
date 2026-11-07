@@ -10667,6 +10667,7 @@ public final class ClaudeBodyTest {
             case 864: return st864(stage, t, c, h, level, mock);
             case 865: return st865(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
+            case 867: return st867(stage, t, c, h, level, mock);
             case 676: return st676(stage, t, c, h, level, mock);
             case 659: return st659(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
@@ -18112,6 +18113,35 @@ public final class ClaudeBodyTest {
             check(kept, "the night refusal cleared the rest of his plan: queue " + q + " after " + line);
             pass(stage, t, "the night refusal dropped only its own step; the craft after it stays: " + q);
         } else if (st861Start > 0 && t[0] - st861Start >= 20 * 15) { st861Start = 0; c.skillQueue.clear(); level.setDayTime(1000); check(false, "the porkchop step never ran in 15 s: last " + c.lastSkillLine); }
+        return true;
+    }
+    private static BlockPos st867A, st867B, st867C; private static int st867Start;
+    private static boolean st867(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 16:12 World 17 (-212,-58,-9): a diamond in his tunnel wall mined from 3 back, its hole patched from there; two more diamond ore showing only into that hole were sealed in ("missed some diamonds"; the user: the vein before the patch). Here: diamond A in the wall, B behind it and C under it, him 3 back: the patch must wait for B and C.
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; st867Start = 0; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = 0; x <= 20; x++) for (int z = 3; z <= 13; z++) for (int y = 6; y <= 14; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.DEEPSLATE.defaultBlockState(), 2);
+            var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(new BlockPos(2, 10, 8)), net.minecraft.core.Direction.EAST, 1, 2); b.segments.get(0).n = 1; b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), net.minecraft.core.Direction.EAST, 12, null)); b.invalidate();
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            st867A = h.absolutePos(new BlockPos(6, 10, 7)); st867B = st867A.north(); st867C = st867A.below();
+            for (BlockPos o : new BlockPos[] {st867A, st867B, st867C}) level.setBlock(o, Blocks.DEEPSLATE_DIAMOND_ORE.defaultBlockState(), 2);
+            level.setBlock(st867A.above(), Blocks.AIR.defaultBlockState(), 2); /* (the cell over the ore dug too, as live: a 2-high hole in the wall) */
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 32)); c.getInventory().add(new ItemStack(Items.BREAD, 16));
+            BlockPos me = h.absolutePos(new BlockPos(3, 10, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(-90f); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5);
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.attempts.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 15) { c.tasks.clear(); c.tasks.add(new Task.Break(st867A)); c.tasks.add(new Task.Place(st867A, Items.COBBLED_DEEPSLATE)); st867Start = t[0]; }
+        if (st867Start > 0) {
+            for (var ie : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(st867A).inflate(2))) ie.discard(); /* (the drops out of the way: the stage is the patch's look, not the pickup's walk) */
+            boolean patched = level.getBlockState(st867A).is(Blocks.COBBLED_DEEPSLATE);
+            boolean bOre = level.getBlockState(st867B).is(Blocks.DEEPSLATE_DIAMOND_ORE), cOre = level.getBlockState(st867C).is(Blocks.DEEPSLATE_DIAMOND_ORE);
+            if ((patched && c.tasks.isEmpty() && c.currentTask == null) || t[0] - st867Start > 20 * 40) { st867Start = 0; c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model");
+                check(!bOre && !cOre, "the hole at A patched (" + patched + ") with diamond ore still behind it: B " + (bOre ? "sealed in" : "mined") + ", C " + (cOre ? "sealed in" : "mined"));
+                check(patched, "the hole at A was never patched");
+                pass(stage, t, "looked into the hole, mined the vein behind it, then patched"); }
+        }
         return true;
     }
     private static com.google.gson.JsonObject st866Reply(String goal, String whose) {

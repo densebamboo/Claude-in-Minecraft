@@ -3453,6 +3453,8 @@ public class WorkGoal extends Goal {
         return false;
     }
     private java.util.Map<BlockPos, Integer> sentFor; // a placement -> the tick he was sent on the walk it needs (in front of a chest spot, back into his mine, to a view cell)
+    private java.util.Map<BlockPos, Integer> lookedIn; // a hole he walked up to for a look in before patching it -> when
+    private java.util.Map<BlockPos, Integer> lookedIn() { if (lookedIn == null) lookedIn = new java.util.HashMap<>(); if (lookedIn.size() > 256) lookedIn.clear(); return lookedIn; }
     private java.util.Map<BlockPos, Integer> sentFor() { if (sentFor == null) sentFor = new java.util.HashMap<>(); if (sentFor.size() > 256) sentFor.clear(); return sentFor; }
     private java.util.Map<BlockPos, long[]> viewTry; // a placement -> {view cell, his feet} at its last step to a cell that sees a face
     private java.util.Map<BlockPos, long[]> viewTry() { if (viewTry == null) viewTry = new java.util.HashMap<>(); if (viewTry.size() > 256) viewTry.clear(); return viewTry; }
@@ -3603,6 +3605,22 @@ public class WorkGoal extends Goal {
         }
         // ponytail: live 13:17, his overworld mine blueprint ran on Nether patches: ore "through the hole" queued, refused as their build, 3x/s loop
         if (ticks == 1 && level.dimension() == net.minecraft.world.level.Level.OVERWORLD && com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.roleAt(pos) != com.claudemod.entity.life.MineBlueprint.Role.WALK && nearBlueprint(pos, (int) com.claudemod.entity.life.Weights.w("mine.patch_reach", 6))) { // (by his mine only: a crafting table in a notch 140 off ran it, live 21:10 World 17, a copper vein chased hole to hole and 12 cobble spent on patches out in the world, stage 686) // (any ore-hole patch, not only his shell: the end of his branch at 16,-57,-205 has no role, and 3 diamonds went in behind it, 04:10) // the user: mine all ore, then patch: ore now showing through this hole (the vein went on behind the block he took) comes out first
+            { // a look into the hole before it's closed: from back down the tunnel its inside faces are out of his sight, and "can't see ore" isn't "no ore" (live 16:12 11-06: patched from 3 back, two diamond ore sealed in behind it; the user: the vein before the patch). Only where it's blind from here, once a minute a hole
+                java.util.Set<BlockPos> pk = pocketBehind(g, level, pos); int blind = 0;
+                for (BlockPos p : pk) for (Direction d : Direction.values()) { BlockPos q = p.relative(d); if (pk.contains(q) || level.getBlockState(q).getCollisionShape(level, q).isEmpty() || g.blueprint.isWalk(q) || com.claudemod.director.ClaudeLife.isMineCell(g, q)) continue; if (!com.claudemod.director.ClaudeLife.canSee(g, level, q)) blind++; }
+                if (blind > 0 && !(lookedIn().get(pos) instanceof Integer l0 && g.tickCount - l0 < 20 * 60)) {
+                    BlockPos edge = null; double bd = Double.MAX_VALUE;
+                    for (Direction d : Direction.values()) { BlockPos n = pos.relative(d); if (pk.contains(n) || !level.getBlockState(n).getCollisionShape(level, n).isEmpty()) continue; BlockPos f = level.getBlockState(n.below()).getCollisionShape(level, n.below()).isEmpty() ? n.below() : n; // (the head cell beside a high hole: his feet a block down)
+                        if (!level.getBlockState(f).getCollisionShape(level, f).isEmpty() || !level.getBlockState(f.above()).getCollisionShape(level, f.above()).isEmpty() || level.getBlockState(f.below()).getCollisionShape(level, f.below()).isEmpty()) continue;
+                        double dd = f.distSqr(g.blockPosition()); if (dd < bd) { bd = dd; edge = f.immutable(); } }
+                    lookedIn().put(pos.immutable(), g.tickCount);
+                    if (edge != null && !edge.equals(g.blockPosition())) {
+                        com.claudemod.ClaudeMod.LOGGER.info("[Claude patch] the hole at {}: {} face(s) of it out of his sight from {}: a look in from {} before it's closed (WorkGoal.doPlace)", pos.toShortString(), blind, g.blockPosition().toShortString(), edge.toShortString());
+                        g.tasks.addFirst(t); g.tasks.addFirst(new Task.GoTo(edge, 0.5));
+                        return exit("a look into the hole first (doPlace)");
+                    }
+                }
+            }
             int refusedBehind = 0; java.util.List<BlockPos> behind0 = veinBehind(g, level, pos); // (live 12:14: the vein went on past the hole's own faces, the patch sealed 3 diamond ore and a drop in)
             BlockPos wetAt = level.getFluidState(pos).is(net.minecraft.tags.FluidTags.WATER) ? pos : null; for (Direction d : Direction.values()) if (wetAt == null && level.getFluidState(pos.relative(d)).is(net.minecraft.tags.FluidTags.WATER)) wetAt = pos.relative(d);
             if (wetAt != null && !behind0.isEmpty()) { // water in or by the hole: the patch first, the vein behind it waits (live 00:55 11-05: "mined first, then the patch" had him after the coal into a flooded pocket, mining from its bottom, up for air, back down; the user: plug the water, never dive for it)

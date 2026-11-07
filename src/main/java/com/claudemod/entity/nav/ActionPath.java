@@ -123,6 +123,11 @@ public final class ActionPath {
         coverNote(c, from, to); leapNote(c, from, to, null);
         { Node near = null; for (Node k : best.values()) if (near == null || h(k.feet, to) < h(near.feet, to)) near = k;
           com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} -> {}: no way: {} ({} of {} nodes, {} cells reached, {} blocks to put; nearest {}, {} off) (ActionPath.plan)", from.toShortString(), to.toShortString(), open.isEmpty() ? "every cell reachable tried" : "the search budget ran out", expanded, budget, best.size(), c.maxPuts, near == null ? "-" : near.feet.toShortString(), near == null ? "-" : String.format("%.1f", Math.sqrt(near.feet.distSqr(to)))); }
+        if (!open.isEmpty()) { StringBuilder ln = new StringBuilder(); int n0 = Math.max(Math.abs(to.getX() - from.getX()), Math.max(Math.abs(to.getY() - from.getY()), Math.abs(to.getZ() - from.getZ()))); // the budget ran out: the straight line's solid cells and what each is to him (review 306, 22:52 11-06: 6 along his own tunnel "no way"; the cause never said)
+          for (int k = 1; k <= Math.min(n0, 24) && ln.length() < 600; k++) { BlockPos q0 = new BlockPos(from.getX() + Math.round((float) (to.getX() - from.getX()) * k / n0), from.getY() + Math.round((float) (to.getY() - from.getY()) * k / n0), from.getZ() + Math.round((float) (to.getZ() - from.getZ()) * k / n0));
+            for (BlockPos q : new BlockPos[] {q0, q0.above()}) { var qs = level.getBlockState(q); if (qs.getCollisionShape(level, q).isEmpty()) continue;
+              ln.append(" ").append(q.toShortString()).append("=").append(qs.getBlock().getName().getString()).append(qs.getDestroySpeed(level, q) < 0 ? " (unbreakable)" : c.hisBuild(q) ? " (his build" + (c.bp && c.g.blueprint.isShell(q) ? ": his mine's shell" : "") + ")" : c.structure(q) ? " (a structure's)" : " (a dig)").append(";"); } }
+          com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} -> {}: the straight line's solid cells:{} (ActionPath.plan)", from.toShortString(), to.toShortString(), ln.length() == 0 ? " none" : ln.toString()); }
         return null; // (a partial route to the closest spot is not what a player does: he'd rather pick another way)
     }
 

@@ -52,6 +52,8 @@ public final class FortressFight {
     private static Map<UUID, Integer> outOfReach; // when the blazes in view were last all out of his reach, with nothing to shoot them with (static: fields added live start null)
     private static Map<UUID, Integer> outOfReach() { if (outOfReach == null) outOfReach = new HashMap<>(); return outOfReach; }
     private static Map<UUID, int[]> runs() { if (runs == null) runs = new HashMap<>(); return runs; }
+    private static Map<UUID, long[]> blazeLast; // per bot: {the cell, the tick} of the last blaze he saw, and the waits for the next since (static: fields added live start null)
+    private static Map<UUID, long[]> blazeLast() { if (blazeLast == null) blazeLast = new HashMap<>(); return blazeLast; }
 
     public static void reset(ClaudeEntity g) { covers().remove(g.getUUID()); runs().remove(g.getUUID()); riskSaid().remove(g.getUUID()); }
 
@@ -208,6 +210,7 @@ public final class FortressFight {
     public static void observe(ClaudeEntity g, ServerLevel level) {
         for (Blaze b : blazesNear(g, level, g.blockPosition(), 32)) {
             if (!g.hasLineOfSight(b)) continue;
+            blazeLast().put(g.getUUID(), new long[] {b.blockPosition().asLong(), g.tickCount, 0}); // (where the blazes are: their spawner or their spawning ground is round there)
             if (b.isOnFire()) chargedSince().putIfAbsent(b.getUUID(), g.tickCount - 40); // (Blaze.isOnFire is its charged flag: the glow and smoke a player sees)
             else chargedSince().remove(b.getUUID());
         }
@@ -333,7 +336,14 @@ public final class FortressFight {
         BlockPos spawner = blazeSpawner(g, level, 20);
         if (bl.isEmpty() && spawner == null) {
             // none in view: walk the fortress he has seen, piece by piece (each piece once a while), looking
-            if (FortressScout.onFortress(g)) { BlockPos step = FortressScout.deckStep(g, level); if (step != null) { run[3]++; g.tasks.add(new Task.GoTo(step, 1.0)); g.skillQueue.addFirst(again); return "no blaze in view: along the fortress deck to " + step.toShortString() + " to look (" + have + "/" + goal + " rods)"; } } // (on its deck: along it, never back down to a box's middle)
+            if (FortressScout.onFortress(g)) { BlockPos step = FortressScout.deckStep(g, level); long[] last = blazeLast().get(g.getUUID()); // where the last blaze was, or along the deck into pieces he hasn't seen, priced (D2D 07:20 11-07: one blaze killed, 0/6, he walked the deck to 297,65,485 into a wither skeleton and piglins and died; a player waits where the blazes come from)
+              if (last != null && g.tickCount - last[1] < 20 * Weights.w("blaze.wait_memory_s", 600)) { BlockPos lastAt = BlockPos.of(last[0]); double age = (g.tickCount - last[1]) / 20.0, far = Math.sqrt(lastAt.distSqr(g.blockPosition()));
+                double waitS = far / Decide.sprint() + Weights.w("blaze.wait_s", 30) * (1 + last[2] * 10 / Weights.w("blaze.spawner_max_s", 40)) * (1 + age / 300); // (a spawner sends more every 10-40 s while he's within 16: the longer he's waited past that with none, and the older the sighting, the less likely one's there)
+                double lookS = step == null ? Double.MAX_VALUE : Math.sqrt(step.distSqr(g.blockPosition())) / Decide.sprint() + Weights.w("fortress.look_risk_s", 45); // (pieces he hasn't seen: wither skeletons, a skeleton group, piglins, met out of cover)
+                var pick = Decide.choose(g, "blaze.look", "no blaze in view; the last one " + Math.round(age) + " s ago at " + lastAt.toShortString() + ", " + last[2] + " wait(s) since", true, List.of(
+                    Decide.Option.of("wait where they were", waitS, Math.round(far) + " blocks there, then the next one's spawn"), Decide.Option.of("walk the deck to look", lookS, step == null ? "no deck he hasn't seen" : "to " + step.toShortString() + ", pieces he hasn't seen")));
+                if (pick != null && pick.name().startsWith("wait")) { last[2]++; g.tasks.add(far > 6 ? new Task.GoTo(lastAt, 4.0) : new Task.Wait(20 * 10, false)); g.skillQueue.addFirst(again); return "no blaze in view: waiting where the last one was (" + lastAt.toShortString() + ", " + Math.round(age) + " s ago) for the next (" + have + "/" + goal + " rods)"; } }
+              if (step != null) { run[3]++; g.tasks.add(new Task.GoTo(step, 1.0)); g.skillQueue.addFirst(again); return "no blaze in view: along the fortress deck to " + step.toShortString() + " to look (" + have + "/" + goal + " rods)"; } } // (on its deck: along it, never back down to a box's middle)
             BlockPos best = null; double bd = Double.MAX_VALUE;
             for (var s : Perception.sightings(g)) {
                 if (s.dim() != level.dimension() || !s.id().contains("fortress")) continue;

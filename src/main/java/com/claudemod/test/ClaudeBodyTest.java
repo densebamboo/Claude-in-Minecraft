@@ -10509,6 +10509,8 @@ public final class ClaudeBodyTest {
             case 932: return st932(stage, t, c, h, level, mock);
             case 933: return st933(stage, t, c, h, level, mock);
             case 934: return st934(stage, t, c, h, level, mock);
+            case 945: return st945(stage, t, c, h, level, mock);
+            case 944: return st944(stage, t, c, h, level, mock);
             case 942: return st942(stage, t, c, h, level, mock);
             case 941: return st941(stage, t, c, h, level, mock);
             case 940: return st940(stage, t, c, h, level, mock);
@@ -13983,6 +13985,62 @@ public final class ClaudeBodyTest {
             check(!in || s942At.x < o.getX() + 1 || s942At.z > o.getZ() + 4, "put through the wall: from " + s942At + ", the wall at x " + (o.getX() + 1) + " between him and the face");
             check(in, "the block at " + put.toShortString() + " not put in " + s + " s");
             pass(stage, t, "round the lava and the block in, " + s + " s, health " + hp);
+        }
+        return true;
+    }
+    /** Stage 944 (D2D 07:20 11-07, live on blaze_rods at 0/6: one blaze killed, none in view, he walked the fortress deck to 252,53,510, 280,60,495 and 297,65,485 into a wither skeleton and piglins and died): a nether brick deck 60 long, a blaze seen 6 along it and then gone, blaze_rods. He waits round where it was for the next one instead of walking off down the deck. */
+    private static double s944Far; private static int s944T;
+    private static boolean st944(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12600, 70, 7900); BlockPos seen = o.offset(6, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); s944Far = 0; s944T = -1; }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) for (int k = 0; k <= 64; k += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 2, o.offset(k, 0, 0));
+        if (t[0] == 5) {
+            for (int x = -4; x <= 64; x++) for (int z = -3; z <= 3; z++) for (int y = -2; y <= 5; y++) nl.setBlock(o.offset(x, y, z), (y == -1 && Math.abs(z) <= 1 ? Blocks.NETHER_BRICKS : y == 0 && Math.abs(z) == 2 ? Blocks.NETHER_BRICK_FENCE : Blocks.AIR).defaultBlockState(), 2);
+            nsKit(c); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 32)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600; c.commandActive = false;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 20) { var bz = EntityType.BLAZE.create(nl); bz.moveTo(seen.getX() + 0.5, seen.getY(), seen.getZ() + 0.5, 90, 0); bz.setNoAi(true); nl.addFreshEntity(bz); }
+        if (t[0] == 25) { /* (between nsTick's mob sweeps, every 10 ticks) */ com.claudemod.entity.life.FortressFight.observe(c, nl); for (var b : nl.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(o).inflate(80))) b.discard(); }
+        if (t[0] == 35) { c.tasks.clear(); c.skillQueue.clear(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("blaze_rods", "", 6, "near_you")); s944T = t[0]; }
+        if (s944T > 0) { c.nextPlanTick = c.tickCount + 20 * 600; s944Far = Math.max(s944Far, Math.sqrt(c.blockPosition().distSqr(seen))); for (var b : nl.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(o).inflate(80))) b.discard(); }
+        if (s944T > 0 && t[0] >= s944T + 20 * 20) {
+            double far = s944Far; String last = c.lastSkillLine;
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            for (int x = -4; x <= 64; x++) for (int z = -3; z <= 3; z++) for (int y = -2; y <= 5; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            nsHome(c, h, level);
+            check(far <= 12, "walked off down the deck with a blaze seen " + 6 + " along it moments before: " + Math.round(far) + " from where it was (last line \"" + last + "\")");
+            pass(stage, t, "waited round where the blaze was (at most " + Math.round(far) + " off); last line \"" + last + "\"");
+        }
+        return true;
+    }
+    /** Stage 945 (D2D urgent 06:44 11-07, live on the highway: a 3-block bore with a cell of lava level with the line beside it went up 2 over it, into a basalt ceiling with lava falling through it, 20 -> 10, and laid its floor over the highway's): a bore 8 east through netherrack, two lava cells beside the line at its level. He plugs them and stays level, never up over them. */
+    private static int s945T, s945Top; private static boolean s945Burnt;
+    private static boolean st945(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12800, 70, 7900);
+        if (t[0] == 1) { scenarioReset(c); s945T = -1; s945Top = 0; s945Burnt = false; }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 5) {
+            for (int x = -3; x <= 12; x++) for (int z = -4; z <= 4; z++) for (int y = -2; y <= 6; y++) nl.setBlock(o.offset(x, y, z), (x <= 0 && Math.abs(z) <= 1 && y >= 0 && y <= 2 ? Blocks.AIR : Blocks.NETHERRACK).defaultBlockState(), 2);
+            nl.setBlock(o.offset(3, 0, -1), Blocks.LAVA.defaultBlockState(), 2); nl.setBlock(o.offset(4, 0, -1), Blocks.LAVA.defaultBlockState(), 2); // (a pocket beside his line at its level, sealed in the rock till he opens it)
+            nl.getFluidTicks().clearArea(net.minecraft.world.level.levelgen.structure.BoundingBox.fromCorners(o.offset(-3, -2, -4), o.offset(12, 6, 4)));
+            nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.skillQueue.clear(); c.tasks.add(new com.claudemod.entity.life.Task.Bore(o.offset(8, 0, 0), o.getY())); c.tasks.add(new com.claudemod.entity.life.Task.GoTo(o.offset(8, 0, 0), 0.5)); s945T = t[0]; }
+        if (s945T > 0) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear(); s945Top = Math.max(s945Top, c.blockPosition().getY() - o.getY()); if (c.isOnFire() || c.isInLava()) s945Burnt = true; }
+        boolean there = s945T > 0 && c.blockPosition().getX() >= o.getX() + 7;
+        if (s945T > 0 && (there || t[0] >= s945T + 20 * 40)) {
+            double s = (t[0] - s945T) / 20.0; int top = s945Top; boolean burnt = s945Burnt; String at = c.blockPosition().toShortString();
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.clearFire();
+            for (int x = -3; x <= 12; x++) for (int z = -4; z <= 4; z++) for (int y = -2; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(20))) e.discard();
+            nsHome(c, h, level);
+            check(top <= 0, "went up " + top + " over two cells of lava beside an 8-block bore (the line's y " + o.getY() + ")");
+            check(!burnt, "burned on the bore by two cells of lava");
+            check(there, "the bore not through in " + s + " s: at " + at);
+            pass(stage, t, "plugged and level, through in " + s + " s");
         }
         return true;
     }

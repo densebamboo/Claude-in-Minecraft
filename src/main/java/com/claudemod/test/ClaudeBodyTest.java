@@ -10605,6 +10605,7 @@ public final class ClaudeBodyTest {
             case 777: return st776(stage, t, c, h, level, mock, false);
             case 779: return st779(stage, t, c, h, level, mock);
             case 780: return st780(stage, t, c, h, level, mock);
+            case 781: return st781(stage, t, c, h, level, mock);
             case 762: return st762(stage, t, c, h, level, mock);
             case 763: return st763(stage, t, c, h, level, mock);
             case 758: return st758(stage, t, c, h, level, mock);
@@ -15738,6 +15739,35 @@ public final class ClaudeBodyTest {
             for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(64))) it.discard();
             pass(stage, t, "his pile priced: the stone-age kit 26 off fetched, the cobble and dirt left");
         }
+        return true;
+    }
+    private static boolean st781(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 19:53:53 World 17: the kit "search for animals -> 8 cooked_beef", no cow about, salmon 30 off (past the kit's fish range): "collect beef -> salmon instead" / "collect salmon -> beef is the kit's pick" a dozen times a second. One answer: the kit's
+        BlockPos o = new BlockPos(19000, 80, 18000), pool = o.offset(30, -1, 0); // (pool.y is the grass layer)
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -16; k <= 64; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(1000);
+            for (int x = -10; x <= 50; x++) for (int z = -10; z <= 10; z++) { level.setBlock(o.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = -3; x <= 3; x++) for (int z = -3; z <= 3; z++) for (int y = -7; y <= 0; y++) { boolean rim = Math.abs(x) == 3 || Math.abs(z) == 3; // (a pool 6 deep, its top a block under the grass: the salmon 7 under him, out of the hunt's herd, inside shallowFish's reach: live 19:53 the fish fallback took it, the herd didn't)
+                level.setBlock(pool.offset(x, y, z), y == -7 || rim && y < 0 ? Blocks.STONE.defaultBlockState() : y == 0 ? Blocks.AIR.defaultBlockState() : Blocks.WATER.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 3));
+            c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5);
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f); }
+        if (t[0] == 8) { for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) e.discard();
+            for (int k = 0; k < 3; k++) { var f = net.minecraft.world.entity.EntityType.SALMON.create(level); f.moveTo(pool.getX() + 0.5 + k - 1, pool.getY() - 6, pool.getZ() + 0.5, 0, 0); f.setNoAi(true); f.setPersistenceRequired(); level.addFreshEntity(f); } }
+        if (t[0] == 14) {
+            var fa = com.claudemod.director.Kit.foodAsk(c);
+            int fishN = level.getEntitiesOfClass(net.minecraft.world.entity.animal.Salmon.class, new net.minecraft.world.phys.AABB(pool).inflate(8)).size();
+            java.util.List<String> said = new java.util.ArrayList<>(), targets = new java.util.ArrayList<>(java.util.List.of("beef"));
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "beef", 8); said.add(r);
+            for (int k = 0; k < 4 && !c.skillQueue.isEmpty() && c.skillQueue.peekFirst().skill().equals("collect"); k++) { var s0 = c.skillQueue.pollFirst();
+                if (targets.contains(s0.target())) { targets.add(s0.target()); break; } targets.add(s0.target());
+                said.add(com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", s0.target(), s0.count())); }
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) e.discard();
+            for (int x = -10; x <= 50; x++) for (int z = -10; z <= 10; z++) for (int y = -3; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(fishN == 3, "setup: 3 salmon in the pool, saw " + fishN);
+            check(fa != null && fa.item() == Items.COOKED_BEEF, "setup: the kit should search for animals (cooked_beef), it asked " + (fa == null ? "nothing" : fa.count() + " " + fa.item()));
+            check(targets.stream().distinct().count() == 1 || targets.stream().distinct().count() == targets.size(), "the collect step flipped kinds: " + targets + " (" + String.join(" / ", said) + ")");
+            nsHome(c, h, level); pass(stage, t, "one answer for the kit's food: " + targets + " (" + String.join(" / ", said) + ")"); }
         return true;
     }
     private static int st779Start;

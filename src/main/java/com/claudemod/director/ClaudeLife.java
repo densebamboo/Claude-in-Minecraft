@@ -1942,7 +1942,8 @@ public final class ClaudeLife {
                         if (ok.isEmpty()) reachNote = "the " + BuiltInRegistries.ENTITY_TYPE.getKey(byLine.get(0).getType()).getPath() + " in sight " + (byLine.size() > 1 ? "and the rest have" : "has") + " no short way to them on foot (the nearest " + (int) g.distanceTo(byLine.get(0)) + " across)";
                         herd = ok;
                     }
-                    if (herd.isEmpty() && Set.of("cow", "pig", "sheep", "chicken").contains(animal) && target.contains(animal.equals("cow") ? "beef" : animal.equals("pig") ? "porkchop" : animal.equals("sheep") ? "mutton" : "chicken")) {
+                    boolean kitSays = !g.commandActive && Kit.foodAsk(g) != null; // his own errand with the kit's priced pick: that pick stands (it weighed every herd and fish in its view, and the search when none paid); a swap here only flips back (live 19:53:53: "salmon instead" / "beef is the kit's pick", a dozen times a second)
+                    if (herd.isEmpty() && !kitSays && Set.of("cow", "pig", "sheep", "chicken").contains(animal) && target.contains(animal.equals("cow") ? "beef" : animal.equals("pig") ? "porkchop" : animal.equals("sheep") ? "mutton" : "chicken")) {
                         // meat is meat: another kind of animal close by beats a search for the one he named
                         var any = level.getEntitiesOfClass(net.minecraft.world.entity.animal.Animal.class, area, e -> e.isAlive() && (e instanceof net.minecraft.world.entity.animal.Cow || e instanceof net.minecraft.world.entity.animal.Pig || e instanceof net.minecraft.world.entity.animal.Sheep) && walk0.applyAsDouble(e) >= 0); // (only one he can walk to: the one out of reach swapped kinds back and forth)
                         if (!any.isEmpty()) {
@@ -1953,7 +1954,7 @@ public final class ClaudeLife {
                             return "no " + animal + " about, but " + BuiltInRegistries.ENTITY_TYPE.getKey(other.getType()).getPath() + " close by: " + want + " instead";
                         }
                     }
-                    if (herd.isEmpty() && Set.of("cow", "pig", "sheep", "chicken").contains(animal) && target.contains(animal.equals("cow") ? "beef" : animal.equals("pig") ? "porkchop" : animal.equals("sheep") ? "mutton" : "chicken")) {
+                    if (herd.isEmpty() && !kitSays && Set.of("cow", "pig", "sheep", "chicken").contains(animal) && target.contains(animal.equals("cow") ? "beef" : animal.equals("pig") ? "porkchop" : animal.equals("sheep") ? "mutton" : "chicken")) {
                         // no livestock, but fish in the water close by: a resourceful player eats salmon (the user: "salmon don't count" is not an answer)
                         var fish = level.getEntitiesOfClass(net.minecraft.world.entity.animal.AbstractFish.class, area, e -> e.isAlive() && (e instanceof net.minecraft.world.entity.animal.Salmon || e instanceof net.minecraft.world.entity.animal.Cod) && shallowFish(level, e) && walk0.applyAsDouble(e) >= 0);
                         if (!fish.isEmpty()) {

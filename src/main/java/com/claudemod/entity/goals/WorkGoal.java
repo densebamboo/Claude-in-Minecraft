@@ -5204,6 +5204,7 @@ public class WorkGoal extends Goal {
     }
     /** (tests) A run under way whose end is where he stands: the next flee tick is the run's end. */
     public void runEndForTest() { setEscape("run", g.blockPosition().immutable(), null); }
+    public String escapeHoldForTest(BlockPos at) { if (at != null) { setEscape("hide", at, null); escapeHeld = true; } return escapeKind + "@" + (escapeAt == null ? "-" : escapeAt.toShortString()) + (escapeHeld ? " held" : ""); } // (tests: a hide he holds; what his escape is now)
     /** (tests) An escape through the gap held from at, its plug queued and still to go in. */
     public void plugPendingForTest(BlockPos gap, BlockPos at, net.minecraft.world.item.Item plug) { setEscape("gap", at.immutable(), gap.immutable()); escapeHeld = true; escapePlugged = true; g.tasks.addFirst(new Task.Place(gap.above().immutable(), plug)); g.tasks.addFirst(new Task.Place(gap.immutable(), plug)); }
     private void setEscape(String kind, BlockPos at, BlockPos gap) {
@@ -5372,6 +5373,8 @@ public class WorkGoal extends Goal {
         }
         // One escape, kept till it's reached or proven blocked (live 16:25: a new heading every 8-20 ticks, round in circles in a horde he outruns two to one)
         if (escapeAt != null && g.tickCount - escapeSince > 20 * 60) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape {} at {} a minute old: picked fresh (WorkGoal.doFlee)", escapeKind, escapeAt.toShortString()); clearEscape(); }
+        if (ticks == 1 && escapeAt != null && escapeHeld && "hide".equals(escapeKind)) { var onHim = mobs.stream().filter(m -> !shoots(m) && m.distanceTo(g) < w("flee.hide_melee_reach", 4)).findFirst().orElse(null); // a hide is out of the shooters' sight only: a mob on him there is no answer to it (live 07:20 11-07 death 213: the run kept the held hide, back into the zombified piglins, 14 -> 0 in 4 s; stage 757)
+            if (onHim != null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] a new run with the {} {} off on him: his hide at {} keeps only the shooters off, a fresh escape (WorkGoal.doFlee)", onHim.getType().getDescription().getString(), String.format("%.1f", onHim.distanceTo(g)), escapeAt.toShortString()); clearEscape(); } }
         if (ticks == 1 && escapeAt != null && !escapeHeld && g.tickCount - escapeSince > 100) clearEscape(); // (a new run well after the last: from here, fresh; within 5 s it's the same run)
         if (escapeAt == null) pickEscape(mobs);
         else if (ticks % 10 == 1 && !escapeHeld) {

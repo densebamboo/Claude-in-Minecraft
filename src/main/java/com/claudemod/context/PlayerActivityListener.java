@@ -140,6 +140,15 @@ public final class PlayerActivityListener {
         }
     }
 
+    /** A neutral mob (zombified piglin, enderman, wolf...) turning on him: what set it off, on the log (live 07:20 11-07 death 213: three zombified piglins on him, nothing said why). */
+    public static void onTarget(net.neoforged.neoforge.event.entity.living.LivingChangeTargetEvent e) {
+        if (!(e.getEntity() instanceof net.minecraft.world.entity.NeutralMob) || !(e.getNewAboutToBeSetTarget() instanceof ClaudeEntity g)) return;
+        LivingEntity m = e.getEntity(); if (m instanceof net.minecraft.world.entity.Mob mob && mob.getTarget() == g) return; // (on him already)
+        LivingEntity by = m.getLastHurtByMob(); int ago = m.tickCount - m.getLastHurtByMobTimestamp();
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude anger] a {} {} off turned on him at {} ({}): last hurt by {}{} (nothing: alerted by its own kind, or a rule of its own) (PlayerActivityListener.onTarget)", m.getType().getDescription().getString(), String.format("%.1f", m.distanceTo(g)), m.blockPosition().toShortString(), e.getTargetType(),
+                by == null ? "nothing" : by == g ? "him" : by.getType().getDescription().getString(), by == null ? "" : " " + ago + " ticks ago");
+    }
+
     public static void onAttack(AttackEntityEvent e) {
         if (!(e.getEntity() instanceof ServerPlayer p)) return;
         Entity target = e.getTarget();

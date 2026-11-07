@@ -51,6 +51,7 @@ public class ClaudeMod {
         NeoForge.EVENT_BUS.addListener(PlayerActivityListener::onAdvancement);
         NeoForge.EVENT_BUS.addListener(PlayerActivityListener::onDeath);
         NeoForge.EVENT_BUS.addListener(PlayerActivityListener::onDamage);
+        NeoForge.EVENT_BUS.addListener(PlayerActivityListener::onTarget);
         NeoForge.EVENT_BUS.addListener(PlayerActivityListener::onEat);
         NeoForge.EVENT_BUS.addListener(PlayerActivityListener::onAttack);
         NeoForge.EVENT_BUS.addListener(PlayerActivityListener::onTrade);

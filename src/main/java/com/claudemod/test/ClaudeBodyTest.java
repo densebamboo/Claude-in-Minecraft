@@ -10636,6 +10636,7 @@ public final class ClaudeBodyTest {
             case 798: return st798(stage, t, c, h, level, mock);
             case 799: return st799(stage, t, c, h, level, mock);
             case 739: return st739(stage, t, c, h, level, mock);
+            case 757: return st757(stage, t, c, h, level, mock);
             case 793: return st793(stage, t, c, h, level, mock);
             case 786: return st786(stage, t, c, h, level, mock);
             case 780: return st780(stage, t, c, h, level, mock);
@@ -16761,6 +16762,24 @@ public final class ClaudeBodyTest {
             check(dropped, "the 45 s rung didn't drop the stuck torch (now " + c.currentTask + ")");
             check(!back, "the torch he was stuck 45 s on queued again at once, in front of what would get him out");
             pass(stage, t, "the stuck torch off the queue while its cause holds");
+        }
+        return true;
+    }
+    private static int st757T; private static BlockPos st757Me; private static net.minecraft.world.entity.monster.ZombifiedPiglin st757Pg;
+    private static boolean st757(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D death 213 (live 07:19:53-07:20:07 World 17, fortress 292,60,507): his escape "out of the shooters' sight" held at 292,60,507; zombified piglins came on him there, the run he chose at 11 HP kept that held hide (a new run keeps a held escape) and ran him back into them: 14 -> 0 in 4 s
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st757T = -1; if (st757Pg != null) st757Pg.discard(); st757Pg = null; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            st757Me = h.absolutePos(new BlockPos(4, 2, 5)).immutable(); c.teleportTo(st757Me.getX() + 0.5, st757Me.getY(), st757Me.getZ() + 0.5); c.setHealth(11); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var pg = EntityType.ZOMBIFIED_PIGLIN.create(level); BlockPos sp = st757Me.east(); pg.moveTo(sp.getX() + 0.5, sp.getY(), sp.getZ() + 0.5, 90, 0); pg.setNoAi(true); pg.setPersistenceRequired(); level.addFreshEntity(pg); pg.setTarget(c); pg.setPersistentAngerTarget(c.getUUID()); pg.startPersistentAngerTimer(); st757Pg = pg; // (angry, on him)
+        }
+        if (t[0] == 12) { c.work.escapeHoldForTest(st757Me); c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Flee(600)); st757T = t[0]; } // his hide held where he stands, a new run
+        if (st757T > 0 && t[0] == st757T + 8) {
+            String esc = c.work.escapeHoldForTest(null);
+            st757Pg.discard(); st757Pg = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+            check(!esc.equals("hide@" + st757Me.toShortString() + " held"), "a new run with a zombified piglin on him kept his held hide from the shooters, right where it is (" + esc + ")");
+            pass(stage, t, "a held hide dropped when the run is from a mob on him (" + esc + ")");
         }
         return true;
     }

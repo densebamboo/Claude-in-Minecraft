@@ -10509,6 +10509,9 @@ public final class ClaudeBodyTest {
             case 932: return st932(stage, t, c, h, level, mock);
             case 933: return st933(stage, t, c, h, level, mock);
             case 934: return st934(stage, t, c, h, level, mock);
+            case 938: return st938(stage, t, c, h, level, mock);
+            case 937: return st937(stage, t, c, h, level, mock);
+            case 935: return st935(stage, t, c, h, level, mock);
             case 936: return st936(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
@@ -13751,6 +13754,95 @@ public final class ClaudeBodyTest {
             check(tag != null, "no highway underway saved after the first build_highway (" + s936A + ")");
             check(b.equals(s936A), "the staircase of the highway underway moved on a resume after the ground changed: " + s936A + " -> " + b);
             nsHome(c, h, level); pass(stage, t, "the staircase kept at " + b);
+        }
+        return true;
+    }
+    /** Stage 935 (D2D reviews 24, 107, 229, 11-07: in and by his mine a cell of its wall was a hard no for a walk: a 105-walk way round for one stone of it at -32,16,-196, a 3000-node search for a 1-block step at -280,-57,-81, the gravel to a copper ore written off): a pocket 2 through his tunnel's wall from him. He cuts the wall, steps in, and the wall goes back behind him, in player time. */
+    private static int s935T; private static BlockPos s935Wall, s935To; private static String s935Why = "";
+    private static boolean st935(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(19800, 80, 20200);
+        if (t[0] % 10 == 0 || t[0] < 10) for (int k = -16; k <= 32; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(1000); s935T = -1;
+            for (int x = -12; x <= 24; x++) for (int z = -10; z <= 10; z++) for (int y = -20; y <= 5; y++) level.setBlock(o.offset(x, y, z), (y <= 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            var b = new com.claudemod.entity.life.MineBlueprint(o.above(), net.minecraft.core.Direction.EAST, 2, 3); b.segments.get(0).n = 14; c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.prefs.put("stay_close", "no"); com.claudemod.director.ClaudeLife.bpSync(c);
+            for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK) level.setBlock(e.getKey(), Blocks.AIR.defaultBlockState(), 2);
+            // a walkway cell mid-mine with his wall beside it and rock past that: the pocket 2 through the wall
+            BlockPos w = null, wall = null, to = null; var rows = b.rows(); var mid = rows.get(rows.size() / 2).first();
+            for (var e : b.roles().entrySet()) { if (e.getValue() != com.claudemod.entity.life.MineBlueprint.Role.WALK || w != null) continue; BlockPos p = e.getKey(); if (Math.abs(p.getX() - mid.getX()) + Math.abs(p.getZ() - mid.getZ()) > 3 || b.isWalk(p.below()) || !b.isWalk(p.above())) continue;
+                for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) { BlockPos q = p.relative(d), r = p.relative(d, 2); if (b.isShell(q) && b.isShell(q.above()) && b.roleAt(r) == null && b.roleAt(r.above()) == null && b.roleAt(r.relative(d)) == null) { w = p; wall = q; to = r; break; } } }
+            check(w != null, "no walkway cell with his wall and rock beside it in the test mine");
+            level.setBlock(to, Blocks.AIR.defaultBlockState(), 2); level.setBlock(to.above(), Blocks.AIR.defaultBlockState(), 2); s935Wall = wall; s935To = to;
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.getInventory().add(new ItemStack(Items.TORCH, 16));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, w.getX() + 0.5, w.getY(), w.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f); }
+        if (t[0] == 5) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+        if (t[0] == 10) { c.tasks.clear(); c.skillQueue.clear(); c.tasks.add(new com.claudemod.entity.life.Task.GoTo(s935To, 0.5)); s935T = t[0]; }
+        if (t[0] > 10) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear(); }
+        if (t[0] == 11) s935Why = "wall cuttable " + com.claudemod.entity.nav.ActionPath.cuttableShell(c, level, s935Wall) + ", landing " + c.landingCells.contains(s935Wall) + ", notch " + c.notches.contains(s935Wall) + ", step " + c.lastStep + ", sky " + level.canSeeSky(c.blockPosition().above());
+        boolean there = t[0] > 10 && c.blockPosition().equals(s935To), back = there && !level.getBlockState(s935Wall).getCollisionShape(level, s935Wall).isEmpty();
+        if (s935T > 0 && (back && c.tasks.isEmpty() || t[0] >= s935T + 20 * 30)) {
+            double s = (t[0] - s935T) / 20.0; String at = c.blockPosition().toShortString(); boolean wallBack = !level.getBlockState(s935Wall).getCollisionShape(level, s935Wall).isEmpty();
+            c.tasks.clear(); c.skillQueue.clear(); c.blueprint = null; c.mineFace = null; c.dropCurrent = true;
+            for (int x = -12; x <= 24; x++) for (int z = -10; z <= 10; z++) for (int y = -20; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(30))) e.discard();
+            check(at.equals(s935To.toShortString()), "a pocket 2 through his tunnel's wall: he's at " + at + " after " + s + " s, not in it at " + s935To.toShortString() + " (" + s935Why + ")");
+            check(wallBack, "his wall at " + s935Wall.toShortString() + " not put back behind him");
+            check(s <= 10, "through one block of his wall and back up: " + s + " s (a player ~4)");
+            pass(stage, t, "in through his wall and patched in " + s + " s"); }
+        return true;
+    }
+    /** Stage 937 (D2D reviews 567, 590, 594, 697 11-07, live 03:44-04:20 in basalt deltas, a death by hunger in the end): down a 1x2 hole 4 deep in the Nether with a pick and a stack of deepslate, a walk to its rim refused (NO_PATH, "4 short (4 up)") and the bore "straight there" moved him 0 blocks, again and again for minutes. A player is out in a few seconds: a pillar or steps dug up the side. */
+    private static int s937T; private static String s937Ends = "";
+    private static boolean st937(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(11600, 55, 7900); BlockPos rim = o.offset(1, 4, -1);
+        if (t[0] == 1) { scenarioReset(c); s937T = -1; s937Ends = ""; }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 5) {
+            for (int x = -8; x <= 8; x++) for (int z = -8; z <= 8; z++) for (int y = -2; y <= 10; y++) nl.setBlock(o.offset(x, y, z), (y < 4 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2); // (rock to y+3, open above: the rim at y+4)
+            for (int z = 0; z <= 1; z++) for (int y = 0; y <= 3; y++) nl.setBlock(o.offset(0, y, z), Blocks.AIR.defaultBlockState(), 2); // the hole: 1x2, 4 deep
+            nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.skillQueue.clear(); c.tasks.add(new com.claudemod.entity.life.Task.GoTo(rim, 0.5)); s937T = t[0]; }
+        if (t[0] > 20) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear(); }
+        boolean out = t[0] > 20 && c.getBlockY() >= rim.getY() && c.onGround();
+        if (s937T > 0 && (out || t[0] >= s937T + 20 * 30)) {
+            double s = (t[0] - s937T) / 20.0; String at = c.blockPosition().toShortString();
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            for (int x = -8; x <= 8; x++) for (int z = -8; z <= 8; z++) for (int y = -2; y <= 10; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(20))) e.discard();
+            nsHome(c, h, level);
+            check(out, "down a 4-deep hole with a pick and 64 deepslate: still at " + at + " after " + s + " s, not up at the rim " + rim.toShortString());
+            check(s <= 8, "out of a 4-deep hole: " + s + " s (a player ~3)");
+            pass(stage, t, "out of the hole in " + s + " s");
+        }
+        return true;
+    }
+    /** Stage 938 (D2D reviews 628, 688 11-07, live 03:58 and 04:15: a block for his bore's floor into a cell of twisting vines refused 3 times a second, "the cell's filled already, twisting vines there", then written off; he never broke them): a cobblestone to put where twisting vines grow, from beside. He breaks them (one swing) and puts the block. */
+    private static int s938T;
+    private static boolean st938(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(11700, 60, 7900); BlockPos cell = o.offset(1, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); s938T = -1; }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 5) {
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 6; y++) nl.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2);
+            nl.setBlock(cell, Blocks.TWISTING_VINES_PLANT.defaultBlockState(), 2); nl.setBlock(cell.above(), Blocks.TWISTING_VINES.defaultBlockState(), 2);
+            nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.skillQueue.clear(); c.tasks.add(new com.claudemod.entity.life.Task.Place(cell, Items.COBBLESTONE, null, null)); s938T = t[0]; }
+        if (t[0] > 20) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear(); }
+        boolean in = t[0] > 20 && nl.getBlockState(cell).is(Blocks.COBBLESTONE);
+        if (s938T > 0 && (in || t[0] >= s938T + 20 * 10)) {
+            double s = (t[0] - s938T) / 20.0; String was = nl.getBlockState(cell).getBlock().getName().getString();
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(20))) e.discard();
+            nsHome(c, h, level);
+            check(in, "a cobblestone into a cell of twisting vines from beside: " + was + " there after " + s + " s");
+            check(s <= 3, "vines broken and the block put: " + s + " s (a player ~1)");
+            pass(stage, t, "vines broken, block in, " + s + " s");
         }
         return true;
     }

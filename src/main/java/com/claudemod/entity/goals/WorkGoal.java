@@ -564,9 +564,17 @@ public class WorkGoal extends Goal {
     }
 
     /** The cell beside him (same level or one up) that is open and floored, to step out of the one he's in; null if there's none. */
+    /** His way goes on past the cell he's to fill, to the side he's on: a walk queued to a cell beside him, further from it than he is (a cut he walked through, put back behind him; ActionPath.tasks). */
+    private boolean goingOnPast(BlockPos fill) {
+        BlockPos at = g.blockPosition();
+        return !at.equals(fill) && g.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().distManhattan(at) <= 1 && go.pos().distManhattan(fill) > go.pos().distManhattan(at) - 1 && !go.pos().equals(fill) && go.pos().distManhattan(fill) >= 1 && go.pos().distManhattan(fill) <= 2);
+    }
     private BlockPos stepOutSpot(BlockPos in) {
         ServerLevel level = (ServerLevel) g.level();
         BlockPos best = null; double bestD = Double.MAX_VALUE;
+        { BlockPos at = g.blockPosition(); // already over the edge onto the cell his way goes on to (a cut he walked through, put back behind him): there, never back through the hole (stage 935: back onto the walkway, the wall shut him out and the walk cut it again, a loop)
+          if (!at.equals(in) && at.distManhattan(in) == 1 && level.getBlockState(at).getCollisionShape(level, at).isEmpty() && level.getBlockState(at.above()).getCollisionShape(level, at.above()).isEmpty() && level.getBlockState(at.below()).isFaceSturdy(level, at.below(), Direction.UP)
+              && goingOnPast(in)) return at.immutable(); }
         for (Direction d : Direction.Plane.HORIZONTAL) for (int dy = -1; dy <= 1; dy++) { // (and one down: out of the cell under a hole in his wall the walkway is a step down; only 'up' sent him further into the hole, 263)
             BlockPos p = in.relative(d).above(dy);
             boolean open = level.getBlockState(p).getCollisionShape(level, p).isEmpty() && level.getBlockState(p.above()).getCollisionShape(level, p.above()).isEmpty() && level.getFluidState(p).isEmpty();
@@ -3588,6 +3596,10 @@ public class WorkGoal extends Goal {
               com.claudemod.ClaudeMod.LOGGER.info("[Claude temp] his {} ({}) at {} stands where the {} goes: back up first, then the {} (WorkGoal.doPlace)", te0.item, te0.why, pos.toShortString(), itemName(new ItemStack(t.item())), itemName(new ItemStack(t.item())));
               return exit("his temporary block in the cell first (doPlace temp)"); } }
         if (level.getBlockState(pos).canBeReplaced() && coverCell(pos) && digInAt != null && digInTasks != null && !digInTasks.isEmpty() && digInTasks.get(0) instanceof Task.Place && (g.getBlockX() != digInAt.getX() || g.getBlockZ() != digInAt.getZ()) && nudgeIntoCover(t, "with him off its middle")) return false; // his box (or hut) goes up round him from its middle: knocked off it, back in first (built round an empty middle, the wait then read "out of his cover" and boxed him in again beside it)
+        { var vs = level.getBlockState(pos); if (vs.is(net.minecraft.world.level.block.Blocks.TWISTING_VINES) || vs.is(net.minecraft.world.level.block.Blocks.TWISTING_VINES_PLANT) || vs.is(net.minecraft.world.level.block.Blocks.WEEPING_VINES) || vs.is(net.minecraft.world.level.block.Blocks.WEEPING_VINES_PLANT) || vs.is(net.minecraft.world.level.block.Blocks.CAVE_VINES) || vs.is(net.minecraft.world.level.block.Blocks.CAVE_VINES_PLANT)) { // vines in the cell: not replaceable, but one swing takes them (a player breaks them and puts the block; stage 938, live 03:58 and 04:15 11-07: "filled" 3x a second, then written off)
+            g.tasks.addFirst(t); g.tasks.addFirst(new Task.Break(pos.immutable()));
+            if (ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude dig] {} in the cell at {}: broken first, then the {} (WorkGoal.doPlace)", name(vs), pos.toShortString(), itemName(new ItemStack(t.item())));
+            return exit("vines in the cell: broken first (doPlace)"); } }
         if (!level.getBlockState(pos).canBeReplaced() && !(t.want() != null && com.claudemod.entity.life.PlaceAim.growsInto(level.getBlockState(pos), t.want()))) { placeRetries.remove(pos.below(20000)); sentFor().remove(pos); if (t.facing() != null) sentFor().remove(pos.relative(t.facing())); viewTry().remove(pos); if (stepOutSince != null) stepOutSince.remove(pos); return exit("the cell's filled already, " + name(level.getBlockState(pos)) + " there (doPlace line 2561)"); }
         { BlockPos open0 = com.claudemod.director.ClaudeLife.nookFillOpenBefore(g, level, pos); if (open0 != null) { if (ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude nook] not setting {} yet: the fill at {} before it is still open (its Place didn't go in), and this one could wall it off: the next round plans again (WorkGoal.doPlace)", pos.toShortString(), open0.toShortString()); return exit("doPlace: the nook fill's order"); } }
         if (!g.pillarBlocks.isEmpty() && g.pillarBlocks.contains(pos.below()) && t.item() instanceof net.minecraft.world.item.BlockItem sb && (sb.getBlock() instanceof net.minecraft.world.level.block.BedBlock || sb.getBlock() instanceof net.minecraft.world.level.block.ChestBlock
@@ -3622,7 +3634,7 @@ public class WorkGoal extends Goal {
             return exit("doPlace line 2589");
         }
         if (com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.isShell(pos) && !g.blueprint.isWalk(g.blockPosition()) && !g.blueprint.isWalk(g.blockPosition().above())
-                && pos.distSqr(g.blockPosition()) <= 6 * 6 && (t.item() == net.minecraft.world.item.Items.COBBLESTONE || t.item() == net.minecraft.world.item.Items.COBBLED_DEEPSLATE)) { // (a patch of his wall, never a station or the bed in his nook) his mine's wall patched from inside: out in an ore hole he steps back in first (he grabbed diamonds from behind the wall and the patch sealed him outside); while he's outside it, every time (a lifetime count of 2 sealed him out the second time)
+                && pos.distSqr(g.blockPosition()) <= 6 * 6 && !goingOnPast(pos) && (t.item() == net.minecraft.world.item.Items.COBBLESTONE || t.item() == net.minecraft.world.item.Items.COBBLED_DEEPSLATE)) { // (a patch of his wall, never a station or the bed in his nook) his mine's wall patched from inside: out in an ore hole he steps back in first (he grabbed diamonds from behind the wall and the patch sealed him outside); while he's outside it, every time (a lifetime count of 2 sealed him out the second time)
             int ri = g.blueprint.nearestRow(pos);
             BlockPos in = null; if (ri >= 0) for (BlockPos f : g.blueprint.rows().get(ri).feet()) if (in == null || f.distSqr(g.blockPosition()) < in.distSqr(g.blockPosition())) in = f; // (the walkway cell of that row nearest him)
             if (in != null && !walkFailedSince(in, pos)) {

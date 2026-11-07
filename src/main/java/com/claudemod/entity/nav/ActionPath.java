@@ -105,7 +105,7 @@ public final class ActionPath {
             Node n = open.poll();
             { Node b0 = best.get(n.feet); if (b0 != n && b0.g() <= n.g() && (!scarce || b0.puts() <= n.puts()) && b0.wet() <= n.wet() && b0.hurt() <= n.hurt()) { expanded--; continue; } } // (a stale entry: a way here no worse was expanded already)
             double dd = Math.sqrt(n.feet.distSqr(to));
-            if (dd <= within) { coverNote(c, from, to); leapNote(c, from, to, n); Plan pl = unwind(n); if (mode == Mode.MAY_BEND) { Map<BlockPos, String> b = new java.util.LinkedHashMap<>(); for (Act a : pl.acts()) if (a instanceof Act.Dig dg && c.bent.containsKey(dg.pos())) b.put(dg.pos(), c.bent.get(dg.pos())); lastBent = b; } return pl; }
+            if (dd <= within && !(n.feet.equals(to.below()) && c.floor(to) && !c.passable(to.below()))) { coverNote(c, from, to); /* (never the cell under a goal he can stand on: that's its floor, dug out to "arrive" a block short, and the last step up had nothing to stand on: stage 937, live 03:44 11-07 in a 4-deep hole for minutes) */ leapNote(c, from, to, n); Plan pl = unwind(n); if (mode == Mode.MAY_DIG && c.bp) for (Act a : pl.acts()) if (a instanceof Act.Dig dg && cuttableShell(g, level, dg.pos())) SHELL_CUT.put(dg.pos().immutable(), level.getGameTime()); if (mode == Mode.MAY_BEND) { Map<BlockPos, String> b = new java.util.LinkedHashMap<>(); for (Act a : pl.acts()) if (a instanceof Act.Dig dg && c.bent.containsKey(dg.pos())) b.put(dg.pos(), c.bent.get(dg.pos())); lastBent = b; } return pl; }
             c.hurtNow = n.hurt;
             for (Move m : c.moves(n.feet)) {
                 int np = n.puts; float nh = n.hurt; for (Act a : m.acts) { if (a instanceof Act.Put) np++; else if (a instanceof Act.Leap lp) nh += lp.hp(); }
@@ -194,6 +194,8 @@ public final class ActionPath {
     static final java.util.Set<String> STRUCT_KEYS = java.util.Set.of("fortress", "bastion_remnant", "village", "desert_pyramid", "jungle_pyramid", "pillager_outpost", "igloo", "mansion", "ocean_ruin", "trail_ruins", "end_city", "stronghold");
     /** Structure cells a planned way digs (no way round): the dig guard lets these through for 5 minutes; tasks() puts each back. */
     private static final Map<BlockPos, Long> STRUCT_OK = new HashMap<>();
+    /** His mine's shell cells a MAY_DIG plan cuts (game time): tasks puts each back once he's past. */
+    private static final Map<BlockPos, Long> SHELL_CUT = new HashMap<>();
     public static boolean structureDigOk(ServerLevel level, BlockPos p) { Long t = STRUCT_OK.get(p); return t != null && level.getGameTime() - t < 20 * 300 && level.getGameTime() >= t; }
 
     /** The straight-line log's word on a cell he'd dig: its price as the plan reads it, or the rule that keeps it (the label "a dig" on every refused cell hid the cause: review 40, 00:53 11-07, 27 of stone "a dig" each and no way found). */
@@ -273,7 +275,9 @@ public final class ActionPath {
             }
             if (lastWalk != null) { out.add(new Task.GoTo(lastWalk, 0.9)); lastWalk = null; run = 0; }
             if (a instanceof Act.Leap l) { out.add(new Task.Leap(l.from(), l.land(), l.kind(), l.down(), l.hp())); cur = l.land(); continue; }
-            if (a instanceof Act.Dig d) { out.add(new Task.Break(d.pos())); if (level != null && structureBlock(level, d.pos())) { restore.add(new Object[] {d.pos().immutable(), level.getBlockState(d.pos())}); STRUCT_OK.put(d.pos().immutable(), level.getGameTime()); } }
+            if (a instanceof Act.Dig d) { out.add(new Task.Break(d.pos())); if (level != null && structureBlock(level, d.pos())) { restore.add(new Object[] {d.pos().immutable(), level.getBlockState(d.pos())}); STRUCT_OK.put(d.pos().immutable(), level.getGameTime()); }
+                else if (level != null && SHELL_CUT.containsKey(d.pos()) && level.getGameTime() - SHELL_CUT.get(d.pos()) <= 20 * 60) { var st = level.getBlockState(d.pos()); boolean deep = st.is(net.minecraft.world.level.block.Blocks.DEEPSLATE) || st.is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE) || st.is(net.minecraft.world.level.block.Blocks.TUFF) || d.pos().getY() < 0; // (his wall put back with his patch block: what the cut drops)
+                    restore.add(new Object[] {d.pos().immutable(), (deep ? net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE : net.minecraft.world.level.block.Blocks.COBBLESTONE).defaultBlockState()}); } }
             else if (a instanceof Act.Door d) out.add(new Task.UseDoor(d.pos(), true));
             else if (a instanceof Act.Put p) {
                 boolean outside = level == null || level.canSeeSky(p.pos().above());
@@ -291,7 +295,9 @@ public final class ActionPath {
                 if (outside && !dirt) { com.claudemod.director.ClaudeLife.bridgeBlocks().add(p.pos().immutable()); if (p.pos().equals(cur) || p.pos().getY() >= cur.getY()) takeBack.add(p.pos().immutable()); } // (a tower step to climb by comes back the moment he's off it; a bridge waits till he's across: the daylight chore's) // out in the world only dirt may stay (a step up a hill): anything else is broken back up once he is past; in his mine a put is a patch
             }
         }
+        final BlockPos endAt = lastWalk;
         if (lastWalk != null) { out.add(new Task.GoTo(lastWalk, 0.9)); lastWalk = null; }
+        if (endAt != null && dest != null && restore.stream().anyMatch(o -> o[0].equals(endAt) || o[0].equals(endAt.above()))) out.add(new Task.GoTo(dest, within)); // the way ends in a cell he cut (within reach of the goal): on to the goal first, else the block went back into the cell he stood in and the walk planned the cut again (stage 935, a loop)
         if (!restore.isEmpty()) { for (Object[] o : restore) { BlockState st0 = (BlockState) o[1]; out.add(new Task.Place((BlockPos) o[0], st0.getBlock().asItem(), null, st0)); } com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} structure block(s) dug for the way ({}): put back at the way's end (ActionPath.tasks)", restore.size(), restore.stream().map(o -> ((BlockPos) o[0]).toShortString()).toList()); }
         // (no pickup after: the block drops back down where he climbed from, and going back down for one cobble undid the climb, a loop; what's left on the list, a block still under him at the end, is the daylight chore's, as before)
         out.add(new Task.GoTo(dest, within));
@@ -445,7 +451,7 @@ public final class ActionPath {
         boolean hisBuild(BlockPos p) {
             if (com.claudemod.director.ClaudeLife.nookShell(g, p)) return mode != Mode.MAY_CUT_NOOK; // his nook's walls and roof: never a way through (12:21 a walk to his junk chest cut its roof from the cave above, five digs to save the walk round); only with no way at all, dearly, patched behind him
             if (stray(p)) return false; // (before the nook's and the bed's walls below: those cells refused his own pillar in the pocket, and from the ledge every way into it was "no way", live 14:53-15:01)
-            if (bp && g.blueprint.isShell(p) && !g.landingCells.contains(p) && !g.notches.contains(p) && !((mode == Mode.MAY_REOPEN || mode == Mode.MAY_CUT_SHELL) && reopenable(g, level, p) > 0) && !(mode == Mode.MAY_CUT_SHELL && cuttableShell(g, level, p))) return true; // (his own patch, or the cell under/over it, reopening: out and back) // (the cut out of his tunnel over to a pool is the obsidian work's: through his wall there, as the user did)
+            if (bp && g.blueprint.isShell(p) && !g.landingCells.contains(p) && !g.notches.contains(p) && !((mode == Mode.MAY_REOPEN || mode == Mode.MAY_CUT_SHELL) && reopenable(g, level, p) > 0) && !((mode == Mode.MAY_CUT_SHELL || mode == Mode.MAY_DIG) && cuttableShell(g, level, p))) return true; // (his own patch, or the cell under/over it, reopening: out and back) // (the cut out of his tunnel over to a pool is the obsidian work's: through his wall there, as the user did)
             if (house && g.house.isStructure(p)) return true;
             if (com.claudemod.entity.life.TempLedger.built(g, p) && !(bp && g.blueprint.isShell(p))) return true; // a block a build system of his put there (his bedroom's wall: 05:30 the walk to his bed dug the room he had just walled); the shell keeps its own rule, its reopen included
             if (com.claudemod.director.ClaudeLife.inHisNook(g, p)) return true;
@@ -489,7 +495,9 @@ public final class ActionPath {
             if (prog <= 0) return -1;
             double sec = Math.min(10, 1.0 / (prog * 20)) + (structure(p) ? 40 : 0); // a structure's own block: very dear (round it, its doorway, a bridge); dug only with no way round, and put back (tasks)
             if (mode == Mode.MAY_REOPEN || mode == Mode.MAY_CUT_SHELL) { int r = reopenable(g, level, p); if (r == 1) return sec + 1.5; if (r == 2) return sec + 2.5; if (mode == Mode.MAY_CUT_SHELL && bp && g.blueprint.isShell(p)) return sec + 9; sec += 3; } // (a cut through his virgin shell: the dearest dig, only where nothing cheaper gets there) // reopening: his own patch at a modest price, the shell cell under/over it a bit more, virgin rock always dearer (04:25 a 30-block cut round a patch)
-            if (besideHisBuild(p)) sec += 4; // a one-wide cut along his mine or house: dear, not forbidden
+            boolean shellCut = mode == Mode.MAY_DIG && bp && g.blueprint.isShell(p);
+            if (shellCut) sec += com.claudemod.entity.life.Weights.w("route.shell_cut_s", 1); // (its real cost: the block put back behind him and a little; priced at 9 + 4 beside his build, two cells read as 27 s and the search ran out of budget before it, stage 935) // a cut through his mine's wall, put back once he's past (tasks): dear, never banned (reviews 24, 107, 229 11-07: a 105-walk way round for one stone of his wall, a 3000-node search for a 1-block step, the bend pass doing it after)
+            if (besideHisBuild(p) && !shellCut) sec += 4; // a one-wide cut along his mine or house: dear, not forbidden
             if (s.is(net.minecraft.tags.BlockTags.GUARDED_BY_PIGLINS)) sec += 15 * com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.piglin.Piglin.class, new net.minecraft.world.phys.AABB(p).inflate(16), m -> m.isAlive()).size(); // gold ore, gilded blackstone, a chest with piglins about: they turn on him, a fight priced in (review-45; a cost, not a ban)
             if (bend != null) { bent.put(p.immutable(), bend); sec += 9; } // (a bent rule: the dearest dig, the plan that bends the fewest)
             if (mode == Mode.MAY_CUT_NOOK && com.claudemod.director.ClaudeLife.nookShell(g, p)) sec += 9; // (his nook's shell: the dearest dig, only where nothing else gets there)

@@ -10629,6 +10629,7 @@ public final class ClaudeBodyTest {
             case 795: return st795(stage, t, c, h, level, mock);
             case 796: return st796(stage, t, c, h, level, mock);
             case 797: return st797(stage, t, c, h, level, mock);
+            case 798: return st798(stage, t, c, h, level, mock);
             case 793: return st793(stage, t, c, h, level, mock);
             case 786: return st786(stage, t, c, h, level, mock);
             case 780: return st780(stage, t, c, h, level, mock);
@@ -16582,6 +16583,28 @@ public final class ClaudeBodyTest {
             for (var m : st797M) m.discard(); st797M.clear(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
             check(searched <= 1, "the way round the same zombies searched again for each leg behind them: " + searched + " of " + st797Legs.size() + " legs");
             pass(stage, t, searched + " search(es) round them for " + st797Legs.size() + " legs behind them");
+        }
+        return true;
+    }
+    private static int st798T;
+    private static boolean st798(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D review 97 (live 04:58:35-05:01 World 17, -300,-58,-9): a diamond in his ore pocket, "no room for it in his pack" (logs, his stone, food: nothing junk), the patch waiting on it re-queued for 5 min, the pocket open. A player throws a stack of stone for a diamond
+        if (t[0] == 1) { scenarioReset(c); st798T = -1; c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); flatBox(h); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard(); }
+        if (t[0] == 5) {
+            var inv = c.getInventory(); inv.clearContent();
+            inv.items.set(0, new ItemStack(Items.DIAMOND_PICKAXE)); inv.selected = 0;
+            inv.items.set(1, new ItemStack(Items.COBBLESTONE, 64)); inv.items.set(2, new ItemStack(Items.COBBLESTONE, 40));
+            for (int i = 3; i < 20; i++) inv.items.set(i, new ItemStack(Items.OAK_LOG, 64));
+            for (int i = 20; i < inv.items.size(); i++) inv.items.set(i, new ItemStack(Items.COOKED_BEEF, 64));
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(-90);
+            BlockPos at = me.east(3); var it = new net.minecraft.world.entity.item.ItemEntity(level, at.getX() + 0.5, at.getY() + 0.05, at.getZ() + 0.5, new ItemStack(Items.DIAMOND)); it.setDeltaMovement(0, 0, 0); level.addFreshEntity(it);
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 8) { c.tasks.clear(); c.tasks.add(new Task.Pickup(200)); st798T = t[0]; }
+        if (st798T > 0) {
+            int dia = c.inventory.count(s -> s.is(Items.DIAMOND)), logs = c.inventory.count(s -> s.is(Items.OAK_LOG)), food = c.inventory.count(s -> s.is(Items.COOKED_BEEF));
+            check(logs == 17 * 64 && food >= 64, "for room he threw out his logs or food (logs " + logs + ", food " + food + ")");
+            if (dia > 0 && t[0] - st798T >= 40) { int stone = c.inventory.count(s -> s.is(Items.COBBLESTONE)); check(stone < 104, "the stone thrown for room picked back up (" + stone + ")"); for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) e.discard(); c.getInventory().clearContent(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "a stack of stone out for the diamond, in " + (t[0] - st798T) / 20.0 + " s, " + stone + " stone kept"); return true; }
+            check(t[0] - st798T < 20 * 8, "the diamond not picked up in 8 s with a pack full of logs, stone and food (now " + c.currentTask + ")");
         }
         return true;
     }

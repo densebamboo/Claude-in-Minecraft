@@ -9687,6 +9687,16 @@ public final class ClaudeLife {
     }
 
     public static void makeRoom(ClaudeEntity g) { dumpJunk(g); }
+    /** Room for something he came for (an ore drop, a pearl): the junk first; nothing junk and still full, his smallest stack of stone goes, thrown away from it (a stack of cobble is a minute of mining, a diamond isn't: live 04:58 the patch waited 5 min on one, "no room", stage 798). */
+    public static void makeRoom(ClaudeEntity g, Vec3 forIt) {
+        dumpJunk(g); if (g.getInventory().getFreeSlot() >= 0) return;
+        var inv = g.getInventory(); int pick = -1;
+        for (int i = 0; i < inv.items.size(); i++) { var st = inv.items.get(i); if (i == inv.selected || st.isEmpty()) continue; if (!(cobbleItem(st) || st.is(Items.NETHERRACK) || st.is(Items.BLACKSTONE) || junkItem(st))) continue; if (pick < 0 || st.getCount() < inv.items.get(pick).getCount()) pick = i; }
+        if (pick < 0) { ClaudeMod.LOGGER.info("[Claude life] pack full for what he came for, and no stone or junk to throw for it: it waits (ClaudeLife.makeRoom)"); return; }
+        Vec3 away = g.position().subtract(forIt).multiply(1, 0, 1); if (away.lengthSqr() > 1e-4) { g.setYRot((float) Math.toDegrees(Math.atan2(away.z, away.x)) - 90f); g.setXRot(-25f); }
+        var st = inv.items.get(pick); ClaudeMod.LOGGER.info("[Claude life] pack full for what he came for: {} {} thrown out for it, away from it (ClaudeLife.makeRoom)", st.getCount(), Crafting.name(st.getItem()));
+        var e = g.drop(st.copy(), false, true); if (e != null) g.markGift(e); com.claudemod.entity.life.Watchdog.thrown(g, e); inv.items.set(pick, ItemStack.EMPTY);
+    }
 
     /** A spot under water becomes the surface over it: he swims there and looks down, like a player over a wreck. */
     static BlockPos surfaceOver(ServerLevel level, BlockPos p) {

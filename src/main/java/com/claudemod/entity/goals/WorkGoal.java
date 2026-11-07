@@ -176,7 +176,7 @@ public class WorkGoal extends Goal {
             for (int dy = 0; dy >= -1; dy--) for (int dx = -2; dx <= 2; dx++) for (int dz = -2; dz <= 2; dz++) { BlockPos q = ff.offset(dx, dy, dz); double dq = q.distToCenterSqr(g.position()); if (dq < best && com.claudemod.entity.life.FortressFight.stand(flv, q)) { best = dq; to = q; } }
             if (to != null) {
                 g.getNavigation().stop(); g.setSprinting(true); g.getMoveControl().setWantedPosition(to.getX() + 0.5, to.getY(), to.getZ() + 0.5, 1.3);
-                if (g.tickCount - fireSaid > 60) { fireSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in fire at {}: off it to {} first (WorkGoal.tick)", ff.toShortString(), to.toShortString()); }
+                if (g.tickCount - fireSaid > 60) { fireSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in fire at {} ({}, {}, {}; fire at {}): off it to {} first (WorkGoal.tick)", ff.toShortString(), String.format("%.2f", g.getX()), String.format("%.2f", g.getY()), String.format("%.2f", g.getZ()), BlockPos.betweenClosedStream(g.getBoundingBox().deflate(0.001)).filter(p -> flv.getBlockState(p).is(net.minecraft.tags.BlockTags.FIRE)).map(BlockPos::toShortString).toList(), to.toShortString()); }
                 return true;
             }
             if (g.tickCount - fireSaid > 60) { fireSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in fire at {}: no fire-free spot within 2 to step to, the job's own way out (WorkGoal.tick)", ff.toShortString()); }

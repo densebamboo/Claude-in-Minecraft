@@ -2008,6 +2008,13 @@ public final class ClaudeLife {
                             huntDir().put(g.getUUID(), huntDir().getOrDefault(g.getUUID(), Direction.NORTH).getClockWise()); // that way was empty for 350 blocks: the next search goes the next way round
                             return "failed: no " + animal + " (nor any other animal) for 350 blocks that way; this land is empty of livestock. Sure food here instead: a wheat farm by the base (collect wheat_seeds from grass, craft a wooden_hoe, farm, then harvest when ripe and craft bread), or chests in a shipwreck or village; rotten flesh keeps you going in a pinch";
                         }
+                        if (animal.equals("hoglin") && level.dimensionType().ultraWarm()) { // the crimson forest on his atlas: where the kit priced the hunt (live 06:46 11-07: "hunt hoglins ~301 s (a crimson forest at -32, 54, 215)" chosen, the step failed "none within 48" and he idled)
+                            BlockPos cf = com.claudemod.entity.life.Atlas.find(g, level, "crimson_forest");
+                            if (cf != null && cf.distSqr(g.blockPosition()) > 24 * 24) {
+                                g.tasks.add(new Task.GoTo(cf, 6)); g.skillQueue.addFirst(st);
+                                return "no hoglin here: to the crimson forest at " + cf.toShortString() + " (" + (int) Math.sqrt(cf.distSqr(g.blockPosition())) + " blocks) for them";
+                            }
+                        }
                         if (level.dimension() != net.minecraft.world.level.Level.OVERWORLD && groundY > g.getBlockY() + 6) ClaudeMod.LOGGER.info("[Claude skill] collect {}: in {} the roof overhead is no ground to climb to: no \"up top\" walk (his stairs are in the overworld) (ClaudeLife collect)", animal, level.dimension().location().getPath()); // (09:31 11-05: sent across the Nether to his overworld stairs' numbers, stage 718)
                         else if (groundY > g.getBlockY() + 6 && !(g.stairStart != null && g.stairStart.distSqr(g.blockPosition()) <= 6 * 6) && Math.abs(g.tickCount - huntUp().getOrDefault(g.getUUID(), -100000)) > 20 * 180) { /* (at his entrance the arch overhead reads as ground: he's up top already) */ // underground: animals live up top, so up first (by his own entrance when he has one), then look again
                             huntUp().put(g.getUUID(), g.tickCount);

@@ -10735,6 +10735,7 @@ public final class ClaudeBodyTest {
             case 892: return st892(stage, t, c, h, level, mock);
             case 893: return st893(stage, t, c, h, level, mock);
             case 894: return st894(stage, t, c, h, level, mock);
+            case 895: return st895(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -19951,6 +19952,33 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static BlockPos s894;
+
+    /** Stage 895 (D2D review 060, live 06:46 11-07 World 17): the kit priced "hunt hoglins ~301 s (a crimson forest at -32, 54, 215)", the collect step failed "no hoglin within 48 blocks" and he idled with the highway's 45 tasks gone. Here: the Nether, no hoglin near, a crimson forest on his atlas 80 off: collect porkchop heads there. */
+    private static boolean st895(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(5900, 70, 5900);
+        if (t[0] == 1) scenarioReset(c);
+        if (t[0] % 10 == 0) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+        try {
+        if (t[0] == 10) {
+            nsArena(nl, o, 12, 12, 12, 10);
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) e.discard();
+            nsKit(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 4));
+            c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+            com.claudemod.entity.life.Atlas.note(c, nl, "crimson_forest", o.offset(80, 0, 0));
+        }
+        if (t[0] == 20) {
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "porkchop", 6);
+            boolean goes = c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo g0 && g0.pos().distSqr(o.offset(80, 0, 0)) <= 8 * 8);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.prefs.remove("stay_close");
+            nsHome(c, h, level);
+            check(goes && !r.startsWith("failed"), "no hoglin near, a crimson forest on his atlas 80 off: collect porkchop -> " + r);
+            pass(stage, t, r);
+        }
+        } catch (RuntimeException ex) { nsHome(c, h, level); throw ex; }
+        return true;
+    }
 
     /** Stage 889 (live 02:13-02:44 11-07 World 17: "strip_mine iron_ore x22" queued ~200 digs and ran 30 minutes; the kit check only runs as a step starts, so his meals ran to 0 down there, then a cave of 5 mobs took him to 2 health). The trip packing rule (the user: back up for food under 6 meals) mid-trip: by day, 1 meal, a strip_mine's digs queued: the food first, the dig after. */
     private static boolean st889(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

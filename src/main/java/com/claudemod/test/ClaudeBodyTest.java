@@ -10613,6 +10613,7 @@ public final class ClaudeBodyTest {
             case 779: return st779(stage, t, c, h, level, mock);
             case 787: return st787(stage, t, c, h, level, mock);
             case 788: return st788(stage, t, c, h, level, mock);
+            case 789: return st789(stage, t, c, h, level, mock);
             case 786: return st786(stage, t, c, h, level, mock);
             case 780: return st780(stage, t, c, h, level, mock);
             case 781: return st781(stage, t, c, h, level, mock);
@@ -16120,6 +16121,25 @@ public final class ClaudeBodyTest {
             check(n > 0, "the toss threw nothing from a full pack");
             check(bad.length() == 0, "thrown toward his work (east), where he walks over it: " + bad);
             pass(stage, t, n + " stack(s) thrown away from his work");
+        }
+        return true;
+    }
+    private static int st789T; private static BlockPos st789Hole; private static String st789Why;
+    private static boolean st789(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D 152/278/279/305 (live 22:47-23:42 World 17): standing in an ore hole off his tunnel's side, a fill of that same cell queued (the pickup's patch): "doPlace line 2580" read as a refusal and parked, or 2 s of stepping out that never got him out. A player steps back into the tunnel and puts the block in, once
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st789T = -1; st789Why = ""; }
+        if (t[0] == 10) {
+            for (int x = 0; x <= 8; x++) for (int z = 0; z <= 10; z++) for (int y = 1; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.DEEPSLATE.defaultBlockState(), 2);
+            for (int z = 1; z <= 9; z++) for (int y = 2; y <= 3; y++) level.setBlock(h.absolutePos(new BlockPos(3, y, z)), Blocks.AIR.defaultBlockState(), 2); // his tunnel along z
+            st789Hole = h.absolutePos(new BlockPos(4, 2, 5)).immutable(); level.setBlock(st789Hole, Blocks.AIR.defaultBlockState(), 2); level.setBlock(st789Hole.above(), Blocks.AIR.defaultBlockState(), 2); // the ore hole off its side, 2 high
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(32))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 32)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.teleportTo(st789Hole.getX() + 0.5, st789Hole.getY(), st789Hole.getZ() + 0.5); c.setHealth(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 15) { c.tasks.clear(); c.tasks.add(new Task.Place(st789Hole, Items.COBBLED_DEEPSLATE)); st789T = t[0]; }
+        if (st789T > 0) {
+            if (level.getBlockState(st789Hole).is(Blocks.COBBLED_DEEPSLATE)) { boolean out = !c.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(st789Hole)); check(out, "the block went in with him in the cell"); int refusals = c.attempts.counters.getOrDefault("conflict:" + st789Hole.asLong(), 0); check(refusals == 0, "stepping out first was booked as " + refusals + " refusal(s) of the fill (3 park it for 2 min, live 22:50:53)"); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "out of the hole and the hole filled in " + (t[0] - st789T) / 20.0 + " s"); return true; }
+            check(c.tasks.stream().anyMatch(q -> q instanceof Task.Place p && p.pos().equals(st789Hole)) || c.currentTask instanceof Task.Place cp && cp.pos().equals(st789Hole) || t[0] - st789T < 3, "the fill of the hole he stood in dropped (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ", tasks " + c.tasks + ")");
+            check(t[0] - st789T < 20 * 5, "the hole not filled in 5 s (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ", tasks " + c.tasks + ")");
         }
         return true;
     }

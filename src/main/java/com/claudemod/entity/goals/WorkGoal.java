@@ -3593,7 +3593,7 @@ public class WorkGoal extends Goal {
                 g.tasks.addFirst(t);
                 if (out.getY() == pos.getY() && out.getY() == BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()).getY() && out.distManhattan(pos) == 1) { g.tasks.addFirst(new Task.Wait(8, false)); g.getNavigation().stop(); g.getMoveControl().setWantedPosition(out.getX() + 0.5, out.getY(), out.getZ() + 0.5, 0.6); } // (a walk to the cell beside ends at once: a nudge instead; level with his feet only: from the floor of a hole, patching his head cell, the spot beside it is a step up, and a flat nudge pushed him into the wall 3 times a second, live 00:49 11-05: that's a walk, which jumps)
                 else g.tasks.addFirst(new Task.GoTo(out, 0.6));
-                return exit("doPlace line 2580");
+                return exit("first: out of the cell it goes in, then the block from beside (doPlace 2580)");
             }
             stepOutSince().remove(pos);
             if (out != null) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] standing in the hole at {}: 2 s of stepping out to {} didn't get him out, not placing it under himself (this round)", pos.toShortString(), out.toShortString());

@@ -10650,6 +10650,7 @@ public final class ClaudeBodyTest {
             case 798: return st798(stage, t, c, h, level, mock);
             case 799: return st799(stage, t, c, h, level, mock);
             case 739: return st739(stage, t, c, h, level, mock);
+            case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
             case 778: return st778(stage, t, c, h, level, mock);
@@ -17257,6 +17258,29 @@ public final class ClaudeBodyTest {
                 check(creeperFirst, "at the run's end the fight went to the zombie with a creeper after him too: the creeper reflex breaks that fight off at once (run, fight, run)");
                 pass(stage, t, "at the run's end, the creeper first");
             }
+        }
+        return true;
+    }
+    private static int st1002T; private static net.minecraft.world.entity.monster.Skeleton st1002S;
+    private static boolean st1002(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D death 109 (live 11:19:49-11:21:23 World 17, the Nether at 4,48,285): a crossbow piglin 5 up and 7 off on a ledge he had no way up to; "fight ~73 s (3 swings)" chosen over the run every hit, the attack held (no reach, no footing), FIGHT NO EFFECT, fight again: 20 -> 0 in 94 s
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1002T = -1; if (st1002S != null) st1002S.discard(); st1002S = null; level.setDayTime(18000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.DIAMOND_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.DIAMOND_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.DIAMOND_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.DIAMOND_BOOTS));
+            BlockPos me = h.absolutePos(new BlockPos(11, 2, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(19); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            BlockPos ledge = me.offset(-7, 4, 0); for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) level.setBlock(ledge.offset(dx, 0, dz), Blocks.STONE.defaultBlockState(), 2); // a lone ledge, 5 up its top, nothing up to it
+            var sk = EntityType.SKELETON.create(level); sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW)); sk.moveTo(ledge.getX() + 0.5, ledge.getY() + 1, ledge.getZ() + 0.5, -90, 0); sk.setNoAi(true); sk.setPersistenceRequired(); level.addFreshEntity(sk); sk.setTarget(c); st1002S = sk;
+        }
+        if (t[0] == 12) { c.setYRot(90f); c.setYHeadRot(90f); c.yBodyRot = 90f; c.setXRot(-30); com.claudemod.entity.life.Perception.lookNow(c); } // (facing west, up at it: seen)
+        if (t[0] == 14) { c.urgentAttacker = st1002S.getUUID(); st1002T = t[0]; } // its arrow just landed
+        if (st1002T > 0 && t[0] == st1002T + 6) {
+            boolean melee = c.currentTask instanceof Task.Attack a && a.target().equals(st1002S.getUUID());
+            String now = String.valueOf(c.currentTask);
+            st1002S.discard(); st1002S = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (var sl : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET}) c.setItemSlot(sl, ItemStack.EMPTY);
+            check(!melee, "a shooter 5 up and 7 off on a ledge he can't get up to: a melee fight taken up (" + now + ")");
+            pass(stage, t, "a shooter out of his reach: no sword fight (" + now + ")");
         }
         return true;
     }

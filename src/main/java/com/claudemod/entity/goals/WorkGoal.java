@@ -6099,7 +6099,9 @@ public class WorkGoal extends Goal {
         String what = m.getType().getDescription().getString();
         boolean pearls = m instanceof net.minecraft.world.entity.monster.EnderMan && g.lastStep != null && g.lastStep.skill().equals("ender_pearls") || m instanceof net.minecraft.world.entity.monster.EnderMan && g.skillQueue.stream().anyMatch(s0 -> s0.skill().equals("ender_pearls"));
         com.claudemod.entity.life.Decide.Option hit;
-        if (m instanceof net.minecraft.world.entity.monster.piglin.AbstractPiglin || m instanceof net.minecraft.world.entity.monster.ZombifiedPiglin || m instanceof net.minecraft.world.entity.animal.IronGolem || m instanceof net.minecraft.world.entity.npc.Villager)
+        if (m instanceof net.minecraft.world.entity.monster.ZombifiedPiglin zp && !zp.isAngryAt(g)) { double[] f = com.claudemod.director.ClaudeLife.calmNeutralFightS(g, level, m); // (calm: the whole pack within its follow range joins at the first swing; one alone is a few seconds, six are thousands. Was out, review 108)
+            hit = com.claudemod.entity.life.Decide.Option.of("hit it out", f[0], (int) f[3] + " calm one(s) join, ~" + Math.round(f[1]) + " s of swings, ~" + Math.round(f[2]) + " HP of hits"); }
+        else if (m instanceof net.minecraft.world.entity.monster.piglin.AbstractPiglin || m instanceof net.minecraft.world.entity.animal.IronGolem || m instanceof net.minecraft.world.entity.npc.Villager)
             hit = com.claudemod.entity.life.Decide.Option.out("hit it out", "a " + what + ": hit one and the rest of them turn on him");
         else { int k = hitsToKill(m); double t = k * w("fight.swing_s", 0.6); boolean back = m instanceof net.minecraft.world.entity.monster.Enemy || m instanceof net.minecraft.world.entity.NeutralMob;
             double hp = back ? t * w("fight.mob_hits_per_s", 0.8) * mobHit(m) : 0;

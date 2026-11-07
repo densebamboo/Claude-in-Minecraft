@@ -1821,8 +1821,8 @@ public final class ClaudeLife {
      * (fight.leave_neutral_s: wait for it to wander off or go round). Null when the fight goes ahead or they asked for it.
      * Live 17:10 11-06: six calm ones on his highway cell, "fight zombified_piglin x4", 20 -> 6 HP (stage 871).
      */
-    static String calmNeutralFight(ClaudeEntity g, ServerLevel level, net.minecraft.world.entity.LivingEntity first) {
-        if (g.commandActive || !(first instanceof net.minecraft.world.entity.monster.ZombifiedPiglin zp0) || zp0.isAngryAt(g)) return null; // (the pack is what makes it dear: a lone enderman is the pearl hunt's own priced call)
+    /** The fight with a calm zombified piglin and every calm one within its follow range (they all join at the first swing): {seconds, swings' time, HP of hits, pack size}. */
+    public static double[] calmNeutralFightS(ClaudeEntity g, ServerLevel level, net.minecraft.world.entity.LivingEntity first) {
         java.util.List<net.minecraft.world.entity.LivingEntity> pack = new java.util.ArrayList<>(java.util.List.of(first));
         if (first instanceof net.minecraft.world.entity.monster.ZombifiedPiglin) { double fr = first.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.FOLLOW_RANGE);
             for (var z : level.getEntitiesOfClass(net.minecraft.world.entity.monster.ZombifiedPiglin.class, net.minecraft.world.phys.AABB.unitCubeFromLowerCorner(first.position()).inflate(fr, 10, fr), e -> e.isAlive() && e != first && !e.isAngryAt(g))) pack.add(z); }
@@ -1831,13 +1831,17 @@ public final class ClaudeLife {
         double swing = com.claudemod.entity.life.Weights.w("fight.swing_s", 0.6), rate = com.claudemod.entity.life.Weights.w("fight.mob_hits_per_s", 0.8) * (hit > 1 ? com.claudemod.entity.life.Weights.w("fight.knockback_hits_factor", 0.5) : 1), cool = com.claudemod.entity.life.Weights.w("fight.mob_cooldown_s", 1.0), armorF = 1 - Math.min(20, g.getArmorValue()) / 25.0;
         double t = 0, hits = 0, hp = 0; int most = 0;
         for (var m : pack) { t += Math.ceil(m.getHealth() / hit) * swing; double dmg = Math.max(1, (m.getAttributes().hasAttribute(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE) ? m.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE) : 3) * armorF); double h = t * rate; hits += h; hp += h * dmg; most += (int) Math.ceil(t / cool); }
-        double perHit = hits > 0 ? hp / hits : 3, fightS = t + com.claudemod.entity.life.Decide.hpS(g, g.getHealth(), 0, hp, perHit, most);
+        double perHit = hits > 0 ? hp / hits : 3; return new double[] {t + com.claudemod.entity.life.Decide.hpS(g, g.getHealth(), 0, hp, perHit, most), t, hp, pack.size()};
+    }
+    static String calmNeutralFight(ClaudeEntity g, ServerLevel level, net.minecraft.world.entity.LivingEntity first) {
+        if (g.commandActive || !(first instanceof net.minecraft.world.entity.monster.ZombifiedPiglin zp0) || zp0.isAngryAt(g)) return null; // (the pack is what makes it dear: a lone enderman is the pearl hunt's own priced call)
+        double[] f = calmNeutralFightS(g, level, first); double fightS = f[0], t = f[1], hp = f[2]; int packN = (int) f[3];
         String name = first.getType().getDescription().getString();
-        var pick = com.claudemod.entity.life.Decide.choose(g, "fight.neutral", pack.size() + " calm " + name + (pack.size() > 1 ? " (all join at the first swing)" : "") + ", health " + (int) g.getHealth() + ", armor " + g.getArmorValue(), true, java.util.List.of(
+        var pick = com.claudemod.entity.life.Decide.choose(g, "fight.neutral", packN + " calm " + name + (packN > 1 ? " (all join at the first swing)" : "") + ", health " + (int) g.getHealth() + ", armor " + g.getArmorValue(), true, java.util.List.of(
                 com.claudemod.entity.life.Decide.Option.of("fight", fightS, "~" + Math.round(t) + " s of swings, ~" + Math.round(hp) + " HP of hits"),
                 com.claudemod.entity.life.Decide.Option.of("leave", com.claudemod.entity.life.Weights.w("fight.leave_neutral_s", 30), "leave them be: wait for it to wander off or go round")));
         if (pick == null || !pick.name().equals("leave")) return null;
-        return "failed: not swinging at a calm " + name + ": " + pack.size() + " of them would join (~" + Math.round(hp) + " HP of hits); leave them be, wait for it to wander off or go round";
+        return "failed: not swinging at a calm " + name + ": " + packN + " of them would join (~" + Math.round(hp) + " HP of hits); leave them be, wait for it to wander off or go round";
     }
 
     /** For the game tests: one skill run, as the planner would. */

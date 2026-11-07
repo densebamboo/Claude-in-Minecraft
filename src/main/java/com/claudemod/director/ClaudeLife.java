@@ -7265,6 +7265,12 @@ public final class ClaudeLife {
         }
         if ("craft".equals(st.skill())) { int more = 0; for (Skills.Step q : g.skillQueue) if ("craft".equals(q.skill())) more += Math.max(0, craftShare(level, q, bi)); // one trip for every queued craft's share (live 11:27 11-07, gear_up: ingots out of 16,67,-46 for the sword, again for the shield, again for the bucket; diamonds 34 and 75 off in turn)
             if (more > 0) { ClaudeMod.LOGGER.info("[Claude life] {} for {}: {} more for the crafts queued after it, one trip (ClaudeLife.fromMyChests)", Crafting.name(bi), st.target(), more); need += more; } }
+        { int left = need - onHim; // short in the nearest: a chest with the whole lot, when the walk to it beats this one and on to the next (D2D review 11:33 11-07, gear_up: diamonds out of 16,67,-46 (1), then -80 (9), then -233 (1))
+          if (bestN < left) { BlockPos alt = null; int altN = 0, altD = 0;
+            for (var sp : com.claudemod.entity.life.ChestLedger.where(g, level, x -> x.is(bi))) { if (sp.count() < left || sp.pos().equals(best)) continue; Integer failed = g.attempts.any.get(sp.pos()); if (failed != null && g.tickCount - failed < 20 * 300) continue; alt = sp.pos(); altN = sp.count(); altD = sp.dist(); break; }
+            if (alt != null) { double next = Double.MAX_VALUE; for (var sp : com.claudemod.entity.life.ChestLedger.where(g, level, x -> x.is(bi))) if (!sp.pos().equals(best)) next = Math.min(next, Math.sqrt(sp.pos().distSqr(best)));
+              ClaudeMod.LOGGER.info("[Claude decide] chest for {} {}: {} ({} there, {} by his ways, then ~{} on to the next) vs {} ({} there, {} by his ways): {} (ClaudeLife.fromMyChests)", left, Crafting.name(bi), best.toShortString(), bestN, bestWalk, (int) next, alt.toShortString(), altN, altD, altD < bestWalk + next ? "the one with it all" : "the near one first");
+              if (altD < bestWalk + next) { best = alt; bestN = altN; bestWalk = altD; } } } }
         if ("smelt".equals(st.skill()) && (bi == Items.RAW_IRON || bi == Items.RAW_GOLD) && onHim + bestN > need) { // the whole lot in that chest comes in one trip and smelts at once (live 10:09 11-07: 3 taken for the bucket, then back in for the other 17 0 s later)
             ClaudeMod.LOGGER.info("[Claude life] smelt {}: all {} {} in his chest at {} comes too, not just {} (ClaudeLife.fromMyChests)", st.target(), bestN, Crafting.name(bi), best.toShortString(), need);
             need = onHim + bestN; st = new Skills.Step(st.skill(), st.target(), need, st.where());

@@ -10515,6 +10515,7 @@ public final class ClaudeBodyTest {
             case 959: return st959(stage, t, c, h, level, mock);
             case 960: return st960(stage, t, c, h, level, mock);
             case 961: return st961(stage, t, c, h, level, mock);
+            case 962: return st962(stage, t, c, h, level, mock);
             case 955: return st955(stage, t, c, h, level, mock);
             case 954: return st954(stage, t, c, h, level, mock);
             case 953: return st953(stage, t, c, h, level, mock);
@@ -14467,6 +14468,33 @@ public final class ClaudeBodyTest {
             for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
             check(take == 6, "iron sword, then a shield and a bucket queued, 15 ingots in his chest: the trip takes " + take + " (2 + 1 + 3 = 6, one trip): \"" + r + "\"");
             pass(stage, t, "one trip for the 6 ingots the three crafts use: \"" + r + "\"");
+        }
+        return true;
+    }
+    /** Stage 962 (D2D review 11:33 11-07, gear_up after his death: diamonds out of 16,67,-46 (1 there), then -80,16,-16 (9), then -233,-58,-19 (1), the nearest first each time): 2 diamonds in his chest 4 off, 11 in one 12 off, craft diamond_pickaxe with a diamond chestplate queued after it. The trip goes to the one with all 11: 12 blocks beats 4 there and on to the other. */
+    private static BlockPos s962Me = BlockPos.ZERO;
+    private static boolean st962(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.myStations.clear(); com.claudemod.entity.life.ChestLedger.reset(c); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); }
+        if (t[0] > 8 && t[0] % 5 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 4, c.blockPosition());
+        if (t[0] == 10) { s962Me = c.blockPosition(); } BlockPos me = s962Me, a = me.offset(4, 0, 0), b = me.offset(-12, 0, 0);
+        if (t[0] == 10) {
+            for (int x = -16; x <= 8; x++) for (int z = -4; z <= 4; z++) { level.setBlock(me.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            level.setBlock(a, Blocks.CHEST.defaultBlockState(), 3); level.setBlock(b, Blocks.CHEST.defaultBlockState(), 3); level.setBlock(me.offset(0, 0, 2), Blocks.CRAFTING_TABLE.defaultBlockState(), 3);
+            if (level.getBlockEntity(a) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box) box.setItem(0, new ItemStack(Items.DIAMOND, 2));
+            if (level.getBlockEntity(b) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box) box.setItem(0, new ItemStack(Items.DIAMOND, 11));
+            c.myStations.add(a.immutable()); c.myStations.add(b.immutable()); com.claudemod.entity.life.ChestLedger.look(c, level, a); com.claudemod.entity.life.ChestLedger.look(c, level, b);
+            c.getInventory().add(new ItemStack(Items.STICK, 8)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.getFoodData().setFoodLevel(20);
+        }
+        if (t[0] == 20) {
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear();
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "diamond_chestplate", 1));
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "craft", "diamond_pickaxe", 1);
+            BlockPos to = null; int take = 0; for (var k : c.tasks) if (k instanceof com.claudemod.entity.life.Task.Chest ch && ch.take()) { to = ch.pos(); take = ch.max(); }
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.getInventory().clearContent(); c.myStations.clear(); com.claudemod.entity.life.ChestLedger.reset(c);
+            for (int x = -16; x <= 8; x++) for (int z = -4; z <= 4; z++) for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(b.equals(to) && take == 11, "11 diamonds wanted, 2 in a chest 4 off, 11 in one 12 off: the trip goes to " + (to == null ? "none" : to.equals(a) ? "the near one" : to.equals(b) ? "the full one" : to.toShortString()) + " for " + take + ": \"" + r + "\"");
+            pass(stage, t, "one trip to the chest with all 11: \"" + r + "\"");
         }
         return true;
     }

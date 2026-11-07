@@ -10509,6 +10509,7 @@ public final class ClaudeBodyTest {
             case 932: return st932(stage, t, c, h, level, mock);
             case 933: return st933(stage, t, c, h, level, mock);
             case 934: return st934(stage, t, c, h, level, mock);
+            case 936: return st936(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13713,6 +13714,37 @@ public final class ClaudeBodyTest {
         boolean corners = true; for (BlockPos q : new BlockPos[] {o.offset(-1, 3, z), o.offset(2, 3, z), o.offset(-1, -1, z), o.offset(2, -1, z)}) if (!nl.getBlockState(q).is(Blocks.COBBLED_DEEPSLATE)) corners = false;
         if (deep == n && corners) return "ring"; if (deep == n) return "shell"; if (solid == n && deep == 0) return "rock"; return "-";
     }
+    /** Stage 936 (D2D urgent 11-07, the user: "to build the rails he placed blocks over ALL the road and now he's breaking the middle, carving the rails"; live 02:58-03:34: each resume priced the staircase again off the world as built, leg 2 row 122, then leg 1 row 254, then leg 2 row 140; 60 rows laid a block over his road, then dug out): a highway planned, the ground along it changed, a restart (saved and loaded), planned again: the staircase stays where it was. */
+    private static String s936A;
+    private static boolean st936(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(11400, 80, 7520);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); s936A = null; }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(0, 0, 20)), 2, o.offset(0, 0, 20));
+        if (t[0] == 10) {
+            for (int x = -6; x <= 6; x++) for (int z = -4; z <= 30; z++) for (int y = -12; y <= 6; y++) nl.setBlock(o.offset(x, y, z), (y == -12 || y < 0 && z <= 1 || x == -1 && y < 0 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2); // (open air ahead, a rock wall down its west side: every step has a face)
+            for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, 0), x == -1 || x == 2 || y == -1 || y == 3 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+            nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 1.5, 0f, 0f);
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o, "him", "lit");
+        }
+        String target = o.getX() + " " + (o.getY() - 4) + " " + (o.getZ() + 26);
+        if (t[0] == 20) { c.skillQueue.clear(); c.tasks.clear(); com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", target, 1); var p = com.claudemod.entity.life.Highway.plan(c); s936A = p == null ? "none" : "leg " + p.stairLeg + " row " + p.stairFrom; c.tasks.clear(); c.skillQueue.clear(); }
+        if (t[0] > 20) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 30) {
+            for (int x = 0; x <= 1; x++) for (int z = 13; z <= 18; z++) for (int y = 0; y <= 2; y++) nl.setBlock(o.offset(x, y, z), Blocks.NETHERRACK.defaultBlockState(), 2); // the ground changed under the plan: rock in the upper level's way over rows 13-18
+            var tag = com.claudemod.entity.life.Highway.save(c); com.claudemod.entity.life.Highway.reset(c); if (tag != null) com.claudemod.entity.life.Highway.load(c, tag); // (a restart)
+            com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", "", 1); var p = com.claudemod.entity.life.Highway.plan(c); String b = p == null ? "none" : "leg " + p.stairLeg + " row " + p.stairFrom;
+            c.skillQueue.clear(); c.tasks.clear(); com.claudemod.entity.life.Highway.reset(c);
+            for (int x = -6; x <= 6; x++) for (int z = -4; z <= 30; z++) for (int y = -12; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+            com.claudemod.entity.life.PortalMap.net(c).portals.clear();
+            check(tag != null, "no highway underway saved after the first build_highway (" + s936A + ")");
+            check(b.equals(s936A), "the staircase of the highway underway moved on a resume after the ground changed: " + s936A + " -> " + b);
+            nsHome(c, h, level); pass(stage, t, "the staircase kept at " + b);
+        }
+        return true;
+    }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */
     private static int s934T, s934Deep;
     private static boolean st934(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
@@ -14060,7 +14092,7 @@ public final class ClaudeBodyTest {
                 for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(24))) e.discard();
                 com.claudemod.entity.life.PortalMap.net(c).portals.clear();
                 check(gap, "a 2-row open pocket between two tunnel runs: its rows not shelled (rails): " + got); check(done >= 8, "tunnel rows with a pocket: " + done + " of 8 rows as the spec has them in " + (t[0] - s923T) / 20 + " s: " + got);
-                check((t[0] - s923T) / 20 <= 40, "6 tunnel rows took " + (t[0] - s923T) / 20 + " s (a player ~30: dig, floor, walls, roof, on; no waits on the netherrack each wall swap pops)");
+                check((t[0] - s923T) / 20 <= 45, /* (the 11-07 spec's mouth rings: 4 corners each, 3 rings here, ~6 s more than the old full shell's 40) */ "6 tunnel rows took " + (t[0] - s923T) / 20 + " s (a player ~30: dig, floor, walls, roof, on; no waits on the netherrack each wall swap pops)");
                 check(!w.contains("PLACE_BREAK") && !w.contains("CONFLICT"), "tunnel rows: filed " + w + " (last " + com.claudemod.entity.life.Watchdog.lastIncident + ")");
                 nsHome(c, h, level); pass(stage, t, done + " tunnel rows in " + (t[0] - s923T) / 20 + " s, filed " + w);
             }
@@ -14101,7 +14133,7 @@ public final class ClaudeBodyTest {
         } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
         return true;
     }
-    /** Stage 922 (D2D review 408/409, live 15:44 World 17, the staircase over the lava sea): a step a row down in open air has no face to place on; scaffold put, then dug out by the row ("PLACE_BREAK" at -3,43,203 and -3,42,205). The step's support goes in under it and stays. */
+    /** (Stage 922, 11-07: a step down over open air can't be laid at all, no face under or beside it: the staircase goes where the rock is; D2D "4-row holes in the highway over a lava sea".) Stage 922 (D2D review 408/409, live 15:44 World 17, the staircase over the lava sea): a step a row down in open air has no face to place on; scaffold put, then dug out by the row ("PLACE_BREAK" at -3,43,203 and -3,42,205). The step's support goes in under it and stays. */
     private static int s922T;
     private static boolean st922(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER); var W = com.claudemod.entity.life.Watchdog.recentKinds;
@@ -14110,7 +14142,7 @@ public final class ClaudeBodyTest {
         nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(0, 0, 20)), 2, o.offset(0, 0, 20));
         try {
         if (t[0] == 10) {
-            for (int x = -6; x <= 6; x++) for (int z = -4; z <= 30; z++) for (int y = -12; y <= 6; y++) nl.setBlock(o.offset(x, y, z), (y == -12 || y < 0 && z <= 1 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2); // (open air ahead, 11 deep)
+            for (int x = -6; x <= 6; x++) for (int z = -4; z <= 30; z++) for (int y = -12; y <= 6; y++) nl.setBlock(o.offset(x, y, z), (y == -12 || y < 0 && z <= 1 || z >= 16 && z <= 20 && y <= 13 - z ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2); // (open air ahead, 11 deep; a rock slope under z 16-20, tops 77 down to 73: the one stretch where a step down has something under it)
             for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, 0), x == -1 || x == 2 || y == -1 || y == 3 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
             nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
             c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 1.5, 0f, 0f);
@@ -14121,13 +14153,14 @@ public final class ClaudeBodyTest {
         if (t[0] > 20 && t[0] % 20 == 0) {
             boolean fin = c.skillQueue.stream().noneMatch(q -> q.skill().equals("build_highway")) && c.tasks.isEmpty() && c.currentTask == null;
             if (fin || t[0] >= s922T + 20 * 150) {
-                int steps = 0, ok = 0; var b0 = com.claudemod.entity.life.BridgeBlueprint.plan(nl, o, net.minecraft.core.Direction.Axis.Z, new BlockPos(o.getX(), o.getY() - 4, o.getZ() + 26), 2, false);
-                for (var r : b0.rows) { if (r.stair()) steps++; if (nl.getBlockState(r.centre()).is(Blocks.COBBLED_DEEPSLATE)) ok++; }
+                int steps = 0, ok = 0; String at = ""; var b0 = com.claudemod.entity.life.Highway.plan(c); if (b0 == null) b0 = com.claudemod.entity.life.BridgeBlueprint.plan(nl, o, net.minecraft.core.Direction.Axis.Z, new BlockPos(o.getX(), o.getY() - 4, o.getZ() + 26), 2, false); // (the plan he built, not one read again off the finished world)
+                for (var r : b0.rows) { if (r.stair()) { steps++; at += " " + (r.centre().getZ() - o.getZ()); } if (nl.getBlockState(r.centre()).is(Blocks.COBBLED_DEEPSLATE)) ok++; }
                 String w = W.toString(); c.skillQueue.clear(); c.tasks.clear(); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.Watchdog.linesInTests = false;
                 for (int x = -6; x <= 6; x++) for (int z = -4; z <= 30; z++) for (int y = -12; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
                 for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
                 com.claudemod.entity.life.PortalMap.net(c).portals.clear();
-                check(steps == 4 && ok == b0.rows.size(), "a highway 4 down over open air: " + ok + " of " + b0.rows.size() + " rows' floor laid (" + steps + " stair rows) in " + (t[0] - s922T) / 20 + " s");
+                check(steps == 4 && ok == b0.rows.size(), "a highway 4 down over open air: " + ok + " of " + b0.rows.size() + " rows' floor laid (" + steps + " stair rows at z" + at + ") in " + (t[0] - s922T) / 20 + " s");
+                check(at.equals(" 16 17 18 19"), "the steps down where the rock slope is under them (z 16-19), not over the void: at z" + at);
                 check(!w.contains("PLACE_BREAK"), "the staircase over open air: filed " + w + " (last " + com.claudemod.entity.life.Watchdog.lastIncident + ")");
                 nsHome(c, h, level); pass(stage, t, ok + " rows, " + steps + " steps, in " + (t[0] - s922T) / 20 + " s, filed " + w);
             }

@@ -40,13 +40,13 @@ public final class Highway {
     static final Item BLOCK = Items.COBBLED_DEEPSLATE;
     private static double w(String n, double d) { return Weights.w(n, d); }
 
-    static final class State { BridgeBlueprint plan; int portalId = -1; BlockPos dest; boolean said; int built = -1, rows = -1; }
+    static final class State { BridgeBlueprint plan; int portalId = -1; BlockPos dest; boolean said; int built = -1, rows = -1; int[] stairs; } // stairs: {leg, row, steps} of the plan underway, pinned (BridgeBlueprint.plan)
     private static Map<UUID, State> states; // (static: fields added live start null)
     static State state(ClaudeEntity g) { if (states == null) states = new HashMap<>(); return states.computeIfAbsent(g.getUUID(), k -> new State()); }
     public static void reset(ClaudeEntity g) { if (states != null) states.remove(g.getUUID()); }
     /** The highway underway (portal, destination, rows laid), saved with his portal map: a restart lost it and he walked for the fortress with its deepslate as loose bridge blocks (D2D live 14:19, the user: "bug. he should be building the highway"; stage 913). */
-    public static net.minecraft.nbt.CompoundTag save(ClaudeEntity g) { State s = state(g); if (s.dest == null || s.portalId < 0) return null; var t = new net.minecraft.nbt.CompoundTag(); t.putInt("portal", s.portalId); t.putLong("dest", s.dest.asLong()); t.putInt("built", s.built); t.putInt("rows", s.rows); return t; }
-    public static void load(ClaudeEntity g, net.minecraft.nbt.CompoundTag t) { State s = state(g); s.plan = null; s.portalId = t.getInt("portal"); s.dest = BlockPos.of(t.getLong("dest")); s.built = t.getInt("built"); s.rows = t.getInt("rows"); ClaudeMod.LOGGER.info("[Claude highway] underway from his saved state: portal #{} to {}, {} of {} rows (Highway.load)", s.portalId, s.dest.toShortString(), s.built, s.rows); }
+    public static net.minecraft.nbt.CompoundTag save(ClaudeEntity g) { State s = state(g); if (s.dest == null || s.portalId < 0) return null; var t = new net.minecraft.nbt.CompoundTag(); t.putInt("portal", s.portalId); t.putLong("dest", s.dest.asLong()); t.putInt("built", s.built); t.putInt("rows", s.rows); if (s.stairs != null) t.putIntArray("stairs", s.stairs); return t; }
+    public static void load(ClaudeEntity g, net.minecraft.nbt.CompoundTag t) { State s = state(g); s.plan = null; s.portalId = t.getInt("portal"); s.dest = BlockPos.of(t.getLong("dest")); s.built = t.getInt("built"); s.rows = t.getInt("rows"); s.stairs = t.contains("stairs") ? t.getIntArray("stairs") : null; ClaudeMod.LOGGER.info("[Claude highway] underway from his saved state: portal #{} to {}, {} of {} rows (Highway.load)", s.portalId, s.dest.toShortString(), s.built, s.rows); }
     /** A highway of his is underway (its block is his building stock, never junk). */
     public static boolean underway(ClaudeEntity g) { State s = state(g); return s.dest != null && s.portalId >= 0; }
     /** For his planner: the highway he's building and that build_highway resumes it. */
@@ -129,8 +129,8 @@ public final class Highway {
         var going = s.portalId >= 0 && s.dest != null && Math.abs(s.dest.getX() - dest.getX()) + Math.abs(s.dest.getZ() - dest.getZ()) <= 2 ? PortalMap.byId(g, s.portalId) : null; // (by x z: its height may be put right at the deck)
         if (going != null && level.isLoaded(going.at)) going.state = PortalMap.stateAt(level, going.at);
         if (going != null && "lit".equals(going.state) && BridgeBlueprint.facingAxis(level, going.at) != null) { // the highway underway goes on from its own portal, not chosen again each call (live 15:05: re-chosen from #3 at row 104 to #4, a frame no longer there)
-            var b = BridgeBlueprint.plan(level, going.at, BridgeBlueprint.facingAxis(level, going.at), dest, (int) Math.max(1, w("highway.first_width", 2)), false);
-            if (b != null) { s.plan = b; s.dest = dest.immutable(); ClaudeMod.LOGGER.info("[Claude highway] resuming from portal #{}: {} (Highway.makePlan)", going.id, b); return null; }
+            var b = BridgeBlueprint.plan(level, going.at, BridgeBlueprint.facingAxis(level, going.at), dest, (int) Math.max(1, w("highway.first_width", 2)), false, s.stairs);
+            if (b != null) { s.plan = b; s.dest = dest.immutable(); s.stairs = new int[] {b.stairLeg, b.stairFrom, stepsOf(b)}; ClaudeMod.LOGGER.info("[Claude highway] resuming from portal #{}: {} (Highway.makePlan)", going.id, b); return null; }
         }
         List<Decide.Option> opts = new ArrayList<>(); Map<String, PortalMap.Portal> byName = new HashMap<>();
         double rowS = w("highway.row_s", 6), sprint = Decide.sprint();
@@ -149,13 +149,15 @@ public final class Highway {
         var axis = BridgeBlueprint.facingAxis(level, portal.at);
         if (axis == null) return "failed: portal #" + portal.id + " at " + portal.where() + " isn't standing (no portal block there)";
         int width = (int) Math.max(1, w("highway.first_width", 2));
-        var b = BridgeBlueprint.plan(level, portal.at, axis, dest, width, false);
+        var b = BridgeBlueprint.plan(level, portal.at, axis, dest, width, false, portal.id == s.portalId && s.dest != null && Math.abs(s.dest.getX() - dest.getX()) + Math.abs(s.dest.getZ() - dest.getZ()) <= 2 ? s.stairs : null);
         if (b == null) return "failed: " + dest.toShortString() + " is straight off the side of portal #" + portal.id + ": no leg out of its face";
-        s.plan = b; s.portalId = portal.id; s.dest = dest.immutable();
+        s.plan = b; s.portalId = portal.id; s.dest = dest.immutable(); s.stairs = new int[] {b.stairLeg, b.stairFrom, stepsOf(b)};
         ClaudeMod.LOGGER.info("[Claude highway] planned from portal #{}: {} (Highway.makePlan)", portal.id, b);
         return null;
     }
 
+    /** The steps a plan's staircase makes: the destination's height against the portal's floor (what the pin is good for). */
+    static int stepsOf(BridgeBlueprint b) { return Math.abs(b.dest.getY() - b.portal.getY()); }
     static boolean lava(ServerLevel level, BlockPos p) { return level.getFluidState(p).is(FluidTags.LAVA); }
     static boolean solid(ServerLevel level, BlockPos p) { var st = level.getBlockState(p); return !st.canBeReplaced() && !st.getCollisionShape(level, p).isEmpty(); }
     /** A cell of the highway underway (its cross-section: floor, walkway, rails or walls, roof) near p: the highway's to lay or dig, not another system's to fill (Loops 88: doBore filled -3,59,5 and -3,61,5, build_highway dug them out 11 s later). */

@@ -68,7 +68,15 @@ public final class BridgeBlueprint {
      */
     private static int facingFirst(Direction.Axis facing, BlockPos p, BlockPos dest) { return Integer.signum(facing == Direction.Axis.X ? dest.getX() - p.getX() : dest.getZ() - p.getZ()); }
     public static BridgeBlueprint plan(ServerLevel level, BlockPos portalCell, Direction.Axis facing, BlockPos dest, int width) { return plan(level, portalCell, facing, dest, width, true); }
-    public static BridgeBlueprint plan(ServerLevel level, BlockPos portalCell, Direction.Axis facing, BlockPos dest, int width, boolean rails) {
+    public static BridgeBlueprint plan(ServerLevel level, BlockPos portalCell, Direction.Axis facing, BlockPos dest, int width, boolean rails) { return plan(level, portalCell, facing, dest, width, rails, null); }
+    /**
+     * As above; {@code pin} {leg, row, steps}: the staircase of the highway underway, kept as it was planned. The pricing reads the
+     * world as it stands (rows laid, ground loaded), and that changes as he builds: re-priced on each resume, the staircase moved
+     * from leg 2 row 122 to leg 1 row 254 and back to leg 2 row 140, and he laid a floor over 60 rows of his road a block up, then
+     * dug it out again (live 02:58-03:34 11-07, the user: "he placed blocks over ALL the road and now he's breaking the middle").
+     * A pin for another step count (the destination's height read again) is no pin.
+     */
+    public static BridgeBlueprint plan(ServerLevel level, BlockPos portalCell, Direction.Axis facing, BlockPos dest, int width, boolean rails, int[] pin) {
         Direction.Axis other = facing == Direction.Axis.X ? Direction.Axis.Z : Direction.Axis.X;
         BlockPos portalSpot = portalCell;
         if (level != null && level.getBlockState(portalCell).is(Blocks.NETHER_PORTAL)) { // the floor lined up with the frame's outer edges: its columns span the frame, not the portal cell he named
@@ -99,13 +107,17 @@ public final class BridgeBlueprint {
         int leg = steps == 0 ? 0 : free2 >= free1 && free2 >= steps ? 2 : free1 >= steps ? 1 : free2 >= free1 ? 2 : 1;
         int legLen = leg == 1 ? Math.abs(d1) : n2;
         int s0 = leg == 0 ? -1 : Math.max(0, (legLen - steps) / 2);
-        if (leg != 0) { // where the staircase goes, priced: every row at the height it would have, lava to seal, rock to dig, air to bridge where the ground is loaded, the lava sea dear (live 15:48: the middle of leg 1 put 500 rows at the lava sea, the user: "going down to lava level is counterproductive"); the spec's margins as a price
+        boolean pinned = false;
+        if (pin != null && pin.length == 3 && pin[2] == steps) { int pl = pin[0], ps = pin[1];
+            if (steps == 0 || pl == 0 || pl == 1 && ps >= 0 && ps + steps <= Math.abs(d1) || pl == 2 && l2 != null && ps >= k2from - 1 && ps + steps <= n2) { leg = steps == 0 ? 0 : pl; s0 = leg == 0 ? -1 : ps; legLen = leg == 1 ? Math.abs(d1) : n2; pinned = true; b.why += "staircase kept where it was planned (leg " + leg + " row " + s0 + "); "; } }
+        if (leg != 0 && !pinned) { // where the staircase goes, priced: every row at the height it would have, lava to seal, rock to dig, air to bridge where the ground is loaded, the lava sea dear (live 15:48: the middle of leg 1 put 500 rows at the lava sea, the user: "going down to lava level is counterproductive"); the spec's margins as a price
             List<BlockPos> cs = new ArrayList<>(); List<Direction> ds = new ArrayList<>();
             for (int k = 1; k <= n1; k++) { cs.add(floor0.relative(l1, k)); ds.add(l1); }
             if (l2 != null) for (int k = k2from; k <= n2; k++) { BlockPos c = pivot.relative(l2, k); cs.add(new BlockPos(c.getX(), floor0.getY(), c.getZ())); ds.add(l2); }
             int n = cs.size(); double[] pa = new double[n + 1], pb = new double[n + 1];
             for (int i = 0; i < n; i++) { pa[i + 1] = pa[i] + rowCost(level, cs.get(i), ds.get(i), b.lo, b.hi); pb[i + 1] = pb[i] + rowCost(level, cs.get(i).above(dy), ds.get(i), b.lo, b.hi); }
-            double near = Weights.w("highway.stair_near_end_s", 120), bestC = Double.MAX_VALUE, midC = Double.NaN; int bestLeg = leg, bestS = s0;
+            double near = Weights.w("highway.stair_near_end_s", 120), bestC = Double.MAX_VALUE, midC = Double.NaN; int bestLeg = leg, bestS = s0, bestBare = 0;
+            double bareS = Weights.w("highway.stair_no_face_s", 10000); int sign0 = Integer.signum(dy);
             for (int lg = 1; lg <= (l2 == null ? 1 : 2); lg++) {
                 int kFirst = lg == 1 ? 0 : k2from - 1, kLast = (lg == 1 ? Math.abs(d1) : n2) - steps; // s0 range: stair rows s0+1 .. s0+steps inside the leg
                 for (int s = kFirst; s <= kLast; s++) {
@@ -114,10 +126,13 @@ public final class BridgeBlueprint {
                     int fromStart = lg == 1 ? s : s + 1 - k2from, toEnd = (lg == 1 ? Math.abs(d1) : n2) - (s + steps);
                     if (fromStart < MARGIN || toEnd < MARGIN) cost += near;
                     cost += Math.abs(s - (lg == 1 ? Math.abs(d1) : n2) / 2.0) * 1e-6; // (a tie: the leg's middle, as before)
+                    int bare = 0; if (dy < 0) for (int i = j; i < j + steps; i++) if (!stepFace(level, cs.get(i).above(sign0 * (i - j + 1)), ds.get(i), b.lo, b.hi)) bare++;
+                    cost += bare * bareS; // a step down over open air: nothing under it, beside it or ahead to set it against (the floor's underside can't be seen from above): it can't be laid (stage 922: 4 steps over the void, 4 holes)
                     if (lg == leg && s == s0) midC = cost;
-                    if (cost < bestC) { bestC = cost; bestLeg = lg; bestS = s; }
+                    if (cost < bestC) { bestC = cost; bestLeg = lg; bestS = s; bestBare = bare; }
                 }
             }
+            if (bestBare > 0) { b.why += "no stretch where a step down has something under or beside it to be set against (" + bestBare + " of " + steps + " steps over open air at best): level all the way, the " + steps + " down made up where there's ground; "; com.claudemod.ClaudeMod.LOGGER.info("[Claude highway] {} steps down to {}: none of the legs has rock or ground under {} steps in a row, so the bridge stays level; the height is made up at the end (BridgeBlueprint.plan)", steps, dest.toShortString(), steps); leg = 0; s0 = -1; bestC = Double.MAX_VALUE; }
             if (bestC < Double.MAX_VALUE) { if (bestLeg != leg || bestS != s0) b.why += "staircase priced to leg " + bestLeg + " row " + bestS + " (~" + Math.round(bestC) + " s of rows, the middle ~" + (Double.isNaN(midC) ? "-" : String.valueOf(Math.round(midC))) + " s); "; leg = bestLeg; s0 = bestS; legLen = leg == 1 ? Math.abs(d1) : n2; }
         }
         if (leg != 0 && (leg == 1 ? free1 : free2) < steps) b.why += "the staircase is closer than " + MARGIN + " rows to an end (leg " + leg + " is " + legLen + " long for " + steps + " steps); ";
@@ -138,6 +153,17 @@ public final class BridgeBlueprint {
         b.lay(level);
         b.why += width + " wide" + (rails ? "" : ", no rails yet") + ", leg 1 " + l1.getName() + " " + Math.abs(d1) + (l2 == null ? "" : ", pivot at " + pivot.toShortString() + ", leg 2 " + l2.getName() + " " + n2) + (leg == 0 ? ", level all the way" : ", " + steps + " step(s) " + (dy > 0 ? "up" : "down") + " in leg " + leg + " from row " + s0);
         return b;
+    }
+
+    /** A step's floor at {@code floor} can be laid: one of its cells has something solid under it, beside it outside the floor, or ahead or behind at its height (a face he can see from the row above); unloaded ground reads as yes (the builder reads it there). */
+    static boolean stepFace(ServerLevel level, BlockPos floor, Direction dir, int lo, int hi) {
+        if (level == null || !level.hasChunkAt(floor)) return true;
+        Direction right = dir.getClockWise();
+        for (int o = lo; o <= hi; o++) { BlockPos f = floor.relative(right, o);
+            java.util.List<BlockPos> n = new ArrayList<>(List.of(f.below(), f.relative(dir), f.relative(dir.getOpposite())));
+            if (o == lo) n.add(f.relative(right, -1)); if (o == hi) n.add(f.relative(right, 1));
+            for (BlockPos q : n) if (!level.getBlockState(q).getCollisionShape(level, q).isEmpty()) return true; }
+        return false;
     }
 
     /** Seconds a row costs at that floor: lava round it to seal, rock in its walkway to dig, air under its floor to bridge (loaded ground only), and the lava sea's own price (walking at lava level: ghasts, falls, plugs). */

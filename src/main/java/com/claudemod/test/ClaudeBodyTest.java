@@ -10606,6 +10606,7 @@ public final class ClaudeBodyTest {
             case 776: return st776(stage, t, c, h, level, mock, true);
             case 777: return st776(stage, t, c, h, level, mock, false);
             case 779: return st779(stage, t, c, h, level, mock);
+            case 786: return st786(stage, t, c, h, level, mock);
             case 780: return st780(stage, t, c, h, level, mock);
             case 781: return st781(stage, t, c, h, level, mock);
             case 782: return st782(stage, t, c, h, level, mock);
@@ -15910,6 +15911,21 @@ public final class ClaudeBodyTest {
             boolean by = Math.sqrt(c.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(st784F))) <= 2.5;
             if (by && c.tasks.isEmpty() && c.currentTask == null) { c.dropCurrent = true; pass(stage, t, "beside his furnace in " + (t[0] - st784T) / 20.0 + " s, at " + c.blockPosition().toShortString() + ", nothing dug"); }
             else check(t[0] - st784T < 20 * 10, "not beside the furnace in 10 s (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ", tasks " + c.tasks + ")");
+        }
+        return true;
+    }
+    private static boolean st786(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // review 31 (live 22:00:37-49 World 17): a stone pick broke, three made by the handful (craftToolNow), the junk toss kept two of a tool and threw the third, he walked over it and took it back, thrown again every 5 s. The handful he makes is the handful he keeps
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 24000; c.tasks.clear(); c.skillQueue.clear(); }
+        if (t[0] == 10) {
+            flatBox(h); BlockPos me = h.absolutePos(new BlockPos(6, 2, 6)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.getInventory().clearContent();
+            for (int i = 0; i < 36; i++) c.getInventory().setItem(i, i == 0 ? new ItemStack(Items.DIAMOND_PICKAXE) : i == 1 ? new ItemStack(Items.IRON_PICKAXE) : i <= 4 ? new ItemStack(Items.STONE_PICKAXE) : i < 12 ? new ItemStack(Items.COBBLESTONE, 64) : new ItemStack(Items.DIRT, 64)); c.getInventory().selected = 0;
+            com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+            var inv = c.getInventory(); int stone = inv.countItem(Items.STONE_PICKAXE);
+            check(stone == 3, "junk toss: " + (3 - stone) + " of the 3 stone picks he makes by the handful thrown out (he walks back over it and takes it in again)");
+            check(inv.getFreeSlot() >= 0, "junk toss: no room made");
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) e.discard();
+            pass(stage, t, "the junk toss made room with dirt and stone, the 3 stone picks kept");
         }
         return true;
     }

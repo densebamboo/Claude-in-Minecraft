@@ -3967,7 +3967,7 @@ public class WorkGoal extends Goal {
         }
         if (bedAim != null && against == Direction.DOWN) hit = bedAim; // (the bed from the corner: aimed at the foot's far half)
         g.useOnAt(pos.relative(against), against.getOpposite(), sneak, hit); // sneak only against a chest/table/door
-        if (!level.getBlockState(pos).canBeReplaced()) for (var drop : coveredDrops) com.claudemod.ClaudeMod.LOGGER.info("[Claude patch] {} at {} covers a drop of his ({}) at {} (WorkGoal.doPlace)", itemName(stack), pos.toShortString(), drop.getItem().getHoverName().getString(), drop.blockPosition().toShortString());
+        if (!level.getBlockState(pos).canBeReplaced() && !coveredDrops.isEmpty()) { java.util.Map<String, Integer> cov = new java.util.LinkedHashMap<>(); for (var drop : coveredDrops) cov.merge(drop.getItem().getHoverName().getString() + " at " + drop.blockPosition().toShortString(), drop.getItem().getCount(), Integer::sum); com.claudemod.ClaudeMod.LOGGER.info("[Claude patch] {} at {} covers drops of his: {} (WorkGoal.doPlace)", itemName(stack), pos.toShortString(), cov); } // (one line: three netherrack drops under one floor block read as a conflict, stage 934)
         if (!level.getBlockState(pos).canBeReplaced()) { placeRetries.remove(pos.below(20000)); /* (it took: the count starts over; 20 over a session locked his tower cell out) */ if (stepOutSince != null) stepOutSince.remove(pos); if (sentFor != null) sentFor.remove(pos); if (viewTry != null) viewTry.remove(pos); } // (placed: what was kept for getting it in is done with)
         if (level.getBlockState(pos).canBeReplaced()) {
             var who = level.getEntities((net.minecraft.world.entity.Entity) null, new net.minecraft.world.phys.AABB(pos), e -> !e.isSpectator());
@@ -6105,7 +6105,7 @@ public class WorkGoal extends Goal {
      * him is still chased.
      */
     private boolean holdHighway(net.minecraft.world.entity.LivingEntity mob, net.minecraft.world.level.pathfinder.Path path) {
-        if (!(mob instanceof net.minecraft.world.entity.Mob m) || m.getTarget() != g || g.level().dimension() != net.minecraft.world.level.Level.NETHER || !g.onGround()) return false;
+        if (!(mob instanceof net.minecraft.world.entity.Mob m) || m.getTarget() != g && !(mob instanceof net.minecraft.world.entity.monster.Enemy && g.distanceTo(mob) <= com.claudemod.entity.life.Weights.w("fight.hold_range", 16)) || g.level().dimension() != net.minecraft.world.level.Level.NETHER || !g.onGround()) return false;
         String dim = com.claudemod.entity.life.PortalMap.NETHER;
         BlockPos under = g.blockPosition().below();
         if (!com.claudemod.entity.life.PortalMap.highwayBlock(g, dim, under, g.level().getBlockState(under))) return false;
@@ -6113,7 +6113,7 @@ public class WorkGoal extends Goal {
         for (int i = path.getNextNodeIndex(); i < path.getNodeCount() && off == null; i++) { BlockPos n = path.getNode(i).asBlockPos().below(); if (!com.claudemod.entity.life.PortalMap.highwayBlock(g, dim, n, g.level().getBlockState(n))) off = n; }
         if (off == null) return false;
         g.getNavigation().stop(); g.setSprinting(false); g.getLookControl().setLookAt(mob);
-        if (!mob.getUUID().equals(holdSaid)) { holdSaid = mob.getUUID(); com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the {} {} off is after him and the way to it leaves his highway at {}: holding the highway for it to come (WorkGoal.holdHighway)", mob.getType().getDescription().getString(), (int) g.distanceTo(mob), off.above().toShortString()); } // (once a mob: a hold is his choice, not a refusal)
+        if (!mob.getUUID().equals(holdSaid)) { holdSaid = mob.getUUID(); com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the {} {} off is after him (or a hostile in range of him: it comes) and the way to it leaves his highway at {}: holding the highway for it to come (WorkGoal.holdHighway)", mob.getType().getDescription().getString(), (int) g.distanceTo(mob), off.above().toShortString()); } // (once a mob: a hold is his choice, not a refusal)
         return true;
     }
     private java.util.UUID holdSaid; private boolean fightOnHw;

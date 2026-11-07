@@ -22,9 +22,12 @@ import net.minecraft.world.item.Items;
 /**
  * The highway skill (build_highway): a Nether highway from one of his portals to a place he has scouted, to the user's spec
  * (nether-bridge-spec: one L from the portal, BridgeBlueprint), cobbled deepslate only. First pass, as the user builds them:
- * "2 wide without rails first, then build the railing and widen when needed". A tunnel row is dug 2 wide and 3 high with its
- * holes (air, lava) walled and roofed; lava beside or across a row is sealed from the safe side before the row is opened ("path
- * around lava falls, blocking them off if it's in the way of the highway").
+ * "2 wide without rails first, then build the railing and widen when needed". Through rock (the user 11-07: "anytime he enters/
+ * exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs,
+ * which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor";
+ * "the shell frame should be visible on the outside of the rock and have corners"): the floor always; a full deepslate ring with
+ * its corners at each tunnel mouth (the first and last rock row of a run); inside, the rock stays and only its holes get shell;
+ * lava is plugged with netherrack (or a block like the rock round it), sealed from the safe side before the row is opened.
  *
  * Every choice is priced (Decide.choose, numbers on Weights "highway.*"): which portal it leaves from, and where the blocks come
  * from once he runs out (his chests, a strip mine at deepslate level, both). Each call builds a few rows, then queues itself
@@ -99,7 +102,12 @@ public final class Highway {
         for (int i = next; i < (apron ? 1 : b.rows.size()) && rows < batch; i++) {
             var r = b.rows.get(i);
             if (!level.hasChunkAt(r.centre()) || fortress(level, r, lo, hi)) break;
-            List<Task> one = new ArrayList<>(); int[] c1 = new int[4]; int need = rowTasks(level, r, lo, hi, one, c1, shelled(level, b, i, lo, hi));
+            List<Task> one = new ArrayList<>(); int[] c1 = new int[4];
+            boolean rk = rockRow(level, r, lo, hi), rkBack = i > 0 && rockRow(level, b.rows.get(i - 1), lo, hi);
+            Shell sh = rk ? (i == 0 || !rkBack || i == b.rows.size() - 1 ? Shell.FRAME : Shell.PATCH) : shelled(level, b, i, lo, hi) ? Shell.PATCH : Shell.NONE; // (entering the rock: its first row framed)
+            int need = 0;
+            if (!rk && rkBack && !frameDone(level, b.rows.get(i - 1), lo, hi) && !shellDeep(level, b.rows.get(i - 1), lo, hi)) need += frameTasks(level, b.rows.get(i - 1), lo, hi, one, c1); // leaving it: the last rock row framed from it, before the step out
+            need += rowTasks(level, r, lo, hi, one, c1, sh, plug(g));
             if (used + need > have) break;
             out.addAll(one); used += need; rows++; for (int k = 0; k < 4; k++) cnt[k] += c1[k];
         }
@@ -108,7 +116,7 @@ public final class Highway {
             if (why != null && !shelled(level, b, i, lo, hi)) { ClaudeMod.LOGGER.info("[Claude highway] rails on row {} at {}: {} (Highway.railWhy)", i + 1, b.rows.get(i).centre().toShortString(), why); break; } }
         for (Task k : out) if (k instanceof Task.Place pl) TempLedger.planBuild(g, pl.pos(), "Highway.skill"); // (the highway is his build: its blocks stay, never litter; live 15:25 LITTER on its floor, stage 917)
         g.tasks.addAll(out); g.skillQueue.addFirst(new Skills.Step("build_highway", "@" + words, st.count(), st.where()));
-        String r = "highway rows " + (next + 1) + "-" + (next + rows) + " of " + b.rows.size() + ": " + cnt[0] + " lava sealed, " + cnt[1] + " dug, " + cnt[2] + " floor laid, " + cnt[3] + " shell or rail blocks laid (" + used + " of " + have + " cobbled deepslate)";
+        String r = "highway rows " + (next + 1) + "-" + (next + rows) + " of " + b.rows.size() + ": " + cnt[0] + " lava sealed, " + cnt[1] + " dug, " + cnt[2] + " floor laid, " + cnt[3] + " shell, frame or rail blocks laid (" + used + " of " + have + " cobbled deepslate)";
         ClaudeMod.LOGGER.info("[Claude highway] {} (Highway.skill)", r);
         g.noteDoing("building the highway to " + b.dest.toShortString() + ", row " + (next + 1) + " of " + b.rows.size());
         return r;
@@ -221,7 +229,21 @@ public final class Highway {
      * before it), the walkway dug (lava in it plugged then dug), the floor laid (rock in it dug out first), a tunnel row's holes
      * walled and roofed, then onto it. Returns the blocks it places; c: {sealed, dug, floor, holes}.
      */
-    public static int rowTasks(ServerLevel level, BridgeBlueprint.Row r, int lo, int hi, List<Task> out, int[] c) { return rowTasks(level, r, lo, hi, out, c, rockRow(level, r, lo, hi)); }
+    /** A row's shell work: none (an open row), its holes patched (inside a tunnel, or a short open gap between two), or the full ring with its corners (a tunnel mouth). */
+    public enum Shell { NONE, PATCH, FRAME }
+    /** A row read on its own (no neighbours): a rock row is its own mouth both ways, framed. */
+    public static int rowTasks(ServerLevel level, BridgeBlueprint.Row r, int lo, int hi, List<Task> out, int[] c) { return rowTasks(level, r, lo, hi, out, c, rockRow(level, r, lo, hi) ? Shell.FRAME : Shell.NONE, Items.NETHERRACK); }
+    /** The ring at a tunnel mouth: both walls 3 high, the roof, and the four corners (by the roof and by the floor), so it shows from the open side with no gaps. */
+    static List<BlockPos> ring(BridgeBlueprint.Row r, int lo, int hi) {
+        Direction right = r.dir().getClockWise(); List<BlockPos> ring = new ArrayList<>(shell(r, lo, hi));
+        for (int o : new int[] {lo - 1, hi + 1}) { ring.add(r.centre().relative(right, o).above(4).immutable()); ring.add(r.centre().relative(right, o).immutable()); }
+        return ring;
+    }
+    /** What lava gets plugged with: netherrack, else a block of the rock round here he carries, else deepslate (the user: "plug with netherrack or the surrounding blocks"). */
+    public static Item plug(ClaudeEntity g) {
+        for (Item it : new Item[] {Items.NETHERRACK, Items.BLACKSTONE, Items.BASALT, Items.SOUL_SOIL, Items.COBBLESTONE}) if (g.inventory.count(x -> x.is(it)) > 0) return it;
+        return BLOCK;
+    }
     /** A row's shell cells: its walls 3 high, its roof over the walkway. */
     static List<BlockPos> shell(BridgeBlueprint.Row r, int lo, int hi) {
         Direction right = r.dir().getClockWise(); List<BlockPos> shell = new ArrayList<>();
@@ -242,24 +264,43 @@ public final class Highway {
         for (int k = 1; k <= gap && back && !ahead; k++) ahead = i + k < b.rows.size() && level.hasChunkAt(b.rows.get(i + k).centre()) && rockRow(level, b.rows.get(i + k), lo, hi);
         return back && ahead;
     }
-    public static int rowTasks(ServerLevel level, BridgeBlueprint.Row r, int lo, int hi, List<Task> out, int[] c, boolean tunnel) {
-        Direction right = r.dir().getClockWise(); int placed = 0;
+    public static int rowTasks(ServerLevel level, BridgeBlueprint.Row r, int lo, int hi, List<Task> out, int[] c, boolean tunnel) { return rowTasks(level, r, lo, hi, out, c, tunnel ? Shell.PATCH : Shell.NONE, Items.NETHERRACK); }
+    /** The ring for a mouth he's leaving (the row behind him, framed from it as he steps out of the rock). Returns the deepslate it places. */
+    static int frameTasks(ServerLevel level, BridgeBlueprint.Row r, int lo, int hi, List<Task> out, int[] c) {
+        int placed = 0; Set<BlockPos> own = new HashSet<>(); Direction right = r.dir().getClockWise();
+        for (int o = lo; o <= hi; o++) for (int y = 0; y <= 3; y++) own.add(r.centre().relative(right, o).above(y).immutable());
+        // the corners sit diagonal to the walkway: dug out after the walls and roof beside them open (a face to reach them by), laid before them (live: walls first left both corners with no face, OUT_OF_REACH; stage 934)
+        List<BlockPos> lay = new ArrayList<>(); for (int o : new int[] {lo - 1, hi + 1}) lay.add(r.centre().relative(right, o).immutable());
+        for (int y = 1; y <= 3; y++) for (int o : new int[] {lo - 1, hi + 1}) lay.add(r.centre().relative(right, o).above(y).immutable());
+        for (int o : new int[] {lo - 1, hi + 1}) lay.add(r.centre().relative(right, o).above(4).immutable());
+        for (int o = lo; o <= hi; o++) lay.add(r.centre().relative(right, o).above(4).immutable());
+        List<BlockPos> todo = new ArrayList<>(), dig = new ArrayList<>();
+        for (BlockPos q : lay) {
+            if (level.getBlockState(q).is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE) || keep(level, q)) continue;
+            if (solid(level, q)) { boolean lavaBehind = false; for (Direction d : Direction.values()) if (!own.contains(q.relative(d)) && !lay.contains(q.relative(d)) && lava(level, q.relative(d))) lavaBehind = true;
+                if (lavaBehind) continue; // (it holds lava back: kept, not opened to swap)
+                dig.add(q); }
+            todo.add(q); }
+        for (int k = 2; k < 8; k++) if (dig.contains(lay.get(k))) { out.add(new Task.Break(lay.get(k))); c[1]++; } // walls
+        for (int k = 10; k < lay.size(); k++) if (dig.contains(lay.get(k))) { out.add(new Task.Break(lay.get(k))); c[1]++; } // roof
+        for (int k : new int[] {0, 1, 8, 9}) if (dig.contains(lay.get(k))) { out.add(new Task.Break(lay.get(k))); c[1]++; } // corners
+        for (BlockPos q : todo) { out.add(new Task.Place(q, BLOCK)); placed++; c[3]++; }
+        return placed;
+    }
+    public static int rowTasks(ServerLevel level, BridgeBlueprint.Row r, int lo, int hi, List<Task> out, int[] c, Shell sh, Item plug) {
+        Direction right = r.dir().getClockWise(); int placed = 0; boolean tunnel = sh != Shell.NONE;
         int[] cols = new int[hi - lo + 1]; { int k = 0; cols[k++] = 0; for (int o = 1; k < cols.length; o++) { if (o <= hi && k < cols.length) cols[k++] = o; if (-o >= lo && k < cols.length) cols[k++] = -o; } } // (from his line outward)
         Set<BlockPos> own = new HashSet<>(); List<BlockPos> floor = new ArrayList<>(), walk = new ArrayList<>();
         for (int o : cols) { BlockPos f = r.centre().relative(right, o).immutable(); floor.add(f); own.add(f); }
         for (int y = 1; y <= 3; y++) for (int o : cols) { BlockPos q = r.centre().relative(right, o).above(y).immutable(); walk.add(q); own.add(q); }
         Set<BlockPos> seal = new java.util.LinkedHashSet<>();
         for (BlockPos q : own) for (Direction d : Direction.values()) { BlockPos n = q.relative(d); if (!own.contains(n) && d != r.dir().getOpposite() && lava(level, n)) seal.add(n.immutable()); } // (not behind: that's the row he stands on, built)
-        for (BlockPos q : seal) { out.add(new Task.Place(q, BLOCK)); placed++; c[0]++; }
-        for (BlockPos q : walk) { if (lava(level, q)) { out.add(new Task.Place(q, BLOCK)); out.add(new Task.Break(q)); placed++; c[1]++; } else if (solid(level, q)) { out.add(new Task.Break(q)); c[1]++; } }
+        for (BlockPos q : seal) { out.add(new Task.Place(q, plug)); if (plug == BLOCK) placed++; c[0]++; } // (lava plugs: netherrack, never the highway's deepslate)
+        for (BlockPos q : walk) { if (lava(level, q)) { out.add(new Task.Place(q, plug)); out.add(new Task.Break(q)); if (plug == BLOCK) placed++; c[1]++; } else if (solid(level, q)) { out.add(new Task.Break(q)); c[1]++; } }
         for (BlockPos f : floor) { var st = level.getBlockState(f); if (st.is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE)) continue; if (solid(level, f)) { out.add(new Task.Break(f)); c[1]++; } out.add(new Task.Place(f, BLOCK)); placed++; c[2]++; }
-        List<BlockPos> shell = shell(r, lo, hi);
-        if (tunnel) for (BlockPos q : shell) { // the whole shell cobbled deepslate, the netherrack in it replaced (the user: "replace all the blocks and not build it into the netherrack")
-            var st = level.getBlockState(q);
-            if (seal.contains(q) || st.is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE) || keep(level, q)) continue;
-            if (solid(level, q)) { boolean lavaBehind = false; for (Direction d : Direction.values()) if (!own.contains(q.relative(d)) && lava(level, q.relative(d))) lavaBehind = true;
-                if (lavaBehind) continue; // (it holds lava back: kept, not opened to swap)
-                out.add(new Task.Break(q)); c[1]++; }
+        if (sh == Shell.FRAME) { List<Task> fr = new ArrayList<>(); placed += frameTasks(level, r, lo, hi, fr, c); for (Task k : fr) if (!(k instanceof Task.Place p0 && seal.contains(p0.pos()))) out.add(k); }
+        else if (sh == Shell.PATCH) for (BlockPos q : shell(r, lo, hi)) { // inside the tunnel the rock stays: only a hole in it gets shell (the user 11-07: "anything that doesnt need patching he can just do the floor")
+            if (seal.contains(q) || solid(level, q) || lava(level, q)) continue;
             out.add(new Task.Place(q, BLOCK)); placed++; c[3]++;
         }
         out.add(new Task.GoTo(r.centre().above(), 0.6));
@@ -267,6 +308,11 @@ public final class Highway {
             if (!solid(level, q) && railWhy(level, r, o) != null) { out.add(new Task.Place(q, BLOCK)); placed++; c[3]++; } }
         return placed;
     }
+
+    /** A row's walls and roof all deepslate: a shell he laid (a patched gap), no rock mouth to frame. */
+    static boolean shellDeep(ServerLevel level, BridgeBlueprint.Row r, int lo, int hi) { for (BlockPos q : shell(r, lo, hi)) if (!level.getBlockState(q).is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE)) return false; return true; }
+    /** A mouth's ring all deepslate (or kept: a portal frame, bedrock). */
+    static boolean frameDone(ServerLevel level, BridgeBlueprint.Row r, int lo, int hi) { for (BlockPos q : ring(r, lo, hi)) if (!level.getBlockState(q).is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE) && !keep(level, q)) return false; return true; }
 
     /** Each leg's built stretch on his portal map, as a highway segment (extended as it grows). */
     public static void record(ClaudeEntity g, BridgeBlueprint b, int built) {

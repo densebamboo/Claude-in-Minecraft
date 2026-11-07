@@ -10508,6 +10508,7 @@ public final class ClaudeBodyTest {
             case 930: return st930(stage, t, c, h, level, mock);
             case 932: return st932(stage, t, c, h, level, mock);
             case 933: return st933(stage, t, c, h, level, mock);
+            case 934: return st934(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13701,6 +13702,58 @@ public final class ClaudeBodyTest {
             nsHome(c, h, level); pass(stage, t, "part way through the rock: " + p.legs().size() + " legs to " + end.toShortString() + " (" + p.digs() + " dug, " + p.nodes() + " nodes, " + p.ms() + " ms)"); }
         return true;
     }
+    /** A highway row through rock as built (floor at o.y - 1, 2 wide at x 0..1, rows along z): "ring" its mouth frame (walls 3 high, roof, the 4 corners, all deepslate), "shell" walls and roof deepslate, "rock" the rock left in its walls and roof (none of it deepslate), "-" none of these; the floor deepslate and the walkway open in all of them. */
+    static String hwRow(ServerLevel nl, BlockPos o, int z) {
+        for (int x = 0; x <= 1; x++) { if (!nl.getBlockState(o.offset(x, -1, z)).is(Blocks.COBBLED_DEEPSLATE)) return "-"; for (int y = 0; y <= 2; y++) if (!nl.getBlockState(o.offset(x, y, z)).isAir()) return "-"; }
+        int deep = 0, solid = 0, n = 0; java.util.List<BlockPos> sh = new java.util.ArrayList<>();
+        for (int y = 0; y <= 2; y++) { sh.add(o.offset(-1, y, z)); sh.add(o.offset(2, y, z)); } sh.add(o.offset(0, 3, z)); sh.add(o.offset(1, 3, z));
+        for (BlockPos q : sh) { n++; var st = nl.getBlockState(q); if (st.is(Blocks.COBBLED_DEEPSLATE)) deep++; if (!st.getCollisionShape(nl, q).isEmpty()) solid++; }
+        boolean corners = true; for (BlockPos q : new BlockPos[] {o.offset(-1, 3, z), o.offset(2, 3, z), o.offset(-1, -1, z), o.offset(2, -1, z)}) if (!nl.getBlockState(q).is(Blocks.COBBLED_DEEPSLATE)) corners = false;
+        if (deep == n && corners) return "ring"; if (deep == n) return "shell"; if (solid == n && deep == 0) return "rock"; return "-";
+    }
+    /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */
+    private static int s934T, s934Deep;
+    private static boolean st934(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER); var W = com.claudemod.entity.life.Watchdog.recentKinds;
+        BlockPos o = new BlockPos(11800, 64, 7320);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); W.clear(); com.claudemod.entity.life.Watchdog.linesInTests = true; }
+        nsTick(nl, c, o, t);
+        try {
+        if (t[0] == 10) {
+            for (int x = -6; x <= 7; x++) for (int z = -4; z <= 22; z++) for (int y = -3; y <= 7; y++) nl.setBlock(o.offset(x, y, z), (y < 0 || z >= 3 && z <= 12 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2); // (rock z 3-12: a tunnel, open air either side)
+            for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, 0), x == -1 || x == 2 || y == -1 || y == 3 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+            for (int x = -3; x <= -1; x++) nl.setBlock(o.offset(x, 1, 7), Blocks.AIR.defaultBlockState(), 2); // a hole in the west wall, a pocket behind it
+            nl.setBlock(o.offset(2, 1, 9), Blocks.LAVA.defaultBlockState(), 2); // lava in the east wall
+            nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 16)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 1.5, 0f, 0f);
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o, "him", "lit");
+        }
+        if (t[0] == 20) { c.skillQueue.clear(); c.tasks.clear(); s934Deep = c.getInventory().countItem(Items.COBBLED_DEEPSLATE); String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", o.getX() + " " + o.getY() + " " + (o.getZ() + 60), 1); ClaudeMod.LOGGER.info("[Claude test] 934 build_highway: {}", r); s934T = t[0]; }
+        if (t[0] > 20) { c.nextPlanTick = c.tickCount + 20 * 600; if (c.skillQueue.stream().noneMatch(q -> q.skill().equals("build_highway"))) c.skillQueue.removeIf(q -> !q.skill().equals("build_highway")); }
+        if (t[0] > 20 && t[0] % 20 == 0) {
+            StringBuilder rows = new StringBuilder(); for (int z = 3; z <= 12; z++) rows.append(z).append(':').append(hwRow(nl, o, z)).append(' ');
+            boolean past = nl.getBlockState(o.offset(0, -1, 14)).is(Blocks.COBBLED_DEEPSLATE);
+            if (past || t[0] >= s934T + 20 * 90) {
+                String w = W.toString(); double s = (t[0] - s934T) / 20.0; int used = s934Deep - c.getInventory().countItem(Items.COBBLED_DEEPSLATE);
+                var hole = nl.getBlockState(o.offset(-1, 1, 7)); var lv = nl.getBlockState(o.offset(2, 1, 9)); String rs = rows.toString();
+                c.skillQueue.clear(); c.tasks.clear(); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.Watchdog.linesInTests = false;
+                for (int x = -6; x <= 7; x++) for (int z = -4; z <= 22; z++) for (int y = -3; y <= 7; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(30))) e.discard();
+                com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear();
+                check(past, "a 10-row tunnel: not through it in " + s + " s (" + rs + ")");
+                check(rs.startsWith("3:ring ") && rs.contains("12:ring"), "a frame with its corners at both mouths (z 3 in, z 12 out): " + rs);
+                check(rs.contains("4:rock") && rs.contains("5:rock") && rs.contains("10:rock") && rs.contains("11:rock"), "inside, the rock left as it is (only the floor and holes): " + rs);
+                check(hole.is(Blocks.COBBLED_DEEPSLATE), "the hole in its west wall at z 7: " + hole + ", not patched with deepslate");
+                check(lv.is(Blocks.NETHERRACK), "the lava in its east wall at z 9 plugged with " + lv + ", not netherrack");
+                check(used <= 60, "deepslate for 12 rows with 2 frames and a patch: " + used + " (a full shell: ~110)");
+                check(s <= 45, "10 tunnel rows, 2 frames: " + s + " s (a player ~35)");
+                check(!w.contains("PLACE_BREAK") && !w.contains("CONFLICT"), "the tunnel: filed " + w + " (last " + com.claudemod.entity.life.Watchdog.lastIncident + ")");
+                nsHome(c, h, level); pass(stage, t, rs + "; " + used + " deepslate, " + s + " s");
+            }
+        }
+        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
+        return true;
+    }
     /** Stage 933 (D2D 11-07, cause #1 of the basalt-delta trip: his highway's open stretch over the delta had no rails; the user's spec "2 wide without rails first, then build the railing ... when needed"): a laid highway, no rails, over 3-deep nether wastes then a deep basalt-delta pit; build_highway on. The delta rows get their rails (both sides) before it goes on; the shallow wastes rows stay railless (a 3-block fall in quiet ground isn't worth a rail). */
     private static int s933T;
     private static boolean st933(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
@@ -13996,13 +14049,15 @@ public final class ClaudeBodyTest {
         if (t[0] == 20) { c.skillQueue.clear(); c.tasks.clear(); String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", o.getX() + " " + o.getY() + " " + (o.getZ() + 60), 1); ClaudeMod.LOGGER.info("[Claude test] 923 build_highway: {}", r); s923T = t[0]; }
         if (t[0] > 20) { c.nextPlanTick = c.tickCount + 20 * 600; if (c.skillQueue.stream().noneMatch(q -> q.skill().equals("build_highway"))) c.skillQueue.removeIf(q -> !q.skill().equals("build_highway")); }
         if (t[0] > 20 && t[0] % 20 == 0) {
-            int done = 0; boolean gap = true; for (int z = 3; z <= 10; z++) { boolean ok = true; for (int x = -1; x <= 2; x++) for (int y = 0; y <= 4; y++) { boolean wall = x == -1 || x == 2, shell = wall ? y >= 1 && y <= 3 : y == 0 || y == 4; if (wall && (y == 0 || y == 4)) continue; var st = nl.getBlockState(o.offset(x, y - 1, z)); if (shell ? !st.is(Blocks.COBBLED_DEEPSLATE) : !st.isAir()) ok = false; /* (the corners by the floor and roof are no part of it) */ } if (ok) done++; else if (z == 6 || z == 7) gap = false; }
-            if (done >= 7 || t[0] >= s923T + 20 * 90) {
+            // the user 11-07 (stage 934): a ring at each mouth, the rock left inside; the pocket between the runs is a hole in the tunnel, patched: one shell end to end
+            String[][] want = {{"ring"}, {"rock"}, {"ring"}, {"shell"}, {"shell"}, {"ring", "rock"}, {"rock"}, {"rock"}}; int done = 0; boolean gap = true; StringBuilder got = new StringBuilder();
+            for (int z = 3; z <= 10; z++) { String st = hwRow(nl, o, z); got.append(z).append(':').append(st).append(' '); if (java.util.Arrays.asList(want[z - 3]).contains(st)) done++; else if (z == 6 || z == 7) gap = false; }
+            if (done >= 8 || t[0] >= s923T + 20 * 90) {
                 String w = W.toString(); c.skillQueue.clear(); c.tasks.clear(); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.Watchdog.linesInTests = false;
                 for (int x = -6; x <= 6; x++) for (int z = -4; z <= 16; z++) for (int y = -3; y <= 7; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
                 for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(24))) e.discard();
                 com.claudemod.entity.life.PortalMap.net(c).portals.clear();
-                check(gap, "a 2-row open pocket between two tunnel runs: its rows not shelled (rails), " + done + " of 8 rows shelled"); check(done >= 7, "tunnel rows with a pocket: " + done + " of 8 rows with their whole shell deepslate in " + (t[0] - s923T) / 20 + " s");
+                check(gap, "a 2-row open pocket between two tunnel runs: its rows not shelled (rails): " + got); check(done >= 8, "tunnel rows with a pocket: " + done + " of 8 rows as the spec has them in " + (t[0] - s923T) / 20 + " s: " + got);
                 check((t[0] - s923T) / 20 <= 40, "6 tunnel rows took " + (t[0] - s923T) / 20 + " s (a player ~30: dig, floor, walls, roof, on; no waits on the netherrack each wall swap pops)");
                 check(!w.contains("PLACE_BREAK") && !w.contains("CONFLICT"), "tunnel rows: filed " + w + " (last " + com.claudemod.entity.life.Watchdog.lastIncident + ")");
                 nsHome(c, h, level); pass(stage, t, done + " tunnel rows in " + (t[0] - s923T) / 20 + " s, filed " + w);
@@ -14029,13 +14084,13 @@ public final class ClaudeBodyTest {
         if (t[0] == 20) { c.skillQueue.clear(); c.tasks.clear(); String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", o.getX() + " " + o.getY() + " " + (o.getZ() + 60), 1); ClaudeMod.LOGGER.info("[Claude test] 921 build_highway: {}", r); s921T = t[0]; }
         if (t[0] > 20) { c.nextPlanTick = c.tickCount + 20 * 600; if (c.skillQueue.stream().noneMatch(q -> q.skill().equals("build_highway"))) c.skillQueue.removeIf(q -> !q.skill().equals("build_highway")); }
         if (t[0] > 20 && t[0] % 20 == 0) {
-            int done = 0; for (int z = 3; z <= 9; z++) { boolean ok = true; for (int x = -1; x <= 2; x++) for (int y = 0; y <= 4; y++) { boolean wall = x == -1 || x == 2, shell = wall ? y >= 1 && y <= 3 : y == 0 || y == 4; if (wall && (y == 0 || y == 4)) continue; var st = nl.getBlockState(o.offset(x, y - 1, z)); if (shell ? !st.is(Blocks.COBBLED_DEEPSLATE) : !st.isAir()) ok = false; /* (the corners by the floor and roof are no part of it) */ } if (ok) done++; }
+            int done = 0; StringBuilder got = new StringBuilder(); for (int z = 3; z <= 9; z++) { String st = hwRow(nl, o, z); got.append(z).append(':').append(st).append(' '); if (st.equals(z == 3 ? "ring" : "rock")) done++; } // (the user 11-07, stage 934: the mouth framed, the rock left inside)
             if (done >= 6 || t[0] >= s921T + 20 * 90) {
                 String w = W.toString(); c.skillQueue.clear(); c.tasks.clear(); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.Watchdog.linesInTests = false;
                 for (int x = -6; x <= 6; x++) for (int z = -4; z <= 16; z++) for (int y = -3; y <= 7; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
                 for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(24))) e.discard();
                 com.claudemod.entity.life.PortalMap.net(c).portals.clear();
-                check(done >= 6, "tunnel rows through netherrack: " + done + " of 7 rows with their whole shell deepslate in " + (t[0] - s921T) / 20 + " s");
+                check(done >= 6, "tunnel rows through netherrack: " + done + " of 7 rows as the spec has them (z 3 framed, the rock left inside) in " + (t[0] - s921T) / 20 + " s: " + got);
                 check((t[0] - s921T) / 20 <= 40, "6 tunnel rows took " + (t[0] - s921T) / 20 + " s (a player ~30: dig, floor, walls, roof, on; no waits on the netherrack each wall swap pops)");
                 check(!w.contains("PLACE_BREAK") && !w.contains("CONFLICT"), "tunnel rows: filed " + w + " (last " + com.claudemod.entity.life.Watchdog.lastIncident + ")");
                 nsHome(c, h, level); pass(stage, t, done + " tunnel rows in " + (t[0] - s921T) / 20 + " s, filed " + w);
@@ -14273,8 +14328,8 @@ public final class ClaudeBodyTest {
                 java.util.List<Task> out = new java.util.ArrayList<>(); com.claudemod.entity.life.Highway.rowTasks(nl, r, -1, 0, out, new int[4]);
                 java.util.Set<BlockPos> up = new java.util.HashSet<>(); for (var k : out) if (k instanceof com.claudemod.entity.life.Task.Place pl && pl.pos().getY() > r.centre().getY()) up.add(pl.pos());
                 // the shell: walls at x+2 and x-1, 3 high, the roof over x and x+1 (south-facing row, its columns at x and x+1)
-                java.util.Set<BlockPos> shell = new java.util.HashSet<>(); for (int y = 1; y <= 3; y++) { shell.add(r.centre().offset(2, y, 0)); shell.add(r.centre().offset(-1, y, 0)); } shell.add(r.centre().offset(0, 4, 0)); shell.add(r.centre().offset(1, 4, 0));
-                if (i == 1) { check(up.equals(shell), name[i] + ": the whole shell placed as cobbled deepslate (netherrack replaced), got " + up.size() + " of 8: " + up); why += name[i] + " 8/8 shell; "; }
+                java.util.Set<BlockPos> shell = new java.util.HashSet<>(); for (int y = 1; y <= 3; y++) { shell.add(r.centre().offset(2, y, 0)); shell.add(r.centre().offset(-1, y, 0)); } shell.add(r.centre().offset(0, 4, 0)); shell.add(r.centre().offset(1, 4, 0)); shell.add(r.centre().offset(-1, 4, 0)); shell.add(r.centre().offset(2, 4, 0)); // (a lone rock row is its own mouth both ways: the ring with its corners, the user 11-07, stage 934)
+                if (i == 1) { check(up.equals(shell), name[i] + ": the whole ring placed as cobbled deepslate (netherrack replaced), got " + up.size() + " of 10: " + up); why += name[i] + " 8/8 shell; "; }
                 else { up.removeIf(q -> q.getY() == r.centre().getY() + 1 && (q.getX() == r.centre().getX() - 1 || q.getX() == r.centre().getX() + 2)); /* (a rail at floor + 1 is the spec's, where a fall off is worth one: railWhy, stage 933) */ check(up.isEmpty(), name[i] + ": no walls or roof (an open row), got " + up.size() + " placed above the floor: " + up); why += name[i] + " open; "; }
             }
             for (int x = -4; x <= 4; x++) for (int z = -2; z <= 9; z++) for (int y = -3; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);

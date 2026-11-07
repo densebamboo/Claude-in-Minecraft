@@ -8730,10 +8730,11 @@ public final class ClaudeLife {
      */
     private static boolean ownTableBeats(ClaudeEntity g, ServerLevel level, BlockPos at, String what) {
         int r = routeDist(g, g.blockPosition(), at);
-        double his = r >= Integer.MAX_VALUE / 2 ? Double.MAX_VALUE : 2.0 * r / com.claudemod.entity.life.Decide.sprint(), own = g.inventory.count(s -> s.is(Items.CRAFTING_TABLE)) > 0 ? com.claudemod.entity.life.Weights.w("station.table_set_s", 3) : com.claudemod.entity.life.Weights.w("station.table_make_s", 5);
+        boolean inMine = inHisMine(g, g.blockPosition()) || inHisMine(g, g.blockPosition().above()); // his mine is no house: a table set into its wall and taken back up as he moves on (the user 11-07 reviews 22/28/96/116/148/177: 54-171 blocks to an old table with one in his pack; stage 887)
+        double his = r >= Integer.MAX_VALUE / 2 ? Double.MAX_VALUE : 2.0 * r / com.claudemod.entity.life.Decide.sprint(), own = (g.inventory.count(s -> s.is(Items.CRAFTING_TABLE)) > 0 ? com.claudemod.entity.life.Weights.w("station.table_set_s", 3) : com.claudemod.entity.life.Weights.w("station.table_make_s", 5)) + (inMine ? com.claudemod.entity.life.Weights.w("station.mine_notch_s", 4) : 0);
         var pick = com.claudemod.entity.life.Decide.choose(g, "station.table", what + ", the table at " + at.toShortString() + " " + r + " off", true, List.of(
-                baseArea(g, g.blockPosition()) ? com.claudemod.entity.life.Decide.Option.out("his own here", "one set down at his base stays: the base's own table is the one (the user: no tables littered round his house)")
-                    : com.claudemod.entity.life.Decide.Option.of("his own here", own, g.inventory.count(s -> s.is(Items.CRAFTING_TABLE)) > 0 ? "set down from his pack, taken back up" : "made from the wood on him, taken back up"),
+                baseArea(g, g.blockPosition()) && !inMine ? com.claudemod.entity.life.Decide.Option.out("his own here", "one set down at his base stays: the base's own table is the one (the user: no tables littered round his house)")
+                    : com.claudemod.entity.life.Decide.Option.of("his own here", own, (g.inventory.count(s -> s.is(Items.CRAFTING_TABLE)) > 0 ? "set down from his pack, taken back up" : "made from the wood on him, taken back up") + (inMine ? " (a notch in his mine's wall, refilled after)" : "")),
                 com.claudemod.entity.life.Decide.Option.of("walk to that one", his, r + " blocks there and back")));
         return pick != null && pick.name().equals("his own here");
     }
@@ -8818,7 +8819,15 @@ public final class ClaudeLife {
         // out in the world a station is only for now and goes back in his pack. One of each per area: a second table put down
         // near his first (a tool broke mid-job) is only for now too.
         boolean hisPlace = baseArea(g, p) || (g.notches.contains(p) && touchesMine(g, p)) || inHisMine(g, p) || inHisMine(g, p.above()); // (a notch is his only in his mine's wall or at his base: the notch is noted just before this, so every hillside furnace read as his for good and stood as litter at -52, 69, -109)
-        if ((anotherNearby || !hisPlace) && !"no".equals(g.pref("pick_up_stations", "yes"))) g.tempStations.add(p.immutable());
+        boolean mineCell = inHisMine(g, p) || touchesMine(g, p) || g.notches.contains(p);
+        boolean otherMineTable = kind == Blocks.CRAFTING_TABLE && mineCell && !inHisNook(g, p) && otherMineTable(g, p); // (his mine has its table: one set down anywhere else in it is only for now; tables stood at -120, -145, -176, -222 and -285 by 01:18 11-07)
+        if ((anotherNearby || !hisPlace || otherMineTable) && !"no".equals(g.pref("pick_up_stations", "yes"))) g.tempStations.add(p.immutable());
+    }
+
+    /** Another table of his standing in his mine (its notch, his nook) besides the one at {@code p}. */
+    static boolean otherMineTable(ClaudeEntity g, BlockPos p) {
+        ServerLevel lv = (ServerLevel) g.level();
+        return g.myStations.stream().anyMatch(q -> !q.equals(p) && lv.isLoaded(q) && lv.getBlockState(q).is(Blocks.CRAFTING_TABLE) && (inHisMine(g, q) || touchesMine(g, q) || g.notches.contains(q) || inHisNook(g, q)));
     }
 
     /** Moving on (his next walk takes him away): pick up the temporary workstations he's leaving behind. */
@@ -8827,7 +8836,7 @@ public final class ClaudeLife {
             var s = level.getBlockState(p);
             // (a station he couldn't get to stays on his list: never forgotten, another go when he's by it again; the user: a table or furnace left out in the world is a bug, and "giving up on it" is how two tables stayed out for good)
             if (new Task.Break(p).equals(g.currentTask) || g.tasks.contains(new Task.Break(p))) return false; // he's on his way to take it
-            return !(s.is(Blocks.CRAFTING_TABLE) || s.is(Blocks.FURNACE) || s.is(Blocks.CHEST)) || baseArea(g, p); // gone, or now part of a base
+            return !(s.is(Blocks.CRAFTING_TABLE) || s.is(Blocks.FURNACE) || s.is(Blocks.CHEST)) || (baseArea(g, p) && !g.notches.contains(p) && !inHisMine(g, p)); // gone, or now part of a base (his mine reads as one: a station there only for now stays on the list, picked up as he moves on)
         });
         // Dirt pillars he towered up on: once the work's done, take them down and pick the dirt back up.
         if (!g.pillarBlocks.isEmpty() && !g.busy && !g.planning && g.tasks.isEmpty() && g.skillQueue.isEmpty() && g.currentTask == null && g.getHealth() >= 10 && com.claudemod.director.ClaudeLife.dayHere(level)) { // (by day only: at night the pillar or the lid beside him IS his cover; taking it down right after a relaunch opened his hole, and a spider got him)
@@ -9195,6 +9204,14 @@ public final class ClaudeLife {
         if (!(item instanceof net.minecraft.world.item.BlockItem bi)) return null;
         boolean utility = item == Items.CRAFTING_TABLE || item == Items.FURNACE || item == Items.CHEST;
         Direction ahead = corridorDir(g, g.blockPosition());
+        if (item == Items.CRAFTING_TABLE && (inHisMine(g, g.blockPosition()) || touchesMine(g, g.blockPosition())) && !inHisNook(g, g.blockPosition()) && otherMineTable(g, null)) { // his mine has its table: this one's only for now, on his tunnel floor beside him like a player's, crafted at and taken back up (a notch cut and refilled for it is double work: live 01:23 11-07 the notch's own block read as a pocket to clear and the table never went in; stage 887)
+            for (Direction d : new Direction[] {ahead.getClockWise(), ahead.getCounterClockWise(), ahead.getOpposite()}) {
+                BlockPos p = g.blockPosition().relative(d);
+                if (!level.getBlockState(p).isAir() || !level.getFluidState(p).isEmpty() || !level.getBlockState(p.below()).isSolid() || g.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(p))) continue;
+                if (g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.isWayIn(p)) continue;
+                if (g.placeAt(p, item)) { noteStation(g, p); g.tempStations.add(p.immutable()); ClaudeMod.LOGGER.info("[Claude life] his table down on his tunnel floor at {} for now: his mine's own stands elsewhere, this one comes back up (ClaudeLife.placeNextTo)", p.toShortString()); return p; }
+            }
+        }
         java.util.List<BlockPos> ats = utility && g.blueprint != null && !g.blueprint.isEmpty() ? stationCells(g, item) : java.util.List.of(g.blockPosition());
         if (utility && !level.canSeeSky(g.blockPosition())) for (BlockPos at : ats) { Direction aheadAt = corridorDir(g, at); // underground only: on the surface it just goes on the ground
             // Like a player in a mine: carve a notch into the side wall and set it in there, flush.

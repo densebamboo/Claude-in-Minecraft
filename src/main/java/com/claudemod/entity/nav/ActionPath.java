@@ -365,6 +365,10 @@ public final class ActionPath {
 
     /** What each move costs here, with what he has and what he is allowed. */
     private static final class Costs {
+        // the world as this plan reads it, each cell once (it doesn't change while he plans): block lookups were most of a plan's time (JFR on stage 637: chunk and palette reads under passable/door/water/solid), the 500 ms cap hit at 512-1024 nodes live (reviews 536, 689)
+        private final it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<BlockState> stateMemo = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>(4096);
+        BlockState bs(BlockPos p) { long k = p.asLong(); BlockState s = stateMemo.get(k); if (s == null) { s = level.getBlockState(p); stateMemo.put(k, s); } return s; }
+        net.minecraft.world.level.material.FluidState fs(BlockPos p) { return bs(p).getFluidState(); }
         final int maxPuts; // the blocks he has to put down
         final ClaudeEntity g; final ServerLevel level; final boolean canPlace; final Mode mode; final Map<BlockPos, Integer> failedAt; final int now;
         final net.minecraft.server.level.ServerPlayer owner;
@@ -379,8 +383,8 @@ public final class ActionPath {
         private java.util.Set<BlockPos> myWater; // the water he's in (joined cells from his feet and head, 256 at most): empty when he's dry
         boolean inMyWater(BlockPos q) {
             if (myWater == null) { myWater = new java.util.HashSet<>(); java.util.ArrayDeque<BlockPos> open = new java.util.ArrayDeque<>();
-                if (g.isInWater()) for (BlockPos s0 : new BlockPos[] {g.blockPosition(), g.blockPosition().above()}) if (level.getFluidState(s0).is(net.minecraft.tags.FluidTags.WATER) && myWater.add(s0.immutable())) open.add(s0.immutable());
-                while (!open.isEmpty() && myWater.size() < 256) { BlockPos c0 = open.poll(); for (Direction d : Direction.values()) { BlockPos n0 = c0.relative(d); if (level.getFluidState(n0).is(net.minecraft.tags.FluidTags.WATER) && myWater.add(n0.immutable())) open.add(n0.immutable()); } } }
+                if (g.isInWater()) for (BlockPos s0 : new BlockPos[] {g.blockPosition(), g.blockPosition().above()}) if (fs(s0).is(net.minecraft.tags.FluidTags.WATER) && myWater.add(s0.immutable())) open.add(s0.immutable());
+                while (!open.isEmpty() && myWater.size() < 256) { BlockPos c0 = open.poll(); for (Direction d : Direction.values()) { BlockPos n0 = c0.relative(d); if (fs(n0).is(net.minecraft.tags.FluidTags.WATER) && myWater.add(n0.immutable())) open.add(n0.immutable()); } } }
             return myWater.contains(q);
         }
         void refuse(String what, String why) { if (refused.size() < 40) refused.putIfAbsent(what, why); }
@@ -416,26 +420,26 @@ public final class ActionPath {
             reserved.addAll(com.claudemod.director.ClaudeLife.replantDue());
         }
 
-        boolean door(BlockPos p) { BlockState s = level.getBlockState(p); return (s.getBlock() instanceof DoorBlock && (!s.is(net.minecraft.world.level.block.Blocks.IRON_DOOR) || s.getValue(DoorBlock.OPEN))) || s.getBlock() instanceof FenceGateBlock; } // (an iron door only while it's open: its button pressed; stage 559, the walk through it was planned as a wall)
-        boolean doorOpen(BlockPos p) { BlockState s = level.getBlockState(p); return s.getBlock() instanceof DoorBlock ? s.getValue(DoorBlock.OPEN) : s.getBlock() instanceof FenceGateBlock && s.getValue(FenceGateBlock.OPEN); }
-        boolean climbable(BlockPos p) { return level.getBlockState(p).is(BlockTags.CLIMBABLE); }
+        boolean door(BlockPos p) { BlockState s = bs(p); return (s.getBlock() instanceof DoorBlock && (!s.is(net.minecraft.world.level.block.Blocks.IRON_DOOR) || s.getValue(DoorBlock.OPEN))) || s.getBlock() instanceof FenceGateBlock; } // (an iron door only while it's open: its button pressed; stage 559, the walk through it was planned as a wall)
+        boolean doorOpen(BlockPos p) { BlockState s = bs(p); return s.getBlock() instanceof DoorBlock ? s.getValue(DoorBlock.OPEN) : s.getBlock() instanceof FenceGateBlock && s.getValue(FenceGateBlock.OPEN); }
+        boolean climbable(BlockPos p) { return bs(p).is(BlockTags.CLIMBABLE); }
         final java.util.Set<BlockPos> closed = CLOSED;
         boolean passable(BlockPos p) { // he can be in it: air, water, anything with no collision (grass, torches), a ladder or vine, an open door
             if (closed.contains(p)) return false;
-            BlockState s = level.getBlockState(p);
-            if (level.getFluidState(p).is(net.minecraft.tags.FluidTags.LAVA)) return false;
+            BlockState s = bs(p);
+            if (fs(p).is(net.minecraft.tags.FluidTags.LAVA)) return false;
             return s.getCollisionShape(level, p).isEmpty() || low(p) || climbable(p) || (door(p) && doorOpen(p));
         }
         /** A floor in its own cell (a lily pad, carpet, a thin snow layer): on one his feet are in that cell, y+0.09, not a cell over it (live 06:24 11-05, a pond of pads planned a cell too high: lips never reached, "2 up", a pillar in the water put and taken back for 2.5 min; stage 714). */
-        boolean low(BlockPos p) { if (closed.contains(p)) return false; var sh = level.getBlockState(p).getCollisionShape(level, p); return !sh.isEmpty() && sh.max(Direction.Axis.Y) <= 0.1875; }
+        boolean low(BlockPos p) { if (closed.contains(p)) return false; var sh = bs(p).getCollisionShape(level, p); return !sh.isEmpty() && sh.max(Direction.Axis.Y) <= 0.1875; }
         /** Something to stand on with his feet in that cell: the block under it, or a low floor in it. */
         boolean floor(BlockPos feet) { return solid(feet.below()) || low(feet); }
-        boolean tall(BlockPos p) { return !closed.contains(p) && level.getBlockState(p).getCollisionShape(level, p).max(Direction.Axis.Y) > 1.0; }
-        boolean water(BlockPos p) { return level.getFluidState(p).is(net.minecraft.tags.FluidTags.WATER); }
-        boolean solid(BlockPos p) { return closed.contains(p) || !level.getBlockState(p).getCollisionShape(level, p).isEmpty() && !low(p); }
+        boolean tall(BlockPos p) { return !closed.contains(p) && bs(p).getCollisionShape(level, p).max(Direction.Axis.Y) > 1.0; }
+        boolean water(BlockPos p) { return fs(p).is(net.minecraft.tags.FluidTags.WATER); }
+        boolean solid(BlockPos p) { return closed.contains(p) || !bs(p).getCollisionShape(level, p).isEmpty() && !low(p); }
         final java.util.Map<BlockPos, Boolean> lavaBodyMemo = new java.util.HashMap<>(); // (a pool's cells, once per plan)
         boolean lavaBy(BlockPos p) {
-            for (Direction d : Direction.values()) { BlockPos n0 = p.relative(d); if (level.getFluidState(n0).is(net.minecraft.tags.FluidTags.LAVA) && lavaBodyMemo.computeIfAbsent(n0.immutable(), k -> com.claudemod.entity.life.Perception.knowsLavaBody(g, level, k))) return true; } // (lava he knows of, the pool he saw included, as doBreak asks) // (lava he knows of: what's in the rock is met as it comes)
+            for (Direction d : Direction.values()) { BlockPos n0 = p.relative(d); if (fs(n0).is(net.minecraft.tags.FluidTags.LAVA) && lavaBodyMemo.computeIfAbsent(n0.immutable(), k -> com.claudemod.entity.life.Perception.knowsLavaBody(g, level, k))) return true; } // (lava he knows of, the pool he saw included, as doBreak asks) // (lava he knows of: what's in the rock is met as it comes)
             return false;
         }
         int coverLeft; // cells of his cover the search wouldn't dig
@@ -445,7 +449,7 @@ public final class ActionPath {
         /** A plain block of clutter in a cell his nook keeps open (ClaudeLife.nookStray): digging it is the nook's own plan, so a way may go through it. */
         boolean stray(BlockPos p) {
             if (!com.claudemod.director.ClaudeLife.nookStray(g, level, p)) return false;
-            if (straySaid.add(p.immutable())) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} at {} sits in a cell his nook keeps open (its pocket): clutter, not his build: a way through it, dug (ActionPath.hisBuild)", level.getBlockState(p).getBlock().getName().getString(), p.toShortString());
+            if (straySaid.add(p.immutable())) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} at {} sits in a cell his nook keeps open (its pocket): clutter, not his build: a way through it, dug (ActionPath.hisBuild)", bs(p).getBlock().getName().getString(), p.toShortString());
             return true;
         }
         boolean hisBuild(BlockPos p) {
@@ -457,8 +461,8 @@ public final class ActionPath {
             if (com.claudemod.director.ClaudeLife.inHisNook(g, p)) return true;
             for (var nk : com.claudemod.director.ClaudeLife.allNooks(g)) { BlockPos bh = nk.bedHead(), bf = nk.bedFoot(); if (bh != null && Math.max(Math.abs(p.getX() - bh.getX()), Math.max(Math.abs(p.getY() - bh.getY()), Math.abs(p.getZ() - bh.getZ()))) <= 3 || bf != null && Math.max(Math.abs(p.getX() - bf.getX()), Math.max(Math.abs(p.getY() - bf.getY()), Math.abs(p.getZ() - bf.getZ()))) <= 3) return true; } // (his bedroom's walls, 3 round his nook bed: -25,-57,-228 is past the nook's own cells) // his base nook (bedroom, chests, furnaces): the walk to the lava west of it dug through his bedroom wall, his bedroom walled it again, twice in a minute (live 13:09)
             if (com.claudemod.entity.life.PitGuard.isCap(g, p)) return true; // (the mouth of the hole by his door he closed, and the fill under it: a walk dug through it, 2026-10-30)
-            if (g.farm != null && g.farm.touches(p) && !level.getBlockState(p).is(BlockTags.DIRT) && !level.getBlockState(p).is(net.minecraft.world.level.block.Blocks.GRASS_BLOCK)) return true;
-            return level.getBlockState(p).is(BlockTags.BEDS);
+            if (g.farm != null && g.farm.touches(p) && !bs(p).is(BlockTags.DIRT) && !bs(p).is(net.minecraft.world.level.block.Blocks.GRASS_BLOCK)) return true;
+            return bs(p).is(BlockTags.BEDS);
         }
         boolean besideHisBuild(BlockPos p) {
             for (Direction d : Direction.values()) { BlockPos q = p.relative(d); if ((bp && g.blueprint.isShell(q)) || (house && g.house.isStructure(q))) return true; }
@@ -469,8 +473,8 @@ public final class ActionPath {
         double digSeconds(BlockPos p) { Double m = digMemo.get(p); if (m == null) { m = digSeconds0(p); digMemo.put(p.immutable(), m); } return m; }
         double digSeconds0(BlockPos p) {
             if (closed.contains(p)) return -1;
-            BlockState s = level.getBlockState(p);
-            if (level.getFluidState(p).is(net.minecraft.tags.FluidTags.LAVA)) return -1; // lava has no collision: it read as a free 0 s "dig" for the cell he steps into, his head's cell and the cells he drops through (the Nether shore deaths)
+            BlockState s = bs(p);
+            if (fs(p).is(net.minecraft.tags.FluidTags.LAVA)) return -1; // lava has no collision: it read as a free 0 s "dig" for the cell he steps into, his head's cell and the cells he drops through (the Nether shore deaths)
             if (s.getCollisionShape(level, p).isEmpty()) return 0;
             if (g.coverCell(p)) { coverLeft++; return -1; } // the cover he's making or in: never a way through it (live 04:42 a route back into his box dug out its west wall)
             if (mode == Mode.NO_DIG) return -1;
@@ -478,13 +482,13 @@ public final class ActionPath {
             if (s.getDestroySpeed(level, p) < 0 || s.hasBlockEntity()) return -1;
             if (s.is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE) && !com.claudemod.director.ClaudeLife.isTempStation(g, p) && !com.claudemod.director.ClaudeLife.stationPickup(p)) return -1; // a table is a station with no block entity: the dig guard refuses it, so a route never plans one (the planner dug it, the guard said no, the route came back)
             String bend = null; // (MAY_BEND: the soft rule this dig bends)
-            if (s.is(net.minecraft.tags.BlockTags.LOGS) && !(p.getX() == g.getBlockX() && p.getZ() == g.getBlockZ() && p.getY() < g.getBlockY() && level.getBlockState(g.blockPosition().below()).is(net.minecraft.tags.BlockTags.LOGS))) { if (mode != Mode.MAY_BEND) return -1; bend = "the tree rule (a log cut out of a standing tree)"; } // a tree is felled whole or left standing: never a log cut out of it for a way through (the trunk he's standing on is the exception: digging down it is taking that tree down, from the top)
+            if (s.is(net.minecraft.tags.BlockTags.LOGS) && !(p.getX() == g.getBlockX() && p.getZ() == g.getBlockZ() && p.getY() < g.getBlockY() && bs(g.blockPosition().below()).is(net.minecraft.tags.BlockTags.LOGS))) { if (mode != Mode.MAY_BEND) return -1; bend = "the tree rule (a log cut out of a standing tree)"; } // a tree is felled whole or left standing: never a log cut out of it for a way through (the trunk he's standing on is the exception: digging down it is taking that tree down, from the top)
             if (owner != null && com.claudemod.director.ClaudeLife.protectedBlock(g, owner, p)) return -1;
             if (com.claudemod.director.ClaudeLife.nookShell(g, p) && mode == Mode.MAY_BEND) bend = "his nook's shell";
             else if (hisBuild(p)) { if (mode != Mode.MAY_BEND) return -1; String by = com.claudemod.entity.life.TempLedger.builtCells(g).get(p); bend = bp && g.blueprint.isShell(p) ? "his mine's shell" : house && g.house.isStructure(p) ? "his house" : by != null ? "his build (" + by + ")" : "his build"; }
             if (com.claudemod.director.ClaudeLife.hazard(g, level, p, 1) != null || lavaBy(p)) return -1;
             { String ik = com.claudemod.director.Structures.intactKind(s); if (ik != null && !com.claudemod.entity.life.TempLedger.built(g, p)) { if (intactSaid.isEmpty()) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} at {} is {}'s: kept intact, the way goes round or through its doorways (ActionPath.digSeconds)", s.getBlock().getName().getString(), p.toShortString(), ik); intactSaid.add(p.immutable()); } } // (the structure-intact rule: his own placed bricks aside; a structure block is very dear below, never a wall: shut in with no way round, one is dug and put back, ActionPath.tasks)
-            for (Direction d : Direction.values()) { BlockPos n0 = p.relative(d); if ((level.getFluidState(n0).isSource() || mode == Mode.MAY_BEND && !level.getFluidState(n0).isEmpty()) && (com.claudemod.entity.life.Perception.knowsWater(g, n0) || com.claudemod.entity.life.Perception.knowsLava(g, n0)) && !inMyWater(n0)) return -1; } // (bending never opens water he knows of, flowing or still) // (holding water back; in the water, only the water he's in may be dug out of: live 00:09 11-05 the rule was off whenever he was wet, and his walk dug his own plugs and his nook's wall into the flooded pocket)
+            for (Direction d : Direction.values()) { BlockPos n0 = p.relative(d); if ((fs(n0).isSource() || mode == Mode.MAY_BEND && !fs(n0).isEmpty()) && (com.claudemod.entity.life.Perception.knowsWater(g, n0) || com.claudemod.entity.life.Perception.knowsLava(g, n0)) && !inMyWater(n0)) return -1; } // (bending never opens water he knows of, flowing or still) // (holding water back; in the water, only the water he's in may be dug out of: live 00:09 11-05 the rule was off whenever he was wet, and his walk dug his own plugs and his nook's wall into the flooded pocket)
             if (s.getBlock() instanceof net.minecraft.world.level.block.FallingBlock && !floor(p)) return -1; // gravel over nothing: it comes down on him
             boolean right = !s.requiresCorrectToolForDrops();
             float speed = 1f; // bare hands
@@ -510,11 +514,11 @@ public final class ActionPath {
         boolean hurts(BlockPos feet) { return hurts(feet, false); }
         /** blockGoesUnder: a block is put into the cell under (lava there is replaced by it: no hurt from it). */
         boolean hurts(BlockPos feet, boolean blockGoesUnder) {
-            BlockState in = level.getBlockState(feet), on = level.getBlockState(feet.below());
+            BlockState in = bs(feet), on = bs(feet.below());
             return in.is(net.minecraft.world.level.block.Blocks.CACTUS) || in.is(net.minecraft.world.level.block.Blocks.SWEET_BERRY_BUSH) || in.is(BlockTags.FIRE)
                     || in.is(net.minecraft.world.level.block.Blocks.WITHER_ROSE) || in.is(net.minecraft.world.level.block.Blocks.POWDER_SNOW) || in.is(net.minecraft.world.level.block.Blocks.POINTED_DRIPSTONE)
                     || on.is(net.minecraft.world.level.block.Blocks.MAGMA_BLOCK) || on.is(BlockTags.CAMPFIRES) || on.is(net.minecraft.world.level.block.Blocks.CACTUS)
-                    || level.getFluidState(feet).is(net.minecraft.tags.FluidTags.LAVA) || !blockGoesUnder && level.getFluidState(feet.below()).is(net.minecraft.tags.FluidTags.LAVA);
+                    || fs(feet).is(net.minecraft.tags.FluidTags.LAVA) || !blockGoesUnder && fs(feet.below()).is(net.minecraft.tags.FluidTags.LAVA);
         }
 
         /** Every move from here: 4 ways flat / one up / down to 3, a door opened on the way, up or down a ladder, straight up a block (placed under him), each with the digs and placements it takes. */
@@ -542,7 +546,7 @@ public final class ActionPath {
                         if (sec < 0) { ok = false; break; }
                         cost += com.claudemod.entity.life.Weights.w("path.dig_base", 6) + sec * com.claudemod.entity.life.Weights.w("path.dig_per_s", 5.6); acts.add(new Act.Dig(q.immutable())); // (in walk-steps: his dig time at a sprint's 5.6 b/s plus the swing, the pickup and the hole; the user 11-06: digging and putting down weighed well under walking the terrain)
                     }
-                    boolean lavaFloor = dy == 0 && canPlace && level.getFluidState(t.below()).is(net.minecraft.tags.FluidTags.LAVA) && !floor(t) && !reserved.contains(t.below()); // a gap over lava: a block put into the lava is the way across (a player bridging a lava lake), never a jump
+                    boolean lavaFloor = dy == 0 && canPlace && fs(t.below()).is(net.minecraft.tags.FluidTags.LAVA) && !floor(t) && !reserved.contains(t.below()); // a gap over lava: a block put into the lava is the way across (a player bridging a lava lake), never a jump
                     if (!ok || hurts(t, lavaFloor)) continue; // (magma underfoot, a cactus, fire: a player goes round)
                     // something under his feet there: a solid block, water to swim in, a ladder; else a block put down (a bridge, a step), if he can
                     BlockPos under = t.below();
@@ -552,17 +556,17 @@ public final class ActionPath {
                         if (!lavaFloor && (floor(under) || water(under.below()))) continue; // the user: a block put down for movement is for real terrain (a gap, a drop), never a raised line over flat ground or a causeway over water he can swim
                         boolean against = dy == 0 || solid(under.relative(d.getOpposite())) || floor(under); // flat: against the block he stands on (his own last bridge block counts, the plan knows it is there); a drop: something in the world
                         if (!against) continue;
-                        if (reserved.contains(under) || !level.getBlockState(under).canBeReplaced()) continue; // (another job's cell; ponytail: a block goes only where vanilla lets one in: never into twisting vines, live 16:24 refused 3 times in 9 s)
+                        if (reserved.contains(under) || !bs(under).canBeReplaced()) continue; // (another job's cell; ponytail: a block goes only where vanilla lets one in: never into twisting vines, live 16:24 refused 3 times in 9 s)
                         { Integer pf = g.attempts.of(com.claudemod.entity.life.Attempts.Kind.PLACE).get(under); if (pf != null && now - pf < 20 * 300) continue; } // ponytail: the body's own place memory (WorkGoal.doPlace refuses for 5 min), so the plan and the body agree; live 14:22, the body refused this put (no face he can reach) and the plan made the same put 3 times in 9 s: a put that failed lately is off the plan, the way round instead
-                        boolean overLava = false; for (int k = 1; k <= 64 && !overLava; k++) { BlockPos q = under.below(k); if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) overLava = true; else if (solid(q)) break; }
-                        boolean onBridge = false; for (int k = 1; k <= 64; k++) { BlockPos q = feet.below(k); if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) { onBridge = true; break; } if (solid(q)) break; }
+                        boolean overLava = false; for (int k = 1; k <= 64 && !overLava; k++) { BlockPos q = under.below(k); if (fs(q).is(net.minecraft.tags.FluidTags.LAVA)) overLava = true; else if (solid(q)) break; }
+                        boolean onBridge = false; for (int k = 1; k <= 64; k++) { BlockPos q = feet.below(k); if (fs(q).is(net.minecraft.tags.FluidTags.LAVA)) { onBridge = true; break; } if (solid(q)) break; }
                         cost += com.claudemod.entity.life.Weights.w("path.put_bridge", 12) + ((lavaFloor || overLava) && !onBridge ? 16 : 0); /* (a block put down out here is also one to go back for and take up: ~2 s, 12 walk-steps; the user 11-06: tree to tree on bridges in a warped forest) */ /* (a lava bridge, into it or over it however far down, paid once, stepping off real ground: a way over land wins. Per cell, 8 a block ran both searches out of budget on a 12-wide crossing; a price stopping at a depth made the bridge one higher, on a pillar, the cheap way; stages 386 and 541) */ acts.add(new Act.Put(under.immutable()));
                     }
                     if (dy < 0 && water(t)) cost += 1; // a drop into water: fine, a bit slower
                     if (mine(t)) cost *= 0.7; // his own tunnels: the way he knows
                     if (stray(feet.below())) cost += 3; // (stepping off his own pillar in his nook's pocket: dearer than digging it down under him, so the way in takes the whole tower down, never leaves its foot in front of his chest)
                     cost += failPenalty(t);
-                    { double lb = 0; for (Direction hd : Direction.Plane.HORIZONTAL) for (int up = -1; up <= 1; up++) { BlockPos n0 = t.relative(hd).above(up); var lf = level.getFluidState(n0); if (!lf.is(net.minecraft.tags.FluidTags.LAVA) || !com.claudemod.entity.life.Perception.knowsLava(g, n0)) continue; lb = Math.max(lb, up < 0 ? com.claudemod.entity.life.Weights.w("path.lava_beside_floor", 4) : lf.isSource() ? com.claudemod.entity.life.Weights.w("path.lava_beside_source", 10) : com.claudemod.entity.life.Weights.w("path.lava_beside_flow", 14)); } cost += lb; } // a step with lava beside his feet or head (a fall's flow spreads into the cell, a knock-back or a strafe puts him in it) or at the floor beside him (one step sideways off the shore): priced, so a way a block off wins, the only way still walked (the user 11-05 20:45: "steer away from standing near lava in the nether... path around lava falls"; World 17 20:41, burned beside one at -108, 50, 9)
+                    { double lb = 0; for (Direction hd : Direction.Plane.HORIZONTAL) for (int up = -1; up <= 1; up++) { BlockPos n0 = t.relative(hd).above(up); var lf = fs(n0); if (!lf.is(net.minecraft.tags.FluidTags.LAVA) || !com.claudemod.entity.life.Perception.knowsLava(g, n0)) continue; lb = Math.max(lb, up < 0 ? com.claudemod.entity.life.Weights.w("path.lava_beside_floor", 4) : lf.isSource() ? com.claudemod.entity.life.Weights.w("path.lava_beside_source", 10) : com.claudemod.entity.life.Weights.w("path.lava_beside_flow", 14)); } cost += lb; } // a step with lava beside his feet or head (a fall's flow spreads into the cell, a knock-back or a strafe puts him in it) or at the floor beside him (one step sideways off the shore): priced, so a way a block off wins, the only way still walked (the user 11-05 20:45: "steer away from standing near lava in the nether... path around lava falls"; World 17 20:41, burned beside one at -108, 50, 9)
                     { double av = avoidCost(t); if (av < 0) continue; cost += av; } // (a crowd of hostiles: round them, like a player)
                     acts.add(new Act.Walk(t.immutable()));
                     out.add(new Move(t.immutable(), cost, acts));
@@ -588,8 +592,8 @@ public final class ActionPath {
                 if (f.down() <= 3 && f.ok()) continue; // (up to three down: the ordinary step down above)
                 String what = "drop off " + feet.toShortString() + " " + d.getName();
                 String why = f.why();
-                if (why == null && level.getBlockState(f.land()).is(net.minecraft.world.level.block.Blocks.POWDER_SNOW)) why = "powder snow where he'd land (no damage, but it freezes him and holds him)";
-                if (why == null && !water(f.land()) && hurts(f.land())) why = "the landing hurts (" + level.getBlockState(f.land()).getBlock().getName().getString() + " on " + level.getBlockState(f.land().below()).getBlock().getName().getString() + ")";
+                if (why == null && bs(f.land()).is(net.minecraft.world.level.block.Blocks.POWDER_SNOW)) why = "powder snow where he'd land (no damage, but it freezes him and holds him)";
+                if (why == null && !water(f.land()) && hurts(f.land())) why = "the landing hurts (" + bs(f.land()).getBlock().getName().getString() + " on " + bs(f.land().below()).getBlock().getName().getString() + ")";
                 if (why == null && !seesLanding(feet, d, f.land())) why = "he can't see the landing from the lip";
                 float left = hp - hurtNow - f.hp();
                 if (why == null && left < margin) why = (hurtNow > 0 ? Leaps.fmt(hp - hurtNow) + " HP by then" : "he's at " + Leaps.fmt(hp)) + ": " + (int) Math.max(0, left) + " after, under the " + (int) margin + " he keeps";
@@ -612,7 +616,7 @@ public final class ActionPath {
                         if (floor(gc)) break; // ground right there: a walk, not a gap (water under it is a gap a jump saves swimming)
                         Leaps.Fall mf = fallAt(gc); // a miss: down this cell
                         if (!mf.ok()) missWhy = mf.why();
-                        else if (level.getBlockState(mf.land()).is(net.minecraft.world.level.block.Blocks.POWDER_SNOW)) missWhy = "powder snow";
+                        else if (bs(mf.land()).is(net.minecraft.world.level.block.Blocks.POWDER_SNOW)) missWhy = "powder snow";
                         else { missHp = Math.max(missHp, mf.hp()); missDepth = Math.max(missDepth, mf.down()); }
                         BlockPos col = feet.relative(d, i + 1);
                         for (int dy = 1; dy >= -3; dy--) {
@@ -630,7 +634,7 @@ public final class ActionPath {
                             if (hp - hurtNow - missHp < margin) { refuse(what, "a miss is " + missDepth + " down, " + Leaps.fmt(missHp) + " HP (he's at " + Leaps.fmt(hp - hurtNow) + ", keeps " + (int) margin + "): a bridge instead"); continue; }
                             if (!seesLanding(feet, d, land)) { refuse(what, "he can't see the landing"); continue; }
                             if (missedHere(land)) { refuse(what, "he missed that landing in the last 2 min: the way round"); continue; } /* live 00:13: the same sprint-jump over 2 up 1 missed 5 times in 10 s; a +6 penalty was still cheaper than the hill */
-                            float jhp = water(land) || climbable(land) ? 0 : Leaps.damage(g, level, 1.2522f - dy, level.getBlockState(land.below())); // (the arc's top counts: coming down 2 is 1 HP, 3 is 2)
+                            float jhp = water(land) || climbable(land) ? 0 : Leaps.damage(g, level, 1.2522f - dy, bs(land.below())); // (the arc's top counts: coming down 2 is 1 HP, 3 is 2)
                             if (hp - hurtNow - jhp < margin) { refuse(what, Leaps.fmt(jhp) + " HP coming down, under the " + (int) margin + " he keeps"); continue; }
                             double cost = (i + 1) * 0.8 + 0.6 + (kind == Leaps.SPRINT_JUMP ? 0.4 : 0) + hpCost(jhp) + Leaps.missRisk(i, dy) * (hpCost(missHp) * 4 + missDepth * 2 + 4) + failPenalty(land);
                             double av = avoidCost(land); if (av < 0) continue; cost += av;
@@ -656,7 +660,7 @@ public final class ActionPath {
                         if (floor(gc)) break; // ground on the diagonal: the diagonal walk, not a gap
                         Leaps.Fall mf = fallAt(gc);
                         if (!mf.ok()) missWhy = mf.why();
-                        else if (level.getBlockState(mf.land()).is(net.minecraft.world.level.block.Blocks.POWDER_SNOW)) missWhy = "powder snow";
+                        else if (bs(mf.land()).is(net.minecraft.world.level.block.Blocks.POWDER_SNOW)) missWhy = "powder snow";
                         else { missHp = Math.max(missHp, mf.hp()); missDepth = Math.max(missDepth, mf.down()); }
                         int eq = i == 1 ? 2 : 4;
                         BlockPos col = feet.offset(dd[0] * (i + 1), 0, dd[1] * (i + 1));
@@ -675,7 +679,7 @@ public final class ActionPath {
                             if (hp - hurtNow - missHp < margin) { refuse(what, "a miss is " + missDepth + " down, " + Leaps.fmt(missHp) + " HP"); continue; }
                             if (!Leaps.seesOver(level, feet, feet.offset(dd[0], 0, dd[1]), land)) { refuse(what, "he can't see the landing"); continue; }
                             if (missedHere(land)) { refuse(what, "he missed that landing in the last 2 min"); continue; }
-                            float jhp = water(land) || climbable(land) ? 0 : Leaps.damage(g, level, 1.2522f - dy, level.getBlockState(land.below()));
+                            float jhp = water(land) || climbable(land) ? 0 : Leaps.damage(g, level, 1.2522f - dy, bs(land.below()));
                             if (hp - hurtNow - jhp < margin) { refuse(what, Leaps.fmt(jhp) + " HP coming down"); continue; }
                             double cost = (i + 1) * 1.13 + 0.6 + (kind == Leaps.SPRINT_JUMP ? 0.4 : 0) + hpCost(jhp) + Leaps.missRisk(eq, dy) * (hpCost(missHp) * 4 + missDepth * 2 + 4) + failPenalty(land);
                             double av = avoidCost(land); if (av < 0) continue; cost += av;
@@ -705,7 +709,7 @@ public final class ActionPath {
                 }
             }
             // Solid footing and air above shallow water let his swim-jump clear the cell for a block.
-            if (canPlace && (!swimming || floor(feet) && level.getFluidState(feet.above()).isEmpty())) {
+            if (canPlace && (!swimming || floor(feet) && fs(feet.above()).isEmpty())) {
                 BlockPos up = feet.above();
                 List<Act> acts = new ArrayList<>();
                 double cost = com.claudemod.entity.life.Weights.w("path.put_tower", 14); // (a tower step: the jump, the put, and the take-down after)
@@ -713,7 +717,7 @@ public final class ActionPath {
                 boolean ok = true;
                 if (!passable(head)) { double sec = digSeconds(head); if (sec < 0) ok = false; else { cost += com.claudemod.entity.life.Weights.w("path.dig_base", 6) + sec * com.claudemod.entity.life.Weights.w("path.dig_per_s", 5.6); acts.add(new Act.Dig(head.immutable())); } }
                 if (ok && !passable(up)) ok = false;
-                if (reserved.contains(feet) || !level.getBlockState(feet).canBeReplaced()) ok = false; // (another job's cell: the stump a sapling is for; a vine he hangs in takes no block)
+                if (reserved.contains(feet) || !bs(feet).canBeReplaced()) ok = false; // (another job's cell: the stump a sapling is for; a vine he hangs in takes no block)
                 if (ok) { acts.add(new Act.Put(feet.immutable())); acts.add(new Act.Walk(up.immutable())); out.add(new Move(up.immutable(), cost + failPenalty(up), acts)); }
             }
             return out;

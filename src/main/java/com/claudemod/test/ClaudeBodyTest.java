@@ -10650,6 +10650,7 @@ public final class ClaudeBodyTest {
             case 798: return st798(stage, t, c, h, level, mock);
             case 799: return st799(stage, t, c, h, level, mock);
             case 739: return st739(stage, t, c, h, level, mock);
+            case 1003: return st1003(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -17281,6 +17282,32 @@ public final class ClaudeBodyTest {
             for (var sl : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET}) c.setItemSlot(sl, ItemStack.EMPTY);
             check(!melee, "a shooter 5 up and 7 off on a ledge he can't get up to: a melee fight taken up (" + now + ")");
             pass(stage, t, "a shooter out of his reach: no sword fight (" + now + ")");
+        }
+        return true;
+    }
+    private static int st1003T; private static BlockPos st1003E; private static net.minecraft.world.entity.monster.Skeleton st1003S;
+    private static boolean st1003(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D death 109 (live 11:19:49-11:21:23 World 17, the Nether at 4,48,285): "a lip behind him ... to firm footing at 2,49,285 first, then the fight", that footing across a gap with netherrack at head height: "doAttack held by fightFooting" for 94 s, never there, never a hit, the piglin's arrows 20 -> 0
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1003T = -1; if (st1003S != null) st1003S.discard(); st1003S = null; level.setDayTime(18000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            st1003E = h.absolutePos(new BlockPos(12, 8, 8)).immutable();
+            level.setBlock(st1003E.below(), Blocks.NETHERRACK.defaultBlockState(), 2); // his perch: one block, a drop all round
+            level.setBlock(st1003E.west().above(), Blocks.NETHERRACK.defaultBlockState(), 2); // the block at head height over the gap (live 3,49,285)
+            level.setBlock(st1003E.west(2), Blocks.NETHERRACK.defaultBlockState(), 2); // the firm footing's floor, 1 up across the gap (live 2,49,285)
+            level.setBlock(st1003E.west(3), Blocks.NETHERRACK.defaultBlockState(), 2); level.setBlock(st1003E.west(3).north(), Blocks.NETHERRACK.defaultBlockState(), 2); level.setBlock(st1003E.west(3).south(), Blocks.NETHERRACK.defaultBlockState(), 2);
+            BlockPos sp = st1003E.west(7).above(2); level.setBlock(sp.below(), Blocks.NETHERRACK.defaultBlockState(), 2);
+            c.teleportTo(st1003E.getX() + 0.5, st1003E.getY(), st1003E.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var sk = EntityType.SKELETON.create(level); sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW)); sk.moveTo(sp.getX() + 0.5, sp.getY(), sp.getZ() + 0.5, -90, 0); sk.setNoAi(true); sk.setPersistenceRequired(); level.addFreshEntity(sk); sk.setTarget(c); st1003S = sk;
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Attack(st1003S.getUUID(), 300)); st1003T = t[0]; } // the fight on, as live
+        if (st1003T > 0 && c.getY() < st1003E.getY() - 0.5) { st1003S.discard(); st1003S = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; check(false, "he fell off his perch going for the footing"); }
+        if (st1003T > 0 && t[0] == st1003T + 20 * 6) {
+            boolean held = c.currentTask instanceof Task.Attack && c.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(st1003E)) < 0.6;
+            String now = String.valueOf(c.currentTask);
+            st1003S.discard(); st1003S = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            check(!held, "6 s held on his perch by the fight's footing he can't get to (" + now + ")");
+            pass(stage, t, "the footing he can't get to given up, the fight on its own terms (" + now + ")");
         }
         return true;
     }

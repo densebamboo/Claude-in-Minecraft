@@ -44,7 +44,7 @@ public final class Watchdog {
         int idleSince = -1; double idleX, idleZ;                  // no task, no queue, standing, since (IDLE)
         long stillPos = Long.MIN_VALUE; BlockPos stillWant; int stillSince, stillBroken; // same block, the same walk queued, nothing dug, since (STUCK)
         int startEst; String startWhat = "";                      // the running action's player-pace estimate in ticks, and what it is (SLOW)
-        int tripAt = -1, tripBroken, tripItems; BlockPos tripPos; String tripWhat = ""; // a 16+ block walk that got there: something done within 10 s? (WASTED_TRIP)
+        int tripAt = -1, tripBroken, tripItems; BlockPos tripPos; String tripWhat = ""; double legRun; // legRun: the legs of one walk so far (a leg with the next one queued is no trip) // a 16+ block walk that got there: something done within 10 s? (WASTED_TRIP)
         int handRun;                                              // tool blocks broken by hand in a row (BARE_HANDS)
         final Map<UUID, Integer> tossed = new HashMap<>();        // his junk throws still on the ground: entity -> tick (THROW_LOOP)
         final Map<net.minecraft.world.item.Item, Integer> tossedItem = new HashMap<>(); // last throw tick per item (THROW_LOOP)
@@ -539,8 +539,10 @@ public final class Watchdog {
         if (got && s.startEst > 0 && ran > 1.5 * s.startEst && ran - s.startEst >= 200)
             fileOnce(g, "SLOW", "SLOW|" + s.startWhat, String.format("%s took %.1f s, a player %.1f s (%s, from %.1f off)", s.startWhat, ran / 20.0, s.startEst / 20.0, t, s.startDist));
         String step = g.lastStep == null ? "" : g.lastStep.skill();
-        if (t instanceof Task.GoTo && got && s.startDist >= 16 && !g.commandActive && !g.holdingNight() && !java.util.Set.of("explore", "go_to", "follow", "come", "scout").contains(step)) {
-            s.tripAt = now(g); s.tripBroken = s.broken; s.tripItems = items(g); s.tripPos = g.blockPosition().immutable(); s.tripWhat = String.format("%.0f blocks to %s (step %s)", s.startDist, ((Task.GoTo) t).pos().toShortString(), step.isEmpty() ? "-" : step + " " + g.lastStep.target());
+        boolean leg = t instanceof Task.GoTo && got && g.tasks.peekFirst() instanceof Task.GoTo; // (one walk's legs, the next under way: judged at the walk's end; live 16:39, a flight a leg out of his mine, WASTED_TRIP at each; stage 920)
+        double walked = s.startDist + (t instanceof Task.GoTo && got ? s.legRun : 0); s.legRun = leg ? walked : 0;
+        if (t instanceof Task.GoTo && got && !leg && walked >= 16 && !g.commandActive && !g.holdingNight() && !java.util.Set.of("explore", "go_to", "follow", "come", "scout").contains(step)) {
+            s.tripAt = now(g); s.tripBroken = s.broken; s.tripItems = items(g); s.tripPos = g.blockPosition().immutable(); s.tripWhat = String.format("%.0f blocks to %s (step %s)", walked, ((Task.GoTo) t).pos().toShortString(), step.isEmpty() ? "-" : step + " " + g.lastStep.target());
         }
         BlockPos c = t instanceof Task.Chest x ? x.pos() : t instanceof Task.Deposit x ? x.pos() : t instanceof Task.Smelt x ? x.pos() : t instanceof Task.FurnaceLoad x ? x.pos() : t instanceof Task.FurnaceTake x ? x.pos() : null;
         net.minecraft.world.item.Item in = t instanceof Task.FurnaceLoad x ? x.input() : t instanceof Task.Smelt x ? x.input() : null;

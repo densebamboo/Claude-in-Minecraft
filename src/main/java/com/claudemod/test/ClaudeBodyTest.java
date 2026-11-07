@@ -10494,6 +10494,7 @@ public final class ClaudeBodyTest {
             case 917: return st917(stage, t, c, h, level, mock);
             case 918: return st918(stage, t, c, h, level, mock);
             case 919: return st919(stage, t, c, h, level, mock);
+            case 920: return st920(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13656,6 +13657,34 @@ public final class ClaudeBodyTest {
             BlockPos end = p.legs().get(p.legs().size() - 1);
             check(end.getX() - o.getX() >= 12, "the part-way plan ends only " + (end.getX() - o.getX()) + " blocks toward it, at " + end.toShortString());
             nsHome(c, h, level); pass(stage, t, "part way through the rock: " + p.legs().size() + " legs to " + end.toShortString() + " (" + p.digs() + " dug, " + p.nodes() + " nodes, " + p.ms() + " ms)"); }
+        return true;
+    }
+    /** Stage 920 (D2D live 16:39 World 17, incidents 99-101): out of his mine for enter_portal, one walk as 3 legs of ~17 (Route.expand, a flight a leg since f9a77d2): WASTED_TRIP "walked 17 blocks ... and did nothing there in 10 s" at each leg's end, the next leg already under way. A leg with the next leg queued behind it is no trip; the walk's end is what's judged. */
+    private static int s920T = -1;
+    private static boolean st920(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var W = com.claudemod.entity.life.Watchdog.recentKinds; BlockPos o = new BlockPos(19600, 80, 19600);
+        if (t[0] % 10 == 0 || t[0] < 10) for (int k = -16; k <= 96; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 2, o.offset(k, 0, 0));
+        try {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 24000; c.tasks.clear(); c.skillQueue.clear(); c.prefs.put("stay_close", "no"); W.clear(); com.claudemod.entity.life.Watchdog.linesInTests = true; s920T = -1; level.setDayTime(1000);
+            for (int x = -4; x <= 82; x++) for (int z = -2; z <= 2; z++) for (int y = -1; y <= 3; y++) level.setBlockAndUpdate(o.offset(x, y, z), y == -1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState());
+            level.setBlockAndUpdate(o.offset(75, 0, 2), Blocks.STONE.defaultBlockState()); // (the job at the walk's end: a block of stone by hand, ~7.5 s)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.WOODEN_PICKAXE));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0;
+            c.lastStep = new com.claudemod.entity.life.Skills.Step("enter_portal", "", 1);
+        }
+        if (t[0] == 5) { for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) e.discard();
+            c.tasks.add(new com.claudemod.entity.life.Task.GoTo(o.east(18).immutable(), 0.8)); c.tasks.add(new com.claudemod.entity.life.Task.GoTo(o.east(78).immutable(), 0.8)); // (one walk in 2 legs: the second still under way 10 s after the first got there, as his climb out of the mine was)
+            c.tasks.add(new com.claudemod.entity.life.Task.Break(o.offset(75, 0, 2).immutable())); }
+        if (t[0] > 5) { c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 24000; }
+        if (s920T < 0 && t[0] > 5 && level.getBlockState(o.offset(75, 0, 2)).isAir()) s920T = t[0];
+        if (s920T > 0 && t[0] == s920T + 20 * 12 || t[0] >= 20 * 200) {
+            String w = W.toString(), last = com.claudemod.entity.life.Watchdog.lastIncident; c.tasks.clear(); com.claudemod.entity.life.Watchdog.linesInTests = false; s800Speed(c, 0.1);
+            for (int x = -4; x <= 82; x++) for (int z = -2; z <= 2; z++) for (int y = -1; y <= 3; y++) level.setBlockAndUpdate(o.offset(x, y, z), Blocks.AIR.defaultBlockState());
+            check(s920T > 0, "the walk's end job never got done in 200 s (he's at " + c.blockPosition().toShortString() + ")");
+            check(!w.contains("WASTED_TRIP"), "one walk in 3 legs, work at its end: filed " + w + " (last " + last + ")");
+            pass(stage, t, "3 legs and the job at the end, no WASTED_TRIP: " + w); }
+        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; s800Speed(c, 0.1); throw e; }
         return true;
     }
     /** Stage 919 (D2D live 15:48-15:50 World 17, the user: "not sure why he opted to build the highway staircase down to lava level", "going down to lava level is counterproductive because im assuming the fortress is much higher than that"): the fortress on his atlas at y 33 (a brick he saw: a pillar's foot at the lava sea), the staircase put in the middle of leg 1, rows 200-715 at the lava sea, 6 lava sealed every 3 rows. The fortress is where its deck is; the staircase goes where the rows cost least. */

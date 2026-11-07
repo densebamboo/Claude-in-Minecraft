@@ -104,7 +104,21 @@ public class ClaudeEntity extends ServerPlayer {
     public final ArrayDeque<Task> tasks = new ArrayDeque<>() {
         @Override public void addFirst(Task t) { noteOrigin(t); if (!com.claudemod.entity.life.Parked.blocks(ClaudeEntity.this, t)) super.addFirst(t); } // (a refused upkeep patch, parked: not taken again till something changed)
         @Override public void addLast(Task t) { noteOrigin(t); if (!com.claudemod.entity.life.Parked.blocks(ClaudeEntity.this, t)) super.addLast(t); }
+        @Override public void clear() { dropNote(size(), "clear"); super.clear(); }
+        @Override public boolean removeIf(java.util.function.Predicate<? super Task> f) { int n = size(); boolean r = super.removeIf(f); dropNote(n - size(), "removeIf"); return r; }
     };
+    private static java.util.Map<String, Integer> dropNoted; // (static: fields added live start null)
+    /** 3+ tasks off his queue at once: who did it (live 20:47 11-06: his 12 route legs gone 40 ms after they were queued, no line said by what). */
+    private void dropNote(int n, String how) {
+        if (n < 3) return;
+        var st = Thread.currentThread().getStackTrace(); String at = "?";
+        for (int i = 3; i < st.length; i++) { String f = st[i].getFileName(); if (f != null && !f.equals("ClaudeEntity.java")) { at = f + ":" + st[i].getLineNumber() + (i + 1 < st.length ? " < " + st[i + 1].getFileName() + ":" + st[i + 1].getLineNumber() : ""); break; } }
+        if (at.startsWith("ClaudeLife.java") && st.length > 3 && "clearTasks".equals(st[3].getMethodName())) return; // (clearTasks logs its own)
+        if (dropNoted == null) dropNoted = new java.util.HashMap<>();
+        Integer last = dropNoted.get(at); if (last != null && tickCount - last < 100 && tickCount >= last) return;
+        dropNoted.put(at, tickCount);
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude tasks] {} task(s) off his queue at once by {} at {} (ClaudeEntity.tasks)", n, how, at);
+    }
     public final ArrayDeque<Task> stashedTasks = new ArrayDeque<>();
     public final ArrayDeque<Skills.Step> skillQueue = new ArrayDeque<>();
     public boolean busy = false;

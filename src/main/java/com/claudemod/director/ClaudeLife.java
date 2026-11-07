@@ -218,7 +218,7 @@ public final class ClaudeLife {
     static void logWhere(ClaudeEntity g, ServerPlayer player, double dist) {
             BlockPos headed = g.currentTask instanceof Task.GoTo go ? go.pos() : g.getNavigation().getPath() != null ? g.getNavigation().getPath().getTarget() : null;
             ClaudeMod.LOGGER.info("[Claude where] (live build) at {}{} ({}, health " + (int) g.getHealth() + " food " + g.getFoodData().getFoodLevel()
-                    + ", carrying logs " + g.inventory.count(s -> s.is(ItemTags.LOGS)) + " planks " + g.inventory.count(s -> s.is(ItemTags.PLANKS)) + " cobble " + g.inventory.count(s -> s.is(Items.COBBLESTONE) || s.is(Items.COBBLED_DEEPSLATE))
+                    + ", carrying logs " + g.inventory.count(s -> s.is(ItemTags.LOGS)) + " planks " + g.inventory.count(s -> s.is(ItemTags.PLANKS)) + " cobble " + g.inventory.count(s -> s.is(Items.COBBLESTONE)) + " deepslate " + g.inventory.count(s -> s.is(Items.COBBLED_DEEPSLATE))
                     + " torches " + g.inventory.count(s -> s.is(Items.TORCH)) + " iron " + g.inventory.count(s -> s.is(Items.IRON_INGOT) || s.is(Items.RAW_IRON)) +  " pick " + bestPickName(g) + " meals " + Kit.food(g)
                     + "), doing {}{}, {} more queued, step: {}, skills queued {}{}{}{}", (g.level().dimension() == net.minecraft.world.level.Level.OVERWORLD ? "" : g.level().dimension().location().getPath() + " "), g.blockPosition().toShortString(), dist < 0 || player.level() != g.level() ? "they're in another world" : (int) dist + " blocks from them",
                     g.currentTask == null ? "nothing" : g.currentTask.getClass().getSimpleName(), headed != null ? " -> " + headed.toShortString() : "",

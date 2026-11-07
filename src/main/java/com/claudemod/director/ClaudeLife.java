@@ -8053,21 +8053,24 @@ public final class ClaudeLife {
             if (t instanceof Task.Break b) { to = b.pos(); break; }
             if (t instanceof Task.Place p) { to = p.pos(); break; }
         }
+        if (escapeHow == null) escapeHow = new java.util.HashMap<>(); escapeHow.put(g.getUUID(), "no way out planned (nothing to aim at)");
         if (to == null) return false;
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
         Item scaff = null; for (Item it : new Item[] {Items.DIRT, Items.COBBLESTONE, Items.COBBLED_DEEPSLATE, Items.NETHERRACK}) if (g.inventory.count(s -> s.is(it)) > 0) { scaff = it; break; }
         if (level.dimensionType().hasCeiling() && !com.claudemod.entity.life.FortressScout.ghastProof(g).isEmpty()) scaff = com.claudemod.entity.life.FortressScout.ghastProof(g).getItem(); // the Nether: cobble, not netherrack or dirt (the user: "its not ghast proof")
         long t0 = System.nanoTime();
         var plan = com.claudemod.entity.nav.ActionPath.plan(g, level, feet, to, within, scaff != null, 4000, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount);
-        if (plan == null || plan.acts().isEmpty()) { ClaudeMod.LOGGER.info("[Claude life] stuck at {}: no way to {} even digging", feet.toShortString(), to.toShortString()); return false; }
+        if (plan == null || plan.acts().isEmpty()) { escapeHow.put(g.getUUID(), "no way to " + to.toShortString() + " even digging"); ClaudeMod.LOGGER.info("[Claude life] stuck at {}: no way to {} even digging", feet.toShortString(), to.toShortString()); return false; }
         var steps = com.claudemod.entity.nav.ActionPath.tasks(plan, feet, scaff == null ? Items.COBBLESTONE : scaff, to, within, level);
         if (steps.isEmpty()) return false;
         if (now != null) { dropCurrent(g); g.tasks.addFirst(now); } // the task he was stuck on goes on right after the way out
         for (int i = steps.size() - 1; i >= 0; i--) g.tasks.addFirst(steps.get(i));
         ClaudeMod.LOGGER.info("[Claude life] stuck at {}: his own way to {} ({} digs, {} blocks put down, {} walks; {} ms), then on", feet.toShortString(), to.toShortString(), plan.digs(), plan.puts(), plan.walks(), (System.nanoTime() - t0) / 1000000);
+        escapeHow.put(g.getUUID(), plan.digs() + plan.puts() == 0 ? "a walk round (" + plan.walks() + " steps, nothing dug or put down)" : "my own way: " + plan.digs() + " dug, " + plan.puts() + " put down, " + plan.walks() + " steps");
         return true;
     }
 
+    private static java.util.Map<java.util.UUID, String> escapeHow; // what the 20 s way out (escapeStuck) was, said as it was in the 45 s chat line (D2D review 8 11-07: "tried my own way out (dig, climb or round)" over a route of 0 digs, 0 put)
     private static java.util.Map<java.util.UUID, Object[]> progPin; // {key, target} of the action his way out (the 20 s escape plan) serves: its steps are measured against that, not as fresh actions
     private static java.util.Map<java.util.UUID, String> progKey; private static java.util.Map<java.util.UUID, java.util.Map<String, Double>> progSeen; // the action he's measured on; every action seen since his last real progress, with his best distance to its target (static: fields added live start null)
     private static void noticeStuck(ClaudeEntity g, ServerPlayer player) {
@@ -8132,7 +8135,7 @@ public final class ClaudeLife {
             g.noteDoing("got stuck at " + at.toShortString() + " while " + doing + "; that way doesn't work from here, need another way (or help)");
             String stuckKey = "stuck:" + (g.lastStep == null ? "-" : g.lastStep.skill());
             int strikes = g.failCount.merge(stuckKey, 1, Integer::sum);
-            if (strikes == 2) com.claudemod.entity.life.Watchdog.tellOnce(g, stuckKey + " " + (nowKey == null ? "-" : nowKey), "stuck: " + doing + " at " + at.toShortString() + ", no nearer in " + secs + " s, twice now; tried my own way out (dig, climb or round), trying another way"); // (the user: say exactly what failed; once, never waiting on an answer)
+            if (strikes == 2) com.claudemod.entity.life.Watchdog.tellOnce(g, stuckKey + " " + (nowKey == null ? "-" : nowKey), "stuck: " + doing + " at " + at.toShortString() + ", no nearer in " + secs + " s, twice now; tried " + (escapeHow == null || escapeHow.get(g.getUUID()) == null ? "nothing of my own yet" : escapeHow.get(g.getUUID())) + "; trying another way"); // (the user: say exactly what failed; once, never waiting on an answer)
             if (strikes >= 3) { // three stucks on one step: the plan is wrong, think again
                 g.failCount.remove(stuckKey); g.failReason.put(g.lastStep == null ? "-" : g.lastStep.skill(), "stuck 3 times (" + doing + "): " + cause.say()); // (the planner hears the cause, not just the count)
                 clearTasks(g); g.skillQueue.clear(); dropCurrent(g);

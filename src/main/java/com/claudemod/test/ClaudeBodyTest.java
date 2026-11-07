@@ -10509,6 +10509,7 @@ public final class ClaudeBodyTest {
             case 932: return st932(stage, t, c, h, level, mock);
             case 933: return st933(stage, t, c, h, level, mock);
             case 934: return st934(stage, t, c, h, level, mock);
+            case 939: return st939(stage, t, c, h, level, mock);
             case 938: return st938(stage, t, c, h, level, mock);
             case 937: return st937(stage, t, c, h, level, mock);
             case 935: return st935(stage, t, c, h, level, mock);
@@ -13846,6 +13847,38 @@ public final class ClaudeBodyTest {
             check(in, "a cobblestone into a cell of twisting vines from beside: " + was + " there after " + s + " s");
             check(s <= 3, "vines broken and the block put: " + s + " s (a player ~1)");
             pass(stage, t, "vines broken, block in, " + s + " s");
+        }
+        return true;
+    }
+    /** Stage 939 (D2D review 697 and the 45 minutes before the 04:23 death, 11-07, live 04:15 in basalt deltas: "131,61,509 won't open (... lava at 131,61,509 with no face to plug it from)": every face had lava behind it, the bore wouldn't dig it, went round 1..8 lanes over and up, "nor any way round it: the bore ends", and again from the next spot): a bore 8 east through basalt with small lava pockets behind its faces, straight on in the line, beside it and over it. A player digs, plugs the lava through the hole and gets on. */
+    private static int s939T;
+    private static boolean st939(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(11800, 61, 7910);
+        BlockPos goal = o.offset(8, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); s939T = -1; }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 5) {
+            for (int x = -4; x <= 12; x++) for (int z = -5; z <= 5; z++) for (int y = -3; y <= 5; y++) nl.setBlock(o.offset(x, y, z), (x <= 0 && Math.abs(z) <= 1 && y >= 0 && y <= 1 ? Blocks.AIR : Blocks.BASALT).defaultBlockState(), 2); // (a basalt mass; his cell and a little room behind him open)
+            for (int[] q : new int[][] {{3, 0, 0}, {2, 0, 1}, {5, 2, 0}, {6, 1, -1}, {7, -1, 0}}) nl.setBlock(o.offset(q[0], q[1], q[2]), Blocks.LAVA.defaultBlockState(), 2); // pockets: in the line behind 2,0,0; beside 2,0,0; over the head cell at 5; beside the head cell at 6; under the floor at 7
+            nl.setBlock(goal, Blocks.AIR.defaultBlockState(), 2); nl.setBlock(goal.above(), Blocks.AIR.defaultBlockState(), 2); // (a spot to stand at, as live: the walk there was refused, the bore took it on)
+            nl.getFluidTicks().clearArea(net.minecraft.world.level.levelgen.structure.BoundingBox.fromCorners(o.offset(-4, -3, -5), o.offset(12, 5, 5)));
+            nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.skillQueue.clear(); c.tasks.add(new com.claudemod.entity.life.Task.Bore(goal, goal.getY())); c.tasks.add(new com.claudemod.entity.life.Task.GoTo(goal, 0.5)); s939T = t[0]; }
+        if (t[0] > 20) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear(); }
+        boolean there = t[0] > 20 && c.blockPosition().equals(goal);
+        if (s939T > 0 && (there || t[0] >= s939T + 20 * 40)) {
+            double s = (t[0] - s939T) / 20.0; String at = c.blockPosition().toShortString(); float hp = c.getHealth();
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.clearFire();
+            for (int x = -4; x <= 12; x++) for (int z = -5; z <= 5; z++) for (int y = -3; y <= 5; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(20))) e.discard();
+            nsHome(c, h, level);
+            check(there, "a bore 8 east through basalt with lava pockets behind its faces: at " + at + " after " + s + " s, not at " + goal.toShortString());
+            check(s <= 12, "8 blocks of basalt and 5 lava pockets plugged: " + s + " s (a player ~8; main went round them 5 times, 16 s)");
+            check(hp >= 16, "health " + hp + " getting there");
+            pass(stage, t, "through in " + s + " s, health " + hp);
         }
         return true;
     }

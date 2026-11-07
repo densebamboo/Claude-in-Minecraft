@@ -427,8 +427,8 @@ public class WorkGoal extends Goal {
             }
             if (g.tickCount - lastFightTick().getOrDefault(g.urgentAttacker, -100000) < 20 && g.tickCount >= lastFightTick().getOrDefault(g.urgentAttacker, -100000)) { sdSay("rearm", "[Claude life] hit by the {} again {} ticks after squaring up to it, doing {}: no new fight armed this tick (WorkGoal.tick)", foe.getType().getDescription().getString(), g.tickCount - lastFightTick().get(g.urgentAttacker), current == null ? "nothing" : current.getClass().getSimpleName()); g.urgentAttacker = null; return; } // (the same fight re-armed every 5 ticks: once a second is plenty) // ponytail: the map is static and his tickCount restarts on respawn: a stamp from his last body read "-51758 ticks ago", so no fight was ever armed (he died walking to a nook, enderman 20 -> 0, 17:18)
             lastFightTick().put(g.urgentAttacker, g.tickCount);
-            boolean retreat = shouldFlee(foe) && g.getHealth() < 10 && !diggingIn(); // (never the escape itself: it threw away the tower he'd just queued and three husks killed him) // running at a few hearts: the job he was on is where the mobs are; it isn't resumed after the run (the queue walked him back to two zombies at 5 health)
-            if (retreat && (current != null || !g.tasks.isEmpty())) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] retreating at health {}: the job there ({} tasks) is dropped, not walked back into", (int) g.getHealth(), g.tasks.size()); com.claudemod.director.ClaudeLife.clearTasks(g); }
+            boolean retreat = shouldFlee(foe) && !diggingIn() && backAmongS(hostilesNear(16).size()) > w("flee.job_drop_s", 60); // (priced: going back to the job among them, against dropping it; was "health under 10") // (never the escape itself: it threw away the tower he'd just queued and three husks killed him) // running at a few hearts: the job he was on is where the mobs are; it isn't resumed after the run (the queue walked him back to two zombies at 5 health)
+            if (retreat && (current != null || !g.tasks.isEmpty())) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] retreating at health {}: the job there ({} tasks) is dropped, not walked back into (back among {} ~{} s against flee.job_drop_s {})", (int) g.getHealth(), g.tasks.size(), hostilesNear(16).size(), Math.round(backAmongS(hostilesNear(16).size())), Math.round(w("flee.job_drop_s", 60))); com.claudemod.director.ClaudeLife.clearTasks(g); }
             else if (current != null && g.tasks.peek() != current) { clearCrack(); g.tasks.addFirst(current); } // (once: not a copy of it every time this fires)
             com.claudemod.director.ClaudeLife.craftSwordIfCan(g, (ServerLevel) g.level()); // something's on him: a sword if he can make one
             boolean run = shouldFlee(foe, true);
@@ -4625,16 +4625,20 @@ public class WorkGoal extends Goal {
     }
 
     /** Nothing much to fight with or in: a wooden weapon at best, or no armor on at all. Two mobs are a crowd for him then (a fresh respawn at night died twice "armed" with a wooden sword). */
+    /** HP he can expect to lose out among n hostiles over cover.look_ahead_s (Decide.danger at his armor). */
+    private double onHp(int n) { ServerLevel lv = (ServerLevel) g.level(); return com.claudemod.entity.life.Decide.danger(g, lv, lv.getDayTime() % 24000, w("cover.look_ahead_s", 10), Math.max(1, n)); }
+    /** That HP as seconds of his time at his health and food (Decide.hpS: regen, the floor, the death odds). */
+    private double backAmongS(int n) { return com.claudemod.entity.life.Decide.hpS(g, 0, onHp(n), com.claudemod.entity.life.Decide.hitHp() * com.claudemod.entity.life.Decide.armorF(g)); }
     /** Under cover now, or on with what he's doing among n hostiles (cover.dig_in): the HP he can expect to lose out here over cover.look_ahead_s (Decide.danger at his armor, priced by hpS: his health, food, the death odds) against building cover and waiting it out. True: cover. Logged when cover wins. */
     private boolean coverPays(String why, int n) {
         ServerLevel lv = (ServerLevel) g.level(); long tod = lv.getDayTime() % 24000;
         double perHit = com.claudemod.entity.life.Decide.hitHp() * com.claudemod.entity.life.Decide.armorF(g);
-        double onHp = com.claudemod.entity.life.Decide.danger(g, lv, tod, w("cover.look_ahead_s", 10), Math.max(1, n));
+        double onHp = onHp(n);
         double build = w("cover.build_s", 2.5), buildHp = 0; // (the hits while he builds it: shooters with a line on him keep firing at a tower, melee within 4 swing; 596, two skeletons in the day: a tower under their fire)
         for (var m : com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(24), x -> x.isAlive() && x instanceof net.minecraft.world.entity.monster.Enemy)) {
             if (shoots(m) && m.hasLineOfSight(g)) buildHp += build * w("flee.shots_per_s", 0.5) * w("flee.shot_hit_chance", 0.7) * mobHit(m);
             else if (m.distanceTo(g) < 4) buildHp += build * w("fight.mob_hits_per_s", 0.8) * mobHit(m); }
-        double on = com.claudemod.entity.life.Decide.hpS(g, 0, onHp, perHit), cover = build + com.claudemod.entity.life.Decide.hpS(g, 0, buildHp, perHit) + w("cover.wait_out_s", 60);
+        double on = backAmongS(n), cover = build + com.claudemod.entity.life.Decide.hpS(g, 0, buildHp, perHit) + w("cover.wait_out_s", 60);
         var opts = java.util.List.of(com.claudemod.entity.life.Decide.Option.of("cover", cover, "build " + build + " s (~" + String.format("%.1f", buildHp) + " HP while he does), wait it out ~" + Math.round(w("cover.wait_out_s", 60)) + " s"),
             com.claudemod.entity.life.Decide.Option.of("carry on", on, "~" + String.format("%.1f", onHp) + " HP to expect out here over " + Math.round(w("cover.look_ahead_s", 10)) + " s"));
         String ctx = why + ", " + n + " hostile(s), health " + (int) g.getHealth() + ", armor " + g.getArmorValue() + (com.claudemod.director.ClaudeLife.dayHere(lv) ? "" : ", night");

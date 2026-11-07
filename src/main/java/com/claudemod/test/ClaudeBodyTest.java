@@ -10641,6 +10641,7 @@ public final class ClaudeBodyTest {
             case 798: return st798(stage, t, c, h, level, mock);
             case 799: return st799(stage, t, c, h, level, mock);
             case 739: return st739(stage, t, c, h, level, mock);
+            case 778: return st778(stage, t, c, h, level, mock);
             case 761: return st761(stage, t, c, h, level, mock);
             case 757: return st757(stage, t, c, h, level, mock);
             case 793: return st793(stage, t, c, h, level, mock);
@@ -16963,6 +16964,32 @@ public final class ClaudeBodyTest {
                 check(com.claudemod.entity.life.TempLedger.has(c, st761Tmp) || !back, "setup: his block at " + st761Tmp.toShortString() + " not on his ledger");
                 check(!back && !wallDug, "his block behind his own wall counted as handy: turned back to break it (" + back + "), wall dug " + wallDug);
                 pass(stage, t, "his block behind his own build left for the way round, the wall kept"); }
+        }
+        return true;
+    }
+    private static int st778T; private static BlockPos st778W;
+    private static boolean st778(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D hourly 1 (live 08:25-08:26 World 17, his mine at -69,16,-206 and 4 more): his mine plan queued an ore in the wall dug; the vein pass took it first and patched the hole; the old dig then hit his patch, his wall guard refused it ("claimed by two of his systems"), x5
+        if (t[0] == 1) { resetLoot(c, mock[0]); st778T = -1; }
+        if (t[0] == 10) {
+            buildStairs(h, 0);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("mine_model", "blueprint"); c.prefs.put("torches_while_digging", "no");
+            var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(stairFeet(0, 6)), net.minecraft.core.Direction.EAST, 2, 4); b.segments.get(0).n = 11; c.blueprint = b;
+            com.claudemod.director.ClaudeLife.bpSync(c);
+            BlockPos at = h.absolutePos(stairFeet(1, 6)); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            st778W = null; for (BlockPos q : new BlockPos[] {at.north(), at.south(), at.north().above(), at.south().above()}) if (st778W == null && b.isShell(q)) st778W = q.immutable();
+            check(st778W != null, "setup: no wall cell beside " + at.toShortString());
+            com.claudemod.entity.life.TempLedger.planBuild(c, st778W, "WorkGoal.doMineVisibleOres"); level.setBlock(st778W, Blocks.COBBLESTONE.defaultBlockState(), 2); Task was = c.currentTask; c.currentTask = new Task.MineVisibleOres(3); com.claudemod.entity.life.TempLedger.placed(c, level, st778W, Blocks.COBBLESTONE.defaultBlockState(), Blocks.COPPER_ORE.defaultBlockState()); c.currentTask = was; // the ore out, its hole patched by the vein pass
+            check(com.claudemod.entity.life.TempLedger.built(c, st778W), "setup: the patch at " + st778W.toShortString() + " not booked as his build");
+        }
+        if (t[0] == 14) { c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); c.tasks.add(new Task.Break(st778W)); st778T = t[0]; } // the mine plan's old ore dig of that cell
+        if (st778T > 0 && t[0] == st778T + 20) {
+            boolean refused = c.attempts.within(com.claudemod.entity.life.Attempts.Kind.BREAK, st778W, c.tickCount, 20 * 5);
+            boolean kept = level.getBlockState(st778W).is(Blocks.COBBLESTONE);
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            check(kept, "his patch at " + st778W.toShortString() + " dug out: " + level.getBlockState(st778W).getBlock());
+            check(!refused, "the old ore dig of his own patch refused by his wall guard (a conflict of two of his systems): the ore's out, the dig is done");
+            pass(stage, t, "an ore dig whose ore is out and patched: done, his patch kept");
         }
         return true;
     }

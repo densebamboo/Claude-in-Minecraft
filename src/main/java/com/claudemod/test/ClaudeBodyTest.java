@@ -10499,6 +10499,7 @@ public final class ClaudeBodyTest {
             case 922: return st922(stage, t, c, h, level, mock);
             case 923: return st923(stage, t, c, h, level, mock);
             case 924: return st924(stage, t, c, h, level, mock);
+            case 925: return st925(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13679,6 +13680,40 @@ public final class ClaudeBodyTest {
             BlockPos end = p.legs().get(p.legs().size() - 1);
             check(end.getX() - o.getX() >= 12, "the part-way plan ends only " + (end.getX() - o.getX()) + " blocks toward it, at " + end.toShortString());
             nsHome(c, h, level); pass(stage, t, "part way through the rock: " + p.legs().size() + " legs to " + end.toShortString() + " (" + p.digs() + " dug, " + p.nodes() + " nodes, " + p.ms() + " ms)"); }
+        return true;
+    }
+    /** Stage 925 (D2D 22:50, the user tonight: "he's not using the highway for pathing"; restarts several times an evening): 924's highway with no trail (after a restart his trail is gone, the segments on record stay): the route goes along the segments on record. And a leg with a staircase in it: every flat run of it on record, not only the first. */
+    private static boolean st925(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(11800, 64, 7720), him = o.offset(14, 0, 30);
+        java.util.Set<BlockPos> W = new java.util.LinkedHashSet<>(); for (int z = 0; z <= 31; z++) for (int x = 0; x <= 1; x++) W.add(o.offset(x, 0, z)); for (int x = 0; x <= 16; x++) for (int z = 30; z <= 31; z++) W.add(o.offset(x, 0, z));
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) for (int k = 0; k <= 32; k += 16) for (int m = 0; m <= 32; m += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, m)), 2, o.offset(k, 0, m));
+        if (t[0] == 12) {
+            for (int x = -8; x <= 24; x++) for (int z = -8; z <= 40; z++) for (int y = -3; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.NETHERRACK.defaultBlockState(), 2);
+            for (BlockPos p : W) { nl.setBlock(p.below(), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); for (int y = 0; y <= 2; y++) nl.setBlock(p.above(y), Blocks.AIR.defaultBlockState(), 2); nl.setBlock(p.above(3), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2);
+                for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) if (!W.contains(p.relative(d))) for (int y = 0; y <= 2; y++) nl.setBlock(p.relative(d).above(y), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); }
+            com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(0, -1, 0), o.offset(0, -1, 31), net.minecraft.core.Direction.Axis.Z, 2);
+            com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(0, -1, 30), o.offset(16, -1, 30), net.minecraft.core.Direction.Axis.X, 2);
+            c.teleportTo(nl, him.getX() + 0.5, him.getY(), him.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 15) com.claudemod.entity.nav.Route.forgetTrail(c); // (a restart: no trail)
+        if (t[0] == 18) {
+            var p = com.claudemod.entity.nav.NetherRoute.plan(c, nl, him, o);
+            int on = 0; if (p != null) for (BlockPos q : p.legs()) if (W.contains(q)) on++;
+            String why = p == null ? "no plan" : p.legs().size() + " legs, " + on + " in the highway, " + p.digs() + " dug, ~" + (int) p.seconds() + " s, partial " + p.partial() + ": " + p.legs();
+            for (int x = -8; x <= 24; x++) for (int z = -8; z <= 40; z++) for (int y = -3; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            com.claudemod.entity.life.PortalMap.net(c).segments.clear();
+            // a leg with a staircase mid-way (4 down over open ground, as 922's): every flat row on record after the rows are laid
+            var b0 = com.claudemod.entity.life.BridgeBlueprint.plan(nl, o, net.minecraft.core.Direction.Axis.Z, new BlockPos(o.getX(), o.getY() - 4, o.getZ() + 40), 2, false);
+            com.claudemod.entity.life.Highway.record(c, b0, b0.rows.size());
+            int flat = 0, rec = 0; for (var r : b0.rows) if (!r.stair()) { flat++; if (com.claudemod.entity.life.PortalMap.inHighway(c, com.claudemod.entity.life.PortalMap.NETHER, r.centre().getX(), r.centre().getY(), r.centre().getZ())) rec++; }
+            String segs = ""; for (var sg : com.claudemod.entity.life.PortalMap.net(c).segments) segs += sg.describe() + "; ";
+            com.claudemod.entity.life.PortalMap.net(c).segments.clear();
+            check(p != null && !p.partial() && p.digs() == 0 && on == p.legs().size(), "after a restart (no trail), along his highway on record back to the portal: the route " + why);
+            check(rec == flat, "a leg with a staircase: " + rec + " of " + flat + " flat rows on record (" + segs + ")");
+            nsHome(c, h, level); pass(stage, t, why + " | " + rec + "/" + flat + " rows on record: " + segs);
+        }
         return true;
     }
     /** Stage 924 (D2D review 30, live 22:05 World 17): his highway south from the portal (x -3) to z ~509, then east; him on the east leg at 4,59,509, the route to the portal: "0 on his trail, ... his trail (661 cells) comes within 0 of the goal", 81 s of digging beside it (its grid every 4 from him lands on the highway's wall and the rock beside, never its 2-wide walkway; the wall 40 s to dig since a25582c). The trail that reaches the goal is walked. */

@@ -235,10 +235,15 @@ public final class Highway {
     }
 
     /** Each leg's built stretch on his portal map, as a highway segment (extended as it grows). */
-    static void record(ClaudeEntity g, BridgeBlueprint b, int built) {
+    public static void record(ClaudeEntity g, BridgeBlueprint b, int built) {
         { State s0 = state(g); s0.built = built; s0.rows = b.rows.size(); }
-        for (int leg = 1; leg <= 2; leg++) { BridgeBlueprint.Row a = null, z = null; for (int i = 0; i < built; i++) { var r = b.rows.get(i); if (r.leg() != leg || r.stair()) { if (a != null && z != null && r.leg() == leg) break; continue; } if (a == null) a = r; z = r; }
-            if (a != null && z != null && a != z && a.centre().getY() == z.centre().getY()) PortalMap.addSegment(g, PortalMap.NETHER, a.centre(), z.centre(), a.dir().getAxis(), b.width); }
+        // every flat run of rows, one leg and one height (the first run of each leg only, before: the rows past a staircase never on record, the route couldn't use them; stage 925)
+        // shortcut: addSegment joins runs 1 apart in height on one line, so a 1-step staircase's two runs read as one at the first's height; split by height there if the route ever mis-walks one
+        BridgeBlueprint.Row a = null, z = null;
+        for (int i = 0; i <= Math.min(built, b.rows.size()); i++) { var r = i < Math.min(built, b.rows.size()) ? b.rows.get(i) : null;
+            if (r != null && !r.stair() && a != null && r.leg() == a.leg() && r.centre().getY() == a.centre().getY()) { z = r; continue; }
+            if (a != null && z != null && a != z) PortalMap.addSegment(g, PortalMap.NETHER, a.centre(), z.centre(), a.dir().getAxis(), b.width);
+            a = r != null && !r.stair() ? r : null; z = a; }
     }
 
     static String finish(ClaudeEntity g, ServerPlayer player, BridgeBlueprint b, String how) {

@@ -10505,6 +10505,7 @@ public final class ClaudeBodyTest {
             case 928: return st928(stage, t, c, h, level, mock);
             case 929: return st929(stage, t, c, h, level, mock);
             case 930: return st930(stage, t, c, h, level, mock);
+            case 932: return st932(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13695,6 +13696,37 @@ public final class ClaudeBodyTest {
             nsHome(c, h, level); pass(stage, t, "part way through the rock: " + p.legs().size() + " legs to " + end.toShortString() + " (" + p.digs() + " dug, " + p.nodes() + " nodes, " + p.ms() + " ms)"); }
         return true;
     }
+    /** Stage 932 (the user 00:02 11-07 via D2D: "why is he pathing into the basalt biome instead of walking along the highway ... he keeps doing that"; trace 23:59:59: on his 2-wide highway with no rails over a basalt delta, fighting a magma cube beside it, strafing and sprint-jumping at it (strafe 0.94, sprint, jump), off the edge into the delta, 1:45 to get back up): a fight at a drop holds the edge (sneak: vanilla keeps a sneaking player from walking off); he stays on the bridge. */
+    private static double s932MinY = 999; private static int s932T = -1;
+    private static boolean st932(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12800, 70, 8720);
+        if (t[0] == 1) { scenarioReset(c); s932MinY = 999; s932T = -1; }
+        if (t[0] < 20) nsTick(nl, c, o, t); else if (t[0] % 10 == 0) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o); /* (nsTick clears the arena's mobs: not once the cubes are in) */
+        if (t[0] == 10) {
+            for (int x = -8; x <= 12; x++) for (int z = -8; z <= 20; z++) for (int y = -14; y <= 6; y++) nl.setBlock(o.offset(x, y, z), (y == -14 ? Blocks.BASALT : Blocks.AIR).defaultBlockState(), 2); // a pit 13 deep
+            for (int x = 0; x <= 1; x++) for (int z = -5; z <= 15; z++) nl.setBlock(o.offset(x, -1, z), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); // his highway: 2 wide, no rails
+            for (int x = 2; x <= 5; x++) for (int z = 1; z <= 9; z++) nl.setBlock(o.offset(x, -2, z), Blocks.BASALT.defaultBlockState(), 2); // the delta's top right against its side, a block lower (live: the cube killed at -7,58,438, a block under the floor), the pit past it
+            nsKit(c); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(0, -1, -5), o.offset(0, -1, 15), net.minecraft.core.Direction.Axis.Z, 2); // (his, on record)
+            c.teleportTo(nl, o.getX() + 1.5, o.getY(), o.getZ() + 5.5, -90f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 20) { net.minecraft.world.entity.monster.MagmaCube m = null; for (int k = 0; k < 3; k++) { var m0 = net.minecraft.world.entity.EntityType.MAGMA_CUBE.create(nl); m0.setSize(2, true); m0.moveTo(o.getX() + 4.5, o.getY() - 1, o.getZ() + 3.5 + 2 * k, 0f, 0f); nl.addFreshEntity(m0); if (m == null) m = m0; } // (three big ones, as the delta's: live he had 6 close)
+            c.tasks.clear(); c.skillQueue.clear(); c.tasks.add(new com.claudemod.entity.life.Task.Attack(m.getUUID(), 20 * 30)); s932T = t[0]; }
+        if (t[0] > 20) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear(); s932MinY = Math.min(s932MinY, c.getY()); if (c.getX() >= o.getX() + 2.3) s932MinY = Math.min(s932MinY, -1000); } // (off its side counts as off it)
+        if (s932T > 0 && t[0] % 20 == 0) {
+            boolean alive = !nl.getEntitiesOfClass(net.minecraft.world.entity.monster.MagmaCube.class, new net.minecraft.world.phys.AABB(o).inflate(30)).isEmpty();
+            boolean off = s932MinY < o.getY() - 1.5;
+            if (off || !alive || t[0] >= s932T + 20 * 30) {
+                String at = c.blockPosition().toShortString(); double minY = s932MinY; c.tasks.clear(); c.dropCurrent = true;
+                for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+                for (int x = -8; x <= 12; x++) for (int z = -8; z <= 20; z++) for (int y = -14; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(!off, "fighting magma cubes beside his railless highway over a pit: off it, down to y " + String.format("%.1f", minY) + " (the bridge at " + o.getY() + "), now at " + at);
+                nsHome(c, h, level); pass(stage, t, "stayed on the bridge (lowest y " + String.format("%.1f", minY) + "), cube " + (alive ? "alive" : "dead") + " after " + (t[0] - s932T) / 20 + " s");
+            }
+        }
+        return true;
+    }
     /** Stage 930 (D2D review 47, live 23:22 World 17): collect cobble with no torches and his mine face far down: "a few steps down right here", cut the way he faced; he faced his mine's entrance, so the steps dug at its shell (guard: "not digging through his mine's wall at -16,67,-20"), and the dirt by it was walked round to and queued again and again. The steps go a way that keeps clear of his mine. */
     private static boolean st930(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos o = new BlockPos(19600, 80, 19800);
@@ -13720,18 +13752,20 @@ public final class ClaudeBodyTest {
         return true;
     }
     /** Stage 929 (Loops 23:00, D2D reviews 24/275/294/116/134/104; live 21:58:39 CONFLICT "3 times in 14 s: [Claude portal] highway segment extended: 2 wide along z from -3, 58, 2 to -3, 58, 482"): every highway batch put the segment on record again and said "extended" with nothing new; the same spot 3 times in 60 s read as a conflict. Only news is said. */
+    private static String s929Own;
     private static boolean st929(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER); var W = com.claudemod.entity.life.Watchdog.recentKinds;
         BlockPos o = new BlockPos(12600, 70, 8520);
-        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); W.clear(); com.claudemod.entity.life.Watchdog.linesInTests = true; }
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); W.clear(); s929Own = null; com.claudemod.entity.life.Watchdog.linesInTests = true; }
         try {
+        { String li = com.claudemod.entity.life.Watchdog.lastIncident; if (t[0] > 1 && li.startsWith("CONFLICT") && li.contains("PortalMap")) s929Own = li; } // (its own highway line only: the arena's follow rule files its own conflicts when run after 926-928, D2D 11-07)
         if (t[0] >= 10 && t[0] <= 70 && t[0] % 20 == 10) { // four batches (the first puts it on record, then three, nothing new laid between them
             var b0 = com.claudemod.entity.life.BridgeBlueprint.plan(nl, o, net.minecraft.core.Direction.Axis.Z, o.offset(0, 0, 30), 2, false);
             com.claudemod.entity.life.Highway.record(c, b0, 20); }
         if (t[0] == 140) {
             String w = W.toString(), last = com.claudemod.entity.life.Watchdog.lastIncident; int n = com.claudemod.entity.life.PortalMap.net(c).segments.size();
             com.claudemod.entity.life.PortalMap.net(c).segments.clear(); com.claudemod.entity.life.Watchdog.linesInTests = false;
-            check(!w.contains("CONFLICT"), "the same highway put on record 4 times with nothing new: filed " + w + " (last " + last + ")");
+            check(s929Own == null, "the same highway put on record 4 times with nothing new: filed " + s929Own + " (kinds " + w + ")"); s929Own = null;
             pass(stage, t, n + " segment(s), filed " + w); }
         } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
         return true;

@@ -5866,6 +5866,7 @@ public class WorkGoal extends Goal {
             if (mob instanceof net.minecraft.world.entity.monster.EnderMan em0 && em0.getTarget() != g) { equipWeapon(); g.getLookControl().setLookAt(mob.getX(), mob.getEyeY(), mob.getZ()); return false; } // (bait: the stare angers it and it teleports down to him)
             walkTo(mob.blockPosition(), 2.0); return false; } // (anything else, and an enderman already angry at him (the stare baits only a calm one; live 16:33 stared 15 s at one on him 3 up, fight_no_effect): the walk's own plan)
         var path = g.getNavigation().createPath(mob, 1);
+        if (path != null && holdHighway(mob, path)) return false; // (a reaching path or one that only gets closer)
         if (path != null && path.canReach()) {
             g.setSprinting(true);
             g.getNavigation().moveTo(path, 1.3);
@@ -6078,6 +6079,25 @@ public class WorkGoal extends Goal {
      * a hit from this foe throws him, means a step first to the nearest cell (4 at most) with firm ground or a wall that way, and never
      * fire under him; then the fight from there. Null: his footing's fine (or there's none better), the fight goes on.
      */
+    /**
+     * On his highway's floor with a melee mob already after him, and the chase's path off the floor: he holds the highway and
+     * lets it come (it will), like a player on a bridge over a delta; the chase walked him off his railless highway into a
+     * basalt delta after a magma cube a block below it, 1:45 lost getting back (live 23:59:58 11-06; stage 932). A mob not after
+     * him is still chased.
+     */
+    private boolean holdHighway(net.minecraft.world.entity.LivingEntity mob, net.minecraft.world.level.pathfinder.Path path) {
+        if (!(mob instanceof net.minecraft.world.entity.Mob m) || m.getTarget() != g || g.level().dimension() != net.minecraft.world.level.Level.NETHER || !g.onGround()) return false;
+        String dim = com.claudemod.entity.life.PortalMap.NETHER;
+        BlockPos under = g.blockPosition().below();
+        if (!com.claudemod.entity.life.PortalMap.highwayBlock(g, dim, under, g.level().getBlockState(under))) return false;
+        BlockPos off = null;
+        for (int i = path.getNextNodeIndex(); i < path.getNodeCount() && off == null; i++) { BlockPos n = path.getNode(i).asBlockPos().below(); if (!com.claudemod.entity.life.PortalMap.highwayBlock(g, dim, n, g.level().getBlockState(n))) off = n; }
+        if (off == null) return false;
+        g.getNavigation().stop(); g.setSprinting(false); g.getLookControl().setLookAt(mob);
+        if (!mob.getUUID().equals(holdSaid)) { holdSaid = mob.getUUID(); com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the {} {} off is after him and the way to it leaves his highway at {}: holding the highway for it to come (WorkGoal.holdHighway)", mob.getType().getDescription().getString(), (int) g.distanceTo(mob), off.above().toShortString()); } // (once a mob: a hold is his choice, not a refusal)
+        return true;
+    }
+    private java.util.UUID holdSaid;
     private Boolean fightFooting(net.minecraft.world.entity.LivingEntity mob) {
         if (!g.onGround() || g.isInWater()) return null;
         ServerLevel level = (ServerLevel) g.level();
@@ -6088,8 +6108,10 @@ public class WorkGoal extends Goal {
         boolean throwsHim = shooter ? mob.distanceTo(g) <= 24 && g.hasLineOfSight(mob) : mob.distanceTo(g) <= (footingSaid != null ? 6 : 4); // ponytail: 4 to start, 6 to finish the step (live 20:07 -119,76,-936: an enderman at the edge of 4 flipped it on and off, the approach stepped him back onto the lip 7 times in 2 s). (a melee mob only in reach: live 14:45 an enderman 15 off stepped him back and forth against the approach, 4 shuffles a second)
         if (!fire && (!throwsHim || !lipBehind(level, feet, away))) { footingSaid = null; return null; } // ponytail: live 14:45 -36,50,-898: a lip "behind" him from an enderman 15 off; the approach stepped him back onto it, 4 shuffles a second. Only a mob in reach throws him
         BlockPos best = null; double bd = Double.MAX_VALUE;
+        String hd = com.claudemod.entity.life.PortalMap.NETHER; boolean onHw = level.dimension() == net.minecraft.world.level.Level.NETHER && com.claudemod.entity.life.PortalMap.highwayBlock(g, hd, feet.below(), level.getBlockState(feet.below()));
         for (BlockPos q0 : BlockPos.betweenClosed(feet.offset(-4, -1, -4), feet.offset(4, 1, 4))) { BlockPos q = q0.immutable();
             if (q.equals(feet) || !com.claudemod.entity.life.FortressFight.stand(level, q) || com.claudemod.entity.body.Controls.lavaCell(g, q)) continue;
+            if (onHw && !com.claudemod.entity.life.PortalMap.highwayBlock(g, hd, q.below(), level.getBlockState(q.below()))) continue; // on his highway the footing stays on it: off its side is the delta it bridges, the mobs' ground (live 23:59:58 11-06: "firm footing" a block under his railless highway, 1:45 in the basalt; stage 932)
             Vec3 aw = Vec3.atBottomCenterOf(q).subtract(mob.position()).multiply(1, 0, 1); if (aw.lengthSqr() < 1e-4) continue; aw = aw.normalize();
             if (lipBehind(level, q, aw)) continue;
             double d = q.distSqr(feet) + (mob.distanceToSqr(Vec3.atBottomCenterOf(q)) < 2.5 * 2.5 ? 50 : 0); // (never into its arms for it)

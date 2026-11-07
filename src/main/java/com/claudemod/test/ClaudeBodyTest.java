@@ -10690,6 +10690,7 @@ public final class ClaudeBodyTest {
             case 879: return st879(stage, t, c, h, level, mock);
             case 880: return st880(stage, t, c, h, level, mock);
             case 881: return st881(stage, t, c, h, level, mock);
+            case 882: return st882(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -18730,6 +18731,46 @@ public final class ClaudeBodyTest {
             check(light, "0 torches, no coal, 59 logs, strip_mine in his blueprint mine: no light made first: " + r + " | queue " + q);
             pass(stage, t, "his light first: " + r);
         }
+        return true;
+    }
+    /** Stage 882 (the user 11-06 23:10 "continue the highway to the fortress", live 23:10:13 World 17): magma cubes at the highway's end, the walk there failed BLOCKED_MOB; build_highway queued the same walk again, it ended at once ("nothing changed since"), 8 times in a second, "going round in circles". Here: the walk to the end on record failed for a mob still there: the step says so (a failure the planner decides on), no walk queued again. */
+    private static boolean st882(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(11400, 64, 7520);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); }
+        nsTick(nl, c, o, t);
+        try {
+        if (t[0] == 10) {
+            for (int x = -6; x <= 6; x++) for (int z = -4; z <= 16; z++) for (int y = -3; y <= 7; y++) nl.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2);
+            for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, 0), x == -1 || x == 2 || y == -1 || y == 3 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+            nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 1.5, 0f, 0f);
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o, "him", "lit");
+        }
+        if (t[0] == 20) {
+            c.skillQueue.clear(); c.tasks.clear();
+            com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", o.getX() + " " + o.getY() + " " + (o.getZ() + 60), 1);
+            c.skillQueue.clear(); c.tasks.clear();
+            c.teleportTo(nl, o.getX() + 4.5, o.getY(), o.getZ() + 12.5, 0f, 0f);
+            String r2 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", "", 1);
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("end at (-?\\d+), (-?\\d+), (-?\\d+)").matcher(r2);
+            String r3 = "(no walk to the end: " + r2 + ")"; net.minecraft.world.entity.monster.MagmaCube cube = null;
+            if (m.find()) {
+                BlockPos end = new BlockPos(Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)), Integer.parseInt(m.group(3)));
+                cube = net.minecraft.world.entity.EntityType.MAGMA_CUBE.create(nl); cube.moveTo(end.getX() + 0.5, end.getY(), end.getZ() + 0.5, 0, 0); cube.setNoAi(true); cube.setPersistenceRequired(); nl.addFreshEntity(cube);
+                c.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, end, c.tickCount, c.blockPosition(), com.claudemod.entity.life.Attempts.Reason.BLOCKED_MOB, "a magma cube on it", cube.getUUID());
+                c.skillQueue.clear(); c.tasks.clear();
+                r3 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", "", 1);
+            }
+            boolean walkAgain = c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo);
+            if (cube != null) cube.discard();
+            c.skillQueue.clear(); c.tasks.clear(); c.attempts.clear(); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear();
+            for (int x = -6; x <= 6; x++) for (int z = -4; z <= 16; z++) for (int y = -3; y <= 7; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(r2.contains("end at"), "setup: 12 off the end, build_highway should walk to it: " + r2);
+            check(r3.startsWith("failed") && !walkAgain, "the walk to the highway's end failed for a magma cube still on it, and build_highway queued the same walk again (" + r3 + ", a walk queued " + walkAgain + ")");
+            nsHome(c, h, level); pass(stage, t, "the blocked walk said, not queued again: " + r3);
+        }
+        } catch (RuntimeException ex) { nsHome(c, h, level); throw ex; }
         return true;
     }
     private static int st878Done;

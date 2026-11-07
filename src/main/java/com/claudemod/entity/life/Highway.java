@@ -88,6 +88,9 @@ public final class Highway {
         if (fortress(level, row0, lo, hi)) return finish(g, player, b, "it meets the fortress at row " + (next + 1) + " (" + row0.centre().toShortString() + "); the join through its railing is the next pass");
         BlockPos standOn = apron ? b.rows.get(1).centre().above() : next == 0 ? b.portal : b.rows.get(next - 1).centre().above();
         if (g.blockPosition().distSqr(standOn) > 2 * 2) { // (back from a trip or a fight: along the highway to its end first)
+            if (g.attempts.skipped(Attempts.Kind.WALK, standOn, g.tickCount, 0)) { var why = g.attempts.why(Attempts.Kind.WALK, standOn); // (the walk there failed and its cause still holds: said, for the planner to decide on; live 23:10 11-06 magma cubes at the end, the same walk queued and ended at once 8 times in a second, stage 882)
+                ClaudeMod.LOGGER.info("[Claude highway] the way to its end at {} failed ({}), nothing changed since: not queued again (Highway.skill)", standOn.toShortString(), why);
+                return "failed: the way to the highway's end at " + standOn.toShortString() + " is blocked (" + why + "); deal with that first (row " + next + " of " + b.rows.size() + ")"; }
             g.tasks.add(new Task.GoTo(standOn, 0.8)); g.skillQueue.addFirst(new Skills.Step("build_highway", "@" + words, st.count(), st.where()));
             return "to the highway's end at " + standOn.toShortString() + " (row " + next + " of " + b.rows.size() + ")";
         }

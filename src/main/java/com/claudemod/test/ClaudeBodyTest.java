@@ -10729,6 +10729,7 @@ public final class ClaudeBodyTest {
             case 891: return st891(stage, t, c, h, level, mock);
             case 892: return st892(stage, t, c, h, level, mock);
             case 893: return st893(stage, t, c, h, level, mock);
+            case 894: return st894(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -19793,6 +19794,30 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+
+    /** Stage 894 (D2D reviews 5/6/8 of 05:22, live 05:13-05:35 11-07 World 17): in a 2-high notch under the wall block of a torch slot up on his 3-high tunnel wall, the wall's face out of his sight: doWallTorch walked to the torch's own cell, mid-air 2 up, NO_PATH, stuck 45 s, dropped, queued again, for 20 minutes. Here: the same: the torch up within 10 s. */
+    private static boolean st894(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; }
+        if (t[0] == 10) {
+            BlockPos o = h.absolutePos(new BlockPos(2, 0, 8)); o = new BlockPos(o.getX(), 20, o.getZ());
+            for (int x = -2; x <= 20; x++) for (int z = -3; z <= 3; z++) for (int y = -1; y <= 4; y++) level.setBlock(o.offset(x, y, z), (y >= 0 && y <= 2 && (z == 0 || z == 1) && x >= 0 && x <= 18 ? Blocks.AIR : Blocks.DEEPSLATE).defaultBlockState(), 2); // a 2-wide, 3-high tunnel east, z 0..1
+            BlockPos slot = o.offset(9, 2, 0); var wall = net.minecraft.core.Direction.NORTH; // the torch up at feet + 2 on the north wall (live -56 over -58)
+            BlockPos notch = o.offset(9, 0, -1); level.setBlock(notch, Blocks.AIR.defaultBlockState(), 2); level.setBlock(notch.above(), Blocks.AIR.defaultBlockState(), 2); // the 2-high notch under the torch's wall block
+            s894 = slot; level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.TORCH, 23)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, notch.getX() + 0.5, notch.getY(), notch.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no"); mock[0].teleportTo(level, notch.getX() + 0.5, notch.getY() + 30, notch.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600;
+            c.tasks.add(new Task.WallTorch(slot, wall));
+        }
+        if (t[0] > 10 && s894 != null && (level.getBlockState(s894).is(Blocks.WALL_TORCH) || t[0] > 10 + 20 * 10)) {
+            boolean lit = level.getBlockState(s894).is(Blocks.WALL_TORCH); String at = s894.toShortString(); int took = t[0] - 10; s894 = null;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.prefs.remove("stay_close");
+            check(lit, "in the notch under the torch's wall block, 10 s and no torch at " + at + " (the walk to the torch's own cell, mid-air)");
+            pass(stage, t, "the torch up at " + at + " in " + took + " ticks");
+        }
+        return true;
+    }
+    private static BlockPos s894;
 
     /** Stage 889 (live 02:13-02:44 11-07 World 17: "strip_mine iron_ore x22" queued ~200 digs and ran 30 minutes; the kit check only runs as a step starts, so his meals ran to 0 down there, then a cave of 5 mobs took him to 2 health). The trip packing rule (the user: back up for food under 6 meals) mid-trip: by day, 1 meal, a strip_mine's digs queued: the food first, the dig after. */
     private static boolean st889(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

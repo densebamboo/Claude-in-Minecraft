@@ -2680,10 +2680,15 @@ public class WorkGoal extends Goal {
         }
         ItemStack torch = g.inventory.find(s -> s.is(net.minecraft.world.item.Items.TORCH));
         if (torch.isEmpty()) return true;
-        if (!inReach(pos)) return walkTo(pos, REACH - 1) && !inReach(pos);
+        BlockPos under = pos; for (int k = 0; k < 3 && !level.getBlockState(under.below()).isFaceSturdy(level, under.below(), Direction.UP); k++) under = under.below(); // (the floor under the torch's cell, not the cell: a torch up on a 3-high wall is mid-air, live 05:13-05:50 11-07 NO_PATH to it from the notch under its wall for 40 min)
+        if (!inReach(pos)) {
+            if (!g.blockPosition().equals(under) && ticks < 200) { if (under.distSqr(g.blockPosition()) <= 2) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(under.getX() + 0.5, under.getY(), under.getZ() + 0.5, 0.5); } else walkTo(under, 0.4); return false; } // onto it, not near it: the notch 1 off it is where the wall's face is out of sight and reach (a step: a nudge, a walk "arrives" a block short)
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] torch at {} on the {} wall: out of reach from the floor under it, skipped", pos.toShortString(), t.wall().getName());
+            return true;
+        }
         Vec3 face = Vec3.atCenterOf(wall).subtract(t.wall().getStepX() * 0.5, 0, t.wall().getStepZ() * 0.5);
         if (!com.claudemod.entity.life.Perception.clear(level, g.getEyePosition(), face.add(t.wall().getStepX() * -0.05, 0, t.wall().getStepZ() * -0.05))) { // the wall's face out of his sight (round a corner, behind a block): no torch clicked through it; up to the torch's own cell for a look, else skipped (no sensing through walls: the one place path that skipped the check)
-            if (Math.sqrt(pos.distSqr(g.blockPosition())) > 1.5) { walkTo(pos, 1.0); return false; }
+            if (!g.blockPosition().equals(under) && ticks < 200) { if (under.distSqr(g.blockPosition()) <= 2) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(under.getX() + 0.5, under.getY(), under.getZ() + 0.5, 0.5); } else walkTo(under, 0.4); return false; } // onto it, not near it: a notch 1 off it is where the face can't be seen
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] torch at {} on the {} wall: can't see that face from where he can stand, skipped", pos.toShortString(), t.wall().getName());
             return true;
         }

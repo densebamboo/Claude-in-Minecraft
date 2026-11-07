@@ -68,7 +68,7 @@ public final class Highway {
             g.skillQueue.addFirst(new Skills.Step("build_highway", "@" + words, st.count(), st.where())); g.skillQueue.addFirst(new Skills.Step("enter_portal", "", 1));
             var pack = st.target().startsWith("@") ? null : packStep(g); if (pack != null) g.skillQueue.addFirst(pack); // (the rest of the trip after his chests: mined)
             if (top != null) { g.skillQueue.addFirst(top); return "the highway's in the Nether: " + top.count() + " cobbled deepslate from my chests first (a full pack), then through the portal"; }
-            if (pack != null) return "the highway's in the Nether: " + pack.count() + " cobbled deepslate on me first (a full pack), then through the portal";
+            if (pack != null) { int on = g.inventory.count(x -> x.is(BLOCK)); return "the highway's in the Nether: " + on + " cobbled deepslate on me, " + (pack.count() - on) + " more first (a full pack of " + pack.count() + "), then through the portal"; } // (the step's count is the trip's total, not what he has: "759 on me" with 654, live 19:53, D2D review 38)
             return "the highway's in the Nether: through the portal first";
         }
         if (s.dest != null && level.isLoaded(s.dest)) { BlockPos dk = FortressScout.deck(level, s.dest); // the fortress's deck once its ground is loaded: the height on record may be a brick seen from below (stage 919)

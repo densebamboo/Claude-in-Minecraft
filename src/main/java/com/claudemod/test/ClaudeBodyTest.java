@@ -18599,6 +18599,8 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; com.claudemod.entity.life.Highway.reset(c);
             check(packed1, "enter_portal back to the highway with 120 and room for more: no pack first (" + r1 + "; queue " + q1 + ")");
             check(packed2, "build_highway from the overworld with 120 and room for more: no pack first (" + r2 + "; queue " + q2 + ")");
+            check(r1.contains("120 cobbled deepslate on me,"), "the enter_portal pack line says what is on him (120), not the trip's total: " + r1);
+            check(r2.contains("120 cobbled deepslate on me,"), "the pack line says what is on him (120), not the trip's total (D2D review 38, live 19:53: \"759 on me\" with 654): " + r2);
             pass(stage, t, "packs first: " + r1 + " | " + r2);
         }
         return true;

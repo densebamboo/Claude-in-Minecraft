@@ -10671,6 +10671,7 @@ public final class ClaudeBodyTest {
             case 865: return st865(stage, t, c, h, level, mock);
             case 870: return st870(stage, t, c, h, level, mock);
             case 871: return st871(stage, t, c, h, level, mock);
+            case 872: return st872(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -18317,6 +18318,26 @@ public final class ClaudeBodyTest {
             String q = c.tasks.stream().limit(4).toList().toString(); c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null;
             check(!r.contains("y=16") && high < 0, "collect cobbled_deepslate sent him up to stone (result: " + r + "; highest task y " + high + "; " + q + ")");
             pass(stage, t, "deepslate from a level below y 0: " + r + " (highest task y " + high + ")");
+        }
+        return true;
+    }
+    private static boolean st872(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 18:18-18:35 World 17: at row 387 of his highway, row 14 (370 back) was in unloaded ground, read as "the first row not finished", and he walked back to it; there the far rows were unloaded and he walked out again: ~370 blocks each way, every minute. Here: rows 0-2 laid, row 3 out in unloaded ground, rows 4-6 laid, row 7 open: the next row is 7. With nothing laid past the unloaded row, it is the one ahead.
+        if (t[0] == 10) {
+            BlockPos o = h.absolutePos(new BlockPos(2, 4, 2));
+            var b = com.claudemod.entity.life.BridgeBlueprint.plan(level, o, net.minecraft.core.Direction.Axis.Z, new BlockPos(o.getX(), o.getY(), o.getZ() + 12), 2, false);
+            check(b != null && b.rows.size() >= 9, "872: no plan of 9+ rows (" + (b == null ? "null" : b.rows.size()) + ")");
+            var r3 = b.rows.get(3); b.rows.set(3, new com.claudemod.entity.life.BridgeBlueprint.Row(r3.centre().offset(4000, 0, 4000), r3.dir(), r3.leg(), r3.k(), r3.stair(), r3.tunnel()));
+            check(!level.hasChunkAt(b.rows.get(3).centre()), "872: the far row's chunk is loaded");
+            var right = b.rows.get(0).dir().getClockWise();
+            for (int i = 0; i < b.rows.size(); i++) { var r = b.rows.get(i); if (i == 3) continue;
+                for (int ofs = b.lo(); ofs <= b.hi(); ofs++) { BlockPos f = r.centre().relative(right, ofs); level.setBlock(f, (i <= 6 ? Blocks.COBBLED_DEEPSLATE : Blocks.AIR).defaultBlockState(), 2); for (int y = 1; y <= 3; y++) level.setBlock(f.above(y), Blocks.AIR.defaultBlockState(), 2); } }
+            int laidPast = com.claudemod.entity.life.Highway.next(level, b);
+            for (int i = 4; i <= 6; i++) { var r = b.rows.get(i); for (int ofs = b.lo(); ofs <= b.hi(); ofs++) level.setBlock(r.centre().relative(right, ofs), Blocks.AIR.defaultBlockState(), 2); }
+            int ahead = com.claudemod.entity.life.Highway.next(level, b);
+            check(laidPast == 7, "the highway's next row with rows 4-6 laid past an unloaded row 3: " + laidPast + ", not 7 (he walks back to the unloaded one)");
+            check(ahead == 3, "with nothing laid past the unloaded row 3, it is the row ahead: got " + ahead);
+            pass(stage, t, "unloaded row behind laid ones counts as laid (" + laidPast + "), ahead of all of them it is next (" + ahead + ")");
         }
         return true;
     }

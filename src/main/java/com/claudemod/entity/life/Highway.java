@@ -161,7 +161,10 @@ public final class Highway {
     }
     /** The first row not finished (a row out in unloaded ground isn't: it's ahead); rows.size() when all are. */
     public static int next(ServerLevel level, BridgeBlueprint b) { return nextFrom(level, b, 0); }
-    static int nextFrom(ServerLevel level, BridgeBlueprint b, int from) { int n = from; for (; n < b.rows.size(); n++) { var r = b.rows.get(n); if (!level.hasChunkAt(r.centre()) || !done(level, r, b.lo(), b.hi())) break; } return n; }
+    static int nextFrom(ServerLevel level, BridgeBlueprint b, int from) {
+        // (rows go down in order: an unloaded row with a laid row past it is laid. Read as unfinished, at row 387 the unloaded row 14 sent him 370 back and there the unloaded far rows sent him out again, every minute, live 18:18-18:35 11-06, stage 872)
+        int lastLaid = -1; for (int i = b.rows.size() - 1; i >= from; i--) { var r = b.rows.get(i); if (level.hasChunkAt(r.centre()) && done(level, r, b.lo(), b.hi())) { lastLaid = i; break; } }
+        int n = from; for (; n < b.rows.size(); n++) { var r = b.rows.get(n); if (level.hasChunkAt(r.centre()) ? !done(level, r, b.lo(), b.hi()) : n > lastLaid) break; } return n; }
     /** He can stand on the row as it is: its floor solid and its walkway open. */
     static boolean standable(ServerLevel level, BridgeBlueprint.Row r, int lo, int hi) {
         Direction right = r.dir().getClockWise();

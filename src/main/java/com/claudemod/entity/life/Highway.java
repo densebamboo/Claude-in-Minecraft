@@ -104,9 +104,11 @@ public final class Highway {
             out.addAll(one); used += need; rows++; for (int k = 0; k < 4; k++) cnt[k] += c1[k];
         }
         if (rows == 0) return blocks(g, player, level, s, next, have, words, st);
+        for (int i = next; i < next + rows; i++) { String why = null; for (int o : new int[] {lo - 1, hi + 1}) if (why == null && !solid(level, b.rows.get(i).centre().relative(b.rows.get(i).dir().getClockWise(), o).above())) why = railWhy(level, b.rows.get(i), o);
+            if (why != null && !shelled(level, b, i, lo, hi)) { ClaudeMod.LOGGER.info("[Claude highway] rails on row {} at {}: {} (Highway.railWhy)", i + 1, b.rows.get(i).centre().toShortString(), why); break; } }
         for (Task k : out) if (k instanceof Task.Place pl) TempLedger.planBuild(g, pl.pos(), "Highway.skill"); // (the highway is his build: its blocks stay, never litter; live 15:25 LITTER on its floor, stage 917)
         g.tasks.addAll(out); g.skillQueue.addFirst(new Skills.Step("build_highway", "@" + words, st.count(), st.where()));
-        String r = "highway rows " + (next + 1) + "-" + (next + rows) + " of " + b.rows.size() + ": " + cnt[0] + " lava sealed, " + cnt[1] + " dug, " + cnt[2] + " floor laid, " + cnt[3] + " tunnel shell laid (" + used + " of " + have + " cobbled deepslate)";
+        String r = "highway rows " + (next + 1) + "-" + (next + rows) + " of " + b.rows.size() + ": " + cnt[0] + " lava sealed, " + cnt[1] + " dug, " + cnt[2] + " floor laid, " + cnt[3] + " shell or rail blocks laid (" + used + " of " + have + " cobbled deepslate)";
         ClaudeMod.LOGGER.info("[Claude highway] {} (Highway.skill)", r);
         g.noteDoing("building the highway to " + b.dest.toShortString() + ", row " + (next + 1) + " of " + b.rows.size());
         return r;
@@ -178,13 +180,40 @@ public final class Highway {
         for (int o = lo; o <= hi; o++) { BlockPos f = r.centre().relative(right, o); if (!solid(level, f)) return false; for (int y = 1; y <= 2; y++) if (solid(level, f.above(y)) || lava(level, f.above(y))) return false; }
         return true;
     }
-    /** A row is finished: its floor all cobbled deepslate, its walkway open and dry. */
+    /** A row is finished: its floor all cobbled deepslate, its walkway open and dry, and the rails it wants up (railWhy). */
     static boolean done(ServerLevel level, BridgeBlueprint.Row r, int lo, int hi) {
         Direction right = r.dir().getClockWise();
         for (int o = lo; o <= hi; o++) { BlockPos f = r.centre().relative(right, o);
             if (!level.getBlockState(f).is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE)) return false;
             for (int y = 1; y <= 3; y++) if (solid(level, f.above(y)) || lava(level, f.above(y))) return false; }
+        for (int o : new int[] {lo - 1, hi + 1}) if (!solid(level, r.centre().relative(right, o).above()) && railWhy(level, r, o) != null) return false;
         return true;
+    }
+
+    /**
+     * The rail on side o of row r (at floor + 1, the spec's), priced: what a fall off that side costs him (back up from the
+     * bottom, highway.off_back_s plus highway.off_s_per_block for each block down, the deepest of the open columns out to 3;
+     * lava under it, highway.off_lava_s) times the odds of going off it over the crossings he'll make (a mob biome's knockback
+     * more often), against the block and the second to place it. The user: "2 wide without rails first, then build the railing
+     * ... when needed"; live 23:59:58 11-06 off his railless highway into a basalt delta after a magma cube, 1:45 back up
+     * (stage 933). Null: not worth it (the ground beside, or a short fall in quiet ground); else why.
+     */
+    public static String railWhy(ServerLevel level, BridgeBlueprint.Row r, int o) {
+        Direction right = r.dir().getClockWise(); int out = Integer.signum(o); int y0 = r.centre().getY();
+        int deep = 0; boolean lavaUnder = false;
+        for (int k = 0; k < 3; k++) { BlockPos col = r.centre().relative(right, o + out * k);
+            if (!level.hasChunkAt(col)) break;
+            if (solid(level, col.above()) || solid(level, col)) break; // (ground or rock beside at his height or the floor's: no fall there, nor past it)
+            int d = 0; for (; d < 48; d++) { BlockPos q = col.below(d); if (lava(level, q)) { lavaUnder = true; break; } if (solid(level, q)) break; }
+            deep = Math.max(deep, d); }
+        if (deep == 0 && !lavaUnder) return null;
+        BlockPos mid = r.centre().relative(right, o);
+        boolean mobs = level.getBiome(mid).is(net.minecraft.world.level.biome.Biomes.BASALT_DELTAS) || level.getBiome(mid).is(net.minecraft.world.level.biome.Biomes.SOUL_SAND_VALLEY);
+        double off = lavaUnder ? w("highway.off_lava_s", 600) : w("highway.off_back_s", 20) + w("highway.off_s_per_block", 7) * deep;
+        double odds = w("highway.knock_odds", 0.001) * (mobs ? w("highway.knock_mob_biome_x", 10) : 1) * w("highway.crossings", 30);
+        double rail = w("highway.rail_s", 3);
+        if (odds * off <= rail) return null;
+        return (lavaUnder ? "lava under it" : deep + " down") + (mobs ? " in " + level.getBiome(mid).unwrapKey().map(k -> k.location().getPath().replace('_', ' ')).orElse("mob ground") : "") + ": a fall off it " + Math.round(off) + " s x " + String.format("%.2f", odds) + " odds > " + Math.round(rail) + " s for the rail";
     }
 
     /**
@@ -234,6 +263,8 @@ public final class Highway {
             out.add(new Task.Place(q, BLOCK)); placed++; c[3]++;
         }
         out.add(new Task.GoTo(r.centre().above(), 0.6));
+        if (!tunnel) for (int o : new int[] {lo - 1, hi + 1}) { BlockPos q = r.centre().relative(right, o).above().immutable(); // (from the row: the last row's rail beside it is its anchor, the first gets a footing)
+            if (!solid(level, q) && railWhy(level, r, o) != null) { out.add(new Task.Place(q, BLOCK)); placed++; c[3]++; } }
         return placed;
     }
 
@@ -252,7 +283,7 @@ public final class Highway {
     static String finish(ClaudeEntity g, ServerPlayer player, BridgeBlueprint b, String how) {
         String r = "done: the highway from portal #" + state(g).portalId + " to " + b.dest.toShortString() + " is laid, " + b.width + " wide, cobbled deepslate: " + how;
         ClaudeMod.LOGGER.info("[Claude highway] {} (Highway.finish)", r); state(g).dest = null; // (done: no longer underway)
-        if (player != null) com.claudemod.director.ClaudeChat.say(player, "the highway to " + b.dest.toShortString() + " is down (" + b.width + " wide, no rails yet): " + how, "build_highway: done");
+        if (player != null) com.claudemod.director.ClaudeChat.say(player, "the highway to " + b.dest.toShortString() + " is down (" + b.width + " wide, railed where a fall off it costs more than the rail): " + how, "build_highway: done");
         return r;
     }
 

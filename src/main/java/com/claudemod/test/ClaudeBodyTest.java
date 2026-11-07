@@ -10687,6 +10687,7 @@ public final class ClaudeBodyTest {
             case 878: return st878(stage, t, c, h, level, mock);
             case 879: return st879(stage, t, c, h, level, mock);
             case 880: return st880(stage, t, c, h, level, mock);
+            case 881: return st881(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -18650,6 +18651,33 @@ public final class ClaudeBodyTest {
                 check(s880Bad == 0, "a pickup between kills: " + s880Why);
                 nsHome(c, h, level); pass(stage, t, "4 cows down, then " + beef + " beef swept up in " + (t[0] - s880Start) + " ticks");
             }
+        }
+        return true;
+    }
+    /** Stage 881 (D2D review 210, live 22:23-22:35 World 17; the user earlier: "he's dug this entire branch without placing a single torch down"): torches 0, no coal, 59 logs, collect cobbled_deepslate in his blueprint mine at y -58: bpStripMine ran, charcoalForTorches (only on the old mine path) never did. Here: the blueprint mine, no torches or coal, logs: the strip_mine step makes his light first. */
+    private static boolean st881(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; }
+        if (t[0] == 10) {
+            BlockPos at = h.absolutePos(new BlockPos(2, 0, 8)); var E = net.minecraft.core.Direction.EAST;
+            var b = new com.claudemod.entity.life.MineBlueprint(new BlockPos(at.getX(), 20, at.getZ()), E, 2, 3); b.segments.get(0).n = 5; b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 12, null)); b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.STAIRS, b.nextStart(true), E, 74, null)); b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 20, null)); b.invalidate();
+            b.branchLength = 16; b.branchEvery = 4;
+            for (var r : b.rows()) for (BlockPos f : r.feet()) { level.setBlock(f.below(), Blocks.DEEPSLATE.defaultBlockState(), 2); for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2); }
+            BlockPos face = b.rows().get(b.rows().size() - 1).first(), me = b.rows().get(b.rows().size() - 6).first();
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = face; c.mineIsTunnel = true; level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 59)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 32)); c.getInventory().add(new ItemStack(Items.FURNACE)); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no"); mock[0].teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 1.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 20) {
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "strip_mine", "cobbled_deepslate", 300);
+            String q = c.skillQueue.toString(); int torches = c.getInventory().countItem(Items.TORCH);
+            boolean light = torches > 0 || q.contains("charcoal") || q.contains("torch") || r.toLowerCase().contains("torch") || r.toLowerCase().contains("charcoal");
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; c.prefs.remove("stay_close");
+            check(light, "0 torches, no coal, 59 logs, strip_mine in his blueprint mine: no light made first: " + r + " | queue " + q);
+            pass(stage, t, "his light first: " + r);
         }
         return true;
     }

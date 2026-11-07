@@ -2609,6 +2609,7 @@ public final class ClaudeLife {
                     Item want = oreDrop(target); boolean countedOre = want != null && !st.where().equals("looked_at");
                     if (countedOre && haveFor(g, level, want) >= Math.max(1, count)) return "done: already have " + haveFor(g, level, want) + " " + Crafting.name(want);
                     if (want != null) ClaudeMod.LOGGER.info("[Claude skill] strip_mine {} x{}: have {} (bag+chests), countedOre {}, where {}, queue {} (ClaudeLife strip_mine)", target, count, haveFor(g, level, want), countedOre, st.where(), g.skillQueue);
+                    { String light = charcoalForTorches(g, level, st); if (light != null) return light; } // his light before the dig, as on the old path (live 22:23 11-06: 0 torches, no coal, 59 logs, digging on in the dark at y -58; D2D review 210, stage 881)
                     String r = bpStripMine(g, player, level, st, target, count);
                     if (countedOre && !r.startsWith("failed") && !r.startsWith("done") && !g.skillQueue.contains(st)) { g.skillQueue.addFirst(st); ClaudeMod.LOGGER.info("[Claude skill] strip_mine {}: {} of {} {} so far, the mining step stays on before any dependent step (ClaudeLife.strip_mine)", target, haveFor(g, level, want), count, Crafting.name(want)); }
                     return r;

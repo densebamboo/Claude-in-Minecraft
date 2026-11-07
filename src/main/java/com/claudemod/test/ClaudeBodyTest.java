@@ -7225,6 +7225,7 @@ public final class ClaudeBodyTest {
                             for (BlockPos sc : new BlockPos[] {new BlockPos(6, 4, 9), new BlockPos(6, 4, 8)}) check(!c.attempts.within(com.claudemod.entity.life.Attempts.Kind.BREAK, h.absolutePos(sc), c.tickCount, 20 * 600), "refused: a break at " + sc.toShortString() + " was refused (the shell guard)");
                             int dia = c.inventory.count(s -> s.is(Items.DIAMOND));
                             boolean patched = level.getBlockState(h.absolutePos(new BlockPos(6, 4, 9))).isSolid() && level.getBlockState(h.absolutePos(new BlockPos(6, 4, 8))).isSolid();
+                            for (int wz = 8; wz <= 9; wz++) for (int wy = 2; wy <= 3; wy++) patched &= level.getBlockState(h.absolutePos(new BlockPos(6, wy, wz))).isSolid(); // (and his tunnel's wall under the vein whole: opened for a drop up in the pocket, put back)
                             if (ore == 0 && dia - vsDia >= 8 && patched) pass(stage, t, "the vein by his face: all 8 out, diamonds " + vsDia + " -> " + dia + ", the 2 wall cells patched only after, nothing refused (" + (t[0] - oeMark) + " ticks)");
                             else check(t[0] - oeMark < 2400, "not done in 2 min: " + ore + " ore left, diamonds " + vsDia + " -> " + dia + ", patched " + patched + ", drop behind " + dropIn + ", at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ", tasks " + c.tasks.size() + ", last " + c.lastSkillLine);
                         }

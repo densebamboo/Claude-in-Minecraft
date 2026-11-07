@@ -2937,6 +2937,22 @@ public class WorkGoal extends Goal {
             g.tasks.addFirst(new Task.Break(rest));
             return true;
         }
+        // 4b. in his mine, a valuable drop up in an ore pocket off the tunnel's wall, out of reach and too high to jump to: the wall beside him toward it opened, a step in, the grab, the wall put back, like a player (stage 263 1 in 4: from the floor 2 across and 2 below it, "tried 16 ways", then the patch sealed it in)
+        if (bp != null && valuable && dy > 1.3 && dy < 3.4 && horiz < 3.2 && g.onGround() && pickupEffort <= 20) {
+            Direction dir = Direction.getNearest(nearest.getX() - g.getX(), 0, nearest.getZ() - g.getZ());
+            BlockPos s0 = g.blockPosition().relative(dir);
+            double ry = nearest.getY() - s0.getY(), rx = Math.abs(nearest.getX() - (s0.getX() + 0.5)), rz = Math.abs(nearest.getZ() - (s0.getZ() + 0.5));
+            java.util.List<BlockPos> dig = new java.util.ArrayList<>(); boolean ok = ry <= 2.2 && ry >= -0.4 && rx <= 1.2 && rz <= 1.2 && !level.getBlockState(s0.below()).getCollisionShape(level, s0.below()).isEmpty(); // (from that cell his reach takes it: the body's pickup box, 1 across and half a block over his head)
+            for (BlockPos q : new BlockPos[] {s0.above(), s0}) { if (!ok) break; BlockState qs = level.getBlockState(q); if (qs.getCollisionShape(level, q).isEmpty()) continue; if (qs.getDestroySpeed(level, q) < 0 || qs.hasBlockEntity() || !level.getFluidState(q).isEmpty()) ok = false; else dig.add(q.immutable()); }
+            if (ok && !dig.isEmpty()) {
+                net.minecraft.world.item.Item fill = s0.getY() < 0 ? net.minecraft.world.item.Items.COBBLED_DEEPSLATE : net.minecraft.world.item.Items.COBBLESTONE;
+                for (BlockPos q : dig) g.tasks.addFirst(new Task.Place(q, fill)); // the wall back after (queued first: his mine's shell guard lets a cell out only with its patch-back on the queue)
+                g.tasks.addFirst(again); g.tasks.addFirst(new Task.GoTo(s0.immutable(), 0.5));
+                for (BlockPos q : dig) g.tasks.addFirst(new Task.Break(q));
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude pickup] {} at {}: {} up in the pocket, out of reach from {}: opening his wall at {} for the step in, the grab, then the wall back (WorkGoal.doPickup)", nearest.getItem().getHoverName().getString(), ip.toShortString(), String.format("%.1f", dy), g.blockPosition().toShortString(), dig);
+                return true;
+            }
+        }
         // 5. a jump gets him there (a ledge up to ~3 blocks right beside it): jump for it, like a player
         if (dy > 1.5 && dy < 3.4 && g.onGround()) {
             g.getMoveControl().setWantedPosition(nearest.getX(), g.getY(), nearest.getZ(), 1.0);

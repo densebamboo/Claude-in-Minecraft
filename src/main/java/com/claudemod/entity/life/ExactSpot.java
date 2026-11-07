@@ -204,6 +204,10 @@ public final class ExactSpot {
         if (cell != null && g.level().isLoaded(cell) && !g.level().getBlockState(cell).getCollisionShape(g.level(), cell).isEmpty()) { // a solid block's coords (a fortress deck's top brick, World 15 22:38): standing on it is what's meant, the first standing room above it
             BlockPos up = null; for (int k = 1; k <= 3 && up == null; k++) { BlockPos q = cell.above(k); if (g.level().getBlockState(q).getCollisionShape(g.level(), q).isEmpty() && g.level().getBlockState(q.above()).getCollisionShape(g.level(), q.above()).isEmpty()) up = q; }
             if (up != null) { ClaudeMod.LOGGER.info("[Claude exact] {} is a solid {}: onto it, at {} (ExactSpot.start)", xyz(cell), g.level().getBlockState(cell).getBlock().getName().getString(), xyz(up)); cell = up.immutable(); }
+            else { // no room on top (a furnace set in his mine's wall, review 34: the cell inside it was the order, the wall over it dug at, refused 4 times, "stuck"): the block's coords mean the block, beside it in reach, nothing dug
+                BlockPos best = null; for (Direction d : Direction.Plane.HORIZONTAL) { BlockPos q = cell.relative(d); if (PlaceAim.standable((ServerLevel) g.level(), q) && g.level().getFluidState(q).isEmpty() && (best == null || q.distSqr(g.blockPosition()) < best.distSqr(g.blockPosition()))) best = q.immutable(); }
+                if (best != null) { ClaudeMod.LOGGER.info("[Claude exact] {} is a solid {} with no room on top: beside it, at {} (ExactSpot.start)", xyz(cell), g.level().getBlockState(cell).getBlock().getName().getString(), xyz(best)); cell = best; }
+            }
         }
         if (cell != null && g.level().isLoaded(cell) && g.level().getBlockState(cell).is(net.minecraft.world.level.block.Blocks.END_PORTAL)) { // the portal itself: a player stands by its frames, never on it by a go_to (live 01:37, sent onto -862 21 1685 from his memory of it)
             BlockPos best = null;

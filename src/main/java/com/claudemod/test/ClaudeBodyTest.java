@@ -10608,6 +10608,7 @@ public final class ClaudeBodyTest {
             case 781: return st781(stage, t, c, h, level, mock);
             case 782: return st782(stage, t, c, h, level, mock);
             case 783: return st783(stage, t, c, h, level, mock);
+            case 784: return st784(stage, t, c, h, level, mock);
             case 762: return st762(stage, t, c, h, level, mock);
             case 763: return st763(stage, t, c, h, level, mock);
             case 758: return st758(stage, t, c, h, level, mock);
@@ -15821,6 +15822,27 @@ public final class ClaudeBodyTest {
             check(!(c.currentTask instanceof Task.GoTo go && go.pos().equals(st783C) && !level.getBlockState(st783B).isAir()), "the leg to " + st783B.toShortString() + " dropped with the netherrack still in it: on to " + st783C.toShortString() + " (tasks " + c.tasks + ")");
             if (c.blockPosition().distSqr(st783C) <= 2) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "the netherrack in the leg's cell taken, both legs walked, in " + (t[0] - st783T) / 20.0 + " s"); }
             else check(t[0] - st783T < 20 * 15, "never reached the second leg's end in 15 s (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ", tasks " + c.tasks + ")");
+        }
+        return true;
+    }
+    private static int st784T; private static BlockPos st784F; private static boolean st784Dug;
+    private static boolean st784(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // review 34 (live 21:27:45 World 17): "go_to exact" on his furnace's coords, set in a wall with the wall over it: no room on top, so the order was a cell inside the furnace, the wall over it queued to dig (his mine's wall, refused 4 times, "stuck" in chat). A furnace's coords mean the furnace: beside it, nothing dug
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st784T = -1; st784Dug = false; }
+        if (t[0] == 10) {
+            for (int x = 0; x <= 10; x++) for (int z = 0; z <= 10; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 2; y <= 6; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), z == 8 && y <= 5 ? Blocks.COBBLED_DEEPSLATE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); } // a wall along z 8
+            st784F = h.absolutePos(new BlockPos(5, 2, 8)).immutable(); level.setBlock(st784F, Blocks.FURNACE.defaultBlockState().setValue(net.minecraft.world.level.block.FurnaceBlock.FACING, net.minecraft.core.Direction.NORTH), 2); // the furnace in the wall, the wall over it
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(32))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            BlockPos me = h.absolutePos(new BlockPos(2, 2, 3)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 15) { c.tasks.clear(); String r = com.claudemod.entity.life.ExactSpot.start(c, mock[0], new com.claudemod.entity.life.Skills.Step("go_to", st784F.getX() + " " + st784F.getY() + " " + st784F.getZ(), 1, "exact")); com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 784 start: {}", r); st784T = t[0]; }
+        if (st784T > 0) {
+            if (c.tasks.stream().anyMatch(q -> q instanceof Task.Break b && b.pos().distSqr(st784F) <= 2) || c.currentTask instanceof Task.Break b0 && b0.pos().distSqr(st784F) <= 2) st784Dug = true;
+            check(!st784Dug, "a dig queued at the furnace's wall for a go_to on the furnace (tasks " + c.tasks + ", now " + c.currentTask + ")");
+            check(level.getBlockState(st784F.above()).is(Blocks.COBBLED_DEEPSLATE), "the wall over the furnace dug out");
+            boolean by = Math.sqrt(c.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(st784F))) <= 2.5;
+            if (by && c.tasks.isEmpty() && c.currentTask == null) { c.dropCurrent = true; pass(stage, t, "beside his furnace in " + (t[0] - st784T) / 20.0 + " s, at " + c.blockPosition().toShortString() + ", nothing dug"); }
+            else check(t[0] - st784T < 20 * 10, "not beside the furnace in 10 s (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ", tasks " + c.tasks + ")");
         }
         return true;
     }

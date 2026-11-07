@@ -10502,6 +10502,7 @@ public final class ClaudeBodyTest {
             case 925: return st925(stage, t, c, h, level, mock);
             case 926: return st926(stage, t, c, h, level, mock);
             case 927: return st927(stage, t, c, h, level, mock);
+            case 928: return st928(stage, t, c, h, level, mock);
             case 818: return st818(stage, t, c, h, level, mock);
             case 817: return st817(stage, t, c, h, level, mock);
             case 644: return st644(stage, t, c, h, level, mock);
@@ -13685,6 +13686,37 @@ public final class ClaudeBodyTest {
             BlockPos end = p.legs().get(p.legs().size() - 1);
             check(end.getX() - o.getX() >= 12, "the part-way plan ends only " + (end.getX() - o.getX()) + " blocks toward it, at " + end.toShortString());
             nsHome(c, h, level); pass(stage, t, "part way through the rock: " + p.legs().size() + " legs to " + end.toShortString() + " (" + p.digs() + " dug, " + p.nodes() + " nodes, " + p.ms() + " ms)"); }
+        return true;
+    }
+    /** Stage 928 (the user 11-06 23:20 via D2D: "he should be able to recognize it. if someone else connects their path to the highway he should be able to figure that out as well"): over an open cavern, his highway a bridge on record and someone's 1-wide cobble bridge joined to its side, an L he never walked; him at its far end (no trail). The road he sees is walked, back onto his highway and along it; no bridge of his own laid beside theirs. */
+    private static boolean st928(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12400, 70, 8320), him = o.offset(14, 0, 25);
+        java.util.Set<BlockPos> HW = new java.util.LinkedHashSet<>(), P = new java.util.LinkedHashSet<>();
+        for (int z = 0; z <= 25; z++) for (int x = 0; x <= 1; x++) HW.add(o.offset(x, 0, z)); // his highway's walkway
+        for (int x = 3; x <= 14; x++) P.add(o.offset(x, 0, 12)); for (int z = 12; z <= 25; z++) P.add(o.offset(14, 0, z)); // their path: from his rail east 12, then south 13
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) for (int k = 0; k <= 32; k += 16) for (int m = 0; m <= 32; m += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, m)), 2, o.offset(k, 0, m));
+        if (t[0] == 12) {
+            for (int x = -8; x <= 24; x++) for (int z = -8; z <= 34; z++) for (int y = -14; y <= 8; y++) nl.setBlock(o.offset(x, y, z), (y == -14 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2); // a cavern, its floor 14 down
+            for (BlockPos p : HW) nl.setBlock(p.below(), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2);
+            for (int z = 0; z <= 25; z++) { if (z != 12) nl.setBlock(o.offset(2, 0, z), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); nl.setBlock(o.offset(-1, 0, z), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); nl.setBlock(o.offset(2, -1, z), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); nl.setBlock(o.offset(-1, -1, z), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); } // its rails, a gap where their path joins
+            for (BlockPos p : P) nl.setBlock(p.below(), Blocks.COBBLESTONE.defaultBlockState(), 2);
+            com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(0, -1, 0), o.offset(0, -1, 25), net.minecraft.core.Direction.Axis.Z, 2);
+            nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64));
+            c.teleportTo(nl, him.getX() + 0.5, him.getY(), him.getZ() + 0.5, 180f, 0f);
+        }
+        if (t[0] == 15) com.claudemod.entity.nav.Route.forgetTrail(c); // (no trail: he never walked it)
+        if (t[0] == 20) {
+            var p = com.claudemod.entity.nav.NetherRoute.plan(c, nl, him, o);
+            int on = 0; if (p != null) for (BlockPos q : p.legs()) if (HW.contains(q) || P.contains(q)) on++;
+            String segs = ""; for (var sg : com.claudemod.entity.life.PortalMap.net(c).segments) segs += sg.describe() + "; ";
+            String why = p == null ? "no plan" : p.legs().size() + " legs, " + on + " on the highway or their path, " + p.digs() + " dug, " + p.puts() + " put, ~" + (int) p.seconds() + " s, partial " + p.partial() + ": " + p.legs() + " | segments: " + segs;
+            for (int x = -8; x <= 24; x++) for (int z = -8; z <= 34; z++) for (int y = -14; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            com.claudemod.entity.life.PortalMap.net(c).segments.clear();
+            check(p != null && !p.partial() && p.puts() == 0 && on == p.legs().size(), "along their bridge onto his highway, then to its end: the route " + why);
+            nsHome(c, h, level); pass(stage, t, why);
+        }
         return true;
     }
     /** Stage 927 (D2D 23:20: "holes left in the highway would be clutter and a bug of their own"; 926's way onto the highway ends at its wall): he steps in through the highway's shell from the rock beside it, and the shell block comes back behind him. */

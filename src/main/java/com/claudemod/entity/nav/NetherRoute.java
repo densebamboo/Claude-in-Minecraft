@@ -49,6 +49,7 @@ public final class NetherRoute {
     /** The way from {@code from} to within reach of {@code to}, or null when the loaded land holds none in the budget. */
     public static Plan plan(ClaudeEntity g, ServerLevel level, BlockPos from, BlockPos to) {
         // his own trail, when it runs from him to the goal: a way he's walked, priced against the search (live 22:05 11-06: 661 cells to the portal unused, the search ran out of nodes and dug at the rock nearest the goal; stage 924)
+        com.claudemod.entity.life.FarSight.lookAllRound(g, level); com.claudemod.entity.life.PortalMap.seeRoads(g, level); // (a look round, and the roads in it on record: his own and anyone's; stage 928)
         Plan tp = trail(g, from, to), hp = highway(g, from, to, true); if (hp == null) hp = ontoHighway(g, level, from, to); if (tp == null || hp != null && hp.seconds() < tp.seconds()) tp = hp; // (his highways on record outlive a restart; his trail doesn't: D2D 22:50, the user "he's not using the highway for pathing"; stage 925)
         double straight = h(from.getX(), from.getY(), from.getZ(), to);
         if (tp != null && tp.seconds() <= straight * com.claudemod.entity.life.Weights.w("nether.trail_ok_ratio", 1.5)) return tp;
@@ -100,6 +101,8 @@ public final class NetherRoute {
         for (int i = 0; i < segs.size(); i++) { var sg = segs.get(i);
             pt.add(feet(sg, sg.lo())); on.add(i); pt.add(feet(sg, sg.hi())); on.add(i);
             for (BlockPos p : new BlockPos[] {from, to}) { BlockPos q = feet(sg, Math.max(sg.lo(), Math.min(sg.hi(), along(sg, p)))); if (Math.abs(across(sg, p) - sg.line()) <= sg.width + 1 && Math.abs(p.getY() - q.getY()) <= 3 && Math.sqrt(p.distSqr(q)) <= (p == from ? 4 : 8)) { pt.add(q); on.add(i); } } }
+        for (int i = 0; i < segs.size(); i++) for (int e = 0; e < 2; e++) { var si = segs.get(i); BlockPos end = feet(si, e == 0 ? si.lo() : si.hi()); // a T: a road's end by another's side (a path joined to his highway part way along it)
+            for (int j = 0; j < segs.size(); j++) { if (j == i) continue; var sj = segs.get(j); BlockPos q = feet(sj, Math.max(sj.lo(), Math.min(sj.hi(), along(sj, end)))); if (q.distSqr(end) <= 36) { pt.add(q); on.add(j); } } }
         int n = pt.size(); double[] dist = new double[n]; int[] prev = new int[n]; boolean[] done = new boolean[n]; java.util.Arrays.fill(dist, Double.MAX_VALUE); java.util.Arrays.fill(prev, -1); dist[0] = 0;
         for (int it = 0; it < n; it++) { int u = -1; for (int k = 0; k < n; k++) if (!done[k] && dist[k] < Double.MAX_VALUE && (u < 0 || dist[k] < dist[u])) u = k; if (u < 0 || u == 1) break; done[u] = true;
             for (int v = 0; v < n; v++) { if (v == u || done[v]) continue; BlockPos a = pt.get(u), b = pt.get(v); double d = Math.sqrt(a.distSqr(b)), c;

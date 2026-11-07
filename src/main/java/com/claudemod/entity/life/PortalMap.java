@@ -204,6 +204,34 @@ public final class PortalMap {
         }
         return best;
     }
+    /**
+     * Roads he sees, his or anyone's: straight runs of road.min_run (8)+ placed-type floor (cobble, cobbled deepslate, stone and
+     * deepslate bricks and tiles, polished blackstone, smooth stone, planks) with 2 clear over it, cells he has seen, within
+     * road.see_radius (20); on record as segments, so the route walks them and their joins (the user 11-06: "he should be able to
+     * recognize it. if someone else connects their path to the highway he should be able to figure that out as well"; stage 928).
+     * shortcut: on record as plain segments (no "seen, not built" mark); add one if a seen road ever needs telling apart from his.
+     */
+    public static void seeRoads(ClaudeEntity g, net.minecraft.server.level.ServerLevel level) {
+        String d = dim(level); BlockPos me = g.blockPosition(); int R = (int) Weights.w("road.see_radius", 20), min = (int) Weights.w("road.min_run", 8);
+        java.util.Set<Long> cells = new java.util.HashSet<>();
+        for (BlockPos f : BlockPos.betweenClosed(me.offset(-R, -7, -R), me.offset(R, 5, R))) {
+            if (!level.isLoaded(f) || !road(level.getBlockState(f))) continue;
+            BlockPos a1 = f.above(), a2 = f.above(2);
+            if (!level.getBlockState(a1).getCollisionShape(level, a1).isEmpty() || !level.getBlockState(a2).getCollisionShape(level, a2).isEmpty()) continue;
+            if (!FarSight.known(g, f.getX(), f.getY() + 1, f.getZ()) || inHighway(g, d, f.getX(), f.getY(), f.getZ())) continue; // (seen; not on record already)
+            cells.add(f.asLong());
+        }
+        for (long k : cells) { BlockPos f = BlockPos.of(k);
+            for (Direction.Axis ax : new Direction.Axis[] {Direction.Axis.X, Direction.Axis.Z}) { Direction dir = Direction.fromAxisAndDirection(ax, Direction.AxisDirection.POSITIVE);
+                if (cells.contains(f.relative(dir.getOpposite()).asLong())) continue; // (a run's start only)
+                BlockPos e = f; int n = 1; while (cells.contains(e.relative(dir).asLong())) { e = e.relative(dir); n++; }
+                if (n < min) continue;
+                ClaudeMod.LOGGER.info("[Claude road] a road he sees: {} long along {} from {} to {} (PortalMap.seeRoads)", n, ax.getName(), f.toShortString(), e.toShortString());
+                addSegment(g, d, f, e, ax, 1); } }
+    }
+    static boolean road(net.minecraft.world.level.block.state.BlockState s) {
+        return s.is(net.minecraft.tags.BlockTags.PLANKS) || s.is(net.minecraft.world.level.block.Blocks.COBBLESTONE) || s.is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE) || s.is(net.minecraft.world.level.block.Blocks.STONE_BRICKS) || s.is(net.minecraft.world.level.block.Blocks.DEEPSLATE_BRICKS) || s.is(net.minecraft.world.level.block.Blocks.DEEPSLATE_TILES) || s.is(net.minecraft.world.level.block.Blocks.POLISHED_DEEPSLATE) || s.is(net.minecraft.world.level.block.Blocks.POLISHED_BLACKSTONE) || s.is(net.minecraft.world.level.block.Blocks.POLISHED_BLACKSTONE_BRICKS) || s.is(net.minecraft.world.level.block.Blocks.SMOOTH_STONE);
+    }
     /** A crossing he built, on record: joined to the segment it extends (same axis, line and floor), else a new one. */
     public static Segment addSegment(ClaudeEntity g, String dim, BlockPos a, BlockPos b, Direction.Axis axis, int width) {
         Segment s = segmentFor(g, dim, a, axis); if (s == null) s = segmentFor(g, dim, b, axis);

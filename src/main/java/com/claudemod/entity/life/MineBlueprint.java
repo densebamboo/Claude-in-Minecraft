@@ -189,6 +189,8 @@ public final class MineBlueprint {
         slotCells = cells; slotWalls = walls; slotKey = key; return cells;
     }
     public boolean isTorchSlot(BlockPos cell) { torchSlots(); return slotWalls.containsKey(cell); }
+    /** The wall a slot's torch hangs on (null: no slot there). */
+    public Direction slotWall(BlockPos cell) { torchSlots(); return slotWalls.get(cell); }
     /** The wall block a slot's torch hangs on. */
     public boolean isSlotWall(BlockPos p) { torchSlots(); for (Map.Entry<BlockPos, Direction> e : slotWalls.entrySet()) if (e.getKey().relative(e.getValue()).equals(p)) return true; return false; }
     /** A torch already in this slot: in its cell, or a block above or below it (where the old eye-level guess put them). Extra torches anywhere else are left as they are. */
@@ -390,16 +392,15 @@ public final class MineBlueprint {
         return out;
     }
 
-    /** The torch over a right-hand branch mouth (every other pair): the main tunnel's cell above the opening, on the wall block over the branch. */
+    /** The torch over every right-hand branch mouth (the user 11-07: "missing a lot of torches on top of the right hand side tunnel entrances"; it was every other pair): the main tunnel's cell above the opening, on the wall block over the branch. */
     public List<Task> branchMouthTorches(ServerLevel level) {
-        List<Task> out = new ArrayList<>(); int pair = 0;
+        List<Task> out = new ArrayList<>();
         for (Segment s : segments) {
             if (s.kind != Kind.BRANCH) continue;
             boolean rightHand = false; // the right-hand branch of its row: its dir is the row's right
             int ri = rowOf(s.start.relative(s.dir.getOpposite()));
             if (ri >= 0) rightHand = right(rows().get(ri).dir()) == s.dir;
             if (!rightHand) continue;
-            if (pair++ % 2 != 0) continue;
             BlockPos cell = s.start.relative(s.dir.getOpposite()).above(2); // the main tunnel cell beside the opening, at head+1, on the wall block over the mouth (a 2-high mouth)
             if (level.getBlockState(cell).isAir() && solid(level, s.start.above(2))) { out.add(new Task.WallTorch(cell, s.dir)); continue; }
             Direction along = ri >= 0 ? rows().get(ri).dir() : null; // a 3-high mouth in a 3-high tunnel has no wall over it: the torch goes on the main wall just past the mouth, at head height

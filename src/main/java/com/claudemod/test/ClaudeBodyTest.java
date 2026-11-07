@@ -10706,6 +10706,7 @@ public final class ClaudeBodyTest {
             case 883: return st883(stage, t, c, h, level, mock);
             case 884: return st884(stage, t, c, h, level, mock);
             case 885: return st885(stage, t, c, h, level, mock);
+            case 886: return st886(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -19183,6 +19184,43 @@ public final class ClaudeBodyTest {
             check(hw == 0, "collect cobbled_deepslate in his highway, none on him: " + hw + " of its own blocks queued to break (" + r + ")");
             check(r.startsWith("failed") && r.contains("Overworld") && !r.contains("inland"), "none in the Nether but his highway: no wander for it, a failure the planner sends home (" + r + ")");
             nsHome(c, h, level); pass(stage, t, "his highway left standing: " + r);
+        }
+        return true;
+    }
+    /** Stage 886 (the user 11-07 01:0x: "he's missing a lot of torches on top of the right hand side tunnel entrances, and he's also skipped branches torches"): the mouth torch went over every other right-hand pair only, and his walking sweep looked at rows by index (a branch's rows sit elsewhere in the list), so a branch dug dark (no torches on him, 22:23 11-06) stayed dark. Here: a tunnel with two branch pairs, all dug, no torches up, 64 on him at the first mouth: both right-hand mouths and the right branch get their torches queued. */
+    private static boolean st886(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(19600, 80, 18600);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -16; k <= 32; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 28; x++) for (int z = -16; z <= 16; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.DEEPSLATE.defaultBlockState(), 2);
+            var E = net.minecraft.core.Direction.EAST; var S = net.minecraft.core.Direction.SOUTH; var N = net.minecraft.core.Direction.NORTH;
+            var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 20, null)); b.invalidate();
+            for (int k : new int[]{4, 12}) { var row = b.rows().get(k); BlockPos rf = row.feet()[row.feet().length - 1], lf = row.feet()[0];
+                b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.BRANCH, rf.relative(S), S, 10, null));
+                b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.BRANCH, lf.relative(N), N, 10, null)); b.invalidate(); }
+            b.branchLength = 10; b.branchEvery = 8;
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            BlockPos me = b.rows().get(4).first();
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = b.rows().get(19).first(); c.mineIsTunnel = true; level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.TORCH, 64)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 32));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no"); mock[0].teleportTo(level, me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 20) {
+            var b = c.blueprint; c.tasks.clear();
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("bpIntegrity", ClaudeEntity.class, ServerLevel.class); m.setAccessible(true); m.invoke(null, c, level); } catch (ReflectiveOperationException ex) { throw new RuntimeException(ex); } // (his sweep as he walks his mine, every 3 s live)
+            java.util.List<BlockPos> lit = new java.util.ArrayList<>(); for (Task q : c.tasks) if (q instanceof Task.WallTorch w) lit.add(w.pos());
+            java.util.List<String> miss = new java.util.ArrayList<>(); int inBranch = 0;
+            for (var s : b.segments) if (s.kind == com.claudemod.entity.life.MineBlueprint.Kind.BRANCH && s.dir == net.minecraft.core.Direction.SOUTH) {
+                BlockPos mouth = s.start.relative(s.dir.getOpposite()).above(2); if (!lit.contains(mouth)) miss.add("mouth " + mouth.toShortString());
+                for (BlockPos l : lit) if (l.getZ() > s.start.getZ() - 1 && Math.abs(l.getX() - s.start.getX()) <= 1 && l.getZ() <= s.start.getZ() + 10) inBranch++; }
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; c.prefs.remove("stay_close");
+            for (int x = -4; x <= 28; x++) for (int z = -16; z <= 16; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(miss.isEmpty(), "64 torches on him at his first branch mouth, his mine all dark: right-hand mouth(s) with no torch queued: " + miss + " | torches queued " + lit);
+            check(inBranch > 0, "64 torches on him by a dark right branch: none of its torches queued | torches queued " + lit);
+            nsHome(c, h, level); pass(stage, t, "his dark mine lit as he passes: " + lit.size() + " torches queued " + lit);
         }
         return true;
     }

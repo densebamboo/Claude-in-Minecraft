@@ -10509,6 +10509,7 @@ public final class ClaudeBodyTest {
             case 932: return st932(stage, t, c, h, level, mock);
             case 933: return st933(stage, t, c, h, level, mock);
             case 934: return st934(stage, t, c, h, level, mock);
+            case 956: return st956(stage, t, c, h, level, mock);
             case 955: return st955(stage, t, c, h, level, mock);
             case 954: return st954(stage, t, c, h, level, mock);
             case 953: return st953(stage, t, c, h, level, mock);
@@ -14300,6 +14301,27 @@ public final class ClaudeBodyTest {
             check(i >= 0, "short of trip food: the plan's situation has no food line");
             check(line.contains("hunt chicken") && line.contains("no fishing rod and no string") && line.contains("no wheat"), "the food line misses the chicken in view or his means: " + line);
             pass(stage, t, line.length() > 220 ? line.substring(0, 220) + "..." : line);
+        }
+        return true;
+    }
+    /** Stage 956 (D2D review 100708-6 11-07, 10:06:46: kit.food "cook his raw out (6 raw, no furnace of his within 16: they cook at home)" with a furnace in his pack): 6 raw beef, a furnace and logs on him, 5 cooked beef, fed, short for the trip, no furnace placed near. The kit's pick is cooking his raw, and the smelt does it here. */
+    private static boolean st956(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.myStations.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); }
+        if (t[0] > 8 && t[0] % 5 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 4, c.blockPosition());
+        BlockPos me = c.blockPosition();
+        if (t[0] == 10) {
+            for (int x = -8; x <= 8; x++) for (int z = -8; z <= 8; z++) { level.setBlock(me.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BEEF, 6)); c.getInventory().add(new ItemStack(Items.FURNACE)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 16)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 5));
+            c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5);
+        }
+        if (t[0] == 60) { // (past the kit's 40-tick memo from the stage before)
+            var fa = com.claudemod.director.Kit.foodAsk(c);
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "cooked_beef", 6);
+            String q = String.valueOf(c.tasks); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.getInventory().clearContent();
+            for (int x = -8; x <= 8; x++) for (int z = -8; z <= 8; z++) for (int y = 0; y <= 4; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(fa != null && fa.item() == Items.COOKED_BEEF && fa.count() == 6, "6 raw beef and a furnace on him: the kit's ask " + (fa == null ? "none" : fa.count() + " " + fa.item()) + " (cooking his raw is 6)");
+            check(r != null && !r.startsWith("done:") && !r.startsWith("failed"), "the kit's cook, then the smelt: \"" + r + "\" (" + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+            pass(stage, t, "the kit cooks his raw with the furnace on him: \"" + r + "\"");
         }
         return true;
     }

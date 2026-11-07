@@ -10655,6 +10655,7 @@ public final class ClaudeBodyTest {
             case 799: return st799(stage, t, c, h, level, mock);
             case 739: return st739(stage, t, c, h, level, mock);
             case 1003: return st1003(stage, t, c, h, level, mock);
+            case 1004: return st1004(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -17420,6 +17421,25 @@ public final class ClaudeBodyTest {
             st1003S.discard(); st1003S = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
             check(!held, "6 s held on his perch by the fight's footing he can't get to (" + now + ")");
             pass(stage, t, "the footing he can't get to given up, the fight on its own terms (" + now + ")");
+        }
+        return true;
+    }
+    private static int st1004T; private static BlockPos st1004Top;
+    private static boolean st1004(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D death 109 (live 11:1x World 17, the Nether at 4,48,285): off his bridge every way up planned "(MAY_DIG; blocks on him: 2)", "2 blocks to put", with 67 logs on him: the planner counted stone only, doPlace would have towered on the logs
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1004T = -1; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.NETHERRACK, 2)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 64)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            BlockPos me = h.absolutePos(new BlockPos(5, 2, 4)).immutable(); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (int x = 0; x <= 2; x++) for (int z = 3; z <= 5; z++) for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.OBSIDIAN.defaultBlockState(), 2); // a ledge 4 up, no pick on him: up only on blocks put down
+            st1004Top = me.offset(1, 4, 4).immutable();
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.tasks.add(new Task.GoTo(st1004Top, 1.0)); st1004T = t[0]; }
+        if (st1004T > 0 && t[0] > st1004T) {
+            boolean up = c.getY() >= st1004Top.getY() - 0.1 && c.distanceToSqr(st1004Top.getX() + 0.5, st1004Top.getY(), st1004Top.getZ() + 0.5) < 4;
+            if (up || t[0] == st1004T + 600) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+                check(up, "never up the 4-block ledge with 2 netherrack and 64 logs on him: at " + c.blockPosition().toShortString() + ", logs left " + c.getInventory().countItem(Items.OAK_LOG));
+                pass(stage, t, "up the ledge on netherrack then logs"); }
         }
         return true;
     }

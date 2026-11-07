@@ -359,6 +359,11 @@ public final class ActionPath {
         int w = best == null ? -1 : com.claudemod.entity.life.BridgeBlueprint.frameWidth(level, best);
         return w >= 3 && w <= 7 ? w : 4;
     }
+    /** Planks and logs past what he keeps back for tools and a table: what WorkGoal.scaffoldBlock towers on when nothing else is left. */
+    public static int spareWood(com.claudemod.entity.ClaudeEntity g) {
+        return Math.max(0, g.inventory.count(s -> s.is(net.minecraft.tags.ItemTags.PLANKS)) - (int) com.claudemod.entity.life.Weights.w("scaffold.keep_planks", 8))
+             + Math.max(0, g.inventory.count(s -> s.is(net.minecraft.tags.ItemTags.LOGS)) - (int) com.claudemod.entity.life.Weights.w("scaffold.keep_logs", 4));
+    }
     /** The rows of a crossing as his tasks: each row's floor (the highway's width, his way on it), its two rails at floor + 1 outside it, then onto the row; on a segment he built before, lined up with it. False when he's short of blocks for it (the 2-wide line is laid instead). */
     static boolean crossingTasks(List<Task> out, List<Act> acts, int i0, int i1, BlockPos from, Item scaffold, ServerLevel level, int rows) {
         com.claudemod.entity.ClaudeEntity g = null; for (var p : level.players()) if (p instanceof com.claudemod.entity.ClaudeEntity c0 && c0.level() == level) g = c0; // (one bot per server; by distance to the crossing's start, any crossing past 3 blocks out got the plain 2-wide run)
@@ -446,7 +451,8 @@ public final class ActionPath {
             this.maxPuts = !canPlace ? 0 : g.inventory.count(s -> s.is(net.minecraft.world.item.Items.DIRT) || s.is(net.minecraft.world.item.Items.GRASS_BLOCK) || s.is(net.minecraft.world.item.Items.COBBLESTONE)
                     || s.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE) || s.is(net.minecraft.world.item.Items.ANDESITE) || s.is(net.minecraft.world.item.Items.DIORITE) || s.is(net.minecraft.world.item.Items.GRANITE)
                     || s.is(net.minecraft.world.item.Items.TUFF) || s.is(net.minecraft.world.item.Items.DEEPSLATE) || s.is(net.minecraft.world.item.Items.STONE) || s.is(net.minecraft.world.item.Items.CALCITE)
-                    || s.is(net.minecraft.world.item.Items.NETHERRACK) || s.is(net.minecraft.world.item.Items.BLACKSTONE)); // (what scaffoldBlock picks from: netherrack and blackstone too, or a Nether way with only those on him planned no block put down)
+                    || s.is(net.minecraft.world.item.Items.NETHERRACK) || s.is(net.minecraft.world.item.Items.BLACKSTONE))
+                    + (!canPlace ? 0 : spareWood(g)); // (what scaffoldBlock picks from, its wood fallback too: 2 netherrack and 67 logs planned "2 blocks to put", no way up off his bridge, death 109 11-07, stage 1004: netherrack and blackstone too, or a Nether way with only those on him planned no block put down)
             this.owner = g.getTarget() instanceof net.minecraft.server.level.ServerPlayer p ? p : null;
             this.bp = com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty();
             this.house = com.claudemod.director.ClaudeLife.houseMode(g) && g.house != null;

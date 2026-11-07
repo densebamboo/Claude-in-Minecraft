@@ -1959,8 +1959,8 @@ public class WorkGoal extends Goal {
         s0 = g.inventory.find(s -> s.is(net.minecraft.world.item.Items.GRAVEL) || s.is(net.minecraft.world.item.Items.SAND));
         if (!s0.isEmpty()) return s0;
         // nothing else on him: planks will do to tower up (keeping 8 back for tools and a table)
-        if (g.inventory.count(s -> s.is(net.minecraft.tags.ItemTags.PLANKS)) > 8) return g.inventory.find(s -> s.is(net.minecraft.tags.ItemTags.PLANKS));
-        if (g.inventory.count(s -> s.is(net.minecraft.tags.ItemTags.LOGS)) > 4) return g.inventory.find(s -> s.is(net.minecraft.tags.ItemTags.LOGS)); // logs tower just as well (16 logs on him and "nothing to build with" sent him running to the player's mob camp)
+        if (g.inventory.count(s -> s.is(net.minecraft.tags.ItemTags.PLANKS)) > com.claudemod.entity.life.Weights.w("scaffold.keep_planks", 8)) return g.inventory.find(s -> s.is(net.minecraft.tags.ItemTags.PLANKS));
+        if (g.inventory.count(s -> s.is(net.minecraft.tags.ItemTags.LOGS)) > com.claudemod.entity.life.Weights.w("scaffold.keep_logs", 4)) return g.inventory.find(s -> s.is(net.minecraft.tags.ItemTags.LOGS)); // logs tower just as well (16 logs on him and "nothing to build with" sent him running to the player's mob camp)
         return ItemStack.EMPTY;
     }
 

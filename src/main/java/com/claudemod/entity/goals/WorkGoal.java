@@ -2890,8 +2890,8 @@ public class WorkGoal extends Goal {
     private static java.util.Set<String> pickupSaid; private static int pickupEmptySaid = -1000; // (each drop's skip said once; an empty sweep at most every 5 s)
     private static boolean pickupSkipped(net.minecraft.world.entity.item.ItemEntity i, String why) {
         if (why == null) return false;
-        if (pickupSaid == null) pickupSaid = new java.util.HashSet<>(); if (pickupSaid.size() > 512) pickupSaid.clear();
-        if (pickupSaid.add(i.getUUID() + why)) com.claudemod.ClaudeMod.LOGGER.info("[Claude pickup] not going for {} {} at {}: {} (WorkGoal.doPickup)", i.getItem().getCount(), i.getItem().getHoverName().getString(), i.blockPosition().toShortString(), why);
+        if (pickupSaid == null) pickupSaid = new java.util.HashSet<>(); if (pickupSaid.size() > 512) pickupSaid.clear(); // said once per kind of drop, cell and reason: three netherrack drops in one cell were three identical lines, read as a conflict (stage 923 flaky 1 in 6)
+        if (pickupSaid.add(i.getItem().getItem() + "@" + i.blockPosition().asLong() + why)) com.claudemod.ClaudeMod.LOGGER.info("[Claude pickup] not going for {} {} at {}: {} (WorkGoal.doPickup)", i.getItem().getCount(), i.getItem().getHoverName().getString(), i.blockPosition().toShortString(), why);
         return true;
     }
 

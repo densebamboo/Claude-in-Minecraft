@@ -5700,7 +5700,16 @@ public class WorkGoal extends Goal {
             net.minecraft.world.entity.Mob still = died ? level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(w("fight.drops_wait_blocks", 16)), // (16, not 8: the next wither 10 off walked in while he stepped out of his gap for bones, stage 774)
                 m0 -> m0 != e && m0.isAlive() && m0.getTarget() == g && m0 instanceof net.minecraft.world.entity.monster.Enemy && !(m0 instanceof net.minecraft.world.entity.monster.RangedAttackMob) && !(m0 instanceof net.minecraft.world.entity.monster.Blaze) && !(m0 instanceof net.minecraft.world.entity.monster.Ghast)).stream().findFirst().orElse(null) : null;
             if (still != null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the drops wait: a {} {} off is still on him (WorkGoal.doAttack)", still.getType().getDescription().getString(), (int) still.distanceTo(g)); g.tasks.addFirst(new Task.Attack(still.getUUID(), Math.max(400, t.maxTicks()))); return true; } // ponytail: stage 553, the pickup after the first wither skeleton dug through his hole's wall for a drop and the second came in by it
-            if (died && ticks > 1 && !(g.tasks.peek() instanceof Task.Pickup)) g.tasks.addFirst(new Task.Pickup(80));
+            if (died && ticks > 1 && !(g.tasks.peek() instanceof Task.Pickup)) {
+                // the next kill near: that first, the drops swept after the last (they last 5 minutes; the user 11-06 21:20 "he should kill multiple things at once in range and pick everything up after")
+                double near = w("hunt.batch_blocks", 16);
+                if (g.tasks.peek() instanceof Task.Attack na && level.getEntity(na.target()) instanceof net.minecraft.world.entity.LivingEntity nl && nl.isAlive() && nl.distanceTo(g) <= near) {
+                    java.util.List<Task> all = new java.util.ArrayList<>(g.tasks); int end = 0;
+                    while (end < all.size() && all.get(end) instanceof Task.Attack) end++;
+                    if (end >= all.size() || !(all.get(end) instanceof Task.Pickup)) { all.add(end, new Task.Pickup(80 + 40 * end)); g.tasks.clear(); g.tasks.addAll(all); }
+                    com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the {}'s drops wait: the next one ({}) is {} off, {} kill(s) queued, then one sweep (WorkGoal.doAttack)", e.getType().getDescription().getString(), nl.getType().getDescription().getString(), (int) nl.distanceTo(g), end);
+                } else g.tasks.addFirst(new Task.Pickup(80));
+            }
             return true;
         }
         { Integer bw = behindWall.get(mob.getUUID()); if (bw != null && g.tickCount - bw < 20 * 30 && !g.hasLineOfSight(mob)) return true; } // (one he let be behind a wall: whoever queues the fight again, it ends here while he still can't see it)

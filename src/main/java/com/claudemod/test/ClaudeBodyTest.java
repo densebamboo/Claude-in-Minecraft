@@ -10684,6 +10684,7 @@ public final class ClaudeBodyTest {
             case 877: return st877(stage, t, c, h, level, mock);
             case 878: return st878(stage, t, c, h, level, mock);
             case 879: return st879(stage, t, c, h, level, mock);
+            case 880: return st880(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -18569,6 +18570,33 @@ public final class ClaudeBodyTest {
             check(p != null && !p.legs().isEmpty(), "no way to the ledge at all (along the bridge and down the slope at its end)");
             check(airN <= p.puts(), "legs planned in the air with no block put down for them (the void by his bridge read as unseen rock):" + air + ", " + p.puts() + " put | legs " + p.legs());
             nsHome(c, h, level); pass(stage, t, "no legs in the air under his bridge: " + p.legs().size() + " legs, " + p.digs() + " dug, " + p.puts() + " put, " + String.format("%.0f", p.seconds()) + " s");
+        }
+        return true;
+    }
+    /** Stage 880 (the user 11-06 21:20: "he should kill multiple things at once in range and pick everything up after when he's hunting"): live 21:21 salmon, a kill then its pickup, the next kill, its pickup. Here: 4 cows in a row 2 apart, collect beef: all 4 killed before any pickup, then the beef swept up. */
+    private static int s880Bad, s880Start; private static String s880Why = "";
+    private static boolean st880(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(19200, 80, 18200);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -16; k <= 32; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(1000); s880Bad = 0; s880Start = 0; s880Why = "";
+            for (int x = -10; x <= 30; x++) for (int z = -10; z <= 10; z++) { level.setBlock(o.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 3));
+            c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5); c.prefs.put("stay_close", "no");
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f); }
+        if (t[0] == 8) { for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new net.minecraft.world.phys.AABB(o).inflate(60), e -> e instanceof net.minecraft.world.entity.Mob || e instanceof net.minecraft.world.entity.item.ItemEntity)) e.discard();
+            for (int k = 0; k < 4; k++) { var cw = net.minecraft.world.entity.EntityType.COW.create(level); cw.moveTo(o.getX() + 4.5 + 2 * k, o.getY(), o.getZ() + 0.5, 0, 0); cw.setNoAi(true); cw.setPersistenceRequired(); level.addFreshEntity(cw); } }
+        if (t[0] == 14) { com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "beef", 8); s880Start = t[0]; }
+        if (s880Start > 0 && t[0] > s880Start) {
+            int alive = level.getEntitiesOfClass(net.minecraft.world.entity.animal.Cow.class, new net.minecraft.world.phys.AABB(o).inflate(30), net.minecraft.world.entity.LivingEntity::isAlive).size();
+            if (alive > 0 && alive < 4 && c.currentTask instanceof Task.Pickup && s880Bad++ == 0) s880Why = "picking up with " + alive + " cow(s) still alive 2 apart (tick " + (t[0] - s880Start) + ")";
+            int beef = c.getInventory().countItem(Items.BEEF), left = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(30), x -> x.getItem().is(Items.BEEF)).size();
+            if (alive == 0 && left == 0 && beef > 0 || t[0] - s880Start > 20 * 40) {
+                c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.prefs.remove("stay_close");
+                for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new net.minecraft.world.phys.AABB(o).inflate(60), e -> e instanceof net.minecraft.world.entity.Mob || e instanceof net.minecraft.world.entity.item.ItemEntity)) e.discard();
+                check(alive == 0 && left == 0, "40 s: " + alive + " cow(s) alive, " + left + " beef drop(s) left, " + beef + " beef on him");
+                check(s880Bad == 0, "a pickup between kills: " + s880Why);
+                nsHome(c, h, level); pass(stage, t, "4 cows down, then " + beef + " beef swept up in " + (t[0] - s880Start) + " ticks");
+            }
         }
         return true;
     }

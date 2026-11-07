@@ -420,6 +420,10 @@ public final class LessonWords {
         if (queue.stream().noneMatch(s -> s.skill().equals("give"))) return queue;
         Matcher m = goal == null ? null : THEIR_WORDS.matcher(goal);
         String theirs = m != null && m.find() ? norm(m.group(1)) : "";
+        if (!theirs.isEmpty() && p != null && com.claudemod.director.ClaudeLife.ackOnly(theirs)) { // a yes to his offer: the offer's words are theirs (20:29 "yeah" to "want me to go grab them and bring them to you?" dropped the give, and 11 of the 28 went into his leggings and boots)
+            String off = com.claudemod.director.ClaudeChat.offerAnswered(p.server);
+            if (!off.isEmpty()) { ClaudeMod.LOGGER.info("[Claude errand] \"{}\" answers his offer \"{}\": read with it (LessonWords.unaskedGive)", theirs, off); theirs = theirs + " " + norm(off); }
+        }
         String res = resumed().get(g.getUUID());
         String words = theirs + (res != null && CONTINUE.matcher(theirs).find() ? " " + norm(res) : "");
         boolean lesson = ExactSpot.lesson(g, p) || ExactSpot.LESSON.matcher(words).find();

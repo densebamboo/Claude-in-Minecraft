@@ -12329,6 +12329,7 @@ public final class ClaudeLife {
     /** Before a fight: make the best sword he can from what he carries (no detours; a fight can't wait). */
     /** Diamonds are theirs while they've asked for diamonds or diamond gear; otherwise, on his own, he spends them like any player. */
     public static boolean diamondsReserved(ClaudeEntity g) {
+        if (Errand.diamondsOwed(g)) return true; // they asked for them, not handed over yet (20:30 the order read as done, and 11 of the 28 went into his armor)
         String whose = g.prefs.get("diamonds_for"); // read from their order's context by the planner (the user 11-06: "it should be context based")
         if ("him".equals(whose)) return false;
         if ("them".equals(whose)) return true;

@@ -10680,6 +10680,7 @@ public final class ClaudeBodyTest {
             case 875: return st875(stage, t, c, h, level, mock);
             case 876: return st876(stage, t, c, h, level, mock);
             case 877: return st877(stage, t, c, h, level, mock);
+            case 878: return st878(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -18483,6 +18484,38 @@ public final class ClaudeBodyTest {
                 check(off, "15 s at the furnace with 6 porkchop cooking and his mine face ~36 off, no mining: now " + q);
                 check(took, "off mining with no FurnaceTake left: the porkchop forgotten: " + q);
                 pass(stage, t, "off to his mine while it cooks, " + (t[0] - st876Start) + " ticks"); st876Start = 0; }
+        }
+        return true;
+    }
+    private static int st878Done;
+    private static boolean st878(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 20:29 World 17 (the user: "i told him to give me the 28 diamonds and he grabbed them and made pants and then was like oh shit sorry here's 17 diamonds"): "can you give me all your diamonds pls" -> his offer "want me to go grab them and bring them to you?" -> "yeah": the give dropped (their words "yeah" read alone), the take ran, the order done, ironPiecemeal made leggings and boots from 11 of them, 17 handed over later.
+        BlockPos chestAt = new BlockPos(7, 2, 10);
+        if (t[0] == 1) { scenarioReset(c); c.planning = false; c.failCount.clear(); c.nextPlanTick = c.tickCount + 20 * 600; st878Done = -1; }
+        if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(6000);
+            mock[0].getInventory().clearContent(); for (var it0 : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(h.absolutePos(new BlockPos(-4, -2, -4))).minmax(new net.minecraft.world.phys.AABB(h.absolutePos(new BlockPos(20, 12, 20)))))) it0.discard();
+            h.setBlock(chestAt, Blocks.CHEST);
+            if (level.getBlockEntity(h.absolutePos(chestAt)) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box) { box.setItem(0, new ItemStack(Items.DIAMOND, 27)); box.setItem(1, new ItemStack(Items.DIAMOND, 1)); }
+            c.myStations.add(h.absolutePos(chestAt)); c.storageChests.add(h.absolutePos(chestAt)); com.claudemod.entity.life.ChestLedger.look(c, level, h.absolutePos(chestAt));
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 8)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.getInventory().add(new ItemStack(Items.TORCH, 40));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(20f); c.prefs.remove("diamonds_for");
+            BlockPos me = h.absolutePos(new BlockPos(11, 2, 8)); ggFace(c, me, 90, 0); BlockPos you = h.absolutePos(new BlockPos(2, 2, 8)); mock[0].teleportTo(you.getX() + 0.5, you.getY(), you.getZ() + 0.5);
+            com.claudemod.entity.life.Perception.lookNow(c);
+            com.claudemod.director.ClaudeChat.lastOffer = "none on me, all 28 are in my chests back at base. want me to go grab them and bring them to you?"; com.claudemod.director.ClaudeChat.lastOfferAt = level.getServer().getTickCount();
+            var a = steps1("take_from_chest", "diamond", 28, "near_you"); a.addAll(steps1("give", "diamond", 28, "near_them"));
+            com.claudemod.director.ClaudeLife.command(c, mock[0], a, "get the 28 diamonds from my chests and give them to " + mock[0].getName().getString() + " (their words: \"yeah\")", "replace");
+            com.claudemod.director.ClaudeChat.lastOffer = "";
+        }
+        if (t[0] > 10) {
+            int got = erGot(level, mock[0], Items.DIAMOND), made = 0;
+            for (var it : c.getInventory().items) if (net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(it.getItem()).getPath().startsWith("diamond_") && !it.is(Items.DIAMOND_PICKAXE)) made += it.getCount();
+            for (var it : c.getInventory().armor) if (!it.isEmpty() && net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(it.getItem()).getPath().startsWith("diamond_")) made += it.getCount();
+            check(made == 0, "he crafted " + made + " diamond piece(s) from the 28 they asked for (they have " + got + ")");
+            if (got >= 28 && st878Done < 0) st878Done = t[0];
+            if (st878Done > 0 && t[0] >= st878Done + 10) { pass(stage, t, "all 28 handed over in " + (st878Done - 10) + " ticks, none crafted"); return true; }
+            check(t[0] < 20 * 90, "90 s and they have " + got + " of the 28 diamonds (pack " + c.getInventory().countItem(Items.DIAMOND) + ", queue " + c.skillQueue + ", goal \"" + c.playerGoal + "\")");
         }
         return true;
     }

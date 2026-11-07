@@ -281,6 +281,12 @@ public final class ClaudeChat {
     public static String lastOffer = ""; public static int lastOfferAt = -100000;
     /** He offered to do something in the last minute ("want me to bridge straight across?"): a yes to it is an order. */
     public static boolean offerOpen(net.minecraft.server.MinecraftServer server) { return !lastOffer.isEmpty() && server.getTickCount() - lastOfferAt < 20 * 60; }
+    public static String answeredOffer = ""; public static int answeredAt = -100000;
+    /** The offer of his that their yes right now answers (ChatListener.act took it this tick, or it's still open), or "". */
+    public static String offerAnswered(net.minecraft.server.MinecraftServer server) {
+        if (answeredOffer != null && !answeredOffer.isEmpty() && server.getTickCount() - answeredAt <= 1) return answeredOffer;
+        return offerOpen(server) ? lastOffer : "";
+    }
     public static String say(ServerPlayer player, String raw, String reason) {
         if (raw == null || player.hasDisconnected()) return null;
         String line = raw.replace('\n', ' ').trim();

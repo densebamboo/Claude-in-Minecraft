@@ -72,6 +72,8 @@ public final class Errand {
     public static void reset(ClaudeEntity g) { open().remove(g.getUUID()); last().remove(g.getUUID()); }
     private static State any(ClaudeEntity g) { State e = open().get(g.getUUID()); return e != null ? e : last().get(g.getUUID()); }
     public static boolean isOpen(ClaudeEntity g) { return open().containsKey(g.getUUID()); }
+    /** An open errand that asked for diamonds (or diamond gear): those are theirs. */
+    public static boolean diamondsOwed(ClaudeEntity g) { State e = open().get(g.getUUID()); return e != null && e.diamondsTheirs; }
     public static int id(ClaudeEntity g) { State e = any(g); return e == null ? -1 : e.id; }
     public static int deliveries(ClaudeEntity g) { State e = any(g); return e == null ? 0 : e.deliveries; }
     public static int trips(ClaudeEntity g) { State e = any(g); return e == null ? 0 : e.trips; }

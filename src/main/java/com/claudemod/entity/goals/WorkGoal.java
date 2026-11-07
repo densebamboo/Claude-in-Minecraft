@@ -3026,7 +3026,7 @@ public class WorkGoal extends Goal {
         ServerLevel level = level();
         if (!t.equals(boreRun)) { boreRun = t; boreDir = null; boreAxis0 = null; boreCol = null; boreTries = 0; boreYOff = 0; boreLaneOff = 0; boreDetour = 0; boreClean = 0; boreStill = 0; boreSteps = 0; boreStart = g.tickCount; boreFrom = g.blockPosition().immutable();
             com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] from {} to {} at y {}: straight through, rock dug and gaps floored (WorkGoal.doBore)", boreFrom.toShortString(), t.goal().toShortString(), t.y()); }
-        BlockPos me = g.blockPosition(), goal = t.goal();
+        BlockPos me = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()), goal = t.goal(); // (the cell his feet are in: on soul sand, 14/16 tall, blockPosition is the soul sand's own cell, and the bore dug the ground he walked on as his step, then had no face for a floor under it: 6 min refused, live 14:50 World 17)
         boolean boreMoved = boreLast != null && !me.equals(boreLast) && boreRun == t;
         if (boreMoved) { boreSteps++; if (boreSteps % 32 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] {} blocks, at {} ({} s) (WorkGoal.doBore)", boreSteps, me.toShortString(), (g.tickCount - boreStart) / 20); } boreLast = me.immutable();
         int dx = goal.getX() - me.getX(), dz = goal.getZ() - me.getZ();

@@ -10599,6 +10599,7 @@ public final class ClaudeBodyTest {
             case 775: return st775(stage, t, c, h, level, mock);
             case 776: return st776(stage, t, c, h, level, mock, true);
             case 777: return st776(stage, t, c, h, level, mock, false);
+            case 779: return st779(stage, t, c, h, level, mock);
             case 762: return st762(stage, t, c, h, level, mock);
             case 763: return st763(stage, t, c, h, level, mock);
             case 758: return st758(stage, t, c, h, level, mock);
@@ -15560,6 +15561,29 @@ public final class ClaudeBodyTest {
             check(c.isAlive() && c.level() == nl, "dead to four wither skeletons on the bridge at " + (t[0] - st770Start) / 20 + " s (low " + st770Low + ")");
             double near = 99; int alive = 0; for (var w : st770W) if (w.isAlive()) { alive++; near = Math.min(near, w.distanceTo(c)); }
             if (t[0] - st770Start >= 20 * 40) { check(st770Low > 0, "?"); for (var w : st770W) w.discard(); nsHome(c, h, level); c.setHealth(20); pass(stage, t, "alive 40 s with four wither skeletons on him on the bridge (" + alive + " left, nearest " + (int) near + ", low " + st770Low + ")"); }
+        }
+        return true;
+    }
+    private static int st779Start;
+    private static boolean st779(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a bore down to a line far below, along a soul sand floor 1 thick over a drop (live 14:50-14:56 World 17, 158,62,173 in a soul sand valley: on soul sand his blockPosition is the soul sand's cell, the bore dug it as his step and wanted a floor under it with no face to set it on, refused 6 min till the user teleported him): he walks the soul sand on
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(10300, 80, 7400), goal = o.offset(60, -20, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st779Start = -1; }
+        if (t[0] > 4 && t[0] % 10 == 0) for (int cx = -1; cx <= 2; cx++) for (int cz = -1; cz <= 1; cz++) { BlockPos q = o.offset(cx * 16, 0, cz * 16); nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(q), 2, q); }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(50))) e.discard();
+        if (t[0] == 10) { // a hall 40 long: a soul sand floor 1 thick, 3 wide, over 5 of air, a netherrack bottom; roofed and walled
+            for (int x = -6; x <= 34; x++) for (int z = -6; z <= 6; z++) for (int y = -8; y <= 6; y++) { boolean shell = y == -8 || y == 6 || Math.abs(z) == 6 || x == -6 || x == 34; nl.setBlock(o.offset(x, y, z), shell ? Blocks.NETHERRACK.defaultBlockState() : y == -1 && Math.abs(z) <= 1 && x >= -2 ? Blocks.SOUL_SAND.defaultBlockState() : y == -1 && x < -2 ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.teleportTo(nl, o.getX() + 0.5, o.getY() - 0.125, o.getZ() + 0.5, -90f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null; c.pillarBlocks.clear();
+        }
+        if (t[0] == 30) { com.claudemod.entity.life.Perception.reset(c); c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Bore(goal, goal.getY())); st779Start = t[0]; }
+        if (st779Start > 0) {
+            check(c.isAlive(), "dead on a soul sand floor");
+            int holes = 0; for (int x = -2; x <= 20; x++) if (!nl.getBlockState(o.offset(x, -1, 0)).is(Blocks.SOUL_SAND) && !nl.getBlockState(o.offset(x, -1, 0)).isFaceSturdy(nl, o.offset(x, -1, 0), net.minecraft.core.Direction.UP)) holes++;
+            if (c.getX() >= o.getX() + 16) { check(holes == 0 && t[0] - st779Start <= 20 * 10, "16 along a soul sand floor in " + (t[0] - st779Start) / 20 + " s with " + holes + " hole(s) dug in the floor he walked on (a player walks it in ~4 s)"); for (int x = -6; x <= 34; x++) for (int z = -6; z <= 6; z++) for (int y = -8; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; nsHome(c, h, level); pass(stage, t, "16 along the soul sand in " + (t[0] - st779Start) / 20 + " s, " + holes + " hole(s) in its floor"); return true; }
+            check(t[0] - st779Start < 20 * 40, "not 16 along a soul sand floor in 40 s: at " + c.blockPosition().toShortString() + " (y " + String.format("%.3f", c.getY()) + "), " + holes + " hole(s) in the floor, doing " + c.currentTask + ", next " + c.tasks.peekFirst());
         }
         return true;
     }

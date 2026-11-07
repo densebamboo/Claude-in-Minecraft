@@ -10758,6 +10758,7 @@ public final class ClaudeBodyTest {
             case 895: return st895(stage, t, c, h, level, mock);
             case 896: return st896(stage, t, c, h, level, mock);
             case 898: return st898(stage, t, c, h, level, mock);
+            case 899: return st899(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -20504,6 +20505,34 @@ public final class ClaudeBodyTest {
             pass(stage, t, r);
         }
         } catch (RuntimeException ex) { nsHome(c, h, level); throw ex; }
+        return true;
+    }
+
+    /** Stage 899 (live 11:21-11:23 11-07 World 17): died in the Nether, respawned, "going back for his things first" (recover_drops queued); a restart at 11:22 and he woke to gear_up from nothing, diamond pick and chestplate on the list, the pile still "pending" on his checklist. The run to his pile lived only in his skill queue, and recoverPending was saved only with a mine face. Here: no mine, a pending pile, recover_drops queued; save, a cleared queue, load: the run is back. */
+    private static boolean st899(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.DeathLog.reset(c); c.setLastDeathLocation(java.util.Optional.empty()); }
+        if (t[0] == 10) {
+            for (int x = -2; x <= 34; x++) for (int z = 0; z <= 12; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 6; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            c.mineFace = null; c.blueprint = null; c.getInventory().clearContent(); BlockPos me = h.absolutePos(new BlockPos(2, 2, 6)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            BlockPos pile = h.absolutePos(new BlockPos(30, 2, 6)); var fell = new java.util.ArrayList<net.minecraft.world.entity.item.ItemEntity>();
+            fell.add(new net.minecraft.world.entity.item.ItemEntity(level, pile.getX() + 0.5, pile.getY() + 0.2, pile.getZ() + 0.5, new ItemStack(Items.DIAMOND_PICKAXE)));
+            fell.add(new net.minecraft.world.entity.item.ItemEntity(level, pile.getX() + 0.5, pile.getY() + 0.2, pile.getZ() + 0.5, new ItemStack(Items.IRON_CHESTPLATE)));
+            for (var e : fell) { e.setDeltaMovement(0, 0, 0); level.addFreshEntity(e); }
+            com.claudemod.entity.life.DeathLog.died(c, level, pile, fell);
+            c.tasks.clear(); c.skillQueue.clear(); c.recoverPending = false; c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("recover_drops", "", 1)); // (on his way to it, as live)
+            c.saveMine(mock[0]);
+            c.skillQueue.clear(); c.lastStep = null; c.recoverPending = false; c.tasks.clear(); // (the restart: his queue is gone)
+            c.loadMineTest(mock[0]);
+        }
+        if (t[0] > 10) {
+            boolean back = c.skillQueue.stream().anyMatch(s -> s.skill().equals("recover_drops")) || c.lastStep != null && c.lastStep.skill().equals("recover_drops");
+            if (back) {
+                for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(64))) it.discard();
+                c.skillQueue.clear(); c.tasks.clear(); c.recoverPending = false; c.dropCurrent = true; com.claudemod.entity.life.DeathLog.reset(c); c.saveMine(mock[0]);
+                pass(stage, t, "the run to his pile back after a reload, no mine (" + (t[0] - 10) + " ticks)"); return true;
+            }
+            check(t[0] < 260, "after a save and reload his run to the pile is forgotten: recoverPending " + c.recoverPending + ", queue " + c.skillQueue + ", step " + c.lastStep);
+        }
         return true;
     }
 

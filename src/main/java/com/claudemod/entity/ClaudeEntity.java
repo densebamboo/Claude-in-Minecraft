@@ -658,8 +658,11 @@ public class ClaudeEntity extends ServerPlayer {
         if (getTarget() instanceof ServerPlayer sp) PlayerProfile.noteDoing(sp, what);
     }
 
+    public void loadMineTest(ServerPlayer owner) { loadMine(owner); } // (tests)
     private void loadMine(ServerPlayer owner) {
         var mine = PlayerProfile.mine(owner);
+        if (mine != null) recoverPending = mine.getBoolean("recoverPending"); // (a restart while he waited out the mobs on his drops forgot them: a diamond chestplate despawned; read with no mine too)
+        if (!recoverPending) for (var d : com.claudemod.entity.life.DeathLog.of(this)) if (d.pending() && d.worth(this)) { recoverPending = true; com.claudemod.ClaudeMod.LOGGER.info("[Claude deaths] a pile still pending on his checklist at {} {} ({}): the run to it is back on after the restart", d.dim, d.at.toShortString(), d.what); break; } // his checklist, not his queue, says what's left lying (live 11:22 11-07: a restart mid-run forgot his Nether pile, gear_up from nothing instead, stage 899)
         if (mine != null && mine.contains("house")) {
             try { house = com.claudemod.entity.life.HouseBlueprint.fromNbt(mine.getCompound("house")); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] house on file: {}", house); }
             catch (Exception e) { house = null; com.claudemod.ClaudeMod.LOGGER.warn("[Claude life] couldn't read the house on file: {}", e.toString()); }
@@ -694,7 +697,6 @@ public class ClaudeEntity extends ServerPlayer {
             mineFace = BlockPos.of(mine.getLong("face"));
             mineDir = Direction.from3DDataValue(mine.getInt("dir"));
             mineIsTunnel = mine.getBoolean("tunnel");
-            recoverPending = mine.getBoolean("recoverPending"); // (a restart while he waited out the mobs on his drops forgot them: a diamond chestplate despawned)
             tunnelDir = mine.contains("tunnelDir") ? Direction.from3DDataValue(mine.getInt("tunnelDir")) : null;
             mineTunnelBlocks = mine.getInt("blocks");
         }
@@ -731,6 +733,7 @@ public class ClaudeEntity extends ServerPlayer {
         var mine = new net.minecraft.nbt.CompoundTag();
         if (isAlive() && onGround()) { mine.putLong("lastPos", blockPosition().asLong()); mine.putString("lastDim", level().dimension().location().toString()); } // (where he is, every 10 s: a restart puts him back here, like any player logging in where he logged off)
         if (blueprint != null) mine.put("blueprint", blueprint.toNbt());
+        mine.putBoolean("recoverPending", recoverPending); // (mine or no mine: it sat under the mine face's block)
         com.claudemod.entity.life.BaseNook.saveAll(mine, nooks, nook); // (every nook of his; the current one under "nook" too)
         if (nookOld != null) mine.put("nookOld", nookOld.toNbt());
         if (farm != null) mine.put("farm", farm.toNbt());
@@ -739,7 +742,6 @@ public class ClaudeEntity extends ServerPlayer {
             mine.putLong("face", mineFace.asLong());
             mine.putInt("dir", mineDir.get3DDataValue());
             mine.putBoolean("tunnel", mineIsTunnel);
-            mine.putBoolean("recoverPending", recoverPending);
             if (tunnelDir != null) mine.putInt("tunnelDir", tunnelDir.get3DDataValue());
             mine.putInt("blocks", mineTunnelBlocks);
         }

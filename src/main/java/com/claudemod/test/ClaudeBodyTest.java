@@ -10509,6 +10509,7 @@ public final class ClaudeBodyTest {
             case 932: return st932(stage, t, c, h, level, mock);
             case 933: return st933(stage, t, c, h, level, mock);
             case 934: return st934(stage, t, c, h, level, mock);
+            case 947: return st947(stage, t, c, h, level, mock);
             case 946: return st946(stage, t, c, h, level, mock);
             case 945: return st945(stage, t, c, h, level, mock);
             case 944: return st944(stage, t, c, h, level, mock);
@@ -14074,6 +14075,39 @@ public final class ClaudeBodyTest {
             check(back == 0, "sent back to a skipped step " + back + " time(s) on a plain flight of stairs (a shuffle)");
             check(s <= 4.5, "up 6 stairs and 5 across in " + s + " s: a player walks it in about 3");
             pass(stage, t, "up the stairs in " + s + " s");
+        }
+        return true;
+    }
+    /** Stage 947 (D2D review 207 11-07, live 07:19: boxed in from two blazes with no cover, the chase walk queued before the box ran once it was up and dug it out 3 s later, with the blazes still there): open deck, two blazes 9 off and up, hurt and burning, an attack on one with a walk toward it queued. Once he's walled in the box stands while they're there. */
+    private static int s947T, s947Boxed; private static boolean s947Opened;
+    private static boolean st947(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13200, 70, 7900);
+        if (t[0] == 1) { scenarioReset(c); s947T = -1; s947Boxed = -1; s947Opened = false; }
+        if (t[0] % 10 == 0 || t[0] < 10) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 5) {
+            for (int x = -14; x <= 14; x++) for (int z = -14; z <= 14; z++) for (int y = -2; y <= 12; y++) nl.setBlock(o.offset(x, y, z), (y < 0 || y == 12 || Math.abs(x) == 14 || Math.abs(z) == 14 ? Blocks.NETHER_BRICKS : Blocks.AIR).defaultBlockState(), 2); // (a closed brick hall, bare: no cell out of the blazes' sight, the box his only cover)
+            nsKit(c); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 32)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 15) for (int k = 0; k < 2; k++) { var bz = EntityType.BLAZE.create(nl); bz.moveTo(o.getX() + 9.5, o.getY() + 4, o.getZ() + 0.5 + k * 3, 90, 0); bz.setNoAi(true); bz.setPersistenceRequired(); nl.addFreshEntity(bz); }
+        if (t[0] == 20) { var b = nl.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(o).inflate(20)).get(0);
+            c.setHealth(10); c.setRemainingFireTicks(100); c.tasks.clear(); c.skillQueue.clear();
+            c.tasks.add(new com.claudemod.entity.life.Task.Attack(b.getUUID(), 20 * 30)); c.tasks.add(new com.claudemod.entity.life.Task.GoTo(o.offset(7, 0, 0), 0.9)); s947T = t[0]; }
+        if (s947T > 0) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear();
+            BlockPos f = c.blockPosition(); int walls = 0; for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) if (!nl.getBlockState(f.relative(d)).isAir()) walls++;
+            if (s947Boxed < 0 && walls == 4) s947Boxed = t[0];
+            if (s947Boxed > 0 && walls < 4 && t[0] - s947Boxed < 20 * 8) s947Opened = true; }
+        if (s947T > 0 && t[0] >= s947T + 20 * 15) {
+            boolean boxed = s947Boxed > 0, opened = s947Opened; float hp = c.getHealth();
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.clearFire();
+            for (var b : nl.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(o).inflate(40))) b.discard();
+            for (int x = -14; x <= 14; x++) for (int z = -14; z <= 14; z++) for (int y = -2; y <= 12; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(20))) e.discard();
+            nsHome(c, h, level);
+            check(boxed, "never walled in: two blazes in a bare hall, health 10 and burning (health now " + hp + ")");
+            check(!opened, "walled in from two blazes, then his box opened again within 8 s with them still there");
+            pass(stage, t, "boxed in and the box stood (health " + hp + ")");
         }
         return true;
     }

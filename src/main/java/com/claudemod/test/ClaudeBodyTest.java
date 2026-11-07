@@ -10509,6 +10509,7 @@ public final class ClaudeBodyTest {
             case 932: return st932(stage, t, c, h, level, mock);
             case 933: return st933(stage, t, c, h, level, mock);
             case 934: return st934(stage, t, c, h, level, mock);
+            case 953: return st953(stage, t, c, h, level, mock);
             case 952: return st952(stage, t, c, h, level, mock);
             case 951: return st951(stage, t, c, h, level, mock);
             case 948: return st948(stage, t, c, h, level, mock);
@@ -14235,6 +14236,31 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    /** Stage 953 (D2D reviews 082343-15, 083848-112..116 11-07: kit.food "hunt cow ~345 s (1 of 1, nearest 53 walk); search for animals ~336 s: search", then 380 blocks to an old animal spot; chickens at 41/45 and pigs at 54 passed for beef): a trip's food short, flat ground. (a) one cow 30 off: the kit hunts it, not a search. (b) three chickens 20 off, no cows: chicken, not beef from a search. */
+    private static boolean st953(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); }
+        if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 4, c.blockPosition());
+        BlockPos me = c.blockPosition();
+        if (t[0] == 10) {
+            for (int x = -6; x <= 40; x++) for (int z = -6; z <= 6; z++) { level.setBlock(me.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 1));
+            var cow = EntityType.COW.create(level); cow.moveTo(me.getX() + 30.5, me.getY(), me.getZ() + 0.5, 0, 0); cow.setNoAi(true); cow.setPersistenceRequired(); level.addFreshEntity(cow);
+        }
+        if (t[0] == 15) {
+            var fa = com.claudemod.director.Kit.foodAsk(c);
+            check(fa != null && fa.item() == Items.COOKED_BEEF && fa.count() <= 2, "(a) a cow 30 off: the kit's ask " + (fa == null ? "none" : fa.count() + " " + fa.item()) + " (a search asks 12 beef; the cow is 2)");
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard();
+            for (int k = 0; k < 3; k++) { var ch = EntityType.CHICKEN.create(level); ch.moveTo(me.getX() + 20.5, me.getY(), me.getZ() + 0.5 + k, 0, 0); ch.setNoAi(true); ch.setPersistenceRequired(); level.addFreshEntity(ch); }
+        }
+        if (t[0] == 70) {
+            var fa = com.claudemod.director.Kit.foodAsk(c);
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard();
+            c.getInventory().clearContent();
+            check(fa != null && fa.item() == Items.COOKED_CHICKEN, "(b) 3 chickens 20 off, no cows: the kit's ask " + (fa == null ? "none" : fa.count() + " " + fa.item()));
+            pass(stage, t, "the cow in view, then the chickens in view: " + fa.count() + " " + fa.item());
+        }
+        return true;
+    }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */
     private static int s934T, s934Deep;
     private static boolean st934(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
@@ -16761,9 +16787,10 @@ public final class ClaudeBodyTest {
             for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) e.discard();
             for (int x = -10; x <= 40; x++) for (int z = -10; z <= 10; z++) for (int y = -4; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
             check(fishN == 3, "setup: 3 salmon in the pond, saw " + fishN);
-            check(fa != null && fa.item() == Items.COOKED_BEEF, "setup: the kit should search for animals (cooked_beef), it asked " + (fa == null ? "nothing" : fa.count() + " " + fa.item()));
-            check(!atFish, "the kit's beef: salmon hunted as the herd (" + r + "; " + q0 + ")");
-            nsHome(c, h, level); pass(stage, t, "the kit's beef: no salmon hunted as cows (" + r + ")"); }
+            check(fa != null && fa.item() == Items.COOKED_SALMON, "the kit with 3 salmon in view: the salmon (food in view before a search, D2D review 083848 11-07), it asked " + (fa == null ? "nothing" : fa.count() + " " + fa.item()));
+            check(r != null && r.contains("salmon instead of beef"), "the beef errand with the kit on salmon: no clean swap to it (" + r + ")");
+            check(!atFish, "the beef errand: salmon hunted as the herd (" + r + "; " + q0 + ")");
+            nsHome(c, h, level); pass(stage, t, "the kit's salmon in view, the beef errand swapped to it, no salmon hunted as cows (" + r + ")"); }
         return true;
     }
     private static boolean st788(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // review 25 (BP) / D2D 338 (live 22:00:39 and 22:57 World 17): a full pack in his highway tunnel, the toss only spare cobble and a 4th stone pick (nothing on the junk list), thrown straight ahead at his feet, walked over and taken back 2 s later (THROW_LOOP), thrown again. What the toss throws goes away from his work

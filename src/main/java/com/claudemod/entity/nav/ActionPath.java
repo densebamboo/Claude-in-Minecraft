@@ -93,42 +93,76 @@ public final class ActionPath {
 
     /** As above, the heuristic weighted by w (> 1: a greedy A* for ways that are mostly digging, where a dug block costs several times the walk-based heuristic; the way found is near the cheapest, in far fewer nodes). */
     public static Plan plan(ClaudeEntity g, ServerLevel level, BlockPos from, BlockPos to, double within, boolean canPlace, int budget, Mode mode, Map<BlockPos, Integer> failedAt, int now, List<net.minecraft.world.phys.Vec3> avoid, double w) {
-        Costs c = new Costs(g, level, canPlace, mode, failedAt, now); c.avoid = avoid;
-        PriorityQueue<Node> open = new PriorityQueue<>((a, b) -> Double.compare(a.f, b.f));
-        Map<BlockPos, Node> best = new HashMap<>(); // (by cost alone, the cheap arrival that had used his blocks pruned the dearer one that hadn't, and the way on needed one)
-        open.add(new Node(from.immutable(), 0, w * h(from, to), null, List.of(), 0, 0f, c.water(from.above()) ? (g.getMaxAirSupply() - Math.max(0, g.getAirSupply())) / 10 : 0));
-        best.put(from.immutable(), open.peek());
-        int expanded = 0; long t0 = System.nanoTime();
-        final boolean scarce = c.maxPuts < 2 * (Math.abs(from.getX() - to.getX()) + Math.abs(from.getY() - to.getY()) + Math.abs(from.getZ() - to.getZ())) + 16; // blocks that can run short on this way: then fewer puts is a way of its own (with plenty, 538 expanded each cell ~3 times for it, out of nodes under a fortress)
-        while (!open.isEmpty() && expanded++ < budget) {
-            if ((expanded & 255) == 0 && System.nanoTime() - t0 > 500_000_000L) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] plan {} -> {} stopped at 500 ms ({} nodes of {}): no way found in time (ActionPath.plan)", from.toShortString(), to.toShortString(), expanded, budget); break; } // (no budget in time: 3.8 s freezes, "Can't keep up" 172x on 11-04)
-            Node n = open.poll();
-            { Node b0 = best.get(n.feet); if (b0 != n && b0.g() <= n.g() && (!scarce || b0.puts() <= n.puts()) && b0.wet() <= n.wet() && b0.hurt() <= n.hurt()) { expanded--; continue; } } // (a stale entry: a way here no worse was expanded already)
-            double dd = Math.sqrt(n.feet.distSqr(to));
-            if (dd <= within && !(n.feet.equals(to.below()) && c.floor(to) && !c.passable(to.below()))) { coverNote(c, from, to); /* (never the cell under a goal he can stand on: that's its floor, dug out to "arrive" a block short, and the last step up had nothing to stand on: stage 937, live 03:44 11-07 in a 4-deep hole for minutes) */ leapNote(c, from, to, n); Plan pl = unwind(n); if (mode == Mode.MAY_DIG && c.bp) for (Act a : pl.acts()) if (a instanceof Act.Dig dg && cuttableShell(g, level, dg.pos())) SHELL_CUT.put(dg.pos().immutable(), level.getGameTime()); if (mode == Mode.MAY_BEND) { Map<BlockPos, String> b = new java.util.LinkedHashMap<>(); for (Act a : pl.acts()) if (a instanceof Act.Dig dg && c.bent.containsKey(dg.pos())) b.put(dg.pos(), c.bent.get(dg.pos())); lastBent = b; } return pl; }
-            c.hurtNow = n.hurt;
-            for (Move m : c.moves(n.feet)) {
-                int np = n.puts; float nh = n.hurt; for (Act a : m.acts) { if (a instanceof Act.Put) np++; else if (a instanceof Act.Leap lp) nh += lp.hp(); }
-                if (np > c.maxPuts) continue; // (no more blocks put down than he has: the third put of a bridge with two dirt left him at the lip of a mineshaft)
-                int nw = c.water(m.feet.above()) ? n.wet + 1 : 0;
-                if (nw > g.getMaxAirSupply() / 20) { c.airRefused++; continue; } // a swim under water no longer than half his air (~10 ticks a cell): a player turns back from an unknown flooded passage while he still can (live 12:02 11-04: 10 cells in, drowned)
-                double ng = n.g + m.cost;
-                Node was = best.get(m.feet);
-                if (was != null && was.g() <= ng && (!scarce || was.puts() <= np) && was.wet() <= nw && was.hurt() <= nh) continue;
-                Node nn = new Node(m.feet, ng, ng + w * h(m.feet, to), n, m.acts, np, nh, nw);
-                if (was == null || was.g() > ng) best.put(m.feet, nn);
-                open.add(nn);
-            }
+        return new Search(g, level, from, to, within, canPlace, budget, mode, failedAt, now, avoid, w).run(Long.MAX_VALUE);
+    }
+
+    /** A plan as {@link #plan} makes it, spread over ticks: at most {@code path.slice_ms} of search a tick for him (combat and flee reflexes tick between), {@link #PENDING} till it's done; the same call next tick goes on with it, a finished one is answered from memory for 2 s, any other call starts afresh. The 500 ms cap counts his search time, not the ticks it spans. shortcut: the world as the search read it can be a second or two old by its end; a walk re-plans on any refusal, upgrade if stale plans show up. */
+    public static Plan planSliced(ClaudeEntity g, ServerLevel level, BlockPos from, BlockPos to, double within, boolean canPlace, int budget, Mode mode, Map<BlockPos, Integer> failedAt, int now, List<net.minecraft.world.phys.Vec3> avoid, double w) {
+        String key = from.asLong() + "|" + to.asLong() + "|" + within + "|" + canPlace + "|" + budget + "|" + mode + "|" + w + "|" + avoid;
+        int tick = g.tickCount;
+        Object[] f = FINISHED.get(g); if (f != null && f[0].equals(key) && tick - (int) f[2] <= 40) return (Plan) f[1];
+        Search s = RUNNING.get(g); if (s == null || !s.key.equals(key) || tick - s.lastTick > 20) { s = new Search(g, level, from, to, within, canPlace, budget, mode, failedAt, now, avoid, w); s.key = key; RUNNING.put(g, s); }
+        s.lastTick = tick;
+        long[] u = TICK_USED.computeIfAbsent(g, k -> new long[] {-1, 0}); if (u[0] != tick) { u[0] = tick; u[1] = 0; }
+        long slice = (long) (com.claudemod.entity.life.Weights.w("path.slice_ms", 15) * 1_000_000L) - u[1];
+        if (slice <= 0) return PENDING;
+        long t0 = System.nanoTime(); Plan p = s.run(slice); u[1] += System.nanoTime() - t0;
+        if (p != PENDING) { RUNNING.remove(g); FINISHED.put(g, new Object[] {key, p, tick}); if (s.slices > 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] plan {} -> {} spread over {} ticks ({} slices, {} ms of search, {} nodes): {} (ActionPath.planSliced)", from.toShortString(), to.toShortString(), tick - s.firstTick + 1, s.slices, s.spent / 1_000_000, s.expanded, p == null ? "no way" : p.acts().size() + " acts"); }
+        return p;
+    }
+    /** planSliced: still searching, ask again next tick. */
+    public static final Plan PENDING = new Plan(List.of(), 0, 0, 0);
+    private static final Map<ClaudeEntity, Search> RUNNING = new java.util.WeakHashMap<>();
+    private static final Map<ClaudeEntity, Object[]> FINISHED = new java.util.WeakHashMap<>(); // {key, plan, tick}
+    private static final Map<ClaudeEntity, long[]> TICK_USED = new java.util.WeakHashMap<>(); // {tick, ns of search in it}
+
+    /** One search's state, kept between slices. */
+    private static final class Search {
+        final ClaudeEntity g; final ServerLevel level; final BlockPos from, to; final double within, w; final int budget; final Mode mode;
+        final Costs c; final PriorityQueue<Node> open = new PriorityQueue<>((a, b) -> Double.compare(a.f, b.f));
+        final Map<BlockPos, Node> best = new HashMap<>(); // (by cost alone, the cheap arrival that had used his blocks pruned the dearer one that hadn't, and the way on needed one)
+        final boolean scarce; int expanded; long spent; int slices, lastTick, firstTick; String key = "";
+        Search(ClaudeEntity g, ServerLevel level, BlockPos from, BlockPos to, double within, boolean canPlace, int budget, Mode mode, Map<BlockPos, Integer> failedAt, int now, List<net.minecraft.world.phys.Vec3> avoid, double w) {
+            this.g = g; this.level = level; this.from = from; this.to = to; this.within = within; this.w = w; this.budget = budget; this.mode = mode; firstTick = g.tickCount;
+            c = new Costs(g, level, canPlace, mode, failedAt, now); c.avoid = avoid;
+            open.add(new Node(from.immutable(), 0, w * h(from, to), null, List.of(), 0, 0f, c.water(from.above()) ? (g.getMaxAirSupply() - Math.max(0, g.getAirSupply())) / 10 : 0));
+            best.put(from.immutable(), open.peek());
+            scarce = c.maxPuts < 2 * (Math.abs(from.getX() - to.getX()) + Math.abs(from.getY() - to.getY()) + Math.abs(from.getZ() - to.getZ())) + 16; // blocks that can run short on this way: then fewer puts is a way of its own (with plenty, 538 expanded each cell ~3 times for it, out of nodes under a fortress)
         }
-        coverNote(c, from, to); leapNote(c, from, to, null);
-        { Node near = null; for (Node k : best.values()) if (near == null || h(k.feet, to) < h(near.feet, to)) near = k;
-          com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} -> {}: no way: {} ({} of {} nodes, {} cells reached, {} blocks to put; nearest {}, {} off) (ActionPath.plan)", from.toShortString(), to.toShortString(), open.isEmpty() ? "every cell reachable tried" : "the search budget ran out", expanded, budget, best.size(), c.maxPuts, near == null ? "-" : near.feet.toShortString(), near == null ? "-" : String.format("%.1f", Math.sqrt(near.feet.distSqr(to)))); }
-        if (!open.isEmpty()) { StringBuilder ln = new StringBuilder(); int n0 = Math.max(Math.abs(to.getX() - from.getX()), Math.max(Math.abs(to.getY() - from.getY()), Math.abs(to.getZ() - from.getZ()))); // the budget ran out: the straight line's solid cells and what each is to him (review 306, 22:52 11-06: 6 along his own tunnel "no way"; the cause never said)
-          for (int k = 1; k <= Math.min(n0, 24) && ln.length() < 600; k++) { BlockPos q0 = new BlockPos(from.getX() + Math.round((float) (to.getX() - from.getX()) * k / n0), from.getY() + Math.round((float) (to.getY() - from.getY()) * k / n0), from.getZ() + Math.round((float) (to.getZ() - from.getZ()) * k / n0));
-            for (BlockPos q : new BlockPos[] {q0, q0.above()}) { var qs = level.getBlockState(q); if (qs.getCollisionShape(level, q).isEmpty()) continue;
-              ln.append(" ").append(q.toShortString()).append("=").append(qs.getBlock().getName().getString()).append(qs.getDestroySpeed(level, q) < 0 ? " (unbreakable)" : c.hisBuild(q) ? " (his build" + (c.bp && c.g.blueprint.isShell(q) ? ": his mine's shell" : "") + ")" : c.structure(q) ? " (a structure's)" : digWhy(c, q)).append(";"); } }
-          com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} -> {}: the straight line's solid cells:{} (ActionPath.plan)", from.toShortString(), to.toShortString(), ln.length() == 0 ? " none" : ln.toString()); }
-        return null; // (a partial route to the closest spot is not what a player does: he'd rather pick another way)
+        /** Searches on for up to {@code sliceNs}: the plan, null (no way), or PENDING (the slice ran out, the 500 ms not). */
+        Plan run(long sliceNs) {
+            long t0 = System.nanoTime(); slices++;
+            while (!open.isEmpty() && expanded++ < budget) {
+                if ((expanded & 15) == 0 && spent + System.nanoTime() - t0 > 500_000_000L) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] plan {} -> {} stopped at 500 ms ({} nodes of {}): no way found in time (ActionPath.plan)", from.toShortString(), to.toShortString(), expanded, budget); spent += System.nanoTime() - t0; break; } // (no budget in time: 3.8 s freezes, "Can't keep up" 172x on 11-04)
+                if ((expanded & 15) == 0 && System.nanoTime() - t0 > sliceNs) { expanded--; spent += System.nanoTime() - t0; return PENDING; } // (this tick's slice is spent: on next tick)
+                Node n = open.poll();
+                { Node b0 = best.get(n.feet); if (b0 != n && b0.g() <= n.g() && (!scarce || b0.puts() <= n.puts()) && b0.wet() <= n.wet() && b0.hurt() <= n.hurt()) { expanded--; continue; } } // (a stale entry: a way here no worse was expanded already)
+                double dd = Math.sqrt(n.feet.distSqr(to));
+                if (dd <= within && !(n.feet.equals(to.below()) && c.floor(to) && !c.passable(to.below()))) { coverNote(c, from, to); /* (never the cell under a goal he can stand on: that's its floor, dug out to "arrive" a block short, and the last step up had nothing to stand on: stage 937, live 03:44 11-07 in a 4-deep hole for minutes) */ leapNote(c, from, to, n); Plan pl = unwind(n); if (mode == Mode.MAY_DIG && c.bp) for (Act a : pl.acts()) if (a instanceof Act.Dig dg && cuttableShell(g, level, dg.pos())) SHELL_CUT.put(dg.pos().immutable(), level.getGameTime()); if (mode == Mode.MAY_BEND) { Map<BlockPos, String> b = new java.util.LinkedHashMap<>(); for (Act a : pl.acts()) if (a instanceof Act.Dig dg && c.bent.containsKey(dg.pos())) b.put(dg.pos(), c.bent.get(dg.pos())); lastBent = b; } return pl; }
+                c.hurtNow = n.hurt;
+                for (Move m : c.moves(n.feet)) {
+                    int np = n.puts; float nh = n.hurt; for (Act a : m.acts) { if (a instanceof Act.Put) np++; else if (a instanceof Act.Leap lp) nh += lp.hp(); }
+                    if (np > c.maxPuts) continue; // (no more blocks put down than he has: the third put of a bridge with two dirt left him at the lip of a mineshaft)
+                    int nw = c.water(m.feet.above()) ? n.wet + 1 : 0;
+                    if (nw > g.getMaxAirSupply() / 20) { c.airRefused++; continue; } // a swim under water no longer than half his air (~10 ticks a cell): a player turns back from an unknown flooded passage while he still can (live 12:02 11-04: 10 cells in, drowned)
+                    double ng = n.g + m.cost;
+                    Node was = best.get(m.feet);
+                    if (was != null && was.g() <= ng && (!scarce || was.puts() <= np) && was.wet() <= nw && was.hurt() <= nh) continue;
+                    Node nn = new Node(m.feet, ng, ng + w * h(m.feet, to), n, m.acts, np, nh, nw);
+                    if (was == null || was.g() > ng) best.put(m.feet, nn);
+                    open.add(nn);
+                }
+            }
+            coverNote(c, from, to); leapNote(c, from, to, null);
+            { Node near = null; for (Node k : best.values()) if (near == null || h(k.feet, to) < h(near.feet, to)) near = k;
+              com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} -> {}: no way: {} ({} of {} nodes, {} cells reached, {} blocks to put; nearest {}, {} off) (ActionPath.plan)", from.toShortString(), to.toShortString(), open.isEmpty() ? "every cell reachable tried" : "the search budget ran out", expanded, budget, best.size(), c.maxPuts, near == null ? "-" : near.feet.toShortString(), near == null ? "-" : String.format("%.1f", Math.sqrt(near.feet.distSqr(to)))); }
+            if (!open.isEmpty()) { StringBuilder ln = new StringBuilder(); int n0 = Math.max(Math.abs(to.getX() - from.getX()), Math.max(Math.abs(to.getY() - from.getY()), Math.abs(to.getZ() - from.getZ()))); // the budget ran out: the straight line's solid cells and what each is to him (review 306, 22:52 11-06: 6 along his own tunnel "no way"; the cause never said)
+              for (int k = 1; k <= Math.min(n0, 24) && ln.length() < 600; k++) { BlockPos q0 = new BlockPos(from.getX() + Math.round((float) (to.getX() - from.getX()) * k / n0), from.getY() + Math.round((float) (to.getY() - from.getY()) * k / n0), from.getZ() + Math.round((float) (to.getZ() - from.getZ()) * k / n0));
+                for (BlockPos q : new BlockPos[] {q0, q0.above()}) { var qs = level.getBlockState(q); if (qs.getCollisionShape(level, q).isEmpty()) continue;
+                  ln.append(" ").append(q.toShortString()).append("=").append(qs.getBlock().getName().getString()).append(qs.getDestroySpeed(level, q) < 0 ? " (unbreakable)" : c.hisBuild(q) ? " (his build" + (c.bp && c.g.blueprint.isShell(q) ? ": his mine's shell" : "") + ")" : c.structure(q) ? " (a structure's)" : digWhy(c, q)).append(";"); } }
+              com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} -> {}: the straight line's solid cells:{} (ActionPath.plan)", from.toShortString(), to.toShortString(), ln.length() == 0 ? " none" : ln.toString()); }
+            return null; // (a partial route to the closest spot is not what a player does: he'd rather pick another way)
+        }
     }
 
     private static void coverNote(Costs c, BlockPos from, BlockPos to) {

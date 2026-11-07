@@ -10509,6 +10509,7 @@ public final class ClaudeBodyTest {
             case 932: return st932(stage, t, c, h, level, mock);
             case 933: return st933(stage, t, c, h, level, mock);
             case 934: return st934(stage, t, c, h, level, mock);
+            case 948: return st948(stage, t, c, h, level, mock);
             case 947: return st947(stage, t, c, h, level, mock);
             case 946: return st946(stage, t, c, h, level, mock);
             case 945: return st945(stage, t, c, h, level, mock);
@@ -14109,6 +14110,38 @@ public final class ClaudeBodyTest {
             check(boxed, "never walled in: two blazes in a bare hall, health 10 and burning (health now " + hp + ")");
             check(!opened, "walled in from two blazes, then his box opened again within 8 s with them still there");
             pass(stage, t, "boxed in and the box stood (health " + hp + ")");
+        }
+        return true;
+    }
+    /** Stage 948 (D2D priority 2, 11-07: "the spread search... keep the per-tick slice small enough that combat and flee reflexes still tick"; live: plans stopped at the 500 ms cap, each one a frozen server tick): stage 61's way (a wall 3 thick right across, then a pit 2 wide) in the Nether. He makes the way and gets there, and no server tick while he plans runs long: the search goes a slice a tick. */
+    private static int s948T; private static long s948Last, s948Max;
+    private static boolean st948(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13400, 70, 7900); BlockPos to = o.offset(10, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); s948T = -1; s948Max = 0; }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 5) {
+            for (int x = -4; x <= 14; x++) for (int z = -8; z <= 8; z++) for (int y = -5; y <= 11; y++) {
+                boolean wall = x >= 3 && x <= 5 && y >= 0 && y <= 3, pit = x >= 6 && x <= 7 && y < 0;
+                nl.setBlock(o.offset(x, y, z), ((y < 0 && !pit) || wall || Math.abs(z) == 8 || y == 11 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2); }
+            nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+        }
+        long now = System.nanoTime();
+        if (t[0] == 20) { c.tasks.clear(); c.skillQueue.clear(); c.tasks.add(new com.claudemod.entity.life.Task.GoTo(to, 1.0)); s948T = t[0]; }
+        else if (s948T > 0 && t[0] > s948T + 1) s948Max = Math.max(s948Max, now - s948Last);
+        s948Last = now;
+        if (s948T > 0) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear(); }
+        boolean there = s948T > 0 && c.blockPosition().distSqr(to) <= 4;
+        if (s948T > 0 && (there || t[0] >= s948T + 20 * 40)) {
+            double s = (t[0] - s948T) / 20.0; long maxMs = s948Max / 1_000_000; String at = c.blockPosition().toShortString();
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            for (int x = -4; x <= 14; x++) for (int z = -8; z <= 8; z++) for (int y = -5; y <= 11; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(20))) e.discard();
+            nsHome(c, h, level);
+            check(there, "no way made through the wall and over the pit in " + s + " s: at " + at);
+            check(maxMs <= 200, "a server tick ran " + maxMs + " ms while he planned the way (a tick is 50; test-server noise reaches ~100, a whole search 500+): the search froze the server");
+            pass(stage, t, "through in " + s + " s, the longest tick " + maxMs + " ms");
         }
         return true;
     }

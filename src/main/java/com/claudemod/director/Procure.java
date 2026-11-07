@@ -126,12 +126,13 @@ public final class Procure {
 
     private static final class Solver {
         private final ServerLevel level;
+        private final ClaudeEntity g;
         private Map<Item, Integer> have = new HashMap<>(); // what's in his pockets, used up as the plan spends it
         private boolean table, furnace;
         final List<Skills.Step> steps = new ArrayList<>();
 
         Solver(ClaudeEntity g, ServerLevel level) {
-            this.level = level;
+            this.level = level; this.g = g;
             for (int i = 0; i < g.inventory.items.getContainerSize(); i++) {
                 ItemStack s = g.inventory.items.getItem(i);
                 if (!s.isEmpty()) have.merge(s.getItem(), s.getCount(), Integer::sum);
@@ -253,9 +254,8 @@ public final class Procure {
             List<Item> options = new ArrayList<>();
             for (ItemStack s : ing.getItems()) if (have.getOrDefault(s.getItem(), 0) > 0) options.add(s.getItem());
             for (ItemStack s : ing.getItems()) if (!options.contains(s.getItem())) options.add(s.getItem());
-            if (options.contains(Items.CHARCOAL) && options.contains(Items.COAL) && have.getOrDefault(Items.COAL, 0) < n) { int logs = 0; for (var e : have.entrySet()) if (new ItemStack(e.getKey()).is(net.minecraft.tags.ItemTags.LOGS)) logs += e.getValue(); if (logs >= n) { options.remove(Items.CHARCOAL); options.add(0, Items.CHARCOAL); } } // logs on him: charcoal from the furnace, never a climb to the coal level (75 blocks up his stairs for 3 coal, 9 logs in his pack)
             String why = null;
-            Map<Item, Integer> snap0 = new HashMap<>(have), okHave = null; List<Skills.Step> okSteps = null; Item okOpt = null;
+            Map<Item, Integer> snap0 = new HashMap<>(have), okHave = null; List<Skills.Step> okSteps = null; Item okOpt = null; double okS = 0; List<com.claudemod.entity.life.Decide.Option> priced = new ArrayList<>();
             boolean table0 = table, furnace0 = furnace, okTable = false, okFurnace = false; // (a table planned in an option that's dropped isn't planned)
             int mark = steps.size();
             for (Item opt : options) {
@@ -268,15 +268,34 @@ public final class Procure {
                         if (okOpt != null) com.claudemod.ClaudeMod.LOGGER.info("[Claude procure] {} for it from what he carries, not {} ({}) (Procure.needAny)", Crafting.name(opt), Crafting.name(okOpt), describe(okSteps));
                         return null;
                     }
-                    if (okOpt == null) { okHave = new HashMap<>(have); okSteps = new ArrayList<>(steps.subList(mark, steps.size())); okOpt = opt; okTable = table; okFurnace = furnace; }
+                    List<Skills.Step> mine = steps.subList(mark, steps.size()); double sec = tripS(mine, steps.subList(0, mark));
+                    priced.add(com.claudemod.entity.life.Decide.Option.of(Crafting.name(opt), sec, describe(mine)));
+                    if (okOpt == null || sec < okS) { okHave = new HashMap<>(have); okSteps = new ArrayList<>(mine); okOpt = opt; okTable = table; okFurnace = furnace; okS = sec; }
                     continue;
                 }
                 if (why == null) why = r;
             }
             have = snap0; table = table0; furnace = furnace0;
             steps.subList(mark, steps.size()).clear();
-            if (okOpt != null) { have = okHave; table = okTable; furnace = okFurnace; steps.addAll(okSteps); return null; } // every way needs a trip: the first that works, as before
+            if (okOpt != null) { // every way needs a trip: the cheapest in his time (D2D review 080206 11-07: the torch coal went to a 322-block walk to his coal tunnel, charcoal off the log trip already planned never weighed)
+                if (priced.size() > 1 && !priced.get(0).name().equals(Crafting.name(okOpt))) com.claudemod.entity.life.Decide.choose(g, "procure.trip", n + " " + Crafting.name(options.get(0)) + " or the like", true, priced);
+                have = okHave; table = okTable; furnace = okFurnace; steps.addAll(okSteps); return null; }
             return why != null ? why : "nothing fits";
+        }
+
+        /** Seconds a way's steps cost him: a trip the plan has already (same skill, same thing) only its extra items, a fresh one its walk too; a mine trip the walk to his mine and back. */
+        private double tripS(List<Skills.Step> way, List<Skills.Step> before) {
+            double sec = 0; List<Skills.Step> seen = new ArrayList<>(before);
+            for (Skills.Step st : way) {
+                boolean again = seen.stream().anyMatch(b -> b.skill().equals(st.skill()) && b.target().equals(st.target())); seen.add(st);
+                if (st.skill().equals("craft")) continue;
+                if (st.skill().equals("smelt")) { sec += st.count() * com.claudemod.entity.life.Weights.w("procure.smelt_s", 10); continue; }
+                sec += st.count() * com.claudemod.entity.life.Weights.w("procure.item_s", 3);
+                if (again) continue;
+                sec += st.skill().equals("strip_mine") ? com.claudemod.entity.life.Weights.w("procure.mine_s", 60) + (g.stairStart == null ? 0 : 2 * Math.sqrt(g.stairStart.distSqr(g.blockPosition())) / com.claudemod.entity.life.Decide.sprint())
+                        : com.claudemod.entity.life.Weights.w("procure.trip_s", 30);
+            }
+            return sec;
         }
 
         /** A pickaxe good enough for the block (the cheapest that is), kept for the rest of the plan. */
@@ -318,7 +337,7 @@ public final class Procure {
                 have.merge(Items.CHARCOAL, -(wantCoal - fromCoal), Integer::sum);
                 return null;
             }
-            if (items > 16) return need(Items.COAL, wantCoal, path, depth);
+            if (items > 16) return needAny(Ingredient.of(Items.COAL, Items.CHARCOAL), wantCoal, path, depth); // coal or charcoal, priced (never straight to a mine trip)
             return needAny(Ingredient.of(ItemTags.LOGS), (int) Math.ceil(items / 1.5), path, depth);
         }
     }

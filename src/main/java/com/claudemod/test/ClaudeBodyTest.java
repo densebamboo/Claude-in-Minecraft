@@ -8033,7 +8033,7 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
-        if (stage[0] >= 494 && stage[0] <= 949 && stages494(stage, t, c, h, level, mock)) return true;
+        if (stage[0] >= 494 && stage[0] <= 1049 && stages494(stage, t, c, h, level, mock)) return true;
         if (stage[0] >= 279 && stage[0] <= 285) {
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Whereabouts.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.ExactSpot.reset(c); com.claudemod.director.Primitives.reset(c);
                 c.planning = false; c.failCount.clear(); c.commandResults.clear(); c.commandActive = false; c.lastSkillLine = ""; c.lastStep = null; c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600; esWaitT = -1; esMark = -1; esFake = ""; }
@@ -10510,6 +10510,8 @@ public final class ClaudeBodyTest {
             case 933: return st933(stage, t, c, h, level, mock);
             case 934: return st934(stage, t, c, h, level, mock);
             case 948: return st948(stage, t, c, h, level, mock);
+            case 950: return st950(stage, t, c, h, level, mock);
+            case 949: return st949(stage, t, c, h, level, mock);
             case 947: return st947(stage, t, c, h, level, mock);
             case 946: return st946(stage, t, c, h, level, mock);
             case 945: return st945(stage, t, c, h, level, mock);
@@ -14143,6 +14145,41 @@ public final class ClaudeBodyTest {
             check(there, "no way made through the wall and over the pit in " + s + " s: at " + at);
             check(maxMs <= 200, "a server tick ran " + maxMs + " ms while he planned the way (a tick is 50; test-server noise reaches ~100, a whole search 500+): the search froze the server");
             pass(stage, t, "through in " + s + " s, the longest tick " + maxMs + " ms");
+        }
+        return true;
+    }
+    /** Stage 949 (D2D review 080206-19 11-07, live 07:57: kit "collect logs 5, smelt charcoal 4, strip_mine coal_ore 3, ..., craft torch 12" on the surface with logs; the strip_mine was a 322-block walk to his coal tunnel): the torch coal, priced. Charcoal off the log trip the plan has already beats a walk to a mine 300 off. */
+    private static boolean st949(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); }
+        if (t[0] == 5) {
+            BlockPos was = c.stairStart; c.stairStart = c.blockPosition().offset(300, -50, 0);
+            c.getInventory().add(new ItemStack(Items.OAK_LOG, 8)); c.getInventory().add(new ItemStack(Items.BEEF, 10)); c.getInventory().add(new ItemStack(Items.FURNACE));
+            var want = new java.util.LinkedHashMap<net.minecraft.world.item.Item, Integer>(); want.put(Items.COOKED_BEEF, 10); want.put(Items.CHARCOAL, 4); want.put(Items.TORCH, 12);
+            var plan = com.claudemod.director.Procure.planAll(c, level, want);
+            c.stairStart = was; c.getInventory().clearContent();
+            String d = com.claudemod.director.Procure.describe(plan.steps());
+            check(plan.problem() == null, "no kit plan: " + plan.problem());
+            check(plan.steps().stream().noneMatch(st -> st.skill().equals("strip_mine")), "the torch coal from a walk to his mine 300 off, a log trip in the plan already: " + d);
+            pass(stage, t, d);
+        }
+        return true;
+    }
+    /** Stage 950 (D2D review 080206-19 11-07: "strip_mine coal x3 went straight to 'back up to my coal tunnel'... Neither charcoal nor surface coal was priced"): coal ore in plain view 10 off on flat ground, no mine yet. strip_mine coal_ore mines that coal, no staircase dug here for it. */
+    private static boolean st950(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -3; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard();
+            BlockPos ore = h.absolutePos(new BlockPos(12, 2, 8)); level.setBlock(ore, Blocks.COAL_ORE.defaultBlockState(), 2);
+            c.teleportTo(h.absolutePos(new BlockPos(2, 2, 8)).getX() + 0.5, h.absolutePos(new BlockPos(2, 2, 8)).getY(), h.absolutePos(new BlockPos(2, 2, 8)).getZ() + 0.5); c.setYRot(-90f); c.setYHeadRot(-90f);
+            var bpWas = c.blueprint; BlockPos ssWas = c.stairStart; c.blueprint = null; c.stairStart = null;
+            c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.TORCH, 20)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 20)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 32)); c.getInventory().add(new ItemStack(Items.STONE_SWORD));
+            String mm = c.prefs.get("mine_model"); c.prefs.put("mine_model", "blueprint"); // (live runs the blueprint mine; the legacy path has its own "showing right there")
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "strip_mine", "coal_ore", 1); if (mm == null) c.prefs.remove("mine_model"); else c.prefs.put("mine_model", mm);
+            boolean onIt = c.tasks.stream().anyMatch(x -> x instanceof com.claudemod.entity.life.Task.Break br && br.pos().equals(ore));
+            String q = c.tasks.toString(); c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.blueprint = bpWas; c.stairStart = ssWas; c.dropCurrent = true;
+            check(onIt, "coal in plain view 10 off, no mine: \"" + r + "\" (tasks " + (q.length() > 200 ? q.substring(0, 200) : q) + ")");
+            pass(stage, t, "\"" + r + "\"");
         }
         return true;
     }

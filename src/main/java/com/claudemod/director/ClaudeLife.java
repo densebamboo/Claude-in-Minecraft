@@ -2634,6 +2634,7 @@ public final class ClaudeLife {
                     if (countedOre && haveFor(g, level, want) >= Math.max(1, count)) return "done: already have " + haveFor(g, level, want) + " " + Crafting.name(want);
                     if (want != null) ClaudeMod.LOGGER.info("[Claude skill] strip_mine {} x{}: have {} (bag+chests), countedOre {}, where {}, queue {} (ClaudeLife strip_mine)", target, count, haveFor(g, level, want), countedOre, st.where(), g.skillQueue);
                     { String light = charcoalForTorches(g, level, st); if (light != null) return light; } // his light before the dig, as on the old path (live 22:23 11-06: 0 torches, no coal, 59 logs, digging on in the dark at y -58; D2D review 210, stage 881)
+                    if (countedOre) { String seen = seenOreFirst(g, player, level, st, target); if (seen != null) return seen; } // ore he sees or saw, priced against the walk to his mine (D2D review 080206 11-07)
                     String r = bpStripMine(g, player, level, st, target, count);
                     if (countedOre && !r.startsWith("failed") && !r.startsWith("done") && !g.skillQueue.contains(st)) { g.skillQueue.addFirst(st); ClaudeMod.LOGGER.info("[Claude skill] strip_mine {}: {} of {} {} so far, the mining step stays on before any dependent step (ClaudeLife.strip_mine)", target, haveFor(g, level, want), count, Crafting.name(want)); }
                     return r;
@@ -11864,6 +11865,33 @@ public final class ClaudeLife {
         return out;
     }
 
+    /** Ore of this kind he sees, or saw and remembers, priced against the trip to his mine (D2D review 080206 11-07: on the surface, "back up to my coal tunnel", a 322-block walk, coal never looked for): the walk there and back against the walk to his mine and its fixed cost. Null: the mine. */
+    static String seenOreFirst(ClaudeEntity g, ServerPlayer player, ServerLevel level, Skills.Step st, String target) {
+        Predicate<BlockState> want = blockMatcher(target); if (want == null) return null;
+        BlockPos at = g.blockPosition();
+        List<BlockPos> cand = new ArrayList<>(findAll(level, at, 16, want, 30)); cand.removeIf(q -> !touchesAir(level, q) || !canSee(g, level, q));
+        for (BlockPos p : seenOre(g)) if (level.isLoaded(p) && want.test(level.getBlockState(p))) cand.add(p);
+        cand.removeIf(q -> anyNookTouches(g, q) || PlayerProfile.placedBy(player).contains(q) || g.tickCount - g.attempts.counters.getOrDefault("seenOre:" + q.asLong(), -99999) < 20 * 120); // (one he went for in the last 2 min and it's still there: not again, the mine instead)
+        BlockPos best = null; double bestD = Double.MAX_VALUE;
+        for (BlockPos p : cand) { double d = Math.sqrt(p.distSqr(at)); if (d < bestD) { bestD = d; best = p; } }
+        if (best == null) return null;
+        MineBlueprint b = g.blueprint; boolean has = b != null && !b.isEmpty();
+        BlockPos mine = has ? b.entrance : g.stairStart; boolean inMine = has && b.rowOf(at) >= 0;
+        double mineS = com.claudemod.entity.life.Weights.w("procure.mine_s", 60) + (mine == null || inMine ? 0 : 2 * Math.sqrt(mine.distSqr(at)) / com.claudemod.entity.life.Decide.sprint());
+        double seenS = 2 * bestD / com.claudemod.entity.life.Decide.sprint() + com.claudemod.entity.life.Weights.w("ore.seen_reach_s", 5);
+        var pick = com.claudemod.entity.life.Decide.choose(g, "ore.where", target, true, List.of(
+                com.claudemod.entity.life.Decide.Option.of("the " + target + " seen at " + best.toShortString(), seenS, (int) bestD + " off, there and back"),
+                com.claudemod.entity.life.Decide.Option.of("my mine", mineS, mine == null ? "none yet: a new one" : inMine ? "in it" : (int) Math.sqrt(mine.distSqr(at)) + " off, there and back")));
+        if (pick == null || pick.name().equals("my mine")) return null;
+        String tool = ensureToolFor(g, player, level, level.getBlockState(best), st); if (tool != null) return tool;
+        g.attempts.counters.put("seenOre:" + best.asLong(), g.tickCount);
+        List<BlockPos> v = vein(level, best, 16);
+        for (BlockPos q : v) g.tasks.add(new Task.Break(q));
+        g.tasks.add(new Task.Pickup(100));
+        patchOpenings(g, level, v);
+        g.skillQueue.addFirst(st); // (counted again after: the rest from the next seen ore or the mine)
+        return "mining the " + target + " I saw at " + best.toShortString() + " (" + v.size() + " blocks), not a walk to my mine";
+    }
     static String bpStripMine(ClaudeEntity g, ServerPlayer player, ServerLevel level, Skills.Step st, String target, int count) {
         if (g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.entrance.distSqr(g.blockPosition()) > 32 * 32 && g.blueprint.rowOf(g.blockPosition()) < 0 && level.canSeeSky(g.blockPosition().above()) && !com.claudemod.entity.ClaudeSpawner.testing) { String dark = nightOutsideNo(g, level, g.blockPosition()); if (dark != null) return "failed: it's night, I'm out in the open " + (int) Math.sqrt(g.blueprint.entrance.distSqr(g.blockPosition())) + " blocks from my mine and not geared for it: the walk there waits for morning"; } // (nightfall 120 blocks out: the walk to the mine across open ground met three zombies)
         final boolean deepslate = target.equals("cobbled_deepslate"); // (only rock below y 0 gives it: his deepest level, never the stone up at y 16)

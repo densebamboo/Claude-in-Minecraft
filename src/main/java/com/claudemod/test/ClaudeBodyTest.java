@@ -10699,6 +10699,7 @@ public final class ClaudeBodyTest {
             case 881: return st881(stage, t, c, h, level, mock);
             case 882: return st882(stage, t, c, h, level, mock);
             case 883: return st883(stage, t, c, h, level, mock);
+            case 884: return st884(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -18993,6 +18994,30 @@ public final class ClaudeBodyTest {
             check(prepFirst, "the light prep sits behind the collect itself (it reruns first: the 23:23 loop \"going round in circles\"): " + r + " | queue " + q);
             check(prepFirst2, "by the face: the light prep queued behind the collect itself (it reruns first: the 23:23 loop): " + r2 + " | queue " + q2);
             pass(stage, t, "his light first: " + r + " | queue " + q + "; by the face: " + q2);
+        }
+        return true;
+    }
+    /** Stage 884 (D2D review 266, live 22:41 World 17: "4 iron and 35 diamonds on hand (pocket and chests): making craft iron_sword 1", then a 170-block round trip to his chest for the ingot, the diamonds in his pack): spare diamonds make the sword, not a walk for iron. Here: diamond pick and armor on, 10 diamonds and a stone sword on him, 4 ingots in his chest 40 off: a diamond sword queued, no iron one. */
+    private static boolean st884(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(8200, 70, 7400);
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 24000; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 44; x++) for (int z = -4; z <= 4; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            level.setBlock(o.offset(40, 0, 0), Blocks.CHEST.defaultBlockState(), 3);
+            if (level.getBlockEntity(o.offset(40, 0, 0)) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box) box.setItem(0, new ItemStack(Items.IRON_INGOT, 4));
+            c.myStations.clear(); c.myStations.add(o.offset(40, 0, 0));
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.DIAMOND, 10)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 3)); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.DIAMOND_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.DIAMOND_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.DIAMOND_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.DIAMOND_BOOTS));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.fallDistance = 0; c.setHealth(20); c.prefs.put("stay_close", "no");
+        }
+        if (t[0] == 20) {
+            c.skillQueue.clear(); c.lastStep = null; c.tasks.clear();
+            com.claudemod.entity.ClaudeSpawner.testing = false; try { com.claudemod.director.ClaudeLife.ironPiecemealNow(c, level); } finally { com.claudemod.entity.ClaudeSpawner.testing = true; }
+            var q = new java.util.ArrayList<>(c.skillQueue); c.skillQueue.clear(); c.myStations.clear(); c.getInventory().clearContent();
+            for (var s : net.minecraft.world.entity.EquipmentSlot.values()) if (s.getType() == net.minecraft.world.entity.EquipmentSlot.Type.HUMANOID_ARMOR) c.setItemSlot(s, ItemStack.EMPTY);
+            level.setBlock(o.offset(40, 0, 0), Blocks.AIR.defaultBlockState(), 3);
+            check(q.stream().anyMatch(x -> x.skill().equals("craft") && x.target().equals("diamond_sword")) && q.stream().noneMatch(x -> x.skill().equals("craft") && x.target().equals("iron_sword")), "10 diamonds on him, a stone sword, the iron 40 off in his chest: no diamond sword, the walk for iron instead: queue " + q);
+            pass(stage, t, "spare diamonds make his sword: queue " + q);
         }
         return true;
     }

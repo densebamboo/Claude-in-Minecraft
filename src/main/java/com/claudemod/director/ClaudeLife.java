@@ -9394,6 +9394,7 @@ public final class ClaudeLife {
         if (!diaPick && dia >= 3) { crafts.add(new Skills.Step("craft", "diamond_pickaxe", 1)); dia -= 3; diaPick = true; }
         Item[] dPieces = {Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_HELMET, Items.DIAMOND_BOOTS}, dIron = {Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_HELMET, Items.IRON_BOOTS}; int[] dCost = {8, 7, 5, 4};
         for (int i = 0; i < 4 && diaPick; i++) if (!Kit.has(g, dPieces[i]) && dia >= dCost[i]) { crafts.add(new Skills.Step("craft", Crafting.name(dPieces[i]), 1)); dia -= dCost[i]; byDia.add(dIron[i]); }
+        if (diaPick && !Kit.sword(g, true) && dia >= 2) { crafts.add(new Skills.Step("craft", "diamond_sword", 1)); dia -= 2; byDia.add(Items.IRON_SWORD); } // spare diamonds make the sword (D2D review 266, live 22:41 11-06: 35 diamonds on him, "making craft iron_sword", a 170-block round trip to his chest for the ingot; stage 884)
         Item[] pieces = {Items.IRON_PICKAXE, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_HELMET, Items.IRON_BOOTS, Items.IRON_SWORD}; // the pick first (diamonds in front of him and his 3 iron went to a sword), then most protection per trip
         int[] cost = {3, 8, 7, 5, 4, 2};
         for (int i = 0; i < pieces.length; i++) { // everything the iron covers goes in one go (a full set at 24, not a piece every five seconds)

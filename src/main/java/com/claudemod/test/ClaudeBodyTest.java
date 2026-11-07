@@ -10640,6 +10640,7 @@ public final class ClaudeBodyTest {
             case 798: return st798(stage, t, c, h, level, mock);
             case 799: return st799(stage, t, c, h, level, mock);
             case 739: return st739(stage, t, c, h, level, mock);
+            case 761: return st761(stage, t, c, h, level, mock);
             case 757: return st757(stage, t, c, h, level, mock);
             case 793: return st793(stage, t, c, h, level, mock);
             case 786: return st786(stage, t, c, h, level, mock);
@@ -16906,6 +16907,29 @@ public final class ClaudeBodyTest {
             st757Pg.discard(); st757Pg = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
             check(!esc.equals("hide@" + st757Me.toShortString() + " held"), "a new run with a zombified piglin on him kept his held hide from the shooters, right where it is (" + esc + ")");
             pass(stage, t, "a held hide dropped when the run is from a mob on him (" + esc + ")");
+        }
+        return true;
+    }
+    private static int st761T; private static BlockPos st761Tmp, st761Wall;
+    private static boolean st761(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D hourly 2 (live 08:09:27-08:12 World 17, his mine at -105,16,-196): a temporary block of his at -106,16,-195 behind his mine wall counted as handy (on his level: no sight asked), its break went round to a view cell past the wall, the route dug his wall, put it back, again
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st761T = -1; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            BlockPos me = h.absolutePos(new BlockPos(5, 2, 4)).immutable(); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            st761Wall = me.south(2).immutable(); st761Tmp = me.south(4).immutable();
+            for (int z = 1; z <= 32; z++) for (int x = -1; x <= 1; x++) { level.setBlock(me.offset(x, -1, -z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 2; y++) level.setBlock(me.offset(x, y, -z), Blocks.AIR.defaultBlockState(), 2); } // a floor out to where he sets off for
+            for (int x = -3; x <= 3; x++) for (int y = 0; y <= 2; y++) { BlockPos q = st761Wall.offset(x, y, 0); com.claudemod.entity.life.TempLedger.planBuild(c, q, "test wall"); level.setBlock(q, Blocks.COBBLESTONE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, q, Blocks.COBBLESTONE.defaultBlockState(), Blocks.AIR.defaultBlockState()); check(com.claudemod.entity.life.TempLedger.built(c, q), "setup: the wall cell " + q.toShortString() + " not booked as his build"); } // a wall of his build between
+            level.setBlock(st761Tmp, Blocks.COBBLESTONE.defaultBlockState(), 2); Task was = c.currentTask; c.currentTask = new Task.Pillar(1); com.claudemod.entity.life.TempLedger.placed(c, level, st761Tmp, Blocks.COBBLESTONE.defaultBlockState(), Blocks.AIR.defaultBlockState()); c.currentTask = was; // his temporary block, behind it
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.tasks.add(new Task.GoTo(st761Tmp.north(34).immutable(), 1.0)); st761T = t[0]; } // off 30 the other way, along the floor
+        if (st761T > 0 && t[0] > st761T && t[0] <= st761T + 60) {
+            boolean back = c.currentTask instanceof Task.Break b && b.pos().equals(st761Tmp) || c.tasks.stream().anyMatch(q -> q instanceof Task.Break b2 && b2.pos().equals(st761Tmp));
+            boolean wallDug = level.getBlockState(st761Wall).isAir() || level.getBlockState(st761Wall.above()).isAir();
+            if (back || wallDug || t[0] == st761T + 60) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+                check(com.claudemod.entity.life.TempLedger.has(c, st761Tmp) || !back, "setup: his block at " + st761Tmp.toShortString() + " not on his ledger");
+                check(!back && !wallDug, "his block behind his own wall counted as handy: turned back to break it (" + back + "), wall dug " + wallDug);
+                pass(stage, t, "his block behind his own build left for the way round, the wall kept"); }
         }
         return true;
     }

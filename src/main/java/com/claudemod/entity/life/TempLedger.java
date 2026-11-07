@@ -357,8 +357,13 @@ public final class TempLedger {
 
     /** On his level (a cell up or down), or in reach and in sight: one he'd climb back down to is the climb's (taking it would undo the climb, the old loop). */
     static boolean handy(ClaudeEntity g, ServerLevel level, Entry e, BlockPos me, net.minecraft.world.phys.Vec3 eye) {
-        return Math.abs(e.pos.getY() - me.getY()) <= 1 || eye.distanceTo(net.minecraft.world.phys.Vec3.atCenterOf(e.pos)) <= com.claudemod.entity.goals.WorkGoal.BREAK_REACH && e.pos.equals(level.clip(new net.minecraft.world.level.ClipContext(eye, net.minecraft.world.phys.Vec3.atCenterOf(e.pos), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getBlockPos());
+        BlockPos first = level.clip(new net.minecraft.world.level.ClipContext(eye, net.minecraft.world.phys.Vec3.atCenterOf(e.pos), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getBlockPos();
+        if (Math.abs(e.pos.getY() - me.getY()) <= 1) { // on his level: a walk over to it, unless his own build stands between (live 08:09 11-07: a block behind his mine wall, the break's way round dug the wall and put it back, again and again; stage 761)
+            if (!first.equals(e.pos) && hisBuild(g, level, first)) { if (g.tickCount - handySaid > 200) { handySaid = g.tickCount; ClaudeMod.LOGGER.info("[Claude temp] his block at {}: his build at {} between, left for a way round (TempLedger.handy)", e.pos.toShortString(), first.toShortString()); } return false; }
+            return true; }
+        return eye.distanceTo(net.minecraft.world.phys.Vec3.atCenterOf(e.pos)) <= com.claudemod.entity.goals.WorkGoal.BREAK_REACH && e.pos.equals(first);
     }
+    private static int handySaid = -100000;
 
     /**
      * He's setting off (a walk under way, or next in his queue) for somewhere 24+ past blocks of his he's done with, within 16 of

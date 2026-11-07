@@ -10670,6 +10670,7 @@ public final class ClaudeBodyTest {
             case 864: return st864(stage, t, c, h, level, mock);
             case 865: return st865(stage, t, c, h, level, mock);
             case 870: return st870(stage, t, c, h, level, mock);
+            case 871: return st871(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -18316,6 +18317,37 @@ public final class ClaudeBodyTest {
             String q = c.tasks.stream().limit(4).toList().toString(); c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null;
             check(!r.contains("y=16") && high < 0, "collect cobbled_deepslate sent him up to stone (result: " + r + "; highest task y " + high + "; " + q + ")");
             pass(stage, t, "deepslate from a level below y 0: " + r + " (highest task y " + high + ")");
+        }
+        return true;
+    }
+    private static final java.util.List<net.minecraft.world.entity.monster.ZombifiedPiglin> st871Zp = new java.util.ArrayList<>();
+    private static boolean st871(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 17:10 World 17, Nether highway -3,58,293: calm zombified piglins stood in a highway cell, the planner queued "fight zombified_piglin x4", one swing set the pack on him, 20 -> 6. Here: full iron, iron sword, food; six calm ones about: no swing at them (all would join). Then one calm one alone: that fight is his to take.
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; st871Zp.clear(); }
+        if (t[0] == 10) {
+            BlockPos at = h.absolutePos(new BlockPos(8, 2, 8));
+            for (int x = -8; x <= 8; x++) for (int z = -8; z <= 8; z++) { level.setBlock(at.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y < 3; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600;
+            int[][] spots = {{3, 0}, {-3, 2}, {2, -4}, {5, 4}, {-5, -3}, {0, 6}};
+            for (int[] s : spots) { var zp = net.minecraft.world.entity.EntityType.ZOMBIFIED_PIGLIN.create(level); zp.moveTo(at.getX() + s[0] + 0.5, at.getY(), at.getZ() + s[1] + 0.5, 0, 0); zp.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.GOLDEN_SWORD)); zp.setPersistenceRequired(); level.addFreshEntity(zp); st871Zp.add(zp); }
+        }
+        if (t[0] == 20) {
+            c.tasks.clear();
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "fight", "zombified_piglin", 4);
+            long attacks = c.tasks.stream().filter(q -> q instanceof Task.Attack).count(); c.tasks.clear(); c.dropCurrent = true;
+            check(attacks == 0, "fight zombified_piglin with 6 calm ones about queued " + attacks + " attack(s): one swing sets the pack on him (result: " + r + ")");
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 871 pack of 6: {}", r);
+            for (int i = 1; i < st871Zp.size(); i++) st871Zp.get(i).discard();
+        }
+        if (t[0] == 25) {
+            c.tasks.clear();
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "fight", "zombified_piglin", 1);
+            long attacks = c.tasks.stream().filter(q -> q instanceof Task.Attack).count(); c.tasks.clear(); c.dropCurrent = true;
+            for (var zp : st871Zp) zp.discard();
+            check(attacks == 1, "one calm zombified piglin alone, full iron and a sword: the fight is his to take, got " + attacks + " attack(s) (result: " + r + ")");
+            pass(stage, t, "six calm: left alone; one alone: fought (" + r + ")");
         }
         return true;
     }

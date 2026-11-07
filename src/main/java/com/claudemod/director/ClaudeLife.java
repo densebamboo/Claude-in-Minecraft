@@ -1814,6 +1814,32 @@ public final class ClaudeLife {
     }
 
     /** Runs one plan step: queues the world actions for it, or does it on the spot. Returns how it went. */
+    /**
+     * A swing at a calm neutral mob, priced (Decide "fight.neutral"): a zombified piglin hit calls every calm one within its
+     * follow range (vanilla alertOthers: follow range across, 10 up and down), so the fight is the whole pack, each on him
+     * till it's down (fight.swing_s, fight.mob_hits_per_s, the same model as fight.flee), against leaving them be
+     * (fight.leave_neutral_s: wait for it to wander off or go round). Null when the fight goes ahead or they asked for it.
+     * Live 17:10 11-06: six calm ones on his highway cell, "fight zombified_piglin x4", 20 -> 6 HP (stage 871).
+     */
+    static String calmNeutralFight(ClaudeEntity g, ServerLevel level, net.minecraft.world.entity.LivingEntity first) {
+        if (g.commandActive || !(first instanceof net.minecraft.world.entity.monster.ZombifiedPiglin zp0) || zp0.isAngryAt(g)) return null; // (the pack is what makes it dear: a lone enderman is the pearl hunt's own priced call)
+        java.util.List<net.minecraft.world.entity.LivingEntity> pack = new java.util.ArrayList<>(java.util.List.of(first));
+        if (first instanceof net.minecraft.world.entity.monster.ZombifiedPiglin) { double fr = first.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.FOLLOW_RANGE);
+            for (var z : level.getEntitiesOfClass(net.minecraft.world.entity.monster.ZombifiedPiglin.class, net.minecraft.world.phys.AABB.unitCubeFromLowerCorner(first.position()).inflate(fr, 10, fr), e -> e.isAlive() && e != first && !e.isAngryAt(g))) pack.add(z); }
+        pack.sort(Comparator.comparingDouble(m -> m.distanceTo(g)));
+        double hit = 1; for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { ItemStack s = g.inventory.items.getItem(i); if (s.getItem() instanceof net.minecraft.world.item.SwordItem || s.getItem() instanceof net.minecraft.world.item.AxeItem) hit = Math.max(hit, com.claudemod.entity.goals.WorkGoal.weaponDamage(s)); }
+        double swing = com.claudemod.entity.life.Weights.w("fight.swing_s", 0.6), rate = com.claudemod.entity.life.Weights.w("fight.mob_hits_per_s", 0.8) * (hit > 1 ? com.claudemod.entity.life.Weights.w("fight.knockback_hits_factor", 0.5) : 1), cool = com.claudemod.entity.life.Weights.w("fight.mob_cooldown_s", 1.0), armorF = 1 - Math.min(20, g.getArmorValue()) / 25.0;
+        double t = 0, hits = 0, hp = 0; int most = 0;
+        for (var m : pack) { t += Math.ceil(m.getHealth() / hit) * swing; double dmg = Math.max(1, (m.getAttributes().hasAttribute(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE) ? m.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE) : 3) * armorF); double h = t * rate; hits += h; hp += h * dmg; most += (int) Math.ceil(t / cool); }
+        double perHit = hits > 0 ? hp / hits : 3, fightS = t + com.claudemod.entity.life.Decide.hpS(g, g.getHealth(), 0, hp, perHit, most);
+        String name = first.getType().getDescription().getString();
+        var pick = com.claudemod.entity.life.Decide.choose(g, "fight.neutral", pack.size() + " calm " + name + (pack.size() > 1 ? " (all join at the first swing)" : "") + ", health " + (int) g.getHealth() + ", armor " + g.getArmorValue(), true, java.util.List.of(
+                com.claudemod.entity.life.Decide.Option.of("fight", fightS, "~" + Math.round(t) + " s of swings, ~" + Math.round(hp) + " HP of hits"),
+                com.claudemod.entity.life.Decide.Option.of("leave", com.claudemod.entity.life.Weights.w("fight.leave_neutral_s", 30), "leave them be: wait for it to wander off or go round")));
+        if (pick == null || !pick.name().equals("leave")) return null;
+        return "failed: not swinging at a calm " + name + ": " + pack.size() + " of them would join (~" + Math.round(hp) + " HP of hits); leave them be, wait for it to wander off or go round";
+    }
+
     /** For the game tests: one skill run, as the planner would. */
     public static String testSkill(ClaudeEntity g, ServerPlayer player, String skill, String target, int count) { return runSkill(g, player, new Skills.Step(skill, target, count)); }
 
@@ -3892,6 +3918,7 @@ public final class ClaudeLife {
                 long crowd = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(16), m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy).size();
                 boolean ironUp = g.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).is(Items.IRON_CHESTPLATE) || g.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).is(Items.DIAMOND_CHESTPLATE) || g.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).is(Items.NETHERITE_CHESTPLATE);
                 if (!g.commandActive && crowd > 3 && !(ironUp && foodOn >= 4)) return "failed: " + crowd + " hostiles about, too many to take on without iron armor and a stack of food: leave that area alone till geared";
+                String neutralNo = calmNeutralFight(g, level, mobs.get(0)); if (neutralNo != null) return neutralNo;
                 for (int i = 0; i < n; i++) g.tasks.add(new Task.Attack(mobs.get(i).getUUID(), 600));
                 return "fighting " + (n == 1 ? "a" : n) + " " + BuiltInRegistries.ENTITY_TYPE.getKey(mobs.get(0).getType()).getPath();
             }

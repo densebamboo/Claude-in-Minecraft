@@ -10669,6 +10669,7 @@ public final class ClaudeBodyTest {
             case 865: return st865(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
+            case 869: return st869(stage, t, c, h, level, mock);
             case 676: return st676(stage, t, c, h, level, mock);
             case 659: return st659(stage, t, c, h, level, mock);
             case 560: return st560(stage, t, c, h, level, mock);
@@ -18142,6 +18143,31 @@ public final class ClaudeBodyTest {
             check(kept, "the night refusal cleared the rest of his plan: queue " + q + " after " + line);
             pass(stage, t, "the night refusal dropped only its own step; the craft after it stays: " + q);
         } else if (st861Start > 0 && t[0] - st861Start >= 20 * 15) { st861Start = 0; c.skillQueue.clear(); level.setDayTime(1000); check(false, "the porkchop step never ran in 15 s: last " + c.lastSkillLine); }
+        return true;
+    }
+    private static int st869Start; private static BlockPos st869C;
+    private static boolean st869(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        // Live 16:33:55 World 17, mid "collect cobbled_deepslate x384" for the highway: "pack nearly full of junk and cobble (4 free)", a junk round "stored 196" with 143 of them cobbled deepslate; he left for the highway with 149. Here: at his junk chest with 4 stacks of deepslate while collecting it: they stay on him.
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; st869Start = 0; }
+        if (t[0] == 10) {
+            for (int x = -2; x <= 10; x++) for (int z = -2; z <= 10; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int yy = 2; yy <= 5; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 4)); st869C = me.east(2);
+            level.setBlock(st869C, Blocks.CHEST.defaultBlockState(), 3); c.prefs.put("junk_chests", st869C.getX() + " " + st869C.getY() + " " + st869C.getZ()); level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 12));
+            for (int i = 0; i < 4; i++) c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64));
+            for (int i = 0; i < 2; i++) c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64));
+            c.getInventory().add(new ItemStack(Items.ANDESITE, 64)); c.getInventory().add(new ItemStack(Items.TUFF, 64));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.lastStep = new com.claudemod.entity.life.Skills.Step("collect", "cobbled_deepslate", 384);
+            c.tasks.add(new Task.GoTo(st869C, 2)); c.tasks.add(new Task.Deposit(st869C)); st869Start = t[0];
+        }
+        if (st869Start > 0 && t[0] - st869Start > 20 && c.tasks.isEmpty() && c.currentTask == null || st869Start > 0 && t[0] - st869Start > 20 * 20) {
+            st869Start = 0; int ds = c.getInventory().countItem(Items.COBBLED_DEEPSLATE), andesite = c.getInventory().countItem(Items.ANDESITE);
+            c.prefs.remove("junk_chests"); c.lastStep = null; level.setBlock(st869C, Blocks.AIR.defaultBlockState(), 3);
+            check(andesite == 0, "the junk round never ran: andesite still on him (" + andesite + ")");
+            check(ds == 256, "collecting deepslate for the highway, the junk chest took " + (256 - ds) + " of it");
+            pass(stage, t, "junk in the junk chest, the 256 deepslate kept for the job");
+        }
         return true;
     }
     private static BlockPos st867A, st867B, st867C; private static int st867Start;

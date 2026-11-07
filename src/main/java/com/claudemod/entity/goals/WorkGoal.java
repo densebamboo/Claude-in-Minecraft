@@ -4328,11 +4328,12 @@ public class WorkGoal extends Goal {
         } else storeTargets.add(box);
         int moved = 0, cobbleKept = 0;
         java.util.List<Integer> slots = new java.util.ArrayList<>();
-        boolean junkBox = com.claudemod.director.ClaudeLife.isJunkChest(g, t.pos()); java.util.Map<net.minecraft.world.item.Item, Integer> kept = new java.util.HashMap<>();
+        boolean junkBox = com.claudemod.director.ClaudeLife.isJunkChest(g, t.pos()); java.util.Map<net.minecraft.world.item.Item, Integer> kept = new java.util.HashMap<>(); final boolean deepslateWanted = com.claudemod.director.ClaudeLife.deepslateWanted(g);
         for (int i = 0; i < g.inventory.items.getContainerSize(); i++) {
             ItemStack s = g.inventory.items.getItem(i);
             if (s.isEmpty()) continue; if (s.is(net.minecraft.tags.ItemTags.LOGS) && !junkBox) { if (kept.merge(net.minecraft.world.item.Items.OAK_LOG, s.getCount(), Integer::sum) > 64 + s.getCount() - 1 && kept.get(net.minecraft.world.item.Items.OAK_LOG) - s.getCount() >= 64) slots.add(i); continue; } if (keeps(s)) continue; // (logs: a stack of 64 stays (the user), , whole stacks past that go in the chest; the user: no pack full of blocks)
             boolean cob = s.is(net.minecraft.world.item.Items.COBBLESTONE) || s.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE);
+            if (cob && s.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE) && deepslateWanted) continue; // (a job's material on him: kept, never the junk chest's, live 16:33 11-06)
             if (junkBox) { if (cob ? kept.merge(net.minecraft.world.item.Items.COBBLESTONE, 1, Integer::sum) > 2 : com.claudemod.director.ClaudeLife.junkItem(s)) slots.add(i); continue; } // his junk chest: the junk and the stone past two stacks all told, as his toss keeps (kept for patching; 2 a kind left 2 stacks for the toss to throw on his floor, 05:17 11-05, stage 713)
             if (cob) continue; // for patching, and spare cobble never goes on the shelves: his junk chest takes what he can't carry (his chests filled up with it and "store" walked him 240 blocks to your chest)
             if (com.claudemod.director.ClaudeLife.junkItem(s)) continue; // (andesite and dirt on his loot shelves filled his stash)

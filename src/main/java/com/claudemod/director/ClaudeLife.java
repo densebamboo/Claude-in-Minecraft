@@ -5241,9 +5241,16 @@ public final class ClaudeLife {
         return false;
     }
     /** Stacks a junk chest would take: junk, and cobble past two stacks of a kind (kept for patching). */
+    /** Cobbled deepslate is a job's material, never spare: his highway underway, or a step of his after it (live 16:33 11-06: a junk round stored 143 of the highway's deepslate mid-collect). */
+    public static boolean deepslateWanted(ClaudeEntity g) {
+        if (com.claudemod.entity.life.Highway.underway(g)) return true;
+        if (g.lastStep != null && g.lastStep.target().contains("cobbled_deepslate")) return true;
+        for (Skills.Step s : g.skillQueue) if (s.target().contains("cobbled_deepslate") || s.skill().equals("build_highway")) return true;
+        return false;
+    }
     static int spareStacks(ClaudeEntity g) {
-        java.util.Map<Item, Integer> kept = new java.util.HashMap<>(); int n = 0;
-        for (var st : g.getInventory().items) { if (st.isEmpty() || com.claudemod.entity.goals.WorkGoal.keeps(st)) continue; if (cobbleItem(st)) { if (kept.merge(Items.COBBLESTONE, 1, Integer::sum) > 2) n++; } else if (junkItem(st)) n++; } // (what Deposit keeps never counts: 06:27 a junk round every 10 s that stored 0) (two stacks of stone all told, as his toss keeps: 2 a kind here was "nothing spare" while the toss threw 2 stacks on his tunnel floor, 3 times in a minute, 05:17 11-05, stage 713)
+        java.util.Map<Item, Integer> kept = new java.util.HashMap<>(); int n = 0; final boolean ds = deepslateWanted(g);
+        for (var st : g.getInventory().items) { if (st.isEmpty() || com.claudemod.entity.goals.WorkGoal.keeps(st) || ds && st.is(Items.COBBLED_DEEPSLATE)) continue; if (cobbleItem(st)) { if (kept.merge(Items.COBBLESTONE, 1, Integer::sum) > 2) n++; } else if (junkItem(st)) n++; } // (what Deposit keeps never counts: 06:27 a junk round every 10 s that stored 0) (two stacks of stone all told, as his toss keeps: 2 a kind here was "nothing spare" while the toss threw 2 stacks on his tunnel floor, 3 times in a minute, 05:17 11-05, stage 713)
         return n;
     }
 
@@ -5367,7 +5374,7 @@ public final class ClaudeLife {
             var st = inv.items.get(i);
             if (st.isEmpty() || i == inv.selected) continue;
             boolean cobble = st.is(Items.COBBLESTONE) || st.is(Items.COBBLED_DEEPSLATE) || st.is(Items.NETHERRACK); // (netherrack too: his Nether building block, booths and bridges)
-            if (st.is(Items.COBBLED_DEEPSLATE) && com.claudemod.entity.life.Highway.underway(g)) continue; // the highway's block, his to lay (D2D reviews 943/125: a full pack threw out 53 of it as junk)
+            if (st.is(Items.COBBLED_DEEPSLATE) && deepslateWanted(g)) continue; // the highway's block, his to lay (D2D reviews 943/125: a full pack threw out 53 of it as junk)
             if (cobble && kept.merge(Items.COBBLESTONE, 1, Integer::sum) <= 2) continue; // two stacks of stone all told, cobble and cobbled deepslate together, as a player keeps (live 10:18 World 15: two of each, 238 stone in 4 slots, and the sugar dropped and picked back up every 7 s instead)
             if (!cobble && !junk.contains(st.getItem()) && !superseded(g, st, i)) continue;
             thrown.append(st.getCount()).append(' ').append(st.getItem()).append(' ');

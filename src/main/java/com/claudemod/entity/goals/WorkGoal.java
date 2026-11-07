@@ -282,6 +282,30 @@ public class WorkGoal extends Goal {
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] on fire at {} (health {}): water at his feet to put it out (WorkGoal)", feetF.toShortString(), (int) g.getHealth());
             }
         }
+        // Burning out of the lava with lava within 2 of him or his work: work on (the fire burns either way; each touch more is 4 HP and the fire again, lava.contact_hp) or back along his own dry way out of its reach till the fire's out, priced (D2D review 626, live 03:58 11-07: 15 s of fire spent plugging and breaking beside the pool, at 12 HP the plug put him in it again, 20 -> 6 in 45 s; stage 941)
+        if (current != null && !(current instanceof Task.Wait) && g.isOnFire() && !g.isInLava() && g.onGround() && g.tickCount % 10 == 4 && g.tickCount >= hotHeldTill && !g.hasEffect(net.minecraft.world.effect.MobEffects.FIRE_RESISTANCE)) {
+            ServerLevel lvH = (ServerLevel) g.level(); BlockPos meH = g.blockPosition(), atH = com.claudemod.entity.life.Watchdog.target(current);
+            if (lavaWithin(lvH, meH, 2) || atH != null && lavaWithin(lvH, atH, 2)) {
+                java.util.function.Predicate<BlockPos> standH = q -> lvH.getBlockState(q).getCollisionShape(lvH, q).isEmpty() && lvH.getBlockState(q.above()).getCollisionShape(lvH, q.above()).isEmpty() && lvH.getFluidState(q).isEmpty() && lvH.getBlockState(q.below()).isFaceSturdy(lvH, q.below(), Direction.UP);
+                BlockPos back = null; for (var it0 = dryCells.descendingIterator(); it0.hasNext(); ) { BlockPos q = it0.next(); if (!q.equals(meH) && q.distSqr(meH) <= 8 * 8 && standH.test(q) && !lavaWithin(lvH, q, 3)) { back = q; break; } } // (his own way back first: ground he's walked; the list outlives a change of world, so near and still standing only)
+                if (back == null) { double bd = Double.MAX_VALUE; for (BlockPos q : BlockPos.betweenClosed(meH.offset(-6, -1, -6), meH.offset(6, 1, 6))) { double dq = q.distSqr(meH); if (dq < bd && standH.test(q) && !lavaWithin(lvH, q, 3) && lvH.clip(new net.minecraft.world.level.ClipContext(g.getEyePosition(), Vec3.atCenterOf(q), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getType() == net.minecraft.world.phys.HitResult.Type.MISS) { bd = dq; back = q.immutable(); } } }
+                if (back != null) {
+                    double fireS = g.getRemainingFireTicks() / 20.0, fireHp = fireS * w("lava.fire_hp_per_s", 1), cHp = w("lava.contact_hp", 12), touches = w("lava.work_near_s", 20) * w("lava.contact_per_s", 0.03);
+                    double workS = com.claudemod.entity.life.Decide.hpS(g, g.getHealth(), fireHp, touches * cHp, cHp, 3);
+                    double holdS = Math.sqrt(back.distSqr(meH)) / com.claudemod.entity.life.Decide.sprint() + fireS + com.claudemod.entity.life.Decide.hpS(g, g.getHealth(), fireHp, 0, cHp, 0);
+                    var pick = com.claudemod.entity.life.Decide.choose(g, "lava.hold", "on fire " + String.format("%.0f", fireS) + " s more at health " + (int) g.getHealth() + ", lava within 2 of " + (lavaWithin(lvH, meH, 2) ? "him" : "his work at " + atH.toShortString()), true, java.util.List.of(
+                        com.claudemod.entity.life.Decide.Option.of("work on", workS, "the fire's " + Math.round(fireHp) + " HP, and ~" + String.format("%.1f", touches) + " touch(es) more at " + Math.round(cHp) + " HP each beside it"),
+                        com.claudemod.entity.life.Decide.Option.of("back off", holdS, "back to " + back.toShortString() + " out of its reach till the fire's out, then on")));
+                    if (pick != null && pick.name().equals("back off")) {
+                        if (current != null) { clearCrack(); g.tasks.addFirst(current); current = null; g.currentTask = null; }
+                        g.tasks.addFirst(new Task.Wait(g.getRemainingFireTicks() + 10, false)); g.tasks.addFirst(new Task.GoTo(back, 0.6));
+                        hotHeldTill = g.tickCount + g.getRemainingFireTicks() + 40;
+                        com.claudemod.ClaudeMod.LOGGER.info("[Claude life] on fire at {} (health {}) with lava by his work: back to {} till the fire's out, then on (WorkGoal)", meH.toShortString(), (int) g.getHealth(), back.toShortString());
+                        return;
+                    }
+                }
+            }
+        }
         // Told to stay put: he holds that cell like a player in a current, stepping back to its middle when the flow drifts him (the user: "you're letting the water carry you", 15:19)
         if (g.staying) { BlockPos feetH = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); BlockPos h = stayCell.computeIfAbsent(g.getUUID(), k -> feetH.immutable());
             double dx = g.getX() - (h.getX() + 0.5), dz = g.getZ() - (h.getZ() + 0.5);
@@ -583,7 +607,7 @@ public class WorkGoal extends Goal {
                 Vec3 hit = face.getAxis() == Direction.Axis.X ? c0.add(0, o[0], o[1]) : face.getAxis() == Direction.Axis.Y ? c0.add(o[0], 0, o[1]) : c0.add(o[0], o[1], 0);
                 if (hit.distanceTo(eye) > 4.5) continue;
                 var clip = level.clip(new net.minecraft.world.level.ClipContext(eye, hit.add(face.getStepX() * -0.05, face.getStepY() * -0.05, face.getStepZ() * -0.05), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g));
-                if (clip.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK && clip.getBlockPos().equals(n)) return new Object[] {n.immutable(), face, hit}; } }
+                if (clip.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK && clip.getBlockPos().equals(n) && (clip.getDirection() == face || faceSide(eye, n, face))) return new Object[] {n.immutable(), face, hit}; /* (the face itself, not the block from behind: stage 942) */ } }
         return null;
     }
     /** His way goes on past the cell he's to fill, to the side he's on: a walk queued to a cell beside him, further from it than he is (a cut he walked through, put back behind him; ActionPath.tasks). */
@@ -2367,6 +2391,8 @@ public class WorkGoal extends Goal {
         }
     }
     private boolean walkNoDig;
+    private int hotHeldTill; // the lava.hold's back-off: not asked again till the fire it waited out is done
+    private static boolean lavaWithin(ServerLevel level, BlockPos p, int r) { for (BlockPos q : BlockPos.betweenClosed(p.offset(-r, -1, -r), p.offset(r, 1, r))) if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) return true; return false; }
     private final java.util.ArrayDeque<BlockPos> dryCells = new java.util.ArrayDeque<>(); private BlockPos lavaOut; private int lavaOutSince; private final java.util.Map<BlockPos, Integer> lavaOutBad = new java.util.HashMap<>(); // (the lava escape's memory)
     private final java.util.Map<BlockPos, Integer> placeRetries = new java.util.HashMap<>();
     private Vec3 stepOffTo;
@@ -3578,6 +3604,8 @@ public class WorkGoal extends Goal {
     private static java.util.Map<BlockPos, Integer> footings() { if (footings == null) footings = new java.util.HashMap<>(); return footings; }
 
     /** A spot on nb's face toward the cell (d points from the cell to nb) that his eyes reach first, within reach, or null: the middle, then toward the edges and corners, the way a player aims at whatever part of the face shows. */
+    /** His eye on the face's own side of its plane, or under 0.7 behind it (a lean to the edge shows it, as a player bridging leans out): a ray into the block from further behind is through it (stage 942). shortcut: the lean isn't made, the click is from where he stands; upgrade with an edge-step move. */
+    private static boolean faceSide(Vec3 eye, BlockPos nb, Direction face) { Vec3 c = Vec3.atCenterOf(nb); return (eye.x - c.x) * face.getStepX() + (eye.y - c.y) * face.getStepY() + (eye.z - c.z) * face.getStepZ() - 0.5 > -0.7; }
     private Vec3 visibleFacePoint(ServerLevel level, Vec3 eye, BlockPos nb, Direction d, double reach) {
         Vec3 c = Vec3.atCenterOf(nb).add(d.getOpposite().getStepX() * 0.5, d.getOpposite().getStepY() * 0.5, d.getOpposite().getStepZ() * 0.5);
         Direction.Axis ax = d.getAxis();
@@ -3587,7 +3615,7 @@ public class WorkGoal extends Goal {
             Vec3 pt = c.add(u.scale(o[0])).add(v.scale(o[1]));
             if (eye.distanceTo(pt) > reach) continue;
             var r = level.clip(new net.minecraft.world.level.ClipContext(eye, pt.add(d.getStepX() * 0.45, d.getStepY() * 0.45, d.getStepZ() * 0.45), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)); // (into the block: a farmland's or slab's top sits below the cell's face)
-            if (r.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK && r.getBlockPos().equals(nb)) return pt;
+            if (r.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK && r.getBlockPos().equals(nb) && (r.getDirection() == d.getOpposite() || faceSide(eye, nb, d.getOpposite()))) return pt; // (the face he clicks, not the block from its far side: a ray into the wall from behind it "saw" the face against the hole, and he put a block through a wall, stage 942)
         }
         return null;
     }
@@ -4027,7 +4055,8 @@ public class WorkGoal extends Goal {
                     viewTry().put(pos.immutable(), new long[] {view.asLong(), feetV.asLong()});
                     BlockPos feet0 = feetV;
                     if (view.equals(feet0)) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(view.getX() + 0.5, view.getY(), view.getZ() + 0.5, 0.4); g.tasks.addFirst(t); g.tasks.addFirst(new Task.Wait(6, false)); return exit("the right block, the wrong edge of it: into the middle, where the hole is in view (doPlace 2837)"); } // the right block, the wrong edge of it: into the middle, where the hole is in view
-                    if (view.distSqr(feet0) <= 4 && view.getY() <= feet0.getY() && feet0.getY() - view.getY() <= 1) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(view.getX() + 0.5, view.getY(), view.getZ() + 0.5, 0.5); g.tasks.addFirst(t); g.tasks.addFirst(new Task.Wait(10, false)); return exit("a block or two off: a nudge, a walk there lands a block short (doPlace 2838)"); } // a block or two off: a nudge, a walk there lands a block short
+                    boolean hotLine = false; for (int k = 1; k <= 4; k++) { BlockPos q = BlockPos.containing(g.getX() + (view.getX() + 0.5 - g.getX()) * k / 4, view.getY(), g.getZ() + (view.getZ() + 0.5 - g.getZ()) * k / 4); for (int dy = 0; dy <= 2; dy++) if (level.getFluidState(q.above(dy)).is(net.minecraft.tags.FluidTags.LAVA)) hotLine = true; } // (the nudge is a straight move: lava at his feet, head or just over it on the line, falling or not, and the walk takes it instead, round or not at all; D2D urgent 06:44 11-07: a nudge for a bore block stepped him into lava falling through 131,62,511, 20 -> 10)
+                    if (!hotLine && view.distSqr(feet0) <= 4 && view.getY() <= feet0.getY() && feet0.getY() - view.getY() <= 1) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(view.getX() + 0.5, view.getY(), view.getZ() + 0.5, 0.5); g.tasks.addFirst(t); g.tasks.addFirst(new Task.Wait(10, false)); return exit("a block or two off: a nudge to " + view.toShortString() + ", a walk there lands a block short (doPlace 2838)"); } // a block or two off: a nudge, a walk there lands a block short
                     if (view.distSqr(feet0) <= 4 && view.getY() > feet0.getY()) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the spot that sees a face to set {} against is a step up at {} (he's at {}): the walker there, its jump; a nudge only slides along the ground (WorkGoal.doPlace)", pos.toShortString(), view.toShortString(), feet0.toShortString()); // (live 07:52 and 15:20 world 14: nudged at a spot one up, he never moved, and it gave up: doPlace 2838, then 2844)
                     sentFor().put(pos.immutable(), g.tickCount); g.tasks.addFirst(t); g.tasks.addFirst(new Task.GoTo(view, 0.5)); return exit("doPlace line 2839");
                 }

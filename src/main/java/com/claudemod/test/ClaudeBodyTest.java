@@ -2211,7 +2211,7 @@ public final class ClaudeBodyTest {
         com.claudemod.entity.life.PitGuard.reset(c); // (stages 245-247: his holes' caps and skirts)
         com.claudemod.entity.life.DeathLog.reset(c); // (the test world keeps his death checklist: a stage he died in left piles 2953 off pending, and 817's pearl hunt went to recover them)
         for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
-        c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear(); c.attempts.clear(); c.pillarBlocks.clear(); com.claudemod.director.ClaudeLife.bridgeBlocks().clear();
+        c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear(); c.lastStep = null; /* (the last stage's step carried into the next: 934's build_highway made 935's walk NO_DIG in a batch) */ c.attempts.clear(); c.pillarBlocks.clear(); com.claudemod.director.ClaudeLife.bridgeBlocks().clear();
         c.house = null; c.nook = null; c.nooks.clear(); c.farm = null; c.blueprint = null; c.mineShape = null; c.mineCells.clear(); c.mineSpine.clear(); c.mineFace = null; c.stairStart = null;
         c.myStations.clear(); c.storageChests.clear(); c.lastGiven.clear(); c.staying = false; c.prefs.remove("branch_length"); c.prefs.remove("stay_close"); c.playerGoal = "";
         c.setHealth(20f); c.getFoodData().setFoodLevel(20);
@@ -10509,6 +10509,8 @@ public final class ClaudeBodyTest {
             case 932: return st932(stage, t, c, h, level, mock);
             case 933: return st933(stage, t, c, h, level, mock);
             case 934: return st934(stage, t, c, h, level, mock);
+            case 942: return st942(stage, t, c, h, level, mock);
+            case 941: return st941(stage, t, c, h, level, mock);
             case 940: return st940(stage, t, c, h, level, mock);
             case 939: return st939(stage, t, c, h, level, mock);
             case 938: return st938(stage, t, c, h, level, mock);
@@ -13915,6 +13917,70 @@ public final class ClaudeBodyTest {
             check(s <= 45, "clearing 3 medium cubes and walking on: " + s + " s (a player ~20)");
             check(hp >= 8, "health " + hp + " by the end");
             pass(stage, t, "cleared and there in " + s + " s, health " + hp);
+        }
+        return true;
+    }
+    /** Stage 941 (D2D review 626 11-07, live 03:58: lava ran into his cell beside a pool on the highway, he got out, and burned 15 s while he went on plugging and breaking right beside it; at 12 HP, still burning, the bore's plug put him in the lava again and the fire started over: 20 -> 6 in 45 s): burning at 12 HP, food full, a bore across a lava pool 2 off. A player steps back from the lava and lets the fire burn out before working it again. */
+    private static int s941T, s941Near;
+    private static boolean st941(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12000, 70, 7900);
+        if (t[0] == 1) { scenarioReset(c); s941T = -1; s941Near = 0; }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 5) {
+            for (int x = -12; x <= 12; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 6; y++) nl.setBlock(o.offset(x, y, z), (x >= 2 && x <= 5 && y == 0 && Math.abs(z) <= 4 ? Blocks.LAVA : y < 0 || y > 4 || Math.abs(z) > 4 || Math.abs(x) > 10 || y == 0 && (x == 1 || x == 6) ? Blocks.BASALT : Blocks.AIR).defaultBlockState(), 2); // (a basalt room, floor to roof: the last run's lava and blocks outside it never in this one; a lava pool 4 across, the room's width, level with his line, held in by a basalt rim each side: still till his bore opens the rim, as live)
+            nl.getFluidTicks().clearArea(net.minecraft.world.level.levelgen.structure.BoundingBox.fromCorners(o.offset(-12, -2, -6), o.offset(12, 6, 6)));
+            nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.skillQueue.clear(); c.setHealth(12); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(0); c.setRemainingFireTicks(200);
+            c.tasks.add(new com.claudemod.entity.life.Task.Bore(o.offset(8, 0, 0), o.getY())); c.tasks.add(new com.claudemod.entity.life.Task.GoTo(o.offset(8, 0, 0), 0.5)); s941T = t[0]; }
+        if (t[0] > 20) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear(); }
+        if (s941T > 0 && t[0] > s941T + 40 && c.isOnFire()) { boolean near = false; for (BlockPos q : BlockPos.betweenClosed(c.blockPosition().offset(-2, -1, -2), c.blockPosition().offset(2, 1, 2))) if (nl.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) { near = true; break; } if (near) s941Near++; }
+        boolean on941 = s941T > 0 && c.blockPosition().getX() >= o.getX() + 7;
+        if (s941T > 0 && (on941 && !c.isOnFire() || t[0] >= s941T + 20 * 40)) {
+            float hp = c.getHealth(); int near = s941Near; double s = (t[0] - s941T) / 20.0; String at = c.blockPosition().toShortString();
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.clearFire();
+            for (int x = -12; x <= 12; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(20))) e.discard();
+            nsHome(c, h, level);
+            check(near <= 30, "burning at 12 HP: " + near / 20.0 + " s within 2 of the lava while on fire (past the first 2 s), working it; a player's reaction is about a second");
+            check(hp >= 6, "health " + hp + " after the burn");
+            check(on941, "back to the bore once the fire was out: at " + at + " after " + s + " s, not across the pool");
+            pass(stage, t, "stepped back till the fire was out, then across in " + s + " s, health " + hp);
+        }
+        return true;
+    }
+    /** Stage 942 (D2D urgent 06:44 11-07, live on all the day's fixes: a bore block at 130,62,511 out of his sight, doPlace's "a block or two off: a nudge" moved him straight through 131,61,511 where lava fell through his head's cell, 20 -> 10): a block to put whose only face in view is from 2 cells over, the straight line there through a falling column of lava, a way round on foot. He gets there without touching the lava, and puts it. */
+    private static int s942T; private static boolean s942Burnt; private static String s942Col = ""; private static net.minecraft.world.phys.Vec3 s942At;
+    private static boolean st942(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12200, 70, 7900); BlockPos put = o.offset(0, 0, 2);
+        if (t[0] == 1) { scenarioReset(c); s942T = -1; s942Burnt = false; s942At = null; }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 5) {
+            for (int x = -6; x <= 6; x++) for (int z = -4; z <= 5; z++) for (int y = -2; y <= 4; y++) { boolean wall = y >= 0 && y <= 1 && (x == 1 && z >= 1 && z <= 3 || z == -1 && x >= 1 && x <= 3); nl.setBlock(o.offset(x, y, z), (y < 0 || wall ? Blocks.BASALT : Blocks.AIR).defaultBlockState(), 2); }
+            for (int x = 0; x <= 2; x++) for (int z = -1; z <= 1; z++) nl.setBlock(o.offset(x, 3, z), Blocks.BASALT.defaultBlockState(), 2);
+            nl.setBlock(o.offset(1, -1, 0), Blocks.AIR.defaultBlockState(), 2); nl.setBlock(o.offset(1, 3, 0), Blocks.LAVA.defaultBlockState(), 3); // (a source in the roof falling through the cell the straight line crosses into a pit in the floor, as the fall through 131,62,511 was live: a column, no spread)
+            nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 2.5, o.getY(), o.getZ() + 0.5, 90f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 79) { StringBuilder sb = new StringBuilder(); for (int y = -1; y <= 3; y++) sb.append(" y").append(y).append("=").append(nl.getBlockState(o.offset(1, y, 0)).getBlock().getName().getString()).append("/").append(nl.getFluidState(o.offset(1, y, 0)).getAmount()); s942Col = sb.toString(); com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 942 column:{}", s942Col); }
+        if (t[0] == 80) { c.tasks.clear(); c.skillQueue.clear(); c.tasks.add(new com.claudemod.entity.life.Task.Place(put, Items.COBBLESTONE, null, null)); s942T = t[0]; }
+        if (t[0] > 80) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear(); if (c.isOnFire() || c.isInLava()) s942Burnt = true; }
+        boolean in = t[0] > 80 && nl.getBlockState(put).is(Blocks.COBBLESTONE);
+        if (in && s942At == null) s942At = c.position();
+        if (s942T > 0 && (in || t[0] >= s942T + 20 * 25)) {
+            double s = (t[0] - s942T) / 20.0; float hp = c.getHealth(); boolean burnt = s942Burnt;
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.clearFire();
+            for (int x = -6; x <= 6; x++) for (int z = -4; z <= 5; z++) for (int y = -2; y <= 4; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(20))) e.discard();
+            nsHome(c, h, level);
+            check(s942Col.contains(" y1=Lava/8"), "setup: no falling lava through the cell the line crosses:" + s942Col);
+            check(!burnt, "the way to a spot that sees the block went through the falling lava: he burned (health " + hp + ")");
+            check(!in || s942At.x < o.getX() + 1 || s942At.z > o.getZ() + 4, "put through the wall: from " + s942At + ", the wall at x " + (o.getX() + 1) + " between him and the face");
+            check(in, "the block at " + put.toShortString() + " not put in " + s + " s");
+            pass(stage, t, "round the lava and the block in, " + s + " s, health " + hp);
         }
         return true;
     }

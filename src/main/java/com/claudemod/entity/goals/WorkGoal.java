@@ -6125,6 +6125,47 @@ public class WorkGoal extends Goal {
      * a blaze only shoots what it sees, so the nearest cell he can walk to (16 at most) (24 steps at most) that no blaze within 24 sees, then food, then the fight
      * again once he's healed. Already out of their sight: stood there healing. No such cell: running (Flee). Null: nothing to do here.
      */
+    /** Hurt in a blaze fight with no cover (blaze.retreat): fight on in the open (FortressFight.fightS for the blazes he knows of, at his health less the fire still on him), or out of their sight (hideSpot), the fireballs on the way, healed to full (Food.regenS) and the fight then at full health. True: retreat. Logged when it wins. */
+    private boolean blazeRetreatPays() {
+        ServerLevel lv = (ServerLevel) g.level();
+        var blz = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(24), net.minecraft.world.entity.Entity::isAlive);
+        int n = Math.max(1, blz.size());
+        boolean shield = g.getItemBySlot(EquipmentSlot.OFFHAND).is(net.minecraft.world.item.Items.SHIELD) && !g.getCooldowns().isOnCooldown(net.minecraft.world.item.Items.SHIELD), fed = com.claudemod.director.ClaudeLife.foodToEat(g, true) != null;
+        double armor = g.getArmorValue(), tough = g.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS);
+        double fire = g.isOnFire() ? g.getRemainingFireTicks() / 20.0 * w("blaze.burn_hp_per_s", 1) : 0; // (sure: the fire burns on either way)
+        double on = com.claudemod.entity.life.FortressFight.fightS(g, Math.max(0.5, g.getHealth() - fire), armor, tough, shield, fed, 0, n);
+        var all = lv.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(24), net.minecraft.world.entity.Entity::isAlive); // (the ones blazeRetreat goes out of the sight of)
+        if (all.isEmpty()) return false; // (none within its 24: blazeRetreat has nothing to go out of the sight of; an empty list made every cell "hidden", 763's blaze 27 off)
+        java.util.function.Predicate<BlockPos> hidden = c -> { for (var b : all) if (com.claudemod.entity.life.FortressFight.sees(lv, b, c)) return false; return true; };
+        BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); java.util.Map<BlockPos, Integer> steps = new java.util.HashMap<>();
+        BlockPos hide = hidden.test(feet) ? feet : blazeHideCell(lv, feet, hidden, steps);
+        int boxN = 0; for (Direction dir : Direction.Plane.HORIZONTAL) for (int y = 0; y <= 1; y++) if (lv.getBlockState(feet.relative(dir).above(y)).canBeReplaced()) boxN++; if (lv.getBlockState(feet.above(2)).canBeReplaced()) boxN += 2; // (nowhere out of their sight: blazeRetreat walls him in where he stands, the roof against one more on a wall)
+        boolean box = hide == null && boxN > 0 && scaffoldBlock().getCount() >= boxN;
+        double walk = hide != null ? steps.getOrDefault(hide, 0) / com.claudemod.entity.life.Decide.sprint() : box ? boxN * w("cover.place_s", 0.35) / 2 : w("blaze.open_run_s", 15); // (a box: the build is the time in their sight, counted twice below as there-and-back)
+        double fb = w("blaze.fireball_hp", 5), perB = fb * (1 - Math.min(20, Math.max(armor / 5.0, armor - fb / (2 + tough / 4))) / 25) + w("blaze.fire_hp", 3);
+        double leaveHp = n * walk * w("blaze.shots_per_s", 0.6) * w("blaze.shot_hit_chance", 0.5) * perB * (shield ? w("blaze.shield_factor", 0.4) : 1);
+        double back = 2 * walk + com.claudemod.entity.life.Decide.hpS(g, fire, leaveHp, perB) + com.claudemod.entity.life.Food.regenS(g, g.getMaxHealth() - Math.max(1, g.getHealth() - fire - leaveHp)) + com.claudemod.entity.life.FortressFight.fightS(g, g.getMaxHealth(), armor, tough, shield, fed, 0, n);
+        if (on <= back && g.tickCount % 40 != 0) return false; // (the fight-on pick logged every 2 s, the retreat each time)
+        com.claudemod.entity.life.Decide.choose(g, "blaze.retreat", n + " blaze(s), no cover, health " + (int) g.getHealth() + (fire > 0 ? ", on fire" : "") + ", armor " + (int) armor + (shield ? ", a shield" : ""), true, java.util.List.of(
+            com.claudemod.entity.life.Decide.Option.of("fight on", on, "in the open"), com.claudemod.entity.life.Decide.Option.of("out of their sight", back, (hide != null ? "to " + hide.toShortString() : box ? "boxed in where he stands, " + boxN + " blocks" : "in the open") + ", ~" + Math.round(leaveHp) + " HP of fireballs, healed, then the fight at full health")));
+        return on > back;
+    }
+    /** The nearest cell on foot no blaze sees (FortressFight.sees), 24 steps out, never through lava; steps in dist. Null: none. */
+    private BlockPos blazeHideCell(ServerLevel level, BlockPos feet, java.util.function.Predicate<BlockPos> hidden, java.util.Map<BlockPos, Integer> dist) {
+        java.util.ArrayDeque<BlockPos> q = new java.util.ArrayDeque<>(); dist.put(feet, 0); q.add(feet);
+        while (!q.isEmpty() && dist.size() < 2000) {
+            BlockPos f = q.poll(); int d0 = dist.get(f);
+            if (d0 > 0 && hidden.test(f)) return f;
+            if (d0 >= 24) continue; // (24 steps: about 5 s at a sprint, round a wall's end)
+            for (Direction dir : Direction.Plane.HORIZONTAL) for (int dy = -1; dy <= 1; dy++) {
+                BlockPos n = f.relative(dir).above(dy); if (dist.containsKey(n) || !com.claudemod.entity.life.FortressFight.stand(level, n)) continue;
+                if (dy == 1 && !level.getBlockState(f.above(2)).getCollisionShape(level, f.above(2)).isEmpty()) continue;
+                if (com.claudemod.entity.body.Controls.lavaCell(g, n)) continue;
+                dist.put(n.immutable(), d0 + 1); q.add(n.immutable());
+            }
+        }
+        return null;
+    }
     private Boolean blazeRetreat(Task.Attack t, net.minecraft.world.entity.LivingEntity mob) {
         ServerLevel level = (ServerLevel) g.level();
         var blazes = level.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(24), net.minecraft.world.entity.Entity::isAlive);
@@ -6139,18 +6180,7 @@ public class WorkGoal extends Goal {
             if (ticks >= t.maxTicks() - 1) ticks = 2; // (the fight's clock waits while he heals)
             return false;
         }
-        java.util.Map<BlockPos, Integer> dist = new java.util.HashMap<>(); java.util.ArrayDeque<BlockPos> q = new java.util.ArrayDeque<>(); dist.put(feet, 0); q.add(feet); BlockPos hide = null;
-        while (!q.isEmpty() && dist.size() < 2000 && hide == null) {
-            BlockPos f = q.poll(); int d0 = dist.get(f);
-            if (d0 > 0 && hidden.test(f)) { hide = f; break; }
-            if (d0 >= 24) continue; // (24 steps: about 5 s at a sprint, round a wall's end)
-            for (Direction dir : Direction.Plane.HORIZONTAL) for (int dy = -1; dy <= 1; dy++) {
-                BlockPos n = f.relative(dir).above(dy); if (dist.containsKey(n) || !com.claudemod.entity.life.FortressFight.stand(level, n)) continue;
-                if (dy == 1 && !level.getBlockState(f.above(2)).getCollisionShape(level, f.above(2)).isEmpty()) continue;
-                if (com.claudemod.entity.body.Controls.lavaCell(g, n)) continue;
-                dist.put(n.immutable(), d0 + 1); q.add(n.immutable());
-            }
-        }
+        java.util.Map<BlockPos, Integer> dist = new java.util.HashMap<>(); BlockPos hide = blazeHideCell(level, feet, hidden, dist);
         g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks)));
         if (hide != null) {
             g.tasks.addFirst(new Task.GoTo(hide, 0.5));
@@ -6228,7 +6258,7 @@ public class WorkGoal extends Goal {
         if (ticks == 1 && !mob.getUUID().equals(cfTarget)) { cfTarget = mob.getUUID(); cfMode = ""; cfIdle = 0; } // (a fight carried on past its clock keeps its counters)
         if (ticks >= t.maxTicks() - 1 && cfIdle < 20 * 20 && mob.distanceTo(g) < 24) { ticks = 2; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the {} is still on: the same fight goes on from cover past its {} s (WorkGoal.coverFight)", mob.getType().getDescription().getString(), t.maxTicks() / 20); } // (in place: a new task left a tick with no fight, and self-defence armed a second, plain one on the blaze) // (a fight from cover is slow by design: its clock running out left him idle in the gap and the follow rule walked him out)
         var cv = com.claudemod.entity.life.FortressFight.coverFor(g, level, mob);
-        if (cv == null && blaze && (g.getHealth() <= 12 || g.isOnFire() && g.getHealth() <= 14)) { Boolean r = blazeRetreat(t, mob); if (r != null) return r; } // (hurt, no cover: out of their sight first, never the open fight; World 15 10:09 burned to death "in the open" at 6)
+        if (cv == null && blaze && g.getHealth() < g.getMaxHealth() && blazeRetreatPays()) { Boolean r = blazeRetreat(t, mob); if (r != null) return r; } // (priced, blaze.retreat: was "health 12 or less, 14 on fire") // (hurt, no cover: out of their sight first, never the open fight; World 15 10:09 burned to death "in the open" at 6)
         if (cv == null && !blaze) { Boolean wp = witherHole(t, mob); if (wp != null) return wp; } // (no 2-high gap for a wither skeleton: he digs a 2-high gap, never the open fight; World 15 19:00, two of them in the open, dead)
         if (cv == null) { if (ticks == 1) cfSay("in the open", "no cover for this " + mob.getType().getDescription().getString() + " here: the ordinary fight, shield and crits"); return null; }
         if (!(g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW))) equipWeapon(); // ponytail: live 18:56 "shooting it" x4 and arrows stayed 57: the sword swapped in every tick and cut each draw

@@ -11902,7 +11902,7 @@ public final class ClaudeLife {
     }
 
     /** Ore of this kind he sees, or saw and remembers, priced against the trip to his mine (D2D review 080206 11-07: on the surface, "back up to my coal tunnel", a 322-block walk, coal never looked for): the walk there and back against the walk to his mine and its fixed cost. Null: the mine. */
-    static String seenOreFirst(ClaudeEntity g, ServerPlayer player, ServerLevel level, Skills.Step st, String target) {
+    public static String seenOreFirst(ClaudeEntity g, ServerPlayer player, ServerLevel level, Skills.Step st, String target) {
         Predicate<BlockState> want = blockMatcher(target); if (want == null) return null;
         BlockPos at = g.blockPosition();
         List<BlockPos> cand = new ArrayList<>(findAll(level, at, 16, want, 30)); cand.removeIf(q -> !touchesAir(level, q) || !canSee(g, level, q));
@@ -11915,13 +11915,20 @@ public final class ClaudeLife {
         BlockPos mine = has ? b.entrance : g.stairStart; boolean inMine = has && b.rowOf(at) >= 0;
         double mineS = com.claudemod.entity.life.Weights.w("procure.mine_s", 60) + (mine == null || inMine ? 0 : 2 * Math.sqrt(mine.distSqr(at)) / com.claudemod.entity.life.Decide.sprint());
         double seenS = 2 * bestD / com.claudemod.entity.life.Decide.sprint() + com.claudemod.entity.life.Weights.w("ore.seen_reach_s", 5);
+        // the way to it is dark ground out of his mine: its hits priced by hpS over the time in the dark (dear bare, hurt or unfed), and the land at night as nightOutS prices surface jobs (D2D 20:40 11-07: night, armor 0, 0 meals, "the iron_ore seen at -193,-52,19 ~50 s" over "my mine ~127 s", then -133,24,-87 and -101,19,-124 in open caves; a skeleton killed him at -130,18,-202)
+        String risk = "";
+        if (!(has && (isMineCell(g, best) || touchesMine(g, best)))) { int light = 0; for (Direction d : Direction.values()) { BlockPos n = best.relative(d); if (level.getBlockState(n).isAir()) light = Math.max(light, level.getMaxLocalRawBrightness(n)); }
+            double walk = 2 * bestD / com.claudemod.entity.life.Decide.sprint(), perHit = com.claudemod.entity.life.Decide.hitHp() * com.claudemod.entity.life.Decide.armorF(g);
+            double cave = 0; if (light < 8) { double r = com.claudemod.entity.life.Decide.hpS(g, 0, perHit * com.claudemod.entity.life.Weights.w("danger.hits_per_s_dark_cave", 0.05) * walk, perHit); cave = r; seenS += r; risk += ", dark cave on the way ~" + Math.round(r) + " s of hits (armor " + g.getArmorValue() + ", " + Kit.food(g) + " meals)"; } // (light 0 spawns as the open night does) hpS prices it dearer bare, hurt or unfed
+            { double r = nightOutS(g, level, at, walk) - cave; if (r > 0) { seenS += r; risk += ", the land at night ungeared ~" + Math.round(r) + " s more"; } } } // (one walk: the dearer of the two, not both)
         var pick = com.claudemod.entity.life.Decide.choose(g, "ore.where", target, true, List.of(
-                com.claudemod.entity.life.Decide.Option.of("the " + target + " seen at " + best.toShortString(), seenS, (int) bestD + " off, there and back"),
+                com.claudemod.entity.life.Decide.Option.of("the " + target + " seen at " + best.toShortString(), seenS, (int) bestD + " off, there and back" + risk),
                 com.claudemod.entity.life.Decide.Option.of("my mine", mineS, mine == null ? "none yet: a new one" : inMine ? "in it" : (int) Math.sqrt(mine.distSqr(at)) + " off, there and back")));
         if (pick == null || pick.name().equals("my mine")) return null;
         String tool = ensureToolFor(g, player, level, level.getBlockState(best), st); if (tool != null) return tool;
         g.attempts.counters.put("seenOre:" + best.asLong(), g.tickCount);
         List<BlockPos> v = vein(level, best, 16);
+        if (bestD > 5) g.tasks.add(new Task.GoTo(best, 4)); // the walk there first, routed like any other (live 20:24 11-07: the breaks queued 254 off at -189,68,53 failed "no way to it" in a tick, a dozen veins tried in 3 s)
         for (BlockPos q : v) g.tasks.add(new Task.Break(q));
         g.tasks.add(new Task.Pickup(100));
         patchOpenings(g, level, v);

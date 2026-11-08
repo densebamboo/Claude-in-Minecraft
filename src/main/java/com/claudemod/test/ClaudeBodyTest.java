@@ -10530,6 +10530,7 @@ public final class ClaudeBodyTest {
             case 974: return st974(stage, t, c, h, level, mock);
             case 975: return st975(stage, t, c, h, level, mock);
             case 976: return st976(stage, t, c, h, level, mock);
+            case 977: return st977(stage, t, c, h, level, mock);
             case 955: return st955(stage, t, c, h, level, mock);
             case 954: return st954(stage, t, c, h, level, mock);
             case 953: return st953(stage, t, c, h, level, mock);
@@ -14908,6 +14909,41 @@ public final class ClaudeBodyTest {
                 check(s <= 25, "into the fortress along his highway: " + s + " s");
                 pass(stage, t, "in through his highway's doorway in " + s + " s");
             }
+        }
+        return true;
+    }
+    /** Stage 977 (D2D 20:40 11-07: night, armor 0, 0 meals, strip_mine iron_ore x2 picked "the iron_ore seen at -193,-52,19 (124 off)", then -133,24,-87 and -101,19,-124 in open caves at y 16-24 over "my mine ~127 s"; a skeleton killed him at 20:33; review 63: the vein breaks queued 254 off at -189,68,53 dropped in a tick, a dozen veins tried in 3 s): A, at night on open ground, bare and unfed, the only iron he remembers is ~124 off in a dark cave: he doesn't go for it. B, by day in iron with a sword and food, iron he remembers ~28 off: he goes for it, the walk there queued before its breaks. */
+    private static boolean st977(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(12300, 150, 7320), far = new BlockPos(12360, 60, 7380), near = new BlockPos(12320, 140, 7340);
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); com.claudemod.director.ClaudeLife.seenOre(c).clear(); level.setChunkForced(far.getX() >> 4, far.getZ() >> 4, true); } // (the far cave stays loaded, as it was live)
+        if (t[0] == 10) {
+            for (int x = -2; x <= 2; x++) for (int z = -2; z <= 2; z++) { level.setBlock(o.offset(x, -1, z), Blocks.GLASS.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (BlockPos p : new BlockPos[] {far, near}) { for (int x = -3; x <= 3; x++) for (int y = -3; y <= 3; y++) for (int z = -3; z <= 3; z++) level.setBlock(p.offset(x, y, z), Math.abs(x) <= 1 && Math.abs(y) <= 1 && Math.abs(z) <= 1 ? Blocks.AIR.defaultBlockState() : Blocks.STONE.defaultBlockState(), 2); }
+            level.setBlock(far.offset(2, 0, 0), Blocks.IRON_ORE.defaultBlockState(), 2); // (on the dark pocket's wall)
+            c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 30) {
+            var bpWas = c.blueprint; BlockPos ssWas = c.stairStart; c.blueprint = null; c.stairStart = null; long dayWas = level.getDayTime();
+            String mm = c.prefs.get("mine_model"); c.prefs.put("mine_model", "blueprint");
+            var step = new com.claudemod.entity.life.Skills.Step("strip_mine", "iron_ore", 2, "near_you");
+            // A: night, bare, unfed
+            level.setDayTime(18000); c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            com.claudemod.director.ClaudeLife.seenOre(c).add(far.offset(2, 0, 0));
+            String ra = com.claudemod.director.ClaudeLife.seenOreFirst(c, mock[0], level, step, "iron_ore");
+            c.tasks.clear(); c.skillQueue.clear(); com.claudemod.director.ClaudeLife.seenOre(c).clear(); c.attempts.counters.keySet().removeIf(k -> k.startsWith("seenOre:"));
+            // B: day, iron, a sword, food, iron 28 off
+            level.setDayTime(6000); level.setBlock(near.offset(2, 0, 0), Blocks.IRON_ORE.defaultBlockState(), 2); com.claudemod.director.ClaudeLife.seenOre(c).add(near.offset(2, 0, 0));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            String rb = com.claudemod.director.ClaudeLife.seenOreFirst(c, mock[0], level, step, "iron_ore");
+            int go = -1, br = -1, i = -1; for (var x : c.tasks) { i++; if (go < 0 && x instanceof com.claudemod.entity.life.Task.GoTo) go = i; if (br < 0 && x instanceof com.claudemod.entity.life.Task.Break) br = i; }
+            String q = c.tasks.toString();
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY); com.claudemod.director.ClaudeLife.seenOre(c).clear(); c.attempts.counters.keySet().removeIf(k -> k.startsWith("seenOre:"));
+            level.setChunkForced(far.getX() >> 4, far.getZ() >> 4, false); c.blueprint = bpWas; c.stairStart = ssWas; level.setDayTime(dayWas); if (mm == null) c.prefs.remove("mine_model"); else c.prefs.put("mine_model", mm); c.dropCurrent = true;
+            for (BlockPos p : new BlockPos[] {far, near}) for (int x = -3; x <= 3; x++) for (int y = -3; y <= 3; y++) for (int z = -3; z <= 3; z++) level.setBlock(p.offset(x, y, z), p == far ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            check(ra == null, "A: night, armor 0, 0 meals, iron 124 off in a dark cave against a new mine: \"" + ra + "\"");
+            check(rb != null && rb.startsWith("mining the iron_ore"), "B: by day in iron with food, iron 28 off: \"" + rb + "\"");
+            check(go >= 0 && go < br, "B: the walk there before the breaks (GoTo at " + go + ", first Break at " + br + "): " + (q.length() > 200 ? q.substring(0, 200) : q));
+            pass(stage, t, "A " + ra + "; B \"" + rb + "\"");
         }
         return true;
     }

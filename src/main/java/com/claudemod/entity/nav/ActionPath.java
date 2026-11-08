@@ -105,20 +105,20 @@ public final class ActionPath {
     public static Plan planSliced(ClaudeEntity g, ServerLevel level, BlockPos from, BlockPos to, double within, boolean canPlace, int budget, Mode mode, Map<BlockPos, Integer> failedAt, int now, List<net.minecraft.world.phys.Vec3> avoid, double w) {
         String key = from.asLong() + "|" + to.asLong() + "|" + within + "|" + canPlace + "|" + budget + "|" + mode + "|" + w + "|" + avoid;
         int tick = g.tickCount;
-        Object[] f = FINISHED.get(g); if (f != null && f[0].equals(key) && tick - (int) f[2] <= 40) return (Plan) f[1];
+        var done = FINISHED.computeIfAbsent(g, k -> new java.util.ArrayDeque<>()); for (Object[] f : done) if (f[0].equals(key) && tick - (int) f[2] <= 40) return (Plan) f[1]; // (several: out in the open walkTo asks without placing, with placing, then greedy; one slot made them evict each other and the greedy one never finished, stage 94 with 982's fix)
         Search s = RUNNING.get(g); if (s == null || !s.key.equals(key) || tick - s.lastTick > 20) { s = new Search(g, level, from, to, within, canPlace, budget, mode, failedAt, now, avoid, w); s.key = key; RUNNING.put(g, s); }
         s.lastTick = tick;
         long[] u = TICK_USED.computeIfAbsent(g, k -> new long[] {-1, 0}); if (u[0] != tick) { u[0] = tick; u[1] = 0; }
         long slice = (long) (com.claudemod.entity.life.Weights.w("path.slice_ms", 15) * 1_000_000L) - u[1];
         if (slice <= 0) return PENDING;
         long t0 = System.nanoTime(); Plan p = s.run(slice); u[1] += System.nanoTime() - t0;
-        if (p != PENDING) { RUNNING.remove(g); FINISHED.put(g, new Object[] {key, p, tick}); if (s.slices > 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] plan {} -> {} spread over {} ticks ({} slices, {} ms of search, {} nodes): {} (ActionPath.planSliced)", from.toShortString(), to.toShortString(), tick - s.firstTick + 1, s.slices, s.spent / 1_000_000, s.expanded, p == null ? "no way" : p.acts().size() + " acts"); }
+        if (p != PENDING) { RUNNING.remove(g); done.addFirst(new Object[] {key, p, tick}); while (done.size() > 4) done.removeLast(); if (s.slices > 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] plan {} -> {} spread over {} ticks ({} slices, {} ms of search, {} nodes): {} (ActionPath.planSliced)", from.toShortString(), to.toShortString(), tick - s.firstTick + 1, s.slices, s.spent / 1_000_000, s.expanded, p == null ? "no way" : p.acts().size() + " acts"); }
         return p;
     }
     /** planSliced: still searching, ask again next tick. */
     public static final Plan PENDING = new Plan(List.of(), 0, 0, 0);
     private static final Map<ClaudeEntity, Search> RUNNING = new java.util.WeakHashMap<>();
-    private static final Map<ClaudeEntity, Object[]> FINISHED = new java.util.WeakHashMap<>(); // {key, plan, tick}
+    private static final Map<ClaudeEntity, java.util.ArrayDeque<Object[]>> FINISHED = new java.util.WeakHashMap<>(); // the last 4 finished: {key, plan, tick}
     private static final Map<ClaudeEntity, long[]> TICK_USED = new java.util.WeakHashMap<>(); // {tick, ns of search in it}
 
     /** One search's state, kept between slices. */
@@ -166,6 +166,11 @@ public final class ActionPath {
                 for (BlockPos q : new BlockPos[] {q0, q0.above()}) { var qs = level.getBlockState(q); if (qs.getCollisionShape(level, q).isEmpty()) continue;
                   ln.append(" ").append(q.toShortString()).append("=").append(qs.getBlock().getName().getString()).append(qs.getDestroySpeed(level, q) < 0 ? " (unbreakable)" : c.hisBuild(q) ? " (his build" + (c.bp && c.g.blueprint.isShell(q) ? ": his mine's shell" : "") + ")" : c.structure(q) ? " (a structure's)" : digWhy(c, q)).append(";"); } }
               com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} -> {}: the straight line's solid cells:{} (ActionPath.plan)", from.toShortString(), to.toShortString(), ln.length() == 0 ? " none" : ln.toString()); }
+            if (!c.passable(to)) { StringBuilder gl = new StringBuilder(); int r0 = (int) Math.ceil(within); // a goal on a solid block (a furnace, a chest): each cell within reach of it as the search saw it (D2D 23:34 11-07, review 275: the walk to his furnace at -36,58,-205 within 2.5, "nearest 2.8 off", nothing said what the nearer cells were)
+              for (BlockPos q0 : BlockPos.betweenClosed(to.offset(-r0, -r0, -r0), to.offset(r0, r0, r0))) { BlockPos q = q0.immutable(); if (q.equals(to) || Math.sqrt(q.distSqr(to)) > within) continue;
+                  String what = !c.passable(q) ? c.bs(q).getBlock().getName().getString() : !c.fs(q).isEmpty() ? (c.fs(q).is(net.minecraft.tags.FluidTags.LAVA) ? "lava" : c.fs(q).isSource() ? "water" : "flowing water") : !c.passable(q.above()) ? "no head room (" + c.bs(q.above()).getBlock().getName().getString() + ")" : c.passable(q.below()) && c.fs(q.below()).isEmpty() ? "no floor" : best.containsKey(q) ? "reached?!" : "standable, not reached";
+                  if (!what.equals(c.bs(q).getBlock().getName().getString()) || q.distManhattan(to) == 1) gl.append("; ").append(q.toShortString()).append(" ").append(what); }
+              com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} -> {}: the goal is {}; the cells within {} of it{} (ActionPath.plan)", from.toShortString(), to.toShortString(), c.bs(to).getBlock().getName().getString(), within, gl.length() == 0 ? ": all solid" : gl); }
             return null; // (a partial route to the closest spot is not what a player does: he'd rather pick another way)
         }
     }
@@ -268,7 +273,7 @@ public final class ActionPath {
         int n = Math.max(Math.abs(to.getX() - from.getX()), Math.abs(to.getZ() - from.getZ()));
         for (int i = 1; i <= n; i++) {
             BlockPos c = new BlockPos(from.getX() + Math.round((to.getX() - from.getX()) * (float) i / n), from.getY() + Math.round((to.getY() - from.getY()) * (float) i / n), from.getZ() + Math.round((to.getZ() - from.getZ()) * (float) i / n));
-            for (BlockPos q : new BlockPos[] {c, c.above()}) if (!level.getBlockState(q).getCollisionShape(level, q).isEmpty()) cost += com.claudemod.entity.life.Weights.w("path.dig_base", 6) * 0.5;
+            for (BlockPos q : new BlockPos[] {c, c.above()}) { var qs = level.getBlockState(q); if (!qs.getCollisionShape(level, q).isEmpty()) cost += com.claudemod.entity.life.Weights.w("path.dig_base", 6) + com.claudemod.entity.life.Weights.w("path.dig_per_s", 5.6) * Math.max(0, qs.getDestroySpeed(level, q)) * 0.25; } // (a dig as the moves price it: the swing plus its seconds, hardness x 1.5 / an iron pick's 6; half the swing alone made a tunnel 3 a dig against 10 really, and the greedy search spread over the cave round him, stage 982)
             if (level.getBlockState(c.below()).getCollisionShape(level, c.below()).isEmpty()) { cost += com.claudemod.entity.life.Weights.w("path.put_bridge", 12);
                 for (int k = 1; k <= 12; k++) { var st = level.getBlockState(c.below(k)); if (st.getFluidState().is(net.minecraft.tags.FluidTags.LAVA)) { cost += 16; break; } if (!st.getCollisionShape(level, c.below(k)).isEmpty()) break; } }
             else cost += 1;

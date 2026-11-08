@@ -10535,6 +10535,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 982: return st982(stage, t, c, h, level, mock);
             case 955: return st955(stage, t, c, h, level, mock);
             case 954: return st954(stage, t, c, h, level, mock);
             case 953: return st953(stage, t, c, h, level, mock);
@@ -15065,6 +15066,29 @@ public final class ClaudeBodyTest {
         check(k.contains("stone_sword"), "the death kit as the reviewer gets it: " + k);
         check(o.endsWith("(line cut)") && o.length() < 300, "a long line not said as cut: " + o.length() + " chars");
         pass(stage, t, "the death kit reaches the reviewer whole"); return true;
+    }
+    /** Stage 982 (D2D 23:34 11-07, review 57: live 22:35 at -116,-3,-10, his stairs 10 off at -115,-3,-20 through deepslate; "no way: the search budget ran out (3001 of 3000 nodes, 7670 cells reached ... nearest 4.2 off)", every cell of the straight line a dig; then 1.5 min cutting steps east): a walk 10 through rock from a wide cave plans the tunnel, as the Nether's greedy retry does, and he gets there. */
+    private static int s982T;
+    private static boolean st982(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(12800, 60, 7800), to = o.offset(0, 0, 9);
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s982T = -1; c.attempts.clear();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8)); }
+        if (t[0] == 5) {
+            for (int x = -26; x <= 26; x++) for (int z = -26; z <= 14; z++) for (int y = -2; y <= 8; y++) { boolean cave = y >= 0 && y <= 2 && z <= -1 && z >= -24 && x >= -24 && x <= 24; boolean pocket = x == 0 && z == 9 && (y == 0 || y == 1);
+                level.setBlock(o.offset(x, y, z), cave || pocket ? Blocks.AIR.defaultBlockState() : Blocks.DEEPSLATE.defaultBlockState(), 2); }
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) m.discard();
+            c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() - 1.5, 0f, 0f); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+        }
+        if (t[0] == 15) { c.tasks.add(new com.claudemod.entity.life.Task.GoTo(to, 1.2)); s982T = t[0]; }
+        if (s982T > 0 && t[0] > s982T) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear();
+            boolean there = Math.sqrt(c.blockPosition().distSqr(to)) <= 1.2;
+            if (there || t[0] >= s982T + 20 * 45) { double s = (t[0] - s982T) / 20.0; String at = c.blockPosition().toShortString();
+                c.tasks.clear(); c.dropCurrent = true; c.attempts.clear(); c.getInventory().clearContent();
+                check(there, "the walk 10 through rock from the cave: not there after " + s + " s (at " + at + ", the pocket at " + to.toShortString() + ")");
+                check(s <= 30, "through 10 of rock: " + s + " s");
+                pass(stage, t, "through the rock to it in " + s + " s"); }
+        }
+        return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */
     private static int s934T, s934Deep;

@@ -10679,6 +10679,7 @@ public final class ClaudeBodyTest {
             case 1011: return st1011(stage, t, c, h, level, mock);
             case 1012: return st1012(stage, t, c, h, level, mock);
             case 1013: return st1013(stage, t, c, h, level, mock);
+            case 1014: return st1014(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -18104,6 +18105,32 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    /** A walk may cut his mine's wall and put it back (9827fd5), never where water or lava sits beside the cut: it runs into his mine (stage 572 on main: the way over his plugs cut the shell by the pool, the branch flooded). */
+    private static boolean st1014(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos start = h.absolutePos(new BlockPos(3, 2, 8));
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.prefs.put("mine_model", "blueprint");
+            for (BlockPos p : BlockPos.betweenClosed(start.offset(-2, -2, -5), start.offset(10, 5, 5))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            var b = new com.claudemod.entity.life.MineBlueprint(start.west(), net.minecraft.core.Direction.EAST, 1, 2); b.segments.get(0).n = 0;
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.BRANCH, start, net.minecraft.core.Direction.EAST, 6, null)); b.invalidate(); c.blueprint = b;
+            lnCarve(level, b); com.claudemod.director.ClaudeLife.bpSync(c);
+        }
+        if (t[0] == 10) {
+            BlockPos wet = null, dry = null, pool = null;
+            for (BlockPos p : BlockPos.betweenClosed(start.offset(0, -1, -3), start.offset(6, 3, 3))) {
+                if (!com.claudemod.entity.nav.ActionPath.cuttableShell(c, level, p)) continue;
+                for (net.minecraft.core.Direction d : net.minecraft.core.Direction.Plane.HORIZONTAL) { BlockPos q = p.relative(d); if (wet == null && !c.blueprint.isShell(q) && !c.blueprint.isWalk(q) && level.getBlockState(q).is(Blocks.STONE) && q.getX() > start.getX() + 2) { wet = p.immutable(); pool = q.immutable(); } }
+            }
+            check(wet != null, "no cuttable shell cell beside rock in the branch to test");
+            level.setBlock(pool, Blocks.WATER.defaultBlockState(), 2);
+            for (BlockPos p : BlockPos.betweenClosed(start.offset(0, -1, -3), start.offset(6, 3, 3))) if (dry == null && p.distManhattan(pool) >= 4 && com.claudemod.entity.nav.ActionPath.cuttableShell(c, level, p)) dry = p.immutable();
+            check(dry != null, "no dry shell cell left cuttable: the check refuses every cut");
+            check(!com.claudemod.entity.nav.ActionPath.cuttableShell(c, level, wet), "the shell at " + wet.subtract(start) + " with water beside it at " + pool.subtract(start) + " still reads as a cut for a walk");
+            c.dropCurrent = true; pass(stage, t, "the wet shell cell is no cut, the dry one at " + dry.subtract(start) + " still is");
+        }
+        return true;
+    }
+
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

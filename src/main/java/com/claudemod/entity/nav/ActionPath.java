@@ -42,7 +42,12 @@ public final class ActionPath {
     public static boolean cuttableShell(ClaudeEntity g, ServerLevel level, BlockPos p) {
         if (!com.claudemod.director.ClaudeLife.bpMode(g) || g.blueprint == null || g.blueprint.isEmpty() || !g.blueprint.isShell(p) || g.blueprint.isWalk(p) || g.landingCells.contains(p) || g.notches.contains(p)) return false;
         BlockState s = level.getBlockState(p);
-        return !s.getCollisionShape(level, p).isEmpty() && level.getFluidState(p).isEmpty() && !com.claudemod.entity.life.MineBlueprint.ore(s) && !s.hasBlockEntity() && !s.is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE);
+        return !s.getCollisionShape(level, p).isEmpty() && level.getFluidState(p).isEmpty() && !com.claudemod.entity.life.MineBlueprint.ore(s) && !s.hasBlockEntity() && !s.is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE)
+            && !fluidBeside(level, p); // (a cut beside water or lava lets it into his mine: stage 572, the way over his plugs cut the shell by the pool and flooded the branch)
+    }
+    private static boolean fluidBeside(ServerLevel level, BlockPos p) {
+        for (net.minecraft.core.Direction d : net.minecraft.core.Direction.values()) if (d != net.minecraft.core.Direction.DOWN && (!level.getFluidState(p.relative(d)).isEmpty())) return true;
+        return false;
     }
     /** For MAY_REOPEN: 1 his own patch, 2 the shell cell right under or over one (the way into the hole behind a head-high patch), 0 neither (never ore, his walkway or a station). */
     public static int reopenable(ClaudeEntity g, ServerLevel level, BlockPos p) {

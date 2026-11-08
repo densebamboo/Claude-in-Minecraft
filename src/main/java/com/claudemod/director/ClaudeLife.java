@@ -139,6 +139,7 @@ public final class ClaudeLife {
         // Work through the current plan one step at a time; each step reports how it went.
         if (!g.skillQueue.isEmpty()) {
             Skills.Step step = g.skillQueue.poll();
+            if (emptyGather(g, step)) return;
             String failKey = step.skill() + (step.target().isBlank() ? "" : " " + step.target()); // per skill AND target: a beef hunt that failed must not skip the next log run
             if (!g.commandActive && g.failCount.getOrDefault(failKey, 0) >= 3) { // his own plan, failed 3x: not that step again yet, but the rest of the plan goes on
                 ClaudeMod.LOGGER.info("[Claude skill] skipped {}: failed 3 times in a row (on with the rest of the plan)", step.skill()); g.attempts.bandaid("the failed-3x skip fired: " + failKey + " skipped, last: " + g.failReason.get(step.skill()));
@@ -664,6 +665,27 @@ public final class ClaudeLife {
 
     private static java.util.Map<java.util.UUID, Integer> foodTripTicks; // when he last went off for food at a heart or two (static, lazily made)
     private static java.util.Map<java.util.UUID, Integer> respawnTicks, spawnRunTicks; // when he last respawned / last ran clear of the spawn (static: fields added live start null)
+    /** The collect step just before came up with none of its target (the hunt broke off, the tree went, the clock refused it): the craft or smelt that needs it isn't run on nothing (live 11-08, reviews 259/292/392/212: "missing oak_log", "nothing that smelts into cooked_porkchop" 3-4x in a minute). The planner hears the collect came up empty; a clock-held collect keeps the rest of its plan going. */
+    static boolean emptyGather(ClaudeEntity g, Skills.Step step) {
+        Skills.Step prev = g.lastStep;
+        if (prev == null || prev == step || !prev.skill().equals("collect") || prev.target().isBlank() || !(step.skill().equals("smelt") || step.skill().equals("craft"))) return false;
+        if (g.lastSkillLine == null || !g.lastSkillLine.startsWith("collect " + prev.target())) return false; // (only right after that collect's own line)
+        String t = prev.target(); int n = 0;
+        for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { ItemStack it = g.inventory.items.getItem(i); if (it.isEmpty()) continue; String id = BuiltInRegistries.ITEM.getKey(it.getItem()).getPath();
+            if (t.equals("logs") ? it.is(ItemTags.LOGS) : id.equals(t) || id.equals(t.replaceAll("s$", ""))) n += it.getCount(); }
+        if (n > 0) return false;
+        boolean clock = g.lastSkillLine.contains("it's night") || g.lastSkillLine.contains("it's day,");
+        String said = g.lastSkillLine.substring(g.lastSkillLine.indexOf("->") + 3);
+        ClaudeMod.LOGGER.info("[Claude plan] {} {} not run: the collect {} before it came up empty (none on him; it said \"{}\"){} (ClaudeLife.emptyGather)", step.skill(), step.target(), t, said.length() > 100 ? said.substring(0, 100) : said, clock ? ", the rest of the plan goes on" : ", the plan thought again");
+        if (clock) return true; // (the next consumer comes up against the same collect and goes too)
+        String why = "failed: came up empty: none of the " + t + " got (" + (said.length() > 80 ? said.substring(0, 80) : said) + "), so no " + step.skill() + " " + step.target() + " yet";
+        g.lastSkillLine = "collect " + t + (prev.count() > 1 ? " x" + prev.count() : "") + " -> " + why; ClaudeMod.LOGGER.info("[Claude skill] {}", g.lastSkillLine);
+        String fk = "collect " + t; g.failCount.merge(fk, 1, Integer::sum); g.failReason.put("collect", why);
+        boolean pile = g.skillQueue.stream().anyMatch(s0 -> s0.skill().equals("recover_drops"));
+        g.skillQueue.clear(); if (pile) g.skillQueue.add(new Skills.Step("recover_drops", "", 1)); // (the run to his pile outlives a replan, as in runWork)
+        g.nextPlanTick = Math.max(g.tickCount, g.planStartTick + PLAN_GAP_TICKS);
+        return true;
+    }
     private static java.util.Map<java.util.UUID, Integer> respawnTicks() { if (respawnTicks == null) respawnTicks = new java.util.HashMap<>(); return respawnTicks; }
     private static java.util.Map<java.util.UUID, Integer> spawnRunTicks() { if (spawnRunTicks == null) spawnRunTicks = new java.util.HashMap<>(); return spawnRunTicks; }
     private static java.util.Map<java.util.UUID, Integer> foodTripTicks() { if (foodTripTicks == null) foodTripTicks = new java.util.HashMap<>(); return foodTripTicks; }

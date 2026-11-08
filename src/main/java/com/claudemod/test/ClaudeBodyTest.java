@@ -10694,6 +10694,7 @@ public final class ClaudeBodyTest {
             case 1022: return st1022(stage, t, c, h, level, mock);
             case 1023: return st1023(stage, t, c, h, level, mock);
             case 1024: return st1024(stage, t, c, h, level, mock);
+            case 1025: return st1025(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -18606,6 +18607,24 @@ public final class ClaudeBodyTest {
             check(!st1024Bad, "the planks craft ran with no logs after the respawn clear-out: " + c.lastSkillLine + " (logs " + c.getInventory().countItem(Items.OAK_LOG) + ")");
             if (c.getInventory().countItem(Items.OAK_PLANKS) >= 8) { pass(stage, t, "the clear-out over, back to his logs and then the planks (" + (t[0] - st1024T) / 20 + " s)"); return true; }
             check(t[0] - st1024T < 20 * 60, "60 s and no planks: logs " + c.getInventory().countItem(Items.OAK_LOG) + ", last " + c.lastSkillLine + ", queue " + c.skillQueue + ", doing " + c.currentTask);
+        }
+        return true;
+    }
+    private static int st1025T; private static boolean st1025Bad, st1025Gone;
+    // live 01:26-01:28 11-08 (review 292): the hoglin hunt broke off with no pork and smelt cooked_porkchop ran on nothing 4x in 80 s (259, 392, 212 the same shape): here the tree goes before he gets a log
+    private static boolean st1025(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1025T = -1; st1025Bad = false; st1025Gone = false; level.setDayTime(6000); flatBox(h);
+            for (int y = 2; y <= 5; y++) h.setBlock(new BlockPos(8, y, 6), Blocks.OAK_LOG);
+            c.getInventory().clearContent(); BlockPos at = h.absolutePos(new BlockPos(3, 2, 3)); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); }
+        if (t[0] == 20) { c.skillQueue.clear(); c.lastSkillLine = ""; c.failCount.clear();
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("collect", "logs", 2));
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "oak_planks", 8)); c.gatherForCraftTick = c.tickCount; st1025T = t[0]; } // (the plan came from a craft's expansion a moment ago, as live)
+        if (st1025T > 0 && !st1025Gone && t[0] == st1025T + 10) { st1025Gone = true; for (int y = 2; y <= 5; y++) h.setBlock(new BlockPos(8, y, 6), Blocks.AIR); } // the tree gone before a log is his (the hoglins out of reach live)
+        if (st1025T > 0 && t[0] > st1025T) {
+            if (c.lastSkillLine.startsWith("craft oak_planks") && c.lastSkillLine.contains("failed")) st1025Bad = true;
+            check(!st1025Bad, "the planks craft ran on nothing after the log run came up empty: " + c.lastSkillLine + " (logs " + c.getInventory().countItem(Items.OAK_LOG) + ")");
+            if (c.lastSkillLine.startsWith("collect logs") && c.lastSkillLine.contains("came up empty") && c.skillQueue.stream().noneMatch(s -> s.skill().equals("craft"))) { pass(stage, t, "the empty log run told as such, the planks craft not run on nothing: " + c.lastSkillLine); return true; }
+            check(t[0] - st1025T < 20 * 40, "40 s: last " + c.lastSkillLine + ", queue " + c.skillQueue + ", doing " + c.currentTask);
         }
         return true;
     }

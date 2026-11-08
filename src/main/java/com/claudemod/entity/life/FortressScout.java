@@ -77,7 +77,7 @@ public final class FortressScout {
         for (int k = 0; k < 96 && level.isLoaded(top.above()) && fortressBlock(level.getBlockState(top.above())); k++) top = top.above();
         return FortressFight.deckCell(level, top);
     }
-    static boolean fortressBlock(net.minecraft.world.level.block.state.BlockState s) { return net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(s.getBlock()).getPath().contains("nether_brick"); }
+    public static boolean fortressBlock(net.minecraft.world.level.block.state.BlockState s) { return net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(s.getBlock()).getPath().contains("nether_brick"); }
     /** On the fortress: a fortress block (nether bricks, its fence, its stairs) under his feet or the one below that. */
     // ---- on the fortress: along its deck to the parts he hasn't walked (Day to Day 21:26 World 15: "find the spawner room" sent him off the fortress, 71 blocks over the netherrack) ----
     private static java.util.Map<java.util.UUID, java.util.Set<Long>> deckSeen;

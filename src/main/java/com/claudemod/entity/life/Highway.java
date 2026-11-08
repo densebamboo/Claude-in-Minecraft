@@ -38,6 +38,10 @@ import net.minecraft.world.item.Items;
 public final class Highway {
     private Highway() {}
     static final Item BLOCK = Items.COBBLED_DEEPSLATE;
+    // shortcut: one Claude per server, so his mine's stair height is kept here for the static row helpers; pass it in if a second bot ever builds
+    static int stairH = 4;
+    /** The headroom a row is cut to above its floor: a stair row his mine's stair height, a level row 3. */
+    static int clear(BridgeBlueprint.Row r) { return r.stair() ? Math.max(3, stairH) : 3; }
     private static double w(String n, double d) { return Weights.w(n, d); }
 
     static final class State { BridgeBlueprint plan; int portalId = -1; BlockPos dest; boolean said; int built = -1, rows = -1; int[] stairs; } // stairs: {leg, row, steps} of the plan underway, pinned (BridgeBlueprint.plan)
@@ -64,7 +68,7 @@ public final class Highway {
     }
 
     public static String skill(ClaudeEntity g, ServerPlayer player, ServerLevel level, com.claudemod.entity.life.Skills.Step st) {
-        State s = state(g);
+        State s = state(g); stairH = com.claudemod.director.ClaudeLife.mineStairHeight(g);
         String words = st.target() == null ? "" : st.target().replaceFirst("^@", "");
         if (level.dimension() != net.minecraft.world.level.Level.NETHER) { // (his highways are in the Nether: through the portal first)
             var top = st.target().startsWith("@") ? null : topUpStep(g); // the one underway: his pack topped up from his chests on the way out, once (live 15:05: the planner's own 64 taken of 614, ~11 rows' worth; stage 916)
@@ -85,10 +89,22 @@ public final class Highway {
         int next = next(level, b); boolean apron = false;
         if (next == 0 && b.rows.size() > 1 && standable(level, b.rows.get(0), lo, hi)) { // the apron, the row in front of the portal: he steps out onto it (no reach through a portal, vanilla) and swaps it last, from row 2
             int n1 = nextFrom(level, b, 1); if (n1 < b.rows.size()) next = n1; else apron = true; }
+        { int front = next; while (front < b.rows.size() && level.hasChunkAt(b.rows.get(front).centre()) && floorDone(level, b.rows.get(front), lo, hi)) front++; // frontier first: a row behind it short only of a rail waits for the way home (D2D 12:34 11-07: at the end by 223,33,402, then ~250 back for "rails on row 359 ... > 3 s for the rail", the walk not in the price)
+          if (front > next && front < b.rows.size() && front - next > w("highway.rail_behind_rows", 8) && g.blockPosition().distSqr(b.rows.get(next).centre()) > 16 * 16) { ClaudeMod.LOGGER.info("[Claude highway] rails from row {} wait for the way home: the frontier is row {} ({} rows on), he is {} off the rail row (Highway.skill)", next + 1, front + 1, front - next, (int) Math.sqrt(g.blockPosition().distSqr(b.rows.get(next).centre()))); next = front; } }
         record(g, b, next);
         if (next >= b.rows.size()) return finish(g, player, b, "all " + b.rows.size() + " rows laid");
         var row0 = b.rows.get(next);
-        if (fortress(level, row0, lo, hi)) return finish(g, player, b, "it meets the fortress at row " + (next + 1) + " (" + row0.centre().toShortString() + "); the join through its railing is the next pass");
+        if (fortress(level, row0, lo, hi)) { // it meets the fortress: one doorway through its wall, 3 tall across the walkway (the user: "3 tall"), and in (the user 12:37 11-07: "he hit the fortress ... all he has to do is break a wall to get in"; 07:17 it ended here with "the join is the next pass", a pass that never existed, and the way in went round the outside)
+            Direction right = row0.dir().getClockWise(); List<BlockPos> wall = new ArrayList<>();
+            for (int o = lo; o <= hi; o++) for (int y = 1; y <= 3; y++) { BlockPos q = row0.centre().relative(right, o).above(y); if (solid(level, q) && FortressScout.fortressBlock(level.getBlockState(q))) wall.add(q.immutable()); }
+            BlockPos in = row0.centre().above().relative(row0.dir()); // (past the wall: the corridor behind it)
+            if (wall.isEmpty()) { if (g.blockPosition().distSqr(in) > 1) g.tasks.add(new Task.GoTo(in, 0.8)); return finish(g, player, b, "it meets the fortress at row " + (next + 1) + " and goes into it through the doorway at " + in.toShortString()); }
+            BlockPos from = next == 0 ? b.portal : b.rows.get(next - 1).centre().above();
+            if (g.blockPosition().distSqr(from) > 2 * 2) g.tasks.add(new Task.GoTo(from, 0.8));
+            for (BlockPos q : wall) { com.claudemod.entity.nav.ActionPath.allowStructureDig(level, q); g.tasks.add(new Task.Break(q)); }
+            g.tasks.add(new Task.GoTo(in, 0.8)); g.skillQueue.addFirst(new Skills.Step("build_highway", "@" + words, st.count(), st.where()));
+            String r = "the highway meets the fortress at row " + (next + 1) + ": a doorway through its wall (" + wall.size() + " brick" + (wall.size() == 1 ? "" : "s") + " at " + wall.get(0).toShortString() + "), then in";
+            ClaudeMod.LOGGER.info("[Claude highway] {} (Highway.skill)", r); return r; }
         BlockPos standOn = apron ? b.rows.get(1).centre().above() : next == 0 ? b.portal : b.rows.get(next - 1).centre().above();
         if (g.blockPosition().distSqr(standOn) > 2 * 2) { // (back from a trip or a fight: along the highway to its end first)
             if (g.attempts.skipped(Attempts.Kind.WALK, standOn, g.tickCount, 0)) { var why = g.attempts.why(Attempts.Kind.WALK, standOn); // (the walk there failed and its cause still holds: said, for the planner to decide on; live 23:10 11-06 magma cubes at the end, the same walk queued and ended at once 8 times in a second, stage 882)
@@ -164,7 +180,7 @@ public final class Highway {
     public static boolean owns(ClaudeEntity g, BlockPos p) {
         BridgeBlueprint b = state(g).plan; if (b == null) return false;
         for (var r : b.rows) { BlockPos c = r.centre(); if (Math.abs(c.getX() - p.getX()) + Math.abs(c.getZ() - p.getZ()) > 8) continue;
-            int y = p.getY() - c.getY(); if (y < 0 || y > 4) continue;
+            int y = p.getY() - c.getY(); if (y < 0 || y > clear(r) + 1) continue;
             Direction right = r.dir().getClockWise();
             for (int o = b.lo() - 1; o <= b.hi() + 1; o++) { BlockPos q = c.relative(right, o); if (q.getX() == p.getX() && q.getZ() == p.getZ()) return true; } }
         return false;
@@ -190,12 +206,20 @@ public final class Highway {
         for (int o = lo; o <= hi; o++) { BlockPos f = r.centre().relative(right, o); if (!solid(level, f)) return false; for (int y = 1; y <= 2; y++) if (solid(level, f.above(y)) || lava(level, f.above(y))) return false; }
         return true;
     }
+    /** Its floor all cobbled deepslate and its walkway open and dry (the rails aside). */
+    static boolean floorDone(ServerLevel level, BridgeBlueprint.Row r, int lo, int hi) {
+        Direction right = r.dir().getClockWise();
+        for (int o = lo; o <= hi; o++) { BlockPos f = r.centre().relative(right, o);
+            if (!level.getBlockState(f).is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE)) return false;
+            for (int y = 1; y <= clear(r); y++) if (solid(level, f.above(y)) || lava(level, f.above(y))) return false; }
+        return true;
+    }
     /** A row is finished: its floor all cobbled deepslate, its walkway open and dry, and the rails it wants up (railWhy). */
     static boolean done(ServerLevel level, BridgeBlueprint.Row r, int lo, int hi) {
         Direction right = r.dir().getClockWise();
         for (int o = lo; o <= hi; o++) { BlockPos f = r.centre().relative(right, o);
             if (!level.getBlockState(f).is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE)) return false;
-            for (int y = 1; y <= 3; y++) if (solid(level, f.above(y)) || lava(level, f.above(y))) return false; }
+            for (int y = 1; y <= clear(r); y++) if (solid(level, f.above(y)) || lava(level, f.above(y))) return false; }
         for (int o : new int[] {lo - 1, hi + 1}) if (!solid(level, r.centre().relative(right, o).above()) && railWhy(level, r, o) != null) return false;
         return true;
     }
@@ -238,7 +262,7 @@ public final class Highway {
     /** The ring at a tunnel mouth: both walls 3 high, the roof, and the four corners (by the roof and by the floor), so it shows from the open side with no gaps. */
     static List<BlockPos> ring(BridgeBlueprint.Row r, int lo, int hi) {
         Direction right = r.dir().getClockWise(); List<BlockPos> ring = new ArrayList<>(shell(r, lo, hi));
-        for (int o : new int[] {lo - 1, hi + 1}) { ring.add(r.centre().relative(right, o).above(4).immutable()); ring.add(r.centre().relative(right, o).immutable()); }
+        for (int o : new int[] {lo - 1, hi + 1}) { ring.add(r.centre().relative(right, o).above(clear(r) + 1).immutable()); ring.add(r.centre().relative(right, o).immutable()); }
         return ring;
     }
     /** What lava gets plugged with: netherrack, else a block of the rock round here he carries, else deepslate (the user: "plug with netherrack or the surrounding blocks"). */
@@ -249,8 +273,8 @@ public final class Highway {
     /** A row's shell cells: its walls 3 high, its roof over the walkway. */
     static List<BlockPos> shell(BridgeBlueprint.Row r, int lo, int hi) {
         Direction right = r.dir().getClockWise(); List<BlockPos> shell = new ArrayList<>();
-        for (int y = 1; y <= 3; y++) for (int o : new int[] {lo - 1, hi + 1}) shell.add(r.centre().relative(right, o).above(y).immutable());
-        for (int o = lo; o <= hi; o++) shell.add(r.centre().relative(right, o).above(4).immutable());
+        for (int y = 1; y <= clear(r); y++) for (int o : new int[] {lo - 1, hi + 1}) shell.add(r.centre().relative(right, o).above(y).immutable());
+        for (int o = lo; o <= hi; o++) shell.add(r.centre().relative(right, o).above(clear(r) + 1).immutable());
         return shell;
     }
     /** A tunnel row: most of its shell rock, trees not counted (a stray block or two walled the open air by portal #3, the user's "arches", live 13:59; "nether trees ... can just be railing"; stage 914). A shell laid is rock too. */
@@ -270,12 +294,12 @@ public final class Highway {
     /** The ring for a mouth he's leaving (the row behind him, framed from it as he steps out of the rock). Returns the deepslate it places. */
     static int frameTasks(ServerLevel level, BridgeBlueprint.Row r, int lo, int hi, List<Task> out, int[] c) {
         int placed = 0; Set<BlockPos> own = new HashSet<>(); Direction right = r.dir().getClockWise();
-        for (int o = lo; o <= hi; o++) for (int y = 0; y <= 3; y++) own.add(r.centre().relative(right, o).above(y).immutable());
+        int hh = clear(r); for (int o = lo; o <= hi; o++) for (int y = 0; y <= hh; y++) own.add(r.centre().relative(right, o).above(y).immutable());
         // the corners sit diagonal to the walkway: dug out after the walls and roof beside them open (a face to reach them by), laid before them (live: walls first left both corners with no face, OUT_OF_REACH; stage 934)
         List<BlockPos> lay = new ArrayList<>(); for (int o : new int[] {lo - 1, hi + 1}) lay.add(r.centre().relative(right, o).immutable());
-        for (int y = 1; y <= 3; y++) for (int o : new int[] {lo - 1, hi + 1}) lay.add(r.centre().relative(right, o).above(y).immutable());
-        for (int o : new int[] {lo - 1, hi + 1}) lay.add(r.centre().relative(right, o).above(4).immutable());
-        for (int o = lo; o <= hi; o++) lay.add(r.centre().relative(right, o).above(4).immutable());
+        for (int y = 1; y <= hh; y++) for (int o : new int[] {lo - 1, hi + 1}) lay.add(r.centre().relative(right, o).above(y).immutable());
+        for (int o : new int[] {lo - 1, hi + 1}) lay.add(r.centre().relative(right, o).above(hh + 1).immutable());
+        for (int o = lo; o <= hi; o++) lay.add(r.centre().relative(right, o).above(hh + 1).immutable());
         List<BlockPos> todo = new ArrayList<>(), dig = new ArrayList<>();
         for (BlockPos q : lay) {
             if (level.getBlockState(q).is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE) || keep(level, q)) continue;
@@ -283,9 +307,10 @@ public final class Highway {
                 if (lavaBehind) continue; // (it holds lava back: kept, not opened to swap)
                 dig.add(q); }
             todo.add(q); }
-        for (int k = 2; k < 8; k++) if (dig.contains(lay.get(k))) { out.add(new Task.Break(lay.get(k))); c[1]++; } // walls
-        for (int k = 10; k < lay.size(); k++) if (dig.contains(lay.get(k))) { out.add(new Task.Break(lay.get(k))); c[1]++; } // roof
-        for (int k : new int[] {0, 1, 8, 9}) if (dig.contains(lay.get(k))) { out.add(new Task.Break(lay.get(k))); c[1]++; } // corners
+        int wEnd = 2 + 2 * hh; // (lay: the 2 floor corners, the walls 2 x hh, the 2 roof corners, the roof)
+        for (int k = 2; k < wEnd; k++) if (dig.contains(lay.get(k))) { out.add(new Task.Break(lay.get(k))); c[1]++; } // walls
+        for (int k = wEnd + 2; k < lay.size(); k++) if (dig.contains(lay.get(k))) { out.add(new Task.Break(lay.get(k))); c[1]++; } // roof
+        for (int k : new int[] {0, 1, wEnd, wEnd + 1}) if (dig.contains(lay.get(k))) { out.add(new Task.Break(lay.get(k))); c[1]++; } // corners
         for (BlockPos q : todo) { out.add(new Task.Place(q, BLOCK)); placed++; c[3]++; }
         return placed;
     }
@@ -294,7 +319,7 @@ public final class Highway {
         int[] cols = new int[hi - lo + 1]; { int k = 0; cols[k++] = 0; for (int o = 1; k < cols.length; o++) { if (o <= hi && k < cols.length) cols[k++] = o; if (-o >= lo && k < cols.length) cols[k++] = -o; } } // (from his line outward)
         Set<BlockPos> own = new HashSet<>(); List<BlockPos> floor = new ArrayList<>(), walk = new ArrayList<>();
         for (int o : cols) { BlockPos f = r.centre().relative(right, o).immutable(); floor.add(f); own.add(f); }
-        for (int y = 1; y <= 3; y++) for (int o : cols) { BlockPos q = r.centre().relative(right, o).above(y).immutable(); walk.add(q); own.add(q); }
+        for (int y = 1; y <= clear(r); y++) for (int o : cols) { BlockPos q = r.centre().relative(right, o).above(y).immutable(); walk.add(q); own.add(q); }
         Set<BlockPos> seal = new java.util.LinkedHashSet<>();
         for (BlockPos q : own) for (Direction d : Direction.values()) { BlockPos n = q.relative(d); if (!own.contains(n) && d != r.dir().getOpposite() && lava(level, n)) seal.add(n.immutable()); } // (not behind: that's the row he stands on, built)
         for (BlockPos q : seal) { out.add(new Task.Place(q, plug)); if (plug == BLOCK) placed++; c[0]++; } // (lava plugs: netherrack, never the highway's deepslate)

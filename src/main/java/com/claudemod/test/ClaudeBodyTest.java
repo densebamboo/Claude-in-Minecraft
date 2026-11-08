@@ -10517,6 +10517,15 @@ public final class ClaudeBodyTest {
             case 961: return st961(stage, t, c, h, level, mock);
             case 962: return st962(stage, t, c, h, level, mock);
             case 963: return st963(stage, t, c, h, level, mock);
+            case 964: return st964(stage, t, c, h, level, mock);
+            case 965: return st965(stage, t, c, h, level, mock);
+            case 966: return st966(stage, t, c, h, level, mock);
+            case 967: return st967(stage, t, c, h, level, mock);
+            case 968: return st968(stage, t, c, h, level, mock);
+            case 969: return st969(stage, t, c, h, level, mock);
+            case 970: return st970(stage, t, c, h, level, mock);
+            case 971: return st971(stage, t, c, h, level, mock);
+            case 972: return st972(stage, t, c, h, level, mock);
             case 955: return st955(stage, t, c, h, level, mock);
             case 954: return st954(stage, t, c, h, level, mock);
             case 953: return st953(stage, t, c, h, level, mock);
@@ -14541,6 +14550,243 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.dropCurrent = true; c.clearFire(); c.setHealth(20f); c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
             BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); if (c.isAlive()) c.teleportTo(level, back.getX() + 0.5, back.getY(), back.getZ() + 0.5, 0, 0); com.claudemod.entity.life.Watchdog.teleported(c);
             pass(stage, t, how);
+        }
+        return true;
+    }
+    /** Stage 964 (D2D 12:34 11-07, the user via D2D: "the frontier and the fortress should come first, rails on the way home"): at the end of his highway by 223,33,402 he walked ~250 back for "rails on row 359 ... lava under it ... > 3 s for the rail", the walk not in its price. His highway laid to z 40, rows 9-14 over a basalt-delta pit with no rails (they want them), him at the end: the next rows at the end first, not the walk back. */
+    private static boolean st964(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(11700, 64, 7320);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            for (int x = -8; x <= 9; x++) for (int z = -4; z <= 70; z++) for (int y = -16; y <= 7; y++) { boolean pit = z >= 9 && z <= 14;
+                nl.setBlock(o.offset(x, y, z), (z < 0 ? y < 0 || x <= -2 || x >= 3 : pit ? y == -16 : y < -4) ? (pit ? Blocks.BASALT : Blocks.NETHERRACK).defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, 0), x == -1 || x == 2 || y == -1 || y == 3 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+            for (int x = 0; x <= 1; x++) for (int z = 1; z <= 40; z++) { nl.setBlock(o.offset(x, -1, z), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); if (z > 14) for (int y = -4; y <= -2; y++) nl.setBlock(o.offset(x, y, z), Blocks.NETHERRACK.defaultBlockState(), 2); } // his highway laid to z 40, no rails
+            var src = nl.getServer().createCommandSourceStack().withLevel(nl).withSuppressedOutput();
+            nl.getServer().getCommands().performPrefixedCommand(src, "fillbiome " + (o.getX() - 8) + " " + (o.getY() - 16) + " " + (o.getZ() - 4) + " " + (o.getX() + 9) + " " + (o.getY() + 7) + " " + (o.getZ() + 70) + " minecraft:nether_wastes");
+            nl.getServer().getCommands().performPrefixedCommand(src, "fillbiome " + (o.getX() - 8) + " " + (o.getY() - 16) + " " + (o.getZ() + 8) + " " + (o.getX() + 9) + " " + (o.getY() + 7) + " " + (o.getZ() + 15) + " minecraft:basalt_deltas");
+            nsKit(c); for (int k = 0; k < 3; k++) c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 40.5, 0f, 0f);
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o, "him", "lit");
+        }
+        if (t[0] == 20) {
+            c.skillQueue.clear(); c.tasks.clear(); c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 40.5, 0f, 0f);
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", o.getX() + " " + o.getY() + " " + (o.getZ() + 64), 1);
+            int back = 0, front = 0; String q = String.valueOf(c.tasks);
+            for (var k : c.tasks) { BlockPos p = k instanceof Task.GoTo g0 ? g0.pos() : k instanceof Task.Place pl ? pl.pos() : k instanceof Task.Break br ? br.pos() : null; if (p == null) continue; if (p.getZ() - o.getZ() < 30) back++; else front++; }
+            c.skillQueue.clear(); c.tasks.clear(); c.dropCurrent = true; com.claudemod.entity.life.Highway.reset(c);
+            for (int x = -8; x <= 9; x++) for (int z = -4; z <= 70; z++) for (int y = -16; y <= 7; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear();
+            check(back == 0 && front > 0, "at his highway's end (row 40), the rails it wants on rows 9-14 behind him: " + back + " task(s) back there, " + front + " at the end: \"" + r + "\" " + (q.length() > 200 ? q.substring(0, 200) : q));
+            pass(stage, t, "the frontier first, rails for the way home: \"" + r + "\"");
+        }
+        return true;
+    }
+    /** Stage 965 (the user 12:37 11-07, screenshot at 238,60,509: "he hit the fortress ... all he has to do is break a wall to get in"; 07:17:47 "it meets the fortress at row 753 (241,59,509); the join through its railing is the next pass", no such pass, then a way round the outside "never through its side" and a second highway elsewhere): his highway laid to a fortress corridor's brick wall across its end. He opens one doorway, 3 tall (no more than 6 bricks; the user: "3 tall") and is in the corridor, in a player's time. */
+    private static int s965T, s965Bricks;
+    private static boolean st965(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(11800, 64, 7320);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); s965T = -1; }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            for (int x = -8; x <= 9; x++) for (int z = -4; z <= 30; z++) for (int y = -6; y <= 7; y++) nl.setBlock(o.offset(x, y, z), (z < 0 ? y < 0 || x <= -2 || x >= 3 : y < -1) ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, 0), x == -1 || x == 2 || y == -1 || y == 3 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+            for (int x = 0; x <= 1; x++) for (int z = 1; z <= 15; z++) nl.setBlock(o.offset(x, -1, z), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); // his highway, laid to z 15
+            for (int x = -6; x <= 7; x++) for (int z = 16; z <= 20; z++) for (int y = -1; y <= 3; y++) { boolean wall = z == 16 || z == 20 || y == -1 || y == 3; nl.setBlock(o.offset(x, y, z), wall ? Blocks.NETHER_BRICKS.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); } // a corridor across its end: brick walls at z 16 and 20, open z 17-19
+            nsKit(c); for (int k = 0; k < 2; k++) c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 14.5, 0f, 0f);
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o, "him", "lit");
+            s965Bricks = 0; for (int x = -6; x <= 7; x++) for (int z = 16; z <= 20; z++) for (int y = -1; y <= 3; y++) if (nl.getBlockState(o.offset(x, y, z)).is(Blocks.NETHER_BRICKS)) s965Bricks++;
+        }
+        if (t[0] == 20) { c.skillQueue.clear(); c.tasks.clear(); String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", o.getX() + " " + o.getY() + " " + (o.getZ() + 18), 1); ClaudeMod.LOGGER.info("[Claude test] 965 build_highway: {}", r); s965T = t[0]; }
+        if (s965T > 0 && t[0] > s965T) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.removeIf(q -> !q.skill().equals("build_highway"));
+            boolean inside = c.onGround() && c.getZ() >= o.getZ() + 17 && c.getZ() < o.getZ() + 20 && c.getY() >= o.getY() - 0.5 && c.getY() < o.getY() + 1;
+            if (inside || t[0] >= s965T + 20 * 40) {
+                int left = 0; for (int x = -6; x <= 7; x++) for (int z = 16; z <= 20; z++) for (int y = -1; y <= 3; y++) if (nl.getBlockState(o.offset(x, y, z)).is(Blocks.NETHER_BRICKS)) left++;
+                double s = (t[0] - s965T) / 20.0; String at = c.blockPosition().toShortString();
+                c.skillQueue.clear(); c.tasks.clear(); c.dropCurrent = true; com.claudemod.entity.life.Highway.reset(c);
+                for (int x = -8; x <= 9; x++) for (int z = -4; z <= 30; z++) for (int y = -6; y <= 7; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+                com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear();
+                check(inside, "his highway against the fortress corridor's wall: not inside it after " + s + " s (at " + at + ")");
+                check(s965Bricks - left <= 6, "one doorway, 3 tall: " + (s965Bricks - left) + " bricks broken (6 at most)");
+                check(s <= 20, "into the fortress: " + s + " s (a doorway is a few seconds)");
+                pass(stage, t, "in through a doorway of " + (s965Bricks - left) + " bricks in " + s + " s");
+            }
+        }
+        return true;
+    }
+    /** Stage 966 (the user 11-07 via D2D: "i also noticed he didnt make his stairs into a rock the same height as his mines"; the highway cut every row 3 high, his mine's stairs are cut to its tunnel height, 4 by default): a highway planned through solid netherrack, 6 down over 40 rows. Each stair row's work cuts its walkway to his mine's stair height (4), roof above that; a level row stays 3. */
+    private static boolean st966(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(11900, 64, 7320);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            for (int x = -6; x <= 7; x++) for (int z = -4; z <= 50; z++) for (int y = -12; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.NETHERRACK.defaultBlockState(), 2);
+            for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, 0), x == -1 || x == 2 || y == -1 || y == 3 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+        }
+        if (t[0] == 20) {
+            int want = 4; // (his mine's stair height by default: tunnel_height 4)
+            var b = com.claudemod.entity.life.BridgeBlueprint.plan(nl, o, net.minecraft.core.Direction.Axis.Z, o.offset(0, -6, 40), 2, false);
+            int stairs = 0, short4 = 0, level4 = 0; String bad = "";
+            for (var r : b.rows) { if (r.centre().getZ() > o.getZ() + 44) break;
+                java.util.List<Task> out = new java.util.ArrayList<>(); int[] cnt = new int[4];
+                com.claudemod.entity.life.Highway.rowTasks(nl, r, b.lo(), b.hi(), out, cnt, com.claudemod.entity.life.Highway.Shell.PATCH, Items.NETHERRACK);
+                java.util.Set<BlockPos> brk = new java.util.HashSet<>(); for (var k : out) if (k instanceof Task.Break br) brk.add(br.pos());
+                boolean top = brk.contains(r.centre().above(want));
+                if (r.stair()) { stairs++; if (!top) { short4++; if (bad.isEmpty()) bad = r.centre().toShortString(); } } else if (brk.contains(r.centre().above(4))) level4++;
+            }
+            for (int x = -6; x <= 7; x++) for (int z = -4; z <= 50; z++) for (int y = -12; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(stairs >= 6, "6 down over 40 rows: " + stairs + " stair rows (" + b.why + ")");
+            check(short4 == 0, short4 + " of " + stairs + " stair rows cut lower than his mine's stairs (" + want + " high), first at " + bad);
+            check(level4 == 0, level4 + " level rows cut 4 high (they stay 3)");
+            nsHome(c, h, level); pass(stage, t, stairs + " stair rows cut " + want + " high, level rows 3");
+        }
+        return true;
+    }
+    /** Stage 967 (D2D hourly 11-07, live 12:51:12: the walk to portal #2 "Obsidian in the leg's cell, in reach: breaking it and walking on", 11 s later "#2 seen unlit now (was lit)", then flint and steel from 231 off, "the frame of #2 didn't light", make_obsidian x10; #2 was filed at -11,68,-23, the frame's side column, its portal blocks at -10..-9): a lit portal filed at its frame's side, the walk to it from 8 off. The frame stays whole and lit, and seeing its portal blocks moves the record onto them. (b) (D2D: "frame short 1 obsidian ... places one from his pack") the frame short one block, unlit, 2 obsidian on him: enter_portal puts it back first. */
+    private static BlockPos s967Me;
+    private static boolean st967(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); }
+        if (t[0] > 8 && t[0] % 5 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 4, c.blockPosition());
+        if (t[0] == 10) s967Me = c.blockPosition(); BlockPos me = s967Me;
+        if (t[0] == 10) {
+            for (int x = -4; x <= 14; x++) for (int z = -6; z <= 6; z++) { level.setBlock(me.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = 7; x <= 10; x++) for (int y = -1; y <= 3; y++) level.setBlock(me.offset(x, y, 0), x == 7 || x == 10 || y == -1 || y == 3 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.OW, me.offset(7, 0, 0), "him", "lit"); // (filed at the frame's side, as #2 was)
+            c.teleportTo(me.getX() - 0.5, me.getY(), me.getZ() + 0.5);
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.add(new Task.GoTo(me.offset(7, 0, 0), 2)); c.tasks.add(new Task.GoTo(me.offset(4, 0, 4), 1)); } // (enter_portal's walk: GoTo(p.at, 2); live it was a leg of a route, more legs after it)
+        if (t[0] > 20 && t[0] < 20 + 20 * 12) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 20 + 20 * 12) {
+            boolean side = level.getBlockState(me.offset(7, 0, 0)).is(Blocks.OBSIDIAN), lit = level.getBlockState(me.offset(8, 0, 0)).is(Blocks.NETHER_PORTAL);
+            String at = c.blockPosition().toShortString(); boolean home = c.level() == level;
+            var p = com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.OW, me.offset(8, 0, 0), "unknown", null); // (what seeing its portal blocks, or stepping out of it, files)
+            BlockPos filed = p.at;
+            c.tasks.clear(); c.skillQueue.clear();
+            check(side, "the walk to the portal filed at its frame's side: the frame's obsidian there dug out (he ended at " + at + ")");
+            check(lit, "the portal put out by the walk to it");
+            check(filed.equals(me.offset(8, 0, 0)), "seeing its portal blocks at " + me.offset(8, 0, 0).toShortString() + ": still filed at " + filed.toShortString());
+            if (!home) nsHome(c, h, level);
+            // (b) the frame short one obsidian (as #2 is live), unlit, filed at the gap; 2 obsidian on him, no flint and steel: he puts the block back, then goes for the flint and steel
+            for (int x = 8; x <= 9; x++) for (int y = 0; y <= 2; y++) level.setBlock(me.offset(x, y, 0), Blocks.AIR.defaultBlockState(), 2);
+            level.setBlock(me.offset(7, 0, 0), Blocks.AIR.defaultBlockState(), 2); p.at = me.offset(7, 0, 0); p.state = "unlit";
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.OBSIDIAN, 2)); c.teleportTo(me.getX() + 8.5, me.getY(), me.getZ() + 2.5);
+            c.tasks.clear(); c.skillQueue.clear(); String r = com.claudemod.entity.life.PortalMap.enterStep(c, level, new com.claudemod.entity.life.Skills.Step("enter_portal", "", 1), ""); // (the step itself: the trip kit is another stage's) ClaudeMod.LOGGER.info("[Claude test] 967 enter_portal by the short frame: {}", r);
+        }
+        if (t[0] > 20 + 20 * 12 && t[0] < 20 + 20 * 22) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.removeIf(q -> !q.skill().equals("enter_portal")); }
+        if (t[0] == 20 + 20 * 22) {
+            boolean back = level.getBlockState(me.offset(7, 0, 0)).is(Blocks.OBSIDIAN); int left = c.getInventory().countItem(Items.OBSIDIAN);
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
+            for (int x = -4; x <= 14; x++) for (int z = -6; z <= 6; z++) for (int y = -1; y <= 4; y++) level.setBlock(me.offset(x, y, z), y == -1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            com.claudemod.entity.life.PortalMap.net(c).portals.clear();
+            check(back && left == 1, "(b) the frame short 1 obsidian, 2 on him: the gap filled " + back + ", " + left + " left on him");
+            pass(stage, t, "frame whole, still lit, filed on its portal blocks; the short frame filled from his pack");
+        }
+        return true;
+    }
+    /** Stage 968 (D2D hourly 11-07, live 13:19:09-13:19:25: kit.food 60 points short, "cook his raw out (5 raw, no furnace of his within 16 and none on him: they cook at home)" beside "hunt hoglins ~245 s (... a furnace set down here)"; smelt cooked_salmon x5 "done: 5 raw food isn't worth a furnace out here (fed, cooked food on me)"; then a furnace crafted anyway and 390 blocks to a crimson forest for 3 porkchop, 164 cobbled deepslate on him): short of trip food, 5 raw salmon, 5 cooked beef, a stack of cobble, no furnace near or on him, no animals. The kit cooks the salmon (a furnace made here) and smelt takes the job. */
+    private static boolean st968(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.myStations.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); }
+        if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 4, c.blockPosition());
+        BlockPos me = c.blockPosition();
+        if (t[0] == 10) {
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) { level.setBlock(me.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 5)); c.getInventory().add(new ItemStack(Items.SALMON, 5)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64));
+            c.getFoodData().setFoodLevel(20);
+        }
+        if (t[0] == 15) {
+            var fa = com.claudemod.director.Kit.foodAsk(c);
+            c.tasks.clear(); c.skillQueue.clear();
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "cooked_salmon", 5);
+            String q = String.valueOf(c.tasks) + " " + c.skillQueue;
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear();
+            check(fa != null && fa.item() == Items.COOKED_SALMON, "short of trip food, 5 raw salmon and 64 cobble on him, no furnace: the kit's ask " + (fa == null ? "none" : fa.count() + " " + fa.item()) + " (cooking was priced out)");
+            check(!r.contains("isn't worth a furnace"), "smelt cooked_salmon x5 refused while the kit cooks them: " + r);
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 5)); c.getInventory().add(new ItemStack(Items.SALMON, 1)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 8));
+            boolean short1 = com.claudemod.director.Kit.foodAsk(c) != null; String r1 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "cooked_salmon", 1);
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear();
+            check(!short1 || !r1.contains("isn't worth a furnace"), "(b) 1 raw salmon, the kit short: smelt said " + r1 + " (live 14:29: \"fed\" with kit.food 122 points short)");
+            pass(stage, t, "the kit cooks " + fa.count() + " salmon; smelt: " + r);
+        }
+        return true;
+    }
+    /** Stage 969 (D2D hourly 11-07, live 10:25:59: "saw Deepslate Diamond Ore at -317, -58, -32 ... remembered", under the diamond he'd just mined; 10:26:03 the cell over it filled, "not digging the deepslate_diamond_ore at -317, -58, -32: every face of it closed, he can't have seen it"; then from 12:16 to 12:48 "skipping ...: seen from ... but no walk to a cell beside it", every scan): a diamond he saw, every face closed since, 2 blocks into the rock from where he stands. He digs to it and takes it. */
+    private static BlockPos s969Me;
+    private static boolean st969(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); }
+        if (t[0] > 8 && t[0] % 5 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 4, c.blockPosition());
+        if (t[0] == 10) s969Me = c.blockPosition(); BlockPos me = s969Me, ore = me == null ? null : me.offset(3, 0, 0);
+        if (t[0] == 10) {
+            for (int x = -4; x <= 8; x++) for (int z = -4; z <= 4; z++) for (int y = -1; y <= 3; y++) level.setBlock(me.offset(x, y, z), y == -1 || y == 3 || x >= 1 ? Blocks.DEEPSLATE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            level.setBlock(ore, Blocks.DEEPSLATE_DIAMOND_ORE.defaultBlockState(), 2);
+            c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            com.claudemod.director.ClaudeLife.seenOre(c).add(ore.immutable()); // (seen when a face of it was open; closed since)
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.add(new Task.Break(ore)); }
+        if (t[0] > 20 && t[0] < 20 + 20 * 20) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear(); }
+        if (t[0] > 20 && (ore != null && !level.getBlockState(ore).is(Blocks.DEEPSLATE_DIAMOND_ORE) || t[0] == 20 + 20 * 20)) {
+            boolean gone = !level.getBlockState(ore).is(Blocks.DEEPSLATE_DIAMOND_ORE); double s = (t[0] - 20) / 20.0;
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); com.claudemod.director.ClaudeLife.seenOre(c).remove(ore);
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(me).inflate(16))) e.discard();
+            for (int x = -4; x <= 8; x++) for (int z = -4; z <= 4; z++) for (int y = -1; y <= 3; y++) level.setBlock(me.offset(x, y, z), y == -1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            check(gone, "a diamond he saw, its faces closed since, 2 into the rock: still standing after " + s + " s (\"he can't have seen it\")");
+            check(s <= 15, "dug to it in " + s + " s (2 blocks of deepslate and the ore)");
+            pass(stage, t, "dug to the diamond he saw in " + s + " s");
+        }
+        return true;
+    }
+    /** Stage 970 (D2D hourly 11-07, live 14:29:05: "not going for 3 Raw Porkchop: no room for it in his pack" on the hoglin hunt for exactly that food, 51 logs and 472 deepslate on him; the 14:31 death chain): a pack full of logs and cobbled deepslate, no food on him (the kit short), 3 raw porkchop at his feet. He makes room and takes them. */
+    private static boolean st970(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard(); }
+        if (t[0] == 5) {
+            var inv = c.getInventory(); inv.clearContent();
+            inv.items.set(0, new ItemStack(Items.IRON_SWORD)); inv.selected = 0; inv.items.set(1, new ItemStack(Items.DIAMOND_PICKAXE));
+            for (int i = 2; i < inv.items.size(); i++) inv.items.set(i, new ItemStack(i % 3 == 0 ? Items.OAK_LOG : Items.COBBLED_DEEPSLATE, i == 5 ? 20 : 64));
+            var pork = new net.minecraft.world.entity.item.ItemEntity(level, c.getX() + 1, c.getY(), c.getZ(), new ItemStack(Items.PORKCHOP, 3)); level.addFreshEntity(pork);
+            boolean short0 = com.claudemod.director.Kit.foodAsk(c) != null;
+            String why = com.claudemod.entity.goals.WorkGoal.pickupSkip(c, pork);
+            boolean room = c.getInventory().getFreeSlot() >= 0;
+            for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard();
+            inv.clearContent(); c.tasks.clear();
+            check(short0, "setup: the kit isn't short of food");
+            check(room && (why == null || !why.contains("no room")), "3 raw porkchop at his feet while short of food, the pack full of logs and deepslate: " + why);
+            pass(stage, t, "room made for the porkchop: " + why);
+        }
+        return true;
+    }
+    /** Stage 971 (D2D hourly 11-07, live 14:43:35 and 15:29 after his 14:31 death: dusk.decide "carry on out here ~0 s (the night's no danger to him as he is)" at armor 0 and 3, a diamond pick on him; then collect beef "it's night and I've nothing proper to fight with or wear ... shelter", and minutes stood in the open): night, open sky, a diamond pick and nothing else. The night is a danger to him (shelter), as the beef hunt says; in iron with a sword and food it isn't. */
+    private static boolean st971(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); }
+        if (t[0] == 5) {
+            long day = level.getDayTime(); level.setDayTime(day - day % 24000 + 18000);
+            BlockPos me = c.blockPosition(); boolean sky = level.canSeeSky(me);
+            var inv = c.getInventory(); inv.clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            inv.add(new ItemStack(Items.DIAMOND_PICKAXE));
+            String bare = com.claudemod.director.ClaudeLife.nightGearNo(c, level, me);
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); inv.add(new ItemStack(Items.IRON_SWORD)); inv.add(new ItemStack(Items.COOKED_BEEF, 8));
+            String geared = com.claudemod.director.ClaudeLife.nightGearNo(c, level, me);
+            inv.clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY); level.setDayTime(day);
+            check(sky, "setup: no open sky where he stands");
+            check(bare != null, "night in the open, a diamond pick and nothing to wear or fight with: read as no danger to him");
+            check(geared == null, "night in the open in iron with a sword and food: read as a danger (" + geared + ")");
+            pass(stage, t, "bare: " + bare + " | geared: fine");
+        }
+        return true;
+    }
+    /** Stage 972 (D2D, chat misunderstanding live 16:45:32 11-07: the user "beat the ender dragon", an order; he answered "no way, congrats! that's the big one", goal "dragon's beaten, so the job's done: follow fat_herobrine"; their "no, I mean you: go beat the ender dragon" fixed it): the planner is told that a bare verb phrase to him is an order, and his situation says whether the dragon was ever beaten in this world (never, here), so news of it is checked. */
+    private static boolean st972(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 5) {
+            String sit = com.claudemod.director.ClaudeLife.situation(c, mock[0]);
+            String sys = com.claudemod.llm.Persona.CONVERSATION_GUIDE; // (what his chat reply to their words reads: where an order or their news is told apart)
+            check(sit.contains("THE DRAGON: never beaten in this world"), "his situation doesn't say the dragon was never beaten here (\"beat the ender dragon\" read as their news)");
+            check(sys.contains("A bare verb phrase to you is an order to you") && sys.contains("\"beat the ender dragon\" is the dragon run"), "the planner isn't told a bare verb phrase is an order");
+            pass(stage, t, "the order rule and the dragon fact are in what the planner reads");
         }
         return true;
     }

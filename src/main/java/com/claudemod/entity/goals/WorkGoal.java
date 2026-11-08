@@ -900,7 +900,7 @@ public class WorkGoal extends Goal {
         BlockPos feetCell = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); // (on farmland or a slab his feet sit a little down into the block: the cell he is in, not the block under him)
         double d = Math.sqrt(feetCell.distSqr(pos));
         if (!g.level().getBlockState(pos).getCollisionShape(g.level(), pos).isEmpty() && inReach(pos) && g.tasks.peekFirst() instanceof Task.GoTo && g.level().getBlockState(pos).getDestroySpeed(g.level(), pos) >= 0
-                && g.tickCount - legDug().getOrDefault(pos.immutable(), -100000) > 20 * 20 && !com.claudemod.entity.life.TempLedger.built(g, pos) && !com.claudemod.entity.life.TempLedger.has(g, pos)) { /* (nor a block of his put down on a way: his nerd-pole broken under him block by block, live 04:13:47, stage 796) (never his own build: a block his highway or bore put down after the route was planned stays; the re-plan goes round, live 22:57 / 23:08:22, stage 790) */ // a leg of a route whose cell has a block in it: the player's way, the block and on (reviews 110/140: one basalt, one netherrack, a diamond pick on him, the leg dropped for a re-plan); once per cell, doBreak's guards decide
+                && g.tickCount - legDug().getOrDefault(pos.immutable(), -100000) > 20 * 20 && !com.claudemod.entity.life.TempLedger.built(g, pos) && !com.claudemod.entity.life.TempLedger.has(g, pos) && !com.claudemod.entity.life.PortalMap.frameBlock(g, pos)) { /* (nor a block of his put down on a way: his nerd-pole broken under him block by block, live 04:13:47, stage 796) (never his own build: a block his highway or bore put down after the route was planned stays; the re-plan goes round, live 22:57 / 23:08:22, stage 790) */ // a leg of a route whose cell has a block in it: the player's way, the block and on (reviews 110/140: one basalt, one netherrack, a diamond pick on him, the leg dropped for a re-plan); once per cell, doBreak's guards decide
             legDug().put(pos.immutable(), g.tickCount); if (legDug().size() > 64) legDug().clear();
             g.tasks.addFirst(new Task.GoTo(pos, within)); g.tasks.addFirst(new Task.Break(pos.immutable()));
             com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] the walk to {}: {} in the leg's cell, in reach: breaking it and walking on (WorkGoal.walkTo)", pos.toShortString(), g.level().getBlockState(pos).getBlock().getName().getString());
@@ -2739,6 +2739,10 @@ public class WorkGoal extends Goal {
     private boolean unseenOre(Task t) {
         if (!(t instanceof Task.Break b) || !com.claudemod.entity.life.Watchdog.hiddenOre(g.level(), b.pos())) return false;
         if (com.claudemod.entity.life.Consent.lesson(g) || com.claudemod.entity.life.Consent.theirStepNames(g, b.pos()) != null) return false;
+        if (com.claudemod.director.ClaudeLife.seenOre(g).contains(b.pos())) { // he saw it, its faces closed since: still his to dig to (live 10:25:59 11-07: a diamond under the one he mined seen, 4 s later "he can't have seen it", then skipped every scan for 2 hours)
+            StringBuilder shut = new StringBuilder(); for (Direction d : Direction.values()) { BlockPos n = b.pos().relative(d); shut.append(shut.length() == 0 ? "" : ", ").append(d.getName()).append(" ").append(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(g.level().getBlockState(n).getBlock()).getPath()).append(com.claudemod.entity.life.TempLedger.built(g, n) || com.claudemod.entity.life.TempLedger.has(g, n) ? " (his)" : ""); }
+            com.claudemod.director.ClaudeLife.nookSay(g, "seenShut" + b.pos().asLong(), "[Claude dig] the " + net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(g.level().getBlockState(b.pos()).getBlock()).getPath() + " at " + b.pos().toShortString() + ": seen, every face closed since (" + shut + "): digging to it (WorkGoal.unseenOre)");
+            return false; }
         com.claudemod.ClaudeMod.LOGGER.info("[Claude dig] not digging the {} at {}: every face of it closed, he can't have seen it; dropped till a dig opens it (he's at {}; queued by {}) (WorkGoal.unseenOre)", net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(g.level().getBlockState(b.pos()).getBlock()).getPath(), b.pos().toShortString(), g.blockPosition().toShortString(), com.claudemod.entity.ClaudeEntity.originOf(t));
         return true;
     }
@@ -2778,6 +2782,7 @@ public class WorkGoal extends Goal {
             for (Direction d : Direction.values()) { BlockPos nb = o.relative(d); if (com.claudemod.director.ClaudeLife.isMineCell(g, nb) || (g.blueprint != null && g.blueprint.isShell(nb) && level.getBlockState(nb).isAir())) return false; } // (showing through a hole in his own wall counts as his wall: the iron at 13, 18, -115 behind the hole at 13, 18, -114 was held for and never mined)
             if (!com.claudemod.director.ClaudeLife.canSee(g, level, o) && !com.claudemod.director.ClaudeLife.seenOre(g).contains(o)) { com.claudemod.director.ClaudeLife.nookSay(g, "oreSkip" + o.asLong(), "[Claude ore] skipping " + level.getBlockState(o).getBlock().getName().getString() + " at " + o.toShortString() + ": not in his mine's walls and he can't see it"); /* (once per ore, not every 5 ticks: 4,700 lines on 11-04) */ return true; }
             if (o.distSqr(at) <= 6 * 6) return false;
+            if (com.claudemod.director.ClaudeLife.seenOre(g).contains(o) && o.distSqr(at) <= 12 * 12) return false; // (ore he saw, sealed since: dug to from his tunnel, no walk to an open cell needed)
             for (Direction d : Direction.values()) { // a path to any open cell beside it (a path to the ore block itself aims at the air above it)
                 BlockPos n = o.relative(d);
                 if (!level.getBlockState(n).getCollisionShape(level, n).isEmpty()) continue;
@@ -2882,7 +2887,8 @@ public class WorkGoal extends Goal {
         if (!i.isAlive()) return "gone";
         if (g.isGift(i)) return "given up on (no way to it), or theirs";
         if (com.claudemod.entity.life.OwnEvents.waiting(g, i)) return "his own, behind his wall: recover_left goes back for it";
-        if (!g.inventory.hasRoomFor(i.getItem()) && (isOreDrop(i.getItem()) || i.getItem().is(net.minecraft.world.item.Items.ENDER_PEARL) || i.getItem().is(net.minecraft.world.item.Items.BLAZE_ROD) || i.getItem().is(net.minecraft.world.item.Items.ENDER_EYE) || i.getItem().is(net.minecraft.world.item.Items.OBSIDIAN)))
+        if (!g.inventory.hasRoomFor(i.getItem()) && (isOreDrop(i.getItem()) || i.getItem().is(net.minecraft.world.item.Items.ENDER_PEARL) || i.getItem().is(net.minecraft.world.item.Items.BLAZE_ROD) || i.getItem().is(net.minecraft.world.item.Items.ENDER_EYE) || i.getItem().is(net.minecraft.world.item.Items.OBSIDIAN)
+                || i.getItem().has(net.minecraft.core.component.DataComponents.FOOD) && !i.getItem().is(net.minecraft.world.item.Items.ROTTEN_FLESH) && !i.getItem().is(net.minecraft.world.item.Items.SPIDER_EYE) && com.claudemod.director.Kit.foodAsk(g) != null)) // (food while the kit's short: live 14:29 11-07 "not going for 3 Raw Porkchop: no room" on the hunt for it)
             com.claudemod.director.ClaudeLife.makeRoom(g, i.position()); // ponytail: live 14:07, 3 pearls on his death pile skipped for a pack full of netherrack and spare kit; a player tosses junk for what he came for
         if (!g.inventory.hasRoomFor(i.getItem())) return "no room for it in his pack";
         BlockPos ip = i.blockPosition();

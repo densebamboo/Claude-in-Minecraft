@@ -87,6 +87,9 @@ public final class PortalMap {
         { Portal p = find(g, dim, c); if (p != null) {
             if (!"unknown".equals(by) && ("unknown".equals(p.by) || "him".equals(by))) p.by = by;
             if (state != null && !state.equals(p.state)) { ClaudeMod.LOGGER.info("[Claude portal] #{} at {} ({}): {} -> {} (PortalMap.note)", p.id, p.where(), p.dim, p.state, state); p.state = state; }
+            // its cell is the portal block he stood in or saw, not a cell beside it (live 12:51 11-07: #2 filed at -11,68,-23, the frame's side; the walk there broke that obsidian and put the portal out)
+            if (!c.equals(p.at) && g.getServer() != null && g.getServer().getLevel(key(dim)) instanceof ServerLevel lv && lv.isLoaded(c) && lv.getBlockState(c).is(Blocks.NETHER_PORTAL) && !lv.getBlockState(p.at).is(Blocks.NETHER_PORTAL)) {
+                ClaudeMod.LOGGER.info("[Claude portal] #{} filed at {}, its portal blocks are at {}: moved there (PortalMap.note)", p.id, p.where(), c.toShortString()); p.at = c; }
             p.seen = g.level().getGameTime(); return p;
         } }
         Portal p = new Portal(); p.id = n.next++; p.dim = dim; p.at = c; p.by = by; p.state = state == null ? "lit" : state; p.seen = g.level().getGameTime();
@@ -132,6 +135,27 @@ public final class PortalMap {
         int obs = 0;
         for (BlockPos q : BlockPos.betweenClosed(at.offset(-3, -2, -3), at.offset(3, 4, 3))) { var st = level.getBlockState(q); if (st.is(Blocks.NETHER_PORTAL) && Math.abs(q.getX() - at.getX()) <= 1 && Math.abs(q.getZ() - at.getZ()) <= 1) return "lit"; if (st.is(Blocks.OBSIDIAN) || st.is(Blocks.CRYING_OBSIDIAN)) obs++; }
         return obs >= 8 ? "unlit" : obs > 0 ? "broken" : "gone";
+    }
+    /** A block of a known portal's frame (obsidian by one of his portals): never dug out to walk. */
+    public static boolean frameBlock(ClaudeEntity g, BlockPos q) {
+        var st = g.level().getBlockState(q); if (!st.is(Blocks.OBSIDIAN) && !st.is(Blocks.CRYING_OBSIDIAN)) return false;
+        String d = dim(g.level()); for (Portal p : net(g).portals) if (p.dim.equals(d) && Math.abs(p.at.getX() - q.getX()) <= 3 && Math.abs(p.at.getZ() - q.getZ()) <= 3 && q.getY() - p.at.getY() >= -1 && q.getY() - p.at.getY() <= 4) return true;
+        return false;
+    }
+    /** The 2x3 frame round an unlit portal near c: [0] its inside bottom cell, then its 10 frame cells (corners left out, as the game needs). Null when no frame with 7+ of its obsidian is there. */
+    // shortcut: 2x3 frames only (all he builds and the ones he walks through); a bigger frame reads as none, upgrade when he meets one
+    public static BlockPos[] frameOf(ServerLevel level, BlockPos c) {
+        BlockPos[] best = null; int bestN = 6;
+        for (Direction.Axis ax : new Direction.Axis[] {Direction.Axis.X, Direction.Axis.Z}) { Direction r = ax == Direction.Axis.X ? Direction.EAST : Direction.SOUTH;
+            for (int dx = -2; dx <= 1; dx++) for (int dy = -1; dy <= 1; dy++) { BlockPos o = c.relative(r, dx).above(dy); boolean open = true;
+                for (int i = 0; i < 2 && open; i++) for (int y = 0; y < 3; y++) { var st = level.getBlockState(o.relative(r, i).above(y)); if (!st.canBeReplaced() && !st.is(Blocks.NETHER_PORTAL)) { open = false; break; } }
+                if (!open) continue;
+                BlockPos[] f = new BlockPos[11]; int k = 0; f[k++] = o.immutable();
+                for (int i = 0; i < 2; i++) { f[k++] = o.relative(r, i).below().immutable(); f[k++] = o.relative(r, i).above(3).immutable(); }
+                for (int y = 0; y < 3; y++) { f[k++] = o.relative(r, -1).above(y).immutable(); f[k++] = o.relative(r, 2).above(y).immutable(); }
+                int n = 0; for (int i = 1; i < f.length; i++) if (level.getBlockState(f[i]).is(Blocks.OBSIDIAN)) n++;
+                if (n > bestN) { bestN = n; best = f; } } }
+        return best;
     }
     static BlockPos lowest(ServerLevel level, BlockPos c) { BlockPos p = c; while (level.getBlockState(p.below()).is(Blocks.NETHER_PORTAL)) p = p.below(); return p.immutable(); }
 
@@ -382,6 +406,15 @@ public final class PortalMap {
             return "walking to portal #" + p.id + " at " + p.where() + " (" + linkTalk(g, p) + ")";
         }
         if ("unlit".equals(p.state)) { // a ghast's fireball put it out, or it was never lit: flint and steel on the bottom obsidian, from inside the frame
+            { BlockPos[] fr = frameOf(level, p.at); // its frame whole first: a block short is put back, not a new portal (live 12:51-13:05 11-07: one obsidian of #2 dug out, "didn't light", then make_obsidian x10 at a lava 221 off)
+              if (fr != null) { if (!fr[0].equals(p.at)) { ClaudeMod.LOGGER.info("[Claude portal] #{} filed at {}, its frame's inside is at {}: moved there (PortalMap.enterStep)", p.id, p.where(), fr[0].toShortString()); p.at = fr[0]; }
+                List<BlockPos> gap = new ArrayList<>(); for (int i = 1; i < fr.length; i++) if (!level.getBlockState(fr[i]).is(Blocks.OBSIDIAN)) gap.add(fr[i]);
+                if (!gap.isEmpty()) { int have = g.inventory.count(x -> x.is(net.minecraft.world.item.Items.OBSIDIAN)); String at = gap.get(0).toShortString() + (gap.size() > 1 ? " and " + (gap.size() - 1) + " more" : "");
+                  g.skillQueue.addFirst(new Skills.Step(st.skill(), target, st.count(), st.where()));
+                  if (have >= gap.size()) { for (BlockPos q : gap) { if (!level.getBlockState(q).canBeReplaced()) g.tasks.add(new Task.Break(q)); g.tasks.add(new Task.Place(q, net.minecraft.world.item.Items.OBSIDIAN)); }
+                    ClaudeMod.LOGGER.info("[Claude portal] #{}'s frame short {} obsidian at {}: putting it back from his pack ({} on him) (PortalMap.enterStep)", p.id, gap.size(), at, have); return "my portal #" + p.id + "'s frame is short " + gap.size() + " obsidian at " + at + ": putting it back"; }
+                  g.skillQueue.addFirst(new Skills.Step("obtain", "obsidian", gap.size() - have));
+                  ClaudeMod.LOGGER.info("[Claude portal] #{}'s frame short {} obsidian at {}, {} on him: getting {} first (PortalMap.enterStep)", p.id, gap.size(), at, have, gap.size() - have); return "my portal #" + p.id + "'s frame is short " + gap.size() + " obsidian at " + at + ": getting " + (gap.size() - have) + " to put it back"; } } }
             if (!g.hold(s -> s.is(net.minecraft.world.item.Items.FLINT_AND_STEEL) || s.is(net.minecraft.world.item.Items.FIRE_CHARGE))) { g.skillQueue.addFirst(new Skills.Step(st.skill(), target, st.count(), st.where())); g.skillQueue.addFirst(new Skills.Step("obtain", "flint_and_steel", 1)); return "my portal #" + p.id + " is out: getting flint and steel to relight it"; }
             g.useOnAt(p.at.below(), net.minecraft.core.Direction.UP, false, Vec3.atCenterOf(p.at.below()).add(0, 0.5, 0));
             p.state = stateAt(level, p.at);

@@ -230,6 +230,8 @@ public final class ActionPath {
     private static final Map<BlockPos, Long> STRUCT_OK = new HashMap<>();
     /** His mine's shell cells a MAY_DIG plan cuts (game time): tasks puts each back once he's past. */
     private static final Map<BlockPos, Long> SHELL_CUT = new HashMap<>();
+    /** A structure cell a job of his opens on purpose (the highway's doorway into the fortress it meets): the dig guard lets it through for 5 minutes, nothing puts it back. */
+    public static void allowStructureDig(ServerLevel level, BlockPos p) { STRUCT_OK.put(p.immutable(), level.getGameTime()); }
     public static boolean structureDigOk(ServerLevel level, BlockPos p) { Long t = STRUCT_OK.get(p); return t != null && level.getGameTime() - t < 20 * 300 && level.getGameTime() >= t; }
 
     /** The straight-line log's word on a cell he'd dig: its price as the plan reads it, or the rule that keeps it (the label "a dig" on every refused cell hid the cause: review 40, 00:53 11-07, 27 of stone "a dig" each and no way found). */

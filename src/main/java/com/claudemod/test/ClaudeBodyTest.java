@@ -10536,6 +10536,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 994: return st994(stage, t, c, h, level, mock);
             case 993: return st993(stage, t, c, h, level, mock);
             case 992: return st992(stage, t, c, h, level, mock);
             case 991: return st991(stage, t, c, h, level, mock);
@@ -15338,6 +15339,25 @@ public final class ClaudeBodyTest {
             if (c.getY() >= me.getY() + 2.9 && c.onGround()) { pass(stage, t, "3 up from a daisy's cell in " + (t[0] - st993T) + " ticks, the cell now " + level.getBlockState(me).getBlock().getName().getString()); c.tasks.clear(); c.tasks.add(new Task.Pillar(-1)); return true; }
             check(t[0] - st993T < 120, "6 s towering from a daisy's cell: y " + String.format("%.2f", c.getY() - me.getY()) + " up, the cell " + level.getBlockState(me).getBlock().getName().getString() + ", doing " + c.currentTask + ", queue " + c.tasks);
         }
+        return true;
+    }
+    /** Stage 994 (D2D 11-08, bench stage 1103: "GEAR GONE: 1 shield (doing Flee)", the shield on him, blocking a trident seconds later; the gear count read his pack and armor, not his off hand): a shield in his pack; he puts it in his off hand himself, as a player keeps one. No GEAR GONE. */
+    private static boolean st994(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var W = com.claudemod.entity.life.Watchdog.recentKinds;
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(6000); flatBox(h); }
+        try {
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY); c.getInventory().add(new ItemStack(Items.SHIELD)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            BlockPos me = h.absolutePos(new BlockPos(7, 2, 7)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            W.clear(); com.claudemod.entity.life.Watchdog.linesInTests = true;
+        }
+        if (t[0] == 160) {
+            String w = W.toString(); com.claudemod.entity.life.Watchdog.linesInTests = false; boolean held = c.getOffhandItem().is(Items.SHIELD); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY);
+            check(held || c.getInventory().countItem(Items.SHIELD) == 1, "the shield neither in his off hand nor his pack");
+            check(!w.contains("GEAR GONE"), "the shield went from his pack into his off hand and read as gone: " + w + " (last " + com.claudemod.entity.life.Watchdog.lastIncident + ")");
+            pass(stage, t, "the shield in his off hand still his: " + w); }
+        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
         return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */

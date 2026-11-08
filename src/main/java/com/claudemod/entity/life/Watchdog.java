@@ -369,10 +369,11 @@ public final class Watchdog {
         if (st.isDamageableItem()) return id.startsWith("iron_") || id.startsWith("diamond_") || id.startsWith("netherite_") || id.equals("shield") || id.equals("bow") || id.equals("crossbow") || id.equals("flint_and_steel");
         return false; // (diamonds, rods, pearls, eyes and buckets get used up in crafts and throws: no telling a loss from a use)
     }
+    /** His important gear: pack, armor and off hand (a shield he put up there is still his: D2D bench 1103, stage 994). */
     private static java.util.Map<String, Integer> gearOf(ClaudeEntity g) {
         java.util.Map<String, Integer> m = new java.util.TreeMap<>();
         for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { var st = g.inventory.items.getItem(i); if (important(st)) m.merge(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(st.getItem()).getPath(), st.getCount(), Integer::sum); }
-        for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) { var st = g.getItemBySlot(sl); if (sl.isArmor() && important(st)) m.merge(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(st.getItem()).getPath(), st.getCount(), Integer::sum); }
+        for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) { var st = g.getItemBySlot(sl); if ((sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) && important(st)) m.merge(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(st.getItem()).getPath(), st.getCount(), Integer::sum); }
         return m;
     }
 

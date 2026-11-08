@@ -10662,6 +10662,7 @@ public final class ClaudeBodyTest {
             case 1006: return st1006(stage, t, c, h, level, mock);
             case 1007: return st1007(stage, t, c, h, level, mock);
             case 1008: return st1008(stage, t, c, h, level, mock);
+            case 1009: return st1009(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -17621,6 +17622,35 @@ public final class ClaudeBodyTest {
             if (lit || gone && t[0] > st1008T + 40 || t[0] == st1008T + 20 * 30) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
                 check(lit, "the mine torch at " + st1008C.toShortString() + " (" + String.format("%.1f", Math.sqrt(st1008C.distSqr(c.blockPosition()))) + " off, not a slot) never went up: dropped " + gone);
                 pass(stage, t, "a mine torch past 8 that isn't a slot walked to and put up"); }
+        }
+        return true;
+    }
+    private static int st1009T; private static BlockPos st1009W, st1009P, st1009H;
+    private static boolean st1009(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D hourly 2 + 15:54 (live 15:48:04-15:53 World 17, -338,-57/-58,-74): a route dug his wall into a pocket and queued its put-back; the put-back ran 53 off and its "look in before it's closed" sent him back into the pocket, the route dug the wall again: 4 min of shuffling
+        if (t[0] == 1) { resetLoot(c, mock[0]); st1009T = -1; }
+        if (t[0] == 10) {
+            buildStairs(h, 0);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("mine_model", "blueprint"); c.prefs.put("torches_while_digging", "no");
+            var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(stairFeet(0, 6)), net.minecraft.core.Direction.EAST, 2, 4); b.segments.get(0).n = 11; c.blueprint = b;
+            com.claudemod.director.ClaudeLife.bpSync(c);
+            BlockPos at = h.absolutePos(stairFeet(1, 6)); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            net.minecraft.core.Direction side = null; for (net.minecraft.core.Direction d : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && b.isShell(at.relative(d)) && !b.touches(at.relative(d, 2))) side = d;
+            check(side != null, "setup: no wall side at " + at.toShortString());
+            st1009W = at.relative(side).immutable(); st1009P = at.relative(side, 2).immutable(); st1009H = st1009P.above().east().immutable();
+            for (int dx = -1; dx <= 1; dx++) for (int dy = -1; dy <= 2; dy++) for (int dz = -1; dz <= 1; dz++) { BlockPos q = st1009P.offset(dx, dy, dz); if (!b.touches(q)) level.setBlock(q, Blocks.DEEPSLATE.defaultBlockState(), 2); } // rock round the pocket
+            level.setBlock(st1009P, Blocks.AIR.defaultBlockState(), 2); level.setBlock(st1009P.above(), Blocks.AIR.defaultBlockState(), 2); level.setBlock(st1009H, Blocks.AIR.defaultBlockState(), 2); // the vein's pocket: room to stand in, a hole beside its top (as live: view -313,-57,-33, hole -312,-56,-34)
+            BlockPos away = h.absolutePos(stairFeet(4, 6)); c.teleportTo(away.getX() + 0.5, away.getY(), away.getZ() + 0.5); // a few cells along his tunnel (live: at -311,-58,-30, the view 3 off): a walk to the view, not a nudge
+        }
+        if (t[0] == 14) { c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); level.setBlock(st1009W, Blocks.AIR.defaultBlockState(), 2); level.setBlock(st1009H, Blocks.DEEPSLATE.defaultBlockState(), 2); c.tasks.add(new Task.Place(st1009W, Items.COBBLED_DEEPSLATE, null, Blocks.COBBLED_DEEPSLATE.defaultBlockState())); st1009T = t[0]; } // his wall cell dug open by a route on its way, its put-back (the exact block back) queued from down the tunnel
+        if (st1009T > 0 && t[0] > st1009T && t[0] <= st1009T + 120) {
+            boolean dug = false;
+            boolean sent = c.currentTask instanceof Task.GoTo go && go.within() == 0.5 || c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo g2 && g2.within() == 0.5); // (the look-in's walk: GoTo(edge, 0.5); live it was 53 back)
+            boolean placeLeft = c.currentTask instanceof Task.Place pl && pl.pos().equals(st1009W) || c.tasks.stream().anyMatch(q -> q instanceof Task.Place p2 && p2.pos().equals(st1009W));
+            if (dug || sent || t[0] == st1009T + 120 || !placeLeft && t[0] > st1009T + 20) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+                check(!sent, "the put-back of his wall at " + st1009W.toShortString() + " sent him into the pocket behind it to look first");
+                check(!placeLeft && !level.getBlockState(st1009W).isAir(), "his wall at " + st1009W.toShortString() + " not put back in 6 s");
+                pass(stage, t, "the route's put-back of his wall done from the tunnel, no look into the pocket"); }
         }
         return true;
     }

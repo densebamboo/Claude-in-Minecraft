@@ -10840,6 +10840,7 @@ public final class ClaudeBodyTest {
             case 1069: return st1069(stage, t, c, h, level, mock);
             case 1071: return st1071(stage, t, c, h, level, mock);
             case 1072: return st1072(stage, t, c, h, level, mock);
+            case 1073: return st1073(stage, t, c, h, level, mock);
             case 1063: return st1063(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
@@ -18779,6 +18780,34 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
             check(alive, "at a dead end, three zombies coming up the tunnel, armor 0, a stone sword, 17 HP: died (" + left + " zombies left)");
             pass(stage, t, "alive at " + hp + " HP, " + left + " zombies left");
+        }
+        return true;
+    }
+
+    /** Stage 1073 (live 05:39-07:41 11-08, reviews 040/159/072/177/405): iron ore he saw at -64,18,-122, then his own patch over the face he saw it from (a mineIntegrity build): "can't break it: cobblestone (his) is in the way", dropped, picked again a second later, five times over from 2 to 343 off. The ownPatch way (out, the ore, the patch back) never ran: his patch counted as a build he won't dig. Passes: the ore out and the patch back within 15 s. */
+    private static BlockPos st1073Ore, st1073Patch;
+    private static boolean st1073(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(4, 2, 6));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(me.offset(-4, -2, -4), me.offset(8, 5, 3))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            for (BlockPos p : BlockPos.betweenClosed(me, me.offset(6, 1, 0))) level.setBlock(p, Blocks.AIR.defaultBlockState(), 2); // his tunnel, east
+            for (int k = 0; k <= 6; k += 3) level.setBlock(me.offset(k, 2, 0), Blocks.GLOWSTONE.defaultBlockState(), 2);
+            st1073Patch = me.offset(1, 1, -1).immutable(); st1073Ore = me.offset(1, 1, -2).immutable(); // the patch in his north wall at head height, the ore behind it
+            level.setBlock(st1073Ore, Blocks.IRON_ORE.defaultBlockState(), 2); level.setBlock(st1073Patch, Blocks.COBBLESTONE.defaultBlockState(), 2);
+            com.claudemod.entity.life.TempLedger.builtCells(c).put(st1073Patch, "ClaudeLife.mineIntegrity");
+            com.claudemod.director.ClaudeLife.seenOre(c).clear(); com.claudemod.director.ClaudeLife.seenOre(c).add(st1073Ore);
+            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
+            c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 8));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.add(new Task.Break(st1073Ore));
+        }
+        if (t[0] > 12 && (t[0] >= 310 || !level.getBlockState(st1073Ore).is(Blocks.IRON_ORE) && level.getBlockState(st1073Patch).is(Blocks.COBBLESTONE) && c.tasks.isEmpty() && c.currentTask == null)) {
+            boolean out = !level.getBlockState(st1073Ore).is(Blocks.IRON_ORE), back = !level.getBlockState(st1073Patch).isAir();
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; com.claudemod.director.ClaudeLife.seenOre(c).clear(); com.claudemod.entity.life.TempLedger.builtCells(c).remove(st1073Patch);
+            check(out, "iron ore he saw, behind his own patch block: still there after 15 s");
+            check(back, "the ore out, his patch not put back: " + level.getBlockState(st1073Patch));
+            pass(stage, t, "his patch out, the ore mined, the patch back");
         }
         return true;
     }

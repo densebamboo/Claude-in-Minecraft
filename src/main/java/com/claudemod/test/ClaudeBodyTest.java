@@ -10806,6 +10806,7 @@ public final class ClaudeBodyTest {
             case 1060: return st1060(stage, t, c, h, level, mock);
             case 1061: return st1061(stage, t, c, h, level, mock);
             case 1059: return st1059(stage, t, c, h, level, mock);
+            case 1062: return st1062(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -18342,6 +18343,34 @@ public final class ClaudeBodyTest {
         return true;
     }
 
+    private static int s1062T, s1062Up; private static float s1062Hp; private static net.minecraft.world.entity.animal.IronGolem s1062G;
+    private static boolean st1062(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 21:38:22-21:38:35 11-07 death (village -174,69,36): "the golem: 3 up beside it" from his own ground; the golem stepped up a block (its top at 72.70, his feet 72.5: "still in its reach"), 7.5 off his tower, then 19.5: dead
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.prefs.put("stay_close", "no"); c.prefs.put("village_mode", "raid"); s1062T = -1; s1062Up = -1; s1062G = null; }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(60))) if (e != s1062G) e.discard();
+        if (t[0] == 10) {
+            for (int x = -4; x <= 20; x++) for (int z = -4; z <= 20; z++) { for (int yy = -2; yy <= 0; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 10; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            level.setBlock(h.absolutePos(new BlockPos(8, 2, 6)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(6, 2, 8)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(10, 2, 9)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); // a step of ground beside the diagonal he'll tower on, one up
+            level.setDayTime(6000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_AXE)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.DIRT, 16)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 6));
+            for (var sl : new net.minecraft.world.entity.EquipmentSlot[]{net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET}) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            s1062G = net.minecraft.world.entity.EntityType.IRON_GOLEM.create(level); BlockPos gp = h.absolutePos(new BlockPos(8, 2, 8)); s1062G.moveTo(gp.getX() + 0.5, gp.getY(), gp.getZ() + 0.5, 0, 0); s1062G.setNoAi(true); s1062G.setPersistenceRequired(); level.addFreshEntity(s1062G);
+            c.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, s1062G.position());
+        }
+        if (t[0] == 14) { String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "village_iron", "", 1); com.claudemod.ClaudeMod.LOGGER.info("[Claude test] stage 1062 village_iron -> {}", r); s1062T = t[0]; check(r.contains("up beside it"), "setup: village_iron didn't take the golem: " + r); }
+        if (s1062T < 0 || s1062G == null) return true;
+        BlockPos stand = h.absolutePos(new BlockPos(7, 2, 7));
+        if (s1062Up < 0 && c.onGround() && !(c.currentTask instanceof Task.Pillar) && c.getY() >= stand.getY() + 2.9 && Math.abs(c.blockPosition().getX() - h.absolutePos(new BlockPos(8, 2, 8)).getX()) <= 2 && Math.abs(c.blockPosition().getZ() - h.absolutePos(new BlockPos(8, 2, 8)).getZ()) <= 2) { // (any stand within 2 of the golem at 8,8) // up his tower: the golem steps up beside it, the live move, and turns on him
+            BlockPos st = h.absolutePos(new BlockPos(10, 3, 9)); s1062G.moveTo(st.getX() + 0.5, st.getY(), st.getZ() + 0.5, 0, 0); s1062G.setNoAi(false); s1062G.setTarget(c); s1062Up = t[0]; s1062Hp = c.getHealth(); // (a step beside his stand 2 off it, clear of its box)
+        }
+        if (s1062Up > 0) {
+            s1062G.setTarget(c);
+            check(c.getHealth() >= s1062Hp - 0.01f || !(c.getLastHurtByMob() instanceof net.minecraft.world.entity.animal.IronGolem), "on his tower (" + (int) (c.getY() - stand.getY()) + " up), the golem on a step 1 up beside it: hit, health " + (int) c.getHealth());
+            if (t[0] - s1062Up > 20 * 15) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; s1062G.discard(); pass(stage, t, "the golem a step up beside his tower: out of its reach, " + (int) (c.getY() - stand.getY()) + " up"); return true; }
+        } else check(t[0] - s1062T < 20 * 40, "40 s and not up his tower beside the golem (doing " + c.currentTask + ", at " + c.blockPosition().toShortString() + ")");
+        return true;
+    }
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

@@ -10531,6 +10531,8 @@ public final class ClaudeBodyTest {
             case 975: return st975(stage, t, c, h, level, mock);
             case 976: return st976(stage, t, c, h, level, mock);
             case 977: return st977(stage, t, c, h, level, mock);
+            case 978: return st978(stage, t, c, h, level, mock);
+            case 979: return st979(stage, t, c, h, level, mock);
             case 955: return st955(stage, t, c, h, level, mock);
             case 954: return st954(stage, t, c, h, level, mock);
             case 953: return st953(stage, t, c, h, level, mock);
@@ -14946,6 +14948,62 @@ public final class ClaudeBodyTest {
             check(rb != null && rb.startsWith("mining the iron_ore"), "B: by day in iron with food, iron 28 off: \"" + rb + "\"");
             check(go >= 0 && go < br, "B: the walk there before the breaks (GoTo at " + go + ", first Break at " + br + "): " + (q.length() > 200 ? q.substring(0, 200) : q));
             pass(stage, t, "A " + ra + "; B \"" + rb + "\"");
+        }
+        return true;
+    }
+    /** Stage 978 (D2D 21:40 11-07, review 52: live 21:15 underground, no armor, two spiders on him, two sprint-jumps from -130,19,-205 knocked short, "MISSED ... took 1.7 HP" then "took 6.8 HP", 17 -> 10.4): a sprint-jump over 3 with a spider after him 1.5 off is not taken (fight it or step back first); with the spider gone the same jump goes and lands. */
+    private static net.minecraft.world.entity.monster.Spider s978M; private static int s978T;
+    private static boolean st978(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos lip = h.absolutePos(new BlockPos(4, 2, 7)), land = h.absolutePos(new BlockPos(8, 2, 7));
+        var leap = new com.claudemod.entity.life.Task.Leap(lip, land, com.claudemod.entity.nav.Leaps.SPRINT_JUMP, 0, 0f);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.nav.Leaps.reset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s978T = -1; c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8)); }
+        if (t[0] == 5) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), x >= 5 && x <= 7 ? Blocks.AIR.defaultBlockState() : Blocks.STONE.defaultBlockState(), 2); for (int y = 2; y <= 8; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); for (int y = -4; y <= 0; y++) if (x >= 5 && x <= 7) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(lip).inflate(32))) m.discard();
+            c.teleportTo(lip.getX() + 0.5, lip.getY(), lip.getZ() + 0.5); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+            s978M = net.minecraft.world.entity.EntityType.SPIDER.create(level); s978M.moveTo(lip.getX() - 1.0, lip.getY(), lip.getZ() + 0.5, 0f, 0f); s978M.setNoAi(true); level.addFreshEntity(s978M); s978M.setTarget(c);
+        }
+        if (t[0] == 15) { c.tasks.add(leap); }
+        if (t[0] == 40) {
+            String why = com.claudemod.entity.nav.Leaps.lastRefusal(c, 40); BlockPos at = c.blockPosition();
+            check(why != null && why.contains("spider") && why.contains("on me"), "a spider 1.5 off after him: the jump went anyway (refusal " + why + ", at " + at.toShortString() + ")");
+            s978M.discard(); c.tasks.clear(); c.dropCurrent = true; com.claudemod.entity.nav.Leaps.reset(c); c.attempts.clear();
+            c.teleportTo(lip.getX() + 0.5, lip.getY(), lip.getZ() + 0.5); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+        }
+        if (t[0] == 50) { c.tasks.add(leap); s978T = t[0]; }
+        if (s978T > 0 && t[0] == s978T + 80) {
+            BlockPos at = c.blockPosition(); boolean landed = at.getX() >= land.getX() && at.getY() == land.getY();
+            c.tasks.clear(); c.dropCurrent = true; com.claudemod.entity.nav.Leaps.reset(c); c.attempts.clear(); c.getInventory().clearContent();
+            check(landed, "no spider: the same jump didn't land (at " + at.toShortString() + ", landing " + land.toShortString() + ", refusal " + com.claudemod.entity.nav.Leaps.lastRefusal(c, 100) + ")");
+            pass(stage, t, "refused with the spider on him, landed without it");
+        }
+        return true;
+    }
+    /** Stage 979 (D2D 21:40 11-07, review 229: live 20:43 "collect beef x8 -> no cow in sight: walking south a way to look for some", the leg's route "43 of its 44 blocks swimming", 22.6 s in water): a lake round him on three sides, land on the fourth, the land side turned north, east, south, west in turn. Each time the search leg for cows goes over the land, whichever heading it was on. */
+    private static boolean st979(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(12600, 100, 7600);
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 5) { for (int x = -50; x <= 50; x++) for (int z = -50; z <= 50; z++) { level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 1; y <= 12; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); } c.teleportTo(level, o.getX() + 0.5, o.getY() + 1, o.getZ() + 0.5, 0f, 0f); }
+        if (t[0] == 30) {
+            long dayWas = level.getDayTime(); level.setDayTime(6000);
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
+            StringBuilder bad = new StringBuilder(), said = new StringBuilder();
+            for (net.minecraft.core.Direction land : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.EAST, net.minecraft.core.Direction.SOUTH, net.minecraft.core.Direction.WEST}) {
+                for (int x = -50; x <= 50; x++) for (int z = -50; z <= 50; z++) { int a = x * land.getStepX() + z * land.getStepZ(), b = Math.abs(x * land.getStepZ() - z * land.getStepX()); boolean dry = Math.abs(x) <= 2 && Math.abs(z) <= 2 || a > 2 && b <= 8;
+                    level.setBlock(o.offset(x, 0, z), dry ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.WATER.defaultBlockState(), 2); }
+                c.teleportTo(o.getX() + 0.5, o.getY() + 1, o.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear();
+                for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.animal.Animal.class, new net.minecraft.world.phys.AABB(o).inflate(160))) m.discard();
+                for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.animal.WaterAnimal.class, new net.minecraft.world.phys.AABB(o).inflate(160))) m.discard();
+                String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "beef", 8);
+                BlockPos leg = null; for (var x : c.tasks) if (x instanceof com.claudemod.entity.life.Task.GoTo go) leg = go.pos();
+                said.append(land.getName()).append(": \"").append(r).append("\"; ");
+                boolean ok = r != null && r.contains("a way to look for some") && leg != null && (leg.getX() - o.getX()) * land.getStepX() + (leg.getZ() - o.getZ()) * land.getStepZ() >= 30;
+                if (!ok) bad.append("land ").append(land.getName()).append(": \"").append(r).append("\" to ").append(leg == null ? "none" : leg.toShortString()).append("; ");
+            }
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY); level.setDayTime(dayWas); c.dropCurrent = true;
+            for (int x = -50; x <= 50; x++) for (int z = -50; z <= 50; z++) level.setBlock(o.offset(x, 0, z), Blocks.AIR.defaultBlockState(), 2);
+            check(bad.length() == 0, "the search leg over the lake, not the land: " + bad);
+            pass(stage, t, said.toString());
         }
         return true;
     }

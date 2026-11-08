@@ -97,6 +97,12 @@ public final class Leaps {
     }
     public static String marginWhy(ClaudeEntity g) { return "keep " + (int) margin(g) + (hostileAbout(g) ? ", a hostile about" : "") + (foodOnHim(g) ? "" : ", no food on me"); }
     static boolean foodOnHim(ClaudeEntity g) { return g.inventory.count(s -> s.has(net.minecraft.core.component.DataComponents.FOOD)) > 0; }
+    /** A melee mob after him within w("leap.melee_r",3.5), named with its distance; null when none. */
+    public static String meleeOn(ClaudeEntity g) {
+        for (var m : g.level().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(4), x -> x.isAlive() && x.getTarget() == g && !(x instanceof net.minecraft.world.entity.monster.RangedAttackMob) && !(x instanceof net.minecraft.world.entity.monster.Creeper)))
+            if (m.distanceTo(g) <= com.claudemod.entity.life.Weights.w("leap.melee_r", 3.5)) return "a " + net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(m.getType()).getPath() + " " + String.format("%.1f", m.distanceTo(g)) + " off";
+        return null;
+    }
     static boolean hostileAbout(ClaudeEntity g) {
         for (var m : g.level().getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(16), x -> x.isAlive())) {
             if (m instanceof net.minecraft.world.entity.NeutralMob nm && !nm.isAngry()) continue; // (a zombified piglin minding its own business)
@@ -252,6 +258,7 @@ public final class Leaps {
             BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
             String why = null;
             if (!feet.equals(t.from())) why = "not on the lip " + t.from().toShortString() + " (feet " + feet.toShortString() + ")";
+            else if (meleeOn(g) != null) why = meleeOn(g) + " on me: its hits knock a leap off its line (fight it or step back first)"; // (live 21:15 11-07, review 52: two spiders on him, two sprint-jumps knocked short, 17 -> 10.4 HP)
             else if (t.kind() == DROP) {
                 Fall f = drop(g, l, t.from(), t.from().relative(d), 0);
                 if (!f.ok()) why = f.why();

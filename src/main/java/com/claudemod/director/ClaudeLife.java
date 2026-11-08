@@ -2000,6 +2000,9 @@ public final class ClaudeLife {
                                     heading = heading == home.getOpposite() ? home.getClockWise() : home; // not straight back the way he came: the next line over
                                     huntDir().put(g.getUUID(), heading);
                                 }
+                                { Direction keep = heading; int bestW = huntWater(level, g.blockPosition(), heading); // land animals graze on land: a leg over a lake looks at nothing and swims (live 20:43 11-07, review 229: "walking south a way", 43 of its 44 blocks swimming); the heading with the least water, his own on a tie
+                                    for (Direction d2 : new Direction[] {heading.getClockWise(), heading.getCounterClockWise(), heading.getOpposite()}) { int w2 = huntWater(level, g.blockPosition(), d2); if (w2 < bestW) { bestW = w2; heading = d2; } }
+                                    if (heading != keep) { huntDir().put(g.getUUID(), heading); ClaudeMod.LOGGER.info("[Claude life] hunt leg: {} is water ahead, {} has the least ({} of 11 looks wet) (ClaudeLife.huntWater)", keep.getName(), heading.getName(), bestW); } }
                                 int x = g.getBlockX() + heading.getStepX() * 44, z = g.getBlockZ() + heading.getStepZ() * 44;
                                 BlockPos leg = new BlockPos(x, level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z), z);
                                 g.tasks.add(new Task.GoTo(leg, 4));
@@ -11902,6 +11905,13 @@ public final class ClaudeLife {
     }
 
     /** Ore of this kind he sees, or saw and remembers, priced against the trip to his mine (D2D review 080206 11-07: on the surface, "back up to my coal tunnel", a 322-block walk, coal never looked for): the walk there and back against the walk to his mine and its fixed cost. Null: the mine. */
+    /** Water along a 44-block hunt leg: of 11 looks at the ground every 4 blocks out, how many are water (unloaded ones count as land). */
+    static int huntWater(ServerLevel level, BlockPos from, Direction d) {
+        int n = 0;
+        for (int k = 4; k <= 44; k += 4) { int x = from.getX() + d.getStepX() * k, z = from.getZ() + d.getStepZ() * k; if (!level.isLoaded(new BlockPos(x, 0, z))) continue;
+            int y = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z); if (level.getFluidState(new BlockPos(x, y - 1, z)).is(net.minecraft.tags.FluidTags.WATER)) n++; }
+        return n;
+    }
     public static String seenOreFirst(ClaudeEntity g, ServerPlayer player, ServerLevel level, Skills.Step st, String target) {
         Predicate<BlockState> want = blockMatcher(target); if (want == null) return null;
         BlockPos at = g.blockPosition();

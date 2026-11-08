@@ -10673,6 +10673,7 @@ public final class ClaudeBodyTest {
             case 1008: return st1008(stage, t, c, h, level, mock);
             case 1009: return st1009(stage, t, c, h, level, mock);
             case 1010: return st1010(stage, t, c, h, level, mock);
+            case 1011: return st1011(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -17935,6 +17936,34 @@ public final class ClaudeBodyTest {
             if (there || stuck || t[0] == st1010T + 20 * 15) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
                 check(there && !stuck, "(walk failed: " + stuck + ") never past the trunk to " + st1010To.toShortString() + " in 15 s: at " + String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ()));
                 pass(stage, t, "round the trunk under the leaves and up the step"); }
+        }
+        return true;
+    }
+    private static int st1011T, st1011Min; private static String st1011Why;
+    private static final String[] ST1011 = { // incident 20261107-170419-health_falling-385 round him at -96,13,-22: y12..y16, rows z -25..-19, x -99..-93 (# rock, ~ water, . air)
+        ".##~###|#~~~~~#|##~~~##|#~~~~~~|##~~~~~|###~~~~|#####~~",
+        "##~~###|#~~~~~~|#~~~##~|##~~~~#|.##~~~~|.#.#~~~|#####~~",
+        "###.###|#~~#~~.|#~~~##.|###~~~#|..#####|..#####|######~",
+        "###.###|#~###.#|##~####|#.#####|...####|...###.|#######",
+        "###.###|###.###|#.#.###|#.#.###|.......|.......|###.###"};
+    private static boolean st1011(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D death 386 (live 17:04:19-31 World 17, -96,13,-22): drowning, the swim-up reflex 3 cells from the air shaft at -96,14,-25; HEALTH FALLING queued a dug way to the air at -96,16,-22 and the reflex stood aside a flat 10 s; the dig went round to a view cell, a 31-block shore swim took over, 14 -> 0
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1011T = -1; st1011Min = 99; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            for (int y = 0; y < 5; y++) { String[] rows = ST1011[y].split("[|]"); for (int z = 0; z < 7; z++) for (int x = 0; x < 7; x++) { char ch = rows[z].charAt(x); BlockPos q = h.absolutePos(new BlockPos(x + 2, y + 2, z + 2));
+                level.setBlock(q, ch == '#' ? Blocks.STONE.defaultBlockState() : ch == '~' ? Blocks.WATER.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); } }
+            for (int z = 2; z <= 5; z++) { BlockPos tq = h.absolutePos(new BlockPos(5, 3, z)); c.teleportTo(tq.getX() + 0.5, tq.getY() + 0.1, tq.getZ() + 0.5); com.claudemod.entity.nav.Route.step(c); } // his trail as live: in down the shaft at -96,13,-25, three cells south through the water
+            BlockPos me = h.absolutePos(new BlockPos(5, 3, 5)); c.teleportTo(me.getX() + 0.5, me.getY() + 0.1, me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) { c.setAirSupply(0); c.setHealth(14); c.getFoodData().setFoodLevel(20); st1011Why = com.claudemod.entity.life.Watchdog.drowningOutForTest(c); st1011T = t[0]; } // the moment it fired: no air left, 14 HP
+        if (st1011T > 0 && t[0] > st1011T) {
+            st1011Min = Math.min(st1011Min, (int) c.getHealth());
+            boolean back = !com.claudemod.entity.life.Watchdog.airRoute(c); // the swim-up reflex in charge again
+            if (back || t[0] == st1011T + 60) { int took = t[0] - st1011T; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.setAirSupply(c.getMaxAirSupply());
+                check(st1011Why.contains("dug way"), "setup: the drowning branch didn't queue a dug way (" + st1011Why + ")");
+                check(back && took <= 45, "the dug way to air held the swim-up reflex off " + took + "+ ticks with no headway, drowning (health down to " + st1011Min + ")");
+                pass(stage, t, "the stalled dug way handed back to the reflex in " + took + " ticks"); }
         }
         return true;
     }

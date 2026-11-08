@@ -64,6 +64,7 @@ public final class Watchdog {
         final Map<String, String> what = new HashMap<>();    // action key -> what failed and how, from its trip
         final java.util.Set<String> told = new java.util.HashSet<>();
         int airRouteTick = -100000;                          // when drowningOut queued a dug way to air (the swim-up reflex stands aside for 10 s)
+        BlockPos airRouteTo; double airRouteD, airRouteBest; int airRouteBestTick; // its air cell, his eyes' distance to it then, the nearest since and when
         final Map<String, int[]> means = new HashMap<>();    // action key -> {ends excused as "something in front of it first", first tick}
         Task started; int startTick, startBroken, startItems; double startDist; // the action now running, as it began
         Map<String, Integer> bagAtStart;                     // (a chest action only: what he had going in)
@@ -774,7 +775,18 @@ public final class Watchdog {
      * planned like a stuck escape, digging allowed (two drownings in his own mine, 17:09 and 18:11 on 2026-11-02, with the reflex
      * there both times). Returns what it did, for the incident line.
      */
-    public static boolean airRoute(ClaudeEntity g) { St s = ST.get(g.getUUID()); return s != null && now(g) - s.airRouteTick < 20 * 10; }
+    public static boolean airRoute(ClaudeEntity g) {
+        St s = ST.get(g.getUUID()); if (s == null || now(g) - s.airRouteTick >= 20 * 10) return false;
+        if (s.airRouteTo == null) return true;
+        double d = g.getEyePosition().distanceTo(net.minecraft.world.phys.Vec3.atCenterOf(s.airRouteTo));
+        if (d < s.airRouteBest - 0.3) { s.airRouteBest = d; s.airRouteBestTick = now(g); }
+        boolean further = d > s.airRouteD + 1.5, stalled = now(g) - s.airRouteBestTick > Weights.w("drown.air_route_stall_ticks", 30);
+        if (!further && !stalled) return true;
+        s.airRouteTick = -100000;
+        ClaudeMod.LOGGER.info("[Claude watchdog] the dug way to air at {} {}: the swim-up reflex takes back over (Watchdog.airRoute)", s.airRouteTo.toShortString(), further ? "has him further from it than it started" : "got him no nearer in " + (now(g) - s.airRouteBestTick) + " ticks");
+        return false; // (only while it gets him nearer: live 17:04:19 11-07 its dig went round to a view cell, he stood 3 s, a 31-block shore swim took over, 14 -> 0, the air 3 cells off; stage 1011)
+    }
+    public static String drowningOutForTest(ClaudeEntity g) { return drowningOut(g); } // (tests: the HEALTH FALLING drowning branch at the moment it fires)
     static String drowningOut(ClaudeEntity g) {
         if (!g.isEyeInFluid(net.minecraft.tags.FluidTags.WATER) || g.getAirSupply() > 0 || !(g.level() instanceof ServerLevel lv)) return "";
         BlockPos me = BlockPos.containing(g.getEyePosition()), best = null;
@@ -782,7 +794,7 @@ public final class Watchdog {
             if (lv.getBlockState(q).isAir() && lv.getBlockState(q.above()).isAir() && (best == null || q.distSqr(me) < best.distSqr(me))) best = q.immutable();
         if (best == null) return "; drowning, no air within 6";
         boolean planned = com.claudemod.director.ClaudeLife.escapeStuck(g, lv, new Task.GoTo(best, 0.5));
-        if (planned) st(g).airRouteTick = now(g);
+        if (planned) { St s0 = st(g); s0.airRouteTick = now(g); s0.airRouteTo = best; s0.airRouteD = s0.airRouteBest = g.getEyePosition().distanceTo(net.minecraft.world.phys.Vec3.atCenterOf(best)); s0.airRouteBestTick = now(g); }
         ClaudeMod.LOGGER.info("[Claude watchdog] drowning at {} with the swim-up failing: {} air at {} (Watchdog.drowningOut)", me.toShortString(), planned ? "a dug way to the" : "no way found to the", best.toShortString());
         return planned ? "; drowning: a dug way to air at " + best.toShortString() + " queued" : "; drowning: no way to air at " + best.toShortString();
     }

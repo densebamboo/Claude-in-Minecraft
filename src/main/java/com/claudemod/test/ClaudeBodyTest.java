@@ -10724,6 +10724,7 @@ public final class ClaudeBodyTest {
             case 1037: return st1037(stage, t, c, h, level, mock);
             case 1038: return st1038(stage, t, c, h, level, mock);
             case 1039: return st1039(stage, t, c, h, level, mock);
+            case 1040: return st1040(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -19579,6 +19580,27 @@ public final class ClaudeBodyTest {
             check(miss.containsKey(Items.COOKED_SALMON), "the kit didn't ask for cooked salmon (missing " + miss + "): the scene isn't live's");
             check(r != null && q.stream().anyMatch(x -> x.target().contains("salmon")), "kit first with no salmon step in it: " + r + " (queue " + q + ", kit missing " + miss + ")");
             nsHome(c, h, level); pass(stage, t, "the kit's salmon fetched from his chest: " + r + " (queue " + q + ")");
+        }
+        return true;
+    }
+    private static boolean st1040(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // his raw salmon already cooking in his furnace 30 off, nothing raw on him: "smelt cooked_salmon -> failed: you have nothing that smelts into or from cooked_salmon", twice, and "could you help with that?" to them (live 09:35:28 and 09:36:52 11-08, review 295's chain)
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.myStations.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); }
+        if (t[0] > 8 && t[0] % 5 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 4, c.blockPosition());
+        BlockPos me = c.blockPosition();
+        if (t[0] == 10) {
+            for (int x = -4; x <= 34; x++) for (int z = -4; z <= 4; z++) { level.setBlock(me.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            BlockPos fp = me.offset(30, 0, 0); level.setBlock(fp, Blocks.FURNACE.defaultBlockState(), 2); c.myStations.add(fp);
+            if (level.getBlockEntity(fp) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fb) { fb.setItem(0, new ItemStack(Items.SALMON, 1)); fb.setItem(1, new ItemStack(Items.COAL, 1)); }
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 2)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COAL, 8));
+            c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5); c.gatherForCraftTick = -100000; c.expandTicks.clear();
+        }
+        if (t[0] == 60) {
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "cooked_salmon", 1);
+            String q = String.valueOf(c.tasks); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.getInventory().clearContent(); c.myStations.clear();
+            for (int x = -4; x <= 34; x++) for (int z = -4; z <= 4; z++) for (int y = 0; y <= 4; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(r != null && !r.startsWith("failed"), "his salmon cooking in his furnace and the smelt failed: \"" + r + "\" (tasks " + q + ")");
+            check(q.contains("FurnaceTake"), "no take from the furnace his salmon cooks in: \"" + r + "\" (tasks " + q + ")");
+            pass(stage, t, "the batch already cooking: \"" + r + "\"");
         }
         return true;
     }

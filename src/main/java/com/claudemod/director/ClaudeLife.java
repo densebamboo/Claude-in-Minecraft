@@ -3370,6 +3370,13 @@ public final class ClaudeLife {
                     var cooks = level.getRecipeManager().getAllRecipesFor(net.minecraft.world.item.crafting.RecipeType.SMELTING);
                     String got = fromMyChests(g, level, s -> cooks.stream().anyMatch(h -> h.value().getResultItem(level.registryAccess()).is(item) && h.value().getIngredients().get(0).test(s)), st);
                     if (got != null) return got;
+                    for (BlockPos fp : g.myStations) { // its raw already cooking in his furnace: wait for it there and take it out (live 09:35 11-08: "nothing that smelts into cooked_salmon" with his salmon in his furnace 42 off, twice, and "could you help with that?" to them)
+                        if (fp.distSqr(g.blockPosition()) > 64 * 64 || !level.isLoaded(fp) || !(level.getBlockEntity(fp) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fb)) continue;
+                        ItemStack in0 = fb.getItem(0);
+                        if (in0.isEmpty() || !level.getRecipeManager().getRecipeFor(net.minecraft.world.item.crafting.RecipeType.SMELTING, new net.minecraft.world.item.crafting.SingleRecipeInput(in0), level).map(rh -> rh.value().getResultItem(level.registryAccess()).is(item)).orElse(false)) continue;
+                        g.tasks.add(new Task.GoTo(fp, 2.5)); g.tasks.add(new Task.Wait(Math.min(400, in0.getCount() * 200), false)); g.tasks.add(new Task.FurnaceTake(fp));
+                        return "my " + Crafting.name(in0.getItem()) + " is already cooking in my furnace at " + fp.toShortString() + ": taking the " + target + " out when it's done";
+                    }
                     if (g.tickCount - g.expandTicks.getOrDefault(target, -100000) > 20 * 30) { // (per thing made, as craft) nothing to smelt into it: the whole chain, like craft (live 11-04: "smelt iron_ingot x12 -> nothing that smelts into it" 443 times after a strip_mine that came back empty)
                         Procure.Plan plan = Procure.plan(g, level, item, count);
                         if (plan.problem() == null && plan.steps().size() > 1) { g.gatherForCraftTick = g.tickCount; g.expandTicks.put(target, g.tickCount); for (int i = plan.steps().size() - 1; i >= 0; i--) g.skillQueue.addFirst(plan.steps().get(i)); return "nothing on me smelts into " + target + " yet: " + Procure.describe(plan.steps()) + " first"; }

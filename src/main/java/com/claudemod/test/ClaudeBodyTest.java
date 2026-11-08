@@ -10536,6 +10536,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1153: return st1153(stage, t, c, h, level, mock);
             case 1152: return st1152(stage, t, c, h, level, mock);
             case 1154: return st1154(stage, t, c, h, level, mock);
             case 1150: return st1150(stage, t, c, h, level, mock);
@@ -15527,6 +15528,25 @@ public final class ClaudeBodyTest {
             check((got == null || com.claudemod.entity.nav.Route.walkerTakes(got)) && after == before, "back at his route's leg " + at.toShortString() + " after a made way to it, the next leg " + (int) Math.sqrt(next.pos().distSqr(at)) + " off: planned again (" + got + "), his queue " + before + " -> " + after);
             pass(stage, t, "back on his route where he left it: the legs kept, the next one his walker's");
         }
+        return true;
+    }
+    /** Stage 1153 (review 215, 11-08 12:19: a copper hole off his tunnel, two cells up its side; the patch for the top cell sent him to stand in the cell under it, his head in the very cell to fill, up a step his 2-high tunnel gives no jump room for: 8 s on a walk with no path, then the patch skipped): the top cell of a 2-high ore hole beside his tunnel's head. He patches it from his tunnel. */
+    private static boolean st1153(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos cell = h.absolutePos(new BlockPos(8, 4, 8)), under = h.absolutePos(new BlockPos(8, 3, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.blueprint = null; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            for (int x = 0; x <= 12; x++) for (int z = 4; z <= 10; z++) for (int y = 2; y <= 6; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.STONE.defaultBlockState(), 2);
+            for (int x = 1; x <= 10; x++) for (int y = 2; y <= 3; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, 7)), Blocks.AIR.defaultBlockState(), 2); // his tunnel, 2 high
+            level.setBlock(under, Blocks.AIR.defaultBlockState(), 2); level.setBlock(cell, Blocks.AIR.defaultBlockState(), 2); // the ore hole: his head's height and the cell over it
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 7)); c.teleportTo(me.getX() + 0.1, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear();
+            try { var sm = com.claudemod.entity.goals.WorkGoal.class.getDeclaredMethod("standSpotBeside", BlockPos.class, boolean.class); sm.setAccessible(true); BlockPos spot = (BlockPos) sm.invoke(c.work, cell, false);
+                check(!spot.equals(under) && !spot.above().equals(cell), "the spot to stand at to patch " + cell.toShortString() + " is " + spot.toShortString() + ": his head in the very cell to fill (live: up a step his 2-high tunnel gives no jump room for, 8 s and the patch skipped)"); } catch (ReflectiveOperationException ex) { throw new RuntimeException(ex); }
+            c.tasks.add(new Task.Place(cell, Items.COBBLESTONE));
+        }
+        if (t[0] > 10 && level.getBlockState(cell).is(Blocks.COBBLESTONE)) { check(t[0] < 10 + 20 * 6, "patched, but " + (t[0] - 10) / 20 + " s on it"); pass(stage, t, "the top of the hole patched from his tunnel in " + (t[0] - 10) / 20.0 + " s"); }
+        if (t[0] == 10 + 20 * 12) check(false, "the top of the hole beside his tunnel not patched in 12 s: " + level.getBlockState(cell) + ", he's at " + c.blockPosition().toShortString() + ", no path to " + under.toShortString() + ": " + c.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, under, c.tickCount, 20 * 60));
         return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */

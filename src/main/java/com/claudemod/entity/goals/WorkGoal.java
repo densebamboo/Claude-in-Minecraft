@@ -644,7 +644,7 @@ public class WorkGoal extends Goal {
         for (BlockPos p0 : BlockPos.betweenClosed(pos.offset(-2, -3, -2), pos.offset(2, 2, 2))) { // (three below too: a roof's overhang is placed from the ground under it)
             {
                 BlockPos p = p0.immutable();
-                if (p.equals(pos) || Vec3.atBottomCenterOf(p).add(0, 1.62, 0).distanceTo(Vec3.atCenterOf(pos)) > REACH - 0.3) continue;
+                if (p.equals(pos) || !mayStandIn && p.above().equals(pos) || Vec3.atBottomCenterOf(p).add(0, 1.62, 0).distanceTo(Vec3.atCenterOf(pos)) > REACH - 0.3) continue; // (to fill it: never the cell under it, his head in the very cell; review 215 live 12:19, up a step his 2-high tunnel had no jump room for, 8 s and the patch skipped)
                 boolean open = level.getBlockState(p).getCollisionShape(level, p).isEmpty()
                         && level.getBlockState(p.above()).getCollisionShape(level, p.above()).isEmpty()
                         && level.getFluidState(p).isEmpty();

@@ -10786,6 +10786,7 @@ public final class ClaudeBodyTest {
             case 1052: return st1052(stage, t, c, h, level, mock);
             case 1053: return st1053(stage, t, c, h, level, mock);
             case 1054: return st1054(stage, t, c, h, level, mock);
+            case 1055: return st1055(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -21132,6 +21133,32 @@ public final class ClaudeBodyTest {
         } catch (RuntimeException ex) { nsHome(c, h, level); throw ex; }
         return true;
     }
+    private static boolean st1055(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 16:50:15 11-07 (-85,17/18,-19): an ore walk's route cut 2 cells of his wall, the head one his water plug (water over it), "put back once past"; the water came in, his old mine flooded, drowned 17:04
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); c.planning = false; c.prefs.put("stay_close", "no"); c.prefs.remove("mine_model"); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 10) {
+            level.setDayTime(6000);
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 18; z++) for (int yy = -1; yy <= 9; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.DEEPSLATE);
+            var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(new BlockPos(4, 2, 16)), net.minecraft.core.Direction.NORTH, 2, 3);
+            b.segments.clear(); b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, h.absolutePos(new BlockPos(4, 2, 16)), net.minecraft.core.Direction.NORTH, 12, null)); b.invalidate();
+            for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK && e.getKey().getZ() >= h.absolutePos(new BlockPos(0, 0, 10)).getZ()) level.setBlockAndUpdate(e.getKey(), Blocks.AIR.defaultBlockState());
+            c.blueprint = b;
+            BlockPos plug = h.absolutePos(new BlockPos(6, 3, 12));
+            check(b.isShell(plug) && b.isShell(plug.below()), "setup: (6,2..3,12) isn't his east wall");
+            for (int x = 4; x <= 5; x++) h.setBlock(new BlockPos(x, 4, 12), Blocks.DEEPSLATE); // (the roof lower over that row: the water over his wall shut in)
+            h.setBlock(new BlockPos(6, 4, 12), Blocks.WATER); // a water source over his wall cell, out of his sight
+            level.setBlock(plug, Blocks.WATER.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, plug, Blocks.COBBLED_DEEPSLATE.defaultBlockState(), Blocks.WATER.defaultBlockState()); level.setBlock(plug, Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); // his plug, put down into the water as it came in
+            for (int x = 7; x <= 8; x++) for (int yy = 2; yy <= 3; yy++) h.setBlock(new BlockPos(x, yy, 12), Blocks.AIR); // a dry way on past his wall (to the iron he saw)
+            BlockPos me = h.absolutePos(new BlockPos(5, 2, 12)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64));
+            BlockPos up = h.absolutePos(new BlockPos(10, 11, 4)); mock[0].teleportTo(up.getX() + 0.5, up.getY(), up.getZ() + 0.5);
+            var plan = com.claudemod.entity.nav.ActionPath.plan(c, level, me, h.absolutePos(new BlockPos(8, 2, 12)), 1.0, true, 6000, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, c.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), c.tickCount);
+            boolean cut = plan != null && plan.acts().stream().anyMatch(a -> a instanceof com.claudemod.entity.nav.ActionPath.Act.Dig d && d.pos().equals(plug));
+            h.setBlock(new BlockPos(6, 4, 12), Blocks.DEEPSLATE); c.blueprint = null;
+            check(!cut, "his route past his wall digs his own water plug at (6,3,12): " + (plan == null ? "-" : plan.acts()));
+            pass(stage, t, "his water plug kept: the route " + (plan == null ? "found no way" : "goes " + plan.acts().size() + " acts round it"));
+        }
+        return true;
+    }
 
     /** Stage 1051 (live 10:49 11-07 World 17): 3 meals left in the Nether on his highway job: "off for 9 cooked_porkchop first" sent him 255 blocks off his highway to a crimson forest; at 11:21 he was shot dead on his own bridge over lava out there. Back up for food means home (the user's trip rule): through his portal, the food packed at home; a hoglin in sight is the only hunt. Here: 3 meals, the highway job, no hoglin: home through the portal first, the job after. */
     private static boolean st1051(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
@@ -21207,7 +21234,7 @@ public final class ClaudeBodyTest {
             b.segments.clear(); b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, h.absolutePos(new BlockPos(4, 2, 16)), net.minecraft.core.Direction.NORTH, 44, null)); b.invalidate(); // rows z 16..-27: dug to z 10, the rest planned (a long job)
             for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK && e.getKey().getZ() >= h.absolutePos(new BlockPos(0, 0, 10)).getZ()) level.setBlockAndUpdate(e.getKey(), Blocks.AIR.defaultBlockState());
             c.blueprint = b;
-            for (int yy = 6; yy <= 8; yy++) h.setBlock(new BlockPos(7, yy, 12), Blocks.AIR); // a sealed shaft up behind his east wall, 4 over his floor
+            for (int yy = 6; yy <= 8; yy++) h.setBlock(new BlockPos(7, yy, 12), Blocks.AIR); for (int yy = 4; yy <= 6; yy++) h.setBlock(new BlockPos(6, yy, 12), Blocks.AIR); // an ore hole up his east wall into a shaft (open to his tunnel, as he mined it), the drop 4 over his floor on its ledge
             h.setBlock(new BlockPos(4, 2, 13), Blocks.TORCH);
             BlockPos me = h.absolutePos(new BlockPos(4, 2, 12)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
             c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().add(new ItemStack(Items.TORCH, 32));

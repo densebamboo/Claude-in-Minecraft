@@ -1824,7 +1824,12 @@ public class WorkGoal extends Goal {
         if (g.blueprint.isWalk(it.blockPosition())) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} at {} lies in his own walkway, not behind his wall: the sweeps (and a patch's hold) keep going for it, not recover_left (WorkGoal.leaveOwn)", it.getItem().getHoverName().getString(), it.blockPosition().toShortString()); return false; } // (stage 79: a raw iron on the step under him was left to recover_left, the patch's hold skipped it, and it stayed on his stairs)
         boolean again = com.claudemod.entity.life.OwnEvents.waitFor(g, it);
         String id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(it.getItem().getItem()).getPath();
-        if (again && g.skillQueue.stream().noneMatch(s -> s.skill().equals("recover_left"))) g.skillQueue.addFirst(new com.claudemod.entity.life.Skills.Step("recover_left", id, it.getItem().getCount()));
+        if (again && g.skillQueue.stream().noneMatch(s -> s.skill().equals("recover_left")) && (g.lastStep == null || !g.lastStep.skill().equals("recover_left"))) { // a drop despawns in 5 min: back for it now, the job's own tasks after (live 16:30:53 11-07: queued behind 257 strip-mine tasks, never ran, a diamond lost at -344,-55,-38)
+            var held = new java.util.ArrayList<>(g.tasks); g.tasks.clear();
+            String r = com.claudemod.entity.life.OwnEvents.recover(g, (ServerLevel) g.level(), new com.claudemod.entity.life.Skills.Step("recover_left", id, it.getItem().getCount()), id);
+            g.tasks.addAll(held);
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} at {}: it goes in 5 min, so back for it now ({}), the job's {} task(s) after (WorkGoal.leaveOwn)", it.getItem().getHoverName().getString(), it.blockPosition().toShortString(), r, held.size());
+        }
         com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} at {} by his own mine: his, not a gift; the sweeps leave it, {} (WorkGoal.leaveOwn)", it.getItem().getHoverName().getString(), it.blockPosition().toShortString(), again ? "recover_left goes back for it through his wall" : "three goes at it already: on his book, the hole over it held open");
         return true;
     }
@@ -4845,7 +4850,7 @@ public class WorkGoal extends Goal {
 
     /** Fight or run: hurt, unarmed against a crowd, or a creeper about to blow means run. */
     private net.minecraft.world.phys.Vec3 fleeFrom;
-    private int cornerUntil; private double pricedFightS, pricedRunS;
+    private int cornerUntil, noWayOutTick = -100000; private double pricedFightS, pricedRunS; // (noWayOutTick: when pickEscape last found every way out goes past them)
 
     /** A crowd he'd run from with a wither skeleton in it, and a 2-high gap it can't reach into (FortressFight's wither cover): that wither skeleton, fought from the gap (the chokepoint: one at a time, the tall ones can't follow in). Null: run as before. Live 13:59 11-04: four escape runs, each blocked by a wither skeleton, 20 -> 0 in 10 s; the same kind of gap had held one off a minute before. */
     private net.minecraft.world.entity.LivingEntity gapFoe() {
@@ -4946,12 +4951,13 @@ public class WorkGoal extends Goal {
         double later = Math.min(fightFull, allBurn ? burnS : w("flee.avoid_s", 180));
         double run = w("flee.run_s", 20) + com.claudemod.entity.life.Decide.hpS(g, 0, runHits, perHit) + later + (g.tickCount < cornerUntil ? w("flee.cornered_run_s", 30) : 0);
         // (cornered a moment ago, the run is dearer by the dead ends it already found: priced, not a 10 s lock that kept him fighting whatever came; audit WG shouldFlee)
+        if (g.tickCount - noWayOutTick < 200) run = Double.MAX_VALUE / 4; // (a getaway he just saw isn't there: live 14:30 11-07 the run kept winning, he held 30 s and died; stage 1052)
         pricedFightS = fightNow + (pile ? w("recovery.fight_s", 600) : 0); pricedRunS = run; // (the cornered choice reads them)
         String what = them.size() == 1 ? them.get(0).getType().getDescription().getString() : them.size() + " on him";
         String unpriced = ""; if (say) for (var m : com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(24), m -> m.isAlive() && shoots(m) && !them.contains(m) && g.hasLineOfSight(m))) unpriced += (unpriced.isEmpty() ? "" : ", ") + m.getType().getDescription().getString() + " " + (int) m.distanceTo(g) + " off (" + (m.getTarget() == g ? "on him" : m.getTarget() == null ? "no target" : "on " + m.getTarget().getType().getDescription().getString()) + ")"; // (a shooter with a line on him left out of the price: World 17 09:11, 09:41; the log first, the cause unproven)
         var pick = com.claudemod.entity.life.Decide.choose(g, "fight.flee", what + ", health " + (int) g.getHealth() + ", armor " + g.getArmorValue() + (armed() ? "" : ", unarmed") + (underground ? ", underground" : "") + (unpriced.isEmpty() ? "" : "; shooters with a line on him not priced: " + unpriced), say, java.util.List.of(
             com.claudemod.entity.life.Decide.Option.of("fight", fightNow + (pile ? w("recovery.fight_s", 600) : 0), swings + " swings, ~" + Math.round(hp) + " HP of hits" + (pile ? ", his pile on it out of his armor" : "")),
-            com.claudemod.entity.life.Decide.Option.of("run", run, "~" + Math.round(runHits) + " HP getting away" + (shooters && sprint ? " (~" + Math.round(sightHp) + " of it arrows on the way out of their sight)" : "") + ", then " + (later == fightFull ? "the fight at full health" : allBurn ? "keeping away while it burns" : "keeping away from them"))));
+            g.tickCount - noWayOutTick < 200 ? com.claudemod.entity.life.Decide.Option.out("run", "every way out goes past them (seen " + (g.tickCount - noWayOutTick) / 20 + " s ago)") : com.claudemod.entity.life.Decide.Option.of("run", run, "~" + Math.round(runHits) + " HP getting away" + (shooters && sprint ? " (~" + Math.round(sightHp) + " of it arrows on the way out of their sight)" : "") + ", then " + (later == fightFull ? "the fight at full health" : allBurn ? "keeping away while it burns" : "keeping away from them"))));
         fightOdds = what + ": fight ~" + Math.round(fightNow) + " s (kill in " + swings + ", ~" + Math.round(hp) + " HP of hits)" + (pile ? " + his pile" : "") + (unreachable != null ? ", the " + unreachable + " out of his reach on foot" : "") + ", run ~" + Math.round(run) + " s";
         return pick != null && pick.name().equals("run");
     }
@@ -5244,7 +5250,7 @@ public class WorkGoal extends Goal {
                 for (BlockPos q : BlockPos.betweenClosed(feet.offset(-r, -2, -r), feet.offset(r, 2, r))) { if (!standable(lv, q)) continue;
                     double dq = mobs.stream().mapToDouble(m -> m.position().distanceTo(Vec3.atBottomCenterOf(q))).min().orElse(0); if (dq <= bestD) continue;
                     var pq = g.getNavigation().createPath(q, 0); if (pq == null || !pq.canReach() || walksPast(pq, mobs) != null) continue; best = q.immutable(); bestD = dq; }
-                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: every way out goes by the {} ({} through a mob): {} (WorkGoal.pickEscape)", past.getType().getDescription().getString(), thru, best == null ? "nowhere further from them to back off to, holding here" : "backing off to " + best.toShortString() + ", " + (int) bestD + " from them");
+                noWayOutTick = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: every way out goes by the {} ({} through a mob): {} (WorkGoal.pickEscape)", past.getType().getDescription().getString(), thru, best == null ? "nowhere further from them to back off to, holding here" : "backing off to " + best.toShortString() + ", " + (int) bestD + " from them");
                 end = best == null ? feet.immutable() : best; fleeDir = Vec3.atCenterOf(end).subtract(g.position()).multiply(1, 0, 1); fleeDir = fleeDir.lengthSqr() < 1e-4 ? base : fleeDir.normalize();
                 setEscape("backoff", end, null); return; } }
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: no run end he can walk to ({} tried, no walk to {}; skipped {} with nowhere to stand, {} tried lately, {} through a mob){}: straight out on the best heading (WorkGoal.pickEscape)", tried, nos, noStand, recent, thru, portalNote); }
@@ -5391,7 +5397,8 @@ public class WorkGoal extends Goal {
         }
         // cornered (a dungeon, a dead end): running isn't getting him anywhere, so like a player he turns and fights
         if (ticks == 1) fleeFrom = g.position();
-        if (ticks >= 30 && ticks % 30 == 0 && !escapeHeld && fleeFrom != null && g.position().distanceTo(fleeFrom) < 2.0 && !mobs.isEmpty() // every 1.5 s of the run, not only its first (live 12:07 11-02: escapes blocked x7 on one block, a spider 20 -> 0, never a swing back)
+        // (a back-off hold is a corner too: it never swings, and the run's clock never ends a hold; live 14:30 11-07 two hoglins, 30 s shield up, 20 -> 0, stage 1052)
+        if (ticks >= 30 && ticks % 30 == 0 && (!escapeHeld || "backoff".equals(escapeKind)) && fleeFrom != null && g.position().distanceTo(fleeFrom) < 2.0 && !mobs.isEmpty() // every 1.5 s of the run, not only its first (live 12:07 11-02: escapes blocked x7 on one block, a spider 20 -> 0, never a swing back)
                 && !mobs.stream().allMatch(m -> (com.claudemod.entity.goals.WorkGoal.shoots(m)) && m.distanceTo(g) > 3) // "cornered" by a crossbow 8 blocks off is not a fight to wade into (health 16 to 1 in 10 s)
                 && !(mobs.stream().min(java.util.Comparator.comparingDouble(m -> m.distanceTo(g))).get() instanceof net.minecraft.world.entity.monster.Creeper)) { // and never a creeper: "fighting his way out" of one is the explosion
             var near = mobs.stream().min(java.util.Comparator.comparingDouble(m -> m.distanceTo(g))).get();
@@ -5401,7 +5408,7 @@ public class WorkGoal extends Goal {
             var corner = com.claudemod.entity.life.Decide.choose(g, "flee.cornered", (int) g.getHealth() + " HP, " + mobs.size() + " on him, " + near.getType().getDescription().getString() + " " + (int) near.distanceTo(g) + " off", true, java.util.List.of(
                 unpriced ? com.claudemod.entity.life.Decide.Option.out("fight", "not priced: " + fightOdds) : com.claudemod.entity.life.Decide.Option.of("fight", weakFighter() ? Double.MAX_VALUE / 4 : fightS, weakFighter() ? "bare hands or wood" : "his way out through them"),
                 com.claudemod.entity.life.Decide.Option.of("cover", coverS, "dug in or boxed here, ~" + Math.round(buildHp) + " HP while it goes up"),
-                com.claudemod.entity.life.Decide.Option.of("run", runS, "on, another way")));
+                "backoff".equals(escapeKind) ? com.claudemod.entity.life.Decide.Option.out("run", "every way out goes past them (held where he backed off to)") : com.claudemod.entity.life.Decide.Option.of("run", runS, "on, another way"))); // (priced as a getaway that isn't there, run won every 1.5 s and he died holding: stage 1052)
             String pick = corner == null ? "fight" : corner.name();
             if (pick.equals("run")) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] cornered (health {}): on another way (WorkGoal.doFlee)", (int) g.getHealth()); clearEscape(); pickEscape(mobs); fleeFrom = g.position(); return false; }
             if (pick.equals("cover") && !weakFighter()) { desperateNow = true; boolean dug = digInFromArrows(); desperateNow = false; if (dug) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] cornered (health {}): digging in", (int) g.getHealth()); return true; } }
@@ -5414,7 +5421,7 @@ public class WorkGoal extends Goal {
                 fleeFrom = g.position(); // (another 30 ticks of running before this is looked at again)
             } else {
             cornerUntil = g.tickCount + 200;
-            g.setSprinting(false);
+            g.setSprinting(false); clearEscape();
             g.tasks.addFirst(new Task.Attack(near.getUUID(), 200));
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] cornered (health {}): fighting his way out", (int) g.getHealth());
             return true;

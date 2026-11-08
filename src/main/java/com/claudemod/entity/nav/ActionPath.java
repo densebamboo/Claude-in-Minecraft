@@ -507,6 +507,7 @@ public final class ActionPath {
         /** His own build: never dug through (the rows of his mine and his house's door are the way). */
         final java.util.Set<BlockPos> straySaid = new java.util.HashSet<>(); // (each said once a plan)
         final java.util.Set<BlockPos> intactSaid = new java.util.HashSet<>(); // (a structure's blocks kept: said once a plan)
+        final java.util.Set<BlockPos> plugSaid = new java.util.HashSet<>(); // (his plugs refused: said once a plan)
         /** A plain block of clutter in a cell his nook keeps open (ClaudeLife.nookStray): digging it is the nook's own plan, so a way may go through it. */
         boolean stray(BlockPos p) {
             if (!com.claudemod.director.ClaudeLife.nookStray(g, level, p)) return false;
@@ -550,6 +551,7 @@ public final class ActionPath {
             if (com.claudemod.director.ClaudeLife.hazard(g, level, p, 1) != null || lavaBy(p)) return -1;
             { String ik = com.claudemod.director.Structures.intactKind(s); if (ik != null && !com.claudemod.entity.life.TempLedger.built(g, p)) { if (intactSaid.isEmpty()) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} at {} is {}'s: kept intact, the way goes round or through its doorways (ActionPath.digSeconds)", s.getBlock().getName().getString(), p.toShortString(), ik); intactSaid.add(p.immutable()); } } // (the structure-intact rule: his own placed bricks aside; a structure block is very dear below, never a wall: shut in with no way round, one is dug and put back, ActionPath.tasks)
             for (Direction d : Direction.values()) { BlockPos n0 = p.relative(d); if ((fs(n0).isSource() || mode == Mode.MAY_BEND && !fs(n0).isEmpty()) && (com.claudemod.entity.life.Perception.knowsWater(g, n0) || com.claudemod.entity.life.Perception.knowsLava(g, n0)) && !inMyWater(n0)) return -1; } // (bending never opens water he knows of, flowing or still) // (holding water back; in the water, only the water he's in may be dug out of: live 00:09 11-05 the rule was off whenever he was wet, and his walk dug his own plugs and his nook's wall into the flooded pocket)
+            if (com.claudemod.entity.life.TempLedger.isPlug(g, p)) { if (plugSaid.add(p.immutable())) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} at {} is his own plug (water or lava behind it): never a way through it (ActionPath.digSeconds)", s.getBlock().getName().getString(), p.toShortString()); return -1; } // (a hard rule, no bend: live 16:50 11-07 an ore walk cut his water plug at -85,18,-19 as a "shell cut, put back once past", the old mine flooded, drowned 17:04)
             if (s.getBlock() instanceof net.minecraft.world.level.block.FallingBlock && !floor(p)) return -1; // gravel over nothing: it comes down on him
             boolean right = !s.requiresCorrectToolForDrops();
             float speed = 1f; // bare hands

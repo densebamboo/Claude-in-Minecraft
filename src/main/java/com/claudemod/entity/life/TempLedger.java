@@ -163,7 +163,14 @@ public final class TempLedger {
     }
 
     /** The place event: he put a block down. */
+    private static Map<UUID, java.util.Set<BlockPos>> plugs; // blocks he put down into water or lava: he knows what's behind them (static: fields added live start null)
+    /** A block he put down into water or lava (or his water-inflow plug): what it holds back is his own knowledge, so no way is ever dug through it. */
+    public static boolean isPlug(ClaudeEntity g, BlockPos p) {
+        if (plugs != null) { var s = plugs.get(g.getUUID()); if (s != null && s.contains(p)) return true; }
+        String by = builtCells(g).get(p); return by != null && by.startsWith("WorkGoal.blockWaterInflow");
+    }
     public static void placed(ClaudeEntity g, ServerLevel level, BlockPos pos, BlockState placed, BlockState replaced) {
+        if (!replaced.getFluidState().isEmpty()) { if (plugs == null) plugs = new HashMap<>(); var s = plugs.computeIfAbsent(g.getUUID(), k -> new java.util.LinkedHashSet<>()); s.add(pos.immutable()); while (s.size() > 4096) s.remove(s.iterator().next()); } // (before the End's and the builds' returns: a plug is a plug whoever put it there)
         if (DragonFight.active(g)) return; // (in the End fight nothing he puts down is litter)
         { String by = buildOrigin(g, pos); if (by != null) { // a build system of his put it there: his build (live: secureBedroom's walls booked "cover"/"step", tidied back out, walled again, round and round)
             var bc = builtCells(g); bc.remove(pos); bc.put(pos.immutable(), by); while (bc.size() > 65536) bc.remove(bc.keySet().iterator().next()); /* shortcut: oldest-first eviction past 65k standing builds (4096 dropped his early builds within a day of patching); broken cells already leave it, so only a huge base gets here */

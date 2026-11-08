@@ -10723,6 +10723,7 @@ public final class ClaudeBodyTest {
             case 1036: return st1036(stage, t, c, h, level, mock);
             case 1037: return st1037(stage, t, c, h, level, mock);
             case 1038: return st1038(stage, t, c, h, level, mock);
+            case 1039: return st1039(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -19553,6 +19554,31 @@ public final class ClaudeBodyTest {
                 check(there, "60 s and not back in his mine: " + (now.length() > 200 ? now.substring(0, 200) : now));
                 pass(stage, t, "back into his mine the way he came in " + (t[0] - st1038T) / 20 + " s");
             }
+        }
+        return true;
+    }
+    private static boolean st1039(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // no food on him, 5 cooked salmon in his chest, the kit's pick "his stores": the plan counted on the chest and made no step to fetch it, so strip_mine came back "kit first (missing 5 cooked_salmon), then strip_mine: " 3 times a second and was skipped (live 09:16:35 11-08, review 162)
+        BlockPos o = new BlockPos(7760, 70, 7200);
+        if (t[0] == 1) scenarioReset(c);
+        if (t[0] == 10) {
+            for (int x = -12; x <= 12; x++) for (int z = -12; z <= 12; z++) for (int y = -2; y <= 6; y++) level.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.GRASS_BLOCK : Blocks.AIR).defaultBlockState(), 2);
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) e.discard();
+            BlockPos ch = o.offset(8, 0, 0); level.setBlock(ch, Blocks.CHEST.defaultBlockState(), 2);
+            if (level.getBlockEntity(ch) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box) box.setItem(0, new ItemStack(Items.COOKED_SALMON, 5));
+            c.myStations.add(ch); c.storageChests.add(ch); com.claudemod.entity.life.ChestLedger.reset(c); com.claudemod.entity.life.ChestLedger.look(c, level, ch);
+            level.setDayTime(6000); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 900;
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.fallDistance = 0; c.setHealth(20); c.getFoodData().setFoodLevel(20);
+        }
+        if (t[0] == 70) { // (past the kit's 2 s memo)
+            for (var it : new net.minecraft.world.item.Item[] {Items.STONE_SWORD, Items.IRON_PICKAXE, Items.FURNACE, Items.BUCKET}) c.getInventory().add(new ItemStack(it));
+            c.getInventory().add(new ItemStack(Items.COAL, 32)); c.getInventory().add(new ItemStack(Items.BIRCH_LOG, 32)); c.getInventory().add(new ItemStack(Items.TORCH, 64));
+            c.skillQueue.clear(); c.gearTick = -100000;
+            var miss = com.claudemod.director.Kit.missing(c, false);
+            String r = com.claudemod.director.ClaudeLife.gearFirstNow(c, level, new com.claudemod.entity.life.Skills.Step("strip_mine", "iron_ore", 22), false);
+            var q = new java.util.ArrayList<>(c.skillQueue); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear(); c.storageChests.clear(); com.claudemod.entity.life.ChestLedger.reset(c);
+            check(miss.containsKey(Items.COOKED_SALMON), "the kit didn't ask for cooked salmon (missing " + miss + "): the scene isn't live's");
+            check(r != null && q.stream().anyMatch(x -> x.target().contains("salmon")), "kit first with no salmon step in it: " + r + " (queue " + q + ", kit missing " + miss + ")");
+            nsHome(c, h, level); pass(stage, t, "the kit's salmon fetched from his chest: " + r + " (queue " + q + ")");
         }
         return true;
     }

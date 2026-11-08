@@ -9573,6 +9573,10 @@ public final class ClaudeLife {
             ClaudeMod.LOGGER.info("[Claude life] going {} without {}: {}", st.skill(), Kit.describe(missing), plan.problem());
             return null;
         }
+        List<Skills.Step> steps = new ArrayList<>(plan.steps()); // a kit item the plan counts on in his chests as it is: fetched (live 09:16 11-08, review 162: "missing 5 cooked_salmon -> " with no step, strip_mine re-asked 3 times a second)
+        if (plan.fromChests() != null) plan.fromChests().forEach((it, n) -> { if (n > 0 && missing.containsKey(it)) steps.add(0, new Skills.Step("take_from_chest", net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(it).getPath(), n)); });
+        if (steps.isEmpty()) { ClaudeMod.LOGGER.info("[Claude life] kit first, before {}: missing {}, but nothing to do for it: going as he is (ClaudeLife.gearFirst)", st.skill(), Kit.describe(missing)); return null; }
+        plan = new Procure.Plan(steps, null, plan.fromChests());
         g.skillQueue.addFirst(st);
         // Procure orders ingredients before their crafts; night never reverses those dependencies.
         for (int i = plan.steps().size() - 1; i >= 0; i--) g.skillQueue.addFirst(plan.steps().get(i));

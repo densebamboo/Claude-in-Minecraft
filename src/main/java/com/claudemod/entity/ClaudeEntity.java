@@ -87,7 +87,7 @@ public class ClaudeEntity extends ServerPlayer {
         net.minecraft.core.BlockPos p = t instanceof Task.Break b0 ? b0.pos() : t instanceof Task.Place p0 ? p0.pos() : null;
         if (p == null) return;
         if (t instanceof Task.Place pl0 && (pl0.item().builtInRegistryHolder().is(net.minecraft.tags.ItemTags.SAPLINGS) || pl0.item() == net.minecraft.world.item.Items.TORCH)) return; // (a sapling back in the stump's spot, a torch: the job's own next step, not a claim)
-        String who = o.replaceAll(":\\d+$", "").replaceAll("^(ClaudeLife\\.bp\\w+|WorkGoal\\.doMineVisibleOres)$", "his mine").replaceAll("^WorkGoal\\.(digThroughToward|doPickup)$", "a pickup"), kind = t instanceof Task.Break ? "dug out" : "filled"; long now = System.currentTimeMillis();
+        String who = o.replaceAll(":\\d+$", "").replaceAll("^(ClaudeLife\\.bp\\w+|WorkGoal\\.doMineVisibleOres)$", "his mine").replaceAll("^WorkGoal\\.(digThroughToward|doPickup)$", "a pickup").replaceAll("^ClaudeLife\\.(pickUpTempStations|refillNotch)$", "his stations' cleanup") /* (a station taken up, its notch filled: one job; live 12:05 11-08, review 140) */, kind = t instanceof Task.Break ? "dug out" : "filled"; long now = System.currentTimeMillis();
         synchronized (CLAIM) {
             if (CLAIM.size() > 5000) CLAIM.clear();
             String[] was = CLAIM.get(p.asLong());

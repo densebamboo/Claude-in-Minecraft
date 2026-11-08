@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 1150: return st1150(stage, t, c, h, level, mock);
             case 1130: return st1130(stage, t, c, h, level, mock);
             case 1132: return st1132(stage, t, c, h, level, mock);
+            case 1133: return st1133(stage, t, c, h, level, mock);
             case 999: return st999(stage, t, c, h, level, mock);
             case 997: return st997(stage, t, c, h, level, mock);
             case 996: return st996(stage, t, c, h, level, mock);
@@ -15515,6 +15516,31 @@ public final class ClaudeBodyTest {
                 c.myStations.remove(fp); com.claudemod.entity.life.ChestLedger.furnaceBook(c).remove(fp); level.setBlock(fp, Blocks.AIR.defaultBlockState(), 2);
                 check(gone, "3 s 2 off his furnace's spot, water there, in sight: his book still reads " + left + " in it (sees the spot " + com.claudemod.entity.life.Perception.seesBlock(c, level, fp) + ", he at " + c.blockPosition().toShortString() + ", spot " + fp.toShortString() + ")");
                 pass(stage, t, "the furnace gone in plain sight: off his book " + (t[0] - st1132T) / 20.0 + " s after");
+            }
+        }
+        return true;
+    }
+    /** Stage 1133 (live death 14:57 11-08, World 17, -70,72,-385 on: a wolf his sweep had caught "turned on him", 10+ bites, 20 -> 1, while he hunted a cow and a chicken by it; never a swing at it: fight-back took only Enemy mobs): an angry wolf on him, iron sword and armor, full health, open ground. He fights it within 15 s. */
+    private static int st1133T, st1133Hp0;
+    private static boolean st1133(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1133T = -1; level.setDayTime(3000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var w = net.minecraft.world.entity.EntityType.WOLF.create(level); BlockPos wp = h.absolutePos(new BlockPos(9, 2, 4));
+            w.moveTo(wp.getX() + 0.5, wp.getY(), wp.getZ() + 0.5, 90, 0); w.setPersistenceRequired(); level.addFreshEntity(w);
+            w.setPersistentAngerTarget(c.getUUID()); w.startPersistentAngerTimer(); w.setTarget(c);
+            st1133T = t[0]; st1133Hp0 = 20;
+        }
+        if (st1133T > 0 && t[0] > st1133T) {
+            var ws = level.getEntitiesOfClass(net.minecraft.world.entity.animal.Wolf.class, c.getBoundingBox().inflate(32), net.minecraft.world.entity.Entity::isAlive);
+            boolean hit = ws.isEmpty() || ws.get(0).getHealth() < ws.get(0).getMaxHealth();
+            if (hit || t[0] - st1133T > 20 * 15 || c.getHealth() < 6) {
+                String hp = String.format("%.0f", c.getHealth()); for (var w : ws) w.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.urgentAttacker = null;
+                check(hit, "15 s with an angry wolf on him, iron sword in his pack: not a hit on it, health " + hp);
+                pass(stage, t, "the wolf hit back " + (t[0] - st1133T) / 20.0 + " s in, health " + hp);
             }
         }
         return true;

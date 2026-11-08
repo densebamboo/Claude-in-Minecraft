@@ -4839,7 +4839,7 @@ public class WorkGoal extends Goal {
 
     private java.util.List<net.minecraft.world.entity.Mob> hostilesNear(double r) {
         return com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(r),
-                m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy && (m.getTarget() == g || m.distanceTo(g) < 6)
+                m -> m.isAlive() && (m instanceof net.minecraft.world.entity.monster.Enemy || m instanceof net.minecraft.world.entity.NeutralMob nm0 && nm0.isAngryAt(g)) && (m.getTarget() == g || m.distanceTo(g) < 6)
                         && !(m instanceof net.minecraft.world.entity.NeutralMob nm && !nm.isAngryAt(g))); // (what he sees, hears or feels; a calm zombified piglin or enderman is no one on him: live 17:46 11-07 three made one wither skeleton "4 on him", he ran and died, stage 1057)
     }
 

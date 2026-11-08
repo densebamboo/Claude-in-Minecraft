@@ -488,7 +488,7 @@ public class ClaudeEntity extends ServerPlayer {
     @Override
     public boolean hurt(DamageSource source, float amount) {
         if (!level().isClientSide && source.getEntity() != null) com.claudemod.entity.life.Perception.felt(this, source.getEntity()); // a hit: he knows what did it, and turns to it
-        if (!level().isClientSide && source.getEntity() instanceof net.minecraft.world.entity.Mob m && m instanceof net.minecraft.world.entity.monster.Enemy) urgentAttacker = m.getUUID(); // fight back (phantoms and slimes too, not just the Monster class)
+        if (!level().isClientSide && source.getEntity() instanceof net.minecraft.world.entity.Mob m && (m instanceof net.minecraft.world.entity.monster.Enemy || m instanceof net.minecraft.world.entity.NeutralMob nm && nm.isAngryAt(this))) urgentAttacker = m.getUUID(); // fight back (phantoms and slimes too, not just the Monster class; and a neutral one angry at him: a wolf his sweep caught bit him 20 -> 1 untouched, live 14:56 11-08, stage 1133)
         boolean blocked0 = !level().isClientSide && isDamageSourceBlocked(source); float before0 = getHealth(); int inv0 = invulnerableTime; float last0 = lastHurt; // (for why a hit is not taken)
         boolean took = super.hurt(source, amount);
         if (!level().isClientSide && amount >= 1.0f) { // every hit, mobs too, written once it's resolved (16:30: shield-blocked hits logged as damage)

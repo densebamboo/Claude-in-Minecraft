@@ -258,6 +258,8 @@ public final class CombatLog {
         if (!(e.getSource().getEntity() instanceof ClaudeEntity) && e.getEntity() instanceof Enemy) // what else is hurting his foes (fire, their own, another mob): the fight review names it
             for (Fight f : OPEN.values()) if (f.foes.containsKey(e.getEntity().getUUID())) f.foeHurtBy.merge(e.getSource().getMsgId(), 1, Integer::sum);
         if (!(e.getSource().getEntity() instanceof ClaudeEntity g) || e.getEntity() == g) return;
+        if (!(e.getEntity() instanceof Enemy) && !(g.currentTask instanceof com.claudemod.entity.life.Task.Attack at && at.target().equals(e.getEntity().getUUID()))) // a hit on what he wasn't fighting (live 14:55:55 11-08: a wolf beside the pig he hunted, "last hurt by him 1 ticks ago", then 20 -> 1): what, and the swing's state, to prove a sweep
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] his hit landed on a {} {} off he wasn't fighting ({} HP, by {}): doing {}, charge {}, sprinting {}, on ground {}, falling {}, holding {} (CombatLog.onDamage)", e.getEntity().getType().getDescription().getString(), String.format("%.1f", e.getEntity().distanceTo(g)), String.format("%.1f", e.getNewDamage()), e.getSource().getMsgId(), g.currentTask == null ? "-" : g.currentTask.getClass().getSimpleName(), String.format("%.2f", g.getAttackStrengthScale(0f)), g.isSprinting(), g.onGround(), String.format("%.2f", g.fallDistance), net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(g.getMainHandItem().getItem()).getPath());
         hitAt.put(e.getEntity().getUUID(), e.getEntity().tickCount); if (hitAt.size() > 512) hitAt.clear();
         hitBy(g, e.getEntity(), e.getNewDamage(), critTick.getOrDefault(g.getUUID(), -1) == g.tickCount);
     }

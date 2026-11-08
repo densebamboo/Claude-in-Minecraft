@@ -383,10 +383,10 @@ public final class PortalMap {
             String from = (String) en[0]; int since = g.tickCount - (int) en[1];
             if (!from.equals(dim(level))) { entering.remove(g.getUUID()); ClaudeMod.LOGGER.info("[Claude portal] through portal #{}: in {} now ({} s) (PortalMap.enterStep)", en[2], dim(level), since / 20); return "done: through portal #" + en[2] + ", in the " + dim(level).replace("the_", "").replace('_', ' ') + " now"; }
             boolean inIt = level.getBlockState(g.blockPosition()).is(net.minecraft.world.level.block.Blocks.NETHER_PORTAL) || level.getBlockState(g.blockPosition().above()).is(net.minecraft.world.level.block.Blocks.NETHER_PORTAL);
-            if (inIt && since < 20 * 15) { g.tasks.add(new Task.Wait(20, false)); g.skillQueue.addFirst(new Skills.Step(st.skill(), target, st.count(), st.where())); return "standing in portal #" + en[2] + ", waiting for it to take me (" + since / 20 + " s)"; } // (a player stands still in it 4 s)
+            if (inIt && since < 20 * 15) { if (since >= 20 * 5) ClaudeMod.LOGGER.info("[Claude portal] in #{} {} s, not taken yet: portal cooldown {} (a cooldown on means vanilla restarts it each tick he stands in the portal), at {} (PortalMap.enterStep)", en[2], since / 20, g.getPortalCooldown(), g.position()); g.tasks.add(new Task.Wait(20, false)); g.skillQueue.addFirst(new Skills.Step(st.skill(), target, st.count(), st.where())); return "standing in portal #" + en[2] + ", waiting for it to take me (" + since / 20 + " s)"; } // (a player stands still in it 4 s)
             entering.remove(g.getUUID());
-            ClaudeMod.LOGGER.info("[Claude portal] enter #{}: {} s on, still in the {} at {} and not in the portal (PortalMap.enterStep)", en[2], since / 20, from, g.blockPosition().toShortString());
-            return "failed: didn't get into portal #" + en[2] + " (I'm at " + g.blockPosition().toShortString() + ", still in the " + from.replace('_', ' ') + ")";
+            ClaudeMod.LOGGER.info("[Claude portal] enter #{}: {} s on, still in the {} at {}, {} (portal cooldown {}) (PortalMap.enterStep)", en[2], since / 20, from, g.blockPosition().toShortString(), inIt ? "in the portal and not taken" : "not in the portal", g.getPortalCooldown());
+            return "failed: " + (inIt ? "portal #" + en[2] + " didn't take me" : "didn't get into portal #" + en[2]) + " (I'm at " + g.blockPosition().toShortString() + ", still in the " + from.replace('_', ' ') + ")";
         }
         String t = target == null ? "" : target.replace('_', ' ').trim();
         boolean named = !t.isEmpty() && !t.startsWith("@") && !t.matches("(the |a )?(nether )?portal|it|nearest|any");

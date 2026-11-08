@@ -9653,7 +9653,7 @@ public final class ClaudeLife {
     /** A crafting table within a player's reach of his eyes (4.5 blocks to the block), or null: crafting on a table happens at the table. */
     public static BlockPos tableInReach(ClaudeEntity g, ServerLevel level) {
         BlockPos best = null; double bd = Double.MAX_VALUE;
-        for (BlockPos p : BlockPos.betweenClosed(g.blockPosition().offset(-5, -3, -5), g.blockPosition().offset(5, 3, 5))) {
+        for (BlockPos p : BlockPos.betweenClosed(g.blockPosition().offset(-5, -4, -5), g.blockPosition().offset(5, 6, 5))) { // (all his reach from the eyes, 1.6 up: 3 up from his feet missed a table 4 up he reaches, the walker called him there, the craft walked him again, 11 in 6 s, D2D review 88; stage 1017)
             if (!level.getBlockState(p).is(Blocks.CRAFTING_TABLE)) continue;
             double d = new net.minecraft.world.phys.AABB(p).distanceToSqr(g.getEyePosition());
             if (d <= 4.5 * 4.5 && d < bd) { bd = d; best = p.immutable(); }

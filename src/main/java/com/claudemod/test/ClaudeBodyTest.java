@@ -10686,6 +10686,7 @@ public final class ClaudeBodyTest {
             case 1014: return st1014(stage, t, c, h, level, mock);
             case 1015: return st1015(stage, t, c, h, level, mock);
             case 1016: return st1016(stage, t, c, h, level, mock);
+            case 1017: return st1017(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -18371,6 +18372,42 @@ public final class ClaudeBodyTest {
         } else check(t[0] - s1062T < 20 * 40, "40 s and not up his tower beside the golem (doing " + c.currentTask + ", at " + c.blockPosition().toShortString() + ")");
         return true;
     }
+    private static int st1017T;
+    private static final String[] ST1017_ME = { // incident 20261107-200757-instant_repeat-6 round him at 74,70,-146: y69..y73, rows z -149..-143, x 71..77
+        "#######|#######|#######|...####|#######|#######|#######",
+        "#######|#######|#######|#...###|#######|#######|#######",
+        "#######|#######|#######|##...##|#######|#######|#######",
+        ".#.....|.......|.......|.......|.######|#######|#######",
+        "####.##|####..#|###....|.......|.#...#.|...####|#######",
+    };
+    private static final String[] ST1017_TO = { // round the table 76,74,-144: y73..y77, rows z -147..-141, x 73..79
+        "#......|.......|...#...|.#####.|#######|#######|#######",
+        "##.....|##.....|##.....|###....|#######|#######|#######",
+        "#.....#|##....#|##....#|##....#|#####..|#######|#######",
+        "......#|......#|#.....#|.......|...#...|.#####.|#######",
+        ".......|.......|#......|.......|.......|...#...|#######",
+    };
+    /** D2D review 88 (live 20:07:55-20:08:01 11-07 World 17, 74,70,-146): in the hole he dug for cobble, the crafting table 4 up and 3 across at 76,74,-144; "walk to that one ~2 s" decided, and the walk to it "ended at once ... the walker's own refusal" 11 times in 6 s (CONFLICT, INSTANT REPEAT), then a detour route. A player climbs out to it (or crafts from where he can see it). */
+    private static boolean st1017(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1017T = -1; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.DIRT, 16));
+            java.util.function.BiConsumer<String[], int[]> lay = (map, o) -> { for (int y = 0; y < 5; y++) { String[] rows = map[y].split("[|]"); for (int z = 0; z < 7; z++) for (int x = 0; x < 7; x++) { BlockPos q = h.absolutePos(new BlockPos(o[0] + x - 69, o[1] + y - 68, o[2] + z + 151)); level.setBlock(q, rows[z].charAt(x) == '#' ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); } } };
+            lay.accept(ST1017_ME, new int[] {71, 69, -149}); lay.accept(ST1017_TO, new int[] {73, 73, -147});
+            level.setBlock(h.absolutePos(new BlockPos(76 - 69, 74 - 68, -144 + 151)), Blocks.CRAFTING_TABLE.defaultBlockState(), 2);
+            BlockPos me = h.absolutePos(new BlockPos(74 - 69, 70 - 68, -146 + 151)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) { c.getInventory().add(new ItemStack(Items.COBBLESTONE, 8)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 3)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 2)); // (his pack live: 3 logs, 2 planks)
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "craft", "furnace", 1); com.claudemod.ClaudeMod.LOGGER.info("[Claude test] stage 1017 craft furnace -> {}", r); st1017T = t[0]; }
+        if (st1017T > 0 && t[0] > st1017T) {
+            if (c.getInventory().countItem(Items.FURNACE) > 0) { c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "the furnace made at the table 4 up in " + (t[0] - st1017T) + " ticks"); return true; }
+            BlockPos o = h.absolutePos(BlockPos.ZERO);
+            check(t[0] - st1017T < 20 * 8, "8 s and no furnace from the table 4 up: at " + String.format("%.2f %.2f %.2f", c.getX() - o.getX() + 69, c.getY() - o.getY() + 68, c.getZ() - o.getZ() - 151) + " (live coords), doing " + c.currentTask + ", queue " + c.skillQueue);
+        }
+        return true;
+    }
+
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

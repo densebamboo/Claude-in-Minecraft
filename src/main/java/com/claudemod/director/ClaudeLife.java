@@ -516,7 +516,9 @@ public final class ClaudeLife {
                 && !(g.lastStep != null && g.lastStep.skill().equals("shelter") && !g.tasks.isEmpty()) // digging in already: that goes on (the two took turns cancelling each other at the spawn and a skeleton shot him from 20 to 1 with neither done)
                 && Math.abs(g.tickCount - spawnRunTicks().getOrDefault(g.getUUID(), -100000)) > 20 * 10) {
             spawnRunTicks().put(g.getUUID(), g.tickCount);
+            boolean stepCut = (g.currentTask != null || !g.tasks.isEmpty()) && g.lastStep != null && !g.skillQueue.isEmpty() && g.skillQueue.peek() != g.lastStep; // the plan hasn't moved on: what's in flight is his step's work
             clearTasks(g); dropCurrent(g);
+            if (stepCut) { g.skillQueue.addFirst(g.lastStep); ClaudeMod.LOGGER.info("[Claude plan] {} {} put back first: the clear-out cut it short (ClaudeLife.respawn clear-out)", g.lastStep.skill(), g.lastStep.target()); } // (live 01:16 11-08, review 259: collect logs cut, craft oak_planks ran with 0 logs 3x in 35 s)
             boolean out = underground && routeOutOfMine(g, ((ServerLevel) g.level()));
             if (!out) g.tasks.addFirst(new Task.Flee(160));
             ClaudeMod.LOGGER.info("[Claude life] just respawned, nothing to fight with and mobs within 16: {} first, the job after", out ? "up and out of the mine" : "getting clear");

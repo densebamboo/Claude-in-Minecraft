@@ -10693,6 +10693,7 @@ public final class ClaudeBodyTest {
             case 1021: return st1021(stage, t, c, h, level, mock);
             case 1022: return st1022(stage, t, c, h, level, mock);
             case 1023: return st1023(stage, t, c, h, level, mock);
+            case 1024: return st1024(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -18585,6 +18586,26 @@ public final class ClaudeBodyTest {
         if (st1023T > 0 && t[0] > st1023T) {
             if (c.getInventory().countItem(Items.CHARCOAL) >= 5) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.myStations.remove(fp); c.myStations.remove(fp.above()); pass(stage, t, "took his table off his furnace and took the charcoal in " + (t[0] - st1023T) / 20 + " s"); return true; }
             check(t[0] - st1023T < 20 * 15, "15 s by his furnace with his table on it: " + c.getInventory().countItem(Items.CHARCOAL) + " charcoal taken, the table " + (level.getBlockState(fp.above()).is(Blocks.CRAFTING_TABLE) ? "still there" : "gone") + ", doing " + c.currentTask);
+        }
+        return true;
+    }
+    private static int st1024T; private static boolean st1024Bad; private static net.minecraft.world.entity.Mob st1024M;
+    // live 01:15-01:16 11-08 World 17 (review 259): the respawn clear-out dropped his collect logs tasks and the plan ran on to craft oak_planks with 0 logs, 3 times in 35 s
+    private static boolean st1024(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1024T = -1; st1024Bad = false; st1024M = null; level.setDayTime(6000); flatBox(h);
+            for (int y = 2; y <= 5; y++) h.setBlock(new BlockPos(8, y, 6), Blocks.OAK_LOG);
+            c.getInventory().clearContent(); BlockPos at = h.absolutePos(new BlockPos(3, 2, 3)); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); }
+        if (t[0] == 20) { c.skillQueue.clear(); c.lastSkillLine = ""; c.failCount.clear();
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("collect", "logs", 2));
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "oak_planks", 8)); c.gatherForCraftTick = c.tickCount; st1024T = t[0]; } // (the plan came from a craft's expansion a moment ago, as live)
+        if (st1024T > 0 && t[0] == st1024T + 15 && (c.currentTask != null || !c.tasks.isEmpty())) { // mid-collect: a respawn with a mob in sight, no sword (the clear-out's trigger)
+            try { var rm = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("respawnTicks"); rm.setAccessible(true); ((java.util.Map<java.util.UUID, Integer>) rm.invoke(null)).put(c.getUUID(), c.tickCount); } catch (ReflectiveOperationException e) { throw new RuntimeException(e); } st1024M = h.spawn(EntityType.HUSK, new BlockPos(3, 2, 15)); st1024M.setNoAi(true); }
+        if (st1024M != null && t[0] == st1024T + 80) { st1024M.discard(); }
+        if (st1024T > 0 && t[0] > st1024T) {
+            if (c.lastSkillLine.contains("oak_planks") && c.lastSkillLine.contains("failed")) st1024Bad = true;
+            check(!st1024Bad, "the planks craft ran with no logs after the respawn clear-out: " + c.lastSkillLine + " (logs " + c.getInventory().countItem(Items.OAK_LOG) + ")");
+            if (c.getInventory().countItem(Items.OAK_PLANKS) >= 8) { pass(stage, t, "the clear-out over, back to his logs and then the planks (" + (t[0] - st1024T) / 20 + " s)"); return true; }
+            check(t[0] - st1024T < 20 * 60, "60 s and no planks: logs " + c.getInventory().countItem(Items.OAK_LOG) + ", last " + c.lastSkillLine + ", queue " + c.skillQueue + ", doing " + c.currentTask);
         }
         return true;
     }

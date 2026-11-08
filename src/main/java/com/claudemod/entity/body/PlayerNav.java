@@ -136,8 +136,12 @@ public final class PlayerNav {
         { // a flat step whose straight line catches a block's corner (his box off the cell's middle, over the next row): back to the middle of his cell first, like a player stepping round (16:20 11-07: pressed into a birch trunk's corner 65 s, stage 1010)
             double ex = n.x + ax - pos.x, ez = n.z + az - pos.z, el = Math.sqrt(ex * ex + ez * ez);
             BlockPos here = BlockPos.containing(pos.x, pos.y + 0.01, pos.z); double cx = here.getX() + 0.5 - pos.x, cz = here.getZ() + 0.5 - pos.z;
-            if (el > 0.5 && n.y == here.getY() && cx * cx + cz * cz > 0.1 * 0.1 && !p.level().noCollision(p, p.getBoundingBox().move(ex / el * 0.4, 0.01, ez / el * 0.4))
-                    && p.level().noCollision(p, p.getBoundingBox().move(cx, 0.01, cz))) return new Vec3(cx, 0, cz).normalize();
+            if (el > 0.5 && n.y == here.getY() && !p.level().noCollision(p, p.getBoundingBox().move(ex / el * 0.4, 0.01, ez / el * 0.4))) {
+                Node n0 = path.getNextNode(); double fx = n0.x + 0.5 - pos.x, fz = n0.z + 0.5 - pos.z, fl = Math.sqrt(fx * fx + fz * fz);
+                boolean clear0 = n0 != n && n0.y == here.getY() && fl > 1e-3; for (double s = 0.2; clear0 && s < fl + 0.1; s += 0.2) clear0 = p.level().noCollision(p, p.getBoundingBox().move(fx / fl * Math.min(s, fl), 0.01, fz / fl * Math.min(s, fl))); // (the whole line to it: a corner past the first step is the one stage 1010 pressed into)
+                if (clear0) { n = n0; ax = 0.5; az = 0.5; } // the far node's line clips a block (a leaf at head height over the diagonal): the next node on the grid first, never back to the cell's middle and out at the diagonal again, a 50 s spin (D2D review 87, live 20:08 11-07; stage 1016)
+                else if (cx * cx + cz * cz > 0.1 * 0.1 && p.level().noCollision(p, p.getBoundingBox().move(cx, 0.01, cz))) return new Vec3(cx, 0, cz).normalize();
+            }
         }
         double dx = n.x + ax - pos.x, dz = n.z + az - pos.z;
         double d = Math.sqrt(dx * dx + dz * dz);

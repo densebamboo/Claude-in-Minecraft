@@ -10683,6 +10683,7 @@ public final class ClaudeBodyTest {
             case 1013: return st1013(stage, t, c, h, level, mock);
             case 1014: return st1014(stage, t, c, h, level, mock);
             case 1015: return st1015(stage, t, c, h, level, mock);
+            case 1016: return st1016(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -18243,6 +18244,42 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static java.util.UUID st1015B;
+
+    private static int st1016T;
+    private static final String[] ST1016_ME = { // incident 20261107-200902-spin-16 round him at 27,72,-73: y71..y75, rows z -76..-70, x 24..30 (# solid, . air)
+        "#######|#######|######.|######.|#####..|####...|####..#",
+        "..#....|.......|.......|#......|.......|...#...|......#",
+        "..#....|.......|.......|#......|...#.##|..#####|...####",
+        "#####..|#####..|.####..|#.###..|.######|.######|.######",
+        "#####..|#####..|#####..|#####..|######.|#######|.######",
+    };
+    private static final String[] ST1016_TO = { // round the target 22,72,-69: y71..y75, rows z -72..-66, x 19..25
+        "#######|#######|#######|.######|...####|......#|.#.....",
+        ".......|.......|.......|.......|.......|......#|.......",
+        ".......|.......|.......|.....##|......#|......#|.......",
+        "......#|......#|......#|....###|....###|....###|....###",
+        "...####|....###|......#|.....##|....###|....###|....###",
+    };
+    /** D2D review 87 (live 20:08:58-20:09:50 11-07 World 17, 27,72,-73): a 6-block walk on flat grass under oak leaves to 22,72,-69, the next node 26,72,-73 open and floored; he swung his look 9/49/9/-31/-71 every 6 ticks and never got off x 27.1-27.4, "spin", "shuffle", 50 s to the stuck rung. A player walks it in 2 s. */
+    private static boolean st1016(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1016T = -1; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            java.util.function.BiConsumer<String[], int[]> lay = (map, o) -> { for (int y = 0; y < 5; y++) { String[] rows = map[y].split("[|]"); for (int z = 0; z < 7; z++) for (int x = 0; x < 7; x++) { BlockPos q = h.absolutePos(new BlockPos(o[0] + x - 17, o[1] + y - 70, o[2] + z + 79)); level.setBlock(q, rows[z].charAt(x) == '#' ? (o[1] + y == 71 ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.OAK_LEAVES.defaultBlockState().setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true)) : Blocks.AIR.defaultBlockState(), 2); } } };
+            lay.accept(ST1016_ME, new int[] {24, 71, -76}); lay.accept(ST1016_TO, new int[] {19, 71, -72});
+            BlockPos me = h.absolutePos(new BlockPos(27 - 17, 72 - 70, -73 + 79)); c.teleportTo(me.getX() + 0.31, me.getY(), me.getZ() + 0.56); c.setYRot(9); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.tasks.add(new Task.GoTo(h.absolutePos(new BlockPos(22 - 17, 72 - 70, -69 + 79)), 0.9)); st1016T = t[0]; }
+        if (st1016T > 0 && t[0] > st1016T) {
+            BlockPos to = h.absolutePos(new BlockPos(22 - 17, 72 - 70, -69 + 79));
+            boolean there = c.distanceToSqr(to.getX() + 0.5, to.getY(), to.getZ() + 0.5) < 1.0;
+            if (there || t[0] == st1016T + 20 * 6) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+                check(there, "the 6-block walk under the leaves not done in 6 s: at " + String.format("%.2f %.2f %.2f", c.getX() - h.absolutePos(BlockPos.ZERO).getX() + 17, c.getY() + 70 - h.absolutePos(BlockPos.ZERO).getY(), c.getZ() - h.absolutePos(BlockPos.ZERO).getZ() - 79) + " (live coords)");
+                pass(stage, t, "walked it in " + (t[0] - st1016T) + " ticks"); }
+        }
+        return true;
+    }
 
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass

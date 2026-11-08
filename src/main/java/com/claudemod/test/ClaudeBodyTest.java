@@ -10535,6 +10535,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 988: return st988(stage, t, c, h, level, mock);
             case 986: return st986(stage, t, c, h, level, mock);
             case 985: return st985(stage, t, c, h, level, mock);
             case 987: return st987(stage, t, c, h, level, mock);
@@ -15199,6 +15200,25 @@ public final class ClaudeBodyTest {
             check(st986Low >= 20, "took " + (20 - st986Low) + " HP getting 11 down through netherrack (at " + c.blockPosition().toShortString() + ", doing " + c.currentTask + ")");
             if (c.blockPosition().distSqr(goal) <= 2 * 2) { int s = (t[0] - st986T0) / 20; check(s <= 30, "11 down through netherrack took " + s + " s"); pass(stage, t, "11 down with no HP lost in " + s + " s (digs " + String.format("%.1f", st986Dug / 8.0) + " ticks each)"); }
             check(t[0] - st986T0 < 20 * 45, "not down in 45 s: at " + c.blockPosition().toShortString() + " doing " + c.currentTask + " tasks " + c.tasks.size());
+        }
+        return true;
+    }
+    /** Stage 988 (D2D 11-08, reviews 199/200/232, live 03:5x at -39,72,-40: "can't get at -41, 77, -40 ... leaving it", a floating oak log 4.4 from his eye to its middle, a leaf on the line; inReach wanted 4.25 to the middle, so he asked the walker for a way to the log, the search ran out and he left it; a player's aim at its middle meets its face ~3.8 off, inside 4.5): boxed in by bedrock, a leaf one west 4 up, the log two west 5 up. The log broken from where he stands. */
+    private static int st988T0;
+    private static boolean st988(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(14200, 70, 8900), log = o.offset(-2, 5, 0), leaf = o.offset(-1, 4, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) m.discard(); }
+        if (t[0] == 3) {
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) { level.setBlock(o.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) for (int y = 0; y <= 1; y++) if (x != 0 || z != 0) level.setBlock(o.offset(x, y, z), Blocks.BEDROCK.defaultBlockState(), 2); // (nowhere to step or dig: what's in reach from here is all he gets, as live the walker found no way; glass he dug out of)
+            level.setBlock(log, Blocks.OAK_LOG.defaultBlockState(), 2); level.setBlock(leaf, Blocks.OAK_LEAVES.defaultBlockState().setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_AXE));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.tasks.add(new Task.Break(log)); st988T0 = t[0];
+        }
+        if (t[0] > 3) {
+            if (level.getBlockState(log).isAir()) { check(c.blockPosition().equals(o), "the log down, but from " + c.blockPosition().toShortString()); pass(stage, t, "the log 4.4 to its middle from where he stands (by a face he sees: the leaf " + (level.getBlockState(leaf).isAir() ? "broken first" : "left") + ") in " + (t[0] - st988T0) / 20.0 + " s"); return true; }
+            check(t[0] - st988T0 < 20 * 8, "the log 4.4 from his eye to its middle not broken in 8 s (leaf " + (level.getBlockState(leaf).isAir() ? "gone" : "there") + ", doing " + c.currentTask + ", queue " + c.tasks.size() + ")");
         }
         return true;
     }

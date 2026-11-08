@@ -1740,7 +1740,11 @@ public class WorkGoal extends Goal {
     public static final double BREAK_REACH = 4.25;
 
     private boolean inReach(BlockPos pos) {
-        return g.getEyePosition().distanceTo(Vec3.atCenterOf(pos)) <= BREAK_REACH; // 4.25 to the centre: every face he clicks stays inside the 4.75 his hands allow (4.0 left a mine-wall hole "out of reach" that a player reaches with a step)
+        Vec3 eye = g.getEyePosition(); // a player's reach: a face of it he sees, its point inside 4.5 (block_interaction_range), aimed at as blockInTheWay aims; 4.25 to the middle left a floating log 4.37 off, a face 3.8 off, "can't get at it" (reviews 199/200, stage 988)
+        if (eye.distanceTo(Vec3.atCenterOf(pos)) > w("reach.block", 4.45) + 0.87) return false; // (no face of it within reach: no rays; a ray to a block far off stepped every cell and loaded every chunk on the way, the test server hung, stages 548, 781)
+        for (Vec3 aim : aims(Vec3.atCenterOf(pos))) { var hit = g.level().clip(new net.minecraft.world.level.ClipContext(eye, aim, net.minecraft.world.level.ClipContext.Block.OUTLINE, net.minecraft.world.level.ClipContext.Fluid.NONE, g));
+            if (hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK && hit.getBlockPos().equals(pos) && eye.distanceTo(hit.getLocation()) <= w("reach.block", 4.45)) return true; }
+        return eye.distanceTo(Vec3.atCenterOf(pos)) <= BREAK_REACH; // 4.25 to the centre: every face he clicks stays inside the 4.75 his hands allow (4.0 left a mine-wall hole "out of reach" that a player reaches with a step)
     }
 
     private int approachTries;

@@ -10863,6 +10863,16 @@ public final class ClaudeBodyTest {
             case 1071: return st1071(stage, t, c, h, level, mock);
             case 1072: return st1072(stage, t, c, h, level, mock);
             case 1073: return st1073(stage, t, c, h, level, mock);
+            case 1160: return blazeBench(stage, t, c, level, mock);
+            case 1161: return blazeBench(stage, t, c, level, mock);
+            case 1162: return blazeBench(stage, t, c, level, mock);
+            case 1163: return blazeBench(stage, t, c, level, mock);
+            case 1164: return blazeBench(stage, t, c, level, mock);
+            case 1165: return blazeBench(stage, t, c, level, mock);
+            case 1166: return blazeBench(stage, t, c, level, mock);
+            case 1167: return blazeBench(stage, t, c, level, mock);
+            case 1168: return blazeBench(stage, t, c, level, mock);
+            case 1169: return blazeBench(stage, t, c, level, mock);
             case 1080: return bench(stage, t, c, h, level);
             case 1081: return bench(stage, t, c, h, level);
             case 1082: return bench(stage, t, c, h, level);
@@ -15547,6 +15557,75 @@ public final class ClaudeBodyTest {
         }
         if (t[0] > 10 && level.getBlockState(cell).is(Blocks.COBBLESTONE)) { check(t[0] < 10 + 20 * 6, "patched, but " + (t[0] - 10) / 20 + " s on it"); pass(stage, t, "the top of the hole patched from his tunnel in " + (t[0] - 10) / 20.0 + " s"); }
         if (t[0] == 10 + 20 * 12) check(false, "the top of the hole beside his tunnel not patched in 12 s: " + level.getBlockState(cell) + ", he's at " + c.blockPosition().toShortString() + ", no path to " + under.toShortString() + ": " + c.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, under, c.tickCount, 20 * 60));
+        return true;
+    }
+    /** Stages 1160-1169: the fortress bench (D2D for the user, 11-08: "it's really pathetic that he isn't able to reliably get blaze rods yet"). A blaze spawner in the Nether (about 7000, 70, 7000) in one of three fortress pieces, him 14 off it with a kit, "blaze_rods 7"; scored, not failed: rods, deaths (a lethal hit is scored, never landed), seconds. The rewrite lands when most runs get 7 rods with 0 deaths. */
+    private static final String[][] BLAZE_BENCH = {
+        // name, arena (room | bridge | platform), kit (iron | ironns | diamond | low), extra mobs (type@x,y,z from the deck's origin; the spawner is at 10,1,0, he starts at -4,1,0)
+        {"spawner room, iron + shield", "room", "iron", ""},
+        {"spawner on an open bridge, iron + shield", "bridge", "iron", ""},
+        {"spawner platform (raised, fenced, open), iron + shield", "platform", "iron", ""},
+        {"spawner room + 2 wither skeletons at its door, iron + shield", "room", "iron", "wither_skeleton@1,1,1;wither_skeleton@2,1,-1"},
+        {"spawner room + 3 zombified piglins about, iron + shield", "room", "iron", "zombified_piglin@8,1,3;zombified_piglin@12,1,-3;zombified_piglin@-1,1,1"},
+        {"spawner room, iron, no shield", "room", "ironns", ""},
+        {"spawner room, low: 12 HP, 4 bread", "room", "low", ""},
+        {"open bridge, diamond + gold boots", "bridge", "diamond", ""},
+        {"spawner room, 3 blazes out already", "room", "iron", "blaze@10,3,3;blaze@11,3,-3;blaze@9,4,0"},
+        {"open bridge + a wither skeleton on the deck past the spawner, iron + shield", "bridge", "iron", "wither_skeleton@17,1,0"},
+    };
+    private static int bbLow, bbStart;
+    private static boolean blazeBench(int[] stage, int[] t, ClaudeEntity c, ServerLevel level, ServerPlayer[] mock) {
+        if (!benchHooked) { benchHooked = true; net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.living.LivingDamageEvent.Pre e) -> { if (benchOn && !benchDied && e.getEntity() instanceof ClaudeEntity g && e.getNewDamage() >= g.getHealth()) { e.setNewDamage(0); benchDied = true; com.claudemod.entity.life.CombatLog.died(g, e.getSource()); } }); }
+        String[] b = BLAZE_BENCH[stage[0] - 1160]; String arena = b[1];
+        ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        final BlockPos o = new BlockPos(7000, 70, 7000); BlockPos cage = arena.equals("platform") ? o.offset(10, 2, 0) : o.offset(10, 1, 0), me = o.offset(-4, 1, 0);
+        var HEAD = net.minecraft.world.entity.EquipmentSlot.HEAD; var CHEST = net.minecraft.world.entity.EquipmentSlot.CHEST; var LEGS = net.minecraft.world.entity.EquipmentSlot.LEGS; var FEET = net.minecraft.world.entity.EquipmentSlot.FEET; var OFF = net.minecraft.world.entity.EquipmentSlot.OFFHAND;
+        net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(o.offset(-26, -16, -18).getCenter(), o.offset(36, 18, 18).getCenter());
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.FortressFight.reset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 900; c.prefs.put("stay_close", "no"); c.commandActive = false; bbLow = 20;
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(nether, me.getX() + 0.5, o.getY() + 30, me.getZ() + 0.5, 0, 0); c.setNoGravity(true); }
+        if (t[0] > 1 && t[0] % 10 == 0) nether.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(5, 0, 0)), 3, o.offset(5, 0, 0));
+        if (t[0] >= 10 && t[0] < 10 + 61) { int x = t[0] - 10 - 25; // the shell and its piece, one x-slice a tick
+            for (int z = -17; z <= 17; z++) for (int y = -15; y <= 17; y++) { BlockPos p = o.offset(x, y, z); boolean shell = x == -25 || x == 35 || Math.abs(z) == 17 || y == -15 || y == 17;
+                net.minecraft.world.level.block.state.BlockState s = shell ? Blocks.BEDROCK.defaultBlockState() : y <= -11 ? Blocks.LAVA.defaultBlockState() : Blocks.AIR.defaultBlockState();
+                if (!shell && y == 0) { boolean deck = switch (arena) { case "bridge" -> x >= -8 && x <= 30 && Math.abs(z) <= 2; case "platform" -> x >= -8 && x <= 20 && Math.abs(z) <= 6; default -> x >= -8 && x <= 18 && Math.abs(z) <= 7; }; if (deck) s = Blocks.NETHER_BRICKS.defaultBlockState(); }
+                if (!shell && y == 1 && (arena.equals("bridge") && Math.abs(z) == 2 && x >= -8 && x <= 30 || arena.equals("platform") && (Math.abs(z) == 6 && x >= 0 && x <= 20 || x == 20 && Math.abs(z) <= 6))) s = Blocks.NETHER_BRICK_FENCE.defaultBlockState();
+                if (!shell && arena.equals("room") && x >= 4 && x <= 16 && Math.abs(z) <= 6 && y >= 1 && y <= 7 && (x == 4 || x == 16 || Math.abs(z) == 6 || y == 7) && !(x == 4 && z == 0 && y <= 2)) s = Blocks.NETHER_BRICKS.defaultBlockState();
+                if (!shell && arena.equals("platform") && x == 10 && z == 0 && y == 1) s = Blocks.NETHER_BRICKS.defaultBlockState();
+                nether.setBlock(p, s, 2); } }
+        if (t[0] == 72) {
+            for (var m : nether.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, box, e -> !(e instanceof net.minecraft.world.entity.player.Player))) m.discard();
+            nether.setBlock(cage, Blocks.SPAWNER.defaultBlockState(), 2); if (nether.getBlockEntity(cage) instanceof net.minecraft.world.level.block.entity.SpawnerBlockEntity sb) sb.setEntityId(EntityType.BLAZE, nether.getRandom());
+            com.claudemod.entity.life.Perception.noteSignTest(c, cage, "a mob spawner"); // (seen on his way in: on his record)
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == OFF) c.setItemSlot(sl, ItemStack.EMPTY);
+            switch (b[2]) {
+                case "diamond" -> { c.setItemSlot(HEAD, new ItemStack(Items.DIAMOND_HELMET)); c.setItemSlot(CHEST, new ItemStack(Items.DIAMOND_CHESTPLATE)); c.setItemSlot(LEGS, new ItemStack(Items.DIAMOND_LEGGINGS)); c.setItemSlot(FEET, new ItemStack(Items.GOLDEN_BOOTS)); c.setItemSlot(OFF, new ItemStack(Items.SHIELD)); c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); }
+                default -> { c.setItemSlot(HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(FEET, new ItemStack(Items.GOLDEN_BOOTS)); if (!b[2].equals("ironns")) c.setItemSlot(OFF, new ItemStack(Items.SHIELD)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); }
+            }
+            c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 54));
+            c.getInventory().add(new ItemStack(b[2].equals("low") ? Items.BREAD : Items.COOKED_BEEF, b[2].equals("low") ? 4 : 20));
+            c.setNoGravity(false); c.teleportTo(nether, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, -90f, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.fallDistance = 0; c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.clearFire();
+            c.setHealth(b[2].equals("low") ? 12 : 20); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5);
+            if (!b[3].isEmpty()) for (String fs : b[3].split(";")) { String[] tp = fs.split("@"); String[] d = tp[1].split(",");
+                var type = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.get(net.minecraft.resources.ResourceLocation.withDefaultNamespace(tp[0]));
+                if (!(type.create(nether) instanceof net.minecraft.world.entity.Mob m)) continue;
+                if (m instanceof net.minecraft.world.entity.monster.WitherSkeleton) m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD));
+                if (m instanceof net.minecraft.world.entity.monster.ZombifiedPiglin) m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.GOLDEN_SWORD));
+                BlockPos mp = o.offset(Integer.parseInt(d[0]), Integer.parseInt(d[1]), Integer.parseInt(d[2])); m.moveTo(mp.getX() + 0.5, mp.getY(), mp.getZ() + 0.5, -90, 0); m.setPersistenceRequired(); nether.addFreshEntity(m); }
+            benchOn = true; benchDied = false; bbStart = t[0];
+        }
+        if (t[0] == 76) c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("blaze_rods", "", 7, "near_you"));
+        if (t[0] > 72 && c.level() == nether) bbLow = Math.min(bbLow, (int) Math.ceil(c.getHealth()));
+        int rods = c.inventory.count(s -> s.is(Items.BLAZE_ROD));
+        if (t[0] > 76 && (rods >= 7 || benchDied || !c.isAlive() || t[0] >= bbStart + 20 * 360)) {
+            boolean alive = c.isAlive() && !benchDied; benchOn = false; double secs = (t[0] - bbStart) / 20.0;
+            String out = rods >= 7 && alive ? "WIN" : !alive ? "DIED" : "SHORT";
+            com.claudemod.entity.life.CombatLog.closeNow(c);
+            ClaudeMod.LOGGER.info("[Claude bench] {} {}: {} {} rods in {} s, low {} HP, last line \"{}\"", stage[0], b[0], out, rods, String.format("%.0f", secs), bbLow, c.lastSkillLine);
+            for (var m : nether.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, box, e -> !(e instanceof net.minecraft.world.entity.player.Player))) m.discard(); nether.setBlock(cage, Blocks.AIR.defaultBlockState(), 2);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.clearFire(); c.setHealth(20f); c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == OFF) c.setItemSlot(sl, ItemStack.EMPTY);
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0);
+            pass(stage, t, b[0] + ": " + out + ", " + rods + " rods in " + String.format("%.0f", secs) + " s, low " + bbLow + " HP");
+        }
         return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */

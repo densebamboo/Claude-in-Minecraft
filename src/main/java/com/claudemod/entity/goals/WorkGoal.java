@@ -2875,7 +2875,7 @@ public class WorkGoal extends Goal {
     public static java.util.List<BlockPos> veinBehind(com.claudemod.entity.ClaudeEntity g, ServerLevel level, BlockPos pos) {
         java.util.Set<BlockPos> pocket = pocketBehind(g, level, pos); java.util.LinkedHashSet<BlockPos> out = new java.util.LinkedHashSet<>();
         for (BlockPos p : pocket) for (Direction d : Direction.values()) { BlockPos q = p.relative(d); if (pocket.contains(q)) continue; BlockState s = level.getBlockState(q);
-            if (!com.claudemod.entity.life.MineBlueprint.ore(s) || (g.blueprint != null && g.blueprint.isWalk(q)) || !com.claudemod.director.ClaudeLife.canSee(g, level, q)) continue;
+            if (!com.claudemod.entity.life.MineBlueprint.ore(s) || (g.blueprint != null && g.blueprint.isWalk(q)) || !com.claudemod.director.ClaudeLife.canSee(g, level, q) && !com.claudemod.director.ClaudeLife.seenOre(g).contains(q)) continue; // (in sight, or seen before: live 16:32:56 a diamond seen through the hole, out of sight 3 s later as he backed out, sealed in; stage 1013)
             out.add(q.immutable()); }
         java.util.List<BlockPos> l = new java.util.ArrayList<>(out); l.sort(java.util.Comparator.<BlockPos>comparingInt(q -> level.getBlockState(q).is(net.minecraft.tags.BlockTags.DIAMOND_ORES) ? 0 : 1).thenComparingDouble(q -> q.distSqr(pos))); return l;
     }

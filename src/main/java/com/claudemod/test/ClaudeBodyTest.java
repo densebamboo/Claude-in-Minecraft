@@ -10677,6 +10677,7 @@ public final class ClaudeBodyTest {
             case 1010: return st1010(stage, t, c, h, level, mock);
             case 1011: return st1011(stage, t, c, h, level, mock);
             case 1012: return st1012(stage, t, c, h, level, mock);
+            case 1013: return st1013(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -18037,6 +18038,35 @@ public final class ClaudeBodyTest {
             if (there || t[0] == st1012T + 20 * 10) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
                 check(there, "never through the gravel at " + st1012G.toShortString() + " in 10 s (gravel still " + level.getBlockState(st1012G).is(Blocks.GRAVEL) + ", ceiling over it dug " + ceil + "), at " + c.blockPosition().toShortString());
                 pass(stage, t, "the gravel in his way dug, through in " + (t[0] - st1012T) + " ticks (ceiling dug " + ceil + ")"); }
+        }
+        return true;
+    }
+    private static int st1013T; private static BlockPos st1013W, st1013P, st1013H, st1013O; private static boolean st1013Seen;
+    private static boolean st1013(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D 216 (live 16:32:56-16:33:08 World 17, his mine at -343,-58,-80): a diamond in the pocket behind his hole, seen at 16:32:56 and out of his sight 3 s later as he backed out; the patch's vein check saw only what was in sight, sealed it in, the vein pass broke the patch for it
+        if (t[0] == 1) { resetLoot(c, mock[0]); st1013T = -1; }
+        if (t[0] == 10) {
+            buildStairs(h, 0);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("mine_model", "blueprint"); c.prefs.put("torches_while_digging", "no");
+            var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(stairFeet(0, 6)), net.minecraft.core.Direction.EAST, 2, 4); b.segments.get(0).n = 11; c.blueprint = b;
+            com.claudemod.director.ClaudeLife.bpSync(c);
+            BlockPos at = h.absolutePos(stairFeet(1, 6)); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            net.minecraft.core.Direction side = null; for (net.minecraft.core.Direction d : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && b.isShell(at.relative(d)) && !b.touches(at.relative(d, 2))) side = d;
+            check(side != null, "setup: no wall side at " + at.toShortString());
+            st1013W = at.relative(side).immutable(); st1013P = at.relative(side, 2).immutable(); st1013H = st1013P.above().east().immutable();
+            for (int dx = -1; dx <= 1; dx++) for (int dy = -1; dy <= 2; dy++) for (int dz = -1; dz <= 1; dz++) { BlockPos q = st1013P.offset(dx, dy, dz); if (!b.touches(q)) level.setBlock(q, Blocks.DEEPSLATE.defaultBlockState(), 2); } // rock round the pocket
+            level.setBlock(st1013P, Blocks.AIR.defaultBlockState(), 2); level.setBlock(st1013P.above(), Blocks.AIR.defaultBlockState(), 2); level.setBlock(st1013H, Blocks.AIR.defaultBlockState(), 2); // the vein's pocket: room to stand in, a hole beside its top (as live: view -313,-57,-33, hole -312,-56,-34)
+            BlockPos away = h.absolutePos(stairFeet(4, 6)); c.teleportTo(away.getX() + 0.5, away.getY(), away.getZ() + 0.5); // a few cells along his tunnel (live: at -311,-58,-30, the view 3 off): a walk to the view, not a nudge
+        }
+        if (t[0] == 14) { c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); level.setBlock(st1013W, Blocks.AIR.defaultBlockState(), 2); level.setBlock(st1013H, Blocks.DEEPSLATE.defaultBlockState(), 2); st1013O = st1013P.relative(net.minecraft.core.Direction.EAST).immutable(); level.setBlock(st1013O, Blocks.DEEPSLATE_DIAMOND_ORE.defaultBlockState(), 2); com.claudemod.director.ClaudeLife.seenOre(c).add(st1013O); st1013Seen = com.claudemod.director.ClaudeLife.canSee(c, level, st1013O); c.tasks.add(new Task.Place(st1013W, Items.COBBLED_DEEPSLATE)); st1013T = t[0]; } // the hole open, a diamond in its pocket he saw before and can't see from here; the hole's patch queued
+        if (st1013T > 0 && t[0] > st1013T && t[0] <= st1013T + 300) {
+            boolean dug = false;
+            boolean sent = false; boolean sealed = !level.getBlockState(st1013W).isAir() && level.getBlockState(st1013O).is(Blocks.DEEPSLATE_DIAMOND_ORE);
+            boolean placeLeft = c.currentTask instanceof Task.Place pl && pl.pos().equals(st1013W) || c.tasks.stream().anyMatch(q -> q instanceof Task.Place p2 && p2.pos().equals(st1013W));
+            if (sealed || t[0] == st1013T + 300 || !placeLeft && t[0] > st1013T + 20) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+                check(!st1013Seen, "setup: the ore at " + st1013O.toShortString() + " in his sight from where he stands"); check(!sealed, "the patch at " + st1013W.toShortString() + " sealed in the diamond at " + st1013O.toShortString() + " he had seen");
+                check(!level.getBlockState(st1013O).is(Blocks.DEEPSLATE_DIAMOND_ORE), "the diamond at " + st1013O.toShortString() + " still in the wall after 15 s");
+                pass(stage, t, "the diamond he had seen behind the hole mined before the patch"); }
         }
         return true;
     }

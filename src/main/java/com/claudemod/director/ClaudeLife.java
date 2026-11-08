@@ -3969,15 +3969,19 @@ public final class ClaudeLife {
                 if (g.inventory.count(s -> s.getItem() instanceof net.minecraft.world.item.AxeItem || s.getItem() instanceof net.minecraft.world.item.SwordItem) == 0) return "failed: an axe (a stone one crits for 13) before a golem";
                 if (g.inventory.count(ClaudeInventory::isBuildingBlock) < 4) return "failed: 4 blocks for the pillar first";
                 if (g.inventory.count(s -> s.getItem() instanceof net.minecraft.world.item.PickaxeItem) == 0 && g.inventory.count(s -> s.is(Items.DIRT)) < 4) return "failed: a pickaxe (or 4 dirt) for the tower, to take it down after";
-                var golem = golems.get(0);
-                BlockPos gp = golem.blockPosition(), stand = null; double sd = Double.MAX_VALUE;
-                for (int[] o : new int[][] {{1, 1}, {1, -1}, {-1, 1}, {-1, -1}, {2, 0}, {-2, 0}, {0, 2}, {0, -2}}) { // a diagonal off it on its own ground, else 2 off: pressed against it, it shoved him off his spot every tick and the jump never fired; further off, it wandered out of reach before the first swing
-                    BlockPos s0 = gp.offset(o[0], 0, o[1]);
-                    if (!standable(level, s0)) continue;
-                    if (golem.getBoundingBox().inflate(0.1).intersects(new net.minecraft.world.phys.AABB(s0))) continue; // (its 1.4-wide box reaches into a diagonal cell when it stands mid-cell: the tower's block never went in, "the tower again beside it" on that spot 7 times, D2D review 64, live 20:22 11-07; stage 1018)
-                    boolean clear = true; for (int k = 2; k <= 4; k++) if (!level.getBlockState(s0.above(k)).getCollisionShape(level, s0.above(k)).isEmpty()) clear = false;
-                    if (clear && s0.distSqr(g.blockPosition()) < sd) { sd = s0.distSqr(g.blockPosition()); stand = s0.immutable(); }
+                net.minecraft.world.entity.LivingEntity golem = null; BlockPos gp = null, stand = null;
+                for (var gl : golems) { // the nearest golem with a free cell beside it (9 penned in a cell: every cell beside one was another's, the walk BLOCKED_MOB and re-queued 3 times a second, live 09:50 11-08, reviews 336-338; stage 1042)
+                    BlockPos gp0 = gl.blockPosition(); double sd = Double.MAX_VALUE; BlockPos st0 = null;
+                    for (int[] o : new int[][] {{1, 1}, {1, -1}, {-1, 1}, {-1, -1}, {2, 0}, {-2, 0}, {0, 2}, {0, -2}}) { // a diagonal off it on its own ground, else 2 off: pressed against it, it shoved him off his spot every tick and the jump never fired; further off, it wandered out of reach before the first swing
+                        BlockPos s0 = gp0.offset(o[0], 0, o[1]);
+                        if (!standable(level, s0)) continue;
+                        if (!level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(s0).inflate(0.1)).isEmpty()) continue; // (any mob's box in the cell, its own included: a 1.4-wide box reaches into a diagonal cell when it stands mid-cell, D2D review 64, stage 1018)
+                        boolean clear = true; for (int k = 2; k <= 4; k++) if (!level.getBlockState(s0.above(k)).getCollisionShape(level, s0.above(k)).isEmpty()) clear = false;
+                        if (clear && s0.distSqr(g.blockPosition()) < sd) { sd = s0.distSqr(g.blockPosition()); st0 = s0.immutable(); }
+                    }
+                    if (st0 != null) { golem = gl; gp = gp0; stand = st0; break; }
                 }
+                if (golem == null) return "failed: " + golems.size() + " golem(s) in sight, none with a free cell beside it for the tower (penned in together)";
                 g.tasks.add(stand != null ? new Task.GoTo(stand, 0.4) : new Task.GoTo(gp, 1.8));
                 g.tasks.add(new Task.Wait(12, false)); // (a breath after the walk: the jump right after a landing is eaten by the jump delay)
                 int rise = 0; // ground it can step onto beside his tower lifts its reach with it (live 21:38 11-07: a block up beside his 3-high tower, "still in its reach", dead; stage 1062)

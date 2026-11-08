@@ -10726,6 +10726,7 @@ public final class ClaudeBodyTest {
             case 1039: return st1039(stage, t, c, h, level, mock);
             case 1040: return st1040(stage, t, c, h, level, mock);
             case 1041: return st1041(stage, t, c, h, level, mock);
+            case 1042: return st1042(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -19638,6 +19639,29 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static int st1041T; private static BlockPos st1041M;
+    private static java.util.List<net.minecraft.world.entity.animal.IronGolem> s1042G = new java.util.ArrayList<>();
+    private static boolean st1042(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // 9 golems packed in a fenced 3x3 cell (an iron farm's pen): village_iron's tower spot "beside it" was another golem's cell, the walk there BLOCKED_MOB, waited on, re-queued, the same GoTo ended at once 3 times a second, then the 45 s stuck rung (live 09:49-09:50 11-08 at -169,74,70, reviews 336-338)
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.prefs.put("stay_close", "no"); c.prefs.put("village_mode", "raid"); s1042G.clear(); }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(60))) if (!s1042G.contains(e)) e.discard();
+        if (t[0] == 10) {
+            for (int x = -4; x <= 20; x++) for (int z = -4; z <= 20; z++) { for (int yy = -2; yy <= 0; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 10; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = 7; x <= 13; x++) for (int z = 7; z <= 13; z++) if (x <= 8 || x >= 12 || z <= 8 || z >= 12) for (int yy = 2; yy <= 2; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2); // (the pen walled 2 thick: no ground beside a golem but another golem's)
+            level.setDayTime(6000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_AXE)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.DIRT, 16)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 6));
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (int x = 9; x <= 11; x++) for (int z = 9; z <= 11; z++) { var gl = net.minecraft.world.entity.EntityType.IRON_GOLEM.create(level); BlockPos gp = h.absolutePos(new BlockPos(x, 2, z)); gl.moveTo(gp.getX() + 0.5, gp.getY(), gp.getZ() + 0.5, 0, 0); gl.setNoAi(true); gl.setPersistenceRequired(); level.addFreshEntity(gl); s1042G.add(gl); }
+            c.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, s1042G.get(4).position());
+        }
+        if (t[0] == 14) {
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "village_iron", "", 1);
+            String bad = null; for (Task x : c.tasks) if (x instanceof Task.GoTo go) for (var gl : s1042G) if (gl.getBoundingBox().inflate(0.1).intersects(new net.minecraft.world.phys.AABB(go.pos()))) bad = go.pos().toShortString();
+            String q = String.valueOf(c.tasks); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.prefs.remove("village_mode"); for (var gl : s1042G) gl.discard(); s1042G.clear();
+            for (int x = 7; x <= 13; x++) for (int z = 7; z <= 13; z++) for (int yy = 2; yy <= 3; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2);
+            check(bad == null, "a walk into a golem's own cell in a pen of 9 (" + bad + "): \"" + r + "\" (" + (q.length() > 200 ? q.substring(0, 200) : q) + ")");
+            pass(stage, t, "no tower spot among 9 penned golems: \"" + r + "\"");
+        }
+        return true;
+    }
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

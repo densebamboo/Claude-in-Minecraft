@@ -10687,6 +10687,7 @@ public final class ClaudeBodyTest {
             case 1015: return st1015(stage, t, c, h, level, mock);
             case 1016: return st1016(stage, t, c, h, level, mock);
             case 1017: return st1017(stage, t, c, h, level, mock);
+            case 1020: return st1020(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -18408,6 +18409,27 @@ public final class ClaudeBodyTest {
         return true;
     }
 
+    private static int st1020T;
+    /** D2D review 248/303/29 (live 21:43:18 and 21:47:11 11-07 World 17): "mining the iron_ore I saw at -193,-52,19", a walk there queued and the ore's Breaks after it; the walk's "waits for its own cell's dig: digging first" put the Breaks ahead from 128 off, "no way to it", dropped, the same ore picked again later. A seen ore 40 off: he walks there, no dig of it from out of reach. */
+    private static boolean st1020(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1020T = -1; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) e.discard();
+            BlockPos ore = h.absolutePos(new BlockPos(40, 1, 4)); level.setBlock(ore, Blocks.IRON_ORE.defaultBlockState(), 2); com.claudemod.director.ClaudeLife.seenOre(c).add(ore.immutable());
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.blueprint = null; c.stairStart = null;
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) { c.skillQueue.clear(); String r = String.valueOf(com.claudemod.director.ClaudeLife.seenOreFirst(c, mock[0], level, new com.claudemod.entity.life.Skills.Step("strip_mine", "iron_ore", 1), "iron_ore")); c.skillQueue.clear(); com.claudemod.ClaudeMod.LOGGER.info("[Claude test] stage 1020 seenOreFirst -> {}", r); check(r.contains("I saw at"), "setup: the seen ore not picked: " + r); st1020T = t[0]; }
+        if (st1020T > 0 && t[0] > st1020T) {
+            BlockPos ore = h.absolutePos(new BlockPos(40, 1, 4)); double d = Math.sqrt(c.blockPosition().distSqr(ore));
+            java.util.List<Task> all = new java.util.ArrayList<>(); if (c.currentTask != null) all.add(c.currentTask); all.addAll(c.tasks); int bi = -1, gi = -1;
+            for (int i = 0; i < all.size(); i++) { if (bi < 0 && all.get(i) instanceof Task.Break b && b.pos().equals(ore)) bi = i; if (gi < 0 && all.get(i) instanceof Task.GoTo g0 && g0.pos().equals(ore)) gi = i; }
+            check(!(d > 6 && bi >= 0 && gi >= 0 && bi < gi), "the seen ore's dig put ahead of the walk there from " + (int) d + " off: " + all);
+            if (d <= 6 || !level.getBlockState(ore).is(Blocks.IRON_ORE)) { c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; com.claudemod.director.ClaudeLife.seenOre(c).remove(ore); pass(stage, t, "walked to the seen ore first, " + (int) d + " off in " + (t[0] - st1020T) / 20 + " s"); return true; }
+            check(t[0] - st1020T < 20 * 20, "20 s and not at the seen ore 40 off: " + (int) d + " off, doing " + c.currentTask);
+        }
+        return true;
+    }
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

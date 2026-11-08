@@ -261,6 +261,7 @@ public final class Route {
             if (r.off) { // back on it after other walks: measured again from where he rejoins
                 r.off = false; r.onSince = now;
                 double off = Math.sqrt(to.distSqr(here));
+                if (ci >= 1 && r.order.get(ci - 1) instanceof Task.GoTo pg) off = Math.min(off, Math.sqrt(pg.pos().distSqr(here))); // (at the leg before this one: where he left it, the legs still good; review 44 live 11:45, a made way to a leg read as off, 31 walks wiped and replanned at each leg)
                 if (ci >= 0 && off > 4) {
                     final Active rr = r; int before = g.tasks.size(); g.tasks.removeIf(q -> q != cur && rr.indexOf(q) >= 0);
                     rs.remove(r); if (active.get(g.getUUID()) == r) active.remove(g.getUUID());

@@ -10536,6 +10536,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1152: return st1152(stage, t, c, h, level, mock);
             case 1154: return st1154(stage, t, c, h, level, mock);
             case 1150: return st1150(stage, t, c, h, level, mock);
             case 999: return st999(stage, t, c, h, level, mock);
@@ -15497,6 +15498,34 @@ public final class ClaudeBodyTest {
             check(st1154At > 0, "his furnace 10 off on the land still standing after 15 s; he's at " + c.blockPosition().toShortString() + (c.isInWater() ? " in the water" : "") + ", task " + c.currentTask);
             check(st1154At - 10 <= 160, "the furnace took " + (st1154At - 10) / 20 + " s from the water, a player's ~5 s");
             pass(stage, t, "out of the water and the furnace broken in " + (st1154At - 10) / 20.0 + " s");
+        }
+        return true;
+    }
+    /** Stage 1152 (D2D review 44, 11-08 11:45: a 615-block Nether route; a made way to one leg read as "off his route", and at that leg's end, the next leg 29 off (a drop), "back on his route ... planned again from here": 31 walks wiped and 3 s of planning, leg after leg): a land route of legs; off it for a made way to a leg, then at that leg with the next one past 4 off. He's back on where he left it: no new plan, the legs kept. */
+    private static boolean st1152(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.blueprint = null; c.skillQueue.clear(); }
+        if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
+        if (t[0] == 10) {
+            BlockPos o = h.absolutePos(new BlockPos(3, 40, 600));
+            for (int x = -4; x <= 72; x++) for (int z = -6; z <= 6; z++) { level.setBlock(o.offset(x, -2, z), Blocks.STONE.defaultBlockState(), 2); level.setBlock(o.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.fallDistance = 0; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 20) {
+            BlockPos far = h.absolutePos(new BlockPos(3, 40, 600)).offset(66, 0, 0);
+            var legs = com.claudemod.entity.nav.Route.expand(c, level, far, 1.5);
+            check(legs != null && !com.claudemod.entity.nav.Route.walkerTakes(legs) && legs.size() >= 3, "no land route of legs to " + far.toShortString() + ": " + legs);
+            java.util.List<Task.GoTo> gs = new java.util.ArrayList<>(); for (var q : legs) if (q instanceof Task.GoTo go) gs.add(go);
+            int k = -1; for (int i = 1; i < gs.size(); i++) if (Math.sqrt(gs.get(i).pos().distSqr(gs.get(i - 1).pos())) > 4) { k = i; break; }
+            check(k > 0, "no two legs more than 4 apart: " + gs);
+            c.tasks.clear(); c.tasks.addAll(legs.subList(legs.indexOf(gs.get(k - 1)), legs.size()));
+            Task.GoTo leg = gs.get(k - 1); c.tasks.remove(leg); c.currentTask = leg; com.claudemod.entity.nav.Route.expand(c, level, leg.pos(), leg.within()); // walking its leg k-1
+            Task.GoTo made = new Task.GoTo(leg.pos().offset(0, 0, 1), 0.9); c.currentTask = made; com.claudemod.entity.nav.Route.expand(c, level, made.pos(), 0.9); // a made way's step to that leg: off his route
+            BlockPos at = leg.pos(); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); // at the leg, the made way done
+            Task.GoTo next = gs.get(k); c.tasks.remove(next); c.currentTask = next; int before = c.tasks.size();
+            var got = com.claudemod.entity.nav.Route.expand(c, level, next.pos(), next.within());
+            int after = c.tasks.size(); c.tasks.clear(); c.currentTask = null;
+            check((got == null || com.claudemod.entity.nav.Route.walkerTakes(got)) && after == before, "back at his route's leg " + at.toShortString() + " after a made way to it, the next leg " + (int) Math.sqrt(next.pos().distSqr(at)) + " off: planned again (" + got + "), his queue " + before + " -> " + after);
+            pass(stage, t, "back on his route where he left it: the legs kept, the next one his walker's");
         }
         return true;
     }

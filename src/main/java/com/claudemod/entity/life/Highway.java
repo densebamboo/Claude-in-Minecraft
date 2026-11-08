@@ -107,6 +107,8 @@ public final class Highway {
             ClaudeMod.LOGGER.info("[Claude highway] {} (Highway.skill)", r); return r; }
         BlockPos standOn = apron ? b.rows.get(1).centre().above() : next == 0 ? b.portal : b.rows.get(next - 1).centre().above();
         if (g.blockPosition().distSqr(standOn) > 2 * 2) { // (back from a trip or a fight: along the highway to its end first)
+            { int have0 = g.inventory.count(x -> x.is(BLOCK)); double far = Math.sqrt(g.blockPosition().distSqr(standOn)); // (blocks before the walk out: review 214 live 13:01 11-08, 3 on him, ~460 out to lay 2 and ~510 back)
+              if (have0 < w("highway.trip_min_blocks", 64) && far > w("highway.trip_far_blocks", 32)) { ClaudeMod.LOGGER.info("[Claude highway] {} cobbled deepslate on him and the highway's end {} off at {}: blocks first, not a walk out for a row or two (Highway.skill)", have0, (int) far, standOn.toShortString()); return blocks(g, player, level, s, next, have0, words, st); } }
             if (g.attempts.skipped(Attempts.Kind.WALK, standOn, g.tickCount, 0)) { var why = g.attempts.why(Attempts.Kind.WALK, standOn); // (the walk there failed and its cause still holds: said, for the planner to decide on; live 23:10 11-06 magma cubes at the end, the same walk queued and ended at once 8 times in a second, stage 882)
                 ClaudeMod.LOGGER.info("[Claude highway] the way to its end at {} failed ({}), nothing changed since: not queued again (Highway.skill)", standOn.toShortString(), why);
                 return "failed: the way to the highway's end at " + standOn.toShortString() + " is blocked (" + why + "); deal with that first (row " + next + " of " + b.rows.size() + ")"; }

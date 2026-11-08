@@ -10537,6 +10537,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1156: return st1156(stage, t, c, h, level, mock);
             case 1157: return st1157(stage, t, c, h, level, mock);
             case 1153: return st1153(stage, t, c, h, level, mock);
             case 1152: return st1152(stage, t, c, h, level, mock);
@@ -15689,6 +15690,35 @@ public final class ClaudeBodyTest {
             check(r != null && (first instanceof Task.GoTo g0 && g0.pos().equals(chest) || first instanceof Task.Deposit), "a full pack by his stash chest, his way out queued: the stash isn't first (\"" + r + "\"), queue " + c.tasks);
             c.tasks.clear(); c.getInventory().clearContent(); level.setBlock(chest, Blocks.AIR.defaultBlockState(), 3); c.myStations.remove(chest); c.storageChests.remove(chest);
             pass(stage, t, "the stash first, then the way out: " + r);
+        }
+        return true;
+    }
+    /** Stage 1156 (D2D review 214, live 13:01 11-08: build_highway in the Nether with 3 cobbled deepslate on him; he walked ~460 blocks to the highway's end, laid 2 blocks, ran out and walked ~510 back): the highway planned from the portal, him 60 off its end with 3 blocks. Blocks first, not the walk out. */
+    private static boolean st1156(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(9400, 64, 5120);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            var rack = Blocks.NETHERRACK.defaultBlockState(); var air = Blocks.AIR.defaultBlockState();
+            for (int x = -6; x <= 8; x++) for (int z = -6; z <= 72; z++) for (int y = -3; y <= 5; y++) nl.setBlock(o.offset(x, y, z), y < 0 ? rack : air, 2);
+            for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, 0), x == -1 || x == 2 || y == -1 || y == 3 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+            nsKit(c); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 1.5, 0f, 0f);
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o, "him", "lit");
+        }
+        String dest = (o.getX() + 4) + " " + o.getY() + " " + (o.getZ() + 40);
+        if (t[0] == 20) { // planned from the portal (with no blocks: the trip for them, as 836)
+            c.skillQueue.clear(); com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", dest, 1); c.skillQueue.clear(); c.tasks.clear();
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 66.5, 0f, 0f); com.claudemod.entity.life.Watchdog.teleported(c);
+        }
+        if (t[0] == 30) {
+            c.getInventory().clearContent(); nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 3));
+            c.skillQueue.clear(); c.tasks.clear(); String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", "", 1);
+            var q = new java.util.ArrayList<>(c.skillQueue);
+            check(r.contains("out of cobbled deepslate") && !q.isEmpty() && q.get(0).skill().equals("enter_portal"), "3 blocks on him, the highway's end ~65 off: \"" + r + "\", queue " + q + ", tasks " + c.tasks);
+            c.skillQueue.clear(); c.tasks.clear(); c.getInventory().clearContent();
+            pass(stage, t, "blocks first: " + r);
         }
         return true;
     }

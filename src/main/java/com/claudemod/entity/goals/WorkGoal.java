@@ -5109,6 +5109,21 @@ public class WorkGoal extends Goal {
     }
     private boolean solidAt(ServerLevel lv, BlockPos c) { return !lv.getBlockState(c).getCollisionShape(lv, c).isEmpty(); }
     /** Beside that standing cell, a drop of 5+ or lava within 5 under the edge: knockback there is death (16:58 wither skeletons knocked him off a fortress bridge into the lava sea). Null if none. */
+    /** The drop off the worst open edge beside that standing cell, in blocks (up to 64), or -1 with lava (or no floor) down it. */
+    static float edgeFall(ServerLevel lv, BlockPos c) {
+        float worst = 0;
+        for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) {
+            if (dx == 0 && dz == 0) continue;
+            BlockPos q = c.offset(dx, 0, dz);
+            if (!lv.getBlockState(q).getCollisionShape(lv, q).isEmpty()) continue;
+            int k = 0; BlockPos f = q.below();
+            while (k < 64 && lv.getBlockState(f).getCollisionShape(lv, f).isEmpty() && lv.getFluidState(f).isEmpty()) { f = f.below(); k++; }
+            if (k >= 64 || lv.getFluidState(f).is(net.minecraft.tags.FluidTags.LAVA)) return -1;
+            if (!lv.getFluidState(f).isEmpty()) continue; // (water under it: no fall)
+            worst = Math.max(worst, k + 1);
+        }
+        return worst;
+    }
     static String edgeDanger(ServerLevel lv, BlockPos c) {
         for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) {
             if (dx == 0 && dz == 0) continue;
@@ -6626,14 +6641,19 @@ public class WorkGoal extends Goal {
         ItemStack scaff = solidScaffold();
         java.util.List<Vec3> wide = new java.util.ArrayList<>();
         com.claudemod.entity.nav.ActionPath.Plan plan = null;
+        java.util.Set<BlockPos> edges = new java.util.HashSet<>(); double edgeHp = 0;
         for (int k = 0; k < 3; k++) {
             plan = com.claudemod.entity.nav.ActionPath.plan(g, level, feet, to, 2.0, !scaff.isEmpty(), 3000, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount, wide);
             if (plan == null) break;
-            BlockPos lava = null;
+            BlockPos lava = null; edges.clear(); edgeHp = 0;
             for (var a : plan.acts()) {
                 BlockPos p = a instanceof com.claudemod.entity.nav.ActionPath.Act.Walk w ? w.feet() : a instanceof com.claudemod.entity.nav.ActionPath.Act.Put pu ? pu.pos().above() : null;
                 if (p != null && (lava = lavaBeside(level, p)) != null) break;
-                if (p != null && edgeDanger(level, p) != null) { closeSay("the way in to the " + who + " runs along an edge at " + p.toShortString() + " (" + edgeDanger(level, p) + "): planned again wide of it"); lava = p.immutable(); break; } // (a fall or the lava sea off a bridge is death by one arrow's knock)
+                if (p != null && edgeDanger(level, p) != null) {
+                    float fall = edgeFall(level, p), fallHp = fall < 0 ? Float.MAX_VALUE : com.claudemod.entity.nav.Leaps.damage(g, level, fall, null);
+                    if (fallHp >= g.getHealth() - w("fight.edge_margin_hp", 4)) { closeSay("the way in to the " + who + " runs along an edge at " + p.toShortString() + " (" + edgeDanger(level, p) + (fall < 0 ? "" : ", " + Math.round(fallHp) + " HP down it") + "): planned again wide of it"); lava = p.immutable(); break; } // (lava down it, or a fall he wouldn't live through: one knock is death)
+                    if (edges.add(p.immutable())) edgeHp += w("fight.edge_knock_p", 0.1) * fallHp; // a fall he lives through is a price, never a ban: the chance a shot knocks him off there times what the fall costs (D2D review 81, live 17:37 11-07: a 6+ drop beside the only way up read as a ban, "no way in" 56 times, 2+ minutes in the open under the blazes; stage 1015)
+                }
             }
             if (lava == null) break;
             if (level.getFluidState(lava).is(net.minecraft.tags.FluidTags.LAVA)) closeSay("the way in to the " + who + " runs by lava at " + lava.toShortString() + ": planned again wide of it");
@@ -6642,7 +6662,7 @@ public class WorkGoal extends Goal {
         if (plan == null) { closeSay("no way in to the " + who + " (" + below + " below, " + off + " off) on foot, by digging or by blocks" + (wide.isEmpty() ? "" : " wide of the lava") + ": out of its sight instead"); return 0; }
         boolean shield = g.getItemBySlot(EquipmentSlot.OFFHAND).is(net.minecraft.world.item.Items.SHIELD);
         double secs = plan.walks() * 0.25 + plan.digs() * 0.6 + plan.puts() * 0.8;
-        double take = Math.floor(secs / 2.0) * 4.0 * (1 - Math.min(20, g.getArmorValue()) / 25.0) * (shield ? 0.3 : 1.0); // (a shot every ~2 s on the way in, ~4 a bolt or arrow less his armor; a shield takes most)
+        double take = Math.floor(secs / 2.0) * 4.0 * (1 - Math.min(20, g.getArmorValue()) / 25.0) * (shield ? 0.3 : 1.0) + edgeHp; // (a shot every ~2 s on the way in, ~4 a bolt or arrow less his armor; a shield takes most; and the falls its edges risk)
         if (g.getHealth() - take < 8) { closeSay(String.format("the way in to the %s (%d below, %d off) is ~%.1f s under its fire (~%.0f damage) at health %d: out of its sight instead", who, below, off, secs, take, (int) g.getHealth())); return 0; }
         var acts = plan.acts();
         if (acts.isEmpty()) return 0;

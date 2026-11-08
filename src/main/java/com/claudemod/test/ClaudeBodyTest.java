@@ -10680,6 +10680,7 @@ public final class ClaudeBodyTest {
             case 1012: return st1012(stage, t, c, h, level, mock);
             case 1013: return st1013(stage, t, c, h, level, mock);
             case 1014: return st1014(stage, t, c, h, level, mock);
+            case 1015: return st1015(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -18130,6 +18131,44 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+
+    /** Stage 1015 (D2D review 81, live 17:37-17:39 11-07 at 321,58,496: a blaze 2-4 up and 4 off on the fortress, the only way up along an edge with a 6+ drop; "the way in runs along an edge ... planned again wide of it", "no way in ... out of its sight instead" 56 times, and he stood in the open 2+ minutes, 3 meals eaten): the way up a 1-wide stair over a 10-deep pit (no lava), its first step under netherrack, is priced, not banned: he climbs to it and hits it. */
+    private static boolean st1015(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12240, 64, 7320);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); }
+        if (t[0] < 19) nsTick(nl, c, o, t); else if (t[0] % 10 == 0 && c.level() == nl) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition()); // (nsTick sweeps every mob: not the blaze)
+        if (t[0] == 10) {
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(30))) e.discard();
+            for (int x = -4; x <= 8; x++) for (int z = -4; z <= 4; z++) for (int y = -11; y <= 8; y++) nl.setBlock(o.offset(x, y, z), y == -11 ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            for (int x = -4; x <= 0; x++) for (int z = -2; z <= 2; z++) nl.setBlock(o.offset(x, -1, z), Blocks.NETHERRACK.defaultBlockState(), 2); // his ledge
+            for (int x = 1; x <= 3; x++) for (int y = -1; y <= x - 1; y++) nl.setBlock(o.offset(x, y, 0), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // the 1-wide stair up, the pit both sides
+            for (int x = 4; x <= 6; x++) for (int z = -1; z <= 1; z++) nl.setBlock(o.offset(x, 2, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // the blaze's platform
+            nl.setBlock(o.offset(1, 1, 0), Blocks.NETHERRACK.defaultBlockState(), 2); // netherrack on the first step (its head cell open, the blaze in sight): no vanilla path, the way in is a dig (live: 320,58,496 "a dig, 0.1 s")
+            nsKit(c); c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            for (var sl : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET})
+                c.setItemSlot(sl, new ItemStack(sl == net.minecraft.world.entity.EquipmentSlot.HEAD ? Items.DIAMOND_HELMET : sl == net.minecraft.world.entity.EquipmentSlot.CHEST ? Items.DIAMOND_CHESTPLATE : sl == net.minecraft.world.entity.EquipmentSlot.LEGS ? Items.DIAMOND_LEGGINGS : Items.DIAMOND_BOOTS));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+        }
+        if (t[0] == 19) { var b = net.minecraft.world.entity.EntityType.BLAZE.create(nl); b.moveTo(o.getX() + 4.5, o.getY() + 4, o.getZ() + 0.5, 0, 0); b.setNoAi(true); b.setPersistenceRequired(); nl.addFreshEntity(b); st1015B = b.getUUID(); }
+        if (t[0] == 21) { c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.add(new Task.Attack(st1015B, 600)); }
+        if (t[0] > 21) {
+            var b = nl.getEntity(st1015B) instanceof net.minecraft.world.entity.monster.Blaze bz ? bz : null;
+            boolean hit = b == null || !b.isAlive() || b.getHealth() < b.getMaxHealth();
+            String why = "at " + c.blockPosition().subtract(o) + ", health " + c.getHealth() + ", blaze " + (b == null ? "gone" : b.getHealth() + " at " + b.blockPosition().subtract(o)) + ", doing " + c.currentTask;
+            if (hit || c.getY() < o.getY() - 2 || t[0] > 21 + 300) {
+                for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(30))) e.discard();
+                c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+                for (int x = -4; x <= 8; x++) for (int z = -4; z <= 4; z++) for (int y = -11; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+                nsHome(c, h, level);
+                check(hit, "a blaze 4 up, 4 off, in sight, the way up a 1-wide stair over a 10-deep pit: not hit in 15 s, " + why);
+                pass(stage, t, "climbed to the blaze and hit it in " + (t[0] - 21) + " ticks, " + why);
+            }
+        }
+        return true;
+    }
+    private static java.util.UUID st1015B;
 
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass

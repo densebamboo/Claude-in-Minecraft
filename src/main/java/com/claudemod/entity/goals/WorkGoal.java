@@ -6955,6 +6955,10 @@ public class WorkGoal extends Goal {
                 return true;
             }
             if (!level.getBlockState(pillarFeet).getCollisionShape(level, pillarFeet).isEmpty()) pillarFeet = pillarFeet.above(); // standing IN a block lower than full (soul sand, a slab, a path): the tower goes on top of it, not "already there" (live 12:11, 14 min pinned on soul sand)
+            { BlockState fs = level.getBlockState(pillarFeet); // a flower, a sapling, a mushroom in his own cell: no block ever goes in there; a player punches it out first (review 355, live 07:15 by the golem, the same jump over a daisy again and again; stage 993)
+              if (!fs.isAir() && fs.getCollisionShape(level, pillarFeet).isEmpty() && !fs.canBeReplaced() && fs.getFluidState().isEmpty() && fs.getDestroySpeed(level, pillarFeet) == 0 && !fs.is(net.minecraft.tags.BlockTags.CROPS) && !(fs.getBlock() instanceof net.minecraft.world.level.block.BaseTorchBlock)) {
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] tower at {}: {} in his cell, a block can't go in over it: punched out first (WorkGoal.doPillar)", pillarFeet.toShortString(), fs.getBlock().getName().getString());
+                g.tasks.addFirst(new Task.Pillar(t.steps() - pillarDone)); g.tasks.addFirst(new Task.Break(pillarFeet.immutable())); return true; } }
             BlockPos head = pillarFeet.above(2);
             if (!level.getBlockState(head).getCollisionShape(level, head).isEmpty()) { // (water up there is fine: he swims through it)
                 if (treeBlockInWay(head)) { // leaves (or the trunk) over his head: punch them out and keep towering

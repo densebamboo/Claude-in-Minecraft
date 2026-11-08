@@ -10536,6 +10536,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 993: return st993(stage, t, c, h, level, mock);
             case 992: return st992(stage, t, c, h, level, mock);
             case 991: return st991(stage, t, c, h, level, mock);
             case 989: return st989(stage, t, c, h, level, mock);
@@ -15319,6 +15320,24 @@ public final class ClaudeBodyTest {
             check(!w.contains("WASTED_TRIP"), "one walk in 3 legs, work at its end: filed " + w + " (last " + last + ")");
             pass(stage, t, "a leg ending in his jump over the gap, the job at the end, no WASTED_TRIP: " + w); }
         } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; s800Speed(c, 0.1); throw e; }
+        return true;
+    }
+    /** Stage 993 (review 355, live 07:15 World 17 at 237,76,213: a 3-up tower by the golem, his cell an oxeye daisy; "the block didn't go in at the top of the jump ... the cell oxeye daisy", the same jump again and again; a block never goes into a flower's cell, a player punches the flower out first): Pillar(3) standing in a daisy, dirt on him. 3 up. */
+    private static int st993T;
+    private static boolean st993(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st993T = -1; level.setDayTime(6000); flatBox(h); }
+        BlockPos me = h.absolutePos(new BlockPos(7, 2, 7));
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            level.setBlock(me, Blocks.OXEYE_DAISY.defaultBlockState(), 3);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIRT, 25)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 16) { c.tasks.clear(); c.tasks.add(new Task.Pillar(3)); st993T = t[0]; }
+        if (st993T > 0 && t[0] > st993T) {
+            if (c.getY() >= me.getY() + 2.9 && c.onGround()) { pass(stage, t, "3 up from a daisy's cell in " + (t[0] - st993T) + " ticks, the cell now " + level.getBlockState(me).getBlock().getName().getString()); c.tasks.clear(); c.tasks.add(new Task.Pillar(-1)); return true; }
+            check(t[0] - st993T < 120, "6 s towering from a daisy's cell: y " + String.format("%.2f", c.getY() - me.getY()) + " up, the cell " + level.getBlockState(me).getBlock().getName().getString() + ", doing " + c.currentTask + ", queue " + c.tasks);
+        }
         return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */

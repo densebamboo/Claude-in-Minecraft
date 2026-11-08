@@ -4052,6 +4052,7 @@ public final class ClaudeLife {
             }
             case "sleep": return sleepSkill(g, player, level, target); // "go to bed": the nearest bed by the walk, lie down in it (or the reason he can't)
             case "eat": {
+                if (!g.getFoodData().needsFood()) return "done: not hungry (food " + g.getFoodData().getFoodLevel() + "/20): nothing to eat for, a player can't eat at full"; // (live 05:29 11-08, review 031: "eat cooked_salmon -> eating cooked_beef" at food 20 every few seconds, nothing eaten)
                 boolean starving = g.getFoodData().getFoodLevel() <= 6;
                 Item food = foodToEat(g, starving);
                 if (food != null) {

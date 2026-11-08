@@ -10698,6 +10698,7 @@ public final class ClaudeBodyTest {
             case 1026: return st1026(stage, t, c, h, level, mock);
             case 1027: return st1027(stage, t, c, h, level, mock);
             case 1028: return st1028(stage, t, c, h, level, mock);
+            case 1029: return st1029(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -18794,6 +18795,17 @@ public final class ClaudeBodyTest {
             check(r.contains("stage 1028 marker"), "his own line isn't in his recent log (the log isn't read): " + r.length() + " chars");
             check(!r.contains("starving at food 5 (stage 1028)"), "the reviewer's line is in his own recent log, read by his planner as his state: ..." + r.substring(Math.max(0, r.indexOf("starving") - 80), Math.min(r.length(), r.indexOf("starving") + 40)));
             pass(stage, t, "his recent log holds his own lines, not the reviewer's"); return true; }
+        return true;
+    }
+    // live 05:29 11-08 (review 031): "eat cooked_salmon -> eating cooked_beef" at food 20, every few seconds: a player can't eat at full, the line said he was
+    private static boolean st1029(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.getFoodData().setFoodLevel(20); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 9)); }
+        if (t[0] == 5) { c.skillQueue.clear(); c.lastSkillLine = ""; c.tasks.clear(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("eat", "cooked_salmon", 1)); }
+        if (t[0] == 15) { c.getFoodData().setFoodLevel(20);
+            check(!c.lastSkillLine.contains("-> eating"), "at food 20 the eat step said he's eating: " + c.lastSkillLine);
+            check(c.lastSkillLine.startsWith("eat"), "the eat step didn't run: " + c.lastSkillLine);
+            check(c.getInventory().countItem(Items.COOKED_BEEF) == 9, "food eaten at food 20: " + c.getInventory().countItem(Items.COOKED_BEEF) + " beef left");
+            pass(stage, t, "at food 20 the eat step says so: " + c.lastSkillLine); return true; }
         return true;
     }
     private static int st739T;

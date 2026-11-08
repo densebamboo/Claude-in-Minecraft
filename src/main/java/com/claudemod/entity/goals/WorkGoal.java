@@ -4725,6 +4725,11 @@ public class WorkGoal extends Goal {
     private Boolean reachFor(BlockPos target) {
         ServerLevel level = (ServerLevel) g.level();
         if (inReach(target) && blockInTheWay(level, target) == null) return null;
+        if (inReach(target)) { BlockPos soft = blockInTheWay(level, target); var ss = soft == null ? null : level.getBlockState(soft); // grass or a flower between him and it: one punch, like a player (live 14:08 11-07: tall grass in front of his furnace, 4 cooked porkchop left in it, off hunting hoglins, dead)
+            if (ss != null && ss.getDestroySpeed(level, soft) == 0 && ss.getFluidState().isEmpty() && (ss.canBeReplaced() || ss.is(net.minecraft.tags.BlockTags.FLOWERS))) {
+                g.getLookControl().setLookAt(soft.getX() + 0.5, soft.getY() + 0.5, soft.getZ() + 0.5); g.swing(InteractionHand.MAIN_HAND); g.gameMode.destroyBlock(soft);
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} at {} between him and the {} at {}: punched it out (WorkGoal.reachFor)", name(ss), soft.toShortString(), name(level.getBlockState(target)), target.toShortString());
+                return false; } }
         BlockPos side = clearViewSpot(level, target); if (side == null) side = standSpotBeside(target);
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
         if (side.distSqr(feet) <= 4 && side.getY() == feet.getY()) { // (level only: a nudge can't take a step up, 10 s stood still under his furnace one up the slope, live 11:31) // the spot beside him (or under him, off its centre): a nudge, a walk there "arrives" a block short

@@ -10773,6 +10773,9 @@ public final class ClaudeBodyTest {
             case 899: return st899(stage, t, c, h, level, mock);
             case 1050: return st1050(stage, t, c, h, level, mock);
             case 1051: return st1051(stage, t, c, h, level, mock);
+            case 1052: return st1052(stage, t, c, h, level, mock);
+            case 1053: return st1053(stage, t, c, h, level, mock);
+            case 1054: return st1054(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -20863,6 +20866,81 @@ public final class ClaudeBodyTest {
             check(c.skillQueue.stream().anyMatch(s -> s.skill().equals("build_highway")), "the highway job dropped: queue " + c.skillQueue);
             c.skillQueue.clear(); c.lastStep = null; c.getInventory().clearContent(); c.dropCurrent = true;
             pass(stage, t, "home through his portal for food, the highway after: " + first); return true;
+        }
+        return true;
+    }
+    private static int st1052Start, st1052FirstHit; private static java.util.List<net.minecraft.world.entity.monster.hoglin.Hoglin> st1052H = new java.util.ArrayList<>();
+    private static boolean st1052(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 14:30:40 11-07 (-4,59,127 Nether): two hoglins on him, "every way out goes by the Hoglin: nowhere further to back off to, holding here", held 30 s shield up, never a swing, 20 -> 0
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1052Start = 0; st1052FirstHit = 0; st1052H.clear(); }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(60))) if (!st1052H.contains(e)) e.discard();
+        if (t[0] == 10) {
+            for (int x = -16; x <= 32; x++) for (int z = -16; z <= 32; z++) { for (int yy = -2; yy <= 1; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2); for (int yy = 2; yy <= 12; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = 0; x <= 16; x++) for (int z = 6; z <= 11; z++) for (int yy = 2; yy <= 5; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2); // a rock block
+            for (int x = 1; x <= 16; x++) for (int z = 8; z <= 9; z++) for (int yy = 2; yy <= 4; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); // a dead-end corridor 2 wide, 3 tall, open at the east end only
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.DIAMOND_BOOTS));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            BlockPos me = h.absolutePos(new BlockPos(1, 2, 8));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 1.0); c.setHealth(14); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            level.setDayTime(6000);
+            for (int k = 0; k < 2; k++) { var hg = net.minecraft.world.entity.EntityType.HOGLIN.create(level); BlockPos hp = h.absolutePos(new BlockPos(9 + 3 * k, 2, 8)); hg.moveTo(hp.getX() + 0.5, hp.getY(), hp.getZ() + 1.0, 90, 0); /* (on the corridor's middle line: 1.4 wide, off it a hoglin is in the wall and hurt by it) */ hg.setImmuneToZombification(true); hg.setPersistenceRequired(); level.addFreshEntity(hg); st1052H.add(hg); }
+            c.tasks.add(new Task.Wait(20 * 60, false)); st1052Start = t[0];
+        }
+        if (st1052Start > 0) {
+            check(c.isAlive(), "dead at the corridor's end: held with the hoglins on him, no swing back");
+            if (st1052FirstHit == 0 && c.getHealth() < 14) st1052FirstHit = t[0];
+            boolean hitBack = st1052H.stream().anyMatch(hg -> hg.getLastHurtByMob() == c) || (st1052FirstHit > 0 && c.tickCount - c.getLastHurtByMobTimestamp() > 200); // (or dug in out of their reach: 10 s and no hit on him)
+            if (hitBack) { for (var hg : st1052H) hg.discard(); st1052H.clear(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY); c.setHealth(20); pass(stage, t, "cornered by two hoglins, he hit back or dug in (health " + (int) c.getHealth() + ")"); return true; }
+            check(st1052FirstHit == 0 || t[0] - st1052FirstHit < 20 * 12, "12 s since the first hoglin hit, health " + (int) c.getHealth() + ", not one swing back (doing " + c.currentTask + ")");
+            check(t[0] - st1052Start < 20 * 40, "40 s and the hoglins never came at him (setup)");
+        }
+        return true;
+    }
+    private static int st1053Start;
+    private static boolean st1053(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 14:08:24 11-07 (his furnace at 170,69,-103, 4 cooked porkchop in it): "couldn't get in reach of furnace ... in reach: true, in the way: tall grass at 169,70,-104", left it, hunted hoglins, died
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); st1053Start = 0; }
+        if (t[0] == 10) {
+            for (int x = -1; x <= 14; x++) for (int z = -1; z <= 14; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 1; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+            BlockPos f = h.absolutePos(new BlockPos(7, 0, 7)); // (sunk flush with the ground, the meadow's tall grass all round it)
+            for (int x = 2; x <= 12; x++) for (int z = 2; z <= 12; z++) if (x != 7 || z != 7) net.minecraft.world.level.block.DoublePlantBlock.placeAt(level, Blocks.TALL_GRASS.defaultBlockState(), h.absolutePos(new BlockPos(x, 1, z)), 2);
+            level.setBlock(f, Blocks.FURNACE.defaultBlockState(), 2);
+            if (level.getBlockEntity(f) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fe) fe.setItem(2, new ItemStack(Items.COOKED_PORKCHOP, 4));
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 2));
+            c.myStations.clear(); c.myStations.add(f.immutable()); c.furnaceReadyAt.clear(); c.attempts.clear();
+            BlockPos me = h.absolutePos(new BlockPos(5, 1, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            c.tasks.add(new Task.FurnaceTake(f.immutable())); st1053Start = t[0];
+        }
+        if (st1053Start > 0) {
+            if (c.inventory.count(s -> s.is(Items.COOKED_PORKCHOP)) >= 4) { BlockPos f = h.absolutePos(new BlockPos(7, 0, 7)); level.setBlock(f, Blocks.GRASS_BLOCK.defaultBlockState(), 2); c.myStations.remove(f); c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "the cooked porkchop out of his furnace in the tall grass in " + (t[0] - st1053Start) / 20 + " s"); return true; }
+            check(t[0] - st1053Start < 20 * 15, "15 s and the 4 cooked porkchop still in his furnace behind the tall grass (doing " + c.currentTask + ")");
+        }
+        return true;
+    }
+    private static int st1054Start, st1054Dia;
+    private static boolean st1054(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 16:30:53 11-07 (-344,-55,-38): a diamond up an ore pocket "left behind: no way to it", recover_left queued behind 257 strip-mine tasks, never ran in the 5 min it lies there
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.OwnEvents.reset(c); com.claudemod.entity.life.Whereabouts.reset(c); com.claudemod.entity.life.Perception.reset(c); c.planning = false; c.failCount.clear(); c.prefs.put("stay_close", "no"); c.prefs.remove("mine_model"); c.nextPlanTick = c.tickCount + 20 * 600; st1054Start = 0; }
+        if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
+        if (t[0] == 10) {
+            level.setDayTime(6000);
+            for (int x = 0; x < 16; x++) for (int z = -30; z < 18; z++) for (int yy = -1; yy <= 9; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.DEEPSLATE);
+            var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(new BlockPos(4, 2, 16)), net.minecraft.core.Direction.NORTH, 2, 3);
+            b.segments.clear(); b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, h.absolutePos(new BlockPos(4, 2, 16)), net.minecraft.core.Direction.NORTH, 44, null)); b.invalidate(); // rows z 16..-27: dug to z 10, the rest planned (a long job)
+            for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK && e.getKey().getZ() >= h.absolutePos(new BlockPos(0, 0, 10)).getZ()) level.setBlockAndUpdate(e.getKey(), Blocks.AIR.defaultBlockState());
+            c.blueprint = b;
+            for (int yy = 6; yy <= 8; yy++) h.setBlock(new BlockPos(7, yy, 12), Blocks.AIR); // a sealed shaft up behind his east wall, 4 over his floor
+            h.setBlock(new BlockPos(4, 2, 13), Blocks.TORCH);
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 12)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().add(new ItemStack(Items.TORCH, 32));
+            BlockPos up = h.absolutePos(new BlockPos(10, 11, 4)); mock[0].teleportTo(up.getX() + 0.5, up.getY(), up.getZ() + 0.5);
+            int n = com.claudemod.director.ClaudeLife.bpReconcile(c, level, 0, b.rows().size() - 1, false);
+            BlockPos d = h.absolutePos(new BlockPos(7, 6, 12)); var it = new net.minecraft.world.entity.item.ItemEntity(level, d.getX() + 0.5, d.getY(), d.getZ() + 0.5, new ItemStack(Items.DIAMOND)); it.setDeltaMovement(0, 0, 0); level.addFreshEntity(it);
+            c.tasks.addFirst(new Task.Pickup(100));
+            ClaudeMod.LOGGER.info("[Claude test] 1054: {} task(s) of the strip mine's rows queued, a diamond up the shaft at {}", n, d.toShortString());
+            st1054Dia = c.inventory.count(s -> s.is(Items.DIAMOND)); st1054Start = t[0];
+        }
+        if (st1054Start > 0) {
+            if (c.inventory.count(s -> s.is(Items.DIAMOND)) > st1054Dia) { c.blueprint = null; c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear(); pass(stage, t, "the diamond up the shaft by his wall in his pack in " + (t[0] - st1054Start) / 20 + " s, the strip mine after"); return true; }
+            check(t[0] - st1054Start < 20 * 60, "60 s and the diamond up the shaft still lying there (doing " + c.currentTask + ", " + c.tasks.size() + " task(s), skills " + c.skillQueue + ")");
         }
         return true;
     }

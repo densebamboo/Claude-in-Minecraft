@@ -10528,6 +10528,7 @@ public final class ClaudeBodyTest {
             case 972: return st972(stage, t, c, h, level, mock);
             case 973: return st973(stage, t, c, h, level, mock);
             case 974: return st974(stage, t, c, h, level, mock);
+            case 975: return st975(stage, t, c, h, level, mock);
             case 955: return st955(stage, t, c, h, level, mock);
             case 954: return st954(stage, t, c, h, level, mock);
             case 953: return st953(stage, t, c, h, level, mock);
@@ -14837,6 +14838,36 @@ public final class ClaudeBodyTest {
             check(p.problem() != null && p.problem().contains("overworld"), "in the Nether, the plan's problem doesn't say where the iron is: " + p.problem());
             check(ow.steps().stream().anyMatch(s0 -> s0.skill().equals("strip_mine")), "in the overworld the iron is his mine's: " + com.claudemod.director.Procure.describe(ow.steps()) + " / " + ow.problem());
             pass(stage, t, "Nether: " + p.problem() + " | overworld: " + com.claudemod.director.Procure.describe(ow.steps()));
+        }
+        return true;
+    }
+    /** Stage 975 (D2D review 101, live 17:40:43-17:41:59 11-07 at 321,64,498: "rods 0/7: 3-8 blaze(s) about, none in sight (all behind rock): waiting for one to come into view" for 75 s at 20 HP, "fight now" decided, then "failed: 40 goes at the blazes"; the straight line to them 2 netherrack, "a dig, 0.1 s"): in a pocket of netherrack, a blaze 5 off behind 2 netherrack. blaze_rods cuts a window through them, no wait. */
+    private static boolean st975(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12200, 64, 7320);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); }
+        if (t[0] != 20) nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(30))) e.discard();
+            for (int x = -6; x <= 10; x++) for (int z = -6; z <= 6; z++) for (int y = -3; y <= 5; y++) nl.setBlock(o.offset(x, y, z), Blocks.NETHERRACK.defaultBlockState(), 2);
+            for (int y = 0; y <= 1; y++) nl.setBlock(o.offset(0, y, 0), Blocks.AIR.defaultBlockState(), 2); // his pocket
+            for (int x = 3; x <= 7; x++) for (int z = -2; z <= 2; z++) for (int y = 0; y <= 3; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); // the blaze's room, 2 netherrack (x 1-2) between
+            nsKit(c); c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            for (var sl : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET})
+                c.setItemSlot(sl, new ItemStack(sl == net.minecraft.world.entity.EquipmentSlot.HEAD ? Items.DIAMOND_HELMET : sl == net.minecraft.world.entity.EquipmentSlot.CHEST ? Items.DIAMOND_CHESTPLATE : sl == net.minecraft.world.entity.EquipmentSlot.LEGS ? Items.DIAMOND_LEGGINGS : Items.DIAMOND_BOOTS));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+        }
+        if (t[0] == 19) { var b = net.minecraft.world.entity.EntityType.BLAZE.create(nl); b.moveTo(o.getX() + 5.5, o.getY(), o.getZ() + 0.5, 0, 0); b.setNoAi(true); b.setPersistenceRequired(); nl.addFreshEntity(b); } // (after nsTick's mob sweep at 10 and before the one at 20)
+        if (t[0] == 20) {
+            c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600;
+            String r = com.claudemod.entity.life.FortressFight.blazeRods(c, mock[0], nl, new com.claudemod.entity.life.Skills.Step("blaze_rods", "blaze_rod", 1, "near_you"));
+            int breaks = 0; for (var k : c.tasks) if (k instanceof Task.Break br && br.pos().getY() >= o.getY() && br.pos().getX() > o.getX() && br.pos().getX() <= o.getX() + 2) breaks++;
+            c.tasks.clear(); c.skillQueue.clear();
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(30))) e.discard();
+            for (int x = -6; x <= 10; x++) for (int z = -6; z <= 6; z++) for (int y = -3; y <= 5; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+            check(breaks >= 1 && breaks <= 3, "a blaze 5 off behind 2 netherrack: blaze_rods said \"" + r + "\", " + breaks + " block(s) of the wall to cut");
+            nsHome(c, h, level); pass(stage, t, r);
         }
         return true;
     }

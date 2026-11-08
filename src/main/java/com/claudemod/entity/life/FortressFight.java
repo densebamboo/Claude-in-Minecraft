@@ -137,6 +137,18 @@ public final class FortressFight {
      * he waits in the corner, steps out to draw or strike, steps back in before the volley. Walls on more sides (a doorway's
      * jamb, a corner) and 4-12 off the spawner are better; the nearest of those he can walk to.
      */
+    /** The solid cells in the line from his eyes to a blaze's: at most 3, the first in his reach, each soft (netherrack, soul soil...), no fortress block, no lava beside any; null when that's no window to cut. */
+    static List<BlockPos> windowTo(ServerLevel level, ClaudeEntity g, Blaze b) {
+        Vec3 a = g.getEyePosition(), e = b.getEyePosition(); List<BlockPos> cells = new ArrayList<>(); int n = (int) Math.ceil(a.distanceTo(e) * 4);
+        for (int i = 1; i < n; i++) { BlockPos p = BlockPos.containing(a.lerp(e, i / (double) n)); if (cells.contains(p)) continue;
+            var st = level.getBlockState(p); if (st.getCollisionShape(level, p).isEmpty()) continue;
+            float hard = st.getDestroySpeed(level, p);
+            if (cells.size() >= 3 || hard < 0 || hard > com.claudemod.entity.life.Weights.w("blaze.window_hardness", 1.5) || st.hasBlockEntity() || com.claudemod.entity.nav.ActionPath.structureBlock(level, p)) return null;
+            if (cells.isEmpty() && Vec3.atCenterOf(p).distanceTo(a) > 4.5) return null;
+            for (Direction d : Direction.values()) if (level.getFluidState(p.relative(d)).is(net.minecraft.tags.FluidTags.LAVA)) return null;
+            cells.add(p.immutable()); }
+        return cells.isEmpty() ? null : cells;
+    }
     static Cover pickBlaze(ClaudeEntity g, ServerLevel level, LivingEntity foe) {
         BlockPos spawner = blazeSpawner(g, level, 20);
         List<Vec3> eyes = new ArrayList<>(); List<Blaze> bl = blazesNear(g, level, g.blockPosition(), 24); if (foe instanceof Blaze b0 && !bl.contains(b0)) bl.add(b0);
@@ -160,9 +172,10 @@ public final class FortressFight {
             cands.add(new Cand(c.immutable(), peek.immutable(), Math.sqrt(c.distSqr(me)) * 0.6 + Math.abs(da - 7) * 0.5 - walls * 1.5, walls, da));
         }
         cands.sort(java.util.Comparator.comparingDouble(Cand::score));
-        for (int i = 0; i < Math.min(6, cands.size()); i++) {
+        for (int i = 0; i < Math.min(12, cands.size()); i++) {
             Cand k = cands.get(i);
-            if (!k.c().equals(me)) { var path = g.getNavigation().createPath(k.c(), 0); if (path == null || !path.canReach()) continue; }
+            // reached by his own walker (no digging, a block put down where he has them), not vanilla's: live 17:37 11-07 "12 spots out of sight, none walkable" with 4 blazes on him, every spot refused by createPath
+            if (!k.c().equals(me) && com.claudemod.entity.nav.ActionPath.plan(g, level, me, k.c(), 0.5, true, 800, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, null, 0) == null) continue;
             String shape = k.walls() >= 3 ? "a nook" : k.walls() == 2 ? "a doorway's side" : "a corner";
             return new Cover(k.c(), k.peek(), spawner != null ? spawner : foe.blockPosition(), "blaze",
                     shape + " at " + k.c().toShortString() + " out of sight of " + bl.size() + " blaze(s)" + (spawner != null ? " and the spawner at " + spawner.toShortString() : "") + ", stepping out to " + k.peek().toShortString() + " (" + (int) k.da() + " off, " + cands.size() + " spots looked at)", g.tickCount);
@@ -188,9 +201,10 @@ public final class FortressFight {
             cands.add(new Cand(c.immutable(), front, Math.sqrt(c.distSqr(me)) + 0.2 * Math.sqrt(c.distToCenterSqr(foe.position()))));
         }
         cands.sort(java.util.Comparator.comparingDouble(Cand::score));
-        for (int i = 0; i < Math.min(6, cands.size()); i++) {
+        for (int i = 0; i < Math.min(12, cands.size()); i++) {
             Cand k = cands.get(i);
-            if (!k.c().equals(me)) { var path = g.getNavigation().createPath(k.c(), 0); if (path == null || !path.canReach()) continue; }
+            // reached by his own walker (no digging, a block put down where he has them), not vanilla's: live 17:37 11-07 "12 spots out of sight, none walkable" with 4 blazes on him, every spot refused by createPath
+            if (!k.c().equals(me) && com.claudemod.entity.nav.ActionPath.plan(g, level, me, k.c(), 0.5, true, 800, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, null, 0) == null) continue;
             return new Cover(k.c(), k.front(), foe.blockPosition(), "wither", "a 2-high gap at " + k.c().toShortString() + " (no 3-high room on any side: its sword can't reach in), hitting it at " + k.front().toShortString() + " 2 off (" + cands.size() + " gaps looked at)", g.tickCount);
         }
         BlockPos last = lastGap == null ? null : lastGap.get(g.getUUID()); // (none within 10: the gap that held a wither skeleton off before, within 24, as a player goes back to the spot that worked; live 13:59 11-04 it was 15 off and he ran instead)
@@ -412,6 +426,12 @@ public final class FortressFight {
         }
         LivingEntity foe = bl.stream().filter(g::hasLineOfSight).min(java.util.Comparator.comparingDouble(b -> b.distanceToSqr(g))).orElse(null); // (one he can see: World 15 04:01, the nearest was behind basalt, the attack let it be at once and he re-picked it 5 times standing still)
         if (foe == null && !bl.isEmpty()) { // all of them behind rock: out of sight a blaze drifts in and stops, so he holds here till one comes round into view
+            for (Blaze b0 : bl.stream().sorted(java.util.Comparator.comparingDouble(x -> x.distanceToSqr(g))).limit(3).toList()) { // a thin wall of soft rock to the nearest: a window cut through it, like a player (live 17:40-17:42 11-07: 3-8 blazes behind 1-2 netherrack, 75 s "waiting for one to come into view", then 40 goes and the job failed)
+                List<BlockPos> win = windowTo(level, g, b0); if (win == null) continue;
+                for (BlockPos q : win) g.tasks.add(new Task.Break(q)); g.skillQueue.addFirst(again);
+                ClaudeMod.LOGGER.info("[Claude fight] rods {}/{}: {} blaze(s) about, none in sight: a window through {} block(s) of {} at {} toward the blaze {} off (FortressFight.blazeRods)", have, goal, bl.size(), win.size(), level.getBlockState(win.get(0)).getBlock().getName().getString(), win.get(0).toShortString(), (int) b0.distanceTo(g));
+                return "blaze rods " + have + "/" + goal + ": cutting a window through " + win.size() + " block(s) toward a blaze " + (int) b0.distanceTo(g) + " off";
+            }
             g.tasks.add(new Task.Wait(40, false)); g.skillQueue.addFirst(again);
             ClaudeMod.LOGGER.info("[Claude fight] rods {}/{}: {} blaze(s) about, none in sight (all behind rock): waiting for one to come into view (FortressFight.blazeRods)", have, goal, bl.size());
             return "blaze rods " + have + "/" + goal + ": " + bl.size() + " blaze(s) behind the rock, waiting for one to come into sight";

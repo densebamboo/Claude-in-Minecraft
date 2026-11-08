@@ -9125,7 +9125,7 @@ public final class ClaudeLife {
 
     /** A station he set into a notch cut in the mine wall: once it's picked up, the wall gets filled back flat. */
     private static void refillNotch(ClaudeEntity g, BlockPos p, boolean first) {
-        if (!g.notches.remove(p)) return;
+        if (!g.notches.remove(p) && !(bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.isShell(p))) return; // (a station of his in a cell his mine now reads as wall is a notch too: no patch queued, the wall guard refused the pickup every 5 min for 36 h, live 11-07/08, stage 1001)
         var level0 = g.level(); boolean earth = level0.getBlockState(p.below()).is(BlockTags.DIRT) || level0.getBlockState(p.above()).is(BlockTags.DIRT); // a notch in earth gets earth back, not a cobble patch
         Item fill = earth && g.inventory.count(s -> s.is(Items.DIRT)) > 0 ? Items.DIRT
                 : p.getY() < 0 && g.inventory.count(s -> s.is(Items.COBBLED_DEEPSLATE)) > 0 ? Items.COBBLED_DEEPSLATE

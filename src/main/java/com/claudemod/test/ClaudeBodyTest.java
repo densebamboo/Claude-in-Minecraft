@@ -10754,6 +10754,7 @@ public final class ClaudeBodyTest {
             case 1047: return st1047(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
+            case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -20327,6 +20328,7 @@ public final class ClaudeBodyTest {
             c.teleportTo(a.getX() + 0.5, a.getY(), a.getZ() + 0.3); c.setHealth(20); // (at the back of his cell, as he stood live: the pocket's far side out of his pickup box) c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
             st1046I = new net.minecraft.world.entity.item.ItemEntity(level, b.getX() + 0.5, b.getY(), b.getZ() + 0.75, new ItemStack(Items.COBBLED_DEEPSLATE)); st1046I.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); st1046I.setNoPickUpDelay(); level.addFreshEntity(st1046I); // at the pocket's far side
         }
+        if (t[0] == 14) { c.getNavigation().stop(); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.teleportTo(a.getX() + 0.5, a.getY(), a.getZ() + 0.3); } // (after stage 1045 he drifted 0.28 in 4 ticks: put back at the cell's back)
         if (t[0] == 14) { check(!c.getBoundingBox().inflate(1.0, 0.5, 1.0).intersects(st1046I.getBoundingBox()), "the stage's drop is in his pickup box from the start: him " + c.position() + ", it " + st1046I.position()); c.tasks.add(new Task.Pickup(200)); }
         if (t[0] == 14 + 120) {
             boolean got = !st1046I.isAlive(); int n = c.getInventory().countItem(Items.COBBLED_DEEPSLATE); String q = c.tasks + " / " + c.currentTask + " at " + c.blockPosition().toShortString();
@@ -20422,6 +20424,39 @@ public final class ClaudeBodyTest {
             pass(stage, t, "the referee's kept cell left as it stands, the way made round it, there in " + (t[0] - 145) + " ticks");
         }
         if (t[0] == 145 + 400) check(false, "never got to the goal room: at " + c.blockPosition().toShortString() + ", the kept cell " + level.getBlockState(x) + ", tasks " + c.tasks + " / " + c.currentTask);
+        return true;
+    }
+    private static BlockPos st1001P;
+    private static boolean st1001(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // his table set down "on his tunnel floor for now" in a cell that now reads as his mine's wall, not on his notch list (live 11-07 02:43 to 11-08 15:12, review 342: the pickup queued no patch-back, the wall guard refused the dig, every 5 min for 36 h): taken up, the wall patched
+        BlockPos o = new BlockPos(19800, 80, 18900);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -16; k <= 32; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { scenarioReset(c); c.commandActive = false; st1001P = null; }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) e.discard();
+        if (t[0] == 10) {
+            for (int x = -4; x <= 28; x++) for (int z = -8; z <= 8; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.DEEPSLATE.defaultBlockState(), 2);
+            var E = net.minecraft.core.Direction.EAST;
+            var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 20, null)); b.invalidate();
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            var row = b.rows().get(7);
+            for (BlockPos f : new BlockPos[]{row.feet()[0], row.feet()[row.feet().length - 1]}) for (var d : new net.minecraft.core.Direction[]{net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (st1001P == null && b.isShell(f.relative(d))) st1001P = f.relative(d).immutable();
+            level.setBlock(st1001P, Blocks.CRAFTING_TABLE.defaultBlockState(), 3);
+            BlockPos me = b.rows().get(3).first();
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = b.rows().get(19).first(); c.mineIsTunnel = true; level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no");
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null; c.nextPlanTick = c.tickCount + 20 * 600;
+            c.notches.remove(st1001P); c.tempStations.add(st1001P);
+        }
+        if (t[0] == 20) { check(c.blueprint.isShell(st1001P), "the table's cell isn't his wall: " + st1001P.toShortString());
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("pickUpTempStations", ClaudeEntity.class, ServerLevel.class); m.setAccessible(true); m.invoke(null, c, level); } catch (ReflectiveOperationException ex) { throw new RuntimeException(ex); } }
+        if (t[0] > 20 && !level.getBlockState(st1001P).is(Blocks.CRAFTING_TABLE) && level.getBlockState(st1001P).isCollisionShapeFullBlock(level, st1001P) && c.getInventory().countItem(Items.CRAFTING_TABLE) == 1) {
+            String patch = level.getBlockState(st1001P).getBlock().getName().getString();
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; c.prefs.remove("stay_close"); c.tempStations.clear();
+            for (int x = -4; x <= 28; x++) for (int z = -8; z <= 8; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            nsHome(c, h, level); pass(stage, t, "his table taken up out of his wall, the cell patched with " + patch + " in " + (t[0] - 20) + " ticks");
+        }
+        if (t[0] == 20 + 400) check(false, "the table in his wall still there: " + level.getBlockState(st1001P) + " at " + st1001P.toShortString() + ", tables on him " + c.getInventory().countItem(Items.CRAFTING_TABLE) + ", tasks " + c.tasks + " / " + c.currentTask);
         return true;
     }
     private static int st739T;

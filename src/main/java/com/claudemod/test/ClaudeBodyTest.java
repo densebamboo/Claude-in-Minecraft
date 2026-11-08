@@ -10535,6 +10535,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 989: return st989(stage, t, c, h, level, mock);
             case 988: return st988(stage, t, c, h, level, mock);
             case 986: return st986(stage, t, c, h, level, mock);
             case 985: return st985(stage, t, c, h, level, mock);
@@ -15222,6 +15223,26 @@ public final class ClaudeBodyTest {
         if (t[0] > 3) {
             if (level.getBlockState(log).isAir()) { check(c.blockPosition().equals(o), "the log down, but from " + c.blockPosition().toShortString()); pass(stage, t, "the log 4.4 to its middle from where he stands (by a face he sees: the leaf " + (level.getBlockState(leaf).isAir() ? "broken first" : "left") + ") in " + (t[0] - st988T0) / 20.0 + " s"); return true; }
             check(t[0] - st988T0 < 20 * 8, "the log 4.4 from his eye to its middle not broken in 8 s (leaf " + (level.getBlockState(leaf).isAir() ? "gone" : "there") + ", doing " + c.currentTask + ", queue " + c.tasks.size() + ")");
+        }
+        return true;
+    }
+    private static int st989T;
+    /** Stage 989 (D2D 11-08, review 130, live 06:29-06:32 at 272,65,-73: his furnace 2 down at 272,63,-73, the stone he stood on between; "couldn't get in reach of furnace ... in reach: true, in the way: stone at 272, 64, -73", nudged 10 s into his own cell, 3 min, 8 charcoal left in it; reachFor dug only soft blocks off, hardness 0.6 or under): the same cut, a stone pick on him. The stone dug, the charcoal taken. */
+    private static boolean st989(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st989T = -1; level.setDayTime(6000); flatBox(h); }
+        BlockPos fp = h.absolutePos(new BlockPos(6, 1, 4));
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            for (int x = 2; x <= 10; x++) for (int z = 0; z <= 8; z++) for (int y = 1; y <= 2; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.STONE.defaultBlockState(), 2); // (ground level at y 3: the furnace sunk 2 under it, as live)
+            level.setBlock(fp, Blocks.FURNACE.defaultBlockState(), 2);
+            if (level.getBlockEntity(fp) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f) f.setItem(2, new ItemStack(Items.CHARCOAL, 8));
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.myStations.add(fp.immutable());
+            BlockPos me = fp.above(2); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.tasks.add(new Task.FurnaceTake(fp.immutable())); st989T = t[0]; }
+        if (st989T > 0 && t[0] > st989T) {
+            if (c.getInventory().countItem(Items.CHARCOAL) >= 8) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.myStations.remove(fp); pass(stage, t, "dug the stone off his furnace and took the charcoal in " + (t[0] - st989T) / 20 + " s"); return true; }
+            check(t[0] - st989T < 20 * 15, "15 s on the stone over his furnace: " + c.getInventory().countItem(Items.CHARCOAL) + " charcoal taken, the stone " + (level.getBlockState(fp.above()).is(Blocks.STONE) ? "still there" : "gone") + ", doing " + c.currentTask);
         }
         return true;
     }

@@ -1744,6 +1744,13 @@ public class WorkGoal extends Goal {
     /** How far (eyes to a block's centre) he breaks from. Every picker of a block to break uses this, or doBreak refuses what it picked (the obsidian loop, 13:05). */
     public static final double BREAK_REACH = 4.25;
 
+    /** A block between him and a station that he digs like a player: his pick (or the right tool) takes it, and it's nobody's build, shell, house or structure (live 06:29 11-08: stone over his furnace, 3 min nudging, review 130, stage 989). */
+    private boolean digsInTheWay(ServerLevel level, BlockPos p, BlockState s) {
+        if (s.requiresCorrectToolForDrops() && g.inventory.find(it -> it.isCorrectToolForDrops(s)).isEmpty()) return false;
+        if (com.claudemod.entity.life.TempLedger.built(g, p) || com.claudemod.director.ClaudeLife.nookShell(g, p) || com.claudemod.entity.nav.ActionPath.structureBlock(level, p)) return false;
+        if (com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && g.blueprint.isShell(p) || g.house != null && g.house.isStructure(p)) return false;
+        return true;
+    }
     private boolean inReach(BlockPos pos) {
         Vec3 eye = g.getEyePosition(); // a player's reach: a face of it he sees, its point inside 4.5 (block_interaction_range), aimed at as blockInTheWay aims; 4.25 to the middle left a floating log 4.37 off, a face 3.8 off, "can't get at it" (reviews 199/200, stage 988)
         if (eye.distanceTo(Vec3.atCenterOf(pos)) > w("reach.block", 4.45) + 0.87) return false; // (no face of it within reach: no rays; a ray to a block far off stepped every cell and loaded every chunk on the way, the test server hung, stages 548, 781)
@@ -4759,7 +4766,7 @@ public class WorkGoal extends Goal {
                 g.getLookControl().setLookAt(soft.getX() + 0.5, soft.getY() + 0.5, soft.getZ() + 0.5); g.swing(InteractionHand.MAIN_HAND); g.gameMode.destroyBlock(soft);
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} at {} between him and the {} at {}: punched it out (WorkGoal.reachFor)", name(ss), soft.toShortString(), name(level.getBlockState(target)), target.toShortString());
                 return false; }
-            if (ss != null && g.currentTask != null && ss.getDestroySpeed(level, soft) >= 0 && (ss.getDestroySpeed(level, soft) <= com.claudemod.entity.life.Weights.w("reach.dig_in_way_hardness", 0.6) || ss.is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE) && g.myStations.contains(soft)) /* (his own table by it: broken and picked up, live 00:00 11-08) */ && ss.getFluidState().isEmpty() && !ss.hasBlockEntity() && clearViewSpot(level, target) == null && !com.claudemod.entity.life.PortalMap.frameBlock(g, soft)) { // dirt or gravel over it and no spot that sees it: dug off, like a player (live 23:24 and 23:32 11-07: "in reach: true, in the way: dirt", nudged 10 s into his own cell twice, the charcoal left, the logs burnt out; D2D review 298/368, stage 1021)
+            if (ss != null && g.currentTask != null && ss.getDestroySpeed(level, soft) >= 0 && (ss.getDestroySpeed(level, soft) <= com.claudemod.entity.life.Weights.w("reach.dig_in_way_hardness", 0.6) || digsInTheWay(level, soft, ss) || ss.is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE) && g.myStations.contains(soft)) /* (his own table by it: broken and picked up, live 00:00 11-08) */ && ss.getFluidState().isEmpty() && !ss.hasBlockEntity() && clearViewSpot(level, target) == null && !com.claudemod.entity.life.PortalMap.frameBlock(g, soft)) { // dirt or gravel over it and no spot that sees it: dug off, like a player (live 23:24 and 23:32 11-07: "in reach: true, in the way: dirt", nudged 10 s into his own cell twice, the charcoal left, the logs burnt out; D2D review 298/368, stage 1021)
                 g.tasks.addFirst(g.currentTask); g.tasks.addFirst(new Task.Break(soft.immutable())); g.getNavigation().stop(); if (ss.is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE)) liftFor().add(soft.immutable());
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} at {} between him and the {} at {}, no spot that sees it: digging it off, then the job (WorkGoal.reachFor)", name(ss), soft.toShortString(), name(level.getBlockState(target)), target.toShortString());
                 exitWhy = "the " + name(ss) + " over the " + name(level.getBlockState(target)) + " dug off first"; return true; } }

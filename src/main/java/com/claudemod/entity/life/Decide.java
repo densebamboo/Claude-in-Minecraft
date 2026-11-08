@@ -204,7 +204,7 @@ public final class Decide {
         if (nether && level.getServer() != null) { // the fortress that killed him: its blazes and wither skeletons round the pile are priced too, never the piglins alone (live 00:39 11-08: in gold boots and a wooden sword, fireballed dead 85 short of it)
             ServerLevel nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
             BlockPos fort = nl == null ? null : Atlas.find(g, nl, "fortress"); // shortcut: the fortress nearest him, fine with one or two on record; a per-pile lookup if he knows many
-            double fr = w("recovery.fortress_r", 96);
+            double fr = w("recovery.fortress_r", 192); // (a fortress runs ~200 across and his atlas holds one sighting of it: both live piles were ~120 off it, on its own bridges)
             if (fort != null && fort.distSqr(dn.at) <= fr * fr) {
                 boolean sword = g.inventory.count(x -> x.getItem() instanceof net.minecraft.world.item.SwordItem sw && sw.getTier() != net.minecraft.world.item.Tiers.WOOD && sw.getTier() != net.minecraft.world.item.Tiers.GOLD) > 0;
                 double armorF = armorF(g), hits = w("recovery.fortress_hits", 4) * (sword ? 1 : w("recovery.fortress_no_sword_x", 1.5)), perHit = w("recovery.fortress_hit_hp", 6) * armorF; // (fireballs and wither swords round a fortress pile: a few hits there and back, more with nothing to kill them fast)

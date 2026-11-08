@@ -4816,6 +4816,7 @@ public class WorkGoal extends Goal {
         if (cooking && furnace.getItem(1).isEmpty() && !level.getBlockState(t.pos()).getValue(net.minecraft.world.level.block.AbstractFurnaceBlock.LIT)) cooking = false; // out of fuel: take what's done
         if (cooking) return false; // the whole batch, then go
         ItemStack out = furnace.removeItem(2, 64);
+        if (out.isEmpty()) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] furnace at {}: nothing done to take out (in: {} {}, fuel: {} {}, lit: {}, {} ticks on it) (WorkGoal.doFurnaceTake)", t.pos().toShortString(), furnace.getItem(0).getCount(), itemName(furnace.getItem(0)), furnace.getItem(1).getCount(), itemName(furnace.getItem(1)), level.getBlockState(t.pos()).getValue(net.minecraft.world.level.block.AbstractFurnaceBlock.LIT), ticks); // (live 11:42 11-08: "my cooked_salmon is done in my furnace 1 off: getting it" 14 times in 1.4 s, none taken, and the take said nothing)
         if (!out.isEmpty()) furnace.awardUsedRecipesAndPopExperience(g); // the XP a player gets for taking the output
         if (!out.isEmpty()) {
             g.noteDoing("smelted " + out.getCount() + " " + itemName(out));

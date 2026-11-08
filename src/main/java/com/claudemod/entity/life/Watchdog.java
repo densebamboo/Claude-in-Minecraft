@@ -540,7 +540,7 @@ public final class Watchdog {
         if (got && s.startEst > 0 && ran > 1.5 * s.startEst && ran - s.startEst >= 200)
             fileOnce(g, "SLOW", "SLOW|" + s.startWhat, String.format("%s took %.1f s, a player %.1f s (%s, from %.1f off)", s.startWhat, ran / 20.0, s.startEst / 20.0, t, s.startDist));
         String step = g.lastStep == null ? "" : g.lastStep.skill();
-        boolean leg = t instanceof Task.GoTo && got && g.tasks.peekFirst() instanceof Task.GoTo; // (one walk's legs, the next under way: judged at the walk's end; live 16:39, a flight a leg out of his mine, WASTED_TRIP at each; stage 920)
+        boolean leg = t instanceof Task.GoTo && got && (g.tasks.peekFirst() instanceof Task.GoTo || g.tasks.peekFirst() instanceof Task.Leap); // (one walk's legs, the next under way: judged at the walk's end; live 16:39, a flight a leg out of his mine, WASTED_TRIP at each; stage 920) (a jump next is his walk going on too: review 225, stage 992)
         double walked = s.startDist + (t instanceof Task.GoTo && got ? s.legRun : 0); s.legRun = leg ? walked : 0;
         if (t instanceof Task.GoTo && got && !leg && walked >= 16 && !g.commandActive && !g.holdingNight() && !java.util.Set.of("explore", "go_to", "follow", "come", "scout").contains(step)) {
             s.tripAt = now(g); s.tripBroken = s.broken; s.tripItems = items(g); s.tripPos = g.blockPosition().immutable(); s.tripWhat = String.format("%.0f blocks to %s (step %s)", walked, ((Task.GoTo) t).pos().toShortString(), step.isEmpty() ? "-" : step + " " + g.lastStep.target());

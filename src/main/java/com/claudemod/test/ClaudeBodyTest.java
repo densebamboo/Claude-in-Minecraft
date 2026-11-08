@@ -10536,6 +10536,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 992: return st992(stage, t, c, h, level, mock);
             case 991: return st991(stage, t, c, h, level, mock);
             case 989: return st989(stage, t, c, h, level, mock);
             case 988: return st988(stage, t, c, h, level, mock);
@@ -15289,6 +15290,35 @@ public final class ClaudeBodyTest {
             if (!on) { pass(stage, t, "the torch 30 walks round dropped as moved on, " + String.format("%.1f", moved) + " walked, in " + (t[0] - st991T) + " ticks"); return true; }
             check(t[0] - st991T < 100, "5 s still on the far torch, " + String.format("%.1f", moved) + " walked");
         }
+        return true;
+    }
+    /** Stage 992 (review 225, live 05:17:46 World 17: a leg of his walk to 293,63,290 ended 2 off its spot at 108,62,86, his walker put a jump over a gap in front of the leg's last 2 blocks, the jump and 20 more legs ran on; "walked 28 blocks ... and did nothing there", the leg read as the walk's end because a Leap, not a GoTo, was next): 920's two legs, a 1-wide gap a block before the first leg's end, the rest a block down. No WASTED_TRIP. */
+    private static int s992T = -1;
+    private static boolean st992(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var W = com.claudemod.entity.life.Watchdog.recentKinds; BlockPos o = new BlockPos(19600, 80, 19720);
+        if (t[0] % 10 == 0 || t[0] < 10) for (int k = -16; k <= 96; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 2, o.offset(k, 0, 0));
+        try {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 24000; c.tasks.clear(); c.skillQueue.clear(); c.prefs.put("stay_close", "no"); W.clear(); com.claudemod.entity.life.Watchdog.linesInTests = true; s992T = -1; level.setDayTime(1000);
+            for (int x = -4; x <= 82; x++) for (int z = -2; z <= 2; z++) for (int y = -1; y <= 3; y++) level.setBlockAndUpdate(o.offset(x, y, z), y == -1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState());
+            for (int x = 19; x <= 82; x++) for (int z = -2; z <= 2; z++) for (int y = -5; y <= -1; y++) level.setBlockAndUpdate(o.offset(x, y, z), (x == 19 ? (y == -4 ? Blocks.STONE : Blocks.AIR) : y == -1 ? Blocks.AIR : y == -2 ? Blocks.STONE : Blocks.AIR).defaultBlockState()); // (a 1-wide gap at x 19, its bottom 3 down, the floor past it a block down)
+            level.setBlockAndUpdate(o.offset(75, -1, 2), Blocks.STONE.defaultBlockState()); // (the job at the walk's end: a block of stone by hand, ~7.5 s)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.WOODEN_PICKAXE));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0;
+            c.lastStep = new com.claudemod.entity.life.Skills.Step("enter_portal", "", 1);
+        }
+        if (t[0] == 5) { for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) e.discard();
+            c.tasks.add(new com.claudemod.entity.life.Task.GoTo(o.offset(20, -1, 0).immutable(), 0.8)); c.tasks.add(new com.claudemod.entity.life.Task.GoTo(o.offset(78, -1, 0).immutable(), 0.8)); // (one walk in 2 legs: the second still under way 10 s after the first got there, as his climb out of the mine was)
+            c.tasks.add(new com.claudemod.entity.life.Task.Break(o.offset(75, -1, 2).immutable())); }
+        if (t[0] > 5) { c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 24000; }
+        if (s992T < 0 && t[0] > 5 && level.getBlockState(o.offset(75, -1, 2)).isAir()) s992T = t[0];
+        if (s992T > 0 && t[0] == s992T + 20 * 12 || t[0] >= 20 * 200) {
+            String w = W.toString(), last = com.claudemod.entity.life.Watchdog.lastIncident; c.tasks.clear(); com.claudemod.entity.life.Watchdog.linesInTests = false; s800Speed(c, 0.1);
+            for (int x = -4; x <= 82; x++) for (int z = -2; z <= 2; z++) for (int y = -5; y <= 3; y++) level.setBlockAndUpdate(o.offset(x, y, z), Blocks.AIR.defaultBlockState());
+            check(s992T > 0, "the walk's end job never got done in 200 s (he's at " + c.blockPosition().toShortString() + ")");
+            check(!w.contains("WASTED_TRIP"), "one walk in 3 legs, work at its end: filed " + w + " (last " + last + ")");
+            pass(stage, t, "a leg ending in his jump over the gap, the job at the end, no WASTED_TRIP: " + w); }
+        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; s800Speed(c, 0.1); throw e; }
         return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */

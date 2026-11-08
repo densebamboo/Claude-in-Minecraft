@@ -1745,6 +1745,7 @@ public class WorkGoal extends Goal {
 
     private int approachTries;
     private BlockPos lastPillarFor;
+    private static int pillarMissLog = -100; // (static: fields added live start null)
 
     /**
      * Out of reach, the way a player handles it: walk to a spot that can reach it; if walking can't get
@@ -6939,6 +6940,7 @@ public class WorkGoal extends Goal {
         if (!level.getFluidState(pillarFeet).isEmpty()) g.placeAt(pillarFeet, pillarItem); // in water: against the side walls (or whatever's under it)
         else g.useOn(pillarFeet.below(), Direction.UP);
         if (level.getBlockState(pillarFeet).getCollisionShape(level, pillarFeet).isEmpty()) { // the game didn't take it (yet): click again next tick, jump again if he lands
+            if (g.tickCount - pillarMissLog > 20) { pillarMissLog = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] tower at {}: the block didn't go in at the top of the jump (y {}, held {}, in the cell:{}, the cell {}) (WorkGoal.doPillar)", pillarFeet.toShortString(), String.format("%.2f", g.getY()), g.getMainHandItem(), inCell.isEmpty() ? " none" : inCell, name(level.getBlockState(pillarFeet))); } // (D2D review 300, live 23:27:50 11-07: "jump too low" 4 times in 9 s by the golem, his apex 75.25 over feet 74, the place's failure never said)
             if (pillarTicks < 40) return false;
             dbg("in the cell:" + (inCell.isEmpty() ? " none" : inCell) + "; place failed at " + pillarFeet + " y=" + g.getY() + " held=" + g.getMainHandItem());
             return true;

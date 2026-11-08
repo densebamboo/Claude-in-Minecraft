@@ -10536,6 +10536,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 996: return st996(stage, t, c, h, level, mock);
             case 995: return st995(stage, t, c, h, level, mock);
             case 994: return st994(stage, t, c, h, level, mock);
             case 993: return st993(stage, t, c, h, level, mock);
@@ -15377,6 +15378,29 @@ public final class ClaudeBodyTest {
             if (c.getY() >= me.getY() + 2.9 && c.onGround()) { pass(stage, t, "3 up from an open trapdoor's cell in " + (t[0] - st995T) + " ticks, the cell now " + level.getBlockState(me).getBlock().getName().getString()); c.tasks.clear(); c.tasks.add(new Task.Pillar(-1)); return true; }
             check(t[0] - st995T < 120, "6 s towering from an open trapdoor's cell: y " + String.format("%.2f", c.getY() - me.getY()) + " up, the cell " + level.getBlockState(me).getBlock().getName().getString() + ", doing " + c.currentTask + ", queue " + c.tasks);
         }
+        return true;
+    }
+    /** Stage 996 (review 339, live 09:46-09:47 World 17 at -33,63,18: fishing from the shallows, cod and a pufferfish landed, then a step out; "in water 52.1 s, 2 blocks", WATER filed on the whole spell because a walk ended it): 7 s standing in a 1-deep pool, then a walk out onto the grass. No WATER. */
+    private static int st996T;
+    private static boolean st996(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var W = com.claudemod.entity.life.Watchdog.recentKinds;
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st996T = -1; level.setDayTime(6000); flatBox(h); }
+        BlockPos to = h.absolutePos(new BlockPos(11, 2, 7));
+        try {
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            for (int x = 6; x <= 8; x++) for (int z = 6; z <= 8; z++) level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.WATER.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            BlockPos me = h.absolutePos(new BlockPos(7, 1, 7)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            W.clear(); com.claudemod.entity.life.Watchdog.linesInTests = true;
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.tasks.add(new Task.Wait(140, false)); c.tasks.add(new Task.GoTo(to.immutable(), 0.9)); st996T = t[0]; } // (stood in the shallows as fishing does, then out)
+        if (st996T > 0 && t[0] == st996T + 260) {
+            String w = W.toString(); com.claudemod.entity.life.Watchdog.linesInTests = false;
+            check(c.blockPosition().distSqr(to) <= 4, "never walked out onto the grass: at " + c.blockPosition().toShortString() + ", doing " + c.currentTask);
+            check(!w.contains("WATER"), "7 s standing in the shallows, a second's walk out, filed as a slow swim: " + w + " (last " + com.claudemod.entity.life.Watchdog.lastIncident + ")");
+            pass(stage, t, "stood in the water, walked out, no WATER: " + w); }
+        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
         return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */

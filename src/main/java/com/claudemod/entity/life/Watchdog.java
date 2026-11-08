@@ -39,7 +39,7 @@ public final class Watchdog {
     static final class St {
         final java.util.Map<String, Integer> placeGaveUp = new java.util.HashMap<>(); // item|cell -> tick of its last give-up (PLACE_REPEAT)
         int dragTicks; String dragBlock = ""; BlockPos dragAt; // walking into a block (leaves, a wall) and sliding along it
-        int wetSince = -1; double wetX, wetY, wetZ;              // in water since, from where
+        int wetSince = -1, wetWalkT; double wetX, wetY, wetZ;              // in water since, from where
         String wetDoing = "nothing"; boolean wetWalk;             // what he was at in the water (the walk ends as he lands)
         int idleSince = -1; double idleX, idleZ;                  // no task, no queue, standing, since (IDLE)
         long stillPos = Long.MIN_VALUE; BlockPos stillWant; int stillSince, stillBroken; // same block, the same walk queued, nothing dug, since (STUCK)
@@ -431,16 +431,16 @@ public final class Watchdog {
                 if (!com.claudemod.entity.ClaudeSpawner.testing || linesInTests) fileOnce(g, "DRAG", "DRAG|" + s.dragAt.asLong(), line);
             }
         } else s.dragTicks = 0;
-        boolean wet = g.isInWater();
-        if (wet && s.wetSince < 0) { s.wetSince = now(g); s.wetX = g.getX(); s.wetY = g.getY(); s.wetZ = g.getZ(); s.wetWalk = false; s.wetDoing = "nothing"; }
-        if (wet && g.currentTask != null) { s.wetDoing = g.currentTask.toString(); if (g.currentTask instanceof Task.GoTo) s.wetWalk = true; }
+        boolean wet = g.isInWater(); // (WATER files on the time walking in it: 50 s fishing in the shallows and a step out read as "52 s in water for 2 blocks", review 339; stage 996)
+        if (wet && s.wetSince < 0) { s.wetSince = now(g); s.wetX = g.getX(); s.wetY = g.getY(); s.wetZ = g.getZ(); s.wetWalk = false; s.wetWalkT = 0; s.wetDoing = "nothing"; }
+        if (wet && g.currentTask != null) { s.wetDoing = g.currentTask.toString(); if (g.currentTask instanceof Task.GoTo) { s.wetWalk = true; s.wetWalkT++; } }
         else if (!wet && g.onGround() && s.wetSince >= 0) { // (landed: swimming bobs him out of the water every stroke)
             int ticks = now(g) - s.wetSince; s.wetSince = -1;
             if (ticks >= 20) {
                 double d = Math.sqrt(Math.pow(g.getX() - s.wetX, 2) + Math.pow(g.getZ() - s.wetZ, 2));
-                String line = String.format("in water %.1f s, %.0f blocks from %.0f %.0f %.0f to %.0f %.0f %.0f, doing %s", ticks / 20.0, d, s.wetX, s.wetY, s.wetZ, g.getX(), g.getY(), g.getZ(), s.wetDoing);
+                String line = String.format("in water %.1f s, %.0f blocks from %.0f %.0f %.0f to %.0f %.0f %.0f, doing %s; walking %.1f s of it", ticks / 20.0, d, s.wetX, s.wetY, s.wetZ, g.getX(), g.getY(), g.getZ(), s.wetDoing, s.wetWalkT / 20.0);
                 ClaudeMod.LOGGER.info("[Claude move] {}", line);
-                if (ticks > 20 * 5 && s.wetWalk && (!com.claudemod.entity.ClaudeSpawner.testing || linesInTests)) fileOnce(g, "WATER", "WATER|" + BlockPos.containing(s.wetX, s.wetY, s.wetZ).asLong(), line);
+                if (s.wetWalkT > 20 * 5 && s.wetWalk && (!com.claudemod.entity.ClaudeSpawner.testing || linesInTests)) fileOnce(g, "WATER", "WATER|" + BlockPos.containing(s.wetX, s.wetY, s.wetZ).asLong(), line);
             }
         }
     }

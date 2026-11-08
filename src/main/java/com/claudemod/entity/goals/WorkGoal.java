@@ -4831,10 +4831,14 @@ public class WorkGoal extends Goal {
             if (shoots(m) && m.hasLineOfSight(g)) buildHp += build * w("flee.shots_per_s", 0.5) * w("flee.shot_hit_chance", 0.7) * mobHit(m);
             else if (m.distanceTo(g) < 4) buildHp += build * w("fight.mob_hits_per_s", 0.8) * mobHit(m); }
         double on = backAmongS(n), cover = build + com.claudemod.entity.life.Decide.hpS(g, 0, buildHp, perHit) + w("cover.wait_out_s", 60);
-        var opts = java.util.List.of(com.claudemod.entity.life.Decide.Option.of("cover", cover, "build " + build + " s (~" + String.format("%.1f", buildHp) + " HP while he does), wait it out ~" + Math.round(w("cover.wait_out_s", 60)) + " s"),
-            com.claudemod.entity.life.Decide.Option.of("carry on", on, "~" + String.format("%.1f", onHp) + " HP to expect out here over " + Math.round(w("cover.look_ahead_s", 10)) + " s"));
+        var opts = new java.util.ArrayList<>(java.util.List.of(com.claudemod.entity.life.Decide.Option.of("cover", cover, "build " + build + " s (~" + String.format("%.1f", buildHp) + " HP while he does), wait it out ~" + Math.round(w("cover.wait_out_s", 60)) + " s"),
+            com.claudemod.entity.life.Decide.Option.of("carry on", on, "~" + String.format("%.1f", onHp) + " HP to expect out here over " + Math.round(w("cover.look_ahead_s", 10)) + " s")));
+        // the fight itself, as fight.flee prices it (a shield's share of the arrows, the swings, the HP): a lone skeleton with a shield on him is an 8 s fight, not a cover to wait out all night with it camped round it (D2D 1059, live 20:29-20:33 11-07: cover won "~77 s" against "carry on" alone, three covers under its arrows, dead)
+        net.minecraft.world.entity.Mob foe = null; for (var m : com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(16), x -> x.isAlive() && x instanceof net.minecraft.world.entity.monster.Enemy && !(x instanceof net.minecraft.world.entity.monster.Phantom))) if (foe == null || m.distanceTo(g) < foe.distanceTo(g)) foe = m;
+        if (foe != null && armed()) { shouldFlee(foe, false); if (!Double.isNaN(pricedFightS)) opts.add(com.claudemod.entity.life.Decide.Option.of("fight", pricedFightS, fightOdds)); }
         String ctx = why + ", " + n + " hostile(s), health " + (int) g.getHealth() + ", armor " + g.getArmorValue() + (com.claudemod.director.ClaudeLife.dayHere(lv) ? "" : ", night");
         var pick = com.claudemod.entity.life.Decide.choose(g, "cover.dig_in", ctx, false, opts);
+        if (pick != null && pick.name().equals("fight")) { com.claudemod.entity.life.Decide.choose(g, "cover.dig_in", ctx, true, opts); if (!(current instanceof Task.Attack)) g.tasks.addFirst(new Task.Attack(foe.getUUID(), 20 * 60)); return false; }
         if (pick == null || !pick.name().equals("cover")) return false;
         com.claudemod.entity.life.Decide.choose(g, "cover.dig_in", ctx, true, opts); return true;
     }
@@ -6887,6 +6891,12 @@ public class WorkGoal extends Goal {
         if (pillarPhase == 0) {
             if (!g.onGround() && !swimming) { if (ticks > 60) dbg("never landed"); return ticks > 60; } // never landed (a ladder...): give up towering
             pillarFeet = g.blockPosition();
+            if (pillarDone > 0 && t.steps() > 0 && digInAt != null && digInTasks != null && !digInTasks.isEmpty() && digInTasks.get(0) == t && (pillarFeet.getX() != digInAt.getX() || pillarFeet.getZ() != digInAt.getZ())) { // knocked off his cover's tower partway up: the next block would go where he landed, a pole beside it, and the walls and lid were planned round its top; the cover isn't there, so it's chosen again (D2D 1059, live 20:29-20:33 11-07: an arrow put him 2 off at 1 up, the hut's Places walked at its top from below, "clearing them" 179 times, shot dead on the stub)
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] knocked off his skytower at {} ({} of {} up), now at {}: the cover choice again (WorkGoal.doPillar)", digInAt.toShortString(), pillarDone, t.steps(), pillarFeet.toShortString());
+                g.tasks.removeIf(x -> digInTasks.stream().anyMatch(y -> y == x)); digInTasks = null;
+                digInFromArrows();
+                return true;
+            }
             if (!level.getBlockState(pillarFeet).getCollisionShape(level, pillarFeet).isEmpty()) pillarFeet = pillarFeet.above(); // standing IN a block lower than full (soul sand, a slab, a path): the tower goes on top of it, not "already there" (live 12:11, 14 min pinned on soul sand)
             BlockPos head = pillarFeet.above(2);
             if (!level.getBlockState(head).getCollisionShape(level, head).isEmpty()) { // (water up there is fine: he swims through it)

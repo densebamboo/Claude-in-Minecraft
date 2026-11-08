@@ -10805,6 +10805,7 @@ public final class ClaudeBodyTest {
             case 1058: return st1058(stage, t, c, h, level, mock);
             case 1060: return st1060(stage, t, c, h, level, mock);
             case 1061: return st1061(stage, t, c, h, level, mock);
+            case 1059: return st1059(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -21665,6 +21666,31 @@ public final class ClaudeBodyTest {
         return true;
     }
 
+    private static int st1059Start, st1059Low; private static java.util.List<net.minecraft.world.entity.Mob> st1059M = new java.util.ArrayList<>();
+    private static boolean st1059(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 20:29-20:33 11-07 death (-130,18,-202, a cave at night, no armor, 0 food): a skeleton camped round his cover; three times "a minute in his cover with Skeleton N off still about: out to deal with it", then a crafting table for a stone shovel or his cleanup, shot on his bare tower each time, dead at 20:33:54
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1059Start = 0; st1059Low = 99; st1059M.clear(); }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(60))) if (!st1059M.contains(e)) e.discard();
+        if (t[0] == 10) {
+            for (int x = -10; x <= 26; x++) for (int z = -10; z <= 26; z++) { for (int yy = -2; yy <= 1; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2); for (int yy = 2; yy <= 11; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), (x == -10 || x == 26 || z == -10 || z == 26) ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); for (int yy = 12; yy <= 14; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2); } // a cave: rock all round and over him
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 40)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 3));
+            for (var sl : new net.minecraft.world.entity.EquipmentSlot[]{net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET}) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            BlockPos me = h.absolutePos(new BlockPos(6, 2, 6));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(18); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            level.setDayTime(14400); // (early night, as live: tod 14476 at the first cover)
+            var sk = net.minecraft.world.entity.EntityType.SKELETON.create(level); BlockPos a = h.absolutePos(new BlockPos(14, 2, 12)); sk.moveTo(a.getX() + 0.5, a.getY(), a.getZ() + 0.5, 0, 0); sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW)); sk.setPersistenceRequired(); level.addFreshEntity(sk); sk.setTarget(c); st1059M.add(sk);
+            st1059Start = t[0];
+        }
+        if (st1059Start > 0) {
+            st1059Low = Math.min(st1059Low, (int) c.getHealth());
+            var sk = st1059M.get(0);
+            if (!sk.isAlive()) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "dealt with the skeleton round his cave cover in " + (t[0] - st1059Start) / 20 + " s, lowest health " + st1059Low); return true; }
+            check(c.isAlive() && c.getHealth() > 2, "a skeleton round his cave cover, no armor: down to " + (int) c.getHealth() + " at " + (t[0] - st1059Start) / 20 + " s (doing " + c.currentTask + ")");
+            // (the fight, once chosen, sometimes lands no damage for minutes, "FIGHT NO EFFECT ... it's at 10" with full-strength swings 1 off; cause open, logged to D2D: the stage asserts the choice and the health, not the kill)
+            if (t[0] - st1059Start >= 20 * 30) { check(c.currentTask instanceof Task.Attack a && a.target().equals(sk.getUUID()) && st1059Low >= 12, "30 s with a lone skeleton round his cave cover, a shield on him: not fighting it (lowest health " + st1059Low + ", doing " + c.currentTask + ")"); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; sk.discard(); pass(stage, t, "fighting the skeleton at 30 s, lowest health " + st1059Low); return true; }
+        }
+        return true;
+    }
     /** Stage 1051 (live 10:49 11-07 World 17): 3 meals left in the Nether on his highway job: "off for 9 cooked_porkchop first" sent him 255 blocks off his highway to a crimson forest; at 11:21 he was shot dead on his own bridge over lava out there. Back up for food means home (the user's trip rule): through his portal, the food packed at home; a hoglin in sight is the only hunt. Here: 3 meals, the highway job, no hoglin: home through the portal first, the job after. */
     private static boolean st1051(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (t[0] == 1) { scenarioReset(c); }

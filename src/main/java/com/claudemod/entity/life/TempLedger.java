@@ -278,7 +278,7 @@ public final class TempLedger {
         if ("holds fluid".equals(e.blocked)) e.blocked = ""; // (the water gone: litter again)
         if (s.requiresCorrectToolForDrops() && g.inventory.find(t -> t.isCorrectToolForDrops(s)).isEmpty()) { e.blocked = "no tool that drops it"; return false; }
         if (e.blocked.equals("no tool that drops it")) { e.blocked = ""; ClaudeMod.LOGGER.info("[Claude temp] correct tool now on him for {} at {}: the missing-tool hold is cleared (TempLedger.takeable)", e.item, e.pos.toShortString()); } // Live Nov 4 00:19: a previous bare-handed refusal survived a new stone pick forever.
-        if (!e.blocked.isEmpty() && !e.awayAfterTry) return false; // couldn't get it last time: again once he's been away and is back by it
+        if (!e.blocked.isEmpty()) return false; // couldn't get it last time: again once he's been away and is back by it (tick clears the hold within 16; a try made from 32+ off read as "been away" at once and the tidy re-queued it every 5 s: live 05:06 11-08, review 109, stage 1030)
         if (Watchdog.off(g, new Task.Break(e.pos))) { if (!"written off".equals(e.blocked)) ClaudeMod.LOGGER.info("[Claude temp] his {} at {}: its take-up is written off by the watchdog (no way to it): left, not queued again (TempLedger.takeable)", e.item, e.pos.toShortString()); e.blocked = "written off"; return false; } // (World 15 13:50: a stray table re-queued every few seconds after the write-off, 32+ lines)
         return true;
     }

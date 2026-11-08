@@ -10703,6 +10703,7 @@ public final class ClaudeBodyTest {
             case 1027: return st1027(stage, t, c, h, level, mock);
             case 1028: return st1028(stage, t, c, h, level, mock);
             case 1029: return st1029(stage, t, c, h, level, mock);
+            case 1030: return st1030(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -18913,6 +18914,23 @@ public final class ClaudeBodyTest {
             check(c.lastSkillLine.startsWith("eat"), "the eat step didn't run: " + c.lastSkillLine);
             check(c.getInventory().countItem(Items.COOKED_BEEF) == 9, "food eaten at food 20: " + c.getInventory().countItem(Items.COOKED_BEEF) + " beef left");
             pass(stage, t, "at food 20 the eat step says so: " + c.lastSkillLine); return true; }
+        return true;
+    }
+    private static BlockPos s1030P; private static int s1030Tries, s1030Last; private static boolean s1030Was;
+    // live 05:06-05:09 11-08 (review 109): his pillar blocks 44 off with no way to them; the take-up failed and was queued again every 5 s ("again when he's next by it", but a try made from 32+ off counted as him having been away)
+    private static boolean st1030(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(6000); flatBox(h); s1030Tries = 0; s1030Last = -1; s1030Was = false;
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            BlockPos at = h.absolutePos(new BlockPos(3, 2, 3)); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+            s1030P = at.offset(42, 0, 0).immutable(); // (in a sealed room: no way to it)
+            for (BlockPos q : BlockPos.betweenClosed(s1030P.offset(-3, -1, -3), s1030P.offset(3, 3, 3))) { BlockPos r = q.subtract(s1030P); level.setBlock(q, (Math.abs(r.getX()) == 3 || Math.abs(r.getZ()) == 3 || r.getY() == -1 || r.getY() == 3 ? Blocks.BEDROCK : Blocks.AIR).defaultBlockState(), 2); } // (a sealed bedrock room: the block on its floor, air round it, no way in)
+            level.setBlock(s1030P, Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2);
+            try { var k = com.claudemod.entity.life.TempLedger.Entry.class.getDeclaredConstructor(BlockPos.class, String.class, String.class, long.class, String.class, String.class); k.setAccessible(true); com.claudemod.entity.life.TempLedger.book(c).put(s1030P, k.newInstance(s1030P, "cobbled_deepslate", "pillar", level.getGameTime(), "step strip_mine", "a pillar, as live")); } catch (ReflectiveOperationException e) { throw new RuntimeException(e); } } // (on his ledger as the live pillar was: placed() books a cell with air round it, this one has none)
+        if (t[0] > 1) {
+            var en = com.claudemod.entity.life.TempLedger.entry(c, s1030P); if (en != null && en.triedAt >= 0 && en.triedAt != s1030Last) { s1030Tries++; s1030Last = en.triedAt; } // (each take-up queued stamps its try)
+            check(s1030Tries <= 1, "his take-up of the block 42 off with no way to it queued " + s1030Tries + " times in " + t[0] / 20 + " s (again and again, never by it)");
+            if (t[0] >= 20 * 40) { check(s1030Tries == 1, "the take-up never tried at all (" + s1030Tries + "): the stage didn't set it up; on the ledger " + com.claudemod.entity.life.TempLedger.has(c, s1030P) + " " + com.claudemod.entity.life.TempLedger.entry(c, s1030P) + " blocked " + (com.claudemod.entity.life.TempLedger.entry(c, s1030P) == null ? "-" : com.claudemod.entity.life.TempLedger.entry(c, s1030P).blocked) + ", block " + level.getBlockState(s1030P) + ", loaded " + level.isLoaded(s1030P) + ", doing " + c.currentTask); com.claudemod.entity.life.TempLedger.book(c).remove(s1030P); pass(stage, t, "one go at the block with no way to it, then left till he's back by it"); return true; }
+        }
         return true;
     }
     private static int st739T;

@@ -79,14 +79,14 @@ public class ClaudeEntity extends ServerPlayer {
     public static final java.util.Map<Task, String> ORIGIN = java.util.Collections.synchronizedMap(new java.util.LinkedHashMap<Task, String>(256, 0.75f, false) { @Override protected boolean removeEldestEntry(java.util.Map.Entry<Task, String> e) { return size() > 4000; } });
     private static final StackWalker WALK = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE);
     public static String originOf(Task t) { String o = t == null ? null : ORIGIN.get(t); return o == null ? "?" : o; }
-    private static void noteOrigin(Task t) {
+    private static void noteOrigin(ClaudeEntity g, Task t) {
         if (t == null) return;
         String o = WALK.walk(st -> st.filter(f -> !java.util.ArrayDeque.class.isAssignableFrom(f.getDeclaringClass()) && !f.getClassName().startsWith("java.") && !f.getMethodName().startsWith("noteOrigin") && !f.getMethodName().contains("lambda$noteOrigin")).findFirst()
                 .map(f -> f.getDeclaringClass().getSimpleName() + "." + f.getMethodName() + ":" + f.getLineNumber()).orElse("?"));
         { String had = ORIGIN.get(t); if (had != null) o = had; else ORIGIN.put(t, o); } // (a job moved up the queue or put back keeps who first queued it)
         net.minecraft.core.BlockPos p = t instanceof Task.Break b0 ? b0.pos() : t instanceof Task.Place p0 ? p0.pos() : null;
         if (p == null) return;
-        if (t instanceof Task.Place pl0 && (pl0.item().builtInRegistryHolder().is(net.minecraft.tags.ItemTags.SAPLINGS) || pl0.item() == net.minecraft.world.item.Items.TORCH)) return; // (a sapling back in the stump's spot, a torch: the job's own next step, not a claim)
+        if (t instanceof Task.Place pl0 && (pl0.item().builtInRegistryHolder().is(net.minecraft.tags.ItemTags.SAPLINGS) || pl0.item() == net.minecraft.world.item.Items.TORCH)) return; if (t instanceof Task.Place && com.claudemod.entity.life.MineBlueprint.ore(g.level().getBlockState(p))) return; // (a fill queued on a cell still holding its ore: the hole's refill after the ore comes out, one job with its dig, not a second claim; 14 of 18 owner lines 11-08 were this, each cell dug once and filled once) // (a sapling back in the stump's spot, a torch: the job's own next step, not a claim)
         String who = o.replaceAll(":\\d+$", "").replaceAll("^(ClaudeLife\\.bp\\w+|WorkGoal\\.doMineVisibleOres)$", "his mine").replaceAll("^WorkGoal\\.(digThroughToward|doPickup)$", "a pickup").replaceAll("^ClaudeLife\\.(pickUpTempStations|refillNotch)$", "his stations' cleanup") /* (a station taken up, its notch filled: one job; live 12:05 11-08, review 140) */, kind = t instanceof Task.Break ? "dug out" : "filled"; long now = System.currentTimeMillis();
         synchronized (CLAIM) {
             if (CLAIM.size() > 5000) CLAIM.clear();
@@ -102,8 +102,8 @@ public class ClaudeEntity extends ServerPlayer {
     /** Each block's last claim: which system queued a dig or a fill there, and when (the user: cell ownership, for debugging). */
     private static final java.util.Map<Long, String[]> CLAIM = new java.util.HashMap<>();
     public final ArrayDeque<Task> tasks = new ArrayDeque<>() {
-        @Override public void addFirst(Task t) { noteOrigin(t); if (!com.claudemod.entity.life.Parked.blocks(ClaudeEntity.this, t) && !torchStuck(t) && com.claudemod.entity.life.Gate.admits(ClaudeEntity.this, t)) super.addFirst(t); } // (a refused upkeep patch, parked: not taken again till something changed)
-        @Override public void addLast(Task t) { noteOrigin(t); if (!com.claudemod.entity.life.Parked.blocks(ClaudeEntity.this, t) && !torchStuck(t) && com.claudemod.entity.life.Gate.admits(ClaudeEntity.this, t)) super.addLast(t); }
+        @Override public void addFirst(Task t) { noteOrigin(ClaudeEntity.this, t); if (!com.claudemod.entity.life.Parked.blocks(ClaudeEntity.this, t) && !torchStuck(t) && com.claudemod.entity.life.Gate.admits(ClaudeEntity.this, t)) super.addFirst(t); } // (a refused upkeep patch, parked: not taken again till something changed)
+        @Override public void addLast(Task t) { noteOrigin(ClaudeEntity.this, t); if (!com.claudemod.entity.life.Parked.blocks(ClaudeEntity.this, t) && !torchStuck(t) && com.claudemod.entity.life.Gate.admits(ClaudeEntity.this, t)) super.addLast(t); }
         /** A torch spot he got stuck on (the 45 s rung put it on record with its cause): not queued again while that holds (stage 799). */
         private boolean torchStuck(Task t) { if (!(t instanceof Task.WallTorch w) || attempts == null || !attempts.skipped(com.claudemod.entity.life.Attempts.Kind.PLACE, w.pos(), tickCount, 0)) return false; if (tickCount - torchStuckSaid > 200) { torchStuckSaid = tickCount; ClaudeMod.LOGGER.info("[Claude life] the torch at {}: stuck on it before, not queued again while that holds (ClaudeEntity.tasks)", w.pos().toShortString()); } return true; }
         private int torchStuckSaid = -100000;

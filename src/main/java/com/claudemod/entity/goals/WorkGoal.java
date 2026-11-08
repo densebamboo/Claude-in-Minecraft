@@ -5708,7 +5708,7 @@ public class WorkGoal extends Goal {
         if (level.getBlockState(feet.below(4)).getCollisionShape(level, feet.below(4)).isEmpty()) holeOk = false; // a cave under: not a hiding hole
         // Mobs right on him: digging in front of them only gets him hit. Two down is out of their reach, so he runs till
         // he's got the gap that two blocks take him to dig (or he can't shake them), then digs.
-        double melee = hostilesNear(14).stream().filter(m -> !(m instanceof net.minecraft.world.entity.monster.AbstractSkeleton)).mapToDouble(m -> m.distanceTo(g)).min().orElse(99);
+        double melee = hostilesNear(14).stream().filter(m -> !shoots(m)).mapToDouble(m -> m.distanceTo(g)).min().orElse(99); // (a wither skeleton is melee: left out with the bowmen it read "nearest melee 99" 13 off, live 23:13 11-07)
         float digTicks = 10;
         for (BlockPos q : new BlockPos[] {feet.below(), feet.below(2)}) digTicks += 1f / Math.max(0.001f, level.getBlockState(q).getDestroyProgress(g, level, q)) + 5;
         final double holeNeed = Math.max(12.0, 2.5 + (digTicks + 25) / 20.0 * 2.5); // the cover proximity rule: a hole only with 12+ to the nearest melee mob (three down and the lid: a zombie covers that and more while he digs)
@@ -5772,6 +5772,8 @@ public class WorkGoal extends Goal {
         if (underground) { // no digging down from a cave floor: walls round him where he stands instead, the way a player boxes himself in when a skeleton has him in a cave (no cover rule at all down here is how he died at -4, -27, -28)
             ItemStack wall = scaffoldBlock();
             if (wall.getCount() < 6 || !g.onGround()) return noCover(wall.getCount() < 6 ? "underground with " + wall.getCount() + " blocks: not enough to wall himself in" : "underground, not on the ground: the box waits till he lands");
+            double boxNeed = 2.5 + (7 * 5 + 10) / 20.0 * 2.5; // the cover proximity rule down here too: ~7 blocks at ~5 ticks each, at a mob's ~2.5 blocks a second (live 23:13 11-07: boxed in with a wither skeleton 3 off, 13 -> 0 through the open sides)
+            if (melee < boxNeed && !desperateNow) return noCoverGap(String.format("underground, a melee mob %.1f off: the box needs %.1f+ to go up (the cover proximity rule): no box", melee, boxNeed));
             // the order a player boxes himself in from inside: the corners first (against the floor, seen past the open sides), then the sides at his feet and head, then
             // the lid (against the roof); sides first, the corners are behind the walls out of his sight, and he walked out of the box for them (live 04:42)
             java.util.List<BlockPos> cells = new java.util.ArrayList<>();

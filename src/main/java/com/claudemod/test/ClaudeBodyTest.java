@@ -10818,6 +10818,8 @@ public final class ClaudeBodyTest {
             case 1062: return st1062(stage, t, c, h, level, mock);
             case 1066: return st1066(stage, t, c, h, level, mock);
             case 1067: return st1067(stage, t, c, h, level, mock);
+            case 1064: return st1064(stage, t, c, h, level, mock);
+            case 1065: return st1065(stage, t, c, h, level, mock);
             case 1063: return st1063(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
@@ -18469,6 +18471,66 @@ public final class ClaudeBodyTest {
             level.setDayTime(st1067Day);
             check(shelter && first != null, "a night respawn with nothing: shelter not first in his queue: " + q);
             pass(stage, t, "night respawn: shelter first, the pile after: " + q);
+        }
+        return true;
+    }
+
+    private static java.util.UUID st1064W;
+    /** Stage 1064 (live 23:13:53 11-07, fortress 327,60,526, died to wither): a skeleton shooting him under the fortress, a wither skeleton 3 off: "a skeleton on him underground: walling himself in (7 blocks)", the wither skeleton hit him 13 -> 0 in the open box. The cover proximity rule counted no melee mob (wither skeletons left out with the bowmen), and the underground box had no proximity check. Here: roofed, a bowman 12 off, a wither skeleton 4 off: no box goes up while it is that close. */
+    private static boolean st1064(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(2, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(me.offset(-2, -1, -2), me.offset(14, 4, 2))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            for (BlockPos p : BlockPos.betweenClosed(me.offset(-1, 0, -1), me.offset(13, 2, 1))) level.setBlock(p, Blocks.AIR.defaultBlockState(), 2); // a 3-wide, 3-high hall (a wither skeleton is 2.4 tall) under rock
+            for (int k = 0; k <= 12; k += 3) level.setBlock(me.offset(k, 3, 0), Blocks.GLOWSTONE.defaultBlockState(), 2);
+            var sk = EntityType.SKELETON.create(level); BlockPos sp = me.east(12);
+            sk.moveTo(sp.getX() + 0.5, sp.getY(), sp.getZ() + 0.5, 90, 0); sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW)); sk.setPersistenceRequired(); level.addFreshEntity(sk); sk.setTarget(c);
+            var ws = EntityType.WITHER_SKELETON.create(level); BlockPos wp = me.east(4);
+            ws.moveTo(wp.getX() + 0.5, wp.getY(), wp.getZ() + 0.5, 90, 0); ws.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); ws.setPersistenceRequired(); level.addFreshEntity(ws); ws.setTarget(c); st1064W = ws.getUUID();
+            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 16)); c.getInventory().add(new ItemStack(Items.COOKED_COD, 4));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.add(new Task.Wait(1000, false));
+        }
+        if (t[0] > 10) {
+            var ws = level.getEntity(st1064W);
+            if (t[0] < 50) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.AbstractSkeleton.class, c.getBoundingBox().inflate(16))) m.setTarget(c); // (targets set after his teleport: one set before it dropped him)
+            boolean near = ws != null && ws.isAlive() && ws.distanceTo(c) < 6;
+            boolean boxing = c.currentTask instanceof Task.Place || c.tasks.stream().anyMatch(x -> x instanceof Task.Place);
+            if (near && boxing) { String why = "a box going up with the wither skeleton " + String.format("%.1f", ws.distanceTo(c)) + " off: " + c.currentTask + ", health " + c.getHealth(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, ItemStack.EMPTY); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, ItemStack.EMPTY); check(false, why); }
+            if (t[0] >= 210 || !c.isAlive()) { boolean alive = c.isAlive(); float hp = c.getHealth(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, ItemStack.EMPTY); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, ItemStack.EMPTY); check(alive, "died with the wither skeleton on him"); var ws2 = level.getEntity(st1064W); pass(stage, t, "no box with the wither skeleton close, 10 s, health " + (int) hp + " ws " + (ws2 == null ? "gone" : ws2.position() + " alive " + ws2.isAlive() + " noAi " + ((net.minecraft.world.entity.Mob) ws2).isNoAi() + " target " + ((net.minecraft.world.entity.Mob) ws2).getTarget() + " him " + c.position() + " diff " + level.getDifficulty())); }
+        }
+        return true;
+    }
+
+    private static java.util.UUID st1065W; private static boolean st1065Was;
+    /** Stage 1065 (live 23:13:43 11-07: "a 4-high skytower ... nearest melee 99.0" with a Wither Skeleton 13 off; 23:13:53 boxed in with one 3 off, died to wither): the cover proximity rule's nearest melee mob left every AbstractSkeleton out, wither skeletons too, which only hit in melee. Here, on open dirt: a bowman 12 off, a wither skeleton 4 off: no hole or tower goes up (the hole needs 12+ from melee, the tower 6+). */
+    private static boolean st1065(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(2, 2, 8));
+        if (t[0] == 1) { st1065Was = false; scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(me.offset(-4, -5, -4), me.offset(16, -1, 4))) level.setBlock(p, Blocks.DIRT.defaultBlockState(), 2);
+            for (BlockPos p : BlockPos.betweenClosed(me.offset(-4, 0, -4), me.offset(16, 6, 4))) level.setBlock(p, Blocks.AIR.defaultBlockState(), 2);
+            var sk = EntityType.SKELETON.create(level); BlockPos sp = me.east(12);
+            sk.moveTo(sp.getX() + 0.5, sp.getY(), sp.getZ() + 0.5, 90, 0); sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW)); sk.setPersistenceRequired(); level.addFreshEntity(sk);
+            var ws = EntityType.WITHER_SKELETON.create(level); BlockPos wp = me.east(4);
+            ws.moveTo(wp.getX() + 0.5, wp.getY(), wp.getZ() + 0.5, 90, 0); ws.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); ws.setPersistenceRequired(); level.addFreshEntity(ws); st1065W = ws.getUUID();
+            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
+            c.getInventory().add(new ItemStack(Items.WOODEN_SWORD)); c.getInventory().add(new ItemStack(Items.DIRT, 20));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.add(new Task.Wait(1000, false));
+        }
+        if (t[0] > 10) {
+            if (t[0] < 50) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.AbstractSkeleton.class, c.getBoundingBox().inflate(16))) m.setTarget(c); // (targets set after his teleport)
+            var ws = level.getEntity(st1065W);
+            BlockPos f = c.blockPosition();
+            boolean hole = (c.currentTask instanceof Task.Break b0 && b0.pos().getX() == f.getX() && b0.pos().getZ() == f.getZ() && b0.pos().getY() < f.getY()) || c.tasks.stream().anyMatch(x -> x instanceof Task.Break b && b.pos().getX() == f.getX() && b.pos().getZ() == f.getZ() && b.pos().getY() < f.getY());
+            hole = hole || c.currentTask instanceof Task.Pillar || c.tasks.stream().anyMatch(x -> x instanceof Task.Pillar); // (a tower needs 6+ from melee too)
+            boolean fresh = hole && !st1065Was; st1065Was = hole; // (judged when the cover is chosen: the mob walks in while it goes up)
+            if (fresh && ws != null && ws.isAlive() && ws.distanceTo(c) < 5.5) { String why = "cover going up under him with the wither skeleton " + String.format("%.1f", ws.distanceTo(c)) + " off: " + c.currentTask; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; check(false, why); }
+            if (t[0] >= 130) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(32))) m.discard(); pass(stage, t, "no hole with the wither skeleton close, health " + (int) c.getHealth()); }
         }
         return true;
     }

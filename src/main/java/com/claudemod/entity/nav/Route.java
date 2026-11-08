@@ -202,7 +202,7 @@ public final class Route {
             if (flooded(level, b.routeFeet(0, toRow), "down")) return null;
             for (BlockPos p : b.walkCells(0, toRow)) { legs.add(p); slack.add(0.8); }
             why = land + " to his mine, in, down its rows";
-        } else if (meIn && !toIn && across > FAR) { // out of his mine to somewhere off it: up the rows, out, then over the land (planned from the door)
+        } else if (meIn && !toIn && (across > FAR || !under(level, to) && to.getY() - me.getY() > 3)) { // out of his mine to somewhere off it: up the rows, out, then over the land (planned from the door); a spot up on the open ground however near across: his stairs, the only way up (review 479: his portal 24 across, 49 up, the walker's way dead-ended on his mine's floor under it, 20 s)
             if (flooded(level, b.routeFeet(meRow, 0), "up")) return null;
             for (BlockPos p : b.walkCells(meRow, 0)) { legs.add(p); slack.add(0.8); }
             legs.add(b.entrance); slack.add(0.8); legs.add(b.outside()); slack.add(1.5);

@@ -10536,6 +10536,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 999: return st999(stage, t, c, h, level, mock);
             case 997: return st997(stage, t, c, h, level, mock);
             case 996: return st996(stage, t, c, h, level, mock);
             case 995: return st995(stage, t, c, h, level, mock);
@@ -15425,6 +15426,31 @@ public final class ClaudeBodyTest {
             check(level.getBlockState(cell).is(Blocks.COBBLESTONE), "no stand-in at the cell: " + level.getBlockState(cell));
             check(c.attempts.counters.get("conflict:" + cell.asLong()) == null, "the cobblestone set down for cobbled deepslate was booked as a refusal (" + c.attempts.counters.get("conflict:" + cell.asLong()) + ")");
             pass(stage, t, "a stand-in placed, no refusal booked");
+        }
+        return true;
+    }
+    /** Stage 999 (review 479, 11-08 11:16: in his mine at y 16, his portal up on the land 24 across and 49 up; the route was left to his walker for being near across, its way ended on the mine's floor right under the portal, 20 s and back): from the far end of his mine's level to a spot on the open ground 6 across and ~10 up. The route goes up his rows and out by his door, never his walker's. */
+    private static boolean st999(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nooks.clear(); c.nook = null; c.skillQueue.clear(); c.planning = false; c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
+        if (t[0] == 10) {
+            for (int x = -4; x <= 46; x++) for (int z = -4; z <= 20; z++) { for (int yy = -3; yy <= 12; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, 13, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 14; yy <= 18; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(new BlockPos(0, 12, 8)), net.minecraft.core.Direction.EAST, 2, 4); b.torchSide = "left"; b.branchEvery = 4; b.branchLength = 8;
+            b.segments.get(0).n = 8; b.invalidate();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), net.minecraft.core.Direction.EAST, 24, null)); b.invalidate();
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int y = 0; y < r.height(); y++) level.setBlock(f.above(y), Blocks.AIR.defaultBlockState(), 2);
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); com.claudemod.director.ClaudeLife.bpSync(c);
+            BlockPos me = b.rows().get(b.rows().size() - 1).first(); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 20) {
+            c.tasks.clear(); c.currentTask = null; c.skillQueue.clear(); // (only this walk: no other route of his live)
+            var b = c.blueprint; BlockPos me = c.blockPosition();
+            BlockPos to = new BlockPos(me.getX() + 6, h.absolutePos(new BlockPos(0, 14, 0)).getY(), me.getZ());
+            var legs = com.claudemod.entity.nav.Route.expand(c, level, to, 1.5);
+            boolean out = false; if (legs != null && !com.claudemod.entity.nav.Route.walkerTakes(legs)) for (var tk : legs) if (tk instanceof Task.GoTo go && go.pos().equals(b.outside())) out = true;
+            c.blueprint = null; c.prefs.remove("mine_model"); c.tasks.clear();
+            check(out, "from his mine's level at " + me.toShortString() + " to the open ground at " + to.toShortString() + " (" + (to.getY() - me.getY()) + " up, 6 across): no route up his rows and out (" + (legs == null ? "his walker's" : legs) + ")");
+            pass(stage, t, "up his rows and out by his door: " + legs.size() + " legs");
         }
         return true;
     }

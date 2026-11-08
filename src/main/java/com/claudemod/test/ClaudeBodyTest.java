@@ -10710,6 +10710,7 @@ public final class ClaudeBodyTest {
             case 1031: return st1031(stage, t, c, h, level, mock);
             case 1032: return st1032(stage, t, c, h, level, mock);
             case 1033: return st1033(stage, t, c, h, level, mock);
+            case 1034: return st1034(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -19090,6 +19091,26 @@ public final class ClaudeBodyTest {
             check(!own.isEmpty(), "no torch queued in his own dark branch at all (other branch: " + through + ")");
             check(through.isEmpty(), "torches queued in the next branch over, behind rock: " + through + " (his own: " + own + ")");
             pass(stage, t, "his own branch's torches " + own + ", none through the rock");
+        }
+        return true;
+    }
+    private static boolean st1034(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // raw meat, logs and a table on him, no furnace and no stone: the table went down for the furnace, then "need cobblestone for a furnace first" and it came straight back up (live 06:21:34 and 06:56:23 11-08, reviews 073/155/122/225)
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.myStations.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); }
+        if (t[0] > 8 && t[0] % 5 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 4, c.blockPosition());
+        BlockPos me = c.blockPosition();
+        if (t[0] == 10) {
+            for (int x = -8; x <= 8; x++) for (int z = -8; z <= 8; z++) { level.setBlock(me.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BEEF, 6)); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 16)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5); c.gatherForCraftTick = -100000;
+        }
+        if (t[0] == 60) {
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "cooked_beef", 6);
+            int tables = 0; for (BlockPos q : BlockPos.betweenClosed(me.offset(-8, -1, -8), me.offset(8, 4, 8))) if (level.getBlockState(q).is(Blocks.CRAFTING_TABLE)) tables++;
+            String q = String.valueOf(c.skillQueue); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.getInventory().clearContent();
+            for (int x = -8; x <= 8; x++) for (int z = -8; z <= 8; z++) for (int y = 0; y <= 4; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(tables == 0, "a table put down for a furnace with no stone for it: \"" + r + "\" (" + tables + " table(s) down; queue " + q + ")");
+            check(r != null && r.contains("cobblestone") && q.contains("cobblestone"), "no stone for the furnace and no cobble asked: \"" + r + "\" (queue " + q + ")");
+            pass(stage, t, "the stone first, the table after: \"" + r + "\"");
         }
         return true;
     }

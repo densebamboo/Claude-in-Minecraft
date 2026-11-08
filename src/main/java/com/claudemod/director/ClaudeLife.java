@@ -3390,6 +3390,10 @@ public final class ClaudeLife {
                 if (furnace != null) { Integer noReach = g.attempts.last(com.claudemod.entity.life.Attempts.Kind.REACH, furnace); if (noReach != null && g.tickCount - noReach < 20 * 90) return "failed: can't get at my furnace at " + furnace.toShortString() + " just now (walled in, or something in the way); the cooking waits"; } // (walled in for the night with the furnace outside: smelt, can't reach, smelt again, for five minutes)
                 if (furnace == null) {
                     if (g.inventory.count(t -> t.is(Items.FURNACE)) == 0) {
+                        if (g.inventory.count(t -> t.is(ItemTags.STONE_CRAFTING_MATERIALS)) < 8) { // the stone before the table: it went down, "need cobblestone first", and came straight back up (live 06:21 and 06:56 11-08, stage 1034)
+                            if (g.tickCount - g.gatherForCraftTick > 20 * 120 || !level.canSeeSky(g.blockPosition())) { g.gatherForCraftTick = g.tickCount; g.skillQueue.addFirst(st); g.skillQueue.addFirst(new Skills.Step("collect", "cobblestone", 8)); return "need cobblestone for a furnace first, getting some"; }
+                            return "failed: no furnace nearby and can't make one (needs 8 cobblestone)";
+                        }
                         int q0 = g.tasks.size(); boolean table = ensureCraftingTable(g, level, Items.FURNACE);
                         if (!table && g.tasks.size() > q0 && g.tasks.peekFirst() instanceof Task.GoTo goT) { g.skillQueue.addFirst(st); ClaudeMod.LOGGER.info("[Claude skill] furnace needs a table: walking to the one at {} first", goT.pos().toShortString()); return "over to my crafting table to make a furnace"; } // (it queued the walk to his table and also said "no table": he set off for open ground under his mine at the same time, 02:45)
                         if (g.tablePlacedTick == g.tickCount) {

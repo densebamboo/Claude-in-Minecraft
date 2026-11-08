@@ -10712,6 +10712,7 @@ public final class ClaudeBodyTest {
             case 1032: return st1032(stage, t, c, h, level, mock);
             case 1033: return st1033(stage, t, c, h, level, mock);
             case 1034: return st1034(stage, t, c, h, level, mock);
+            case 1035: return st1035(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -19253,6 +19254,28 @@ public final class ClaudeBodyTest {
             check(tables == 0, "a table put down for a furnace with no stone for it: \"" + r + "\" (" + tables + " table(s) down; queue " + q + ")");
             check(r != null && r.contains("cobblestone") && q.contains("cobblestone"), "no stone for the furnace and no cobble asked: \"" + r + "\" (queue " + q + ")");
             pass(stage, t, "the stone first, the table after: \"" + r + "\"");
+        }
+        return true;
+    }
+    private static int st1035T;
+    private static boolean st1035(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // logs cooking into charcoal, a minute left, his plan's next step a strip mine 300 off: "while the furnace works: mining the iron_ore I saw 343 off", then 342 back for 8 charcoal and a dusk shuffle at the mine door (live 06:24-06:27 11-08, review 121)
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1035T = -1; level.setDayTime(3000); flatBox(h); }
+        BlockPos fp = h.absolutePos(new BlockPos(6, 1, 4));
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            level.setBlock(fp, Blocks.FURNACE.defaultBlockState(), 2);
+            if (level.getBlockEntity(fp) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f) { f.setItem(0, new ItemStack(Items.OAK_LOG, 8)); f.setItem(1, new ItemStack(Items.COAL, 4)); }
+            c.getInventory().clearContent(); for (var it : new net.minecraft.world.item.Item[] {Items.STONE_PICKAXE, Items.IRON_SWORD, Items.SHIELD}) c.getInventory().add(new ItemStack(it)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.TORCH, 64)); c.getInventory().add(new ItemStack(Items.COAL, 32)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 40)); c.myStations.add(fp.immutable());
+            BlockPos me = h.absolutePos(new BlockPos(5, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.mineFace = me.offset(300, -40, 0); c.stairStart = me.offset(300, 0, 0); c.mineDir = net.minecraft.core.Direction.EAST;
+            BlockPos ore = me.offset(-250, 0, 0); level.setBlock(ore.below(), Blocks.STONE.defaultBlockState(), 2); level.setBlock(ore, Blocks.IRON_ORE.defaultBlockState(), 2); level.setBlock(ore.above(), Blocks.AIR.defaultBlockState(), 2); com.claudemod.director.ClaudeLife.seenOre(c).add(ore.immutable()); // (iron he saw 250 back, as live's 343 off)
+        }
+        if (t[0] > 4 && t[0] % 10 == 0) { BlockPos ore = h.absolutePos(new BlockPos(5, 2, 4)).offset(-250, 0, 0); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(ore), 2, ore); }
+        if (t[0] == 14) { c.tasks.clear(); c.tasks.add(new Task.FurnaceTake(fp.immutable())); c.skillQueue.clear(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("explore", "", 1)); c.sideJobTick = -100000; st1035T = t[0]; } // (his plan's next step, one that takes him far: live it was the strip mine to iron seen 343 off)
+        if (st1035T > 0 && t[0] > st1035T) {
+            boolean far = c.distanceToSqr(fp.getX(), fp.getY(), fp.getZ()) > 24 * 24 || c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().distSqr(fp) > 64 * 64) || c.currentTask instanceof Task.GoTo cg && cg.pos().distSqr(fp) > 64 * 64;
+            if (far) { String q = String.valueOf(c.tasks); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.myStations.remove(fp); c.mineFace = null; c.stairStart = null; c.mineDir = null; com.claudemod.director.ClaudeLife.seenOre(c).clear(); check(false, "off on his next step far away with the batch a minute from done: now " + c.currentTask + " (" + (q.length() > 200 ? q.substring(0, 200) : q) + ")"); }
+            if (t[0] - st1035T > 20 * 20) { c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.myStations.remove(fp); c.mineFace = null; c.stairStart = null; c.mineDir = null; com.claudemod.director.ClaudeLife.seenOre(c).clear(); pass(stage, t, "20 s by his furnace with a minute on the batch, the iron 250 off after it"); }
         }
         return true;
     }

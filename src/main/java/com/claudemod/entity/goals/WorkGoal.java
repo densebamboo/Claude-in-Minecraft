@@ -4893,12 +4893,12 @@ public class WorkGoal extends Goal {
         if (foe instanceof net.minecraft.world.entity.LivingEntity l0 && outOfItsReach(l0)) return false; // it can't get him up there: no reason to run (an iron golem under his 3-high tower read as a lost fight)
         if (com.claudemod.entity.life.FortressFight.coverMob(foe) && g.getHealth() > 6 && foe instanceof net.minecraft.world.entity.LivingEntity lf && com.claudemod.entity.life.FortressFight.coverFor(g, (ServerLevel) g.level(), lf) != null) { fightOdds = "from cover"; return false; } // a blaze or wither skeleton with cover at hand: the cover fight backs into it itself (running in the open from fireballs is how it goes wrong)
         if (foe instanceof net.minecraft.world.entity.monster.Blaze) { // blazes: fight or run, priced; the fight by Big Picture's FortressFight.fightS (kill time, the fireballs that land, a shield's share), the run by their fireballs on his back while they keep pace (they fly). Was "never flee: fought", audit WG shouldFlee
-            int nb = Math.max(1, com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(24), net.minecraft.world.entity.Entity::isAlive).size());
+            int nb = Math.max(1, com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(48), this::shootsHere).size());
             boolean shieldB = g.getItemBySlot(EquipmentSlot.OFFHAND).is(net.minecraft.world.item.Items.SHIELD) && !g.getCooldowns().isOnCooldown(net.minecraft.world.item.Items.SHIELD), fedB = com.claudemod.director.ClaudeLife.foodToEat(g, true) != null;
             double tough = g.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS);
             double fightB = com.claudemod.entity.life.FortressFight.fightS(g, g.getHealth(), g.getArmorValue(), tough, shieldB, fedB, 0, nb);
             double fb = w("blaze.fireball_hp", 5), perB = fb * (1 - Math.min(20, Math.max(g.getArmorValue() / 5.0, g.getArmorValue() - fb / (2 + tough / 4))) / 25) + w("blaze.fire_hp", 3);
-            var blz = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(24), net.minecraft.world.entity.Entity::isAlive);
+            var blz = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(48), this::shootsHere);
             BlockPos hideB = hideSpot((ServerLevel) g.level(), g.blockPosition(), blz); // (out of their sight on foot: they lose him there; none, and they fly after him and keep firing)
             double exposedB = hideB != null ? Math.sqrt(hideB.distSqr(g.blockPosition())) / com.claudemod.entity.life.Decide.sprint() : w("blaze.open_run_s", 15);
             double runHp = nb * exposedB * w("blaze.shots_per_s", 0.6) * w("blaze.shot_hit_chance", 0.5) * perB, runB = w("flee.run_s", 20) + com.claudemod.entity.life.Decide.hpS(g, 0, runHp, perB) + Math.min(com.claudemod.entity.life.FortressFight.fightS(g, g.getMaxHealth(), g.getArmorValue(), tough, shieldB, fedB, 0, nb), w("flee.avoid_s", 180));
@@ -6407,15 +6407,17 @@ public class WorkGoal extends Goal {
      */
     private Boolean blazePick; private int blazePickT = -100000; // the last blaze.retreat pick (true: out of their sight), so its line is written on a change
     /** Hurt in a blaze fight with no cover (blaze.retreat): fight on in the open (FortressFight.fightS for the blazes he knows of, at his health less the fire still on him), or out of their sight (hideSpot), the fireballs on the way, healed to full (Food.regenS) and the fight then at full health. True: retreat. Logged when it wins. */
+    /** A blaze in range to shoot him: out to its own follow range (48), not 24 (live 00:46 11-08: one 29 off hit him 4 times while coverFight said "no blaze sees it", stage 983). */
+    private boolean shootsHere(net.minecraft.world.entity.Entity b) { return b.isAlive() && b instanceof net.minecraft.world.entity.LivingEntity l && l.distanceTo(g) <= l.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.FOLLOW_RANGE); }
     private boolean blazeRetreatPays() {
         ServerLevel lv = (ServerLevel) g.level();
-        var blz = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(24), net.minecraft.world.entity.Entity::isAlive);
+        var blz = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(48), this::shootsHere);
         int n = Math.max(1, blz.size());
         boolean shield = g.getItemBySlot(EquipmentSlot.OFFHAND).is(net.minecraft.world.item.Items.SHIELD) && !g.getCooldowns().isOnCooldown(net.minecraft.world.item.Items.SHIELD), fed = com.claudemod.director.ClaudeLife.foodToEat(g, true) != null;
         double armor = g.getArmorValue(), tough = g.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS);
         double fire = g.isOnFire() ? g.getRemainingFireTicks() / 20.0 * w("blaze.burn_hp_per_s", 1) : 0; // (sure: the fire burns on either way)
         double on = com.claudemod.entity.life.FortressFight.fightS(g, Math.max(0.5, g.getHealth() - fire), armor, tough, shield, fed, 0, n);
-        var all = lv.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(24), net.minecraft.world.entity.Entity::isAlive); // (the ones blazeRetreat goes out of the sight of)
+        var all = lv.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(48), this::shootsHere); // (the ones blazeRetreat goes out of the sight of)
         if (all.isEmpty()) return false; // (none within its 24: blazeRetreat has nothing to go out of the sight of; an empty list made every cell "hidden", 763's blaze 27 off)
         java.util.function.Predicate<BlockPos> hidden = c -> { for (var b : all) if (com.claudemod.entity.life.FortressFight.sees(lv, b, c)) return false; return true; };
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); java.util.Map<BlockPos, Integer> steps = new java.util.HashMap<>();
@@ -6451,7 +6453,7 @@ public class WorkGoal extends Goal {
     }
     private Boolean blazeRetreat(Task.Attack t, net.minecraft.world.entity.LivingEntity mob) {
         ServerLevel level = (ServerLevel) g.level();
-        var blazes = level.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(24), net.minecraft.world.entity.Entity::isAlive);
+        var blazes = level.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(48), this::shootsHere);
         if (blazes.isEmpty()) return null;
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
         java.util.function.Predicate<BlockPos> hidden = c -> { for (var b : blazes) if (com.claudemod.entity.life.FortressFight.sees(level, b, c)) return false; return true; };

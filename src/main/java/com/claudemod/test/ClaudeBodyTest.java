@@ -10535,6 +10535,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 983: return st983(stage, t, c, h, level, mock);
             case 982: return st982(stage, t, c, h, level, mock);
             case 984: return st984(stage, t, c, h, level, mock);
             case 955: return st955(stage, t, c, h, level, mock);
@@ -15102,6 +15103,39 @@ public final class ClaudeBodyTest {
             check(first.startsWith("health 11 -> 7"), "the first hit's 4: " + first);
             check(fire.contains("not taken: hurt cooldown") && fire.contains("ticks left"), "the fire tick inside the cooldown said: " + fire);
             c.setHealth(20); pass(stage, t, "the dropped fire tick says why: " + fire);
+        }
+        return true;
+    }
+    /** Stage 983 (live 00:46 11-08, the fortress at 244,62,501: "healing out of their sight ... no blaze sees it" while a blaze 29 off, "in sight true, on him true", hit him 4 times in 35 s; coverFight only counted blazes within 24, and one 8 off out of sight kept its list from being empty): a blaze 29 off in the open shooting him, a second 8 off shut in a pit under the floor. Never half a second of "healing/eating out of their sight" where the far one sees him (main: said at once, then on and off). */
+    private static net.minecraft.world.entity.monster.Blaze st983B, st983N; private static int st983Bad;
+    private static String cfMode(ClaudeEntity c) { try { var f = com.claudemod.entity.goals.WorkGoal.class.getDeclaredField("cfMode"); f.setAccessible(true); return (String) f.get(c.work); } catch (Exception e) { return ""; } }
+    private static boolean st983(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); st983Bad = 0; }
+        if (t[0] == 5) for (int cx = -3; cx <= 4; cx++) for (int cz = -4; cz <= 3; cz++) { BlockPos p = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(p), 2, p); }
+        BlockPos me = h.absolutePos(new BlockPos(8, 2, 8)), box = me.offset(-8, 0, 0);
+        if (t[0] == 10) {
+            for (int x = -40; x <= 56; x++) for (int z = -56; z <= 40; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.NETHER_BRICKS.defaultBlockState(), 2); for (int yy = 2; yy <= 24; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (int dx = -1; dx <= 1; dx++) for (int dy = -5; dy <= -2; dy++) for (int dz = -1; dz <= 1; dz++) level.setBlock(box.offset(dx, dy, dz), (dx == 0 && dz == 0 && dy >= -4 ? Blocks.AIR : Blocks.NETHER_BRICKS).defaultBlockState(), 2); // (the near blaze shut in a pit under the floor, the floor lidded: none of its sight out, and no wall for cover, as live "0 spots out of sight")
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.WOODEN_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 32));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(19); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            level.setDayTime(6000);
+            st983N = EntityType.BLAZE.create(level); st983N.moveTo(box.getX() + 0.5, box.getY() - 4, box.getZ() + 0.5, 0, 0); st983N.setNoAi(true); st983N.setPersistenceRequired(); level.addFreshEntity(st983N);
+            st983B = EntityType.BLAZE.create(level); st983B.moveTo(me.getX() + 29.5, me.getY() + 3, me.getZ() + 0.5, 90, 0); st983B.setPersistenceRequired(); level.addFreshEntity(st983B); st983B.setTarget(c);
+            c.tasks.add(new Task.Attack(st983B.getUUID(), 20 * 60)); // (as live: "fighting back: Blaze", the one 29 off)
+        }
+        if (t[0] > 10) {
+            if (st983B.isAlive() && st983B.getTarget() != c) st983B.setTarget(c);
+            if (st983B.isAlive()) { st983B.setPos(me.getX() + 29.5, me.getY() + 3, me.getZ() + 0.5); st983B.setDeltaMovement(0, 0, 0); } // (it held 29-30 off live, "it moving false"; flying in under 24 hid the bug)
+            if (t[0] == 60) { c.hurt(level.damageSources().mobAttack(st983B), 5.0f); c.setRemainingFireTicks(100); } // (its first fireball for sure, as live: 19 -> 14 on fire)
+            BlockPos feet = BlockPos.containing(c.getX(), c.getY() + 0.2, c.getZ()); String mode = cfMode(c);
+            boolean bad = t[0] > 60 && st983B.isAlive() && (mode.startsWith("healing out of their sight") || mode.startsWith("eating out of their sight")) && com.claudemod.entity.life.FortressFight.sees(level, st983B, feet);
+            st983Bad = bad ? st983Bad + 1 : 0;
+            if (t[0] % 100 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 983: t {} he at {} health {} doing {}, cover '{}', the far blaze {} off sees him {}", t[0], feet.toShortString(), (int) c.getHealth(), c.currentTask, mode, (int) st983B.distanceTo(c), com.claudemod.entity.life.FortressFight.sees(level, st983B, feet));
+            check(st983Bad < 10, "'" + mode + "' for 0.5 s at " + feet.toShortString() + " in the line of fire of the blaze " + (int) st983B.distanceTo(c) + " off (health " + (int) c.getHealth() + ")");
+            check(c.isAlive(), "dead to a blaze 29 off");
+            if (t[0] == 60 + 20 * 20) { st983B.discard(); st983N.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "a blaze 29 off with one boxed in 8 off: no 'out of their sight' in its line of fire, health " + (int) c.getHealth()); }
         }
         return true;
     }

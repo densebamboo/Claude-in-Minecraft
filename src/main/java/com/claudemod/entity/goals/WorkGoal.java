@@ -6810,7 +6810,8 @@ public class WorkGoal extends Goal {
         if (!tillable || !level.getBlockState(t.pos().above()).isAir()) return true;
         ItemStack hoe = g.inventory.find(s -> s.getItem() instanceof net.minecraft.world.item.HoeItem);
         if (hoe.isEmpty()) return true;
-        if (!inReach(t.pos())) return walkTo(t.pos(), 3) && !inReach(t.pos());
+        Vec3 top = Vec3.atCenterOf(t.pos()).add(0, 0.5, 0); // (the face he clicks: the top; inReach passes on any face, and the top was 4.8 from his eyes, the click refused, the till ended undone and the farm asked it again, stage 93 under the gate)
+        if (!inReach(t.pos()) || g.getEyePosition().distanceTo(top) > w("reach.block", 4.45)) return walkTo(t.pos().above(), 1.5) && g.getEyePosition().distanceTo(top) > w("reach.block", 4.45);
         g.getNavigation().stop();
         g.getLookControl().setLookAt(Vec3.atCenterOf(t.pos()));
         g.hold(hoe);

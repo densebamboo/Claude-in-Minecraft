@@ -10715,6 +10715,7 @@ public final class ClaudeBodyTest {
             case 1033: return st1033(stage, t, c, h, level, mock);
             case 1034: return st1034(stage, t, c, h, level, mock);
             case 1035: return st1035(stage, t, c, h, level, mock);
+            case 1036: return st1036(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -19332,6 +19333,43 @@ public final class ClaudeBodyTest {
             boolean far = c.distanceToSqr(fp.getX(), fp.getY(), fp.getZ()) > 24 * 24 || c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().distSqr(fp) > 64 * 64) || c.currentTask instanceof Task.GoTo cg && cg.pos().distSqr(fp) > 64 * 64;
             if (far) { String q = String.valueOf(c.tasks); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.myStations.remove(fp); c.mineFace = null; c.stairStart = null; c.mineDir = null; com.claudemod.director.ClaudeLife.seenOre(c).clear(); check(false, "off on his next step far away with the batch a minute from done: now " + c.currentTask + " (" + (q.length() > 200 ? q.substring(0, 200) : q) + ")"); }
             if (t[0] - st1035T > 20 * 20) { c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.myStations.remove(fp); c.mineFace = null; c.stairStart = null; c.mineDir = null; com.claudemod.director.ClaudeLife.seenOre(c).clear(); pass(stage, t, "20 s by his furnace with a minute on the batch, the iron 250 off after it"); }
+        }
+        return true;
+    }
+    private static int st1036T; private static BlockPos st1036Q;
+    private static boolean st1036(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // out in an ore hole beside a branch, 8 in from the trunk, patching the branch's wall: "the walk back into his mine at -85,16,-205", 44 off at the trunk, and back (live 08:43-08:44 11-08, review 99): nearestRow skips branch rows
+        BlockPos o = new BlockPos(20000, 80, 19000);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -16; k <= 32; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; st1036T = -1; st1036Q = null; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 28; x++) for (int z = -16; z <= 24; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+            var E = net.minecraft.core.Direction.EAST; var S = net.minecraft.core.Direction.SOUTH;
+            var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 20, null)); b.invalidate();
+            { var row = b.rows().get(4); BlockPos rf = row.feet()[row.feet().length - 1]; b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.BRANCH, rf.relative(S), S, 12, null)); b.invalidate(); }
+            b.branchLength = 12; b.branchEvery = 8;
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            BlockPos w = null; for (var s : b.segments) if (s.kind == com.claudemod.entity.life.MineBlueprint.Kind.BRANCH) w = s.start.relative(S, 8);
+            BlockPos q = null, pocket = null;
+            for (var d : new net.minecraft.core.Direction[] {E, net.minecraft.core.Direction.WEST}) { BlockPos x0 = w; for (int k = 0; k < 3 && q == null; k++) { x0 = x0.relative(d); if (b.isShell(x0) && !b.isWalk(x0)) { q = x0; pocket = x0.relative(d); } } if (q != null) break; }
+            level.setBlock(q, Blocks.AIR.defaultBlockState(), 2); level.setBlock(q.above(), Blocks.AIR.defaultBlockState(), 2); level.setBlock(pocket, Blocks.AIR.defaultBlockState(), 2); level.setBlock(pocket.above(), Blocks.AIR.defaultBlockState(), 2); st1036Q = q.immutable();
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = b.rows().get(19).first(); c.mineIsTunnel = true; level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.TORCH, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, pocket.getX() + 0.5, pocket.getY(), pocket.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no"); mock[0].teleportTo(level, pocket.getX() + 0.5, pocket.getY() + 30, pocket.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.tasks.add(new Task.Place(st1036Q, Items.COBBLESTONE, null, null)); st1036T = t[0]; }
+        if (st1036T > 0 && t[0] > st1036T) {
+            BlockPos q = st1036Q; boolean farWalk = c.tasks.stream().anyMatch(x -> x instanceof Task.GoTo go && go.pos().distSqr(q) > 6 * 6) || c.currentTask instanceof Task.GoTo cg && cg.pos().distSqr(q) > 6 * 6;
+            boolean done = level.getBlockState(q).is(Blocks.COBBLESTONE);
+            if (farWalk || done || t[0] - st1036T > 20 * 15) {
+                String now = c.currentTask + " " + c.tasks; double off = Math.sqrt(c.blockPosition().distSqr(q));
+                c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; c.prefs.remove("stay_close");
+                for (int x = -4; x <= 28; x++) for (int z = -16; z <= 24; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(!farWalk, "a walk far off to patch the branch wall beside him: " + (now.length() > 220 ? now.substring(0, 220) : now));
+                check(done, "15 s and the branch wall beside him not patched (" + (int) off + " off it): " + (now.length() > 200 ? now.substring(0, 200) : now));
+                pass(stage, t, "patched the branch wall from the branch beside it in " + (t[0] - st1036T) / 20 + " s");
+            }
         }
         return true;
     }

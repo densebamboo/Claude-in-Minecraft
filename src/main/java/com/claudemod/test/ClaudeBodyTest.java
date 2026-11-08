@@ -10536,6 +10536,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 997: return st997(stage, t, c, h, level, mock);
             case 996: return st996(stage, t, c, h, level, mock);
             case 995: return st995(stage, t, c, h, level, mock);
             case 994: return st994(stage, t, c, h, level, mock);
@@ -15407,6 +15408,24 @@ public final class ClaudeBodyTest {
             check(!w.contains("WATER"), "7 s standing in the shallows, a second's walk out, filed as a slow swim: " + w + " (last " + com.claudemod.entity.life.Watchdog.lastIncident + ")");
             pass(stage, t, "stood in the water, walked out, no WATER: " + w); }
         } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
+        return true;
+    }
+    /** Stage 997 (review 492, 11-08 11:22: a bridge of cobbled deepslate, out of it after the first block; cobblestone went down in each cell and every one logged "placing cobbled_deepslate gave up", a refusal on his book): a Place of cobbled deepslate with only cobblestone on him. The stand-in goes down and nothing is refused. */
+    private static boolean st997(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos cell = h.absolutePos(new BlockPos(9, 2, 7));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 8)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            BlockPos me = h.absolutePos(new BlockPos(7, 2, 7)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            level.setBlock(cell, Blocks.AIR.defaultBlockState(), 3); c.attempts.counters.remove("conflict:" + cell.asLong());
+            c.tasks.add(new Task.Place(cell, Items.COBBLED_DEEPSLATE));
+        }
+        if (t[0] == 120) {
+            check(level.getBlockState(cell).is(Blocks.COBBLESTONE), "no stand-in at the cell: " + level.getBlockState(cell));
+            check(c.attempts.counters.get("conflict:" + cell.asLong()) == null, "the cobblestone set down for cobbled deepslate was booked as a refusal (" + c.attempts.counters.get("conflict:" + cell.asLong()) + ")");
+            pass(stage, t, "a stand-in placed, no refusal booked");
+        }
         return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */

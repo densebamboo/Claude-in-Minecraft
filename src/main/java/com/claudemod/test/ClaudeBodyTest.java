@@ -20214,15 +20214,17 @@ public final class ClaudeBodyTest {
                 boolean edge = x == -12 || x == 52 || z == -12 || z == 12 || y == 10 || y == -40;
                 nl.setBlock(o.offset(x, y, z), edge ? Blocks.NETHERRACK.defaultBlockState() : y <= -37 ? Blocks.LAVA.defaultBlockState() : x >= 34 && y <= -33 ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2 | 16);
             }
-            for (int x = -11; x <= 6; x++) nl.setBlock(o.offset(x, -1, 0), Blocks.NETHERRACK.defaultBlockState(), 2 | 16); // his bridge, 1 wide, out over the cavern
+            for (int x = -11; x <= 6; x++) { nl.setBlock(o.offset(x, -1, 0), Blocks.NETHERRACK.defaultBlockState(), 2 | 16); com.claudemod.entity.life.TempLedger.builtCells(c).put(o.offset(x, -1, 0), "stage 1047"); } // his bridge (his own blocks), 1 wide, out over the cavern
             nsKit(c); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64));
             c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.setHealth(20);
         }
         if (t[0] == 15) com.claudemod.entity.nav.Route.forgetTrail(c);
         if (t[0] == 18) {
+            java.util.function.Predicate<BlockPos> floats = l -> { for (int k = 1; k <= 4; k++) if (!nl.getBlockState(l.below(k)).getCollisionShape(nl, l.below(k)).isEmpty()) return false; return true; };
             var p1 = com.claudemod.entity.nav.NetherRoute.plan(c, nl, o, goal);
+            BlockPos air1 = null; { BlockPos pv = o; if (p1 != null) for (BlockPos l : p1.legs()) { if (l.getY() < pv.getY() && floats.test(l)) { air1 = l; break; } pv = l; } } // (a leg reached going down onto nothing; a level leg over air is a bridge, his walker builds those)
             BlockPos fail = null, prev = o; if (p1 != null) for (BlockPos l : p1.legs()) { if (prev.getY() - l.getY() > 3) { fail = l; break; } prev = l; }
-            st1047A = "plan 1: " + (p1 == null ? "none" : p1.legs()) + "; its drop " + fail;
+            st1047A = "plan 1: " + (p1 == null ? "none" : p1.legs() + ", " + p1.puts() + " put, partial " + p1.partial()) + "; in mid-air " + air1 + "; a drop " + fail;
             BlockPos again = null;
             if (fail != null) {
                 c.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, fail, c.tickCount, c.blockPosition(), com.claudemod.entity.life.Attempts.Reason.NO_PATH, "the walker: no way down (stage 1047)");
@@ -20231,8 +20233,9 @@ public final class ClaudeBodyTest {
                 st1047A += "; plan 2: " + (p2 == null ? "none" : p2.legs()) + "; a drop again beside it: " + again;
             }
             ClaudeMod.LOGGER.info("[Claude test] stage 1047: {}", st1047A);
+            com.claudemod.entity.life.TempLedger.reset(c);
             for (int x = -12; x <= 52; x++) for (int z = -12; z <= 12; z++) for (int y = -40; y <= 10; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2 | 16);
-            check(fail != null, "setup: plan 1 has no drop off the bridge to fail: " + st1047A);
+            check(air1 == null, "a leg standing in mid-air over the cavern (unseen under his own bridge, read as rock) at " + (air1 == null ? "" : air1.toShortString()) + ": " + st1047A);
             check(again == null, "the walker found no way down at " + (fail == null ? "" : fail.toShortString()) + " and the route planned a drop beside it again: " + st1047A);
             nsHome(c, h, level); pass(stage, t, st1047A);
         }

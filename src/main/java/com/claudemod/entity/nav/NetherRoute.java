@@ -224,7 +224,20 @@ public final class NetherRoute {
         final net.minecraft.world.phys.Vec3 eye; final double sight; // where he looks from as he plans, and how far he sees (the Nether's fog)
         boolean known(int x, int y, int z) { if (to != null && Math.abs(x - to.getX()) <= 8 && Math.abs(y - to.getY()) <= 8 && Math.abs(z - to.getZ()) <= 8) return true;
             return knownMemo.computeIfAbsent(key(x, y, z), k -> com.claudemod.entity.life.FarSight.known(g, x, y, z) || com.claudemod.entity.life.PortalMap.nearHighway(g, com.claudemod.entity.life.PortalMap.NETHER, x, y, z, 32, 8, 4) // (his own highway: read as it is, never as unseen rock; the user 11-06 21:07 "he's not using the highway for pathing")
-                || (x + 0.5 - eye.x) * (x + 0.5 - eye.x) + (y + 0.5 - eye.y) * (y + 0.5 - eye.y) + (z + 0.5 - eye.z) * (z + 0.5 - eye.z) <= sight * sight && com.claudemod.entity.life.Perception.clear(level, eye, new net.minecraft.world.phys.Vec3(x + 0.5, y + 0.5, z + 0.5)) && seen(x, y, z)); }
+                || (x + 0.5 - eye.x) * (x + 0.5 - eye.x) + (y + 0.5 - eye.y) * (y + 0.5 - eye.y) + (z + 0.5 - eye.z) * (z + 0.5 - eye.z) <= sight * sight && clearPastHis(eye, new net.minecraft.world.phys.Vec3(x + 0.5, y + 0.5, z + 0.5)) && seen(x, y, z)); }
+        /** Perception.clear, his own blocks seen past: the bridge or floor he put down over the void hid the cavern under it from the middle of it, so the cavern read as rock and legs were planned standing in mid-air (live 11-08: reviews 55, 127, 128, 165, 167; stage 1047). He put them there over open air; he knows what's behind them. */
+        boolean clearPastHis(net.minecraft.world.phys.Vec3 from, net.minecraft.world.phys.Vec3 to) {
+            BlockPos fromCell = BlockPos.containing(from), toCell = BlockPos.containing(to); int[] leaves = {0};
+            Boolean ok = net.minecraft.world.level.BlockGetter.traverseBlocks(from, to, level, (lv, pos) -> {
+                if (pos.equals(fromCell) || pos.equals(toCell)) return null;
+                var st = lv.getBlockState(pos);
+                if (lv.getFluidState(pos).is(FluidTags.LAVA)) return Boolean.FALSE;
+                if (st.is(BlockTags.LEAVES) && ++leaves[0] >= 3) return Boolean.FALSE;
+                if (!st.canOcclude() || com.claudemod.entity.life.TempLedger.built(g, pos) || com.claudemod.entity.life.TempLedger.has(g, pos)) return null;
+                return st.getShape(lv, pos).clip(from, to, pos) != null ? Boolean.FALSE : null;
+            }, lv -> Boolean.TRUE);
+            return ok == null || ok;
+        }
         private boolean seen(int x, int y, int z) { com.claudemod.entity.life.FarSight.sawCell(g, x, y, z); return true; } // (in plain view from where he stands: the void he looks across is air, not rock (Day to Day 15:17 11-05: the route tunnelled through the air over a lava sea); the ray fan alone leaves holes a block wide at 10 off; out to his sight, not 24: a void past a 24 cut-off read as floor again, stage 535)
         BlockState bs(int x, int y, int z) { LevelChunk c = chunk(x, z); return c == null || y < minY - 1 || y > maxY + 3 ? Blocks.BEDROCK.defaultBlockState() : !known(x, y, z) ? Blocks.NETHERRACK.defaultBlockState() : c.getBlockState(new BlockPos(x, y, z)); }
         boolean lava(BlockState s) { return s.getFluidState().is(FluidTags.LAVA); }
@@ -311,6 +324,7 @@ public final class NetherRoute {
             }
             if (dy > 1 && digs == 0) puts += dy - 1; // (nothing cut for the climb: a pillar, one block a step up)
             if (bad(bs(cx, ny - 1, cz)) && !lava(bs(cx, ny - 1, cz))) return null; // (never onto magma or fire)
+            if (dy < -1 && !solid(cx, ny - 1, cz)) return null; // (a way down lands on ground: no block is put under a spot 2+ below him, nothing to set it against on the way down; the plan stepped down the open cavern on blocks it would put in mid-air, stage 1047)
             if (failedNear(cx, ny, cz)) return null; // (the walker found no way there in the last 2 min: not that spot again, not even dearer; +20 s left the next plan a block over the same fall, live 14:04-14:06 11-08, reviews 127/128, stage 1047)
             if (dy < -3 && failedDrop(cx, y, cz)) return null; // (a way down near one the walker found none at, from about this height: the same drop a few blocks over) // (a leg that ended there failed in the last 2 min: the way round it, never the same spot again; live -303,87,-63, a 40 s shuffle re-planned onto the node that failed)
             if (dy < -3) { // a sheer fall into that column (nothing to cut steps in): its damage against what he keeps (Leaps.margin)

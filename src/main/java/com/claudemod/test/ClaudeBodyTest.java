@@ -8034,7 +8034,7 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
-        if ((stage[0] >= 494 && stage[0] <= 1099 || stage[0] >= 1150 && stage[0] <= 1199) && stages494(stage, t, c, h, level, mock)) return true; // (1150-1199: Big Picture's next range)
+        if ((stage[0] >= 494 && stage[0] <= 1099 || stage[0] >= 1130 && stage[0] <= 1199) && stages494(stage, t, c, h, level, mock)) return true; // (1150-1199: Big Picture's next range)
         if (stage[0] >= 1100 && stage[0] < 1100 + BENCH.length - 16) return bench(stage, t, c, h, level); // (the combat benchmark, part 2: every enemy type, mixed groups)
         if (stage[0] >= 279 && stage[0] <= 285) {
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Whereabouts.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.ExactSpot.reset(c); com.claudemod.director.Primitives.reset(c);
@@ -10541,6 +10541,7 @@ public final class ClaudeBodyTest {
             case 1152: return st1152(stage, t, c, h, level, mock);
             case 1154: return st1154(stage, t, c, h, level, mock);
             case 1150: return st1150(stage, t, c, h, level, mock);
+            case 1130: return st1130(stage, t, c, h, level, mock);
             case 999: return st999(stage, t, c, h, level, mock);
             case 997: return st997(stage, t, c, h, level, mock);
             case 996: return st996(stage, t, c, h, level, mock);
@@ -15467,6 +15468,17 @@ public final class ClaudeBodyTest {
             c.blueprint = null; c.prefs.remove("mine_model"); c.tasks.clear();
             check(out, "from his mine's level at " + me.toShortString() + " to the open ground at " + to.toShortString() + " (" + (to.getY() - me.getY()) + " up, 6 across): no route up his rows and out (" + (legs == null ? "his walker's" : legs) + ")");
             pass(stage, t, "up his rows and out by his door: " + legs.size() + " legs");
+        }
+        return true;
+    }
+    /** Stage 1130 (11-08: 170 of 290 live "spin" incidents were him getting somewhere: a turn to face a mob then away, a corner, 2.5-5.9 blocks net in the 2 s; the spin sum counted the turning with no look at the ground made). The live windows, as the incidents measured them: the straight ones no spin, the going-nowhere ones still a spin. */
+    private static boolean st1130(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) {
+            double[][] straight = {{287, 6.39, 5.87}, {283, 4.55, 4.54}, {294, 4.07, 4.01}, {302, 3.44, 3.15}, {283, 3.33, 2.57}}; // spin-98 (Attack turn, then Flee), 92 (swim), 88, 84, 80
+            double[][] nowhere = {{280, 0.73, 0.13}, {300, 2.16, 0.21}, {307, 1.41, 1.32}}; // spin-179, 38, 160
+            for (double[] s : straight) check(!ClaudeEntity.spinLoop(s[0], s[1], s[2]), "a spin filed for " + (int) s[0] + " deg over " + s[1] + " blocks walked, " + s[2] + " net: he got somewhere");
+            for (double[] s : nowhere) check(ClaudeEntity.spinLoop(s[0], s[1], s[2]), "no spin for " + (int) s[0] + " deg with only " + s[2] + " blocks net: that one went nowhere");
+            pass(stage, t, "5 live turns on the way: no spin; 3 live turns going nowhere: spins");
         }
         return true;
     }

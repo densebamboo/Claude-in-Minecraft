@@ -827,7 +827,7 @@ public class WorkGoal extends Goal {
         if (legs.isEmpty()) { g.getNavigation().stop(); exitWhy = "behind him on the route he's on: dropped (WorkGoal.routeOut)"; return true; } // (behind him on a route he's on: Route said so, dropped)
         for (int i = legs.size() - 1; i >= 0; i--) g.tasks.addFirst(legs.get(i));
         g.getNavigation().stop();
-        exitWhy = "split into " + legs.size() + " legs of his route, walked next (WorkGoal.routeOut)"; // (the walk line said "ended at once ... why null": the reviewer read every long walk as refused, 05:53-06:17 11-05, REVIEW-103/203)
+        exitWhy = "split into " + legs.size() + " legs of his route, walked next, queued by " + com.claudemod.entity.ClaudeEntity.originOf(t) + " (WorkGoal.routeOut)"; // (who sent him: a mine-door walk pushed in front of a salmon search at dusk came from nowhere in the log, live 09:37:40 11-08, review 295) (the walk line said "ended at once ... why null": the reviewer read every long walk as refused, 05:53-06:17 11-05, REVIEW-103/203)
         return true;
     }
 

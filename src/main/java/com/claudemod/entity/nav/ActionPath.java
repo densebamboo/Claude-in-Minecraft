@@ -295,7 +295,23 @@ public final class ActionPath {
      * With {@code level}: the user's rule for blocks put down out in the world (sky over the cell, not his mine): dirt or grass
      * may stay (a step up a steep hill), anything else goes on the take-down list so it is broken back up once he is past.
      */
+    /** Lava cells beside a planned walk, as the plan saw them (D2D 23:10 11-07): what a burn on the way is checked against. Static: fields added live start null. */
+    private static java.util.Map<BlockPos, String> plannedBeside;
+    public static String plannedBeside(BlockPos q) { return plannedBeside == null ? null : plannedBeside.get(q); }
+    /** The walks of a plan with lava beside them (8 round, at his feet or floor level): each lava cell's state, the walk's floor and its top, on record and in one line. */
+    static void noteLavaBeside(List<Act> acts, ServerLevel level) {
+        if (plannedBeside == null) plannedBeside = new java.util.LinkedHashMap<>(256, 0.75f, false) { @Override protected boolean removeEldestEntry(java.util.Map.Entry<BlockPos, String> e) { return size() > 512; } };
+        StringBuilder sb = new StringBuilder(); long now = level.getGameTime();
+        for (Act a : acts) { if (!(a instanceof Act.Walk w)) continue; BlockPos f = w.feet(), fl = f.below(); var st = level.getBlockState(fl); var sh = st.getCollisionShape(level, fl);
+            String floor = st.getBlock().getName().getString() + " top " + (sh.isEmpty() ? "none" : String.format("%.3f", fl.getY() + sh.max(Direction.Axis.Y))); StringBuilder lb = new StringBuilder();
+            for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) for (int dy = -1; dy <= 0; dy++) { if (dx == 0 && dz == 0) continue; BlockPos q = f.offset(dx, dy, dz); var lf = level.getFluidState(q); if (!lf.is(net.minecraft.tags.FluidTags.LAVA)) continue;
+                String s0 = (lf.isSource() ? "source" : "flow " + lf.getAmount()) + " surface " + String.format("%.3f", q.getY() + lf.getHeight(level, q)); lb.append(' ').append(q.toShortString()).append(' ').append(s0);
+                plannedBeside.put(q.immutable(), s0 + " beside the walk to " + f.toShortString() + " on " + floor + " (tick " + now + ")"); }
+            if (lb.length() > 0) sb.append("; ").append(f.toShortString()).append(" on ").append(floor).append(", lava:").append(lb); }
+        if (sb.length() > 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] walks beside lava, as planned{} (ActionPath.tasks)", sb);
+    }
     public static List<Task> tasks(Plan plan, BlockPos from, Item scaffold, BlockPos dest, double within, ServerLevel level) {
+        if (level != null) noteLavaBeside(plan.acts(), level);
         boolean dirt = scaffold == net.minecraft.world.item.Items.DIRT || scaffold == net.minecraft.world.item.Items.GRASS_BLOCK || scaffold == net.minecraft.world.item.Items.COARSE_DIRT || scaffold == net.minecraft.world.item.Items.ROOTED_DIRT;
         List<Task> out = new ArrayList<>(); List<BlockPos> takeBack = new ArrayList<>(); boolean tookBack = false; List<Object[]> restore = new ArrayList<>(); // restore: structure blocks dug (pos, state), put back once he's past
         BlockPos lastWalk = null, cur = from; int run = 0;

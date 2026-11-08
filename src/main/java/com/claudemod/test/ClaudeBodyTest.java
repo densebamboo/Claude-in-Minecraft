@@ -10533,6 +10533,7 @@ public final class ClaudeBodyTest {
             case 977: return st977(stage, t, c, h, level, mock);
             case 978: return st978(stage, t, c, h, level, mock);
             case 979: return st979(stage, t, c, h, level, mock);
+            case 980: return st980(stage, t, c, h, level, mock);
             case 955: return st955(stage, t, c, h, level, mock);
             case 954: return st954(stage, t, c, h, level, mock);
             case 953: return st953(stage, t, c, h, level, mock);
@@ -15010,6 +15011,33 @@ public final class ClaudeBodyTest {
             check(bad.length() == 0, "the search leg over the lake, not the land: " + bad);
             pass(stage, t, said.toString());
         }
+        return true;
+    }
+    /** Stage 980 (D2D 23:10 11-07: live 23:04:33 in the Nether by the fortress, a soul sand shore with lava at 313,31,431 / 314,31,432 / 315,31,432; the walks merged into one GoTo 316,32,432 from 313,32,429; "in lava at 316, 31, 431 ... in soul_sand on soul_sand", 20 -> 7 HP): on soul sand his feet are under a lava source's surface (31.875 against 31.89), so his box over a lava column beside him is him in the lava. The same walk, both ways, four times: never in the lava. */
+    private static int s980T, s980Run; private static String s980Hit, s980Miss;
+    private static boolean st980(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos a = h.absolutePos(new BlockPos(4, 2, 4)), b = h.absolutePos(new BlockPos(7, 2, 7));
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s980T = -1; s980Run = 0; s980Hit = null; s980Miss = null; }
+        if (t[0] == 5) {
+            int[][] lava = {{4, 6}, {5, 7}, {6, 7}, {3, 6}, {3, 7}, {4, 7}, {4, 8}, {5, 8}, {6, 8}, {3, 8}};
+            for (int x = 0; x < 12; x++) for (int z = 0; z < 12; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), Blocks.NETHERRACK.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.SOUL_SAND.defaultBlockState(), 2); for (int y = 2; y <= 6; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (int[] l : lava) level.setBlock(h.absolutePos(new BlockPos(l[0], 1, l[1])), Blocks.LAVA.defaultBlockState(), 2);
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(a).inflate(32))) m.discard();
+        }
+        if (t[0] >= 10 && (s980T < 0 || t[0] == s980T + 120)) {
+            if (s980T > 0) { BlockPos to0 = s980Run % 2 == 0 ? b : a; String at0 = String.format("%.2f, %.2f, %.2f", c.getX() - h.absolutePos(BlockPos.ZERO).getX(), c.getY() - h.absolutePos(BlockPos.ZERO).getY(), c.getZ() - h.absolutePos(BlockPos.ZERO).getZ()); ClaudeMod.LOGGER.info("[Claude test] 980 run {} ended at {} (arena coords), task {}", s980Run + 1, at0, c.currentTask); if (s980Miss == null && (c.blockPosition().getX() != to0.getX() || c.blockPosition().getZ() != to0.getZ())) s980Miss = "run " + (s980Run + 1) + " ended at " + at0 + ", not on its cell"; s980Run++; }
+            if (s980Run == 4) {
+                c.tasks.clear(); c.dropCurrent = true; c.clearFire(); c.setHealth(c.getMaxHealth());
+                check(s980Hit == null, "the soul sand shore walk: in the lava: " + s980Hit); check(s980Miss == null, "the soul sand shore walk didn't get there: " + s980Miss); { var pl = new com.claudemod.entity.nav.ActionPath.Plan(java.util.List.of(new com.claudemod.entity.nav.ActionPath.Act.Walk(b.offset(0, 0, -1)), new com.claudemod.entity.nav.ActionPath.Act.Walk(b)), 0, 0, 2); com.claudemod.entity.nav.ActionPath.tasks(pl, b.offset(0, 0, -2), Items.COBBLESTONE, b, 0.9, level); String rec = com.claudemod.entity.nav.ActionPath.plannedBeside(h.absolutePos(new BlockPos(6, 1, 7))); check(rec != null && rec.contains("source") && rec.contains("Soul Sand top"), "the plan-time record of the lava beside a walk: " + rec); }
+                c.teleportTo(b.getX() + 0.25, b.getY() - 0.125, b.getZ() + 0.5); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); s980T = t[0] - 100; return true; } // (then his box over the lava beside him, a quarter off his cell's middle: the hurt line names it)
+            if (s980Run == 5) { c.tasks.clear(); c.dropCurrent = true; c.clearFire(); c.setHealth(c.getMaxHealth());
+                pass(stage, t, "four walks along the soul sand shore, never in the lava"); return true; }
+            BlockPos from = s980Run % 2 == 0 ? a : b, to = s980Run % 2 == 0 ? b : a;
+            c.tasks.clear(); c.dropCurrent = true; c.clearFire(); c.setHealth(c.getMaxHealth());
+            c.teleportTo(from.getX() + 0.5, from.getY() - 0.125, from.getZ() + 0.5); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+            c.tasks.add(new com.claudemod.entity.life.Task.GoTo(to, 0.9)); s980T = t[0];
+        }
+        if (s980T > 0 && s980Hit == null && c.isInLava()) s980Hit = "run " + (s980Run + 1) + " at " + String.format("%.2f, %.2f, %.2f", c.getX() - h.absolutePos(BlockPos.ZERO).getX(), c.getY() - h.absolutePos(BlockPos.ZERO).getY(), c.getZ() - h.absolutePos(BlockPos.ZERO).getZ()) + " (arena coords; lava at 4,6 5,7 6,7 ...)";
         return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */

@@ -212,6 +212,8 @@ public final class NetherRoute {
             for (BlockPos f : failedLegs) if (Math.abs(f.getX() - x) <= 3 && Math.abs(f.getZ() - z) <= 3 && Math.abs(f.getY() - y) <= 3) return true;
             return false;
         }
+        /** A walk that failed (last 2 min) within 8 across of this column, ending 4+ below where this move starts: the walker searched that drop and found no way down. */
+        boolean failedDrop(int cx, int fromY, int cz) { failedNear(cx, fromY, cz); for (BlockPos f : failedLegs) if (Math.abs(f.getX() - cx) <= 8 && Math.abs(f.getZ() - cz) <= 8 && f.getY() <= fromY - 4) return true; return false; }
         Reader(ClaudeEntity g, ServerLevel level) { this.g = g; this.level = level; this.eye = g.getEyePosition(); this.sight = com.claudemod.entity.life.FarSight.reach(level); this.minY = level.getMinBuildHeight() + 1; this.blocks = com.claudemod.director.Kit.buildingBlocks(g); this.maxY = Math.min(118, Math.min(level.getMaxBuildHeight(), level.getMinBuildHeight() + level.getLogicalHeight()) - 3); } // (never up by the bedrock roof)
         LevelChunk chunk(int x, int z) { long k = ((long) (x >> 4) << 32) ^ ((z >> 4) & 0xffffffffL); return chunks.computeIfAbsent(k, kk -> level.getChunkSource().getChunkNow(x >> 4, z >> 4)); }
         boolean loaded(int x, int z) { return chunk(x, z) != null; }
@@ -309,7 +311,8 @@ public final class NetherRoute {
             }
             if (dy > 1 && digs == 0) puts += dy - 1; // (nothing cut for the climb: a pillar, one block a step up)
             if (bad(bs(cx, ny - 1, cz)) && !lava(bs(cx, ny - 1, cz))) return null; // (never onto magma or fire)
-            if (failedNear(cx, ny, cz)) sec += 20; // (a leg that ended there failed in the last 2 min: the way round it, never the same spot again; live -303,87,-63, a 40 s shuffle re-planned onto the node that failed)
+            if (failedNear(cx, ny, cz)) return null; // (the walker found no way there in the last 2 min: not that spot again, not even dearer; +20 s left the next plan a block over the same fall, live 14:04-14:06 11-08, reviews 127/128, stage 1047)
+            if (dy < -3 && failedDrop(cx, y, cz)) return null; // (a way down near one the walker found none at, from about this height: the same drop a few blocks over) // (a leg that ended there failed in the last 2 min: the way round it, never the same spot again; live -303,87,-63, a 40 s shuffle re-planned onto the node that failed)
             if (dy < -3) { // a sheer fall into that column (nothing to cut steps in): its damage against what he keeps (Leaps.margin)
                 boolean sheer = true; for (int yy = ny + 1; yy <= y; yy++) if (solid(cx, yy, cz)) { sheer = false; break; }
                 if (sheer) { float hp = -dy - 3; if (Leaps.health(g) - hp < Leaps.margin(g)) return null; sec += 1 + hp * 1.5 * Leaps.hpPrice(g); }

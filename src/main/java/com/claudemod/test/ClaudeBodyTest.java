@@ -10744,6 +10744,7 @@ public final class ClaudeBodyTest {
             case 1044: return st1044(stage, t, c, h, level, mock);
             case 1045: return st1045(stage, t, c, h, level, mock);
             case 1046: return st1046(stage, t, c, h, level, mock);
+            case 1047: return st1047(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -20146,6 +20147,41 @@ public final class ClaudeBodyTest {
             check(got && n == 1, "the drop one block off in a 1-high pocket not picked up in 6 s (" + q + ")");
             check(level.getBlockState(b.above()).is(Blocks.DEEPSLATE), "the pocket's head block dug out for a drop he could reach by leaning in");
             pass(stage, t, "the drop in the 1-high pocket beside him picked up by stepping to its edge");
+        }
+        return true;
+    }
+    private static String st1047A = "";
+    private static boolean st1047(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // reviews 127/128 (live 14:04-14:06 11-08, the_nether 252,60,400): on his bridge over a lava cavern NetherRoute planned legs that drop ~27 one block sideways (unseen cells read as netherrack, a slope to dig down); the walker found only the fall (23 HP), NO_PATH; the route planned again "round it" a block or few over, the same fall, again and again
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(11900, 90, 7900), goal = o.offset(44, -32, 0);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); st1047A = ""; }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) for (int k = -16; k <= 64; k += 16) for (int m = -16; m <= 16; m += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, m)), 2, o.offset(k, 0, m));
+        if (t[0] == 12) {
+            for (int x = -12; x <= 52; x++) for (int z = -12; z <= 12; z++) for (int y = -40; y <= 10; y++) {
+                boolean edge = x == -12 || x == 52 || z == -12 || z == 12 || y == 10 || y == -40;
+                nl.setBlock(o.offset(x, y, z), edge ? Blocks.NETHERRACK.defaultBlockState() : y <= -37 ? Blocks.LAVA.defaultBlockState() : x >= 34 && y <= -33 ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2 | 16);
+            }
+            for (int x = -11; x <= 6; x++) nl.setBlock(o.offset(x, -1, 0), Blocks.NETHERRACK.defaultBlockState(), 2 | 16); // his bridge, 1 wide, out over the cavern
+            nsKit(c); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.setHealth(20);
+        }
+        if (t[0] == 15) com.claudemod.entity.nav.Route.forgetTrail(c);
+        if (t[0] == 18) {
+            var p1 = com.claudemod.entity.nav.NetherRoute.plan(c, nl, o, goal);
+            BlockPos fail = null, prev = o; if (p1 != null) for (BlockPos l : p1.legs()) { if (prev.getY() - l.getY() > 3) { fail = l; break; } prev = l; }
+            st1047A = "plan 1: " + (p1 == null ? "none" : p1.legs()) + "; its drop " + fail;
+            BlockPos again = null;
+            if (fail != null) {
+                c.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, fail, c.tickCount, c.blockPosition(), com.claudemod.entity.life.Attempts.Reason.NO_PATH, "the walker: no way down (stage 1047)");
+                var p2 = com.claudemod.entity.nav.NetherRoute.plan(c, nl, o, goal);
+                prev = o; if (p2 != null) for (BlockPos l : p2.legs()) { if (prev.getY() - l.getY() > 3 && Math.abs(l.getX() - fail.getX()) <= 8 && Math.abs(l.getZ() - fail.getZ()) <= 8) { again = l; break; } prev = l; }
+                st1047A += "; plan 2: " + (p2 == null ? "none" : p2.legs()) + "; a drop again beside it: " + again;
+            }
+            ClaudeMod.LOGGER.info("[Claude test] stage 1047: {}", st1047A);
+            for (int x = -12; x <= 52; x++) for (int z = -12; z <= 12; z++) for (int y = -40; y <= 10; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2 | 16);
+            check(fail != null, "setup: plan 1 has no drop off the bridge to fail: " + st1047A);
+            check(again == null, "the walker found no way down at " + (fail == null ? "" : fail.toShortString()) + " and the route planned a drop beside it again: " + st1047A);
+            nsHome(c, h, level); pass(stage, t, st1047A);
         }
         return true;
     }

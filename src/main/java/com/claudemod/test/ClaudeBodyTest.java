@@ -10814,6 +10814,8 @@ public final class ClaudeBodyTest {
             case 1061: return st1061(stage, t, c, h, level, mock);
             case 1059: return st1059(stage, t, c, h, level, mock);
             case 1062: return st1062(stage, t, c, h, level, mock);
+            case 1066: return st1066(stage, t, c, h, level, mock);
+            case 1067: return st1067(stage, t, c, h, level, mock);
             case 1063: return st1063(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
@@ -18413,6 +18415,59 @@ public final class ClaudeBodyTest {
             check(c.getHealth() >= s1062Hp - 0.01f || !(c.getLastHurtByMob() instanceof net.minecraft.world.entity.animal.IronGolem), "on his tower (" + (int) (c.getY() - stand.getY()) + " up), the golem on a step 1 up beside it: hit, health " + (int) c.getHealth());
             if (t[0] - s1062Up > 20 * 15) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; s1062G.discard(); pass(stage, t, "the golem a step up beside his tower: out of its reach, " + (int) (c.getY() - stand.getY()) + " up"); return true; }
         } else check(t[0] - s1062T < 20 * 40, "40 s and not up his tower beside the golem (doing " + c.currentTask + ", at " + c.blockPosition().toShortString() + ")");
+        return true;
+    }
+
+    /** Stage 1066 (live 00:39 11-08 World 17): his pile at 327,60,526 in the fortress that killed him in full iron at 23:13; "the run to his pile ...: a gold piece on him: the piglins let him be; no sword, armor or kit: they're in what fell", in through the portal in gold boots with a wooden sword, fireballed dead at 00:46 85 short of it. The run priced piglins only, never the fortress's blazes and wither skeletons round the pile. Here: the same kit, the pile by a fortress on his atlas: gear first; in iron with a sword: straight there (priced, not a lock). */
+    private static String st1066R1, st1066Q1; private static boolean st1066In1;
+    private static boolean st1066(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.DeathLog.reset(c); c.attempts.counters.remove("recoverGear"); }
+        if (t[0] == 5) {
+            ServerLevel nether = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+            BlockPos pile = new BlockPos(12000, 70, 12000);
+            com.claudemod.entity.life.Atlas.note(c, nether, "fortress", pile.offset(-20, -5, 10)); // (the fortress he died in, on his atlas)
+            var fell = new java.util.ArrayList<net.minecraft.world.entity.item.ItemEntity>(); fell.add(new net.minecraft.world.entity.item.ItemEntity(nether, 12000.5, 70, 12000.5, new ItemStack(Items.IRON_CHESTPLATE))); fell.add(new net.minecraft.world.entity.item.ItemEntity(nether, 12000.5, 70, 12000.5, new ItemStack(Items.IRON_PICKAXE)));
+            com.claudemod.entity.life.DeathLog.died(c, nether, pile, fell);
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS));
+            c.getInventory().add(new ItemStack(Items.WOODEN_SWORD)); c.getInventory().add(new ItemStack(Items.WOODEN_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 13)); c.getFoodData().setFoodLevel(20); c.setHealth(20);
+            String r1 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
+            var q1 = c.skillQueue.peekFirst();
+            boolean in1 = r1 != null && r1.contains("through my portal");
+            c.skillQueue.clear(); c.attempts.counters.remove("recoverGear");
+            for (var sl : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS}) c.setItemSlot(sl, new ItemStack(sl == net.minecraft.world.entity.EquipmentSlot.HEAD ? Items.IRON_HELMET : sl == net.minecraft.world.entity.EquipmentSlot.CHEST ? Items.IRON_CHESTPLATE : Items.IRON_LEGGINGS));
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.SHIELD)); st1066R1 = r1; st1066In1 = in1; st1066Q1 = String.valueOf(q1);
+        }
+        if (t[0] == 12) { // (a few ticks: his armor value counts the iron once it's ticked)
+            String r1 = st1066R1; boolean in1 = st1066In1; String q1 = st1066Q1;
+            String r2 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
+            boolean in2 = r2 != null && r2.contains("through my portal");
+            c.skillQueue.clear(); c.getInventory().clearContent(); com.claudemod.entity.life.DeathLog.reset(c);
+            for (var sl : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET}) c.setItemSlot(sl, ItemStack.EMPTY);
+            check(!in1, "gold boots and a wooden sword, the pile by the fortress that killed him: off through the portal anyway: \"" + r1 + "\" (first " + q1 + ")");
+            check(in2, "in iron with a sword and shield: not off for the pile: \"" + r2 + "\"");
+            pass(stage, t, "unready: \"" + r1 + "\"; in iron: \"" + r2 + "\"");
+        }
+        return true;
+    }
+
+    private static long st1067Day; private static boolean st1067Shelter, st1067Pile; private static String st1067Q = "";
+    /** Stage 1067 (live 01:12:23 11-08 World 17, then dead at 01:15 and 01:18): "respawned at night with nothing: dug in first, the day's work waits for morning", then 1 ms later "respawned: going back for his things first": the recovery block cleared his skill queue, the shelter step with it, and he went out for logs in the dark with nothing. Here: a night respawn with a pile pending: the shelter step is still first. */
+    private static boolean st1067(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos pile = h.absolutePos(new BlockPos(40, 2, 40));
+        if (t[0] == 1) { st1067Shelter = false; st1067Pile = false; st1067Q = ""; scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; com.claudemod.director.ClaudeLife.deathTestReset(c); com.claudemod.entity.life.DeathLog.reset(c); flatBox(h); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            st1067Day = level.getDayTime(); level.setDayTime((st1067Day / 24000) * 24000 + 18000); // (midnight)
+            c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+            c.setLastDeathLocation(java.util.Optional.of(net.minecraft.core.GlobalPos.of(net.minecraft.world.level.Level.OVERWORLD, pile))); c.justRespawned = true;
+        }
+        if (t[0] > 10 && t[0] < 40) { var f0 = c.skillQueue.peekFirst(); if (!c.skillQueue.isEmpty()) st1067Q = String.valueOf(c.skillQueue); if (f0 != null && f0.skill().equals("shelter")) st1067Shelter = true; if (f0 != null && f0.skill().equals("recover_drops") && !st1067Shelter) st1067Pile = true; }
+        if (t[0] == 40) {
+            boolean shelter = st1067Shelter && !st1067Pile; String q = st1067Q; Object first = st1067Shelter ? "shelter" : null;
+            c.justRespawned = false; c.recoverPending = false; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setLastDeathLocation(java.util.Optional.empty()); com.claudemod.director.ClaudeLife.deathTestReset(c); com.claudemod.entity.life.DeathLog.reset(c);
+            level.setDayTime(st1067Day);
+            check(shelter && first != null, "a night respawn with nothing: shelter not first in his queue: " + q);
+            pass(stage, t, "night respawn: shelter first, the pile after: " + q);
+        }
         return true;
     }
     private static int st1017T;

@@ -478,6 +478,7 @@ public final class ClaudeLife {
             clearTasks(g);
             g.skillQueue.clear();
             g.skillQueue.add(new Skills.Step("recover_drops", "", 1));
+            if (!com.claudemod.director.ClaudeLife.dayHere(((ServerLevel) g.level()))) g.skillQueue.addFirst(new Skills.Step("shelter", "", 1)); // the night respawn's shelter goes back in ahead of the pile: the clear above took it out, and he went for logs in the dark with nothing (live 01:12-01:18 11-08, dead twice)
             { BlockPos sb = g.getRespawnPosition(); ServerLevel lv0 = ((ServerLevel) g.level()); // back at his bed: it's made safe before he goes (lit, walled from the dark), the drops after
               if (sb != null && lv0.isLoaded(sb) && lv0.getBlockState(sb).is(BlockTags.BEDS) && sb.distSqr(g.blockPosition()) <= 5 * 5 && bedUnsafe(g, lv0, sb) != null
                       && com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(8), m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy).isEmpty()) {

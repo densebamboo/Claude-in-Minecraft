@@ -201,6 +201,18 @@ public final class Decide {
                 else said.add("no gold piece" + (goldHere >= 4 ? "" : " and none to hand") + ": ~" + (int) dmg + " HP of piglin hits on the ~" + (int) there + " s if he fights; straight there, no fights till he's in what fell (the user 11-05: \"avoiding combat altogether until you get suited with your pickups\")");
             } else said.add("a gold piece on him: the piglins let him be");
         }
+        if (nether && level.getServer() != null) { // the fortress that killed him: its blazes and wither skeletons round the pile are priced too, never the piglins alone (live 00:39 11-08: in gold boots and a wooden sword, fireballed dead 85 short of it)
+            ServerLevel nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+            BlockPos fort = nl == null ? null : Atlas.find(g, nl, "fortress"); // shortcut: the fortress nearest him, fine with one or two on record; a per-pile lookup if he knows many
+            double fr = w("recovery.fortress_r", 96);
+            if (fort != null && fort.distSqr(dn.at) <= fr * fr) {
+                boolean sword = g.inventory.count(x -> x.getItem() instanceof net.minecraft.world.item.SwordItem sw && sw.getTier() != net.minecraft.world.item.Tiers.WOOD && sw.getTier() != net.minecraft.world.item.Tiers.GOLD) > 0;
+                double armorF = armorF(g), hits = w("recovery.fortress_hits", 4) * (sword ? 1 : w("recovery.fortress_no_sword_x", 1.5)), perHit = w("recovery.fortress_hit_hp", 6) * armorF; // (fireballs and wither swords round a fortress pile: a few hits there and back, more with nothing to kill them fast)
+                double expect = hits * perHit, keep = w("recovery.fortress_hp_keep", 6); // (what he'd take against what he has, keeping a margin to get out: 36 HP at 20 health read "he can take it" priced in seconds)
+                if (expect > g.getHealth() - keep) { first.add(new Skills.Step("gear_up", "", 1)); said.add("gear up first: the pile is by the fortress at " + fort.toShortString() + " (blazes and wither skeletons): ~" + (int) (hits * perHit) + " HP of their hits in armor " + g.getArmorValue() + (sword ? "" : " with no real sword") + ", " + (int) g.getHealth() + " health"); }
+                else said.add("the fortress at " + fort.toShortString() + " by the pile: ~" + (int) (hits * perHit) + " HP of its mobs' hits in armor " + g.getArmorValue() + ", he can take it");
+            }
+        }
         said.add("no sword, armor or kit: they're in what fell (" + (dn.what.length() > 80 ? dn.what.substring(0, 80) + "..." : dn.what) + ")");
         return new RunKit(first, "the run to his pile in " + dn.dim + " at " + dn.at.toShortString() + (runS >= 0 ? " (~" + runS + " s from " + fromName + ")" : "") + ": " + String.join("; ", said));
     }

@@ -10706,6 +10706,7 @@ public final class ClaudeBodyTest {
             case 1028: return st1028(stage, t, c, h, level, mock);
             case 1029: return st1029(stage, t, c, h, level, mock);
             case 1030: return st1030(stage, t, c, h, level, mock);
+            case 1031: return st1031(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -18967,6 +18968,27 @@ public final class ClaudeBodyTest {
             check(s1030Tries <= 1, "his take-up of the block 42 off with no way to it queued " + s1030Tries + " times in " + t[0] / 20 + " s (again and again, never by it)");
             if (t[0] >= 20 * 40) { check(s1030Tries == 1, "the take-up never tried at all (" + s1030Tries + "): the stage didn't set it up; on the ledger " + com.claudemod.entity.life.TempLedger.has(c, s1030P) + " " + com.claudemod.entity.life.TempLedger.entry(c, s1030P) + " blocked " + (com.claudemod.entity.life.TempLedger.entry(c, s1030P) == null ? "-" : com.claudemod.entity.life.TempLedger.entry(c, s1030P).blocked) + ", block " + level.getBlockState(s1030P) + ", loaded " + level.isLoaded(s1030P) + ", doing " + c.currentTask); com.claudemod.entity.life.TempLedger.book(c).remove(s1030P); pass(stage, t, "one go at the block with no way to it, then left till he's back by it"); return true; }
         }
+        return true;
+    }
+    private static int st1031Hold; private static net.minecraft.world.entity.monster.Spider st1031S;
+    private static boolean st1031(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // in his cover by day at 3 HP, food 5, no food, a spider in the sun 7 off and not after him (World 17 04:24-04:40, STUCK 04:27: 16 min "in his cover: Spider sensed lately" on his tower; a spider in daylight starts nothing)
+        BlockPos at = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1031Hold = -1; st1031S = null; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -4; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.OBSIDIAN); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            level.setDayTime(6000); // (an obsidian floor he can't dig: his cover is a tower, as live, where no tunnel-out is priced)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIRT, 16)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.setHealth(3); c.getFoodData().setFoodLevel(5); c.getFoodData().setSaturation(0);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.pillarBlocks.clear();
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); check(c.work.shelter(), "no cover made (" + c.noCoverWhyNow() + ")"); }
+        if (t[0] > 20 && st1031Hold < 0 && c.currentTask instanceof Task.Wait && c.work.holdingCover()) { st1031Hold = t[0]; st1031S = (net.minecraft.world.entity.monster.Spider) h.spawn(EntityType.SPIDER, new BlockPos(15, 2, 8)); st1031S.setPersistenceRequired(); } // (its own AI: wandering in the sun, heard and seen now and then, as live)
+        if (st1031Hold > 0) {
+            check(c.isAlive(), "dead in his cover");
+            if (!c.work.holdingCover()) { st1031S.discard(); c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "out of his cover " + (t[0] - st1031Hold) / 20 + " s in, a spider in the sun 7 off (light " + String.format("%.2f", st1031S.getLightLevelDependentMagicValue()) + ")"); }
+            else check(t[0] - st1031Hold < 20 * 30, "30 s holding his cover at 3 HP, no food, for a spider in the sun 7 off that isn't after him");
+        }
+        if (t[0] > 20 && st1031Hold < 0) check(t[0] < 400, "never settled in cover: at " + c.blockPosition() + ", now=" + c.currentTask + " tasks=" + c.tasks);
         return true;
     }
     private static int st739T;

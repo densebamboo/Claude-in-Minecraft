@@ -102,10 +102,23 @@ public final class FortressFight {
 
     static boolean stillGood(ClaudeEntity g, ServerLevel level, Cover c, LivingEntity foe) {
         if (!stand(level, c.cover())) return false;
-        if (c.kind().equals("wither")) return witherSafe(level, c.cover());
+        if (c.kind().equals("wither")) return witherSafe(level, c.cover()) && blazeSees(g, level, c.cover()) == null;
         for (Blaze b : blazesNear(g, level, c.cover(), 24)) if (sees(level, b, c.cover())) return false;
         return true;
     }
+
+    /** A wither skeleton nearer the gap than he is and within 1.5 of the straight way there: the gap is past it, or null. */
+    static net.minecraft.world.entity.monster.WitherSkeleton pastWither(ClaudeEntity g, ServerLevel level, BlockPos me, BlockPos gap) {
+        Vec3 a = Vec3.atBottomCenterOf(me), b = Vec3.atBottomCenterOf(gap); Vec3 ab = b.subtract(a); double len2 = ab.x * ab.x + ab.z * ab.z;
+        for (var w : level.getEntitiesOfClass(net.minecraft.world.entity.monster.WitherSkeleton.class, new AABB(me).inflate(16), Entity::isAlive)) {
+            Vec3 p = w.position(); if (p.distanceToSqr(b) >= a.distanceToSqr(b)) continue;
+            double f = len2 < 1e-6 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * ab.x + (p.z - a.z) * ab.z) / len2));
+            double dx = a.x + ab.x * f - p.x, dz = a.z + ab.z * f - p.z; if (dx * dx + dz * dz <= 1.5 * 1.5 && Math.abs(p.y - (a.y + ab.y * f)) <= 2.5) return w;
+        }
+        return null;
+    }
+    /** A blaze he knows of with sight of the cell, or null. */
+    static Blaze blazeSees(ClaudeEntity g, ServerLevel level, BlockPos cell) { for (Blaze b : blazesNear(g, level, cell, 24)) if (sees(level, b, cell)) return b; return null; }
 
     /** The blazes about that he knows of: in his line of sight, or within 16 (their breathing and crackle carry), or already on his senses' record. */
     static List<Blaze> blazesNear(ClaudeEntity g, ServerLevel level, BlockPos at, int r) {
@@ -204,6 +217,8 @@ public final class FortressFight {
         for (int i = 0; i < Math.min(12, cands.size()); i++) {
             Cand k = cands.get(i);
             // reached by his own walker (no digging, a block put down where he has them), not vanilla's: live 17:37 11-07 "12 spots out of sight, none walkable" with 4 blazes on him, every spot refused by createPath
+            if (pastWither(g, level, me, k.c()) != null) continue; // (a gap with a wither skeleton between him and it: each step in meets its sword and the knockback throws him back out; death 53, 11-08: 14 hits on the way, 20 -> 5)
+            if (blazeSees(g, level, k.c()) != null) continue; // (out of the sword's reach is no cover with a blaze in sight of it: death 53, two fireballs and the burn in the gap)
             if (!k.c().equals(me) && com.claudemod.entity.nav.ActionPath.plan(g, level, me, k.c(), 0.5, true, 800, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, null, 0) == null) continue;
             return new Cover(k.c(), k.front(), foe.blockPosition(), "wither", "a 2-high gap at " + k.c().toShortString() + " (no 3-high room on any side: its sword can't reach in), hitting it at " + k.front().toShortString() + " 2 off (" + cands.size() + " gaps looked at)", g.tickCount);
         }

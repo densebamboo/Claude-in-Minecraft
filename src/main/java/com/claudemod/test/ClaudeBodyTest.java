@@ -8033,7 +8033,7 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
-        if (stage[0] >= 494 && stage[0] <= 1099 && stages494(stage, t, c, h, level, mock)) return true;
+        if ((stage[0] >= 494 && stage[0] <= 1099 || stage[0] >= 1150 && stage[0] <= 1199) && stages494(stage, t, c, h, level, mock)) return true; // (1150-1199: Big Picture's next range)
         if (stage[0] >= 1100 && stage[0] < 1100 + BENCH.length - 16) return bench(stage, t, c, h, level); // (the combat benchmark, part 2: every enemy type, mixed groups)
         if (stage[0] >= 279 && stage[0] <= 285) {
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Whereabouts.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.ExactSpot.reset(c); com.claudemod.director.Primitives.reset(c);
@@ -10536,6 +10536,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1150: return st1150(stage, t, c, h, level, mock);
             case 999: return st999(stage, t, c, h, level, mock);
             case 997: return st997(stage, t, c, h, level, mock);
             case 996: return st996(stage, t, c, h, level, mock);
@@ -15451,6 +15452,29 @@ public final class ClaudeBodyTest {
             c.blueprint = null; c.prefs.remove("mine_model"); c.tasks.clear();
             check(out, "from his mine's level at " + me.toShortString() + " to the open ground at " + to.toShortString() + " (" + (to.getY() - me.getY()) + " up, 6 across): no route up his rows and out (" + (legs == null ? "his walker's" : legs) + ")");
             pass(stage, t, "up his rows and out by his door: " + legs.size() + " legs");
+        }
+        return true;
+    }
+    /** Stage 1150 (death 53, 11-08 11:53 at a fortress: cover from a wither skeleton picked in a 2-high gap 6 off, the skeleton between him and it; each step in met its sword, the knockback threw him back, 14 hits, health 20 -> 5, and the pick held): a fortress corridor, its one 2-high gap at the end behind a wither skeleton 4 off him. No cover past the skeleton. */
+    private static boolean st1150(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); flatBox(h); com.claudemod.entity.life.FortressFight.reset(c);
+            for (int x = 0; x <= 13; x++) for (int z = 6; z <= 8; z++) for (int y = 1; y <= 5; y++) h.setBlock(new BlockPos(x, y, z), Blocks.NETHER_BRICKS);
+            for (int x = 3; x <= 12; x++) for (int y = 2; y <= 4; y++) h.setBlock(new BlockPos(x, y, 7), Blocks.AIR); // the corridor, 3 high
+            for (int x = 1; x <= 2; x++) for (int y = 2; y <= 3; y++) h.setBlock(new BlockPos(x, y, 7), Blocks.AIR); } // its end, 2 high: the gap at x 1
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            BlockPos me = h.absolutePos(new BlockPos(8, 2, 7)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var w = net.minecraft.world.entity.EntityType.WITHER_SKELETON.create(level); BlockPos wp = h.absolutePos(new BlockPos(4, 2, 7));
+            w.moveTo(wp.getX() + 0.5, wp.getY(), wp.getZ() + 0.5, 90, 0); w.setNoAi(true); w.setPersistenceRequired(); level.addFreshEntity(w);
+        }
+        if (t[0] == 14) {
+            var w = level.getEntitiesOfClass(net.minecraft.world.entity.monster.WitherSkeleton.class, c.getBoundingBox().inflate(16), net.minecraft.world.entity.Entity::isAlive);
+            check(!w.isEmpty(), "no wither skeleton in the corridor");
+            var cov = com.claudemod.entity.life.FortressFight.coverFor(c, level, w.get(0));
+            BlockPos gap = h.absolutePos(new BlockPos(1, 2, 7));
+            for (var e : w) e.discard(); com.claudemod.entity.life.FortressFight.reset(c);
+            check(cov == null || !cov.cover().equals(gap), "cover picked in the gap at " + gap.toShortString() + ", the wither skeleton between him and it (" + (cov == null ? "-" : cov.how()) + ")");
+            pass(stage, t, "no cover past the skeleton: " + (cov == null ? "none (shield and sword in the open)" : cov.how()));
         }
         return true;
     }

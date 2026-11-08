@@ -10537,6 +10537,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1174: return st1174(stage, t, c, h, level, mock);
             case 1173: return st1173(stage, t, c, h, level, mock);
             case 1172: return st1172(stage, t, c, h, level, mock);
             case 1171: return st1171(stage, t, c, h, level, mock);
@@ -15912,6 +15913,29 @@ public final class ClaudeBodyTest {
             check(c.tasks.stream().anyMatch(x -> x instanceof Task.FurnaceTake ft && ft.pos().equals(fu)), "the salmon step (" + fetch + ") doesn't go to his furnace: " + r2 + ", tasks " + c.tasks);
             c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear(); com.claudemod.entity.life.ChestLedger.reset(c); level.setBlock(fu, Blocks.AIR.defaultBlockState(), 2);
             nsHome(c, h, level); pass(stage, t, "the kit's salmon fetched from his furnace: " + r + "; " + r2);
+        }
+        return true;
+    }
+    /** Stage 1174 (D2D review 341, live 15:11:45-51 11-08 at -121,16,-226: in a 1-wide pocket off his tunnel for copper, its patch queued for the cell he stood in; the vein behind it (a break, a place) came between, and when the patch came back its "2 s of stepping out" had started 91 ticks before: it gave up at once, the hole left open): standing in a pocket off a tunnel, the patch for his own cell queued, 3 s of other work in the pocket first. Then out a step and the patch in. */
+    private static int st1174T0;
+    private static boolean st1174(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(7900, 70, 7400), hole = o.offset(0, 0, -1);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(6000); st1174T0 = -1; }
+        if (t[0] == 10) {
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+            for (int x = -5; x <= 5; x++) for (int y = 0; y <= 1; y++) level.setBlock(o.offset(x, y, 0), Blocks.AIR.defaultBlockState(), 2); // the tunnel
+            for (int y = 0; y <= 1; y++) level.setBlock(hole.above(y), Blocks.AIR.defaultBlockState(), 2); // the pocket off it
+            level.setBlock(o.offset(3, 1, 0), Blocks.TORCH.defaultBlockState(), 2);
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16));
+            c.teleportTo(hole.getX() + 0.5, hole.getY(), hole.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) { c.tasks.add(new Task.Place(hole, Items.COBBLESTONE)); st1174T0 = t[0]; }
+        if (st1174T0 > 0 && t[0] == st1174T0 + 3) c.tasks.addFirst(new Task.Wait(60, false)); // other work first (the vein behind it)
+        if (st1174T0 > 0 && t[0] > st1174T0 + 3 && t[0] <= st1174T0 + 66) { c.teleportTo(hole.getX() + 0.5, hole.getY(), hole.getZ() + 0.5); c.getNavigation().stop(); } // (that work holds him in the pocket)
+        if (st1174T0 > 0 && t[0] > st1174T0 + 66) {
+            if (level.getBlockState(hole).is(Blocks.COBBLESTONE)) { int s = t[0] - st1174T0 - 66; for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); nsHome(c, h, level); pass(stage, t, "out of the pocket and its patch in, " + s / 20.0 + " s after the other work"); return true; }
+            check(t[0] < st1174T0 + 66 + 20 * 8, "the patch for the pocket he stood in: not in 8 s after the other work; at " + c.position() + ", doing " + c.currentTask + ", queue " + c.tasks);
         }
         return true;
     }

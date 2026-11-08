@@ -10741,6 +10741,7 @@ public final class ClaudeBodyTest {
             case 1043: return st1043(stage, t, c, h, level, mock);
             case 1044: return st1044(stage, t, c, h, level, mock);
             case 1045: return st1045(stage, t, c, h, level, mock);
+            case 1046: return st1046(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -20063,6 +20064,30 @@ public final class ClaudeBodyTest {
             for (int x = -4; x <= 28; x++) for (int z = -16; z <= 16; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
             check(again.isEmpty(), "branch mouth(s) lit by a torch within 2 queued for a torch again (the torch job skips them, every 3 s): " + again + " | " + (q.length() > 300 ? q.substring(0, 300) : q));
             nsHome(c, h, level); pass(stage, t, "lit branch mouths left as they are");
+        }
+        return true;
+    }
+    private static net.minecraft.world.entity.item.ItemEntity st1046I;
+    private static boolean st1046(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a drop one block off in a 1-high pocket (feet dug, head solid), out of his pickup box: the path "to within 1" ended where he stood, nav idle, "going for" it 400 ticks, three times over, the patch behind it held 2 min (live 13:11-13:13 11-08 at -347,-58,-27, review 239/259)
+        BlockPos a = h.absolutePos(new BlockPos(4, 2, 4)), b = a.south();
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.prefs.put("stay_close", "no"); c.blueprint = null; st1046I = null; }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) e.discard();
+        if (t[0] == 10) {
+            for (int x = 0; x <= 8; x++) for (int z = 0; z <= 8; z++) for (int yy = 1; yy <= 5; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.DEEPSLATE.defaultBlockState(), 2);
+            for (int z = 2; z <= 4; z++) { level.setBlock(h.absolutePos(new BlockPos(4, 2, z)), Blocks.AIR.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(4, 3, z)), Blocks.AIR.defaultBlockState(), 2); } // his corridor, 2 high
+            level.setBlock(b, Blocks.AIR.defaultBlockState(), 2); // the pocket: feet only, its head block solid
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(a).inflate(10))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 6));
+            c.teleportTo(a.getX() + 0.5, a.getY(), a.getZ() + 0.3); c.setHealth(20); // (at the back of his cell, as he stood live: the pocket's far side out of his pickup box) c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            st1046I = new net.minecraft.world.entity.item.ItemEntity(level, b.getX() + 0.5, b.getY(), b.getZ() + 0.75, new ItemStack(Items.COBBLED_DEEPSLATE)); st1046I.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); st1046I.setNoPickUpDelay(); level.addFreshEntity(st1046I); // at the pocket's far side
+        }
+        if (t[0] == 14) { check(!c.getBoundingBox().inflate(1.0, 0.5, 1.0).intersects(st1046I.getBoundingBox()), "the stage's drop is in his pickup box from the start: him " + c.position() + ", it " + st1046I.position()); c.tasks.add(new Task.Pickup(200)); }
+        if (t[0] == 14 + 120) {
+            boolean got = !st1046I.isAlive(); int n = c.getInventory().countItem(Items.COBBLED_DEEPSLATE); String q = c.tasks + " / " + c.currentTask + " at " + c.blockPosition().toShortString();
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; if (st1046I.isAlive()) st1046I.discard();
+            check(got && n == 1, "the drop one block off in a 1-high pocket not picked up in 6 s (" + q + ")");
+            check(level.getBlockState(b.above()).is(Blocks.DEEPSLATE), "the pocket's head block dug out for a drop he could reach by leaning in");
+            pass(stage, t, "the drop in the 1-high pocket beside him picked up by stepping to its edge");
         }
         return true;
     }

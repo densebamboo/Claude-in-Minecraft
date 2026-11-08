@@ -2996,6 +2996,7 @@ public class WorkGoal extends Goal {
         // 1. walk there if he can: onto it, or right next to it (in a wall pocket, players grab it from beside it)
         var path = g.getNavigation().createPath(ip, 0);
         if (path == null || !path.canReach()) path = g.getNavigation().createPath(ip, 1);
+        if (path != null && path.canReach() && path.getEndNode() != null && path.getEndNode().asBlockPos().equals(g.blockPosition())) path = null; // (a path "to within 1" that ends where he stands: nothing to walk, nav idle, "going for" it 400 ticks; the step into the pocket below gets it, live 13:11 11-08, stage 1046)
         if (path != null && path.canReach()) {
             var cur = g.getNavigation().getPath();
             if (!g.getNavigation().isDone() && cur != null && cur.getTarget().equals(path.getTarget())) return false; // already on his way to it: keep going (a fresh route every 8 ticks starts from the middle of his own block: back from the edge of the step, forward, back, his "shuffle" before stepping down to loot)

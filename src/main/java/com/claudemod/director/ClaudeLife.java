@@ -3216,7 +3216,8 @@ public final class ClaudeLife {
                 }
                 if (want0 == null) return "failed: I don't know what '" + target + "' is in my chests";
                 final Item want = want0; final int have0 = g.inventory.count(x -> x.is(want));
-                int inChests = com.claudemod.entity.life.ChestLedger.count(g, level, want), left = Math.min(count, inChests);
+                var furn = com.claudemod.entity.life.ChestLedger.furnacesWith(g, level, x -> x.is(want)); int inFurn = 0; for (var sp : furn) inFurn += sp.count(); // (his furnaces' done output is his storage too: review 77, stage 1173)
+                int inChests = com.claudemod.entity.life.ChestLedger.count(g, level, want) + inFurn, left = Math.min(count, inChests);
                 List<String> from = new ArrayList<>();
                 { var first = com.claudemod.entity.life.ChestLedger.where(g, level, x -> x.is(want)); if (!first.isEmpty()) makeRoomAt(g, level, first.get(0).pos(), want, Math.min(count, inChests)); } // room for it first: what he doesn't need goes in (the user, 11-06)
                 for (var sp : com.claudemod.entity.life.ChestLedger.where(g, level, x -> x.is(want))) {
@@ -3225,6 +3226,7 @@ public final class ClaudeLife {
                     g.tasks.add(new Task.GoTo(sp.pos(), 2)); g.tasks.add(new Task.Chest(sp.pos(), true, want, n));
                     from.add(n + " from " + sp.pos().toShortString());
                 }
+                for (var sp : furn) { if (left <= 0) break; left -= sp.count(); g.tasks.add(new Task.GoTo(sp.pos(), 2)); g.tasks.add(new Task.FurnaceTake(sp.pos())); from.add(sp.count() + " from his furnace at " + sp.pos().toShortString()); }
                 int take = Math.min(count, inChests);
                 if (take < count) g.skillQueue.addFirst(new Skills.Step("obtain", BuiltInRegistries.ITEM.getKey(want).getPath(), have0 + count, st.where())); // (short in his chests: the rest got the usual way, into his pack)
                 ClaudeMod.LOGGER.info("[Claude skill] take_from_chest {} x{}: into his own pack, nothing to them: {} ({} in his chests, {} on him){} (ClaudeLife take_from_chest)", Crafting.name(want), count, from.isEmpty() ? "none in his chests" : String.join(", ", from), inChests, have0, take < count ? "; the other " + (count - take) + " obtained" : "");

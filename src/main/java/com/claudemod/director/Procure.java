@@ -162,7 +162,7 @@ public final class Procure {
         /** What the plan used past his pockets that his chests hold (by his ledger). */
         Map<Item, Integer> fromChests(ClaudeEntity g) {
             Map<Item, Integer> out = new java.util.LinkedHashMap<>();
-            for (var e : com.claudemod.entity.life.ChestLedger.totals(g, level).entrySet()) {
+            for (var e : ClaudeLife.stored(g, level).entrySet()) { // (his furnaces' done output too, as 'have' counts it: 5 cooked salmon in his furnace were planned on and never fetched, review 77, stage 1173)
                 int used = start.getOrDefault(e.getKey(), 0) - have.getOrDefault(e.getKey(), 0) - pocket.getOrDefault(e.getKey(), 0), d = Math.min(e.getValue(), used);
                 if (d > 0) out.put(e.getKey(), d);
             }

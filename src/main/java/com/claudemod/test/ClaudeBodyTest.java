@@ -10537,6 +10537,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1173: return st1173(stage, t, c, h, level, mock);
             case 1172: return st1172(stage, t, c, h, level, mock);
             case 1171: return st1171(stage, t, c, h, level, mock);
             case 1170: return st1170(stage, t, c, h, level, mock);
@@ -15881,6 +15882,36 @@ public final class ClaudeBodyTest {
         if (st1172T0 > 0) {
             if (c.level().dimension() == net.minecraft.world.level.Level.NETHER) { int s = t[0] - st1172T0; for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, 0), Blocks.AIR.defaultBlockState(), 2 | 16); nsHome(c, h, level); pass(stage, t, "out a step and back in: through in " + s / 20.0 + " s"); return true; }
             check(t[0] - st1172T0 < 20 * 12, "standing in his portal just come through (cooldown on): not through in 12 s; at " + c.blockPosition().toShortString() + ", cooldown " + c.getPortalCooldown() + ", doing " + c.currentTask + ", next " + c.tasks.peekFirst() + ", queue " + c.skillQueue);
+        }
+        return true;
+    }
+    /** Stage 1173 (D2D review 77's cause, live 13:41:06-13:43:51 11-08: 5 meals in the Nether sent him home for food (under 6); home, the kit picked "his stores (cooked_salmon) -> 5" but the 5 were in his furnace's output, and the plan's fetch list only knew chests: "missing 5 cooked_salmon, but nothing to do for it: going as he is", straight back into the Nether with 5 meals): no food on him, 5 cooked salmon done in his furnace. The kit fetches them from the furnace. */
+    private static boolean st1173(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(7800, 70, 7300), fu = o.offset(8, 0, 0);
+        if (t[0] == 1) scenarioReset(c);
+        if (t[0] == 10) {
+            for (int x = -12; x <= 12; x++) for (int z = -12; z <= 12; z++) for (int y = -2; y <= 6; y++) level.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.GRASS_BLOCK : Blocks.AIR).defaultBlockState(), 2);
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) e.discard();
+            level.setBlock(fu, Blocks.FURNACE.defaultBlockState(), 2);
+            if (level.getBlockEntity(fu) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fb) fb.setItem(2, new ItemStack(Items.COOKED_SALMON, 5));
+            c.myStations.add(fu); com.claudemod.entity.life.ChestLedger.reset(c); com.claudemod.entity.life.ChestLedger.furnaceSaw(c, level, fu);
+            level.setDayTime(6000); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 900;
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.fallDistance = 0; c.setHealth(20); c.getFoodData().setFoodLevel(20);
+        }
+        if (t[0] == 70) { // (past the kit's 2 s memo)
+            for (var it : new net.minecraft.world.item.Item[] {Items.STONE_SWORD, Items.IRON_PICKAXE, Items.FURNACE, Items.BUCKET}) c.getInventory().add(new ItemStack(it));
+            c.getInventory().add(new ItemStack(Items.COAL, 32)); c.getInventory().add(new ItemStack(Items.BIRCH_LOG, 32)); c.getInventory().add(new ItemStack(Items.TORCH, 64));
+            c.skillQueue.clear(); c.tasks.clear(); c.gearTick = -100000;
+            var miss = com.claudemod.director.Kit.missing(c, false);
+            String r = com.claudemod.director.ClaudeLife.gearFirstNow(c, level, new com.claudemod.entity.life.Skills.Step("strip_mine", "iron_ore", 22), false);
+            var q = new java.util.ArrayList<>(c.skillQueue); c.skillQueue.clear();
+            check(miss.containsKey(Items.COOKED_SALMON), "the kit didn't ask for cooked salmon (missing " + miss + "): the scene isn't live's");
+            var fetch = q.stream().filter(x -> x.target().contains("salmon")).findFirst().orElse(null);
+            check(r != null && fetch != null, "kit first with no salmon step in it (5 done in his furnace): " + r + " (queue " + q + ", kit missing " + miss + ")");
+            c.tasks.clear(); String r2 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], fetch.skill(), fetch.target(), fetch.count());
+            check(c.tasks.stream().anyMatch(x -> x instanceof Task.FurnaceTake ft && ft.pos().equals(fu)), "the salmon step (" + fetch + ") doesn't go to his furnace: " + r2 + ", tasks " + c.tasks);
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear(); com.claudemod.entity.life.ChestLedger.reset(c); level.setBlock(fu, Blocks.AIR.defaultBlockState(), 2);
+            nsHome(c, h, level); pass(stage, t, "the kit's salmon fetched from his furnace: " + r + "; " + r2);
         }
         return true;
     }

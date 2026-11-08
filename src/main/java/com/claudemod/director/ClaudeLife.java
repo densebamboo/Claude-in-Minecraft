@@ -5436,10 +5436,12 @@ public final class ClaudeLife {
      * chest to be had (no wood) or no wall here that takes one.
      */
     public static String junkChestRoundNow(ClaudeEntity g, ServerLevel level) { return junkChestRound(g, level); } // (tests)
-    static String junkChestRound(ClaudeEntity g, ServerLevel level) {
+    static String junkChestRound(ClaudeEntity g, ServerLevel level) { return junkChestRound(g, level, 160, true); }
+    /** maxRoute: how far by his tunnels a junk chest may be; cutNew: a new chest cut into his tunnel wall when none is in reach. */
+    static String junkChestRound(ClaudeEntity g, ServerLevel level, double maxRoute, boolean cutNew) {
         BlockPos me = g.blockPosition();
         for (com.claudemod.entity.life.BaseNook jn : nooksByRoute(g, me)) for (BlockPos p : jn.junkChestCells()) { // his nearest nook's junk row first (by his tunnels): a walk home beats a new chest cut into the tunnel wall
-            if (routeDist(g, me, p) > 160 || !level.isLoaded(p) || !level.getBlockState(p).is(Blocks.CHEST) || !chestRoom(level, p)) { ClaudeMod.LOGGER.info("[Claude chest] nook junk chest at {} skipped (ClaudeLife.junkChestRound): {}", p.toShortString(), routeDist(g, me, p) > 160 ? "over 160 off by his tunnels" : !level.isLoaded(p) ? "not loaded" : !level.getBlockState(p).is(Blocks.CHEST) ? "not set yet" : "full"); continue; }
+            if (routeDist(g, me, p) > maxRoute || !level.isLoaded(p) || !level.getBlockState(p).is(Blocks.CHEST) || !chestRoom(level, p)) { ClaudeMod.LOGGER.info("[Claude chest] nook junk chest at {} skipped (ClaudeLife.junkChestRound): {}", p.toShortString(), routeDist(g, me, p) > maxRoute ? "over " + (int) maxRoute + " off by his tunnels" : !level.isLoaded(p) ? "not loaded" : !level.getBlockState(p).is(Blocks.CHEST) ? "not set yet" : "full"); continue; }
             if (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, p, g.tickCount, 20 * 300) || g.attempts.within(com.claudemod.entity.life.Attempts.Kind.REACH, p, g.tickCount, 20 * 300)) continue;
             if (!isJunkChest(g, p)) { String list = g.pref("junk_chests", ""); g.prefs.put("junk_chests", (list.isEmpty() ? "" : list + ";") + p.getX() + " " + p.getY() + " " + p.getZ()); }
             toWork(g); g.tasks.addFirst(new Task.Deposit(p)); g.tasks.addFirst(new Task.GoTo(jn.standFor(p), 0.8));
@@ -5447,12 +5449,12 @@ public final class ClaudeLife {
             return "putting the spare blocks in the junk chest at my base";
         }
         for (BlockPos p : junkChests(g)) {
-            if (p.distSqr(me) > 48 * 48 || !level.isLoaded(p) || !chestRoom(level, p)) continue;
+            if (p.distSqr(me) > Math.min(48, maxRoute) * Math.min(48, maxRoute) || !level.isLoaded(p) || !chestRoom(level, p)) continue;
             if (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, p, g.tickCount, 20 * 300) || g.attempts.within(com.claudemod.entity.life.Attempts.Kind.REACH, p, g.tickCount, 20 * 300)) continue;
             toWork(g); g.tasks.addFirst(new Task.Deposit(p)); g.tasks.addFirst(new Task.GoTo(p, 2));
             return "putting the spare cobble in my junk chest at " + p.toShortString();
         }
-        MineBlueprint b = g.blueprint; if (b == null || b.isEmpty()) return null;
+        MineBlueprint b = g.blueprint; if (b == null || b.isEmpty() || !cutNew) return null;
         int have = g.inventory.count(t -> t.is(Items.CHEST));
         if (have < 2 && g.inventory.count(t -> t.is(ItemTags.PLANKS)) + 4 * g.inventory.count(t -> t.is(ItemTags.LOGS)) >= 8 * (2 - have)) { boolean tbl = ensureCraftingTable(g, level, Items.CHEST); Crafting.craft(level, g.inventory, Items.CHEST, 2 - have, tbl); have = g.inventory.count(t -> t.is(Items.CHEST)); }
         if (have < 2) return null;
@@ -5501,7 +5503,7 @@ public final class ClaudeLife {
     private static void dumpJunk(ClaudeEntity g) {
         var inv = g.getInventory();
         if (g.level() instanceof ServerLevel slS && g.tickCount % 400 == 0 && spareStacks(g) >= 2 && g.blueprint != null && !g.blueprint.isEmpty() && inHisMine(g, g.blockPosition()) && g.currentTask == null && g.tasks.stream().noneMatch(t -> t instanceof Task.Deposit)) { // stone well past his 2 stacks with room left still: to the junk chest on his way (World 15 14:48: 331-404 cobbled deepslate, 5 slots free, never put away)
-            String r = junkChestRound(g, slS); if (r != null) { ClaudeMod.LOGGER.info("[Claude life] {} spare stacks of stone on him in his mine: {}", spareStacks(g), r); return; }
+            String r = junkChestRound(g, slS, com.claudemod.entity.life.Weights.w("junk.spare_round_max", 32), false); if (r != null) { ClaudeMod.LOGGER.info("[Claude life] {} spare stacks of stone on him in his mine: {}", spareStacks(g), r); return; } // (room left: only a junk chest he's by; live 09:41 11-08, reviews 311/312: 120 along his tunnels for 2 stacks with 5 free slots, and the next step took him straight back)
         }
         { int free0 = 0; for (var st0 : inv.items) if (st0.isEmpty()) free0++; if (free0 >= 2) return; } // (room for a craft's two steps: one free slot and "could not make a crafting table: missing room" every 5 s, 05:11)
         if (g.commandActive && g.lastStep != null && (g.lastStep.skill().equals("go_to") || g.lastStep.skill().equals("follow")) && inv.getFreeSlot() >= 0) return; // on their go_to/follow: the junk waits till the pack is truly full (they called him over to teach him; a 17-block junk chest run went first, 14:25)

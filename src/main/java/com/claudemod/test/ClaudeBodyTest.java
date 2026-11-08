@@ -10725,6 +10725,7 @@ public final class ClaudeBodyTest {
             case 1038: return st1038(stage, t, c, h, level, mock);
             case 1039: return st1039(stage, t, c, h, level, mock);
             case 1040: return st1040(stage, t, c, h, level, mock);
+            case 1041: return st1041(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -19604,6 +19605,39 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    private static boolean st1041(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // 2 spare stacks of stone and free slots to spare in his mine: "to the junk chest on his way" sent him 120 blocks along his tunnels to put them away, and the next step took him straight back (live 09:41:21 11-08, D2D reviews 311/312)
+        BlockPos o = new BlockPos(21200, 80, 19000);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = 0; k <= 64; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; st1041T = -1; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 64; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+            var E = net.minecraft.core.Direction.EAST;
+            var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 60, null)); b.invalidate();
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            BlockPos jc = null; for (BlockPos f : b.rows().get(50).feet()) for (var d : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (jc == null && !b.isWalk(f.relative(d))) jc = f.relative(d).immutable();
+            level.setBlock(jc, Blocks.CHEST.defaultBlockState(), 2); c.prefs.put("junk_chests", jc.getX() + " " + jc.getY() + " " + jc.getZ());
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = b.rows().get(59).first(); c.mineIsTunnel = true; com.claudemod.director.ClaudeLife.bpSync(c); level.setDayTime(1000);
+            var inv = c.getInventory(); inv.clearContent(); inv.add(new ItemStack(Items.IRON_PICKAXE)); inv.add(new ItemStack(Items.COOKED_BEEF, 16)); for (int i = 0; i < 4; i++) inv.add(new ItemStack(Items.COBBLESTONE, 64));
+            BlockPos me = b.rows().get(5).first(); st1041M = me.immutable();
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); mock[0].teleportTo(level, me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] > 10 && st1041T < 0 && c.blockPosition().distSqr(st1041M) > 4) { c.tasks.clear(); c.currentTask = null; c.teleportTo(st1041M.getX() + 0.5, st1041M.getY(), st1041M.getZ() + 0.5); }
+        if (t[0] > 10 && st1041T < 0) check(t[0] < 20 * 50, "setup: never at row 5 on a 400th tick (at " + c.blockPosition().toShortString() + ", row 5 " + st1041M.toShortString() + ")");
+        if (t[0] > 40 && st1041T < 0 && c.tickCount % 400 == 0 && c.blockPosition().distSqr(st1041M) <= 4 && c.onGround()) {
+            st1041T = t[0]; c.tasks.clear(); c.currentTask = null;
+            String dbg = "in " + com.claudemod.director.ClaudeLife.inHisMine(c, c.blockPosition()) + " at " + c.blockPosition().toShortString() + " tick " + c.tickCount + " task " + c.currentTask;
+            com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+            String q = String.valueOf(c.tasks) + " " + dbg; boolean far = c.tasks.stream().anyMatch(x -> x instanceof Task.Deposit || x instanceof Task.GoTo go && go.pos().distSqr(c.blockPosition()) > 32 * 32);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; c.mineShape = null; c.mineCells.clear(); c.mineSpine.clear(); c.prefs.remove("junk_chests"); c.getInventory().clearContent();
+            for (int x = -4; x <= 64; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(!far, "a trip 45 off to put 2 spare stacks away with the pack far from full: " + (q.length() > 200 ? q.substring(0, 200) : q));
+            pass(stage, t, "2 spare stacks kept on him, the junk chest 45 off left for a trip that passes it (" + q + ")");
+        }
+        return true;
+    }
+    private static int st1041T; private static BlockPos st1041M;
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

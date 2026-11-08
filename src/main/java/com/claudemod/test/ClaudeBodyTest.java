@@ -10827,6 +10827,7 @@ public final class ClaudeBodyTest {
             case 1065: return st1065(stage, t, c, h, level, mock);
             case 1068: return st1068(stage, t, c, h, level, mock);
             case 1069: return st1069(stage, t, c, h, level, mock);
+            case 1071: return st1071(stage, t, c, h, level, mock);
             case 1063: return st1063(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
@@ -18612,6 +18613,17 @@ public final class ClaudeBodyTest {
             check(alive, "four zombies in a dark cave, iron chest+legs, iron sword, shield, 17 HP: died (" + left + " zombies left)");
             pass(stage, t, "alive at " + hp + " HP, " + left + " zombies left");
         }
+        return true;
+    }
+
+    /** Stage 1071 (live 04:54 11-08, reviews 063/075/115): respawned at night with nothing, every log step refused for the dark set a clock wait of 470 s; he slept at once and it was day, and the wait held him 430 s more at his bed ("the clock holds his step (430 s left), no work meanwhile"), his Nether pile aging out. Passes: the wait for daylight ends within 3 s of the day. */
+    private static boolean st1071(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); flatBox(h); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); level.setDayTime(15000); c.attempts.counters.remove("timeWait"); c.attempts.counters.remove("timeWaitRefusals"); }
+        if (t[0] == 5) { BlockPos me = h.absolutePos(new BlockPos(4, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.nextPlanTick = c.tickCount + 12000; c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("collect", "logs", 2)); }
+        if (t[0] == 60) { int w = c.attempts.counters.getOrDefault("timeWait", 0) - c.tickCount; check(w > 20 * 60, "night, no gear, collect logs: no clock wait set (" + w / 20 + " s): the stage's setup, not the fix"); level.setDayTime(24000 + 1000); } // (the night skipped, as a bed does)
+        if (t[0] == 120) { int w = c.attempts.counters.getOrDefault("timeWait", 0) - c.tickCount; level.setDayTime(6000); c.skillQueue.clear(); c.tasks.clear(); c.attempts.counters.remove("timeWait"); c.attempts.counters.remove("timeWaitRefusals");
+            check(w <= 0, "day 3 s after the night was skipped: the wait for daylight still holds " + w / 20 + " s");
+            pass(stage, t, "the daylight wait ended with the night"); }
         return true;
     }
     private static int st1017T;

@@ -83,6 +83,7 @@ public final class ClaudeLife {
         if (com.claudemod.entity.life.ExactSpot.lessonHold(g, player)) return; // their lesson (learn X from them) is the job: with them, never back to his own work (after a restart the rules took him 94 off, 14:52)
         double dist = together ? toThem(g, player) : Double.MAX_VALUE; // (where he believes they are: seen, heard or told)
         if (together) followCaughtUp(g, player, dist); // (with them already: no cutting his way the last few blocks closer)
+        timeWaitOver(g);
         boolean working = g.busy || !g.tasks.isEmpty();
         boolean autoMining = g.lastStep != null && g.lastStep.skill().equals("strip_mine") && g.mineFace != null && g.autoRibs < 6;
         if (working && !g.planning && g.skillQueue.isEmpty() && !g.commandActive && !autoMining && g.tickCount >= g.nextPlanTick && !waitingForAsk(g) && g.tickCount >= g.attempts.counters.getOrDefault("timeWait", 0)) {
@@ -176,7 +177,7 @@ public final class ClaudeLife {
                 ClaudeMod.LOGGER.info("[Claude skill] round in circles on \"{}\": stopping that", line); g.attempts.bandaid("round in circles: " + line);
             }
             boolean nightRefusal = result.startsWith("failed") && (result.contains("it's night") || result.contains("it's day,")); // (and the pearl hunt's "it's day": waits for dusk, 02:01 the watchdog asked them for help with it)
-            if (nightRefusal) { g.failReason.put(step.skill(), result); long t = g.level().getDayTime() % 24000; int until = Math.max(200, (int) (result.contains("it's day,") ? 12542 - t : (24000 - t) % 24000)); g.attempts.counters.put("timeWaitRefusals", g.tickCount < g.attempts.counters.getOrDefault("timeWait", 0) ? g.attempts.counters.getOrDefault("timeWaitRefusals", 0) + 1 : 1); g.attempts.counters.put("timeWait", g.tickCount + until); ClaudeMod.LOGGER.info("[Claude plan] {} waits on the time of day: no thinking ahead mid-work for {} s, till it changes (ClaudeLife.skillDone)", step.skill(), until / 20); } // (01:54 the pearl hunt refused by day re-planned every 10 s through the meanwhile walk) // the planner still hears why, so it plans round the wait // a "not at night" is a wait, not a failure: by day the same step is the right one
+            if (nightRefusal) { g.failReason.put(step.skill(), result); long t = g.level().getDayTime() % 24000; int until = Math.max(200, (int) (result.contains("it's day,") ? 12542 - t : (24000 - t) % 24000)); g.attempts.counters.put("timeWaitRefusals", g.tickCount < g.attempts.counters.getOrDefault("timeWait", 0) ? g.attempts.counters.getOrDefault("timeWaitRefusals", 0) + 1 : 1); g.attempts.counters.put("timeWait", g.tickCount + until); g.attempts.counters.put("timeWaitDay", result.contains("it's day,") ? 0 : 1); ClaudeMod.LOGGER.info("[Claude plan] {} waits on the time of day: no thinking ahead mid-work for {} s, till it changes (ClaudeLife.skillDone)", step.skill(), until / 20); } // (01:54 the pearl hunt refused by day re-planned every 10 s through the meanwhile walk) // the planner still hears why, so it plans round the wait // a "not at night" is a wait, not a failure: by day the same step is the right one
             if ((result.startsWith("failed") || result.startsWith("done:")) && !nightRefusal) { // a "done" he keeps re-planning is a loop too
                 g.failCount.merge(failKey, 1, Integer::sum);
                 g.failReason.put(step.skill(), result);
@@ -6684,6 +6685,13 @@ public final class ClaudeLife {
      */
     /** Past the early game (the user: holes are for the early phases), by what he has on him: an iron chestplate's worth of armor on (6+), any diamond armor, or a diamond pickaxe. (Not his mine's depth: a tunnel at the diamond level with no armor on walked him out into the night.) */
     /** Day for his rules: the Nether and End have no day or night (fixed time, isDay() is always false there), so nothing waits for "first light". */
+    /** A clock wait for daylight ends with the night, however it ended (a bed skips it: live 04:54 11-08 he slept at once and stood 430 s at his bed on the night's deadline). */
+    static void timeWaitOver(ClaudeEntity g) {
+        int until = g.attempts.counters.getOrDefault("timeWait", 0);
+        if (g.tickCount >= until || g.attempts.counters.getOrDefault("timeWaitDay", 0) != 1 || !dayHere(g.level())) return;
+        g.attempts.counters.put("timeWait", g.tickCount); g.attempts.counters.put("timeWaitRefusals", 0);
+        ClaudeMod.LOGGER.info("[Claude plan] the wait for daylight ends: it's day ({} s early, the night skipped); the held steps go again (ClaudeLife.timeWaitOver)", (until - g.tickCount) / 20);
+    }
     public static boolean dayHere(net.minecraft.world.level.Level l) { return l.dimensionType().hasFixedTime() || l.isDay(); }
 
     public static boolean pastEarly(ClaudeEntity g) {

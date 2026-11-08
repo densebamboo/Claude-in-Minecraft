@@ -845,9 +845,11 @@ public final class Watchdog {
         var v = g.getDeltaMovement(); var nav = g.getNavigation(); var path = nav.getPath();
         String next = path == null ? "no path" : path.isDone() ? "path done" : "next " + path.getNextNodePos().toShortString() + " (" + path.getNextNodeIndex() + "/" + path.getNodeCount() + ")";
         return String.format("at %.2f %.2f %.2f v %.2f %.2f %.2f%s%s%s%s pose %s look %.0f/%.0f in %.2f/%.2f%s | %s | want %s%s | %s age %s",
-                g.getX(), g.getY(), g.getZ(), v.x, v.y, v.z, g.onGround() ? " ground" : " air", g.horizontalCollision ? " hcoll" : "", g.isInWater() ? (g.isEyeInFluid(net.minecraft.tags.FluidTags.WATER) ? " under water" : " in water") : "", g.isInLava() ? " LAVA" : "",
+                g.getX(), g.getY(), g.getZ(), v.x, v.y, v.z, g.onGround() ? " ground" : " air", g.horizontalCollision ? " hcoll" : "", g.isInWater() ? (g.isEyeInFluid(net.minecraft.tags.FluidTags.WATER) ? " under water" : " in water") + flow(g) : "", g.isInLava() ? " LAVA" : "",
                 g.getPose(), g.getYRot(), g.getXRot(), g.zza, g.xxa, g.isJumpingNow() ? " jumping" : "", next, g.getMoveControl().debug(), g.getJumpControl().pressed() ? " JUMP" : "", g.currentTask == null ? "no task" : g.currentTask, g.work == null ? "?" : g.work.taskAge());
     }
+    /** The current at his feet (a 1-deep stream ran him at 0.35 blocks/s, live 04:08 11-08: the push that would prove it was never logged). */
+    static String flow(ClaudeEntity g) { var q = g.blockPosition(); var f = g.level().getFluidState(q).getFlow(g.level(), q); return f.lengthSqr() < 1e-4 ? "" : String.format(" flow %.2f/%.2f", f.x, f.z); }
     /** The context sections every incident carries: the target's own surroundings, his path, and the last 10 s tick by tick. */
     public static String context(ClaudeEntity g) { St s = st(g);
         StringBuilder b = new StringBuilder(); var lv = g.level();

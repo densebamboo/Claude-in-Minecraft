@@ -10696,6 +10696,7 @@ public final class ClaudeBodyTest {
             case 1024: return st1024(stage, t, c, h, level, mock);
             case 1025: return st1025(stage, t, c, h, level, mock);
             case 1026: return st1026(stage, t, c, h, level, mock);
+            case 1027: return st1027(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -18755,6 +18756,31 @@ public final class ClaudeBodyTest {
             check(!(c.lastSkillLine.startsWith("craft iron_leggings") && c.lastSkillLine.contains("failed")), "the leggings craft failed with raw iron on him: " + c.lastSkillLine);
             if (c.lastSkillLine.startsWith("craft iron_leggings") || c.lastSkillLine.startsWith("smelt iron_ingot")) { pass(stage, t, "the raw smelted first for the leggings: " + c.lastSkillLine); return true; }
             check(t[0] - st1026T < 20 * 10, "10 s: last " + c.lastSkillLine + ", queue " + c.skillQueue);
+        }
+        return true;
+    }
+    private static BlockPos s1027S, s1027T; private static net.minecraft.core.Direction s1027Side, s1027Dir; private static java.util.Set<BlockPos> s1027Open; private static int s1027Cuts, s1027Done, s1027Visits; private static boolean s1027At;
+    // live 02:59-03:11 11-08 (reviews 426/427/445/505/507, incident 412's map): a cave beside his branch, work out in it; every trip out and back cut his shell again and put it back again (the cut cells placed and broken 3x a minute, 59 GoTos queued)
+    private static boolean st1027(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.prefs.put("stay_close", "no"); s1027Cuts = 0; s1027Done = -1; s1027Visits = 0; s1027At = false; }
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            var row = b.rows().stream().filter(r0 -> r0.segment() == 5 && r0.index() == 6).findFirst().get(); BlockPos r = row.first(); s1027Dir = row.dir();
+            s1027Side = null; for (var d : new net.minecraft.core.Direction[] {s1027Dir.getClockWise(), s1027Dir.getCounterClockWise()}) if (s1027Side == null && !com.claudemod.director.ClaudeLife.isMineCell(c, r.relative(d)) && level.getBlockState(r.relative(d)).is(Blocks.STONE) && !com.claudemod.director.ClaudeLife.isMineCell(c, r.relative(d, 3)) && !com.claudemod.director.ClaudeLife.isMineCell(c, r.relative(d, 6))) s1027Side = d;
+            for (int a = 2; a <= 5; a++) for (int k = -2; k <= 2; k++) for (int y = 0; y <= 2; y++) level.setBlock(r.relative(s1027Side, a).relative(s1027Dir, k).above(y), Blocks.AIR.defaultBlockState(), 2); // (the cave, closed off from his tunnel by his wall)
+            s1027S = r.relative(s1027Side, 4).immutable(); s1027T = r.immutable(); s1027Open = new java.util.HashSet<>();
+            c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 32));
+            lnStand(c, mock, s1027T, b.entrance); c.skillQueue.clear(); }
+        if (t[0] == 20) { c.tasks.clear(); for (int k = 0; k < 2; k++) { c.tasks.add(new Task.GoTo(s1027S, 1.0)); c.tasks.add(new Task.Wait(40, false)); c.tasks.add(new Task.GoTo(s1027T, 1.0)); c.tasks.add(new Task.Wait(40, false)); } } // (two trips out to the work and back in, a moment's work at each end: no run-through waypoints)
+        if (t[0] > 20) {
+            for (int k = -2; k <= 2; k++) for (int y = 0; y <= 3; y++) { BlockPos w = s1027T.relative(s1027Side).relative(s1027Dir, k).above(y).immutable(); boolean air = level.getBlockState(w).getCollisionShape(level, w).isEmpty(); if (air && s1027Open.add(w)) s1027Cuts++; if (!air) s1027Open.remove(w); }
+            boolean atS = c.blockPosition().distSqr(s1027S) <= 2; if (atS && !s1027At) s1027Visits++; s1027At = atS;
+            boolean idle = c.tasks.isEmpty() && c.currentTask == null;
+            if (idle && s1027Done < 0 && s1027Visits < 2) check(false, "his walks ended with " + s1027Visits + " of 2 trips out to the work, cuts " + s1027Cuts);
+            if (idle && s1027Done < 0 && c.blockPosition().distSqr(s1027T) <= 4) s1027Done = t[0];
+            if (s1027Done > 0 && s1027Open.isEmpty() && idle) { check(s1027Cuts <= 3, "his wall cut " + s1027Cuts + " times for two trips out (a way out and back each time, put back between)"); c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); pass(stage, t, "one way out through his wall for both trips out (" + s1027Visits + " there, " + s1027Cuts + " cells cut), sealed after (" + t[0] / 20 + " s)"); return true; }
+            check(s1027Cuts <= 3, "his wall cut " + s1027Cuts + " times for two trips out: cut, put back and cut again, doing " + c.currentTask + " queue " + c.tasks.stream().limit(5).toList());
+            check(s1027Done < 0 || t[0] - s1027Done < 20 * 15, "back in and done, his wall still open at " + s1027Open + " after 15 s");
+            check(t[0] < 20 * 120, "120 s: at " + c.blockPosition().toShortString() + ", cuts " + s1027Cuts + ", open " + s1027Open + ", doing " + c.currentTask + " queue " + c.tasks.stream().limit(5).toList());
         }
         return true;
     }

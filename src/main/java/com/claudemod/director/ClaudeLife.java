@@ -247,6 +247,7 @@ public final class ClaudeLife {
         if (g.justRespawned) respawnTicks().put(g.getUUID(), g.tickCount); // (before anything below clears the flag)
         if (g.tickCount % 100 == 47 && g.level() instanceof ServerLevel clockLevel) { com.claudemod.entity.life.Clocks.pile(g, clockLevel); com.claudemod.entity.life.DeathLog.tick(g, clockLevel); } // his pile's clock kept current, in every dimension: up top, since the Nether branch below returns early (his Nether piles were never looked at, so a despawned one stayed "pending": 12:22 "his drops are gone")
         com.claudemod.entity.life.MindLog.flush(); // his conflict lines, said here (never from inside the logger)
+        if (g.tickCount % 20 == 11 && g.level() instanceof ServerLevel nl) sealNotches(g, nl); // his access notches: sealed once the work out past them is done
         com.claudemod.entity.life.Whereabouts.tick(g, player); // where they are, as he sees, hears or was told it
         if (!g.isSleeping() && g.sleptAt != null && g.tickCount % 20 == 0 && g.level() instanceof ServerLevel wl && dayHere(wl)) { // up by the game's own night skip (all asleep: it wakes them itself), the morning below never ran: his bed out by the river stayed, live 12:28 World 17
             BlockPos bed = g.sleptAt; g.sleptAt = null;
@@ -685,6 +686,53 @@ public final class ClaudeLife {
         g.skillQueue.clear(); if (pile) g.skillQueue.add(new Skills.Step("recover_drops", "", 1)); // (the run to his pile outlives a replan, as in runWork)
         g.nextPlanTick = Math.max(g.tickCount, g.planStartTick + PLAN_GAP_TICKS);
         return true;
+    }
+    /** An access notch: a cut in his mine's shell held open as his way back while work out past it remains (reviews 426/427/445/505/507, live 02:59-03:11 11-08: a cave beside his branch, every trip out and back cut his shell and put it back, 3x a minute). The mine integrity rule stands: a patch put off, never skipped. */
+    record Notch(BlockPos far, net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dim, int since, boolean opened) {}
+    static BlockPos taskPos(Task t) { return t instanceof Task.GoTo go ? go.pos() : t instanceof Task.Break br ? br.pos() : t instanceof Task.Place pl ? pl.pos() : null; }
+    /** A task queued back inside his mine: he's coming back in. */
+    static boolean returnQueued(ClaudeEntity g, java.util.Collection<Task> ts) { for (Task t : ts) { BlockPos q = taskPos(t); if (q != null && inMineSide(g, q)) return true; } return false; }
+    /** Inside his mine (its cells on record, or his blueprint's own cells short of its shell): the near side of a notch. */
+    static boolean inMineSide(ClaudeEntity g, BlockPos p) { return isMineCell(g, p) || bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.touches(p) && !g.blueprint.isShell(p); }
+    /** A cut held as his access notch: the shell guard lets its dig through (its patch comes at the seal). */
+    public static boolean notchHeld(ClaudeEntity g, BlockPos p) { return notchMap != null && notches(g).containsKey(p); }
+    private static java.util.Map<java.util.UUID, java.util.Map<BlockPos, Notch>> notchMap;
+    static java.util.Map<BlockPos, Notch> notches(ClaudeEntity g) { if (notchMap == null) notchMap = new java.util.HashMap<>(); return notchMap.computeIfAbsent(g.getUUID(), k -> new java.util.LinkedHashMap<>()); }
+    /** A shell cut on a way out of his mine to dest: put back behind him, or held open as his way back (priced: the cut and patch again on the way back against an open hole while he's out). */
+    public static boolean holdNotch(ClaudeEntity g, ServerLevel level, BlockPos cut, BlockPos dest) {
+        if (dest == null || inMineSide(g, dest) || cut.distSqr(dest) > 16 * 16) return false; // (only a way out to work near the cut; into his mine it's a patch as before)
+        if (!returnQueued(g, g.tasks)) return false; // (no way back into his mine queued: he isn't coming back through it soon, it's put back behind him as before, stage 935)
+        int mobs = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(cut).inflate(16), m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy).size();
+        var pick = com.claudemod.entity.life.Decide.choose(g, "mine.notch", cut.toShortString() + " to " + dest.toShortString(), true, List.of(
+            com.claudemod.entity.life.Decide.Option.of("patch it now", com.claudemod.entity.life.Weights.w("mine.notch_reopen_s", 6), "the way back cuts it again and puts it back again"),
+            com.claudemod.entity.life.Decide.Option.of("hold it open", com.claudemod.entity.life.Weights.w("mine.notch_open_s", 3) + mobs * com.claudemod.entity.life.Weights.w("mine.notch_mob_s", 4), "a hole in his shell while he's out, " + mobs + " hostile(s) within 16, sealed after")));
+        if (pick == null || !pick.name().startsWith("hold")) return false;
+        Notch was = notches(g).get(cut); notches(g).put(cut.immutable(), new Notch(dest.immutable(), level.dimension(), was != null ? was.since() : g.tickCount, was != null && was.opened() || level.getBlockState(cut).getCollisionShape(level, cut).isEmpty()));
+        ClaudeMod.LOGGER.info("[Claude mine] access notch at {}: held open while his work out at {} lasts, sealed after (the patch put off, not skipped) (ClaudeLife.holdNotch)", cut.toShortString(), dest.toShortString());
+        return true;
+    }
+    /** Each second: a notch with no work left out past it (none queued, he's back in) or that he's left the area of is sealed: patched now if he's by it, else handed to his mine rounds. */
+    static void sealNotches(ClaudeEntity g, ServerLevel level) {
+        var m = notches(g); if (m.isEmpty()) return;
+        for (var it = m.entrySet().iterator(); it.hasNext(); ) { var e = it.next(); BlockPos n = e.getKey(); Notch nt = e.getValue();
+            boolean here = level.dimension() == nt.dim();
+            boolean solid = here && !level.getBlockState(n).getCollisionShape(level, n).isEmpty();
+            if (solid && !nt.opened()) { if (g.tickCount - nt.since() > 20 * 60) { it.remove(); ClaudeMod.LOGGER.info("[Claude mine] access notch at {} never cut in a minute: the way changed, dropped (ClaudeLife.sealNotches)", n.toShortString()); } continue; } // (planned, the dig still ahead)
+            if (solid) { it.remove(); ClaudeMod.LOGGER.info("[Claude mine] access notch at {} closed already (ClaudeLife.sealNotches)", n.toShortString()); continue; }
+            if (here && !nt.opened()) e.setValue(new Notch(nt.far(), nt.dim(), nt.since(), true));
+            boolean left = !here || g.blockPosition().distSqr(n) > 24 * 24;
+            boolean out = !left && !inMineSide(g, g.blockPosition()) && !m.containsKey(g.blockPosition()) && g.blockPosition().distSqr(n) <= 16 * 16; // (in a notch's own cell he isn't out: he's coming back in)
+            boolean queued = false; java.util.List<Task> ts = new java.util.ArrayList<>(g.tasks); if (g.currentTask != null) ts.add(g.currentTask);
+            out = out && returnQueued(g, ts); // (out there with no way back queued: not coming back through it soon, sealed)
+            for (Task t : ts) { BlockPos q = t instanceof Task.Place pl && m.containsKey(pl.pos()) ? null : taskPos(t); if (q != null && !inMineSide(g, q) && q.distSqr(n) <= 16 * 16) { queued = true; break; } }
+            boolean inIt = g.blockPosition().equals(n) || g.blockPosition().above().equals(n); // (standing in it: the patch would go into him)
+            BlockPos stepIn = null; if (inIt && !left && !out && !queued) for (Direction d0 : Direction.Plane.HORIZONTAL) { BlockPos q0 = g.blockPosition().relative(d0); if (!m.containsKey(q0) && inMineSide(g, q0) && level.getBlockState(q0).getCollisionShape(level, q0).isEmpty() && level.getBlockState(q0.above()).getCollisionShape(level, q0.above()).isEmpty() && !level.getBlockState(q0.below()).getCollisionShape(level, q0.below()).isEmpty()) { stepIn = q0.immutable(); break; } }
+            if (stepIn != null) { final BlockPos si = stepIn; if (g.tasks.stream().noneMatch(t -> t instanceof Task.GoTo go && go.pos().equals(si))) g.tasks.addFirst(new Task.GoTo(stepIn, 0.4)); inIt = false; } // (his walk back ended in the notch itself: a step in, then the patch)
+            if (!left && (out || queued || inIt)) { if (g.tickCount % 200 == 11) ClaudeMod.LOGGER.info("[Claude mine] access notch at {} still held: {} (ClaudeLife.sealNotches)", n.toShortString(), out ? "he's out past it" : queued ? "work queued out past it" : "he's standing in it"); continue; }
+            it.remove();
+            if (!left && g.blockPosition().distSqr(n) <= 8 * 8) { final Item deep0 = Items.COBBLED_DEEPSLATE; Item fill = n.getY() < 0 && g.inventory.count(x -> x.is(deep0)) > 0 ? deep0 : Items.COBBLESTONE; final BlockPos nn = n; if (g.tasks.stream().noneMatch(t -> t instanceof Task.Place pl && pl.pos().equals(nn))) g.tasks.add(new Task.Place(n, fill)); }
+            ClaudeMod.LOGGER.info("[Claude mine] access notch at {} sealed: {} ({}) (ClaudeLife.sealNotches)", n.toShortString(), left ? "he left the area" : "no work left out at " + nt.far().toShortString(), left || g.blockPosition().distSqr(n) > 8 * 8 ? "his mine rounds patch it" : "patching it now");
+        }
     }
     private static java.util.Map<java.util.UUID, Integer> respawnTicks() { if (respawnTicks == null) respawnTicks = new java.util.HashMap<>(); return respawnTicks; }
     private static java.util.Map<java.util.UUID, Integer> spawnRunTicks() { if (spawnRunTicks == null) spawnRunTicks = new java.util.HashMap<>(); return spawnRunTicks; }
@@ -11661,6 +11709,7 @@ public final class ClaudeLife {
 
     /** A patch the plan in hand makes itself (a place_at at that cell still queued: the swap through his shell): not queued by his rounds too (said once a minute a cell). */
     static boolean planPutsBack(ClaudeEntity g, BlockPos p) {
+        Notch nh = notches(g).get(p); if (nh != null) { String k0 = "notchHeld:" + p.asLong(); Integer l0 = g.attempts.counters.get(k0); if (l0 == null || g.tickCount - l0 > 20 * 60) { g.attempts.counters.put(k0, g.tickCount); ClaudeMod.LOGGER.info("[Claude mine] not patching {} yet: his access notch, open while his work out at {} lasts (ClaudeLife.planPutsBack)", p.toShortString(), nh.far().toShortString()); } return true; } // (the patch put off, not skipped: sealNotches)
         if (!Primitives.putsBack(g, p) && g.tasks.stream().noneMatch(t -> t instanceof Task.Place pl && pl.pos().equals(p))) return false; // (or any Place for that cell already queued: a swap, broken then put back, e.g. a stair block into his step; his round patched the gap with cobble, stage 918)
         String k = "planPutsBack:" + p.asLong(); Integer last = g.attempts.counters.get(k);
         if (last == null || g.tickCount - last > 20 * 60) { g.attempts.counters.put(k, g.tickCount); ClaudeMod.LOGGER.info("[Claude mine] not patching {}: the plan in hand puts it back itself (a place there still queued) (ClaudeLife.planPutsBack)", p.toShortString()); }

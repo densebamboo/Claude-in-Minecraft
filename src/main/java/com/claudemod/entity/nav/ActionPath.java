@@ -143,7 +143,7 @@ public final class ActionPath {
                 Node n = open.poll();
                 { Node b0 = best.get(n.feet); if (b0 != n && b0.g() <= n.g() && (!scarce || b0.puts() <= n.puts()) && b0.wet() <= n.wet() && b0.hurt() <= n.hurt()) { expanded--; continue; } } // (a stale entry: a way here no worse was expanded already)
                 double dd = Math.sqrt(n.feet.distSqr(to));
-                if (dd <= within && !(n.feet.equals(to.below()) && c.floor(to) && !c.passable(to.below()))) { coverNote(c, from, to); /* (never the cell under a goal he can stand on: that's its floor, dug out to "arrive" a block short, and the last step up had nothing to stand on: stage 937, live 03:44 11-07 in a 4-deep hole for minutes) */ leapNote(c, from, to, n); Plan pl = unwind(n); if (mode == Mode.MAY_DIG && c.bp) for (Act a : pl.acts()) if (a instanceof Act.Dig dg && cuttableShell(g, level, dg.pos())) SHELL_CUT.put(dg.pos().immutable(), level.getGameTime()); if (mode == Mode.MAY_BEND) { Map<BlockPos, String> b = new java.util.LinkedHashMap<>(); for (Act a : pl.acts()) if (a instanceof Act.Dig dg && c.bent.containsKey(dg.pos())) b.put(dg.pos(), c.bent.get(dg.pos())); lastBent = b; } return pl; }
+                if (dd <= within && !(n.feet.equals(to.below()) && c.floor(to) && !c.passable(to.below()))) { coverNote(c, from, to); /* (never the cell under a goal he can stand on: that's its floor, dug out to "arrive" a block short, and the last step up had nothing to stand on: stage 937, live 03:44 11-07 in a 4-deep hole for minutes) */ leapNote(c, from, to, n); Plan pl = unwind(n); if (mode == Mode.MAY_DIG && c.bp) for (Act a : pl.acts()) if (a instanceof Act.Dig dg && cuttableShell(g, level, dg.pos())) { SHELL_CUT.put(dg.pos().immutable(), level.getGameTime()); SHELL_CUT_BY.put(dg.pos().immutable(), g); } if (mode == Mode.MAY_BEND) { Map<BlockPos, String> b = new java.util.LinkedHashMap<>(); for (Act a : pl.acts()) if (a instanceof Act.Dig dg && c.bent.containsKey(dg.pos())) b.put(dg.pos(), c.bent.get(dg.pos())); lastBent = b; } return pl; }
                 c.hurtNow = n.hurt;
                 for (Move m : c.moves(n.feet)) {
                     int np = n.puts; float nh = n.hurt; for (Act a : m.acts) { if (a instanceof Act.Put) np++; else if (a instanceof Act.Leap lp) nh += lp.hp(); }
@@ -235,6 +235,7 @@ public final class ActionPath {
     private static final Map<BlockPos, Long> STRUCT_OK = new HashMap<>();
     /** His mine's shell cells a MAY_DIG plan cuts (game time): tasks puts each back once he's past. */
     private static final Map<BlockPos, Long> SHELL_CUT = new HashMap<>();
+    private static final Map<BlockPos, com.claudemod.entity.ClaudeEntity> SHELL_CUT_BY = new HashMap<>(); // (who planned the cut: his access-notch choice in tasks())
     /** A structure cell a job of his opens on purpose (the highway's doorway into the fortress it meets): the dig guard lets it through for 5 minutes, nothing puts it back. */
     public static void allowStructureDig(ServerLevel level, BlockPos p) { STRUCT_OK.put(p.immutable(), level.getGameTime()); }
     public static boolean structureDigOk(ServerLevel level, BlockPos p) { if (FortressEnds.doorBrick(p)) return true; Long t = STRUCT_OK.get(p); return t != null && level.getGameTime() - t < 20 * 300 && level.getGameTime() >= t; } // (a brick of his highway's doorway into the fortress: his own way in, cut once)
@@ -353,6 +354,7 @@ public final class ActionPath {
             if (a instanceof Act.Leap l) { out.add(new Task.Leap(l.from(), l.land(), l.kind(), l.down(), l.hp())); cur = l.land(); continue; }
             if (a instanceof Act.Dig d) { out.add(new Task.Break(d.pos())); if (level != null && structureBlock(level, d.pos())) { restore.add(new Object[] {d.pos().immutable(), level.getBlockState(d.pos())}); STRUCT_OK.put(d.pos().immutable(), level.getGameTime()); }
                 else if (level != null && SHELL_CUT.containsKey(d.pos()) && level.getGameTime() - SHELL_CUT.get(d.pos()) <= 20 * 60) { var st = level.getBlockState(d.pos()); boolean deep = st.is(net.minecraft.world.level.block.Blocks.DEEPSLATE) || st.is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE) || st.is(net.minecraft.world.level.block.Blocks.TUFF) || d.pos().getY() < 0; // (his wall put back with his patch block: what the cut drops)
+                    var by = SHELL_CUT_BY.get(d.pos()); if (by == null || !com.claudemod.director.ClaudeLife.holdNotch(by, level, d.pos(), dest)) // (a way out of his mine to work out there: the cut may stay as his way back, sealed when that work's done)
                     restore.add(new Object[] {d.pos().immutable(), (deep ? net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE : net.minecraft.world.level.block.Blocks.COBBLESTONE).defaultBlockState()}); } }
             else if (a instanceof Act.Door d) out.add(new Task.UseDoor(d.pos(), true));
             else if (a instanceof Act.Put p) {

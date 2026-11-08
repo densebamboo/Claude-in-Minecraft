@@ -92,3 +92,64 @@ Big Picture owns FortressFight and the blaze code; ping them before touching eit
 | 4 | Ranged: shield-walk, strafing, the bow from a pillar | the skeleton fights cost under 3 HP in iron |
 | 5 | Creeper and explosives: back-step, knock out of the fuse, never in the radius at the bang | 0 blast HP |
 | 6 | Specials: enderman, witch, husk crowds, then the Nether with BP | — |
+
+## Move library (the user 11-08: "a lot of combat skills he can act on like dodging, blocking, falling back, rounding up for groups ... tactics for every enemy type and mixed groups")
+
+Every move is a function the brain can pick each tick, priced in seconds of his time plus the HP it is expected to cost
+(`Decide.hpS`), every factor a `Weights.w` under `combat.move.<name>.*`. A move carries its own review rule, so the fight
+review says when a better move was there and not taken.
+
+| Move | What he does | Pick it when |
+|---|---|---|
+| strike | the charged hit, facing the target | in reach, charge full |
+| crit | jump timed to the charge, hit on the fall (1.5x) | on firm ground, one foe in reach, no creeper near |
+| sweep | a charged sword hit on the ground, not sprinting: everything within 1 of the target takes it | 2+ melee bunched in front of him |
+| sprint_knock | sprint into the first hit (extra knockback), W-tap to re-arm it | opening on a melee foe, pushing one off a ledge or out of a fuse |
+| back_step | step out of its reach while the charge fills, back in to hit | melee with shorter reach than his 3 (zombies, husks, spiders) |
+| block | shield up toward the threat, down for the swing | an arrow drawn at him, a creeper's hiss in blast range, a melee wind-up while he is charging |
+| dodge | strafe across the line of fire / sidestep / jump | an arrow, fireball, trident, evoker fangs, a ravager's charge, a phantom's swoop with no shield |
+| fall_back | retreat to a chosen spot: a 1-wide choke, a doorway, behind a block, up a step, toward light | 2+ melee in the open, a crowd he can't sweep, low HP with a choke near |
+| round_up | kite in an arc so the group bunches in a line behind him, then turn and sweep | 3+ melee, room to circle, a sword |
+| wall_off | place a block to cut a shooter's sight or split a group | a skeleton/pillager with a block between in reach; a second melee coming round the first |
+| pillar | 2-3 blocks up, hit or shoot down | zombies/husks/drowned only (spiders climb), with blocks and time to build |
+| dig_in | the hole/box (the cover-proximity rule: distance enough to finish) | can't win and can't outrun, no choke |
+| bow | draw and loose with lead on a moving target | shooters out of reach, blazes, ghasts, endermen never, phantoms, from a pillar |
+| bucket | water under a fall/knockback ledge, water on fire, water to slow a rush | knockback toward a drop, on fire, a crowd on open ground |
+| eat | eat behind cover or with them knocked back | hunger under his regen line and a gap of 1.6 s |
+| disengage | sprint away (food > 6) | the fight is dearer than leaving and it can't keep pace |
+| target | focus order | every tick: lowest time-to-kill per HP/s it deals; a creeper in blast range first |
+
+## Tactics per enemy (each a weight set + a move preference)
+
+| Enemy | Tactic |
+|---|---|
+| zombie, husk, drowned on land | back_step + strike/crit; sweep a bunch; pillar beats them; drowned with a trident: dodge the throw, close in |
+| baby zombie | it keeps pace and is small: fight, never run; crit timing on its jumps |
+| zombie villager | as zombie (cure is a separate skill) |
+| skeleton, stray, bogged | block or dodge the draw, close in zig-zag, wall_off to cut sight; from cover: bow back; stray slowness / bogged poison raise the cost of being hit |
+| spider, cave spider | hit as it lands from its leap (time the leap), back_step, never pillar (it climbs); cave spider: poison, fits 1-high gaps: kill it fast with crits |
+| creeper | sprint_knock it away at once, back off at the hiss (3+ blocks before the bang), block if he can't, never fight it in a crowd beside him; bow if he has one |
+| enderman | never look at its face unless fighting; fight under a 2-high ceiling or in water's edge, crits; never bow |
+| witch | rush: close fast (strafe its throws), hit; it heals: no pauses; drink milk/regen after |
+| slime, magma cube | big first, small ones last; back_step from the bounces; magma: no fire under him |
+| silverfish | don't break infested stone; out of the tunnel, block the hole |
+| phantom | sleep prevents it; fight: hit on the swoop's low point, block/dodge the dive, bow on the circle |
+| pillager | close in behind cover, block the bolt; bow back |
+| vindicator | its hit is 13: block, back_step, crits; fight from a choke |
+| evoker | dodge the fang lines (sideways), kill the vexes with sweeps, rush the evoker |
+| vex | sweeps, they pass walls: back to open ground |
+| ravager | block the roar/charge, dodge sideways, hit its side; pillar 3 beats it |
+| guardian | out of its beam's sight, close in under it; elder: avoid without water breathing |
+| breeze | its wind charge knocks up: no edges, bow from cover, close in on its landing |
+| blaze, ghast, piglin, hoglin, wither skeleton | Big Picture's FortressFight/Nether code owns these; the brain calls into it |
+| warden | never fight: sneak, leave |
+
+## Mixed groups
+
+- Creeper first while it's within its blast reach of him or of the group he'll stand in; otherwise last (its blast hits them too).
+- Shooters behind melee: keep a melee foe between him and the shooter (it takes the arrows), or wall_off the line.
+- Two melee kinds: fall_back to a choke so they come in one at a time; sweep when they bunch.
+- Witch with others: the witch first if he can reach it in 2 s (its potions slow and poison him for the rest), else keep a melee foe in its line.
+- Phantoms over a ground fight: get under a roof first (they can't follow).
+- A spider in a zombie group: the spider first (it out-paces the run and climbs his pillar).
+- Every pick is the group's sum: HP/s on him, time-to-kill, the order that brings the HP/s down fastest.

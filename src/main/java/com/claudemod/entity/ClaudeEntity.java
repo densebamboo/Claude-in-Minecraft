@@ -467,14 +467,26 @@ public class ClaudeEntity extends ServerPlayer {
     /** The jump key, for his input record (the same field a player's client sets). */
     public boolean isJumpingNow() { return jumping; }
 
+    /** Why vanilla dropped a hit (D2D 11-08, review 258: "1.0 damage from onFire ... no harm (not taken)" read as a lie while a zombie's hits took his health): the hurt cooldown (a hit within 10 ticks of the last, no harder than it), the source he's immune to, or dead. */
+    String notTakenWhy(DamageSource source, float amount, int inv0, float last0) {
+        if (isDeadOrDying()) return "dead";
+        if (isInvulnerableTo(source)) return "immune to " + source.getMsgId();
+        if (source.is(net.minecraft.tags.DamageTypeTags.IS_FIRE) && hasEffect(net.minecraft.world.effect.MobEffects.FIRE_RESISTANCE)) return "fire resistance";
+        if (source.scalesWithDifficulty() && level().getDifficulty() == net.minecraft.world.Difficulty.PEACEFUL) return "Peaceful: a mob's hit does nothing";
+        if (inv0 > 10 && amount <= last0) return "hurt cooldown, " + (inv0 - 10) + " ticks left, " + amount + " no more than the last hit's " + last0;
+        return "dropped by vanilla: invulnerable " + isInvulnerable() + ", cooldown " + inv0 + ", last hit " + last0 + ", abilities invulnerable " + getAbilities().invulnerable + " (else his spawn guard, 3 s after a respawn)";
+    }
+    /** The last hit's outcome as his hurt line gave it (tests). */
+    public String hurtSaid = "";
+
     @Override
     public boolean hurt(DamageSource source, float amount) {
         if (!level().isClientSide && source.getEntity() != null) com.claudemod.entity.life.Perception.felt(this, source.getEntity()); // a hit: he knows what did it, and turns to it
         if (!level().isClientSide && source.getEntity() instanceof net.minecraft.world.entity.Mob m && m instanceof net.minecraft.world.entity.monster.Enemy) urgentAttacker = m.getUUID(); // fight back (phantoms and slimes too, not just the Monster class)
-        boolean blocked0 = !level().isClientSide && isDamageSourceBlocked(source); float before0 = getHealth();
+        boolean blocked0 = !level().isClientSide && isDamageSourceBlocked(source); float before0 = getHealth(); int inv0 = invulnerableTime; float last0 = lastHurt; // (for why a hit is not taken)
         boolean took = super.hurt(source, amount);
         if (!level().isClientSide && amount >= 1.0f) { // every hit, mobs too, written once it's resolved (16:30: shield-blocked hits logged as damage)
-            String res0 = blocked0 ? "blocked by his shield" : getHealth() < before0 ? "health " + (int) before0 + " -> " + (int) getHealth() : took ? "no harm" : "no harm (not taken)";
+            String res0 = blocked0 ? "blocked by his shield" : getHealth() < before0 ? "health " + (int) before0 + " -> " + (int) getHealth() : took ? "no harm" : "no harm (not taken: " + notTakenWhy(source, amount, inv0, last0) + ")"; hurtSaid = res0;
             if (source.is(net.minecraft.tags.DamageTypeTags.IS_FIRE) || source.getMsgId().startsWith("explosion")) { /* the user 01:38: do ghast fireballs and soul fire set him alight like any player? his burn clock and the block he's in, on every fire hit */
                 net.minecraft.core.BlockPos fp = blockPosition();
                 String in = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level().getBlockState(fp).getBlock()).getPath(), under = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level().getBlockState(fp.below()).getBlock()).getPath();

@@ -10536,6 +10536,7 @@ public final class ClaudeBodyTest {
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
             case 982: return st982(stage, t, c, h, level, mock);
+            case 984: return st984(stage, t, c, h, level, mock);
             case 955: return st955(stage, t, c, h, level, mock);
             case 954: return st954(stage, t, c, h, level, mock);
             case 953: return st953(stage, t, c, h, level, mock);
@@ -15088,6 +15089,19 @@ public final class ClaudeBodyTest {
                 check(there, "the walk 10 through rock from the cave: not there after " + s + " s (at " + at + ", the pocket at " + to.toShortString() + ")");
                 check(s <= 30, "through 10 of rock: " + s + " s");
                 pass(stage, t, "through the rock to it in " + s + " s"); }
+        }
+        return true;
+    }
+    /** Stage 984 (D2D 11-08, review 258: "1.0 damage from onFire ... no harm (not taken)" while a zombie's hits took him 11 -> 8 -> 3, read as a lie): a zombie's 4 then a fire tick at once; the fire tick's line says it was the hurt cooldown. */
+    private static boolean st984(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) scenarioReset(c);
+        if (t[0] == 60) { c.setHealth(11); c.invulnerableTime = 0; }
+        if (t[0] == 62) { // (2 s in: a hit at t 3 was dropped, the reset's own guard)
+            c.hurt(level.damageSources().generic(), 4.0f); String first = c.hurtSaid; // (a zombie's 4 live; generic here: the test world may be Peaceful, where a mob's hit is dropped)
+            c.hurt(level.damageSources().onFire(), 1.0f); String fire = c.hurtSaid;
+            check(first.startsWith("health 11 -> 7"), "the first hit's 4: " + first);
+            check(fire.contains("not taken: hurt cooldown") && fire.contains("ticks left"), "the fire tick inside the cooldown said: " + fire);
+            c.setHealth(20); pass(stage, t, "the dropped fire tick says why: " + fire);
         }
         return true;
     }

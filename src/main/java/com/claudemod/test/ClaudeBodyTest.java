@@ -8034,6 +8034,7 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
         if (stage[0] >= 494 && stage[0] <= 1099 && stages494(stage, t, c, h, level, mock)) return true;
+        if (stage[0] >= 1100 && stage[0] < 1100 + BENCH.length - 16) return bench(stage, t, c, h, level); // (the combat benchmark, part 2: every enemy type, mixed groups)
         if (stage[0] >= 279 && stage[0] <= 285) {
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Whereabouts.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.ExactSpot.reset(c); com.claudemod.director.Primitives.reset(c);
                 c.planning = false; c.failCount.clear(); c.commandResults.clear(); c.commandActive = false; c.lastSkillLine = ""; c.lastStep = null; c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600; esWaitT = -1; esMark = -1; esFake = ""; }
@@ -18872,44 +18873,74 @@ public final class ClaudeBodyTest {
         {"a witch 8 off, iron", "open", "ironns", "witch@6,0,5"},
         {"four husks, diamond", "open", "diamond", "husk@5,0,0;husk@6,0,3;husk@6,0,-3;husk@7,0,1"},
         {"an angry enderman, iron", "open", "ironns", "enderman@5,0,0"},
+        // part 2 (stages 1100+): every overworld enemy type, mixed groups (the user 11-08: "tactics for every enemy type and mixed groups")
+        {"a baby zombie, stone sword", "open", "none", "zombie.baby@6,0,0"},
+        {"two spiders, stone sword", "open", "none", "spider@6,0,2;spider@6,0,-2"},
+        {"two cave spiders, iron", "open", "ironns", "cave_spider@5,0,1;cave_spider@6,0,-1"},
+        {"two drowned on land, one with a trident, iron", "open", "iron", "drowned.trident@7,0,3;drowned@5,0,-2"},
+        {"a stray + a zombie, iron", "open", "iron", "stray@7,0,5;zombie@5,0,-2"},
+        {"a bogged, stone sword", "open", "none", "bogged@7,0,5"},
+        {"a big slime, stone sword", "open", "none", "slime.4@6,0,0"},
+        {"three silverfish, stone sword", "open", "none", "silverfish@4,0,1;silverfish@5,0,-1;silverfish@6,0,0"},
+        {"two pillagers, iron + shield", "open", "iron", "pillager@7,0,4;pillager@7,0,-4"},
+        {"a vindicator, iron + shield", "open", "iron", "vindicator@6,0,0"},
+        {"an evoker, iron + shield", "open", "iron", "evoker@7,0,0"},
+        {"two phantoms, iron + shield", "tall", "iron", "phantom@4,8,4;phantom@-4,8,-4"},
+        {"a ravager, iron + shield", "open", "iron", "ravager@7,0,0"},
+        {"a witch + two zombies, iron", "open", "ironns", "witch@7,0,4;zombie@5,0,0;zombie@5,0,-3"},
+        {"a skeleton behind two zombies, iron", "open", "iron", "zombie@4,0,1;zombie@4,0,-1;skeleton@8,0,0"},
+        {"creeper + two zombies + skeleton, iron", "open", "iron", "creeper@6,0,4;zombie@5,0,0;zombie@5,0,-2;skeleton@8,0,-5"},
+        {"spider + creeper + skeleton, stone sword", "open", "none", "spider@6,0,0;creeper@7,0,4;skeleton@7,0,-5"},
+        {"five zombies, iron sword", "open", "ironns", "zombie@5,0,0;zombie@5,0,2;zombie@5,0,-2;zombie@6,0,4;zombie@6,0,-4"},
+        {"four zombies in a cave, iron", "cave", "iron", "zombie@4,0,0;zombie@6,0,1;zombie@8,0,-1;zombie@10,0,0"},
+        {"three husks + a stray, diamond", "open", "diamond", "husk@5,0,0;husk@5,0,3;husk@5,0,-3;stray@8,0,6"},
+        {"a breeze, iron + shield", "open", "iron", "breeze@6,0,0"},
+        {"two zombie villagers, stone sword", "open", "none", "zombie_villager@6,0,2;zombie_villager@6,0,-2"},
+        {"two skeletons, iron + a bow", "open", "ironbow", "skeleton@8,0,6;skeleton@8,0,-6"},
     };
     private static boolean bench(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level) {
         if (!benchHooked) { benchHooked = true; net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.living.LivingDamageEvent.Pre e) -> { if (benchOn && !benchDied && e.getEntity() instanceof ClaudeEntity g && e.getNewDamage() >= g.getHealth()) { e.setNewDamage(0); benchDied = true; com.claudemod.entity.life.CombatLog.died(g, e.getSource()); } }); } // (the lethal hit scored as his death, never landed: a real death respawns him and voids every stage after it)
-        String[] b = BENCH[stage[0] - 1080]; String arena = b[1];
+        String[] b = BENCH[stage[0] >= 1100 ? 16 + stage[0] - 1100 : stage[0] - 1080]; String arena = b[1];
         BlockPos me = h.absolutePos(new BlockPos(4, 2, 6));
         var HEAD = net.minecraft.world.entity.EquipmentSlot.HEAD; var CHEST = net.minecraft.world.entity.EquipmentSlot.CHEST; var LEGS = net.minecraft.world.entity.EquipmentSlot.LEGS; var FEET = net.minecraft.world.entity.EquipmentSlot.FEET;
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); level.setDayTime(6000); }
         if (t[0] == 10) {
-            for (BlockPos p : BlockPos.betweenClosed(me.offset(-12, -3, -11), me.offset(26, 7, 11))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            for (BlockPos p : BlockPos.betweenClosed(me.offset(-12, -3, -11), me.offset(26, arena.equals("tall") ? 13 : 7, 11))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
             java.util.function.BiConsumer<BlockPos, BlockPos> air = (a0, b0) -> { for (BlockPos p : BlockPos.betweenClosed(a0, b0)) level.setBlock(p, Blocks.AIR.defaultBlockState(), 2); };
             switch (arena) {
                 case "tunnel" -> air.accept(me.offset(-10, 0, 0), me.offset(12, 1, 0));
                 case "deadend" -> air.accept(me, me.offset(12, 1, 0));
                 case "cave" -> air.accept(me.offset(-10, 0, -1), me.offset(14, 2, 1));
+                case "tall" -> air.accept(me.offset(-8, 0, -8), me.offset(8, 11, 8));
                 default -> air.accept(me.offset(-8, 0, -8), me.offset(8, 4, 8)); // open (and ledge)
             }
             if (arena.equals("ledge")) for (BlockPos p : BlockPos.betweenClosed(me.offset(5, 0, -1), me.offset(7, 2, 1))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
-            int top = arena.equals("cave") ? 3 : arena.equals("tunnel") || arena.equals("deadend") ? 2 : 5;
+            int top = arena.equals("cave") ? 3 : arena.equals("tunnel") || arena.equals("deadend") ? 2 : arena.equals("tall") ? 12 : 5;
             for (int dx = -10; dx <= 14; dx += 3) for (int dz = -8; dz <= 8; dz += 4) { BlockPos l = me.offset(dx, top, dz); if (level.getBlockState(l).is(Blocks.STONE)) level.setBlock(l, Blocks.GLOWSTONE.defaultBlockState(), 2); }
             c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); benchOn = true; benchDied = false;
             switch (b[2]) {
                 case "iron", "ironns" -> { c.setItemSlot(HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(FEET, new ItemStack(Items.IRON_BOOTS)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); if (b[2].equals("iron")) c.getInventory().add(new ItemStack(Items.SHIELD)); }
                 case "diamond" -> { c.setItemSlot(HEAD, new ItemStack(Items.DIAMOND_HELMET)); c.setItemSlot(CHEST, new ItemStack(Items.DIAMOND_CHESTPLATE)); c.setItemSlot(LEGS, new ItemStack(Items.DIAMOND_LEGGINGS)); c.setItemSlot(FEET, new ItemStack(Items.DIAMOND_BOOTS)); c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.SHIELD)); }
+                case "ironbow" -> { c.setItemSlot(HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(FEET, new ItemStack(Items.IRON_BOOTS)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BOW)); c.getInventory().add(new ItemStack(Items.ARROW, 32)); }
                 default -> c.getInventory().add(new ItemStack(Items.STONE_SWORD));
             }
             c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
             c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setHealth(20); c.getFoodData().setFoodLevel(20);
             for (String fs : b[3].split(";")) {
-                String[] tp = fs.split("@"); String[] d = tp[1].split(",");
-                var type = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.get(net.minecraft.resources.ResourceLocation.withDefaultNamespace(tp[0]));
+                String[] tp = fs.split("@"); String[] d = tp[1].split(","); String[] tv = tp[0].split("\\."); String variant = tv.length > 1 ? tv[1] : "";
+                var type = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.get(net.minecraft.resources.ResourceLocation.withDefaultNamespace(tv[0]));
                 if (!(type.create(level) instanceof net.minecraft.world.entity.Mob m)) continue;
-                if (m instanceof net.minecraft.world.entity.monster.Zombie z) z.setBaby(false);
-                if (m instanceof net.minecraft.world.entity.monster.AbstractSkeleton) m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW));
+                if (m instanceof net.minecraft.world.entity.monster.Zombie z) z.setBaby(variant.equals("baby"));
+                if (variant.equals("trident")) m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.TRIDENT));
+                if (m instanceof net.minecraft.world.entity.monster.Slime sl && !variant.isEmpty()) sl.setSize(Integer.parseInt(variant), true);
+                if (m instanceof net.minecraft.world.entity.monster.Pillager) m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.CROSSBOW));
+                if (m instanceof net.minecraft.world.entity.monster.Vindicator) m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_AXE));
+                if (m instanceof net.minecraft.world.entity.monster.AbstractSkeleton && !(m instanceof net.minecraft.world.entity.monster.WitherSkeleton)) m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW));
                 BlockPos mp = me.offset(Integer.parseInt(d[0]), Integer.parseInt(d[1]), Integer.parseInt(d[2]));
                 m.moveTo(mp.getX() + 0.5, mp.getY(), mp.getZ() + 0.5, 90, 0); m.setPersistenceRequired(); level.addFreshEntity(m);
             }
         }
-        if (t[0] > 10 && t[0] < 60) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(24), m -> m instanceof net.minecraft.world.entity.monster.Enemy)) m.setTarget(c); // (after his teleport)
+        if (t[0] > 10 && (t[0] < 60 || t[0] % 20 == 0)) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(24), m -> m instanceof net.minecraft.world.entity.monster.Enemy && m.getTarget() == null)) m.setTarget(c); // (after his teleport; again when one drops him: spiders in the light)
         java.util.List<net.minecraft.world.entity.Mob> left = t[0] > 10 ? level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(32), m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy) : java.util.List.of();
         if (t[0] > 40 && (t[0] >= 1210 || benchDied || !c.isAlive() || left.isEmpty())) {
             boolean alive = c.isAlive() && !benchDied; benchOn = false; float hp = c.getHealth(); double secs = (t[0] - 10) / 20.0;

@@ -32,11 +32,16 @@ public final class LogReviewer {
     public static java.util.function.Function<String, CompletableFuture<String>> call = null;
     public static String lastAsked = "";
 
+    /** A line as the reviewer gets it: 260 characters, said as cut when it is; his kit lines whole (D2D 23:34 11-07, review 247: the death kit cut at "cooked_cod", the stone_sword after it unseen, "fought with no sword"). */
+    public static String cut(String m) {
+        int cap = m.contains("death kit:") || m.startsWith("[Claude pack]") ? 2000 : 260;
+        return m.length() > cap ? m.substring(0, cap) + " ...(line cut)" : m;
+    }
     /** One [Claude ...] log line (from MindLog's appender). */
     public static void add(String time, String m) {
         for (String s : SKIP) if (m.startsWith(s)) return;
         if (m.startsWith("[Claude leap]") && m.contains("take-off at")) return; // (the jump line before and the landing after say it)
-        String line = m.length() > 260 ? m.substring(0, 260) : m;
+        String line = cut(m);
         synchronized (buf) {
             added++;
             if (m.startsWith("[Claude where]") && whereN++ % 3 != 0) return; // (every 30 s is enough to follow him; every 10 s was a fifth of the bill)

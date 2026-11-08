@@ -10534,6 +10534,7 @@ public final class ClaudeBodyTest {
             case 978: return st978(stage, t, c, h, level, mock);
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
+            case 981: return st981(stage, t, c, h, level, mock);
             case 955: return st955(stage, t, c, h, level, mock);
             case 954: return st954(stage, t, c, h, level, mock);
             case 953: return st953(stage, t, c, h, level, mock);
@@ -15039,6 +15040,15 @@ public final class ClaudeBodyTest {
         }
         if (s980T > 0 && s980Hit == null && c.isInLava()) s980Hit = "run " + (s980Run + 1) + " at " + String.format("%.2f, %.2f, %.2f", c.getX() - h.absolutePos(BlockPos.ZERO).getX(), c.getY() - h.absolutePos(BlockPos.ZERO).getY(), c.getZ() - h.absolutePos(BlockPos.ZERO).getZ()) + " (arena coords; lava at 4,6 5,7 6,7 ...)";
         return true;
+    }
+    /** Stage 981 (D2D 23:34 11-07, review 247: "fought with no sword", his death kit cut at 260 characters before the stone_sword in his pack): the reviewer gets his death kit and pack lines whole, and any other long line marked as cut. */
+    private static boolean st981(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        String kit = "[Claude life] death kit: died to wither in the_nether at 327, 60, 526, on enter_portal; wearing iron helmet, iron chestplate, iron leggings, golden boots; holding cooked cod; pack: arrow 9, birch_log 24, blaze_rod, bone 9, bow, cobbled_deepslate 13, cooked_cod 14, netherrack 32, oak_log 30, stone_sword (ClaudeLife.noteDeath)";
+        String other = "[Claude route] " + "x".repeat(400);
+        String k = com.claudemod.entity.life.LogReviewer.cut(kit), o = com.claudemod.entity.life.LogReviewer.cut(other);
+        check(k.contains("stone_sword"), "the death kit as the reviewer gets it: " + k);
+        check(o.endsWith("(line cut)") && o.length() < 300, "a long line not said as cut: " + o.length() + " chars");
+        pass(stage, t, "the death kit reaches the reviewer whole"); return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */
     private static int s934T, s934Deep;

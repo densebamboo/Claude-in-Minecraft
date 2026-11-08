@@ -329,6 +329,7 @@ public class ClaudeEntity extends ServerPlayer {
     }
     @Override
     public void tick() {
+        if (!level().isClientSide) com.claudemod.entity.life.CombatLog.tick(this);
         if (isChangingDimension()) { hasChangedDimension(); com.claudemod.entity.life.PortalMap.arrived(this); com.claudemod.entity.life.ExactSpot.reset(this); com.claudemod.entity.nav.Route.forgetTrail(this); com.claudemod.entity.life.FarSight.forgetSurfaces(this); /* a spot given in the other dimension means nothing here; nor does the trail */ if (!level().getBlockState(blockPosition()).is(net.minecraft.world.level.block.Blocks.NETHER_PORTAL) && !level().getBlockState(blockPosition().above()).is(net.minecraft.world.level.block.Blocks.NETHER_PORTAL)) { tasks.clear(); com.claudemod.director.ClaudeLife.dropCurrent(this); nav.stop(); move.clear(); /* (the straight-line step target too: test 819->820, he walked 3 blocks toward the overworld spot of the walk he was on, facing away from the blaze) */ for (var it = skillQueue.iterator(); it.hasNext(); ) if ("enter_portal".equals(it.next().skill())) it.remove(); ClaudeMod.LOGGER.info("[Claude life] moved to {} not by a portal: the walks and portal steps planned in the other world dropped, re-planning here (ClaudeEntity.tick)", level().dimension().location().getPath()); } /* ponytail: live 13:55, respawned in the overworld, recover_drops queued enter_portal + its overworld route; a /tp into the Nether kept it, he pillared to y 80 and died in lava */ stoppedTick = tickCount; /* ponytail: live 13:30, a plan asked for in the overworld landed after the tp into the Nether: go_to the overworld portal 70 68 65 there */
             if (level().getBlockState(blockPosition()).is(net.minecraft.world.level.block.Blocks.NETHER_PORTAL)) { /* where he came out: his way back */
                 if (level().dimension() == net.minecraft.world.level.Level.NETHER) ClaudeLife.netherPortal.put(getUUID(), blockPosition().immutable());
@@ -494,6 +495,7 @@ public class ClaudeEntity extends ServerPlayer {
                 res0 += " [burn ticks " + getRemainingFireTicks() + ", on fire " + isOnFire() + ", in " + in + " on " + under + "]";
             }
             ClaudeMod.LOGGER.info("[Claude hurt] {} damage from {}{} at {} (health {} before, hunger {}): " + res0, String.format("%.1f", amount), source.getMsgId(), source.getEntity() == null ? "" : " (" + source.getEntity().getType().getDescription().getString() + (source.getEntity() instanceof net.minecraft.world.entity.Mob mb ? (mb.getTarget() == this ? ", on him" : ", not targeting him") : "") + ")", blockPosition().toShortString(), (int) getHealth(), getFoodData().getFoodLevel());
+            com.claudemod.entity.life.CombatLog.hitHim(this, source, amount, before0 - getHealth(), blocked0); // (his fight episode: the hit, from the enemy's side)
             if (source.is(net.minecraft.world.damagesource.DamageTypes.LAVA)) { // which way of his put him in the lava: the path's nodes round him as the planner typed them, and the fluid in each now (live 12:15-12:17 World 17: five touches on one lava fall's edge, no repro in stage 853)
                 var lp = nav.getPath(); StringBuilder nb = new StringBuilder();
                 if (lp != null) for (int k = Math.max(0, lp.getNextNodeIndex() - 3); k < Math.min(lp.getNodeCount(), lp.getNextNodeIndex() + 3); k++) { var nd = lp.getNode(k); var fs = level().getFluidState(new net.minecraft.core.BlockPos(nd.x, nd.y, nd.z)); nb.append(k == lp.getNextNodeIndex() ? " >" : " ").append(nd.x).append(',').append(nd.y).append(',').append(nd.z).append(' ').append(nd.type).append(fs.isEmpty() ? "" : fs.is(net.minecraft.tags.FluidTags.LAVA) ? (fs.isSource() ? " LAVA-src" : " lava-flow" + fs.getAmount()) : " water"); }
@@ -508,9 +510,16 @@ public class ClaudeEntity extends ServerPlayer {
         return took;
     }
 
+    @Override
+    public void attack(net.minecraft.world.entity.Entity target) { // every swing at a mob, landed or not (the fight episode's swings)
+        if (!level().isClientSide && target instanceof net.minecraft.world.entity.monster.Enemy) com.claudemod.entity.life.CombatLog.swing(this);
+        super.attack(target);
+    }
+
     /** Dies like a player: death message, his things drop where he fell, then he respawns (see ClaudeSpawner). */
     @Override
     public void die(DamageSource source) {
+        if (!level().isClientSide) com.claudemod.entity.life.CombatLog.died(this, source);
         try { com.claudemod.entity.life.Watchdog.death(this, "died to " + source.getMsgId() + (source.getEntity() == null ? "" : " (" + source.getEntity().getType().getDescription().getString() + ")") + " at " + blockPosition().toShortString()); } catch (Throwable e) { com.claudemod.ClaudeMod.LOGGER.warn("[Claude watchdog] death report threw", e); }
         ClaudeLife.noteDeath(this, source); // what did it and how he stood, for the respawned body's reading of the spot
         ClaudeLife.lesson(this, "died to " + source.getMsgId() + (source.getEntity() == null ? "" : " (" + source.getEntity().getType().getDescription().getString() + ")")

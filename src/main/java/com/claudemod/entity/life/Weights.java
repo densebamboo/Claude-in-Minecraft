@@ -31,6 +31,7 @@ public final class Weights {
         Double d = DEFAULTS.put(name, def);
         if (d == null || d != def) saveDefaults(); // once per name (and when a default changes): the list stays current
         Double v = SET.get(name);
+        CombatLog.read(name, v != null ? v : def); // (a fight's decisions carry the weights that priced them: the tuning report)
         return v != null ? v : def;
     }
 

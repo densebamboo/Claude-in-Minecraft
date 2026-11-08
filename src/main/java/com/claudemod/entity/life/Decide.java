@@ -37,6 +37,7 @@ public final class Decide {
         Option best = null; for (Option o : options) if (o.no() == null && (best == null || o.s() < best.s())) best = o;
         if (say) { java.util.List<String> said = new java.util.ArrayList<>(); for (Option o : options) said.add(o.no() != null ? o.name() + " out (" + o.no() + ")" : o.name() + " ~" + Math.round(o.s()) + " s" + (o.detail().isEmpty() ? "" : " (" + o.detail() + ")"));
             ClaudeMod.LOGGER.info("[Claude decide] {}{}: {}: {} (Decide.choose)", area, context == null || context.isEmpty() ? "" : " (" + context + ")", String.join("; ", said), best == null ? "none he can take" : best.name()); }
+        CombatLog.decision(g, area, best == null ? "none" : best.name(), best == null ? 0 : best.s());
         return best;
     }
     /** The tick the game's first spawns can come in the open (light 0): 13188, 12969 in rain, now in thunder. */

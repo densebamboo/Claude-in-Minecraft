@@ -10842,6 +10842,22 @@ public final class ClaudeBodyTest {
             case 1071: return st1071(stage, t, c, h, level, mock);
             case 1072: return st1072(stage, t, c, h, level, mock);
             case 1073: return st1073(stage, t, c, h, level, mock);
+            case 1080: return bench(stage, t, c, h, level);
+            case 1081: return bench(stage, t, c, h, level);
+            case 1082: return bench(stage, t, c, h, level);
+            case 1083: return bench(stage, t, c, h, level);
+            case 1084: return bench(stage, t, c, h, level);
+            case 1085: return bench(stage, t, c, h, level);
+            case 1086: return bench(stage, t, c, h, level);
+            case 1087: return bench(stage, t, c, h, level);
+            case 1088: return bench(stage, t, c, h, level);
+            case 1089: return bench(stage, t, c, h, level);
+            case 1090: return bench(stage, t, c, h, level);
+            case 1091: return bench(stage, t, c, h, level);
+            case 1092: return bench(stage, t, c, h, level);
+            case 1093: return bench(stage, t, c, h, level);
+            case 1094: return bench(stage, t, c, h, level);
+            case 1095: return bench(stage, t, c, h, level);
             case 1063: return st1063(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
@@ -18802,6 +18818,81 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
             check(alive, "at a dead end, three zombies coming up the tunnel, armor 0, a stone sword, 17 HP: died (" + left + " zombies left)");
             pass(stage, t, "alive at " + hp + " HP, " + left + " zombies left");
+        }
+        return true;
+    }
+
+    /** The combat benchmark (the user 11-08: "elite at combat in any scenario"): fixed fights, each logged as a [Claude combat] record
+     *  and a [Claude bench] line, run on main as the baseline and again after each step of the rewrite. A stage passes when he's alive;
+     *  the score is in the records (HP lost, time, foes killed, hits each way). Arenas are roofed and lit (no mob burns in the sun).
+     *  {name, arena, gear, foes "type@dx,dy,dz;..."}: arenas open (17x17), tunnel (1x2, 24 long, open behind him), deadend (1x2, shut
+     *  behind him), cave (3 wide, 3 high, 24 long), ledge (open, a 3-high stand at +6 east); gear none (stone sword) | iron (iron armor,
+     *  sword, shield) | ironns (iron, no shield) | diamond (diamond armor + sword, shield). */
+    private static boolean benchHooked, benchOn, benchDied;
+    static final String[][] BENCH = {
+        {"one zombie, open, stone sword", "open", "none", "zombie@6,0,0"},
+        {"three zombies, open, stone sword", "open", "none", "zombie@6,0,0;zombie@6,0,3;zombie@5,0,-3"},
+        {"three zombies, open, iron", "open", "iron", "zombie@6,0,0;zombie@6,0,3;zombie@5,0,-3"},
+        {"one skeleton 10 off, open, stone sword", "open", "none", "skeleton@7,0,7"},
+        {"two skeletons, open, iron + shield", "open", "iron", "skeleton@7,0,6;skeleton@7,0,-6"},
+        {"a creeper walking up, open, iron", "open", "iron", "creeper@6,0,0"},
+        {"a creeper walking up, open, stone sword", "open", "none", "creeper@6,0,0"},
+        {"spider + zombie, open, stone sword", "open", "none", "spider@6,0,2;zombie@6,0,-2"},
+        {"zombie + creeper, open, iron", "open", "ironns", "zombie@5,0,0;creeper@7,0,3"},
+        {"two zombies + skeleton in a cave, iron", "cave", "iron", "zombie@6,0,0;zombie@8,0,1;skeleton@12,0,0"},
+        {"three zombies up a tunnel, stone sword", "tunnel", "none", "zombie@3,0,0;zombie@5,0,0;zombie@7,0,0"},
+        {"three zombies at a dead end, stone sword", "deadend", "none", "zombie@2,0,0;zombie@4,0,0;zombie@6,0,0"},
+        {"a skeleton on a stand above, iron", "ledge", "iron", "skeleton@6,3,0"},
+        {"a witch 8 off, iron", "open", "ironns", "witch@6,0,5"},
+        {"four husks, diamond", "open", "diamond", "husk@5,0,0;husk@6,0,3;husk@6,0,-3;husk@7,0,1"},
+        {"an angry enderman, iron", "open", "ironns", "enderman@5,0,0"},
+    };
+    private static boolean bench(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level) {
+        if (!benchHooked) { benchHooked = true; net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.living.LivingDamageEvent.Pre e) -> { if (benchOn && !benchDied && e.getEntity() instanceof ClaudeEntity g && e.getNewDamage() >= g.getHealth()) { e.setNewDamage(0); benchDied = true; com.claudemod.entity.life.CombatLog.died(g, e.getSource()); } }); } // (the lethal hit scored as his death, never landed: a real death respawns him and voids every stage after it)
+        String[] b = BENCH[stage[0] - 1080]; String arena = b[1];
+        BlockPos me = h.absolutePos(new BlockPos(4, 2, 6));
+        var HEAD = net.minecraft.world.entity.EquipmentSlot.HEAD; var CHEST = net.minecraft.world.entity.EquipmentSlot.CHEST; var LEGS = net.minecraft.world.entity.EquipmentSlot.LEGS; var FEET = net.minecraft.world.entity.EquipmentSlot.FEET;
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); level.setDayTime(6000); }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(me.offset(-12, -3, -11), me.offset(26, 7, 11))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            java.util.function.BiConsumer<BlockPos, BlockPos> air = (a0, b0) -> { for (BlockPos p : BlockPos.betweenClosed(a0, b0)) level.setBlock(p, Blocks.AIR.defaultBlockState(), 2); };
+            switch (arena) {
+                case "tunnel" -> air.accept(me.offset(-10, 0, 0), me.offset(12, 1, 0));
+                case "deadend" -> air.accept(me, me.offset(12, 1, 0));
+                case "cave" -> air.accept(me.offset(-10, 0, -1), me.offset(14, 2, 1));
+                default -> air.accept(me.offset(-8, 0, -8), me.offset(8, 4, 8)); // open (and ledge)
+            }
+            if (arena.equals("ledge")) for (BlockPos p : BlockPos.betweenClosed(me.offset(5, 0, -1), me.offset(7, 2, 1))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            int top = arena.equals("cave") ? 3 : arena.equals("tunnel") || arena.equals("deadend") ? 2 : 5;
+            for (int dx = -10; dx <= 14; dx += 3) for (int dz = -8; dz <= 8; dz += 4) { BlockPos l = me.offset(dx, top, dz); if (level.getBlockState(l).is(Blocks.STONE)) level.setBlock(l, Blocks.GLOWSTONE.defaultBlockState(), 2); }
+            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); benchOn = true; benchDied = false;
+            switch (b[2]) {
+                case "iron", "ironns" -> { c.setItemSlot(HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(FEET, new ItemStack(Items.IRON_BOOTS)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); if (b[2].equals("iron")) c.getInventory().add(new ItemStack(Items.SHIELD)); }
+                case "diamond" -> { c.setItemSlot(HEAD, new ItemStack(Items.DIAMOND_HELMET)); c.setItemSlot(CHEST, new ItemStack(Items.DIAMOND_CHESTPLATE)); c.setItemSlot(LEGS, new ItemStack(Items.DIAMOND_LEGGINGS)); c.setItemSlot(FEET, new ItemStack(Items.DIAMOND_BOOTS)); c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.SHIELD)); }
+                default -> c.getInventory().add(new ItemStack(Items.STONE_SWORD));
+            }
+            c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            for (String fs : b[3].split(";")) {
+                String[] tp = fs.split("@"); String[] d = tp[1].split(",");
+                var type = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.get(net.minecraft.resources.ResourceLocation.withDefaultNamespace(tp[0]));
+                if (!(type.create(level) instanceof net.minecraft.world.entity.Mob m)) continue;
+                if (m instanceof net.minecraft.world.entity.monster.Zombie z) z.setBaby(false);
+                if (m instanceof net.minecraft.world.entity.monster.AbstractSkeleton) m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW));
+                BlockPos mp = me.offset(Integer.parseInt(d[0]), Integer.parseInt(d[1]), Integer.parseInt(d[2]));
+                m.moveTo(mp.getX() + 0.5, mp.getY(), mp.getZ() + 0.5, 90, 0); m.setPersistenceRequired(); level.addFreshEntity(m);
+            }
+        }
+        if (t[0] > 10 && t[0] < 60) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(24), m -> m instanceof net.minecraft.world.entity.monster.Enemy)) m.setTarget(c); // (after his teleport)
+        java.util.List<net.minecraft.world.entity.Mob> left = t[0] > 10 ? level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(32), m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy) : java.util.List.of();
+        if (t[0] > 40 && (t[0] >= 1210 || benchDied || !c.isAlive() || left.isEmpty())) {
+            boolean alive = c.isAlive() && !benchDied; benchOn = false; float hp = c.getHealth(); double secs = (t[0] - 10) / 20.0;
+            com.claudemod.entity.life.CombatLog.closeNow(c);
+            ClaudeMod.LOGGER.info("[Claude bench] {} {}: {} at {} HP after {} s, {} of {} foes left", stage[0], b[0], alive ? "alive" : "DIED", String.format("%.1f", hp), String.format("%.1f", secs), left.size(), b[3].split(";").length);
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard();
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); level.setDayTime(1000);
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            pass(stage, t, b[0] + (alive ? ": alive at " : ": DIED (scored, not failed) at ") + hp + " HP, " + left.size() + " left");
         }
         return true;
     }

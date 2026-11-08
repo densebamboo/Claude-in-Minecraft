@@ -563,6 +563,7 @@ public final class ActionPath {
         double digSeconds(BlockPos p) { Double m = digMemo.get(p); if (m == null) { m = digSeconds0(p); digMemo.put(p.immutable(), m); } return m; }
         double digSeconds0(BlockPos p) {
             if (closed.contains(p)) return -1;
+            if (g != null && com.claudemod.entity.life.Gate.keptFromDig(g, p)) return -1; // (the referee kept it: live 15:07 11-08 the way dug it again and was refused, stage 1049)
             BlockState s = bs(p);
             if (fs(p).is(net.minecraft.tags.FluidTags.LAVA)) return -1; // lava has no collision: it read as a free 0 s "dig" for the cell he steps into, his head's cell and the cells he drops through (the Nether shore deaths)
             if (s.getCollisionShape(level, p).isEmpty()) return 0;

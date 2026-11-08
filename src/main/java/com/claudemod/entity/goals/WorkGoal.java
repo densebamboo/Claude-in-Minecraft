@@ -2958,7 +2958,13 @@ public class WorkGoal extends Goal {
 
     /** A way his planner made, queued as his walker's own: a Put or dig on a cell where another system's job (a mine patch) was refused and parked is the way's, never dropped by that park (live 01:36-01:38 11-05: the way's Put at -92, 15, -45 was taken for bpIntegrity's parked patch there, same block, same cell, and dropped; 2 min of "no path, nothing changed since"). */
     private void queueWay(java.util.List<Task> tasks, String by) { // (by: the planner's method, as the queue's stack walk names it; ClaudeLife.walkPlanTask reads "WorkGoal.walkTo")
+        int r0 = com.claudemod.entity.life.Gate.refused(g);
         for (int i = tasks.size() - 1; i >= 0; i--) { Task t = tasks.get(i); com.claudemod.entity.ClaudeEntity.ORIGIN.put(t, by); g.tasks.addFirst(t); }
+        if (com.claudemod.entity.life.Gate.refused(g) == r0 || !(tasks.get(tasks.size() - 1) instanceof Task.GoTo end)) return;
+        // a step of the way refused (the referee kept a cell): the rest goes too, else its walk stands behind a block that stays (live 15:07 11-08, 8 s of no headway); the walk on, planned again round it (stage 1049)
+        java.util.Set<Task> way = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()); way.addAll(tasks.subList(0, tasks.size() - 1));
+        g.tasks.removeIf(way::contains); plannedAt().remove(end.pos());
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude route] the made way to {} dropped: {}; the walk on, planned round it (WorkGoal.queueWay)", end.pos().toShortString(), com.claudemod.entity.life.Gate.LAST_WHY.get(g.getUUID()));
     }
     private boolean doPickup(Task.Pickup t) {
         if (ticks > t.maxTicks()) { boolean mineHold = t == holdPickup && holdAt != null && minePatch(holdAt); if (t == holdPickup) leaveHeld(); if (mineHold) return true; if (g.tasks.stream().noneMatch(x -> x instanceof Task.Pickup && x != t)) for (var i0 : g.level().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, g.getBoundingBox().inflate(8), i1 -> i1.isAlive() && !g.isGift(i1) && isOreDrop(i1.getItem()))) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the pickup ran out of time with {} still at {}", i0.getItem().getHoverName().getString(), i0.blockPosition().toShortString()); com.claudemod.entity.life.OwnEvents.left(g, i0, "the pickup ran out of time"); leaveOwn(i0); } return true; } // (valuables still lying there go on his book: "you didn't grab them all" finds them; only when no later Pickup is queued: 07:08 a 40-tick per-ore pickup ran out mid-fall and booked a diamond LEFT that the vein's own pickup right after would have got)

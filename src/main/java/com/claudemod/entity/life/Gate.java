@@ -129,6 +129,13 @@ public final class Gate {
         return false;
     }
 
+    /** The referee kept this cell against a dig, and it still stands so: the route planner reads it, so the plan and the queue agree (a way through it would only be refused again, stage 1049). */
+    public static boolean keptFromDig(ClaudeEntity g, BlockPos p) {
+        Map<Task, Lost> lost = LOST.get(g.getUUID()); if (lost == null || lost.isEmpty()) return false;
+        for (var e : lost.entrySet()) if (e.getKey() instanceof Task.Break b && b.pos().equals(p) && now(g) - e.getValue().tick() <= MEMORY && snap(g, p).block().equals(e.getValue().keep())) return true;
+        return false;
+    }
+
     /** What his mine's plan wants in a cell: true solid, false open, null no say. */
     private static Boolean planWants(ClaudeEntity g, BlockPos p) {
         if (g.blueprint == null) return null;

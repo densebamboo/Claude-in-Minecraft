@@ -1342,6 +1342,7 @@ public class WorkGoal extends Goal {
                 && !(Math.abs(pos.getY() - g.getBlockY()) > 6 && com.claudemod.director.ClaudeLife.inHisMine(g, g.blockPosition()) && stuck <= 120)) { // (in his mine: out by his stairs, not a new hole up; unless no route turns up in 6s, then he cuts his way like anyone would)
             if (stepPath != null && stepPath.getNodeCount() >= 4 && !stepPath.isDone() && pathGetsCloser(stepPath, Vec3.atCenterOf(pos))) { // a route part of the way: walk that first, cut steps only where it ends
                 g.getNavigation().moveTo(stepPath, 0.9);
+                if (g.tickCount % 100 < 2 || stuck > stepWait + 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] stuck {} ticks at {} on the walk to {} ({} off): a route part of the way, node {}/{} ending {}, walked first, no steps cut yet (WorkGoal.walkTo step cutter)", stuck, g.blockPosition().toShortString(), pos.toShortString(), (int) d, stepPath.getNextNodeIndex(), stepPath.getNodeCount(), stepPath.getEndNode() == null ? "-" : stepPath.getEndNode().asBlockPos().toShortString()); // (D2D review 49/51, live 22:28 11-07: 2 min at -225,-34,-18 with a short path 2/44 he spun on, the cutter never ran; unproven which branch held it, this says)
                 stuck = 30;
                 return false;
             }

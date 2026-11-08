@@ -2208,6 +2208,7 @@ public final class ClaudeBodyTest {
     private static int s298;
     private static int s375;
     private static void scenarioReset(ClaudeEntity c) {
+        com.claudemod.entity.life.Gate.reset(c); // (the no-progress gate's record of the last stage's jobs)
         com.claudemod.entity.life.PitGuard.reset(c); // (stages 245-247: his holes' caps and skirts)
         com.claudemod.entity.life.DeathLog.reset(c); // (the test world keeps his death checklist: a stage he died in left piles 2953 off pending, and 817's pearl hunt went to recover them)
         for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
@@ -10733,6 +10734,7 @@ public final class ClaudeBodyTest {
             case 1040: return st1040(stage, t, c, h, level, mock);
             case 1041: return st1041(stage, t, c, h, level, mock);
             case 1042: return st1042(stage, t, c, h, level, mock);
+            case 1043: return st1043(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -19878,6 +19880,35 @@ public final class ClaudeBodyTest {
             for (int x = 7; x <= 13; x++) for (int z = 7; z <= 13; z++) for (int yy = 2; yy <= 3; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2);
             check(bad == null, "a walk into a golem's own cell in a pen of 9 (" + bad + "): \"" + r + "\" (" + (q.length() > 200 ? q.substring(0, 200) : q) + ")");
             pass(stage, t, "no tower spot among 9 penned golems: \"" + r + "\"");
+        }
+        return true;
+    }
+    private static int st1043R;
+    private static boolean st1043(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // the no-progress gate (the user 11-08: "why is he pacing and spinning"): a job that ended with nothing changed (a placement with nothing to place, a furnace take with nothing done) is refused when queued again unchanged, and let in once his pack or the block changed (live 11:42 11-08 FurnaceTake x14 in 1.4 s; reviews 114/139/177)
+        BlockPos fp = h.absolutePos(new BlockPos(6, 2, 4)), pp = h.absolutePos(new BlockPos(4, 2, 6));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.prefs.put("stay_close", "no"); }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) e.discard();
+        if (t[0] == 10) {
+            for (int x = -4; x <= 12; x++) for (int z = -4; z <= 12; z++) { for (int yy = -2; yy <= 0; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 8; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            level.setBlock(fp, Blocks.FURNACE.defaultBlockState(), 3); level.setDayTime(6000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 6));
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) { c.tasks.add(new Task.Place(pp, Items.COBBLESTONE)); c.tasks.add(new Task.FurnaceTake(fp)); }
+        if (t[0] == 100) {
+            String q = c.tasks + " / " + c.currentTask;
+            check(c.tasks.isEmpty() && c.currentTask == null, "the two jobs never ended: " + q);
+            st1043R = com.claudemod.entity.life.Gate.refused(c);
+            c.tasks.add(new Task.Place(pp, Items.COBBLESTONE)); c.tasks.add(new Task.FurnaceTake(fp));
+            int refused = com.claudemod.entity.life.Gate.refused(c) - st1043R; String q2 = String.valueOf(c.tasks); c.tasks.clear();
+            check(refused == 2, "the same placement (no cobble) and the same take (nothing done) queued again unchanged: " + refused + " of 2 refused, queue " + q2);
+            c.getInventory().add(new ItemStack(Items.COBBLESTONE, 4));
+            if (level.getBlockEntity(fp) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f) f.setItem(2, new ItemStack(Items.COOKED_SALMON, 3));
+            c.tasks.add(new Task.Place(pp, Items.COBBLESTONE)); c.tasks.add(new Task.FurnaceTake(fp));
+            int in = c.tasks.size(), refused2 = com.claudemod.entity.life.Gate.refused(c) - st1043R - refused; String q3 = String.valueOf(c.tasks);
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            check(in == 2 && refused2 == 0, "with cobble in his pack and salmon done in the furnace, the jobs were still refused: " + q3);
+            pass(stage, t, "2 unchanged retries refused, both let in once the pack and the furnace changed");
         }
         return true;
     }

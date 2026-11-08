@@ -1938,7 +1938,18 @@ public final class ClaudeLife {
         String t = target == null ? "" : target.toLowerCase().replace('_', ' ').trim();
         return t.isEmpty() || t.matches("(?s)(to )?(you|them|him|her|the player|player|me|over here|here)") || player != null && t.contains(player.getGameProfile().getName().toLowerCase());
     }
+    /** A skill whose every queued job the no-progress gate refused (each ended last time with nothing changed) comes back failed, with why: the plan decides, not asks again. */
     private static String runSkill(ClaudeEntity g, ServerPlayer player, Skills.Step st) {
+        int ref0 = com.claudemod.entity.life.Gate.refused(g), q0 = g.tasks.size();
+        String r = runSkill0(g, player, st);
+        if (com.claudemod.entity.life.Gate.refused(g) > ref0 && g.tasks.size() <= q0 && (r == null || !r.startsWith("failed"))) {
+            String why = com.claudemod.entity.life.Gate.LAST_WHY.get(g.getUUID());
+            ClaudeMod.LOGGER.info("[Claude gate] {} {}: all it queued was refused ({}); was going to say \"{}\" (ClaudeLife.runSkill)", st.skill(), st.target(), why, r);
+            return "failed: " + why;
+        }
+        return r;
+    }
+    private static String runSkill0(ClaudeEntity g, ServerPlayer player, Skills.Step st) {
         ServerLevel level = (ServerLevel) g.level(); // his world (the Nether, if he's there), never theirs
         if (g.level() != player.level() && ("near_them".equals(st.where()) || java.util.Set.of("follow", "give", "return_drops").contains(st.skill()) || st.skill().equals("go_to") && goToThem(st.target(), player))) // (go_to a place of his own world goes on: live 10:47 World 15 "go_to fortress" in the Nether failed as "they're in another world")
             return "failed: they're in another world (" + player.level().dimension().location().getPath() + "), I'm in " + g.level().dimension().location().getPath() + ": that needs us in the same world (back through the portal, or them coming over)";

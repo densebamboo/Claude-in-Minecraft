@@ -485,6 +485,7 @@ public class WorkGoal extends Goal {
             g.busy = current != null;
             ticks = 0; stuck = 0; lastDist = Double.MAX_VALUE; breakProgress = 0; bridged = 0;
             g.currentTask = current;
+            if (current != null) com.claudemod.entity.life.Gate.started(g, current, exitWhy); // (the no-progress gate measures it from here)
             if (current == null) return;
         }
         com.claudemod.entity.nav.Route.step(g); // (his trail: the legs he walks through)
@@ -571,6 +572,7 @@ public class WorkGoal extends Goal {
         if (done && current instanceof Task.GoTo gt0 && (Math.sqrt(g.blockPosition().distSqr(gt0.pos())) > gt0.within() + 4 || ticks <= 3 && Math.sqrt(g.blockPosition().distSqr(gt0.pos())) > gt0.within() + 0.5)) // (and any walk refused at once short of its spot: a 3-off refusal on the Nether ledge looped every 15 s with no word why, 08:16-08:32 11-05, REVIEW-130/134) // (any walk that ends 4+ off its spot, however long it ran: a silent end hid where 3 bed legs went, 12:53) // a walk that ended before it began, far from the spot: say so (go_to "49 64 164" ended in 2 ticks, silently, three plans running)
             com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] GoTo {} ended {} from {} (walk-fail {}, queue now {} first {}, why {})", gt0.pos().toShortString(), ticks <= 3 ? "at once" : "after " + ticks + " ticks, " + (int) Math.sqrt(g.blockPosition().distSqr(gt0.pos())) + " off it,", g.blockPosition().toShortString(), g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK).get(gt0.pos()), g.tasks.size(), g.tasks.peek(), exitWhy);
         if (done) {
+            try { com.claudemod.entity.life.Gate.ended(g, current, exitWhy); } catch (RuntimeException e) { com.claudemod.ClaudeMod.LOGGER.warn("[Claude gate] ended() threw on {}", current, e); }
             try { com.claudemod.entity.life.Watchdog.ended(g, current, exitWhy); /* (a walk resets exitWhy at its first tick, so its own why: a split into route legs read "the walker's own refusal", Day to Day 18:25) */ } catch (RuntimeException e) { com.claudemod.ClaudeMod.LOGGER.warn("[Claude watchdog] ended() threw on {}", current, e); }
             clearCrack();
             current = null;

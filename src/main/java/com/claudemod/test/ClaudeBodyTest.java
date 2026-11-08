@@ -10674,6 +10674,7 @@ public final class ClaudeBodyTest {
             case 1009: return st1009(stage, t, c, h, level, mock);
             case 1010: return st1010(stage, t, c, h, level, mock);
             case 1011: return st1011(stage, t, c, h, level, mock);
+            case 1012: return st1012(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -17964,6 +17965,35 @@ public final class ClaudeBodyTest {
                 check(st1011Why.contains("dug way"), "setup: the drowning branch didn't queue a dug way (" + st1011Why + ")");
                 check(back && took <= 45, "the dug way to air held the swim-up reflex off " + took + "+ ticks with no headway, drowning (health down to " + st1011Min + ")");
                 pass(stage, t, "the stalled dug way handed back to the reflex in " + took + " ticks"); }
+        }
+        return true;
+    }
+    private static int st1012T; private static BlockPos st1012To, st1012G;
+    private static final String[] ST1012 = { // incident 20261107-163352-bandaid-167 round him at -343,-58,-23: y-59..y-55, rows z -26..-20, x -346..-340 (# deepslate, g gravel, . air)
+        "#######|#######|#######|#######|#######|#######|####gg#",
+        "###.###|###.###|###.###|###.###|###ggg#|###....|###g...",
+        "###.###|###.###|###.###|###.ggg|###.ggg|###....|###g...",
+        "#######|#######|#######|###.gg#|####ggg|###....|###....",
+        "#######|#######|#######|#######|####gg#|#######|#######"};
+    private static boolean st1012(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D 212/214 (live 16:33-16:38 World 17, his mine at -343,-58,-23): gravel fallen into his walkway at -343,-58,-22; each route went over it, digging his ceiling at -343,-56,-22/-23 and putting it back, the walker pressed into the gravel (BLOCKED_BLOCK), 90 s; never the one gravel dug
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1012T = -1; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            for (int y = 0; y < 5; y++) { String[] rows = ST1012[y].split("[|]"); for (int z = 0; z < 7; z++) for (int x = 0; x < 7; x++) { char ch = rows[z].charAt(x); BlockPos q = h.absolutePos(new BlockPos(x + 2, y + 2, z + 2));
+                level.setBlock(q, ch == '#' ? Blocks.DEEPSLATE.defaultBlockState() : ch == 'g' ? Blocks.GRAVEL.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); } }
+            BlockPos me = h.absolutePos(new BlockPos(5, 3, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            st1012G = me.south().immutable(); st1012To = me.south(2).immutable();
+            c.prefs.put("mine_model", "blueprint"); c.prefs.put("torches_while_digging", "no"); var b = new com.claudemod.entity.life.MineBlueprint(); b.entrance = h.absolutePos(new BlockPos(5, 3, 2)).immutable(); b.width = 1; b.height = 2; b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.entrance, net.minecraft.core.Direction.SOUTH, 7, null)); c.blueprint = b; com.claudemod.director.ClaudeLife.bpSync(c); // his branch as live: 1 wide, 2 tall, along x -343
+            check(b.isWalk(st1012G) && b.isShell(st1012G.above(2)), "setup: the gravel's cell not his walkway (" + b.isWalk(st1012G) + ") or its ceiling not his shell (" + b.isShell(st1012G.above(2)) + ")");
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.tasks.add(new Task.GoTo(st1012To, 0.9)); st1012T = t[0]; }
+        if (st1012T > 0 && t[0] > st1012T) {
+            boolean there = c.blockPosition().equals(st1012To) || c.distanceToSqr(net.minecraft.world.phys.Vec3.atBottomCenterOf(st1012To)) < 0.8;
+            boolean ceil = level.getBlockState(st1012G.above(2)).isAir();
+            if (there || t[0] == st1012T + 20 * 10) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+                check(there, "never through the gravel at " + st1012G.toShortString() + " in 10 s (gravel still " + level.getBlockState(st1012G).is(Blocks.GRAVEL) + ", ceiling over it dug " + ceil + "), at " + c.blockPosition().toShortString());
+                pass(stage, t, "the gravel in his way dug, through in " + (t[0] - st1012T) + " ticks (ceiling dug " + ceil + ")"); }
         }
         return true;
     }

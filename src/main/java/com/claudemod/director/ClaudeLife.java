@@ -3276,10 +3276,10 @@ public final class ClaudeLife {
                         g.tasks.add(new Task.GoTo(fp, 2.5)); g.tasks.add(new Task.Wait(in0.isEmpty() ? 2 : Math.min(400, in0.getCount() * 200), false)); g.tasks.add(new Task.FurnaceTake(fp));
                         return "the " + miss + " for the " + target + " is still in my furnace at " + fp.toShortString() + ": taking it out when it's done";
                     }
-                    if (g.tickCount - g.gatherForCraftTick > 20 * 30) {
+                    if (g.tickCount - g.expandTicks.getOrDefault(target, -100000) > 20 * 30) { // per thing made: another job's chain a moment ago is no reason to fail this one (live 03:27 11-08, review 574: a cooked_beef chain 3 s before, "craft iron_leggings -> missing iron_ingot" with 8 raw iron on him, 2x)
                         Procure.Plan plan = Procure.plan(g, level, item, count);
                         if (plan.problem() == null && plan.steps().size() > 1) { // (more than just this craft again)
-                            g.gatherForCraftTick = g.tickCount;
+                            g.gatherForCraftTick = g.tickCount; g.expandTicks.put(target, g.tickCount);
                             for (int i = plan.steps().size() - 1; i >= 0; i--) g.skillQueue.addFirst(plan.steps().get(i));
                             return "need " + miss + " for the " + target + " first: " + Procure.describe(plan.steps());
                         }
@@ -3316,9 +3316,9 @@ public final class ClaudeLife {
                     var cooks = level.getRecipeManager().getAllRecipesFor(net.minecraft.world.item.crafting.RecipeType.SMELTING);
                     String got = fromMyChests(g, level, s -> cooks.stream().anyMatch(h -> h.value().getResultItem(level.registryAccess()).is(item) && h.value().getIngredients().get(0).test(s)), st);
                     if (got != null) return got;
-                    if (g.tickCount - g.gatherForCraftTick > 20 * 30) { // nothing to smelt into it: the whole chain, like craft (live 11-04: "smelt iron_ingot x12 -> nothing that smelts into it" 443 times after a strip_mine that came back empty)
+                    if (g.tickCount - g.expandTicks.getOrDefault(target, -100000) > 20 * 30) { // (per thing made, as craft) nothing to smelt into it: the whole chain, like craft (live 11-04: "smelt iron_ingot x12 -> nothing that smelts into it" 443 times after a strip_mine that came back empty)
                         Procure.Plan plan = Procure.plan(g, level, item, count);
-                        if (plan.problem() == null && plan.steps().size() > 1) { g.gatherForCraftTick = g.tickCount; for (int i = plan.steps().size() - 1; i >= 0; i--) g.skillQueue.addFirst(plan.steps().get(i)); return "nothing on me smelts into " + target + " yet: " + Procure.describe(plan.steps()) + " first"; }
+                        if (plan.problem() == null && plan.steps().size() > 1) { g.gatherForCraftTick = g.tickCount; g.expandTicks.put(target, g.tickCount); for (int i = plan.steps().size() - 1; i >= 0; i--) g.skillQueue.addFirst(plan.steps().get(i)); return "nothing on me smelts into " + target + " yet: " + Procure.describe(plan.steps()) + " first"; }
                     }
                     return "failed: you have nothing that smelts into or from " + target;
                 }

@@ -10695,6 +10695,7 @@ public final class ClaudeBodyTest {
             case 1023: return st1023(stage, t, c, h, level, mock);
             case 1024: return st1024(stage, t, c, h, level, mock);
             case 1025: return st1025(stage, t, c, h, level, mock);
+            case 1026: return st1026(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -18687,6 +18688,21 @@ public final class ClaudeBodyTest {
             check(!st1025Bad, "the planks craft ran on nothing after the log run came up empty: " + c.lastSkillLine + " (logs " + c.getInventory().countItem(Items.OAK_LOG) + ")");
             if (c.lastSkillLine.startsWith("collect logs") && c.lastSkillLine.contains("came up empty") && c.skillQueue.stream().noneMatch(s -> s.skill().equals("craft"))) { pass(stage, t, "the empty log run told as such, the planks craft not run on nothing: " + c.lastSkillLine); return true; }
             check(t[0] - st1025T < 20 * 40, "40 s: last " + c.lastSkillLine + ", queue " + c.skillQueue + ", doing " + c.currentTask);
+        }
+        return true;
+    }
+    private static int st1026T;
+    // live 03:27 11-08 (review 574): a cooked_beef chain 3 s before held back the leggings craft's own "smelt the iron first": "craft iron_leggings -> missing iron_ingot" with 8 raw iron on him, 2x
+    private static boolean st1026(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1026T = -1; level.setDayTime(6000); flatBox(h);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.RAW_IRON, 8)); c.getInventory().add(new ItemStack(Items.COAL, 8)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 8));
+            BlockPos at = h.absolutePos(new BlockPos(3, 2, 3)); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); }
+        if (t[0] == 20) { c.skillQueue.clear(); c.lastSkillLine = ""; c.failCount.clear(); c.gatherForCraftTick = c.tickCount; // (another job's chain a moment ago: the cooked_beef smelt's, as live)
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "iron_leggings", 1)); st1026T = t[0]; }
+        if (st1026T > 0 && t[0] > st1026T) {
+            check(!(c.lastSkillLine.startsWith("craft iron_leggings") && c.lastSkillLine.contains("failed")), "the leggings craft failed with raw iron on him: " + c.lastSkillLine);
+            if (c.lastSkillLine.startsWith("craft iron_leggings") || c.lastSkillLine.startsWith("smelt iron_ingot")) { pass(stage, t, "the raw smelted first for the leggings: " + c.lastSkillLine); return true; }
+            check(t[0] - st1026T < 20 * 10, "10 s: last " + c.lastSkillLine + ", queue " + c.skillQueue);
         }
         return true;
     }

@@ -190,6 +190,7 @@ public class ClaudeEntity extends ServerPlayer {
     public final List<BlockPos> tempStations = new ArrayList<>();
     public int retoolTick = -100000; // last time he stopped to make a tool (not bare-handed)
     public int gatherForCraftTick = -100000; // went to gather what a craft was missing
+    public java.util.Map<String, Integer> expandTicks = new java.util.HashMap<>(); // per thing made: when a craft or smelt last expanded into its chain
     public final java.util.Set<BlockPos> notches = new java.util.HashSet<>(); // stations set into the mine wall: refill when taken
     public int digStalls; // dig_down calls in a row that got no deeper
     public int sideStepTries; // short tunnels sideways off a lake since he last got deeper

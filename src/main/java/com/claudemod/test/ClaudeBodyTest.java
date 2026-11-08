@@ -10697,6 +10697,7 @@ public final class ClaudeBodyTest {
             case 1025: return st1025(stage, t, c, h, level, mock);
             case 1026: return st1026(stage, t, c, h, level, mock);
             case 1027: return st1027(stage, t, c, h, level, mock);
+            case 1028: return st1028(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -18782,6 +18783,17 @@ public final class ClaudeBodyTest {
             check(s1027Done < 0 || t[0] - s1027Done < 20 * 15, "back in and done, his wall still open at " + s1027Open + " after 15 s");
             check(t[0] < 20 * 120, "120 s: at " + c.blockPosition().toShortString() + ", cuts " + s1027Cuts + ", open " + s1027Open + ", doing " + c.currentTask + " queue " + c.tasks.stream().limit(5).toList());
         }
+        return true;
+    }
+    // live 05:28-05:33 11-08 (review 031): the reviewer's "[Claude incident] REVIEW: ... while starving at food 5" sat in his own recent log; the planner read it as his hunger and planned eat cooked_beef / cooked_salmon every few seconds at food 20
+    private static boolean st1028(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getFoodData().setFoodLevel(20);
+            ClaudeMod.LOGGER.info("[Claude incident] REVIEW: He attacked a Salmon about 20 blocks away that he could not reach or hit, for 15 seconds, while starving at food 5 (stage 1028).");
+            ClaudeMod.LOGGER.info("[Claude life] stage 1028 marker: his own line"); }
+        if (t[0] == 5) { String r = com.claudemod.entity.life.MindLog.recent();
+            check(r.contains("stage 1028 marker"), "his own line isn't in his recent log (the log isn't read): " + r.length() + " chars");
+            check(!r.contains("starving at food 5 (stage 1028)"), "the reviewer's line is in his own recent log, read by his planner as his state: ..." + r.substring(Math.max(0, r.indexOf("starving") - 80), Math.min(r.length(), r.indexOf("starving") + 40)));
+            pass(stage, t, "his recent log holds his own lines, not the reviewer's"); return true; }
         return true;
     }
     private static int st739T;

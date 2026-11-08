@@ -11,7 +11,7 @@ public final class MindLog {
     private static final int KEEP = 60;
     private static final java.util.ArrayDeque<String> lines = new java.util.ArrayDeque<>();
     // his inventory dump and position ping are given to him separately; his senses spam every second
-    private static final String[] SKIP = {"[Claude pack]", "[Claude where]", "[Claude read]", "[Claude plan] thinking", "[Claude test]"};
+    private static final String[] SKIP = {"[Claude pack]", "[Claude where]", "[Claude read]", "[Claude plan] thinking", "[Claude test]", "[Claude incident] REVIEW"}; // (the reviewer's notes on him, with past numbers, are not his memory: live 05:29 11-08, review 031, "starving at food 5" read as his hunger, eat planned every few seconds at food 20)
 
     public static void install() {
         LoggerContext ctx = (LoggerContext) LogManager.getContext(false);

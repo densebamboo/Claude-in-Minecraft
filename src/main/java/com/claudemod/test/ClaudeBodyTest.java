@@ -10737,6 +10737,7 @@ public final class ClaudeBodyTest {
             case 1042: return st1042(stage, t, c, h, level, mock);
             case 1043: return st1043(stage, t, c, h, level, mock);
             case 1044: return st1044(stage, t, c, h, level, mock);
+            case 1045: return st1045(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -19949,6 +19950,41 @@ public final class ClaudeBodyTest {
             check(!in2, "the loser's fill asked again went in");
             check(in3, "the fill asked after the cell changed was still refused");
             pass(stage, t, "fill / dig / fill again: refereed once (the cell left dug out), the loser refused, a new ask on a changed cell let in");
+        }
+        return true;
+    }
+    private static boolean st1045(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a branch mouth already lit by a torch within 2 of its cell (an earlier torch put at the eye-level guess): his mine sweep queued the mouth torch every 3 s and the torch job skipped it each time ("one already at ..."), live 12:48-12:50 and 13:3x 11-08 at -96,18,-21 / -89,17,-21 (D2D)
+        BlockPos o = new BlockPos(19600, 80, 18600);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -16; k <= 32; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { scenarioReset(c); c.commandActive = false; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 28; x++) for (int z = -16; z <= 16; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.DEEPSLATE.defaultBlockState(), 2);
+            var E = net.minecraft.core.Direction.EAST; var S = net.minecraft.core.Direction.SOUTH; var N = net.minecraft.core.Direction.NORTH;
+            var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 20, null)); b.invalidate();
+            for (int k : new int[]{4, 12}) { var row = b.rows().get(k); BlockPos rf = row.feet()[row.feet().length - 1], lf = row.feet()[0];
+                b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.BRANCH, rf.relative(S), S, 10, null));
+                b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.BRANCH, lf.relative(N), N, 10, null)); b.invalidate(); }
+            b.branchLength = 10; b.branchEvery = 8;
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            for (BlockPos sl : b.torchSlots().values()) { net.minecraft.core.Direction wd = b.slotWall(sl); if (wd != null && level.getBlockState(sl).isAir()) level.setBlock(sl, Blocks.WALL_TORCH.defaultBlockState().setValue(net.minecraft.world.level.block.WallTorchBlock.FACING, wd.getOpposite()), 3); } // (his slots lit: only the mouths are in question)
+            for (var s : b.segments) if (s.kind == com.claudemod.entity.life.MineBlueprint.Kind.BRANCH && s.dir == S) { BlockPos mouth = s.start.relative(N).above(2); level.setBlock(mouth.below(2), Blocks.TORCH.defaultBlockState(), 3); } // each right mouth lit by a torch on the floor 2 under its cell (the old eye-level guess put it elsewhere)
+            BlockPos me = b.rows().get(4).first();
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = b.rows().get(19).first(); c.mineIsTunnel = true; level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.TORCH, 64)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no"); mock[0].teleportTo(level, me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 20) {
+            var b = c.blueprint; c.tasks.clear();
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("bpIntegrity", ClaudeEntity.class, ServerLevel.class); m.setAccessible(true); m.invoke(null, c, level); } catch (ReflectiveOperationException ex) { throw new RuntimeException(ex); }
+            java.util.List<String> again = new java.util.ArrayList<>();
+            for (Task q : c.tasks) if (q instanceof Task.WallTorch w) for (var s : b.segments) if (s.kind == com.claudemod.entity.life.MineBlueprint.Kind.BRANCH && s.dir == net.minecraft.core.Direction.SOUTH && w.pos().equals(s.start.relative(s.dir.getOpposite()).above(2))) again.add(w.pos().toShortString());
+            String q = String.valueOf(c.tasks);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; c.prefs.remove("stay_close");
+            for (int x = -4; x <= 28; x++) for (int z = -16; z <= 16; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(again.isEmpty(), "branch mouth(s) lit by a torch within 2 queued for a torch again (the torch job skips them, every 3 s): " + again + " | " + (q.length() > 300 ? q.substring(0, 300) : q));
+            nsHome(c, h, level); pass(stage, t, "lit branch mouths left as they are");
         }
         return true;
     }

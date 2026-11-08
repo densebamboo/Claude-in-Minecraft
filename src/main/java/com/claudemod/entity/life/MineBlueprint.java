@@ -393,6 +393,8 @@ public final class MineBlueprint {
     }
 
     /** The torch over every right-hand branch mouth (the user 11-07: "missing a lot of torches on top of the right hand side tunnel entrances"; it was every other pair): the main tunnel's cell above the opening, on the wall block over the branch. */
+    /** A torch within 2 of the cell (the torch job skips a wall torch there: one already lights it). */
+    static boolean torchNear(ServerLevel level, BlockPos cell) { for (BlockPos q : BlockPos.betweenClosed(cell.offset(-2, -2, -2), cell.offset(2, 2, 2))) { BlockState qs = level.getBlockState(q); if (qs.is(Blocks.WALL_TORCH) || qs.is(Blocks.TORCH)) return true; } return false; }
     public List<Task> branchMouthTorches(ServerLevel level) {
         List<Task> out = new ArrayList<>();
         for (Segment s : segments) {
@@ -402,6 +404,7 @@ public final class MineBlueprint {
             if (ri >= 0) rightHand = right(rows().get(ri).dir()) == s.dir;
             if (!rightHand) continue;
             BlockPos cell = s.start.relative(s.dir.getOpposite()).above(2); // the main tunnel cell beside the opening, at head+1, on the wall block over the mouth (a 2-high mouth)
+            if (torchNear(level, cell)) continue; // (lit already: a torch within 2, the torch job's own rule; queued anyway, it was skipped every 3 s, live 12:48 11-08, stage 1045)
             if (level.getBlockState(cell).isAir() && solid(level, s.start.above(2))) { out.add(new Task.WallTorch(cell, s.dir)); continue; }
             Direction along = ri >= 0 ? rows().get(ri).dir() : null; // a 3-high mouth in a 3-high tunnel has no wall over it: the torch goes on the main wall just past the mouth, at head height
             if (along != null) { BlockPos beside = s.start.relative(s.dir.getOpposite()).relative(along).above(1); if (level.getBlockState(beside).isAir() && solid(level, s.start.relative(along).above(1))) out.add(new Task.WallTorch(beside, s.dir)); }

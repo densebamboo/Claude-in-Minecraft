@@ -395,6 +395,7 @@ public class ClaudeEntity extends ServerPlayer {
         mtLoopN = 0;
         String nodeBlocks = nx == null ? "none" : level().getBlockState(new BlockPos(nx.x, nx.y - 1, nx.z)).getBlock().getName().getString() + " under / " + level().getBlockState(new BlockPos(nx.x, nx.y, nx.z)).getBlock().getName().getString() + " / " + level().getBlockState(new BlockPos(nx.x, nx.y + 1, nx.z)).getBlock().getName().getString() + " head";
         ClaudeMod.LOGGER.info("[Claude move] looping at {} on the walk to {}: node {} is {}; above him {}: his own way instead (ClaudeEntity.mtLoop)", b.toShortString(), go.pos().toShortString(), nx == null ? "none" : nx.x + "," + nx.y + "," + nx.z, nodeBlocks, level().getBlockState(b.above(2)).getBlock().getName().getString());
+        ClaudeMod.LOGGER.info("[Claude move] the loop at {}: he at {}, steering {}; his path {} (ClaudeEntity.mtLoop)", b.toShortString(), String.format("%.2f %.2f %.2f", getX(), getY(), getZ()), nav.steerWhy, nav.around());
         com.claudemod.director.ClaudeLife.loopStuck(this, currentTask, "the 2nd shuffle on " + b.toShortString()); // (as the watchdog's own 20 s step: stuck level, the goal pinned, the way out)
     }
     private void traceMovement() {

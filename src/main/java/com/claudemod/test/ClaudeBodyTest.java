@@ -10535,6 +10535,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 987: return st987(stage, t, c, h, level, mock);
             case 983: return st983(stage, t, c, h, level, mock);
             case 982: return st982(stage, t, c, h, level, mock);
             case 984: return st984(stage, t, c, h, level, mock);
@@ -15136,6 +15137,28 @@ public final class ClaudeBodyTest {
             check(st983Bad < 10, "'" + mode + "' for 0.5 s at " + feet.toShortString() + " in the line of fire of the blaze " + (int) st983B.distanceTo(c) + " off (health " + (int) c.getHealth() + ")");
             check(c.isAlive(), "dead to a blaze 29 off");
             if (t[0] == 60 + 20 * 20) { st983B.discard(); st983N.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "a blaze 29 off with one boxed in 8 off: no 'out of their sight' in its line of fire, health " + (int) c.getHealth()); }
+        }
+        return true;
+    }
+    /** Stage 987 (live 02:40 11-08, his mine at -85,16,-164, reviews 308/369/387: "looping at -85, 16, -164 on the walk to -144, 16, -165: node -86,16,-165 is Stone under / Air / Air head ... his own way instead", the own way 0 digs and the same node, a minute of it; tick by tick he stood at -84.5 -163.5 stepping SE then NW): the incident's 7x7 cut exactly, his 2-wide corridor meeting his iron row, the row on 60 west. Up the corridor from 9 south, round the corner and 10 along the row in a player's 8 s, no shuffle. */
+    private static int st987T0;
+    private static boolean st987(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(13900, 40, 8700); // (-85, 16, -164)
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) m.discard(); }
+        if (t[0] == 3) {
+            String[] low = {"###..##", "###..##", ".......", "###..##", "###..##", "###..#.", "......."}; // y16 and y17, z -167..-161, x -88..-82 (the incident's map)
+            for (int x = -66; x <= 8; x++) for (int z = -6; z <= 12; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+            for (int dz = -3; dz <= 3; dz++) for (int dx = -3; dx <= 3; dx++) { boolean open = low[dz + 3].charAt(dx + 3) == '.'; if (open) { level.setBlock(o.offset(dx, 0, dz), Blocks.AIR.defaultBlockState(), 2); level.setBlock(o.offset(dx, 1, dz), Blocks.AIR.defaultBlockState(), 2); } if (dx == 0 || dx == 1) level.setBlock(o.offset(dx, 2, dz), Blocks.AIR.defaultBlockState(), 2); }
+            for (int dx = -62; dx <= -4; dx++) for (int y = 0; y <= 1; y++) level.setBlock(o.offset(dx, y, -1), Blocks.AIR.defaultBlockState(), 2); // his iron row on west
+            for (int dz = 4; dz <= 10; dz++) for (int dx = 0; dx <= 1; dx++) for (int y = 0; y <= 2; y++) level.setBlock(o.offset(dx, y, dz), Blocks.AIR.defaultBlockState(), 2); // his corridor on south: live he came up it from -85, 16, -177
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.TORCH, 11)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 10));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 9.5); c.setYRot(180); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.tasks.add(new Task.GoTo(o.offset(-16, 0, -1), 0.8)); st987T0 = t[0]; // (live -144, 59 off; 16 here: the far chunks of the row were unloaded in the test, next node none)
+        }
+        if (t[0] > 3) {
+            if ((t[0] - st987T0) % 20 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 987: t {} at {} doing {}", t[0] - st987T0, String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ()), c.currentTask);
+            if (c.getX() <= o.getX() - 10) { int s = (t[0] - st987T0) / 20; pass(stage, t, "round the corner and 10 along his row in " + s + " s"); return true; }
+            check(t[0] - st987T0 < 20 * 8, "not round the corner and 10 along his row in 6 s: at " + String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ()) + " doing " + c.currentTask);
         }
         return true;
     }

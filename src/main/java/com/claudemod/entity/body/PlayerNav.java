@@ -87,9 +87,17 @@ public final class PlayerNav {
     /** Height of the node he's walking toward, or null when not on a route. */
     @Nullable Double targetY() { return path == null || path.isDone() ? null : (double) path.getNextNode().y; }
 
+    /** Why this tick's steer went where it did, and the path's nodes round the next one (the loop line reads them: a corner shuffle in his mine, live 02:40 11-08, would not repro, stage 987). */
+    public String steerWhy = "";
+    public String around() {
+        if (path == null) return "no path";
+        StringBuilder sb = new StringBuilder(); int i0 = path.getNextNodeIndex();
+        for (int i = Math.max(0, i0 - 3); i < Math.min(path.getNodeCount(), i0 + 4); i++) { Node m = path.getNode(i); sb.append(i == i0 ? "[" : "").append(m.x).append(",").append(m.y).append(",").append(m.z).append(i == i0 ? "]" : "").append(" "); }
+        return sb.append("(").append(i0).append(" of ").append(path.getNodeCount()).append(")").toString();
+    }
     /** This tick: the horizontal direction to walk along the route (null when not walking), and whether to jump. */
     @Nullable Vec3 steer() {
-        jump = false;
+        jump = false; steerWhy = "";
         if (isDone()) { path = null; return null; }
         Vec3 pos = p.position();
         // reached the next node? (close enough sideways, about the same height) then on to the one after
@@ -140,7 +148,8 @@ public final class PlayerNav {
                 Node n0 = path.getNextNode(); double fx = n0.x + 0.5 - pos.x, fz = n0.z + 0.5 - pos.z, fl = Math.sqrt(fx * fx + fz * fz);
                 boolean clear0 = n0 != n && n0.y == here.getY() && fl > 1e-3; for (double s = 0.2; clear0 && s < fl + 0.1; s += 0.2) clear0 = p.level().noCollision(p, p.getBoundingBox().move(fx / fl * Math.min(s, fl), 0.01, fz / fl * Math.min(s, fl))); // (the whole line to it: a corner past the first step is the one stage 1010 pressed into)
                 if (clear0) { n = n0; ax = 0.5; az = 0.5; } // the far node's line clips a block (a leaf at head height over the diagonal): the next node on the grid first, never back to the cell's middle and out at the diagonal again, a 50 s spin (D2D review 87, live 20:08 11-07; stage 1016)
-                else if (cx * cx + cz * cz > 0.1 * 0.1 && p.level().noCollision(p, p.getBoundingBox().move(cx, 0.01, cz))) return new Vec3(cx, 0, cz).normalize();
+                else if (cx * cx + cz * cz > 0.1 * 0.1 && p.level().noCollision(p, p.getBoundingBox().move(cx, 0.01, cz))) { steerWhy = "back to his cell's middle: the line to " + n.x + "," + n.y + "," + n.z + " clips a block"; return new Vec3(cx, 0, cz).normalize(); }
+                else steerWhy = "on at " + n.x + "," + n.y + "," + n.z + " though its line clips a block (at his cell's middle, the next node not clear either)";
             }
         }
         double dx = n.x + ax - pos.x, dz = n.z + az - pos.z;
@@ -168,6 +177,7 @@ public final class PlayerNav {
         // a step up ahead (or walking into a wall on the way to it): jump, the way a player taps space
         if (p.onGround() && (n.y > pos.y + 0.5 || (p.horizontalCollision && n.y >= Math.floor(pos.y)))) jump = true;
         if (d < 1e-3) return Vec3.ZERO;
+        if (!steerWhy.startsWith("on at")) steerWhy = "to " + n.x + "," + n.y + "," + n.z + (far > path.getNextNodeIndex() ? " (cut ahead from the next node)" : "");
         return new Vec3(dx / d, 0, dz / d);
     }
 

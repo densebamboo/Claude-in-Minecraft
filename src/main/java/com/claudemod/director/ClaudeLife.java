@@ -3181,6 +3181,7 @@ public final class ClaudeLife {
                 int haveN = g.inventory.count(s -> s.is(item));
                 if (haveN >= count) return "done: already have " + haveN + " " + target;
                 if (count <= 1 && item instanceof net.minecraft.world.item.ArmorItem && Kit.has(g, item)) return "done: already wearing something as good as " + target; // (a diamond chestplate on him and the plan still said mine 8 iron for an iron one)
+                if (!com.claudemod.entity.life.ChestLedger.furnacesWith(g, level, s -> s.is(item)).isEmpty()) { String inFurnace = fromMyChests(g, level, s -> s.is(item), st); if (inFurnace != null) return inFurnace; } // done in a furnace of his: the plan doesn't count furnaces, it would cook a fresh lot (live 03:27 11-08)
                 Procure.Plan plan = Procure.plan(g, level, item, count); // (the total: the solver counts his pocket itself; count - haveN took it off twice)
                 if (plan.problem() != null) return "failed: can't get " + target + " yet: " + plan.problem();
                 if (plan.steps().isEmpty()) { String inBox = fromMyChests(g, level, s -> s.is(item), st); if (inBox != null) return inBox; } // the thing itself sits in his chest (a bucket in storage: the plan counted it, the craft then failed for iron every 6 s)
@@ -7294,6 +7295,14 @@ public final class ClaudeLife {
         for (var sp : com.claudemod.entity.life.ChestLedger.where(g, level, want)) {
             { Integer failed = g.attempts.any.get(sp.pos()); if (failed != null && g.tickCount - failed < 20 * 300) continue; } // one he couldn't walk to a moment ago (the walker says so fast now)
             best = sp.pos(); bi0 = sp.item(); bestD = sp.pos().distSqr(g.blockPosition()); bestN = sp.count(); bestWalk = sp.dist(); break;
+        }
+        for (var fs : com.claudemod.entity.life.ChestLedger.furnacesWith(g, level, want)) { // done in a furnace of his, nearer than any chest with it: taken out there (live 03:27 11-08: 4 porkchop done 2899 s 317 off while he fished at food 6)
+            { Integer failed = g.attempts.any.get(fs.pos()); if (failed != null && g.tickCount - failed < 20 * 300) continue; }
+            if (best != null && fs.dist() >= bestWalk) break;
+            if (fs.dist() > 4) g.tasks.add(new Task.GoTo(fs.pos(), 3.0));
+            g.tasks.add(new Task.FurnaceTake(fs.pos())); g.skillQueue.addFirst(st);
+            ClaudeMod.LOGGER.info("[Claude life] {} {} done in his furnace at {} ({} off){}: taking it out there (ClaudeLife.fromMyChests)", fs.count(), Crafting.name(fs.item()), fs.pos().toShortString(), fs.dist(), best == null ? ", none in his chests" : ", nearer than his chest at " + best.toShortString());
+            return "my " + Crafting.name(fs.item()) + " is done in my furnace at " + fs.pos().toShortString() + " (" + fs.dist() + " off): getting it";
         }
         if (best == null) return null;
         ItemStack bestIn = new ItemStack(bi0);
@@ -12312,10 +12321,7 @@ public final class ClaudeLife {
     /** His chests and furnaces are part of his inventory (the user's rule): what's in them, by item (chests whole, furnaces' output), within 48 blocks. */
     public static java.util.Map<Item, Integer> stored(ClaudeEntity g, ServerLevel level) {
         java.util.Map<Item, Integer> m = new java.util.HashMap<>(com.claudemod.entity.life.ChestLedger.totals(g, level)); // his chests as of his last look in each, from anywhere (the user: "does he know he have 7 diamonds": 190 off, past the old 48, they counted as none)
-        for (BlockPos p : g.myStations) { // his furnaces' output, close by
-            if (!level.isLoaded(p) || p.distSqr(g.blockPosition()) > 48 * 48) continue;
-            if (level.getBlockEntity(p) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f && !f.getItem(2).isEmpty()) m.merge(f.getItem(2).getItem(), f.getItem(2).getCount(), Integer::sum);
-        }
+        for (var sp : com.claudemod.entity.life.ChestLedger.furnacesWith(g, level, x -> true)) m.merge(sp.item(), sp.count(), Integer::sum); // his furnaces' done food and smelts, from anywhere in this world as he last saw them (an unloaded one 317 off was none: live 03:27 11-08)
         return m;
     }
 

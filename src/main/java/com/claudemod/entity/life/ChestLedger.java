@@ -57,7 +57,7 @@ public final class ChestLedger {
     private static final Map<UUID, Set<BlockPos>> openNow = new HashMap<>(), pending = new HashMap<>();
 
     public static Map<BlockPos, Entry> book(ClaudeEntity g) { return books.computeIfAbsent(g.getUUID(), k -> new LinkedHashMap<>()); }
-    public static void reset(ClaudeEntity g) { books.remove(g.getUUID()); openNow.remove(g.getUUID()); pending.remove(g.getUUID()); }
+    public static void reset(ClaudeEntity g) { books.remove(g.getUUID()); furnaces.remove(g.getUUID()); openNow.remove(g.getUUID()); pending.remove(g.getUUID()); }
     public static boolean knows(ClaudeEntity g, BlockPos p) { return book(g).containsKey(p); }
     public static Entry entry(ClaudeEntity g, BlockPos p) { return book(g).get(p); }
     static String dim(ServerLevel level) { return level.dimension().location().toString(); }
@@ -116,6 +116,28 @@ public final class ChestLedger {
             int d = com.claudemod.director.ClaudeLife.routeDist(g, g.blockPosition(), e.getKey()); // by his tunnels: a nook through the rock is not near
             for (var it : e.getValue().items().entrySet()) if (it.getValue() > 0 && want.test(new ItemStack(it.getKey()))) out.add(new Spot(e.getKey(), it.getKey(), it.getValue(), d));
         }
+        out.sort(java.util.Comparator.comparingInt(Spot::dist));
+        return out;
+    }
+
+    // ---- his furnaces: what each holds done (output, and what its input cooks into), as he last saw it, from anywhere (live 03:27 11-08: food 6, meals 0, 4 porkchop done 2899 s in one 317 off, 5 steak in another 598 off, and he fished: an unloaded furnace was no food at all)
+    private static final Map<UUID, Map<BlockPos, Entry>> furnaces = new HashMap<>();
+    public static Map<BlockPos, Entry> furnaceBook(ClaudeEntity g) { return furnaces.computeIfAbsent(g.getUUID(), k -> new LinkedHashMap<>()); }
+    /** A furnace of his, loaded: its output, and its input as what it cooks into (it finishes once he's near enough for its chunk to run), on the book; nothing in it, off. */
+    public static void furnaceSaw(ClaudeEntity g, ServerLevel level, BlockPos p) {
+        if (!(level.getBlockEntity(p) instanceof AbstractFurnaceBlockEntity fe)) { furnaceBook(g).remove(p); return; }
+        Map<Item, Integer> m = new LinkedHashMap<>(); ItemStack out = fe.getItem(2), in = fe.getItem(0);
+        if (!out.isEmpty()) m.merge(out.getItem(), out.getCount(), Integer::sum);
+        if (!in.isEmpty()) { var rec = level.getRecipeManager().getRecipeFor(net.minecraft.world.item.crafting.RecipeType.SMELTING, new net.minecraft.world.item.crafting.SingleRecipeInput(in), level); if (rec.isPresent()) m.merge(rec.get().value().getResultItem(level.registryAccess()).getItem(), in.getCount(), Integer::sum); }
+        if (m.isEmpty()) furnaceBook(g).remove(p); else furnaceBook(g).put(p.immutable(), new Entry(level.dimension().location().toString(), m, level.getGameTime()));
+    }
+    /** His furnaces in this dimension holding what he wants, nearest first: loaded ones read now, the rest as he last saw them. */
+    public static List<Spot> furnacesWith(ClaudeEntity g, ServerLevel level, Predicate<ItemStack> want) {
+        List<Spot> out = new ArrayList<>(); String d = level.dimension().location().toString();
+        for (BlockPos p : g.myStations) if (level.isLoaded(p) && level.getBlockEntity(p) instanceof AbstractFurnaceBlockEntity) furnaceSaw(g, level, p);
+        for (var it = furnaceBook(g).entrySet().iterator(); it.hasNext(); ) { var e = it.next(); if (!g.myStations.contains(e.getKey())) { it.remove(); continue; } if (!e.getValue().dim().equals(d)) continue;
+            int dist = (int) Math.sqrt(e.getKey().distSqr(g.blockPosition()));
+            for (var i : e.getValue().items().entrySet()) if (i.getValue() > 0 && want.test(new ItemStack(i.getKey()))) out.add(new Spot(e.getKey(), i.getKey(), i.getValue(), dist)); }
         out.sort(java.util.Comparator.comparingInt(Spot::dist));
         return out;
     }
@@ -185,7 +207,8 @@ public final class ChestLedger {
             if (!level.isLoaded(p)) continue;
             boolean chest = level.getBlockEntity(p) instanceof Container c0 && !(c0 instanceof AbstractFurnaceBlockEntity);
             boolean known = b.containsKey(p);
-            if (!chest && !known) continue; // a table or a furnace of his
+            if (!chest && level.getBlockEntity(p) instanceof AbstractFurnaceBlockEntity && g.myStations.contains(p)) { furnaceSaw(g, level, p); continue; } // a furnace of his: what's done in it, on his furnace book
+            if (!chest && !known) continue; // a table of his
             if (!Perception.seesBlock(g, level, p)) continue; // out of sight: as he last saw it
             if (!chest) { forget(g, p, "is gone (he sees the spot)"); open.remove(p); continue; }
             boolean openHere = level.getBlockEntity(p) instanceof ChestBlockEntity && ChestBlockEntity.getOpenCount(level, p) > 0 && Vec3.atCenterOf(p).distanceTo(g.getEyePosition()) <= 8;
@@ -209,6 +232,9 @@ public final class ChestLedger {
             l.add(c);
         }
         t.put("chests", l);
+        ListTag fl = new ListTag(); // his furnaces as he last saw them
+        for (var e : furnaceBook(g).entrySet()) { CompoundTag c = new CompoundTag(); c.putLong("p", e.getKey().asLong()); c.putString("d", e.getValue().dim()); c.putLong("t", e.getValue().seen()); CompoundTag it = new CompoundTag(); e.getValue().items().forEach((k, v) -> it.putInt(BuiltInRegistries.ITEM.getKey(k).toString(), v)); c.put("i", it); fl.add(c); }
+        t.put("furnaces", fl);
         Set<BlockPos> pend = pending.get(g.getUUID());
         if (pend != null && !pend.isEmpty()) t.putLongArray("pending", pend.stream().mapToLong(BlockPos::asLong).toArray());
         return t;
@@ -222,6 +248,10 @@ public final class ChestLedger {
             for (String k : it.getAllKeys()) { ResourceLocation id = ResourceLocation.tryParse(k); Item item = id == null ? Items.AIR : BuiltInRegistries.ITEM.get(id); if (item != Items.AIR) m.put(item, it.getInt(k)); }
             b.put(BlockPos.of(c.getLong("p")), new Entry(c.contains("d") ? c.getString("d") : "minecraft:overworld", m, c.getLong("t")));
         }
+        Map<BlockPos, Entry> fb = furnaceBook(g); fb.clear();
+        for (Tag x : t.getList("furnaces", Tag.TAG_COMPOUND)) { CompoundTag c = (CompoundTag) x; CompoundTag it = c.getCompound("i"); Map<Item, Integer> m = new LinkedHashMap<>();
+            for (String k : it.getAllKeys()) { ResourceLocation id = ResourceLocation.tryParse(k); Item item = id == null ? Items.AIR : BuiltInRegistries.ITEM.get(id); if (item != Items.AIR) m.put(item, it.getInt(k)); }
+            fb.put(BlockPos.of(c.getLong("p")), new Entry(c.getString("d"), m, c.getLong("t"))); }
         if (t.contains("pending")) { Set<BlockPos> pend = new HashSet<>(); for (long p : t.getLongArray("pending")) pend.add(BlockPos.of(p)); pending.put(g.getUUID(), pend); }
     }
 

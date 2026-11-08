@@ -10821,6 +10821,8 @@ public final class ClaudeBodyTest {
             case 1067: return st1067(stage, t, c, h, level, mock);
             case 1064: return st1064(stage, t, c, h, level, mock);
             case 1065: return st1065(stage, t, c, h, level, mock);
+            case 1068: return st1068(stage, t, c, h, level, mock);
+            case 1069: return st1069(stage, t, c, h, level, mock);
             case 1063: return st1063(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
@@ -18532,6 +18534,56 @@ public final class ClaudeBodyTest {
             boolean fresh = hole && !st1065Was; st1065Was = hole; // (judged when the cover is chosen: the mob walks in while it goes up)
             if (fresh && ws != null && ws.isAlive() && ws.distanceTo(c) < 5.5) { String why = "cover going up under him with the wither skeleton " + String.format("%.1f", ws.distanceTo(c)) + " off: " + c.currentTask; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; check(false, why); }
             if (t[0] >= 130) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(32))) m.discard(); pass(stage, t, "no hole with the wither skeleton close, health " + (int) c.getHealth()); }
+        }
+        return true;
+    }
+
+    /** Stage 1068 (live 03:27 11-08, reviews 506/529/145/196): food 6, meals 0, 4 cooked porkchop finished in his furnace at 170,69,-103 for 2899 s and 5 steak in another 598 off; his food choice never had them (his stores read furnaces within 48 and loaded only) and he fished and hunted instead. Here: no food on him, 6 cooked porkchop done in his furnace 100 off: his stores are the pick. */
+    private static boolean st1068(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos fur = h.absolutePos(new BlockPos(100, 2, 4));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); flatBox(h); }
+        if (t[0] == 10) {
+            level.setBlock(fur.below(), Blocks.STONE.defaultBlockState(), 2); level.setBlock(fur, Blocks.FURNACE.defaultBlockState(), 2);
+            if (level.getBlockEntity(fur) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fe) fe.setItem(2, new ItemStack(Items.COOKED_PORKCHOP, 6));
+            c.myStations.add(fur.immutable()); com.claudemod.entity.life.ChestLedger.furnaceSaw(c, level, fur); // (he saw it when he loaded it: 100 off its chunk isn't loaded, as live)
+            c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getFoodData().setFoodLevel(14); c.setHealth(20);
+        }
+        if (t[0] == 14) {
+            var fa = com.claudemod.director.Kit.foodAsk(c);
+            c.tasks.clear(); c.skillQueue.clear();
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "obtain", "cooked_porkchop", 6);
+            boolean take = c.tasks.stream().anyMatch(x -> x instanceof Task.FurnaceTake ft && ft.pos().equals(fur));
+            check(take, "obtain cooked_porkchop 6 with 6 done in his furnace 100 off: no FurnaceTake there: \"" + r + "\" tasks " + c.tasks);
+            c.myStations.remove(fur); level.setBlock(fur, Blocks.AIR.defaultBlockState(), 2); com.claudemod.entity.life.ChestLedger.reset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.getFoodData().setFoodLevel(20);
+            check(fa != null && fa.item() == Items.COOKED_PORKCHOP, "no food on him, 6 cooked porkchop done in his furnace 100 off: the food ask is " + (fa == null ? "none" : fa.item() + " x" + fa.count()));
+            pass(stage, t, "his furnace's porkchop picked: " + fa.item() + " x" + fa.count());
+        }
+        return true;
+    }
+
+    /** Stage 1069 (live 03:56 11-08, death 118 at -129,15,-215): a dark winding cave, iron chestplate and leggings, gold boots, an iron sword and a shield, 17 HP, four zombies on him: "fight ~143 s (~10 HP of hits), run ~105 s", he ran, was hit 17 -> 9 running, boxed himself in with them 1 off and died in the box. An expert fights four zombies in that kit. Passes: alive after 60 s. */
+    private static boolean st1069(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(4, 2, 4));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(me.offset(-4, -1, -4), me.offset(30, 4, 26))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            int[][] legs = {{-3, 0, 8, 0}, {8, 0, 8, 10}, {8, 10, 20, 10}, {20, 10, 20, 22}, {20, 22, 28, 22}}; // a zig-zag cave, 3 wide, 3 high, unlit
+            for (int[] L : legs) for (BlockPos p : BlockPos.betweenClosed(me.offset(Math.min(L[0], L[2]) - 1, 0, Math.min(L[1], L[3]) - 1), me.offset(Math.max(L[0], L[2]) + 1, 2, Math.max(L[1], L[3]) + 1))) level.setBlock(p, Blocks.AIR.defaultBlockState(), 2);
+            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.DIRT, 16)); c.getInventory().add(new ItemStack(Items.COOKED_COD, 4)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setHealth(17); c.getFoodData().setFoodLevel(20);
+            for (int dx : new int[]{-2, -3, -1, 3}) { var z = EntityType.ZOMBIE.create(level); z.setBaby(false); BlockPos zp = me.offset(dx, 0, dx == -1 ? 1 : dx == 3 ? -1 : 0); z.moveTo(zp.getX() + 0.5, zp.getY(), zp.getZ() + 0.5, 0, 0); z.setPersistenceRequired(); level.addFreshEntity(z); }
+        }
+        if (t[0] > 10 && t[0] < 60) for (var z : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Zombie.class, c.getBoundingBox().inflate(16))) z.setTarget(c); // (after his teleport)
+        if (t[0] > 10 && (t[0] >= 1210 || !c.isAlive())) {
+            boolean alive = c.isAlive(); float hp = c.getHealth(); int left = level.getEntitiesOfClass(net.minecraft.world.entity.monster.Zombie.class, c.getBoundingBox().inflate(32)).size();
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard();
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.setHealth(20);
+            check(alive, "four zombies in a dark cave, iron chest+legs, iron sword, shield, 17 HP: died (" + left + " zombies left)");
+            pass(stage, t, "alive at " + hp + " HP, " + left + " zombies left");
         }
         return true;
     }

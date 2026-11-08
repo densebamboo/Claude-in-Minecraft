@@ -285,7 +285,7 @@ public final class Kit {
           Item best = null; int have = 0; for (var e : ClaudeLife.stored(g, level).entrySet()) { ItemStack st = new ItemStack(e.getKey()); if (!st.has(DataComponents.FOOD) || ClaudeLife.rawOrBad(level, st)) continue; if (best == null || pts(e.getKey()) * e.getValue() > pts(best) * have) { best = e.getKey(); have = e.getValue(); } }
           if (best != null) { final Item bi = best; double far = Double.MAX_VALUE;
             for (var sp : com.claudemod.entity.life.ChestLedger.where(g, level, x -> x.is(bi))) far = Math.min(far, Math.sqrt(sp.pos().distSqr(g.blockPosition())));
-            for (var q : g.myStations) if (level.isLoaded(q) && level.getBlockEntity(q) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f && f.getItem(2).is(bi)) far = Math.min(far, Math.sqrt(q.distSqr(g.blockPosition())));
+            for (var sp : com.claudemod.entity.life.ChestLedger.furnacesWith(g, level, x -> x.is(bi))) far = Math.min(far, sp.dist()); // (his furnaces from anywhere, as he last saw them)
             if (far < Double.MAX_VALUE) { int n = (int) Math.min(have, Math.ceil(shortP / pts(bi))); double left = Math.max(0, shortP - n * pts(bi));
               String nm = "his stores (" + Crafting.name(bi) + ")"; opts.add(com.claudemod.entity.life.Decide.Option.of(nm, far / sprint + w("kit.take_s", 3) + rest.applyAsDouble(left), have + " there, " + (int) far + " off")); asks.put(nm, new FoodAsk(bi, n)); } } }
         Object[][] herds = {{Cow.class, Items.COOKED_BEEF, 2.0}, {Pig.class, Items.COOKED_PORKCHOP, 2.0}, {Sheep.class, Items.COOKED_MUTTON, 1.5}, {Chicken.class, Items.COOKED_CHICKEN, 1.0}};

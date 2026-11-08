@@ -375,6 +375,18 @@ public final class PortalMap {
     /** The step, or null to let enter_portal take the nearest lit one in reach (no words naming one, none known). */
     public static void enterReset(ClaudeEntity g) { if (entering != null) entering.remove(g.getUUID()); }
     private static Map<java.util.UUID, Object[]> entering; // {dimension he stepped in from, tick, portal id}: the step's done when the world changes, not when he steps in
+    /** In a portal on its cooldown (just come through): vanilla restarts the cooldown every tick he stays in it, so a player steps out and back in (review 77, stage 1172). The cell to step out to, beside the portal's face; null when he isn't in one on its cooldown. */
+    public static BlockPos stepOutOf(ClaudeEntity g, ServerLevel level) {
+        BlockPos at = g.blockPosition(); var portal = net.minecraft.world.level.block.Blocks.NETHER_PORTAL;
+        BlockPos pc = level.getBlockState(at).is(portal) ? at : level.getBlockState(at.above()).is(portal) ? at.above() : null;
+        if (pc == null || !g.isOnPortalCooldown()) return null;
+        var ax = level.getBlockState(pc).getValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS);
+        for (net.minecraft.core.Direction d : ax == net.minecraft.core.Direction.Axis.X ? new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH} : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.EAST, net.minecraft.core.Direction.WEST}) {
+            BlockPos q = at.relative(d);
+            if (level.getBlockState(q).getCollisionShape(level, q).isEmpty() && level.getBlockState(q.above()).getCollisionShape(level, q.above()).isEmpty() && !level.getBlockState(q.below()).getCollisionShape(level, q.below()).isEmpty() && level.getFluidState(q).isEmpty() && level.getFluidState(q.below()).isEmpty()) return q.immutable();
+        }
+        return null;
+    }
     public static String enterStep(ClaudeEntity g, ServerLevel level, Skills.Step st, String target) {
         if (entering == null) entering = new HashMap<>();
         Object[] en = entering.get(g.getUUID());
@@ -383,7 +395,7 @@ public final class PortalMap {
             String from = (String) en[0]; int since = g.tickCount - (int) en[1];
             if (!from.equals(dim(level))) { entering.remove(g.getUUID()); ClaudeMod.LOGGER.info("[Claude portal] through portal #{}: in {} now ({} s) (PortalMap.enterStep)", en[2], dim(level), since / 20); return "done: through portal #" + en[2] + ", in the " + dim(level).replace("the_", "").replace('_', ' ') + " now"; }
             boolean inIt = level.getBlockState(g.blockPosition()).is(net.minecraft.world.level.block.Blocks.NETHER_PORTAL) || level.getBlockState(g.blockPosition().above()).is(net.minecraft.world.level.block.Blocks.NETHER_PORTAL);
-            if (inIt && since < 20 * 15) { if (since >= 20 * 5) ClaudeMod.LOGGER.info("[Claude portal] in #{} {} s, not taken yet: portal cooldown {} (a cooldown on means vanilla restarts it each tick he stands in the portal), at {} (PortalMap.enterStep)", en[2], since / 20, g.getPortalCooldown(), g.position()); g.tasks.add(new Task.Wait(20, false)); g.skillQueue.addFirst(new Skills.Step(st.skill(), target, st.count(), st.where())); return "standing in portal #" + en[2] + ", waiting for it to take me (" + since / 20 + " s)"; } // (a player stands still in it 4 s)
+            if (inIt && since < 20 * 15) { BlockPos out = stepOutOf(g, level); if (out != null) { BlockPos back = g.blockPosition(); g.tasks.add(new Task.GoTo(out, 0.4)); g.tasks.add(new Task.Wait(12, false)); g.tasks.add(new Task.GoTo(back, 0.3)); g.skillQueue.addFirst(new Skills.Step(st.skill(), target, st.count(), st.where())); ClaudeMod.LOGGER.info("[Claude portal] in #{} on its cooldown ({} ticks, restarted while he stands in it): a step out to {} and back in (PortalMap.enterStep)", en[2], g.getPortalCooldown(), out.toShortString()); return "a step out of portal #" + en[2] + " and back in (its cooldown runs only while I'm out of it)"; } if (since >= 20 * 5) ClaudeMod.LOGGER.info("[Claude portal] in #{} {} s, not taken yet: portal cooldown {} (a cooldown on means vanilla restarts it each tick he stands in the portal), at {} (PortalMap.enterStep)", en[2], since / 20, g.getPortalCooldown(), g.position()); g.tasks.add(new Task.Wait(20, false)); g.skillQueue.addFirst(new Skills.Step(st.skill(), target, st.count(), st.where())); return "standing in portal #" + en[2] + ", waiting for it to take me (" + since / 20 + " s)"; } // (a player stands still in it 4 s)
             entering.remove(g.getUUID());
             ClaudeMod.LOGGER.info("[Claude portal] enter #{}: {} s on, still in the {} at {}, {} (portal cooldown {}) (PortalMap.enterStep)", en[2], since / 20, from, g.blockPosition().toShortString(), inIt ? "in the portal and not taken" : "not in the portal", g.getPortalCooldown());
             return "failed: " + (inIt ? "portal #" + en[2] + " didn't take me" : "didn't get into portal #" + en[2]) + " (I'm at " + g.blockPosition().toShortString() + ", still in the " + from.replace('_', ' ') + ")";

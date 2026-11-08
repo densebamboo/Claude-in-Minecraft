@@ -3734,6 +3734,7 @@ public final class ClaudeLife {
                 }
                 while (level.getBlockState(portal.below()).is(Blocks.NETHER_PORTAL)) portal = portal.below();
                 g.noteDoing("into the portal at " + portal.getX() + ", " + portal.getZ() + ": the nether side is about " + Math.floorDiv(portal.getX(), 8) + ", " + Math.floorDiv(portal.getZ(), 8));
+                { BlockPos out = com.claudemod.entity.life.PortalMap.stepOutOf(g, level); if (out != null) { g.tasks.add(new Task.GoTo(out, 0.4)); g.tasks.add(new Task.Wait(12, false)); com.claudemod.ClaudeMod.LOGGER.info("[Claude portal] in the portal at {} on its cooldown ({} ticks, restarted while he stands in it): a step out to {} and back in (ClaudeLife enter_portal)", portal.toShortString(), g.getPortalCooldown(), out.toShortString()); } } // (just come through: vanilla restarts the cooldown each tick he stays in it; review 77, stage 1172)
                 g.tasks.add(new Task.GoTo(portal.immutable(), 0.3));
                 g.tasks.add(new Task.Wait(100, false));
                 return "stepping into the portal at " + portal.toShortString();

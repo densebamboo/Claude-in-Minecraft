@@ -10537,6 +10537,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1172: return st1172(stage, t, c, h, level, mock);
             case 1171: return st1171(stage, t, c, h, level, mock);
             case 1170: return st1170(stage, t, c, h, level, mock);
             case 1159: return st1159(stage, t, c, h, level, mock);
@@ -15858,6 +15859,27 @@ public final class ClaudeBodyTest {
             check(p1 == null, "a hedge someone put there (persistent leaves): the no-dig walk dug through it");
             for (int x = -3; x <= 10; x++) for (int z = -4; z <= 4; z++) for (int y = -2; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
             nsHome(c, h, level); pass(stage, t, "through the tree's leaves with no digging (" + p0.acts().size() + " acts), never a hedge");
+        }
+        return true;
+    }
+    /** Stage 1172 (D2D review 77, live 13:43:41-13:44:06 11-08 at -21,64,11: out of the Nether through his portal, then straight back in for his pile; "stepping into the portal" 3 times in 10 s, standing in it, never taken: a portal cooldown is restarted every tick an entity stands in the portal, a player steps out and back in): standing in a lit portal just come through (its cooldown on), enter_portal. Out a step and back in: through in 10 s. */
+    private static int st1172T0;
+    private static boolean st1172(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(6, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(6000); st1172T0 = -1; flatBox(h); }
+        if (t[0] == 10) {
+            for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, 0), x == -1 || x == 2 || y == -1 || y == 3 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+            nsKit(c); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 12) {
+            c.setPortalCooldown(); // (just come through: vanilla's cooldown on, as on arrival)
+            check(c.isOnPortalCooldown(), "the stage's cooldown didn't take");
+            com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "enter_portal", "", 1); st1172T0 = t[0];
+        }
+        if (st1172T0 > 0) {
+            if (c.level().dimension() == net.minecraft.world.level.Level.NETHER) { int s = t[0] - st1172T0; for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, 0), Blocks.AIR.defaultBlockState(), 2 | 16); nsHome(c, h, level); pass(stage, t, "out a step and back in: through in " + s / 20.0 + " s"); return true; }
+            check(t[0] - st1172T0 < 20 * 12, "standing in his portal just come through (cooldown on): not through in 12 s; at " + c.blockPosition().toShortString() + ", cooldown " + c.getPortalCooldown() + ", doing " + c.currentTask + ", next " + c.tasks.peekFirst() + ", queue " + c.skillQueue);
         }
         return true;
     }

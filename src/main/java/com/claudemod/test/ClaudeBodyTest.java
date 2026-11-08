@@ -10537,6 +10537,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1170: return st1170(stage, t, c, h, level, mock);
             case 1159: return st1159(stage, t, c, h, level, mock);
             case 1158: return st1158(stage, t, c, h, level, mock);
             case 1156: return st1156(stage, t, c, h, level, mock);
@@ -15779,6 +15780,32 @@ public final class ClaudeBodyTest {
             check(!st1159Burn, "a bridge round a lava fall's corner: burned at " + c.position() + " (cell " + c.blockPosition().subtract(o).toShortString() + " from the start), health " + c.getHealth());
             if (c.position().distanceTo(dest.getBottomCenter()) < 1.0) { c.tasks.clear(); nsHome(c, h, level); pass(stage, t, "round the lava fall unburned, " + (t[0] - 20) / 20.0 + " s"); }
             else check(t[0] < 20 + 20 * 20, "a bridge round a lava fall's corner: not at its end in 20 s, at " + c.blockPosition().subtract(o).toShortString() + ", task " + c.currentTask);
+        }
+        return true;
+    }
+    /** Stage 1170 (D2D review 78, live 13:45:32 11-08 at -3,64,82 in the Nether: a bore to a line 2 down, over a gap; it floored the gap and a block further on for his stride (the look-ahead floor), then the next column had ground to step down onto, the line went down into that very cell and he dug out the block he'd just put: PLACE_BREAK): a bore to a line 2 below him, a 1-wide gap, ground 2 down past it. No block put down in the line's way. */
+    private static int st1170Start; private static boolean st1170Put;
+    private static boolean st1170(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(10400, 80, 7600), goal = o.offset(30, -2, 0), ahead = o.offset(2, -1, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1170Start = -1; st1170Put = false; }
+        if (t[0] > 4 && t[0] % 10 == 0) for (int cx = -1; cx <= 2; cx++) { BlockPos q = o.offset(cx * 16, 0, 0); nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(q), 2, q); }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(50))) e.discard();
+        if (t[0] == 10) { // a hall: his ledge (x <= 0, floor at -1), a gap at x 1 down to the bottom, ground with its top at -3 from x 2 on
+            for (int x = -4; x <= 34; x++) for (int z = -4; z <= 4; z++) for (int y = -10; y <= 5; y++) { boolean shell = y == -10 || y == 5 || Math.abs(z) == 4 || x == -4 || x == 34;
+                boolean solid = shell || x <= 0 && y <= -1 || x >= 2 && y <= -3; nl.setBlock(o.offset(x, y, z), solid ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null; c.pillarBlocks.clear();
+        }
+        if (t[0] == 30) { com.claudemod.entity.life.Perception.reset(c); c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Bore(goal, goal.getY())); st1170Start = t[0]; }
+        if (st1170Start > 0) {
+            check(c.isAlive(), "dead on a bore down over a gap");
+            if (!nl.getBlockState(ahead).isAir()) st1170Put = true;
+            check(!st1170Put || !nl.getBlockState(ahead).isAir(), "a bore to a line 2 down over a 1-wide gap: put a block at the gap's far side (the look-ahead floor) and dug it out as the line's step down (PLACE_BREAK)");
+            if (c.getX() >= o.getX() + 8) { int at = t[0] - st1170Start; for (int x = -4; x <= 34; x++) for (int z = -4; z <= 4; z++) for (int y = -10; y <= 5; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); nsHome(c, h, level); pass(stage, t, "over the gap and down to the line, no block dug out after it went in, " + at / 20.0 + " s"); }
+            else check(t[0] - st1170Start < 20 * 30, "a bore to a line 2 down over a gap: not 8 along in 30 s, at " + c.blockPosition().subtract(o).toShortString() + ", doing " + c.currentTask);
         }
         return true;
     }

@@ -3290,7 +3290,8 @@ public class WorkGoal extends Goal {
             todo.add(new Task.Place(fl, fill));
         }
         BlockPos fl2 = f.relative(boreDir).below(); var fl2s = level.getBlockState(fl2); // (bridging: the floor a block further too, so a sprint's look ahead meets ground, never the drop)
-        if (todo.isEmpty() && off == 0 && ny == me.getY() && fill != null && fls.isFaceSturdy(level, fl, Direction.UP) && (fl2s.isAir() || fl2s.getFluidState().is(net.minecraft.tags.FluidTags.LAVA)) && level.getBlockState(fl2.above()).isAir() && level.getBlockState(fl2.below()).getCollisionShape(level, fl2.below()).isEmpty() && fl2.closerToCenterThan(g.getEyePosition(), 4.5))
+        if (todo.isEmpty() && off == 0 && ny == me.getY() && fill != null && fls.isFaceSturdy(level, fl, Direction.UP) && (fl2s.isAir() || fl2s.getFluidState().is(net.minecraft.tags.FluidTags.LAVA)) && level.getBlockState(fl2.above()).isAir() && level.getBlockState(fl2.below()).getCollisionShape(level, fl2.below()).isEmpty() && fl2.closerToCenterThan(g.getEyePosition(), 4.5)
+                && !(wantY < me.getY() && !level.getBlockState(fl2.below(2)).getCollisionShape(level, fl2.below(2)).isEmpty())) // (never where the line steps down next: ground 2 under it takes the line into that cell, and the block he'd put is dug back out; review 78, stage 1170)
             todo.add(new Task.Place(fl2, fill));
         if (todo.isEmpty() && overLava && fill != null) { var sh = com.claudemod.entity.life.FortressScout.shooterInSight(g); // a shooter in sight over lava: a wall block at head height on its side (the knock's way off)
             if (sh != null) { Direction side = boreDir.getClockWise(); if ((sh.getX() - g.getX()) * side.getStepX() + (sh.getZ() - g.getZ()) * side.getStepZ() < 0) side = side.getOpposite(); BlockPos w = f.relative(side).above(); if (level.getBlockState(w).isAir() && boreFace(level, w)) todo.add(new Task.Place(w, fill)); } }

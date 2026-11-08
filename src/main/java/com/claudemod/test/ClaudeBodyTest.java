@@ -10535,6 +10535,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 991: return st991(stage, t, c, h, level, mock);
             case 989: return st989(stage, t, c, h, level, mock);
             case 988: return st988(stage, t, c, h, level, mock);
             case 986: return st986(stage, t, c, h, level, mock);
@@ -15261,6 +15262,30 @@ public final class ClaudeBodyTest {
         if (st989T > 0 && t[0] > st989T) {
             if (c.getInventory().countItem(Items.CHARCOAL) >= 8) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.myStations.remove(fp); pass(stage, t, "dug the stone off his furnace and took the charcoal in " + (t[0] - st989T) / 20 + " s"); return true; }
             check(t[0] - st989T < 20 * 15, "15 s on the stone over his furnace: " + c.getInventory().countItem(Items.CHARCOAL) + " charcoal taken, the stone " + (level.getBlockState(fp.above()).is(Blocks.STONE) ? "still there" : "gone") + ", doing " + c.currentTask);
+        }
+        return true;
+    }
+    /** Stage 991 (review 92, live 03:48-03:50 World 17 at -142,16,-193: in his branch at z -193, a torch at -119,17,-205 in the next branch 12 off through the rock passed "past 16, moved on" (a straight line), the way there 81 walks round by the main tunnel; he walked out 61 and back, the copper and the patch in reach waited 224 ticks): two tunnels 6 apart in rock, joined only round the far end (30 walks), a torch queued in the other one. Dropped as moved on, not walked to. */
+    private static int st991T;
+    private static boolean st991(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st991T = -1; level.setDayTime(6000); flatBox(h); }
+        BlockPos me = h.absolutePos(new BlockPos(2, 2, 3)), tp = h.absolutePos(new BlockPos(2, 3, 9));
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            for (int x = 0; x <= 15; x++) for (int z = 0; z <= 13; z++) for (int y = 1; y <= 5; y++) {
+                boolean open = (y == 2 || y == 3) && ((z == 3 || z == 9) && x >= 1 && x <= 14 || x == 14 && z >= 3 && z <= 9); // (tunnel A at z 3, tunnel B at z 9, joined only at x 14)
+                level.setBlock(h.absolutePos(new BlockPos(x, y, z)), (open ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.TORCH, 16)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.tasks.add(new Task.WallTorch(tp.immutable(), net.minecraft.core.Direction.NORTH)); st991T = t[0]; }
+        if (st991T > 0 && t[0] > st991T + 2) {
+            boolean on = c.currentTask instanceof Task.WallTorch || c.tasks.stream().anyMatch(x -> x instanceof Task.WallTorch);
+            double moved = Math.sqrt(c.distanceToSqr(me.getX() + 0.5, me.getY(), me.getZ() + 0.5));
+            check(!level.getBlockState(tp).is(Blocks.WALL_TORCH), "he walked the 30 round and put the torch up 6 through the rock from where he was");
+            check(moved < 4, "walking round to a torch 6 off through the rock: " + String.format("%.1f", moved) + " from where he stood, doing " + c.currentTask + ", queue " + c.tasks);
+            if (!on) { pass(stage, t, "the torch 30 walks round dropped as moved on, " + String.format("%.1f", moved) + " walked, in " + (t[0] - st991T) + " ticks"); return true; }
+            check(t[0] - st991T < 100, "5 s still on the far torch, " + String.format("%.1f", moved) + " walked");
         }
         return true;
     }

@@ -1018,6 +1018,7 @@ public class WorkGoal extends Goal {
             g.getNavigation().moveTo(aim.getX() + 0.5, aim.getY(), aim.getZ() + 0.5, 0.9);
             var path = g.getNavigation().getPath();
             routeReaches = reaches(path, aim, within);
+            if (routeReaches && path != null && torchTooFar(path.getNodeCount() - path.getNextNodeIndex())) { g.getNavigation().stop(); return false; }
             if (routeReaches && d > within && path != null && path.getEndNode() != null && path.getEndNode().asBlockPos().equals(feetCell)) routeReaches = false; // a path that ends where he stands takes him nowhere: the goal past `within` isn't reached (D2D reviews 228/360, 10:08 and 10:26: a route leg in a pond 1 down, 2 off, aimed at the dry cell he stood on, "path 0/1" read as reached, 8 s still and the spot dropped; stage 901)
             if (routeReaches) for (int i = Math.max(1, path.getNextNodeIndex()); i < path.getNodeCount(); i++) { var b = path.getNode(i); double ay = i == path.getNextNodeIndex() ? g.getY() : path.getNode(i - 1).y; // (the next step against his feet, as Controls judges it: the start node can sit a block over them)
                 if (b.y - ay > 1.25 && !g.level().getBlockState(new BlockPos(b.x, b.y, b.z)).is(net.minecraft.tags.BlockTags.CLIMBABLE) && !g.level().getBlockState(new BlockPos(b.x, b.y - 1, b.z)).is(net.minecraft.tags.BlockTags.CLIMBABLE)) { routeReaches = false; if (ticks % 200 == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] the way to {} has a step {} up at {},{},{}: not his way, planning his own (WorkGoal.walkTo)", pos.toShortString(), String.format("%.1f", b.y - ay), b.x, b.y, b.z); break; } }
@@ -1194,6 +1195,7 @@ public class WorkGoal extends Goal {
                 if (cutPlan != null && !nookCuts.isEmpty()) { plan = cutPlan; com.claudemod.ClaudeMod.LOGGER.info("[Claude route] no way to {} from {} with his nook's shell kept: cutting it at {}, each patched behind him once he's through (WorkGoal.walkTo)", pos.toShortString(), feetCell.toShortString(), nookCuts.stream().map(BlockPos::toShortString).toList()); }
                 else if (cutPlan != null) plan = cutPlan; // (a way the first search missed, none of it his shell)
             }
+            if (plan != null && torchTooFar(plan.walks() + 2 * plan.digs() + plan.puts())) return false;
             if (plan != null && (plan.digs() > 0 || plan.puts() > 0 || plan.acts().stream().anyMatch(a -> a instanceof com.claudemod.entity.nav.ActionPath.Act.Door || a instanceof com.claudemod.entity.nav.ActionPath.Act.Leap))) { // (a drop or a jump: its own task, Task.Leap)
                 if (!nookCuts.isEmpty()) com.claudemod.director.ClaudeLife.nookCutsBack(g, nookCuts, scaff.isEmpty() || scaff.is(net.minecraft.world.item.Items.DIRT) ? net.minecraft.world.item.Items.COBBLESTONE : scaff.getItem()); // (queued first: the walk goes in front of them, so they run once he's through)
                 var tasks = com.claudemod.entity.nav.ActionPath.tasks(plan, feetCell, scaff.isEmpty() ? net.minecraft.world.item.Items.COBBLESTONE : scaff.getItem(), pos, within, (ServerLevel) g.level());
@@ -2722,12 +2724,19 @@ public class WorkGoal extends Goal {
         return level.getBlockState(p).canBeReplaced() && level.getBlockState(wall).isFaceSturdy(level, wall, wallDir.getOpposite()) ? p : pos;
     }
 
+    /** How far back he walks for a torch: a slot (or mouth) of his mine further than any other dark spot. */
+    private double torchBack(Task.WallTorch t) { boolean mineTorch = com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && (g.blueprint.isTorchSlot(t.pos()) || g.blueprint.touches(t.pos())); /* (a branch mouth isn't a slot: queued within 16 all the same, dropped past 8, live 14:49 11-07, stage 1008) */ return mineTorch ? com.claudemod.entity.life.Weights.w("torch.slot_walk_back", 16) : com.claudemod.entity.life.Weights.w("torch.walk_back", 8); }
+    /** Steps of the way to the torch he's on when that way is far past his walk back for it (doWallTorch drops it next tick), else 0. */
+    private int torchFar;
+    private boolean torchTooFar(int steps) { if (!(current instanceof Task.WallTorch wt) || steps <= torchBack(wt) * com.claudemod.entity.life.Weights.w("torch.way_over_back", 1.5)) return false; torchFar = steps; return true; }
     private boolean doWallTorch(Task.WallTorch t) {
         ServerLevel level = (ServerLevel) g.level();
         boolean slot = com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.isTorchSlot(t.pos()); // a slot of his blueprint mine: exactly there. The eye-level guess read the world mid-dig: a step's bottom block still to dig lifted the torch a block, a floor mined out for ore dropped it one (world 14's stairs: 0, +1, -1 off the step)
         BlockPos pos = slot ? t.pos() : eyeLevel(level, t.pos(), t.wall());
         BlockPos wall = pos.relative(t.wall());
-        { boolean mineTorch = slot || com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.touches(t.pos()); /* (a branch mouth isn't a slot: queued within 16 all the same, dropped past 8, live 14:49 11-07, stage 1008) */ double back = mineTorch ? com.claudemod.entity.life.Weights.w("torch.slot_walk_back", 16) : com.claudemod.entity.life.Weights.w("torch.walk_back", 8); // a slot of his mine: as far as his upkeep queues one (8 here, 16 there: 7 slots re-queued every 3 s and each dropped at once, live 11:54 11-07, stage 1005)
+        if (ticks == 1) torchFar = 0;
+        else if (torchFar > 0) { com.claudemod.ClaudeMod.LOGGER.info("[Claude torch] the torch at {} is {} off but {} steps by the way there, past {}: he's moved on from that dark spot (WorkGoal.doWallTorch)", pos.toShortString(), (int) Math.sqrt(pos.distSqr(g.blockPosition())), torchFar, (int) (torchBack(t) * com.claudemod.entity.life.Weights.w("torch.way_over_back", 1.5))); torchFar = 0; g.getNavigation().stop(); return true; } // (review 92: the next branch 12 off through the rock, 81 walks round by the main tunnel; the straight line passed it)
+        { double back = torchBack(t); // a slot of his mine: as far as his upkeep queues one (8 here, 16 there: 7 slots re-queued every 3 s and each dropped at once, live 11:54 11-07, stage 1005)
           if (ticks == 1 && pos.distSqr(g.blockPosition()) > back * back) { com.claudemod.ClaudeMod.LOGGER.info("[Claude torch] the torch at {} is {} off, past {}: he's moved on from that dark spot (WorkGoal.doWallTorch)", pos.toShortString(), (int) Math.sqrt(pos.distSqr(g.blockPosition())), (int) back); return true; } } // he's moved on from that dark spot: not worth walking back for
         BlockState onto = level.getBlockState(wall);
         if (onto.hasBlockEntity() || onto.is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE)) return true; // never a torch stuck on a table or furnace

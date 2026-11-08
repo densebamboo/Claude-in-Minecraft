@@ -14,7 +14,7 @@ def main():
     if not args:
         print(__doc__); return
     last = int(args[args.index('--last') + 1]) if '--last' in args else 0
-    fights = [json.loads(l) for l in open(args[0], encoding='utf-8') if l.strip()]
+    fights = [json.loads(l) for a in args if not a.startswith('--') and not a.isdigit() for l in open(a, encoding='utf-8') if l.strip()]  # (several files: their fights together)
     if last: fights = fights[-last:]
     if not fights:
         print('no fights'); return
@@ -51,6 +51,27 @@ def main():
     for k, (hp, n, v, picks) in sorted(blame.items(), key=lambda kv: -kv[1][0])[:15]:
         print(f'    {k} = {v}: {hp:.1f} HP over {n} decisions ({", ".join(sorted(picks))})')
     if not blame: print('    none (no pick lost more than %.0f HP)' % blame_min)
+    calibrate(fights)
+
+def calibrate(fights):
+    """Measured melee hit rate per foe type in won fights against what the fight price assumes (armed: fight.mob_hits_per_s x
+    fight.knockback_hits_factor). Exposure: each of n foes killed in turn is on him about (n+1)/2 of the fight."""
+    by = defaultdict(lambda: [0, 0.0, 0])  # type -> hits, foe-seconds, fights
+    model = {}
+    for f in fights:
+        if not f['outcome'].startswith('won'): continue
+        n = len(f['foes']); secs = f.get('attackS') or f['secs']
+        for o in f['foes']:
+            b = by[o['type']]; b[0] += o['hitsOnHim']; b[1] += secs * (n + 1) / 2 / n; b[2] += 1
+        for d in f.get('decisions', []):
+            w = d.get('weights', {})
+            if 'fight.mob_hits_per_s' in w and 'fight.knockback_hits_factor' in w: model['armed'] = w['fight.mob_hits_per_s'] * w['fight.knockback_hits_factor']; model['raw'] = w['fight.mob_hits_per_s']
+    print('measured hits on him per foe-second (won fights) vs the price\'s %s:' % (f"{model['armed']:.2f} armed" if model else 'rate (no decision read it)'))
+    for t, (h, s, n) in sorted(by.items(), key=lambda kv: -kv[1][2]):
+        if n < 3 or s <= 0: continue
+        r = h / s
+        hint = f"; knockback_hits_factor ~{r / model['raw']:.2f} would fit it" if model and abs(r - model['armed']) > 0.08 and t in ('zombie', 'husk', 'zombie_villager', 'drowned') else ''
+        print(f'    {t}: {r:.2f} over {n} foes{hint}')
 
 if __name__ == '__main__':
     main()

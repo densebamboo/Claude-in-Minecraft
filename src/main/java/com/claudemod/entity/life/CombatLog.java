@@ -46,7 +46,7 @@ public final class CombatLog {
     static final class Fight {
         final int n; final long start; long last; final float hp0; float hpMin; final int armor; final String weapon, offhand, dim; final boolean underground, night;
         final double dps, speed; // his full-charge damage per second with what he held at the start
-        final Map<UUID, Foe> foes = new LinkedHashMap<>(); final List<Dec> decs = new ArrayList<>(); final Map<String, Double> pending = new LinkedHashMap<>(); final Map<String, Integer> idleBy = new TreeMap<>();
+        final Map<UUID, Foe> foes = new LinkedHashMap<>(); final List<Dec> decs = new ArrayList<>(); final Map<String, Double> pending = new LinkedHashMap<>(); final Map<String, Integer> idleBy = new TreeMap<>(), moves = new TreeMap<>(), missWhy = new TreeMap<>(), foeHurtBy = new TreeMap<>(); final Map<String, Long> moveLast = new HashMap<>();
         int swings, landed, weakSwings, blocked, hitsOnHim, flips, readyIdle, runHits, shotThroughShield, attackTicks, fleeTicks, otherTicks, ticks;
         float dealt, taken, blastHp, runHp; String lastPick; Vec3 lastPos; double moved; boolean readyLast;
         Fight(ClaudeEntity g, int n) {
@@ -82,7 +82,7 @@ public final class CombatLog {
 
     /** A hit on him (ClaudeEntity.hurt, after vanilla resolved it). */
     public static void hitHim(ClaudeEntity g, DamageSource src, float amount, float lost, boolean blocked) {
-        if (!(src.getEntity() instanceof LivingEntity m) || !(m instanceof Enemy)) return;
+        if (!(src.getEntity() instanceof LivingEntity m) || !(m instanceof Enemy) || !g.isAlive() || g.getHealth() <= 0) return; // (the lethal hit is counted at his death: died())
         Fight f = open(g); Foe o = f.foe(m, g);
         if (blocked) { f.blocked++; return; }
         if (lost <= 0) return;
@@ -108,6 +108,14 @@ public final class CombatLog {
         Fight f = OPEN.get(g.getUUID()); if (f == null) return;
         Foe o = f.foes.get(m.getUUID()); if (o != null) { o.killed = true; o.hpLast = 0; }
     }
+    /** A combat move he made (CombatBrain): counted once per use (a use: the move again after combat.move_gap_ticks without it). */
+    public static void move(ClaudeEntity g, String name) {
+        Fight f = OPEN.get(g.getUUID()); if (f == null) return;
+        Long last = f.moveLast.put(name, (long) g.tickCount);
+        if (last == null || g.tickCount - last > w("combat.move_gap_ticks", 10)) f.moves.merge(name, 1, Integer::sum);
+    }
+    /** A swing that took nothing, and why (ClaudeEntity.attack). */
+    public static void missed(ClaudeEntity g, String why) { Fight f = OPEN.get(g.getUUID()); if (f != null) f.missWhy.merge(why, 1, Integer::sum); }
     /** A swing of his at a mob (hit or miss), before vanilla resets the charge. */
     public static void swing(ClaudeEntity g) {
         Fight f = OPEN.get(g.getUUID()); if (f == null) return;
@@ -148,7 +156,9 @@ public final class CombatLog {
     /** Closes his open fight now (the combat benchmark's stage end). */
     public static void closeNow(ClaudeEntity g) { Fight f = OPEN.get(g.getUUID()); if (f != null) close(g, f, null); }
     /** His death: the open fight closes as lost. */
-    public static void died(ClaudeEntity g, DamageSource src) { Fight f = OPEN.get(g.getUUID()); if (f != null) close(g, f, "died to " + src.getMsgId() + (src.getEntity() == null ? "" : " (" + BuiltInRegistries.ENTITY_TYPE.getKey(src.getEntity().getType()).getPath() + ")")); }
+    public static void died(ClaudeEntity g, DamageSource src) {
+        if (src.getEntity() instanceof LivingEntity m && m instanceof Enemy) { Fight f0 = open(g); Foe o = f0.foe(m, g); o.hitsOnHim++; f0.hitsOnHim++; } // the killing blow (hurt's hook runs after the death)
+        Fight f = OPEN.get(g.getUUID()); if (f != null) close(g, f, "died to " + src.getMsgId() + (src.getEntity() == null ? "" : " (" + BuiltInRegistries.ENTITY_TYPE.getKey(src.getEntity().getType()).getPath() + ")")); }
 
     /** The review of a closed fight: the ideal time against his, each waste as lost/better, the costliest decision. */
     static List<String> review(Fight f, String outcome, double secs, List<float[]> credit) {
@@ -163,7 +173,7 @@ public final class CombatLog {
         if (idleS >= w("combat.review.ready_idle_min_s", 0.5)) out.add(String.format("lost %.1f s: a charged hit and a foe in reach, no swing (%s); better: swing the tick the charge is full", idleS, String.join(", ", f.idleBy.entrySet().stream().map(e -> e.getKey() + " " + String.format("%.1f", e.getValue() / 20.0) + " s").toList())));
         if (f.weakSwings > 0) out.add(String.format("lost %d swings to half charge (weak hits); better: wait out the charge (%.2f s with this weapon)", f.weakSwings, 1 / Math.max(0.1, f.speed)));
         int miss = Math.max(0, f.swings - f.landed);
-        if (miss >= w("combat.review.miss_min", 2)) out.add(String.format("lost %d of %d swings that landed nothing (out of reach, its hurt frames, or blocked); better: swing in reach, charged, after its hurt flash", miss, f.swings));
+        if (miss >= w("combat.review.miss_min", 2)) out.add(String.format("lost %d of %d swings that landed nothing (%s); better: swing in reach, charged, after its hurt flash", miss, f.swings, f.missWhy.isEmpty() ? "?" : String.join(", ", f.missWhy.entrySet().stream().map(e -> e.getKey() + " " + e.getValue()).toList())));
         int crits = 0; for (Foe o : f.foes.values()) crits += o.crits;
         if (f.landed >= w("combat.review.crit_min_landed", 4) && crits * 4 < f.landed) out.add(String.format("%d crits in %d hits; better: jump-hits (falling) do 1.5x", crits, f.landed));
         if (f.shotThroughShield > 0) out.add(String.format("took %d shots with a shield in hand; better: shield up toward the shooter while closing in", f.shotThroughShield));
@@ -199,6 +209,8 @@ public final class CombatLog {
                 f.n, String.format("%.1f", secs), outcome, (int) f.hp0, (int) Math.max(0, g.getHealth()), (int) f.hpMin, f.armor, f.weapon, f.offhand, f.dim, f.underground ? ", underground" : "", f.night ? ", night" : "",
                 String.format("%.1f", f.dealt), f.landed, Math.max(f.swings, f.landed), f.weakSwings, String.format("%.1f", f.taken), f.hitsOnHim, f.blocked, f.attackTicks / 20, f.fleeTicks / 20, f.otherTicks / 20,
                 Math.round(f.moved), f.decs.size(), f.flips, String.join(", ", decs), foes);
+        if (!f.foeHurtBy.isEmpty()) rev.add("its other hurts: " + String.join(", ", f.foeHurtBy.entrySet().stream().map(e -> e.getKey() + " x" + e.getValue()).toList()));
+        if (!f.moves.isEmpty()) rev.add(0, "moves: " + String.join(", ", f.moves.entrySet().stream().map(e -> e.getKey() + " x" + e.getValue()).toList()));
         ClaudeMod.LOGGER.info("[Claude combat review] fight #{} ({}): {} (CombatLog.review)", f.n, outcome, rev.isEmpty() ? "nothing an expert would have done better" : String.join(" | ", rev));
         try {
             var p = g.getServer().getWorldPath(LevelResource.ROOT).resolve("claude").resolve("combat.jsonl");
@@ -208,7 +220,7 @@ public final class CombatLog {
             kv(j, "armor", f.armor); kv(j, "weapon", f.weapon); kv(j, "offhand", f.offhand); kv(j, "dim", f.dim); kv(j, "underground", f.underground); kv(j, "night", f.night); kv(j, "dps", f.dps);
             kv(j, "dealt", f.dealt); kv(j, "landed", f.landed); kv(j, "swings", Math.max(f.swings, f.landed)); kv(j, "weakSwings", f.weakSwings); kv(j, "taken", f.taken); kv(j, "hitsOnHim", f.hitsOnHim);
             kv(j, "blocked", f.blocked); kv(j, "readyIdleS", f.readyIdle / 20.0); kv(j, "runHits", f.runHits); kv(j, "runHp", f.runHp); kv(j, "blastHp", f.blastHp); kv(j, "shotThroughShield", f.shotThroughShield);
-            kv(j, "attackS", f.attackTicks / 20.0); kv(j, "fleeS", f.fleeTicks / 20.0); kv(j, "otherS", f.otherTicks / 20.0); kv(j, "moved", Math.round(f.moved)); kv(j, "flips", f.flips);
+            kv(j, "attackS", f.attackTicks / 20.0); kv(j, "fleeS", f.fleeTicks / 20.0); kv(j, "otherS", f.otherTicks / 20.0); kv(j, "moved", Math.round(f.moved)); kv(j, "flips", f.flips); j.append("\"moves\":{"); { int k = 0; for (var e : f.moves.entrySet()) j.append(k++ == 0 ? "" : ",").append(q(e.getKey())).append(':').append(e.getValue()); } j.append("},");
             j.append("\"review\":["); for (int i = 0; i < rev.size(); i++) j.append(i == 0 ? "" : ",").append(q(rev.get(i))); j.append("],\"decisions\":[");
             for (int i = 0; i < f.decs.size(); i++) {
                 Dec d = f.decs.get(i); StringBuilder o = new StringBuilder("{");
@@ -238,8 +250,15 @@ public final class CombatLog {
     }
 
     /** His hits on mobs, with crits (falling, off the ground: the vanilla crit test). */
+    private static final Map<UUID, Integer> hitAt = new HashMap<>(); // mob -> the tick he last hit it
+    /** He hit this mob within {@code ticks}: its hurt frames are his own (a same-weapon swing into them takes nothing). */
+    public static boolean hitWithin(LivingEntity m, int ticks) { Integer t = hitAt.get(m.getUUID()); return t != null && m.tickCount - t <= ticks; }
     public static void onDamage(net.neoforged.neoforge.event.entity.living.LivingDamageEvent.Post e) {
-        if (e.getEntity().level().isClientSide || !(e.getSource().getEntity() instanceof ClaudeEntity g) || e.getEntity() == g) return;
+        if (e.getEntity().level().isClientSide) return;
+        if (!(e.getSource().getEntity() instanceof ClaudeEntity) && e.getEntity() instanceof Enemy) // what else is hurting his foes (fire, their own, another mob): the fight review names it
+            for (Fight f : OPEN.values()) if (f.foes.containsKey(e.getEntity().getUUID())) f.foeHurtBy.merge(e.getSource().getMsgId(), 1, Integer::sum);
+        if (!(e.getSource().getEntity() instanceof ClaudeEntity g) || e.getEntity() == g) return;
+        hitAt.put(e.getEntity().getUUID(), e.getEntity().tickCount); if (hitAt.size() > 512) hitAt.clear();
         hitBy(g, e.getEntity(), e.getNewDamage(), critTick.getOrDefault(g.getUUID(), -1) == g.tickCount);
     }
     private static final Map<UUID, Integer> critTick = new HashMap<>();

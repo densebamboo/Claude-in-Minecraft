@@ -512,8 +512,13 @@ public class ClaudeEntity extends ServerPlayer {
 
     @Override
     public void attack(net.minecraft.world.entity.Entity target) { // every swing at a mob, landed or not (the fight episode's swings)
-        if (!level().isClientSide && target instanceof net.minecraft.world.entity.monster.Enemy) com.claudemod.entity.life.CombatLog.swing(this);
+        boolean foe = !level().isClientSide && target instanceof net.minecraft.world.entity.monster.Enemy;
+        if (foe) com.claudemod.entity.life.CombatLog.swing(this);
+        float hp0 = target instanceof net.minecraft.world.entity.LivingEntity l0 ? l0.getHealth() : 0; int iframes = target.invulnerableTime;
+        double reach = Math.sqrt(target.getBoundingBox().distanceToSqr(getEyePosition())); boolean line = hasLineOfSight(target);
         super.attack(target);
+        if (foe && target instanceof net.minecraft.world.entity.LivingEntity l1 && l1.getHealth() >= hp0) // (a swing that took nothing: why, for the fight review)
+            com.claudemod.entity.life.CombatLog.missed(this, iframes > 10 ? "its hurt frames" : reach > 3.0 ? "out of reach" : !line ? "no line of sight" : l1.isBlocking() ? "its shield" : "nothing taken");
     }
 
     /** Dies like a player: death message, his things drop where he fell, then he respawns (see ClaudeSpawner). */

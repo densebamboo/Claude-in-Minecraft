@@ -421,7 +421,9 @@ public class WorkGoal extends Goal {
             boolean hitterOn = hitter instanceof net.minecraft.world.entity.LivingEntity hl && hl.isAlive() && hl.distanceTo(g) <= 4.0;
             boolean aimedInReach = aimed instanceof net.minecraft.world.entity.LivingEntity al && al.isAlive() && al.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0 && g.hasLineOfSight(al);
             boolean hitterNearer = hitter instanceof net.minecraft.world.entity.LivingEntity hn && hn.isAlive() && aimed != null && hn.distanceTo(g) < aimed.distanceTo(g) - 1.0 && g.hasLineOfSight(hn); // (live 07:40 11-02: a skeleton 5.4 off shot him 12 times while he stayed on one 9-12 off, full iron 20 -> 0)
-            if (!prey && (hitterOn || hitterNearer) && !aimedInReach) {
+            boolean creeperFirst = aimed instanceof net.minecraft.world.entity.monster.Creeper ac && ac.isAlive() && !(hitter instanceof net.minecraft.world.entity.monster.Creeper) && ac.distanceTo(g) < w("fight.creeper_focus_r", 5); // (a creeper near enough to go off on him stays the one he deals with: bench 1115, a zombie's hit turned him off one 3 off, 27.4 from its blast)
+            if (creeperFirst && (hitterOn || hitterNearer) && !aimedInReach) sdSay("creeperfirst", "[Claude life] hit by a {} while a creeper is {} off: the creeper first, the {} after (WorkGoal.tick)", hitter == null ? "mob" : hitter.getType().getDescription().getString(), String.format("%.1f", aimed.distanceTo(g)), hitter == null ? "hitter" : hitter.getType().getDescription().getString());
+            if (!prey && !creeperFirst && (hitterOn || hitterNearer) && !aimedInReach) {
                 turnOnHitter = true;
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] a {} hit him ({} off) while he went for a {} out of his reach ({} off): the {} first, the {} after (WorkGoal.tick)", hitter.getType().getDescription().getString(), String.format("%.1f", hitter.distanceTo(g)), aimed == null ? "mob gone" : aimed.getType().getDescription().getString(), aimed == null ? "?" : (int) aimed.distanceTo(g), hitter.getType().getDescription().getString(), aimed == null ? "fight" : aimed.getType().getDescription().getString());
             } else if (!prey) sdSay("busy", "[Claude life] hit by a {} ({} off) while fighting a {} {}: on with that one, the {} next (WorkGoal.tick)", hitter == null ? "mob gone" : hitter.getType().getDescription().getString(), hitter == null ? "?" : String.format("%.1f", hitter.distanceTo(g)), aimed == null ? "mob gone" : aimed.getType().getDescription().getString(), aimedInReach ? "in his reach" : "with the hitter not on him", hitter == null ? "hitter" : hitter.getType().getDescription().getString());
@@ -4848,7 +4850,7 @@ public class WorkGoal extends Goal {
         return c.getSwellDir() <= 0 || ready + w("creeper.hit_margin_ticks", 3) < fuse;
     }
     private boolean canHitNow(net.minecraft.world.entity.Entity e) {
-        return armed() && g.getAttackStrengthScale(0.5f) >= 0.9f && e.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0 && g.hasLineOfSight(e);
+        return armed() && g.getAttackStrengthScale(0.5f) >= 0.9f && (e.invulnerableTime <= w("combat.move.strike.iframes_max", 10) || !(e instanceof net.minecraft.world.entity.LivingEntity le && com.claudemod.entity.life.CombatLog.hitWithin(le, 10))) && e.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0 && g.hasLineOfSight(e); // (his own hit's hurt frames: a same-weapon swing into the first half takes nothing and spends his charge, bench 1108; frames from a weaker hurt (a burn tick) let a bigger hit through, so those are swung into)
     }
 
     private boolean armed() {
@@ -4912,7 +4914,7 @@ public class WorkGoal extends Goal {
     /** Silverfish and endermites while he's above 8 health: 1 damage a bite, swatted, never a crowd to run from (stage 559: six from the portal room's spawner ran him off and he plugged himself out of the room). */
     private boolean pest(net.minecraft.world.entity.Entity m) { return g.getHealth() > 8 && (m instanceof net.minecraft.world.entity.monster.Silverfish || m instanceof net.minecraft.world.entity.monster.Endermite); }
     /** A mob that shoots him: skeletons, and anything holding a crossbow (pillagers, piglins: live 05:41 World 17, a crossbow piglin read as melee, "0 shooter(s)", a bare tower, shot off it). */
-    public static boolean shoots(net.minecraft.world.entity.Entity m) { return m instanceof net.minecraft.world.entity.monster.AbstractSkeleton && !(m instanceof net.minecraft.world.entity.monster.WitherSkeleton) || m instanceof net.minecraft.world.entity.monster.CrossbowAttackMob && m instanceof net.minecraft.world.entity.LivingEntity l && l.isHolding(net.minecraft.world.item.Items.CROSSBOW); }
+    public static boolean shoots(net.minecraft.world.entity.Entity m) { return m instanceof net.minecraft.world.entity.monster.AbstractSkeleton && !(m instanceof net.minecraft.world.entity.monster.WitherSkeleton) || m instanceof net.minecraft.world.entity.monster.CrossbowAttackMob && m instanceof net.minecraft.world.entity.LivingEntity l && l.isHolding(net.minecraft.world.item.Items.CROSSBOW) || m instanceof net.minecraft.world.entity.monster.Drowned d && d.isHolding(net.minecraft.world.item.Items.TRIDENT); } // (a trident drowned throws 8s from range: bench 1103, the run priced with no throws on it, 4 in his back)
 
     private boolean shouldFlee(net.minecraft.world.entity.Entity foe) { return shouldFlee(foe, false); }
     private boolean shouldFlee(net.minecraft.world.entity.Entity foe, boolean say) { pricedFightS = Double.NaN; pricedRunS = Double.NaN; // (each call prices afresh: the cornered choice read a blaze fight left over from the last zombie as "~0 s", 775)
@@ -4964,9 +4966,11 @@ public class WorkGoal extends Goal {
         if (foe instanceof net.minecraft.world.entity.LivingEntity lf && lf.isAlive() && !them.contains(lf)) them.add(lf);
         if (them.isEmpty()) { fightOdds = "nothing on him"; return false; }
         them.sort(java.util.Comparator.comparingDouble(m -> m.distanceTo(g)));
-        double swing = w("fight.swing_s", 0.6), rate = w("fight.mob_hits_per_s", 0.8) * (armed() ? w("fight.knockback_hits_factor", 0.5) : 1), cool = w("fight.mob_cooldown_s", 1.0); // (a sword or axe knocks each one back: it walks in again before its next swing, about half the hits; HuntPatrol.fightS prices an enderman the same, 0.4. Stage 48: one zombie at 12 HP priced as 3 hits in 2.4 s, he ran)
+        double swing = w("fight.swing_s", 0.6), rate = w("fight.mob_hits_per_s", 0.8) * (armed() ? w("fight.knockback_hits_factor", 0.35) : 1), cool = w("fight.mob_cooldown_s", 1.0); // (a sword or axe knocks each one back: it walks in again before its next swing, about half the hits; HuntPatrol.fightS prices an enderman the same, 0.4. Stage 48: one zombie at 12 HP priced as 3 hits in 2.4 s, he ran) // (0.35, from the fight records 11-08: 38 won melee fights, ~0.21-0.3 hits per zombie-second armed; 0.5 priced 5 zombies in iron at 17 HP when they cost 7-11)
         String unreachable = null; double t = 0, hits = 0, hp = 0, runHits = 0, burnS = 0; int most = 0, swings = 0; boolean sprint = g.getFoodData().getFoodLevel() > 6, allBurn = true, anyPace = false;
         boolean shield = g.getItemBySlot(EquipmentSlot.OFFHAND).is(net.minecraft.world.item.Items.SHIELD) && !g.getCooldowns().isOnCooldown(net.minecraft.world.item.Items.SHIELD);
+        // only so many melee can be on him at once (the open cells round him: a few out in the open, one or two in a tunnel): the next one starts hitting when one before it dies (5 zombies on him in iron read as ~17 HP when the real fights cost 2-9; bench 1117, he ran in circles)
+        int atOnce = Math.max(1, Math.min((int) w("fight.melee_at_once_max", 3), openRound(them))); java.util.List<Double> meleeDeaths = new java.util.ArrayList<>();
         for (var m : them) {
             if (m instanceof net.minecraft.world.entity.monster.Creeper cr) { // (its blast, not a swing: the chance it goes off in the fight, armed he knocks it out of its fuse; on the run, near or lit it may still catch him. Was "armed and over 10 HP: hit it, else run", audit)
                 int k = hitsToKill(m); swings += k; t += k * swing;
@@ -4978,10 +4982,12 @@ public class WorkGoal extends Goal {
             boolean bowDuel = ranged && !witch && m instanceof net.minecraft.world.entity.monster.Enemy && m.distanceTo(g) >= 6 && m.distanceTo(g) <= 28 && canHit(m) && g.inventory.count(s0 -> s0.is(net.minecraft.world.item.Items.BOW)) > 0 && g.inventory.count(s0 -> s0.is(net.minecraft.world.item.Items.ARROW)) > 0; // (a shooter in his bow's range: doAttack shoots it from where he stands (shootAt), never the walk in under its arrows; stage 546 ran from one skeleton 9 off, bow and 16 arrows on him, priced as a sword fight)
             int k = bowDuel ? (int) Math.ceil(m.getHealth() / w("fight.bow_arrow_hp", 6)) : hitsToKill(m); swings += k; t += k * (bowDuel ? w("fight.bow_draw_s", 1.1) : swing);
             if (ranged && !bowDuel && m.distanceTo(g) > w("fight.reach_blocks", 3.5) && !(g.getNavigation().createPath(m, 1) instanceof net.minecraft.world.level.pathfinder.Path np && np.canReach())) { t += w("fight.unreachable_s", 120); unreachable = m.getType().getDescription().getString(); } // a shooter he can't walk up to: no sword fight to be had, it shoots the while (live 11:19-11:21 11-07 death 109: a crossbow piglin 5 up on a ledge, "fight ~73 s (3 swings)" every hit, 20 -> 0; stage 1002)
-            double h = bowDuel ? t * w("fight.shooter_shots_per_s", 0.5) * w("fight.shooter_hit_chance", 0.7) : t * (witch ? w("fight.witch_throws_per_s", 0.33) : rate) + (ranged ? m.distanceTo(g) / w("fight.close_blocks_per_shot", 6) : 0); // (Normal: a skeleton draws every 2 s)
+            double start = !ranged && !witch && meleeDeaths.size() >= atOnce ? meleeDeaths.get(meleeDeaths.size() - atOnce) : 0; // (waits its turn for a cell on him)
+            double h = bowDuel ? t * w("fight.shooter_shots_per_s", 0.5) * w("fight.shooter_hit_chance", 0.7) : (t - start) * (witch ? w("fight.witch_throws_per_s", 0.33) : rate) + (ranged ? m.distanceTo(g) / w("fight.close_blocks_per_shot", 6) : 0); // (Normal: a skeleton draws every 2 s)
             if (shoots(m) && shield && !bowDuel) h *= w("fight.shield_arrow_factor", 0.25); // (a shield up toward it while he closes in takes its arrows; stage 38 ran from one skeleton with a shield on him after 924759d) // (each hits him till it's down: the first for its own time, the next for both; a shooter ~a shot each 6 blocks he closes)
+            if (!ranged && !witch) meleeDeaths.add(t);
             hits += h; hp += h * dmg; most += (int) Math.ceil(t / cool) + (ranged ? 2 : 0);
-            boolean pace = !sprint || m instanceof net.minecraft.world.entity.monster.EnderMan || m instanceof net.minecraft.world.entity.monster.Phantom || (m instanceof net.minecraft.world.entity.monster.Zombie z && z.isBaby());
+            boolean pace = !sprint || m instanceof net.minecraft.world.entity.monster.EnderMan || m instanceof net.minecraft.world.entity.FlyingMob || m.isNoGravity() || (m instanceof net.minecraft.world.entity.monster.Zombie z && z.isBaby()); // (a flier keeps pace with any run: phantoms, ghasts, an evoker's vexes, which hit 9 through iron; bench 1110: 'running west from [Vex 1 east, Vex 1 east ...]', dead)
             anyPace |= pace || ranged && !witch; // (the pile: a shooter gets its shots either way, a run avoids no fight with it; review 1292)
             runHits += (witch && sprint ? w("flee.witch_hits", 1) : pace ? w("flee.chase_hits", 3) : m.distanceTo(g) < 4 ? w("flee.hits_breaking_off", 0.7) : 0) * dmg;
             boolean burning = m.isOnFire() && !m.fireImmune() && g.level().isDay(); allBurn &= burning; burnS = Math.max(burnS, m.getHealth() / w("flee.burn_hp_per_s", 1.0));
@@ -5056,7 +5062,7 @@ public class WorkGoal extends Goal {
     /** What a hit of its does to him through his armor (vanilla armor: up to 80% off). */
     /** Holding a gap (escape.gap_hold): they come through one at a time, so each lands its hits only while it is the one he's killing (its swings, fight.swing_s each, hitsToKill), priced at his health by hpS; against running on: flee.run_s, the hits breaking off from those within 4, then the same mobs met again at full health or kept away from (flee.avoid_s). Null: hold; else why not, with both prices. */
     private String gapHoldNo(java.util.List<? extends net.minecraft.world.entity.Mob> mobs) {
-        double swing = w("fight.swing_s", 0.6), rate = w("fight.mob_hits_per_s", 0.8) * (armed() ? w("fight.knockback_hits_factor", 0.5) : 1), cool = w("fight.mob_cooldown_s", 1.0);
+        double swing = w("fight.swing_s", 0.6), rate = w("fight.mob_hits_per_s", 0.8) * (armed() ? w("fight.knockback_hits_factor", 0.35) : 1), cool = w("fight.mob_cooldown_s", 1.0);
         double t = 0, hits = 0, hp = 0, offHp = 0; int most = 0, n = 0;
         for (var m : mobs) { if (!m.isAlive() || m.getTarget() != g || m.distanceTo(g) > 24 || shoots(m)) continue; n++;
             int k = hitsToKill(m); double tm = k * swing, h = tm * rate, dmg = mobHit(m); t += tm; hits += h; hp += h * dmg; most += (int) Math.ceil(tm / cool);
@@ -5070,9 +5076,18 @@ public class WorkGoal extends Goal {
             com.claudemod.entity.life.Decide.Option.of("hold", hold, "one at a time, ~" + String.format("%.1f", hp) + " HP"), com.claudemod.entity.life.Decide.Option.of("run on", run, "~" + String.format("%.1f", offHp) + " HP breaking off")));
         return "holding ~" + Math.round(hold) + " s against running on ~" + Math.round(run) + " s";
     }
+    /** Cells round him a melee mob can stand in to hit him (floor, two clear): how many can be on him at once. */
+    private int openRound(java.util.List<? extends net.minecraft.world.entity.LivingEntity> them) {
+        ServerLevel lv = (ServerLevel) g.level(); BlockPos f = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); int n = 0;
+        Vec3 to = Vec3.ZERO; for (var m : them) to = to.add(m.position().subtract(g.position()).multiply(1, 0, 1).normalize()); // (the side they come from: a tunnel's far end isn't a cell they reach him by)
+        for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) { if (dx == 0 && dz == 0) continue; BlockPos c = f.offset(dx, 0, dz);
+            if (to.lengthSqr() > 1e-4 && new Vec3(dx, 0, dz).dot(to) <= 0) continue;
+            if (!solidAt(lv, c) && !solidAt(lv, c.above()) && solidAt(lv, c.below())) n++; }
+        return n;
+    }
     private double mobHit(net.minecraft.world.entity.LivingEntity mob) {
         boolean archer = shoots(mob); // (its arrows, not its melee: World 17 05:18, a skeleton priced at 2 a hit, arrows of 5 and 3 in his back; stage 766)
-        double raw = archer ? w("fight.arrow_hit_hp", 4) : mob.getAttributes().hasAttribute(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE)
+        double raw = archer ? (mob instanceof net.minecraft.world.entity.monster.Drowned ? w("fight.trident_hit_hp", 8) : w("fight.arrow_hit_hp", 4)) : mob.getAttributes().hasAttribute(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE)
                 ? mob.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE) : 3.0;
         return Math.max(1.0, raw * (1.0 - Math.min(20, g.getArmorValue()) / 25.0));
     }
@@ -5459,6 +5474,7 @@ public class WorkGoal extends Goal {
             }
             if (g.isUsingItem() && g.getUsedItemHand() == InteractionHand.OFF_HAND && lit == null) { boolean other = false; for (var m : mobs) if (incoming(m)) other = true; if (!other) shieldDown(); } // the bang's over (or it went out): down, to run at full speed
         }
+        if (CombatBrain.dodge(g, g.getItemBySlot(EquipmentSlot.OFFHAND).is(net.minecraft.world.item.Items.SHIELD) && !g.getCooldowns().isOnCooldown(net.minecraft.world.item.Items.SHIELD)) != null) return false; // (a fang line or a shot across his run: the step first)
         // hit and run, like a player: a charged swing at one in reach as he goes (its knockback buys the distance), the run goes on (combat review: 5 s charged and in reach, no swing, 7 hits taken running; bench 1081)
         if (g.getAttackStrengthScale(0.5f) >= w("flee.swing_charge", 0.95)) {
             net.minecraft.world.entity.Mob hitOne = null;
@@ -5978,7 +5994,7 @@ public class WorkGoal extends Goal {
             return true;
         }
         { Integer bw = behindWall.get(mob.getUUID()); if (bw != null && g.tickCount - bw < 20 * 30 && !g.hasLineOfSight(mob)) return true; } // (one he let be behind a wall: whoever queues the fight again, it ends here while he still can't see it)
-        if (ticks % 200 == 100) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] attack tick {}: the {} at {} ({} up, {} off), in sight {}, on him {}, he at {} on ground {} nav {}, can hit {}, walkable {}, refused lately {}, cover {}, footing {}, pitch {}, its way to him {}, it moving {} (WorkGoal.doAttack)", ticks, mob.getType().getDescription().getString(), mob.blockPosition().toShortString(), (int) (mob.getY() - g.getY()), (int) g.distanceTo(mob), g.hasLineOfSight(mob), mob instanceof net.minecraft.world.entity.Mob mm && mm.getTarget() == g, g.blockPosition().toShortString(), g.onGround(), !g.getNavigation().isDone(), canHit(mob), g.getNavigation().createPath(mob, 1) instanceof net.minecraft.world.level.pathfinder.Path lp && lp.canReach(), com.claudemod.entity.body.Controls.refusedLately(g, 10), cfMode, footingSaid, (int) g.getXRot(), mob instanceof net.minecraft.world.entity.Mob m2 && m2.getNavigation().createPath(g, 1) instanceof net.minecraft.world.level.pathfinder.Path ip && ip.canReach(), mob instanceof net.minecraft.world.entity.Mob m3 && !m3.getNavigation().isDone()); // ponytail: a silent Attack stood 30 s at a time under a heard enderman (live 17:09): what it is doing
+        if (ticks % 200 == 100) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] attack tick {}: the {} at {} ({} up, {} off), in sight {}, on him {}, he at {} on ground {} nav {}, can hit {}, walkable {}, refused lately {}, cover {}, footing {}, pitch {}, its way to him {}, it moving {} , charge {} its hurt frames {} reach {} crit wait {} (WorkGoal.doAttack)", ticks, mob.getType().getDescription().getString(), mob.blockPosition().toShortString(), (int) (mob.getY() - g.getY()), (int) g.distanceTo(mob), g.hasLineOfSight(mob), mob instanceof net.minecraft.world.entity.Mob mm && mm.getTarget() == g, g.blockPosition().toShortString(), g.onGround(), !g.getNavigation().isDone(), canHit(mob), g.getNavigation().createPath(mob, 1) instanceof net.minecraft.world.level.pathfinder.Path lp && lp.canReach(), com.claudemod.entity.body.Controls.refusedLately(g, 10), cfMode, footingSaid, (int) g.getXRot(), mob instanceof net.minecraft.world.entity.Mob m2 && m2.getNavigation().createPath(g, 1) instanceof net.minecraft.world.level.pathfinder.Path ip && ip.canReach(), mob instanceof net.minecraft.world.entity.Mob m3 && !m3.getNavigation().isDone(), String.format("%.2f", g.getAttackStrengthScale(0.5f)), mob.invulnerableTime, String.format("%.2f", Math.sqrt(mob.getBoundingBox().distanceToSqr(g.getEyePosition()))), g.tickCount - critJump().getOrDefault(g.getUUID(), -100)); // ponytail: a silent Attack stood 30 s at a time under a heard enderman (live 17:09): what it is doing
         if (g.hasLineOfSight(mob) || Math.abs(mob.getY() - g.getY()) <= 3 || mob instanceof net.minecraft.world.entity.Mob m0 && m0.getTarget() == g) unseenSince = -1; else if (unseenSince <= 0) unseenSince = g.tickCount; // ponytail: the fight skill's own rule (unseen and 3+ up/down: not a fight he can get at) held while it runs; live 17:09 stood 90 s under one 9 below, 30 s a pass
         if (unseenSince > 0 && g.tickCount - unseenSince > 60) { unseenSince = -1; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the {} has been out of sight {} up/down for 3 s and isn't after him: leaving it (WorkGoal.doAttack)", mob.getType().getDescription().getString(), (int) (mob.getY() - g.getY())); return true; }
         if (ticks == 1) dropCloseSteps(); // (a closing-in step cut short by a new fight: stale, it would walk him to where the shooter was)
@@ -6037,6 +6053,8 @@ public class WorkGoal extends Goal {
             if (ticks % 5 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] a lit creeper {} off he can't hit now (swell {}, its feet {} to his {}): backing off toward {} ({}, nav done {}) (WorkGoal.doAttack)", String.format("%.1f", creeper.distanceTo(g)), String.format("%.2f", creeper.getSwelling(1.0F)), String.format("%.1f", creeper.getY()), String.format("%.1f", g.getY()), BlockPos.containing(away).toShortString(), went ? "a path" : "NO PATH", g.getNavigation().isDone()); // (death 7, 04:54 11-08: lit 3.5 off, blew 0.4 s later; nothing logged why he was still there)
             return false;
         }
+        // dodge first: a fang line (no shield takes magic), or a shot his shield can't take (CombatBrain)
+        if (CombatBrain.dodge(g, g.getItemBySlot(EquipmentSlot.OFFHAND).is(net.minecraft.world.item.Items.SHIELD) && !g.getCooldowns().isOnCooldown(net.minecraft.world.item.Items.SHIELD)) != null) return false;
         // Shield work, like a player with one in his off hand: up (facing it) when a shot or a hit is coming, down to swing
         // and to move at full speed. A raised shield walks at a fifth, so it's never just held up through a chase.
         if (incoming(mob)) shieldUp(mob); else shieldDown();
@@ -6050,7 +6068,7 @@ public class WorkGoal extends Goal {
             // Hit and step back, like a player: his reach (3) beats a zombie's (~2), so between swings he backs out of its bite, still facing it, and swings again as it walks back in
             boolean meleeMob = !(mob instanceof net.minecraft.world.entity.monster.Creeper) && !(mob instanceof net.minecraft.world.entity.monster.AbstractSkeleton) && !(mob instanceof net.minecraft.world.entity.monster.Pillager);
             { float ch = g.getAttackStrengthScale(0f); int cj0 = critJump().getOrDefault(g.getUUID(), -100); // the crit jump timed to the charge: up while it fills, falling as it's full (a jump at full charge waited ~7 ticks for its fall)
-              if ((1 - ch) * g.getCurrentItemAttackStrengthDelay() <= w("fight.crit_jump_lead_ticks", 8) && ch < 0.95f && g.onGround() && !g.isInWater() && !g.isPassenger() && !(mob instanceof net.minecraft.world.entity.monster.Creeper) && (mob instanceof net.minecraft.world.entity.monster.Monster || mob instanceof net.minecraft.world.entity.animal.IronGolem || mob instanceof net.minecraft.world.entity.monster.hoglin.Hoglin) && g.getHealth() > 8 && g.getFoodData().getFoodLevel() > 6 && g.tickCount - cj0 > 10) { critJump().put(g.getUUID(), g.tickCount); g.getJumpControl().jump(); } }
+              if ((1 - ch) * g.getCurrentItemAttackStrengthDelay() <= w("fight.crit_jump_lead_ticks", 8) && ch < 0.95f && g.onGround() && !g.isInWater() && !g.isPassenger() && !(mob instanceof net.minecraft.world.entity.monster.Creeper) && !CombatBrain.sweepBeatsCrit(g, mob) && (mob instanceof net.minecraft.world.entity.monster.Monster || mob instanceof net.minecraft.world.entity.animal.IronGolem || mob instanceof net.minecraft.world.entity.monster.hoglin.Hoglin) && g.getHealth() > 8 && g.getFoodData().getFoodLevel() > 6 && g.tickCount - cj0 > 10) { critJump().put(g.getUUID(), g.tickCount); g.getJumpControl().jump(); } }
             if (meleeMob && g.getAttackStrengthScale(0.5f) < 0.95f && mob.distanceTo(g) < 2.6 && g.onGround()) {
                 Vec3 back = g.position().subtract(mob.position()).multiply(1, 0, 1);
                 if (back.length() > 0.01) {
@@ -6065,10 +6083,10 @@ public class WorkGoal extends Goal {
                 }
             }
             // Swing once the attack is charged, like a player who doesn't spam-click (the game's own cooldown: ~0.6s sword, ~1s axe).
-            if (g.getAttackStrengthScale(0.5f) >= 0.95f && mob.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0) { // (3 to the nearest point of it, like a player's reach: to its middle, a golem from his tower top read as out of reach)
+            if (g.getAttackStrengthScale(0.5f) >= 0.95f && (mob.invulnerableTime <= w("combat.move.strike.iframes_max", 10) || !com.claudemod.entity.life.CombatLog.hitWithin(mob, 10)) && mob.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0) { // (3 to the nearest point of it, like a player's reach: to its middle, a golem from his tower top read as out of reach)
                 reachWaitStart = -1;
                 int cj = critJump().getOrDefault(g.getUUID(), -100);
-                if (g.onGround() && !g.isInWater() && !g.isPassenger() && !(mob instanceof net.minecraft.world.entity.monster.Creeper) && (mob instanceof net.minecraft.world.entity.monster.Monster || mob instanceof net.minecraft.world.entity.animal.IronGolem || mob instanceof net.minecraft.world.entity.monster.hoglin.Hoglin) && g.getHealth() > 8 && g.getFoodData().getFoodLevel() > 6 && g.tickCount - cj > 20) { critJump().put(g.getUUID(), g.tickCount); g.getJumpControl().jump(); return false; } // the jump first: the swing on the way down is a critical hit (x1.5), the way a player fights
+                if (g.onGround() && !g.isInWater() && !g.isPassenger() && !(mob instanceof net.minecraft.world.entity.monster.Creeper) && !CombatBrain.sweepBeatsCrit(g, mob) && (mob instanceof net.minecraft.world.entity.monster.Monster || mob instanceof net.minecraft.world.entity.animal.IronGolem || mob instanceof net.minecraft.world.entity.monster.hoglin.Hoglin) && g.getHealth() > 8 && g.getFoodData().getFoodLevel() > 6 && g.tickCount - cj > 20) { critJump().put(g.getUUID(), g.tickCount); g.getJumpControl().jump(); return false; } // the jump first: the swing on the way down is a critical hit (x1.5), the way a player fights
                 if (!g.onGround() && (g.getDeltaMovement().y > 0.0 || g.fallDistance <= 0) && g.tickCount - cj <= 12) return false; // still going up, or at the top: vanilla crits only with a fall under him (fallDistance > 0)
                 g.getLookControl().faceNow(mob.getBoundingBox().getCenter());
                 shieldDown(); // a swing lowers the shield (it goes back up next tick if it's still needed)

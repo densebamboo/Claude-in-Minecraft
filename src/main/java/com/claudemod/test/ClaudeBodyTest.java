@@ -10709,6 +10709,7 @@ public final class ClaudeBodyTest {
             case 1030: return st1030(stage, t, c, h, level, mock);
             case 1031: return st1031(stage, t, c, h, level, mock);
             case 1032: return st1032(stage, t, c, h, level, mock);
+            case 1033: return st1033(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -19055,6 +19056,40 @@ public final class ClaudeBodyTest {
             check(miss.containsKey(Items.COOKED_COD), "the kit didn't ask for cooked cod (missing " + miss + "): the scene isn't live's");
             check(r != null && q.stream().anyMatch(x -> x.target().contains("cod")), "kit first with no cod in it: " + r + " (queue " + q + ", kit missing " + miss + ")");
             nsHome(c, h, level); pass(stage, t, "4 raw cod to cook for the kit: " + r + " (queue " + q + ")");
+        }
+        return true;
+    }
+    private static boolean st1033(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // 6 into one branch, the next branch 4 over behind solid rock: its dark slots are 4-14 off in a straight line, 40+ on foot; queued all the same, the walk ran out its 10 s and "out of reach from the floor under it, skipped", again and again (live 06:38-07:25 11-08, -131,17,-157 from the -153 row; reviews 356/382/381)
+        BlockPos o = new BlockPos(19800, 80, 18800);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -16; k <= 32; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 28; x++) for (int z = -16; z <= 16; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.DEEPSLATE.defaultBlockState(), 2);
+            var E = net.minecraft.core.Direction.EAST; var S = net.minecraft.core.Direction.SOUTH;
+            var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 20, null)); b.invalidate();
+            for (int k : new int[]{4, 8}) { var row = b.rows().get(k); BlockPos rf = row.feet()[row.feet().length - 1];
+                b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.BRANCH, rf.relative(S), S, 12, null)); b.invalidate(); }
+            b.branchLength = 12; b.branchEvery = 4;
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            BlockPos me = null; for (var s : b.segments) if (s.kind == com.claudemod.entity.life.MineBlueprint.Kind.BRANCH && me == null) me = s.start.relative(S, 6);
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = b.rows().get(19).first(); c.mineIsTunnel = true; level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.TORCH, 64)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 32));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no"); mock[0].teleportTo(level, me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 20) {
+            var b = c.blueprint; c.tasks.clear();
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("bpIntegrity", ClaudeEntity.class, ServerLevel.class); m.setAccessible(true); m.invoke(null, c, level); } catch (ReflectiveOperationException ex) { throw new RuntimeException(ex); } // (his sweep as he walks his mine, every 3 s live)
+            BlockPos mine0 = c.blockPosition(); int ownX = mine0.getX(), otherX = Integer.MIN_VALUE;
+            for (var s : b.segments) if (s.kind == com.claudemod.entity.life.MineBlueprint.Kind.BRANCH && Math.abs(s.start.getX() - ownX) > 2) otherX = s.start.getX();
+            java.util.List<String> through = new java.util.ArrayList<>(), own = new java.util.ArrayList<>();
+            for (Task q : c.tasks) if (q instanceof Task.WallTorch w) { if (Math.abs(w.pos().getX() - otherX) <= 1 && w.pos().getZ() > mine0.getZ() - 8) through.add(w.pos().toShortString()); else own.add(w.pos().toShortString()); }
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; c.prefs.remove("stay_close");
+            for (int x = -4; x <= 28; x++) for (int z = -16; z <= 16; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(!own.isEmpty(), "no torch queued in his own dark branch at all (other branch: " + through + ")");
+            check(through.isEmpty(), "torches queued in the next branch over, behind rock: " + through + " (his own: " + own + ")");
+            pass(stage, t, "his own branch's torches " + own + ", none through the rock");
         }
         return true;
     }

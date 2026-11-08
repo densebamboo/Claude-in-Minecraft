@@ -2893,6 +2893,7 @@ public class WorkGoal extends Goal {
         if (g.isGift(i)) return "given up on (no way to it), or theirs";
         if (com.claudemod.entity.life.OwnEvents.waiting(g, i)) return "his own, behind his wall: recover_left goes back for it";
         if (!g.inventory.hasRoomFor(i.getItem()) && (isOreDrop(i.getItem()) || i.getItem().is(net.minecraft.world.item.Items.ENDER_PEARL) || i.getItem().is(net.minecraft.world.item.Items.BLAZE_ROD) || i.getItem().is(net.minecraft.world.item.Items.ENDER_EYE) || i.getItem().is(net.minecraft.world.item.Items.OBSIDIAN)
+                || com.claudemod.director.ClaudeLife.lootValue(i.getItem()) >= 12 && !(i.getItem().getItem() instanceof net.minecraft.world.item.TieredItem ti && (ti.getTier() == net.minecraft.world.item.Tiers.WOOD || ti.getTier() == net.minecraft.world.item.Tiers.STONE)) // gear worth more than a stack of stone (live 17:16 11-07: a diamond helmet left on his death pile for a pack of cobbled deepslate, despawned)
                 || i.getItem().has(net.minecraft.core.component.DataComponents.FOOD) && !i.getItem().is(net.minecraft.world.item.Items.ROTTEN_FLESH) && !i.getItem().is(net.minecraft.world.item.Items.SPIDER_EYE) && com.claudemod.director.Kit.foodAsk(g) != null)) // (food while the kit's short: live 14:29 11-07 "not going for 3 Raw Porkchop: no room" on the hunt for it)
             com.claudemod.director.ClaudeLife.makeRoom(g, i.position()); // ponytail: live 14:07, 3 pearls on his death pile skipped for a pack full of netherrack and spare kit; a player tosses junk for what he came for
         if (!g.inventory.hasRoomFor(i.getItem())) return "no room for it in his pack";
@@ -4789,7 +4790,8 @@ public class WorkGoal extends Goal {
 
     private java.util.List<net.minecraft.world.entity.Mob> hostilesNear(double r) {
         return com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(r),
-                m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy && (m.getTarget() == g || m.distanceTo(g) < 6)); // (what he sees, hears or feels)
+                m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy && (m.getTarget() == g || m.distanceTo(g) < 6)
+                        && !(m instanceof net.minecraft.world.entity.NeutralMob nm && !nm.isAngryAt(g))); // (what he sees, hears or feels; a calm zombified piglin or enderman is no one on him: live 17:46 11-07 three made one wither skeleton "4 on him", he ran and died, stage 1057)
     }
 
     /** Hostile mobs about (any kind, after him or not). */

@@ -10792,6 +10792,8 @@ public final class ClaudeBodyTest {
             case 1053: return st1053(stage, t, c, h, level, mock);
             case 1054: return st1054(stage, t, c, h, level, mock);
             case 1055: return st1055(stage, t, c, h, level, mock);
+            case 1056: return st1056(stage, t, c, h, level, mock);
+            case 1057: return st1057(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -21288,6 +21290,50 @@ public final class ClaudeBodyTest {
             h.setBlock(new BlockPos(6, 4, 12), Blocks.DEEPSLATE); c.blueprint = null;
             check(!cut, "his route past his wall digs his own water plug at (6,3,12): " + (plan == null ? "-" : plan.acts()));
             pass(stage, t, "his water plug kept: the route " + (plan == null ? "found no way" : "goes " + plan.acts().size() + " acts round it"));
+        }
+        return true;
+    }
+    private static int st1056Start;
+    private static boolean st1056(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 17:16:41 11-07 (the_nether -5,54,128): "not going for 1 Diamond Helmet: no room for it in his pack" (187 cobbled deepslate in it), his death pile despawned 17:20:56
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); st1056Start = 0; }
+        if (t[0] == 10) {
+            for (int x = -1; x <= 14; x++) for (int z = -1; z <= 14; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 1; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 16));
+            while (c.getInventory().getFreeSlot() >= 0) c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); // a full pack: stone and his kit
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.attempts.clear();
+            BlockPos me = h.absolutePos(new BlockPos(5, 1, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            BlockPos at = h.absolutePos(new BlockPos(8, 1, 5)); var helm = new net.minecraft.world.entity.item.ItemEntity(level, at.getX() + 0.5, at.getY(), at.getZ() + 0.5, new ItemStack(Items.DIAMOND_HELMET)); helm.setDeltaMovement(0, 0, 0); level.addFreshEntity(helm);
+            c.tasks.add(new Task.Pickup(16)); st1056Start = t[0];
+        }
+        if (st1056Start > 0) {
+            if (c.inventory.count(s -> s.is(Items.DIAMOND_HELMET)) > 0 || c.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).is(Items.DIAMOND_HELMET)) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "the diamond helmet taken into a full pack (stone thrown for it) in " + (t[0] - st1056Start) / 20 + " s"); return true; }
+            check(t[0] - st1056Start < 20 * 10, "10 s and the diamond helmet still on the floor beside his full pack (doing " + c.currentTask + ")");
+        }
+        return true;
+    }
+    private static int st1057Start; private static boolean st1057Fled; private static java.util.List<net.minecraft.world.entity.Mob> st1057M = new java.util.ArrayList<>();
+    private static boolean st1057(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 17:46:51 11-07 death (the_nether 282,60,505): one wither skeleton on him and 3 calm zombified piglins by him, "fight.flee (4 on him, health 11): fight ~3362 s (12 swings); run ~659 s": he ran, it kept hitting, the Wither on him, dead 17:47:04
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1057Start = 0; st1057Fled = false; st1057M.clear(); }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(60))) if (!st1057M.contains(e)) e.discard();
+        if (t[0] == 10) {
+            for (int x = -8; x <= 20; x++) for (int z = -8; z <= 20; z++) { for (int yy = -2; yy <= 1; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2); for (int yy = 2; yy <= 8; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 4));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.DIAMOND_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.DIAMOND_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            BlockPos me = h.absolutePos(new BlockPos(6, 2, 6));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(11); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            level.setDayTime(6000);
+            int[][] calm = {{4, 9}, {9, 8}, {3, 4}};
+            for (int[] p : calm) { var zp = net.minecraft.world.entity.EntityType.ZOMBIFIED_PIGLIN.create(level); BlockPos a = h.absolutePos(new BlockPos(p[0], 2, p[1])); zp.moveTo(a.getX() + 0.5, a.getY(), a.getZ() + 0.5, 0, 0); zp.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.GOLDEN_SWORD)); zp.setNoAi(true); zp.setPersistenceRequired(); level.addFreshEntity(zp); st1057M.add(zp); }
+            var ws = net.minecraft.world.entity.EntityType.WITHER_SKELETON.create(level); BlockPos a = h.absolutePos(new BlockPos(9, 2, 6)); ws.moveTo(a.getX() + 0.5, a.getY(), a.getZ() + 0.5, 90, 0); ws.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); ws.setPersistenceRequired(); level.addFreshEntity(ws); ws.setTarget(c); st1057M.add(ws);
+            c.tasks.add(new Task.Wait(20 * 60, false)); st1057Start = t[0];
+        }
+        if (st1057Start > 0) {
+            if (c.currentTask instanceof Task.Flee) st1057Fled = true;
+            check(!st1057Fled, "ran from one wither skeleton at " + (int) c.getHealth() + " HP (3 calm zombified piglins by him)");
+            var ws = st1057M.get(3);
+            if (!ws.isAlive()) { c.tasks.clear(); c.dropCurrent = true; for (var m : st1057M) m.discard(); pass(stage, t, "fought the one wither skeleton, the calm piglins left out, " + (t[0] - st1057Start) / 20 + " s, health " + (int) c.getHealth()); return true; }
+            check(c.isAlive() && t[0] - st1057Start < 20 * 20, "20 s and the wither skeleton still up (health " + (int) c.getHealth() + ", doing " + c.currentTask + ")");
         }
         return true;
     }

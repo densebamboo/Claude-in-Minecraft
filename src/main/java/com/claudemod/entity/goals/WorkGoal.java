@@ -5988,6 +5988,7 @@ public class WorkGoal extends Goal {
         // A hissing creeper: back off until it calms down, then go back in.
         if (mob instanceof net.minecraft.world.entity.monster.Creeper creeper && creeper.getSwellDir() > 0 && canHitNow(creeper)) {
             g.getLookControl().faceNow(creeper.getBoundingBox().getCenter()); // hissing but in reach, swing ready: hit it (the knockback stops it), then back off
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] a lit creeper {} off in reach: a hit then back off (swell {}, sprinting {}) (WorkGoal.doAttack)", String.format("%.1f", creeper.distanceTo(g)), String.format("%.2f", creeper.getSwelling(1.0F)), g.isSprinting());
             g.attack(creeper);
             g.swing(InteractionHand.MAIN_HAND);
             Vec3 back = g.position().subtract(creeper.position()).normalize().scale(4).add(g.position());
@@ -5996,7 +5997,8 @@ public class WorkGoal extends Goal {
         }
         if (mob instanceof net.minecraft.world.entity.monster.Creeper creeper && creeper.getSwellDir() > 0) {
             Vec3 away = g.position().subtract(creeper.position()).normalize().scale(6).add(g.position());
-            if (ticks % 5 == 0) g.getNavigation().moveTo(away.x, away.y, away.z, 1.3);
+            boolean went = ticks % 5 != 0 || g.getNavigation().moveTo(away.x, away.y, away.z, 1.3);
+            if (ticks % 5 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] a lit creeper {} off he can't hit now (swell {}, its feet {} to his {}): backing off toward {} ({}, nav done {}) (WorkGoal.doAttack)", String.format("%.1f", creeper.distanceTo(g)), String.format("%.2f", creeper.getSwelling(1.0F)), String.format("%.1f", creeper.getY()), String.format("%.1f", g.getY()), BlockPos.containing(away).toShortString(), went ? "a path" : "NO PATH", g.getNavigation().isDone()); // (death 7, 04:54 11-08: lit 3.5 off, blew 0.4 s later; nothing logged why he was still there)
             return false;
         }
         // Shield work, like a player with one in his off hand: up (facing it) when a shot or a hit is coming, down to swing

@@ -200,17 +200,18 @@ public final class ChestLedger {
         Map<BlockPos, Entry> b = book(g); BlockPos me = g.blockPosition(); String d = dim(level);
         Set<BlockPos> cand = new HashSet<>();
         for (var e : b.entrySet()) if (e.getValue().dim().equals(d) && e.getKey().distSqr(me) <= 24 * 24) cand.add(e.getKey());
+        for (var e : furnaceBook(g).entrySet()) if (e.getValue().dim().equals(d) && e.getKey().distSqr(me) <= 24 * 24) cand.add(e.getKey()); // (a furnace on his book: gone from its spot is seen like a chest's)
         for (BlockPos p : g.myStations) if (p.distSqr(me) <= 24 * 24) cand.add(p);
         for (BlockPos p : g.storageChests) if (p.distSqr(me) <= 24 * 24) cand.add(p);
         Set<BlockPos> open = openNow.computeIfAbsent(g.getUUID(), k -> new HashSet<>());
         for (BlockPos p : cand) {
             if (!level.isLoaded(p)) continue;
             boolean chest = level.getBlockEntity(p) instanceof Container c0 && !(c0 instanceof AbstractFurnaceBlockEntity);
-            boolean known = b.containsKey(p);
+            boolean known = b.containsKey(p) || furnaceBook(g).containsKey(p);
             if (!chest && level.getBlockEntity(p) instanceof AbstractFurnaceBlockEntity && g.myStations.contains(p)) { furnaceSaw(g, level, p); continue; } // a furnace of his: what's done in it, on his furnace book
             if (!chest && !known) continue; // a table of his
             if (!Perception.seesBlock(g, level, p)) continue; // out of sight: as he last saw it
-            if (!chest) { forget(g, p, "is gone (he sees the spot)"); open.remove(p); continue; }
+            if (!chest) { forget(g, p, "is gone (he sees the spot)"); Entry fe = furnaceBook(g).remove(p); if (fe != null) ClaudeMod.LOGGER.info("[Claude ledger] his furnace at {} is gone (he sees the spot): {} off his furnace book", p.toShortString(), names(fe.items(), 99)); open.remove(p); continue; } // (live 12:36 11-08: 5 cooked salmon read off a furnace gone from its spot, a 194-block trip each time, round in circles at it)
             boolean openHere = level.getBlockEntity(p) instanceof ChestBlockEntity && ChestBlockEntity.getOpenCount(level, p) > 0 && Vec3.atCenterOf(p).distanceTo(g.getEyePosition()) <= 8;
             if (openHere) { look(g, level, p); open.add(p.immutable()); }
             else if (open.remove(p)) look(g, level, p);

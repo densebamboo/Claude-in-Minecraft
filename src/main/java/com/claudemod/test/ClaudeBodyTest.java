@@ -10543,6 +10543,7 @@ public final class ClaudeBodyTest {
             case 1154: return st1154(stage, t, c, h, level, mock);
             case 1150: return st1150(stage, t, c, h, level, mock);
             case 1130: return st1130(stage, t, c, h, level, mock);
+            case 1132: return st1132(stage, t, c, h, level, mock);
             case 999: return st999(stage, t, c, h, level, mock);
             case 997: return st997(stage, t, c, h, level, mock);
             case 996: return st996(stage, t, c, h, level, mock);
@@ -15482,6 +15483,33 @@ public final class ClaudeBodyTest {
             for (double[] s : straight) check(!ClaudeEntity.spinLoop(s[0], s[1], s[2]), "a spin filed for " + (int) s[0] + " deg over " + s[1] + " blocks walked, " + s[2] + " net: he got somewhere");
             for (double[] s : nowhere) check(ClaudeEntity.spinLoop(s[0], s[1], s[2]), "no spin for " + (int) s[0] + " deg with only " + s[2] + " blocks net: that one went nowhere");
             pass(stage, t, "5 live turns on the way: no spin; 3 live turns going nowhere: spins");
+        }
+        return true;
+    }
+    /** Stage 1132 (live 11:42 and 12:36 11-08, World 17, reviews 33/34/46/83 and four passes before: "5 cooked_salmon done in his furnace at -36,58,-205 (1 off): getting it", round in circles, a 194-block trip each time; the furnace was gone, the cell water, his furnace book still read 5 salmon): his furnace with 5 cooked salmon on his book, then the furnace gone (water there), him 2 off with it in plain sight. Off his book within 3 s. */
+    private static int st1132T;
+    private static boolean st1132(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos fp = h.absolutePos(new BlockPos(6, 2, 4));
+        java.util.function.Predicate<ItemStack> salmon = st -> st.is(Items.COOKED_SALMON);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1132T = -1; level.setDayTime(3000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            level.setBlock(fp, Blocks.FURNACE.defaultBlockState(), 2);
+            if (level.getBlockEntity(fp) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f) f.setItem(2, new ItemStack(Items.COOKED_SALMON, 5));
+            c.myStations.add(fp.immutable());
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) com.claudemod.entity.life.ChestLedger.furnaceSaw(c, level, fp);
+        if (t[0] == 16) { check(!com.claudemod.entity.life.ChestLedger.furnacesWith(c, level, salmon).isEmpty(), "the stage's furnace never got on his book"); level.setBlock(fp, Blocks.WATER.defaultBlockState(), 2); st1132T = t[0]; }
+        if (st1132T > 0 && t[0] > st1132T) {
+            c.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, net.minecraft.world.phys.Vec3.atCenterOf(fp)); // (live he faced it: on his take from it)
+            boolean gone = com.claudemod.entity.life.ChestLedger.furnaceBook(c).get(fp) == null;
+            if (gone || t[0] - st1132T > 60) {
+                var left = com.claudemod.entity.life.ChestLedger.furnacesWith(c, level, salmon);
+                c.myStations.remove(fp); com.claudemod.entity.life.ChestLedger.furnaceBook(c).remove(fp); level.setBlock(fp, Blocks.AIR.defaultBlockState(), 2);
+                check(gone, "3 s 2 off his furnace's spot, water there, in sight: his book still reads " + left + " in it (sees the spot " + com.claudemod.entity.life.Perception.seesBlock(c, level, fp) + ", he at " + c.blockPosition().toShortString() + ", spot " + fp.toShortString() + ")");
+                pass(stage, t, "the furnace gone in plain sight: off his book " + (t[0] - st1132T) / 20.0 + " s after");
+            }
         }
         return true;
     }

@@ -1746,6 +1746,8 @@ public class WorkGoal extends Goal {
     private int approachTries;
     private BlockPos lastPillarFor;
     private static int pillarMissLog = -100; // (static: fields added live start null)
+    private static java.util.Set<BlockPos> liftFor; // his own table reachFor sent a Break for: doBreak takes it up (static: fields added live start null)
+    private static java.util.Set<BlockPos> liftFor() { if (liftFor == null) liftFor = new java.util.HashSet<>(); return liftFor; }
 
     /**
      * Out of reach, the way a player handles it: walk to a spot that can reach it; if walking can't get
@@ -2103,6 +2105,10 @@ public class WorkGoal extends Goal {
             if (his0 && ((bpS != null && (bpS.isWalk(pos) || bpS.isWayIn(pos)) && !com.claudemod.director.ClaudeLife.inHisNook(g, pos)) || inPocket) && (state.is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE) || state.is(net.minecraft.world.level.block.Blocks.FURNACE))) { // his own station in his mine's walkway (outside his base): his to take up, the walkway dug (refused, the fix came back every pass)
                 com.claudemod.director.ClaudeLife.takeUpStation(pos); g.myStations.remove(pos); g.notches.remove(pos); g.tempStations.remove(pos);
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] his own {} at {} stands in his {} (WorkGoal.doBreak): taking it up, back in his pack", name(state), pos.toShortString(), inPocket ? "base nook's pocket (its walkway)" : "mine's walkway");
+                g.tasks.addFirst(new Task.Pickup(40));
+            } else if (his0 && state.is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE) && liftFor().contains(pos.immutable())) { // his own table over a station he's reaching (reachFor): taken up, back in his pack (live 00:00 11-08, stage 1023)
+                liftFor().remove(pos.immutable()); com.claudemod.director.ClaudeLife.takeUpStation(pos); g.myStations.remove(pos); g.notches.remove(pos); g.tempStations.remove(pos);
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] his own {} at {} over the station he's reaching (WorkGoal.doBreak): taking it up, back in his pack", name(state), pos.toShortString());
                 g.tasks.addFirst(new Task.Pickup(40));
             } else { if (ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not breaking the {} at {} (WorkGoal.doBreak): stations and storage stay put (his own: {}, in his walkway: {}, in his nook: {})", name(state), pos.toShortString(), his0, bpS != null && bpS.isWalk(pos), com.claudemod.director.ClaudeLife.inHisNook(g, pos)); keptAsBuild(pos); return true; }
         } // stations and storage stay put (except his own temporary ones, and his own taken up on purpose)
@@ -4744,8 +4750,8 @@ public class WorkGoal extends Goal {
                 g.getLookControl().setLookAt(soft.getX() + 0.5, soft.getY() + 0.5, soft.getZ() + 0.5); g.swing(InteractionHand.MAIN_HAND); g.gameMode.destroyBlock(soft);
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} at {} between him and the {} at {}: punched it out (WorkGoal.reachFor)", name(ss), soft.toShortString(), name(level.getBlockState(target)), target.toShortString());
                 return false; }
-            if (ss != null && g.currentTask != null && ss.getDestroySpeed(level, soft) >= 0 && ss.getDestroySpeed(level, soft) <= com.claudemod.entity.life.Weights.w("reach.dig_in_way_hardness", 0.6) && ss.getFluidState().isEmpty() && !ss.hasBlockEntity() && clearViewSpot(level, target) == null && !com.claudemod.entity.life.PortalMap.frameBlock(g, soft)) { // dirt or gravel over it and no spot that sees it: dug off, like a player (live 23:24 and 23:32 11-07: "in reach: true, in the way: dirt", nudged 10 s into his own cell twice, the charcoal left, the logs burnt out; D2D review 298/368, stage 1021)
-                g.tasks.addFirst(g.currentTask); g.tasks.addFirst(new Task.Break(soft.immutable())); g.getNavigation().stop();
+            if (ss != null && g.currentTask != null && ss.getDestroySpeed(level, soft) >= 0 && (ss.getDestroySpeed(level, soft) <= com.claudemod.entity.life.Weights.w("reach.dig_in_way_hardness", 0.6) || ss.is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE) && g.myStations.contains(soft)) /* (his own table by it: broken and picked up, live 00:00 11-08) */ && ss.getFluidState().isEmpty() && !ss.hasBlockEntity() && clearViewSpot(level, target) == null && !com.claudemod.entity.life.PortalMap.frameBlock(g, soft)) { // dirt or gravel over it and no spot that sees it: dug off, like a player (live 23:24 and 23:32 11-07: "in reach: true, in the way: dirt", nudged 10 s into his own cell twice, the charcoal left, the logs burnt out; D2D review 298/368, stage 1021)
+                g.tasks.addFirst(g.currentTask); g.tasks.addFirst(new Task.Break(soft.immutable())); g.getNavigation().stop(); if (ss.is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE)) liftFor().add(soft.immutable());
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} at {} between him and the {} at {}, no spot that sees it: digging it off, then the job (WorkGoal.reachFor)", name(ss), soft.toShortString(), name(level.getBlockState(target)), target.toShortString());
                 exitWhy = "the " + name(ss) + " over the " + name(level.getBlockState(target)) + " dug off first"; return true; } }
         BlockPos side = clearViewSpot(level, target); if (side == null) side = standSpotBeside(target);
@@ -4764,6 +4770,7 @@ public class WorkGoal extends Goal {
             }
         }
         boolean ended = walkTo(side, side.equals(target) ? 2 : 0.6);
+        if (ended && g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.WALK, side, g.tickCount, 0)) { var why0 = g.attempts.why(com.claudemod.entity.life.Attempts.Kind.WALK, side); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't get in reach of {} at {}: the walk to {} beside it is written off ({}), nothing changed since (WorkGoal.reachFor)", name(level.getBlockState(target)), target.toShortString(), side.toShortString(), why0 == null ? "-" : why0.reason() + (why0.detail().isEmpty() ? "" : ": " + why0.detail())); failed(com.claudemod.entity.life.Attempts.Kind.REACH, target, com.claudemod.entity.life.Attempts.Reason.NO_PATH, "the walk to the spot beside the " + name(level.getBlockState(target)) + " at " + side.toShortString() + " written off"); return true; } // (a skipped walk 1 off counted as there: he waited on it for good, 180 s and again after a restart, live 23:49-23:56 11-07, D2D review 368; stage 1022)
         if (ended && BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()).distSqr(side) > 4) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't get in reach of {} at {} (he's at {})", name(level.getBlockState(target)), target.toShortString(), feet.toShortString()); failed(com.claudemod.entity.life.Attempts.Kind.REACH, target, com.claudemod.entity.life.Attempts.Reason.NO_PATH, "no way to a spot beside the " + name(level.getBlockState(target)) + " at " + side.toShortString()); return true; } // (on record: the furnace rule queued it again every 5 s, live 13:52)
         return false;
     }

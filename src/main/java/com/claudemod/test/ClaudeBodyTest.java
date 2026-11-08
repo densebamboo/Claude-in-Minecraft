@@ -10691,6 +10691,8 @@ public final class ClaudeBodyTest {
             case 1017: return st1017(stage, t, c, h, level, mock);
             case 1020: return st1020(stage, t, c, h, level, mock);
             case 1021: return st1021(stage, t, c, h, level, mock);
+            case 1022: return st1022(stage, t, c, h, level, mock);
+            case 1023: return st1023(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -18486,6 +18488,48 @@ public final class ClaudeBodyTest {
         if (st1021T > 0 && t[0] > st1021T) {
             if (c.getInventory().countItem(Items.CHARCOAL) >= 5) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.myStations.remove(fp); pass(stage, t, "dug the dirt off his furnace and took the charcoal in " + (t[0] - st1021T) / 20 + " s"); return true; }
             check(t[0] - st1021T < 20 * 15, "15 s by his furnace with dirt on it: " + c.getInventory().countItem(Items.CHARCOAL) + " charcoal taken, the dirt " + (level.getBlockState(fp.above()).is(Blocks.DIRT) ? "still there" : "gone") + ", doing " + c.currentTask);
+        }
+        return true;
+    }
+    private static int st1022T;
+    /** D2D review 368, live 23:49-23:56 11-07 World 17 (-192,70,95, stuck 180 s, again after a restart): on a block's edge over a 1-wide hole, his furnace 3 down beside it under rock and dirt; reachFor's stand spot the hole cell under his feet, "WALK at -192,69,95 failed: NO_PATH", then "the walk ... skipped" every second and reachFor waited on it for good. A written-off walk ends the reach; he never stands there for minutes. */
+    private static boolean st1022(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1022T = -1; level.setDayTime(6000); flatBox(h); }
+        BlockPos fp = h.absolutePos(new BlockPos(6, 1, 4));
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            for (int x = 2; x <= 10; x++) for (int z = 1; z <= 7; z++) for (int y = 1; y <= 3; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.STONE.defaultBlockState(), 2);
+            level.setBlock(h.absolutePos(new BlockPos(5, 3, 4)), Blocks.AIR.defaultBlockState(), 2); // the hole under him
+            level.setBlock(fp, Blocks.FURNACE.defaultBlockState(), 2); level.setBlock(fp.above(), Blocks.DIRT.defaultBlockState(), 2);
+            if (level.getBlockEntity(fp) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f) f.setItem(2, new ItemStack(Items.CHARCOAL, 5));
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.myStations.add(fp.immutable());
+            BlockPos me = h.absolutePos(new BlockPos(5, 4, 4)); c.teleportTo(me.getX() + 0.95, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) { c.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, h.absolutePos(new BlockPos(5, 3, 4)), c.tickCount, c.blockPosition(), com.claudemod.entity.life.Attempts.Reason.NO_PATH, "no path from " + c.blockPosition().toShortString()); // (the live record: "WALK at -192,69,95 failed: NO_PATH no path from -192,70,95", the cell under his feet)
+            c.tasks.clear(); c.tasks.add(new Task.FurnaceTake(fp.immutable())); st1022T = t[0]; }
+        if (st1022T > 0 && t[0] > st1022T) {
+            boolean done = c.getInventory().countItem(Items.CHARCOAL) >= 5, off = !(c.currentTask instanceof Task.FurnaceTake) && c.tasks.stream().noneMatch(q -> q instanceof Task.FurnaceTake);
+            if (done || off) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.myStations.remove(fp); pass(stage, t, (done ? "took the charcoal" : "let the furnace job go") + " in " + (t[0] - st1022T) / 20 + " s, at rel " + c.blockPosition().subtract(h.absolutePos(BlockPos.ZERO)).toShortString()); return true; }
+            check(t[0] - st1022T < 20 * 40, "40 s on his furnace job over the hole: " + c.getInventory().countItem(Items.CHARCOAL) + " charcoal, at rel " + c.blockPosition().subtract(h.absolutePos(BlockPos.ZERO)).toShortString() + ", doing " + c.currentTask);
+        }
+        return true;
+    }
+    private static int st1023T;
+    /** Live 00:00:01-00:00:58 11-08 World 17 (-191,67,95, after 1021's fix): his own crafting table on top of his furnace, "in reach: true, in the way: crafting table", nudged into his own cell, given up, back to it: a player breaks his table off and pockets it. */
+    private static boolean st1023(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1023T = -1; level.setDayTime(6000); flatBox(h); }
+        BlockPos fp = h.absolutePos(new BlockPos(6, 1, 4));
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            level.setBlock(fp, Blocks.FURNACE.defaultBlockState(), 2); level.setBlock(fp.above(), Blocks.CRAFTING_TABLE.defaultBlockState(), 2); c.myStations.add(fp.above().immutable());
+            if (level.getBlockEntity(fp) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f) f.setItem(2, new ItemStack(Items.CHARCOAL, 5));
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.STONE_SHOVEL)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.myStations.add(fp.immutable());
+            BlockPos me = h.absolutePos(new BlockPos(5, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.tasks.add(new Task.FurnaceTake(fp.immutable())); st1023T = t[0]; }
+        if (st1023T > 0 && t[0] > st1023T) {
+            if (c.getInventory().countItem(Items.CHARCOAL) >= 5) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.myStations.remove(fp); c.myStations.remove(fp.above()); pass(stage, t, "took his table off his furnace and took the charcoal in " + (t[0] - st1023T) / 20 + " s"); return true; }
+            check(t[0] - st1023T < 20 * 15, "15 s by his furnace with his table on it: " + c.getInventory().countItem(Items.CHARCOAL) + " charcoal taken, the table " + (level.getBlockState(fp.above()).is(Blocks.CRAFTING_TABLE) ? "still there" : "gone") + ", doing " + c.currentTask);
         }
         return true;
     }

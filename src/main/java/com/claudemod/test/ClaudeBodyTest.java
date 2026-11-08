@@ -10537,6 +10537,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1159: return st1159(stage, t, c, h, level, mock);
             case 1158: return st1158(stage, t, c, h, level, mock);
             case 1156: return st1156(stage, t, c, h, level, mock);
             case 1157: return st1157(stage, t, c, h, level, mock);
@@ -15751,6 +15752,32 @@ public final class ClaudeBodyTest {
             check(c.isAlive() && c.getHealth() > 0, "a wither skeleton 1 off, the gap 9 off: he died (low " + st1158Low + ", at " + c.blockPosition().subtract(h.absolutePos(BlockPos.ZERO)).toShortString() + ")");
             if (left.isEmpty()) { c.removeAllEffects(); pass(stage, t, "the wither skeleton killed where it met him, low " + st1158Low + " HP, " + (t[0] - 10) / 20.0 + " s"); }
             else check(t[0] < 10 + 20 * 30, "the wither skeleton still up after 30 s, low " + st1158Low + ", at " + c.blockPosition().subtract(h.absolutePos(BlockPos.ZERO)).toShortString());
+        }
+        return true;
+    }
+    /** Stage 1159 (D2D review 116, live 14:01 11-08 at 288,72,416 in the Nether: a 1-wide netherrack bridge in the air turned round the corner of a lava fall (287,71..73,417, flow 8); "walks beside lava, as planned", then at 288.26,416.79 his box clipped the fall's cell: on fire, 20 -> 14): a bridge over the void turning round a lava fall's corner, a walk to its far end. He gets there unburned. */
+    private static boolean st1159Burn;
+    private static boolean st1159(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(9700, 64, 5300), dest = o.offset(1, 0, 4);
+        if (t[0] == 1) { scenarioReset(c); st1159Burn = false; }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            var rack = Blocks.NETHERRACK.defaultBlockState(); var air = Blocks.AIR.defaultBlockState();
+            for (int x = -5; x <= 6; x++) for (int z = -4; z <= 7; z++) for (int y = -27; y <= 8; y++) nl.setBlock(o.offset(x, y, z), y == -27 ? rack : air, 2);
+            for (int[] b : new int[][] {{0, 0}, {1, 0}, {1, 1}, {1, 2}, {1, 3}, {1, 4}}) nl.setBlock(o.offset(b[0], -1, b[1]), rack, 2); // the bridge: east one, then north round the fall's corner
+            nl.setBlock(o.offset(0, 7, 1), rack, 2); nl.setBlock(o.offset(0, 6, 1), Blocks.LAVA.defaultBlockState(), 2);
+            for (int y = -26; y <= 5; y++) nl.setBlock(o.offset(0, y, 1), Blocks.LAVA.defaultBlockState().setValue(net.minecraft.world.level.block.LiquidBlock.LEVEL, 8), 2); // the fall, beside the bridge's turn
+            nsKit(c); c.getInventory().add(new ItemStack(Items.NETHERRACK, 32)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear();
+        }
+        if (t[0] == 20) c.tasks.add(new Task.GoTo(dest, 0.9));
+        if (t[0] > 20) {
+            if (c.isInLava() || c.isOnFire()) st1159Burn = true;
+            check(!st1159Burn, "a bridge round a lava fall's corner: burned at " + c.position() + " (cell " + c.blockPosition().subtract(o).toShortString() + " from the start), health " + c.getHealth());
+            if (c.position().distanceTo(dest.getBottomCenter()) < 1.0) { c.tasks.clear(); nsHome(c, h, level); pass(stage, t, "round the lava fall unburned, " + (t[0] - 20) / 20.0 + " s"); }
+            else check(t[0] < 20 + 20 * 20, "a bridge round a lava fall's corner: not at its end in 20 s, at " + c.blockPosition().subtract(o).toShortString() + ", task " + c.currentTask);
         }
         return true;
     }

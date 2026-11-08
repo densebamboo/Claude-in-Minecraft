@@ -224,6 +224,19 @@ public final class Controls {
                 }
             }
         }
+        if (walk != null && walk.lengthSqr() > 1e-4 && !p.isInLava()) { // his box itself a step on: lava in a cell beside his own at his feet or head is never brushed (review 116, stage 1159: a bridge's turn round a lava fall's corner, the three points above missed the corner his box's side clipped)
+            Vec3 ld = walk.normalize(); net.minecraft.world.phys.AABB nb = p.getBoundingBox().move(ld.x * 0.3, 0, ld.z * 0.3).inflate(0.05, 0, 0.05); int fy = p.getBlockY();
+            for (int x = Mth.floor(nb.minX); x <= Mth.floor(nb.maxX); x++) for (int z = Mth.floor(nb.minZ); z <= Mth.floor(nb.maxZ); z++) {
+                if (x == p.getBlockX() && z == p.getBlockZ()) continue;
+                net.minecraft.core.BlockPos q = new net.minecraft.core.BlockPos(x, fy, z);
+                if (!p.level().getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA) && !p.level().getFluidState(q.above()).is(net.minecraft.tags.FluidTags.LAVA)) continue;
+                Vec3 away = new Vec3(p.getX() - Mth.clamp(p.getX(), x, x + 1), 0, p.getZ() - Mth.clamp(p.getZ(), z, z + 1));
+                if (away.lengthSqr() < 1e-6) continue; away = away.normalize();
+                double into = -ld.dot(away); Vec3 nd = (into > 0 ? ld.add(away.scale(into)) : ld).add(away.scale(0.3)); // the part of his walk toward it dropped, a nudge off it: along the lava's edge, like a player
+                ld = nd.lengthSqr() > 1e-6 ? nd.normalize() : away; walk = ld.scale(walk.length()); p.setSprinting(false); guard = "kept his box off lava at " + q.toShortString();
+                if (p instanceof com.claudemod.entity.ClaudeEntity ce && ce.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] his box a step on would brush lava at {} (he's at {}, {}): along its edge instead (Controls.apply)", q.toShortString(), String.format("%.2f", p.getX()), String.format("%.2f", p.getZ()));
+            }
+        }
         if (walk != null && walk.lengthSqr() > 1e-4 && p.onGround() && !p.isInWater() && !p.isInLava()) { // lava anywhere under the open cell ahead: never a step, whatever the path says (live 10:53 World 15: a path's next node 2 down off a Nether ledge, "safe" to the path, the lake 18 under it)
             Vec3 ld0 = walk.normalize();
             for (double reach : p.isSprinting() ? new double[] {0.7, 1.4} : new double[] {0.7}) {

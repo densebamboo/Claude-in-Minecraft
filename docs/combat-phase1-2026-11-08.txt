@@ -1,0 +1,81 @@
+16 fights
+
+#1 won: 1.8 s, -4.0 HP, stone_sword/0 armor vs zombie x
+    costliest pick fight.flee:fight at 0.0 s: 6.0 HP lost after it (20.0 dealt); its price ~4 was too low: weights fight.swing_s, fight.mob_hits_per_s, fight.knockback_hits_factor, fight.mob_cooldown_s, fight.crit_jump_lead_ticks
+#2 broke off: 59.2 s, -6.0 HP, stone_sword/0 armor vs zombie, zombie, zombie
+    lost 1.1 s: a charged hit and a foe in reach, no swing (Eat 1.0 s, Flee 0.1 s, idle 0.1 s); better: swing the tick the charge is full
+    0 crits in 10 hits; better: jump-hits (falling) do 1.5x
+    took 1 hits (3.0 HP) running; better: fight what keeps pace, or run before it's in reach
+    30 flips between picks; better: one choice held till something changes
+#3 won: 5.8 s, -1.8 HP, iron_sword/15 armor vs zombie x, zombie x, zombie x
+    lost 1.2 s: a charged hit and a foe in reach, no swing (Attack 1.2 s); better: swing the tick the charge is full
+#4 won: 4.0 s, -9.0 HP, stone_sword/0 armor vs skeleton x
+    lost 0.8 s: a charged hit and a foe in reach, no swing (Attack 0.8 s); better: swing the tick the charge is full
+    costliest pick fight.flee:fight at 0.3 s: 5.0 HP lost after it (20.0 dealt); its price ~467 was too low: weights fight.swing_s, fight.mob_hits_per_s, fight.knockback_hits_factor, fight.mob_cooldown_s, fight.arrow_hit_hp, fight.reach_blocks
+#5 won: 11.3 s, -4.8 HP, iron_sword/15 armor vs skeleton x, skeleton x
+    6.5 s over the ideal 4.9 s (40 HP of foes at 9.6 HP/s, every hit charged)
+    lost 1.5 s: a charged hit and a foe in reach, no swing (Attack 1.5 s); better: swing the tick the charge is full
+    took 2 shots with a shield in hand; better: shield up toward the shooter while closing in
+#6 avoided: 2.2 s, -0.0 HP, iron_sword/15 armor vs creeper
+#7 broke off: 10.2 s, -18.5 HP, stone_sword/0 armor vs creeper
+    lost 1.7 s: a charged hit and a foe in reach, no swing (Flee 1.7 s); better: swing the tick the charge is full
+    took 18.5 HP from a blast; better: back off at the hiss, or hit it out of its fuse
+    took 1 hits (18.5 HP) running; better: fight what keeps pace, or run before it's in reach
+    costliest pick fight.flee:fight at 0.0 s: 18.5 HP lost after it (10.0 dealt); its price ~301 was too low: weights fight.swing_s, fight.mob_hits_per_s, fight.knockback_hits_factor, fight.mob_cooldown_s, fight.crit_jump_lead_ticks
+#8 won: 4.6 s, -6.0 HP, stone_sword/0 armor vs spider x, zombie x
+    lost 0.6 s: a charged hit and a foe in reach, no swing (Attack 0.6 s); better: swing the tick the charge is full
+    costliest pick fight.flee:fight at 0.0 s: 6.0 HP lost after it (36.0 dealt); its price ~57 was too low: weights fight.swing_s, fight.mob_hits_per_s, fight.knockback_hits_factor, fight.mob_cooldown_s, fight.crit_jump_lead_ticks
+#9 won in part, broke off: 2.9 s, -8.0 HP, iron_sword/15 armor vs zombie x, creeper
+    took 6.6 HP from a blast; better: back off at the hiss, or hit it out of its fuse
+    took 1 hits (6.6 HP) running; better: fight what keeps pace, or run before it's in reach
+    costliest pick fight.flee:fight at 0.0 s: 8.0 HP lost after it (20.0 dealt); its price ~10 was too low: weights fight.swing_s, fight.mob_hits_per_s, fight.knockback_hits_factor, fight.mob_cooldown_s, fight.crit_jump_lead_ticks
+#10 won: 16.4 s, -1.6 HP, iron_sword/15 armor vs skeleton x, zombie x, zombie x
+    10.7 s over the ideal 5.7 s (55 HP of foes at 9.6 HP/s, every hit charged)
+    lost 1.0 s: a charged hit and a foe in reach, no swing (Attack 1.0 s); better: swing the tick the charge is full
+    took 2 shots with a shield in hand; better: shield up toward the shooter while closing in
+    costliest pick fight.flee:fight at 3.3 s: 5.2 HP lost after it (51.1 dealt); its price ~14 was too low: weights fight.swing_s, fight.mob_hits_per_s, fight.knockback_hits_factor, fight.mob_cooldown_s, fight.arrow_hit_hp, fight.reach_blocks
+#11 won: 12.1 s, -10.0 HP, stone_sword/0 armor vs zombie x, zombie x, zombie x
+    4.6 s over the ideal 7.5 s (60 HP of foes at 8.0 HP/s, every hit charged)
+    lost 0.5 s: a charged hit and a foe in reach, no swing (Attack 0.3 s, Flee 0.2 s); better: swing the tick the charge is full
+    0 crits in 18 hits; better: jump-hits (falling) do 1.5x
+    took 1 hits (3.0 HP) running; better: fight what keeps pace, or run before it's in reach
+    8 flips between picks; better: one choice held till something changes
+#12 won: 7.8 s, -14.0 HP, stone_sword/0 armor vs zombie x, zombie x, zombie x
+    lost 0.7 s: a charged hit and a foe in reach, no swing (Attack 0.7 s); better: swing the tick the charge is full
+    3 crits in 16 hits; better: jump-hits (falling) do 1.5x
+    4 flips between picks; better: one choice held till something changes
+    costliest pick fight.flee:fight at 1.1 s: 12.0 HP lost after it (60.0 dealt); its price ~1167 was too low: weights fight.swing_s, fight.mob_hits_per_s, fight.knockback_hits_factor, fight.mob_cooldown_s, fight.crit_jump_lead_ticks, fight.drops_wait_blocks
+#13 won: 4.2 s, -2.3 HP, iron_sword/15 armor vs skeleton x
+    1.6 s over the ideal 2.6 s (20 HP of foes at 9.6 HP/s, every hit charged)
+    lost 0.8 s: a charged hit and a foe in reach, no swing (Attack 0.8 s); better: swing the tick the charge is full
+    took 1 shots with a shield in hand; better: shield up toward the shooter while closing in
+#14 won: 17.4 s, -18.5 HP, iron_sword/15 armor vs witch x
+    13.7 s over the ideal 3.6 s (26 HP of foes at 9.6 HP/s, every hit charged)
+    0 crits in 6 hits; better: jump-hits (falling) do 1.5x
+    4 flips between picks; better: one choice held till something changes
+    costliest pick fight.flee:fight at 12.6 s: 5.0 HP lost after it (30.0 dealt); its price ~1627 was too low: weights fight.swing_s, fight.mob_hits_per_s, fight.knockback_hits_factor, fight.mob_cooldown_s, fight.witch_hit_hp, fight.reach_blocks
+#15 won: 4.9 s, -4.1 HP, diamond_sword/20 armor vs husk x, husk x, husk x, husk x
+    lost 1.0 s: a charged hit and a foe in reach, no swing (Attack 1.0 s); better: swing the tick the charge is full
+#16 broke off: 16.2 s, -14.0 HP, iron_sword/15 armor vs enderman
+
+outcomes: won 11, broke off 3, avoided 1, won in part, broke off 1
+waste across them:
+    seconds over the ideal: 37.1
+    HP lost running: 31.1
+    HP lost to blasts: 25.1
+    charged hit unused (s): 11.7
+    shots taken with a shield: 5.0
+weights charged with the HP lost after the picks they priced (those picks were too cheap):
+    fight.swing_s = 0.6: 65.7 HP over 8 decisions (fight.flee:fight)
+    fight.mob_hits_per_s = 0.8: 65.7 HP over 8 decisions (fight.flee:fight)
+    fight.knockback_hits_factor = 0.5: 65.7 HP over 8 decisions (fight.flee:fight)
+    fight.mob_cooldown_s = 1.0: 65.7 HP over 8 decisions (fight.flee:fight)
+    fight.crit_jump_lead_ticks = 8.0: 65.7 HP over 8 decisions (fight.flee:fight)
+    fight.drops_wait_blocks = 16.0: 17.2 HP over 2 decisions (fight.flee:fight)
+    fight.reach_blocks = 3.5: 15.2 HP over 3 decisions (fight.flee:fight)
+    fight.close_blocks_per_shot = 6.0: 15.2 HP over 3 decisions (fight.flee:fight)
+    fight.arrow_hit_hp = 4.0: 10.2 HP over 2 decisions (fight.flee:fight)
+    fight.shield_arrow_factor = 0.25: 5.2 HP over 1 decisions (fight.flee:fight)
+    fight.hold_range = 16.0: 5.2 HP over 1 decisions (fight.flee:fight)
+    fight.witch_hit_hp = 6.0: 5.0 HP over 1 decisions (fight.flee:fight)
+    fight.witch_throws_per_s = 0.33: 5.0 HP over 1 decisions (fight.flee:fight)

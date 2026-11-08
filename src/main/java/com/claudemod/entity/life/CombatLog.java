@@ -46,7 +46,7 @@ public final class CombatLog {
     static final class Fight {
         final int n; final long start; long last; final float hp0; float hpMin; final int armor; final String weapon, offhand, dim; final boolean underground, night;
         final double dps, speed; // his full-charge damage per second with what he held at the start
-        final Map<UUID, Foe> foes = new LinkedHashMap<>(); final List<Dec> decs = new ArrayList<>(); final Map<String, Double> pending = new LinkedHashMap<>();
+        final Map<UUID, Foe> foes = new LinkedHashMap<>(); final List<Dec> decs = new ArrayList<>(); final Map<String, Double> pending = new LinkedHashMap<>(); final Map<String, Integer> idleBy = new TreeMap<>();
         int swings, landed, weakSwings, blocked, hitsOnHim, flips, readyIdle, runHits, shotThroughShield, attackTicks, fleeTicks, otherTicks, ticks;
         float dealt, taken, blastHp, runHp; String lastPick; Vec3 lastPos; double moved; boolean readyLast;
         Fight(ClaudeEntity g, int n) {
@@ -136,7 +136,7 @@ public final class CombatLog {
         boolean ready = false;
         if (g.level() instanceof net.minecraft.server.level.ServerLevel sl && g.getAttackStrengthScale(0.5f) >= w("combat.review.charged", 0.9))
             for (Foe o : f.foes.values()) if (sl.getEntity(o.id) instanceof LivingEntity m && m.isAlive() && m.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0 && g.hasLineOfSight(m)) { ready = true; break; }
-        if (ready && f.readyLast) f.readyIdle++; // (charged at two tick starts running, a foe in reach both: no swing between)
+        if (ready && f.readyLast) { f.readyIdle++; f.idleBy.merge(f.state(g), 1, Integer::sum); } // (charged at two tick starts running, a foe in reach both: no swing between)
         f.readyLast = ready;
         if (f.ticks % 5 == 0 && g.level() instanceof net.minecraft.server.level.ServerLevel sl) {
             for (Foe o : f.foes.values()) if (sl.getEntity(o.id) instanceof LivingEntity m && m.isAlive()) { o.minDist = Math.min(o.minDist, m.distanceTo(g)); o.hpLast = m.getHealth(); }
@@ -160,7 +160,7 @@ public final class CombatLog {
             if (secs > ideal + w("combat.review.slack_s", 1.5)) out.add(String.format("%.1f s over the ideal %.1f s (%.0f HP of foes at %.1f HP/s, every hit charged)", secs - ideal, ideal, foeHp, f.dps));
         }
         double idleS = f.readyIdle / 20.0;
-        if (idleS >= w("combat.review.ready_idle_min_s", 0.5)) out.add(String.format("lost %.1f s: a charged hit and a foe in reach, no swing; better: swing the tick the charge is full", idleS));
+        if (idleS >= w("combat.review.ready_idle_min_s", 0.5)) out.add(String.format("lost %.1f s: a charged hit and a foe in reach, no swing (%s); better: swing the tick the charge is full", idleS, String.join(", ", f.idleBy.entrySet().stream().map(e -> e.getKey() + " " + String.format("%.1f", e.getValue() / 20.0) + " s").toList())));
         if (f.weakSwings > 0) out.add(String.format("lost %d swings to half charge (weak hits); better: wait out the charge (%.2f s with this weapon)", f.weakSwings, 1 / Math.max(0.1, f.speed)));
         int miss = Math.max(0, f.swings - f.landed);
         if (miss >= w("combat.review.miss_min", 2)) out.add(String.format("lost %d of %d swings that landed nothing (out of reach, its hurt frames, or blocked); better: swing in reach, charged, after its hurt flash", miss, f.swings));
@@ -240,7 +240,12 @@ public final class CombatLog {
     /** His hits on mobs, with crits (falling, off the ground: the vanilla crit test). */
     public static void onDamage(net.neoforged.neoforge.event.entity.living.LivingDamageEvent.Post e) {
         if (e.getEntity().level().isClientSide || !(e.getSource().getEntity() instanceof ClaudeEntity g) || e.getEntity() == g) return;
-        hitBy(g, e.getEntity(), e.getNewDamage(), g.fallDistance > 0 && !g.onGround() && !g.isInWater() && !g.onClimbable());
+        hitBy(g, e.getEntity(), e.getNewDamage(), critTick.getOrDefault(g.getUUID(), -1) == g.tickCount);
+    }
+    private static final Map<UUID, Integer> critTick = new HashMap<>();
+    /** Vanilla's own crit verdict on his swing (fired inside Player.attack, before the damage). */
+    public static void onCrit(net.neoforged.neoforge.event.entity.player.CriticalHitEvent e) {
+        if (e.getEntity() instanceof ClaudeEntity g && !g.level().isClientSide && e.isCriticalHit()) critTick.put(g.getUUID(), g.tickCount);
     }
     public static void onDeath(net.neoforged.neoforge.event.entity.living.LivingDeathEvent e) {
         if (e.getEntity().level().isClientSide || !(e.getSource().getEntity() instanceof ClaudeEntity g)) return;

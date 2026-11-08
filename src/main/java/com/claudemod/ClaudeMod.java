@@ -30,6 +30,7 @@ public class ClaudeMod {
         NeoForge.EVENT_BUS.addListener(ClaudeCommands::register);
         NeoForge.EVENT_BUS.addListener(com.claudemod.entity.life.CombatLog::onDamage); // fight telemetry: his hits, kills, shots at him
         NeoForge.EVENT_BUS.addListener(com.claudemod.entity.life.CombatLog::onDeath);
+        NeoForge.EVENT_BUS.addListener(com.claudemod.entity.life.CombatLog::onCrit);
         NeoForge.EVENT_BUS.addListener(com.claudemod.entity.life.CombatLog::onJoin);
         NeoForge.EVENT_BUS.addListener(com.claudemod.director.ClaudeLife::onTravel); // no Nether without a gold piece (every way in: escape, follow, enter_portal)
         NeoForge.EVENT_BUS.addListener(com.claudemod.entity.life.Perception::onSoundAt); // what he hears

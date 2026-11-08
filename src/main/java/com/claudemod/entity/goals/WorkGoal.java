@@ -5449,6 +5449,12 @@ public class WorkGoal extends Goal {
             }
             if (g.isUsingItem() && g.getUsedItemHand() == InteractionHand.OFF_HAND && lit == null) { boolean other = false; for (var m : mobs) if (incoming(m)) other = true; if (!other) shieldDown(); } // the bang's over (or it went out): down, to run at full speed
         }
+        // hit and run, like a player: a charged swing at one in reach as he goes (its knockback buys the distance), the run goes on (combat review: 5 s charged and in reach, no swing, 7 hits taken running; bench 1081)
+        if (g.getAttackStrengthScale(0.5f) >= w("flee.swing_charge", 0.95)) {
+            net.minecraft.world.entity.Mob hitOne = null;
+            for (var m : mobs) if (!(m instanceof net.minecraft.world.entity.monster.Creeper) && m.getTarget() == g && canHitNow(m) && (hitOne == null || m.distanceTo(g) < hitOne.distanceTo(g))) hitOne = m;
+            if (hitOne != null) { equipWeapon(); if (g.isUsingItem() && g.getUsedItemHand() == InteractionHand.OFF_HAND) shieldDown(); g.getLookControl().faceNow(hitOne.getBoundingBox().getCenter()); g.attack(hitOne); g.swing(InteractionHand.MAIN_HAND); }
+        }
         // cornered (a dungeon, a dead end): running isn't getting him anywhere, so like a player he turns and fights
         if (ticks == 1) fleeFrom = g.position();
         // (a back-off hold is a corner too: it never swings, and the run's clock never ends a hold; live 14:30 11-07 two hoglins, 30 s shield up, 20 -> 0, stage 1052)
@@ -6033,6 +6039,8 @@ public class WorkGoal extends Goal {
             if (mob.getBoundingBox().distanceToSqr(g.getEyePosition()) < 2.0) g.getNavigation().stop();
             // Hit and step back, like a player: his reach (3) beats a zombie's (~2), so between swings he backs out of its bite, still facing it, and swings again as it walks back in
             boolean meleeMob = !(mob instanceof net.minecraft.world.entity.monster.Creeper) && !(mob instanceof net.minecraft.world.entity.monster.AbstractSkeleton) && !(mob instanceof net.minecraft.world.entity.monster.Pillager);
+            { float ch = g.getAttackStrengthScale(0f); int cj0 = critJump().getOrDefault(g.getUUID(), -100); // the crit jump timed to the charge: up while it fills, falling as it's full (a jump at full charge waited ~7 ticks for its fall)
+              if ((1 - ch) * g.getCurrentItemAttackStrengthDelay() <= w("fight.crit_jump_lead_ticks", 8) && ch < 0.95f && g.onGround() && !g.isInWater() && !g.isPassenger() && !(mob instanceof net.minecraft.world.entity.monster.Creeper) && (mob instanceof net.minecraft.world.entity.monster.Monster || mob instanceof net.minecraft.world.entity.animal.IronGolem || mob instanceof net.minecraft.world.entity.monster.hoglin.Hoglin) && g.getHealth() > 8 && g.getFoodData().getFoodLevel() > 6 && g.tickCount - cj0 > 10) { critJump().put(g.getUUID(), g.tickCount); g.getJumpControl().jump(); } }
             if (meleeMob && g.getAttackStrengthScale(0.5f) < 0.95f && mob.distanceTo(g) < 2.6 && g.onGround()) {
                 Vec3 back = g.position().subtract(mob.position()).multiply(1, 0, 1);
                 if (back.length() > 0.01) {
@@ -6050,8 +6058,8 @@ public class WorkGoal extends Goal {
             if (g.getAttackStrengthScale(0.5f) >= 0.95f && mob.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0) { // (3 to the nearest point of it, like a player's reach: to its middle, a golem from his tower top read as out of reach)
                 reachWaitStart = -1;
                 int cj = critJump().getOrDefault(g.getUUID(), -100);
-                if (g.onGround() && !g.isInWater() && !g.isPassenger() && (mob instanceof net.minecraft.world.entity.monster.Monster || mob instanceof net.minecraft.world.entity.animal.IronGolem || mob instanceof net.minecraft.world.entity.monster.hoglin.Hoglin) && g.getHealth() > 8 && g.getFoodData().getFoodLevel() > 6 && g.tickCount - cj > 20) { critJump().put(g.getUUID(), g.tickCount); g.getJumpControl().jump(); return false; } // the jump first: the swing on the way down is a critical hit (x1.5), the way a player fights
-                if (!g.onGround() && g.getDeltaMovement().y > 0.0 && g.tickCount - cj <= 12) return false; // still going up: the crit wants the fall
+                if (g.onGround() && !g.isInWater() && !g.isPassenger() && !(mob instanceof net.minecraft.world.entity.monster.Creeper) && (mob instanceof net.minecraft.world.entity.monster.Monster || mob instanceof net.minecraft.world.entity.animal.IronGolem || mob instanceof net.minecraft.world.entity.monster.hoglin.Hoglin) && g.getHealth() > 8 && g.getFoodData().getFoodLevel() > 6 && g.tickCount - cj > 20) { critJump().put(g.getUUID(), g.tickCount); g.getJumpControl().jump(); return false; } // the jump first: the swing on the way down is a critical hit (x1.5), the way a player fights
+                if (!g.onGround() && (g.getDeltaMovement().y > 0.0 || g.fallDistance <= 0) && g.tickCount - cj <= 12) return false; // still going up, or at the top: vanilla crits only with a fall under him (fallDistance > 0)
                 g.getLookControl().faceNow(mob.getBoundingBox().getCenter());
                 shieldDown(); // a swing lowers the shield (it goes back up next tick if it's still needed)
                 g.attack(mob);

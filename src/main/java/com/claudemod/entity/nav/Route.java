@@ -117,13 +117,16 @@ public final class Route {
                 if (ex != null && ex.outside().distSqr(to) < me.distSqr(to)) { pre.add(ex.deck()); pre.add(ex.outside()); from = ex.outside(); via = "out by the fortress's open end at " + ex.deck().toShortString() + " (" + ex.out().getName() + "), then "; } }
             NetherRoute.Plan np = null; boolean planned = false;
             if (!onFortress && intoFortress) { FortressEnds.End en = null; double bs = Double.MAX_VALUE; StringBuilder priced = new StringBuilder();
-                List<FortressEnds.End> ends = FortressEnds.entries(g, level, me, to); StringBuilder among = new StringBuilder(); for (FortressEnds.End e : ends) among.append(e.out().getName());
+                List<FortressEnds.End> ends = FortressEnds.entries(g, level, me, to); StringBuilder among = new StringBuilder(); FortressEnds.End keptE = null; double keptS = 0; NetherRoute.Plan keptP = null; for (FortressEnds.End e : ends) among.append(e.out().getName());
                 for (FortressEnds.End e : ends) { // (each end by its planned way there and the walk along the deck: a player takes the end his way reaches soonest, not the one nearest as the crow flies)
                     NetherRoute.Plan p = me.distSqr(e.outside()) <= 6 * 6 ? new NetherRoute.Plan(List.of(), false, 0, 0, 0, 0, 0, 0) : NetherRoute.plan(g, level, me, e.outside());
                     if (p == null) { priced.append(" ").append(e.out().getName()).append(" no way;"); continue; }
                     double s = p.seconds() + Math.sqrt(e.deck().distSqr(toDeck)) * com.claudemod.entity.life.Weights.w("fortress.deck_s_per_block", 0.25) + (p.partial() ? com.claudemod.entity.life.Weights.w("fortress.partial_way_s", 30) : 0);
-                    priced.append(" ").append(e.out().getName()).append(" ~").append((int) s).append(" s;");
-                    if (s < bs) { bs = s; en = e; np = p; } }
+                    priced.append(" ").append(e.out().getName()).append(" at ").append(e.deck().toShortString()).append(" ~").append((int) s).append(" s;");
+                    if (s < bs) { bs = s; en = e; np = p; }
+                    if (FortressEnds.picked != null && e.deck().equals(FortressEnds.picked.deck())) { keptE = e; keptS = s; keptP = p; } }
+                // the end he's making for holds unless another is clearly sooner (D2D 17:40 11-07: re-planned from each cell of the blaze hunt's short walks, the pick flipped 273,60,497 -> 298,65,503 -> 309,58,506 on a few seconds' swing)
+                if (keptE != null && keptE != en && keptS - bs < com.claudemod.entity.life.Weights.w("fortress.end_switch_s", 15)) { priced.append(" kept the end he was making for (the other ").append((int) (keptS - bs)).append(" s sooner);"); en = keptE; np = keptP; bs = keptS; }
                 if (en != null) { planned = true; FortressEnds.pickedAmong = among.toString(); FortressEnds.picked = en; aim = en.outside(); post.add(en.outside()); post.add(en.deck()); via = "to the fortress's open end at " + en.deck().toShortString() + " (from the " + en.out().getName() + "; ends priced:" + priced + "), in along it; "; } }
             if (!via.isEmpty()) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] to {}: {}never through its side (FortressEnds)", to.toShortString(), via);
             if (!planned) np = from.distSqr(aim) <= 6 * 6 ? new NetherRoute.Plan(List.of(), false, 0, 0, 0, 0, 0, 0) : NetherRoute.plan(g, level, from, aim);

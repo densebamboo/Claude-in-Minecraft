@@ -198,6 +198,7 @@ public final class Procure {
             Source src = SOURCES.get(item);
             if (src != null) {
                 if (src.notYet() != null) return Crafting.name(item) + " comes from " + src.notYet();
+                if ("strip_mine".equals(src.skill()) && level.dimension() != net.minecraft.world.level.Level.OVERWORLD) return Crafting.name(item) + " comes from his mine in the overworld (strip_mine " + src.target() + "): through the portal first"; // (D2D review 23 11-07: obtain flint_and_steel in the Nether planned "strip_mine iron_ore 1" and failed at once, his mine a world away)
                 if (src.tier() >= 0) { String r = needPickaxe(src.tier(), deeper, depth + 1); if (r != null) return r; }
                 steps.add(new Skills.Step(src.skill(), src.target(), n)); // (the skill brings in at least n; nothing counted on beyond that)
                 return null;
@@ -244,7 +245,7 @@ public final class Procure {
                 }
                 have = snap; table = table1; furnace = furnace1;
                 steps.subList(mark, steps.size()).clear();
-                if (why == null) why = rr;
+                if (why == null || rr.contains("through the portal")) why = rr; // (the ore's in his overworld mine: that says more than a craft way that failed)
             }
             return why != null ? why : "no way to get " + Crafting.name(item);
         }

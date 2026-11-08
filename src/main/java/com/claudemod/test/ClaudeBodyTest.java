@@ -10526,6 +10526,8 @@ public final class ClaudeBodyTest {
             case 970: return st970(stage, t, c, h, level, mock);
             case 971: return st971(stage, t, c, h, level, mock);
             case 972: return st972(stage, t, c, h, level, mock);
+            case 973: return st973(stage, t, c, h, level, mock);
+            case 974: return st974(stage, t, c, h, level, mock);
             case 955: return st955(stage, t, c, h, level, mock);
             case 954: return st954(stage, t, c, h, level, mock);
             case 953: return st953(stage, t, c, h, level, mock);
@@ -14790,6 +14792,47 @@ public final class ClaudeBodyTest {
             check(sit.contains("THE DRAGON: never beaten in this world"), "his situation doesn't say the dragon was never beaten here (\"beat the ender dragon\" read as their news)");
             check(sys.contains("A bare verb phrase to you is an order to you") && sys.contains("\"beat the ender dragon\" is the dragon run"), "the planner isn't told a bare verb phrase is an order");
             pass(stage, t, "the order rule and the dragon fact are in what the planner reads");
+        }
+        return true;
+    }
+    /** Stage 973 (D2D 17:40 11-07, Loops review: live 17:33-17:34 the way into the fortress re-planned from each cell of the blaze hunt's short walks, "to the fortress's open end at 273, 60, 497 ... south ~98 s; south ~107 s; east ~104 s", then 298, 65, 503 ("south ~74 s"), then 309, 58, 506: the pick flipped on a few seconds' swing): a fortress bridge with an open end each way, him off it a little nearer the west end; planned, then 4 blocks over (the east end a little nearer), planned again. He keeps the end he was making for; each end's spot is in the price list. */
+    private static boolean st973(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12100, 64, 7320);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.nav.FortressEnds.picked = null; }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            for (int x = -30; x <= 30; x++) for (int z = -26; z <= 6; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), y < 0 ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            for (int x = -15; x <= 15; x++) for (int z = -1; z <= 1; z++) nl.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // a bridge deck on the ground, 3 wide, open at x -15 and x 15
+            nsKit(c); c.teleportTo(nl, o.getX() - 1.5, o.getY(), o.getZ() - 12.5, 0f, 0f);
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600;
+            com.claudemod.entity.nav.Route.expand(c, nl, o, 1); var p1 = com.claudemod.entity.nav.FortressEnds.picked; s973First = p1 == null ? null : p1.deck();
+            c.tasks.clear(); c.teleportTo(nl, o.getX() + 2.5, o.getY(), o.getZ() - 12.5, 0f, 0f); }
+        if (t[0] == 30) { c.tasks.clear(); c.nextPlanTick = c.tickCount + 20 * 600;
+            com.claudemod.entity.nav.Route.expand(c, nl, o, 1); var p2 = com.claudemod.entity.nav.FortressEnds.picked; BlockPos second = p2 == null ? null : p2.deck();
+            c.tasks.clear(); c.skillQueue.clear();
+            for (int x = -30; x <= 30; x++) for (int z = -26; z <= 6; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(s973First != null && s973First.getX() < o.getX(), "setup: from a little nearer the west end the pick was " + s973First);
+            check(second != null && second.equals(s973First), "4 blocks over, the end he was making for (" + s973First + ") swapped for " + second + " on a second or two of price");
+            nsHome(c, h, level); pass(stage, t, "kept the end at " + second.toShortString());
+        }
+        return true;
+    }
+    private static BlockPos s973First;
+    /** Stage 974 (D2D review 23, 11-07 live 17:19 and 17:21 in the Nether: "obtain flint_and_steel -> to get 1 flint_and_steel: strip_mine iron_ore 1, smelt iron_ingot 1, collect gravel 1, craft flint_and_steel 1", failed at once, twice; his mine is in the overworld): in the Nether with no iron, obtain flint_and_steel. The plan says the iron comes from his mine in the overworld, and plans no strip_mine here. */
+    private static boolean st974(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.ChestLedger.reset(c); }
+        if (t[0] == 5) {
+            c.getInventory().clearContent();
+            var p = com.claudemod.director.Procure.plan(c, nl, Items.FLINT_AND_STEEL, 1);
+            var ow = com.claudemod.director.Procure.plan(c, level, Items.FLINT_AND_STEEL, 1);
+            boolean mine = p.steps().stream().anyMatch(s0 -> s0.skill().equals("strip_mine"));
+            check(!mine, "in the Nether, obtain flint_and_steel plans " + com.claudemod.director.Procure.describe(p.steps()) + " (his mine is in the overworld)");
+            check(p.problem() != null && p.problem().contains("overworld"), "in the Nether, the plan's problem doesn't say where the iron is: " + p.problem());
+            check(ow.steps().stream().anyMatch(s0 -> s0.skill().equals("strip_mine")), "in the overworld the iron is his mine's: " + com.claudemod.director.Procure.describe(ow.steps()) + " / " + ow.problem());
+            pass(stage, t, "Nether: " + p.problem() + " | overworld: " + com.claudemod.director.Procure.describe(ow.steps()));
         }
         return true;
     }

@@ -9357,7 +9357,7 @@ public final class ClaudeLife {
     public static void netherFoodTest(ClaudeEntity g, ServerLevel level) { foodTripTicks().remove(g.getUUID()); netherFood(g, level); } // (tests: an earlier stage's food-trip clock cleared)
     static void netherFood(ClaudeEntity g, ServerLevel level) {
         boolean starving = g.getFoodData().getFoodLevel() <= 6 && foodToEat(g, true) == null;
-        int meals = Kit.food(g);
+        int meals = Kit.food(g) + Kit.furnaceFood(g, level, 32); // (his furnace's food beside him counts: live 17:43 11-07 he left 6 porkchop cooking for a 594-block walk home, and died on it; stage 1058)
         if (g.commandActive || !starving && (meals >= com.claudemod.entity.life.Weights.w("trip.food_back_meals", 6) || g.lastStep == null)) return;
         if (g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee || g.currentTask instanceof Task.Eat || g.currentTask instanceof Task.FurnaceTake || g.tickCount - foodTripTick(g) < 20 * 300) return;
         for (Skills.Step s0 : g.skillQueue) { Item f0 = item(s0.target()); if (f0 != null && f0.components().has(net.minecraft.core.component.DataComponents.FOOD)) return; } // the food's on its way already

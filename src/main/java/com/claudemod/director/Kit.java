@@ -6,6 +6,7 @@ import java.util.Map;
 import com.claudemod.entity.ClaudeEntity;
 import com.claudemod.entity.life.Crafting;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -37,6 +38,18 @@ public final class Kit {
     public static int food(ClaudeEntity g) {
         ServerLevel level = (ServerLevel) g.level(); double p = 0;
         for (int k = 0; k < g.inventory.items.getContainerSize(); k++) { ItemStack st = g.inventory.items.getItem(k); if (st.has(DataComponents.FOOD) && !ClaudeLife.rawOrBad(level, st)) p += pts(st.getItem()) * st.getCount(); }
+        return (int) Math.round(p / w("food.meal_points", 20.8));
+    }
+    /** Meals in his own furnaces within r here: done in the output, or cooking (the input's smelt result). Storage is inventory: the porkchop cooking beside him is food he has. */
+    public static int furnaceFood(ClaudeEntity g, ServerLevel level, double r) {
+        double p = 0;
+        for (BlockPos sp : g.myStations) {
+            if (!sp.closerToCenterThan(g.position(), r) || !(level.getBlockEntity(sp) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fe)) continue;
+            ItemStack out = fe.getItem(2), in = fe.getItem(0);
+            if (out.has(DataComponents.FOOD)) p += pts(out.getItem()) * out.getCount();
+            if (!in.isEmpty()) { var rec = level.getRecipeManager().getRecipeFor(net.minecraft.world.item.crafting.RecipeType.SMELTING, new net.minecraft.world.item.crafting.SingleRecipeInput(in), level);
+                if (rec.isPresent()) { ItemStack res = rec.get().value().getResultItem(level.registryAccess()); if (res.has(DataComponents.FOOD)) p += pts(res.getItem()) * in.getCount(); } }
+        }
         return (int) Math.round(p / w("food.meal_points", 20.8));
     }
 

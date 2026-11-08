@@ -10794,6 +10794,7 @@ public final class ClaudeBodyTest {
             case 1055: return st1055(stage, t, c, h, level, mock);
             case 1056: return st1056(stage, t, c, h, level, mock);
             case 1057: return st1057(stage, t, c, h, level, mock);
+            case 1058: return st1058(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -21334,6 +21335,24 @@ public final class ClaudeBodyTest {
             var ws = st1057M.get(3);
             if (!ws.isAlive()) { c.tasks.clear(); c.dropCurrent = true; for (var m : st1057M) m.discard(); pass(stage, t, "fought the one wither skeleton, the calm piglins left out, " + (t[0] - st1057Start) / 20 + " s, health " + (int) c.getHealth()); return true; }
             check(c.isAlive() && t[0] - st1057Start < 20 * 20, "20 s and the wither skeleton still up (health " + (int) c.getHealth() + ", doing " + c.currentTask + ")");
+        }
+        return true;
+    }
+    private static boolean st1058(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 17:43:05 11-07 (the_nether 322,62,497): "5 meal(s) left ... home through his portal for food", 20 tasks dropped, 6 cooked porkchop done in his furnace at 322,64,498 16 s later (FURNACE_LEFT); the 594-block walk home met the wither skeleton, dead 17:47
+        if (t[0] == 1) { scenarioReset(c); }
+        if (t[0] == 10) {
+            var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+            BlockPos f = new BlockPos(c.getBlockX() + 2, 64, c.getBlockZ()); nl.setBlock(f, Blocks.FURNACE.defaultBlockState(), 2);
+            if (nl.getBlockEntity(f) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fe) fe.setItem(2, new ItemStack(Items.COOKED_PORKCHOP, 6));
+            c.myStations.add(f.immutable());
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_PORKCHOP, 3)); c.getFoodData().setFoodLevel(20); c.setHealth(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.commandActive = false; c.lastStep = new com.claudemod.entity.life.Skills.Step("obtain", "blaze_rod", 7);
+            double y0 = c.getY(); c.setPos(c.getX(), 64, c.getZ()); com.claudemod.director.ClaudeLife.netherFoodTest(c, nl); c.setPos(c.getX(), y0, c.getZ()); // (level with his furnace, as live: the arena's y is far under the Nether's 64)
+            var first = c.skillQueue.peekFirst();
+            nl.setBlock(f, Blocks.AIR.defaultBlockState(), 2); c.myStations.remove(f);
+            check(first == null || !first.skill().equals("enter_portal"), "3 meals on him and 6 cooked porkchop in his furnace 2 off: sent home through his portal for food (queue " + c.skillQueue + ")");
+            c.skillQueue.clear(); c.lastStep = null; c.getInventory().clearContent(); c.dropCurrent = true;
+            pass(stage, t, "the food in his furnace beside him counted: no trip home"); return true;
         }
         return true;
     }

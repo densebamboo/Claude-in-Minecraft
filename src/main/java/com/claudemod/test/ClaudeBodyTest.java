@@ -10537,6 +10537,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1157: return st1157(stage, t, c, h, level, mock);
             case 1153: return st1153(stage, t, c, h, level, mock);
             case 1152: return st1152(stage, t, c, h, level, mock);
             case 1154: return st1154(stage, t, c, h, level, mock);
@@ -15641,6 +15642,25 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.clearFire(); c.setHealth(20f); c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == OFF) c.setItemSlot(sl, ItemStack.EMPTY);
             com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, mock[0].getX(), mock[0].getY(), mock[0].getZ(), 0, 0);
             pass(stage, t, b[0] + ": " + out + ", " + rods + " rods in " + String.format("%.0f", secs) + " s, low " + bbLow + " HP");
+        }
+        return true;
+    }
+    /** Stage 1157 (D2D review 40, live 13:29-13:30 11-08: on his way out of his mine to the portal, 40-odd walks queued, his pack full; the stash trip to his chest at -233,-58,-19 went to the back of the queue: he walked past the chest, out to the portal, then 246 blocks back for it): a full pack, walks queued away, his stash chest by him. The stash comes first. */
+    private static boolean st1157(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos chest = h.absolutePos(new BlockPos(6, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.remove("storage_at"); c.blueprint = null; c.mineFace = null; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            level.setBlock(chest, Blocks.CHEST.defaultBlockState(), 3); c.myStations.add(chest); c.storageChests.add(chest);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            while (c.getInventory().getFreeSlot() >= 0) c.getInventory().add(new ItemStack(Items.RAW_IRON, 64));
+            BlockPos me = h.absolutePos(new BlockPos(3, 2, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (int k = 1; k <= 4; k++) c.tasks.add(new Task.GoTo(h.absolutePos(new BlockPos(3, 2, 8 + 2 * k)), 1.5)); // his way out, queued
+            String r;
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("stashAtLevel", ClaudeEntity.class, ServerLevel.class); m.setAccessible(true); r = (String) m.invoke(null, c, level); } catch (ReflectiveOperationException ex) { throw new RuntimeException(ex); }
+            Task first = c.tasks.peekFirst();
+            check(r != null && (first instanceof Task.GoTo g0 && g0.pos().equals(chest) || first instanceof Task.Deposit), "a full pack by his stash chest, his way out queued: the stash isn't first (\"" + r + "\"), queue " + c.tasks);
+            c.tasks.clear(); c.getInventory().clearContent(); level.setBlock(chest, Blocks.AIR.defaultBlockState(), 3); c.myStations.remove(chest); c.storageChests.remove(chest);
+            pass(stage, t, "the stash first, then the way out: " + r);
         }
         return true;
     }

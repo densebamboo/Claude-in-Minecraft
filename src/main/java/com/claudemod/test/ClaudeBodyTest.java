@@ -10749,6 +10749,7 @@ public final class ClaudeBodyTest {
             case 1045: return st1045(stage, t, c, h, level, mock);
             case 1046: return st1046(stage, t, c, h, level, mock);
             case 1047: return st1047(stage, t, c, h, level, mock);
+            case 1048: return st1048(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -20286,6 +20287,31 @@ public final class ClaudeBodyTest {
             check(air1 == null, "a leg standing in mid-air over the cavern (unseen under his own bridge, read as rock) at " + (air1 == null ? "" : air1.toShortString()) + ": " + st1047A);
             check(again == null, "the walker found no way down at " + (fail == null ? "" : fail.toShortString()) + " and the route planned a drop beside it again: " + st1047A);
             nsHome(c, h, level); pass(stage, t, st1047A);
+        }
+        return true;
+    }
+    private static net.minecraft.world.entity.monster.Zombie st1048Z;
+    private static boolean st1048(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // review 158 (live 14:16:41 11-08 at -29,54,213): "his drops ...: worth 0 against risk 1 (1 mob(s), day, sword in hand): waiting" and in the same second "recover_drops -> going to get my stuff back": the log said wait, the wait only came for 2+ mobs, a shooter, no sword or under 14 health; junk with a mob on it waits (the user's risk-vs-reward rule)
+        BlockPos pile = h.absolutePos(new BlockPos(12, 2, 10)), from = h.absolutePos(new BlockPos(4, 2, 4));
+        if (t[0] == 1) { scenarioReset(c); st1048Z = null; for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(64))) it.discard(); }
+        if (t[0] > 1 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) if (e != st1048Z) e.discard();
+        if (t[0] == 5) {
+            flatBox(h); level.setDayTime(level.getDayTime() / 24000 * 24000 + 1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(pile.getX() + 0.5, pile.getY(), pile.getZ() + 0.5);
+            var it = new net.minecraft.world.entity.item.ItemEntity(level, pile.getX() + 0.5, pile.getY() + 0.1, pile.getZ() + 0.5, new ItemStack(Items.COBBLESTONE, 10), 0, 0, 0); it.setNeverPickUp(); level.addFreshEntity(it);
+            com.claudemod.director.ClaudeLife.markOwnDrops(c);
+            c.teleportTo(from.getX() + 0.5, from.getY(), from.getZ() + 0.5);
+            st1048Z = net.minecraft.world.entity.EntityType.ZOMBIE.create(level); st1048Z.moveTo(pile.getX() + 2.5, pile.getY(), pile.getZ() + 0.5, 0, 0); st1048Z.setNoAi(true); st1048Z.setPersistenceRequired(); level.addFreshEntity(st1048Z);
+            c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear(); c.lastStep = null; c.lastSkillLine = "";
+        }
+        if (t[0] == 10) {
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
+            boolean walks = c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo || q instanceof Task.Pickup);
+            c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear(); if (st1048Z != null) st1048Z.discard();
+            for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(64))) it.discard();
+            check(r.startsWith("waiting") && !walks, "10 cobblestone (worth 0) with a zombie on it: he went for it anyway: \"" + r + "\"");
+            pass(stage, t, "a junk pile with a mob on it waits: \"" + r + "\"");
         }
         return true;
     }

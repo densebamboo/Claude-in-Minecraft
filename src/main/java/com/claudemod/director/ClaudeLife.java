@@ -4263,7 +4263,7 @@ public final class ClaudeLife {
                     ClaudeMod.LOGGER.info("[Claude life] his drops at {}: no proper sword on him ({} mob(s) seen there): stone_sword first (ClaudeLife recover_drops)", spot.toShortString(), guard.size());
                     return "going back for my things at " + spot.toShortString() + " with nothing to fight with: making a stone sword first";
                 }
-                if (!worthIt && (guard.size() >= 2 || (!guard.isEmpty() && (shooter || !properSword || g.getHealth() < 14)))) { // walking in on them with a wooden sword and no armor is how he died twice: wait them out (or get a sword first)
+                if (!worthIt && !guard.isEmpty()) { // (worth less than its risk with a mob on it: wait, as said; one mob with a sword in hand walked him in for 10 cobble, "waiting" and "going" in the same second, live 14:16:41 11-08, review 158, stage 1048) // walking in on them with a wooden sword and no armor is how he died twice: wait them out (or get a sword first)
                     g.tasks.add(new Task.Wait(200, false));
                     g.skillQueue.addFirst(st);
                     return "waiting: " + guard.size() + " mob(s) still standing over my things at " + spot.toShortString() + (properSword ? "" : " and I've nothing proper to fight with") + "; trying again in a bit";

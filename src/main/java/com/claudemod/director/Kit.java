@@ -108,6 +108,8 @@ public final class Kit {
     public static boolean netherDone(ClaudeEntity g) {
         return g.inventory.count(s -> s.is(Items.BLAZE_ROD)) >= 6 || g.inventory.count(s -> s.is(Items.BLAZE_POWDER)) >= 12 || g.inventory.count(s -> s.is(Items.ENDER_EYE)) > 0 || g.level().dimension() == net.minecraft.world.level.Level.END;
     }
+    /** missing() is the shortfall; Procure plans to a total held: what he holds goes back on (1 cooked cod short with 4 on him planned nothing, and enter_portal looped on an empty kit-first, live 03:45 11-08, stage 1032). */
+    public static Map<Item, Integer> totals(ClaudeEntity g, Map<Item, Integer> shortfall) { Map<Item, Integer> m = new LinkedHashMap<>(); shortfall.forEach((k, v) -> m.put(k, v + g.inventory.count(s -> s.is(k)))); return m; }
     /** What the kit still lacks (item -> count), in the order he'd make it. full: the whole cave kit; else just a sword and food. */
     // (the Nether trip's diamond pick is for a portal's obsidian: with a lit portal on record it isn't in that kit; the user, 14:06 World 15: "he already had the portal so that's not the right reasoning to mine for diamonds")
     public static Map<Item, Integer> missing(ClaudeEntity g, boolean full) {

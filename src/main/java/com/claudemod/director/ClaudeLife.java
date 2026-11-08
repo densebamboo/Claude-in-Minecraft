@@ -3161,29 +3161,29 @@ public final class ClaudeLife {
                 String bowNote = full && g.inventory.count(s -> s.is(Items.BOW)) == 0 && !missing.containsKey(Items.BOW) ? bowWantNote(g, level) : null; // the bow: a want, no part of this kit (the user: the Nether wants it, the End needs it)
                 if (bowNote != null) ClaudeMod.LOGGER.info("[Claude kit] gear_up: {}: not in this kit, no spider hunt for it (ClaudeLife gear_up)", bowNote);
                 if (missing.isEmpty()) return "done: kitted out already (armor on, sword, shield, " + Kit.food(g) + " food)" + (bowNote != null ? "; " + bowNote : "");
-                Procure.Plan plan = Procure.planAll(g, level, missing);
+                Procure.Plan plan = Procure.planAll(g, level, Kit.totals(g, missing));
                 if (plan.problem() != null && Kit.food(g) > 0) { // the rest of the food can't be had here (no cod in this river): the food he has will do, the torches and sword still get made (all-or-nothing dropped the whole kit and he went for iron with neither)
                     missing = new java.util.LinkedHashMap<>(missing);
                     for (var it = missing.keySet().iterator(); it.hasNext(); ) if (it.next().components().has(net.minecraft.core.component.DataComponents.FOOD)) it.remove();
                     if (missing.isEmpty()) return "done: kitted out as far as this place allows (" + Kit.food(g) + " food)";
-                    plan = Procure.planAll(g, level, missing);
+                    plan = Procure.planAll(g, level, Kit.totals(g, missing));
                 }
                 if (plan.problem() != null) return "failed: can't finish the kit: " + plan.problem();
                 { // what he can make right now from what's on him goes first (4 diamonds and sticks on him, and the diamond pick queued behind 21 iron ore)
                     java.util.Map<Item, Integer> ready = new java.util.LinkedHashMap<>(); // the pieces that need nothing gathered: only crafting
                     for (var e : missing.entrySet()) {
-                        Procure.Plan p1 = Procure.planAll(g, level, java.util.Map.of(e.getKey(), e.getValue()));
+                        Procure.Plan p1 = Procure.planAll(g, level, Kit.totals(g, java.util.Map.of(e.getKey(), e.getValue())));
                         if (p1.problem() != null || p1.steps().isEmpty()) continue;
                         boolean craftsOnly = true; for (Skills.Step s1 : p1.steps()) if (!s1.skill().equals("craft")) craftsOnly = false;
                         if (craftsOnly) ready.put(e.getKey(), e.getValue());
                     }
                     List<Skills.Step> now = new ArrayList<>();
-                    if (!ready.isEmpty() && ready.size() < missing.size()) { Procure.Plan pr = Procure.planAll(g, level, ready); boolean onlyCrafts = pr.problem() == null; if (onlyCrafts) for (Skills.Step s1 : pr.steps()) if (!s1.skill().equals("craft")) onlyCrafts = false; if (onlyCrafts) now.addAll(pr.steps()); } // (together they may need more than he has: then no shortcut) // one plan for those together (shared planks, one table); the whole kit craftable is just the plan below
+                    if (!ready.isEmpty() && ready.size() < missing.size()) { Procure.Plan pr = Procure.planAll(g, level, Kit.totals(g, ready)); boolean onlyCrafts = pr.problem() == null; if (onlyCrafts) for (Skills.Step s1 : pr.steps()) if (!s1.skill().equals("craft")) onlyCrafts = false; if (onlyCrafts) now.addAll(pr.steps()); } // (together they may need more than he has: then no shortcut) // one plan for those together (shared planks, one table); the whole kit craftable is just the plan below
                     if (!now.isEmpty() && g.tickCount - g.gearTick > 20 * 60) { // (once a minute: a craft that can't happen falls through to the full plan, never a loop)
                         g.gearTick = g.tickCount;
                         g.skillQueue.addFirst(st); // then the rest of the kit, planned again
                         for (int i = now.size() - 1; i >= 0; i--) g.skillQueue.addFirst(now.get(i));
-                        return "gearing up: making what I can right now first: " + Procure.describe(now) + com.claudemod.entity.life.ChestLedger.fetchNote(g, level, Procure.planAll(g, level, ready).fromChests());
+                        return "gearing up: making what I can right now first: " + Procure.describe(now) + com.claudemod.entity.life.ChestLedger.fetchNote(g, level, Procure.planAll(g, level, Kit.totals(g, ready)).fromChests());
                     }
                 }
                 g.gearTick = g.tickCount;
@@ -9521,11 +9521,11 @@ public final class ClaudeLife {
               if (had) ClaudeMod.LOGGER.info("[Claude life] kit food short before {} ({} meals on him): no top-up now ({}) (ClaudeLife.kitFirst)", st.skill(), Kit.food(g), !com.claudemod.director.ClaudeLife.dayHere(level) ? "it's night" : "mining in his own mine");
               if (missing.isEmpty()) return null; } }
         g.gearTick = g.tickCount;
-        Procure.Plan plan = Procure.planAll(g, level, missing);
+        Procure.Plan plan = Procure.planAll(g, level, Kit.totals(g, missing));
         if (plan.problem() != null && Kit.food(g) >= 6) { // food short and no more to be had, but 6+ meals on him: the rest of the kit still comes first (under 6, food is the job: below)
             for (var it = missing.keySet().iterator(); it.hasNext(); ) if (it.next().components().has(net.minecraft.core.component.DataComponents.FOOD)) it.remove();
             if (missing.isEmpty()) return null;
-            plan = Procure.planAll(g, level, missing);
+            plan = Procure.planAll(g, level, Kit.totals(g, missing));
         }
         boolean foodShort = false; for (Item m0 : missing.keySet()) if (m0.components().has(net.minecraft.core.component.DataComponents.FOOD)) { foodShort = true; break; }
         if (plan.problem() != null && foodShort && Kit.food(g) < 6) { // the user: the kit never waives food. None to be had here means a wider search and a farm, not a mine trip on an empty bag
@@ -9559,7 +9559,7 @@ public final class ClaudeLife {
             ClaudeMod.LOGGER.info("[Claude life] down his mine at night with {} meals: working on, up for food at first light", Kit.food(g));
             for (var it = missing.keySet().iterator(); it.hasNext(); ) if (it.next().components().has(net.minecraft.core.component.DataComponents.FOOD)) it.remove();
             if (missing.isEmpty()) return null;
-            plan = Procure.planAll(g, level, missing);
+            plan = Procure.planAll(g, level, Kit.totals(g, missing));
         }
         if (plan.problem() != null) {
             ClaudeMod.LOGGER.info("[Claude life] going {} without {}: {}", st.skill(), Kit.describe(missing), plan.problem());

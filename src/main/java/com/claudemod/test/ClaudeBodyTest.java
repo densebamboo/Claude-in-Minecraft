@@ -728,7 +728,7 @@ public final class ClaudeBodyTest {
                             for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard();
                             c.getInventory().clearContent();
                             for (var slot : net.minecraft.world.entity.EquipmentSlot.values()) if (slot.isArmor() || slot == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(slot, ItemStack.EMPTY);
-                            c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.COAL, 32)); c.getInventory().add(new ItemStack(Items.WATER_BUCKET)); c.getInventory().add(new ItemStack(Items.BOW)); c.getInventory().add(new ItemStack(Items.ARROW, 32)); c.getInventory().add(new ItemStack(Items.IRON_INGOT, 27)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 8)); c.getInventory().add(new ItemStack(Items.DIAMOND, 31)); c.getInventory().add(new ItemStack(Items.BREAD, 16)); c.getInventory().add(new ItemStack(Items.TORCH, 64)); c.getInventory().add(new ItemStack(Items.WHITE_BED));
+                            c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.COAL, 32)); c.getInventory().add(new ItemStack(Items.WATER_BUCKET)); c.getInventory().add(new ItemStack(Items.BOW)); c.getInventory().add(new ItemStack(Items.ARROW, 32)); c.getInventory().add(new ItemStack(Items.IRON_INGOT, 27)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 8)); c.getInventory().add(new ItemStack(Items.DIAMOND, 31)); c.getInventory().add(new ItemStack(Items.BREAD, 16));  c.getInventory().add(new ItemStack(Items.WHITE_BED));
                             c.failCount.clear(); c.gearTick = -100000; c.prefs.remove("gear_before_caves");
                             BlockPos at = h.absolutePos(new BlockPos(3, 2, 3));
                             c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
@@ -10707,6 +10707,7 @@ public final class ClaudeBodyTest {
             case 1029: return st1029(stage, t, c, h, level, mock);
             case 1030: return st1030(stage, t, c, h, level, mock);
             case 1031: return st1031(stage, t, c, h, level, mock);
+            case 1032: return st1032(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -19013,6 +19014,28 @@ public final class ClaudeBodyTest {
             else check(t[0] - st1031Hold < 20 * 30, "30 s holding his cover at 3 HP, no food, for a spider in the sun 7 off that isn't after him");
         }
         if (t[0] > 20 && st1031Hold < 0) check(t[0] < 400, "never settled in cover: at " + c.blockPosition() + ", now=" + c.currentTask + " tasks=" + c.tasks);
+        return true;
+    }
+    private static boolean st1032(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // 4 cooked cod and 4 raw cod on him, the kit's pick "cook his raw": the kit-first chain was empty (Kit.missing is the shortfall, Procure.planAll read it as a total he held already), and enter_portal came back "kit first (missing 4 cooked_cod), then enter_portal: " 3 times a second (live 03:45:16 11-08, review 040)
+        BlockPos o = new BlockPos(7700, 70, 7200);
+        if (t[0] == 1) scenarioReset(c);
+        if (t[0] == 10) {
+            for (int x = -12; x <= 12; x++) for (int z = -12; z <= 12; z++) for (int y = -2; y <= 6; y++) level.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.GRASS_BLOCK : Blocks.AIR).defaultBlockState(), 2);
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) e.discard();
+            level.setDayTime(6000); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 900;
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.fallDistance = 0; c.setHealth(20); c.getFoodData().setFoodLevel(20);
+        }
+        if (t[0] == 70) { // (past the kit's 2 s memo)
+            for (var it : new net.minecraft.world.item.Item[] {Items.STONE_SWORD, Items.IRON_PICKAXE, Items.FURNACE}) c.getInventory().add(new ItemStack(it));
+            c.getInventory().add(new ItemStack(Items.COOKED_COD, 4)); c.getInventory().add(new ItemStack(Items.COD, 4)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 10)); c.getInventory().add(new ItemStack(Items.COAL, 32)); // (near the trip's food: his raw cod covers the rest, the cheapest pick) c.getInventory().add(new ItemStack(Items.BIRCH_LOG, 11)); c.getInventory().add(new ItemStack(Items.TORCH, 64));
+            c.skillQueue.clear(); c.gearTick = -100000;
+            var miss = com.claudemod.director.Kit.missing(c, false);
+            String r = com.claudemod.director.ClaudeLife.gearFirstNow(c, level, new com.claudemod.entity.life.Skills.Step("enter_portal", "", 1), false);
+            var q = new java.util.ArrayList<>(c.skillQueue); c.skillQueue.clear(); c.getInventory().clearContent();
+            check(miss.containsKey(Items.COOKED_COD), "the kit didn't ask for cooked cod (missing " + miss + "): the scene isn't live's");
+            check(r != null && q.stream().anyMatch(x -> x.target().contains("cod")), "kit first with no cod in it: " + r + " (queue " + q + ", kit missing " + miss + ")");
+            nsHome(c, h, level); pass(stage, t, "4 raw cod to cook for the kit: " + r + " (queue " + q + ")");
+        }
         return true;
     }
     private static int st739T;

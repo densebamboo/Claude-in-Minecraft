@@ -3822,8 +3822,13 @@ public final class ClaudeLife {
                     } } }
                 if (st.skill().equals("village_food")) {
                     List<BlockPos> hay = findAll(level, g.blockPosition(), 32, b -> b.is(Blocks.HAY_BLOCK), 16); hay.removeIf(p -> !canSee(g, level, p));
-                    List<BlockPos> ripe = findAll(level, g.blockPosition(), 32, b -> b.getBlock() instanceof net.minecraft.world.level.block.CropBlock cb && cb.isMaxAge(b), 24);
-                    if (hay.isEmpty() && ripe.isEmpty()) return "failed: no hay bales or ripe crops in view";
+                    List<BlockPos> ripe = findAll(level, g.blockPosition(), 32, b -> b.is(Blocks.WHEAT) && b.getBlock() instanceof net.minecraft.world.level.block.CropBlock cb && cb.isMaxAge(b), 24); ripe.removeIf(p -> !canSee(g, level, p)); // (wheat only, and in view: beetroots and crops behind a wall made "4 ripe crops -> bread" and a bread craft short of wheat, live 16:46 and 21:02 11-07; stage 1061)
+                    if (hay.isEmpty() && (ripe.size() + g.inventory.count(s -> s.is(Items.WHEAT)) < 3)) {
+                        var vil0 = knownVillage(g, st.skill(), level); String rec = "";
+                        if (vil0 != null) for (BlockPos q : vil0.cells()) if (level.isLoaded(q) && level.getBlockState(q).is(Blocks.HAY_BLOCK)) { rec = "; its hay on record at " + q.toShortString() + ", " + (int) Math.sqrt(q.distSqr(g.blockPosition())) + " off, " + (canSee(g, level, q) ? "in view" : "out of his sight"); break; }
+                        com.claudemod.ClaudeMod.LOGGER.info("[Claude skill] village_food at {}: no hay in view, {} ripe wheat in view (bread needs 3){} (ClaudeLife village_food)", g.blockPosition().toShortString(), ripe.size(), rec); // (the walk to the village ended out of sight of its hay, live 20:41 11-07: the log for the cause)
+                        return "failed: no hay bales or ripe wheat in view (" + ripe.size() + " wheat, bread needs 3)";
+                    }
                     int bales = Math.min(hay.size(), raid ? 8 : 4);
                     for (int i = 0; i < bales; i++) g.tasks.add(new Task.Break(hay.get(i)));
                     if (bales > 0) g.tasks.add(new Task.Pickup(60));

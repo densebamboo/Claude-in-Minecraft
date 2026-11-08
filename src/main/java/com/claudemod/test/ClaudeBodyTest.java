@@ -10804,6 +10804,7 @@ public final class ClaudeBodyTest {
             case 1057: return st1057(stage, t, c, h, level, mock);
             case 1058: return st1058(stage, t, c, h, level, mock);
             case 1060: return st1060(stage, t, c, h, level, mock);
+            case 1061: return st1061(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -21641,6 +21642,25 @@ public final class ClaudeBodyTest {
             level.setBlock(foot, Blocks.AIR.defaultBlockState(), 3); level.setBlock(head, Blocks.AIR.defaultBlockState(), 3); com.claudemod.director.ClaudeLife.bedsSeen(c).clear(); level.setDayTime(6000);
             check(said.toString().contains("free bed"), "dusk, the free bed he saw 34 off, nothing of his own: not among the options, picked " + (pick == null ? "null" : pick[0]) + " (" + said + ")");
             pass(stage, t, "dusk: the free bed 34 off priced with the rest: " + said); return true;
+        }
+        return true;
+    }
+    private static boolean st1061(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 16:46:14 11-07 (review 277): "village food: 0 hay bales, 2 ripe crops -> bread", craft bread "missing wheat" 3 times; 21:02 (391): "4 ripe crops -> bread", harvest "nothing ripe nearby": any grown crop counted (beetroots too), seen or not, and fewer than 3 wheat still planned as bread
+        if (t[0] == 1) { scenarioReset(c); c.prefs.put("village_mode", "useful"); com.claudemod.entity.life.Perception.sightings(c).removeIf(s0 -> s0.id().equals("village")); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 16; x++) for (int z = -4; z <= 16; z++) { for (int yy = -2; yy <= 0; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.FARMLAND.defaultBlockState(), 2); for (int yy = 2; yy <= 6; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            level.setBlock(h.absolutePos(new BlockPos(6, 2, 4)), Blocks.BEETROOTS.defaultBlockState().setValue(net.minecraft.world.level.block.BeetrootBlock.AGE, 3), 2);
+            level.setBlock(h.absolutePos(new BlockPos(7, 2, 4)), Blocks.BEETROOTS.defaultBlockState().setValue(net.minecraft.world.level.block.BeetrootBlock.AGE, 3), 2); // ripe beetroots in view: no bread in them
+            for (int x = 0; x <= 14; x++) for (int yy = 2; yy <= 5; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, 10)), Blocks.STONE.defaultBlockState(), 2); // a wall: ripe wheat behind it, out of his sight
+            level.setBlock(h.absolutePos(new BlockPos(6, 2, 12)), Blocks.WHEAT.defaultBlockState().setValue(net.minecraft.world.level.block.CropBlock.AGE, 7), 2);
+            level.setBlock(h.absolutePos(new BlockPos(7, 2, 12)), Blocks.WHEAT.defaultBlockState().setValue(net.minecraft.world.level.block.CropBlock.AGE, 7), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_AXE));
+            BlockPos me = h.absolutePos(new BlockPos(6, 2, 7)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "village_food", "", 4);
+            boolean bread = c.skillQueue.stream().anyMatch(s0 -> s0.skill().equals("craft") && s0.target().equals("bread"));
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            check(!bread && !r.contains("-> bread"), "2 ripe beetroots in view, 2 ripe wheat behind a wall, no hay: bread planned: " + r);
+            pass(stage, t, "no bread planned from beetroots and unseen wheat: " + r); return true;
         }
         return true;
     }

@@ -115,8 +115,15 @@ public final class Route {
             if (onFortress != intoFortress) com.claudemod.entity.life.FarSight.lookAllRound(g, level); // (a look round first: the fortress's ends count once seen)
             if (onFortress && !intoFortress) { FortressEnds.End ex = FortressEnds.exit(g, level, me, to);
                 if (ex != null && ex.outside().distSqr(to) < me.distSqr(to)) { pre.add(ex.deck()); pre.add(ex.outside()); from = ex.outside(); via = "out by the fortress's open end at " + ex.deck().toShortString() + " (" + ex.out().getName() + "), then "; } }
-            NetherRoute.Plan np = null; boolean planned = false;
-            if (!onFortress && intoFortress) { FortressEnds.End en = null; double bs = Double.MAX_VALUE; StringBuilder priced = new StringBuilder();
+            NetherRoute.Plan np = null; boolean planned = false; FortressEnds.Door doorCut = null;
+            FortressEnds.Door door = !onFortress && intoFortress ? FortressEnds.highwayDoor(g, level, toDeck) : null; // his highway to its doorway first: the way he paths to this fortress (the user 20:10 11-07), the open ends only when there's none or no way along it
+            if (door != null && door.end().deck().distSqr(toDeck) <= Math.pow(com.claudemod.entity.life.Weights.w("fortress.door_reach", 64), 2)) {
+                NetherRoute.Plan p = me.distSqr(door.end().outside()) <= 6 * 6 ? new NetherRoute.Plan(List.of(), false, 0, 0, 0, 0, 0, 0) : NetherRoute.plan(g, level, me, door.end().outside());
+                if (p != null) { planned = true; np = p; FortressEnds.picked = door.end(); doorCut = door; aim = door.end().outside(); post.add(door.end().outside()); post.add(door.end().deck());
+                    via = "along his highway to its doorway into the fortress at " + door.end().deck().toShortString() + (door.bricks().isEmpty() ? " (open)" : " (" + door.bricks().size() + " brick(s) to cut, 3 tall)") + ", in; ";
+                } else com.claudemod.ClaudeMod.LOGGER.info("[Claude route] to {}: his highway's doorway at {} has no way to it from here: by the fortress's open ends (Route.expand)", to.toShortString(), door.end().deck().toShortString());
+            }
+            if (!planned && !onFortress && intoFortress) { FortressEnds.End en = null; double bs = Double.MAX_VALUE; StringBuilder priced = new StringBuilder();
                 List<FortressEnds.End> ends = FortressEnds.entries(g, level, me, to); StringBuilder among = new StringBuilder(); FortressEnds.End keptE = null; double keptS = 0; NetherRoute.Plan keptP = null; for (FortressEnds.End e : ends) among.append(e.out().getName());
                 for (FortressEnds.End e : ends) { // (each end by its planned way there and the walk along the deck: a player takes the end his way reaches soonest, not the one nearest as the crow flies)
                     NetherRoute.Plan p = me.distSqr(e.outside()) <= 6 * 6 ? new NetherRoute.Plan(List.of(), false, 0, 0, 0, 0, 0, 0) : NetherRoute.plan(g, level, me, e.outside());
@@ -128,11 +135,18 @@ public final class Route {
                 // the end he's making for holds unless another is clearly sooner (D2D 17:40 11-07: re-planned from each cell of the blaze hunt's short walks, the pick flipped 273,60,497 -> 298,65,503 -> 309,58,506 on a few seconds' swing)
                 if (keptE != null && keptE != en && keptS - bs < com.claudemod.entity.life.Weights.w("fortress.end_switch_s", 15)) { priced.append(" kept the end he was making for (the other ").append((int) (keptS - bs)).append(" s sooner);"); en = keptE; np = keptP; bs = keptS; }
                 if (en != null) { planned = true; FortressEnds.pickedAmong = among.toString(); FortressEnds.picked = en; aim = en.outside(); post.add(en.outside()); post.add(en.deck()); via = "to the fortress's open end at " + en.deck().toShortString() + " (from the " + en.out().getName() + "; ends priced:" + priced + "), in along it; "; } }
-            if (!via.isEmpty()) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] to {}: {}never through its side (FortressEnds)", to.toShortString(), via);
+            if (!via.isEmpty()) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] to {}: {}{} (FortressEnds)", to.toShortString(), via, doorCut != null ? "his own doorway, never another way through its side" : "never through its side");
             if (!planned) np = from.distSqr(aim) <= 6 * 6 ? new NetherRoute.Plan(List.of(), false, 0, 0, 0, 0, 0, 0) : NetherRoute.plan(g, level, from, aim);
             if (np == null) return null;
             List<BlockPos> nl = new ArrayList<>(pre); nl.addAll(np.legs()); if (!np.partial()) nl.addAll(post);
             List<Double> ns = new ArrayList<>(); for (int i = 0; i < nl.size(); i++) ns.add(post.contains(nl.get(i)) || pre.contains(nl.get(i)) ? 0.9 : 1.5);
+            if (doorCut != null && !np.partial() && !doorCut.bricks().isEmpty()) { // the doorway cut on the way: the bricks before the walk in (his own way in, kept open after)
+                List<Task> out0 = finish(g, to, within, nl, ns, false, via + "across the Nether (" + (int) np.seconds() + " s)");
+                int at = -1; for (int i = 0; i < out0.size(); i++) if (out0.get(i) instanceof Task.GoTo go && go.pos().equals(doorCut.end().deck())) { at = i; break; }
+                List<Task> cut = new ArrayList<>(); for (BlockPos q : doorCut.bricks()) cut.add(new Task.Break(q));
+                if (at >= 0) out0.addAll(at, cut); else out0.addAll(cut);
+                return out0;
+            }
             return finish(g, to, within, nl, ns, np.partial(), via + "across the Nether (" + (int) np.seconds() + " s: " + np.digs() + " dug, " + np.puts() + " put down, " + np.climb() + " up" + (np.partial() ? "; as far as the loaded land goes, planned again from there" : "") + ")");
         }
         MineBlueprint b = g.blueprint; boolean mine = b != null && !b.isEmpty();

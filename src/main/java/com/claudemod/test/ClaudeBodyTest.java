@@ -10529,6 +10529,7 @@ public final class ClaudeBodyTest {
             case 973: return st973(stage, t, c, h, level, mock);
             case 974: return st974(stage, t, c, h, level, mock);
             case 975: return st975(stage, t, c, h, level, mock);
+            case 976: return st976(stage, t, c, h, level, mock);
             case 955: return st955(stage, t, c, h, level, mock);
             case 954: return st954(stage, t, c, h, level, mock);
             case 953: return st953(stage, t, c, h, level, mock);
@@ -14870,6 +14871,43 @@ public final class ClaudeBodyTest {
             for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
             check(breaks >= 1 && breaks <= 3, "a blaze 5 off behind 2 netherrack: blaze_rods said \"" + r + "\", " + breaks + " block(s) of the wall to cut");
             nsHome(c, h, level); pass(stage, t, r);
+        }
+        return true;
+    }
+    /** Stage 976 (the user 20:08 11-07 via D2D: "he still hasnt broken into the fortress btw", 20:10 "that would ideally be how he paths to the fortress"; live 17:15-17:50 every way in went by the open ends 273,60,497, 298,65,503, 309,58,506, 40-118 s round, his highway's end at the wall ~238-241,60,509 never used): his highway on record from the portal to a fortress corridor's brick wall, the corridor open at both its far ends. A walk into the corridor goes along the highway and in through a doorway cut in the wall, 3 tall, not round by an open end. */
+    private static int s976T;
+    private static boolean st976(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12300, 64, 7320), in = o.offset(0, 0, 18);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); com.claudemod.entity.nav.FortressEnds.picked = null; s976T = -1; }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            for (int x = -12; x <= 13; x++) for (int z = -4; z <= 30; z++) for (int y = -6; y <= 7; y++) nl.setBlock(o.offset(x, y, z), (z < 0 ? y < 0 || x <= -2 || x >= 3 : y < -1) ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, 0), x == -1 || x == 2 || y == -1 || y == 3 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+            for (int x = 0; x <= 1; x++) for (int z = 1; z <= 15; z++) nl.setBlock(o.offset(x, -1, z), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); // his highway (2 wide, cols 0 and 1 as a southward row lays them), laid to z 15
+            for (int x = -10; x <= 11; x++) for (int z = 16; z <= 20; z++) for (int y = -1; y <= 3; y++) { boolean wall = z == 16 || z == 20 || y == -1 || y == 3; nl.setBlock(o.offset(x, y, z), wall ? Blocks.NETHER_BRICKS.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); } // the corridor across its end, open at x -10 and x 11
+            nsKit(c); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 2.5, 0f, 0f);
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o, "him", "lit");
+            com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(0, -1, 1), o.offset(0, -1, 15), net.minecraft.core.Direction.Axis.Z, 2);
+        }
+        if (t[0] == 20) { c.skillQueue.clear(); c.tasks.clear();
+            var r = com.claudemod.entity.nav.Route.expand(c, nl, in, 1); if (r != null) c.tasks.addAll(r);
+            ClaudeMod.LOGGER.info("[Claude test] 976 the walk in: {}", r); s976T = t[0]; }
+        if (s976T > 0 && t[0] > s976T) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear();
+            boolean inside = c.onGround() && c.getZ() >= o.getZ() + 17 && c.getZ() < o.getZ() + 20 && c.getY() >= o.getY() - 0.5 && c.getY() < o.getY() + 1;
+            if (inside || t[0] >= s976T + 20 * 40) {
+                int cut = 0; for (int x = 0; x <= 1; x++) for (int y = 0; y <= 2; y++) if (nl.getBlockState(o.offset(x, y, 16)).isAir()) cut++;
+                double s = (t[0] - s976T) / 20.0; String at = c.blockPosition().toShortString(); double ex = c.getX() - o.getX();
+                c.skillQueue.clear(); c.tasks.clear(); c.dropCurrent = true; com.claudemod.entity.life.Highway.reset(c);
+                for (int x = -12; x <= 13; x++) for (int z = -4; z <= 30; z++) for (int y = -6; y <= 7; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+                com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear();
+                check(inside, "a walk into the corridor his highway meets: not inside after " + s + " s (at " + at + ")");
+                check(cut == 6, "in by his highway's doorway: " + cut + " of its 6 cells cut (3 tall across the walkway); in at x " + String.format("%.1f", ex) + " (the open ends are at x -10 and 11)");
+                check(s <= 25, "into the fortress along his highway: " + s + " s");
+                pass(stage, t, "in through his highway's doorway in " + s + " s");
+            }
         }
         return true;
     }

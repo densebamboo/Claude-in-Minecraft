@@ -66,6 +66,34 @@ public final class FortressEnds {
     }
 
     /** The ways into the fortress whose deck holds {@code to}: its seen ends (all, when none is seen yet), nearest first by the walk there and along the deck; the caller prices each by its planned route (538, 11-05: the nearest by a straight line from where he stood flipped north to east and back for 2 min, each end's way round passing the other). */
+    /** His highway's end at a fortress's wall: the way in (end), the bricks still in its doorway (3 tall across the walkway, the user: "3 tall"), the segment. */
+    public record Door(End end, List<BlockPos> bricks) {}
+    private static final java.util.Set<BlockPos> DOOR_BRICKS = java.util.concurrent.ConcurrentHashMap.newKeySet(); // shortcut: one Claude per server; key by bot if a second ever builds
+    public static boolean doorBrick(BlockPos p) { return DOOR_BRICKS.contains(p); }
+    /**
+     * The end of a highway of his that meets a fortress's wall, its doorway's inside the nearest to {@code near} (within 96), or null.
+     * The user 20:10 11-07: "that would ideally be how he paths to the fortress": portal, his highway, the doorway, in.
+     */
+    public static Door highwayDoor(com.claudemod.entity.ClaudeEntity g, ServerLevel level, BlockPos near) {
+        Door best = null; double bd = Double.MAX_VALUE;
+        for (var sg : com.claudemod.entity.life.PortalMap.net(g).segments) { if (!com.claudemod.entity.life.PortalMap.NETHER.equals(sg.dim) || sg.a.equals(sg.b)) continue;
+            for (int s = 0; s < 2; s++) { BlockPos e = s == 0 ? sg.a : sg.b, o = s == 0 ? sg.b : sg.a;
+                if (!level.isLoaded(e) || e.distSqr(near) > 96 * 96) continue;
+                int sign = sg.axis == Direction.Axis.X ? Integer.signum(e.getX() - o.getX()) : Integer.signum(e.getZ() - o.getZ()); if (sign == 0) continue;
+                Direction out = Direction.fromAxisAndDirection(sg.axis, sign > 0 ? Direction.AxisDirection.POSITIVE : Direction.AxisDirection.NEGATIVE), right = out.getClockWise();
+                int lo = -(sg.width / 2), hi = sg.width - 1 - sg.width / 2;
+                for (int k = 1; k <= 4; k++) { BlockPos slab = e.relative(out, k); boolean wall = false;
+                    for (int c = lo - 1; c <= hi + 1 && !wall; c++) for (int y = 1; y <= 3; y++) if (com.claudemod.entity.life.FortressScout.fortressBlock(level.getBlockState(slab.relative(right, c).above(y)))) { wall = true; break; }
+                    if (!wall) continue;
+                    List<BlockPos> bricks = new ArrayList<>();
+                    for (int c = lo; c <= hi; c++) for (int y = 1; y <= 3; y++) { BlockPos q = slab.relative(right, c).above(y); var st = level.getBlockState(q); if (!st.getCollisionShape(level, q).isEmpty() && com.claudemod.entity.life.FortressScout.fortressBlock(st)) bricks.add(q.immutable()); }
+                    BlockPos in = null; for (int j = 1; j <= 3 && in == null; j++) for (int dy = 0; dy <= 2 && in == null; dy++) { BlockPos f = slab.relative(out, j).above(dy); if (deck(level, f)) in = f.immutable(); }
+                    if (in != null && in.distSqr(near) < bd) { bd = in.distSqr(near); best = new Door(new End(in, out.getOpposite(), slab.relative(out.getOpposite()).above().immutable()), bricks); }
+                    break; } } }
+        if (best != null) DOOR_BRICKS.addAll(best.bricks());
+        return best;
+    }
+
     public static List<End> entries(com.claudemod.entity.ClaudeEntity g, ServerLevel level, BlockPos from, BlockPos to) {
         BlockPos d0 = deckNear(level, to); if (d0 == null) return List.of();
         List<End> all = ends(level, d0); boolean any = false; for (End e : all) if (seen(g, e)) any = true;

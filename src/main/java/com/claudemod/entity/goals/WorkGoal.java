@@ -795,7 +795,8 @@ public class WorkGoal extends Goal {
           if (start == null) for (BlockPos q : back) { double d0 = q.distSqr(here); if (d0 <= sd) { sd = d0; start = q; } }
           java.util.Map<BlockPos, BlockPos> came = new java.util.HashMap<>(); java.util.ArrayDeque<BlockPos> fr = new java.util.ArrayDeque<>(); BlockPos top = null;
           if (start != null) { came.put(start, start); fr.add(start); }
-          while (!fr.isEmpty()) { BlockPos q = fr.poll(); if (lv.canSeeSky(q.above()) && !g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.WALK, q, g.tickCount, 20 * 60)) { top = q; break; }
+          final boolean toMine = com.claudemod.director.ClaudeLife.inHisMine(g, pos) || com.claudemod.director.ClaudeLife.touchesMine(g, pos); // (a walk into his mine: his trail back into it is the way, never up to the sky and round by his door; live 09:01 11-08, reviews 30/31: a staircase cut 120 up through deepslate, his way in 12 blocks back)
+          while (!fr.isEmpty()) { BlockPos q = fr.poll(); if ((lv.canSeeSky(q.above()) || toMine && com.claudemod.director.ClaudeLife.inHisMine(g, q)) && !g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.WALK, q, g.tickCount, 20 * 60)) { top = q; break; }
               for (Direction d : Direction.values()) { BlockPos n = q.relative(d); if (cells.contains(n) && !came.containsKey(n)) { came.put(n, q); fr.add(n); } } }
           if (top != null) { way = new java.util.ArrayList<>(); for (BlockPos q = top; ; q = came.get(q)) { way.add(0, q); if (q.equals(start)) break; } } }
         double sprint = com.claudemod.entity.life.Decide.sprint(), digS = com.claudemod.entity.life.Weights.w("move.dig_down_s_per_block", 1.0);
@@ -804,7 +805,7 @@ public class WorkGoal extends Goal {
         BlockPos stairTop = new BlockPos(sx, lv.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, sx, sz), sz);
         boolean digOk = !g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.WALK, stairTop, g.tickCount, 20 * 60) && !g.inventory.find(st -> st.getItem() instanceof net.minecraft.world.item.PickaxeItem).isEmpty();
         java.util.List<com.claudemod.entity.life.Decide.Option> opts = new java.util.ArrayList<>();
-        if (way != null) opts.add(com.claudemod.entity.life.Decide.Option.of("back out the way he came", way.size() / sprint + Math.sqrt(way.get(way.size() - 1).distSqr(pos)) / sprint, way.size() + " cells of his trail to the open sky at " + way.get(way.size() - 1).toShortString()));
+        if (way != null) opts.add(com.claudemod.entity.life.Decide.Option.of("back out the way he came", way.size() / sprint + Math.sqrt(way.get(way.size() - 1).distSqr(pos)) / sprint, way.size() + " cells of his trail to " + (lv.canSeeSky(way.get(way.size() - 1).above()) ? "the open sky" : "his mine") + " at " + way.get(way.size() - 1).toShortString()));
         if (digOk) opts.add(com.claudemod.entity.life.Decide.Option.of("dig up from here", 2 * up * digS + run / sprint + Math.sqrt(stairTop.distSqr(pos)) / sprint, "a staircase " + up + " up toward it, to " + stairTop.toShortString()));
         if (opts.isEmpty()) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} under the surface, the walk to {} {} off: no trail out and no staircase to cut (no pick, or it failed lately)", up, pos.toShortString(), (int) hd); return false; }
         var pick = com.claudemod.entity.life.Decide.choose(g, "walk.out", (int) hd + " off, " + up + " under the surface, away from his mine", false, opts);

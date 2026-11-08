@@ -10722,6 +10722,7 @@ public final class ClaudeBodyTest {
             case 1035: return st1035(stage, t, c, h, level, mock);
             case 1036: return st1036(stage, t, c, h, level, mock);
             case 1037: return st1037(stage, t, c, h, level, mock);
+            case 1038: return st1038(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -19514,6 +19515,44 @@ public final class ClaudeBodyTest {
             check(stone > 0, "no patch queued at all with 3 cobblestone on him (" + st1037H + " holes): " + (q.length() > 200 ? q.substring(0, 200) : q));
             check(stone <= 3, stone + " stone patches queued with 3 cobblestone on him: " + (q.length() > 200 ? q.substring(0, 200) : q));
             pass(stage, t, stone + " patches queued for 3 cobblestone, " + pend + " kept for later");
+        }
+        return true;
+    }
+    private static int st1038T, st1038P; private static BlockPos st1038E, st1038H;
+    private static boolean st1038(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // out of his mine down a side passage he walked, sent back to a spot in his mine 36 off: "dig up from here" cut a staircase 120 up through deepslate toward the surface, his way in 10 blocks back (live 09:01 11-08, D2D reviews 30/31: the furnace 117 off in his mine, minutes of "no way up: cutting a step up")
+        BlockPos o = new BlockPos(20800, 80, 19000);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = 0; k <= 112; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; st1038T = -1; st1038P = 0; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 108; x++) for (int z = -6; z <= 18; z++) for (int y = -2; y <= 14; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+            var E = net.minecraft.core.Direction.EAST; var S = net.minecraft.core.Direction.SOUTH;
+            var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 104, null)); b.invalidate();
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            BlockPos a = null; for (BlockPos f : b.rows().get(100).feet()) if (a == null || f.getZ() > a.getZ()) a = f;
+            for (int k = 1; k <= 12; k++) for (int yy = 0; yy < 2; yy++) level.setBlock(a.relative(S, k).above(yy), Blocks.AIR.defaultBlockState(), 2);
+            for (int yy = 2; yy < 6; yy++) level.setBlock(a.relative(S, 12).above(yy), Blocks.AIR.defaultBlockState(), 2);
+            st1038E = a.relative(S, 12).immutable(); st1038H = b.rows().get(2).first().immutable();
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = b.rows().get(103).first(); c.mineIsTunnel = true; com.claudemod.director.ClaudeLife.bpSync(c); level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.TORCH, 64));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, a.getX() + 0.5, a.getY(), a.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no"); mock[0].teleportTo(level, a.getX() + 0.5, a.getY() + 40, a.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null; c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("torches_while_digging", "no");
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.tasks.add(new Task.GoTo(st1038E, 0.8)); }
+        if (t[0] > 20 && st1038T < 0 && c.blockPosition().distSqr(st1038E) <= 2 && c.tasks.isEmpty() && st1038P == 0) { st1038P = -1; c.tasks.add(new Task.Pillar(3)); }
+        if (t[0] > 20 && st1038T < 0 && (st1038P == -1 && c.getBlockY() >= st1038E.getY() + 3 && c.onGround() && c.tasks.isEmpty() && c.currentTask == null || t[0] > 20 + 20 * 30)) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.tasks.add(new Task.GoTo(st1038H, 1.0)); st1038T = t[0]; st1038P = c.getBlockY() - st1038E.getY(); }
+        if (st1038T > 0 && t[0] > st1038T + 2) {
+            boolean up = c.getBlockY() > o.getY() + 6 || c.tasks.stream().anyMatch(x -> x instanceof Task.GoTo go && go.pos().getY() > o.getY() + 6) || c.currentTask instanceof Task.GoTo cg && cg.pos().getY() > o.getY() + 6;
+            boolean there = c.blockPosition().distSqr(st1038H) <= 9;
+            if (up || there || t[0] - st1038T > 20 * 60) {
+                String now = c.currentTask + " " + c.tasks; int at = c.getBlockY();
+                c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; c.mineShape = null; c.mineCells.clear(); c.mineSpine.clear(); c.prefs.remove("stay_close"); c.prefs.remove("torches_while_digging");
+                for (int x = -4; x <= 108; x++) for (int z = -6; z <= 18; z++) for (int y = -2; y <= 14; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(st1038P >= 3, "never up on his pillar at the side passage's end (" + st1038P + " up)");
+                check(!up, "heading up to the surface (at y " + at + ") for a walk back into his own mine: " + (now.length() > 220 ? now.substring(0, 220) : now));
+                check(there, "60 s and not back in his mine: " + (now.length() > 200 ? now.substring(0, 200) : now));
+                pass(stage, t, "back into his mine the way he came in " + (t[0] - st1038T) / 20 + " s");
+            }
         }
         return true;
     }

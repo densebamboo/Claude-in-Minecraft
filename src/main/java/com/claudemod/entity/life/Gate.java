@@ -32,10 +32,17 @@ public final class Gate {
     public static final Map<UUID, Integer> REFUSED = new HashMap<>();
     public static final Map<UUID, String> LAST_WHY = new HashMap<>();
     public static final long MEMORY = 20 * 120;
+    /** A dig or a fill that changed its cell: what it was, what it left, who queued it. */
+    record Change(Task task, String before, String after, String origin, long tick) {}
+    private static final Map<UUID, Map<Long, Change[]>> HIST = new HashMap<>(); // cell -> {the one before, the last}
+    /** The referee's losers: the job not to queue again while the cell stays as the winner left it. */
+    record Lost(String keep, long tick, String why) {}
+    private static final Map<UUID, Map<Task, Lost>> LOST = new HashMap<>();
+    public static final Map<UUID, Integer> REFEREED = new HashMap<>();
 
     private static Map<Task, Rec> book(ClaudeEntity g) { return BOOK.computeIfAbsent(g.getUUID(), k -> new HashMap<>()); }
     private static long now(ClaudeEntity g) { return g.level().getGameTime(); }
-    public static void reset(ClaudeEntity g) { BOOK.remove(g.getUUID()); SAID.remove(g.getUUID()); START.remove(g.getUUID()); }
+    public static void reset(ClaudeEntity g) { BOOK.remove(g.getUUID()); SAID.remove(g.getUUID()); START.remove(g.getUUID()); HIST.remove(g.getUUID()); LOST.remove(g.getUUID()); }
     public static int refused(ClaudeEntity g) { return REFUSED.getOrDefault(g.getUUID(), 0); }
 
     /** The jobs it measures: those with a target cell, the fight and the flight left out (D2D's combat rewrite owns those). */
@@ -70,9 +77,14 @@ public final class Gate {
     public static void ended(ClaudeEntity g, Task t, String why) {
         Object[] s0 = START.remove(g.getUUID());
         BlockPos p = target(t); if (p == null || s0 == null || !t.equals(s0[0])) return;
+        Snap a = (Snap) s0[1], b = snap(g, p);
+        if (!a.block().equals(b.block()) && (t instanceof Task.Break || t instanceof Task.Place)) { // (the referee's history: who changed the cell to what)
+            Map<Long, Change[]> h = HIST.computeIfAbsent(g.getUUID(), k -> new HashMap<>()); if (h.size() > 2000) h.clear();
+            Change[] was = h.get(p.asLong());
+            h.put(p.asLong(), new Change[] {was == null ? null : was[1], new Change(t, a.block(), b.block(), ClaudeEntity.originOf(t), now(g))});
+        }
         if (g.tasks.contains(t)) return; // (put itself back: a nudge, the block in front first, a walk to a stand spot; its own bounded retry)
         if (Boolean.TRUE.equals(Watchdog.achieved(g, t))) { book(g).remove(t); return; }
-        Snap a = (Snap) s0[1], b = snap(g, p);
         boolean nearer = a.dist() >= 0 && b.dist() <= a.dist() - 1.0;
         if (nearer || !a.block().equals(b.block()) || a.pack() != b.pack()) { book(g).remove(t); return; }
         if (why == s0[2]) why = null; // (the last job's exit line, left standing: not this one's)
@@ -91,6 +103,7 @@ public final class Gate {
     }
 
     public static boolean admits(ClaudeEntity g, Task t) {
+        if ((t instanceof Task.Break || t instanceof Task.Place) && !referee(g, t)) return false;
         Map<Task, Rec> bk = BOOK.get(g.getUUID()); if (bk == null || bk.isEmpty()) return true;
         Rec r = bk.get(t); if (r == null) return true;
         if (t.equals(g.currentTask)) return true;
@@ -114,5 +127,55 @@ public final class Gate {
         }
         MindLog.refused(g, p, "gate: " + why + " asked again by " + asker);
         return false;
+    }
+
+    /** What his mine's plan wants in a cell: true solid, false open, null no say. */
+    private static Boolean planWants(ClaudeEntity g, BlockPos p) {
+        if (g.blueprint == null) return null;
+        MineBlueprint.Role r = g.blueprint.roleAt(p); if (r == null) return null;
+        return r != MineBlueprint.Role.WALK;
+    }
+
+    /**
+     * The block referee (the user 11-08: "[Claude owner] from a detector into the decision"). A dig or a fill that two of his
+     * systems keep flipping: one did it, another undid it, and the first asks again. That third ask is a decision, priced by
+     * what his mine's plan wants there (a cell with no plan: the cell stays as it stands, no work); the loser is told
+     * and its job is refused while the cell stays as the winner left it (2 min at most).
+     */
+    private static boolean referee(ClaudeEntity g, Task t) {
+        BlockPos p = Watchdog.target(t); if (p == null) return true;
+        Map<Task, Lost> lost = LOST.get(g.getUUID());
+        if (lost != null) { Lost l = lost.get(t);
+            if (l != null) {
+                if (now(g) - l.tick() <= MEMORY && snap(g, p).block().equals(l.keep())) { MindLog.refused(g, p, "referee: " + l.why()); REFUSED.merge(g.getUUID(), 1, Integer::sum); LAST_WHY.put(g.getUUID(), l.why()); return false; }
+                lost.remove(t);
+            } }
+        Map<Long, Change[]> h = HIST.get(g.getUUID()); if (h == null) return true;
+        Change[] c = h.get(p.asLong()); if (c == null || c[0] == null || c[1] == null) return true;
+        Change mine = c[0], undo = c[1];
+        if (!t.equals(mine.task()) || t.equals(undo.task()) || undo.tick() - mine.tick() > 20 * 60 || now(g) - undo.tick() > 20 * 60) return true;
+        String here = snap(g, p).block();
+        if (!here.equals(mine.before()) || !mine.before().equals(undo.after())) return true; // (not a flip back: something else since)
+        if (t.equals(g.currentTask)) return true;
+        String redoBy = ClaudeEntity.originOf(t), undoBy = undo.origin();
+        boolean full = t instanceof Task.Place pl ? pl.item() instanceof net.minecraft.world.item.BlockItem bi && bi.getBlock().defaultBlockState().isCollisionShapeFullBlock(g.level(), p) : g.level().getBlockState(p).isCollisionShapeFullBlock(g.level(), p);
+        Boolean wants = full ? planWants(g, p) : null; boolean redoSolid = t instanceof Task.Place; // (a torch in his walkway is no wall: the plan has no say on thin blocks)
+        double work = Weights.w("referee.work_s", 2), against = Weights.w("referee.against_plan_s", 60);
+        String what = t instanceof Task.Place ? "filled" : "dug out", other = t instanceof Task.Place ? "dug out" : "filled";
+        var keep = Decide.Option.of("leave it " + other + " (" + undoBy + ")", wants == null ? 0 : wants == redoSolid ? against : 0, wants == null ? "no plan for the cell, it stands as it is" : "his mine's plan: " + (wants ? "solid" : "open"));
+        var redo = Decide.Option.of(what + " again (" + redoBy + ")", work + (wants == null ? 0 : wants == redoSolid ? 0 : against), "");
+        var pick = Decide.choose(g, "referee", p.toShortString() + " " + what + " by " + redoBy + ", then " + other + " by " + undoBy + ", now " + what + " again", true, java.util.List.of(keep, redo));
+        REFEREED.merge(g.getUUID(), 1, Integer::sum);
+        Map<Task, Lost> ls = LOST.computeIfAbsent(g.getUUID(), k -> new HashMap<>()); if (ls.size() > 256) ls.clear();
+        if (pick == keep) {
+            String why = p.toShortString() + " " + what + " again by " + redoBy + ": " + undoBy + " had it " + other + " " + (now(g) - undo.tick()) / 20 + " s ago, the referee kept that (" + keep.detail() + ")";
+            ClaudeMod.LOGGER.info("[Claude referee] {} (Gate.referee)", why);
+            ls.put(t, new Lost(here, now(g), why)); MindLog.refused(g, p, "referee: " + why); REFUSED.merge(g.getUUID(), 1, Integer::sum); LAST_WHY.put(g.getUUID(), why);
+            return false;
+        }
+        String why = p.toShortString() + " " + other + " by " + undoBy + " undid " + redoBy + "; the referee gave it to " + redoBy + " (his mine's plan: " + (wants ? "solid" : "open") + ")";
+        ClaudeMod.LOGGER.info("[Claude referee] {} (Gate.referee)", why);
+        ls.put(undo.task(), new Lost(mine.after(), now(g), why)); // (the undoing job, told: not again while it stands as the plan wants)
+        return true;
     }
 }

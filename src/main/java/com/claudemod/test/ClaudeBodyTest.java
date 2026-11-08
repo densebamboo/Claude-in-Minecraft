@@ -10736,6 +10736,7 @@ public final class ClaudeBodyTest {
             case 1041: return st1041(stage, t, c, h, level, mock);
             case 1042: return st1042(stage, t, c, h, level, mock);
             case 1043: return st1043(stage, t, c, h, level, mock);
+            case 1044: return st1044(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -19921,6 +19922,33 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
             check(in == 2 && refused2 == 0, "with cobble in his pack and salmon done in the furnace, the jobs were still refused: " + q3);
             pass(stage, t, "2 unchanged retries refused, both let in once the pack and the furnace changed");
+        }
+        return true;
+    }
+    private static boolean st1044(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // the block referee (the user 11-08: "[Claude owner] from a detector into the decision"): a cell filled by one job, dug out by another, then the fill asked again: a priced decision (no plan for the cell: it stays as it stands), the loser refused while it stands, let in once the cell changes (live 11-08: 18 owner lines, torch place/break/place, review 177)
+        BlockPos x = h.absolutePos(new BlockPos(4, 2, 6));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.prefs.put("stay_close", "no"); }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) e.discard();
+        if (t[0] == 10) {
+            for (int xx = -4; xx <= 12; xx++) for (int z = -4; z <= 12; z++) { for (int yy = -2; yy <= 0; yy++) level.setBlock(h.absolutePos(new BlockPos(xx, yy, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(xx, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 8; yy++) level.setBlock(h.absolutePos(new BlockPos(xx, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            level.setDayTime(6000); c.blueprint = null;
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 8)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 6));
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) c.tasks.add(new Task.Place(x, Items.COBBLESTONE)); // one system fills it
+        if (t[0] == 70) { check(level.getBlockState(x).is(Blocks.COBBLESTONE), "the fill never went in: " + level.getBlockState(x) + " " + c.tasks + " / " + c.currentTask); c.tasks.add(new Task.Break(x)); } // another digs it out
+        if (t[0] == 160) {
+            check(level.getBlockState(x).isAir(), "the dig never came out: " + level.getBlockState(x) + " " + c.tasks + " / " + c.currentTask);
+            int r0 = com.claudemod.entity.life.Gate.REFEREED.getOrDefault(c.getUUID(), 0);
+            c.tasks.add(new Task.Place(x, Items.COBBLESTONE)); // the first asks again
+            boolean in1 = c.tasks.contains(new Task.Place(x, Items.COBBLESTONE)); int r1 = com.claudemod.entity.life.Gate.REFEREED.getOrDefault(c.getUUID(), 0) - r0;
+            c.tasks.add(new Task.Place(x, Items.COBBLESTONE)); boolean in2 = c.tasks.contains(new Task.Place(x, Items.COBBLESTONE)); // and again: the loser, told
+            c.tasks.clear(); level.setBlock(x, Blocks.STONE.defaultBlockState(), 3); c.tasks.add(new Task.Place(x, Items.COBBLESTONE)); boolean in3 = c.tasks.contains(new Task.Place(x, Items.COBBLESTONE)); // the cell changed since: the same ask is a new one
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            check(r1 == 1 && !in1, "the fill asked a third time wasn't refereed (" + r1 + " decisions, queued " + in1 + ")");
+            check(!in2, "the loser's fill asked again went in");
+            check(in3, "the fill asked after the cell changed was still refused");
+            pass(stage, t, "fill / dig / fill again: refereed once (the cell left dug out), the loser refused, a new ask on a changed cell let in");
         }
         return true;
     }

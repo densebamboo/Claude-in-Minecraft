@@ -130,8 +130,8 @@ public final class Decide {
         for (BlockPos b : g.myStations) if (level.isLoaded(b) && level.getBlockState(b).is(net.minecraft.tags.BlockTags.BEDS)) spots.add(new Object[] {"his bed", b, 0.0});
         if (g.house != null && g.house.shellStands(level) && level.getBlockState(g.house.bedHead()).is(net.minecraft.tags.BlockTags.BEDS)) spots.add(new Object[] {"his house's bed", g.house.bedHead(), 0.0});
         if (g.blueprint != null && !g.blueprint.isEmpty()) spots.add(new Object[] {"his lit mine", g.blueprint.entrance, 0.0});
+        for (BlockPos b : com.claudemod.director.ClaudeLife.bedsSeen(g)) if (level.isLoaded(b) && level.getBlockState(b).is(net.minecraft.tags.BlockTags.BEDS)) spots.add(new Object[] {"a free bed", b, 0.0}); // (at dusk too: live 20:14 11-07 the village bed 34 off was left out, he walked 154 for his mine, the night out ended in a death; stage 1060)
         if (far) {
-            for (BlockPos b : com.claudemod.director.ClaudeLife.bedsSeen(g)) if (level.isLoaded(b) && level.getBlockState(b).is(net.minecraft.tags.BlockTags.BEDS)) spots.add(new Object[] {"a free bed", b, 0.0});
             var vil = com.claudemod.director.ClaudeLife.knownVillage(g, (int) w("night.spot_max_route", 400), s0 -> true);
             if (vil != null) spots.add(new Object[] {"the village's beds", vil.nearestCell(g.position()), w("night.village_bed_find_s", 20)}); // (beds he hasn't seen yet: a look round for one)
         }

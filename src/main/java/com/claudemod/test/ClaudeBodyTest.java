@@ -10801,6 +10801,7 @@ public final class ClaudeBodyTest {
             case 1056: return st1056(stage, t, c, h, level, mock);
             case 1057: return st1057(stage, t, c, h, level, mock);
             case 1058: return st1058(stage, t, c, h, level, mock);
+            case 1060: return st1060(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -21561,6 +21562,27 @@ public final class ClaudeBodyTest {
             check(first == null || !first.skill().equals("enter_portal"), "3 meals on him and 6 cooked porkchop in his furnace 2 off: sent home through his portal for food (queue " + c.skillQueue + ")");
             c.skillQueue.clear(); c.lastStep = null; c.getInventory().clearContent(); c.dropCurrent = true;
             pass(stage, t, "the food in his furnace beside him counted: no trip home"); return true;
+        }
+        return true;
+    }
+    private static boolean st1060(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 20:14:20 11-07 (-173,76,71): dusk priced "his bed 352 off; his lit mine 180 off; a hole here": the free village bed 34 off at -152,70,44 left out, he walked for his mine; the sleep step queued 10 s later, 4 short of that bed, ran only 130 blocks away ("no way on foot"); the night out ended in the 20:33 death
+        if (t[0] == 1) { scenarioReset(c); }
+        if (t[0] == 10) {
+            for (int x = -2; x <= 40; x++) for (int z = -2; z <= 12; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 1; yy <= 4; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            BlockPos foot = h.absolutePos(new BlockPos(36, 1, 5)), head = foot.east();
+            level.setBlock(foot, Blocks.RED_BED.defaultBlockState().setValue(net.minecraft.world.level.block.BedBlock.FACING, net.minecraft.core.Direction.EAST).setValue(net.minecraft.world.level.block.BedBlock.PART, net.minecraft.world.level.block.state.properties.BedPart.FOOT), 3);
+            level.setBlock(head, Blocks.RED_BED.defaultBlockState().setValue(net.minecraft.world.level.block.BedBlock.FACING, net.minecraft.core.Direction.EAST).setValue(net.minecraft.world.level.block.BedBlock.PART, net.minecraft.world.level.block.state.properties.BedPart.HEAD), 3);
+            com.claudemod.director.ClaudeLife.bedsSeen(c).clear(); com.claudemod.director.ClaudeLife.bedsSeen(c).add(head.immutable());
+            c.myStations.clear(); c.blueprint = null; c.house = null;
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 2));
+            for (var sl : new net.minecraft.world.entity.EquipmentSlot[]{net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET}) c.setItemSlot(sl, ItemStack.EMPTY);
+            BlockPos me = h.absolutePos(new BlockPos(2, 1, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            level.setDayTime(12645);
+            java.util.List<String> said = new java.util.ArrayList<>();
+            Object[] pick = com.claudemod.entity.life.Decide.nightSpot(c, level, 12645, said, false);
+            level.setBlock(foot, Blocks.AIR.defaultBlockState(), 3); level.setBlock(head, Blocks.AIR.defaultBlockState(), 3); com.claudemod.director.ClaudeLife.bedsSeen(c).clear(); level.setDayTime(6000);
+            check(said.toString().contains("free bed"), "dusk, the free bed he saw 34 off, nothing of his own: not among the options, picked " + (pick == null ? "null" : pick[0]) + " (" + said + ")");
+            pass(stage, t, "dusk: the free bed 34 off priced with the rest: " + said); return true;
         }
         return true;
     }

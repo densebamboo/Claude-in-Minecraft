@@ -10536,6 +10536,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1154: return st1154(stage, t, c, h, level, mock);
             case 1150: return st1150(stage, t, c, h, level, mock);
             case 999: return st999(stage, t, c, h, level, mock);
             case 997: return st997(stage, t, c, h, level, mock);
@@ -15475,6 +15476,27 @@ public final class ClaudeBodyTest {
             for (var e : w) e.discard(); com.claudemod.entity.life.FortressFight.reset(c);
             check(cov == null || !cov.cover().equals(gap), "cover picked in the gap at " + gap.toShortString() + ", the wither skeleton between him and it (" + (cov == null ? "-" : cov.how()) + ")");
             pass(stage, t, "no cover past the skeleton: " + (cov == null ? "none (shield and sword in the open)" : cov.how()));
+        }
+        return true;
+    }
+    /** Stage 1154 (reviews 430 and 42, 11-08 11:13 and 11:45, again live 12:37: in 1-deep water against a 1-block bank on the way to his furnace 8-15 off, his body held the jump back for the Break he had on, 30 s floating against the bank, then "BLOCKED_FLUID" and the furnace left): in 1-deep water against the bank, his furnace 10 off on the land. He climbs out and breaks it in a player's few seconds. */
+    private static int st1154At;
+    private static boolean st1154(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos fur = h.absolutePos(new BlockPos(1, 2, 5));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.blueprint = null; level.setDayTime(6000); flatBox(h);
+            for (int x = 11; x <= 16; x++) for (int z = 2; z <= 9; z++) h.setBlock(new BlockPos(x, 1, z), Blocks.WATER); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            level.setBlock(fur, Blocks.FURNACE.defaultBlockState(), 3); c.myStations.add(fur); c.tempStations.add(fur);
+            BlockPos me = h.absolutePos(new BlockPos(11, 1, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear();
+            c.tasks.add(new Task.Break(fur)); st1154At = 0;
+        }
+        if (t[0] > 10 && st1154At == 0 && level.getBlockState(fur).isAir()) st1154At = t[0];
+        if (t[0] == 10 + 300) {
+            check(st1154At > 0, "his furnace 10 off on the land still standing after 15 s; he's at " + c.blockPosition().toShortString() + (c.isInWater() ? " in the water" : "") + ", task " + c.currentTask);
+            check(st1154At - 10 <= 160, "the furnace took " + (st1154At - 10) / 20 + " s from the water, a player's ~5 s");
+            pass(stage, t, "out of the water and the furnace broken in " + (st1154At - 10) / 20.0 + " s");
         }
         return true;
     }

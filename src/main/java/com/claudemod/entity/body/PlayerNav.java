@@ -133,6 +133,12 @@ public final class PlayerNav {
               if (!sh.isEmpty()) { var b = sh.bounds(); // (an open door's panel down one side: the gap is 13/16 wide and he's 0.6, so the cell's middle left him 1/80 of a block; a hair off it he walked into the panel's end and hopped on the step for 8 s, the house's bed given up, stages 84/85)
                   if (b.maxX - b.minX < 0.5) ax = b.minX < 0.01 ? (b.maxX + 1) / 2 : b.minX / 2;
                   if (b.maxZ - b.minZ < 0.5) az = b.minZ < 0.01 ? (b.maxZ + 1) / 2 : b.minZ / 2; } } }
+        { // a flat step whose straight line catches a block's corner (his box off the cell's middle, over the next row): back to the middle of his cell first, like a player stepping round (16:20 11-07: pressed into a birch trunk's corner 65 s, stage 1010)
+            double ex = n.x + ax - pos.x, ez = n.z + az - pos.z, el = Math.sqrt(ex * ex + ez * ez);
+            BlockPos here = BlockPos.containing(pos.x, pos.y + 0.01, pos.z); double cx = here.getX() + 0.5 - pos.x, cz = here.getZ() + 0.5 - pos.z;
+            if (el > 0.5 && n.y == here.getY() && cx * cx + cz * cz > 0.1 * 0.1 && !p.level().noCollision(p, p.getBoundingBox().move(ex / el * 0.4, 0.01, ez / el * 0.4))
+                    && p.level().noCollision(p, p.getBoundingBox().move(cx, 0.01, cz))) return new Vec3(cx, 0, cz).normalize();
+        }
         double dx = n.x + ax - pos.x, dz = n.z + az - pos.z;
         double d = Math.sqrt(dx * dx + dz * dz);
         // stuck check

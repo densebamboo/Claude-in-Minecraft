@@ -10663,6 +10663,7 @@ public final class ClaudeBodyTest {
             case 1007: return st1007(stage, t, c, h, level, mock);
             case 1008: return st1008(stage, t, c, h, level, mock);
             case 1009: return st1009(stage, t, c, h, level, mock);
+            case 1010: return st1010(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -17654,6 +17655,39 @@ public final class ClaudeBodyTest {
                 check(!sent, "the put-back of his wall at " + st1009W.toShortString() + " sent him into the pocket behind it to look first");
                 check(!placeLeft && !level.getBlockState(st1009W).isAir(), "his wall at " + st1009W.toShortString() + " not put back in 6 s");
                 pass(stage, t, "the route's put-back of his wall done from the tunnel, no look into the pocket"); }
+        }
+        return true;
+    }
+    private static int st1010T; private static BlockPos st1010To;
+    private static final String[][] ST1010_ME = { // incident 20261107-162026-drag-69, round him at -57,64,-95: y63..y67, rows z -98..-92, x -60..-54
+        {"###....", "####..#", "#######", "#######", "#######", "#######", "#######"},
+        {".......", ".......", "#...#..", "##....#", "#######", "#######", "#######"},
+        {".#####.", ".####..", "....#..", ".......", "#......", "#######", "#######"},
+        {".######", "..#####", "..#####", "..#####", "#.####.", "......#", "#######"},
+        {"######.", "#######", "#######", "#######", "#######", "###.###", "###.###"}};
+    private static final String[][] ST1010_TO = { // round the target -51,65,-94: y64..y68, rows z -97..-91, x -54..-48
+        {"..#....", ".###...", "####...", "####...", "####...", "#####..", "#####.."},
+        {".......", ".......", ".......", ".##....", "###....", "####...", "####..."},
+        {"#....##", "#....##", "#....##", "....##.", "#......", "###....", "###...."},
+        {"#....##", "#....##", "##...##", "###..##", "###....", "###....", "##....."},
+        {".......", "......#", "###....", "###....", "###....", "###....", "##....."}};
+    private static boolean st1010(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D hourly 1 (live 16:20:26-16:21:31 and 11:52 World 17, -57,64,-95): his path east round a birch trunk at -56,64,-96 under a leaf roof, the ground a block up at z -94; he pressed into the trunk's corner (box 0.18 into its row, facing it), hcoll, jumping on the spot 65 s
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1010T = -1; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            java.util.function.BiConsumer<String[][], int[]> lay = (map, o) -> { for (int y = 0; y < 5; y++) for (int z = 0; z < 7; z++) for (int x = 0; x < 7; x++) { int wx = o[0] + x, wy = o[1] + y, wz = o[2] + z; BlockPos q = h.absolutePos(new BlockPos(wx + 61, wy - 62, wz + 99)); level.setBlock(q, map[y][z].charAt(x) == '#' ? Blocks.DIRT.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); } };
+            lay.accept(ST1010_ME, new int[] {-60, 63, -98}); lay.accept(ST1010_TO, new int[] {-54, 64, -97});
+            level.setBlock(h.absolutePos(new BlockPos(-56 + 61, 64 - 62, -96 + 99)), Blocks.BIRCH_LOG.defaultBlockState(), 2); // the trunk
+            BlockPos me = h.absolutePos(new BlockPos(-57 + 61, 64 - 62, -95 + 99)); c.teleportTo(me.getX() + 0.70, me.getY(), me.getZ() + 0.12); c.setYRot(-120); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; // (as live: -56.30, 64, -94.88)
+            st1010To = h.absolutePos(new BlockPos(-51 + 61, 65 - 62, -94 + 99)).immutable();
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.tasks.add(new Task.GoTo(st1010To, 1.5)); st1010T = t[0]; }
+        if (st1010T > 0 && t[0] > st1010T) {
+            boolean there = c.distanceToSqr(st1010To.getX() + 0.5, st1010To.getY(), st1010To.getZ() + 0.5) < 2.0 * 2.0; boolean stuck = c.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, st1010To, c.tickCount, t[0] - st1010T + 1);
+            if (there || stuck || t[0] == st1010T + 20 * 15) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+                check(there && !stuck, "(walk failed: " + stuck + ") never past the trunk to " + st1010To.toShortString() + " in 15 s: at " + String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ()));
+                pass(stage, t, "round the trunk under the leaves and up the step"); }
         }
         return true;
     }

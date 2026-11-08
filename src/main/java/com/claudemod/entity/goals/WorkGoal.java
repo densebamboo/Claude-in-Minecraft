@@ -4743,7 +4743,11 @@ public class WorkGoal extends Goal {
             if (ss != null && ss.getDestroySpeed(level, soft) == 0 && ss.getFluidState().isEmpty() && (ss.canBeReplaced() || ss.is(net.minecraft.tags.BlockTags.FLOWERS))) {
                 g.getLookControl().setLookAt(soft.getX() + 0.5, soft.getY() + 0.5, soft.getZ() + 0.5); g.swing(InteractionHand.MAIN_HAND); g.gameMode.destroyBlock(soft);
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} at {} between him and the {} at {}: punched it out (WorkGoal.reachFor)", name(ss), soft.toShortString(), name(level.getBlockState(target)), target.toShortString());
-                return false; } }
+                return false; }
+            if (ss != null && g.currentTask != null && ss.getDestroySpeed(level, soft) >= 0 && ss.getDestroySpeed(level, soft) <= com.claudemod.entity.life.Weights.w("reach.dig_in_way_hardness", 0.6) && ss.getFluidState().isEmpty() && !ss.hasBlockEntity() && clearViewSpot(level, target) == null && !com.claudemod.entity.life.PortalMap.frameBlock(g, soft)) { // dirt or gravel over it and no spot that sees it: dug off, like a player (live 23:24 and 23:32 11-07: "in reach: true, in the way: dirt", nudged 10 s into his own cell twice, the charcoal left, the logs burnt out; D2D review 298/368, stage 1021)
+                g.tasks.addFirst(g.currentTask); g.tasks.addFirst(new Task.Break(soft.immutable())); g.getNavigation().stop();
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} at {} between him and the {} at {}, no spot that sees it: digging it off, then the job (WorkGoal.reachFor)", name(ss), soft.toShortString(), name(level.getBlockState(target)), target.toShortString());
+                exitWhy = "the " + name(ss) + " over the " + name(level.getBlockState(target)) + " dug off first"; return true; } }
         BlockPos side = clearViewSpot(level, target); if (side == null) side = standSpotBeside(target);
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
         if (side.distSqr(feet) <= 4 && side.getY() == feet.getY()) { // (level only: a nudge can't take a step up, 10 s stood still under his furnace one up the slope, live 11:31) // the spot beside him (or under him, off its centre): a nudge, a walk there "arrives" a block short

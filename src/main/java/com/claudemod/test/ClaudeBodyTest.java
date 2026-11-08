@@ -10690,6 +10690,7 @@ public final class ClaudeBodyTest {
             case 1016: return st1016(stage, t, c, h, level, mock);
             case 1017: return st1017(stage, t, c, h, level, mock);
             case 1020: return st1020(stage, t, c, h, level, mock);
+            case 1021: return st1021(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -18465,6 +18466,25 @@ public final class ClaudeBodyTest {
             check(!(d > 6 && bi >= 0 && gi >= 0 && bi < gi), "the seen ore's dig put ahead of the walk there from " + (int) d + " off: " + all);
             if (d <= 6 || !level.getBlockState(ore).is(Blocks.IRON_ORE)) { c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; com.claudemod.director.ClaudeLife.seenOre(c).remove(ore); pass(stage, t, "walked to the seen ore first, " + (int) d + " off in " + (t[0] - st1020T) / 20 + " s"); return true; }
             check(t[0] - st1020T < 20 * 20, "20 s and not at the seen ore 40 off: " + (int) d + " off, doing " + c.currentTask);
+        }
+        return true;
+    }
+    private static int st1021T;
+    /** D2D review 298/368 (live 23:23:54-23:24:04 and 23:32:10-23:32:55 11-07 World 17): his furnace sunk in the ground, a dirt block on top of it, he beside or on the dirt; "couldn't get in reach ... in reach: true, in the way: dirt", nudged 10 s into his own cell, twice, the charcoal left in and the logs burnt out. A player digs the dirt off and takes it. */
+    private static boolean st1021(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1021T = -1; level.setDayTime(6000); flatBox(h); }
+        BlockPos fp = h.absolutePos(new BlockPos(6, 1, 4));
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            level.setBlock(fp, Blocks.FURNACE.defaultBlockState(), 2); level.setBlock(fp.above(), Blocks.DIRT.defaultBlockState(), 2);
+            if (level.getBlockEntity(fp) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f) f.setItem(2, new ItemStack(Items.CHARCOAL, 5));
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.STONE_SHOVEL)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.myStations.add(fp.immutable());
+            BlockPos me = h.absolutePos(new BlockPos(5, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.tasks.add(new Task.FurnaceTake(fp.immutable())); st1021T = t[0]; }
+        if (st1021T > 0 && t[0] > st1021T) {
+            if (c.getInventory().countItem(Items.CHARCOAL) >= 5) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.myStations.remove(fp); pass(stage, t, "dug the dirt off his furnace and took the charcoal in " + (t[0] - st1021T) / 20 + " s"); return true; }
+            check(t[0] - st1021T < 20 * 15, "15 s by his furnace with dirt on it: " + c.getInventory().countItem(Items.CHARCOAL) + " charcoal taken, the dirt " + (level.getBlockState(fp.above()).is(Blocks.DIRT) ? "still there" : "gone") + ", doing " + c.currentTask);
         }
         return true;
     }

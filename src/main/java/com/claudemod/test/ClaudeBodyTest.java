@@ -10721,6 +10721,7 @@ public final class ClaudeBodyTest {
             case 1034: return st1034(stage, t, c, h, level, mock);
             case 1035: return st1035(stage, t, c, h, level, mock);
             case 1036: return st1036(stage, t, c, h, level, mock);
+            case 1037: return st1037(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
             case 785: return st785(stage, t, c, h, level, mock);
@@ -19482,6 +19483,37 @@ public final class ClaudeBodyTest {
                 check(done, "15 s and the branch wall beside him not patched (" + (int) off + " off it): " + (now.length() > 200 ? now.substring(0, 200) : now));
                 pass(stage, t, "patched the branch wall from the branch beside it in " + (t[0] - st1036T) / 20 + " s");
             }
+        }
+        return true;
+    }
+    private static int st1037H;
+    private static boolean st1037(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // 8 holes in his tunnel's shell and 3 cobblestone on him: his upkeep queued all 8, 5 failed "none of cobblestone or any filler left" one after another (live 07:59 11-08, review 116: 20 in 1 s)
+        BlockPos o = new BlockPos(20400, 80, 19000);
+        if (t[0] == 1 || t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 24; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+            var E = net.minecraft.core.Direction.EAST;
+            var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 16, null)); b.invalidate();
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            int holes = 0; BlockPos me = b.rows().get(8).first(); st1037H = 0;
+            for (BlockPos q : BlockPos.betweenClosed(me.offset(-3, -1, -3), me.offset(3, 3, 3))) if (holes < 8 && b.isShell(q) && !b.isWalk(q) && q.getY() >= me.getY()) { level.setBlock(q, Blocks.AIR.defaultBlockState(), 2); holes++; st1037H++; }
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = b.rows().get(15).first(); c.mineIsTunnel = true; level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 3));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); mock[0].teleportTo(level, me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.pendingPatches.clear(); c.dropCurrent = true; c.lastStep = null; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 20) {
+            c.tasks.clear(); c.currentTask = null;
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("bpIntegrity", ClaudeEntity.class, ServerLevel.class); m.setAccessible(true); m.invoke(null, c, level); } catch (ReflectiveOperationException ex) { throw new RuntimeException(ex); }
+            long stone = c.tasks.stream().filter(x -> x instanceof Task.Place pl && (pl.item() == Items.COBBLESTONE || pl.item() == Items.COBBLED_DEEPSLATE)).count();
+            String q = c.tasks.toString(); int pend = c.pendingPatches.size();
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; c.pendingPatches.clear();
+            for (int x = -4; x <= 24; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(stone > 0, "no patch queued at all with 3 cobblestone on him (" + st1037H + " holes): " + (q.length() > 200 ? q.substring(0, 200) : q));
+            check(stone <= 3, stone + " stone patches queued with 3 cobblestone on him: " + (q.length() > 200 ? q.substring(0, 200) : q));
+            pass(stage, t, stone + " patches queued for 3 cobblestone, " + pend + " kept for later");
         }
         return true;
     }

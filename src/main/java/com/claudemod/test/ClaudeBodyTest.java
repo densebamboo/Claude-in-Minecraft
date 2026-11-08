@@ -10536,6 +10536,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 995: return st995(stage, t, c, h, level, mock);
             case 994: return st994(stage, t, c, h, level, mock);
             case 993: return st993(stage, t, c, h, level, mock);
             case 992: return st992(stage, t, c, h, level, mock);
@@ -15358,6 +15359,24 @@ public final class ClaudeBodyTest {
             check(!w.contains("GEAR GONE"), "the shield went from his pack into his off hand and read as gone: " + w + " (last " + com.claudemod.entity.life.Watchdog.lastIncident + ")");
             pass(stage, t, "the shield in his off hand still his: " + w); }
         } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
+        return true;
+    }
+    /** Stage 995 (review 305, live 07:14 World 17 by the golem at 230,74,202: an open trapdoor in the tower cell; its thin wall read as "oak trapdoor there already, up a level without a block of his" at the top of each jump, 3 levels counted, he never left the ground, the golem tower again on the same spot for 8 s): Pillar(3) in a cell with an open trapdoor, an axe on him. 3 up. */
+    private static int st995T;
+    private static boolean st995(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st995T = -1; level.setDayTime(6000); flatBox(h); }
+        BlockPos me = h.absolutePos(new BlockPos(7, 2, 7));
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            level.setBlock(me, Blocks.OAK_TRAPDOOR.defaultBlockState().setValue(net.minecraft.world.level.block.TrapDoorBlock.OPEN, true), 3);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIRT, 25)); c.getInventory().add(new ItemStack(Items.STONE_AXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 16) { c.tasks.clear(); c.tasks.add(new Task.Pillar(3)); st995T = t[0]; }
+        if (st995T > 0 && t[0] > st995T) {
+            if (c.getY() >= me.getY() + 2.9 && c.onGround()) { pass(stage, t, "3 up from an open trapdoor's cell in " + (t[0] - st995T) + " ticks, the cell now " + level.getBlockState(me).getBlock().getName().getString()); c.tasks.clear(); c.tasks.add(new Task.Pillar(-1)); return true; }
+            check(t[0] - st995T < 120, "6 s towering from an open trapdoor's cell: y " + String.format("%.2f", c.getY() - me.getY()) + " up, the cell " + level.getBlockState(me).getBlock().getName().getString() + ", doing " + c.currentTask + ", queue " + c.tasks);
+        }
         return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */

@@ -10537,6 +10537,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1158: return st1158(stage, t, c, h, level, mock);
             case 1156: return st1156(stage, t, c, h, level, mock);
             case 1157: return st1157(stage, t, c, h, level, mock);
             case 1153: return st1153(stage, t, c, h, level, mock);
@@ -15720,6 +15721,36 @@ public final class ClaudeBodyTest {
             check(r.contains("out of cobbled deepslate") && !q.isEmpty() && q.get(0).skill().equals("enter_portal"), "3 blocks on him, the highway's end ~65 off: \"" + r + "\", queue " + q + ", tasks " + c.tasks);
             c.skillQueue.clear(); c.tasks.clear(); c.getInventory().clearContent();
             pass(stage, t, "blocks first: " + r);
+        }
+        return true;
+    }
+    /** Stage 1158 (D2D, live death 14:28 11-08 at the fortress 329,61,468, "slain by Wither Skeleton", fight #15: 5.4 s, 0 swings, 5 hits taken: at 15 HP with Wither on, coverFight's "back into cover" sprinted for a 2-high gap 12 off, shield down, the skeleton 1 off keeping pace; 18 -> 13 -> 8 -> 4 -> 0): a corridor, a wither skeleton 1 off him, the only 2-high gap 9 off. He fights it where he stands (sword and shield), and lives. */
+    private static float st1158Low; private static int st1158Swings;
+    private static boolean st1158(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { resetLoot(c, mock[0]); com.claudemod.entity.life.FortressFight.reset(c); c.commandActive = true; c.prefs.put("stay_close", "no"); st1158Low = 20; st1158Swings = 0; }
+        if (t[0] == 10) {
+            lootBox(h, 1);
+            for (int x = 0; x <= 22; x++) for (int z = 4; z <= 12; z++) { h.setBlock(new BlockPos(x, 1, z), Blocks.NETHER_BRICKS); for (int yy = 2; yy <= 6; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.NETHER_BRICKS); }
+            for (int x = 3; x <= 21; x++) for (int z = 7; z <= 9; z++) for (int yy = 2; yy <= 5; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); // the corridor, 3 wide 4 high
+            for (int x = 1; x <= 2; x++) for (int yy = 2; yy <= 3; yy++) h.setBlock(new BlockPos(x, yy, 8), Blocks.AIR); // the only 2-high gap, off its west end
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(h.absolutePos(BlockPos.ZERO)).inflate(40))) e.discard();
+            c.getInventory().clearContent();
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.setHealth(15); c.getFoodData().setFoodLevel(20); c.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.WITHER, 200, 0));
+            BlockPos at = h.absolutePos(new BlockPos(11, 2, 8)); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); c.setYRot(-90); c.setYHeadRot(-90);
+            var ws = net.minecraft.world.entity.EntityType.WITHER_SKELETON.create(level); BlockPos a = h.absolutePos(new BlockPos(12, 2, 8)); ws.moveTo(a.getX() + 0.5, a.getY(), a.getZ() + 0.5, 90, 0); ws.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); ws.setPersistenceRequired(); level.addFreshEntity(ws); ws.setTarget(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.tasks.add(new Task.Attack(ws.getUUID(), 20 * 40));
+            { BlockPos m = h.absolutePos(new BlockPos(2, 8, 2)); mock[0].teleportTo(m.getX() + 0.5, m.getY(), m.getZ() + 0.5); }
+        }
+        if (t[0] > 10) {
+            st1158Low = Math.min(st1158Low, c.getHealth()); if (c.swinging && c.swingTime == 0) st1158Swings++;
+            var left = level.getEntitiesOfClass(net.minecraft.world.entity.monster.WitherSkeleton.class, new net.minecraft.world.phys.AABB(h.absolutePos(BlockPos.ZERO)).inflate(40), net.minecraft.world.entity.Entity::isAlive);
+            check(c.isAlive() && c.getHealth() > 0, "a wither skeleton 1 off, the gap 9 off: he died (low " + st1158Low + ", at " + c.blockPosition().subtract(h.absolutePos(BlockPos.ZERO)).toShortString() + ")");
+            if (left.isEmpty()) { c.removeAllEffects(); pass(stage, t, "the wither skeleton killed where it met him, low " + st1158Low + " HP, " + (t[0] - 10) / 20.0 + " s"); }
+            else check(t[0] < 10 + 20 * 30, "the wither skeleton still up after 30 s, low " + st1158Low + ", at " + c.blockPosition().subtract(h.absolutePos(BlockPos.ZERO)).toShortString());
         }
         return true;
     }

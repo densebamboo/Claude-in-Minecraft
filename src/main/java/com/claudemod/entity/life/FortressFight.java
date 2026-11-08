@@ -475,6 +475,33 @@ public final class FortressFight {
         return "blaze rods " + have + "/" + goal + ": waiting by the spawner at " + spawner.toShortString() + " for the next blazes";
     }
 
+    private static Map<UUID, int[]> standSaid; // per bot: {tick, 1 = fight here} of the last walk-or-fight pick (static: fields added live start null)
+    /**
+     * A wither skeleton in its sword's reach and his cover a walk off: the walk priced against the fight where he stands (D2D, live death
+     * 14:28 11-08: at 15 HP with Wither on, the gap 12 off, the skeleton 1 off keeping pace; sprinting there with his shield down he
+     * took 5 hits and never swung). The walk: its hits on his back the whole way (it keeps pace), then the kill from the gap. Here: the
+     * kill with sword and shield, its hits while he swings. True: fight it here. Picked again every second.
+     */
+    public static boolean standAndFight(ClaudeEntity g, LivingEntity mob, BlockPos cover) {
+        if (!(mob instanceof WitherSkeleton)) return false;
+        double reach = Weights.w("wither.keep_pace_reach", 3.5), far = Math.sqrt(g.distanceToSqr(Vec3.atBottomCenterOf(cover)));
+        if (mob.distanceTo(g) > reach || far < Weights.w("wither.gap_near_blocks", 2.5)) return false;
+        if (standSaid == null) standSaid = new HashMap<>(); int[] last = standSaid.get(g.getUUID());
+        if (last != null && g.tickCount - last[0] < 20 && g.tickCount >= last[0]) return last[1] == 1;
+        double[] m = HuntPatrol.melee(g); double killS = Math.ceil(mob.getHealth() / m[0]) * m[1];
+        double rate = Weights.w("wither.hits_per_s", 0.8), dmg = Weights.w("wither.hit_hp", 8), armor = g.getArmorValue(), tough = g.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS);
+        double perHit = dmg * (1 - Math.min(20, Math.max(armor / 5, armor - dmg / (2 + tough / 4))) / 25) + Weights.w("wither.wither_hp", 2);
+        boolean shield = g.getOffhandItem().is(Items.SHIELD) && !g.getCooldowns().isOnCooldown(Items.SHIELD);
+        double walkS = far / Decide.sprint(), walkHits = Math.ceil(walkS * rate), hereHits = killS * rate * (shield ? Weights.w("wither.shield_factor", 0.5) : 1);
+        double walk = walkS + killS + Decide.hpS(g, g.getHealth(), 0, walkHits * perHit, perHit, (int) walkHits + 1), here = killS + Decide.hpS(g, g.getHealth(), 0, hereHits * perHit, perHit, (int) Math.ceil(hereHits) + 1);
+        var pick = Decide.choose(g, "wither.cover_walk", "a wither skeleton " + String.format("%.1f", mob.distanceTo(g)) + " off, his gap " + Math.round(far) + " off, health " + (int) g.getHealth(), last == null || last[1] != (here < walk ? 1 : 0), List.of(
+            Decide.Option.of("walk to the gap", walk, "~" + String.format("%.1f", walkS) + " s with it on his back, ~" + Math.round(walkHits) + " hit(s) of ~" + Math.round(perHit) + ", then the kill from the gap"),
+            Decide.Option.of("fight it here", here, "~" + Math.round(killS) + " s of swings" + (shield ? " behind his shield" : "") + ", ~" + String.format("%.1f", hereHits) + " hit(s) of ~" + Math.round(perHit))));
+        boolean fight = pick != null && pick.name().equals("fight it here");
+        standSaid.put(g.getUUID(), new int[] {g.tickCount, fight ? 1 : 0});
+        return fight;
+    }
+
     // ------------------------------------------------------------------ mob facts
 
     /** One table: exact vanilla facts (1.21) for the dragon-path mobs, keyed by entity id. */

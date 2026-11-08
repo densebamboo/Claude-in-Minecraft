@@ -10535,6 +10535,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 986: return st986(stage, t, c, h, level, mock);
+            case 985: return st985(stage, t, c, h, level, mock);
             case 987: return st987(stage, t, c, h, level, mock);
             case 983: return st983(stage, t, c, h, level, mock);
             case 982: return st982(stage, t, c, h, level, mock);
@@ -15160,6 +15162,40 @@ public final class ClaudeBodyTest {
             if ((t[0] - st987T0) % 20 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 987: t {} at {} doing {}", t[0] - st987T0, String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ()), c.currentTask);
             if (c.getX() <= o.getX() - 10) { int s = (t[0] - st987T0) / 20; pass(stage, t, "round the corner and 10 along his row in " + s + " s"); return true; }
             check(t[0] - st987T0 < 20 * 8, "not round the corner and 10 along his row in 6 s: at " + String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ()) + " doing " + c.currentTask);
+        }
+        return true;
+    }
+    /** Stage 985 (D2D 11-08, review 244: an 11-block drop for 8 HP in the Nether, an HP priced x1 at full food): an HP's price carries the food its regen burns (6 exhaustion, 1.5 points), so at full food and no threats it is over 2.4, not 1. */
+    private static boolean st985(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) m.discard(); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5); }
+        if (t[0] == 3) { double p = com.claudemod.entity.nav.Leaps.hpPrice(c); check(p >= 2.4, "an HP of falling at full food, no threats, priced x" + String.format("%.2f", p) + ": its food (1.5 points) not in it"); pass(stage, t, "an HP priced x" + String.format("%.2f", p) + " with its food"); }
+        return true;
+    }
+    /** Stage 986 (D2D 11-08, review 244, live 02:29 by his portal: "drop off 0, 73, -2 onto 0, 62, -1 (11 down, 8 HP)" when an 11-down staircase through netherrack was ~9 s; every dig priced a flat 6 walk-steps): first his real dig pace, 8 netherrack with an iron pick; then a netherrack plain, a cave 11 below reached by a 12-deep shaft or by digging. Down with no HP lost, in a player's 30 s. */
+    private static int st986T0, st986Dug; private static float st986Low;
+    private static boolean st986(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(13600, 70, 8400), me = o.offset(0, 13, 0), goal = o.offset(0, 1, 4);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) m.discard(); st986T0 = 0; st986Dug = 0; st986Low = 20; }
+        if (t[0] == 3) {
+            for (int x = -14; x <= 14; x++) for (int z = -14; z <= 14; z++) { level.setBlock(o.offset(x, -1, z), Blocks.BEDROCK.defaultBlockState(), 2); for (int y = 0; y <= 12; y++) level.setBlock(o.offset(x, y, z), Blocks.NETHERRACK.defaultBlockState(), 2); for (int y = 13; y <= 18; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); level.setBlock(o.offset(x, 19, z), Blocks.NETHERRACK.defaultBlockState(), 2); } // (a roof: no sky, as in the Nether, where he may dig)
+            for (int x = -3; x <= 3; x++) for (int z = 2; z <= 8; z++) for (int y = 1; y <= 2; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); // the cave
+            for (int y = 3; y <= 12; y++) level.setBlock(o.offset(0, y, 8), Blocks.AIR.defaultBlockState(), 2); // its shaft: 12 down from the plain
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 32)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (int i = 0; i < 4; i++) for (int y = 0; y <= 1; y++) { BlockPos q = me.offset(-1 - (i % 2), y, -1 - i / 2); level.setBlock(q, Blocks.NETHERRACK.defaultBlockState(), 2); c.tasks.add(new Task.Break(q)); } // his dig pace: 8 in reach, one after another
+            st986T0 = t[0];
+        }
+        if (t[0] > 3 && st986Dug == 0) {
+            int left = 0; for (int i = 0; i < 4; i++) for (int y = 0; y <= 1; y++) if (!level.getBlockState(me.offset(-1 - (i % 2), y, -1 - i / 2)).isAir()) left++;
+            if (left == 0) { st986Dug = t[0] - st986T0; com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 986: 8 netherrack with an iron pick in {} ticks ({} a dig)", st986Dug, String.format("%.1f", st986Dug / 8.0)); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.add(new Task.GoTo(goal, 1.2)); st986T0 = t[0]; }
+            check(t[0] < 200, "8 netherrack in reach not dug in 10 s (" + left + " left, doing " + c.currentTask + ")");
+            return true;
+        }
+        if (st986Dug > 0) {
+            st986Low = Math.min(st986Low, c.getHealth());
+            check(st986Low >= 20, "took " + (20 - st986Low) + " HP getting 11 down through netherrack (at " + c.blockPosition().toShortString() + ", doing " + c.currentTask + ")");
+            if (c.blockPosition().distSqr(goal) <= 2 * 2) { int s = (t[0] - st986T0) / 20; check(s <= 30, "11 down through netherrack took " + s + " s"); pass(stage, t, "11 down with no HP lost in " + s + " s (digs " + String.format("%.1f", st986Dug / 8.0) + " ticks each)"); }
+            check(t[0] - st986T0 < 20 * 45, "not down in 45 s: at " + c.blockPosition().toShortString() + " doing " + c.currentTask + " tasks " + c.tasks.size());
         }
         return true;
     }

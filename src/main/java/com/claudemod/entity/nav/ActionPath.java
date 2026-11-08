@@ -273,7 +273,7 @@ public final class ActionPath {
         int n = Math.max(Math.abs(to.getX() - from.getX()), Math.abs(to.getZ() - from.getZ()));
         for (int i = 1; i <= n; i++) {
             BlockPos c = new BlockPos(from.getX() + Math.round((to.getX() - from.getX()) * (float) i / n), from.getY() + Math.round((to.getY() - from.getY()) * (float) i / n), from.getZ() + Math.round((to.getZ() - from.getZ()) * (float) i / n));
-            for (BlockPos q : new BlockPos[] {c, c.above()}) { var qs = level.getBlockState(q); if (!qs.getCollisionShape(level, q).isEmpty()) cost += com.claudemod.entity.life.Weights.w("path.dig_base", 6) + com.claudemod.entity.life.Weights.w("path.dig_per_s", 5.6) * Math.max(0, qs.getDestroySpeed(level, q)) * 0.25; } // (a dig as the moves price it: the swing plus its seconds, hardness x 1.5 / an iron pick's 6; half the swing alone made a tunnel 3 a dig against 10 really, and the greedy search spread over the cave round him, stage 982)
+            for (BlockPos q : new BlockPos[] {c, c.above()}) { var qs = level.getBlockState(q); if (!qs.getCollisionShape(level, q).isEmpty()) cost += (com.claudemod.entity.life.Weights.w("path.dig_overhead_s", 0.05) + Math.max(0, qs.getDestroySpeed(level, q)) * 0.25) * com.claudemod.entity.life.Weights.w("path.dig_per_s", 5.6); } // (a dig as the moves price it: the swing plus its seconds, hardness x 1.5 / an iron pick's 6; half the swing alone made a tunnel 3 a dig against 10 really, and the greedy search spread over the cave round him, stage 982) // (as the dig moves price it: its break, ~0.25 s a unit of hardness with a fair pick, and 0.05 s on to the next)
             if (level.getBlockState(c.below()).getCollisionShape(level, c.below()).isEmpty()) { cost += com.claudemod.entity.life.Weights.w("path.put_bridge", 12);
                 for (int k = 1; k <= 12; k++) { var st = level.getBlockState(c.below(k)); if (st.getFluidState().is(net.minecraft.tags.FluidTags.LAVA)) { cost += 16; break; } if (!st.getCollisionShape(level, c.below(k)).isEmpty()) break; } }
             else cost += 1;
@@ -635,7 +635,7 @@ public final class ActionPath {
                         if (passable(q)) { if (water(q)) cost += 1.5; continue; }
                         double sec = digSeconds(q);
                         if (sec < 0) { ok = false; break; }
-                        cost += com.claudemod.entity.life.Weights.w("path.dig_base", 6) + sec * com.claudemod.entity.life.Weights.w("path.dig_per_s", 5.6); acts.add(new Act.Dig(q.immutable())); // (in walk-steps: his dig time at a sprint's 5.6 b/s plus the swing, the pickup and the hole; the user 11-06: digging and putting down weighed well under walking the terrain)
+                        cost += (sec + com.claudemod.entity.life.Weights.w("path.dig_overhead_s", 0.05)) * com.claudemod.entity.life.Weights.w("path.dig_per_s", 5.6); acts.add(new Act.Dig(q.immutable())); // (its real time: the break with his best tool, plus 0.05 s from one block to the next, measured: 8 netherrack with an iron pick in 23 ticks, stage 986; a flat 6 walk-steps a dig made an 11-down staircase ~237 against an 8 HP drop's ~51, review 244. Etiquette, structures and his builds are their own seconds in sec) // (in walk-steps: his dig time at a sprint's 5.6 b/s plus the swing, the pickup and the hole; the user 11-06: digging and putting down weighed well under walking the terrain)
                     }
                     boolean lavaFloor = dy == 0 && canPlace && fs(t.below()).is(net.minecraft.tags.FluidTags.LAVA) && !floor(t) && !reserved.contains(t.below()); // a gap over lava: a block put into the lava is the way across (a player bridging a lava lake), never a jump
                     if (!ok || hurts(t, lavaFloor)) continue; // (magma underfoot, a cactus, fire: a player goes round)
@@ -806,7 +806,7 @@ public final class ActionPath {
                 double cost = com.claudemod.entity.life.Weights.w("path.put_tower", 14); // (a tower step: the jump, the put, and the take-down after)
                 BlockPos head = feet.above(2);
                 boolean ok = true;
-                if (!passable(head)) { double sec = digSeconds(head); if (sec < 0) ok = false; else { cost += com.claudemod.entity.life.Weights.w("path.dig_base", 6) + sec * com.claudemod.entity.life.Weights.w("path.dig_per_s", 5.6); acts.add(new Act.Dig(head.immutable())); } }
+                if (!passable(head)) { double sec = digSeconds(head); if (sec < 0) ok = false; else { cost += (sec + com.claudemod.entity.life.Weights.w("path.dig_overhead_s", 0.05)) * com.claudemod.entity.life.Weights.w("path.dig_per_s", 5.6); acts.add(new Act.Dig(head.immutable())); } }
                 if (ok && !passable(up)) ok = false;
                 if (reserved.contains(feet) || !bs(feet).canBeReplaced()) ok = false; // (another job's cell: the stump a sapling is for; a vine he hangs in takes no block)
                 if (ok) { acts.add(new Act.Put(feet.immutable())); acts.add(new Act.Walk(up.immutable())); out.add(new Move(up.immutable(), cost + failPenalty(up), acts)); }

@@ -10537,6 +10537,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1171: return st1171(stage, t, c, h, level, mock);
             case 1170: return st1170(stage, t, c, h, level, mock);
             case 1159: return st1159(stage, t, c, h, level, mock);
             case 1158: return st1158(stage, t, c, h, level, mock);
@@ -15832,6 +15833,31 @@ public final class ClaudeBodyTest {
             check(!st1170Put || !nl.getBlockState(ahead).isAir(), "a bore to a line 2 down over a 1-wide gap: put a block at the gap's far side (the look-ahead floor) and dug it out as the line's step down (PLACE_BREAK)");
             if (c.getX() >= o.getX() + 8) { int at = t[0] - st1170Start; for (int x = -4; x <= 34; x++) for (int z = -4; z <= 4; z++) for (int y = -10; y <= 5; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); nsHome(c, h, level); pass(stage, t, "over the gap and down to the line, no block dug out after it went in, " + at / 20.0 + " s"); }
             else check(t[0] - st1170Start < 20 * 30, "a bore to a line 2 down over a gap: not 8 along in 30 s, at " + c.blockPosition().subtract(o).toShortString() + ", doing " + c.currentTask);
+        }
+        return true;
+    }
+    /** Stage 1171 (D2D review 37, live 14:33:31 11-08 at -32,64,-219: a pickup walk (NO_DIG) to a log dropped up in its tree's crown, oak leaves on the way; "kept: no digging on this walk", no way, the log left): a wall of a tree's leaves between him and the spot, a log in it. A walk with no digging still goes through natural leaves (a player swats them); never through the log, never through leaves someone put there. */
+    private static boolean st1171(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(10500, 80, 7800), to = o.offset(8, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] > 4 && t[0] % 10 == 0) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 10) {
+            for (int x = -3; x <= 10; x++) for (int z = -4; z <= 4; z++) for (int y = -2; y <= 6; y++) { boolean shell = y <= -1 || y == 6 || Math.abs(z) == 4 || x == -3 || x == 10; nl.setBlock(o.offset(x, y, z), shell ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+            for (int y = 0; y <= 5; y++) nl.setBlock(o.offset(4, y, 0), Blocks.OAK_LOG.defaultBlockState(), 3); // the tree's trunk in the wall
+            for (int z = -3; z <= 3; z++) for (int y = 0; y <= 5; y++) if (z != 0) nl.setBlock(o.offset(4, y, z), Blocks.OAK_LEAVES.defaultBlockState(), 3); // its crown: natural leaves
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_AXE));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); com.claudemod.entity.life.Watchdog.teleported(c); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) {
+            var p0 = com.claudemod.entity.nav.ActionPath.plan(c, nl, c.blockPosition(), to, 1.0, false, 3000, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, null, 0);
+            check(p0 != null, "a tree's leaves between him and the spot: no way with no digging (a player swats a leaf out of his way)");
+            for (var a : p0.acts()) if (a instanceof com.claudemod.entity.nav.ActionPath.Act.Dig d) check(nl.getBlockState(d.pos()).is(net.minecraft.tags.BlockTags.LEAVES), "the way digs " + nl.getBlockState(d.pos()).getBlock().getName().getString() + " at " + d.pos().subtract(o).toShortString() + " on a walk with no digging");
+            for (int z = -3; z <= 3; z++) for (int y = 0; y <= 5; y++) if (z != 0) nl.setBlock(o.offset(4, y, z), Blocks.OAK_LEAVES.defaultBlockState().setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true), 3); // someone's hedge: that stays
+            var p1 = com.claudemod.entity.nav.ActionPath.plan(c, nl, c.blockPosition(), to, 1.0, false, 3000, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, null, 0);
+            check(p1 == null, "a hedge someone put there (persistent leaves): the no-dig walk dug through it");
+            for (int x = -3; x <= 10; x++) for (int z = -4; z <= 4; z++) for (int y = -2; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            nsHome(c, h, level); pass(stage, t, "through the tree's leaves with no digging (" + p0.acts().size() + " acts), never a hedge");
         }
         return true;
     }

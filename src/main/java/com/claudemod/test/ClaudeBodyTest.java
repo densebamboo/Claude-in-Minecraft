@@ -10835,6 +10835,7 @@ public final class ClaudeBodyTest {
             case 1068: return st1068(stage, t, c, h, level, mock);
             case 1069: return st1069(stage, t, c, h, level, mock);
             case 1071: return st1071(stage, t, c, h, level, mock);
+            case 1072: return st1072(stage, t, c, h, level, mock);
             case 1063: return st1063(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
@@ -18733,6 +18734,29 @@ public final class ClaudeBodyTest {
         if (t[0] == 120) { int w = c.attempts.counters.getOrDefault("timeWait", 0) - c.tickCount; level.setDayTime(6000); c.skillQueue.clear(); c.tasks.clear(); c.attempts.counters.remove("timeWait"); c.attempts.counters.remove("timeWaitRefusals");
             check(w <= 0, "day 3 s after the night was skipped: the wait for daylight still holds " + w / 20 + " s");
             pass(stage, t, "the daylight wait ended with the night"); }
+        return true;
+    }
+
+    /** Stage 1072 (live 06:15 11-08, death 7 of the run): at the end of a dead end (his tower top, the hut walls round him), armor 0, a stone sword, 17 HP, zombies on him: "backing off" every second at the same block, hit 20 -> 0, never a swing. Each hit re-armed a fresh run, its clock back to 0, so the cornered check (1.5 s of a run going nowhere) never came. Passes: alive after 30 s. */
+    private static boolean st1072(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(4, 2, 6));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(me.offset(-3, -4, -3), me.offset(14, 6, 3))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            for (BlockPos p : BlockPos.betweenClosed(me, me.offset(12, 1, 0))) level.setBlock(p, Blocks.AIR.defaultBlockState(), 2); // a 1-wide tunnel east, its west end shut: he's at the dead end
+            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
+            c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 6));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setHealth(17); c.getFoodData().setFoodLevel(20);
+            for (int dx : new int[]{2, 4, 6}) { var z = EntityType.ZOMBIE.create(level); z.setBaby(false); BlockPos zp = me.east(dx); z.moveTo(zp.getX() + 0.5, zp.getY(), zp.getZ() + 0.5, 90, 0); z.setPersistenceRequired(); level.addFreshEntity(z); }
+        }
+        if (t[0] > 10 && t[0] < 60) for (var z : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Zombie.class, c.getBoundingBox().inflate(16))) z.setTarget(c); // (after his teleport)
+        if (t[0] > 10 && (t[0] >= 610 || !c.isAlive())) {
+            boolean alive = c.isAlive(); float hp = c.getHealth(); int left = level.getEntitiesOfClass(net.minecraft.world.entity.monster.Zombie.class, c.getBoundingBox().inflate(32)).size();
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard();
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+            check(alive, "at a dead end, three zombies coming up the tunnel, armor 0, a stone sword, 17 HP: died (" + left + " zombies left)");
+            pass(stage, t, "alive at " + hp + " HP, " + left + " zombies left");
+        }
         return true;
     }
     private static int st1017T;

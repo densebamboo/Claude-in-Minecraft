@@ -49,13 +49,18 @@ public final class Crafting {
     private static Result craftOnce(Level level, ClaudeInventory inv, Item target, boolean hasTable, int depth, java.util.Set<Item> path) {
         List<RecipeHolder<CraftingRecipe>> recipes = recipesFor(level, target);
         if (recipes.isEmpty()) return new Result(0, "there is no crafting recipe for " + name(target), false);
-        String firstMissing = null;
+        java.util.LinkedHashSet<String> lacks = new java.util.LinkedHashSet<>(); // every recipe's lack, not the first one's: "missing gold_block" hid the 27 nuggets in his chest (live 22:19 11-07)
         boolean tableProblem = false;
         for (RecipeHolder<CraftingRecipe> h : recipes) {
             CraftingRecipe recipe = h.value();
-            if (isBig(recipe) && !hasTable) { tableProblem = true; continue; }
             List<Ingredient> needed = new ArrayList<>();
             for (Ingredient ing : recipe.getIngredients()) if (!ing.isEmpty()) needed.add(ing);
+            if (isBig(recipe) && !hasTable) { // no 3x3 here: only a table short if he has the rest, else name what it lacks too
+                String lack = null;
+                for (Ingredient ing : needed) if (inv.count(ing::test) < needed.stream().filter(o -> o == ing || sameAs(o, ing)).count()) { lack = describe(ing); break; }
+                if (lack == null) tableProblem = true; else lacks.add(lack);
+                continue;
+            }
             // Make missing intermediates first (one level at a time).
             boolean ok = true;
             for (Ingredient ing : needed) {
@@ -80,7 +85,7 @@ public final class Crafting {
                 }
                 if (inv.count(ing::test) < want) {
                     ok = false;
-                    if (firstMissing == null) firstMissing = describe(ing) + (madeOne ? " (made some, not enough)" : "");
+                    lacks.add(describe(ing) + (madeOne ? " (made some, not enough)" : ""));
                     break;
                 }
             }
@@ -92,8 +97,8 @@ public final class Crafting {
             ItemStack rest = inv.add(out);
             return new Result(n - rest.getCount(), null, false);
         }
-        if (firstMissing == null && tableProblem) return new Result(0, "a crafting table nearby", true);
-        return new Result(0, firstMissing == null ? "ingredients" : firstMissing, tableProblem);
+        if (tableProblem) return new Result(0, "a crafting table nearby", true); // a recipe he has everything for but the 3x3: the table is the lack
+        return new Result(0, lacks.isEmpty() ? "ingredients" : String.join(" or ", lacks), false);
     }
 
     private static boolean sameAs(Ingredient a, Ingredient b) {

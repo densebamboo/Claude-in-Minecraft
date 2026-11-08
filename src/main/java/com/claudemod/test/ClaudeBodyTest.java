@@ -10812,6 +10812,7 @@ public final class ClaudeBodyTest {
             case 1061: return st1061(stage, t, c, h, level, mock);
             case 1059: return st1059(stage, t, c, h, level, mock);
             case 1062: return st1062(stage, t, c, h, level, mock);
+            case 1063: return st1063(stage, t, c, h, level, mock);
             case 866: return st866(stage, t, c, h, level, mock);
             case 867: return st867(stage, t, c, h, level, mock);
             case 869: return st869(stage, t, c, h, level, mock);
@@ -21808,6 +21809,26 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
             check(!bread && !r.contains("-> bread"), "2 ripe beetroots in view, 2 ripe wheat behind a wall, no hay: bread planned: " + r);
             pass(stage, t, "no bread planned from beetroots and unseen wheat: " + r); return true;
+        }
+        return true;
+    }
+
+    /** Stage 1063 (live 22:19 11-07, review 145): obtain golden_boots planned "craft gold_ingot 3" with 27 gold nuggets in his chest; the craft said "missing gold_block" (the first recipe's lack), so the chest fetch looked for a block and he failed three times. Here: no gold on him, 27 nuggets in his chest, no table: the craft still goes for the nuggets. */
+    private static boolean st1063(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); }
+        if (t[0] == 10) {
+            for (int x = -2; x <= 12; x++) for (int z = -2; z <= 12; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int yy = 2; yy <= 5; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            BlockPos chest = h.absolutePos(new BlockPos(2, 2, 6)), table = h.absolutePos(new BlockPos(6, 2, 6));
+            // (no table near: live he had none by him, and the nugget recipe is 3x3)
+            level.setBlock(chest, Blocks.CHEST.defaultBlockState(), 2);
+            if (level.getBlockEntity(chest) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity cb) cb.setItem(0, new ItemStack(Items.GOLD_NUGGET, 27));
+            c.myStations.add(chest); c.storageChests.add(chest); com.claudemod.entity.life.ChestLedger.reset(c); com.claudemod.entity.life.ChestLedger.look(c, level, chest);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            BlockPos me = h.absolutePos(new BlockPos(6, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "craft", "gold_ingot", 3);
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.myStations.remove(chest); c.storageChests.remove(chest); com.claudemod.entity.life.ChestLedger.reset(c);
+            check(!r.startsWith("failed") && r.contains("nugget"), "27 gold nuggets in his chest, no table: craft gold_ingot 3 -> " + r);
+            pass(stage, t, "the craft goes for the nuggets in his chest: " + r); return true;
         }
         return true;
     }

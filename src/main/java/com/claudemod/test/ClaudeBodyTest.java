@@ -10537,6 +10537,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1175: return st1175(stage, t, c, h, level, mock);
             case 1177: return st1177(stage, t, c, h, level, mock);
             case 1176: return st1176(stage, t, c, h, level, mock);
             case 1174: return st1174(stage, t, c, h, level, mock);
@@ -15986,6 +15987,28 @@ public final class ClaudeBodyTest {
             check(r.contains("worth"), "5 birch logs pending 800 off: \"" + r + "\" doesn't say why he isn't going");
             c.skillQueue.clear(); c.tasks.clear(); com.claudemod.entity.life.DeathLog.reset(c);
             pass(stage, t, "\"" + r + "\"");
+        }
+        return true;
+    }
+    /** Stage 1175 (D2D reviews 190/159, live 15:00:06 11-08: a land route across a lake, 28 blocks of water in 9.5 s, "walking 7.1 s of it": at the surface his body held jump to stay afloat and never went into the swim pose; a player sprint-swims, about as fast as he sprints on land): a lake 29 across between two banks, a walk across it. Sprint-swum, as a player: no sprint kept at the surface (vanilla's client drops it), over at a player's pace. */
+    private static int st1175T0, st1175Cheat; private static double st1175Swim;
+    private static boolean st1175(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(8000, 70, 7500), to = o.offset(32, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(6000); st1175T0 = -1; st1175Swim = 0; st1175Cheat = 0; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 36; x++) for (int z = -6; z <= 6; z++) for (int y = -5; y <= 4; y++) { boolean lake = x >= 1 && x <= 29 && Math.abs(z) <= 5 && y >= -3 && y <= -1, wall = Math.abs(z) == 6;
+                level.setBlock(o.offset(x, y, z), wall || y <= -1 ? (lake ? Blocks.WATER : Blocks.STONE).defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); } // (wall to wall: no bank round it)
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getFoodData().setFoodLevel(20); c.setHealth(20); c.setAirSupply(c.getMaxAirSupply());
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) { c.tasks.add(new Task.GoTo(to, 1.0)); st1175T0 = t[0]; }
+        if (st1175T0 > 0) {
+            if (c.isSwimming()) st1175Swim += 0.05;
+            if (c.isSprinting() && c.isInWater() && !c.isUnderWater() && !c.isSwimming() && c.getY() < o.getY() - 0.3) st1175Cheat++; // (a sprint at the surface no player's client keeps: vanilla stops it with his head out of the water, unless swimming)
+            check(c.isAlive() && c.getAirSupply() > 0, "drowned crossing a lake 29 across");
+            if (c.position().distanceTo(to.getBottomCenter()) < 1.5) { double s = (t[0] - st1175T0) / 20.0; check(st1175Cheat <= 10, "sprinting at the surface " + st1175Cheat + " ticks, not swimming (a player's client drops that sprint: he paddles at 2 b/s or sprint-swims), " + String.format("%.1f", st1175Swim) + " s in the swim pose"); check(s <= 11, "29 blocks of lake (35 to walk) in " + s + " s, " + String.format("%.1f", st1175Swim) + " s of it in the swim pose: a player sprint-swims it in ~10"); for (int x = -4; x <= 36; x++) for (int z = -6; z <= 6; z++) for (int y = -5; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); nsHome(c, h, level); pass(stage, t, "across a 29-wide lake in " + s + " s (" + String.format("%.1f", st1175Swim) + " s swimming, " + st1175Cheat + " ticks of surface sprint)"); return true; }
+            check(t[0] - st1175T0 < 20 * 30, "a lake 29 across: not over in 30 s, at " + c.blockPosition().subtract(o).toShortString() + ", doing " + c.currentTask + ", swimming " + c.isSwimming());
         }
         return true;
     }

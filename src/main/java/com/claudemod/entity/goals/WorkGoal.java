@@ -3952,6 +3952,16 @@ public class WorkGoal extends Goal {
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude ore] {} at {} shows through the hole at {}: mined first, then the patch", qs.getBlock().getName().getString(), qq.toShortString(), pos.toShortString());
                 return exit("first: the ore behind it (doPlace line 2612)");
             }
+            for (BlockPos q0 : BlockPos.betweenClosed(pos.offset(-1, -1, -1), pos.offset(1, 1, 1))) { // a seen ore at the hole's edge or corner whose aim runs through it: mined first, as the vein behind (the patch went in first, then "his patch is over coal ore he saw: out, the ore, the patch back", live 08:31 11-09, D2D review 65, stage 1254)
+                if (q0.distManhattan(pos) <= 1) continue; BlockPos q = q0.immutable(); BlockState qs = level.getBlockState(q);
+                if (!com.claudemod.director.ClaudeLife.seenOre(g).contains(q) || !com.claudemod.entity.life.MineBlueprint.ore(qs) || g.blueprint == null || g.blueprint.roleAt(q) == com.claudemod.entity.life.MineBlueprint.Role.WALK || behind0.contains(q)) continue;
+                if (qs.requiresCorrectToolForDrops() && g.inventory.find(st -> st.isCorrectToolForDrops(qs)).isEmpty() || com.claudemod.entity.life.Watchdog.off(g, new Task.Break(q)) || g.attempts.within(com.claudemod.entity.life.Attempts.Kind.BREAK, q, g.tickCount, 20 * 60)) continue;
+                if (new net.minecraft.world.phys.AABB(pos).clip(g.getEyePosition(), Vec3.atCenterOf(q)).isEmpty()) continue; // (its aim from here runs through the hole: patched, the hole is in its way and comes back out)
+                g.tasks.removeIf(t0 -> t0 instanceof Task.Break b0 && b0.pos().equals(q));
+                g.tasks.addFirst(t); g.tasks.addFirst(new Task.Place(q, q.getY() < 0 ? net.minecraft.world.item.Items.COBBLED_DEEPSLATE : net.minecraft.world.item.Items.COBBLESTONE)); g.tasks.addFirst(new Task.Pickup(100)); g.tasks.addFirst(new Task.Break(q));
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude ore] {} at {} by the hole at {}, its aim through the hole: mined first, then the patch (WorkGoal.doPlace)", qs.getBlock().getName().getString(), q.toShortString(), pos.toShortString());
+                return exit("first: the ore by the hole");
+            }
             if (refusedBehind > 0) { com.claudemod.ClaudeMod.LOGGER.info("[Claude ore] not patching {}: {} ore still behind it and his dig at it refused from here: the hole stays open till the vein's out (WorkGoal.doPlace)", pos.toShortString(), refusedBehind); return exit("ore behind the hole: left open, never sealed in"); } // (the user: the whole visible vein before any patch)
         }
         // something he dropped is still lying in there (raw iron in an ore pocket, a diamond a cell deeper in the vein): the patch waits while a drop his Pickup goes for lies there;

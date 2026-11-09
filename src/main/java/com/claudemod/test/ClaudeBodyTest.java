@@ -10851,6 +10851,7 @@ public final class ClaudeBodyTest {
             case 1251: return st1251(stage, t, c, h, level, mock);
             case 1252: return st1252(stage, t, c, h, level, mock);
             case 1253: return st1253(stage, t, c, h, level, mock);
+            case 1254: return st1254(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -22638,6 +22639,36 @@ public final class ClaudeBodyTest {
             check(iron == 10, "\"craft iron_boots\" queued: " + (10 - iron) + " raw iron stored, to be fetched straight back for the boots' smelt");
             check(gold == 0, "set up: the raw gold wasn't stored (" + gold + " on him): no deposit ran");
             pass(stage, t, "the boots' raw iron kept on him, the raw gold stored");
+        }
+        return true;
+    }
+    /** Stage 1254 (D2D review 65, live 08:31:08-08:32:35 11-09 at -74,16,-274): a hole in his mine's wall with coal he'd seen at its corner (-75,15,-275), and the coal's dig queued. The patch went in first (a corner ore shows no face into the hole), then "his patch is over coal ore he saw: out, the ore, the patch back". A seen ore whose aim runs through the hole is mined first, then the hole patched once. */
+    private static BlockPos s1254Hole, s1254Ore; private static boolean s1254Patched, s1254Redug;
+    private static boolean st1254(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; s1254Hole = null; s1254Patched = false; s1254Redug = false; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            var b = nightMine(h, level); c.prefs.put("mine_model", "blueprint"); c.blueprint = b; com.claudemod.director.ClaudeLife.bpSync(c);
+            c.tasks.clear(); c.skillQueue.clear(); if (c.currentTask != null) c.dropCurrent = true;
+            BlockPos me = b.rows().get(3).first(); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5);
+            c.prefs.put("stay_close", "no"); level.setDayTime(6000); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            BlockPos hole = null; net.minecraft.core.Direction out = null;
+            for (net.minecraft.core.Direction d : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.SOUTH, net.minecraft.core.Direction.NORTH}) { if (hole != null) break; // (a side wall beside him: the mine runs east)
+                BlockPos q = me; for (int k = 0; k < 3 && b.roleAt(q.relative(d)) == com.claudemod.entity.life.MineBlueprint.Role.WALK; k++) q = q.relative(d);
+                if (b.roleAt(q.relative(d)) == com.claudemod.entity.life.MineBlueprint.Role.WALL && b.roleAt(q.relative(d, 2)) == null) { hole = q.relative(d).immutable(); out = d; } }
+            check(hole != null, "set up: no wall cell by him");
+            s1254Hole = hole.immutable(); BlockPos ore = hole.relative(out).below().relative(out.getClockWise()); // (a true corner of the hole, as live)
+            level.setBlock(hole, Blocks.AIR.defaultBlockState(), 2); level.setBlock(hole.relative(out), Blocks.AIR.defaultBlockState(), 2); // (the hole, and the cell past it the coal shows into)
+            level.setBlock(ore, Blocks.COAL_ORE.defaultBlockState(), 2); com.claudemod.director.ClaudeLife.seenOre(c).add(ore.immutable());
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            c.tasks.add(new Task.Place(hole.immutable(), Items.COBBLESTONE)); s1254Ore = ore.immutable(); // (as live: the patch queued; the coal's dig comes from his ore sweep once he looks)
+        }
+        if (t[0] > 10 && s1254Hole != null) {
+            boolean solid = !level.getBlockState(s1254Hole).getCollisionShape(level, s1254Hole).isEmpty();
+            if (solid && !s1254Patched && level.getBlockState(s1254Ore).is(Blocks.COAL_ORE)) c.tasks.add(new Task.Break(s1254Ore)); /* (his ore sweep: the coal he saw, its dig queued, live doMineVisibleOres) */ if (solid) s1254Patched = true; else if (s1254Patched) s1254Redug = true;
+            boolean coal = false; for (BlockPos q : BlockPos.betweenClosed(s1254Hole.offset(-3, -2, -3), s1254Hole.offset(3, 2, 3))) if (level.getBlockState(q).is(Blocks.COAL_ORE)) coal = true;
+            if (s1254Redug) { String q = c.currentTask + " " + c.tasks.stream().limit(5).toList(); c.tasks.clear(); check(false, "the hole at " + s1254Hole.toShortString() + " patched, then broken back out for the corner coal (" + q + ")"); }
+            if (!coal && solid && c.tasks.isEmpty() && c.currentTask == null) { for (BlockPos q : new BlockPos[] {s1254Hole, s1254Ore, s1254Ore.relative(net.minecraft.core.Direction.UP)}) level.setBlock(q, Blocks.STONE.defaultBlockState(), 2); for (net.minecraft.core.Direction d : net.minecraft.core.Direction.Plane.HORIZONTAL) if (level.getBlockState(s1254Hole.relative(d)).isAir() && c.blueprint.roleAt(s1254Hole.relative(d)) == null) level.setBlock(s1254Hole.relative(d), Blocks.STONE.defaultBlockState(), 2); c.blueprint = null; pass(stage, t, "the corner coal first, then the patch, once"); } // (the arena back as it was: the next stage runs here)
+            if (t[0] - 10 >= 900) { String q = c.currentTask + " " + c.tasks.stream().limit(5).toList(); c.tasks.clear(); check(false, "not done in 45 s: coal " + coal + " hole solid " + solid + " (" + q + ")"); }
         }
         return true;
     }

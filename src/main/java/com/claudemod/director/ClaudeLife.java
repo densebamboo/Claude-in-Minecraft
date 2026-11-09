@@ -5554,6 +5554,12 @@ public final class ClaudeLife {
         return null;
     }
 
+    /** A throw from his feet toward d drops out of his way: past the first cell, open at his feet with no floor in the 3 below (an edge, a drop, lava). */
+    static boolean fallsAway(net.minecraft.world.level.Level level, BlockPos feet, Direction d) {
+        for (int k = 1; k <= 4; k++) { BlockPos c = feet.relative(d, k); if (!level.getBlockState(c).getCollisionShape(level, c).isEmpty() || !level.getBlockState(c.above()).getCollisionShape(level, c.above()).isEmpty()) return false;
+            if (k >= 2) { boolean floor = false; for (int y = 1; y <= 3 && !floor; y++) { BlockPos b = c.below(y); floor = !level.getBlockState(b).getCollisionShape(level, b).isEmpty() && level.getFluidState(b).isEmpty(); } if (!floor) return true; } }
+        return false;
+    }
     /** (tests) */
     public static void dumpJunkTest(ClaudeEntity g) { dumpJunk(g); }
     /** Gear past use: armor worse than what he's wearing in its slot, or a third or later copy of the same tool (World 15 00:05: to the fortress with 0 free slots, two iron sets under his diamond, two of every tool). */
@@ -5637,9 +5643,9 @@ public final class ClaudeLife {
             else { double dx = g.getX() - (work.getX() + 0.5), dz = g.getZ() - (work.getZ() + 0.5); if (dx * dx + dz * dz > 0.01) { g.setYRot((float) Math.toDegrees(Math.atan2(dz, dx)) - 90f); g.setXRot(-25f); ClaudeMod.LOGGER.info("[Claude life] junk thrown away from his work at {} (ClaudeLife.dumpJunk)", work.toShortString()); } } }
           else if (work == null && !toss.isEmpty()) { // ponytail: live 13:24, idle in a Nether nook: 64 netherrack thrown at the rock every 5 s, landed at his feet, his body took it back; thrown the most open way instead
             Direction best = null; int bestOpen = -1; BlockPos eye = BlockPos.containing(g.getEyePosition());
-            for (Direction d : Direction.Plane.HORIZONTAL) { int open = 0; for (int k = 1; k <= 4 && g.level().getBlockState(eye.relative(d, k)).getCollisionShape(g.level(), eye.relative(d, k)).isEmpty(); k++) open++; if (open > bestOpen) { bestOpen = open; best = d; } }
+            boolean bestFalls = false; for (Direction d : Direction.Plane.HORIZONTAL) { int open = 0; for (int k = 1; k <= 4 && g.level().getBlockState(eye.relative(d, k)).getCollisionShape(g.level(), eye.relative(d, k)).isEmpty(); k++) open++; boolean falls = open >= 2 && fallsAway(g.level(), g.blockPosition(), d); if (falls && !bestFalls || falls == bestFalls && open > bestOpen) { bestOpen = open; best = d; bestFalls = falls; } } // off an edge first, where it falls out of his way (a fortress bridge: thrown along the walkway, fought back over and picked up 21 s on, live 04:42 11-09, D2D review 60, stage 1250)
             if (bestOpen < 2) { if (g.tickCount % 600 < 100) ClaudeMod.LOGGER.info("[Claude life] inventory full but nowhere to throw here ({} clear): the junk stays on him till he's somewhere open (ClaudeLife.dumpJunk)", bestOpen); return; } // (1 clear cell on his stronghold stair: it landed at his feet, his body took it back, a throw every 5 s, live 00:33)
-            g.setYRot(best.toYRot()); g.setXRot(-25f); ClaudeMod.LOGGER.info("[Claude life] junk thrown the most open way, {} ({} clear) (ClaudeLife.dumpJunk)", best, bestOpen); } }
+            g.setYRot(best.toYRot()); g.setXRot(-25f); ClaudeMod.LOGGER.info("[Claude life] junk thrown {}, {} ({} clear) (ClaudeLife.dumpJunk)", bestFalls ? "off the edge" : "the most open way", best, bestOpen); } }
         int n = 0; StringBuilder thrown = new StringBuilder();
         for (int i : toss) {
             var st = inv.items.get(i);

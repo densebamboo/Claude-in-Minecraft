@@ -8043,7 +8043,7 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
-        if ((stage[0] >= 494 && stage[0] <= 1099 || stage[0] >= 1130 && stage[0] <= 1249) && stages494(stage, t, c, h, level, mock)) return true; // (1150-1199: Big Picture's next range)
+        if ((stage[0] >= 494 && stage[0] <= 1099 || stage[0] >= 1130 && stage[0] <= 1349) && stages494(stage, t, c, h, level, mock)) return true; // (1150-1199: Big Picture's next range)
         if (stage[0] >= 1100 && stage[0] < 1100 + BENCH.length - 16) return bench(stage, t, c, h, level); // (the combat benchmark, part 2: every enemy type, mixed groups)
         if (stage[0] >= 279 && stage[0] <= 285) {
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Whereabouts.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.ExactSpot.reset(c); com.claudemod.director.Primitives.reset(c);
@@ -10840,6 +10840,7 @@ public final class ClaudeBodyTest {
             case 1235: return st1235(stage, t, c, h, level, mock);
             case 1242: return st1242(stage, t, c, h, level, mock);
             case 1249: return st1249(stage, t, c, h, level, mock);
+            case 1250: return st1250(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -22417,6 +22418,32 @@ public final class ClaudeBodyTest {
         if (t[0] >= 20 && st1249At < 0) { BlockPos me = h.absolutePos(new BlockPos(9, 2, 3)); if (c.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(me)) > 0.6) { c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); check(t[0] < 200, "set up: not 6 off his bed at the night check: " + c.position()); return true; } st1249At = t[0]; c.tasks.add(new Task.GoTo(h.absolutePos(new BlockPos(70, 2, 3)), 0.8)); com.claudemod.director.ClaudeLife.sleepIfNightTest(c); } // (the walk off out of it, and the night check a second on, 6 off the bed, as live)
         if (st1249At > 0 && c.isSleeping()) { int took = t[0] - st1249At; c.stopSleeping(); c.tasks.clear(); level.setDayTime(6000); check(took <= 400, "asleep, but " + took + " ticks after the night began 6 off his bed"); pass(stage, t, "night, 6 off his bed, a walk queued: in bed in " + took + " ticks"); }
         else if (st1249At > 0 && t[0] - st1249At >= 600) { String q = c.currentTask + " " + c.tasks.stream().limit(4).toList(); c.tasks.clear(); level.setDayTime(6000); check(false, "night 6 off his bed with a walk queued: not asleep in 30 s (" + q + ")"); }
+        return true;
+    }
+    /** Stage 1250 (D2D review 60, live 04:42:47-04:43:12 11-09, a fortress bridge mid-fight): pack full, a stone sword spare beside his iron one. "junk thrown the most open way, east (4 clear)" along the walkway, picked back up 21 s later as he fought over it, and thrown again. On a bridge the junk goes off the edge and falls away. */
+    private static boolean st1250(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(21000, 90, 21000);
+        if (t[0] == 1 || t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); c.skillQueue.clear(); c.blueprint = null; c.storageChests.clear(); c.myStations.clear();
+            for (int x = -8; x <= 8; x++) for (int z = -10; z <= 10; z++) for (int y = -12; y <= 5; y++) level.setBlock(o.offset(x, y, z), y == -12 ? Blocks.LAVA.defaultBlockState() : y == -1 && Math.abs(x) <= 1 ? Blocks.NETHER_BRICKS.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f); c.prefs.put("stay_close", "no"); }
+        if (t[0] == 12) {
+            for (var ie : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(16))) ie.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE));
+            for (int i = 0; i < 40; i++) c.getInventory().add(new ItemStack(i % 2 == 0 ? Items.OAK_LOG : Items.TORCH, 64)); // (as live: logs and torches, nothing junk but the sword)
+            c.getInventory().selected = 0;
+            com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+            check(c.getInventory().countItem(Items.STONE_SWORD) == 0, "set up: the spare stone sword wasn't thrown");
+        }
+        if (t[0] == 70) {
+            var swords = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(16, 20, 16), ie -> ie.getItem().is(Items.STONE_SWORD));
+            boolean onWalk = swords.stream().anyMatch(ie -> ie.getY() >= o.getY() - 0.5);
+            String at = swords.stream().map(ie -> String.format("%.1f %.1f %.1f", ie.getX() - o.getX(), ie.getY() - o.getY(), ie.getZ() - o.getZ())).toList().toString();
+            for (var ie : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(16, 20, 16))) ie.discard();
+            c.getInventory().clearContent();
+            check(!onWalk, "on a bridge the spare sword landed on his walkway (off him " + at + "), where he walks it back up");
+            pass(stage, t, "the spare sword off the bridge's edge: " + at);
+        }
         return true;
     }
     private static int st739T;

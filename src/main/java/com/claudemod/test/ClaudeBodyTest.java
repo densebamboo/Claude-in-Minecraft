@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1241: return st1241(stage, t, c, h, level, mock);
             case 1240: return st1240(stage, t, c, h, level, mock);
             case 1238: return st1238(stage, t, c, h, level, mock);
             case 1237: return st1237(stage, t, c, h, level, mock);
@@ -16574,6 +16575,29 @@ public final class ClaudeBodyTest {
                 check(there, "round a 1-wide bend from his cell's far corner not done in 6 s: at " + at);
                 check(t[0] - s1240T <= 60, "round the bend took " + (t[0] - s1240T) + " ticks (a player: 1 s)");
                 pass(stage, t, "round the bend in " + (t[0] - s1240T) + " ticks"); }
+        }
+        return true;
+    }
+    /** Stage 1241 (D2D review 54, live 06:10:23 11-09 at -28,69,-56: 32 cobblestone, "his chest (~56 s) vs digging it here (~50 s): dug here", then "getting the cobble by digging my mine further", a 184-block walk to his mine; kitted, so the priced "back to his mine vs a little staircase down here" never ran, the mine trip was taken unpriced): his mine in the arena, him 150 off on grass over stone, torches, food, a diamond pick, 32 cobble asked. The way it's got is priced: the staircase here, not the walk to his mine. */
+    private static boolean st1241(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); level.setDayTime(1000); }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+        var b0 = c.blueprint; BlockPos far = h.absolutePos(new BlockPos(150, 13, 8));
+        if (t[0] == 5) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(far), 2, far);
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            for (int x = -5; x <= 5; x++) for (int z = -5; z <= 5; z++) { for (int y = 1; y <= 4; y++) level.setBlock(far.offset(x, y - 1, z), Blocks.AIR.defaultBlockState(), 2); level.setBlock(far.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); level.setBlock(far.offset(x, -2, z), Blocks.DIRT.defaultBlockState(), 2); for (int y = -9; y <= -3; y++) level.setBlock(far.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2); }
+            nsKit(c); c.getInventory().add(new ItemStack(Items.TORCH, 32));
+            c.teleportTo(far.getX() + 0.5, far.getY(), far.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            if (mock[0] != null) mock[0].teleportTo(far.getX() + 3.5, far.getY(), far.getZ() + 0.5);
+        }
+        if (t[0] == 20) {
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "cobblestone", 32);
+            BlockPos ent = c.blueprint.entrance; boolean toMine = r.contains("my mine further") || r.contains("starting my mine") || c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().distSqr(ent) <= 24 * 24);
+            String tl = c.tasks.stream().limit(4).map(Object::toString).toList().toString();
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(back.getX() + 0.5, back.getY(), back.getZ() + 0.5);
+            check(!toMine, "32 cobble 150 off his mine, stone under his feet: the walk to his mine taken (\"" + r + "\", tasks " + tl + ")");
+            pass(stage, t, "dug here: \"" + r + "\"");
         }
         return true;
     }

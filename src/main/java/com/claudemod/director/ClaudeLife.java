@@ -5575,7 +5575,7 @@ public final class ClaudeLife {
         java.util.List<Skills.Step> steps = new java.util.ArrayList<>(g.skillQueue); if (g.lastStep != null) steps.add(g.lastStep);
         ItemStack probe = new ItemStack(it);
         for (var s : steps) { Item t = item(s.target()); if (t == null) continue; if (t == it) return true;
-            if (s.skill().equals("craft")) for (var r : Crafting.recipesFor(g.level(), t)) for (var ing : r.value().getIngredients()) if (ing.test(probe)) return true;
+            if (s.skill().equals("craft")) { ItemStack smelted = g.level() instanceof ServerLevel sl0 ? sl0.getRecipeManager().getRecipeFor(net.minecraft.world.item.crafting.RecipeType.SMELTING, new net.minecraft.world.item.crafting.SingleRecipeInput(probe), sl0).map(rh -> rh.value().getResultItem(sl0.registryAccess())).orElse(ItemStack.EMPTY) : ItemStack.EMPTY; for (var r : Crafting.recipesFor(g.level(), t)) for (var ing : r.value().getIngredients()) if (ing.test(probe) || !smelted.isEmpty() && ing.test(smelted)) return true; } // (and what its ingredients are smelted from: "craft iron_boots" queued, the store put his raw iron away and the boots' smelt fetched all 10 back 4 s on, live 06:54 11-09, D2D review 114, stage 1253)
             if (s.skill().equals("smelt") && g.level() instanceof ServerLevel sl && sl.getRecipeManager().getRecipeFor(net.minecraft.world.item.crafting.RecipeType.SMELTING, new net.minecraft.world.item.crafting.SingleRecipeInput(probe), sl).map(rh -> rh.value().getResultItem(sl.registryAccess()).is(t)).orElse(false)) return true; } // (what a queued smelt cooks: the store put his raw iron away and the smelt fetched it back, review 73)
         return false;
     }

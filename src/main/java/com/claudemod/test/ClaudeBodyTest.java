@@ -10844,6 +10844,7 @@ public final class ClaudeBodyTest {
             case 1250: return st1250(stage, t, c, h, level, mock);
             case 1251: return st1251(stage, t, c, h, level, mock);
             case 1252: return st1252(stage, t, c, h, level, mock);
+            case 1253: return st1253(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -22517,6 +22518,31 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.getInventory().clearContent();
             check(near.isEmpty(), "a 1-wide tunnel, one cell behind him: the netherrack thrown where a step back takes it up (" + at + ")");
             pass(stage, t, "nowhere to throw it clear: kept");
+        }
+        return true;
+    }
+    /** Stage 1253 (D2D review 114, live 06:54:48-52 11-09): "craft iron_boots" queued, 10 raw iron on him, his storage chest by him. The store put the raw iron away, and 4 s on the boots' smelt fetched all 10 back: neededByPlan saw the boots' iron ingots, not the raw iron they're smelted from. A craft's need reaches one smelt back. */
+    private static boolean st1253(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(21300, 90, 21000);
+        if (t[0] == 1 || t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); c.skillQueue.clear(); c.blueprint = null; c.storageChests.clear(); c.myStations.clear();
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = -1; y <= 4; y++) level.setBlock(o.offset(x, y, z), y == -1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            level.setBlock(o.offset(2, 0, 0), Blocks.CHEST.defaultBlockState(), 2);
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f); c.prefs.put("stay_close", "no"); }
+        if (t[0] == 12) {
+            BlockPos ch = o.offset(2, 0, 0); c.storageChests.add(ch); c.myStations.add(ch);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.RAW_IRON, 10)); c.getInventory().add(new ItemStack(Items.RAW_GOLD, 8)); c.getInventory().add(new ItemStack(Items.COAL, 11));
+            c.skillQueue.clear(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "iron_boots", 1));
+            check(com.claudemod.director.ClaudeLife.neededByPlan(c, Items.RAW_IRON), "\"craft iron_boots\" queued: his raw iron isn't counted as needed by it (its ingots are smelted from it)");
+            c.tasks.clear(); c.tasks.add(new Task.Deposit(ch));
+        }
+        if (t[0] == 80) {
+            int iron = c.getInventory().countItem(Items.RAW_IRON), gold = c.getInventory().countItem(Items.RAW_GOLD);
+            BlockPos ch = o.offset(2, 0, 0); if (level.getBlockEntity(ch) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity cb) cb.clearContent(); level.setBlock(ch, Blocks.AIR.defaultBlockState(), 2);
+            c.storageChests.clear(); c.myStations.clear(); c.skillQueue.clear(); c.tasks.clear(); c.getInventory().clearContent();
+            check(iron == 10, "\"craft iron_boots\" queued: " + (10 - iron) + " raw iron stored, to be fetched straight back for the boots' smelt");
+            check(gold == 0, "set up: the raw gold wasn't stored (" + gold + " on him): no deposit ran");
+            pass(stage, t, "the boots' raw iron kept on him, the raw gold stored");
         }
         return true;
     }

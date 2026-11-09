@@ -10820,6 +10820,7 @@ public final class ClaudeBodyTest {
             case 1225: return st1225(stage, t, c, h, level, mock);
             case 1226: return st1226(stage, t, c, h, level, mock);
             case 1227: return st1227(stage, t, c, h, level, mock);
+            case 1228: return st1228(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -21900,6 +21901,29 @@ public final class ClaudeBodyTest {
                 check(iron == 10, "the craft's iron stored: " + iron + " on him");
                 pass(stage, t, "the craft's iron kept on him, no trip to the other chest");
             }
+        }
+        return true;
+    }
+    /** Stage 1228 (D2D review 119, live 02:37:06-02:37:22 11-09 at 105,79,-135: health 5, food 6, the plan "take cover for the coming night"; dug in, the lid on, then "nothing about his cover any more: out after 2 s", the lid off, the plan said shelter again, in again, out again): the shelter step at dusk with nothing about. He stays under his lid: the night is what it's for. */
+    private static boolean st1228(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; ggMark = 0; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); }
+        if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(11800);
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.DIRT, 32)); c.setHealth(5); c.getFoodData().setFoodLevel(6);
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("explore", "plains", 1));
+            c.lastStep = new com.claudemod.entity.life.Skills.Step("shelter", "", 1);
+            ggSaid = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "shelter", "", 1); ggMark = t[0];
+        }
+        if (ggMark > 0) level.setDayTime(11800 + (t[0] - ggMark)); // (the dusk goes on, still short of dark)
+        if (ggMark > 0 && t[0] == ggMark + 300) {
+            boolean under = c.getY() < me.getY() - 0.5, lid = !level.getBlockState(c.blockPosition().above(2)).canBeReplaced();
+            String now = c.currentTask + " " + c.tasks.stream().limit(3).toList();
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.skillQueue.clear(); c.lastStep = null; c.getInventory().clearContent(); c.setHealth(20); c.getFoodData().setFoodLevel(20); flatBox(h); level.setDayTime(6000);
+            check(under && lid, "out of his cover at dusk with nothing about (" + ggSaid + "): y " + String.format("%.1f", c.getY()) + ", lid " + lid + ", now " + now);
+            pass(stage, t, "under his lid through the dusk: " + ggSaid);
         }
         return true;
     }

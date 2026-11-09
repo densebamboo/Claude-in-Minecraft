@@ -1088,9 +1088,9 @@ public final class ClaudeLife {
             Item bedItem = g.inventory.find(s -> s.is(ItemTags.BEDS)).getItem();
             BlockPos foot = pod.stand().relative(pod.dir()), head = foot.relative(pod.dir());
             g.tasks.add(new Task.GoTo(pod.stand(), 0.6));
-            for (BlockPos q : pod.fill()) if (q.getY() == foot.getY()) { g.tasks.add(new Task.Place(q, fillItem)); g.pillarBlocks.add(q); } // the walls at the bed's own level first: once the bed is down, the cell past its far end shows only the floor's top across the bed (stage 300, red since 740da158's stricter faces)
+            java.util.function.Predicate<BlockPos> pastHead = q -> q.getY() == foot.getY() && (q.getX() - head.getX()) * pod.dir().getStepX() + (q.getZ() - head.getZ()) * pod.dir().getStepZ() > 0; /* (only past its far end: the side walls first nudged him onto the bed's own cell and boxed him in, the bed "never under himself", stage 181) */ for (BlockPos q : pod.fill()) if (pastHead.test(q)) { g.tasks.add(new Task.Place(q, fillItem)); g.pillarBlocks.add(q); } // the wall past the bed's far end first: once the bed is down, the cell past its far end shows only the floor's top across the bed (stage 300, red since 740da158's stricter faces)
             g.tasks.add(new Task.Place(foot, bedItem, pod.dir()));
-            for (BlockPos q : pod.fill()) if (q.getY() != foot.getY()) { g.tasks.add(new Task.Place(q, fillItem)); g.pillarBlocks.add(q); } // (cover blocks: taken back down once he's up and about)
+            for (BlockPos q : pod.fill()) if (!pastHead.test(q)) { g.tasks.add(new Task.Place(q, fillItem)); g.pillarBlocks.add(q); } // (cover blocks: taken back down once he's up and about)
             if (pod.torchAt() != null) g.tasks.add(new Task.WallTorch(pod.torchAt(), pod.torchWall()));
             podBeds().add(head);
             g.skillQueue.addFirst(new Skills.Step("sleep", "at " + head.getX() + " " + head.getY() + " " + head.getZ(), 1));

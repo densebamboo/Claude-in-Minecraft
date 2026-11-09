@@ -2656,6 +2656,7 @@ public class WorkGoal extends Goal {
             BlockPos p = p0.immutable();
             if (!level.getBlockState(p).getCollisionShape(level, p).isEmpty() || !level.getBlockState(p.above()).getCollisionShape(level, p.above()).isEmpty()
                     || !level.getBlockState(p.below()).isFaceSturdy(level, p.below(), Direction.UP)) continue;
+            if (p.below().equals(target)) continue; // never stood on to be mined: broken from on top he drops into what's under it, unseen (live 10:39:54 11-09: a water pocket, 14 min in it, drowned; stage 1353)
             if (!level.getFluidState(p).isEmpty() || !level.getFluidState(p.above()).isEmpty()) continue; // (lava has no collision box: live 07:14 World 15 a furnace's view spot was a lava cell, a walk at it every minute for 47 min)
             if (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, p, g.tickCount, 20 * 120) || !p.equals(g.blockPosition()) && g.attempts.within(com.claudemod.entity.life.Attempts.Kind.REACH, p, g.tickCount, 20 * 120)) continue; // (REACH: a view spot he was sent to and didn't stand on; a walk that ends at once is never a WALK failure, and -39,-14,113 was picked again and again, live 23:5x) // (a spot he couldn't get to lately: not picked again, the write-off holds)
             Vec3 eye = Vec3.atBottomCenterOf(p).add(0, 1.62, 0);

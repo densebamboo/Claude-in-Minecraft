@@ -10553,6 +10553,7 @@ public final class ClaudeBodyTest {
             case 1350: return st1350(stage, t, c, h, level, mock);
             case 1351: return st1351(stage, t, c, h, level, mock);
             case 1352: return st1352(stage, t, c, h, level, mock);
+            case 1353: return st1353(stage, t, c, h, level, mock);
             case 1301: return st1301(stage, t, c, h, level, mock);
             case 1302: return st1302(stage, t, c, h, level, mock);
             case 1303: return st1303(stage, t, c, h, level, mock);
@@ -25999,6 +26000,22 @@ public final class ClaudeBodyTest {
             h.setBlock(new BlockPos(6, 4, 12), Blocks.DEEPSLATE); c.blueprint = null;
             check(!cut, "his route past his wall digs his own water plug at (6,3,12): " + (plan == null ? "-" : plan.acts()));
             pass(stage, t, "his water plug kept: the route " + (plan == null ? "found no way" : "goes " + plan.acts().size() + " acts round it"));
+        }
+        return true;
+    }
+    private static boolean st1353(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 10:39:48-54 11-09 (-35,51,-18 by his mine): "a pit to the stone here for 5 cobble", the stone's view cell picked ON it (clearViewSpot: -35,52,-18), no side cell in the notch, takeFall read the water under it as a 0 drop: broke it from on top, into a water pocket, 14 min stuck, drowned 10:54
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; }
+        if (t[0] == 10) {
+            for (int x = 0; x <= 10; x++) for (int z = 0; z <= 10; z++) for (int y = 0; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), (y <= 3 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            level.setBlock(h.absolutePos(new BlockPos(5, 0, 5)), Blocks.WATER.defaultBlockState(), 2); // the pocket under it, unseen
+            for (int y = 2; y <= 3; y++) level.setBlock(h.absolutePos(new BlockPos(5, y, 5)), Blocks.AIR.defaultBlockState(), 2); // the notch over the stone: the only cell that sees it
+            BlockPos me = h.absolutePos(new BlockPos(5, 4, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 15) {
+            BlockPos target = h.absolutePos(new BlockPos(5, 1, 5)); BlockPos spot;
+            try { var m = c.work.getClass().getDeclaredMethod("clearViewSpot", ServerLevel.class, BlockPos.class); m.setAccessible(true); spot = (BlockPos) m.invoke(c.work, level, target); } catch (ReflectiveOperationException ex) { throw new RuntimeException(ex); }
+            check(spot == null || !spot.below().equals(target), "the view cell for the stone is on top of it (" + spot + "): broken from there, he drops into what's under it");
+            pass(stage, t, "no view cell on the block itself (" + spot + ")"); return true;
         }
         return true;
     }

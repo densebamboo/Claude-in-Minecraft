@@ -10553,6 +10553,7 @@ public final class ClaudeBodyTest {
             case 1130: return st1130(stage, t, c, h, level, mock);
             case 1132: return st1132(stage, t, c, h, level, mock);
             case 1133: return st1133(stage, t, c, h, level, mock);
+            case 1134: return st1134(stage, t, c, h, level, mock);
             case 999: return st999(stage, t, c, h, level, mock);
             case 997: return st997(stage, t, c, h, level, mock);
             case 996: return st996(stage, t, c, h, level, mock);
@@ -18153,7 +18154,7 @@ public final class ClaudeBodyTest {
             for (int x = -16; x <= 32; x++) for (int z = -16; z <= 32; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 24; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
             for (int yy = 0; yy < 5; yy++) { level.setBlock(me.above(yy), Blocks.COBBLESTONE.defaultBlockState(), 2); c.pillarBlocks.add(me.above(yy).immutable()); }
             c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16));
-            c.teleportTo(me.getX() + 0.5, me.getY() + 5, me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            c.teleportTo(me.getX() + 0.5, me.getY() + 5, me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null; mock[0].teleportTo(me.getX() + 0.5, me.getY() + 45, me.getZ() + 0.5); // (the mock out of it: a creeper by them sets off his guard, a run off the tower to it)
             level.setDayTime(16000);
             int[][] at = {{4, 0}, {-4, 0}, {0, 4}, {0, -4}, {3, 3}};
             for (int i = 0; i < at.length; i++) { var m = (i < 3 ? EntityType.CREEPER : EntityType.ZOMBIE).create(level); m.moveTo(me.getX() + at[i][0] + 0.5, me.getY(), me.getZ() + at[i][1] + 0.5, 0, 0); m.setPersistenceRequired(); level.addFreshEntity(m); m.setTarget(c); st767M.add(m); }
@@ -18215,6 +18216,34 @@ public final class ClaudeBodyTest {
             if (c.getHealth() < st773Last) st773Hits++; st773Last = c.getHealth(); st773Low = Math.min(st773Low, c.getHealth());
             check(c.isAlive(), "dead to two skeletons across the hall and a zombie at " + (t[0] - st773Start) / 20 + " s (" + st773Hits + " hits, he was at " + c.blockPosition().toShortString() + ")");
             if (t[0] - st773Start >= 20 * 40) { for (var m : st773M) m.discard(); c.setHealth(20); pass(stage, t, "alive 40 s: " + st773Hits + " hits, low " + st773Low + ", at " + c.blockPosition().toShortString()); }
+        }
+        return true;
+    }
+    private static int st1134Start; private static float st1134Low; private static java.util.List<net.minecraft.world.entity.Mob> st1134M = new java.util.ArrayList<>();
+    private static boolean st1134(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // fighting one creeper, a second walks up behind him and lights, full iron, sword and shield, night (World 17 15:30 death 57: only creepers.get(0) was judged, the one he fought; the other lit 1 off unwatched, 29.4 through iron): alive
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8)); double bx = (o.getX() & ~15) + 8.5, bz = (o.getZ() & ~15) + 8.5; // (one entity section for both: the one he fights is first in its list, as live)
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1134Start = -1; st1134Low = 20; st1134M.clear(); }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) if (!st1134M.contains(e)) e.discard();
+        if (t[0] == 10) {
+            for (int x = -40; x <= 40; x++) for (int z = -40; z <= 40; z++) { level.setBlock(o.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 6; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            level.setDayTime(18000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.teleportTo(bx, o.getY(), bz); c.setYRot(-90); c.setYHeadRot(-90); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.pillarBlocks.clear(); mock[0].teleportTo(o.getX() + 0.5, o.getY() + 40, o.getZ() + 0.5);
+        }
+        if (t[0] == 20) { com.claudemod.entity.life.Perception.reset(c); c.tasks.clear(); c.currentTask = null;
+            var b = EntityType.CREEPER.create(level); b.moveTo(bx + 2.5, o.getY(), bz, 90, 0); b.setPersistenceRequired(); b.setNoAi(true); level.addFreshEntity(b); st1134M.add(b); // (no fuse: the fight he's in)
+            st1134Start = t[0]; }
+        if (st1134Start > 0 && t[0] == st1134Start + 12) { // he's on the first one now: the second walks up behind him
+            var a = EntityType.CREEPER.create(level); a.moveTo(c.getX() - 2.5, o.getY(), c.getZ(), -90, 0); a.setPersistenceRequired(); level.addFreshEntity(a); a.setTarget(c); st1134M.add(a);
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 1134: second creeper in 2.5 behind him, his task {}", c.currentTask); }
+        if (st1134Start > 0) {
+            for (var m : st1134M) if (m.isAlive() && !m.isNoAi() && m.getTarget() != c) m.setTarget(c);
+            st1134Low = Math.min(st1134Low, c.getHealth());
+            check(c.isAlive() && st1134Low > 12, "the second creeper's blast took him to " + st1134Low + " at " + (t[0] - st1134Start) / 20.0 + " s (shield up or clear of it: a few HP at most)");
+            if (t[0] - st1134Start >= 20 * 15) { int left = 0; for (var m : st1134M) { if (m.isAlive()) left++; m.discard(); } c.setHealth(20); level.setDayTime(6000); pass(stage, t, "alive 15 s, fighting one creeper with a second lit behind him, low " + st1134Low + ", " + left + " creeper(s) still about"); }
         }
         return true;
     }

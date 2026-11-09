@@ -10807,6 +10807,7 @@ public final class ClaudeBodyTest {
             case 1216: return st1216(stage, t, c, h, level, mock);
             case 1217: return st1217(stage, t, c, h, level, mock);
             case 1218: return st1218(stage, t, c, h, level, mock);
+            case 1219: return st1219(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -21544,6 +21545,36 @@ public final class ClaudeBodyTest {
                 check(up, "setup: the tower never went up");
                 check(!listed, "the pit cap's tower on his take-down list: " + pl);
                 pass(stage, t, "the tower up out of the pit kept as the cap's, off his take-down list");
+            }
+        }
+        return true;
+    }
+    /** Stage 1219 (D2D review 273/274/330, live 01:19:40-01:21:05 11-09 at -362,-57,30: his table at -359,-58,29 behind his mine wall; doBreak read the cobbled deepslate wall in front of it as "his own patch in front of his own table", queued it first, the referee refused it (ruled solid, his mine's plan), "mining the crafting table: 3 times in 1 s", and his done furnace sat there for minutes): his table behind a cobbled deepslate wall of his mine that the referee keeps solid. The wall is never queued for a dig. */
+    private static BlockPos s1219W; private static int s1219R;
+    private static boolean st1219(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            BlockPos d = lnRow(b, 1, 6).immutable();
+            net.minecraft.core.Direction side = null; for (var dd : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && !com.claudemod.director.ClaudeLife.isMineCell(c, d.relative(dd)) && level.getBlockState(d.relative(dd)).isSolid()) side = dd;
+            check(side != null, "setup: no wall beside row 6");
+            s1219W = d.relative(side).immutable(); BlockPos tbl = s1219W.relative(side).immutable();
+            for (BlockPos q : new BlockPos[] {s1219W, s1219W.above()}) { level.setBlock(q, Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); com.claudemod.entity.life.Gate.rule(c, q, true, "his mine's plan: solid (stage 1219)"); }
+            level.setBlock(tbl, Blocks.CRAFTING_TABLE.defaultBlockState(), 2); c.tempStations.add(tbl);
+            var inv = c.getInventory(); inv.clearContent(); inv.items.set(0, new ItemStack(Items.IRON_PICKAXE)); inv.selected = 0;
+            lnStand(c, mock, d, b.entrance); c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null;
+            s1219R = com.claudemod.entity.life.Gate.refused(c);
+            c.tasks.add(new Task.Break(tbl));
+        }
+        if (t[0] > 10) {
+            boolean wallQueued = com.claudemod.entity.life.Gate.refused(c) > s1219R || c.currentTask instanceof Task.Break bk && (bk.pos().equals(s1219W) || bk.pos().equals(s1219W.above())) || c.tasks.stream().anyMatch(q -> q instanceof Task.Break bk2 && (bk2.pos().equals(s1219W) || bk2.pos().equals(s1219W.above())));
+            if (wallQueued || t[0] == 70) {
+                boolean standing = level.getBlockState(s1219W).is(Blocks.COBBLED_DEEPSLATE) && level.getBlockState(s1219W.above()).is(Blocks.COBBLED_DEEPSLATE);
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.tempStations.clear(); c.getInventory().clearContent();
+                for (BlockPos q : new BlockPos[] {s1219W, s1219W.above()}) com.claudemod.entity.life.Gate.unrule(c, q);
+                c.blueprint = null; c.prefs.put("mine_model", "legacy");
+                check(!wallQueued, "his mine wall the referee keeps solid queued for a dig as the patch in front of his table");
+                check(standing, "his mine wall dug for his table");
+                pass(stage, t, "his kept wall left alone, the table looked at from elsewhere");
             }
         }
         return true;

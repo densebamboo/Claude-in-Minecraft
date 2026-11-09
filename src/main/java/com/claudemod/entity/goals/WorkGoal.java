@@ -2223,6 +2223,10 @@ public class WorkGoal extends Goal {
             BlockPos inWay = blockInTheWay(level, pos);
             if (inWay != null) {
                 BlockState w = level.getBlockState(inWay);
+                if (w.getBlock() instanceof net.minecraft.world.level.block.BaseTorchBlock && ticks < 40) { // a torch in his aim (his eyes in its little box at his cell's edge): his head moved, never the torch broken for the view (live 12:44 11-09, review 33, stage 1269)
+                    BlockPos mid = g.blockPosition(); double mx = mid.getX() + 0.5 - g.getX(), mz = mid.getZ() + 0.5 - g.getZ();
+                    if (mx * mx + mz * mz > 0.1 * 0.1) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(mid.getX() + 0.5, mid.getY(), mid.getZ() + 0.5, 0.5); sightCheckedFor = null; return false; }
+                }
                 boolean breakable = w.getDestroySpeed(level, inWay) >= 0 && !(g.getTarget() instanceof net.minecraft.server.level.ServerPlayer o
                         && com.claudemod.director.ClaudeLife.protectedBlock(g, o, inWay));
                 boolean ownPatch = (w.is(net.minecraft.world.level.block.Blocks.COBBLESTONE) || w.is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE)) && com.claudemod.director.ClaudeLife.seenOre(g).contains(pos) && com.claudemod.entity.life.MineBlueprint.ore(state); // his own patch over ore he saw: out, the ore, the patch back (the user)

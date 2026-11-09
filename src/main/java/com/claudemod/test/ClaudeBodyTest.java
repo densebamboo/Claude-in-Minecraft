@@ -10873,6 +10873,7 @@ public final class ClaudeBodyTest {
             case 1265: return st1265(stage, t, c, h, level, mock);
             case 1266: return st1266(stage, t, c, h, level, mock);
             case 1268: return st1268(stage, t, c, h, level, mock);
+            case 1269: return st1269(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -23060,6 +23061,28 @@ public final class ClaudeBodyTest {
             check(at.equals(s1268To.toShortString()), "not on out at " + s1268To.toShortString() + ": at " + at + " after " + s + " s");
             check(s <= 5, "the put-back and two cells on: " + s + " s (a player ~2)");
             pass(stage, t, "patched from outside and on out in " + s + " s"); }
+        return true;
+    }
+    /** Stone at head height beside his walkway cell, his wall torch on the cell's south wall, he at the cell's edge with his eyes inside the torch's little box: every aim hits the torch first, so it was broken for the view and put back a minute later (live 12:43-12:44 11-09 World 17 at -74,17,-289, D2D review 33: at -73.45 16.00 -288.30, "wall torch at -74, 17, -289 is in the way of stone at -73, 17, -289"). A player moves his head; the torch stays. */
+    private static boolean st1269(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(4, 3, 4));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(-3, -1, -2), o.offset(4, 3, 2))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            for (int x = -2; x <= 0; x++) for (int y = 0; y <= 1; y++) level.setBlock(o.offset(x, y, 0), Blocks.AIR.defaultBlockState(), 2); // his walkway, the stone at 1,1,0 and 1,0,0 its face
+            level.setBlock(o.offset(0, 1, 0), Blocks.WALL_TORCH.defaultBlockState().setValue(net.minecraft.world.level.block.WallTorchBlock.FACING, net.minecraft.core.Direction.NORTH), 2); // on the south wall of his head cell
+            level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(o.getX() + 0.55, o.getY(), o.getZ() + 0.70); c.setYRot(-90); mock[0].teleportTo(o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+        }
+        if (t[0] == 12) c.tasks.add(new Task.Break(o.offset(1, 1, 0)));
+        if (t[0] > 12) {
+            boolean torch = level.getBlockState(o.offset(0, 1, 0)).is(Blocks.WALL_TORCH), dug = level.getBlockState(o.offset(1, 1, 0)).isAir();
+            check(torch, "his wall torch at the walkway cell broken for the view of the stone beside it, " + (t[0] - 12) + " ticks in, he at " + String.format("%.2f %.2f %.2f", c.getX() - o.getX(), c.getY() - o.getY(), c.getZ() - o.getZ()));
+            if (dug) pass(stage, t, "the stone dug past his torch in " + (t[0] - 12) + " ticks, the torch kept");
+            else check(t[0] < 12 + 80, "the stone not dug in 4 s: task " + c.currentTask + ", queue " + c.tasks);
+        }
         return true;
     }
     private static int st739T;

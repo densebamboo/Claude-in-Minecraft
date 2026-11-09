@@ -10876,6 +10876,7 @@ public final class ClaudeBodyTest {
             case 1269: return st1269(stage, t, c, h, level, mock);
             case 1270: return st1270(stage, t, c, h, level, mock);
             case 1271: return st1271(stage, t, c, h, level, mock);
+            case 1272: return st1272(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -23138,6 +23139,34 @@ public final class ClaudeBodyTest {
             check(wallBack, "his wall at " + s1271Wall.toShortString() + " not put back behind him");
             check(s <= 6, "back through one cut of his wall: " + s + " s (a player ~3)");
             pass(stage, t, "back through his own cut and patched in " + s + " s"); }
+        return true;
+    }
+    /** Dusk, ungeared, out on the surface near his mine with a side job's walk queued far out over open ground (the smelt step's log hunt, 119 off): his mine for the night sets that walk aside till morning, whatever the step is called (live 13:20:17-13:21:13 11-09 World 17, D2D review 64: "dusk ... his lit mine", walked to its door, then "back on his route to -26, 68, 99 ... the way to its end planned again from here", out into the dark three times, the night in a hole). */
+    private static boolean st1272(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(27800, 80, 28200);
+        if (t[0] % 10 == 0 || t[0] < 10) for (int k = -48; k <= 32; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(1000);
+            for (int x = -60; x <= 24; x++) for (int z = -10; z <= 10; z++) for (int y = -20; y <= 5; y++) level.setBlock(o.offset(x, y, z), (y <= 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            var b = new com.claudemod.entity.life.MineBlueprint(o.above(), net.minecraft.core.Direction.EAST, 2, 3); b.segments.get(0).n = 14; c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.prefs.put("stay_close", "no"); com.claudemod.director.ClaudeLife.bpSync(c);
+            for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK) level.setBlock(e.getKey(), Blocks.AIR.defaultBlockState(), 2);
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.COOKED_COD, 9));
+            BlockPos me = o.offset(-10, 1, 0); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f); }
+        if (t[0] == 5) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(64))) e.discard();
+        if (t[0] == 10) {
+            BlockPos far = o.offset(-50, 1, 0);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.lastStep = new com.claudemod.entity.life.Skills.Step("smelt", "cooked_salmon", 6);
+            c.tasks.add(new Task.GoTo(far, 4.0)); c.tasks.add(new Task.FurnaceTake(o.offset(-12, 1, 2))); // the side job's walk out, then the batch
+            long tod = 11657; level.setDayTime(tod);
+            com.claudemod.entity.life.Decide.dusk(c, level, tod);
+            boolean outLeft = c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().equals(far));
+            boolean shelter = c.skillQueue.stream().anyMatch(s0 -> s0.skill().equals("shelter"));
+            level.setDayTime(1000); c.tasks.clear(); c.skillQueue.clear(); c.blueprint = null; c.mineFace = null; c.dropCurrent = true;
+            for (int x = -60; x <= 24; x++) for (int z = -10; z <= 10; z++) for (int y = -20; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(!outLeft, "his mine for the night, and the side job's walk 50 out over open ground still queued (shelter step " + shelter + ")");
+            check(shelter, "his mine for the night, no shelter step to take him down its rows");
+            pass(stage, t, "dusk: the walk out set aside, the shelter step down his mine");
+        }
         return true;
     }
     private static int st739T;

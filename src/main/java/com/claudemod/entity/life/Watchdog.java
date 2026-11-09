@@ -88,6 +88,7 @@ public final class Watchdog {
     private static int now(ClaudeEntity g) { return g.getServer().getTickCount(); } // ponytail: his own tickCount restarts at 0 on every dimension change; this state outlives the entity
     private static St st(ClaudeEntity g) { return ST.computeIfAbsent(g.getUUID(), k -> new St()); }
     public static void reset(ClaudeEntity g) { ST.remove(g.getUUID()); }
+    public static void forgetFiled() { filed.clear(); } // (tests: the 10-min window past, or a restart)
     /** Parked lifted this job (the block arrived, he moved off, time passed): its trip and write-off go with it, so it runs again. */
     public static void cleared(ClaudeEntity g, Task t) { St s = ST.get(g.getUUID()); String k = key(t); if (s == null || k == null) return; s.rung.remove(k); s.ends.remove(k); s.told.remove(k); }
     public static int incidents; public static String lastIncident = ""; // (stages read them)
@@ -405,8 +406,23 @@ public final class Watchdog {
         for (String m; (m = LOGGED.poll()) != null; ) {
             if (com.claudemod.entity.ClaudeSpawner.testing && !linesInTests) continue;
             String kind = lineKind(m);
+            if (kind.equals("LITTER") && litterSeen(g, m)) continue;
             fileOnce(g, kind, lineKey(kind, m), m.length() > 400 ? m.substring(0, 400) : m);
         }
+    }
+    private static java.util.Map<Long, String> litterFiled; // cell -> the block there when its LITTER was filed (kept in claude/litter-filed.txt over restarts)
+    /** LITTER once per cell until the block there changes: the 10-min window and every restart refiled a block left standing (D2D 11-09: 304 incidents on 107 cells in 15 min, one cell 7 times). True: filed already for this block. */
+    static boolean litterSeen(ClaudeEntity g, String m) {
+        var sp = java.util.regex.Pattern.compile("(-?\\d+), (-?\\d+), (-?\\d+)").matcher(m); if (!sp.find()) return false;
+        BlockPos at = new BlockPos(Integer.parseInt(sp.group(1)), Integer.parseInt(sp.group(2)), Integer.parseInt(sp.group(3)));
+        java.nio.file.Path f = com.claudemod.entity.ClaudeSpawner.testing || g.getServer() == null ? null : g.getServer().getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("claude").resolve("litter-filed.txt");
+        if (litterFiled == null) { litterFiled = new java.util.HashMap<>();
+            if (f != null && java.nio.file.Files.exists(f)) try { for (String ln : java.nio.file.Files.readAllLines(f)) { String[] kv = ln.split(" ", 2); if (kv.length == 2) litterFiled.put(Long.parseLong(kv[0]), kv[1]); } } catch (Exception e) { ClaudeMod.LOGGER.info("[Claude watchdog] litter-filed.txt unread: {}", e.toString()); } }
+        String b = nm(g.level().getBlockState(at));
+        if (b.equals(litterFiled.get(at.asLong()))) return true;
+        litterFiled.put(at.asLong(), b);
+        if (f != null) try { StringBuilder sb = new StringBuilder(); for (var e : litterFiled.entrySet()) sb.append(e.getKey()).append(' ').append(e.getValue()).append('\n'); java.nio.file.Files.createDirectories(f.getParent()); java.nio.file.Files.writeString(f, sb); } catch (Exception e) { ClaudeMod.LOGGER.info("[Claude watchdog] litter-filed.txt unwritten: {}", e.toString()); }
+        return false;
     }
     /** An incident once per key in 10 min. */
     private static void fileOnce(ClaudeEntity g, String kind, String k, String why) {

@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1303: return st1303(stage, t, c, h, level, mock);
             case 1300: return st1300(stage, t, c, h, level, mock);
             case 1245: return st1245(stage, t, c, h, level, mock);
             case 1244: return st1244(stage, t, c, h, level, mock);
@@ -16727,6 +16728,21 @@ public final class ClaudeBodyTest {
                 check(s <= 4, "the log took " + s + " s (a player: break the leaf under it, ~1 s)");
                 pass(stage, t, "knocked down and got in " + s + " s"); }
         }
+        return true;
+    }
+    /** Stage 1303 (D2D 11-09: 304 LITTER incidents on 107 cells in 15 min, the cobble at -20,75,-14 filed at 07:30 and again at 07:50): litter was held 10 min per cell and forgotten on a restart. Once per cell until the block there changes. */
+    private static boolean st1303(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var W = com.claudemod.entity.life.Watchdog.recentKinds; BlockPos at = h.absolutePos(new BlockPos(5, 2, 5));
+        String line = "[Claude litter] left his cobblestone at " + at.getX() + ", " + at.getY() + ", " + at.getZ() + " standing (bridge, put down 25 min ago)";
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; flatBox(h); }
+        try {
+        if (t[0] == 10) { level.setBlock(at, Blocks.COBBLESTONE.defaultBlockState(), 2); W.clear(); com.claudemod.entity.life.Watchdog.linesInTests = true; com.claudemod.entity.life.Watchdog.forgetFiled(); ClaudeMod.LOGGER.info(line); }
+        if (t[0] == 20) { com.claudemod.entity.life.Watchdog.forgetFiled(); ClaudeMod.LOGGER.info(line.replace("25 min", "45 min")); } // (the window gone by: the same cobble, still there)
+        if (t[0] == 30) { long n = W.stream().filter("LITTER"::equals).count(); check(n == 1, "the same cobble filed " + n + " times: " + W);
+            level.setBlock(at, Blocks.DIRT.defaultBlockState(), 2); com.claudemod.entity.life.Watchdog.forgetFiled(); ClaudeMod.LOGGER.info(line.replace("cobblestone", "dirt")); }
+        if (t[0] == 40) { long n = W.stream().filter("LITTER"::equals).count(); com.claudemod.entity.life.Watchdog.linesInTests = false; level.setBlock(at, Blocks.AIR.defaultBlockState(), 2);
+            check(n == 2, "a changed cell not filed again: " + n + " LITTER: " + W); pass(stage, t, "once per cell until it changes: " + W); }
+        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
         return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */

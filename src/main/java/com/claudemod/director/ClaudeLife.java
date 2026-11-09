@@ -3125,7 +3125,15 @@ public final class ClaudeLife {
                 return "walking off to explore";
             }
             case "shelter": { // cover, now: a tower out of reach with a lid, or two down and a block over his head; he waits it out in there
-                { String mine = shelterInMine(g, level); if (mine != null) return mine; } // his own mine close by: in there, never a hole beside it
+                { String mine = shelterInMine(g, level); if (mine != null) { // his own mine close by: in there, never a hole beside it
+                    long tod = level.getDayTime() % 24000;
+                    boolean duskHold = tod >= 11600 && tod < 12500 && com.claudemod.entity.life.Decide.roamsOut(g) && nightGearNo(g, level, g.blueprint.outside(), false) != null;
+                    if (duskHold && !mine.startsWith("done")) g.skillQueue.addFirst(st); // (the walk in first, this step again at the bottom)
+                    if (duskHold && mine.startsWith("done: down my mine")) { // dusk, down here for the night, the next step out over open ground: it waits for first light (the night rules take it from dark; live 02:38 11-09, review 120: the explore walked him back out at once)
+                        g.skillQueue.addFirst(st); g.tasks.add(new Task.Wait((int) (12500 - tod), false));
+                        return "down my mine for the night: " + g.skillQueue.stream().skip(1).findFirst().map(s0 -> s0.skill() + " " + s0.target()).orElse("the next step") + " waits for first light";
+                    }
+                    return mine; } }
                 if (pastEarly(g) && com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(8), m -> m.isAlive() && m.getTarget() == g).isEmpty())
                     return "done: past the early game (armor " + g.getArmorValue() + "): no hole tonight; a bed if there's one, else on with the work"; // (the user: holes are for the early phases; hunted and hurt, the reflexes still take cover)
                 com.claudemod.entity.life.Perception.glance(g); // a look round before choosing the cover (zombies behind him make it a tower, not a hole)

@@ -10821,6 +10821,7 @@ public final class ClaudeBodyTest {
             case 1226: return st1226(stage, t, c, h, level, mock);
             case 1227: return st1227(stage, t, c, h, level, mock);
             case 1228: return st1228(stage, t, c, h, level, mock);
+            case 1229: return st1229(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -21924,6 +21925,34 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.skillQueue.clear(); c.lastStep = null; c.getInventory().clearContent(); c.setHealth(20); c.getFoodData().setFoodLevel(20); flatBox(h); level.setDayTime(6000);
             check(under && lid, "out of his cover at dusk with nothing about (" + ggSaid + "): y " + String.format("%.1f", c.getY()) + ", lid " + lid + ", now " + now);
             pass(stage, t, "under his lid through the dusk: " + ggSaid);
+        }
+        return true;
+    }
+    /** Stage 1229 (D2D review 120, live 02:38:13-02:39:40 11-09 at -16,68,-20: dusk, armor 0, health 5, "explore savanna" walking a 489-block route; Decide.dusk picked "his lit mine 5 off" and walked him to its mouth, then the route's legs walked him off again, every 10 s for 90 s, till he dug a hole 60 off in the dark): ungeared at dusk on the surface by his lit mine, an explore step's walk legs queued. He goes down his mine and stays. */
+    private static int s1229In;
+    private static boolean st1229(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); s1229In = -1; c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            var b = nightMine(h, level); c.prefs.put("mine_model", "blueprint"); c.blueprint = b; com.claudemod.director.ClaudeLife.bpSync(c);
+            c.tasks.clear(); c.skillQueue.clear(); if (c.currentTask != null) c.dropCurrent = true;
+            BlockPos me = h.absolutePos(new BlockPos(9, 2, 2)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            BlockPos mockAt = h.absolutePos(new BlockPos(1, 2, 1)); mock[0].teleportTo(mockAt.getX() + 0.5, mockAt.getY() + 30, mockAt.getZ() + 0.5);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.OAK_LOG, 32)); c.setHealth(5); c.getFoodData().setFoodLevel(20); c.getInventory().add(new ItemStack(Items.BREAD, 4));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.getType() == net.minecraft.world.entity.EquipmentSlot.Type.HUMANOID_ARMOR) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.playerGoal = "beat the ender dragon"; c.prefs.put("stay_close", "no");
+            c.lastStep = new com.claudemod.entity.life.Skills.Step("explore", "savanna", 1); // (his explore's walk legs, as live)
+            for (int i = 0; i < 4; i++) for (int[] p : new int[][] {{14, 14}, {1, 14}, {14, 1}, {9, 1}}) c.tasks.add(new Task.GoTo(h.absolutePos(new BlockPos(p[0], 2, p[1])), 0.8));
+            level.setDayTime(12090);
+        }
+        if (t[0] == 12 || t[0] == 212 || t[0] == 412) com.claudemod.entity.life.Decide.dusk(c, level, level.getDayTime() % 24000); // (the life tick's dusk check, every 10 s live)
+        if (t[0] > 12 && c.blueprint != null) {
+            var b = c.blueprint; int row = Math.max(b.rowOf(c.blockPosition()), b.rowOf(c.blockPosition().above()));
+            boolean in = row >= 2 && !level.canSeeSky(c.blockPosition().above()) && c.onGround();
+            if (s1229In < 0) { if (in) s1229In = t[0]; else if (t[0] - 12 >= 500) { String q = "at " + c.blockPosition().toShortString() + " row " + row + ", now=" + c.currentTask + " tasks=" + c.tasks.stream().limit(4).toList() + " steps=" + c.skillQueue; c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null; c.dropCurrent = true; check(false, "dusk, his lit mine picked: not down it 25 s on, his explore's walks on (" + q + ")"); } }
+            else {
+                if (row < 1) { String q = "at " + c.blockPosition().toShortString() + ", now=" + c.currentTask + " tasks=" + c.tasks.stream().limit(4).toList(); c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null; c.dropCurrent = true; check(false, "dusk: back out of his mine " + (t[0] - s1229In) + " ticks after going in (" + q + ")"); }
+                if (t[0] - s1229In >= 200) { int took = s1229In - 12; c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null; c.dropCurrent = true; level.setDayTime(6000); pass(stage, t, "dusk: down his lit mine in " + took + " ticks, his explore set aside, and stayed"); }
+            }
         }
         return true;
     }

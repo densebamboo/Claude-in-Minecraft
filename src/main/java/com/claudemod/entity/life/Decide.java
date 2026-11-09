@@ -110,6 +110,10 @@ public final class Decide {
         BlockPos me = g.blockPosition(); java.util.List<String> said = new java.util.ArrayList<>();
         Object[] pick = nightSpot(g, level, tod, said, false); String best = (String) pick[0]; BlockPos to = (BlockPos) pick[1];
         String key = best;
+        if ("his lit mine".equals(best) && to != null && g.lastStep != null && ROAM.contains(g.lastStep.skill()) && !g.tasks.isEmpty() && g.skillQueue.stream().noneMatch(s0 -> s0.skill().equals("shelter"))) { // his mine for the night: the roaming step's walks set aside till morning, the shelter step takes him down its rows (live 02:38 11-09, review 120: walked to its mouth, then the explore's route walked him off again every 10 s, a hole 60 off in the dark)
+            Skills.Step was = g.lastStep; com.claudemod.director.ClaudeLife.clearTasks(g); if (g.currentTask instanceof Task.GoTo) g.dropCurrent = true; g.skillQueue.addFirst(was); g.skillQueue.addFirst(new Skills.Step("shelter", "", 1));
+            said.add(was.skill() + " " + was.target() + " set aside till morning");
+        }
         if (to != null) { final BlockPos to0 = to; if (me.distSqr(to0) > 3 * 3 && g.tasks.stream().noneMatch(t -> t instanceof Task.GoTo go && go.pos().distSqr(to0) <= 4) && !(g.currentTask instanceof Task.GoTo cg && cg.pos().distSqr(to0) <= 4)) g.tasks.addFirst(new Task.GoTo(to0, 2.0)); else key = null; }
         else if (best.equals("hole") && g.skillQueue.stream().noneMatch(s0 -> s0.skill().equals("shelter"))) g.skillQueue.addFirst(new Skills.Step("shelter", "", 1)); else if (best.equals("hole")) key = null;
         if (key != null) ClaudeMod.LOGGER.info("[Claude decide] dusk (tick {}, the first spawns in {} s, {} hostile(s) known, armor {}): {}: {} (Decide.dusk)", tod, (int) Math.max(0, (level.isThundering() ? tod : level.isRaining() ? 12969 : 13188) - tod) / 20, hostilesKnown(g), g.getArmorValue(), String.join("; ", said), best);
@@ -117,7 +121,7 @@ public final class Decide {
 
     /** His next step takes him out over open ground (explore, a hunt, a walk somewhere): the night out there is the one to judge, not the spot he stands on. */
     static final java.util.Set<String> ROAM = java.util.Set.of("explore", "go_to", "obtain", "collect", "fight", "ender_pearls", "village_food", "plant_saplings", "fish", "find_fortress", "blaze_rods");
-    static boolean roamsOut(ClaudeEntity g) { Skills.Step st = !g.skillQueue.isEmpty() ? g.skillQueue.peekFirst() : g.lastStep; return st != null && ROAM.contains(st.skill()); }
+    public static boolean roamsOut(ClaudeEntity g) { Skills.Step st = !g.skillQueue.isEmpty() ? g.skillQueue.peekFirst() : g.lastStep; return st != null && ROAM.contains(st.skill()); }
     /**
      * The night's spots priced against a hole here (dusk, and the shelter step all night): {name, where} of the best, where null
      * for the hole or carrying on. far: the shelter step's extra spots, free beds he has seen and a village he knows (a player

@@ -16852,6 +16852,7 @@ public final class ClaudeBodyTest {
             level.getServer().getCommands().performPrefixedCommand(src, "fillbiome " + (o.getX() - 24) + " " + (o.getY() - 2) + " " + (o.getZ() - 24) + " " + (o.getX() + 24) + " " + (o.getY() + 6) + " " + (o.getZ() + 24) + " minecraft:warped_forest" /* (fillbiome stops at 32768 blocks) */);
             Object[][] mobs = {{net.minecraft.world.entity.EntityType.WITHER_SKELETON, 10, 0, 1}, {net.minecraft.world.entity.EntityType.WITHER_SKELETON, 12, 0, -2}, {net.minecraft.world.entity.EntityType.BLAZE, 11, 3, 2}, {net.minecraft.world.entity.EntityType.ENDERMAN, 26, 0, 0}};
             for (Object[] m : mobs) { var e = (net.minecraft.world.entity.Mob) ((net.minecraft.world.entity.EntityType<?>) m[0]).create(nl); e.moveTo(o.getX() + (int) m[1] + 0.5, o.getY() + (int) m[2], o.getZ() + (int) m[3] + 0.5, 90f, 0f); e.setNoAi(true); e.setPersistenceRequired(); nl.addFreshEntity(e); s1307M.add(e); }
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setYRot(-90f); c.setXRot(0f); c.setYHeadRot(-90f); c.setYBodyRot(-90f); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; // (facing east at them, whatever the stage before left: run after 1308 he faced elsewhere)
         }
         if (t[0] == 48) {
             // 1. walking out for food (the plan's step before the hunt), an enderman comes into view

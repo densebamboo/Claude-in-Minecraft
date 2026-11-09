@@ -10593,6 +10593,7 @@ public final class ClaudeBodyTest {
             case 1142: return st1142(stage, t, c, h, level, mock);
             case 1143: return st1143(stage, t, c, h, level, mock);
             case 1146: return st1146(stage, t, c, h, level, mock);
+            case 1147: return st1147(stage, t, c, h, level, mock);
             case 999: return st999(stage, t, c, h, level, mock);
             case 997: return st997(stage, t, c, h, level, mock);
             case 996: return st996(stage, t, c, h, level, mock);
@@ -19573,6 +19574,32 @@ public final class ClaudeBodyTest {
                 check(!dug && !sent, "the hole at " + st785H.toShortString() + " in a pocket sealed by his own patch: sent into it (" + sent + "), his patch dug (" + dug + ")");
                 check(!placeLeft, "the patch of a hole in a sealed pocket still on his queue after 6 s");
                 pass(stage, t, "a hole sealed off by his own patch: done, his patch kept"); }
+        }
+        return true;
+    }
+    private static int st1147T; private static net.minecraft.world.entity.monster.Creeper[] st1147Cr = new net.minecraft.world.entity.monster.Creeper[2];
+    /** Stage 1147 (death 02:06 11-09 and the creeper family: 95 blasts on him against 27 creepers killed since 11-05, 14 deaths; 26 of the blasts right after
+     *  "escape run's end ... the fight with the Creeper is the better way again"): two creepers after him, a stone sword, no armor. On him both count and the run
+     *  wins; at the run's end both are past 6 and the crowd dropped the second, so one creeper alone priced as a fight and he walked back into both. */
+    private static boolean st1147(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1147T = -1; for (var cr : st1147Cr) if (cr != null) cr.discard(); st1147Cr[0] = st1147Cr[1] = null; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_MUTTON, 4));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            BlockPos me = h.absolutePos(new BlockPos(2, 2, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            BlockPos[] at = {me.east(9), me.east(8).south(4)}; // (both past 6, as at the live run's end: 11 off and the other heard 6 off)
+            for (int i = 0; i < 2; i++) { var cr = EntityType.CREEPER.create(level); cr.moveTo(at[i].getX() + 0.5, at[i].getY(), at[i].getZ() + 0.5, 90, 0); cr.setNoAi(true); cr.setPersistenceRequired(); level.addFreshEntity(cr); cr.setTarget(c); st1147Cr[i] = cr; }
+        }
+        if (t[0] == 12) { c.setYRot(-90f); c.setYHeadRot(-90f); c.yBodyRot = -90f; c.setXRot(0); com.claudemod.entity.life.Perception.lookNow(c); c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Flee(600)); }
+        if (t[0] == 14) { c.work.runEndForTest(); st1147T = t[0]; }
+        if (st1147T > 0) {
+            boolean fought = c.currentTask instanceof Task.Attack || c.tasks.stream().anyMatch(q -> q instanceof Task.Attack);
+            if (fought || t[0] - st1147T >= 40) {
+                for (var cr : st1147Cr) if (cr != null) cr.discard(); st1147Cr[0] = st1147Cr[1] = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+                check(!fought, "two creepers after him, a stone sword, no armor: at the run's end he turned back to fight one (the other dropped from the crowd past 6): run, fight, run into a blast");
+                pass(stage, t, "two creepers after him: the run goes on at its end");
+            }
         }
         return true;
     }

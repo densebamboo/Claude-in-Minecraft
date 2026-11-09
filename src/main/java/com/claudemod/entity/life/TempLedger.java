@@ -241,6 +241,9 @@ public final class TempLedger {
         ClaudeMod.LOGGER.info("[Claude temp] {} at {} ({}) {}", e.item, pos.toShortString(), e.why, e.after);
     }
 
+    /** A step still in his plan that works at a table or a furnace: the station stays through the steps before it (every step change took them up, the next smelt found none and the kit asked again: audit 2, stage 1136). Walking off from it is pickUpTempStations' to judge. */
+    static boolean stationAhead(ClaudeEntity g) { return g.skillQueue.stream().anyMatch(st -> java.util.Set.of("craft", "smelt", "obtain", "gear_up").contains(st.skill())); }
+
     /** No job of his needs it now. */
     static boolean doneWith(ClaudeEntity g, ServerLevel level, Entry e, boolean stepStart) { return doneWith(g, level, e, stepStart, false); }
     static boolean doneWith(ClaudeEntity g, ServerLevel level, Entry e, boolean stepStart, boolean feetOk) {
@@ -248,8 +251,8 @@ public final class TempLedger {
         if (g.coverCell(p)) return false; // a block of the cover he's in: the cover's own steps take it down once the threat's gone, nothing else
         if (new Task.Break(p).equals(g.currentTask) || g.tasks.contains(new Task.Break(p))) return false; // on it already
         switch (e.why) {
-            case "craft table": return stepStart || g.lastStep == null || !java.util.Set.of("craft", "smelt", "obtain").contains(g.lastStep.skill()) || g.skillQueue.isEmpty() && g.tasks.isEmpty() && g.currentTask == null;
-            case "furnace": return !(level.getBlockEntity(p) instanceof AbstractFurnaceBlockEntity f) || f.getItem(0).isEmpty() && f.getItem(2).isEmpty(); // nothing cooking, nothing to take out
+            case "craft table": return stepStart ? !stationAhead(g) : g.lastStep == null || !java.util.Set.of("craft", "smelt", "obtain").contains(g.lastStep.skill()) || g.skillQueue.isEmpty() && g.tasks.isEmpty() && g.currentTask == null;
+            case "furnace": return !(level.getBlockEntity(p) instanceof AbstractFurnaceBlockEntity f) || f.getItem(0).isEmpty() && f.getItem(2).isEmpty() && !(stepStart && stationAhead(g)); // nothing cooking, nothing to take out, and no smelt of his plan coming back to it
             case "light": return com.claudemod.director.ClaudeLife.dayHere(level) && !g.holdingNight();
             case "cover": case "nerd-pole":
                 if (g.holdingNight()) return false;

@@ -42,6 +42,11 @@ public final class ClaudeInventory {
         return rest;
     }
 
+    /** A copy of every main slot, for {@link #restore}. */
+    public java.util.List<ItemStack> snapshot() { java.util.List<ItemStack> l = new java.util.ArrayList<>(); for (ItemStack s : inv.items) l.add(s.copy()); return l; }
+    /** The main slots back as {@link #snapshot} took them. */
+    public void restore(java.util.List<ItemStack> l) { for (int i = 0; i < l.size(); i++) inv.items.set(i, l.get(i)); inv.setChanged(); }
+
     /** Room for this in his pack: an empty slot, or a stack of it with space left. */
     public boolean hasRoomFor(ItemStack stack) { return inv.getFreeSlot() >= 0 || inv.getSlotWithRemainingSpace(stack) >= 0; }
 

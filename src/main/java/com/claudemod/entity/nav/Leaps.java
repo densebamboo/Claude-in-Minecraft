@@ -100,7 +100,7 @@ public final class Leaps {
     static boolean foodOnHim(ClaudeEntity g) { return g.inventory.count(s -> s.has(net.minecraft.core.component.DataComponents.FOOD)) > 0; }
     /** A melee mob after him within w("leap.melee_r",3.5), named with its distance; null when none. */
     public static String meleeOn(ClaudeEntity g) {
-        for (var m : g.level().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(4), x -> x.isAlive() && x.getTarget() == g && !(x instanceof net.minecraft.world.entity.monster.RangedAttackMob) && !(x instanceof net.minecraft.world.entity.monster.Creeper)))
+        for (var m : g.level().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(4), x -> x.isAlive() && x.getTarget() == g && !com.claudemod.entity.goals.WorkGoal.shoots(x) && !(x instanceof net.minecraft.world.entity.monster.Creeper)))
             if (m.distanceTo(g) <= com.claudemod.entity.life.Weights.w("leap.melee_r", 3.5)) return "a " + net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(m.getType()).getPath() + " " + String.format("%.1f", m.distanceTo(g)) + " off";
         return null;
     }

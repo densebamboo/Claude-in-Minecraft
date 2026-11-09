@@ -398,7 +398,7 @@ public class WorkGoal extends Goal {
         boolean byCover = digInAt != null && Math.abs(g.getBlockX() - digInAt.getX()) <= 3 && Math.abs(g.getBlockZ() - digInAt.getZ()) <= 3 && Math.abs(g.getBlockY() - digInAt.getY()) <= Math.max(4, digInRise + 2); // (an arrow's knockback puts him a block or two off his box: still making it)
         if (g.urgentAttacker != null && diggingIn() && byCover) { // shot up his own bare tower: a perch, not cover; the cover choice again (a lid and walls, or down to a hole), never holding there (live 18:13 11-04: 30 s of arrows on a roofless dirt tower, "digging on, not a fight", 20 -> 0)
             var shot0 = ((ServerLevel) g.level()).getEntity(g.urgentAttacker); BlockPos ft = g.blockPosition();
-            if ((shot0 instanceof net.minecraft.world.entity.monster.AbstractSkeleton || shot0 instanceof net.minecraft.world.entity.monster.Pillager) && digInAt != null && ft.getY() >= digInAt.getY() + 2 && Math.abs(ft.getX() - digInAt.getX()) <= 1 && Math.abs(ft.getZ() - digInAt.getZ()) <= 1 && g.level().getBlockState(ft.above(2)).getCollisionShape(g.level(), ft.above(2)).isEmpty()) {
+            if (shoots(shot0) && digInAt != null && ft.getY() >= digInAt.getY() + 2 && Math.abs(ft.getX() - digInAt.getX()) <= 1 && Math.abs(ft.getZ() - digInAt.getZ()) <= 1 && g.level().getBlockState(ft.above(2)).getCollisionShape(g.level(), ft.above(2)).isEmpty()) {
                 if (digInTasks != null) g.tasks.removeAll(digInTasks);
                 if (current != null) { clearCrack(); current = null; g.currentTask = null; }
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] shot on his bare tower at {} by a {} {} off: no holding up here, the cover choice again (WorkGoal.tick)", ft.toShortString(), shot0.getType().getDescription().getString(), (int) shot0.distanceTo(g));
@@ -2021,7 +2021,7 @@ public class WorkGoal extends Goal {
         if (level.getFluidState(gapFloor).is(net.minecraft.tags.FluidTags.WATER) && level.canSeeSky(gapFloor.above())) { g.setShiftKeyDown(false); return false; }
         boolean overLava = false; for (int k = 1; k <= 12 && !overLava; k++) { BlockPos q = next.below(k); if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) overLava = true; else if (!level.getBlockState(q).getCollisionShape(level, q).isEmpty()) break; }
         net.minecraft.world.entity.Mob shooter = null;
-        if (overLava) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(48), m -> m.isAlive() && (m instanceof net.minecraft.world.entity.monster.Blaze || m instanceof net.minecraft.world.entity.monster.Ghast || m instanceof net.minecraft.world.entity.monster.RangedAttackMob) && g.hasLineOfSight(m))) { shooter = m; break; }
+        if (overLava) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(48), m -> m.isAlive() && (m instanceof net.minecraft.world.entity.monster.Blaze || m instanceof net.minecraft.world.entity.monster.Ghast || shoots(m)) && g.hasLineOfSight(m))) { shooter = m; break; }
         double risk = shooter == null ? 0 : 3.0 * Math.max(1, to.horizontalDistance()); // a knock off is the fall into the lava (World 15 13:41): its odds per block of bridge in a shooter's sight, priced (the user 11-05: a cost, not a ban)
         if (shooter != null && risk > worth) {
             g.setShiftKeyDown(false);
@@ -2199,7 +2199,8 @@ public class WorkGoal extends Goal {
                 boolean patchInFront = com.claudemod.director.ClaudeLife.isTempStation(g, pos) && (w.is(net.minecraft.world.level.block.Blocks.COBBLESTONE) || w.is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE)); // his own patch in front of his own table/furnace: out, the station picked up, the patch back (three tables sat sealed in his stairs wall as litter, the user)
                 if (patchInFront) breakable = true; // his mine's shell in the way of his aim (the floor he stands on, the arch's side): he steps round to see the block, never digs through
                 boolean station = w.hasBlockEntity() || w.is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE);
-                if (station && (com.claudemod.director.ClaudeLife.isTempStation(g, inWay)
+                boolean cooking = level.getBlockEntity(inWay) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fz && !(fz.getItem(0).isEmpty() && fz.getItem(2).isEmpty()); // a batch in it: breaking it drops the batch (live 16:50:04, 6 porkchop out; audit 8, stage 1137)
+                if (station && !cooking && (com.claudemod.director.ClaudeLife.isTempStation(g, inWay)
                         || g.myStations.contains(inWay) && com.claudemod.director.ClaudeLife.isMineCell(g, inWay))) breakable = true; // his own table out in the open, or in his walkway: pick it up (one set into the wall stays)
                 else if (!breakable || station) {
                     // something he won't break (their chest, a table): step around it to where he can see the block
@@ -2758,6 +2759,7 @@ public class WorkGoal extends Goal {
             return true;
         }
         ItemStack torch = g.inventory.find(s -> s.is(net.minecraft.world.item.Items.TORCH));
+        if (torch.isEmpty() && com.claudemod.entity.life.Crafting.craft(level, g.inventory, net.minecraft.world.item.Items.TORCH, 1, false).made() > 0) { torch = g.inventory.find(s -> s.is(net.minecraft.world.item.Items.TORCH)); com.claudemod.ClaudeMod.LOGGER.info("[Claude torch] none on him for the torch at {}: made {} from his coal and sticks (WorkGoal.doWallTorch)", pos.toShortString(), g.inventory.count(s -> s.is(net.minecraft.world.item.Items.TORCH))); } // (a 2x2 craft, in his hands: mining in the dark with coal and wood on him, review 437; audit 5)
         if (torch.isEmpty()) { com.claudemod.ClaudeMod.LOGGER.info("[Claude torch] the torch at {}: none on him, skipped; queued by {} (WorkGoal.doWallTorch)", pos.toShortString(), com.claudemod.entity.ClaudeEntity.originOf(t)); return true; }
         BlockPos under = pos; for (int k = 0; k < 3 && !level.getBlockState(under.below()).isFaceSturdy(level, under.below(), Direction.UP); k++) under = under.below(); // (the floor under the torch's cell, not the cell: a torch up on a 3-high wall is mid-air, live 05:13-05:50 11-07 NO_PATH to it from the notch under its wall for 40 min)
         if (!inReach(pos)) {
@@ -5000,7 +5002,7 @@ public class WorkGoal extends Goal {
                 double pf = armed() && !weakFighter() ? w("creeper.blast_chance_armed", 0.15) : w("creeper.blast_chance_unarmed", 0.8), pr = cr.distanceTo(g) < 3 || cr.getSwellDir() > 0 ? w("creeper.blast_chance_close_run", 0.4) : w("creeper.blast_chance_run", 0.05);
                 hits += pf; hp += pf * blast; most += 1; runHits += pr * blast; allBurn = false; continue; }
             boolean witch = m instanceof net.minecraft.world.entity.monster.Witch; // (harming: 6 at Normal, armor no help)
-            double dmg = witch ? w("fight.witch_hit_hp", 6) : mobHit(m); boolean ranged = m instanceof net.minecraft.world.entity.monster.RangedAttackMob && !(m instanceof net.minecraft.world.entity.monster.WitherSkeleton); // (a wither skeleton is a skeleton by class, but a sword, never a bow)
+            double dmg = witch ? w("fight.witch_hit_hp", 6) : mobHit(m); boolean ranged = shoots(m) || witch; // (a wither skeleton is a skeleton by class, but a sword, never a bow)
             boolean bowDuel = ranged && !witch && m instanceof net.minecraft.world.entity.monster.Enemy && m.distanceTo(g) >= 6 && m.distanceTo(g) <= 28 && canHit(m) && g.inventory.count(s0 -> s0.is(net.minecraft.world.item.Items.BOW)) > 0 && g.inventory.count(s0 -> s0.is(net.minecraft.world.item.Items.ARROW)) > 0; // (a shooter in his bow's range: doAttack shoots it from where he stands (shootAt), never the walk in under its arrows; stage 546 ran from one skeleton 9 off, bow and 16 arrows on him, priced as a sword fight)
             int k = bowDuel ? (int) Math.ceil(m.getHealth() / w("fight.bow_arrow_hp", 6)) : hitsToKill(m); swings += k; t += k * (bowDuel ? w("fight.bow_draw_s", 1.1) : swing);
             if (ranged && !bowDuel && m.distanceTo(g) > w("fight.reach_blocks", 3.5) && !(g.getNavigation().createPath(m, 1) instanceof net.minecraft.world.level.pathfinder.Path np && np.canReach())) { t += w("fight.unreachable_s", 120); unreachable = m.getType().getDescription().getString(); } // a shooter he can't walk up to: no sword fight to be had, it shoots the while (live 11:19-11:21 11-07 death 109: a crossbow piglin 5 up on a ledge, "fight ~73 s (3 swings)" every hit, 20 -> 0; stage 1002)
@@ -5043,7 +5045,7 @@ public class WorkGoal extends Goal {
 
     /** A ground mob that can't reach him where he stands: his feet over the top of it (its swing reaches out, never up), and it can't climb, shoot, fly or blow up. */
     private boolean outOfItsReach(net.minecraft.world.entity.LivingEntity m) {
-        if (m instanceof net.minecraft.world.entity.monster.Spider || m instanceof net.minecraft.world.entity.monster.Creeper || m instanceof net.minecraft.world.entity.monster.RangedAttackMob
+        if (m instanceof net.minecraft.world.entity.monster.Spider || m instanceof net.minecraft.world.entity.monster.Creeper || shoots(m)
                 || m instanceof net.minecraft.world.entity.FlyingMob || m.isNoGravity()) return false;
         if (!(m instanceof net.minecraft.world.entity.animal.IronGolem || m instanceof net.minecraft.world.entity.monster.Monster || m instanceof net.minecraft.world.entity.monster.hoglin.Hoglin)) return false; // (a hoglin is an Animal, not a Monster, in 1.21: it fights like one)
         double y = g.getY(); BlockPos f0 = g.blockPosition(); for (int d = 0; d <= 1; d++) { BlockPos q = f0.below(d); if (!g.level().getBlockState(q).getCollisionShape(g.level(), q).isEmpty()) { y = Math.max(y, q.getY() + 1); break; } } // (in the air settling onto his tower top counts: the fight starts as the last block goes in, him still rising; read by his height then, he "lost" the fight and jumped off, stage 826)
@@ -6001,7 +6003,7 @@ public class WorkGoal extends Goal {
                 if (!mine.isEmpty()) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] {} of his arrows stuck round the fight: picking them back up (WorkGoal.doAttack)", mine.size());
             }
             net.minecraft.world.entity.Mob still = died ? level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(w("fight.drops_wait_blocks", 16)), // (16, not 8: the next wither 10 off walked in while he stepped out of his gap for bones, stage 774)
-                m0 -> m0 != e && m0.isAlive() && m0.getTarget() == g && m0 instanceof net.minecraft.world.entity.monster.Enemy && !(m0 instanceof net.minecraft.world.entity.monster.RangedAttackMob) && !(m0 instanceof net.minecraft.world.entity.monster.Blaze) && !(m0 instanceof net.minecraft.world.entity.monster.Ghast)).stream().findFirst().orElse(null) : null;
+                m0 -> m0 != e && m0.isAlive() && m0.getTarget() == g && m0 instanceof net.minecraft.world.entity.monster.Enemy && !shoots(m0) && !(m0 instanceof net.minecraft.world.entity.monster.Blaze) && !(m0 instanceof net.minecraft.world.entity.monster.Ghast)).stream().findFirst().orElse(null) : null;
             if (still != null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the drops wait: a {} {} off is still on him (WorkGoal.doAttack)", still.getType().getDescription().getString(), (int) still.distanceTo(g)); g.tasks.addFirst(new Task.Attack(still.getUUID(), Math.max(400, t.maxTicks()))); return true; } // ponytail: stage 553, the pickup after the first wither skeleton dug through his hole's wall for a drop and the second came in by it
             if (died && ticks > 1 && !(g.tasks.peek() instanceof Task.Pickup)) {
                 // the next kill near: that first, the drops swept after the last (they last 5 minutes; the user 11-06 21:20 "he should kill multiple things at once in range and pick everything up after")
@@ -6088,7 +6090,7 @@ public class WorkGoal extends Goal {
             g.setSprinting(false);
             if (mob.getBoundingBox().distanceToSqr(g.getEyePosition()) < 2.0) g.getNavigation().stop();
             // Hit and step back, like a player: his reach (3) beats a zombie's (~2), so between swings he backs out of its bite, still facing it, and swings again as it walks back in
-            boolean meleeMob = !(mob instanceof net.minecraft.world.entity.monster.Creeper) && !(mob instanceof net.minecraft.world.entity.monster.AbstractSkeleton) && !(mob instanceof net.minecraft.world.entity.monster.Pillager);
+            boolean meleeMob = !(mob instanceof net.minecraft.world.entity.monster.Creeper) && !shoots(mob);
             { float ch = g.getAttackStrengthScale(0f); int cj0 = critJump().getOrDefault(g.getUUID(), -100); // the crit jump timed to the charge: up while it fills, falling as it's full (a jump at full charge waited ~7 ticks for its fall)
               if ((1 - ch) * g.getCurrentItemAttackStrengthDelay() <= w("fight.crit_jump_lead_ticks", 8) && ch < 0.95f && g.onGround() && !g.isInWater() && !g.isPassenger() && !(mob instanceof net.minecraft.world.entity.monster.Creeper) && !CombatBrain.sweepBeatsCrit(g, mob) && (mob instanceof net.minecraft.world.entity.monster.Monster || mob instanceof net.minecraft.world.entity.animal.IronGolem || mob instanceof net.minecraft.world.entity.monster.hoglin.Hoglin) && g.getHealth() > 8 && g.getFoodData().getFoodLevel() > 6 && g.tickCount - cj0 > 10) { critJump().put(g.getUUID(), g.tickCount); g.getJumpControl().jump(); } }
             if (meleeMob && g.getAttackStrengthScale(0.5f) < 0.95f && mob.distanceTo(g) < 2.6 && g.onGround()) {
@@ -6192,7 +6194,7 @@ public class WorkGoal extends Goal {
         // No way to it on foot, and it shoots, or it's down a drop: never edge toward it (he chased a skeleton to the lip of a
         // mineshaft and went down it, 6 from the fall, then shot dead). Out of its sight, and it comes to him; a melee mob down
         // a drop can't get at him either
-        boolean shoots = mob instanceof net.minecraft.world.entity.monster.RangedAttackMob || mob instanceof net.minecraft.world.entity.monster.Blaze || mob instanceof net.minecraft.world.entity.monster.Ghast; // (a blaze and a ghast shoot too, though not RangedAttackMobs in the game's code: a blaze was chased by a 1-wide bridge over the lava sea, World 15 13:41)
+        boolean shoots = shoots(mob) || mob instanceof net.minecraft.world.entity.monster.Blaze || mob instanceof net.minecraft.world.entity.monster.Ghast; // (a blaze and a ghast shoot too, though not RangedAttackMobs in the game's code: a blaze was chased by a 1-wide bridge over the lava sea, World 15 13:41)
         if ((shoots && !(dy > 1.5 && horiz < 3.0)) || dy <= -4) {
             g.setSprinting(false);
             if (mob instanceof net.minecraft.world.entity.monster.EnderMan && g.hasLineOfSight(mob)) { g.getNavigation().stop(); equipWeapon(); g.getLookControl().setLookAt(mob.getX(), mob.getEyeY(), mob.getZ()); if (g.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the Enderman is {} below with no way down on foot: staring it up to him", (int) -dy); return false; } // ponytail: live 18:40, he left an enderman 5 below and the pearl hunt picked it again each second; a player stares and it teleports to them (an angry one comes anyway); the fight's clock ends it
@@ -6418,7 +6420,7 @@ public class WorkGoal extends Goal {
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
         Vec3 away = g.position().subtract(mob.position()).multiply(1, 0, 1); if (away.lengthSqr() < 1e-4) return null; away = away.normalize();
         boolean fire = level.getBlockState(feet).is(net.minecraft.tags.BlockTags.FIRE);
-        boolean shooter = mob instanceof net.minecraft.world.entity.monster.RangedAttackMob || mob instanceof net.minecraft.world.entity.monster.Blaze || mob instanceof net.minecraft.world.entity.monster.Ghast; // (an arrow or fireball throws him from range: World 15 13:51, a skeleton's arrow off a lip, 22 down)
+        boolean shooter = shoots(mob) || mob instanceof net.minecraft.world.entity.monster.Blaze || mob instanceof net.minecraft.world.entity.monster.Ghast; // (an arrow or fireball throws him from range: World 15 13:51, a skeleton's arrow off a lip, 22 down)
         boolean throwsHim = shooter ? mob.distanceTo(g) <= 24 && g.hasLineOfSight(mob) : mob.distanceTo(g) <= (footingSaid != null ? 6 : 4); // ponytail: 4 to start, 6 to finish the step (live 20:07 -119,76,-936: an enderman at the edge of 4 flipped it on and off, the approach stepped him back onto the lip 7 times in 2 s). (a melee mob only in reach: live 14:45 an enderman 15 off stepped him back and forth against the approach, 4 shuffles a second)
         if (!fire && (!throwsHim || !lipBehind(level, feet, away))) { footingSaid = null; return null; } // ponytail: live 14:45 -36,50,-898: a lip "behind" him from an enderman 15 off; the approach stepped him back onto it, 4 shuffles a second. Only a mob in reach throws him
         BlockPos best = null; double bd = Double.MAX_VALUE;
@@ -6640,7 +6642,7 @@ public class WorkGoal extends Goal {
         boolean withered = g.hasEffect(net.minecraft.world.effect.MobEffects.WITHER);
         float hp = g.getHealth();
         var due = blaze ? com.claudemod.entity.life.FortressFight.volleyDue(g, level) : null; // a blaze lit 44+ in sight of him, or a fireball his way
-        if (g.tasks.peek() instanceof Task.Eat eatNext && due == null && (inCover || (!blaze && level.getEntitiesOfClass(net.minecraft.world.entity.monster.WitherSkeleton.class, g.getBoundingBox().inflate(4), net.minecraft.world.entity.Entity::isAlive).isEmpty())) && g.getFoodData().getFoodLevel() < 20) { // (eating drops the shield: out of cover with a sword in reach it waits — World 15 02:04, a meal at hunger 19 with skeletons on him, shield down, 17 -> 0) // a meal queued behind this fight: it goes first, the fight after it (World 15 01:29: "next: [Eat]" 400+ ticks behind an Attack that kept renewing past its clock, 13 HP down to 1)
+        if (g.tasks.peek() instanceof Task.Eat eatNext && due == null && (inCover || !blaze && !meleeInByMeal()) && g.getFoodData().getFoodLevel() < 20) { // (eating drops the shield: out of cover with a sword in reach it waits — World 15 02:04, a meal at hunger 19 with skeletons on him, shield down, 17 -> 0) // a meal queued behind this fight: it goes first, the fight after it (World 15 01:29: "next: [Eat]" 400+ ticks behind an Attack that kept renewing past its clock, 13 HP down to 1)
             g.tasks.pollFirst(); g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(eatNext);
             cfSay("eating first", "a meal was waiting behind the fight (hunger " + g.getFoodData().getFoodLevel() + ", health " + (int) hp + "), no volley due" + (inCover ? ", in cover" : ""));
             return true;
@@ -6799,7 +6801,7 @@ public class WorkGoal extends Goal {
         if (!g.getItemBySlot(EquipmentSlot.OFFHAND).is(net.minecraft.world.item.Items.SHIELD)) return false;
         if (mob instanceof net.minecraft.world.entity.monster.Creeper cr) return cr.getSwellDir() > 0 && cr.distanceTo(g) < w("creeper.blast_reach", 7); // a lit one in reach of its bang: the shield takes it (an unlit one is hit back or left, not shielded)
         if (mob instanceof net.minecraft.world.entity.monster.CrossbowAttackMob && net.minecraft.world.item.CrossbowItem.isCharged(mob.getMainHandItem()) && mob.distanceTo(g) < 24 && mob.hasLineOfSight(g)) return true; // a loaded crossbow on him (a piglin's, a pillager's): it looses any moment and the bolt is there in a tick or two (the arrow-in-flight check below is too late for it); down again while it reloads
-        if (mob instanceof net.minecraft.world.entity.monster.AbstractSkeleton sk) {
+        if (shoots(mob) && mob instanceof net.minecraft.world.entity.monster.AbstractSkeleton sk) { // (a wither skeleton is a skeleton by class but swings a sword: the melee branch below, live 18:38 11-08, 0 of its hits blocked)
             if (sk.isUsingItem() && sk.getTicksUsingItem() >= 10 && sk.distanceTo(g) < 24 && g.hasLineOfSight(sk)) return true; // it looses at ~20 ticks; the shield takes 5 to come up
         } else if (!(mob instanceof net.minecraft.world.entity.monster.Creeper) && mob.distanceTo(g) < 3.5) {
             return true;
@@ -6808,6 +6810,12 @@ public class WorkGoal extends Goal {
             if (a.getDeltaMovement().dot(g.getEyePosition().subtract(a.position())) > 0) return true; // coming his way
         }
         return false;
+    }
+
+    /** A melee mob on him that walks into reach before a meal (1.6 s) is down: vanilla's pace, ~44 x (speed x its chase modifier)^2 blocks a second (a zombie 2.3, a wither skeleton at its 1.2 about 4). Live 18:39 11-08: "eating first" at 2 HP, a wither skeleton 5 off was on him in 1.1 s. */
+    private boolean meleeInByMeal() {
+        return !level().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(16), m -> m.isAlive() && m.getTarget() == g && !shoots(m) && !(m instanceof net.minecraft.world.entity.monster.Creeper)
+            && m.distanceTo(g) - w("fight.reach_blocks", 3.5) < 44 * Math.pow(m.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED) * 1.2, 2) * w("food.eat_s", 1.6)).isEmpty();
     }
 
     /** Right click held on the shield in his off hand, facing the threat (a shield only stops what's in front of him). */

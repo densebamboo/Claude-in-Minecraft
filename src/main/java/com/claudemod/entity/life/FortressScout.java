@@ -411,7 +411,7 @@ public final class FortressScout {
     public static final double BORE_S = 0.4, BRIDGE_S = 0.9, WALK_S = 0.2, WALL_S = 0.3, MINE_S = 0.5; // MINE_S: a block of netherrack for the floor, walked to, dug and picked up
     /** The nearest blaze, ghast or skeleton he knows of within 48 that can see him, or null. */
     public static net.minecraft.world.entity.Mob shooterInSight(ClaudeEntity g) {
-        for (var m : Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(48), x -> x.isAlive() && (x instanceof net.minecraft.world.entity.monster.Blaze || x instanceof net.minecraft.world.entity.monster.Ghast || x instanceof net.minecraft.world.entity.monster.AbstractSkeleton)))
+        for (var m : Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(48), x -> x.isAlive() && (x instanceof net.minecraft.world.entity.monster.Blaze || x instanceof net.minecraft.world.entity.monster.Ghast || com.claudemod.entity.goals.WorkGoal.shoots(x))))
             if (m.hasLineOfSight(g)) return m;
         return null;
     }

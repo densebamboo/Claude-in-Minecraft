@@ -91,12 +91,14 @@ public final class Crafting {
             }
             if (!ok) continue;
             ItemStack out = recipe.getResultItem(level.registryAccess()).copy();
-            if (!inv.hasRoomFor(out)) return new Result(0, "room in my pack (it's full)", false); // before the ingredients go: a full pack ate 12 planks for three tables that never existed
+            // the ingredients out first (a craft frees the slot it empties: 4 planks in one slot of a full pack make a table, review 363),
+            // then the result in; no room for all of it and the pack goes back as it was (a full pack once ate 12 planks for three tables that never existed)
+            List<ItemStack> was = inv.snapshot();
             for (Ingredient ing : needed) inv.remove(ing::test, 1);
-            int n = out.getCount();
             ItemStack rest = inv.add(out);
+            if (!rest.isEmpty()) { inv.restore(was); return new Result(0, "room in my pack (it's full)", false); }
             com.claudemod.entity.life.Watchdog.noteMade(inv.player());
-            return new Result(n - rest.getCount(), null, false);
+            return new Result(out.getCount(), null, false);
         }
         if (tableProblem) return new Result(0, "a crafting table nearby", true); // a recipe he has everything for but the 3x3: the table is the lack
         return new Result(0, lacks.isEmpty() ? "ingredients" : String.join(" or ", lacks), false);

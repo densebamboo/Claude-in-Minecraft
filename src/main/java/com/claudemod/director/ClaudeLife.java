@@ -1479,7 +1479,7 @@ public final class ClaudeLife {
         boolean inRows = b.rowOf(at) >= 0 || b.rowOf(at.above()) >= 0;
         if (inRows && !level.canSeeSky(at.above()) && b.rowOf(at) != 0) return "done: down my mine already, under rock: that's cover (nothing to dig)";
         if (b.entrance.distSqr(at) > 24 * 24) return null;
-        if (!com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(6), m -> m.isAlive() && !(m instanceof net.minecraft.world.entity.monster.RangedAttackMob)).isEmpty()) return null; // one in close: no walk with it on his back (the cover proximity rule)
+        if (!com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(6), m -> m.isAlive() && !com.claudemod.entity.goals.WorkGoal.shoots(m)).isEmpty()) return null; // one in close: no walk with it on his back (the cover proximity rule)
         int dug = b.dugMainRows(level), k = 0; BlockPos dest = null;
         for (MineBlueprint.Row r : b.rows()) {
             var kind = b.segments.get(r.segment()).kind;
@@ -1914,7 +1914,7 @@ public final class ClaudeLife {
             for (var z : level.getEntitiesOfClass(net.minecraft.world.entity.monster.ZombifiedPiglin.class, net.minecraft.world.phys.AABB.unitCubeFromLowerCorner(first.position()).inflate(fr, 10, fr), e -> e.isAlive() && e != first && !e.isAngryAt(g))) pack.add(z); }
         pack.sort(Comparator.comparingDouble(m -> m.distanceTo(g)));
         double hit = 1; for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { ItemStack s = g.inventory.items.getItem(i); if (s.getItem() instanceof net.minecraft.world.item.SwordItem || s.getItem() instanceof net.minecraft.world.item.AxeItem) hit = Math.max(hit, com.claudemod.entity.goals.WorkGoal.weaponDamage(s)); }
-        double swing = com.claudemod.entity.life.Weights.w("fight.swing_s", 0.6), rate = com.claudemod.entity.life.Weights.w("fight.mob_hits_per_s", 0.8) * (hit > 1 ? com.claudemod.entity.life.Weights.w("fight.knockback_hits_factor", 0.5) : 1), cool = com.claudemod.entity.life.Weights.w("fight.mob_cooldown_s", 1.0), armorF = 1 - Math.min(20, g.getArmorValue()) / 25.0;
+        double swing = com.claudemod.entity.life.Weights.w("fight.swing_s", 0.6), rate = com.claudemod.entity.life.Weights.w("fight.mob_hits_per_s", 0.8) * (hit > 1 ? com.claudemod.entity.life.Weights.w("fight.knockback_hits_factor", 0.35) : 1), cool = com.claudemod.entity.life.Weights.w("fight.mob_cooldown_s", 1.0), armorF = 1 - Math.min(20, g.getArmorValue()) / 25.0;
         double t = 0, hits = 0, hp = 0; int most = 0;
         for (var m : pack) { t += Math.ceil(m.getHealth() / hit) * swing; double dmg = Math.max(1, (m.getAttributes().hasAttribute(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE) ? m.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE) : 3) * armorF); double h = t * rate; hits += h; hp += h * dmg; most += (int) Math.ceil(t / cool); }
         double perHit = hits > 0 ? hp / hits : 3; return new double[] {t + com.claudemod.entity.life.Decide.hpS(g, g.getHealth(), 0, hp, perHit, most), t, hp, pack.size()};
@@ -4071,7 +4071,7 @@ public final class ClaudeLife {
                 craftSwordIfCan(g, level);
                 boolean properSword = g.inventory.count(s -> (s.getItem() instanceof net.minecraft.world.item.SwordItem && !s.is(Items.WOODEN_SWORD)) || (s.getItem() instanceof net.minecraft.world.item.AxeItem && !s.is(Items.WOODEN_AXE))) > 0;
                 boolean armored = false; for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() && !g.getItemBySlot(sl).isEmpty()) armored = true;
-                boolean ranged = mobs.get(0) instanceof net.minecraft.world.entity.monster.AbstractSkeleton || mobs.get(0) instanceof net.minecraft.world.entity.monster.Pillager;
+                boolean ranged = com.claudemod.entity.goals.WorkGoal.shoots(mobs.get(0));
                 if (!g.commandActive && (g.getHealth() < 10 || !properSword || (ranged && !armored))) // his own idea of a fight, in no state for one (a pillager at 8 health with a wooden sword took him to 6): not now
                     return "failed: not fit to pick that fight (health " + (int) g.getHealth() + (properSword ? "" : ", no proper sword") + (armored ? "" : ", no armor") + (ranged ? ", it shoots" : "") + "); cover and food first";
                 // picking a fight (not self-defence) takes food for the regen it costs, and a crowd takes iron: a player with an empty belly or a stone sword walks round a group
@@ -4258,7 +4258,7 @@ public final class ClaudeLife {
                 if (race != null) { if (g.playerGoal != null && g.playerGoal.toLowerCase().matches("(?s).*(recover|gear back|drops|death spot|old gear).*")) g.playerGoal = ""; return race; }
                 var guard = level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, new net.minecraft.world.phys.AABB(spot).inflate(12), m -> m.isAlive()); // what's standing over his things
                 boolean properSword = g.inventory.count(s -> (s.getItem() instanceof net.minecraft.world.item.SwordItem && !s.is(Items.WOODEN_SWORD)) || (s.getItem() instanceof net.minecraft.world.item.AxeItem && !s.is(Items.WOODEN_AXE))) > 0;
-                boolean shooter = guard.stream().anyMatch(m -> m instanceof net.minecraft.world.entity.monster.AbstractSkeleton);
+                boolean shooter = guard.stream().anyMatch(com.claudemod.entity.goals.WorkGoal::shoots);
                 // risk against reward, the user's rule: a pile with an iron set in it is worth walking in on one zombie with a stone sword; a pile of cobble waits for them to wander off
                 int worth = dropsWorth(drops);
                 boolean creeper = guard.stream().anyMatch(m -> m instanceof net.minecraft.world.entity.monster.Creeper);

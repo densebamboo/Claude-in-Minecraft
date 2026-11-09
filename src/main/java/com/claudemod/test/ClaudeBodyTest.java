@@ -7889,6 +7889,8 @@ public final class ClaudeBodyTest {
 
     private static void pass(int[] stage, int[] t, String what) {
         ClaudeMod.LOGGER.info("[Claude test] PASS stage {}: {}", stage[0], what);
+        String list = System.getProperty("claude.stages"); // -Dclaude.stages=a,b,c (with startStage=a): those stages only, in that order, in one launch; the run ends after the last
+        if (list != null) { int next = 9999; boolean after = false; for (String x : list.split(",")) { int n = Integer.parseInt(x.trim()); if (after) { next = n; break; } after = n == stage[0]; } stage[0] = next; t[0] = 0; return; }
         stage[0]++;
         if (stage[0] == Integer.getInteger("claude.endStage", -1) + 1) stage[0] = 9999; // -Dclaude.endStage=N: the run ends after stage N
         t[0] = 0;
@@ -10560,6 +10562,11 @@ public final class ClaudeBodyTest {
             case 1133: return st1133(stage, t, c, h, level, mock);
             case 1134: return st1134(stage, t, c, h, level, mock);
             case 1135: return st1135(stage, t, c, h, level, mock);
+            case 1136: return st1136(stage, t, c, h, level, mock);
+            case 1137: return st1137(stage, t, c, h, level, mock);
+            case 1138: return st1138(stage, t, c, h, level, mock);
+            case 1139: return st1139(stage, t, c, h, level, mock);
+            case 1140: return st1140(stage, t, c, h, level, mock);
             case 999: return st999(stage, t, c, h, level, mock);
             case 997: return st997(stage, t, c, h, level, mock);
             case 996: return st996(stage, t, c, h, level, mock);
@@ -18356,6 +18363,100 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    private static int st1139T;
+    private static boolean st1139(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a wall torch to put up in his tunnel, no torch on him but 2 coal and 2 planks (audit 5; review 437: mining with torches 0, coal and wood on him, every torch "none on him, skipped"): torches made on the spot, the torch up
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1139T = -1; level.setDayTime(6000); flatBox(h); }
+        BlockPos me = h.absolutePos(new BlockPos(2, 2, 3)), tp = h.absolutePos(new BlockPos(4, 3, 3));
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            for (int x = 0; x <= 10; x++) for (int z = 1; z <= 5; z++) for (int y = 1; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), ((y == 2 || y == 3) && z == 3 && x >= 1 && x <= 9 ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COAL, 2)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 2)); c.getInventory().add(new ItemStack(Items.BREAD, 4));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; mock[0].teleportTo(me.getX() + 0.5, me.getY() + 45, me.getZ() + 0.5);
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.tasks.add(new Task.WallTorch(tp.immutable(), net.minecraft.core.Direction.NORTH)); st1139T = t[0]; }
+        if (st1139T > 0) {
+            boolean up = level.getBlockState(tp).is(Blocks.WALL_TORCH);
+            boolean on = c.currentTask instanceof Task.WallTorch || c.tasks.stream().anyMatch(x -> x instanceof Task.WallTorch);
+            if (up) { pass(stage, t, "no torch on him: made them from coal and planks, the torch up in " + (t[0] - st1139T) + " ticks, " + c.inventory.count(x -> x.is(Items.TORCH)) + " left"); return true; }
+            check(on || t[0] - st1139T < 3, "the wall torch dropped with coal and planks on him (torches " + c.inventory.count(x -> x.is(Items.TORCH)) + ", sticks " + c.inventory.count(x -> x.is(Items.STICK)) + ")");
+            check(t[0] - st1139T < 200, "10 s and the torch not up");
+        }
+        return true;
+    }
+    private static boolean st1138(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a full pack, his only 4 planks in one slot: a crafting table from them (the craft frees that slot); 5 planks: no room, and the planks all still there (audit 4; review 363 "pack full" then "no table in reach", 436 a 570-block walk for a table)
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 10) {
+            var inv = c.getInventory(); inv.clearContent();
+            inv.items.set(0, new ItemStack(Items.OAK_PLANKS, 4)); for (int i = 1; i < inv.items.size(); i++) inv.items.set(i, new ItemStack(Items.COBBLESTONE, 64));
+            var r = com.claudemod.entity.life.Crafting.craft(level, c.inventory, Items.CRAFTING_TABLE, 1, false);
+            int tables = c.inventory.count(x -> x.is(Items.CRAFTING_TABLE)), planks = c.inventory.count(x -> x.is(Items.OAK_PLANKS));
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 1138: full pack, 4 planks: made {} ({}), tables {}, planks {}", r.made(), r.missing(), tables, planks);
+            check(r.made() == 1 && tables == 1 && planks == 0, "a full pack with his 4 planks in one slot: no table (" + r.missing() + ")");
+            inv.clearContent(); inv.items.set(0, new ItemStack(Items.OAK_PLANKS, 5)); for (int i = 1; i < inv.items.size(); i++) inv.items.set(i, new ItemStack(Items.COBBLESTONE, 64));
+            var r2 = com.claudemod.entity.life.Crafting.craft(level, c.inventory, Items.CRAFTING_TABLE, 1, false);
+            int planks2 = c.inventory.count(x -> x.is(Items.OAK_PLANKS)), tables2 = c.inventory.count(x -> x.is(Items.CRAFTING_TABLE));
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 1138: full pack, 5 planks: made {} ({}), tables {}, planks {}", r2.made(), r2.missing(), tables2, planks2);
+            check(r2.made() == 0 && planks2 == 5 && tables2 == 0, "no room: made " + r2.made() + ", planks left " + planks2 + " of 5 (a craft with no room must take nothing)");
+            inv.clearContent();
+            pass(stage, t, "a craft that frees its own slot goes through; with no room nothing is taken");
+        }
+        return true;
+    }
+    private static int st1137Start;
+    private static boolean st1137(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a 1-wide corridor, his temp furnace cooking 6 porkchop between him and the oak log he's to break (audit 8; live 16:50:04 "furnace at 325,68,-30 is in the way of oak log", broken, the batch dropped): the furnace stays, its batch in it
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8)), fu = o.offset(2, 0, 0), log = o.offset(3, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); com.claudemod.entity.life.TempLedger.reset(c); st1137Start = -1; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 6; x++) for (int z = -4; z <= 4; z++) { level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (BlockPos q : new BlockPos[] {log.north(), log.south(), log.east(), log.above()}) level.setBlock(q, Blocks.STONE.defaultBlockState(), 2); // the log boxed in: its one open face is behind the furnace
+            level.setBlock(log, Blocks.OAK_LOG.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_AXE)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); // (an iron pick on him, as live: the furnace is his to break)
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setYRot(-90); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.lastStep = null; mock[0].teleportTo(o.getX() + 0.5, o.getY() + 45, o.getZ() + 0.5);
+            level.setBlock(fu, Blocks.FURNACE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, fu, Blocks.FURNACE.defaultBlockState(), Blocks.AIR.defaultBlockState());
+            if (level.getBlockEntity(fu) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f) { f.setItem(0, new ItemStack(Items.PORKCHOP, 6)); f.setItem(1, new ItemStack(Items.COAL, 2)); }
+        }
+        if (t[0] == 20) { c.tasks.add(new Task.Break(log)); st1137Start = t[0]; }
+        if (st1137Start > 0) {
+            boolean there = level.getBlockState(fu).is(Blocks.FURNACE);
+            check(there, "his furnace with its batch in it broken as 'in the way' at " + (t[0] - st1137Start) / 20.0 + " s");
+            if (t[0] - st1137Start >= 20 * 15) {
+                int in = level.getBlockEntity(fu) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f ? f.getItem(0).getCount() + f.getItem(2).getCount() : -1;
+                boolean logGone = !level.getBlockState(log).is(Blocks.OAK_LOG);
+                c.tasks.clear(); c.currentTask = null; level.setBlock(fu, Blocks.AIR.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.reset(c);
+                pass(stage, t, "his cooking furnace left standing (" + in + " porkchop in it), the log " + (logGone ? "got" : "still there"));
+            }
+        }
+        return true;
+    }
+    private static boolean st1136(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // his empty temp furnace and table beside him, a smelt and a craft still queued, a collect step starts (audit 2; reviews 157/220/221/249/414: every step change took them up, the next smelt found none, "isn't worth a furnace out here", the kit asked again): both stay; with nothing queued that uses them, both come up
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8)), fu = o.offset(2, 0, 0), tb = o.offset(-2, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.TempLedger.reset(c); }
+        if (t[0] == 10) {
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) { level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.BEEF, 3));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.lastStep = null; mock[0].teleportTo(o.getX() + 0.5, o.getY() + 45, o.getZ() + 0.5);
+            level.setBlock(fu, Blocks.FURNACE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, fu, Blocks.FURNACE.defaultBlockState(), Blocks.AIR.defaultBlockState());
+            level.setBlock(tb, Blocks.CRAFTING_TABLE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, tb, Blocks.CRAFTING_TABLE.defaultBlockState(), Blocks.AIR.defaultBlockState());
+        }
+        if (t[0] == 20) {
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("smelt", "cooked_beef", 3)); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "stone_pickaxe", 1));
+            int up = com.claudemod.entity.life.TempLedger.stepStart(c, level, "collect");
+            boolean fuQ = c.tasks.contains(new Task.Break(fu)), tbQ = c.tasks.contains(new Task.Break(tb));
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 1136: smelt + craft queued, collect starts: {} taken up (furnace {}, table {})", up, fuQ, tbQ);
+            check(!fuQ && !tbQ, "a collect step took up his " + (fuQ ? "furnace" : "") + (fuQ && tbQ ? " and " : "") + (tbQ ? "table" : "") + " with a smelt and a craft still queued for them");
+            c.tasks.clear(); c.skillQueue.clear(); com.claudemod.entity.life.TempLedger.stepStart(c, level, "explore"); // (lastSkill: a different skill, so the next one runs)
+            c.tasks.clear();
+        }
+        if (t[0] == 25) {
+            int up = com.claudemod.entity.life.TempLedger.stepStart(c, level, "collect");
+            boolean fuQ = c.tasks.contains(new Task.Break(fu)), tbQ = c.tasks.contains(new Task.Break(tb));
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 1136: nothing queued that uses them, collect starts: {} taken up (furnace {}, table {})", up, fuQ, tbQ);
+            check(fuQ && tbQ, "nothing queued uses them, yet his " + (!fuQ ? "furnace" : "table") + " was left standing");
+            c.tasks.clear(); level.setBlock(fu, Blocks.AIR.defaultBlockState(), 2); level.setBlock(tb, Blocks.AIR.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.reset(c);
+            pass(stage, t, "stations kept while a smelt and a craft are queued, taken up once nothing needs them");
+        }
+        return true;
+    }
     private static net.minecraft.world.entity.monster.Blaze st1135A, st1135B;
     private static boolean st1135(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a wall between him and a blaze 8 off, a second blaze 30 off with a clear line to his side of the wall (World 17 16:12 death 7: "healing in cover" at 312,60,510 while blazes 27 off shot him there, 5 HP of fire per fireball): his cover is out of the far one's sight too, or none
         BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
@@ -18487,6 +18588,28 @@ public final class ClaudeBodyTest {
             check(c.isAlive() && c.level() == nl, "dead to four wither skeletons on the bridge at " + (t[0] - st770Start) / 20 + " s (low " + st770Low + ")");
             double near = 99; int alive = 0; for (var w : st770W) if (w.isAlive()) { alive++; near = Math.min(near, w.distanceTo(c)); }
             if (t[0] - st770Start >= 20 * 40) { check(st770Low > 0, "?"); for (var w : st770W) w.discard(); nsHome(c, h, level); c.setHealth(20); pass(stage, t, "alive 40 s with four wither skeletons on him on the bridge (" + alive + " left, nearest " + (int) near + ", low " + st770Low + ")"); }
+        }
+        return true;
+    }
+    private static int st1140Start; private static boolean st1140Up; private static net.minecraft.world.entity.monster.WitherSkeleton st1140W;
+    /** One wither skeleton on him in the open, iron armor, gold boots, shield, iron sword, full health: the shield comes up to its sword (live 18:38 11-08: a wither skeleton is a skeleton by class, incoming() only looked for a drawn bow, 0 of its hits blocked, 15 -> 10 -> 5, dead). */
+    private static boolean st1140(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(4, 2, 4));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1140Start = -1; st1140Up = false; st1140W = null; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(96))) m.discard(); }
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 20) { var w = EntityType.WITHER_SKELETON.create(level); w.moveTo(at.getX() + 0.5, at.getY(), at.getZ() + 3.5, 180, 0); w.setPersistenceRequired(); w.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); level.addFreshEntity(w); w.setTarget(c); st1140W = w; st1140Start = t[0]; }
+        if (st1140Start > 0) {
+            if (st1140W.isAlive() && st1140W.getTarget() != c) st1140W.setTarget(c);
+            if (c.isBlocking() && st1140W.distanceTo(c) < 3.5) st1140Up = true;
+            check(c.isAlive(), "dead to one wither skeleton in the open");
+            if (st1140Up) { st1140W.discard(); c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "shield up to the wither skeleton's sword at " + (t[0] - st1140Start) / 20 + " s"); }
+            else check(st1140W.isAlive() && t[0] - st1140Start < 20 * 10, st1140W.isAlive() ? "10 s in melee with a wither skeleton and the shield never up (health " + c.getHealth() + ")" : "the wither skeleton died before his shield ever came up (health " + c.getHealth() + ")");
         }
         return true;
     }

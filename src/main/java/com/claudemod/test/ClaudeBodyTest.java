@@ -10550,6 +10550,7 @@ public final class ClaudeBodyTest {
             case 1306: return st1306(stage, t, c, h, level, mock);
             case 1305: return st1305(stage, t, c, h, level, mock);
             case 1350: return st1350(stage, t, c, h, level, mock);
+            case 1351: return st1351(stage, t, c, h, level, mock);
             case 1301: return st1301(stage, t, c, h, level, mock);
             case 1302: return st1302(stage, t, c, h, level, mock);
             case 1303: return st1303(stage, t, c, h, level, mock);
@@ -25932,6 +25933,30 @@ public final class ClaudeBodyTest {
             h.setBlock(new BlockPos(6, 4, 12), Blocks.DEEPSLATE); c.blueprint = null;
             check(!cut, "his route past his wall digs his own water plug at (6,3,12): " + (plan == null ? "-" : plan.acts()));
             pass(stage, t, "his water plug kept: the route " + (plan == null ? "found no way" : "goes " + plan.acts().size() + " acts round it"));
+        }
+        return true;
+    }
+    private static int st1351Start, st1351Flips; private static String st1351Last; private static java.util.List<net.minecraft.world.entity.Mob> st1351M = new java.util.ArrayList<>();
+    private static boolean st1351(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 10:32:56-10:33:18 11-09 death (the_nether 274,65,466): 2 wither skeletons after him, each run's end priced the fight on the nearest only ("fight ~9 s (kill in 3)": the 2nd 13-15 off, past hostilesNear(10)), he turned to it, 0.6 s on doAttack priced both ("2 on him: fight ~591 s, run ~200 s") and broke off: run, turn, run x3 in 10 s, caught 13 -> 9, dead
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1351Start = 0; st1351Flips = 0; st1351Last = ""; st1351M.clear(); }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) if (!st1351M.contains(e)) e.discard();
+        if (t[0] == 10) {
+            for (int x = -40; x <= 40; x++) for (int z = -4; z <= 12; z++) { for (int yy = -2; yy <= 1; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.NETHER_BRICKS.defaultBlockState(), 2); for (int yy = 2; yy <= 8; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_AXE)); c.getInventory().add(new ItemStack(Items.COOKED_PORKCHOP, 4));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.DIAMOND_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            BlockPos me = h.absolutePos(new BlockPos(0, 2, 4));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(15); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            int[] off = {11, 13}; c.getFoodData().setFoodLevel(17);
+            for (int dx : off) { var ws = net.minecraft.world.entity.EntityType.WITHER_SKELETON.create(level); BlockPos a = me.offset(dx, 0, 0); ws.moveTo(a.getX() + 0.5, a.getY(), a.getZ() + 0.5, 90, 0); ws.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); ws.setPersistenceRequired(); level.addFreshEntity(ws); ws.setTarget(c); st1351M.add(ws); }
+            c.tasks.add(new Task.Wait(20 * 60, false)); st1351Start = t[0];
+        }
+        if (st1351Start > 0) {
+            String now = c.currentTask instanceof Task.Flee ? "run" : c.currentTask instanceof Task.Attack ? "fight" : st1351Last;
+            if (st1351Last.equals("fight") && now.equals("run")) st1351Flips++;
+            st1351Last = now;
+            check(st1351Flips < 2, "run, turned to fight, broke off and ran again " + st1351Flips + " times with 2 wither skeletons after him (health " + (int) c.getHealth() + ")");
+            if (t[0] - st1351Start >= 20 * 20) { for (var m : st1351M) m.discard(); c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "2 wither skeletons after him at 15 HP: one choice held, " + st1351Flips + " flip(s), health " + (int) c.getHealth()); return true; }
         }
         return true;
     }

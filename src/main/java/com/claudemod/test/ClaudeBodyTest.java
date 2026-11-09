@@ -10803,6 +10803,7 @@ public final class ClaudeBodyTest {
             case 1213: return st1213(stage, t, c, h, level, mock);
             case 1214: return st1214(stage, t, c, h, level, mock);
             case 1215: return st1215(stage, t, c, h, level, mock);
+            case 1216: return st1216(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -21453,6 +21454,25 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    /** Stage 1216 (D2D review 290, live 00:03:36-46 11-09: "not going for 1 Cobblestone: no room for it in his pack", then "cobblestone at -140,16,-254 waits for Cobblestone at -138,16,-253: the whole pocket picked up before closing" 3 times in 1 s, the spot written off): a drop his pickup won't go for is no wait for the patch. Stage 898's floor hole, a full pack, 1 cobble by it. */
+    private static BlockPos s1216P;
+    private static boolean st1216(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            var row = b.rows().stream().filter(r0 -> r0.segment() == 1 && r0.index() == 3).findFirst().get();
+            BlockPos r = row.first();
+            net.minecraft.core.Direction side = null; for (var d : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && !com.claudemod.director.ClaudeLife.isMineCell(c, r.relative(d)) && level.getBlockState(r.relative(d)).is(Blocks.STONE)) side = d;
+            s1216P = r.below().immutable(); level.setBlock(s1216P, Blocks.AIR.defaultBlockState(), 2); // (a hole in his walkway floor, in sight from where he stands: he places from there, as live from 2 off)
+            BlockPos along = r.relative(row.dir()); var drop = new net.minecraft.world.entity.item.ItemEntity(level, along.getX() + 0.5, along.getY(), along.getZ() + 0.5, new ItemStack(Items.COBBLESTONE, 1)); drop.setDeltaMovement(0, 0, 0); level.addFreshEntity(drop); // (the gravel on his walkway floor a cell along, ~2 off the hole: within the patch's 2.6, past where he stands to place, as live: 2.5 under his roof patch, he 2 off)
+            c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); for (int k = 0; k < c.getInventory().getContainerSize(); k++) if (c.getInventory().getItem(k).isEmpty()) c.getInventory().setItem(k, new ItemStack(Items.OAK_LOG, 64)); // (a full pack: no room for one more cobble, as live) // (over a stack of building blocks: the pickup skips junk)
+            BlockPos me = r.relative(row.dir().getOpposite()); lnStand(c, mock, me, b.entrance); c.tasks.clear(); c.skillQueue.clear();
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.tasks.add(new Task.Place(s1216P, Items.COBBLESTONE)); }
+        if (t[0] > 20 && level.getBlockState(s1216P).is(Blocks.COBBLESTONE)) { for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) e.discard(); /* (the cobble it leaves on the floor: never a drop in the next stage's pocket) */ c.getInventory().clearContent(); c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); pass(stage, t, "the hole patched, the cobble he has no room for left on his floor (" + t[0] + " ticks)"); return true; }
+        if (t[0] == 199) c.getInventory().clearContent(); if (t[0] > 20) check(t[0] < 200, "the patch at " + s1216P.toShortString() + " not in after 9 s with a cobble beside it his full pack has no room for, now " + c.currentTask + " queue " + c.tasks.stream().limit(6).toList());
+        return true;
+    }
+
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

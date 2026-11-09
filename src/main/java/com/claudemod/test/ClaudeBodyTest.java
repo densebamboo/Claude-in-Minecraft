@@ -19312,7 +19312,7 @@ public final class ClaudeBodyTest {
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st757T = -1; if (st757Pg != null) st757Pg.discard(); st757Pg = null; level.setDayTime(6000); flatBox(h); }
         if (t[0] == 10) {
             for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
-            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.BREAD, 8)); /* (no sword: with one he fights the lone piglin, rightly, and no run starts) */
             st757Me = h.absolutePos(new BlockPos(4, 2, 5)).immutable(); c.teleportTo(st757Me.getX() + 0.5, st757Me.getY(), st757Me.getZ() + 0.5); c.setHealth(11); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
             var pg = EntityType.ZOMBIFIED_PIGLIN.create(level); BlockPos sp = st757Me.east(); pg.moveTo(sp.getX() + 0.5, sp.getY(), sp.getZ() + 0.5, 90, 0); pg.setNoAi(true); pg.setPersistenceRequired(); level.addFreshEntity(pg); pg.setTarget(c); pg.setPersistentAngerTarget(c.getUUID()); pg.startPersistentAngerTimer(); st757Pg = pg; // (angry, on him)
         }

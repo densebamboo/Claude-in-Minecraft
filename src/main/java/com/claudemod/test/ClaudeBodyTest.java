@@ -10822,6 +10822,7 @@ public final class ClaudeBodyTest {
             case 1227: return st1227(stage, t, c, h, level, mock);
             case 1228: return st1228(stage, t, c, h, level, mock);
             case 1229: return st1229(stage, t, c, h, level, mock);
+            case 1230: return st1230(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -21953,6 +21954,32 @@ public final class ClaudeBodyTest {
                 if (row < 1) { String q = "at " + c.blockPosition().toShortString() + ", now=" + c.currentTask + " tasks=" + c.tasks.stream().limit(4).toList(); c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null; c.dropCurrent = true; check(false, "dusk: back out of his mine " + (t[0] - s1229In) + " ticks after going in (" + q + ")"); }
                 if (t[0] - s1229In >= 200) { int took = s1229In - 12; c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null; c.dropCurrent = true; level.setDayTime(6000); pass(stage, t, "dusk: down his lit mine in " + took + " ticks, his explore set aside, and stayed"); }
             }
+        }
+        return true;
+    }
+    /** Stage 1230 (D2D review 133, incident 025101, live 02:47:43 11-09 at -56,61,67: at first light in his own hole 60 off his mine, health 5, food 6, nothing to eat: the food trip's "up and out of the mine first" walked him back along his trail into his mine, 1644 steps, dropping the bore out of his hole): in a hole of his off his mine by day, hungry and hurt, cows about. No walk to his mine for "out of the mine": he isn't in it. */
+    private static int s1230Q;
+    private static boolean st1230(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); s1230Q = -1; c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            var b = nightMine(h, level); c.prefs.put("mine_model", "blueprint"); c.blueprint = b; com.claudemod.director.ClaudeLife.bpSync(c);
+            c.tasks.clear(); c.skillQueue.clear(); if (c.currentTask != null) c.dropCurrent = true;
+            BlockPos me = h.absolutePos(new BlockPos(13, -1, 13)); // a hole of his 3 down, off his mine's rows
+            for (int dy = 0; dy <= 2; dy++) level.setBlock(me.above(dy), Blocks.AIR.defaultBlockState(), 2);
+            level.setBlock(me.above(2), Blocks.DIRT.defaultBlockState(), 2); level.setBlock(me.below(), Blocks.STONE.defaultBlockState(), 2); // (his cover's lid over him, as live)
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.OAK_LOG, 32)); c.getInventory().add(new ItemStack(Items.WOODEN_SWORD)); c.setHealth(5); c.getFoodData().setFoodLevel(6); c.playerGoal = "beat the ender dragon"; c.prefs.put("stay_close", "no");
+            for (int i = 0; i < 3; i++) { var cow = EntityType.COW.create(level); BlockPos cp = h.absolutePos(new BlockPos(12 + i, 2, 3)); cow.moveTo(cp.getX() + 0.5, cp.getY(), cp.getZ() + 0.5, 0, 0); cow.setNoAi(true); level.addFreshEntity(cow); }
+            level.setDayTime(1000);
+        }
+        if (t[0] > 10 && c.blueprint != null) {
+            BlockPos ent = c.blueprint.entrance; var b = c.blueprint;
+            boolean toMine = c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && (go.pos().distSqr(ent) <= 4 || b.rowOf(go.pos()) >= 0));
+            boolean food = c.skillQueue.stream().anyMatch(s0 -> s0.skill().equals("obtain") || s0.skill().equals("collect")) || c.lastStep != null && (c.lastStep.skill().equals("obtain") || c.lastStep.skill().equals("collect"));
+            if (toMine) { String q = c.tasks.stream().limit(4).toList().toString(); c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null; c.dropCurrent = true; check(false, "in his hole off his mine, the food trip walks him into his mine first: " + q); }
+            if (food && s1230Q < 0) s1230Q = t[0];
+            if (s1230Q > 0 && t[0] - s1230Q >= 60) { c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null; c.dropCurrent = true; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.animal.Cow.class, c.getBoundingBox().inflate(48))) m.discard(); pass(stage, t, "his food trip from a hole off his mine: no walk into the mine first"); }
+            if (s1230Q < 0 && t[0] - 10 > 400) { String q = "tasks=" + c.tasks.stream().limit(4).toList() + " steps=" + c.skillQueue; c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; check(false, "setup: no food trip in 20 s (" + q + ")"); }
         }
         return true;
     }

@@ -7528,9 +7528,18 @@ public final class ClaudeLife {
     }
 
     /** Leaving for the surface from inside his mine: back up his own stairs and out the entrance, never through caves. */
+    /** His trail back from here reaches a row of his mine before it comes up under open sky: he came in from his mine underground. */
+    private static boolean trailJoinsMine(ClaudeEntity g, ServerLevel level) {
+        BlockPos prev = g.blockPosition(); for (BlockPos p : com.claudemod.entity.nav.Route.wayBack(g, 20 * 60 * 20)) { if (p.distManhattan(prev) > 4) return false; /* (a jump in it: a respawn or a teleport, not his way in) */ if (g.blueprint.rowOf(p) >= 0) return true; if (level.canSeeSky(p.above())) return false; prev = p; }
+        return false;
+    }
     private static boolean routeOutOfMine(ClaudeEntity g, ServerLevel level) {
         if (level.dimension() != net.minecraft.world.level.Level.OVERWORLD) return false; // his mine is in the overworld: in the Nether at -5,89,6 its spine coords sent a beef hunt walking to -5,82,6, refused 3x a second
-        if (bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty()) return bpWalkTo(g, g.blueprint.entrance);
+        if (bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty()) {
+            BlockPos me = g.blockPosition();
+            if (!inHisMine(g, me) && !g.blueprint.touches(me) && !trailJoinsMine(g, level)) { ClaudeMod.LOGGER.info("[Claude life] out of the mine: he isn't in it (at {}, no trail of his under the ground joins it): no walk to it (ClaudeLife.routeOutOfMine)", me.toShortString()); return false; } // (a hole of his 60 off: "up and out of the mine first" walked him 1644 steps into it, live 02:47 11-09, review 133)
+            return bpWalkTo(g, g.blueprint.entrance);
+        }
         if (g.stairStart != null && g.blockPosition().distSqr(g.stairStart) <= 3 * 3) return false; // at the entrance (under its arch) he's out: a walk to where he stands looped "out of the mine" until the hunt was skipped
         if (g.mineSpine.isEmpty() && g.stairStart != null && g.stairDir != null) traceStairs(g, level);
         rejoinStairs(g, level);

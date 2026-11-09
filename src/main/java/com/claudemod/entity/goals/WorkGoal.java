@@ -4289,7 +4289,7 @@ public class WorkGoal extends Goal {
             return false;
         }
         if (g.isInWater() && level.getFluidState(pos.above()).is(net.minecraft.tags.FluidTags.WATER)) { Vec3 over = Vec3.atCenterOf(pos.above()); g.getMoveControl().setWantedPosition(over.x, over.y, over.z, 1.0); } // under water and in reach: the dive's goal kept alive every tick (it expires after 20), or the body floats him back up mid-rummage
-        if (!inReach(pos)) return walkTo(pos, 2) && !inReach(pos);
+        { Boolean reach = reachFor(pos); if (reach != null) return reach; } // a chest he sees, as his furnaces (review 160, live 17:59:07 11-08: inReach's 4.25-to-the-centre fallback opened a chest through the rock)
         g.getNavigation().stop();
         g.getLookControl().setLookAt(Vec3.atCenterOf(pos));
         Block block = level.getBlockState(pos).getBlock();
@@ -4793,6 +4793,12 @@ public class WorkGoal extends Goal {
      * Into reach of a block he works with (a furnace, a chest, a door), seeing it: a walk to a spot beside it, then a nudge the
      * last block. null once he's there; false while on the way; true when he can't get there (said once).
      */
+    /** Nothing solid on the straight line from his cell to {@code to} at his legs or head: a nudge gets there. */
+    private boolean openStep(ServerLevel level, BlockPos from, BlockPos to) {
+        for (double hy : new double[] {0.5, 1.5}) { Vec3 a = new Vec3(from.getX() + 0.5, from.getY() + hy, from.getZ() + 0.5), b = new Vec3(to.getX() + 0.5, to.getY() + hy, to.getZ() + 0.5);
+            if (level.clip(new net.minecraft.world.level.ClipContext(a, b, net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getType() != net.minecraft.world.phys.HitResult.Type.MISS) return false; }
+        return true;
+    }
     private Boolean reachFor(BlockPos target) {
         ServerLevel level = (ServerLevel) g.level();
         if (inReach(target) && blockInTheWay(level, target) == null) return null;
@@ -4807,7 +4813,7 @@ public class WorkGoal extends Goal {
                 exitWhy = "the " + name(ss) + " over the " + name(level.getBlockState(target)) + " dug off first"; return true; } }
         BlockPos side = clearViewSpot(level, target); if (side == null) side = standSpotBeside(target);
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
-        if (side.distSqr(feet) <= 4 && side.getY() == feet.getY()) { // (level only: a nudge can't take a step up, 10 s stood still under his furnace one up the slope, live 11:31) // the spot beside him (or under him, off its centre): a nudge, a walk there "arrives" a block short
+        if (side.distSqr(feet) <= 4 && side.getY() == feet.getY() && openStep(level, feet, side)) { // (an open straight step only: a spot round the end of a wall 2 off was nudged at through the wall, 10 s, stage 1185) (level only: a nudge can't take a step up, 10 s stood still under his furnace one up the slope, live 11:31) // the spot beside him (or under him, off its centre): a nudge, a walk there "arrives" a block short
             if (ticks > 200) { BlockPos inWay0 = blockInTheWay(level, target); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't get in reach of {} at {} (he's at {}; nudged 10 s toward {}, {} off it; in reach: {}, in the way: {})", name(level.getBlockState(target)), target.toShortString(), feet.toShortString(), side.toShortString(), String.format("%.1f", Math.sqrt(g.distanceToSqr(side.getX() + 0.5, side.getY(), side.getZ() + 0.5))), inReach(target), inWay0 == null ? "nothing" : name(level.getBlockState(inWay0)) + " at " + inWay0.toShortString()); failed(com.claudemod.entity.life.Attempts.Kind.REACH, target, com.claudemod.entity.life.Attempts.Reason.OUT_OF_REACH, "couldn't get in reach of " + name(level.getBlockState(target))); return true; }  // (live 02:03 11-07: his furnace 3 off, 11 cooked salmon in it, failed twice with no why, then fishing for food)
             g.getNavigation().stop(); g.getMoveControl().setWantedPosition(side.getX() + 0.5, side.getY(), side.getZ() + 0.5, 0.5); return false;
         }

@@ -10539,6 +10539,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1185: return st1185(stage, t, c, h, level, mock);
             case 1183: return st1183(stage, t, c, h, level, mock);
             case 1179: return st1179(stage, t, c, h, level, mock);
             case 1175: return st1175(stage, t, c, h, level, mock);
@@ -16082,6 +16083,34 @@ public final class ClaudeBodyTest {
                 check(up, "a tower to a ledge 6 up: not on it in 25 s (at " + at.toShortString() + ")");
                 check(s <= 15, "a 6-high tower and a step onto the ledge: " + s + " s (a player ~8)");
                 c.getInventory().clearContent(); pass(stage, t, "towered up beside the ledge and onto it in " + s + " s");
+            }
+        }
+        return true;
+    }
+    /** Stage 1185 (D2D review 160, live 17:59:07 11-08: flint from his chest at -79,16,-16, taken from -78,16,-20 through the rock, SIGHT filed: WorkGoal.inReach fell back to "4.25 to the centre" when no ray reached a face, so doChest opened a chest he couldn't see): a chest 4 off behind a wall, a way round it. He takes the flint, seeing the chest. */
+    private static int s1185T;
+    private static boolean st1185(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(10300, 80, 10300); var W = com.claudemod.entity.life.Watchdog.recentKinds;
+        if (t[0] == 1) { scenarioReset(c); W.clear(); com.claudemod.entity.life.Watchdog.linesInTests = true; s1185T = 0; c.prefs.put("stay_close", "no"); level.setDayTime(6000); }
+        if (t[0] == 10) {
+            for (int x = -8; x <= 8; x++) for (int z = -8; z <= 8; z++) for (int y = -1; y <= 4; y++) level.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            for (int x = -2; x <= 2; x++) for (int y = 0; y <= 3; y++) level.setBlock(o.offset(x, y, -2), Blocks.STONE.defaultBlockState(), 2); // the wall between, open round its ends
+            level.setBlock(o, Blocks.CHEST.defaultBlockState(), 3);
+            if (level.getBlockEntity(o) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity cb) cb.setItem(0, new ItemStack(Items.FLINT, 7));
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            c.teleportTo(o.getX() + 1.5, o.getY(), o.getZ() - 3.5); com.claudemod.entity.life.Watchdog.teleported(c); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600;
+            mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 40, o.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 20) { c.tasks.add(new Task.Chest(o, true, Items.FLINT, 1)); s1185T = t[0]; }
+        if (s1185T > 0 && t[0] > s1185T) {
+            boolean got = c.getInventory().countItem(Items.FLINT) > 0;
+            if (got || t[0] - s1185T > 20 * 20) {
+                String w = W.toString(); com.claudemod.entity.life.Watchdog.linesInTests = false; double s = (t[0] - s1185T) / 20.0;
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+                for (int x = -8; x <= 8; x++) for (int z = -8; z <= 8; z++) for (int y = -1; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(!w.contains("SIGHT"), "a chest 4 off behind a wall: opened without seeing it (filed " + w + ")");
+                check(got, "no flint in 20 s from a chest round the end of a wall");
+                c.getInventory().clearContent(); pass(stage, t, "round the wall, the chest in sight, flint taken in " + s + " s");
             }
         }
         return true;

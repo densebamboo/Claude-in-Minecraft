@@ -3688,6 +3688,10 @@ public class WorkGoal extends Goal {
                 g.getNavigation().stop(); g.getMoveControl().setWantedPosition(col.getX() + 0.5, col.getY(), col.getZ() + 0.5, 0.5); return false; // (a nudge: a walk to the cell beside him never lands on it)
             }
             chopStandTicks = 0;
+            if (scaffoldBlock().isEmpty() && g.inventory.count(x -> x.is(net.minecraft.tags.ItemTags.LOGS) || x.is(net.minecraft.tags.ItemTags.PLANKS)) == 0) { // nothing to tower with, and no logs to make planks of: its top is left now, not a tower of air re-queued each tick for the 40 s no-headway clock (live 10:12 11-09, review 48, stage 1257)
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the tree at {}: its top is over his reach and he has nothing to tower with: leaving its top for now", b.toShortString());
+                chopSkip.addAll(logs); chopWhy = "its top is over his reach, nothing to tower with"; chopDown = true; g.tasks.addFirst(t); return true;
+            }
             g.tasks.addFirst(t); g.tasks.addFirst(new Task.Pillar(1)); return true;
         }
         if (!scaffold.isEmpty()) { chopDown = true; g.tasks.addFirst(t); return true; } // a bough out of reach from up here: down first, then in under it

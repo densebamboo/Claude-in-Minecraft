@@ -10857,6 +10857,7 @@ public final class ClaudeBodyTest {
             case 1254: return st1254(stage, t, c, h, level, mock);
             case 1255: return st1255(stage, t, c, h, level, mock);
             case 1256: return st1256(stage, t, c, h, level, mock);
+            case 1257: return st1257(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -22756,6 +22757,27 @@ public final class ClaudeBodyTest {
             check(!com.claudemod.director.ClaudeLife.canSee(c, level, sealed), "sees an ore with no open face (through the rock)");
             check(com.claudemod.director.ClaudeLife.canSee(c, level, ore), "the iron's top face in view through the open cell beside him, unseen from " + c.getEyePosition());
             pass(stage, t, "the iron under the mined one seen through the open cell; the one in the rock not");
+        }
+        return true;
+    }
+    private static int st1257T;
+    private static boolean st1257(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // review 48 (live 10:12-10:15 11-09, the Nether): a full pack, nothing to tower with, the tree's top over his reach: Pillar(1) queued with air, "stopped towering: nothing to tower with" each tick, 40 s "no headway" on each of 3 trees
+        BlockPos me = h.absolutePos(new BlockPos(6, 2, 8)), base = me.east();
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; st1257T = -1; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 5) {
+            flatBox(h);
+            for (int y = 0; y < 10; y++) level.setBlock(base.above(y), Blocks.OAK_LOG.defaultBlockState(), 2); // a trunk 10 high, no leaves: its top past any reach from the ground
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_AXE));
+            for (int i = 1; i < c.getInventory().items.size(); i++) c.getInventory().items.set(i, new ItemStack(Items.ENDER_PEARL, 16)); // (a full pack, nothing in it to tower with: live)
+            c.tasks.clear(); c.skillQueue.clear(); if (c.currentTask != null) c.dropCurrent = true;
+        }
+        if (t[0] >= 6 && t[0] < 12) { c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); }
+        if (t[0] == 12) { check(c.blockPosition().equals(me), "set up: not on his spot: " + c.position()); c.tasks.add(new Task.ChopTree(base, 0)); st1257T = t[0]; }
+        if (st1257T > 0 && t[0] > st1257T + 5) {
+            boolean chopping = c.currentTask instanceof Task.ChopTree || c.currentTask instanceof Task.Pillar || c.tasks.stream().anyMatch(x -> x instanceof Task.ChopTree || x instanceof Task.Pillar);
+            int top = 0; for (int y = 0; y < 10; y++) if (level.getBlockState(base.above(y)).is(Blocks.OAK_LOG)) top = y;
+            if (!chopping) { check(top >= 6, "the top came down with nothing to tower with?"); pass(stage, t, "the logs in reach cut, the top left at once with nothing to tower with (" + (t[0] - st1257T) / 20.0 + " s)"); }
+            else check(t[0] - st1257T < 20 * 15, "15 s on, still on the tree: " + c.currentTask + " " + c.tasks.stream().limit(4).toList() + " (no block to tower with)");
         }
         return true;
     }

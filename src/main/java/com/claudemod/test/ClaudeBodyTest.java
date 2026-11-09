@@ -10839,6 +10839,7 @@ public final class ClaudeBodyTest {
             case 1234: return st1234(stage, t, c, h, level, mock);
             case 1235: return st1235(stage, t, c, h, level, mock);
             case 1242: return st1242(stage, t, c, h, level, mock);
+            case 1249: return st1249(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -22399,6 +22400,23 @@ public final class ClaudeBodyTest {
             check(thrown == 0 || !tbl, "making a junk chest (the table on its way in) and the junk thrown on his tunnel floor in the same pass: " + thrown + " stack(s), queue " + q);
             pass(stage, t, "pack full down his mine, no chest: " + (tbl ? "the table first, nothing thrown" : thrown + " thrown, no table queued") + " " + q);
         }
+        return true;
+    }
+    /** Stage 1249 (D2D reviews 4/5/6, live 07:23:37-07:29:53 11-09): night, 6 off his bed, a walk 60 off queued. "night: by his bed ..., the walk ... waits for the morning", then a Wait re-queued every 10 s for 6 min and no sleep: the hold returned before the last steps into bed, and the bed walk below is only queued with no other walk queued (the held one was). The hold now walks him to the bed in front of its wait. */
+    private static int st1249At = -1;
+    private static boolean st1249(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.blueprint = null; c.nook = null; c.house = null; c.myStations.clear(); st1249At = -1; }
+        for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, c.getBoundingBox().inflate(40))) m.discard();
+        if (t[0] == 10) {
+            flatBox(h); bed(h, new BlockPos(3, 2, 3)); c.myStations.add(h.absolutePos(new BlockPos(3, 2, 3)));
+            BlockPos me = h.absolutePos(new BlockPos(9, 2, 3)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); if (c.currentTask != null) c.dropCurrent = true; c.prefs.put("stay_close", "no");
+
+            level.setDayTime(18000); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.getInventory().clearContent(); // (as live: just back, nothing on him)
+        }
+        if (t[0] >= 20 && st1249At < 0) { BlockPos me = h.absolutePos(new BlockPos(9, 2, 3)); if (c.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(me)) > 0.6) { c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); check(t[0] < 200, "set up: not 6 off his bed at the night check: " + c.position()); return true; } st1249At = t[0]; c.tasks.add(new Task.GoTo(h.absolutePos(new BlockPos(70, 2, 3)), 0.8)); com.claudemod.director.ClaudeLife.sleepIfNightTest(c); } // (the walk off out of it, and the night check a second on, 6 off the bed, as live)
+        if (st1249At > 0 && c.isSleeping()) { int took = t[0] - st1249At; c.stopSleeping(); c.tasks.clear(); level.setDayTime(6000); check(took <= 400, "asleep, but " + took + " ticks after the night began 6 off his bed"); pass(stage, t, "night, 6 off his bed, a walk queued: in bed in " + took + " ticks"); }
+        else if (st1249At > 0 && t[0] - st1249At >= 600) { String q = c.currentTask + " " + c.tasks.stream().limit(4).toList(); c.tasks.clear(); level.setDayTime(6000); check(false, "night 6 off his bed with a walk queued: not asleep in 30 s (" + q + ")"); }
         return true;
     }
     private static int st739T;

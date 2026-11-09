@@ -10801,6 +10801,7 @@ public final class ClaudeBodyTest {
             case 1212: return st1212(stage, t, c, h, level, mock);
             case 1213: return st1213(stage, t, c, h, level, mock);
             case 1214: return st1214(stage, t, c, h, level, mock);
+            case 1215: return st1215(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -21381,6 +21382,33 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; level.setDayTime(1000);
             check(!q.contains("skill=collect, target=beef"), "at night, no armor, the kit's food asked as a beef hunt the night rule refuses: " + r + " / " + q);
             pass(stage, t, "night, no armor, " + "short of food: " + (r.length() > 110 ? r.substring(0, 110) : r));
+        }
+        return true;
+    }
+    /** Stage 1215 (D2D review 314, live 22:55:15 11-08: the kit priced "hunt hoglins (nearest 52 off)", the collect said "no hoglin within 48 blocks", 63 s and the same step again): collect's herd kept only animals within 6 of his height or by the surface, and in the Nether the "surface" is the roof. A hoglin 10 below him, 20 across, is in the hunt. */
+    private static boolean st1215(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(11400, 80, 7720);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); c.commandActive = false; }
+        nsTick(nl, c, o, t);
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 10) {
+            for (int x = -6; x <= 26; x++) for (int z = -6; z <= 6; z++) for (int y = -14; y <= 4; y++) nl.setBlock(o.offset(x, y, z), (y == -1 && x <= 6 || y == -11 || y == -14 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2); // (his ledge, and a floor 10 below)
+            nsKit(c); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.prefs.put("stay_close", "no");
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+            for (var m : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) m.discard();
+            var hog = EntityType.HOGLIN.create(nl); hog.moveTo(o.getX() + 20.5, o.getY() - 10, o.getZ() + 0.5, 0, 0); hog.setNoAi(true); hog.setPersistenceRequired(); hog.setImmuneToZombification(true); nl.addFreshEntity(hog);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+        }
+        if (t[0] == 15) { // (before nsTick's mob sweep at 20)
+            int hogs = nl.getEntitiesOfClass(net.minecraft.world.entity.monster.hoglin.Hoglin.class, new net.minecraft.world.phys.AABB(o).inflate(48)).size(); check(hogs == 1, "setup: " + hogs + " hoglins by him (dim " + c.level().dimension().location() + ")");
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "porkchop", 4);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (var m : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) m.discard();
+            for (int x = -6; x <= 26; x++) for (int z = -6; z <= 6; z++) for (int y = -14; y <= 4; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            nsHome(c, h, level);
+            check(!r.contains("no hoglin within"), "a hoglin 10 below him and 20 across left out of the hunt: " + r);
+            pass(stage, t, "the hoglin 10 below is in the hunt: " + (r.length() > 100 ? r.substring(0, 100) : r));
         }
         return true;
     }

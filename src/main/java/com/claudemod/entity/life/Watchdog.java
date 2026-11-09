@@ -633,7 +633,7 @@ public final class Watchdog {
         St s = st(g);
         int[] pl = s.placedAt.remove(p);
         if (pl != null && now(g) - pl[0] <= 20 * 60 && s.broken == pl[1] && items(g) <= pl[2] && s.made == pl[3])
-            fileOnce(g, "PLACE_BREAK", "PLACE_BREAK|" + p.asLong(), "put " + nm(st) + " down at " + p.toShortString() + " and broke it " + (now(g) - pl[0]) / 20 + " s later with nothing broken, made or gained between; doing " + (g.currentTask == null ? "-" : g.currentTask) + ", step " + (g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target()));
+            fileOnce(g, "PLACE_BREAK", "PLACE_BREAK|" + p.asLong(), "put " + nm(st) + " down at " + p.toShortString() + " and broke it " + (now(g) - pl[0]) / 20 + " s later with nothing broken, made or gained between; doing " + (g.currentTask == null ? "-" : g.currentTask + " (queued by " + ClaudeEntity.originOf(g.currentTask) + ")") + ", step " + (g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target()));
         boolean axe = st.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_AXE), pick = st.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_PICKAXE);
         if (!axe && !pick) return;
         var held = g.getMainHandItem(); float hs = held.getDestroySpeed(st), best = hs; String bestName = "";

@@ -5588,7 +5588,7 @@ public final class ClaudeLife {
             if (g.inventory.count(t -> t.is(Items.CHEST)) == 0 && g.inventory.count(t -> t.is(ItemTags.PLANKS)) >= 8) { boolean tbl = ensureCraftingTable(g, sl, Items.CHEST); Crafting.craft(sl, g.inventory, Items.CHEST, 1, tbl); }
             if (g.inventory.count(t -> t.is(Items.CHEST)) > 0) {
                 BlockPos c = placeNextTo(g, sl, Items.CHEST);
-                if (c != null) { g.storageChests.add(c.immutable()); g.tasks.addFirst(new Task.Deposit(c.immutable())); ClaudeMod.LOGGER.info("[Claude life] inventory full and no storage near: a chest at {} for it", c.toShortString()); return; }
+                if (c != null) { g.storageChests.add(c.immutable()); { java.util.List<Task> q0 = new java.util.ArrayList<>(g.tasks); int at0 = 0; for (int i = 0; i < q0.size(); i++) if (q0.get(i) instanceof Task.Place pl0 && pl0.pos().equals(c)) { at0 = i + 1; break; } q0.add(at0, new Task.Deposit(c.immutable())); g.tasks.clear(); g.tasks.addAll(q0); } /* (after the chest's own notch and placement: in front of them it found "no chest", and 5 s on a second chest went down; live 04:02 11-09, review 166, stage 1233) */ ClaudeMod.LOGGER.info("[Claude life] inventory full and no storage near: a chest at {} for it", c.toShortString()); return; }
             }
         }
         java.util.Set<Item> junk = JUNK;

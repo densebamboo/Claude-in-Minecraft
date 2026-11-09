@@ -10829,6 +10829,7 @@ public final class ClaudeBodyTest {
             case 1230: return st1230(stage, t, c, h, level, mock);
             case 1231: return st1231(stage, t, c, h, level, mock);
             case 1232: return st1232(stage, t, c, h, level, mock);
+            case 1233: return st1233(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -22157,6 +22158,29 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    /** Stage 1233 (D2D review 166, live 04:02:14-04:02:42 11-09 at -365,-58,-22 down his mine: pack full, no storage near: a notch and a chest queued for it, but the deposit was put in front of them, found "no chest", and 5 s later a second notch and chest; the first went in after as a stray single and was picked back up): down his mine, pack full of junk, two chests on him. One chest goes in and the junk goes into it. */
+    private static boolean st1233(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            var b = nightMine(h, level); c.prefs.put("mine_model", "blueprint"); c.blueprint = b; com.claudemod.director.ClaudeLife.bpSync(c);
+            c.tasks.clear(); c.skillQueue.clear(); if (c.currentTask != null) c.dropCurrent = true; c.storageChests.clear();
+            BlockPos me = b.rows().get(4).first(); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5);
+            c.playerGoal = "beat the ender dragon"; c.prefs.put("stay_close", "no"); level.setDayTime(6000); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.CHEST, 2));
+            c.getInventory().add(new ItemStack(Items.RAW_GOLD, 5)); c.getInventory().add(new ItemStack(Items.REDSTONE, 35)); c.getInventory().add(new ItemStack(Items.RAW_IRON, 6)); for (int i = 0; i < 40; i++) c.getInventory().add(new ItemStack(i % 3 == 0 ? Items.RAW_IRON : i % 3 == 1 ? Items.REDSTONE : Items.RAW_GOLD, 64)); // (as live: a full pack with no junk chest in reach, so the "no storage near" chest)
+            com.claudemod.director.ClaudeLife.dumpJunkTest(c); { java.util.List<Task> q1 = new java.util.ArrayList<>(c.tasks); int dep = -1, pl = -1; for (int i = 0; i < q1.size(); i++) { if (dep < 0 && q1.get(i) instanceof Task.Deposit) dep = i; if (pl < 0 && q1.get(i) instanceof Task.Place p0 && p0.item() == Items.CHEST) pl = i; }
+                if (dep >= 0 && pl >= 0 && dep < pl) { String q = q1.stream().limit(6).toList().toString(); cleanup1233(c, level); check(false, "the deposit queued in front of its own chest's placement (live 04:02: \"is no chest\", the notch 24 off, a second chest 5 s on): " + q); } }
+        }
+        if (t[0] > 10 && c.blueprint != null) {
+            int chests = 0; BlockPos any = null; for (BlockPos q : BlockPos.betweenClosed(c.blockPosition().offset(-12, -6, -12), c.blockPosition().offset(12, 6, 12))) if (level.getBlockState(q).is(Blocks.CHEST)) { chests++; any = q.immutable(); }
+            boolean stored = any != null && level.getBlockEntity(any) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity cb && !cb.isEmpty();
+            if (chests > 1) { String q = c.tasks.stream().limit(5).toList().toString(); cleanup1233(c, level); check(false, "pack full down his mine: " + chests + " chests put down for it: " + q); }
+            if (stored && t[0] - 10 >= 200) { int left = c.getInventory().countItem(Items.CHEST); cleanup1233(c, level); check(left == 1, "a chest picked back up after: " + left + " on him"); pass(stage, t, "pack full down his mine: one chest put in a notch and the junk in it"); }
+            if (t[0] - 10 >= 600) { String q = "chests " + chests + " stored " + stored + " tasks " + c.tasks.stream().limit(5).toList(); cleanup1233(c, level); check(false, "pack full down his mine: nothing stored in 30 s (" + q + ")"); }
+        }
+        return true;
+    }
+    private static void cleanup1233(ClaudeEntity c, ServerLevel level) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; for (BlockPos q : BlockPos.betweenClosed(c.blockPosition().offset(-12, -6, -12), c.blockPosition().offset(12, 6, 12))) if (level.getBlockState(q).is(Blocks.CHEST)) { if (level.getBlockEntity(q) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity cb) cb.clearContent(); level.setBlock(q, Blocks.STONE.defaultBlockState(), 2); } c.storageChests.clear(); c.getInventory().clearContent(); }
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

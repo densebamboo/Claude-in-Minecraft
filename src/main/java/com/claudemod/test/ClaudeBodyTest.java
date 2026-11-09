@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1192: return st1192(stage, t, c, h, level, mock);
             case 1191: return st1191(stage, t, c, h, level, mock);
             case 1190: return st1190(stage, t, c, h, level, mock);
             case 1187: return st1187(stage, t, c, h, level, mock);
@@ -16286,6 +16287,34 @@ public final class ClaudeBodyTest {
             check(f != null, "standing by a fortress on record in " + here + ": the fortress went off his atlas (a fortress is no biome, \"only a sliver\" never fits it)");
             check(b == null, "the " + other + " spot 2 off in " + here + " stayed: the sliver check for real biomes is gone");
             pass(stage, t, "the fortress at " + f.toShortString() + " kept in " + here + "; the " + other + " sliver dropped");
+        }
+        return true;
+    }
+    /** Stage 1192 (D2D 11-08, highway family A: 113 "no highway of his on record" with him by the highway and the goal 100+ off; NetherRoute.highway() left the road only within 8 of the goal, so a goal past or beside its end got no highway at all, and the search went straight across under it): 925's road, the goal 60 past its end in the rock, and a search that sees little (as over the live Nether's miles). The route rides the road to its end and plans the rest from there. */
+    private static boolean st1192(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(11900, 64, 7920), him = o.offset(14, 0, 30), goal = o.offset(0, 0, -60);
+        java.util.Set<BlockPos> W = new java.util.LinkedHashSet<>(); for (int z = 0; z <= 31; z++) for (int x = 0; x <= 1; x++) W.add(o.offset(x, 0, z)); for (int x = 0; x <= 16; x++) for (int z = 30; z <= 31; z++) W.add(o.offset(x, 0, z));
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) for (int k = 0; k <= 32; k += 16) for (int m = 0; m <= 32; m += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, m)), 2, o.offset(k, 0, m));
+        if (t[0] == 12) {
+            for (int x = -8; x <= 24; x++) for (int z = -8; z <= 40; z++) for (int y = -3; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.NETHERRACK.defaultBlockState(), 2);
+            for (BlockPos p : W) { nl.setBlock(p.below(), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); for (int y = 0; y <= 2; y++) nl.setBlock(p.above(y), Blocks.AIR.defaultBlockState(), 2); nl.setBlock(p.above(3), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); }
+            com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(0, -1, 0), o.offset(0, -1, 31), net.minecraft.core.Direction.Axis.Z, 2);
+            com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(0, -1, 30), o.offset(16, -1, 30), net.minecraft.core.Direction.Axis.X, 2);
+            c.teleportTo(nl, him.getX() + 0.5, him.getY(), him.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 15) com.claudemod.entity.nav.Route.forgetTrail(c);
+        if (t[0] == 18) {
+            com.claudemod.entity.nav.NetherRoute.testBudget = 10; com.claudemod.entity.nav.NetherRoute.Plan p; try { p = com.claudemod.entity.nav.NetherRoute.plan(c, nl, him, goal); } finally { com.claudemod.entity.nav.NetherRoute.testBudget = 0; }
+            int on = 0; if (p != null) for (BlockPos q : p.legs()) if (W.contains(q)) on++;
+            BlockPos last = p == null || p.legs().isEmpty() ? null : p.legs().get(p.legs().size() - 1);
+            String why = p == null ? "no plan" : p.legs().size() + " legs, " + on + " on the road, ~" + (int) p.seconds() + " s, partial " + p.partial() + ": " + p.legs();
+            for (int x = -8; x <= 24; x++) for (int z = -8; z <= 40; z++) for (int y = -3; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            com.claudemod.entity.life.PortalMap.net(c).segments.clear();
+            check(last != null && last.distSqr(o) <= 4 * 4 && on >= 4, "the goal 60 past his road's end: the route doesn't ride the road to its end (" + why + ")");
+            check(p.partial(), "the road's end is 60 off the goal: the plan must stop there and plan the rest from it (" + why + ")");
+            pass(stage, t, "along the road to its end, the rest planned from there: " + why);
         }
         return true;
     }

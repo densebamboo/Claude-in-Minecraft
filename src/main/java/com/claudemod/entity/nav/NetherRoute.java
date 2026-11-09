@@ -55,7 +55,7 @@ public final class NetherRoute {
         if (tp != null && tp.seconds() <= straight * com.claudemod.entity.life.Weights.w("nether.trail_ok_ratio", 1.5)) return tp;
         Plan sp = search(g, level, from, to, false);
         if (tp == null) return sp;
-        double est = sp == null ? Double.MAX_VALUE : sp.partial() && !sp.legs().isEmpty() ? sp.seconds() + h(sp.legs().get(sp.legs().size() - 1).getX(), sp.legs().get(sp.legs().size() - 1).getY(), sp.legs().get(sp.legs().size() - 1).getZ(), to) : sp.seconds();
+        double est = sp == null ? Double.MAX_VALUE : sp.partial() && !sp.legs().isEmpty() ? sp.seconds() + h(sp.legs().get(sp.legs().size() - 1).getX(), sp.legs().get(sp.legs().size() - 1).getY(), sp.legs().get(sp.legs().size() - 1).getZ(), to) * com.claudemod.entity.life.PortalMap.NETHER_OFF_ROAD : sp.seconds(); // (the rest past what it read, priced as the highway's way off is: ground with no way of his yet)
         if (tp.seconds() < est) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: his own way, ~{} s, over the search's ~{} s{} (NetherRoute.plan)", from.toShortString(), to.toShortString(), (int) tp.seconds(), sp == null ? "-" : String.valueOf((int) est), sp != null && sp.partial() ? " (part way, the rest at a sprint)" : ""); return tp; }
         return sp;
     }
@@ -89,7 +89,7 @@ public final class NetherRoute {
         Plan s = search(g, level, from, best, true); if (s == null || s.partial()) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: onto his highway at {}: the search {} (NetherRoute.ontoHighway)", from.toShortString(), to.toShortString(), best.toShortString(), s == null ? "found no way" : "got only part way, to " + (s.legs().isEmpty() ? "-" : s.legs().get(s.legs().size() - 1).toShortString())); return null; }
         List<BlockPos> legs = new ArrayList<>(s.legs()); legs.addAll(bh.legs());
         com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: onto his highway at {} (~{} s: {} dug, {} put, {} up), then along it ({} legs, ~{} s) (NetherRoute.ontoHighway)", from.toShortString(), to.toShortString(), best.toShortString(), (int) s.seconds(), s.digs(), s.puts(), s.climb(), bh.legs().size(), (int) bh.seconds());
-        return new Plan(legs, false, s.seconds() + bh.seconds(), s.digs(), s.puts(), s.climb() + bh.climb(), s.nodes(), s.ms() + bh.ms());
+        return new Plan(legs, bh.partial(), s.seconds() + bh.seconds(), s.digs(), s.puts(), s.climb() + bh.climb(), s.nodes(), s.ms() + bh.ms());
     }
 
     static Plan highway(ClaudeEntity g, BlockPos from, BlockPos to, boolean log) {
@@ -100,7 +100,7 @@ public final class NetherRoute {
         pt.add(from); on.add(-1); pt.add(to); on.add(-1);
         for (int i = 0; i < segs.size(); i++) { var sg = segs.get(i);
             pt.add(feet(sg, sg.lo())); on.add(i); pt.add(feet(sg, sg.hi())); on.add(i);
-            for (BlockPos p : new BlockPos[] {from, to}) { BlockPos q = feet(sg, Math.max(sg.lo(), Math.min(sg.hi(), along(sg, p)))); if (Math.abs(across(sg, p) - sg.line()) <= sg.width + 1 && Math.abs(p.getY() - q.getY()) <= 3 && Math.sqrt(p.distSqr(q)) <= (p == from ? 4 : 8)) { pt.add(q); on.add(i); } } }
+            for (BlockPos p : new BlockPos[] {from, to}) { BlockPos q = feet(sg, Math.max(sg.lo(), Math.min(sg.hi(), along(sg, p)))); if (p == to || Math.abs(across(sg, p) - sg.line()) <= sg.width + 1 && Math.abs(p.getY() - q.getY()) <= 3 && Math.sqrt(p.distSqr(q)) <= (p == from ? 4 : 8)) { pt.add(q); on.add(i); } } }
         for (int i = 0; i < segs.size(); i++) for (int e = 0; e < 2; e++) { var si = segs.get(i); BlockPos end = feet(si, e == 0 ? si.lo() : si.hi()); // a T: a road's end by another's side (a path joined to his highway part way along it)
             for (int j = 0; j < segs.size(); j++) { if (j == i) continue; var sj = segs.get(j); BlockPos q = feet(sj, Math.max(sj.lo(), Math.min(sj.hi(), along(sj, end)))); if (q.distSqr(end) <= 36) { pt.add(q); on.add(j); } } }
         int n = pt.size(); double[] dist = new double[n]; int[] prev = new int[n]; boolean[] done = new boolean[n]; java.util.Arrays.fill(dist, Double.MAX_VALUE); java.util.Arrays.fill(prev, -1); dist[0] = 0;
@@ -108,6 +108,7 @@ public final class NetherRoute {
             for (int v = 0; v < n; v++) { if (v == u || done[v]) continue; BlockPos a = pt.get(u), b = pt.get(v); double d = Math.sqrt(a.distSqr(b)), c;
                 if (on.get(u) >= 0 && on.get(u).equals(on.get(v))) c = d * WALK; // along one segment
                 else if (u == 0 && on.get(v) >= 0 && d <= 4 || v == 1 && on.get(u) >= 0 && d <= 8) c = d * WALK + Math.max(0, b.getY() - a.getY()) * 0.5; // onto it by him, off it by the goal
+                else if (v == 1 && on.get(u) >= 0) c = h(a.getX(), a.getY(), a.getZ(), b) * com.claudemod.entity.life.PortalMap.NETHER_OFF_ROAD; // off it anywhere: the rest priced as Nether ground with no way of his yet (the straight line alone is never dearer than the road: every plan left it at his feet), and planned from there (D2D 11-08: off only within 8 of the goal, a goal past the road's end got no highway at all; stage 1192)
                 else if (on.get(u) >= 0 && on.get(v) >= 0 && d <= 6) c = d * WALK + Math.max(0, b.getY() - a.getY()) * 0.5; // a join: the turn, a staircase between two runs
                 else c = -1;
                 if (c >= 0 && dist[u] + c < dist[v]) { dist[v] = dist[u] + c; prev[v] = u; } } }
@@ -117,9 +118,10 @@ public final class NetherRoute {
         for (int i = 1; i < path.size() - 1; i++) { BlockPos a = pt.get(path.get(i - 1)), b = pt.get(path.get(i)); climb += Math.max(0, b.getY() - a.getY());
             if (on.get(path.get(i - 1)) >= 0 && on.get(path.get(i - 1)).equals(on.get(path.get(i)))) { int len = (int) Math.round(Math.sqrt(a.distSqr(b))); for (int k = 8; k < len; k += 8) legs.add(new BlockPos(a.getX() + (b.getX() - a.getX()) * k / len, b.getY(), a.getZ() + (b.getZ() - a.getZ()) * k / len)); }
             if (legs.isEmpty() || !legs.get(legs.size() - 1).equals(b)) legs.add(b); }
-        if (legs.isEmpty()) return null;
+        boolean offRoad = Math.sqrt(pt.get(path.get(path.size() - 2)).distSqr(to)) > 8; // (the road ends short of the goal: the plan stops at the exit, the rest planned from there)
+        if (legs.isEmpty() || offRoad && legs.get(legs.size() - 1).distSqr(from) <= 8 * 8) return null; // (already at the exit: nothing to ride)
         if (log) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: along his highway on record, {} legs, ~{} s (the straight sprint ~{} s) (NetherRoute.highway)", from.toShortString(), to.toShortString(), legs.size(), (int) dist[1], (int) h(from.getX(), from.getY(), from.getZ(), to));
-        return new Plan(legs, false, dist[1], 0, 0, climb, 0, (System.nanoTime() - t0) / 1000000);
+        return new Plan(legs, offRoad, dist[1], 0, 0, climb, 0, (System.nanoTime() - t0) / 1000000);
     }
     static int along(com.claudemod.entity.life.PortalMap.Segment s, BlockPos p) { return s.axis == net.minecraft.core.Direction.Axis.X ? p.getX() : p.getZ(); }
     static int across(com.claudemod.entity.life.PortalMap.Segment s, BlockPos p) { return s.axis == net.minecraft.core.Direction.Axis.X ? p.getZ() : p.getX(); }

@@ -1088,8 +1088,9 @@ public final class ClaudeLife {
             Item bedItem = g.inventory.find(s -> s.is(ItemTags.BEDS)).getItem();
             BlockPos foot = pod.stand().relative(pod.dir()), head = foot.relative(pod.dir());
             g.tasks.add(new Task.GoTo(pod.stand(), 0.6));
+            for (BlockPos q : pod.fill()) if (q.getY() == foot.getY()) { g.tasks.add(new Task.Place(q, fillItem)); g.pillarBlocks.add(q); } // the walls at the bed's own level first: once the bed is down, the cell past its far end shows only the floor's top across the bed (stage 300, red since 740da158's stricter faces)
             g.tasks.add(new Task.Place(foot, bedItem, pod.dir()));
-            for (BlockPos q : pod.fill()) { g.tasks.add(new Task.Place(q, fillItem)); g.pillarBlocks.add(q); } // (cover blocks: taken back down once he's up and about)
+            for (BlockPos q : pod.fill()) if (q.getY() != foot.getY()) { g.tasks.add(new Task.Place(q, fillItem)); g.pillarBlocks.add(q); } // (cover blocks: taken back down once he's up and about)
             if (pod.torchAt() != null) g.tasks.add(new Task.WallTorch(pod.torchAt(), pod.torchWall()));
             podBeds().add(head);
             g.skillQueue.addFirst(new Skills.Step("sleep", "at " + head.getX() + " " + head.getY() + " " + head.getZ(), 1));

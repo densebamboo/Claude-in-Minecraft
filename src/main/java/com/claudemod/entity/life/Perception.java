@@ -60,6 +60,7 @@ public final class Perception {
         Vec3 turnTo; int turnTick = -1000;
         final java.util.Map<java.util.UUID, double[]> lookedFor = new java.util.HashMap<>(); // per source he turned to and didn't see: x, y, z, distance then
         int turns; // (tests: how many times a sound turned him)
+        final Map<UUID, Integer> lookedEmpty = new HashMap<>(); // a creeper's last spot seen without it, when (it makes no sound standing: only that says it left)
     }
     private static final Map<UUID, Mind> minds = new HashMap<>();
     private static final List<WeakReference<ClaudeEntity>> listeners = new ArrayList<>();
@@ -98,7 +99,7 @@ public final class Perception {
         if (now % 20 == 17) earLava(g, level); // (the lava he can hear, each second: the client's own sampling)
         if (now % 4 != 0) return;
         lookNow(g);
-        if (now % 200 == 0) { m.seen.values().removeIf(c -> now - c.tick > 20 * 60); m.heard.values().removeIf(c -> now - c.tick > 20 * 60); m.felt.values().removeIf(c -> now - c.tick > 20 * 60); }
+        if (now % 200 == 0) { int keep = (int) (20 * Math.max(60, Weights.w("perception.creeper_memory_s", 120))); m.seen.values().removeIf(c -> now - c.tick > (c.type() == EntityType.CREEPER ? keep : 20 * 60)); m.heard.values().removeIf(c -> now - c.tick > (c.type() == EntityType.CREEPER ? keep : 20 * 60)); m.felt.values().removeIf(c -> now - c.tick > 20 * 60); m.lookedEmpty.values().removeIf(k -> now - k > keep); }
     }
 
     /** A look round where his head points, now (each 4 ticks, and when he turns to set off somewhere). */
@@ -119,7 +120,17 @@ public final class Perception {
             if (sees(level, e, eye, f, r, u)) m.seen.put(e.getUUID(), new Contact(e.getUUID(), e.getType(), e.position(), now, How.SEEN, null));
             else if (e.distanceTo(g) <= TOUCH) m.felt.put(e.getUUID(), new Contact(e.getUUID(), e.getType(), e.position(), now, How.FELT, null));
         }
+        for (UUID id : new ArrayList<>(m.heard.keySet())) checkSpot(level, m, id, eye, f, r, u, now);
+        for (UUID id : new ArrayList<>(m.seen.keySet())) checkSpot(level, m, id, eye, f, r, u, now);
     }
+    /** A creeper's last spot in his view, clear to it, and no creeper seen this look: the spot is empty, it has moved on. */
+    private static void checkSpot(ServerLevel level, Mind m, UUID id, Vec3 eye, Vec3 f, Vec3 r, Vec3 u, int now) {
+        Contact c = null; for (Contact k : new Contact[] {m.seen.get(id), m.heard.get(id), m.felt.get(id)}) if (k != null && (c == null || k.tick() > c.tick())) c = k; // (its latest spot only: an older one is empty because it moved)
+        if (c == null || c.type() != EntityType.CREEPER || c.tick() >= now) return;
+        Vec3 p = c.at().add(0, 0.9, 0); if (inView(eye, f, r, u, p) && clear(level, eye, p)) m.lookedEmpty.put(c.id(), now);
+    }
+    /** Where he last sensed it, however long ago (null: never). */
+    public static Vec3 lastAt(ClaudeEntity g, Entity e) { Mind m = mind(g); Contact best = null; for (Contact c : new Contact[] {m.seen.get(e.getUUID()), m.heard.get(e.getUUID()), m.felt.get(e.getUUID())}) if (c != null && (best == null || c.tick > best.tick)) best = c; return best == null ? null : best.at; }
 
     /** In his view right now: in the screen's frustum, within its type's range, nothing opaque between (any of its eye, middle, feet). */
     static boolean sees(ServerLevel level, Entity e, Vec3 eye, Vec3 f, Vec3 r, Vec3 u) {
@@ -246,7 +257,10 @@ public final class Perception {
             if (mob instanceof net.minecraft.world.entity.NeutralMob nm && !nm.isAngryAt(g)) continue; // (a calm zombified piglin or enderman is no threat: World 17 05:31, 3+ min in his hole at 2 HP for one heard 7 off, stage 764)
             if (mob instanceof net.minecraft.world.entity.monster.Spider && mob.getTarget() != g && mob.getLightLevelDependentMagicValue() >= 0.5f) continue; // (a spider in the light starts nothing, vanilla's own 0.5: World 17 04:24, 16 min on his tower at 3 HP for one wandering in the sun, STUCK 04:27, stage 1031)
             for (Contact c : new Contact[] {m.seen.get(e.getUUID()), m.heard.get(e.getUUID()), m.felt.get(e.getUUID())}) if (c != null && (last == null || c.tick > last.tick)) last = c;
-            if (last != null && now - last.tick <= Math.max(HEARD_MEMORY, mob.getAmbientSoundInterval() * 3) && last.at.distanceTo(g.position()) <= r) out.add(mob);
+            boolean silent = mob instanceof net.minecraft.world.entity.monster.Creeper; // (no sound standing: three quiet ambient intervals say nothing about it leaving; World 17 02:50 11-09, forgotten 12 s after it was heard at his pillar's foot, he dug down onto it; stage 1148)
+            if (silent && last != null && m.lookedEmpty.getOrDefault(e.getUUID(), -1) > last.tick) continue; // (its spot seen empty since: gone)
+            int mem = silent ? (int) (20 * Weights.w("perception.creeper_memory_s", 120)) : Math.max(HEARD_MEMORY, mob.getAmbientSoundInterval() * 3); // shortcut: a capped wait, not a peek over the edge of his cover, when its spot is out of his sight; upgrade with an edge-lean move
+            if (last != null && now - last.tick <= mem && last.at.distanceTo(g.position()) <= r) out.add(mob);
         }
         return out;
     }

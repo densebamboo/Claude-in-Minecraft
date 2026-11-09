@@ -10594,6 +10594,7 @@ public final class ClaudeBodyTest {
             case 1143: return st1143(stage, t, c, h, level, mock);
             case 1146: return st1146(stage, t, c, h, level, mock);
             case 1147: return st1147(stage, t, c, h, level, mock);
+            case 1148: return st1148(stage, t, c, h, level, mock);
             case 999: return st999(stage, t, c, h, level, mock);
             case 997: return st997(stage, t, c, h, level, mock);
             case 996: return st996(stage, t, c, h, level, mock);
@@ -18615,6 +18616,41 @@ public final class ClaudeBodyTest {
             check(!(c.currentTask instanceof Task.Flee) || !st766Sk.isAlive(), "running from one skeleton at " + (int) c.getHealth() + " HP with a sword (its arrows in his back)");
             if (!st766Sk.isAlive()) { com.claudemod.entity.life.DeathLog.reset(c); c.lastStep = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "one skeleton fought, not run from: dead in " + (t[0] - st766Start) / 20 + " s, his low " + st766Low); }
             else check(t[0] - st766Start < 20 * 40, "40 s and the skeleton still up (his low " + st766Low + ", doing " + c.currentTask + ")");
+        }
+        return true;
+    }
+    private static int st1148Start, st1148B; private static net.minecraft.world.entity.monster.Creeper st1148C;
+    /** Stage 1148 (death 02:50 11-09, -52,65,61): on his 4-high dirt pillar at 5 HP, no food, a creeper heard at its foot. "staying in his cover: Creeper heard about 4 off
+     *  lately" at 02:49:58.9, then 1 s later "none in sight, heard or sensed lately: out after 128 s"; he dug down onto it and it went off. Perception.lately forgets a mob
+     *  three ambient-sound intervals after the last contact (12 s for a creeper), but a creeper waiting makes no sound at all: its silence says nothing about it leaving. */
+    private static boolean st1148(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1148Start = 0; st1148B = 0; if (st1148C != null) st1148C.discard(); st1148C = null; }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(60))) if (e != st1148C) e.discard();
+        if (t[0] == 10) {
+            for (int x = -16; x <= 32; x++) for (int z = -16; z <= 32; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 24; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (int yy = 0; yy < 4; yy++) { level.setBlock(me.above(yy), Blocks.DIRT.defaultBlockState(), 2); c.pillarBlocks.add(me.above(yy).immutable()); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.WOODEN_SWORD)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 32)); c.getInventory().add(new ItemStack(Items.DIRT, 5));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.teleportTo(me.getX() + 0.5, me.getY() + 4, me.getZ() + 0.5); c.setHealth(5); c.getFoodData().setFoodLevel(5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null; mock[0].teleportTo(me.getX() + 0.5, me.getY() + 45, me.getZ() + 0.5);
+            level.setDayTime(1000); // (morning: no night hold, the wait's own reasons decide)
+            st1148C = EntityType.CREEPER.create(level); st1148C.moveTo(me.getX() + 3.5, me.getY(), me.getZ() + 0.5, 0, 0); st1148C.setNoAi(true); st1148C.setPersistenceRequired(); level.addFreshEntity(st1148C); // (silent, at the pillar's foot, as a waiting creeper is)
+        }
+        if (t[0] == 12) { c.setXRot(55f); c.setYRot(-90f); c.setYHeadRot(-90f); com.claudemod.entity.life.Perception.lookNow(c); check(com.claudemod.entity.life.Perception.seesNow(c, st1148C), "the creeper 3 out never seen"); }
+        if (t[0] == 14) { st1148C.moveTo(me.getX() + 1.5, me.getY(), me.getZ() + 0.5, 0, 0); level.playSound(null, st1148C, net.minecraft.sounds.SoundEvents.GRASS_STEP, net.minecraft.sounds.SoundSource.HOSTILE, 1f, 1f); c.setXRot(0f); c.setYRot(90f); c.setYHeadRot(90f); com.claudemod.entity.life.Perception.lookNow(c); c.work.towerCoverForTest(me, 4, new Task.Wait(20 * 60, false)); st1148Start = t[0]; } // (seen once, then looking out level: it's under him, out of his view)
+        if (st1148Start > 0 && st1148B == 0) {
+            check(c.isAlive(), "dead on his pillar");
+            check(c.getY() >= me.getY() + 3.5 && c.pillarBlocks.stream().allMatch(b -> !level.getBlockState(b).isAir()), "down off his pillar onto the creeper at its foot after " + (t[0] - st1148Start) / 20 + " s (it never made a sound to say it left)");
+            if (t[0] - st1148Start >= 20 * 30) { st1148C.moveTo(me.getX() + 4.5, me.getY(), me.getZ() + 0.5, 0, 0); level.playSound(null, st1148C, net.minecraft.sounds.SoundEvents.GRASS_STEP, net.minecraft.sounds.SoundSource.HOSTILE, 1f, 1f); st1148B = t[0]; } // (now it walks out to where he can see the ground, heard there)
+        }
+        if (st1148B > 0) {
+            if (t[0] == st1148B + 4) st1148C.moveTo(me.getX() + 30.5, me.getY(), me.getZ() + 0.5, 0, 0); // (and on, out of his range without a sound)
+            boolean down = c.getY() < me.getY() + 3.5 || c.pillarBlocks.stream().anyMatch(b -> level.getBlockState(b).isAir()) || !(c.currentTask instanceof Task.Wait);
+            if (down || t[0] - st1148B >= 20 * 20) {
+                st1148C.discard(); st1148C = null; for (int yy = 0; yy < 4; yy++) { level.setBlock(me.above(yy), Blocks.AIR.defaultBlockState(), 2); c.pillarBlocks.remove(me.above(yy)); } c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+                check(down, "the creeper's spot 4 out in plain view and empty for 20 s: still up his pillar (a look settles it)");
+                pass(stage, t, "30 s up while it waited at the foot; out " + (t[0] - st1148B) / 20 + " s after its spot was empty");
+            }
         }
         return true;
     }

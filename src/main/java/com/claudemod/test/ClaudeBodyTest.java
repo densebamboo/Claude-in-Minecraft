@@ -10774,6 +10774,7 @@ public final class ClaudeBodyTest {
             case 1206: return st1206(stage, t, c, h, level, mock);
             case 1204: return st1204(stage, t, c, h, level, mock);
             case 1207: return st1207(stage, t, c, h, level, mock);
+            case 1208: return st1208(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -20932,6 +20933,41 @@ public final class ClaudeBodyTest {
             check(!in2, "a fill after the ruling went in (the ruling held only against the one task)");
             check(kept, "the planner doesn't see the cell ruled open");
             pass(stage, t, "fill / dig / fill with another block: refereed once, the cell ruled open, every fill after refused, the planner told");
+        }
+        return true;
+    }
+    /** Stage 1208 (D2D review 215, live 19:01 11-08: build_highway queued a Break on his own crafting table at -2,61,32 in its rows, doBreak refused "stations stay put" each time, queued again 3 times in 2 s): his own table in his highway's cells is his to take up, as in his mine's walkway. */
+    private static BlockPos s1208At; private static int s1208T0;
+    private static boolean st1208(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(11400, 80, 7620);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); s1208At = null; }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(0, 0, 20)), 2, o.offset(0, 0, 20));
+        if (t[0] == 10) {
+            for (int x = -6; x <= 6; x++) for (int z = -4; z <= 30; z++) for (int y = -3; y <= 6; y++) nl.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2);
+            for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, 0), x == -1 || x == 2 || y == -1 || y == 3 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+            nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 1.5, 0f, 0f);
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o, "him", "lit");
+        }
+        if (t[0] > 20) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 20) { c.skillQueue.clear(); c.tasks.clear(); com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", o.getX() + " " + o.getY() + " " + (o.getZ() + 26), 1); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (int z = 3; z <= 6 && s1208At == null; z++) for (int x = -2; x <= 2 && s1208At == null; x++) { BlockPos q = o.offset(x, 0, z); if (com.claudemod.entity.life.Highway.owns(c, q) && nl.getBlockState(q).isAir()) s1208At = q.immutable(); }
+            check(s1208At != null, "no highway cell by the portal (plan " + com.claudemod.entity.life.Highway.plan(c) + ")");
+            nl.setBlock(s1208At, Blocks.CRAFTING_TABLE.defaultBlockState(), 3); c.myStations.add(s1208At);
+            for (int i = 0; i < c.getInventory().getContainerSize(); i++) if (c.getInventory().getItem(i).is(Items.CRAFTING_TABLE)) c.getInventory().setItem(i, ItemStack.EMPTY);
+            c.tasks.add(new Task.Break(s1208At)); s1208T0 = t[0]; // (the highway's dig of that cell, as build_highway queues it)
+        }
+        if (s1208At != null && t[0] > s1208T0 && t[0] <= s1208T0 + 200) {
+            boolean gone = !nl.getBlockState(s1208At).is(Blocks.CRAFTING_TABLE); int got = c.getInventory().countItem(Items.CRAFTING_TABLE);
+            if (gone && got > 0 || t[0] == s1208T0 + 200) {
+                c.tasks.clear(); c.skillQueue.clear(); com.claudemod.entity.life.Highway.reset(c);
+                for (int x = -6; x <= 6; x++) for (int z = -4; z <= 30; z++) for (int y = -3; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+                com.claudemod.entity.life.PortalMap.net(c).portals.clear(); c.myStations.remove(s1208At);
+                check(gone && got > 0, "his own table in his highway's cell " + s1208At.toShortString() + " kept standing (gone " + gone + ", tables on him " + got + ")");
+                nsHome(c, h, level); pass(stage, t, "his own table in the highway's cell taken up, back in his pack, in " + (t[0] - s1208T0) + " ticks");
+            }
         }
         return true;
     }

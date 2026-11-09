@@ -10864,6 +10864,7 @@ public final class ClaudeBodyTest {
             case 1258: return st1258(stage, t, c, h, level, mock);
             case 1259: return st1259(stage, t, c, h, level, mock);
             case 1260: return st1260(stage, t, c, h, level, mock);
+            case 1261: return st1261(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -22875,6 +22876,12 @@ public final class ClaudeBodyTest {
             if (t[0] >= 130) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setAirSupply(300); pass(stage, t, "held up at the roof for 6 s of the dig, y " + String.format("%.2f", c.getY() - o.getY()) + ", task " + c.currentTask); }
         }
         return true;
+    }
+
+    /** Stage 1011 with the HEALTH FALLING watch firing again 6 ticks into the dug way to air: a second drowningOut re-queued the way and restarted its stall clock, the swim-up reflex held off 50-60 ticks (1011 flaky on that timing, 11-09). */
+    private static boolean st1261(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 20 && st1011T > 0) com.claudemod.entity.life.Watchdog.drowningOutForTest(c);
+        return st1011(stage, t, c, h, level, mock);
     }
 
     private static int st739T;

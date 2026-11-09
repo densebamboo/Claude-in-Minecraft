@@ -814,6 +814,7 @@ public final class Watchdog {
     public static String drowningOutForTest(ClaudeEntity g) { return drowningOut(g); } // (tests: the HEALTH FALLING drowning branch at the moment it fires)
     static String drowningOut(ClaudeEntity g) {
         if (!g.isEyeInFluid(net.minecraft.tags.FluidTags.WATER) || g.getAirSupply() > 0 || !(g.level() instanceof ServerLevel lv)) return "";
+        if (airRoute(g)) { St s1 = st(g); return "; drowning: the dug way to air at " + (s1.airRouteTo == null ? "-" : s1.airRouteTo.toShortString()) + " already under way"; } // (one at a time: HEALTH FALLING firing mid-way re-queued it and restarted its stall clock, the swim-up reflex held off twice as long: stage 1261)
         BlockPos me = BlockPos.containing(g.getEyePosition()), best = null;
         for (BlockPos q : BlockPos.betweenClosed(me.offset(-6, -3, -6), me.offset(6, 6, 6))) // the nearest cell he can breathe in: air, with air over it
             if (lv.getBlockState(q).isAir() && lv.getBlockState(q.above()).isAir() && (best == null || q.distSqr(me) < best.distSqr(me))) best = q.immutable();

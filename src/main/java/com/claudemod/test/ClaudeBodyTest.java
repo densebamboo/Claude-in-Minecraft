@@ -10768,6 +10768,8 @@ public final class ClaudeBodyTest {
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
+            case 1203: return st1203(stage, t, c, h, level, mock);
+            case 1206: return st1206(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -20767,6 +20769,53 @@ public final class ClaudeBodyTest {
             nsHome(c, h, level); pass(stage, t, "his table taken up out of his wall, the cell patched with " + patch + " in " + (t[0] - 20) + " ticks");
         }
         if (t[0] == 20 + 400) check(false, "the table in his wall still there: " + level.getBlockState(st1001P) + " at " + st1001P.toShortString() + ", tables on him " + c.getInventory().countItem(Items.CRAFTING_TABLE) + ", tasks " + c.tasks + " / " + c.currentTask);
+        return true;
+    }
+    private static int st1203Flips; private static boolean[] st1203Was = new boolean[64];
+    private static boolean st1203(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a tall trunk and only oak logs on him for his tower: the chop counted his own tower log beside the trunk as the tree's, broke it out from under him, towered again (live 16:20 11-08, review 57: oak_log put down and broken a second later up -11,70-73,-62, "won't come down from here", the top left): his tower is no part of the tree
+        BlockPos base = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; st1203Flips = 0; st1203Was = new boolean[64]; }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) e.discard();
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(1000);
+            for (int y = 0; y < 8; y++) level.setBlock(base.above(y), Blocks.OAK_LOG.defaultBlockState(), 2); // a trunk 8 tall
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_AXE)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 24)); // logs his only blocks
+            c.teleportTo(base.getX() - 0.5, base.getY(), base.getZ() + 0.5); mock[0].teleportTo(base.getX() + 0.5, base.getY() + 30, base.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.pillarBlocks.clear();
+            c.tasks.add(new Task.ChopTree(base.immutable(), 0)); c.tasks.add(new Task.Pickup(80));
+        }
+        if (t[0] > 12) {
+            int logs = 0; for (int y = 0; y < 8; y++) if (level.getBlockState(base.above(y)).is(Blocks.OAK_LOG)) logs++;
+            { int k = 0; for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) for (int y = 0; y < 4; y++) { if (dx == 0 && dz == 0 && y > 0) { continue; } BlockPos q = base.offset(dx, y, dz); boolean log = level.getBlockState(q).is(Blocks.OAK_LOG); int above = 0; for (int y2 = 1; y2 < 8; y2++) if (level.getBlockState(base.above(y2)).is(Blocks.OAK_LOG)) above++; if (st1203Was[k] && !log && above > 0) st1203Flips++; /* (the stump cell counts: his tower goes up in it once the bottom log is out) */ st1203Was[k++] = log; } } // (his tower's log beside the trunk taken out while the trunk stands)
+            check(st1203Flips <= 1, "his tower's log broken out from under him (the stump's cell, the bottom log's chop counted once) " + st1203Flips + " times while the trunk stood");
+            if (logs == 0) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "the 8-log trunk down with a tower of logs, in " + (t[0] - 10) / 20 + " s"); }
+            else check(t[0] < 10 + 20 * 40 && (t[0] < 30 || c.currentTask != null || !c.tasks.isEmpty()), "the trunk's top left standing: " + logs + " logs up, tasks " + c.tasks + " / " + c.currentTask);
+        }
+        return true;
+    }
+    private static boolean st1206(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // his trail took the cells he passed in the air (a drop off a ledge here; his sprint-jumps live): the way back along it put blocks under him there and took them up a tick later (live 17:07:46 11-08 dirt at -58,65,-155, PLACE_BREAK; audit 6, reviews 417/245): his trail holds the cells he stood in
+        BlockPos o = new BlockPos(20800, 80, 19800);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -16; k <= 48; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.prefs.put("stay_close", "no"); c.blueprint = null; c.commandActive = false; }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) e.discard();
+        if (t[0] == 10) {
+            for (int x = -4; x <= 44; x++) for (int z = -4; z <= 4; z++) { int top = x <= 10 ? 0 : -3; /* (a 3-block drop off a ledge at x 11: a fall, airborne) */ for (int y = -4; y <= 8; y++) level.setBlock(o.offset(x, y, z), y < top ? Blocks.STONE.defaultBlockState() : y == top ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+            level.setDayTime(3000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 6)); c.getInventory().add(new ItemStack(Items.DIRT, 16));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY() + 1, o.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null; c.attempts.clear();
+            com.claudemod.entity.nav.Route.forgetTrail(c);
+        }
+        if (t[0] == 15) c.tasks.add(new Task.GoTo(o.offset(40, -2, 0), 1.0)); // a sprint over open ground: sprint-jumps
+        if (t[0] > 20 && (c.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(o.offset(40, -2, 0))) < 1.6 || t[0] == 15 + 300)) {
+            java.util.List<String> air = new java.util.ArrayList<>(); int n = 0;
+            for (BlockPos p : com.claudemod.entity.nav.Route.wayBack(c, 600)) { if (Math.abs(p.getX() - o.getX() - 20) > 30 || Math.abs(p.getZ() - o.getZ()) > 5) continue; n++; if (level.getBlockState(p.below()).getCollisionShape(level, p.below()).isEmpty()) air.add(p.toShortString()); }
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (int x = -4; x <= 44; x++) for (int z = -4; z <= 4; z++) for (int y = -4; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(n > 10, "no trail along his sprint (" + n + " cells)");
+            check(air.isEmpty(), air.size() + " of his trail's " + n + " cells over air (mid-jump): " + air.subList(0, Math.min(6, air.size())));
+            nsHome(c, h, level); pass(stage, t, "his trail along a 40-block walk with a 3-block drop: " + n + " cells, each over ground");
+        }
         return true;
     }
     private static int st739T;

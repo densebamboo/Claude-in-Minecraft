@@ -53,6 +53,12 @@ public final class Route {
     public static void step(ClaudeEntity g) {
         var m = trail.computeIfAbsent(g.getUUID(), k -> new java.util.LinkedHashMap<>(512, 0.75f, true) { @Override protected boolean removeEldestEntry(Map.Entry<BlockPos, Integer> e) { return size() > 4000; } });
         BlockPos p = g.blockPosition().immutable();
+        boolean wet = g.isInWater() || !g.level().getFluidState(p).isEmpty() || g.onClimbable(); // (water cells stay: the drowning escape swims back along them; ladders and vines too)
+        if (!wet && g.onGround()) { BlockPos on = g.getOnPos(); if (g.level().getBlockState(p.below()).getCollisionShape(g.level(), p.below()).isEmpty() && g.level().getBlockState(p).getCollisionShape(g.level(), p).isEmpty() && !g.level().getBlockState(on).getCollisionShape(g.level(), on).isEmpty()) p = on.above().immutable(); } // (on a ledge's edge his cell is already over the drop: the cell over the block holding him)
+        else if (!wet) { // in the air (a jump, a drop): the cell he lands in, never the one he passes over (the way back built a pillar up to it and took it down a tick later: live 17:07:46 11-08, audit 6, stage 1206); water cells stay, the drowning escape swims back along them
+            var lv = g.level(); BlockPos q = null;
+            for (int d = 0; d <= 2 && q == null; d++) { BlockPos c = p.below(d); if (lv.getBlockState(c).getCollisionShape(lv, c).isEmpty() && !lv.getBlockState(c.below()).getCollisionShape(lv, c.below()).isEmpty()) q = c.immutable(); }
+            if (q == null) return; p = q; }
         if (m.put(p, g.tickCount) == null) { // a new cell: the 4-block sections his window of 6 touches are ground he's stood by, known from now on (the window round him only, forgotten a step later, flipped his Nether route 12 times in 70 s, live 11:38)
             var n = near.computeIfAbsent(g.getUUID(), k -> new java.util.LinkedHashMap<>(512, 0.75f, false) { @Override protected boolean removeEldestEntry(Map.Entry<Long, Boolean> e) { return size() > 60000; } });
             // shortcut: 4-block grain, so up to 9 out rather than 6; finer only if the extra reach ever plans him wrong

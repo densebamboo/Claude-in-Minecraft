@@ -10826,6 +10826,7 @@ public final class ClaudeBodyTest {
             case 1229: return st1229(stage, t, c, h, level, mock);
             case 1230: return st1230(stage, t, c, h, level, mock);
             case 1231: return st1231(stage, t, c, h, level, mock);
+            case 1232: return st1232(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -22062,6 +22063,30 @@ public final class ClaudeBodyTest {
                 for (BlockPos q2 : BlockPos.betweenClosed(s1231P.offset(-4, -1, -4), s1231P.offset(4, 3, 4))) if (!level.getFluidState(q2).isEmpty() || level.getBlockState(q2).is(Blocks.NETHERRACK)) level.setBlock(q2, Blocks.AIR.defaultBlockState(), 2);
                 check(p, "lava's stopper not in after 10 s: " + q);
                 pass(stage, t, "lava falling beside him: the stopper in (its ring cell unwallable), " + (t[0] - 10) + " ticks");
+            }
+        }
+        return true;
+    }
+    /** Stage 1232 (D2D reviews 198/186, live 04:12:37 11-09 at 129,59,513 on the highway in the Nether: the floor's netherrack over a lava pool cell at 129,58,513 was refused by the lava guard ("lava behind it" below), its seal had no face, and the highway queued them both again each pass): netherrack beside him with lava only under it. Lava never flows up: it's mined. */
+    private static BlockPos s1232B;
+    private static boolean st1232(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); c.skillQueue.clear(); }
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(6000);
+            BlockPos me = h.absolutePos(new BlockPos(6, 2, 8)); ggFace(c, me, -90, 30); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5);
+            s1232B = h.absolutePos(new BlockPos(8, 1, 8)); level.setBlock(s1232B, Blocks.NETHERRACK.defaultBlockState(), 2); for (BlockPos q : BlockPos.betweenClosed(s1232B.offset(-1, -2, -1), s1232B.offset(1, -1, 1))) level.setBlock(q, Blocks.LAVA.defaultBlockState(), 2); // (a pool under it, as live: no face to plug the cell under it with)
+            com.claudemod.director.ClaudeLife.lavaSeen(c).add(s1232B.below().immutable()); // (he knows the pool, as live)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 16)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.add(new Task.Break(s1232B));
+        }
+        if (t[0] > 10 && s1232B != null) {
+            boolean gone = level.getBlockState(s1232B).isAir();
+            if (gone || t[0] - 10 >= 200) {
+                String q = level.getBlockState(s1232B).getBlock() + ", now=" + c.currentTask + " tasks=" + c.tasks.stream().limit(4).toList() + " at " + c.blockPosition().toShortString();
+                c.tasks.clear(); c.dropCurrent = true; com.claudemod.director.ClaudeLife.lavaSeen(c).remove(s1232B.below()); for (BlockPos q3 : BlockPos.betweenClosed(s1232B.offset(-1, -2, -1), s1232B.offset(1, -1, 1))) level.setBlock(q3, Blocks.STONE.defaultBlockState(), 2); level.setBlock(s1232B, Blocks.GRASS_BLOCK.defaultBlockState(), 2);
+                check(gone, "netherrack with lava only under it not mined in 10 s: " + q);
+                check(level.getFluidState(c.blockPosition()).isEmpty(), "in the lava: " + c.blockPosition().toShortString());
+                pass(stage, t, "lava only under it: mined, " + (t[0] - 10) + " ticks");
             }
         }
         return true;

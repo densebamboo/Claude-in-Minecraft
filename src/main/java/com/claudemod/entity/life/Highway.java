@@ -329,7 +329,7 @@ public final class Highway {
         for (int o : cols) { BlockPos f = r.centre().relative(right, o).immutable(); floor.add(f); own.add(f); }
         for (int y = 1; y <= clear(r); y++) for (int o : cols) { BlockPos q = r.centre().relative(right, o).above(y).immutable(); walk.add(q); own.add(q); }
         Set<BlockPos> seal = new java.util.LinkedHashSet<>();
-        for (BlockPos q : own) for (Direction d : Direction.values()) { BlockPos n = q.relative(d); if (!own.contains(n) && d != r.dir().getOpposite() && lava(level, n)) seal.add(n.immutable()); } // (not behind: that's the row he stands on, built)
+        for (BlockPos q : own) for (Direction d : Direction.values()) { BlockPos n = q.relative(d); if (!own.contains(n) && d != r.dir().getOpposite() && !(d == Direction.DOWN && floor.contains(q)) && lava(level, n)) seal.add(n.immutable()); } // (lava under the floor stays under it: no seal, live 04:11 11-09 129,58,513 had no face and held the row, review 198) // (not behind: that's the row he stands on, built)
         for (BlockPos q : seal) { out.add(new Task.Place(q, plug)); if (plug == BLOCK) placed++; c[0]++; } // (lava plugs: netherrack, never the highway's deepslate)
         for (BlockPos q : walk) { if (lava(level, q)) { out.add(new Task.Place(q, plug)); out.add(new Task.Break(q)); if (plug == BLOCK) placed++; c[1]++; } else if (solid(level, q)) { out.add(new Task.Break(q)); c[1]++; } }
         for (BlockPos f : floor) { var st = level.getBlockState(f); if (st.is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE)) continue; if (solid(level, f)) { out.add(new Task.Break(f)); c[1]++; } out.add(new Task.Place(f, BLOCK)); placed++; c[2]++; }

@@ -4182,6 +4182,10 @@ public class WorkGoal extends Goal {
                 }
                 viewTry().remove(pos);
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] can't see a face to set {} against from anywhere he can stand: not placing it through the wall (he's at {} eye {}, spot {}, moved since the last step: {})", pos.toShortString(), g.blockPosition().toShortString(), g.getEyePosition(), view == null ? "none" : view.toShortString(), moved);
+                { StringBuilder mp = new StringBuilder(); BlockPos me5 = g.blockPosition(); // (the 5x5 round the cell, layers y-1..y+1, x across, z down: P the cell, @ him, # solid, . open, ~ fluid; so the next one can be rebuilt as a stage, D2D review 74)
+                  for (int dy = -1; dy <= 1; dy++) { mp.append(" y").append(pos.getY() + dy).append(":"); for (int dz = -2; dz <= 2; dz++) { for (int dx = -2; dx <= 2; dx++) { BlockPos q = pos.offset(dx, dy, dz); var st5 = g.level().getBlockState(q);
+                      mp.append(q.equals(pos) ? 'P' : q.equals(me5) || q.equals(me5.above()) ? '@' : !g.level().getFluidState(q).isEmpty() ? '~' : st5.getCollisionShape(g.level(), q).isEmpty() ? '.' : '#'); } if (dz < 2) mp.append('|'); } }
+                  com.claudemod.ClaudeMod.LOGGER.info("[Claude life] NO_FACE round {} (x {}..{}, z {}..{}):{} (WorkGoal.doPlace)", pos.toShortString(), pos.getX() - 2, pos.getX() + 2, pos.getZ() - 2, pos.getZ() + 2, mp); }
                 failed(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, com.claudemod.entity.life.Attempts.Reason.NO_FACE, "no face in sight from anywhere he can stand");
                 return exit("doPlace line 2844");
             }

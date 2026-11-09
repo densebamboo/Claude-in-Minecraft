@@ -1772,6 +1772,15 @@ public class WorkGoal extends Goal {
         if (com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && g.blueprint.isShell(p) || g.house != null && g.house.isStructure(p)) return false;
         return true;
     }
+    /** A cell beside him at his level to stand in and mine the block under his feet from: two open cells, a floor that isn't that block, no lava or fire there; null when there's none (stranded on it). */
+    private BlockPos sideStand(ServerLevel level, BlockPos under) {
+        BlockPos me = under.above(); BlockPos best = null;
+        for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) { if (dx == 0 && dz == 0) continue; BlockPos q = me.offset(dx, 0, dz);
+            if (!com.claudemod.entity.life.FortressFight.stand(level, q) || level.getBlockState(q.below()).is(net.minecraft.world.level.block.Blocks.LAVA) || q.below().equals(under)) continue;
+            if (dx != 0 && dz != 0 && !(level.getBlockState(me.offset(dx, 0, 0)).getCollisionShape(level, me.offset(dx, 0, 0)).isEmpty() || level.getBlockState(me.offset(0, 0, dz)).getCollisionShape(level, me.offset(0, 0, dz)).isEmpty())) continue; // (a diagonal he can't squeeze to)
+            if (best == null || (dx == 0 || dz == 0)) { best = q.immutable(); if (dx == 0 || dz == 0) return best; } }
+        return best;
+    }
     private boolean inReach(BlockPos pos) {
         Vec3 eye = g.getEyePosition(); // a player's reach: a face of it he sees, its point inside 4.5 (block_interaction_range), aimed at as blockInTheWay aims; 4.25 to the middle left a floating log 4.37 off, a face 3.8 off, "can't get at it" (reviews 199/200, stage 988)
         if (eye.distanceTo(Vec3.atCenterOf(pos)) > w("reach.block", 4.45) + 0.87) return false; // (no face of it within reach: no rays; a ray to a block far off stepped every cell and loaded every chunk on the way, the test server hung, stages 548, 781)
@@ -2112,6 +2121,8 @@ public class WorkGoal extends Goal {
         }
         if (liftedLava != null) { BlockPos stand0 = com.claudemod.entity.life.Consent.safeStand(g, level, pos, liftedLava); if (stand0 == com.claudemod.entity.life.Consent.REFUSE) { failed(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, com.claudemod.entity.life.Attempts.Reason.GUARD, "the block under his feet by lava"); return exit("the block under his feet by lava: never dug from on top (Consent.safeStand)"); } if (stand0 != null) { g.tasks.addFirst(new Task.Break(pos.immutable())); g.tasks.addFirst(new Task.GoTo(stand0, 0.3)); return exit("their word over the lava hold: to the safe stand first (Consent.safeStand)"); } } // (the same step the safe way: beside or above, never under it)
         if (pos.equals(g.blockPosition().below()) && g.onGround() && !g.isInWater() && !com.claudemod.director.ClaudeLife.isCastBlock(pos) && !(digInTasks != null && digInTasks.stream().anyMatch(t -> t == current))) { // (his cast's pillar comes down under his feet by design) // the block under his own feet, with a drop beneath it (the dig-in hole is three down on purpose and knows the ground: exempt): not from up here (the last floating log of a tree, dug out from under him: a 5-block fall, every tree test since falls started to hurt)
+            if (!com.claudemod.entity.life.TempLedger.built(g, pos) && !state.is(net.minecraft.tags.BlockTags.LOGS) && !state.is(net.minecraft.tags.BlockTags.LEAVES)) { BlockPos side = sideStand(level, pos); // the ground he stands on, natural: what's under it he hasn't seen (a cave, lava), so from a side cell like a player, not from on top (live 06:40 11-09, review 358: iron under his feet, 4 down into a cave, an 8-block shaft back up; stage 1301, lava 1302)
+                if (side != null) { g.tasks.addFirst(new Task.Break(pos.immutable())); g.tasks.addFirst(new Task.GoTo(side, 0.3)); com.claudemod.ClaudeMod.LOGGER.info("[Claude dig] {} at {} is under his feet: from {} beside it, not from on top (what's under it unseen) (WorkGoal.doBreak)", state.getBlock().getName().getString(), pos.toShortString(), side.toShortString()); return exit("under his feet: from a side cell first"); } }
             int drop = 0; BlockPos q = pos.below();
             while (drop < 6 && level.getBlockState(q).getCollisionShape(level, q).isEmpty() && level.getFluidState(q).isEmpty()) { drop++; q = q.below(); }
             boolean takeFall = drop < 6 && !level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA) && !level.getBlockState(q).is(net.minecraft.world.level.block.Blocks.MAGMA_BLOCK) && g.getHealth() - (drop + 1 - 3) >= 14; // (stranded on one block over a short drop at near full health: a player just breaks it and takes the hit; refusing re-queued forever, 111 refusals in 15 s)

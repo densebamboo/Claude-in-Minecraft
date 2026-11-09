@@ -10547,6 +10547,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1301: return st1301(stage, t, c, h, level, mock);
+            case 1302: return st1302(stage, t, c, h, level, mock);
             case 1303: return st1303(stage, t, c, h, level, mock);
             case 1300: return st1300(stage, t, c, h, level, mock);
             case 1245: return st1245(stage, t, c, h, level, mock);
@@ -16743,6 +16745,32 @@ public final class ClaudeBodyTest {
         if (t[0] == 40) { long n = W.stream().filter("LITTER"::equals).count(); com.claudemod.entity.life.Watchdog.linesInTests = false; level.setBlock(at, Blocks.AIR.defaultBlockState(), 2);
             check(n == 2, "a changed cell not filed again: " + n + " LITTER: " + W); pass(stage, t, "once per cell until it changes: " + W); }
         } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
+        return true;
+    }
+    /** Stage 1301 (D2D review 358, live 06:40 11-09 at -27,10,-266): iron ore under his feet with a cave below it he couldn't see; the under-feet guard let him break it at full health ("takeFall", made for being stranded on one block) and he fell 4 into the cave, then dug an 8-block shaft back up. A player never digs the block he stands on into space he hasn't seen: he steps to the side and mines it from there. 1302: the same with lava on the cave floor. */
+    private static int s1301T, s1301Gone; private static float s1301Low;
+    private static boolean st1301(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { return underFeetOre(stage, t, c, h, level, false); }
+    private static boolean st1302(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { return underFeetOre(stage, t, c, h, level, true); }
+    private static boolean underFeetOre(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, boolean lava) {
+        BlockPos ore = h.absolutePos(new BlockPos(7, 1, 7));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1301T = -1; s1301Gone = -1; s1301Low = 99; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            for (int x = 5; x <= 9; x++) for (int z = 5; z <= 9; z++) for (int y = -3; y <= 0; y++) h.setBlock(new BlockPos(x, y, z), lava && y == -3 ? Blocks.LAVA : Blocks.AIR); // a cave under the floor, 4 deep (lava on its floor)
+            level.setBlock(ore, Blocks.IRON_ORE.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(ore.getX() + 0.5, ore.getY() + 1, ore.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 20) { c.tasks.add(new Task.Break(ore.immutable())); s1301T = t[0]; }
+        if (s1301T > 0) {
+            s1301Low = (float) Math.min(s1301Low, c.getY() - ore.getY());
+            boolean gone = !level.getBlockState(ore).is(Blocks.IRON_ORE); if (gone && s1301Gone < 0) s1301Gone = t[0];
+            if (gone && t[0] > s1301Gone + 30 || t[0] == s1301T + 20 * 10 || s1301Low < 0.5) { double s = (t[0] - s1301T) / 20.0; float low = s1301Low;
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; for (int x = 5; x <= 9; x++) for (int z = 5; z <= 9; z++) for (int y = -3; y <= 0; y++) h.setBlock(new BlockPos(x, y, z), Blocks.STONE); flatBox(h); BlockPos back = h.absolutePos(new BlockPos(3, 2, 3)); c.teleportTo(back.getX() + 0.5, back.getY(), back.getZ() + 0.5); c.clearFire();
+                check(low >= 0.5, "dug the ore he stood on into the unseen cave under it" + (lava ? " (lava on its floor)" : "") + ": fell to " + String.format("%.1f", low) + " above the ore's level");
+                check(gone, "the ore under his feet not mined in 10 s" + (lava ? " (lava under it, unseen)" : ""));
+                pass(stage, t, "mined from beside it in " + s + " s, never below the floor"); }
+        }
         return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */

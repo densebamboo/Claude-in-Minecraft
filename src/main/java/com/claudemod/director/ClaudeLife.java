@@ -9019,6 +9019,7 @@ public final class ClaudeLife {
                 Item in0 = smeltInput(level, g, item(st.target())); int n0 = in0 == null ? st.count() : Math.min(st.count(), g.getInventory().countItem(in0));
                 int k0 = 0; for (BlockPos f : g.myStations) if (f.distSqr(mine0) <= 9 && level.isLoaded(f) && level.getBlockState(f).is(Blocks.FURNACE)) k0++;
                 double his0 = 2.0 * r0 / 5.6 + n0 * 10.0 / Math.max(1, k0), own0 = (g.getInventory().countItem(Items.FURNACE) > 0 ? 4 : 10) + n0 * 10.0; // (own: set down and picked back up; 10 if it's crafted first)
+                if (g.isInWater()) { BlockPos dry0 = openGroundSpot(g, level); own0 += dry0 == null ? Double.MAX_VALUE / 4 : routeDist(g, g.blockPosition(), dry0) / 5.6; } // in water his own can't go down here: the swim to open ground is part of it (live 03:54 11-09: priced at 14 s with no walk, swam 8 s for open ground, then back to his own 10 off; review 134, stage 1234)
                 if (own0 < his0) { ClaudeMod.LOGGER.info("[Claude life] {} {} x{}: his own furnace set down here (~{} s) beats his at {} ({} on foot, {} furnace(s) there, ~{} s) (ClaudeLife.goToStation)", st.skill(), st.target(), n0, (int) own0, mine0.toShortString(), r0, k0, (int) his0); return null; }
             }
             if (mine0 != null) { g.tasks.add(new Task.GoTo(mine0, 2.5)); g.stationWalkTick = g.tickCount; g.skillQueue.addFirst(st); ClaudeMod.LOGGER.info("[Claude life] {} {}: his own furnace at {} ({} off), not a new one here (ClaudeLife.goToStation)", st.skill(), st.target(), mine0.toShortString(), (int) Math.sqrt(mine0.distSqr(g.blockPosition()))); return "over to my furnace at " + mine0.toShortString(); } } // (a player walks 20 blocks to his furnaces: live 12:03 World 15 a new furnace notched into an ore hole in his mine wall, his nook's 6 about 20 off)
@@ -9337,7 +9338,8 @@ public final class ClaudeLife {
     }
 
     /** No room right here for a station (a river bank, his walking line, over his mine): a few steps to open dry ground, like a player. Null if there's none within 8. */
-    private static String toOpenGround(ClaudeEntity g, ServerLevel level, Skills.Step st, String what) {
+    /** The nearest dry open ground a station can go down on (null: none within 16). */
+    static BlockPos openGroundSpot(ClaudeEntity g, ServerLevel level) {
         BlockPos roomy = null; double rd = Double.MAX_VALUE;
         for (BlockPos q : BlockPos.betweenClosed(g.blockPosition().offset(-16, -4, -16), g.blockPosition().offset(16, 4, 16))) { // (16: a beach is mostly water and sand bars; 8 found nothing eight times)
             if (q.distSqr(g.blockPosition()) < 9 || !standable(level, q) || !level.getFluidState(q).isEmpty() || !level.getFluidState(q.below()).isEmpty() || isMineCell(g, q) || isMineCell(g, q.below())) continue;
@@ -9351,6 +9353,10 @@ public final class ClaudeLife {
             double d = q.distSqr(g.blockPosition()) + wet * 150; // and real land over the waterline
             if (d < rd) { rd = d; roomy = q.immutable(); }
         }
+        return roomy;
+    }
+    private static String toOpenGround(ClaudeEntity g, ServerLevel level, Skills.Step st, String what) {
+        BlockPos roomy = openGroundSpot(g, level);
         if (roomy == null && !level.canSeeSky(g.blockPosition()) && g.getBlockY() < level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.getBlockX(), g.getBlockZ()) - 8) return null; // underground: no "shore" up top for a furnace
         if (roomy == null) { // nothing within 16 (out at sea: 9708 of 9708 spots water): to the nearest dry land, like a player swimming for the shore, then the station
             BlockPos shore = null; double sd = Double.MAX_VALUE;

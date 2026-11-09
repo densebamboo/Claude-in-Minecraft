@@ -10830,6 +10830,7 @@ public final class ClaudeBodyTest {
             case 1231: return st1231(stage, t, c, h, level, mock);
             case 1232: return st1232(stage, t, c, h, level, mock);
             case 1233: return st1233(stage, t, c, h, level, mock);
+            case 1234: return st1234(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -22181,6 +22182,31 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static void cleanup1233(ClaudeEntity c, ServerLevel level) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; for (BlockPos q : BlockPos.betweenClosed(c.blockPosition().offset(-12, -6, -12), c.blockPosition().offset(12, 6, 12))) if (level.getBlockState(q).is(Blocks.CHEST)) { if (level.getBlockEntity(q) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity cb) cb.clearContent(); level.setBlock(q, Blocks.STONE.defaultBlockState(), 2); } c.storageChests.clear(); c.getInventory().clearContent(); }
+    /** Stage 1234 (D2D review 134, live 03:54 11-09): in water with 1 raw salmon and a furnace on him, his own furnace 13 off on land. "his own furnace set down here (~14 s) beats his (~14 s)" was priced with no walk, but it can't go down in water: he swam 8 s for open ground, then turned back to his own. Priced with the swim, his own furnace wins from the start. */
+    private static boolean st1234(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.myStations.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); }
+        if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 4, c.blockPosition());
+        if (t[0] == 10) {
+            BlockPos me = c.blockPosition();
+            for (int x = -16; x <= 16; x++) for (int z = -16; z <= 16; z++) { level.setBlock(me.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = -7; x <= 7; x++) for (int z = -7; z <= 7; z++) { level.setBlock(me.offset(x, -2, z), Blocks.STONE.defaultBlockState(), 2); level.setBlock(me.offset(x, -1, z), Blocks.WATER.defaultBlockState(), 2); level.setBlock(me.offset(x, 0, z), Blocks.WATER.defaultBlockState(), 2); } // (open water, 2 deep: nowhere in reach to set one down, as live)
+            BlockPos f = me.offset(13, 0, 0); level.setBlock(f, Blocks.FURNACE.defaultBlockState(), 2); c.myStations.add(f.immutable());
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.getInventory().add(new ItemStack(Items.SALMON, 1)); c.getInventory().add(new ItemStack(Items.FURNACE, 1)); c.getInventory().add(new ItemStack(Items.COAL, 8)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16));
+            c.getFoodData().setFoodLevel(20);
+        }
+        if (t[0] == 20) {
+            boolean wet = c.isInWater();
+            c.tasks.clear(); c.skillQueue.clear();
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "cooked_salmon", 1);
+            String q = String.valueOf(c.tasks);
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear();
+            check(wet, "set up: he isn't in the water");
+            check(r == null || !r.contains("open ground"), "in water, his own furnace 13 off: priced a new one here with no walk, then swam for open ground: " + r + " " + q);
+            pass(stage, t, "in water, his own furnace 13 off: " + r);
+        }
+        return true;
+    }
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

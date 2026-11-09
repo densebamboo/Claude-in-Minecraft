@@ -10554,6 +10554,7 @@ public final class ClaudeBodyTest {
             case 1132: return st1132(stage, t, c, h, level, mock);
             case 1133: return st1133(stage, t, c, h, level, mock);
             case 1134: return st1134(stage, t, c, h, level, mock);
+            case 1135: return st1135(stage, t, c, h, level, mock);
             case 999: return st999(stage, t, c, h, level, mock);
             case 997: return st997(stage, t, c, h, level, mock);
             case 996: return st996(stage, t, c, h, level, mock);
@@ -18218,6 +18219,32 @@ public final class ClaudeBodyTest {
             if (c.getHealth() < st773Last) st773Hits++; st773Last = c.getHealth(); st773Low = Math.min(st773Low, c.getHealth());
             check(c.isAlive(), "dead to two skeletons across the hall and a zombie at " + (t[0] - st773Start) / 20 + " s (" + st773Hits + " hits, he was at " + c.blockPosition().toShortString() + ")");
             if (t[0] - st773Start >= 20 * 40) { for (var m : st773M) m.discard(); c.setHealth(20); pass(stage, t, "alive 40 s: " + st773Hits + " hits, low " + st773Low + ", at " + c.blockPosition().toShortString()); }
+        }
+        return true;
+    }
+    private static net.minecraft.world.entity.monster.Blaze st1135A, st1135B;
+    private static boolean st1135(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a wall between him and a blaze 8 off, a second blaze 30 off with a clear line to his side of the wall (World 17 16:12 death 7: "healing in cover" at 312,60,510 while blazes 27 off shot him there, 5 HP of fire per fireball): his cover is out of the far one's sight too, or none
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1135A = st1135B = null; }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) if (e != st1135A && e != st1135B) e.discard();
+        if (t[0] == 10) {
+            for (int x = -40; x <= 20; x++) for (int z = -12; z <= 12; z++) { level.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); for (int y = 0; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int z = -10; z <= 1; z++) for (int y = 0; y <= 5; y++) level.setBlock(o.offset(4, y, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // the wall, its end a corner to peek round
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; mock[0].teleportTo(o.getX() + 0.5, o.getY() + 45, o.getZ() + 0.5);
+        }
+        if (t[0] == 20) {
+            st1135A = EntityType.BLAZE.create(level); st1135A.moveTo(o.getX() + 8.5, o.getY() + 2, o.getZ() + 0.5, 90, 0); st1135A.setPersistenceRequired(); st1135A.setNoAi(true); level.addFreshEntity(st1135A);
+            st1135B = EntityType.BLAZE.create(level); st1135B.moveTo(o.getX() - 29.5, o.getY() + 2, o.getZ() + 0.5, -90, 0); st1135B.setPersistenceRequired(); st1135B.setNoAi(true); level.addFreshEntity(st1135B);
+        }
+        if (t[0] == 30) {
+            var cv = com.claudemod.entity.life.FortressFight.coverFor(c, level, st1135A);
+            BlockPos cell = cv == null ? null : cv.cover();
+            boolean bSees = cell != null && com.claudemod.entity.life.FortressFight.sees(level, st1135B, cell);
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 1135: cover {} (far blaze {} off sees it: {})", cell == null ? "none" : cell.toShortString(), cell == null ? -1 : (int) Math.sqrt(cell.distToCenterSqr(st1135B.position())), bSees);
+            st1135A.discard(); st1135B.discard();
+            check(!bSees, "his cover at " + (cell == null ? "-" : cell.toShortString()) + " is in sight of the blaze " + (cell == null ? 0 : (int) Math.sqrt(cell.distToCenterSqr(st1135B.position()))) + " off: no cover from it");
+            pass(stage, t, "cover " + (cell == null ? "none (every spot in sight of one)" : cell.toShortString() + ", out of both blazes' sight"));
         }
         return true;
     }

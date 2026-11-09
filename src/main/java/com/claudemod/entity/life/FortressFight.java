@@ -103,7 +103,7 @@ public final class FortressFight {
     static boolean stillGood(ClaudeEntity g, ServerLevel level, Cover c, LivingEntity foe) {
         if (!stand(level, c.cover())) return false;
         if (c.kind().equals("wither")) return witherSafe(level, c.cover()) && blazeSees(g, level, c.cover()) == null;
-        for (Blaze b : blazesNear(g, level, c.cover(), 24)) if (sees(level, b, c.cover())) return false;
+        for (Blaze b : blazesNear(g, level, c.cover(), SHOT_RANGE)) if (sees(level, b, c.cover())) return false;
         return true;
     }
 
@@ -117,8 +117,10 @@ public final class FortressFight {
         }
         return null;
     }
+    /** How far a blaze shoots: its follow range (vanilla 48), any it sees within that it fires on. Cover is out of sight of all of them (24 left the ones 27 off out: "healing in cover" under their fireballs, World 17 16:12 death 7; stage 1135). */
+    static final int SHOT_RANGE = 48;
     /** A blaze he knows of with sight of the cell, or null. */
-    static Blaze blazeSees(ClaudeEntity g, ServerLevel level, BlockPos cell) { for (Blaze b : blazesNear(g, level, cell, 24)) if (sees(level, b, cell)) return b; return null; }
+    static Blaze blazeSees(ClaudeEntity g, ServerLevel level, BlockPos cell) { for (Blaze b : blazesNear(g, level, cell, SHOT_RANGE)) if (sees(level, b, cell)) return b; return null; }
 
     /** The blazes about that he knows of: in his line of sight, or within 16 (their breathing and crackle carry), or already on his senses' record. */
     static List<Blaze> blazesNear(ClaudeEntity g, ServerLevel level, BlockPos at, int r) {
@@ -164,7 +166,7 @@ public final class FortressFight {
     }
     static Cover pickBlaze(ClaudeEntity g, ServerLevel level, LivingEntity foe) {
         BlockPos spawner = blazeSpawner(g, level, 20);
-        List<Vec3> eyes = new ArrayList<>(); List<Blaze> bl = blazesNear(g, level, g.blockPosition(), 24); if (foe instanceof Blaze b0 && !bl.contains(b0)) bl.add(b0);
+        List<Vec3> eyes = new ArrayList<>(); List<Blaze> bl = blazesNear(g, level, g.blockPosition(), SHOT_RANGE); if (foe instanceof Blaze b0 && !bl.contains(b0)) bl.add(b0);
         for (Blaze b : bl) eyes.add(b.getEyePosition());
         if (spawner != null && open(level, spawner.above())) eyes.add(Vec3.atCenterOf(spawner.above()));
         Vec3 anchor = spawner != null ? Vec3.atCenterOf(spawner.above()) : foe.getEyePosition();

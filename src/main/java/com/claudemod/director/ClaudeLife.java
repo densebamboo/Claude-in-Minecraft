@@ -9172,6 +9172,7 @@ public final class ClaudeLife {
                 refillNotch(g, p, true); // after the pickup: the fill first went in over the station's drop and the sweep skipped it inside the block (live 11:58 11-09, review 41: stage 1263)
                 g.tasks.addFirst(new Task.Pickup(60));
                 g.tasks.addFirst(new Task.Break(p)); // Break walks over to it
+                cookFirst(g, level, p);
                 ClaudeMod.LOGGER.info("[Claude life] cleaning up: going back for his {} at {}", Crafting.name(level.getBlockState(p).getBlock().asItem()), p.toShortString());
                 return;
             }
@@ -9221,12 +9222,22 @@ public final class ClaudeLife {
             refillNotch(g, p, true); // after the pickup (stage 1263)
             g.tasks.addFirst(new Task.Pickup(60));
             g.tasks.addFirst(new Task.Break(p));
+            cookFirst(g, level, p);
             ClaudeMod.LOGGER.info("[Claude life] picking up his {} at {} before moving on", Crafting.name(level.getBlockState(p).getBlock().asItem()), p.toShortString());
             return; // one at a time
         }
     }
 
     /** A station he set into a notch cut in the mine wall: once it's picked up, the wall gets filled back flat. */
+    /** Taking up an empty furnace with raw food and fuel on him: the food goes in and comes out cooked first, as a player clears his raw fish before packing the furnace (live 12:15:55-12:16:31 11-09: packed with a raw cod on him, set straight back down in the same cell to cook it for the kit; stage 1265). */
+    private static void cookFirst(ClaudeEntity g, ServerLevel level, BlockPos p) {
+        if (!(level.getBlockEntity(p) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fe) || !fe.getItem(0).isEmpty() || !fe.getItem(2).isEmpty()) return;
+        Item raw = cookable(g, level); if (raw == null) return;
+        int n = g.inventory.count(s -> s.is(raw));
+        g.tasks.addFirst(new Task.FurnaceTake(p.immutable())); g.tasks.addFirst(new Task.FurnaceLoad(p.immutable(), raw, n));
+        ClaudeMod.LOGGER.info("[Claude life] his furnace at {}: {} {} on him cooked in it before it's taken up (ClaudeLife.cookFirst)", p.toShortString(), n, Crafting.name(raw));
+    }
+
     private static void refillNotch(ClaudeEntity g, BlockPos p, boolean first) {
         if (!g.notches.remove(p) && !(bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.isShell(p))) return; // (a station of his in a cell his mine now reads as wall is a notch too: no patch queued, the wall guard refused the pickup every 5 min for 36 h, live 11-07/08, stage 1001)
         var level0 = g.level(); boolean earth = level0.getBlockState(p.below()).is(BlockTags.DIRT) || level0.getBlockState(p.above()).is(BlockTags.DIRT); // a notch in earth gets earth back, not a cobble patch

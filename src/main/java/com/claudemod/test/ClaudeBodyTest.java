@@ -10870,6 +10870,7 @@ public final class ClaudeBodyTest {
             case 1262: return st1262(stage, t, c, h, level, mock);
             case 1263: return st1263(stage, t, c, h, level, mock);
             case 1264: return st1264(stage, t, c, h, level, mock);
+            case 1265: return st1265(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -22975,6 +22976,28 @@ public final class ClaudeBodyTest {
         if (t[0] > 14) {
             if (c.onGround() && c.getY() >= o.getY() + 0.99 && c.getZ() >= o.getZ() + 1) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "up onto the ledge in " + (t[0] - 14) + " ticks, at " + c.blockPosition().subtract(o)); }
             else check(t[0] < 74, "not up the step in 3 s: at " + String.format("%.2f %.2f %.2f", c.getX() - o.getX(), c.getY() - o.getY(), c.getZ() - o.getZ()) + ", ground " + c.onGround() + ", hcoll " + c.horizontalCollision + ", task " + c.currentTask + ", steer " + c.getNavigation().steerWhy);
+        }
+        return true;
+    }
+
+    /** His furnace standing, its smelt done, one raw cod still on him (it came off the line as the smelt began): the cleanup cooks it before the furnace goes in his pack, never packs it up with raw food on him (live 12:15:45-12:16:31 11-09 World 17 at 21,64,-481: the furnace taken up 10 s after the smelt, 34 s getting to it, then set straight back down in the same cell to cook that one cod for the kit; review 20). */
+    private static boolean st1265(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(8, 2, 8)), fu = at.offset(2, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -4; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), yy == 1 ? Blocks.GRASS_BLOCK : Blocks.DIRT); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            level.setDayTime(1000);
+            level.setBlock(fu, Blocks.FURNACE.defaultBlockState(), 3);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COD, 1)); c.getInventory().add(new ItemStack(Items.COOKED_COD, 8)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 4)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.lastStep = null; c.tablePlacedTick = -100000;
+            c.tempStations.clear(); c.tempStations.add(fu.immutable()); c.attempts.any.remove(fu);
+        }
+        if (t[0] > 12) {
+            int furn = c.getInventory().countItem(Items.FURNACE), raw = c.getInventory().countItem(Items.COD), cooked = c.getInventory().countItem(Items.COOKED_COD);
+            check(!(furn >= 1 && raw >= 1), "the furnace packed up with a raw cod still on him (cooked " + cooked + "): the kit sets it straight back down for it");
+            if (furn >= 1 && raw == 0 && cooked >= 9) pass(stage, t, "the cod cooked, then the furnace up, in " + (t[0] - 10) + " ticks");
+            else check(t[0] < 600, "after 30 s: furnace on him " + furn + ", raw cod " + raw + ", cooked " + cooked + ", furnace block " + level.getBlockState(fu).getBlock().getName().getString() + ", task " + c.currentTask + ", queue " + c.tasks);
         }
         return true;
     }

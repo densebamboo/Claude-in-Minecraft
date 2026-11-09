@@ -10860,6 +10860,7 @@ public final class ClaudeBodyTest {
             case 1255: return st1255(stage, t, c, h, level, mock);
             case 1256: return st1256(stage, t, c, h, level, mock);
             case 1257: return st1257(stage, t, c, h, level, mock);
+            case 1258: return st1258(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -22783,6 +22784,29 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    /** A flooded room, rock roof, open air one cell over from him; a dig of the roof over his head queued as a step of his own way on, his air low: he swims over and up to the air, the dig waits (live 10:51 11-09 World 17: the low-air code took that route dig for a dig for air, he mined it floating and sank out of reach and drowned with the air one cell over). */
+    private static boolean st1258(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(1, 2, 1));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(-1, -1, -1), o.offset(7, 9, 7))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(0, 0, 0), o.offset(6, 6, 6))) level.setBlock(p, Blocks.WATER.defaultBlockState(), 2); // the room, 7 deep
+            level.setBlock(o.offset(4, 7, 3), Blocks.AIR.defaultBlockState(), 2); level.setBlock(o.offset(4, 8, 3), Blocks.AIR.defaultBlockState(), 2); // the air, one cell over
+            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.WOODEN_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 1));
+            BlockPos me = o.offset(3, 6, 3);
+            c.teleportTo(me.getX() + 0.5, me.getY() + 0.1, me.getZ() + 0.5); c.setSwimming(true); c.setPose(net.minecraft.world.entity.Pose.SWIMMING); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.setAirSupply(100);
+            c.tasks.add(new Task.Break(o.offset(3, 7, 3))); // the roof over his head: a step of his way on, not a dig for air
+            c.tasks.add(new Task.Wait(1000, false));
+            mock[0].teleportTo(o.getX() + 3.5, o.getY() + 11, o.getZ() + 3.5); // (out of the room: the harness parks them at (2,2,2))
+        }
+        if (t[0] > 10) {
+            check(c.isAlive() && c.getHealth() >= 18, "drowning in the flooded room: health " + c.getHealth() + " at " + c.blockPosition().subtract(o) + " y " + String.format("%.2f", c.getY() - o.getY()) + ", air " + c.getAirSupply() + ", task " + c.currentTask);
+            if (t[0] > 12 && !c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "over and up to the air in " + (t[0] - 10) + " ticks, at " + c.blockPosition().subtract(o) + ", health " + c.getHealth()); }
+            else check(t[0] < 110, "no breath within 5 s with the air one cell over: at " + c.blockPosition().subtract(o) + " y " + String.format("%.2f", c.getY() - o.getY()) + ", air " + c.getAirSupply() + ", task " + c.currentTask);
+        }
+        return true;
+    }
+
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
@@ -27349,6 +27373,7 @@ public final class ClaudeBodyTest {
             BlockPos me = o.offset(0, 6, 1);
             c.teleportTo(me.getX() + 0.5, me.getY() + 0.2, me.getZ() + 0.5); c.setSwimming(true); c.setPose(net.minecraft.world.entity.Pose.SWIMMING); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.setAirSupply(50);
             c.tasks.add(new Task.Wait(1000, false));
+            mock[0].teleportTo(o.getX() + 3.5, o.getY() + 18, o.getZ() + 1.5); // (the harness parks them at (2,2,2): in this tunnel's mouth, their body pushed his back out every tick)
         }
         if (t[0] == 130) com.claudemod.ClaudeMod.LOGGER.info("ST653 TRACE {}", com.claudemod.entity.life.Watchdog.context(c));
         if (t[0] > 10) {

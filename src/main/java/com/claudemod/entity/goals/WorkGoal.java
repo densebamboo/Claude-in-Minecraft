@@ -84,8 +84,9 @@ public class WorkGoal extends Goal {
     }
 
     /** Nearest spot to breathe: straight up through the water first, else any open air pocket close by. */
+    private boolean noOpenAir; // breathingSpot's last answer was its own roof dig: nothing open in reach
     private BlockPos breathingSpot() {
-        var level = g.level();
+        var level = g.level(); noOpenAir = false;
         BlockPos eye = BlockPos.containing(g.getEyePosition());
         for (int dy = 0; dy <= 16; dy++) {
             BlockPos q = eye.above(dy);
@@ -146,10 +147,11 @@ public class WorkGoal extends Goal {
             }
         }
         // nothing open within reach: a player digs the roof out over his head (he has a few seconds of air for it)
+        noOpenAir = true;
         BlockPos roof = eye.above();
         BlockState rs = level.getBlockState(roof);
         if (level.getFluidState(roof.above()).is(net.minecraft.tags.FluidTags.WATER) && !cands.isEmpty()) { int i = 0; for (int j = 1; j < cands.size(); j++) if (dists.get(j) < dists.get(i)) i = j; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] water over the roof at {}: back toward the air at {} instead of digging up into it", g.blockPosition().toShortString(), cands.get(i).toShortString()); return cands.get(i); } // (digging up into more water drowned him at 50, 18, 82: the air was back along his tunnel)
-        if (!rs.getCollisionShape(level, roof).isEmpty() && rs.getDestroySpeed(level, roof) >= 0 && !rs.hasBlockEntity() && !g.tasks.contains(new Task.Break(roof))) {
+        if (!rs.getCollisionShape(level, roof).isEmpty() && rs.getDestroySpeed(level, roof) >= 0 && !rs.hasBlockEntity() && !g.tasks.contains(new Task.Break(roof)) && !new Task.Break(roof.immutable()).equals(current)) {
             g.tasks.addFirst(new Task.Break(roof.immutable()));
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] under a roof in the water at {}: digging up for air", g.blockPosition().toShortString());
         }
@@ -189,14 +191,14 @@ public class WorkGoal extends Goal {
         // breathe (and he stays up till he's got his breath back).
         boolean underwater = g.isEyeInFluid(net.minecraft.tags.FluidTags.WATER);
         if (((underwater && g.getAirSupply() < 120) || (surfacing && g.getAirSupply() < 280 && g.isInWater())) && !com.claudemod.entity.life.Watchdog.airRoute(g)) { // (the watchdog's dug way to air, once the swim-up failed: its tasks run, not this)
-            boolean diggingRoof = roofDig(current); // Keep the same overhead dig when he sinks toward the floor.
+            BlockPos spot = breathingSpot();
+            boolean diggingRoof = roofDig(current) && noOpenAir; // Keep the same overhead dig when he sinks toward the floor. (only a dig for air: with air open in reach, a dig over his head is a step of his way on and waits; live 10:51 11-09 he mined one floating, sank out of reach and drowned with the air one cell over: stage 1258)
             if (!surfacing) {
                 surfacing = true;
-                if (current != null && !diggingRoof) { clearCrack(); g.tasks.addFirst(current); current = null; g.currentTask = null; }
+                if (current != null && !diggingRoof) { clearCrack(); Task air = noOpenAir && roofDig(g.tasks.peek()) ? g.tasks.poll() : null; g.tasks.addFirst(current); if (air != null) g.tasks.addFirst(air); current = null; g.currentTask = null; } // (breathingSpot's own dig for air stays first)
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] low on air ({}) at {}: coming up to breathe", g.getAirSupply(), g.blockPosition().toShortString());
             }
-            BlockPos spot = breathingSpot();
-            if (diggingRoof || (roofDig(g.tasks.peek()) && current == null)) { // the roof: dug through below, this tick (returning here every tick left the dig queued and him drowning under it)
+            if (diggingRoof || (roofDig(g.tasks.peek()) && current == null && noOpenAir)) { // the roof: dug through below, this tick (returning here every tick left the dig queued and him drowning under it)
                 BlockPos roofOverEyes = ((Task.Break) (diggingRoof ? current : g.tasks.peek())).pos();
                 g.getNavigation().stop(); // Stay grounded while mining: swimming adds the airborne mining penalty.
                 if (g.tickCount % 20 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] digging the roof at {} for air (air {}, {})", roofOverEyes.toShortString(), g.getAirSupply(), diggingRoof ? "under way" : "starting");

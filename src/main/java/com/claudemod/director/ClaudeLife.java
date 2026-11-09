@@ -3289,7 +3289,8 @@ public final class ClaudeLife {
                     if (walking != null) return walking;
                 }
                 boolean table = shortRaw == null && ensureCraftingTable(g, level, item);
-                if (shortRaw == null && !table && Crafting.needsTable(level, item) && g.tasks.peekFirst() instanceof Task.GoTo) { g.skillQueue.addFirst(st); return "over to the crafting table first"; } // it sent him to the table a few steps off: the craft waits for the walk (it reported "no table" and the replan dropped the walk: a diamond pick asked for 8 times in a row)
+                if (shortRaw == null && !table && Crafting.needsTable(level, item) && (g.tasks.peekFirst() instanceof Task.GoTo || tableComing(g))) { // (or its notch queued: the table goes in, then the craft; review 58, stage 1210)
+                    g.skillQueue.addFirst(st); return "over to the crafting table first"; } // it sent him to the table a few steps off: the craft waits for the walk (it reported "no table" and the replan dropped the walk: a diamond pick asked for 8 times in a row)
                 if (g.tablePlacedTick == g.tickCount) {
                     g.tasks.add(new Task.Wait(3, false));
                     g.skillQueue.addFirst(st);
@@ -3421,6 +3422,7 @@ public final class ClaudeLife {
                             return "failed: no furnace nearby and can't make one (needs 8 cobblestone)";
                         }
                         int q0 = g.tasks.size(); boolean table = ensureCraftingTable(g, level, Items.FURNACE);
+                        if (!table && tableComing(g)) { g.skillQueue.addFirst(st); return "a crafting table going in for the furnace first"; } // (its notch queued: the furnace waits for it; review 58)
                         if (!table && g.tasks.size() > q0 && g.tasks.peekFirst() instanceof Task.GoTo goT) { g.skillQueue.addFirst(st); ClaudeMod.LOGGER.info("[Claude skill] furnace needs a table: walking to the one at {} first", goT.pos().toShortString()); return "over to my crafting table to make a furnace"; } // (it queued the walk to his table and also said "no table": he set off for open ground under his mine at the same time, 02:45)
                         if (g.tablePlacedTick == g.tickCount) {
                             g.tasks.add(new Task.Wait(3, false));
@@ -9336,7 +9338,7 @@ public final class ClaudeLife {
     }
 
     private static boolean ensureCraftingTable(ClaudeEntity g, ServerLevel level, Item target) {
-        if (tableInReach(g, level) != null) return true;
+        if (tableInReach(g, level) != null) return true; if (tableComing(g)) return false; // (one already on its way in: never a second one down beside it; review 58)
         boolean woodOn = g.inventory.count(t -> t.is(Items.CRAFTING_TABLE)) > 0 || g.inventory.count(t -> t.is(ItemTags.PLANKS)) >= 4 || g.inventory.count(t -> t.is(ItemTags.LOGS)) > 0;
         boolean ownOverNook = woodOn && g.nook != null && Crafting.needsTable(level, target) && level.isLoaded(g.nook.tableCell()) && level.getBlockState(g.nook.tableCell()).is(Blocks.CRAFTING_TABLE) && g.nook.tableCell().distSqr(g.blockPosition()) > 5 * 5 && ownTableBeats(g, level, g.nook.tableCell(), "craft " + Crafting.name(target)); // (live 07:37 World 17: 25 blocks to his nook's table and back with 27 logs on him)
         if (!ownOverNook && g.nook != null && Crafting.needsTable(level, target) && level.isLoaded(g.nook.tableCell()) && g.nook.tableCell().distSqr(g.blockPosition()) <= 32 * 32 && routeDist(g, g.blockPosition(), g.nook.tableCell()) <= 32 && !nookCellInWalk(g, g.nook.tableCell(), "ClaudeLife.ensureCraftingTable")) { // his base's table: the one he crafts at down here (the user: a second table notched 10 blocks from the nook was redundant); its slot empty, the new table goes in it
@@ -9391,6 +9393,8 @@ public final class ClaudeLife {
         return placed;
     }
 
+    /** A crafting table on his queue (a notch dug for it, then the table): a craft waits for it, never reports "no table" past it (review 58). */
+    public static boolean tableComing(ClaudeEntity g) { return g.tasks.stream().anyMatch(t -> t instanceof Task.Place p && p.item() == Items.CRAFTING_TABLE); }
     /** Places a block from his inventory right next to him (instantly; a player would too). */
     /** (tests: where a station of his would go down from where he stands) */
     public static BlockPos placeStation(ClaudeEntity g, ServerLevel level, Item item) { return placeNextTo(g, level, item); }

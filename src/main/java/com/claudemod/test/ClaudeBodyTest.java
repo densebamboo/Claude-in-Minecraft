@@ -10788,6 +10788,7 @@ public final class ClaudeBodyTest {
             case 1207: return st1207(stage, t, c, h, level, mock);
             case 1208: return st1208(stage, t, c, h, level, mock);
             case 1209: return st1209(stage, t, c, h, level, mock);
+            case 1210: return st1210(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -21081,6 +21082,40 @@ public final class ClaudeBodyTest {
             check(bs == 10, "the blackstone his queued furnace needs thrown out as junk (" + bs + " left on him, netherrack " + nr + ")");
             check(nr < 124, "no netherrack thrown to make room (" + nr + " left)");
             pass(stage, t, "the blackstone kept for the furnace, netherrack " + nr + " kept of 124");
+        }
+        return true;
+    }
+    /** Stage 1210 (D2D review 58, live 19:41:25 11-08: in a 1-wide netherrack tunnel, his pick broken, "a crafting table going into the notch ... the craft once it stands" and the craft failed "missing a crafting table nearby" in the same tick; a third table made the pick, 12.6 s for a 1.4 s step): the craft waits for the table its notch queued, one table, no failed craft. */
+    private static int s1210Start, s1210Made; private static String s1210R;
+    private static boolean tableQueued(ClaudeEntity c) { return c.tasks.stream().anyMatch(q -> q instanceof Task.Place p && p.item() == Items.CRAFTING_TABLE); }
+    private static boolean st1210(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(19800, 80, 19600);
+        if (t[0] == 1 || t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+        if (t[0] == 1) { scenarioReset(c); c.commandActive = false; s1210Start = 0; s1210Made = 0; s1210R = null; }
+        if (t[0] == 10) {
+            for (int x = -8; x <= 8; x++) for (int z = -4; z <= 4; z++) for (int y = -2; y <= 4; y++) level.setBlock(o.offset(x, y, z), (z == 0 && x >= -6 && x <= 6 && (y == 0 || y == 1) ? Blocks.AIR : Blocks.NETHERRACK).defaultBlockState(), 2); // (a 1-wide, 2-high tunnel: no open cell beside him for a table)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE)); c.getInventory().add(new ItemStack(Items.STICK, 4)); c.getInventory().add(new ItemStack(Items.BLACKSTONE, 6));
+            c.myStations.clear(); c.notches.clear(); c.tempStations.clear(); c.blueprint = null; level.setDayTime(1000);
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no"); mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] > 10) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 20) { s1210R = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "craft", "stone_pickaxe", 1); s1210Start = t[0]; }
+        if (s1210Start > 0 && t[0] > s1210Start) {
+            boolean made = c.getInventory().countItem(Items.STONE_PICKAXE) > 0; if (made && s1210Made == 0) s1210Made = t[0];
+            if (s1210Made > 0 && t[0] == s1210Made + 60 || t[0] == s1210Start + 300) { BlockPos nn = o.north(); String notch = level.getBlockState(nn).getBlock().getName().getString(); String left = c.tasks.toString(); boolean tableQ = tableQueued(c);
+                check(!tableQ, "a table still queued after the pick was made: " + left); check(level.getBlockState(nn).is(Blocks.NETHERRACK) || level.getBlockState(nn).is(Blocks.CRAFTING_TABLE), "the notch beside him dug for a table never put in it: " + notch + ", queue " + left);
+                int tables = 0; for (BlockPos q : BlockPos.betweenClosed(o.offset(-8, -2, -4), o.offset(8, 4, 4))) if (level.getBlockState(q).is(Blocks.CRAFTING_TABLE)) tables++;
+                int el = (s1210Made > 0 ? s1210Made : t[0]) - s1210Start; String r0 = s1210R;
+                c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.myStations.clear(); c.notches.clear(); c.tempStations.clear();
+                for (int x = -8; x <= 8; x++) for (int z = -4; z <= 4; z++) for (int y = -2; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(20))) e.discard();
+                check(r0 == null || !r0.startsWith("failed"), "the craft ran before its notch's table stood: " + r0);
+                check(made, "no stone pickaxe in " + el + " ticks (first answer: " + r0 + ")");
+                check(tables + c.getInventory().countItem(Items.CRAFTING_TABLE) <= 1, tables + " table(s) standing, " + c.getInventory().countItem(Items.CRAFTING_TABLE) + " on him: more than his one");
+                check(el <= 160, "the pick took " + el + " ticks (a player: a notch and a craft, ~3-5 s)");
+                pass(stage, t, "the craft waited for its notch's table (" + r0 + "), the pick made in " + el + " ticks");
+            }
         }
         return true;
     }

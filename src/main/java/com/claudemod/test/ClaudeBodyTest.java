@@ -10852,6 +10852,7 @@ public final class ClaudeBodyTest {
             case 1252: return st1252(stage, t, c, h, level, mock);
             case 1253: return st1253(stage, t, c, h, level, mock);
             case 1254: return st1254(stage, t, c, h, level, mock);
+            case 1255: return st1255(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -22669,6 +22670,28 @@ public final class ClaudeBodyTest {
             if (s1254Redug) { String q = c.currentTask + " " + c.tasks.stream().limit(5).toList(); c.tasks.clear(); check(false, "the hole at " + s1254Hole.toShortString() + " patched, then broken back out for the corner coal (" + q + ")"); }
             if (!coal && solid && c.tasks.isEmpty() && c.currentTask == null) { for (BlockPos q : new BlockPos[] {s1254Hole, s1254Ore, s1254Ore.relative(net.minecraft.core.Direction.UP)}) level.setBlock(q, Blocks.STONE.defaultBlockState(), 2); for (net.minecraft.core.Direction d : net.minecraft.core.Direction.Plane.HORIZONTAL) if (level.getBlockState(s1254Hole.relative(d)).isAir() && c.blueprint.roleAt(s1254Hole.relative(d)) == null) level.setBlock(s1254Hole.relative(d), Blocks.STONE.defaultBlockState(), 2); c.blueprint = null; pass(stage, t, "the corner coal first, then the patch, once"); } // (the arena back as it was: the next stage runs here)
             if (t[0] - 10 >= 900) { String q = c.currentTask + " " + c.tasks.stream().limit(5).toList(); c.tasks.clear(); check(false, "not done in 45 s: coal " + coal + " hole solid " + solid + " (" + q + ")"); }
+        }
+        return true;
+    }
+    private static BlockPos s1255Me;
+    private static boolean st1255(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // review 56 (live 07:43 11-09, World 17): night, down his mine by the stairs with 17 logs, strip_mine packed for 15 more logs, the night rule refused the collect, strip_mine packed again every 2 ticks, then 5 min idle on the clock hold
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] > 1 && t[0] % 5 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, c.getBoundingBox().inflate(48))) m.discard();
+        if (t[0] == 10) {
+            var b = nightMine(h, level); level.setBlockAndUpdate(b.rows().get(2).feet()[1], Blocks.AIR.defaultBlockState()); // (no torch by the stairs' top: live he was "not in a lit-up spot") c.prefs.put("mine_model", "blueprint"); c.blueprint = b; com.claudemod.director.ClaudeLife.bpSync(c);
+            c.tasks.clear(); c.skillQueue.clear(); if (c.currentTask != null) c.dropCurrent = true;
+            BlockPos me = b.rows().get(0).first(); s1255Me = me.immutable(); check(level.getBrightness(net.minecraft.world.level.LightLayer.SKY, me) >= 4, "set up: the stairs' top has no sky (" + level.getBrightness(net.minecraft.world.level.LightLayer.SKY, me) + ")"); // (live -19,63,-18: the top of his stairs, sky over him) c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5);
+            c.prefs.put("stay_close", "no"); level.setDayTime(22000); /* (late night: waiting out the dark is cheaper than any trip out, so the night rule refuses the trees, as live) */ c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.getInventory().clearContent(); for (net.minecraft.world.item.Item it : new net.minecraft.world.item.Item[] {Items.STONE_PICKAXE, Items.STONE_SWORD, Items.STONE_AXE, Items.FURNACE}) c.getInventory().add(new ItemStack(it));
+            c.getInventory().add(new ItemStack(Items.COBBLESTONE, 3)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 17)); c.getInventory().add(new ItemStack(Items.TORCH, 16)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.LEATHER_CHESTPLATE)); // (some armor, none iron: live he was "down his mine at night with 0 meals: working on")
+        }
+        if (t[0] > 10 && t[0] < 20 && c.blockPosition().distSqr(s1255Me) > 1) { c.teleportTo(s1255Me.getX() + 0.5, s1255Me.getY(), s1255Me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); } // (the teleport raced the last stage's spot: again till he's there)
+        if (t[0] == 20) { check(level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, c.blockPosition()) < 8, "set up: lit where he stands (" + level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, c.blockPosition()) + ") at " + c.blockPosition().toShortString()); c.lastSkillLine = ""; c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("strip_mine", "iron_ore", 30)); }
+        if (t[0] > 20) {
+            String l = c.lastSkillLine == null ? "" : c.lastSkillLine;
+            check(!l.startsWith("collect logs"), "sent for logs the night rule refuses: " + l + " (queue " + c.skillQueue + ")");
+            if (l.startsWith("strip_mine iron_ore") && !l.contains("packing") && !l.contains("failed") && !l.contains("kit first") && !l.contains("cover")) { level.setDayTime(6000); pass(stage, t, "night, 17 logs on him: down the mine with them (" + l + ")"); }
+            if (t[0] >= 20 + 300) check(false, "not mining 15 s on: " + l + " (queue " + c.skillQueue + ", task " + c.currentTask + ")");
         }
         return true;
     }

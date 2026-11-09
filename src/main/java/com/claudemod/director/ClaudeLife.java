@@ -2228,7 +2228,7 @@ public final class ClaudeLife {
                 boolean cobble = target.equals("cobblestone") || target.equals("stone") || target.equals("cobbled_deepslate") || target.equals("rock");
                 boolean hurtNow = g.getHealth() <= 8 && foodToEat(g, true) == null; // (hurt with nothing to eat: no trip down the mine for it; stone near him will do)
                 // (no "his mine killed him twice" rule: deaths were never forgotten, so two early ones barred his mine for the run; the user: fix causes, not counters)
-                if (cobble || wood) { String no = nightOutsideNo(g, level, g.blockPosition()); if (no == null && wood) no = nightOutsideNo(g, level, level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.blockPosition())); if (no != null) return no; } // (wood is up top: asked there, not at his feet down the mine, where it read as cover and he set off up the stairs for logs at night) // (no chopping at night without the kit, even a tree beside him: the user's night rule; that exception had 5 mobs on him at 3 health) // (and no long walks to trees in the dark: 82 blocks at night, zombies and a creeper on the way; a tree right by him is fine) // (up top at night with nothing: a fresh respawn walked 45 blocks for cobble in the dark, twice, and died both times)
+                if (cobble || wood) { String no = wood ? woodNightNo(g, level) : nightOutsideNo(g, level, g.blockPosition()); if (no != null) return no; } // (wood is up top: asked there, not at his feet down the mine, where it read as cover and he set off up the stairs for logs at night) // (no chopping at night without the kit, even a tree beside him: the user's night rule; that exception had 5 mobs on him at 3 health) // (and no long walks to trees in the dark: 82 blocks at night, zombies and a creeper on the way; a tree right by him is fine) // (up top at night with nothing: a fresh respawn walked 45 blocks for cobble in the dark, twice, and died both times)
                 int torchesOn = 0; for (int i = 0; i < g.inventory.items.getContainerSize(); i++) if (g.inventory.items.getItem(i).is(Items.TORCH)) torchesOn += g.inventory.items.getItem(i).getCount();
                 if (cobble && count >= 16 && g.mineFace != null && Kit.food(g) > 0 && g.getHealth() >= 14 && level.dimension() == net.minecraft.world.level.Level.OVERWORLD && !"looked_at".equals(st.where()) && !"here".equals(st.where())) { // a trip down his mine: its light made first, queued in front of this collect (live 23:21 11-06 "no torches for my dark mine: a few steps down right here", a pit by the portal; and from inside strip_mine the prep sat behind this collect's own re-queue: "going round in circles" 23:23:38)
                     String light = charcoalForTorches(g, level, st); if (light != null && !light.startsWith("failed")) return light; // (no light to be had: the rock near him, below)
@@ -4735,6 +4735,8 @@ public final class ClaudeLife {
             else if (prey instanceof net.minecraft.world.entity.animal.Sheep) cooked = "cooked_mutton";
             else if (prey instanceof net.minecraft.world.entity.animal.Chicken) cooked = "cooked_chicken";
         }
+        int logMin = (g.inventory.count(s -> s.is(Items.CRAFTING_TABLE)) > 0 ? 0 : 1) + (light ? 0 : 6) + 2; // (the trip's essentials: a table, torches, sticks)
+        if (logShort > 0 && logs >= logMin && woodNightNo(g, level) != null) { ClaudeMod.LOGGER.info("[Claude skill] packing at night: {} logs on him cover the trip's essentials (need {}); the rest of the half stack waits for first light, the night rule holds the trees (ClaudeLife.packForTrip)", logs, logMin); logShort = 0; } // (live 07:43 11-09, review 56: packing sent him for 15 logs the night rule refused, strip_mine packed again each tick, then 5 min idle on the clock hold with 17 logs on him)
         if (logShort > 0) {
             int fromChests = 0; java.util.List<Task> fetch = new ArrayList<>();
             for (var sp : com.claudemod.entity.life.ChestLedger.where(g, level, s -> s.is(ItemTags.LOGS))) { if (fromChests >= logShort || sp.dist() > 48) break; int n0 = Math.min(logShort - fromChests, sp.count()); fetch.add(new Task.GoTo(sp.pos(), 2)); fetch.add(new Task.Chest(sp.pos(), true, sp.item(), n0)); fromChests += n0; }
@@ -6808,6 +6810,11 @@ public final class ClaudeLife {
         return g.inventory.count(s -> s.getItem() instanceof net.minecraft.world.item.ArmorItem a && a.getMaterial().is(net.minecraft.world.item.ArmorMaterials.DIAMOND)) > 0;
     }
 
+    /** The night rule for wood: where he stands, then up top over him, where the trees are (collect's own check; packing asks it too). */
+    static String woodNightNo(ClaudeEntity g, ServerLevel level) {
+        String no = nightOutsideNo(g, level, g.blockPosition());
+        return no != null ? no : nightOutsideNo(g, level, level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.blockPosition()));
+    }
     public static String nightOutsideNo(ClaudeEntity g, ServerLevel level, BlockPos at) { return nightOutsideNo(g, level, at, -1); }
     /** The same with the time he'd be out given (outS < 0: the trip to at and back plus night.job_s; the night hold asks for the whole night, toDawn). */
     public static String nightOutsideNo(ClaudeEntity g, ServerLevel level, BlockPos at, double outS) {

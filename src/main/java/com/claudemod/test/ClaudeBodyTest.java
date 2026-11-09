@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1308: return st1308(stage, t, c, h, level, mock);
             case 1307: return st1307(stage, t, c, h, level, mock);
             case 1306: return st1306(stage, t, c, h, level, mock);
             case 1305: return st1305(stage, t, c, h, level, mock);
@@ -16873,6 +16874,27 @@ public final class ClaudeBodyTest {
             check(p == null || byFoes > 10, "the patrol leg goes to " + p + ", " + (int) byFoes + " off the hostiles he knows of: " + why[0]);
             pass(stage, t, "food walk kept, the hunt chose " + nx.kind() + ", patrol leg " + (p == null ? "none" : (int) byFoes + " off them"));
             return true;
+        }
+        return true;
+    }
+    /** Stage 1308 (D2D reviews 212/213, live 11:18:05-21 11-09 at -19,62,-205: a salmon 5-7 off chased through the river for 15 s, under water to y 53, not a hit, till the no-effect watchdog broke it off; the 5 s "not closing in" rule was for Animals, and a fish isn't one). Here: a salmon 6 off behind a rock wall in his pool: he lets it be within 8 s, not 15. */
+    private static int s1308T; private static java.util.UUID s1308F;
+    private static boolean st1308(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1308T = -1; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, c.getBoundingBox().inflate(48), e -> !(e instanceof net.minecraft.world.entity.player.Player))) e.discard();
+            for (int x = 2; x <= 13; x++) for (int z = 6; z <= 9; z++) for (int y = -2; y <= 5; y++) h.setBlock(new BlockPos(x, y, z), x >= 7 && x <= 9 ? Blocks.STONE : y <= 2 ? Blocks.WATER : Blocks.AIR); // two pools, a rock wall 3 thick between, too tall to climb
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            BlockPos s = h.absolutePos(new BlockPos(5, 2, 7)); c.teleportTo(s.getX() + 0.5, s.getY(), s.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            BlockPos f = h.absolutePos(new BlockPos(12, 1, 7)); var fish = net.minecraft.world.entity.EntityType.SALMON.create(level); fish.moveTo(f.getX() + 0.5, f.getY() + 0.2, f.getZ() + 0.5, 0, 0); fish.setNoAi(true); fish.setPersistenceRequired(); level.addFreshEntity(fish); s1308F = fish.getUUID();
+        }
+        if (t[0] == 20) { c.tasks.add(new Task.Attack(s1308F, 400)); s1308T = t[0]; }
+        if (s1308T > 0 && t[0] > s1308T + 5) {
+            boolean on = c.currentTask instanceof Task.Attack a0 && a0.target().equals(s1308F) || c.tasks.stream().anyMatch(q -> q instanceof Task.Attack a1 && a1.target().equals(s1308F));
+            if (!on || t[0] == s1308T + 20 * 25) { double secs = (t[0] - s1308T) / 20.0; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; if (level.getEntity(s1308F) != null) level.getEntity(s1308F).discard(); flatBox(h);
+                check(!on, "still after the salmon behind the wall after 25 s");
+                check(secs <= 8, "chased a salmon he couldn't close on for " + secs + " s (a player lets it be in a few seconds)");
+                pass(stage, t, "let the salmon behind the wall be after " + secs + " s"); }
         }
         return true;
     }

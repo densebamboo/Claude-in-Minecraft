@@ -36,13 +36,24 @@ public final class Gate {
     record Change(Task task, String before, String after, String origin, long tick) {}
     private static final Map<UUID, Map<Long, Change[]>> HIST = new HashMap<>(); // cell -> {the one before, the last}
     /** The referee's losers: the job not to queue again while the cell stays as the winner left it. */
-    record Lost(String keep, long tick, String why) {}
-    private static final Map<UUID, Map<Task, Lost>> LOST = new HashMap<>();
+    /** One owner per cell (audit 1): a ruling on a cell's open/solid state, by the referee or a held notch. Holds while the cell stays as ruled (keep: its block then; null: till unruled), for MEMORY at most unless held. */
+    record Verdict(boolean solid, String keep, long tick, boolean held, String why) {}
+    private static final Map<UUID, Map<Long, Verdict>> VERDICT = new HashMap<>();
+    private static final Map<UUID, Map<Long, Long>> VSAID = new HashMap<>();
+    private static Verdict verdictAt(ClaudeEntity g, BlockPos p) {
+        Map<Long, Verdict> m = VERDICT.get(g.getUUID()); if (m == null) return null; Verdict v = m.get(p.asLong()); if (v == null) return null;
+        if (!v.held() && (now(g) - v.tick() > MEMORY || v.keep() != null && !snap(g, p).block().equals(v.keep()))) { m.remove(p.asLong()); return null; }
+        return v;
+    }
+    /** A ruling set by one of his systems (a held access notch: open till unruled at its seal). */
+    public static void rule(ClaudeEntity g, BlockPos p, boolean solid, String why) { Map<Long, Verdict> m = VERDICT.computeIfAbsent(g.getUUID(), k -> new HashMap<>()); if (m.size() > 512) m.clear(); m.put(p.asLong(), new Verdict(solid, null, now(g), true, why)); com.claudemod.entity.nav.ActionPath.forget(g); }
+    public static void unrule(ClaudeEntity g, BlockPos p) { Map<Long, Verdict> m = VERDICT.get(g.getUUID()); if (m != null && m.remove(p.asLong()) != null) com.claudemod.entity.nav.ActionPath.forget(g); }
+    private static boolean fullFill(ClaudeEntity g, Task t, BlockPos p) { return t instanceof Task.Place pl && pl.item() instanceof net.minecraft.world.item.BlockItem bi && bi.getBlock().defaultBlockState().isCollisionShapeFullBlock(g.level(), p); }
     public static final Map<UUID, Integer> REFEREED = new HashMap<>();
 
     private static Map<Task, Rec> book(ClaudeEntity g) { return BOOK.computeIfAbsent(g.getUUID(), k -> new HashMap<>()); }
     private static long now(ClaudeEntity g) { return g.level().getGameTime(); }
-    public static void reset(ClaudeEntity g) { BOOK.remove(g.getUUID()); SAID.remove(g.getUUID()); START.remove(g.getUUID()); HIST.remove(g.getUUID()); LOST.remove(g.getUUID()); }
+    public static void reset(ClaudeEntity g) { BOOK.remove(g.getUUID()); SAID.remove(g.getUUID()); START.remove(g.getUUID()); HIST.remove(g.getUUID()); VERDICT.remove(g.getUUID()); VSAID.remove(g.getUUID()); }
     public static int refused(ClaudeEntity g) { return REFUSED.getOrDefault(g.getUUID(), 0); }
 
     /** The jobs it measures: those with a target cell, the fight and the flight left out (D2D's combat rewrite owns those). */
@@ -130,11 +141,9 @@ public final class Gate {
     }
 
     /** The referee kept this cell against a dig, and it still stands so: the route planner reads it, so the plan and the queue agree (a way through it would only be refused again, stage 1049). */
-    public static boolean keptFromDig(ClaudeEntity g, BlockPos p) {
-        Map<Task, Lost> lost = LOST.get(g.getUUID()); if (lost == null || lost.isEmpty()) return false;
-        for (var e : lost.entrySet()) if (e.getKey() instanceof Task.Break b && b.pos().equals(p) && now(g) - e.getValue().tick() <= MEMORY && snap(g, p).block().equals(e.getValue().keep())) return true;
-        return false;
-    }
+    public static boolean keptFromDig(ClaudeEntity g, BlockPos p) { Verdict v = verdictAt(g, p); return v != null && v.solid(); }
+    /** Ruled open (the referee kept it dug out, or his access notch is held): the planner puts nothing there. */
+    public static boolean keptOpen(ClaudeEntity g, BlockPos p) { Verdict v = verdictAt(g, p); return v != null && !v.solid(); }
 
     /** What his mine's plan wants in a cell: true solid, false open, null no say. */
     private static Boolean planWants(ClaudeEntity g, BlockPos p) {
@@ -151,16 +160,15 @@ public final class Gate {
      */
     private static boolean referee(ClaudeEntity g, Task t) {
         BlockPos p = Watchdog.target(t); if (p == null) return true;
-        Map<Task, Lost> lost = LOST.get(g.getUUID());
-        if (lost != null) { Lost l = lost.get(t);
-            if (l != null) {
-                if (now(g) - l.tick() <= MEMORY && snap(g, p).block().equals(l.keep())) { MindLog.refused(g, p, "referee: " + l.why()); REFUSED.merge(g.getUUID(), 1, Integer::sum); LAST_WHY.put(g.getUUID(), l.why()); return false; }
-                lost.remove(t);
-            } }
+        { Verdict v = verdictAt(g, p); // (a ruling on the cell: any job against it is told, whichever it is; audit 1)
+          if (v != null && (t instanceof Task.Break && v.solid() || fullFill(g, t, p) && !v.solid())) {
+            Map<Long, Long> said = VSAID.computeIfAbsent(g.getUUID(), k -> new HashMap<>()); Long last = said.get(p.asLong());
+            if (last == null || now(g) - last > 20 * 20) { said.put(p.asLong(), now(g)); if (said.size() > 256) said.clear(); ClaudeMod.LOGGER.info("[Claude referee] {} {} asked by {}: refused, the cell is ruled {} ({}) (Gate.referee)", t.getClass().getSimpleName(), p.toShortString(), ClaudeEntity.originOf(t), v.solid() ? "solid" : "open", v.why()); }
+            MindLog.refused(g, p, "referee: " + v.why()); REFUSED.merge(g.getUUID(), 1, Integer::sum); LAST_WHY.put(g.getUUID(), v.why()); return false; } }
         Map<Long, Change[]> h = HIST.get(g.getUUID()); if (h == null) return true;
         Change[] c = h.get(p.asLong()); if (c == null || c[0] == null || c[1] == null) return true;
         Change mine = c[0], undo = c[1];
-        if (!t.equals(mine.task()) || t.equals(undo.task()) || undo.tick() - mine.tick() > 20 * 60 || now(g) - undo.tick() > 20 * 60) return true;
+        if ((t instanceof Task.Place) != (mine.task() instanceof Task.Place) || (undo.task() instanceof Task.Place) == (t instanceof Task.Place) || undo.tick() - mine.tick() > 20 * 60 || now(g) - undo.tick() > 20 * 60) return true;
         String here = snap(g, p).block();
         if (!here.equals(mine.before()) || !mine.before().equals(undo.after())) return true; // (not a flip back: something else since)
         if (t.equals(g.currentTask)) return true;
@@ -174,16 +182,16 @@ public final class Gate {
         var pick = Decide.choose(g, "referee", p.toShortString() + " " + what + " by " + redoBy + ", then " + other + " by " + undoBy + ", now " + what + " again", true, java.util.List.of(keep, redo));
         REFEREED.merge(g.getUUID(), 1, Integer::sum);
         com.claudemod.entity.nav.ActionPath.forget(g); // (a ruling: plans searched before it are stale)
-        Map<Task, Lost> ls = LOST.computeIfAbsent(g.getUUID(), k -> new HashMap<>()); if (ls.size() > 256) ls.clear();
+        Map<Long, Verdict> vs = VERDICT.computeIfAbsent(g.getUUID(), k -> new HashMap<>()); if (vs.size() > 512) vs.clear();
         if (pick == keep) {
             String why = p.toShortString() + " " + what + " again by " + redoBy + ": " + undoBy + " had it " + other + " " + (now(g) - undo.tick()) / 20 + " s ago, the referee kept that (" + keep.detail() + ")";
             ClaudeMod.LOGGER.info("[Claude referee] {} (Gate.referee)", why);
-            ls.put(t, new Lost(here, now(g), why)); MindLog.refused(g, p, "referee: " + why); REFUSED.merge(g.getUUID(), 1, Integer::sum); LAST_WHY.put(g.getUUID(), why);
+            vs.put(p.asLong(), new Verdict(t instanceof Task.Break, here, now(g), false, why)); MindLog.refused(g, p, "referee: " + why); REFUSED.merge(g.getUUID(), 1, Integer::sum); LAST_WHY.put(g.getUUID(), why);
             return false;
         }
         String why = p.toShortString() + " " + other + " by " + undoBy + " undid " + redoBy + "; the referee gave it to " + redoBy + " (his mine's plan: " + (wants ? "solid" : "open") + ")";
         ClaudeMod.LOGGER.info("[Claude referee] {} (Gate.referee)", why);
-        ls.put(undo.task(), new Lost(mine.after(), now(g), why)); // (the undoing job, told: not again while it stands as the plan wants)
+        vs.put(p.asLong(), new Verdict(t instanceof Task.Place, null, now(g), false, why)); // (the undoing job, told: not again for a while; the cell is the redo's now)
         return true;
     }
 }

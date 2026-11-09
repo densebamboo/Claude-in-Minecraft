@@ -712,6 +712,7 @@ public final class ClaudeLife {
             com.claudemod.entity.life.Decide.Option.of("patch it now", com.claudemod.entity.life.Weights.w("mine.notch_reopen_s", 6), "the way back cuts it again and puts it back again"),
             com.claudemod.entity.life.Decide.Option.of("hold it open", com.claudemod.entity.life.Weights.w("mine.notch_open_s", 3) + mobs * com.claudemod.entity.life.Weights.w("mine.notch_mob_s", 4), "a hole in his shell while he's out, " + mobs + " hostile(s) within 16, sealed after")));
         if (pick == null || !pick.name().startsWith("hold")) return false;
+        com.claudemod.entity.life.Gate.rule(g, cut, false, "his access notch, held open while his work out at " + dest.toShortString() + " lasts"); // (one owner: no patch or other fill goes in while it's held; the seal unrules it; audit 1)
         Notch was = notches(g).get(cut); notches(g).put(cut.immutable(), new Notch(dest.immutable(), level.dimension(), was != null ? was.since() : g.tickCount, was != null && was.opened() || level.getBlockState(cut).getCollisionShape(level, cut).isEmpty()));
         ClaudeMod.LOGGER.info("[Claude mine] access notch at {}: held open while his work out at {} lasts, sealed after (the patch put off, not skipped) (ClaudeLife.holdNotch)", cut.toShortString(), dest.toShortString());
         return true;
@@ -722,8 +723,8 @@ public final class ClaudeLife {
         for (var it = m.entrySet().iterator(); it.hasNext(); ) { var e = it.next(); BlockPos n = e.getKey(); Notch nt = e.getValue();
             boolean here = level.dimension() == nt.dim();
             boolean solid = here && !level.getBlockState(n).getCollisionShape(level, n).isEmpty();
-            if (solid && !nt.opened()) { if (g.tickCount - nt.since() > 20 * 60) { it.remove(); ClaudeMod.LOGGER.info("[Claude mine] access notch at {} never cut in a minute: the way changed, dropped (ClaudeLife.sealNotches)", n.toShortString()); } continue; } // (planned, the dig still ahead)
-            if (solid) { it.remove(); ClaudeMod.LOGGER.info("[Claude mine] access notch at {} closed already (ClaudeLife.sealNotches)", n.toShortString()); continue; }
+            if (solid && !nt.opened()) { if (g.tickCount - nt.since() > 20 * 60) { { it.remove(); com.claudemod.entity.life.Gate.unrule(g, n); } ClaudeMod.LOGGER.info("[Claude mine] access notch at {} never cut in a minute: the way changed, dropped (ClaudeLife.sealNotches)", n.toShortString()); } continue; } // (planned, the dig still ahead)
+            if (solid) { { it.remove(); com.claudemod.entity.life.Gate.unrule(g, n); } ClaudeMod.LOGGER.info("[Claude mine] access notch at {} closed already (ClaudeLife.sealNotches)", n.toShortString()); continue; }
             if (here && !nt.opened()) e.setValue(new Notch(nt.far(), nt.dim(), nt.since(), true));
             boolean left = !here || g.blockPosition().distSqr(n) > 24 * 24;
             boolean out = !left && !inMineSide(g, g.blockPosition()) && !m.containsKey(g.blockPosition()) && g.blockPosition().distSqr(n) <= 16 * 16; // (in a notch's own cell he isn't out: he's coming back in)
@@ -734,7 +735,7 @@ public final class ClaudeLife {
             BlockPos stepIn = null; if (inIt && !left && !out && !queued) for (Direction d0 : Direction.Plane.HORIZONTAL) { BlockPos q0 = g.blockPosition().relative(d0); if (!m.containsKey(q0) && inMineSide(g, q0) && level.getBlockState(q0).getCollisionShape(level, q0).isEmpty() && level.getBlockState(q0.above()).getCollisionShape(level, q0.above()).isEmpty() && !level.getBlockState(q0.below()).getCollisionShape(level, q0.below()).isEmpty()) { stepIn = q0.immutable(); break; } }
             if (stepIn != null) { final BlockPos si = stepIn; if (g.tasks.stream().noneMatch(t -> t instanceof Task.GoTo go && go.pos().equals(si))) g.tasks.addFirst(new Task.GoTo(stepIn, 0.4)); inIt = false; } // (his walk back ended in the notch itself: a step in, then the patch)
             if (!left && (out || queued || inIt)) { if (g.tickCount % 200 == 11) ClaudeMod.LOGGER.info("[Claude mine] access notch at {} still held: {} (ClaudeLife.sealNotches)", n.toShortString(), out ? "he's out past it" : queued ? "work queued out past it" : "he's standing in it"); continue; }
-            it.remove();
+            { it.remove(); com.claudemod.entity.life.Gate.unrule(g, n); }
             if (!left && g.blockPosition().distSqr(n) <= 8 * 8) { final Item deep0 = Items.COBBLED_DEEPSLATE; Item fill = n.getY() < 0 && g.inventory.count(x -> x.is(deep0)) > 0 ? deep0 : Items.COBBLESTONE; final BlockPos nn = n; if (g.tasks.stream().noneMatch(t -> t instanceof Task.Place pl && pl.pos().equals(nn))) g.tasks.add(new Task.Place(n, fill)); }
             ClaudeMod.LOGGER.info("[Claude mine] access notch at {} sealed: {} ({}) (ClaudeLife.sealNotches)", n.toShortString(), left ? "he left the area" : "no work left out at " + nt.far().toShortString(), left || g.blockPosition().distSqr(n) > 8 * 8 ? "his mine rounds patch it" : "patching it now");
         }

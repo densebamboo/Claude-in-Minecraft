@@ -10773,6 +10773,7 @@ public final class ClaudeBodyTest {
             case 1203: return st1203(stage, t, c, h, level, mock);
             case 1206: return st1206(stage, t, c, h, level, mock);
             case 1204: return st1204(stage, t, c, h, level, mock);
+            case 1207: return st1207(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -20904,6 +20905,33 @@ public final class ClaudeBodyTest {
             for (int x = -4; x <= 28; x++) for (int z = -8; z <= 8; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
             check(open, "his walkway cell at " + st1204F.toShortString() + " patched again after the ore behind it came out: " + at);
             nsHome(c, h, level); pass(stage, t, "the ore out, his walkway left open (" + at + ")");
+        }
+        return true;
+    }
+    private static boolean st1207(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // one owner per cell (audit 1): filled with cobblestone, dug out, then filled again with dirt by another job: the referee matched only the exact same task, so a fill with another block (or a dig by another job) walked past it and the flip went on (reviews 69/275/298/365/496): the ruling is the cell's, any job against it is told
+        BlockPos x = h.absolutePos(new BlockPos(4, 2, 6));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.prefs.put("stay_close", "no"); }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) e.discard();
+        if (t[0] == 10) {
+            for (int xx = -4; xx <= 12; xx++) for (int z = -4; z <= 12; z++) { for (int yy = -2; yy <= 0; yy++) level.setBlock(h.absolutePos(new BlockPos(xx, yy, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(xx, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int yy = 2; yy <= 8; yy++) level.setBlock(h.absolutePos(new BlockPos(xx, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            level.setDayTime(6000); c.blueprint = null;
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 8)); c.getInventory().add(new ItemStack(Items.DIRT, 8)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 6));
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) c.tasks.add(new Task.Place(x, Items.COBBLESTONE)); // one job fills it
+        if (t[0] == 70) { check(level.getBlockState(x).is(Blocks.COBBLESTONE), "the fill never went in: " + level.getBlockState(x)); c.tasks.add(new Task.Break(x)); } // another digs it out
+        if (t[0] == 160) {
+            check(level.getBlockState(x).isAir(), "the dig never came out: " + level.getBlockState(x));
+            int r0 = com.claudemod.entity.life.Gate.REFEREED.getOrDefault(c.getUUID(), 0);
+            c.tasks.add(new Task.Place(x, Items.DIRT)); // filled again, with another block
+            boolean in1 = c.tasks.contains(new Task.Place(x, Items.DIRT)); int r1 = com.claudemod.entity.life.Gate.REFEREED.getOrDefault(c.getUUID(), 0) - r0;
+            c.tasks.add(new Task.Place(x, Items.COBBLESTONE)); boolean in2 = c.tasks.contains(new Task.Place(x, Items.COBBLESTONE)); // and by the first job again: the ruling stands
+            boolean kept = com.claudemod.entity.life.Gate.keptOpen(c, x);
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            check(r1 == 1 && !in1, "the fill with another block asked a third time wasn't refereed (" + r1 + " decisions, queued " + in1 + ")");
+            check(!in2, "a fill after the ruling went in (the ruling held only against the one task)");
+            check(kept, "the planner doesn't see the cell ruled open");
+            pass(stage, t, "fill / dig / fill with another block: refereed once, the cell ruled open, every fill after refused, the planner told");
         }
         return true;
     }

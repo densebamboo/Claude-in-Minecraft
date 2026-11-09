@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1189: return st1189(stage, t, c, h, level, mock);
             case 1180: return st1180(stage, t, c, h, level, mock);
             case 1181: return st1181(stage, t, c, h, level, mock);
             case 1182: return st1182(stage, t, c, h, level, mock);
@@ -16212,6 +16213,20 @@ public final class ClaudeBodyTest {
             for (int x = -6; x <= 12; x++) for (int z = -6; z <= 6; z++) for (int y = -1; y <= 6; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
             check(odds != null && !odds.contains("out of his reach"), "a skeleton on a ledge 2 up, cobble and a pick on him: " + odds);
             c.getInventory().clearContent(); pass(stage, t, odds);
+        }
+        return true;
+    }
+    /** Stage 1189 (Loops via D2D 11-08: a stage list 504 -> 512 froze the test server: Whereabouts' sight line to the mock 5-18 million blocks off went through Perception.clear, which loaded every chunk on the way): sight lines into unloaded land, 400 and 3000 blocks out. No sight, and no chunks loaded to find that out (fast). */
+    private static boolean st1189(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 10) {
+            var eye = c.getEyePosition(); var far1 = eye.add(400, 0, 0); var far2 = eye.add(3000, 0, 0);
+            boolean loaded1 = level.hasChunkAt(BlockPos.containing(far1.add(-30, 0, 0)));
+            long t0 = System.nanoTime(); boolean s1 = com.claudemod.entity.life.Perception.clear(level, eye, far1); long ms1 = (System.nanoTime() - t0) / 1_000_000;
+            t0 = System.nanoTime(); boolean s2 = com.claudemod.entity.life.Perception.clear(level, eye, far2); long ms2 = (System.nanoTime() - t0) / 1_000_000;
+            check(!loaded1, "the land 370 out was loaded already: not the scene");
+            check(ms1 < 250 && ms2 < 250, "sight lines into unloaded land took " + ms1 + " ms (400 out) and " + ms2 + " ms (3000 out): chunks loaded along the way");
+            check(!s1 && !s2, "sight into unloaded land: 400 out " + s1 + ", 3000 out " + s2 + " (no player sees there)");
+            pass(stage, t, "no sight into unloaded land, " + ms1 + " ms and " + ms2 + " ms");
         }
         return true;
     }

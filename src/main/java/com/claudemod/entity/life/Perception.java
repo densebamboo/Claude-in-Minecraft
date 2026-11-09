@@ -153,9 +153,11 @@ public final class Perception {
     }
     /** Nothing opaque on the line (glass, fences, water: see-through; two layers of leaves seen through, the third stops it, as FarSight.cast; lava: not). */
     public static boolean clear(ServerLevel level, Vec3 from, Vec3 to) {
+        if (from.distanceToSqr(to) > 512.0 * 512.0) return false; // (past any view distance: no sight, and no ray stepping across the world)
         BlockPos fromCell = BlockPos.containing(from), toCell = BlockPos.containing(to); int[] leaves = {0};
         Boolean ok = BlockGetter.traverseBlocks(from, to, level, (lv, pos) -> {
             if (pos.equals(fromCell) || pos.equals(toCell)) return null;
+            if (!level.hasChunkAt(pos)) return Boolean.FALSE; // land not loaded: no sight into it, as for a player, and no chunk loaded to look (Loops 11-08: a sight line to the mock millions off loaded every chunk on the way, the test server hung)
             var s = lv.getBlockState(pos);
             if (lv.getFluidState(pos).is(FluidTags.LAVA)) return Boolean.FALSE;
             if (s.is(net.minecraft.tags.BlockTags.LEAVES) && ++leaves[0] >= 3) return Boolean.FALSE; // (a forest is a wall)

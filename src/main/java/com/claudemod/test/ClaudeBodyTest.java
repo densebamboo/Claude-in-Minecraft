@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1244: return st1244(stage, t, c, h, level, mock);
             case 1246: return st1246(stage, t, c, h, level, mock);
             case 1243: return st1243(stage, t, c, h, level, mock);
             case 1241: return st1241(stage, t, c, h, level, mock);
@@ -16649,6 +16650,29 @@ public final class ClaudeBodyTest {
             if (!st1246W.isAlive()) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "the wither skeleton killed in " + s / 20 + " s, health " + (int) c.getHealth()); }
             else check(s < 20 * 3 || st1246W.getHealth() < st1246Hp0, "3 s beside the wither skeleton and not one hit on it (health " + (int) c.getHealth() + ")");
             if (st1246W.isAlive()) check(s < 20 * 25, "25 s and the wither skeleton still up at " + (int) st1246W.getHealth() + " (health " + (int) c.getHealth() + ")");
+        }
+        return true;
+    }
+    /** Stage 1244 (D2D review 202, live 07:08 11-09): out of his portal with his pile 583 off, travel priced walk (no path) vs bridge vs bore (~5685 s) and bored 160 blocks at y 55 beside his own highway at y 59; NetherRoute found the highway only after. Here: a 160-block highway on record from where he stands, the goal 40 past its end and 4 down: his roads are priced with the rest, the trip goes by them, no bore. */
+    private static boolean st1244(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12400, 64, 7720), to = o.offset(3, -4, 200);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) for (int m = 0; m <= 208; m += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(0, 0, m)), 2, o.offset(0, 0, m));
+        if (t[0] == 12) {
+            for (int x = -4; x <= 6; x++) for (int z = -4; z <= 206; z++) for (int y = -7; y <= 4; y++) nl.setBlock(o.offset(x, y, z), Blocks.NETHERRACK.defaultBlockState(), 2);
+            for (int x = 0; x <= 1; x++) for (int z = 0; z <= 160; z++) { BlockPos p = o.offset(x, 0, z); nl.setBlock(p.below(), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); for (int y = 0; y <= 2; y++) nl.setBlock(p.above(y), Blocks.AIR.defaultBlockState(), 2); }
+            com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(0, -1, 0), o.offset(0, -1, 160), net.minecraft.core.Direction.Axis.Z, 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 15) com.claudemod.entity.nav.Route.forgetTrail(c);
+        if (t[0] == 20) {
+            var tr = com.claudemod.entity.life.FortressScout.travel(c, nl, to); String why = com.claudemod.entity.life.FortressScout.lastTravel;
+            for (int x = -4; x <= 6; x++) for (int z = -4; z <= 206; z++) for (int y = -7; y <= 4; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            com.claudemod.entity.life.PortalMap.net(c).segments.clear();
+            check(!(tr instanceof Task.Bore), "a bore beside his own highway: " + why);
+            nsHome(c, h, level); pass(stage, t, why);
         }
         return true;
     }

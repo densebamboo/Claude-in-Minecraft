@@ -446,9 +446,12 @@ public final class FortressScout {
         var path = g.getNavigation().createPath(to, 2); double walkS = Double.MAX_VALUE; int nodes = 0;
         if (path != null && path.canReach()) { nodes = path.getNodeCount(); double len = 0; for (int i = 1; i < nodes; i++) len += Math.sqrt(path.getNode(i).distanceToSqr(path.getNode(i - 1))); walkS = walkRowS * len; }
         if (lava > 0) boreS = bridgeS; // (lava he can see on the line: the bore meets it too and paves it, the same line at the same price; short of blocks, neither can)
+        var road = level.dimension() == net.minecraft.world.level.Level.NETHER ? com.claudemod.entity.nav.NetherRoute.road(g, level, me, to) : null; // his trail or highways: walked, the rest from their end priced as the router prices it (live 07:08 11-09, review 202: bored 160 blocks at y 55 beside his highway at y 59; stage 1244)
+        double roadS = road == null ? Double.MAX_VALUE : road.seconds();
+        if (roadS < walkS) walkS = roadS;
         String pick = walkS <= bridgeS && walkS <= boreS ? "walk" : bridgeS <= boreS ? "bridge" : "bore";
         lastTravelS = Math.min(walkS, Math.min(bridgeS, boreS));
-        lastTravel = String.format("to %s: walk %s vs bridge %s vs bore %s: %s", to.toShortString(), walkS == Double.MAX_VALUE ? "no path" : String.format("~%.0f s (%d steps)", walkS, nodes),
+        lastTravel = String.format("to %s: walk %s vs bridge %s vs bore %s: %s", to.toShortString(), walkS == Double.MAX_VALUE ? "no path" : walkS == roadS ? String.format("~%.0f s by his own roads (%d legs%s)", walkS, road.legs().size(), road.partial() ? ", the rest from their end" : "") : String.format("~%.0f s (%d steps)", walkS, nodes),
                 bridgeS == Double.MAX_VALUE ? (!can ? "no pick" : "no lava in sight on the line") : String.format("~%.0f s (%s%d paved over lava%s, %d open, %d through rock)", bridgeS, mine > 0 ? mine + " blocks to mine first, " : "", lava, shooter == null ? "" : ", walled against the " + shooter.getType().getDescription().getString().toLowerCase(), open, rock),
                 boreS == Double.MAX_VALUE ? "no pick" : String.format("~%.0f s (%d digs, pick wear %.2f s a dig, %d uses left)", boreS, boreDigs, wear[0], (int) wear[1]), pick);
         ClaudeMod.LOGGER.info("[Claude route] {} (FortressScout.travel)", lastTravel);

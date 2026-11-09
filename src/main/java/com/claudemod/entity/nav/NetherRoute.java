@@ -50,7 +50,7 @@ public final class NetherRoute {
     public static Plan plan(ClaudeEntity g, ServerLevel level, BlockPos from, BlockPos to) {
         // his own trail, when it runs from him to the goal: a way he's walked, priced against the search (live 22:05 11-06: 661 cells to the portal unused, the search ran out of nodes and dug at the rock nearest the goal; stage 924)
         com.claudemod.entity.life.FarSight.lookAllRound(g, level); com.claudemod.entity.life.PortalMap.seeRoads(g, level); // (a look round, and the roads in it on record: his own and anyone's; stage 928)
-        Plan tp = trail(g, from, to), hp = highway(g, from, to, true); if (hp == null) hp = ontoHighway(g, level, from, to); if (tp == null || hp != null && hp.seconds() < tp.seconds()) tp = hp; // (his highways on record outlive a restart; his trail doesn't: D2D 22:50, the user "he's not using the highway for pathing"; stage 925)
+        Plan tp = road(g, level, from, to);
         double straight = h(from.getX(), from.getY(), from.getZ(), to);
         if (tp != null && tp.seconds() <= straight * com.claudemod.entity.life.Weights.w("nether.trail_ok_ratio", 1.5)) return tp;
         Plan sp = search(g, level, from, to, false);
@@ -58,6 +58,12 @@ public final class NetherRoute {
         double est = sp == null ? Double.MAX_VALUE : sp.partial() && !sp.legs().isEmpty() ? sp.seconds() + h(sp.legs().get(sp.legs().size() - 1).getX(), sp.legs().get(sp.legs().size() - 1).getY(), sp.legs().get(sp.legs().size() - 1).getZ(), to) * com.claudemod.entity.life.PortalMap.NETHER_OFF_ROAD : sp.seconds(); // (the rest past what it read, priced as the highway's way off is: ground with no way of his yet)
         if (tp.seconds() < est) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: his own way, ~{} s, over the search's ~{} s{} (NetherRoute.plan)", from.toShortString(), to.toShortString(), (int) tp.seconds(), sp == null ? "-" : String.valueOf((int) est), sp != null && sp.partial() ? " (part way, the rest at a sprint)" : ""); return tp; }
         return sp;
+    }
+
+    /** His own ways there: his trail, or his highways on record (onto one within reach), the cheaper; null when neither runs there. FortressScout.travel prices it with the walk, bridge and bore. */
+    public static Plan road(ClaudeEntity g, ServerLevel level, BlockPos from, BlockPos to) {
+        Plan tp = trail(g, from, to), hp = highway(g, from, to, true); if (hp == null) hp = ontoHighway(g, level, from, to); if (tp == null || hp != null && hp.seconds() < tp.seconds()) tp = hp; // (his highways on record outlive a restart; his trail doesn't: D2D 22:50, the user "he's not using the highway for pathing"; stage 925)
+        return tp;
     }
 
     /** Along his trail, from the cell of it nearest him to the cell nearest the goal: leg ends every 8 cells and at each height change of 2; null when it doesn't run from within 6 of him to within 8 of the goal, or has a gap. */

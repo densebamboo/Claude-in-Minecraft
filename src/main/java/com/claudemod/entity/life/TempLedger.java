@@ -134,6 +134,12 @@ public final class TempLedger {
         return ClaudeLife.inHisMine(g, p) || ClaudeLife.touchesMine(g, p); // in the mine, placing is a patch
     }
 
+    /** Natural ground on 3+ sides and solid under it: the block fills a hole, the ground made good. */
+    static boolean holeFilled(ClaudeEntity g, ServerLevel level, BlockPos p) {
+        int natural = 0; for (Direction d : Direction.Plane.HORIZONTAL) { BlockPos n = p.relative(d); if (solid(level, n) && !has(g, n)) natural++; }
+        return natural >= 3 && solid(level, p.below());
+    }
+
     /** What a block he just put down is for, or null if it's no temporary block of his. */
     static String classify(ClaudeEntity g, ServerLevel level, BlockPos p, BlockState placed, BlockState replaced) {
         if (!replaced.getFluidState().isEmpty()) return null; // a plug (into water or lava): it stays
@@ -148,12 +154,11 @@ public final class TempLedger {
             return b instanceof CraftingTableBlock ? "craft table" : "furnace";
         }
         if (b instanceof TorchBlock || b == Blocks.LANTERN) return ClaudeLife.baseArea(g, p) || !level.canSeeSky(p) ? null : "light"; // (a torch down a cave is a way-mark: it stays)
+        if (placed.isCollisionShapeFullBlock(level, p) && !placed.hasBlockEntity() && holeFilled(g, level, p)) return null; // a hole filled level with the ground, his cover's too (his dug-in hole pillared full on the way out was booked "cover" and dug back out 2 s on, live 12:07 11-09: stage 1262)
         if (g.coverCell(p)) return "cover"; // a block of the cover he's making (by its shape the box's walls read as "step", "bridge", "scaffold", booked to the hunt that was running, live 04:42)
         if (placed.hasBlockEntity() || !placed.isCollisionShapeFullBlock(level, p) || b == Blocks.OBSIDIAN) return null; // chests, beds, crops, saplings, fences, the portal's frame: none of it temporary
         BlockPos feet = g.blockPosition();
-        int sides = 0, natural = 0;
-        for (Direction d : Direction.Plane.HORIZONTAL) { BlockPos n = p.relative(d); if (solid(level, n)) { sides++; if (!has(g, n)) natural++; } }
-        if (natural >= 3 && solid(level, p.below())) return null; // a hole filled (the ground made good again)
+        if (holeFilled(g, level, p)) return null; // a hole filled (the ground made good again)
         boolean hostile = !Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(12), m -> m.isAlive()).isEmpty();
         if (p.getX() == feet.getX() && p.getZ() == feet.getZ() && p.getY() < feet.getY()) return hostile || g.currentTask instanceof Task.Flee ? "nerd-pole" : "pillar";
         if (p.getY() <= feet.getY() - 1 && !solid(level, p.below())) return "bridge";

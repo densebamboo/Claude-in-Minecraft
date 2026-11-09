@@ -10866,6 +10866,7 @@ public final class ClaudeBodyTest {
             case 1259: return st1259(stage, t, c, h, level, mock);
             case 1260: return st1260(stage, t, c, h, level, mock);
             case 1261: return st1261(stage, t, c, h, level, mock);
+            case 1262: return st1262(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -22901,6 +22902,31 @@ public final class ClaudeBodyTest {
     private static boolean st1261(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (t[0] == 20 && st1011T > 0) com.claudemod.entity.life.Watchdog.drowningOutForTest(c);
         return st1011(stage, t, c, h, level, mock);
+    }
+
+    /** Dug in for the night on flat ground, a lid over him; day comes, he pillars out (the hole filled back to the ground) and walks off: the filled hole stays filled (live 12:06:56-12:07:00 11-09 World 17 at 58,70,-462: the pillar's top block booked as "cover", leaving dug it straight back out, a pit reopened 2 s after he filled it; review 45). */
+    private static int st1262Hold, st1262Out; private static BlockPos st1262Hole;
+    private static boolean st1262(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1262Hold = -1; st1262Out = -1; st1262Hole = null; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -4; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), yy == 1 ? Blocks.GRASS_BLOCK : Blocks.DIRT); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            level.setDayTime(18000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 18)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.STONE_SHOVEL)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.pillarBlocks.clear();
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); check(c.work.shelter(), "no hole dug (" + c.noCoverWhyNow() + ")"); }
+        if (t[0] > 20 && st1262Hold < 0 && c.currentTask instanceof Task.Wait && c.work.holdingCover()) { st1262Hold = t[0]; st1262Hole = new BlockPos(c.getBlockX(), at.getY() - 1, c.getBlockZ()); level.setDayTime(1000); } // in, lid on: morning
+        if (st1262Hold > 0 && st1262Out < 0 && !c.work.holdingCover() && c.getY() >= at.getY() - 0.1 && c.onGround()) { st1262Out = t[0]; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.tasks.add(new Task.GoTo(at.offset(-7, 0, 0), 1.0)); } // out and on top: off west
+        if (st1262Out > 0) {
+            boolean filled = !level.getBlockState(st1262Hole).getCollisionShape(level, st1262Hole).isEmpty();
+            check(filled || c.blockPosition().distManhattan(st1262Hole) < 2, "the hole he filled climbing out dug back open at " + st1262Hole.subtract(at) + " (" + level.getBlockState(st1262Hole).getBlock().getName().getString() + "), he's at " + c.blockPosition().subtract(at) + ", task " + c.currentTask);
+            if (t[0] - st1262Out >= 80) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; check(filled, "the hole's top open after the walk off"); pass(stage, t, "out of his hole, filled level with the ground, and off: it stayed filled (" + level.getBlockState(st1262Hole).getBlock().getName().getString() + ")"); }
+        }
+        if (t[0] > 20 && st1262Hold < 0) check(t[0] < 400, "never settled in a hole: at " + c.blockPosition().subtract(at) + ", now=" + c.currentTask + " tasks=" + c.tasks);
+        if (st1262Hold > 0 && st1262Out < 0) check(t[0] - st1262Hold < 400, "never out of his hole in the morning: at " + c.blockPosition().subtract(at) + ", now=" + c.currentTask + " tasks=" + c.tasks);
+        return true;
     }
 
     private static int st739T;

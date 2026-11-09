@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 1305: return st1305(stage, t, c, h, level, mock);
             case 1350: return st1350(stage, t, c, h, level, mock);
             case 1351: return st1351(stage, t, c, h, level, mock);
+            case 1352: return st1352(stage, t, c, h, level, mock);
             case 1301: return st1301(stage, t, c, h, level, mock);
             case 1302: return st1302(stage, t, c, h, level, mock);
             case 1303: return st1303(stage, t, c, h, level, mock);
@@ -25933,6 +25934,28 @@ public final class ClaudeBodyTest {
             h.setBlock(new BlockPos(6, 4, 12), Blocks.DEEPSLATE); c.blueprint = null;
             check(!cut, "his route past his wall digs his own water plug at (6,3,12): " + (plan == null ? "-" : plan.acts()));
             pass(stage, t, "his water plug kept: the route " + (plan == null ? "found no way" : "goes " + plan.acts().size() + " acts round it"));
+        }
+        return true;
+    }
+    private static int st1352Start;
+    private static boolean st1352(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 10:05:05-10:06:23 11-09 (his Nether pile, 455f671b live): spare iron armor he already had (3 helmets, 3 boots by the end) priced over his kit: a furnace, 97 torches, 61 coal, 3 crafting tables, sticks, a cod thrown out for it in a second; then "no fuel", "no torches" (reviews 16-18, 20, 21, 35)
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); st1352Start = 0; }
+        if (t[0] == 10) {
+            for (int x = -1; x <= 14; x++) for (int z = -1; z <= 14; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 1; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+            var inv = c.getInventory(); inv.clearContent(); inv.add(new ItemStack(Items.IRON_PICKAXE)); inv.add(new ItemStack(Items.TORCH, 64)); inv.add(new ItemStack(Items.COAL, 61)); inv.add(new ItemStack(Items.FURNACE)); inv.add(new ItemStack(Items.CRAFTING_TABLE)); inv.add(new ItemStack(Items.COOKED_COD));
+            while (inv.getFreeSlot() >= 0) inv.add(new ItemStack(Items.OAK_LOG, 64));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.attempts.clear();
+            BlockPos me = h.absolutePos(new BlockPos(5, 1, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            BlockPos a = h.absolutePos(new BlockPos(8, 1, 5)), b = h.absolutePos(new BlockPos(11, 1, 5));
+            var helm = new net.minecraft.world.entity.item.ItemEntity(level, a.getX() + 0.5, a.getY(), a.getZ() + 0.5, new ItemStack(Items.IRON_HELMET)); helm.setDeltaMovement(0, 0, 0); level.addFreshEntity(helm);
+            var pick = new net.minecraft.world.entity.item.ItemEntity(level, b.getX() + 0.5, b.getY(), b.getZ() + 0.5, new ItemStack(Items.DIAMOND_PICKAXE)); pick.setDeltaMovement(0, 0, 0); level.addFreshEntity(pick);
+            c.tasks.add(new Task.Pickup(16)); st1352Start = t[0];
+        }
+        if (st1352Start > 0) {
+            boolean kit = c.inventory.count(s -> s.is(Items.TORCH)) == 64 && c.inventory.count(s -> s.is(Items.COAL)) == 61 && c.inventory.count(s -> s.is(Items.FURNACE)) == 1 && c.inventory.count(s -> s.is(Items.CRAFTING_TABLE)) == 1 && c.inventory.count(s -> s.is(Items.COOKED_COD)) == 1;
+            check(kit, "his kit thrown out for the pile (torches " + c.inventory.count(s -> s.is(Items.TORCH)) + ", coal " + c.inventory.count(s -> s.is(Items.COAL)) + ", furnace " + c.inventory.count(s -> s.is(Items.FURNACE)) + ", table " + c.inventory.count(s -> s.is(Items.CRAFTING_TABLE)) + ", cod " + c.inventory.count(s -> s.is(Items.COOKED_COD)) + ")");
+            if (c.inventory.count(s -> s.is(Items.DIAMOND_PICKAXE)) > 0 && t[0] - st1352Start >= 20 * 8) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "the diamond pickaxe taken, his kit kept, the spare iron helmet left (" + c.inventory.count(s -> s.is(Items.IRON_HELMET)) + " in the pack)"); return true; }
+            check(t[0] - st1352Start < 20 * 15, "15 s and the diamond pickaxe still on the floor (doing " + c.currentTask + ")");
         }
         return true;
     }

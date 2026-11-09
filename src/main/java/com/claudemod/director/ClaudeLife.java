@@ -10010,12 +10010,16 @@ public final class ClaudeLife {
     public static void makeRoom(ClaudeEntity g) { dumpJunk(g); }
     /** Room for something he came for (an ore drop, a pearl): the junk first; nothing junk and still full, his smallest stack of stone goes, thrown away from it (a stack of cobble is a minute of mining, a diamond isn't: live 04:58 the patch waited 5 min on one, "no room", stage 798). */
     public static void makeRoom(ClaudeEntity g, Vec3 forIt) { makeRoom(g, forIt, null); }
+    /** What he works with, never the stack thrown for a find: light, fuel, his stations, food, buckets. */
+    static boolean kitItem(ItemStack st) { return st.is(Items.TORCH) || st.is(Items.COAL) || st.is(Items.CHARCOAL) || st.is(Items.FURNACE) || st.is(Items.CRAFTING_TABLE) || st.has(net.minecraft.core.component.DataComponents.FOOD) || st.getItem() instanceof net.minecraft.world.item.BucketItem; }
     public static void makeRoom(ClaudeEntity g, Vec3 forIt, ItemStack want) {
         dumpJunk(g); if (g.getInventory().getFreeSlot() >= 0) return;
+        boolean dupe = want != null && want.getMaxStackSize() == 1 && (g.inventory.count(x -> x.is(want.getItem())) > 0 || java.util.Arrays.stream(net.minecraft.world.entity.EquipmentSlot.values()).anyMatch(sl -> g.getItemBySlot(sl).is(want.getItem()))); // a second of what he has: no room made for it (live 10:05 11-09: spare iron helmets and boots priced over his furnace, torches and coal, all thrown, stage 1352)
+        if (dupe) return; // (its junk goes; no stone or kit for a spare)
         var inv = g.getInventory(); int pick = -1;
         for (int i = 0; i < inv.items.size(); i++) { var st = inv.items.get(i); if (i == inv.selected || st.isEmpty()) continue; if (!(cobbleItem(st) || st.is(Items.NETHERRACK) || st.is(Items.BLACKSTONE) || junkItem(st))) continue; if (pick < 0 || st.getCount() < inv.items.get(pick).getCount()) pick = i; }
         if (pick < 0 && want != null) { int wv = Math.max(lootValue(want), 1), pv = Integer.MAX_VALUE; // no stone or junk: the stack worth least goes, when it's worth less than what he came for (live 09:25 11-09: a diamond pickaxe and iron gear left on his death pile for 63 oak logs, stage 1350)
-            for (int i = 0; i < inv.items.size(); i++) { var st = inv.items.get(i); if (i == inv.selected || st.isEmpty() || st.isDamageableItem() || st.is(ItemTags.BEDS)) continue; int v = lootValue(st); if (v < wv && (v < pv || v == pv && st.getCount() < inv.items.get(pick).getCount())) { pv = v; pick = i; } } }
+            for (int i = 0; i < inv.items.size(); i++) { var st = inv.items.get(i); if (i == inv.selected || st.isEmpty() || st.isDamageableItem() || st.is(ItemTags.BEDS) || kitItem(st) || neededByPlan(g, st.getItem())) continue; int v = lootValue(st); if (v < wv && (v < pv || v == pv && st.getCount() < inv.items.get(pick).getCount())) { pv = v; pick = i; } } }
         if (pick < 0) { ClaudeMod.LOGGER.info("[Claude life] pack full for what he came for, and nothing on him worth less to throw for it: it waits (ClaudeLife.makeRoom)"); return; }
         Vec3 away = g.position().subtract(forIt).multiply(1, 0, 1); if (away.lengthSqr() > 1e-4) { g.setYRot((float) Math.toDegrees(Math.atan2(away.z, away.x)) - 90f); g.setXRot(-25f); }
         var st = inv.items.get(pick); ClaudeMod.LOGGER.info("[Claude life] pack full for what he came for: {} {} thrown out for it, away from it (ClaudeLife.makeRoom)", st.getCount(), Crafting.name(st.getItem()));

@@ -10874,6 +10874,7 @@ public final class ClaudeBodyTest {
             case 1266: return st1266(stage, t, c, h, level, mock);
             case 1268: return st1268(stage, t, c, h, level, mock);
             case 1269: return st1269(stage, t, c, h, level, mock);
+            case 1270: return st1270(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -23082,6 +23083,23 @@ public final class ClaudeBodyTest {
             check(torch, "his wall torch at the walkway cell broken for the view of the stone beside it, " + (t[0] - 12) + " ticks in, he at " + String.format("%.2f %.2f %.2f", c.getX() - o.getX(), c.getY() - o.getY(), c.getZ() - o.getZ()));
             if (dug) pass(stage, t, "the stone dug past his torch in " + (t[0] - 12) + " ticks, the torch kept");
             else check(t[0] < 12 + 80, "the stone not dug in 4 s: task " + c.currentTask + ", queue " + c.tasks);
+        }
+        return true;
+    }
+    /** Dawn (day time 23460, where the game calls it day and his own clocks put it) to 23500: the night gate still said night and "time to dawn" wrapped to a whole day, so ungeared he priced 1198 s of night against the trip, dug in at sunrise and was out of the hole 2 s later, its lid broken (live 13:30:08-13:30:15 11-09 World 17 at -9,63,55, D2D review 127: "wait for first light ~299 s (1198 s to dawn)", "night cover (tick 23608 ...): hole"). */
+    private static boolean st1270(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(4, 2, 4));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 5) { c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); mock[0].teleportTo(o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5);
+            for (int i = 0; i < 2; i++) { var z = new net.minecraft.world.entity.monster.Zombie(level); z.moveTo(o.getX() + 0.5 + 8 + i * 2, o.getY(), o.getZ() + 0.5, 90, 0); z.setNoAi(true); z.setPersistenceRequired(); z.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.LEATHER_HELMET)); level.addFreshEntity(z); } // two he sees, as live ("2 hostile(s) known")
+            c.setYRot(-90); c.setYHeadRot(-90); }
+        if (t[0] == 30) {
+            check(com.claudemod.entity.life.Decide.hostilesKnown(c) >= 2, "the two zombies not known to him: " + com.claudemod.entity.life.Decide.hostilesKnown(c));
+            String bad = "";
+            for (long tod : new long[] {23461, 23480, 23499}) { level.setDayTime(tod); String no = com.claudemod.director.ClaudeLife.nightOutsideNo(c, level, o.offset(60, 0, 0)); if (no != null) bad += " at " + tod + ": " + no; }
+            level.setDayTime(1000); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard();
+            check(bad.isEmpty(), "past dawn (23460) a trip out still refused as night:" + bad);
+            pass(stage, t, "from dawn on, the open is day to him");
         }
         return true;
     }

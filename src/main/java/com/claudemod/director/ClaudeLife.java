@@ -6818,7 +6818,7 @@ public final class ClaudeLife {
     public static String nightOutsideNo(ClaudeEntity g, ServerLevel level, BlockPos at) { return nightOutsideNo(g, level, at, -1); }
     /** The same with the time he'd be out given (outS < 0: the trip to at and back plus night.job_s; the night hold asks for the whole night, toDawn). */
     public static String nightOutsideNo(ClaudeEntity g, ServerLevel level, BlockPos at, double outS) {
-        { long tod9 = level.getDayTime() % 24000; if ((tod9 < 12500 || tod9 > 23500) && !level.isThundering()) return null; } // by the clock: rain darkens the sky and isDay() said "night" at noon, so he sat in his hole through a rainy midday (a thunderstorm does spawn mobs: that one still counts)
+        { long tod9 = level.getDayTime() % 24000; if ((tod9 < 12500 || tod9 >= 23460) && !level.isThundering()) return null; } // (23460: dawn, as the game and his clocks have it; at 23460-23500 "time to dawn" wrapped to a whole day and he dug in at sunrise, live 13:30 11-09, review 127, stage 1270) // by the clock: rain darkens the sky and isDay() said "night" at noon, so he sat in his hole through a rainy midday (a thunderstorm does spawn mobs: that one still counts)
         String no = nightGearNo(g, level, at); if (no == null) return null;
         // not geared for the open: priced, not refused (the audit, night family; World 17 22:07: respawned at night with nothing, 2 logs for a pick to get his gear back,
         // "collect logs -> failed: it's night", the night sat out in his mine): the trip's expected hits (Decide.danger over its length, as hpS) against the night waited out

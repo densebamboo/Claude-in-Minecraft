@@ -10817,6 +10817,7 @@ public final class ClaudeBodyTest {
             case 1222: return st1222(stage, t, c, h, level, mock);
             case 1223: return st1223(stage, t, c, h, level, mock);
             case 1224: return st1224(stage, t, c, h, level, mock);
+            case 1225: return st1225(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -21822,6 +21823,27 @@ public final class ClaudeBodyTest {
             check(bl >= 8, "setup: no torchlight where he stands (" + bl + ")");
             check(!"carry on out here".equals(pick[0]), "ungeared at dusk with explore next, 'carry on out here' for the torch by him: " + String.join("; ", said));
             pass(stage, t, "the torch by him is not the night out there: " + pick[0]);
+        }
+        return true;
+    }
+    /** Stage 1225 (D2D reviews 52/54, live 02:02:49-02:03:55 11-09 at -161,70,402: for a smelt's furnace, "collect cobblestone x8": a table set down in front of him for a wooden pick, then "a few steps down right here for the cobble" cut its first step through the table (back up after 2 s), and it went down again a minute later for the furnace): his table just set down in front of him, no stone showing, a collect of 8 cobble. The staircase goes another way; his table stands. */
+    private static BlockPos s1225T;
+    private static boolean st1225(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.TempLedger.reset(c); }
+        if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(6000);
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) for (int yy = -2; yy <= 0; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.DIRT); // (dirt over the stone: none showing)
+            BlockPos me = h.absolutePos(new BlockPos(8, 2, 8)); ggFace(c, me, 180, 0); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5);
+            s1225T = me.north().immutable(); level.setBlock(s1225T, Blocks.CRAFTING_TABLE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, s1225T, Blocks.CRAFTING_TABLE.defaultBlockState(), Blocks.AIR.defaultBlockState());
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.WOODEN_PICKAXE)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 8)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.mineFace = me.offset(400, -50, 0).immutable(); c.stairStart = me.offset(400, 0, 0).immutable(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("smelt", "cooked_mutton", 12)); // (live: his mine 445 off, the smelt waiting on the furnace)
+            ggSaid = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "cobblestone", 8);
+            boolean hit = c.tasks.contains(new Task.Break(s1225T));
+            String q = c.tasks.stream().limit(6).toList().toString();
+            c.mineFace = null; c.stairStart = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.skillQueue.clear(); com.claudemod.entity.life.TempLedger.reset(c); c.tempStations.clear(); c.getInventory().clearContent(); level.setBlock(s1225T, Blocks.AIR.defaultBlockState(), 2);
+            check(!hit, "the cobble's steps cut through his table just set down: " + ggSaid + " | " + q);
+            pass(stage, t, "the steps down went round his table: " + ggSaid);
         }
         return true;
     }

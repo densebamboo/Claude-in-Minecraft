@@ -676,6 +676,9 @@ public final class ClaudeLife {
         Skills.Step prev = g.lastStep;
         if (prev == null || prev == step || !prev.skill().equals("collect") || prev.target().isBlank() || !(step.skill().equals("smelt") || step.skill().equals("craft"))) return false;
         if (g.lastSkillLine == null || !g.lastSkillLine.startsWith("collect " + prev.target())) return false; // (only right after that collect's own line)
+        if (step.skill().equals("smelt") && g.level() instanceof ServerLevel sl0) { // (a smelt is held only by an empty collect of what it smelts: "collect porkchop" held "smelt cooked_cod" for every new plan, ~70 s idle, live 22:29 11-08, reviews 153/154, stage 1211)
+            Item made = item(step.target()), got = prev.target().equals("logs") ? Items.OAK_LOG : item(prev.target()) != null ? item(prev.target()) : item(prev.target().replaceAll("s$", ""));
+            if (made != null && got != null && !sl0.getRecipeManager().getRecipeFor(net.minecraft.world.item.crafting.RecipeType.SMELTING, new net.minecraft.world.item.crafting.SingleRecipeInput(new ItemStack(got)), sl0).map(rh -> rh.value().getResultItem(sl0.registryAccess()).is(made)).orElse(false)) return false; }
         String t = prev.target(); int n = 0;
         for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { ItemStack it = g.inventory.items.getItem(i); if (it.isEmpty()) continue; String id = BuiltInRegistries.ITEM.getKey(it.getItem()).getPath();
             if (t.equals("logs") ? it.is(ItemTags.LOGS) : id.equals(t) || id.equals(t.replaceAll("s$", ""))) n += it.getCount(); }

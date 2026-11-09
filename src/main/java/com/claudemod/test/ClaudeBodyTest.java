@@ -10791,6 +10791,7 @@ public final class ClaudeBodyTest {
             case 1208: return st1208(stage, t, c, h, level, mock);
             case 1209: return st1209(stage, t, c, h, level, mock);
             case 1210: return st1210(stage, t, c, h, level, mock);
+            case 1211: return st1211(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -21161,6 +21162,27 @@ public final class ClaudeBodyTest {
                 check(el <= 160, "the pick took " + el + " ticks (a player: a notch and a craft, ~3-5 s)");
                 pass(stage, t, "the craft waited for its notch's table (" + r0 + "), the pick made in " + el + " ticks");
             }
+        }
+        return true;
+    }
+    /** Stage 1211 (D2D reviews 153/154, live 22:29-22:30 11-08: ~70 s idle; the plan "smelt cooked_cod 11" refused 3x by emptyGather, "the collect porkchop before it came up empty", the porkchop collect long done; its rewritten line kept the hold alive for each new plan): a smelt is held only by an empty collect of what it smelts. */
+    private static int s1211T;
+    private static boolean st1211(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.commandActive = false; s1211T = 0; }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 10) {
+            BlockPos me = c.blockPosition();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COD, 11)); c.getInventory().add(new ItemStack(Items.FURNACE)); c.getInventory().add(new ItemStack(Items.COAL, 8)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 4));
+            c.lastStep = new com.claudemod.entity.life.Skills.Step("collect", "porkchop", 4); c.lastSkillLine = "collect porkchop x4 -> done: the kit's food is the raw cod on me, cooked, not a hunt (Kit.foodAsk)";
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("smelt", "cooked_cod", 11)); s1211T = t[0];
+        }
+        if (s1211T > 0 && t[0] == s1211T + 40) {
+            String line = String.valueOf(c.lastSkillLine);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null; c.getInventory().clearContent();
+            for (BlockPos q : BlockPos.betweenClosed(c.blockPosition().offset(-4, -2, -4), c.blockPosition().offset(4, 3, 4))) if (level.getBlockState(q).is(Blocks.FURNACE)) level.setBlock(q, Blocks.AIR.defaultBlockState(), 3);
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) e.discard();
+            check(!line.startsWith("collect porkchop"), "the cod smelt held by an empty porkchop collect: " + line);
+            pass(stage, t, "the cod smelt ran past the empty porkchop collect: " + (line.length() > 90 ? line.substring(0, 90) : line));
         }
         return true;
     }

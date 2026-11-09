@@ -19340,7 +19340,7 @@ public final class ClaudeBodyTest {
             for (int x = -10; x <= 50; x++) for (int z = -10; z <= 10; z++) for (int y = -3; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
             check(fishN == 3, "setup: 3 salmon in the pool, saw " + fishN);
             check(fa != null && (fa.item() == Items.COOKED_BEEF || fa.item() == Items.COOKED_SALMON), /* (salmon since the kit sees fish as far as the hunt, 48: review 53, stage 1235) */ "setup: the kit should ask beef (a search) or the salmon, it asked " + (fa == null ? "nothing" : fa.count() + " " + fa.item()));
-            check(targets.stream().distinct().count() == 1 || targets.stream().distinct().count() == targets.size(), "the collect step flipped kinds: " + targets + " (" + String.join(" / ", said) + ")");
+            check(fa == null || !said.get(0).startsWith("food is food") || said.get(0).contains("the kit's pick"), "the swap gave a reason that isn't the kit's (it chose): " + said.get(0)); check(targets.stream().distinct().count() == 1 || targets.stream().distinct().count() == targets.size(), "the collect step flipped kinds: " + targets + " (" + String.join(" / ", said) + ")");
             nsHome(c, h, level); pass(stage, t, "one answer for the kit's food: " + targets + " (" + String.join(" / ", said) + ")"); }
         return true;
     }

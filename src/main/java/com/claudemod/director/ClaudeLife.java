@@ -2017,7 +2017,7 @@ public final class ClaudeLife {
                                 if (fa == null && !p0.equals(product0)) return "done: no " + animal + " near now; the nearest food is " + p0 + " (" + (int) Math.sqrt(bd) + " blocks, weighted), and the kit's food weighed from here says I go as I am (Kit.foodAsk)"; // (D2D review 560: the pig it priced gone, salmon 50 off in a lake, a 52 s swim with 13 cooked on him; stage 907)
                                 if (fa != null) { String kp = Crafting.name(fa.item()).replace("cooked_", ""); Item raw = null; for (Item[] rc : Kit.RAW_COOKED) if (rc[1] == fa.item()) raw = rc[0];
                                     final Item rawF = raw; if (rawF != null && g.inventory.count(x -> x.is(rawF)) >= fa.count()) return "done: the kit's food is the raw " + kp + " on me, cooked, not a hunt (Kit.foodAsk)";
-                                    if (Set.of("beef", "porkchop", "mutton", "chicken", "salmon", "cod").contains(kp)) { kitPick = !kp.equals(p0); p0 = kp; } }
+                                    if (Set.of("beef", "porkchop", "mutton", "chicken", "salmon", "cod").contains(kp)) { kitPick = true; p0 = kp; } /* (the kit's pick is the reason even when it is also the nearest: "salmon is the nearest" said for the kit's call, D2D review 53) */ }
                             }
                             if (!p0.equals(product0)) {
                                 String want = target.startsWith("cooked_") ? "cooked_" + p0 : p0;

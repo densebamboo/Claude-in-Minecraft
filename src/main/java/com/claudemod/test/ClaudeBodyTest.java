@@ -2936,7 +2936,7 @@ public final class ClaudeBodyTest {
                             }
                         }
                     }
-                    case 128 -> { // in his covered hole at night, a new job comes in: the hole's exit stays queued; at first light he's out within 30 s
+                    case 128 -> { // in his covered hole at night, ungeared, their order comes in: said what the night costs and held for first light; asked again, out at once (D2D ruling 11-09)
                         BlockPos at = h.absolutePos(new BlockPos(8, 2, 8));
                         if (t[0] == 1) { scenarioReset(c); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); holdIn = -1; holdDawn = -1; }
                         if (t[0] == 10) {
@@ -2956,12 +2956,12 @@ public final class ClaudeBodyTest {
                             boolean lid = !level.getBlockState(f.above(2)).getCollisionShape(level, f.above(2)).isEmpty();
                             boolean in = f.getY() <= at.getY() - 2 && lid;
                             if (holdIn < 0) { if (in && c.holdingNight()) holdIn = t[0]; else check(t[0] - 10 < 300, "hole exit: not holding in a covered hole after 15 s, now=" + c.currentTask + " tasks=" + c.tasks); }
-                            else if (t[0] == holdIn + 40) com.claudemod.director.ClaudeLife.command(c, mock[0], steps1("collect", "logs", 4, "near_you"), "get some logs", "replace"); // a new job while he's down there
-                            else if (t[0] == holdIn + 60) check(c.tasks.stream().anyMatch(x -> x instanceof Task.Pillar), "hole exit: the new job took the hole's way out (tasks=" + c.tasks + ")");
-                            else if (t[0] == holdIn + 200) { level.setDayTime(23500); holdDawn = t[0]; }
+                            else if (t[0] == holdIn + 40) com.claudemod.director.ClaudeLife.command(c, mock[0], steps1("collect", "logs", 4, "near_you"), "get some logs", "replace"); // their first ask in the night
+                            else if (t[0] == holdIn + 60) { check(c.holdingNight() && c.blockPosition().getY() <= at.getY() - 2, "night order: the first ask took him out of his cover (he's at " + c.blockPosition().toShortString() + ", now=" + c.currentTask + " tasks=" + c.tasks + ")"); check(c.skillQueue.stream().anyMatch(x -> x.skill().equals("collect")), "night order: their ask dropped, not kept for first light: " + c.skillQueue); }
+                            else if (t[0] == holdIn + 80) { com.claudemod.director.ClaudeLife.command(c, mock[0], steps1("collect", "logs", 4, "near_you"), "get some logs", "replace"); holdDawn = t[0]; } // their second ask: now
                             else if (holdDawn > 0) {
-                                if (f.getY() >= at.getY() && c.onGround()) pass(stage, t, "a new job in the night left the hole's exit alone; out " + (t[0] - holdDawn) + " ticks after first light");
-                                else check(t[0] - holdDawn < 600, "hole exit: still down the hole 30 s after first light (he's at " + f.toShortString() + ", now=" + c.currentTask + " tasks=" + c.tasks + ")");
+                                if (f.getY() >= at.getY() && c.onGround()) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; level.setDayTime(6000); pass(stage, t, "night order: the first ask held in his cover till first light, the second out " + (t[0] - holdDawn) + " ticks on"); }
+                                else check(t[0] - holdDawn < 300, "night order: asked twice and still down his hole 15 s on (he's at " + f.toShortString() + ", now=" + c.currentTask + " tasks=" + c.tasks + ")");
                             }
                         }
                     }

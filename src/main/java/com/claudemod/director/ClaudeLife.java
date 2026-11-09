@@ -13227,6 +13227,23 @@ public final class ClaudeLife {
         }
     }
 
+    /**
+     * Their order while he holds his cover for the night, ungeared (outside a lesson, the order no shelter or sleep of its own): the
+     * first ask is told what the night costs and waits in his queue for first light; a second ask (the order again, or "now")
+     * goes at once (D2D ruling 11-09 on stage 128, the user's night rule; instruction beats safety, warned once).
+     */
+    static boolean nightOrderHold(ClaudeEntity g, ServerPlayer player, List<Skills.Step> queue, String goal) {
+        if (!g.holdingNight() || g.lessonOpen != null && !g.lessonOpen.isEmpty() || queue.isEmpty() || queue.stream().anyMatch(s0 -> java.util.Set.of("shelter", "sleep").contains(s0.skill()))) return false;
+        Integer asked = g.attempts.counters.get("nightOrder");
+        boolean now = goal != null && goal.toLowerCase().matches("(.*[^a-z])?(now|anyway|right away)([^a-z].*)?");
+        if (now || asked != null && g.tickCount >= asked && g.tickCount - asked < 20 * 600) { g.attempts.counters.remove("nightOrder"); ClaudeMod.LOGGER.info("[Claude command] their order in the night again{}: going now, out of his cover (ClaudeLife.nightOrderHold)", now ? " (\"now\")" : ""); return false; }
+        g.attempts.counters.put("nightOrder", g.tickCount);
+        long tod = g.level().getDayTime() % 24000; int toDawn = (int) ((tod < 23460 ? 23460 - tod : 24000 - tod + 23460) / 20);
+        String msg = "it's night and I've " + (g.getArmorValue() == 0 ? "no armor" : "armor " + g.getArmorValue()) + ": first light in ~" + toDawn + " s, I'll do it then, or say 'now'";
+        ClaudeMod.LOGGER.info("[Claude command] their order in the night ({}): held for first light in his cover, ~{} s; a second ask goes now (ClaudeLife.nightOrderHold)", queue.stream().map(s0 -> s0.skill() + " " + s0.target()).collect(java.util.stream.Collectors.joining(", ")), toDawn);
+        if (player != null) ClaudeChat.say(player, msg, "night order held");
+        return true;
+    }
     public static void command(ClaudeEntity g, ServerPlayer player, com.google.gson.JsonArray steps, String goal, String change) {
         boolean sleepAsk = steps != null && steps.toString().contains("\"sleep\"");
         if (g.isSleeping() && !sleepAsk) { g.stopSleepInBed(true, true); ClaudeMod.LOGGER.info("[Claude life] their order (\"{}\"): out of bed for it (ClaudeLife.command)", goal); } // (17:36 "get up" ×4 and "stop sleeping": he answered "up now" and stayed in bed; a player gets up when asked)
@@ -13268,6 +13285,7 @@ public final class ClaudeLife {
           if (rest != queue) { queue.clear(); queue.addAll(rest); } }
         if (queue.isEmpty() || queue.stream().anyMatch(s0 -> !java.util.Set.of("place", "place_at", "scoop_at", "dig_at", "ask", "eat", "craft", "move", "smelt").contains(s0.skill()))) g.staying = false; // (a step done where he stands keeps his "stay put": "place the water back at your feet" cleared it, and the re-plan after took him off on gear_up, 15:09)
         if (g.currentRoll() != Roll.WORK) { g.stashedTasks.clear(); g.setRoll(Roll.WORK); }
+        final boolean nightHold = nightOrderHold(g, player, queue, goal); // (their first ask in the night: said what it costs, his cover kept till first light)
         switch (change) {
             case "add_after" -> g.skillQueue.addAll(queue);                // finish what he's doing, then this
             case "do_first" -> {                                            // this now, then back to the job
@@ -13275,7 +13293,7 @@ public final class ClaudeLife {
                 // keep anything already set aside: an interruption of an interruption still gets back to the job
                 var keep = new java.util.ArrayDeque<Task>(g.tasks);
                 boolean curCover = g.currentTask != null && g.coverTasks().stream().anyMatch(x -> x == g.currentTask);
-                if (curCover && g.currentTask instanceof Task.Wait) g.dropCurrent = true; // their order ends the cover's wait (it runs till dawn); the way out, queued, still comes first (live 02:33 11-06: "go sleep in the village lol", 20+ s more in his hole)
+                if (curCover && g.currentTask instanceof Task.Wait && !nightHold) g.dropCurrent = true; // their order ends the cover's wait (it runs till dawn); the way out, queued, still comes first (live 02:33 11-06: "go sleep in the village lol", 20+ s more in his hole)
                 if (g.currentTask != null && !curCover) { keep.addFirst(g.currentTask); g.dropCurrent = true; } // (the walk he was on is set aside too: at 04:31 it kept him walking 23 s away from them before their "give me a pick")
                 keep.addAll(g.stashedTasks);
                 g.stashedTasks.clear();
@@ -13286,7 +13304,7 @@ public final class ClaudeLife {
             default -> { // a new job: the old one is dropped for good, not resumed later
                 List<Skills.Step> owed = Errand.queued(g, queue); // (what they asked him to hand over isn't the old job: it stays ahead)
                 clearTasks(g); g.skillQueue.clear(); g.skillQueue.addAll(owed); g.skillQueue.addAll(queue);
-                if (g.currentTask != null && (g.coverTasks().stream().noneMatch(x -> x == g.currentTask) || g.currentTask instanceof Task.Wait)) g.dropCurrent = true; // (the old job's task in hand stops too; in his cover, its wait: their order ends it, the way out still first)
+                if (g.currentTask != null && (g.coverTasks().stream().noneMatch(x -> x == g.currentTask) || g.currentTask instanceof Task.Wait && !nightHold)) g.dropCurrent = true; // (the old job's task in hand stops too; in his cover, its wait: their order ends it, the way out still first)
                 g.stashedTasks.clear(); g.resumeAfterCommand = false;
             }
         }

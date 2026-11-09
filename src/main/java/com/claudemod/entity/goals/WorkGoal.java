@@ -85,6 +85,7 @@ public class WorkGoal extends Goal {
 
     /** Nearest spot to breathe: straight up through the water first, else any open air pocket close by. */
     private boolean noOpenAir; // breathingSpot's last answer was its own roof dig: nothing open in reach
+    private boolean footing() { BlockPos b = g.blockPosition().below(); return g.onGround() || !g.level().getBlockState(b).getCollisionShape(g.level(), b).isEmpty(); } // standing, or in a cell with rock under it
     private BlockPos breathingSpot() {
         var level = g.level(); noOpenAir = false;
         BlockPos eye = BlockPos.containing(g.getEyePosition());
@@ -147,6 +148,18 @@ public class WorkGoal extends Goal {
             }
         }
         // nothing open within reach: a player digs the roof out over his head (he has a few seconds of air for it)
+        if (!footing()) { // floating, no floor under him: a ledge under the roof close by first, to dig from standing (5x slow under water, 25x floating; with no floor near he sank away from the dig and drowned: stage 1259)
+            BlockPos ledge = null; double ld = Double.MAX_VALUE;
+            for (BlockPos q : BlockPos.betweenClosed(eye.offset(-6, -2, -6), eye.offset(6, 0, 6))) {
+                if (!level.getFluidState(q).is(net.minecraft.tags.FluidTags.WATER) || level.getBlockState(q.below()).getCollisionShape(level, q.below()).isEmpty()) continue; // water to stand in, rock to stand on
+                BlockPos r = q.above(), r2 = q.above(2); BlockState rq = level.getBlockState(r);
+                if (rq.getCollisionShape(level, r).isEmpty() || rq.getDestroySpeed(level, r) < 0 || rq.hasBlockEntity() || !level.getFluidState(r2).isEmpty() || !level.getBlockState(r2).getCollisionShape(level, r2).isEmpty()) continue; // one block of roof with air over it
+                double d0 = q.distToCenterSqr(g.getEyePosition()); if (d0 >= ld) continue;
+                if (level.clip(new net.minecraft.world.level.ClipContext(g.getEyePosition(), Vec3.atCenterOf(q), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getType() != net.minecraft.world.phys.HitResult.Type.MISS) continue; // a straight swim
+                ledge = q.immutable(); ld = d0;
+            }
+            if (ledge != null) { if (g.tickCount % 20 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no air in reach at {}, no floor under him: to the ledge at {} to dig up from standing (WorkGoal.breathingSpot)", g.blockPosition().toShortString(), ledge.toShortString()); return ledge; }
+        }
         noOpenAir = true;
         BlockPos roof = eye.above();
         BlockState rs = level.getBlockState(roof);
@@ -201,6 +214,7 @@ public class WorkGoal extends Goal {
             if (diggingRoof || (roofDig(g.tasks.peek()) && current == null && noOpenAir)) { // the roof: dug through below, this tick (returning here every tick left the dig queued and him drowning under it)
                 BlockPos roofOverEyes = ((Task.Break) (diggingRoof ? current : g.tasks.peek())).pos();
                 g.getNavigation().stop(); // Stay grounded while mining: swimming adds the airborne mining penalty.
+                if (!footing()) g.getJumpControl().jump(); // (no floor under him and no ledge near: held up at the roof, 25x slow but in reach; let go, he sank out of reach of it: stage 1260)
                 if (g.tickCount % 20 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] digging the roof at {} for air (air {}, {})", roofOverEyes.toShortString(), g.getAirSupply(), diggingRoof ? "under way" : "starting");
             } else {
                 var line = g.level().clip(new net.minecraft.world.level.ClipContext(g.position().add(0, 0.4, 0), Vec3.atCenterOf(spot), /* (body to the spot's own cell: its head cell can be rock under a low ceiling, and a line to rock sent him to the pathfinder, which can't swim) */ net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g));

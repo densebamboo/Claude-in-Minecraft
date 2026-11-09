@@ -10862,6 +10862,8 @@ public final class ClaudeBodyTest {
             case 1256: return st1256(stage, t, c, h, level, mock);
             case 1257: return st1257(stage, t, c, h, level, mock);
             case 1258: return st1258(stage, t, c, h, level, mock);
+            case 1259: return st1259(stage, t, c, h, level, mock);
+            case 1260: return st1260(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -22826,6 +22828,51 @@ public final class ClaudeBodyTest {
             check(c.isAlive() && c.getHealth() >= 18, "drowning in the flooded room: health " + c.getHealth() + " at " + c.blockPosition().subtract(o) + " y " + String.format("%.2f", c.getY() - o.getY()) + ", air " + c.getAirSupply() + ", task " + c.currentTask);
             if (t[0] > 12 && !c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "over and up to the air in " + (t[0] - 10) + " ticks, at " + c.blockPosition().subtract(o) + ", health " + c.getHealth()); }
             else check(t[0] < 110, "no breath within 5 s with the air one cell over: at " + c.blockPosition().subtract(o) + " y " + String.format("%.2f", c.getY() - o.getY()) + ", air " + c.getAirSupply() + ", task " + c.currentTask);
+        }
+        return true;
+    }
+
+    /** A flooded room 7 deep, its rock roof one block thick under open air, no air in reach; a ledge along one wall a block under the roof; his air low, a wooden pick: he swims to the ledge and digs up from standing on it (5x slow under water) rather than floating (25x) or sinking under the dig out of reach (D2D 11-09, after the 10:51 drowning: the dig for air holds him grounded, and with no floor near he sank away from it). */
+    private static boolean st1259(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(1, 2, 1));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(-1, -1, -1), o.offset(7, 9, 7))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(0, 0, 0), o.offset(6, 6, 6))) level.setBlock(p, Blocks.WATER.defaultBlockState(), 2); // the room, 7 deep
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(0, 8, 0), o.offset(6, 8, 6))) level.setBlock(p, Blocks.AIR.defaultBlockState(), 2); // open air over the roof
+            level.setBlock(o.offset(0, 5, 3), Blocks.STONE.defaultBlockState(), 2); // the ledge, a block under the roof
+            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.WOODEN_PICKAXE));
+            BlockPos me = o.offset(3, 6, 3);
+            c.teleportTo(me.getX() + 0.5, me.getY() + 0.1, me.getZ() + 0.5); c.setSwimming(true); c.setPose(net.minecraft.world.entity.Pose.SWIMMING); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.setAirSupply(119);
+            c.tasks.add(new Task.Wait(1000, false));
+            mock[0].teleportTo(o.getX() + 3.5, o.getY() + 11, o.getZ() + 3.5); // (out of the room: the harness parks them at (2,2,2))
+        }
+        if (t[0] > 10) {
+            check(c.isAlive() && c.getHealth() >= 14, "drowning under the roof: health " + c.getHealth() + " at " + c.blockPosition().subtract(o) + " y " + String.format("%.2f", c.getY() - o.getY()) + ", air " + c.getAirSupply() + ", ground " + c.onGround() + ", task " + c.currentTask);
+            if (t[0] > 12 && !c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "dug up to the air in " + (t[0] - 10) + " ticks, at " + c.blockPosition().subtract(o) + ", health " + c.getHealth()); }
+            else check(t[0] < 300, "no breath within 14 s: at " + c.blockPosition().subtract(o) + " y " + String.format("%.2f", c.getY() - o.getY()) + ", air " + c.getAirSupply() + ", ground " + c.onGround() + ", task " + c.currentTask);
+        }
+        return true;
+    }
+
+    /** The room of 1259 with no ledge: no floor near, nothing to stand on under the roof; his air low: the dig for air keeps him up at the roof, in reach of it (25x slow floating, but going), never sunk away from it (he sank 7 to the floor under it). */
+    private static boolean st1260(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(1, 2, 1));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(-1, -1, -1), o.offset(7, 9, 7))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(0, 0, 0), o.offset(6, 6, 6))) level.setBlock(p, Blocks.WATER.defaultBlockState(), 2); // the room, 7 deep
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(0, 8, 0), o.offset(6, 8, 6))) level.setBlock(p, Blocks.AIR.defaultBlockState(), 2); // open air over the roof
+            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            BlockPos me = o.offset(3, 6, 3);
+            c.teleportTo(me.getX() + 0.5, me.getY() + 0.1, me.getZ() + 0.5); c.setSwimming(true); c.setPose(net.minecraft.world.entity.Pose.SWIMMING); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.setAirSupply(119);
+            c.tasks.add(new Task.Wait(1000, false));
+            mock[0].teleportTo(o.getX() + 3.5, o.getY() + 11, o.getZ() + 3.5); // (out of the room: the harness parks them at (2,2,2))
+        }
+        if (t[0] > 10) {
+            if (t[0] > 12 && !c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "dug up to the air in " + (t[0] - 10) + " ticks, health " + c.getHealth()); return true; }
+            check(t[0] < 40 || c.getY() - o.getY() > 5.0, "sank away from the roof he digs for air: y " + String.format("%.2f", c.getY() - o.getY()) + " at " + c.blockPosition().subtract(o) + ", air " + c.getAirSupply() + ", task " + c.currentTask);
+            if (t[0] >= 130) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setAirSupply(300); pass(stage, t, "held up at the roof for 6 s of the dig, y " + String.format("%.2f", c.getY() - o.getY()) + ", task " + c.currentTask); }
         }
         return true;
     }

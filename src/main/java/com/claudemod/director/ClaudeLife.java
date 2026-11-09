@@ -416,8 +416,8 @@ public final class ClaudeLife {
         // Valuables in his pocket and a chest of his in reach: in it goes, like a player who's lost a stack of diamonds to a creeper once (the user's rule); a craft fetches it back out
         if (g.tickCount % 1200 == 901 && !g.commandActive && !(g.lastStep != null && g.lastStep.skill().equals("build_my_place")) && g.skillQueue.stream().noneMatch(s0 -> s0.skill().equals("build_my_place")) && !(g.currentTask instanceof Task.Attack) && !(g.currentTask instanceof Task.Flee) && !(g.currentTask instanceof Task.Wait)
                 && g.skillQueue.stream().noneMatch(s0 -> s0.skill().equals("store"))) {
-            int precious = g.inventory.count(x -> x.is(Items.DIAMOND) || x.is(Items.EMERALD) || x.is(Items.GOLD_INGOT) || x.is(Items.RAW_GOLD) || x.is(Items.ANCIENT_DEBRIS));
-            int metal = g.inventory.count(x -> x.is(Items.IRON_INGOT) || x.is(Items.RAW_IRON) || x.is(Items.LAPIS_LAZULI) || x.is(Items.REDSTONE) || x.is(Items.RAW_COPPER) || x.is(Items.COPPER_INGOT));
+            int precious = g.inventory.count(x -> !neededByPlan(g, x.getItem()) && (x.is(Items.DIAMOND) || x.is(Items.EMERALD) || x.is(Items.GOLD_INGOT) || x.is(Items.RAW_GOLD) || x.is(Items.ANCIENT_DEBRIS)));
+            int metal = g.inventory.count(x -> !neededByPlan(g, x.getItem()) && (x.is(Items.IRON_INGOT) || x.is(Items.RAW_IRON) || x.is(Items.LAPIS_LAZULI) || x.is(Items.REDSTONE) || x.is(Items.RAW_COPPER) || x.is(Items.COPPER_INGOT))); // (what a queued step needs stays on him: counted, it stashed 0 every minute, reviews 35/38)
             if (precious > 0 || metal >= 8) {
                 BlockPos chest = null;
                 { int bd0 = Integer.MAX_VALUE; for (BlockPos sc : g.storageChests) { if (!((ServerLevel) g.level()).isLoaded(sc) || !((ServerLevel) g.level()).getBlockState(sc).is(Blocks.CHEST) || sc.distSqr(g.blockPosition()) > 16 * 16) continue; int d0 = routeDist(g, g.blockPosition(), sc); if (d0 <= 16 && d0 < bd0) { bd0 = d0; chest = sc; } } } // the nearest of his chests by his tunnels (a nook through the rock is no chest in reach)

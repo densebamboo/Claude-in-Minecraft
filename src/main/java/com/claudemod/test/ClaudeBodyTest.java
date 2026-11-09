@@ -10819,6 +10819,7 @@ public final class ClaudeBodyTest {
             case 1224: return st1224(stage, t, c, h, level, mock);
             case 1225: return st1225(stage, t, c, h, level, mock);
             case 1226: return st1226(stage, t, c, h, level, mock);
+            case 1227: return st1227(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -21870,6 +21871,34 @@ public final class ClaudeBodyTest {
                 for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) level.setBlock(leaf.offset(dx, 0, dz), Blocks.AIR.defaultBlockState(), 2);
                 check(!up, "a walk planned up onto the felled tree's leaves for 1 oak log");
                 pass(stage, t, "the log on the felled tree's leaves left to come down as they decay");
+            }
+        }
+        return true;
+    }
+    /** Stage 1227 (D2D reviews 35/38, live 03:04:12-03:22:49 11-09: "10 metal/ore items on him: stashing them first", "stored 0", "iron_ingot x10 still on him: on to his next chest", 63 deposits between -69,16,-160 and -78,16,-228 in 18 min: the deposit keeps what a queued step needs (stage 1213) but the spill to the next chest still counted it): 10 iron ingots his queued craft needs, two chests of his. They stay on him: no trip on to the other chest. */
+    private static BlockPos s1227A, s1227B;
+    private static boolean st1227(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(6000);
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5);
+            s1227A = me.east().immutable(); s1227B = h.absolutePos(new BlockPos(13, 2, 8)).immutable();
+            for (BlockPos p : new BlockPos[] {s1227A, s1227B}) { level.setBlock(p, Blocks.CHEST.defaultBlockState(), 2); c.storageChests.add(p); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_INGOT, 10)); c.getInventory().add(new ItemStack(Items.STICK, 4));
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "iron_pickaxe", 1));
+            check(com.claudemod.director.ClaudeLife.neededByPlan(c, Items.IRON_INGOT), "setup: the craft doesn't need the iron");
+            c.tasks.add(new Task.Deposit(s1227A));
+        }
+        if (t[0] > 10) {
+            java.util.List<Task> all = new java.util.ArrayList<>(c.tasks); if (c.currentTask != null) all.add(c.currentTask);
+            boolean toB = all.stream().anyMatch(k -> k instanceof Task.Deposit d0 && d0.pos().equals(s1227B) || k instanceof Task.GoTo gt && gt.pos().distSqr(s1227B) <= 9);
+            if (toB || t[0] == 60) {
+                int iron = c.getInventory().countItem(Items.IRON_INGOT);
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.skillQueue.clear(); c.storageChests.remove(s1227A); c.storageChests.remove(s1227B); c.getInventory().clearContent();
+                for (BlockPos p : new BlockPos[] {s1227A, s1227B}) level.setBlock(p, Blocks.AIR.defaultBlockState(), 2);
+                check(!toB, "on to his next chest with the iron his craft needs");
+                check(iron == 10, "the craft's iron stored: " + iron + " on him");
+                pass(stage, t, "the craft's iron kept on him, no trip to the other chest");
             }
         }
         return true;

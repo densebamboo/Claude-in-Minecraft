@@ -4639,6 +4639,7 @@ public class WorkGoal extends Goal {
                 ItemStack s = g.inventory.items.getItem(i);
                 if (s.isEmpty() || keeps(s)) continue;
                 if (s.is(net.minecraft.world.item.Items.COBBLESTONE) || s.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE)) continue; /* (cobble is never for his other chests, only the junk chest: a third stack of it sent him chest to chest, open-close, at 01:58) */ if (s.is(net.minecraft.tags.ItemTags.LOGS) || com.claudemod.director.ClaudeLife.junkItem(s)) continue; /* (left over means what his other chests take: never cobble, logs or junk; each one sent him chest to chest) */
+                if (com.claudemod.director.ClaudeLife.neededByPlan(g, s.getItem())) continue; // (kept for a queued step, as the store above keeps it: counted here it sent him chest to chest with 10 iron, 63 trips in 18 min, reviews 35/38, stage 1227)
                 left = true; com.claudemod.ClaudeMod.LOGGER.info("[Claude chest] {} x{} still on him after {}: on to his next chest for it", net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(s.getItem()).getPath(), s.getCount(), t.pos().toShortString());
             }
             if (left) {

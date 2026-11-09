@@ -2263,7 +2263,7 @@ public final class ClaudeLife {
                 found.removeIf(q -> isStorageSpot(g, q)); // his storage stays: "the chests" never means those ; if (g.house != null) found.removeIf(q -> g.house.isStructure(q)); // nor his house: its log posts are no tree
                 if (pointedTree == null) found.removeIf(b -> !touchesAir(level, b) || PlayerProfile.placedBy(player).contains(b));
                 if (pointedTree == null) { int own = 0; for (var it = found.iterator(); it.hasNext(); ) if (com.claudemod.entity.life.TempLedger.has(g, it.next())) { it.remove(); own++; } if (own > 0) ClaudeMod.LOGGER.info("[Claude skill] collect {}: {} near him are his own blocks put down on a way (bridge, pillar, step): no quarry, not those (ClaudeLife.runSkill)", target, own); } // (his tuff bridge over lava was "6 cobblestone nearby": half an hour back and forth to it, live 08:16-08:45 11-05, stage 716)
-                if (pointedTree == null) found.removeIf(b -> level.getBlockState(b).is(BlockTags.LOGS) && (villageBuilding(g, b) // the user: a village's houses are no trees (he was taking their log posts for wood); a village he has seen
+                if (pointedTree == null) found.removeIf(b -> level.getBlockState(b).is(BlockTags.LOGS) && (villageBuilding(g, b) || structureLog(level, b) // the user: a village's houses are no trees (he was taking their log posts for wood); a village he has seen
                         || java.util.stream.StreamSupport.stream(BlockPos.betweenClosed(b.offset(-3, -1, -3), b.offset(3, 6, 3)).spliterator(), false).noneMatch(q -> { var ls = level.getBlockState(q); return ls.is(BlockTags.LEAVES) && ls.hasProperty(net.minecraft.world.level.block.LeavesBlock.PERSISTENT) && !ls.getValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT); }))); // a tree has its own leaves on it (natural, not placed): a log with none near is a building's
                 boolean stations = target.contains("chest") || target.contains("furnace") || target.contains("crafting_table");
                 if (stations && pointedTree == null) { // his own chests/furnaces/tables: he knows where they are, seen or not (never the storage, never theirs)
@@ -2281,7 +2281,7 @@ public final class ClaudeLife {
                 if (pointedTree != null) count = Math.max(count, 64); // that whole tree, however many logs
                 if (found.isEmpty() && wood) {
                     found = findAll(level, g.blockPosition(), 44, want::test, 30);
-                    found.removeIf(b -> !touchesAir(level, b) || PlayerProfile.placedBy(player).contains(b) || villageBuilding(g, b)); // (the wider search had no village rule: the house posts went too)
+                    found.removeIf(b -> !touchesAir(level, b) || PlayerProfile.placedBy(player).contains(b) || villageBuilding(g, b) || structureLog(level, b)); // (the wider search had no village rule: the house posts went too)
                 }
                 if (underground) {
                     String tool = ensureToolFor(g, player, level, Blocks.STONE.defaultBlockState(), st);
@@ -9763,6 +9763,8 @@ public final class ClaudeLife {
     }
 
     /** The trees farther out (8 to {@code range}) he can walk to, the shortest walk: the ground by a treetop, or null (none, or none reachable). */
+    /** A structure's own log (a village house post), which doBreak keeps intact: no tree for his pickers either (chopped at, refused, picked again, reviews 306/310/314, stage 1222). */
+    static boolean structureLog(ServerLevel level, BlockPos b) { return com.claudemod.entity.nav.ActionPath.structureBlock(level, b) && !com.claudemod.entity.nav.ActionPath.structureDigOk(level, b); }
     private static BlockPos reachableTreetops(ClaudeEntity g, ServerLevel level, int range) {
         BlockPos from = g.blockPosition();
         List<BlockPos> tops = new ArrayList<>();
@@ -9774,6 +9776,7 @@ public final class ClaudeLife {
             int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z) - 1;
             BlockState s = level.getBlockState(new BlockPos(x, top, z));
             if (!s.is(BlockTags.LEAVES) && !s.is(BlockTags.LOGS)) continue;
+            if (s.is(BlockTags.LOGS) && structureLog(level, new BlockPos(x, top, z))) continue; // (a village's log post is no treetop: "nearest ones are ~8 blocks south/west/east" every second, review 306)
             BlockPos ground = new BlockPos(x, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z), z);
             while (level.getBlockState(ground.below()).is(BlockTags.LOGS) && ground.getY() > level.getMinBuildHeight()) ground = ground.below(); // (a trunk column: its foot)
             tops.add(ground);

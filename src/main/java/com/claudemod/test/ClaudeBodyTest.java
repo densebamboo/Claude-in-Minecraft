@@ -10813,6 +10813,7 @@ public final class ClaudeBodyTest {
             case 1219: return st1219(stage, t, c, h, level, mock);
             case 1220: return st1220(stage, t, c, h, level, mock);
             case 1221: return st1221(stage, t, c, h, level, mock);
+            case 1222: return st1222(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -21711,6 +21712,35 @@ public final class ClaudeBodyTest {
             check(rock, "the rock in front of the lava dug");
             check(n <= 6, "the branch planned " + n + " rows: into the rock in front of the lava (6 dug)");
             pass(stage, t, "the branch ends at its 6 dug rows, the rock before the lava its wall");
+        }
+        return true;
+    }
+    /** Stage 1222 (D2D reviews 306/314/310, live 01:43:29-01:50:35 11-09 by a village at 197,74,201: "chopping the tree at 197, 74, 201", a house's log post, refused by doBreak as a structure's own block; then "no trees close by; nearest ones are ~8 blocks south/west/east" every second, never walked to: his tree pickers took a village's log posts for trees, the chop never would): two log posts of a village piece 6 off either side, no tree anywhere near, a collect of 4 logs. No chop and no walk is ever aimed at a post. */
+    private static boolean st1222(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos pA = h.absolutePos(new BlockPos(2, 2, 8)), pB = h.absolutePos(new BlockPos(14, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.director.Structures.testPieces().clear(); ggMark = 0; }
+        if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(6000);
+            for (BlockPos p : new BlockPos[] {pA, pB}) { for (int yy = 0; yy <= 4; yy++) level.setBlock(p.above(yy), Blocks.OAK_LOG.defaultBlockState(), 2); com.claudemod.director.Structures.testPieces().add(new com.claudemod.director.Structures.Piece("village_plains", net.minecraft.world.level.levelgen.structure.BoundingBox.fromCorners(p.offset(-1, -1, -1), p.offset(1, 5, 1)))); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_AXE)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            BlockPos me = h.absolutePos(new BlockPos(8, 2, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5);
+            ggSaid = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "logs", 4); ggMark = t[0];
+        }
+        if (ggMark > 0 && t[0] > ggMark) {
+            java.util.List<Task> all = new java.util.ArrayList<>(c.tasks); if (c.currentTask != null) all.add(c.currentTask);
+            for (Task k : all) {
+                BlockPos at = k instanceof Task.ChopTree ct ? ct.base() : k instanceof Task.Break bk ? bk.pos() : k instanceof Task.GoTo gt && gt.within() >= 3 ? gt.pos() : null;
+                if (at == null) continue;
+                for (BlockPos p : new BlockPos[] {pA, pB}) if (Math.abs(at.getX() - p.getX()) <= 1 && Math.abs(at.getZ() - p.getZ()) <= 1) {
+                    String what = k.toString(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.skillQueue.clear(); com.claudemod.director.Structures.testPieces().clear();
+                    check(false, "a village's log post taken for a tree: " + what + " (said: " + ggSaid + ")");
+                }
+            }
+            if (t[0] > ggMark + 200) {
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.skillQueue.clear(); com.claudemod.director.Structures.testPieces().clear(); c.getInventory().clearContent();
+                pass(stage, t, "the village's log posts never taken for trees (" + ggSaid + ")");
+            }
         }
         return true;
     }

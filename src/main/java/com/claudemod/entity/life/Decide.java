@@ -115,6 +115,9 @@ public final class Decide {
         if (key != null) ClaudeMod.LOGGER.info("[Claude decide] dusk (tick {}, the first spawns in {} s, {} hostile(s) known, armor {}): {}: {} (Decide.dusk)", tod, (int) Math.max(0, (level.isThundering() ? tod : level.isRaining() ? 12969 : 13188) - tod) / 20, hostilesKnown(g), g.getArmorValue(), String.join("; ", said), best);
     }
 
+    /** His next step takes him out over open ground (explore, a hunt, a walk somewhere): the night out there is the one to judge, not the spot he stands on. */
+    static final java.util.Set<String> ROAM = java.util.Set.of("explore", "go_to", "obtain", "collect", "fight", "ender_pearls", "village_food", "plant_saplings", "fish", "find_fortress", "blaze_rods");
+    static boolean roamsOut(ClaudeEntity g) { Skills.Step st = !g.skillQueue.isEmpty() ? g.skillQueue.peekFirst() : g.lastStep; return st != null && ROAM.contains(st.skill()); }
     /**
      * The night's spots priced against a hole here (dusk, and the shelter step all night): {name, where} of the best, where null
      * for the hole or carrying on. far: the shelter step's extra spots, free beds he has seen and a village he knows (a player
@@ -126,7 +129,7 @@ public final class Decide {
         double toDark = Math.max(0, dark - tod) / 20.0;
         int hostiles = hostilesKnown(g);
         String best = "hole"; BlockPos to = null; double bestS = holeS(tod);
-        if (com.claudemod.director.ClaudeLife.nightGearNo(g, level, me) == null) { best = "carry on out here"; bestS = 0; said.add("carry on out here ~0 s (the night's no danger to him as he is)"); }
+        if (com.claudemod.director.ClaudeLife.nightGearNo(g, level, me, !roamsOut(g)) == null) { best = "carry on out here"; bestS = 0; said.add("carry on out here ~0 s (the night's no danger to him as he is)"); }
         java.util.List<Object[]> spots = new java.util.ArrayList<>();
         for (BlockPos b : g.myStations) if (level.isLoaded(b) && level.getBlockState(b).is(net.minecraft.tags.BlockTags.BEDS)) spots.add(new Object[] {"his bed", b, 0.0});
         if (g.house != null && g.house.shellStands(level) && level.getBlockState(g.house.bedHead()).is(net.minecraft.tags.BlockTags.BEDS)) spots.add(new Object[] {"his house's bed", g.house.bedHead(), 0.0});

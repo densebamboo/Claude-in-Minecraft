@@ -10816,6 +10816,7 @@ public final class ClaudeBodyTest {
             case 1221: return st1221(stage, t, c, h, level, mock);
             case 1222: return st1222(stage, t, c, h, level, mock);
             case 1223: return st1223(stage, t, c, h, level, mock);
+            case 1224: return st1224(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -21801,6 +21802,26 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; com.claudemod.entity.life.TempLedger.reset(c);
             check(n == 0 && !queued, "his step up the ledge taken back at the new job, him up on the ledge (" + n + " block(s))");
             pass(stage, t, "his step up the ledge left standing while he works up there");
+        }
+        return true;
+    }
+    /** Stage 1224 (D2D review 118, live 02:16:34-02:16:44 11-09: dusk, armor 0, his lit mine picked; 10 s later, stood in his base's torchlight with "explore plains" next, the dusk check said "carry on out here (the night's no danger to him as he is)" and he walked off into the dark): ungeared at dusk by a torch, explore next. Carrying on is not his pick: the light where he stands is not where his work goes. */
+    private static boolean st1224(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 10) {
+            flatBox(h); BlockPos me = h.absolutePos(new BlockPos(8, 2, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5);
+            level.setBlock(me.east(), Blocks.TORCH.defaultBlockState(), 3); level.setDayTime(11700);
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.getType() == net.minecraft.world.entity.EquipmentSlot.Type.HUMANOID_ARMOR) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("explore", "plains", 1));
+        }
+        if (t[0] == 14) {
+            BlockPos me = c.blockPosition(); int bl = level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, me);
+            java.util.List<String> said = new java.util.ArrayList<>();
+            Object[] pick = com.claudemod.entity.life.Decide.nightSpot(c, level, 11700, said, false);
+            c.skillQueue.clear(); level.setBlock(me.east(), Blocks.AIR.defaultBlockState(), 3); level.setDayTime(6000);
+            check(bl >= 8, "setup: no torchlight where he stands (" + bl + ")");
+            check(!"carry on out here".equals(pick[0]), "ungeared at dusk with explore next, 'carry on out here' for the torch by him: " + String.join("; ", said));
+            pass(stage, t, "the torch by him is not the night out there: " + pick[0]);
         }
         return true;
     }

@@ -161,6 +161,20 @@ public final class PlayerNav {
                 else steerWhy = "on at " + n.x + "," + n.y + "," + n.z + " though its line clips a block (at his cell's middle, the next node not clear either)";
             }
         }
+        { int fy = (int) Math.floor(pos.y + 0.01); // a step up ahead and no room to jump where he stands (a block 2 over his floor): to a cell beside the step with room over it, and up from there, as a player does (live 12:23 11-09: 18 s of hops to +0.2 under one, stage 1264)
+          if (p.onGround() && n.y == fy + 1 && !p.level().noCollision(p, p.getBoundingBox().move(0, 1.02, 0))) {
+              BlockPos off = null; double od = Double.MAX_VALUE;
+              for (net.minecraft.core.Direction dir : net.minecraft.core.Direction.Plane.HORIZONTAL) {
+                  BlockPos c = new BlockPos(n.x, fy, n.z).relative(dir);
+                  if (p.level().getBlockState(c.below()).getCollisionShape(p.level(), c.below()).isEmpty()) continue; // ground to take off from
+                  var box = p.getBoundingBox().move(c.getX() + 0.5 - pos.x, c.getY() - pos.y, c.getZ() + 0.5 - pos.z);
+                  if (!p.level().noCollision(p, box) || !p.level().noCollision(p, box.move(0, 1.02, 0))) continue; // room to stand and to jump
+                  double cd = c.distToCenterSqr(pos.x, c.getY() + 0.5, pos.z); if (cd < od) { od = cd; off = c; }
+              }
+              if (off != null && od <= 2.5 * 2.5) { double tx = off.getX() + 0.5 - pos.x, tz = off.getZ() + 0.5 - pos.z, tl = Math.sqrt(tx * tx + tz * tz);
+                  steerWhy = "to " + off.getX() + "," + off.getY() + "," + off.getZ() + " to take off: no room to jump up to " + n.x + "," + n.y + "," + n.z + " where he stands";
+                  return tl < 1e-3 ? Vec3.ZERO : new Vec3(tx / tl, 0, tz / tl); }
+          } }
         double dx = n.x + ax - pos.x, dz = n.z + az - pos.z;
         double d = Math.sqrt(dx * dx + dz * dz);
         // stuck check

@@ -10868,6 +10868,7 @@ public final class ClaudeBodyTest {
             case 1261: return st1261(stage, t, c, h, level, mock);
             case 1262: return st1262(stage, t, c, h, level, mock);
             case 1263: return st1263(stage, t, c, h, level, mock);
+            case 1264: return st1264(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -22950,6 +22951,29 @@ public final class ClaudeBodyTest {
             check(!(filled && !buried.isEmpty()), "the notch filled over his table's drop (" + buried.size() + " on the ground by it, " + tables + " on him): the pickup comes before the fill");
             if (tables >= 1 && filled) pass(stage, t, "table broken, picked up and the notch filled in " + (t[0] - 10) + " ticks");
             else check(t[0] < 300, "after 14 s: tables on him " + tables + ", notch " + level.getBlockState(notch).getBlock().getName().getString() + ", table drops by it " + buried.size() + ", task " + c.currentTask + ", queue " + c.tasks);
+        }
+        return true;
+    }
+
+    /** A step up onto a ledge, its way in a diagonal past a cell with a block 2 over its floor: his jump there tops out at +0.2 (the head hits it), so he takes off from a cell with room over it (live 12:23:04-12:23:22 11-09 World 17 at 48,66,-212: a diagonal step up to 48,67,-211 under a ceiling at 48,68,-212, 18 s of hops to 66.20, the walk written off and 21 tasks dropped; review 49). */
+    private static boolean st1264(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(4, 2, 4));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(-4, -1, -4), o.offset(8, 6, 8))) level.setBlock(p, p.getY() == o.getY() - 1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(1, 0, 1), o.offset(6, 0, 6))) level.setBlock(p, Blocks.GRASS_BLOCK.defaultBlockState(), 2); // the ledge, a block up
+            for (int x = 1; x <= 3; x++) level.setBlock(o.offset(x, 2, 0), Blocks.STONE.defaultBlockState(), 2); // a low roof 2 over the floor beside the ledge, as live at 48..50,68,-212
+            for (int x = 0; x <= 4; x++) level.setBlock(o.offset(x, 2, -1), Blocks.STONE.defaultBlockState(), 2);
+            level.setDayTime(1000);
+            c.getInventory().clearContent(); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(o.getX() + 0.78, o.getY(), o.getZ() + 0.1); /* (as live: 0.78 across his cell, his box over the roofed cell's edge) */ mock[0].teleportTo(o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+        }
+        if (t[0] == 13) c.teleportTo(o.getX() + 0.78, o.getY(), o.getZ() + 0.1);
+        if (t[0] == 14) c.tasks.add(new Task.GoTo(o.offset(2, 1, 4), 0.5));
+        if (t[0] > 14) {
+            if (c.onGround() && c.getY() >= o.getY() + 0.99 && c.getZ() >= o.getZ() + 1) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "up onto the ledge in " + (t[0] - 14) + " ticks, at " + c.blockPosition().subtract(o)); }
+            else check(t[0] < 74, "not up the step in 3 s: at " + String.format("%.2f %.2f %.2f", c.getX() - o.getX(), c.getY() - o.getY(), c.getZ() - o.getZ()) + ", ground " + c.onGround() + ", hcoll " + c.horizontalCollision + ", task " + c.currentTask + ", steer " + c.getNavigation().steerWhy);
         }
         return true;
     }

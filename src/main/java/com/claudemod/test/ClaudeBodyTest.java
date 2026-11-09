@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1190: return st1190(stage, t, c, h, level, mock);
             case 1187: return st1187(stage, t, c, h, level, mock);
             case 1188: return st1188(stage, t, c, h, level, mock);
             case 1189: return st1189(stage, t, c, h, level, mock);
@@ -16258,6 +16259,12 @@ public final class ClaudeBodyTest {
         }
         check(t[0] < 20 * 60, "the arena never loaded in a minute");
         return true;
+    }
+    /** Stage 1190 (D2D: 765 red after 1052 in one launch): 1052 ended with a back-off escape held in the overworld; 765's run in the Nether, under a minute later, kept it and ran for its coordinates, away from his portal (21 -> 28). Here: a back-off held in the overworld 400 west, then 765's scene. The run picks fresh in the Nether. */
+    private static boolean st1190(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        boolean r = st765(stage, t, c, h, level, mock);
+        if (t[0] == 1) c.work.escapeHoldForTest(new BlockPos(9200, 64, 5600), "backoff"); // (overworld coordinates: in the Nether they'd be 400 west of his portal)
+        return r;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */
     private static int s934T, s934Deep;

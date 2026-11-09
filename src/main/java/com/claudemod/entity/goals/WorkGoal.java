@@ -5186,7 +5186,7 @@ public class WorkGoal extends Goal {
     }
 
     // the escape he's committed to (lazy: fields added live start null/0)
-    private BlockPos escapeAt, escapeGap; private String escapeKind; private int escapeSince = -100000, escapeBestTick; private double escapeBest; private boolean escapeHeld, escapePlugged; private int escapeSwings;
+    private BlockPos escapeAt, escapeGap; private String escapeKind; private int escapeSince = -100000, escapeBestTick; private double escapeBest; private boolean escapeHeld, escapePlugged; private int escapeSwings; private net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> escapeDim; // (the world it's in: a spot's coordinates mean nothing in another)
     public int escapePicks; // (test) escapes picked so far
     public String escapeKind() { return escapeKind; }
     private void clearEscape() { escapeAt = null; escapeGap = null; escapeKind = null; escapeHeld = false; escapePlugged = false; }
@@ -5389,16 +5389,17 @@ public class WorkGoal extends Goal {
         ServerLevel lv = level(); Direction side = escapeSide == null ? Direction.getNearest(g.getX() - escapeAt.getX(), 0, g.getZ() - escapeAt.getZ()) : escapeSide;
         BlockPos end = escapeAt.relative(side, 16); for (int k = 0; k <= 8; k++) { if (standable(lv, end.above(4 - k))) { end = end.above(4 - k); break; } }
         com.claudemod.ClaudeMod.LOGGER.info("[Claude life] through the gap at {}: {}: on past it to {} (WorkGoal.atEscape)", escapeGap == null ? "?" : escapeGap.toShortString(), why, end.toShortString());
-        escapeKind = "run"; escapeAt = end.immutable(); escapeGap = null; escapeHeld = false; escapeSince = g.tickCount; escapeBest = g.position().distanceTo(Vec3.atBottomCenterOf(end)); escapeBestTick = g.tickCount;
+        escapeKind = "run"; escapeAt = end.immutable(); escapeGap = null; escapeHeld = false; escapeSince = g.tickCount; escapeDim = g.level().dimension(); escapeBest = g.position().distanceTo(Vec3.atBottomCenterOf(end)); escapeBestTick = g.tickCount;
         fleeDir = new Vec3(side.getStepX(), 0, side.getStepZ());
     }
     /** (tests) A run under way whose end is where he stands: the next flee tick is the run's end. */
     public void runEndForTest() { setEscape("run", g.blockPosition().immutable(), null); }
-    public String escapeHoldForTest(BlockPos at) { if (at != null) { setEscape("hide", at, null); escapeHeld = true; } return escapeKind + "@" + (escapeAt == null ? "-" : escapeAt.toShortString()) + (escapeHeld ? " held" : ""); } // (tests: a hide he holds; what his escape is now)
+    public String escapeHoldForTest(BlockPos at) { return escapeHoldForTest(at, "hide"); }
+    public String escapeHoldForTest(BlockPos at, String kind) { if (at != null) { setEscape(kind, at, null); escapeHeld = true; } return escapeKind + "@" + (escapeAt == null ? "-" : escapeAt.toShortString()) + (escapeHeld ? " held" : ""); } // (tests: a hide he holds; what his escape is now)
     /** (tests) An escape through the gap held from at, its plug queued and still to go in. */
     public void plugPendingForTest(BlockPos gap, BlockPos at, net.minecraft.world.item.Item plug) { setEscape("gap", at.immutable(), gap.immutable()); escapeHeld = true; escapePlugged = true; g.tasks.addFirst(new Task.Place(gap.above().immutable(), plug)); g.tasks.addFirst(new Task.Place(gap.immutable(), plug)); }
     private void setEscape(String kind, BlockPos at, BlockPos gap) {
-        escapeKind = kind; escapeAt = at; escapeGap = gap; escapeHeld = false; escapePlugged = false; escapeSince = g.tickCount; escapeBest = g.position().distanceTo(Vec3.atBottomCenterOf(at)); escapeBestTick = g.tickCount; escapePicks++;
+        escapeKind = kind; escapeAt = at; escapeGap = gap; escapeHeld = false; escapePlugged = false; escapeSince = g.tickCount; escapeDim = g.level().dimension(); escapeBest = g.position().distanceTo(Vec3.atBottomCenterOf(at)); escapeBestTick = g.tickCount; escapePicks++;
     }
     /** Why the escape he's on no longer works, or null: no closer for 2.5 s, the gap shut, the portal gone, one of them right in the way. */
     private String escapeBlocked(java.util.List<? extends net.minecraft.world.entity.Mob> mobs) {
@@ -5574,7 +5575,8 @@ public class WorkGoal extends Goal {
         if (escapeAt != null && g.tickCount - escapeSince > 20 * 60) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape {} at {} a minute old: picked fresh (WorkGoal.doFlee)", escapeKind, escapeAt.toShortString()); clearEscape(); }
         if (ticks == 1 && escapeAt != null && escapeHeld && "hide".equals(escapeKind)) { var onHim = mobs.stream().filter(m -> !shoots(m) && m.distanceTo(g) < w("flee.hide_melee_reach", 4)).findFirst().orElse(null); // a hide is out of the shooters' sight only: a mob on him there is no answer to it (live 07:20 11-07 death 213: the run kept the held hide, back into the zombified piglins, 14 -> 0 in 4 s; stage 757)
             if (onHim != null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] a new run with the {} {} off on him: his hide at {} keeps only the shooters off, a fresh escape (WorkGoal.doFlee)", onHim.getType().getDescription().getString(), String.format("%.1f", onHim.distanceTo(g)), escapeAt.toShortString()); clearEscape(); } }
-        if (ticks == 1 && escapeAt != null && !escapeHeld && g.tickCount - escapeSince > 100) clearEscape(); // (a new run well after the last: from here, fresh; within 5 s it's the same run)
+        if (escapeAt != null && escapeDim != g.level().dimension()) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape {} at {} was in {}: he's in {} now, picked fresh (WorkGoal.doFlee)", escapeKind, escapeAt.toShortString(), escapeDim == null ? "?" : escapeDim.location().getPath(), g.level().dimension().location().getPath()); clearEscape(); } // (live pair 1052 -> 765: a back-off held in the overworld, the next run in the Nether went for its coordinates)
+        if (ticks == 1 && escapeAt != null && (!escapeHeld || "backoff".equals(escapeKind)) && g.tickCount - escapeSince > 100) clearEscape(); // (a back-off is from the last run's mobs, held only till that run's clock was out) // (a new run well after the last: from here, fresh; within 5 s it's the same run)
         if (escapeAt == null) pickEscape(mobs);
         else if (ticks % 10 == 1 && !escapeHeld) {
             String why = escapeBlocked(mobs);

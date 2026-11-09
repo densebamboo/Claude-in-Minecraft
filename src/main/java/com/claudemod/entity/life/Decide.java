@@ -268,11 +268,23 @@ public final class Decide {
             said.add("bore straight there ~" + (int) s + " s (" + n + " blocks of line" + (out ? "; out: the last bore here got him no nearer" : "") + ")");
             if (!out && s < bestS) { best = "bore"; bestS = s; }
         } else { boolean pick = g.inventory.count(x -> x.getItem() instanceof net.minecraft.world.item.PickaxeItem) > 0; // the reason that holds, not both (D2D review 111514-93: "no pick or under 16" with a diamond pick on him)
-            int fl = g.inventory.count(x -> x.is(net.minecraft.world.item.Items.NETHERRACK) || x.is(net.minecraft.world.item.Items.COBBLESTONE) || x.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE) || x.is(net.minecraft.world.item.Items.BLACKSTONE));
+            int fl = FortressScout.boreBlocks(g);
             said.add("bore: out (" + (level.dimension() != net.minecraft.world.level.Level.NETHER ? "only in the Nether" : !pick ? "no pick" : fl + " blocks to floor with, under 16") + ")"); }
+        int up = goal.getY() - g.getBlockY(), mb = com.claudemod.entity.nav.ActionPath.moveBlocks(g); BlockPos[] towerAt = null; // a ledge above him: a tower beside it, as a player does (review 439, 16:02 11-08: 45 logs on him, a spot 6 up skipped "0 blocks to floor with", the tower never priced)
+        if (up >= 2) { BlockPos[] sg = up + 2 <= mb ? com.claudemod.entity.goals.WorkGoal.towerSpot(g, level, goal, g.blockPosition()) : null;
+            if (sg == null) said.add("tower: out (" + (up + 2 > mb ? mb + " blocks to put down, " + (up + 2) + " wanted" : "no open cell beside it to tower in") + ")");
+            else { int hgt = sg[0].getY() - sg[1].getY(); double s = Math.sqrt(sg[1].distSqr(g.blockPosition())) / sprint() + hgt * w("move.tower_s", 0.6) + 1; boolean out = before != null && before.option().equals("tower") && !gained;
+                said.add("tower " + hgt + " up beside it from " + sg[1].toShortString() + " ~" + (int) Math.ceil(s) + " s (" + mb + " blocks to put down" + (out ? "; out: the last tower here got him no nearer" : "") + ")");
+                if (!out && s < bestS) { best = "tower"; bestS = s; towerAt = sg; } } }
         if (best == null) { best = "skip"; said.add("none of his own fits: the spot skipped as before"); } // (not priced against his own ways: a think still needs a way there after it)
         ClaudeMod.LOGGER.info("[Claude decide] the walk to {} ({} off) was refused ({}): {}: {} (Decide.walkRefused)", goal.toShortString(), (int) d, why, String.join("; ", said), best);
         mine.put(goal.immutable(), new Took(best, d));
+        if (best.equals("tower")) {
+            g.tasks.addFirst(new Task.GoTo(goal, within));
+            g.tasks.addFirst(new Task.Pillar(towerAt[0].getY() - towerAt[1].getY()));
+            g.tasks.addFirst(new Task.GoTo(towerAt[1], 0.7));
+            return true;
+        }
         if (best.equals("bore")) {
             g.tasks.addFirst(new Task.GoTo(goal, within));
             g.tasks.addFirst(new Task.Bore(goal, goal.getY()));

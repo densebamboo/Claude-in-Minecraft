@@ -410,6 +410,11 @@ public final class ActionPath {
         int w = best == null ? -1 : com.claudemod.entity.life.BridgeBlueprint.frameWidth(level, best);
         return w >= 3 && w <= 7 ? w : 4;
     }
+    /** Blocks he can put down to move on (a step, a tower, a bridge): plain stone or dirt (WorkGoal.scaffoldBlock's picks) and the wood past what he keeps back. The one count the planner and Decide.walkRefused use (audit 9). */
+    public static int moveBlocks(com.claudemod.entity.ClaudeEntity g) { return g.inventory.count(s -> s.is(net.minecraft.world.item.Items.DIRT) || s.is(net.minecraft.world.item.Items.GRASS_BLOCK) || s.is(net.minecraft.world.item.Items.COBBLESTONE)
+                    || s.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE) || s.is(net.minecraft.world.item.Items.ANDESITE) || s.is(net.minecraft.world.item.Items.DIORITE) || s.is(net.minecraft.world.item.Items.GRANITE)
+                    || s.is(net.minecraft.world.item.Items.TUFF) || s.is(net.minecraft.world.item.Items.DEEPSLATE) || s.is(net.minecraft.world.item.Items.STONE) || s.is(net.minecraft.world.item.Items.CALCITE)
+                    || s.is(net.minecraft.world.item.Items.NETHERRACK) || s.is(net.minecraft.world.item.Items.BLACKSTONE)) + spareWood(g); }
     /** Planks and logs past what he keeps back for tools and a table: what WorkGoal.scaffoldBlock towers on when nothing else is left. */
     public static int spareWood(com.claudemod.entity.ClaudeEntity g) {
         return Math.max(0, g.inventory.count(s -> s.is(net.minecraft.tags.ItemTags.PLANKS)) - (int) com.claudemod.entity.life.Weights.w("scaffold.keep_planks", 8))
@@ -499,11 +504,7 @@ public final class ActionPath {
         Costs(ClaudeEntity g, ServerLevel level, boolean canPlace, Mode mode, Map<BlockPos, Integer> failedAt, int now) {
             this.g = g; this.level = level; this.canPlace = canPlace; this.mode = mode; this.failedAt = failedAt; this.now = now;
             this.hp = Leaps.health(g); this.margin = Leaps.margin(g); this.hpPrice = Leaps.hpPrice(g);
-            this.maxPuts = !canPlace ? 0 : g.inventory.count(s -> s.is(net.minecraft.world.item.Items.DIRT) || s.is(net.minecraft.world.item.Items.GRASS_BLOCK) || s.is(net.minecraft.world.item.Items.COBBLESTONE)
-                    || s.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE) || s.is(net.minecraft.world.item.Items.ANDESITE) || s.is(net.minecraft.world.item.Items.DIORITE) || s.is(net.minecraft.world.item.Items.GRANITE)
-                    || s.is(net.minecraft.world.item.Items.TUFF) || s.is(net.minecraft.world.item.Items.DEEPSLATE) || s.is(net.minecraft.world.item.Items.STONE) || s.is(net.minecraft.world.item.Items.CALCITE)
-                    || s.is(net.minecraft.world.item.Items.NETHERRACK) || s.is(net.minecraft.world.item.Items.BLACKSTONE))
-                    + (!canPlace ? 0 : spareWood(g)); // (what scaffoldBlock picks from, its wood fallback too: 2 netherrack and 67 logs planned "2 blocks to put", no way up off his bridge, death 109 11-07, stage 1004: netherrack and blackstone too, or a Nether way with only those on him planned no block put down)
+            this.maxPuts = !canPlace ? 0 : moveBlocks(g); // (what scaffoldBlock picks from, its wood fallback too: 2 netherrack and 67 logs planned "2 blocks to put", no way up off his bridge, death 109 11-07, stage 1004: netherrack and blackstone too, or a Nether way with only those on him planned no block put down)
             this.owner = g.getTarget() instanceof net.minecraft.server.level.ServerPlayer p ? p : null;
             this.bp = com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty();
             this.house = com.claudemod.director.ClaudeLife.houseMode(g) && g.house != null;

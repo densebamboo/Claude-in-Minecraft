@@ -861,6 +861,14 @@ public class WorkGoal extends Goal {
     private boolean towerTo(BlockPos pos, BlockPos feet, ItemStack scaff) {
         ServerLevel level = (ServerLevel) g.level(); int up = pos.getY() - feet.getY();
         if (up < 5 || scaff.isEmpty() || scaff.getCount() < up + 2) return false;
+        BlockPos[] sg = towerSpot(g, level, pos, feet); if (sg == null) return false; BlockPos bestS = sg[0], bestG = sg[1];
+        g.tasks.addFirst(new Task.GoTo(pos, 0.9)); g.tasks.addFirst(new Task.Pillar(bestS.getY() - bestG.getY())); g.tasks.addFirst(new Task.GoTo(bestG, 0.7)); // (0.4 never settled there, a flaky stall)
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no way to {} the search found ({} up): a tower beside it, from {} up {} to {}, then onto it (WorkGoal.towerTo)", pos.toShortString(), up, bestG.toShortString(), bestS.getY() - bestG.getY(), bestS.toShortString());
+        return true;
+    }
+    /** A tower's spot for a ledge {@code pos} above him: {top cell beside the ledge, its foot on his level}, or null. */
+    public static BlockPos[] towerSpot(com.claudemod.entity.ClaudeEntity g, ServerLevel level, BlockPos pos, BlockPos feet) {
+        int up = pos.getY() - feet.getY();
         BlockPos bestS = null, bestG = null; double bd = Double.MAX_VALUE;
         for (BlockPos s1 : BlockPos.betweenClosed(pos.offset(-4, 0, -4), pos.offset(4, 0, 4))) { BlockPos s0 = s1.immutable(); // (a cell off the edge of what he's climbing onto: open, with a standing cell of it beside)
             if (!level.getBlockState(s0).getCollisionShape(level, s0).isEmpty() || !level.getBlockState(s0.above()).getCollisionShape(level, s0.above()).isEmpty()) continue;
@@ -872,10 +880,7 @@ public class WorkGoal extends Goal {
             if (!ok || level.getBlockState(q).getCollisionShape(level, q).isEmpty() || !level.getFluidState(q.above()).isEmpty() || com.claudemod.entity.body.Controls.lavaCell(g, q.above())) continue;
             BlockPos gr = q.above(); if (Math.abs(gr.getY() - feet.getY()) > 2) continue; // (its foot on his own level: a walk there, then the tower)
             double dd = gr.distSqr(feet); if (dd < bd) { bd = dd; bestS = s0.immutable(); bestG = gr.immutable(); } }
-        if (bestS == null) return false;
-        g.tasks.addFirst(new Task.GoTo(pos, 0.9)); g.tasks.addFirst(new Task.Pillar(bestS.getY() - bestG.getY())); g.tasks.addFirst(new Task.GoTo(bestG, 0.7)); // (0.4 never settled there, a flaky stall)
-        com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no way to {} the search found ({} up): a tower beside it, from {} up {} to {}, then onto it (WorkGoal.towerTo)", pos.toShortString(), up, bestG.toShortString(), bestS.getY() - bestG.getY(), bestS.toShortString());
-        return true;
+        return bestS == null ? null : new BlockPos[] {bestS, bestG};
     }
 
     private boolean walkTo(BlockPos pos, double within) {
@@ -3157,7 +3162,6 @@ public class WorkGoal extends Goal {
     // ---- Nether travel: the bore ----
     private Direction boreDir; private Direction.Axis boreAxis0; private BlockPos boreCol; private int boreTries, boreYOff, boreLaneOff, boreDetour, boreStill, boreSteps, boreClean; private long boreStart; private BlockPos boreFrom, boreLast; private Task.Bore boreRun;
     private static final int[][] BORE_DETOURS = {{0, -2}, {1, 0}, {-1, 0}, {0, 2}, {2, 0}, {-2, 0}, {1, -2}, {-1, -2}, {0, -4}, {0, 4}, {4, 0}, {-4, 0}, {0, 6}, {6, 0}, {-6, 0}, {8, 0}, {-8, 0}, {0, 8}, {0, -6}}; // {lanes over, up}: lava overhead is gone round below or beside first
-    private static final net.minecraft.world.item.Item[] BORE_FILL = {net.minecraft.world.item.Items.NETHERRACK, net.minecraft.world.item.Items.COBBLESTONE, net.minecraft.world.item.Items.COBBLED_DEEPSLATE, net.minecraft.world.item.Items.BLACKSTONE, net.minecraft.world.item.Items.BASALT, net.minecraft.world.item.Items.DIRT, net.minecraft.world.item.Items.STONE};
     /** One step of the bore: the next column along the L opened (head, then feet), its floor put in, rails beside it over lava, lava in view plugged; then a step into it. Done within 1 of the goal. */
     /** A block can go into p: something solid beside it to set it against. */
     private final java.util.ArrayDeque<BlockPos> boreOpened = new java.util.ArrayDeque<>(); // the last cells the bore dug open (lava that comes up beside them is plugged, behind him too)
@@ -3199,7 +3203,7 @@ public class WorkGoal extends Goal {
     }
     /** Rock the bore floors with (it drops itself), not a structure's, not his own build. */
     private boolean boreRock(ServerLevel level, BlockPos q) {
-        var s = level.getBlockState(q); boolean self = false; for (var it : BORE_FILL) if (s.getBlock().asItem() == it) self = true;
+        var s = level.getBlockState(q); boolean self = false; for (var it : com.claudemod.entity.life.FortressScout.BORE_FILL) if (s.getBlock().asItem() == it) self = true;
         return self && !com.claudemod.entity.nav.ActionPath.structureBlock(level, q) && !com.claudemod.entity.life.TempLedger.built(g, q);
     }
     /** Why the bore leaves this cell standing (null: it digs it): unbreakable, a portal or its frame (his way back), or a block his picks can't take (the dig guard refuses it). */
@@ -3235,7 +3239,7 @@ public class WorkGoal extends Goal {
         if (off == 0 && ny <= me.getY()) { // lava level with the step (beside it, or in it): the line goes up 2 over it, a bridge over the lava, never beside it (live test 816: a rail into a lava flow had nothing to go against)
             boolean side = false; for (Direction sd : new Direction[] {boreDir.getClockWise(), boreDir.getCounterClockWise()}) for (int yy = 0; yy <= 1; yy++) if (level.getFluidState(f.relative(sd).above(yy)).is(net.minecraft.tags.FluidTags.LAVA)) side = true;
             if ((side || level.getFluidState(f).is(net.minecraft.tags.FluidTags.LAVA)) && boreYOff < me.getY() + 2 - t.y()) { // a few lava cells by the step: plugged, the line kept level; up 2 over it only for a lake, priced (D2D urgent 06:44 11-07: up 2 for a cell of lava beside a 3-block bore, into a ceiling with lava falling through it, 20 -> 10; and its floor laid over the highway's, a 27-walk detour to reach the cell under it)
-                net.minecraft.world.item.Item pl = null; for (var it : BORE_FILL) if (g.inventory.count(x -> x.is(it)) > 0) { pl = it; break; }
+                net.minecraft.world.item.Item pl = null; for (var it : com.claudemod.entity.life.FortressScout.BORE_FILL) if (g.inventory.count(x -> x.is(it)) > 0) { pl = it; break; }
                 java.util.List<BlockPos> cells = new java.util.ArrayList<>(); for (BlockPos q0 : new BlockPos[] {f, f.above(), f.relative(boreDir.getClockWise()), f.relative(boreDir.getClockWise()).above(), f.relative(boreDir.getCounterClockWise()), f.relative(boreDir.getCounterClockWise()).above()}) if (level.getFluidState(q0).is(net.minecraft.tags.FluidTags.LAVA)) cells.add(q0.immutable());
                 boolean faces = !cells.isEmpty(); for (BlockPos q0 : cells) if (!boreFace(level, q0)) faces = false;
                 if (pl != null && faces) { int ahead = 0; for (int k = 1; k <= 16; k++) for (int w0 = -1; w0 <= 1; w0++) for (int yy = 0; yy <= 1; yy++) if (level.getFluidState(me.relative(boreDir, k).relative(boreDir.getClockWise(), w0).above(yy)).is(net.minecraft.tags.FluidTags.LAVA)) ahead++;
@@ -3256,11 +3260,11 @@ public class WorkGoal extends Goal {
         java.util.List<BlockPos> way = new java.util.ArrayList<>(java.util.List.of(f, f.above()));
         if (ny > me.getY()) way.add(me.above(2)); else if (ny < me.getY()) way.add(f.above(2));
         java.util.List<Task> todo = new java.util.ArrayList<>();
-        net.minecraft.world.item.Item fill = null; for (var it : BORE_FILL) if (g.inventory.count(x -> x.is(it)) > 0) { fill = it; break; }
+        net.minecraft.world.item.Item fill = null; for (var it : com.claudemod.entity.life.FortressScout.BORE_FILL) if (g.inventory.count(x -> x.is(it)) > 0) { fill = it; break; }
         { BlockPos u1 = me.below(), u2 = me.below(2), fl0 = f.below(); // on real ground at the lip of a gap or lava: enough on him for the whole stretch first, none or some (out on it there's nothing to mine; before the plugs, which floor lava with what he has)
           if (off == 0 && !level.getBlockState(fl0).isFaceSturdy(level, fl0, Direction.UP) && level.getBlockState(u1).isFaceSturdy(level, u1, Direction.UP) && level.getBlockState(u2).isFaceSturdy(level, u2, Direction.UP)) {
             int k = 0; boolean hot = false; for (int i = 0; i < 64; i++) { BlockPos q = f.relative(boreDir, i).below(); if (level.getBlockState(q).isFaceSturdy(level, q, Direction.UP)) break; k++; for (int d = 0; d <= 3; d++) if (level.getFluidState(q.below(d)).is(net.minecraft.tags.FluidTags.LAVA)) hot = true; }
-            int need = k * (hot ? 3 : 1) + 2, on = 0; for (var it : BORE_FILL) on += g.inventory.count(x -> x.is(it));
+            int need = k * (hot ? 3 : 1) + 2, on = 0; for (var it : com.claudemod.entity.life.FortressScout.BORE_FILL) on += g.inventory.count(x -> x.is(it));
             if (on < need && boreStock(t, need - on, k + " across ahead takes " + need + ", " + on + " on him")) return true; } }
         // lava in view by the opened way, or in it: a block in it first (he sees what the dig showed him, never into the rock)
         java.util.List<BlockPos> mine0 = new java.util.ArrayList<>(java.util.List.of(me, me.above())); if (level.getBlockState(me.above(2)).isAir() || level.getFluidState(me.above(2)).is(net.minecraft.tags.FluidTags.LAVA)) mine0.add(me.above(2)); // (the cell over his head when it's open: a step down leaves the one he left open, and lava runs down it onto him, stage 818)

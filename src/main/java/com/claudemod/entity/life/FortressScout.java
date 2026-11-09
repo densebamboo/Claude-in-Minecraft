@@ -466,9 +466,12 @@ public final class FortressScout {
         return new double[] {perDig, left};
     }
     /** Nether travel by bore: a pickaxe and 16+ blocks to floor with. */
+    /** What a bore floors and plugs with (doBore's fill, first on him wins): the one list bores() and Decide.walkRefused count (audit 9: they counted 4 of these 7, "0 blocks to floor with" on dirt and stone). */
+    public static final net.minecraft.world.item.Item[] BORE_FILL = {net.minecraft.world.item.Items.NETHERRACK, net.minecraft.world.item.Items.COBBLESTONE, net.minecraft.world.item.Items.COBBLED_DEEPSLATE, net.minecraft.world.item.Items.BLACKSTONE, net.minecraft.world.item.Items.BASALT, net.minecraft.world.item.Items.DIRT, net.minecraft.world.item.Items.STONE};
+    public static int boreBlocks(ClaudeEntity g) { int n = 0; for (var it : BORE_FILL) n += g.inventory.count(x -> x.is(it)); return n; }
     public static boolean bores(ClaudeEntity g, ServerLevel level) {
         return level.dimension() == net.minecraft.world.level.Level.NETHER && g.inventory.count(x -> x.getItem() instanceof net.minecraft.world.item.PickaxeItem) > 0
-                && g.inventory.count(x -> x.is(net.minecraft.world.item.Items.NETHERRACK) || x.is(net.minecraft.world.item.Items.COBBLESTONE) || x.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE) || x.is(net.minecraft.world.item.Items.BLACKSTONE)) >= 16;
+                && boreBlocks(g) >= 16;
     }
     static final int TUNNEL = 40, FORT_LO = 48, FORT_HI = 70;
     /** A tunnel's end toward a point (a sign heard or seen): the cell up to len along the line, at the point's height, never in lava or beside it or over a 2-deep drop; nearer when that one isn't. */

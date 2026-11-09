@@ -10537,6 +10537,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1183: return st1183(stage, t, c, h, level, mock);
             case 1179: return st1179(stage, t, c, h, level, mock);
             case 1175: return st1175(stage, t, c, h, level, mock);
             case 1177: return st1177(stage, t, c, h, level, mock);
@@ -16041,6 +16042,37 @@ public final class ClaudeBodyTest {
                 check(s1179Tab != null && s1179Fur != null && tableUp && furUp, "table " + s1179Tab + " up " + tableUp + ", furnace " + s1179Fur + " up " + furUp + ": not the scene");
                 check(!w.contains("PLACE_BREAK"), "a table up after its craft, a furnace up after its smelt: filed " + w + " (last " + com.claudemod.entity.life.Watchdog.lastIncident + ")");
                 c.getInventory().clearContent(); nsHome(c, h, level); pass(stage, t, "table and furnace up after their work, nothing filed (" + w + ")");
+            }
+        }
+        return true;
+    }
+    /** Stage 1183 (audit 9, review 439, live 16:02:11 11-08 in a warped forest at 128,53,470: 45 logs on him, a spot 6 up on a wart block right over his head, the walk refused and "bore: out (0 blocks to floor with, under 16) ... skip": three lists of building blocks, none with his logs, and no tower priced): walkRefused on a ledge 6 up, 45 logs and 2 planks on him. A tower beside it, and up onto it. */
+    private static int s1183T;
+    private static boolean st1183(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = new BlockPos(9900, 80, 9900), goal = me.above(6);
+        if (t[0] == 1) { scenarioReset(c); s1183T = 0; c.prefs.put("stay_close", "no"); level.setDayTime(6000); }
+        if (t[0] == 10) {
+            for (int x = -7; x <= 7; x++) for (int z = -7; z <= 7; z++) for (int y = -1; y <= 12; y++) level.setBlock(me.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) level.setBlock(me.offset(x, 5, z), Blocks.WARPED_WART_BLOCK.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 45)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 2));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600;
+            mock[0].teleportTo(level, me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 20) {
+            boolean go = com.claudemod.entity.life.Decide.walkRefused(c, level, goal, 0.9, "NO_PATH the path stops at " + me.toShortString() + ", 6 short (6 up)");
+            check(go, "a ledge 6 up, 45 logs on him: the walk refused and the spot skipped (no tower priced)");
+            s1183T = t[0];
+        }
+        if (s1183T > 0 && t[0] > s1183T) {
+            boolean up = c.onGround() && c.blockPosition().getY() == goal.getY() && c.blockPosition().distSqr(goal) <= 4;
+            if (up || t[0] - s1183T > 20 * 25) {
+                double s = (t[0] - s1183T) / 20.0; BlockPos at = c.blockPosition();
+                c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.pillarBlocks.clear();
+                for (int x = -7; x <= 7; x++) for (int z = -7; z <= 7; z++) for (int y = -1; y <= 12; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(me).inflate(16))) e.discard();
+                check(up, "a tower to a ledge 6 up: not on it in 25 s (at " + at.toShortString() + ")");
+                check(s <= 15, "a 6-high tower and a step onto the ledge: " + s + " s (a player ~8)");
+                c.getInventory().clearContent(); pass(stage, t, "towered up beside the ledge and onto it in " + s + " s");
             }
         }
         return true;

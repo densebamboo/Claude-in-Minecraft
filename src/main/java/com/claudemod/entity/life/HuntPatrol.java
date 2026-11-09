@@ -105,6 +105,7 @@ public final class HuntPatrol {
                 Long last = b.walked.get(cell(p.getX(), p.getZ())); boolean fresh = last != null && now - last < 20 * 120 && now >= last;
                 if (hunt > 0.05 && !fresh) { score += 4 * hunt; w.append(String.format("endermen there %.1f; ", hunt)); } // ponytail: ground he walked in the last 2 min was seen empty, so old sightings there don't pull him back (the -44/-70 pacing)
                 if (fresh) { score -= 4; w.append("walked ").append((now - last) / 20).append(" s ago; "); }
+                int foes = hostilesAt(g, p, 12); if (foes > 0) { score -= foes * w("pearls.spot_hostile", 3); w.append(foes).append(" hostile(s) known by it; "); } // (a patrol leg among the mobs he knows of: live 10:32:51 11-09 "heading east to 297, 64, 508" back to where he'd fled 4 of them)
                 int lv = lavaNear(level, p); if (lv > 0) { score -= lv * w("pearls.spot_lava", 0.5); w.append(lv).append(" lava by it; "); } // (footing: a spot by lava is a poor place to fight an enderman, D2D 01:0x "right next to the lava")
                 int bio = biomeScore(level, p); score += bio; if (bio != 0) w.append(level.getBiome(p).unwrapKey().map(k -> k.location().getPath()).orElse("?")).append(' ').append(bio > 0 ? "+" : "").append(bio).append("; ");
                 if (b.heading != null) { double turn = Math.cos(a - b.heading); score += 1.5 * turn; if (turn > 0.7) w.append("on his heading; "); }
@@ -150,6 +151,16 @@ public final class HuntPatrol {
     /** Lava within 2 of a spot (cells): a fight or a stand there risks a knock into it. */
     static int lavaNear(ServerLevel level, BlockPos p) { int n = 0; for (BlockPos q : BlockPos.betweenClosed(p.offset(-2, -2, -2), p.offset(2, 1, 2))) if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) n++; return n; }
 
+    /** The hostiles he knows of (seen or heard, Perception) within r of a spot: enemies, neutrals only when angry, piglins not with gold on him (Leaps.threats' test, round the spot). */
+    static int hostilesAt(ClaudeEntity g, BlockPos at, double r) {
+        boolean gold = false; for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() && (g.getItemBySlot(sl).is(net.minecraft.world.item.Items.GOLDEN_HELMET) || g.getItemBySlot(sl).is(net.minecraft.world.item.Items.GOLDEN_CHESTPLATE) || g.getItemBySlot(sl).is(net.minecraft.world.item.Items.GOLDEN_LEGGINGS) || g.getItemBySlot(sl).is(net.minecraft.world.item.Items.GOLDEN_BOOTS))) gold = true; final boolean gold0 = gold;
+        int n = 0; for (var m : Perception.known(g, net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(at).inflate(r + 16), x -> x.isAlive() && x instanceof net.minecraft.world.entity.monster.Enemy && !(x instanceof net.minecraft.world.entity.NeutralMob nm && !nm.isAngry()) && !(gold0 && x instanceof net.minecraft.world.entity.monster.piglin.Piglin))) {
+            var b = Perception.believedAt(g, m); if ((b == null ? m.position() : b).distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(at)) <= r * r) n++; }
+        return n;
+    }
+    /** Seconds of his time the hostiles he knows of round a spot cost over a stay of s there (Decide.danger: each one's hits while he's among them, up to pearls.hostile_exposure_s, the time to deal with them or get out; hpS at his health and food), and the words for it. */
+    static double hostileS(ClaudeEntity g, ServerLevel level, int n, double s) { if (n <= 0) return 0; double perHit = Decide.hitHp() * Decide.armorF(g); return Decide.hpS(g, 0, Decide.danger(g, level, level.getDayTime() % 24000, Math.min(s, w("pearls.hostile_exposure_s", 20)), n), perHit); }
+
     /** His melee: {damage a swing, seconds a swing} with the best sword on him (a fist: 1 a swing). */
     static double[] melee(ClaudeEntity g) {
         double dmg = 1; for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { var it = g.inventory.items.getItem(i);
@@ -187,15 +198,17 @@ public final class HuntPatrol {
             var at = Perception.believedAt(g, m); if (at == null) continue;
             boolean sees = Perception.seesNow(g, m); BlockPos ap = BlockPos.containing(at); double d = at.distanceTo(g.position());
             int lava = lavaNear(level, ap); double dy = Math.abs(ap.getY() - g.getBlockY());
-            double s = d * road / sprint + fight + lava * w("pearls.lava_near_s", 8) + dy * w("pearls.climb_s", 3) + (sees ? 0 : w("pearls.heard_s", 15));
+            int foes = hostilesAt(g, ap, 16); double walk = d * road / sprint, foeS = hostileS(g, level, foes, walk + fight); // (hostiles he knows of by it: the fight is among them; live 10:32 11-09 none of this was priced)
+            double s = walk + fight + lava * w("pearls.lava_near_s", 8) + dy * w("pearls.climb_s", 3) + (sees ? 0 : w("pearls.heard_s", 15)) + foeS;
             String n = "enderman " + (int) d + " off" + (sees ? "" : " (heard)") + " #" + acts.size();
-            opts.add(Decide.Option.of(n, s, (sees ? "in sight" : "heard about " + ap.toShortString()) + (lava > 0 ? ", " + lava + " lava by it" : "") + (dy > 2 ? ", " + (int) dy + " up/down" : "") + (sword ? "" : ", no iron+ sword") + ", fight ~" + Math.round(fight) + " s at " + (int) g.getHealth() + " HP, armor " + g.getArmorValue() + ", food " + g.getFoodData().getFoodLevel()));
+            opts.add(Decide.Option.of(n, s, (sees ? "in sight" : "heard about " + ap.toShortString()) + (lava > 0 ? ", " + lava + " lava by it" : "") + (dy > 2 ? ", " + (int) dy + " up/down" : "") + (sword ? "" : ", no iron+ sword") + (foes > 0 ? ", " + foes + " hostile(s) known by it ~" + Math.round(foeS) + " s" : "") + ", fight ~" + Math.round(fight) + " s at " + (int) g.getHealth() + " HP, armor " + g.getArmorValue() + ", food " + g.getFoodData().getFoodLevel()));
             acts.put(n, new Next("engage", m, ap, n));
         }
         // 2. patrol: the forest he's in, then each one on his atlas, by size (bigger: an enderman sooner), the trip, its failed trips
         String here = level.getBiome(g.blockPosition()).unwrapKey().map(k -> k.location().getPath()).orElse("");
         if (here.equals("warped_forest")) { boolean quiet = Atlas.quietAt(g, level, g.blockPosition()); double area = forestArea(g, level), s = waitS(area) * (quiet ? w("pearls.quiet_factor", 3) : 1) + fight;
-            opts.add(Decide.Option.of("patrol this forest", s, "about " + (int) area + " square blocks seen" + (quiet ? ", judged quiet" : "")));
+            int foes = hostilesAt(g, g.blockPosition(), 24); double foeS = hostileS(g, level, foes, s); s += foeS; // (the hostiles he knows of round him are in the forest he'd walk: live 10:32:51 11-09 "patrol this forest ~136 s" with 6 within 24, back into the wither skeletons he'd fled at 6 HP)
+            opts.add(Decide.Option.of("patrol this forest", s, "about " + (int) area + " square blocks seen" + (quiet ? ", judged quiet" : "") + (foes > 0 ? ", " + foes + " hostile(s) known within 24 ~" + Math.round(foeS) + " s" : "")));
             acts.put("patrol this forest", new Next("patrol", null, null, "this forest, ~" + (int) area + " square blocks")); }
         var spots = Atlas.spots(g, level, "warped_forest");
         java.util.List<BlockPos> far = new ArrayList<>(); for (BlockPos q : spots) if (q.distSqr(g.blockPosition()) > 48 * 48) { boolean dup = false; for (BlockPos f0 : far) if (f0.distSqr(q) <= 96 * 96) dup = true; if (!dup) far.add(q); }
@@ -230,7 +243,7 @@ public final class HuntPatrol {
     /** Each tick: on a hunt (ender_pearls in his plan), a walk with an enderman coming into view stops, so the hunt weighs it (the user: "engage enderman weighted higher than explore"; live 00:57-01:18 explore walked him off with 5 within 48). */
     public static void tick(ClaudeEntity g) {
         if (g.tickCount % 10 != 0 || g.tasks.isEmpty() && g.currentTask == null || !(g.level() instanceof ServerLevel level)) return; // (the walk running is current, off the list)
-        boolean hunting = false; for (var s0 : g.skillQueue) if ("ender_pearls".equals(s0.skill())) hunting = true; if (!hunting) return;
+        boolean hunting = false; for (var s0 : g.skillQueue) { if ("ender_pearls".equals(s0.skill())) { hunting = true; break; } if (!"explore".equals(s0.skill())) return; } if (!hunting) return; // (a plan step before the hunt: its walk isn't the hunt's to stop, nor its steps to drop; one in sight on the way is the life tick's (ClaudeLife "on the way"). Live 10:32:47 11-09: the walk out for food stopped, the food and blaze steps dropped, the hunt patrolled him back to the wither skeletons he'd fled; dead 10:33:18)
         for (var t : g.tasks) if (!(t instanceof Task.GoTo) && !(t instanceof Task.Bore)) return; // (only walks: a fight, a pickup or a dig runs on)
         if (g.currentTask != null && !(g.currentTask instanceof Task.GoTo) && !(g.currentTask instanceof Task.Bore)) return;
         for (var m : Perception.known(g, net.minecraft.world.entity.monster.EnderMan.class, g.getBoundingBox().inflate(32, 12, 32), x -> x.isAlive()))

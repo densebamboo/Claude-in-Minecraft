@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1307: return st1307(stage, t, c, h, level, mock);
             case 1306: return st1306(stage, t, c, h, level, mock);
             case 1305: return st1305(stage, t, c, h, level, mock);
             case 1350: return st1350(stage, t, c, h, level, mock);
@@ -16826,6 +16827,48 @@ public final class ClaudeBodyTest {
                 check(!s1306Near, "walked to the spot 9 off first, the chest 3 the other way after (" + secs + " s)");
                 check(walkOn, "the walk to the spot dropped for the chest, not resumed after it");
                 pass(stage, t, "junk chest first in " + secs + " s, the walk after"); }
+        }
+        return true;
+    }
+    /** Stage 1307 (D2D, DEATH 10:33:18 11-09 at 274,65,466, wither skeleton): he'd retreated at 6 HP from 4 wither skeletons and blazes at 296-301,60-65,508; healed in a hut and set off by the fortress's south end for food. At 10:32:47 an enderman 37 off came into view: HuntPatrol.tick stopped that walk and dropped the plan's food and blaze steps; pearls.next priced "patrol this forest ~136 s" with no term for the 6 hostiles he knew of within 24, and the patrol leg went east to 297,64,508, where he'd fled from; hit there, caught on the run, dead. Here: a warped forest, 2 wither skeletons and a blaze known 10-12 east, an enderman in view past them, his plan food first and the hunt after. The walk out isn't stopped nor the food step dropped; the hunt's own choice is neither the patrol nor the fight among them; the patrol leg isn't by them. */
+    private static java.util.List<net.minecraft.world.entity.Entity> s1307M = new java.util.ArrayList<>();
+    private static boolean st1307(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(5236, 70, 5420);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.HuntPatrol.reset(c); com.claudemod.entity.life.Perception.reset(c); s1307M.clear(); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            for (int x = -40; x <= 40; x++) for (int z = -40; z <= 40; z++) for (int y = -2; y <= 8; y++)
+                nl.setBlock(o.offset(x, y, z), (y < 0 ? (y == -1 ? Blocks.WARPED_NYLIUM : Blocks.NETHERRACK).defaultBlockState() : Blocks.AIR.defaultBlockState()), 2);
+            nsKit(c); c.setHealth(16); c.nextPlanTick = c.tickCount + 20 * 600; c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setYHeadRot(-90f);
+        }
+        if (t[0] == 41) { // (after nsTick's mob sweep at 40)
+            var src = level.getServer().createCommandSourceStack().withSuppressedOutput().withLevel(nl);
+            level.getServer().getCommands().performPrefixedCommand(src, "fillbiome " + (o.getX() - 24) + " " + (o.getY() - 2) + " " + (o.getZ() - 24) + " " + (o.getX() + 24) + " " + (o.getY() + 6) + " " + (o.getZ() + 24) + " minecraft:warped_forest" /* (fillbiome stops at 32768 blocks) */);
+            Object[][] mobs = {{net.minecraft.world.entity.EntityType.WITHER_SKELETON, 10, 0, 1}, {net.minecraft.world.entity.EntityType.WITHER_SKELETON, 12, 0, -2}, {net.minecraft.world.entity.EntityType.BLAZE, 11, 3, 2}, {net.minecraft.world.entity.EntityType.ENDERMAN, 26, 0, 0}};
+            for (Object[] m : mobs) { var e = (net.minecraft.world.entity.Mob) ((net.minecraft.world.entity.EntityType<?>) m[0]).create(nl); e.moveTo(o.getX() + (int) m[1] + 0.5, o.getY() + (int) m[2], o.getZ() + (int) m[3] + 0.5, 90f, 0f); e.setNoAi(true); e.setPersistenceRequired(); nl.addFreshEntity(e); s1307M.add(e); }
+        }
+        if (t[0] == 48) {
+            // 1. walking out for food (the plan's step before the hunt), an enderman comes into view
+            c.tasks.clear(); c.skillQueue.clear(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("collect", "porkchop", 12)); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("ender_pearls", "ender_pearl", 12));
+            c.currentTask = new Task.GoTo(o.offset(-30, 0, 0), 0.9); c.tasks.add(new Task.GoTo(o.offset(-35, 0, 0), 0.9)); c.dropCurrent = false;
+            boolean seen = s1307M.get(3) instanceof net.minecraft.world.entity.LivingEntity em && com.claudemod.entity.life.Perception.seesNow(c, em);
+            while (c.tickCount % 10 != 0) c.tickCount++; com.claudemod.entity.life.HuntPatrol.tick(c);
+            boolean kept = c.skillQueue.stream().anyMatch(q -> q.skill().equals("collect")) && !c.dropCurrent && !c.tasks.isEmpty();
+            // 2. the hunt's own choice, and its patrol leg
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.skillQueue.clear();
+            boolean forest = nl.getBiome(c.blockPosition()).is(net.minecraft.world.level.biome.Biomes.WARPED_FOREST);
+            var nx = com.claudemod.entity.life.HuntPatrol.decide(c, nl, true);
+            String[] why = new String[1]; BlockPos p = com.claudemod.entity.life.HuntPatrol.next(c, nl, why);
+            double byFoes = 1e9; if (p != null) for (int i = 0; i < 3; i++) byFoes = Math.min(byFoes, Math.sqrt(p.distToCenterSqr(s1307M.get(i).position())));
+            for (var e : s1307M) e.discard(); nsHome(c, h, level);
+            check(seen, "the enderman past them not in his view (the setup)");
+            check(forest, "not in a warped forest (the setup)");
+            check(kept, "the walk out for food stopped and the food step dropped for an enderman in view (queue " + c.skillQueue + ")");
+            check(!nx.kind().equals("patrol") && !nx.kind().equals("engage"), "the hunt chose " + nx.kind() + " (" + nx.why() + ") with 2 wither skeletons and a blaze known 10-12 off");
+            check(p == null || byFoes > 10, "the patrol leg goes to " + p + ", " + (int) byFoes + " off the hostiles he knows of: " + why[0]);
+            pass(stage, t, "food walk kept, the hunt chose " + nx.kind() + ", patrol leg " + (p == null ? "none" : (int) byFoes + " off them"));
+            return true;
         }
         return true;
     }

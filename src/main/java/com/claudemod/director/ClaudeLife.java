@@ -5526,6 +5526,14 @@ public final class ClaudeLife {
         if (st.isDamageableItem() && !(st.getItem() instanceof net.minecraft.world.item.ArmorItem)) { int before = 0; for (int i = 0; i < slot; i++) if (g.inventory.items.getItem(i).is(st.getItem())) before++; return before >= (st.is(Items.STONE_PICKAXE) ? (int) com.claudemod.entity.life.Weights.w("tools.stone_pick_handful", 3) : 2); } // (stone picks: the handful craftToolNow makes is the handful kept; review 31, live 22:00: three made, the third thrown, walked over and taken back every 5 s)
         return false;
     }
+    /** An item one of his queued steps needs: a step's own target, or what a queued craft is made of (a furnace: its stone). The toss read none of his plan and threw out the blackstone his furnace wanted (review 65, stage 1209). */
+    static boolean neededByPlan(ClaudeEntity g, Item it) {
+        java.util.List<Skills.Step> steps = new java.util.ArrayList<>(g.skillQueue); if (g.lastStep != null) steps.add(g.lastStep);
+        ItemStack probe = new ItemStack(it);
+        for (var s : steps) { Item t = item(s.target()); if (t == null) continue; if (t == it) return true;
+            if (s.skill().equals("craft")) for (var r : Crafting.recipesFor(g.level(), t)) for (var ing : r.value().getIngredients()) if (ing.test(probe)) return true; }
+        return false;
+    }
     private static void dumpJunk(ClaudeEntity g) {
         var inv = g.getInventory();
         if (g.level() instanceof ServerLevel slS && g.tickCount % 400 == 0 && spareStacks(g) >= 2 && g.blueprint != null && !g.blueprint.isEmpty() && inHisMine(g, g.blockPosition()) && g.currentTask == null && g.tasks.stream().noneMatch(t -> t instanceof Task.Deposit)) { // stone well past his 2 stacks with room left still: to the junk chest on his way (World 15 14:48: 331-404 cobbled deepslate, 5 slots free, never put away)
@@ -5565,13 +5573,16 @@ public final class ClaudeLife {
         java.util.Set<Item> junk = JUNK;
         java.util.Map<Item, Integer> kept = new java.util.HashMap<>();
         java.util.List<Integer> toss = new java.util.ArrayList<>(); // what this toss throws, picked before he turns: the turn away from his work is for that, not for the junk list alone (spare cobble and a 4th stone pick went at his feet in his highway tunnel, walked over and taken back, live 22:00:39 / 22:57, stage 788)
-        for (int i = 0; i < inv.items.size(); i++) {
+        java.util.Map<Item, Boolean> need = new java.util.HashMap<>(); java.util.List<Integer> order = new java.util.ArrayList<>(); for (int i = 0; i < inv.items.size(); i++) order.add(i);
+        order.sort(java.util.Comparator.comparing((Integer i) -> inv.items.get(i).isEmpty() || !need.computeIfAbsent(inv.items.get(i).getItem(), x -> neededByPlan(g, x)))); // (stacks his queued steps need first: they get the stone kept)
+        for (int i : order) {
             var st = inv.items.get(i);
             if (st.isEmpty() || i == inv.selected) continue;
             boolean cobble = st.is(Items.COBBLESTONE) || st.is(Items.COBBLED_DEEPSLATE) || st.is(Items.NETHERRACK) || st.is(Items.BLACKSTONE); // (blackstone: stone for his tools and furnaces, in the two stacks; netherrack too: his Nether building block, booths and bridges)
             if (st.is(Items.COBBLED_DEEPSLATE) && deepslateWanted(g)) { kept.merge(Items.COBBLESTONE, 1, Integer::sum); continue; } // the highway's block, his to lay (D2D reviews 943/125: a full pack threw out 53 of it as junk); and his stone too: cobble on top of it is spare (live 02:03 11-07: 645 deepslate and 2 stacks of cobble kept, 0 slots free, fishing with nowhere for the catch; the user: highway trips are deepslate only)
             if (cobble && kept.merge(Items.COBBLESTONE, 1, Integer::sum) <= 2) continue; // two stacks of stone all told, cobble and cobbled deepslate together, as a player keeps (live 10:18 World 15: two of each, 238 stone in 4 slots, and the sugar dropped and picked back up every 7 s instead)
             if (st.is(Items.ROTTEN_FLESH) && Kit.foodAsk(g) != null) continue; // food while his kit is short (D2D review 092303-39 11-07: 2 rotten flesh thrown out twice, 92 food points short)
+            if (!cobble && need.getOrDefault(st.getItem(), false)) continue; // (a queued step needs it: never junk)
             if (!cobble && !junk.contains(st.getItem()) && !superseded(g, st, i)) continue;
             toss.add(i);
         }

@@ -10775,6 +10775,7 @@ public final class ClaudeBodyTest {
             case 1204: return st1204(stage, t, c, h, level, mock);
             case 1207: return st1207(stage, t, c, h, level, mock);
             case 1208: return st1208(stage, t, c, h, level, mock);
+            case 1209: return st1209(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -20968,6 +20969,25 @@ public final class ClaudeBodyTest {
                 check(gone && got > 0, "his own table in his highway's cell " + s1208At.toShortString() + " kept standing (gone " + gone + ", tables on him " + got + ")");
                 nsHome(c, h, level); pass(stage, t, "his own table in the highway's cell taken up, back in his pack, in " + (t[0] - s1208T0) + " ticks");
             }
+        }
+        return true;
+    }
+    /** Stage 1209 (D2D review 65, live 19:44:06 11-08: "threw out 7 stacks of junk: ... 10 blackstone" with "collect blackstone" and "craft furnace" queued, then 2 min failing to collect blackstone): a full pack in the live slot order, netherrack 49, 52, blackstone 10, netherrack 23. The toss keeps two stacks of stone; the ones his queued steps need are kept first. */
+    private static boolean st1209(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard(); }
+        if (t[0] == 5) {
+            var inv = c.getInventory(); inv.clearContent();
+            inv.items.set(0, new ItemStack(Items.IRON_PICKAXE)); inv.selected = 0;
+            inv.items.set(1, new ItemStack(Items.NETHERRACK, 49)); inv.items.set(2, new ItemStack(Items.NETHERRACK, 52)); inv.items.set(3, new ItemStack(Items.BLACKSTONE, 10)); inv.items.set(4, new ItemStack(Items.NETHERRACK, 23)); inv.items.set(5, new ItemStack(Items.COOKED_BEEF, 20));
+            for (int i = 0; i < inv.items.size(); i++) if (inv.items.get(i).isEmpty()) inv.items.set(i, new ItemStack(Items.CRIMSON_STEM, 64));
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("collect", "blackstone", 2, "near_you")); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "furnace", 1, "near_you"));
+            com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+            int bs = c.getInventory().countItem(Items.BLACKSTONE), nr = c.getInventory().countItem(Items.NETHERRACK);
+            for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard();
+            inv.clearContent(); c.tasks.clear(); c.skillQueue.clear();
+            check(bs == 10, "the blackstone his queued furnace needs thrown out as junk (" + bs + " left on him, netherrack " + nr + ")");
+            check(nr < 124, "no netherrack thrown to make room (" + nr + " left)");
+            pass(stage, t, "the blackstone kept for the furnace, netherrack " + nr + " kept of 124");
         }
         return true;
     }

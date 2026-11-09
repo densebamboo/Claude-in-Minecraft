@@ -819,18 +819,26 @@ public final class Watchdog {
 
     /** Layers feet-1..feet+3, 7x7 (x across, z down): @ him, ~ fluid, g gravel/sand, # solid, . open. */
     static String blockMap(net.minecraft.world.level.Level lv, BlockPos at) {
-        StringBuilder sb = new StringBuilder(" (x across, z down):");
-        for (int dy = -1; dy <= 3; dy++) {
+        StringBuilder sb = new StringBuilder(" (x across, z down; # solid, . open, g falling block, L lava source, 1-7 lava flow, F falling lava, W water source, w water flow, @ him):"); // (death 30: a lava slot rebuilt as sources passed 3/3, the flows that held him weren't on record)
+        for (int dy = -2; dy <= 3; dy++) {
             sb.append("\n  y").append(at.getY() + dy).append(": ");
             for (int dz = -3; dz <= 3; dz++) {
                 for (int dx = -3; dx <= 3; dx++) {
                     BlockPos q = at.offset(dx, dy, dz); var s = lv.getBlockState(q);
-                    sb.append(dx == 0 && dz == 0 && (dy == 0 || dy == 1) ? '@' : !lv.getFluidState(q).isEmpty() ? '~' : s.getBlock() instanceof net.minecraft.world.level.block.FallingBlock ? 'g' : s.getCollisionShape(lv, q).isEmpty() ? '.' : '#');
+                    var fq = lv.getFluidState(q); sb.append(dx == 0 && dz == 0 && (dy == 0 || dy == 1) ? '@' : !fq.isEmpty() ? fluidChar(fq) : s.getBlock() instanceof net.minecraft.world.level.block.FallingBlock ? 'g' : s.getCollisionShape(lv, q).isEmpty() ? '.' : '#');
                 }
                 if (dz < 3) sb.append('|');
             }
         }
+        sb.append("\n  his cells: feet ").append(lv.getFluidState(at).isEmpty() ? (lv.getBlockState(at).getCollisionShape(lv, at).isEmpty() ? '.' : '#') : fluidChar(lv.getFluidState(at)))
+          .append(", head ").append(lv.getFluidState(at.above()).isEmpty() ? (lv.getBlockState(at.above()).getCollisionShape(lv, at.above()).isEmpty() ? '.' : '#') : fluidChar(lv.getFluidState(at.above())));
         return sb.toString();
+    }
+    static char fluidChar(net.minecraft.world.level.material.FluidState f) {
+        boolean lava = f.is(net.minecraft.tags.FluidTags.LAVA);
+        if (f.isSource()) return lava ? 'L' : 'W';
+        if (!lava) return 'w';
+        return f.getValue(net.minecraft.world.level.material.FlowingFluid.FALLING) ? 'F' : (char) ('0' + Math.max(1, Math.min(7, f.getAmount())));
     }
 
     /**

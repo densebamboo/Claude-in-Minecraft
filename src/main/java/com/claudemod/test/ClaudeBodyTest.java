@@ -10804,6 +10804,7 @@ public final class ClaudeBodyTest {
             case 1214: return st1214(stage, t, c, h, level, mock);
             case 1215: return st1215(stage, t, c, h, level, mock);
             case 1216: return st1216(stage, t, c, h, level, mock);
+            case 1217: return st1217(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -21475,6 +21476,35 @@ public final class ClaudeBodyTest {
         return true;
     }
 
+    /** Stage 1217 (D2D review 291, live 00:02:25 11-09 at -109,14,-253: in an ore hole 2 under his branch floor with a full pack, "junk thrown away from his work", 10 stacks on his mine floor, taken back 3 s later; the in-his-mine check read only a block above and below him, so the junk chest was never tried): a full pack of cobble and junk, him 2 down an ore hole under row 4 of his mine, his junk chest in the wall by row 6. The junk goes to the junk chest, nothing on his mine floor. */
+    private static BlockPos s1217C;
+    private static boolean st1217(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            BlockPos d = lnRow(b, 1, 6).immutable();
+            net.minecraft.core.Direction side = null; for (var dd : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && !com.claudemod.director.ClaudeLife.isMineCell(c, d.relative(dd)) && level.getBlockState(d.relative(dd)).isSolid()) side = dd;
+            check(side != null, "setup: no wall beside row 6");
+            s1217C = d.relative(side).immutable(); level.setBlock(s1217C, Blocks.CHEST.defaultBlockState(), 2); level.setBlock(s1217C.above(), Blocks.AIR.defaultBlockState(), 2); c.prefs.put("junk_chests", s1217C.getX() + " " + s1217C.getY() + " " + s1217C.getZ());
+            BlockPos hole = lnRow(b, 1, 4).below(2).immutable(); level.setBlock(hole, Blocks.AIR.defaultBlockState(), 2); level.setBlock(hole.above(), Blocks.AIR.defaultBlockState(), 2);
+            var inv = c.getInventory(); inv.clearContent(); int k = 0;
+            Object[][] pack = { {Items.IRON_PICKAXE, 1}, {Items.WOODEN_SWORD, 1}, {Items.STONE_SWORD, 1}, {Items.IRON_SWORD, 1}, {Items.SPIDER_EYE, 1}, {Items.GRAVEL, 11}, {Items.GRANITE, 9}, {Items.DIRT, 1}, {Items.ANDESITE, 1},
+                {Items.COBBLESTONE, 64}, {Items.COBBLESTONE, 64}, {Items.COBBLESTONE, 64}, {Items.COBBLESTONE, 64}, {Items.COBBLESTONE, 21}, {Items.COAL, 24}, {Items.LAPIS_LAZULI, 26}, {Items.TORCH, 64} };
+            for (Object[] p : pack) inv.items.set(k++, new ItemStack((net.minecraft.world.item.Item) p[0], (Integer) p[1]));
+            for (int i = 0; i < inv.items.size(); i++) if (inv.items.get(i).isEmpty()) inv.items.set(i, new ItemStack(Items.OAK_LOG, 64));
+            inv.selected = 0;
+            lnStand(c, mock, hole, b.entrance); c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null; c.tasks.add(new Task.GoTo(lnRow(b, 1, 5).immutable(), 0.5)); // (live: a dig of his queued up in the tunnel, the toss went away from it)
+            com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+            var drops = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(12));
+            String dropped = drops.stream().map(e -> e.getItem().getCount() + " " + e.getItem().getItem()).toList().toString();
+            boolean dep = c.tasks.stream().anyMatch(q -> q instanceof Task.Deposit);
+            for (var it : drops) it.discard();
+            c.getInventory().clearContent(); c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); c.prefs.remove("junk_chests");
+            check(drops.isEmpty(), "junk thrown on his mine floor from the ore hole: " + dropped);
+            check(dep, "no trip to his junk chest queued");
+            pass(stage, t, "the junk to his junk chest from the ore hole, nothing on his floor");
+        }
+        return true;
+    }
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

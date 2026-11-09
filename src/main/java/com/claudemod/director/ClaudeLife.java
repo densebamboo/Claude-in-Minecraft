@@ -5546,7 +5546,7 @@ public final class ClaudeLife {
         { int free0 = 0; for (var st0 : inv.items) if (st0.isEmpty()) free0++; if (free0 >= 2) return; } // (room for a craft's two steps: one free slot and "could not make a crafting table: missing room" every 5 s, 05:11)
         if (g.commandActive && g.lastStep != null && (g.lastStep.skill().equals("go_to") || g.lastStep.skill().equals("follow")) && inv.getFreeSlot() >= 0) return; // on their go_to/follow: the junk waits till the pack is truly full (they called him over to teach him; a 17-block junk chest run went first, 14:25)
         if (g.currentTask instanceof Task.Deposit || g.tasks.stream().anyMatch(t -> t instanceof Task.Deposit)) return; // on his way to put it away: nothing on the floor meanwhile (the toss went while the walk to the chest was queued)
-        if (g.level() instanceof ServerLevel sl0 && spareStacks(g) >= 1 && g.blueprint != null && !g.blueprint.isEmpty() && (g.blueprint.touches(g.blockPosition()) || inHisMine(g, g.blockPosition())) && g.tasks.stream().noneMatch(t -> t instanceof Task.Deposit)) { // in his mine: the junk chest, never his own floor
+        if (g.level() instanceof ServerLevel sl0 && spareStacks(g) >= 1 && g.blueprint != null && !g.blueprint.isEmpty() && inMineOrHole(g, g.blockPosition()) && g.tasks.stream().noneMatch(t -> t instanceof Task.Deposit)) { // in his mine: the junk chest, never his own floor
             String r = junkChestRound(g, sl0); if (r != null) { ClaudeMod.LOGGER.info("[Claude life] inventory full in his mine: {}", r); return; }
         }
         boolean storable = false; for (var st0 : inv.items) if (!st0.isEmpty() && !cobbleItem(st0) && !junkItem(st0) && !com.claudemod.entity.goals.WorkGoal.keeps(st0)) storable = true; // (a pack of only cobble and junk: his stash takes none of it, a walk there for nothing)
@@ -9184,6 +9184,12 @@ public final class ClaudeLife {
         return g.mineFace != null && at.distSqr(g.mineFace) <= 16 * 16; // (an old mine he hasn't traced yet: roughly near it)
     }
 
+    /** In his mine, or in a hole he dug off it (an ore hole 2 under his branch floor read as "not his mine": 10 stacks of junk on it, taken back 3 s later, review 291, stage 1217). */
+    static boolean inMineOrHole(ClaudeEntity g, BlockPos p) {
+        if (inHisMine(g, p) || g.blueprint != null && g.blueprint.touches(p)) return true;
+        for (BlockPos q : BlockPos.betweenClosed(p.offset(-2, -2, -2), p.offset(2, 2, 2))) if (isMineCell(g, q) || g.blueprint != null && g.blueprint.touches(q)) return true;
+        return false;
+    }
     /** Touches his mine at all, a corner or an edge too (a stair's step edges only touch it diagonally). */
     public static boolean touchesMine(ClaudeEntity g, BlockPos q) {
         for (int dx = -1; dx <= 1; dx++) for (int dy = -1; dy <= 1; dy++) for (int dz = -1; dz <= 1; dz++)

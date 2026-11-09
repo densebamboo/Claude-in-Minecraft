@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1245: return st1245(stage, t, c, h, level, mock);
             case 1244: return st1244(stage, t, c, h, level, mock);
             case 1246: return st1246(stage, t, c, h, level, mock);
             case 1243: return st1243(stage, t, c, h, level, mock);
@@ -16674,6 +16675,29 @@ public final class ClaudeBodyTest {
             check(!(tr instanceof Task.Bore), "a bore beside his own highway: " + why);
             nsHome(c, h, level); pass(stage, t, why);
         }
+        return true;
+    }
+    private static int st1245T;
+    /** Stage 1245 (D2D review 203, live 07:05-07:06 11-09): "in water 32.6 s, 4 blocks" and "16.6 s, 2 blocks" were a salmon hunt and a run from a zombie, start to end only; the WATER file took the 7 s of the run for a slow walk. Here: out across a 4-deep lake and back at his pace, ~34 blocks swum for 4 from where he went in: no WATER (a slow walk in water still files). */
+    private static boolean st1245(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var W = com.claudemod.entity.life.Watchdog.recentKinds;
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1245T = -1; level.setDayTime(6000); flatBox(h); }
+        BlockPos to = h.absolutePos(new BlockPos(15, 2, 15));
+        try {
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            for (int x = 0; x <= 13; x++) for (int z = 0; z <= 13; z++) for (int y = -2; y <= 1; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.WATER.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            BlockPos me = h.absolutePos(new BlockPos(12, 1, 12)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            W.clear(); com.claudemod.entity.life.Watchdog.linesInTests = true;
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.tasks.add(new Task.GoTo(h.absolutePos(new BlockPos(1, 1, 1)).immutable(), 1.5)); c.tasks.add(new Task.GoTo(to.immutable(), 0.9)); st1245T = t[0]; }
+        if (st1245T > 0 && (c.blockPosition().distSqr(to) <= 2 && c.onGround() && !c.isInWater() && t[0] > st1245T + 40 || t[0] == st1245T + 600)) {
+            String w = W.toString(); com.claudemod.entity.life.Watchdog.linesInTests = false;
+            check(c.blockPosition().distSqr(to) <= 4, "never swam across: at " + c.blockPosition().toShortString() + ", doing " + c.currentTask);
+            check(!w.contains("WATER"), "out and back across the lake at his pace filed as slow: " + w + " (last " + com.claudemod.entity.life.Watchdog.lastIncident + ")");
+            pass(stage, t, "out and back in " + (t[0] - st1245T) / 20 + " s, no WATER: " + w); }
+        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
         return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */

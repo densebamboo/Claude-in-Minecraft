@@ -40,6 +40,7 @@ public final class Watchdog {
         final java.util.Map<String, Integer> placeGaveUp = new java.util.HashMap<>(); // item|cell -> tick of its last give-up (PLACE_REPEAT)
         int dragTicks; String dragBlock = ""; BlockPos dragAt; // walking into a block (leaves, a wall) and sliding along it
         int wetSince = -1, wetWalkT; double wetX, wetY, wetZ;              // in water since, from where
+        double wetPath, wetWalkD, wetLx, wetLz;                    // blocks swum in all, and while walking (the way, not start to end)
         String wetDoing = "nothing"; boolean wetWalk;             // what he was at in the water (the walk ends as he lands)
         int idleSince = -1; double idleX, idleZ;                  // no task, no queue, standing, since (IDLE)
         long stillPos = Long.MIN_VALUE; BlockPos stillWant; int stillSince, stillBroken; // same block, the same walk queued, nothing dug, since (STUCK)
@@ -435,15 +436,17 @@ public final class Watchdog {
             }
         } else s.dragTicks = 0;
         boolean wet = g.isInWater(); // (WATER files on the time walking in it: 50 s fishing in the shallows and a step out read as "52 s in water for 2 blocks", review 339; stage 996)
-        if (wet && s.wetSince < 0) { s.wetSince = now(g); s.wetX = g.getX(); s.wetY = g.getY(); s.wetZ = g.getZ(); s.wetWalk = false; s.wetWalkT = 0; s.wetDoing = "nothing"; }
-        if (wet && g.currentTask != null) { s.wetDoing = g.currentTask.toString(); if (g.currentTask instanceof Task.GoTo) { s.wetWalk = true; s.wetWalkT++; } }
+        if (wet && s.wetSince < 0) { s.wetSince = now(g); s.wetX = g.getX(); s.wetY = g.getY(); s.wetZ = g.getZ(); s.wetWalk = false; s.wetWalkT = 0; s.wetDoing = "nothing"; s.wetPath = 0; s.wetWalkD = 0; s.wetLx = g.getX(); s.wetLz = g.getZ(); }
+        double wetStep = 0; if (wet) { wetStep = Math.hypot(g.getX() - s.wetLx, g.getZ() - s.wetLz); s.wetPath += wetStep; s.wetLx = g.getX(); s.wetLz = g.getZ(); }
+        if (wet && g.currentTask != null) { s.wetDoing = g.currentTask.toString(); if (g.currentTask instanceof Task.GoTo) { s.wetWalk = true; s.wetWalkT++; s.wetWalkD += wetStep; } }
         else if (!wet && g.onGround() && s.wetSince >= 0) { // (landed: swimming bobs him out of the water every stroke)
             int ticks = now(g) - s.wetSince; s.wetSince = -1;
             if (ticks >= 20) {
                 double d = Math.sqrt(Math.pow(g.getX() - s.wetX, 2) + Math.pow(g.getZ() - s.wetZ, 2));
-                String line = String.format("in water %.1f s, %.0f blocks from %.0f %.0f %.0f to %.0f %.0f %.0f, doing %s; walking %.1f s of it", ticks / 20.0, d, s.wetX, s.wetY, s.wetZ, g.getX(), g.getY(), g.getZ(), s.wetDoing, s.wetWalkT / 20.0);
+                double pace = s.wetWalkT == 0 ? 0 : s.wetWalkD / (s.wetWalkT / 20.0);
+                String line = String.format("in water %.1f s, %.0f blocks from %.0f %.0f %.0f to %.0f %.0f %.0f (%.0f swum), doing %s; walking %.1f s of it, %.0f blocks at %.1f a second", ticks / 20.0, d, s.wetX, s.wetY, s.wetZ, g.getX(), g.getY(), g.getZ(), s.wetPath, s.wetDoing, s.wetWalkT / 20.0, s.wetWalkD, pace);
                 ClaudeMod.LOGGER.info("[Claude move] {}", line);
-                if (s.wetWalkT > 20 * 5 && s.wetWalk && (!com.claudemod.entity.ClaudeSpawner.testing || linesInTests)) fileOnce(g, "WATER", "WATER|" + BlockPos.containing(s.wetX, s.wetY, s.wetZ).asLong(), line);
+                if (s.wetWalkT > 20 * 5 && s.wetWalk && pace < Weights.w("water.slow_bps", 1.8) && (!com.claudemod.entity.ClaudeSpawner.testing || linesInTests)) fileOnce(g, "WATER", "WATER|" + BlockPos.containing(s.wetX, s.wetY, s.wetZ).asLong(), line);
             }
         }
     }

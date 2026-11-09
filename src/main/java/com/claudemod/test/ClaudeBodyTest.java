@@ -10867,6 +10867,7 @@ public final class ClaudeBodyTest {
             case 1260: return st1260(stage, t, c, h, level, mock);
             case 1261: return st1261(stage, t, c, h, level, mock);
             case 1262: return st1262(stage, t, c, h, level, mock);
+            case 1263: return st1263(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -22926,6 +22927,30 @@ public final class ClaudeBodyTest {
         }
         if (t[0] > 20 && st1262Hold < 0) check(t[0] < 400, "never settled in a hole: at " + c.blockPosition().subtract(at) + ", now=" + c.currentTask + " tasks=" + c.tasks);
         if (st1262Hold > 0 && st1262Out < 0) check(t[0] - st1262Hold < 400, "never out of his hole in the morning: at " + c.blockPosition().subtract(at) + ", now=" + c.currentTask + " tasks=" + c.tasks);
+        return true;
+    }
+
+    /** His crafting table set in a notch in the ground and done with: the cleanup breaks it, picks it up, then fills the notch; never the fill first over the table on the ground (live 11:57:58-11:58:01 11-09 World 17 at 59,70,-462: Break, Place dirt, Pickup: the dirt went in over the table's drop, the pickup skipped it "inside a block", the table left behind; review 41). */
+    private static boolean st1263(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(8, 2, 8)), notch = at.offset(2, -1, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int yy = -4; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), yy == 1 ? Blocks.GRASS_BLOCK : Blocks.DIRT); for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); }
+            level.setDayTime(1000);
+            level.setBlock(notch, Blocks.CRAFTING_TABLE.defaultBlockState(), 3); // in the ground, its top level with the grass
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIRT, 8)); c.getInventory().add(new ItemStack(Items.STONE_AXE)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.lastStep = null; c.tablePlacedTick = -100000;
+            c.tempStations.clear(); c.tempStations.add(notch.immutable()); c.notches.add(notch.immutable()); c.attempts.any.remove(notch);
+        }
+        if (t[0] > 12) {
+            int tables = c.getInventory().countItem(Items.CRAFTING_TABLE);
+            boolean filled = level.getBlockState(notch).is(Blocks.DIRT);
+            var buried = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(notch).inflate(2), i -> i.isAlive() && i.getItem().is(Items.CRAFTING_TABLE));
+            check(!(filled && !buried.isEmpty()), "the notch filled over his table's drop (" + buried.size() + " on the ground by it, " + tables + " on him): the pickup comes before the fill");
+            if (tables >= 1 && filled) pass(stage, t, "table broken, picked up and the notch filled in " + (t[0] - 10) + " ticks");
+            else check(t[0] < 300, "after 14 s: tables on him " + tables + ", notch " + level.getBlockState(notch).getBlock().getName().getString() + ", table drops by it " + buried.size() + ", task " + c.currentTask + ", queue " + c.tasks);
+        }
         return true;
     }
 

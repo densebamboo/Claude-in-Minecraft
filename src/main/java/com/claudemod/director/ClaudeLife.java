@@ -9169,8 +9169,8 @@ public final class ClaudeLife {
                 boolean mobsBy = false; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, new net.minecraft.world.phys.AABB(p).inflate(12))) if (m.isAlive()) { mobsBy = true; break; }
                 if (mobsBy) continue;
                 g.attempts.any.put(p, g.tickCount); // one go at it every 5 minutes (it may be somewhere he can't get to)
+                refillNotch(g, p, true); // after the pickup: the fill first went in over the station's drop and the sweep skipped it inside the block (live 11:58 11-09, review 41: stage 1263)
                 g.tasks.addFirst(new Task.Pickup(60));
-                refillNotch(g, p, true);
                 g.tasks.addFirst(new Task.Break(p)); // Break walks over to it
                 ClaudeMod.LOGGER.info("[Claude life] cleaning up: going back for his {} at {}", Crafting.name(level.getBlockState(p).getBlock().asItem()), p.toShortString());
                 return;
@@ -9218,8 +9218,8 @@ public final class ClaudeLife {
             if (mobsBy) continue; // a table among the mobs that just killed him: it waits (he went back for it unarmed and died again)
             g.attempts.any.put(p, g.tickCount); // one go at it per minute
             if (walkingNow) { g.tasks.addFirst(go); dropCurrent(g); } // turn back for it, then carry on
+            refillNotch(g, p, true); // after the pickup (stage 1263)
             g.tasks.addFirst(new Task.Pickup(60));
-            refillNotch(g, p, true);
             g.tasks.addFirst(new Task.Break(p));
             ClaudeMod.LOGGER.info("[Claude life] picking up his {} at {} before moving on", Crafting.name(level.getBlockState(p).getBlock().asItem()), p.toShortString());
             return; // one at a time

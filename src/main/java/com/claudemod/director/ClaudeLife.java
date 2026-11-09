@@ -3415,7 +3415,8 @@ public final class ClaudeLife {
                 if (furnace == null) {
                     if (g.inventory.count(t -> t.is(Items.FURNACE)) == 0) {
                         if (g.inventory.count(t -> t.is(ItemTags.STONE_CRAFTING_MATERIALS)) < 8) { // the stone before the table: it went down, "need cobblestone first", and came straight back up (live 06:21 and 06:56 11-08, stage 1034)
-                            if (g.tickCount - g.gatherForCraftTick > 20 * 120 || !level.canSeeSky(g.blockPosition())) { g.gatherForCraftTick = g.tickCount; g.skillQueue.addFirst(st); g.skillQueue.addFirst(new Skills.Step("collect", "cobblestone", 8)); return "need cobblestone for a furnace first, getting some"; }
+                            String stone8 = furnaceStone(g, level); if (stone8 == null) return "failed: no furnace nearby and nothing to make one from here (no blackstone in sight; cobblestone comes from my mine in the Overworld)"; // (the Nether: "need cobblestone" then "none in the Nether", and the kit priced the cooking again, live 19:30 11-08, review 17)
+                            if (g.tickCount - g.gatherForCraftTick > 20 * 120 || !level.canSeeSky(g.blockPosition())) { g.gatherForCraftTick = g.tickCount; g.skillQueue.addFirst(st); g.skillQueue.addFirst(new Skills.Step("collect", stone8, 8)); return "need " + stone8 + " for a furnace first, getting some"; }
                             return "failed: no furnace nearby and can't make one (needs 8 cobblestone)";
                         }
                         int q0 = g.tasks.size(); boolean table = ensureCraftingTable(g, level, Items.FURNACE);
@@ -8899,6 +8900,12 @@ public final class ClaudeLife {
         return false;
     }
 
+    /** What a furnace is made of where he is (vanilla's stone_crafting_materials): cobblestone in the Overworld; in the Nether blackstone he can see, since no stone or deepslate grows there; null when there is none to be had here. The smelt step and the kit's cooking price both ask this. */
+    static String furnaceStone(ClaudeEntity g, ServerLevel level) {
+        if (level.dimension() == net.minecraft.world.level.Level.OVERWORLD) return "cobblestone";
+        if (level.dimension() != net.minecraft.world.level.Level.NETHER) return null;
+        return findAll(level, g.blockPosition(), 24, s -> s.is(Blocks.BLACKSTONE), 16).stream().anyMatch(p -> touchesAir(level, p) && !hisBuildKeeps(g, level, p)) ? "blackstone" : null;
+    }
     private static boolean touchesAir(ServerLevel level, BlockPos p) {
         for (Direction d : Direction.values()) if (level.getBlockState(p.relative(d)).isAir()) return true;
         return false;

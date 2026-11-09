@@ -10568,6 +10568,7 @@ public final class ClaudeBodyTest {
             case 1138: return st1138(stage, t, c, h, level, mock);
             case 1139: return st1139(stage, t, c, h, level, mock);
             case 1140: return st1140(stage, t, c, h, level, mock);
+            case 1141: return st1141(stage, t, c, h, level, mock);
             case 999: return st999(stage, t, c, h, level, mock);
             case 997: return st997(stage, t, c, h, level, mock);
             case 996: return st996(stage, t, c, h, level, mock);
@@ -18642,6 +18643,31 @@ public final class ClaudeBodyTest {
             check(c.isAlive(), "dead to one wither skeleton in the open");
             if (st1140Up) { st1140W.discard(); c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "shield up to the wither skeleton's sword at " + (t[0] - st1140Start) / 20 + " s"); }
             else check(st1140W.isAlive() && t[0] - st1140Start < 20 * 10, st1140W.isAlive() ? "10 s in melee with a wither skeleton and the shield never up (health " + c.getHealth() + ")" : "the wither skeleton died before his shield ever came up (health " + c.getHealth() + ")");
+        }
+        return true;
+    }
+    /** In the Nether with raw porkchop, no furnace, no stone on him: blackstone in sight is a furnace's stone (vanilla's stone_crafting_materials), so the smelt step goes for it, never "cobblestone" that the Nether doesn't grow; with none in sight it fails plainly. Live 19:30 11-08, review 17: "need cobblestone" / "none in the Nether", the kit priced the cooking again, round and round. */
+    private static boolean st1141(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER); BlockPos o = new BlockPos(9900, 80, 7400);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] > 4 && t[0] % 10 == 0) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+        if (t[0] == 10 || t[0] == 200) { boolean black = t[0] == 10;
+            for (int x = -12; x <= 12; x++) for (int z = -12; z <= 12; z++) for (int y = -1; y <= 6; y++) nl.setBlock(o.offset(x, y, z), y == -1 || y == 6 || Math.abs(x) == 12 || Math.abs(z) == 12 ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 3);
+            if (black) for (int x = 4; x <= 6; x++) for (int z = 4; z <= 6; z++) nl.setBlock(o.offset(x, 0, z), Blocks.BLACKSTONE.defaultBlockState(), 3);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.PORKCHOP, 5)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 20)); c.getInventory().add(new ItemStack(Items.WOODEN_PICKAXE));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastSkillLine = ""; c.gatherForCraftTick = -100000;
+        }
+        if (t[0] == 20 || t[0] == 210) c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("smelt", "cooked_porkchop", 5, "near_you"));
+        String line = c.lastSkillLine == null ? "" : c.lastSkillLine;
+        if (t[0] > 20 && t[0] < 200) {
+            check(!line.contains("need cobblestone"), "asked for cobblestone in the Nether with blackstone 5 off: " + line);
+            if (line.contains("need blackstone")) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; t[0] = 199; }
+            else check(t[0] < 180, "8 s and no word of blackstone for the furnace: " + line);
+        }
+        if (t[0] > 210) {
+            check(!line.contains("need cobblestone") && !line.contains("need blackstone"), "no blackstone about, yet a collect for a furnace's stone: " + line);
+            if (line.contains("failed: no furnace nearby and nothing to make one")) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; nsHome(c, h, level); pass(stage, t, "blackstone for a Nether furnace when there is some, a plain no when there isn't"); }
+            else check(t[0] < 380, "8 s and no plain answer with no stone about: " + line);
         }
         return true;
     }

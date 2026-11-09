@@ -10795,6 +10795,7 @@ public final class ClaudeBodyTest {
             case 1209: return st1209(stage, t, c, h, level, mock);
             case 1210: return st1210(stage, t, c, h, level, mock);
             case 1211: return st1211(stage, t, c, h, level, mock);
+            case 1212: return st1212(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -21245,6 +21246,37 @@ public final class ClaudeBodyTest {
             for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) e.discard();
             check(!line.startsWith("collect porkchop"), "the cod smelt held by an empty porkchop collect: " + line);
             pass(stage, t, "the cod smelt ran past the empty porkchop collect: " + (line.length() > 90 ? line.substring(0, 90) : line));
+        }
+        return true;
+    }
+    /** Stage 1212 (D2D review 143, live 22:18 11-08: ~90 s at -562,62,132 on a walk into -563,62,132: dirt under, water at his feet, a lily pad at head height; ActionPath counted the pad as open in his head cell, the body couldn't go in: spins, 15 BLOCKED_FLUID, the queue dropped): a strip of 1-deep water with lily pads on it across his way; he gets over in a player's time. */
+    private static int s1212T;
+    private static boolean st1212(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(20600, 80, 19600);
+        if (t[0] == 1 || t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+        if (t[0] == 1) { scenarioReset(c); c.commandActive = false; s1212T = 0; }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 10) {
+            for (int x = -4; x <= 12; x++) for (int z = -10; z <= 10; z++) { level.setBlock(o.offset(x, -2, z), Blocks.STONE.defaultBlockState(), 2); boolean pond = x >= 0 && x <= 4;
+                level.setBlock(o.offset(x, -1, z), Blocks.DIRT.defaultBlockState(), 2);
+                level.setBlock(o.offset(x, 0, z), (pond ? Blocks.WATER : Blocks.AIR).defaultBlockState(), 2);
+                level.setBlock(o.offset(x, 1, z), (pond && !(x == 0 && z == 0) ? Blocks.LILY_PAD : Blocks.AIR).defaultBlockState(), 2);
+                for (int y = 2; y <= 4; y++) level.setBlock(o.offset(x, y, z), (y == 2 && x >= -1 && x <= 5 ? Blocks.OAK_LEAVES.defaultBlockState().setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true) : Blocks.AIR.defaultBlockState()), 2); } // (leaves over the pond, as live: no head room on a pad)
+            for (int x = -4; x <= 12; x++) for (int z = -10; z <= 10; z++) if (!(x >= 0 && x <= 4)) level.setBlock(o.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); level.setDayTime(1000); c.prefs.put("stay_close", "no"); mock[0].teleportTo(level, o.getX() + 8.5, o.getY() + 20, o.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null;
+        }
+        if (t[0] == 20) { c.tasks.add(new Task.GoTo(o.offset(8, 0, 0), 1.0)); s1212T = t[0]; }
+        if (s1212T > 0 && t[0] > s1212T) {
+            boolean there = c.blockPosition().getX() >= o.getX() + 7;
+            if (there || t[0] == s1212T + 400) {
+                int el = t[0] - s1212T; BlockPos at = c.blockPosition();
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+                check(there, "not over the lily pond in " + el + " ticks: at " + at.toShortString());
+                check(el <= 200, "over the lily pond in " + el + " ticks (live: 90 s and never; the first walk's vanilla path still tries the pad for ~2 s before his own way: audit 11)");
+                pass(stage, t, "over the lily pond in " + el + " ticks");
+            }
         }
         return true;
     }

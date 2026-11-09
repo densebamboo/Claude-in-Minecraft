@@ -200,8 +200,13 @@ public final class Highway {
     public static int next(ServerLevel level, BridgeBlueprint b) { return nextFrom(level, b, 0); }
     static int nextFrom(ServerLevel level, BridgeBlueprint b, int from) {
         // (rows go down in order: an unloaded row with a laid row past it is laid. Read as unfinished, at row 387 the unloaded row 14 sent him 370 back and there the unloaded far rows sent him out again, every minute, live 18:18-18:35 11-06, stage 872)
-        int lastLaid = -1; for (int i = b.rows.size() - 1; i >= from; i--) { var r = b.rows.get(i); if (level.hasChunkAt(r.centre()) && done(level, r, b.lo(), b.hi())) { lastLaid = i; break; } }
-        int n = from; for (; n < b.rows.size(); n++) { var r = b.rows.get(n); if (level.hasChunkAt(r.centre()) ? !done(level, r, b.lo(), b.hi()) : n > lastLaid) break; } return n; }
+        int lastLaid = lastLaid(level, b, from);
+        int n = from; for (; n < b.rows.size(); n++) if (open(level, b, n, lastLaid)) break; return n; }
+    static int lastLaid(ServerLevel level, BridgeBlueprint b, int from) { for (int i = b.rows.size() - 1; i >= from; i--) { var r = b.rows.get(i); if (level.hasChunkAt(r.centre()) && done(level, r, b.lo(), b.hi())) return i; } return -1; }
+    /** Row i still to lay: not done where it's loaded; unloaded, only past the last laid row. */
+    static boolean open(ServerLevel level, BridgeBlueprint b, int i, int lastLaid) { var r = b.rows.get(i); return level.hasChunkAt(r.centre()) ? !done(level, r, b.lo(), b.hi()) : i > lastLaid; }
+    /** The rows still to lay from {@code from}: the gaps behind the frontier and the rows past it, not every row past the first gap (live 00:30 11-09: a gap at row 31, the road laid past 529, "680 rows left", a 576-block trip; stage 1194). */
+    static int rowsLeft(ServerLevel level, BridgeBlueprint b, int from) { int last = lastLaid(level, b, from), n = 0; for (int i = from; i < b.rows.size(); i++) if (open(level, b, i, last)) n++; return n; }
     /** He can stand on the row as it is: its floor solid and its walkway open. */
     static boolean standable(ServerLevel level, BridgeBlueprint.Row r, int lo, int hi) {
         Direction right = r.dir().getClockWise();
@@ -400,7 +405,7 @@ public final class Highway {
 
     /** Out of cobbled deepslate (or short of the next row): where the next lot comes from, priced; the trip queued, then back to building. */
     static String blocks(ClaudeEntity g, ServerPlayer player, ServerLevel level, State s, int next, int have, String words, Skills.Step st) {
-        BridgeBlueprint b = s.plan; int left = b.rows.size() - next;
+        BridgeBlueprint b = s.plan; int left = rowsLeft(level, b, next);
         int trip = Math.max(64, trip(g, left)), inChests = chestCount(g);
         int minFetch = (int) (w("highway.fetch_min_stacks", 5) * 64); // (the user: "if he has less than 5 he can grab he should go mining")
         var portal = PortalMap.byId(g, s.portalId); double sprint = Decide.sprint();

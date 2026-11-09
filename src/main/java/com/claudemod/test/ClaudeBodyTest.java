@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1194: return st1194(stage, t, c, h, level, mock);
             case 1192: return st1192(stage, t, c, h, level, mock);
             case 1191: return st1191(stage, t, c, h, level, mock);
             case 1190: return st1190(stage, t, c, h, level, mock);
@@ -16316,6 +16317,46 @@ public final class ClaudeBodyTest {
             check(last != null && last.distSqr(o) <= 4 * 4 && on >= 4, "the goal 60 past his road's end: the route doesn't ride the road to its end (" + why + ")");
             check(p.partial(), "the road's end is 60 off the goal: the plan must stop there and plan the rest from it (" + why + ")");
             pass(stage, t, "along the road to its end, the rest planned from there: " + why);
+        }
+        return true;
+    }
+    /** Stage 1194 (D2D review 003440-83, live 00:30 11-09: "row 31 of 710 next ... 680 rows left, 576 for this trip: strip mine it", out of the Nether 159 blocks for 576 deepslate with the road built to the fortress past row 529; row 31 a gap (the user's table on it)): the trip for blocks is sized by the rows still to lay (the gaps and the rows past the frontier), not every row past the first gap. A 200-row road laid but for row 3. */
+    private static boolean st1194(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(9400, 64, 5320);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); }
+        nsTick(nl, c, o, t);
+        String dest = o.getX() + " " + o.getY() + " " + (o.getZ() + 200);
+        BlockPos far = new BlockPos(o.getX(), o.getY(), o.getZ() + 200);
+        if (t[0] > 4 && t[0] % 10 == 0) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(far), 2, far);
+        if (t[0] == 10) {
+            var rack = Blocks.NETHERRACK.defaultBlockState(); var air = Blocks.AIR.defaultBlockState();
+            for (int x = -6; x <= 8; x++) for (int z = -6; z <= 30; z++) for (int y = -4; y <= 6; y++) nl.setBlock(o.offset(x, y, z), y < 0 ? rack : air, 2);
+            for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, 0), x == -1 || x == 2 || y == -1 || y == 3 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+            nsKit(c); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600; c.getInventory().clearContent();
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 1.5, 0f, 0f);
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o, "him", "lit");
+        }
+        if (t[0] == 20) { c.skillQueue.clear(); com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", dest, 1); c.skillQueue.clear(); c.tasks.clear(); }
+        if (t[0] == 30) {
+            var b = com.claudemod.entity.life.Highway.plan(c);
+            check(b != null && b.rows.size() >= 150, "no long plan to lay out: " + (b == null ? "none" : b.rows.size() + " rows"));
+            var right = b.rows.get(0).dir().getClockWise(); var cd = Blocks.COBBLED_DEEPSLATE.defaultBlockState(); int laid = 0;
+            for (int i = 0; i < b.rows.size(); i++) { var r = b.rows.get(i); if (!nl.hasChunkAt(r.centre())) continue;
+                for (int ofs = b.lo(); ofs <= b.hi(); ofs++) { BlockPos f = r.centre().relative(right, ofs); nl.setBlock(f, i == 3 ? Blocks.AIR.defaultBlockState() : cd, 2); for (int y = 1; y <= 3; y++) nl.setBlock(f.above(y), Blocks.AIR.defaultBlockState(), 2); }
+                for (int ofs : new int[] {b.lo() - 1, b.hi() + 1}) { BlockPos sd = r.centre().relative(right, ofs); nl.setBlock(sd, Blocks.NETHERRACK.defaultBlockState(), 2); nl.setBlock(sd.above(), Blocks.NETHERRACK.defaultBlockState(), 2); }
+                if (i != 3) laid++; }
+            int next = com.claudemod.entity.life.Highway.next(nl, b);
+            check(next == 3, "the scene: row 4 the first gap, got row " + (next + 1) + " (" + laid + " rows laid in loaded ground, the last loaded " + nl.hasChunkAt(b.rows.get(b.rows.size() - 1).centre()) + ")");
+            BlockPos st = b.rows.get(2).centre().above(); c.teleportTo(nl, st.getX() + 0.5, st.getY(), st.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 35) {
+            c.skillQueue.clear(); c.tasks.clear(); String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", "", 1);
+            int want = 0; for (var s0 : c.skillQueue) if (s0.skill().equals("collect") && s0.target().equals("cobbled_deepslate")) want += s0.count(); else if (s0.skill().equals("take_from_chest") && s0.target().equals("cobbled_deepslate")) want += s0.count();
+            c.skillQueue.clear(); c.tasks.clear(); nsHome(c, h, level);
+            check(r.contains("out of cobbled deepslate"), "no trip for blocks with none on him at the gap: " + r);
+            check(want <= 64, "one row to lay (the gap at row 4, the rest laid to the end): a trip for " + want + " deepslate (" + r + ")");
+            pass(stage, t, "one gap: a trip for " + want + " (" + r + ")");
         }
         return true;
     }

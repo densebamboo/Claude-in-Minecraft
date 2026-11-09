@@ -8043,7 +8043,7 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
-        if ((stage[0] >= 494 && stage[0] <= 1099 || stage[0] >= 1130 && stage[0] <= 1349) && stages494(stage, t, c, h, level, mock)) return true; // (1150-1199: Big Picture's next range)
+        if ((stage[0] >= 494 && stage[0] <= 1099 || stage[0] >= 1130 && stage[0] <= 1399) && stages494(stage, t, c, h, level, mock)) return true; // (1150-1199: Big Picture's next range)
         if (stage[0] >= 1100 && stage[0] < 1100 + BENCH.length - 16) return bench(stage, t, c, h, level); // (the combat benchmark, part 2: every enemy type, mixed groups)
         if (stage[0] >= 279 && stage[0] <= 285) {
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Whereabouts.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.ExactSpot.reset(c); com.claudemod.director.Primitives.reset(c);
@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1300: return st1300(stage, t, c, h, level, mock);
             case 1245: return st1245(stage, t, c, h, level, mock);
             case 1244: return st1244(stage, t, c, h, level, mock);
             case 1246: return st1246(stage, t, c, h, level, mock);
@@ -16702,6 +16703,29 @@ public final class ClaudeBodyTest {
             check(!w.contains("WATER"), "out and back across the lake at his pace filed as slow: " + w + " (last " + com.claudemod.entity.life.Watchdog.lastIncident + ")");
             pass(stage, t, "out and back in " + (t[0] - st1245T) / 20 + " s, no WATER: " + w); }
         } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
+        return true;
+    }
+    /** Stage 1300 (D2D reviews 27/189, live 07:32:14 and 07:03 11-09): a birch log from his chop caught on the leaves 6 up over the trunk he'd cut; he pillared 2, dug 6 and walked 7 for it (~10 s, and at night by his door). A player standing under it breaks the leaf it sits on, in reach from the ground, and it drops to him. Here: a log on a leaf block 6 up over him, 32 cobble on him: the log in under 4 s, nothing put down. */
+    private static int s1300T; private static boolean s1300Put;
+    private static boolean st1300(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1300T = -1; s1300Put = false; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, c.getBoundingBox().inflate(48), e -> !(e instanceof net.minecraft.world.entity.player.Player))) e.discard();
+            for (int x = 6; x <= 8; x++) for (int z = 6; z <= 8; z++) h.setBlock(new BlockPos(x, 7, z), Blocks.BIRCH_LEAVES.defaultBlockState().setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true)); // the canopy over the cut trunk
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_AXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.setHealth(20);
+            BlockPos s = h.absolutePos(new BlockPos(7, 2, 7)); c.teleportTo(s.getX() + 0.5, s.getY(), s.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            BlockPos a = h.absolutePos(new BlockPos(7, 8, 7)); var it = new net.minecraft.world.entity.item.ItemEntity(level, a.getX() + 0.5, a.getY() + 0.05, a.getZ() + 0.5, new ItemStack(Items.BIRCH_LOG), 0, 0, 0); level.addFreshEntity(it);
+        }
+        if (t[0] == 20) { c.tasks.add(new Task.Pickup(200)); s1300T = t[0]; }
+        if (s1300T > 0) {
+            if (c.currentTask instanceof Task.Pillar || c.currentTask instanceof Task.Place) s1300Put = true;
+            boolean got = c.inventory.count(x -> x.is(Items.BIRCH_LOG)) > 0;
+            if (got || t[0] == s1300T + 20 * 15) { double s = (t[0] - s1300T) / 20.0; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; flatBox(h);
+                check(got, "the log on the leaves 6 up not got in 15 s");
+                check(!s1300Put, "blocks put down to climb to a log he could knock down from the ground (" + s + " s)");
+                check(s <= 4, "the log took " + s + " s (a player: break the leaf under it, ~1 s)");
+                pass(stage, t, "knocked down and got in " + s + " s"); }
+        }
         return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */

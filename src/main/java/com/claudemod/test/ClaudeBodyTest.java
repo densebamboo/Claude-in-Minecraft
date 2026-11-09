@@ -10547,6 +10547,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1187: return st1187(stage, t, c, h, level, mock);
+            case 1188: return st1188(stage, t, c, h, level, mock);
             case 1189: return st1189(stage, t, c, h, level, mock);
             case 1180: return st1180(stage, t, c, h, level, mock);
             case 1181: return st1181(stage, t, c, h, level, mock);
@@ -16230,6 +16232,30 @@ public final class ClaudeBodyTest {
             check(!s1 && !s2, "sight into unloaded land: 400 out " + s1 + ", 3000 out " + s2 + " (no player sees there)");
             pass(stage, t, "no sight into unloaded land, " + ms1 + " ms and " + ms2 + " ms");
         }
+        return true;
+    }
+    /** Stage 1187 (D2D 11-08, audit 13 follow-up: the test world was kept from launch to launch since 11-05, so a Nether arena held five persistent NoAI ghasts from earlier runs and 1142's ball hit an old one): leaves a persistent NoAI zombie in an arena far from the template, as such stages do. 1188, in the NEXT launch, finds that arena empty. */
+    private static java.util.UUID s1187Z;
+    private static boolean st1187(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(10700, 80, 10700);
+        if (t[0] > 5 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 1) s1187Z = null;
+        if (s1187Z == null && t[0] >= 40 && level.isLoaded(o) && level.isPositionEntityTicking(o)) { level.setBlock(o.below(), Blocks.STONE.defaultBlockState(), 2); var z = EntityType.ZOMBIE.create(level); z.moveTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0, 0); z.setNoAi(true); z.setPersistenceRequired(); level.addFreshEntity(z); s1187Z = z.getUUID(); }
+        if (s1187Z != null && level.getEntity(s1187Z) != null) { pass(stage, t, "a persistent zombie left at " + o.toShortString()); }
+        check(t[0] < 20 * 60, "the zombie never showed in a minute: not the scene");
+        return true;
+    }
+    /** Stage 1188 (audit 13 follow-up): run in the launch after 1187's. Its arena, once its chunk is loaded, holds none of an earlier launch's mobs. */
+    private static boolean st1188(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(10700, 80, 10700);
+        if (t[0] > 5 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] >= 100 && level.isPositionEntityTicking(o)) { // (entities load with the chunk: a fresh world generates it first)
+            var left = level.getEntitiesOfClass(net.minecraft.world.entity.monster.Zombie.class, new net.minecraft.world.phys.AABB(o).inflate(4));
+            for (var z : left) z.discard();
+            check(left.isEmpty(), "an earlier launch's " + left.size() + " zombie(s) still in the arena at " + o.toShortString() + ": the test world carried over");
+            pass(stage, t, "the arena starts empty");
+        }
+        check(t[0] < 20 * 60, "the arena never loaded in a minute");
         return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */

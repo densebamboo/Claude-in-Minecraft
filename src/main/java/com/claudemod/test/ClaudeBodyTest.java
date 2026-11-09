@@ -10818,6 +10818,7 @@ public final class ClaudeBodyTest {
             case 1223: return st1223(stage, t, c, h, level, mock);
             case 1224: return st1224(stage, t, c, h, level, mock);
             case 1225: return st1225(stage, t, c, h, level, mock);
+            case 1226: return st1226(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -21844,6 +21845,32 @@ public final class ClaudeBodyTest {
             c.mineFace = null; c.stairStart = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.skillQueue.clear(); com.claudemod.entity.life.TempLedger.reset(c); c.tempStations.clear(); c.getInventory().clearContent(); level.setBlock(s1225T, Blocks.AIR.defaultBlockState(), 2);
             check(!hit, "the cobble's steps cut through his table just set down: " + ggSaid + " | " + q);
             pass(stage, t, "the steps down went round his table: " + ggSaid);
+        }
+        return true;
+    }
+    /** Stage 1226 (D2D review 32, live 01:59:22-01:59:29 11-09 at 121,69,-162: the tree down, its drop sweep went for 1 oak log 4.7 up on its leaves; the walker made a 23-act way round a hill to it, 9 out and back, a WASTED_WALK): one log up on a felled tree's leaves (no log left near them), his sweep. He leaves it to come down as the leaves decay: no walk planned up to it. */
+    private static boolean st1226(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos leaf = h.absolutePos(new BlockPos(9, 6, 8));
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard(); }
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(6000);
+            var lf = Blocks.OAK_LEAVES.defaultBlockState().setValue(net.minecraft.world.level.block.LeavesBlock.DISTANCE, 1);
+            for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) level.setBlock(leaf.offset(dx, 0, dz), lf, 2);
+            BlockPos me = h.absolutePos(new BlockPos(8, 2, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5);
+            var drop = new net.minecraft.world.entity.item.ItemEntity(level, leaf.getX() + 0.5, leaf.getY() + 1.0, leaf.getZ() + 0.5, new ItemStack(Items.OAK_LOG)); drop.setDeltaMovement(0, 0, 0); level.addFreshEntity(drop);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.OAK_LOG, 20));
+            c.tasks.add(new Task.Pickup(200));
+        }
+        if (t[0] > 10) {
+            java.util.List<Task> all = new java.util.ArrayList<>(c.tasks); if (c.currentTask != null) all.add(c.currentTask);
+            boolean up = all.stream().anyMatch(k -> k instanceof Task.GoTo gt && gt.pos().getY() > leaf.getY() - 1 && Math.abs(gt.pos().getX() - leaf.getX()) <= 1 && Math.abs(gt.pos().getZ() - leaf.getZ()) <= 1);
+            if (up || t[0] == 70) {
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent();
+                for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard();
+                for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) level.setBlock(leaf.offset(dx, 0, dz), Blocks.AIR.defaultBlockState(), 2);
+                check(!up, "a walk planned up onto the felled tree's leaves for 1 oak log");
+                pass(stage, t, "the log on the felled tree's leaves left to come down as they decay");
+            }
         }
         return true;
     }

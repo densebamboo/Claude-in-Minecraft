@@ -2960,7 +2960,14 @@ public class WorkGoal extends Goal {
         if (!g.inventory.hasRoomFor(i.getItem())) return "no room for it in his pack";
         BlockPos ip = i.blockPosition();
         if (g.level().getBlockState(ip).isCollisionShapeFullBlock(g.level(), ip)) return "inside a block";
+        if (i.getY() - g.getY() > 1.3 && !isOreDrop(i.getItem()) && com.claudemod.director.ClaudeLife.lootValue(i.getItem()) < 12 && onFelledLeaves(g.level(), ip)) return "up on a felled tree's leaves: it comes down as they decay"; // (1 oak log 4.7 up: a 23-act way round a hill, 9 out and back, review 32, stage 1226)
         return null;
+    }
+    /** Resting on natural leaves with no log left within 4: a felled tree's, so they decay and drop it. */
+    static boolean onFelledLeaves(net.minecraft.world.level.Level level, BlockPos ip) {
+        var l = level.getBlockState(ip.below()); if (!(l.getBlock() instanceof net.minecraft.world.level.block.LeavesBlock) || l.getValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT)) return false;
+        for (BlockPos q : BlockPos.betweenClosed(ip.offset(-4, -4, -4), ip.offset(4, 3, 4))) if (level.getBlockState(q).is(net.minecraft.tags.BlockTags.LOGS)) return false;
+        return true;
     }
     public static boolean valuableDrop(ItemStack s) { return isOreDrop(s); }
     private static java.util.Set<String> pickupSaid; private static int pickupEmptySaid = -1000; // (each drop's skip said once; an empty sweep at most every 5 s)

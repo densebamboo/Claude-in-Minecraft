@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1305: return st1305(stage, t, c, h, level, mock);
             case 1301: return st1301(stage, t, c, h, level, mock);
             case 1302: return st1302(stage, t, c, h, level, mock);
             case 1303: return st1303(stage, t, c, h, level, mock);
@@ -16770,6 +16771,27 @@ public final class ClaudeBodyTest {
                 check(low >= 0.5, "dug the ore he stood on into the unseen cave under it" + (lava ? " (lava on its floor)" : "") + ": fell to " + String.format("%.1f", low) + " above the ore's level");
                 check(gone, "the ore under his feet not mined in 10 s" + (lava ? " (lava under it, unseen)" : ""));
                 pass(stage, t, "mined from beside it in " + s + " s, never below the floor"); }
+        }
+        return true;
+    }
+    private static int s1305T; private static float s1305Low;
+    /** Stage 1305 (D2D review 2, live 08:17:49 11-09 at the shore -56,63,32): the night's shelter picked a hole on the grass with water diagonal to its column; the hole's check looks for water only straight beside each cell, the dig refuses any block with water in the 3x3x3 round it ("open water up top"), twice, and he ended capping dirt over a pit. Here: water diagonal to his column, night, cover asked: no hole there (the dig would refuse it). */
+    private static boolean st1305(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(7, 2, 7));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1305T = -1; flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            for (int x = 8; x <= 11; x++) for (int z = 8; z <= 11; z++) h.setBlock(new BlockPos(x, 1, z), Blocks.WATER); // a pond, its corner diagonal to his column
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.STONE_SHOVEL)); c.getInventory().add(new ItemStack(Items.DIRT, 32)); c.setHealth(20);
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; level.setDayTime(18000);
+        }
+        if (t[0] == 20) { c.shelter(); s1305T = t[0]; s1305Low = 0; }
+        if (s1305T > 0) s1305Low = (float) Math.min(s1305Low, c.getY() - me.getY());
+        if (s1305T > 0 && t[0] == s1305T + 20 * 8) {
+            boolean refused = s1305Low < -0.5 || level.getBlockState(me.below()).isAir() || !level.getFluidState(me.below()).isEmpty(); // (dug down by the pond: the dig refused cell by cell, he dropped in anyway)
+            String at = c.blockPosition().toShortString(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; level.setDayTime(6000); flatBox(h);
+            check(!refused, "a hole dug by the pond's corner where the dig refuses its blocks: down to " + s1305Low + ", at " + at);
+            pass(stage, t, "no hole by the pond's corner: at " + at);
         }
         return true;
     }

@@ -5886,7 +5886,7 @@ public class WorkGoal extends Goal {
             boolean diggable = st.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_SHOVEL)
                     || (st.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_PICKAXE) && !g.inventory.find(i -> i.isCorrectToolForDrops(st)).isEmpty());
             if (!diggable || st.hasBlockEntity() || !level.getFluidState(q).isEmpty()) { holeOk = false; break; }
-            for (Direction dd : Direction.Plane.HORIZONTAL) if (!level.getFluidState(q.relative(dd)).isEmpty()) holeOk = false; // (water beside the column floods the hole: refused further down with no tower tried, at a lake edge with 50 cobble on him)
+            for (BlockPos w : BlockPos.betweenClosed(q.offset(-1, -1, -1), q.offset(1, 1, 1))) if (!level.getFluidState(w).isEmpty()) { holeOk = false; break; } // (water by the column, diagonals too, as doBreak's open-water guard reads it: it refuses those blocks, and at the shore (live 08:17 11-09, review 2) the hole went down refused cell by cell and got a lid over a pit; stage 1305) // (water beside the column floods the hole: refused further down with no tower tried, at a lake edge with 50 cobble on him)
         }
         if (level.getBlockState(feet.below(4)).getCollisionShape(level, feet.below(4)).isEmpty()) holeOk = false; // a cave under: not a hiding hole
         // Mobs right on him: digging in front of them only gets him hit. Two down is out of their reach, so he runs till

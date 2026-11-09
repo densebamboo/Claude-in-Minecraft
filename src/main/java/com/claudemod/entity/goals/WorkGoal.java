@@ -5585,7 +5585,10 @@ public class WorkGoal extends Goal {
                 clearEscape(); pickEscape(mobs);
             }
         }
-        if (escapeAt != null) { int at = atEscape(mobs); if (at == 1) return false; if (at == 2) return true; }
+        if (escapeAt != null) { int at = atEscape(mobs); if (at == 1) return false;
+            if (at == 2) { /* the run's end decided (the fight it turned to, the plug, or over): the hit he took on the way was deferred to it ("the run's end decides"), settled now, never re-judged next tick over that choice (live 21:50 11-08: the run's end turned him to the Creeper 6 off, the Skeleton's arrow from the run had him "fighting back: Skeleton" a tick later, the creeper blew 18 -> 8; stage 1143) */
+                if (g.urgentAttacker != null) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the run's end decided: the hit he took while running is settled by it, no fight of its own (WorkGoal.doFlee)");
+                g.urgentAttacker = null; return true; } }
         if (escapeAt != null && !"run".equals(escapeKind) && g.position().distanceTo(Vec3.atBottomCenterOf(escapeAt)) < 2.0) { Vec3 dest = Vec3.atBottomCenterOf(escapeAt); g.getNavigation().stop(); g.getMoveControl().setWantedPosition(dest.x, dest.y, dest.z, 1.2); } // the last steps onto the spot itself
         else if (ticks % 8 == 1 && escapeAt != null) { // the way to it, re-made as he goes: the same place every time
             Vec3 dest = Vec3.atBottomCenterOf(escapeAt);

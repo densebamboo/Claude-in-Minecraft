@@ -10583,6 +10583,7 @@ public final class ClaudeBodyTest {
             case 1140: return st1140(stage, t, c, h, level, mock);
             case 1141: return st1141(stage, t, c, h, level, mock);
             case 1142: return st1142(stage, t, c, h, level, mock);
+            case 1143: return st1143(stage, t, c, h, level, mock);
             case 999: return st999(stage, t, c, h, level, mock);
             case 997: return st997(stage, t, c, h, level, mock);
             case 996: return st996(stage, t, c, h, level, mock);
@@ -18811,6 +18812,41 @@ public final class ClaudeBodyTest {
             check(st1142P.getLastHurtByMob() != c && st1142P.isAlive(), "the hit-back flew past the ghast into the zombified piglin behind it");
             if (!st1142G.isAlive()) { /* (he is a ServerPlayer: his returned ball one-shots it, Ghast.isReflectedFireball) */ st1142P.discard(); for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.projectile.LargeFireball.class, new net.minecraft.world.phys.AABB(o).inflate(80))) e.discard(); nsHome(c, h, level); pass(stage, t, "hit the fireball back into the ghast in " + (t[0] - st1142Shot) / 20 + " s (its health " + st1142G.getHealth() + ")"); }
             else check(t[0] - st1142Shot < 20 * 8, "8 s and the ghast lives (hit back " + com.claudemod.entity.goals.WorkGoal.fireballsHit + " so far)");
+        }
+        return true;
+    }
+    private static int st1143Start; private static float st1143Low; private static net.minecraft.world.entity.monster.Creeper st1143C; private static net.minecraft.world.entity.monster.Skeleton st1143S; private static boolean st1143Hit; private static int st1143Turn; private static net.minecraft.world.entity.Mob st1143Sp;
+    /** Live 21:50 11-08: a skeleton's arrow hit him on the run ("the run's end decides"); at the run's end the fight was the better way again and
+     *  he turned to the Creeper 6 off, but that same hit, never cleared, had him "fighting back: Skeleton" 13 off, the creeper at his back blew, 18 -> 8.
+     *  Forced: his run ends 3 blocks on, the hit is still on him, a creeper 6 west behind a wall (out of sight, as live), the skeleton 13 east, a spider about. He must deal with the creeper. */
+    private static boolean st1143(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(12, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1143Start = -1; st1143Low = 20; st1143C = null; st1143S = null; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(96))) m.discard(); }
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(18000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5); c.setHealth(18); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 20) {
+            var sk = EntityType.SKELETON.create(level); sk.moveTo(at.getX() + 13.5, at.getY(), at.getZ() + 0.5, 90, 0); sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW)); sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.LEATHER_HELMET)); sk.setPersistenceRequired(); level.addFreshEntity(sk); sk.setTarget(c); st1143S = sk;
+            var sp = EntityType.SPIDER.create(level); sp.moveTo(at.getX() + 9.5, at.getY(), at.getZ() - 2.5, 90, 0); sp.setNoAi(true); sp.setPersistenceRequired(); level.addFreshEntity(sp); sp.setTarget(c); st1143Sp = sp; // live: the spider still about ("1 mobs close"), so the skeleton's hit read as a fight, not a stray
+            for (int dz = -3; dz <= 3; dz++) for (int dy = 0; dy < 2; dy++) level.setBlockAndUpdate(at.offset(-3, dy, dz), net.minecraft.world.level.block.Blocks.COBBLESTONE.defaultBlockState()); // live: the creeper 6 off was out of his sight at the run's end (no creeper reflex), only atEscape chose it
+            var cr = EntityType.CREEPER.create(level); cr.moveTo(at.getX() - 5.5, at.getY(), at.getZ() + 0.5, 270, 0); cr.setPersistenceRequired(); level.addFreshEntity(cr); cr.setTarget(c); st1143C = cr;
+            c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Flee(600));
+            try { var m = c.work.getClass().getDeclaredMethod("setEscape", String.class, BlockPos.class, BlockPos.class); m.setAccessible(true); m.invoke(c.work, "run", c.blockPosition().north(3), null); } catch (Exception e) { throw new RuntimeException(e); }
+            st1143Start = t[0]; st1143Hit = false; st1143Turn = -1;
+        }
+        if (st1143Start > 0) {
+            if (!st1143Hit && c.currentTask instanceof Task.Flee) { st1143Hit = true; c.urgentAttacker = st1143S.getUUID(); } // the arrow that hit him on the run (live: "still running, the run's end decides"), still on him at its end
+            st1143Low = Math.min(st1143Low, c.getHealth());
+            if (st1143Turn < 0 && st1143Hit && java.util.stream.Stream.concat(c.tasks.stream(), java.util.stream.Stream.ofNullable(c.currentTask)).anyMatch(x -> x instanceof Task.Attack a0 && a0.target().equals(st1143C.getUUID()))) st1143Turn = t[0]; // the run's end turned him to the creeper
+            if (st1143Turn > 0 && t[0] - st1143Turn == 3) st1143Sp.discard(); // a frozen stand-in for the live spider: it only has to be about when the run's deferred hit is judged, not priced into the creeper fight after
+            check(st1143Turn < 0 || t[0] - st1143Turn > 10 || !(c.currentTask instanceof Task.Flee) && !(c.currentTask instanceof Task.Attack a1 && a1.target().equals(st1143S.getUUID())), "the run's end chose the creeper, and " + (t[0] - st1143Turn) + " ticks later the hit from the run overruled it: " + c.currentTask);
+            check(!(c.currentTask instanceof Task.Attack a && st1143S.isAlive() && a.target().equals(st1143S.getUUID()) && st1143C.isAlive() && st1143C.distanceTo(c) < 7 && st1143S.distanceTo(c) > st1143C.distanceTo(c) + 2), "turned to the Skeleton " + (int) st1143S.distanceTo(c) + " off with the creeper " + (int) st1143C.distanceTo(c) + " off at his back");
+            check(c.isAlive() && st1143Low > 8, "the creeper's blast caught him: low " + st1143Low);
+            if (t[0] - st1143Start >= 20 * 10) { for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); c.tasks.clear(); c.dropCurrent = true; c.setHealth(20); pass(stage, t, "10 s from the run's end with the skeleton's hit still on him: the creeper dealt with first, low " + st1143Low + ", creeper " + (st1143C.isAlive() ? "alive" : "dead")); }
         }
         return true;
     }

@@ -69,6 +69,16 @@ public final class Controls {
     }
 
     private static final java.util.Map<java.util.UUID, String> LAST_GROUND = new java.util.HashMap<>();
+    private static final java.util.Map<java.util.UUID, net.minecraft.core.BlockPos> LAST_GROUND_AT = new java.util.HashMap<>(); // the block he last stood on: a big fall logs the ledge round it (death 46: the incident kept only the lava 27 below, the ledge was lost, no repro)
+    /** The blocks round a cell, 7x7, its layer and the two above and one below: # solid, . open, ~ fluid, G the cell, @ his feet now. */
+    static String ledgeGrid(net.minecraft.world.entity.LivingEntity p, net.minecraft.core.BlockPos at) {
+        StringBuilder b = new StringBuilder(); net.minecraft.core.BlockPos me = p.blockPosition();
+        for (int dy = -1; dy <= 2; dy++) { b.append(" y").append(at.getY() + dy).append(":");
+            for (int dz = -3; dz <= 3; dz++) { for (int dx = -3; dx <= 3; dx++) { net.minecraft.core.BlockPos c = at.offset(dx, dy, dz);
+                    b.append(c.equals(at) ? 'G' : c.equals(me) ? '@' : !p.level().getFluidState(c).isEmpty() ? '~' : p.level().getBlockState(c).getCollisionShape(p.level(), c).isEmpty() ? '.' : '#'); }
+                if (dz < 3) b.append('|'); } }
+        return b.toString();
+    }
     private static final java.util.Set<java.util.UUID> MAGMA_SNEAK = new java.util.HashSet<>(); // (the sneak the magma guard put on, taken off once he's off it)
     private static java.util.Map<java.util.UUID, Integer> refused; // when his body last refused the path's own step (2+ up, lava ahead or below) (static: fields added live start null)
     static void refusedStep(Player p) { if (refused == null) refused = new java.util.HashMap<>(); refused.put(p.getUUID(), p.tickCount); }
@@ -171,7 +181,8 @@ public final class Controls {
             else if (p.fallDistance > 3 && !FALLING.containsKey(p.getUUID()) && com.claudemod.entity.nav.Leaps.control(p) == null) { FALLING.put(p.getUUID(), p.blockPosition().immutable()); int depth = 0; net.minecraft.core.BlockPos q = p.blockPosition(); while (depth < 64 && p.level().getBlockState(q).getCollisionShape(p.level(), q).isEmpty() && p.level().getFluidState(q).isEmpty()) { depth++; q = q.below(); }
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude move] falling at {} ({} so far, {} more to {} at {}), doing {} (Controls.apply)", p.blockPosition().toShortString(), String.format("%.1f", p.fallDistance), depth, net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(p.level().getBlockState(q).getBlock()).getPath(), q.toShortString(), ce0.currentTask == null ? "-" : ce0.currentTask.getClass().getSimpleName());
                 StringBuilder near = new StringBuilder(); for (net.minecraft.world.entity.Entity e : p.level().getEntities(p, p.getBoundingBox().inflate(8, 12, 8))) { if (e instanceof net.minecraft.world.entity.item.FallingBlockEntity fb) near.append(" falling ").append(fb.getBlockState().getBlock().getName().getString()).append(" at ").append(e.blockPosition().toShortString()).append(";"); else if (e instanceof net.minecraft.world.entity.monster.EnderMan em && em.getCarriedBlock() != null) near.append(" enderman carrying ").append(em.getCarriedBlock().getBlock().getName().getString()).append(" at ").append(e.blockPosition().toShortString()).append(";"); } // ponytail: what took the floor (floating gravel, an enderman's pick), proved not guessed (live 19:53 a still fall into lava, walk none)
-                com.claudemod.ClaudeMod.LOGGER.info("[Claude move] the last tick on the ground before that fall: {}; round him now:{} (Controls.apply)", LAST_GROUND.getOrDefault(p.getUUID(), "?"), near.length() == 0 ? " no falling block, no enderman holding one" : near); }
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude move] the last tick on the ground before that fall: {}; round him now:{} (Controls.apply)", LAST_GROUND.getOrDefault(p.getUUID(), "?"), near.length() == 0 ? " no falling block, no enderman holding one" : near);;
+                net.minecraft.core.BlockPos lg = LAST_GROUND_AT.get(p.getUUID()); if (lg != null && depth >= 4) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] the ledge he left, round {} (x {}..{} across, z {}..{} down):{} (Controls.apply)", lg.toShortString(), lg.getX() - 3, lg.getX() + 3, lg.getZ() - 3, lg.getZ() + 3, ledgeGrid(p, lg)); }
         }
         { boolean onMagma = p.onGround() && p.level().getBlockState(p.blockPosition().below()).is(net.minecraft.world.level.block.Blocks.MAGMA_BLOCK); // (vanilla: magma never hurts a player sneaking on it; World 15 stage 538 he stood in a magma pit till he died)
           if (onMagma && !p.isShiftKeyDown()) { p.setShiftKeyDown(true); MAGMA_SNEAK.add(p.getUUID()); if (p instanceof com.claudemod.entity.ClaudeEntity ce2 && ce2.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] on magma at {}: sneaking, it doesn't burn a sneaking player (Controls.apply)", p.blockPosition().toShortString()); }
@@ -294,6 +305,7 @@ public final class Controls {
         }
         { int[] tr = TRACE.get(p.getUUID()); if (tr != null) { if (p.tickCount > tr[0]) TRACE.remove(p.getUUID()); else { int cell = p.blockPosition().hashCode() * 31 + guard.hashCode(); if (cell != tr[1]) { tr[1] = cell;
             com.claudemod.ClaudeMod.LOGGER.info("[Claude move] trace: at {}, {}, {} ({}), moving {}, {}, {}, on ground {}, in lava {}; steer from {} {}, next node {}; lava guard: {} (Controls.apply)", String.format("%.2f", p.getX()), String.format("%.2f", p.getY()), String.format("%.2f", p.getZ()), p.blockPosition().toShortString(), String.format("%.2f", p.getDeltaMovement().x), String.format("%.2f", p.getDeltaMovement().y), String.format("%.2f", p.getDeltaMovement().z), p.onGround(), p.isInLava(), from, walk == null ? "none" : String.format("%.2f %.2f", walk.x, walk.z), nextNode == null ? "none" : nextNode.x + "," + nextNode.y + "," + nextNode.z, guard); } } } }
+        if (p.onGround() && p instanceof com.claudemod.entity.ClaudeEntity) LAST_GROUND_AT.put(p.getUUID(), p.getOnPos().immutable());
         if (p.onGround() && p instanceof com.claudemod.entity.ClaudeEntity) LAST_GROUND.put(p.getUUID(), String.format("on " + p.level().getBlockState(p.getOnPos()).getBlock().getName().getString() + " at " + p.getOnPos().toShortString() + ", at %.3f %.2f %.3f, v %.2f %.2f %.2f, walk %s, next node %s, sprint %s, jump %s, safeStep %s, move goal %s", p.getX(), p.getY(), p.getZ(), p.getDeltaMovement().x, p.getDeltaMovement().y, p.getDeltaMovement().z, walk == null ? "none" : String.format("%.2f %.2f", walk.x, walk.z), nextNode == null ? "none" : nextNode.x + "," + nextNode.y + "," + nextNode.z, p.isSprinting(), jumpNow, safeStep, move.debug())); // (what carried him off an edge: proved from this, not guessed)
         if (walk != null && walk.lengthSqr() > 1e-4) {
             double yaw = p.getYRot() * Mth.DEG_TO_RAD;

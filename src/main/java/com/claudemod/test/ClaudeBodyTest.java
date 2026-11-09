@@ -2207,6 +2207,13 @@ public final class ClaudeBodyTest {
     private static int s296;
     private static int s298;
     private static int s375;
+    /** Audit 13: the stages share one world; a stage far from the template left its mobs by him and the mock out by them (767 failed 2/3 in a batch). Each stage starts as a run of it alone does: no monster by him or the mock, the mock beside the template. */
+    private static void cleanStart(ClaudeEntity c, ServerPlayer mock, GameTestHelper h) {
+        for (var m : c.level().getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, c.getBoundingBox().inflate(64))) m.discard();
+        if (mock == null) return;
+        for (var m : mock.level().getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, mock.getBoundingBox().inflate(64))) m.discard();
+        BlockPos m0 = h.absolutePos(new BlockPos(2, 2, 2)); mock.teleportTo(h.getLevel(), m0.getX() + 0.5, m0.getY(), m0.getZ() + 0.5, 0f, 0f);
+    }
     private static void scenarioReset(ClaudeEntity c) {
         com.claudemod.entity.life.Gate.reset(c); // (the no-progress gate's record of the last stage's jobs)
         com.claudemod.entity.life.PitGuard.reset(c); // (stages 245-247: his holes' caps and skirts)
@@ -10384,6 +10391,7 @@ public final class ClaudeBodyTest {
 
     // ---------------------------------------------------------------- stages 494 on: one method each (exactStages is at the JVM's 64 KB limit)
     private static boolean stages494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) cleanStart(c, mock[0], h); // (audit 13: here, not in body(): that lambda sits at the JVM's 64 KB method limit)
         switch (stage[0]) {
             case 565, 566, 567, 568: return st565(stage, t, c, h, level, mock);
             case 569: return st569(stage, t, c, h, level, mock);
@@ -10539,6 +10547,9 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1180: return st1180(stage, t, c, h, level, mock);
+            case 1181: return st1181(stage, t, c, h, level, mock);
+            case 1182: return st1182(stage, t, c, h, level, mock);
             case 1185: return st1185(stage, t, c, h, level, mock);
             case 1183: return st1183(stage, t, c, h, level, mock);
             case 1179: return st1179(stage, t, c, h, level, mock);
@@ -16117,6 +16128,58 @@ public final class ClaudeBodyTest {
                 check(got, "no flint in 20 s from a chest round the end of a wall");
                 c.getInventory().clearContent(); pass(stage, t, "round the wall, the chest in sight, flint taken in " + s + " s");
             }
+        }
+        return true;
+    }
+    /** Stage 1180 (audit 14, 11-08: ActionPath's STRUCT_OK, SHELL_CUT and SHELL_CUT_BY only grew all session, and SHELL_CUT_BY held his dead bodies after a respawn): stale entries (a shell cut 2 min old, a structure dig 6 min old) and a dead body's cut are gone after the next one is noted; a fresh one stays. */
+    @SuppressWarnings("unchecked")
+    private static boolean st1180(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 5) {
+            try {
+                var A = com.claudemod.entity.nav.ActionPath.class; long now = level.getGameTime();
+                var f1 = A.getDeclaredField("SHELL_CUT"); f1.setAccessible(true); var cut = (java.util.Map<BlockPos, Long>) f1.get(null);
+                var f2 = A.getDeclaredField("SHELL_CUT_BY"); f2.setAccessible(true); var by = (java.util.Map<BlockPos, ClaudeEntity>) f2.get(null);
+                var f3 = A.getDeclaredField("STRUCT_OK"); f3.setAccessible(true); var ok = (java.util.Map<BlockPos, Long>) f3.get(null);
+                BlockPos a = new BlockPos(9500, 60, 9500), b = a.east(), d = a.east(2), e = a.east(3);
+                cut.put(a, now - 20 * 120); by.put(a, c); cut.put(b, now - 20 * 10); by.put(b, c);
+                ok.put(d, now - 20 * 360);
+                com.claudemod.entity.nav.ActionPath.allowStructureDig(level, e);
+                boolean staleCut = cut.containsKey(a) || by.containsKey(a), freshCut = cut.containsKey(b) && by.containsKey(b), staleOk = ok.containsKey(d), freshOk = ok.containsKey(e);
+                cut.remove(a); cut.remove(b); by.remove(a); by.remove(b); ok.remove(d); ok.remove(e);
+                check(!staleCut && !staleOk, "stale entries kept: a 2-min shell cut " + staleCut + ", a 6-min structure dig " + staleOk + " (the maps only grow)");
+                check(freshCut && freshOk, "fresh entries dropped: a 10 s shell cut " + freshCut + ", the structure dig just noted " + freshOk);
+            } catch (ReflectiveOperationException ex) { throw new RuntimeException(ex); }
+            pass(stage, t, "stale cuts pruned, fresh ones kept");
+        }
+        return true;
+    }
+    /** Stage 1181 (audit 13, 11-08: the stages share one world; 767 failed 2/3 in the gate because an earlier stage left the mock by its creepers): a stage that ends with a zombie beside him and the mock out by it, far from the template, as many do. The next stage (1182) starts clean. */
+    private static boolean st1181(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(9700, 80, 9700);
+        if (t[0] == 1) scenarioReset(c);
+        if (t[0] == 5) {
+            for (int x = -4; x <= 4; x++) for (int z = -4; z <= 4; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            if (mock[0] == null) mock[0] = h.makeMockServerPlayerInLevel();
+            mock[0].teleportTo(level, o.getX() + 3.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 60;
+        }
+        if (t[0] == 30) { var z = EntityType.ZOMBIE.create(level); z.moveTo(o.getX() + 3.5, o.getY(), o.getZ() + 2.5, 0, 0); z.setPersistenceRequired(); level.addFreshEntity(z); } // (once his chunk is loaded: added with him on the same tick it never showed)
+        if (t[0] == 35) {
+            check(!level.getEntitiesOfClass(net.minecraft.world.entity.monster.Zombie.class, c.getBoundingBox().inflate(8)).isEmpty(), "the zombie never showed by him: not the scene");
+            pass(stage, t, "left a zombie by him and the mock out by it");
+        }
+        return true;
+    }
+    /** Stage 1182 (audit 13): after 1181, his stage starts with no monster within 64 of him and the mock back beside the template, as a stage run on its own starts. */
+    private static boolean st1182(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 2) {
+            var left = level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, c.getBoundingBox().inflate(64));
+            BlockPos m0 = h.absolutePos(new BlockPos(2, 2, 2)); boolean home = mock[0] == null || mock[0].level() == level && mock[0].blockPosition().distSqr(m0) <= 4;
+            for (var m : left) m.discard();
+            check(left.isEmpty(), "a new stage began with the last one's " + left.size() + " monster(s) by him: " + left);
+            check(home, "a new stage began with the mock where the last one left it: " + (mock[0] == null ? "-" : mock[0].blockPosition().toShortString()) + ", not beside the template " + m0.toShortString());
+            pass(stage, t, "a clean start: no monster by him, the mock by the template");
         }
         return true;
     }

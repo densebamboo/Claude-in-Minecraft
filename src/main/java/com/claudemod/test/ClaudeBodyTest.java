@@ -10771,6 +10771,7 @@ public final class ClaudeBodyTest {
             case 1205: return st1205(stage, t, c, h, level, mock);
             case 1203: return st1203(stage, t, c, h, level, mock);
             case 1206: return st1206(stage, t, c, h, level, mock);
+            case 1204: return st1204(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -20844,6 +20845,39 @@ public final class ClaudeBodyTest {
             check(n > 10, "no trail along his sprint (" + n + " cells)");
             check(air.isEmpty(), air.size() + " of his trail's " + n + " cells over air (mid-jump): " + air.subList(0, Math.min(6, air.size())));
             nsHome(c, h, level); pass(stage, t, "his trail along a 40-block walk with a 3-block drop: " + n + " cells, each over ground");
+        }
+        return true;
+    }
+    private static BlockPos st1204F;
+    private static boolean st1204(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // his cobble patch standing in his own walkway with ore he saw behind it: the patch out, the ore, then the patch put back into the walkway his mine's plan wants open (live 16:57 11-08, review 298: -74,17,-229 dug by his mine, filled by the ore dig's patch-back, dug again): the walkway stays open
+        BlockPos o = new BlockPos(20600, 80, 19600);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -16; k <= 32; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { scenarioReset(c); c.commandActive = false; st1204F = null; }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) e.discard();
+        if (t[0] == 10) {
+            for (int x = -4; x <= 28; x++) for (int z = -8; z <= 8; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+            var E = net.minecraft.core.Direction.EAST; var N = net.minecraft.core.Direction.NORTH;
+            var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 20, null)); b.invalidate();
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            var row = b.rows().get(8); BlockPos f0 = row.feet()[0], f1 = row.feet()[row.feet().length - 1]; BlockPos wallSide = b.isShell(f0.relative(N)) ? f0 : f1, me = wallSide == f0 ? f1 : f0; var away = wallSide == f0 ? N : net.minecraft.core.Direction.SOUTH;
+            st1204F = wallSide.immutable();
+            level.setBlock(wallSide, Blocks.COBBLESTONE.defaultBlockState(), 3); level.setBlock(wallSide.above(), Blocks.COBBLESTONE.defaultBlockState(), 3); // his patch, in his walkway
+            level.setBlock(wallSide.relative(away), Blocks.IRON_ORE.defaultBlockState(), 3); level.setBlock(wallSide.relative(away).above(), Blocks.IRON_ORE.defaultBlockState(), 3); // the ore he saw behind it, in his wall
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = b.rows().get(19).first(); c.mineIsTunnel = true; level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.TORCH, 16));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no");
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null; c.nextPlanTick = c.tickCount + 20 * 600;
+            com.claudemod.director.ClaudeLife.seenOre(c).add(wallSide.relative(away).immutable()); com.claudemod.director.ClaudeLife.seenOre(c).add(wallSide.relative(away).above().immutable());
+        }
+        if (t[0] == 15) c.tasks.add(new Task.Break(st1204F.relative(c.blueprint.isShell(st1204F.north()) ? net.minecraft.core.Direction.NORTH : net.minecraft.core.Direction.SOUTH)));
+        if (t[0] > 30 && (c.tasks.stream().noneMatch(q -> q instanceof Task.Place || q instanceof Task.Break) && !(c.currentTask instanceof Task.Place) && !(c.currentTask instanceof Task.Break) || t[0] == 15 + 400)) {
+            boolean open = level.getBlockState(st1204F).getCollisionShape(level, st1204F).isEmpty() && level.getBlockState(st1204F.above()).getCollisionShape(level, st1204F.above()).isEmpty();
+            String at = level.getBlockState(st1204F).getBlock().getName().getString() + " / " + level.getBlockState(st1204F.above()).getBlock().getName().getString();
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; c.prefs.remove("stay_close");
+            for (int x = -4; x <= 28; x++) for (int z = -8; z <= 8; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(open, "his walkway cell at " + st1204F.toShortString() + " patched again after the ore behind it came out: " + at);
+            nsHome(c, h, level); pass(stage, t, "the ore out, his walkway left open (" + at + ")");
         }
         return true;
     }

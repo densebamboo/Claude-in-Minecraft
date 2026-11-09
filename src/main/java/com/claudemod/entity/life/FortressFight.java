@@ -486,22 +486,34 @@ public final class FortressFight {
      */
     public static boolean standAndFight(ClaudeEntity g, LivingEntity mob, BlockPos cover) {
         if (!(mob instanceof WitherSkeleton)) return false;
-        double reach = Weights.w("wither.keep_pace_reach", 3.5), far = Math.sqrt(g.distanceToSqr(Vec3.atBottomCenterOf(cover)));
-        if (mob.distanceTo(g) > reach || far < Weights.w("wither.gap_near_blocks", 2.5)) return false;
+        double reach = Weights.w("wither.keep_pace_reach", 3.5);
+        if (mob.distanceTo(g) > reach) return false;
         if (standSaid == null) standSaid = new HashMap<>(); int[] last = standSaid.get(g.getUUID());
         if (last != null && g.tickCount - last[0] < 20 && g.tickCount >= last[0]) return last[1] == 1;
+        double far = walkBlocks(g, cover); // the way his feet take, not the crow's: live 07:20 11-09 (death 220) the gap was 2.2 off straight but 2 up with no step to it, so "near" skipped this pricing and he walked at it shield up, 0 swings, 13 -> 0
+        if (far < Weights.w("wither.gap_near_blocks", 2.5)) { standSaid.put(g.getUUID(), new int[] {g.tickCount, 0}); return false; }
         double[] m = HuntPatrol.melee(g); double killS = Math.ceil(mob.getHealth() / m[0]) * m[1];
         double rate = Weights.w("wither.hits_per_s", 0.8), dmg = Weights.w("wither.hit_hp", 8), armor = g.getArmorValue(), tough = g.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS);
         double perHit = dmg * (1 - Math.min(20, Math.max(armor / 5, armor - dmg / (2 + tough / 4))) / 25) + Weights.w("wither.wither_hp", 2);
         boolean shield = g.getOffhandItem().is(Items.SHIELD) && !g.getCooldowns().isOnCooldown(Items.SHIELD);
         double walkS = far / Decide.sprint(), walkHits = Math.ceil(walkS * rate), hereHits = killS * rate * (shield ? Weights.w("wither.shield_factor", 0.5) : 1);
         double walk = walkS + killS + Decide.hpS(g, g.getHealth(), 0, walkHits * perHit, perHit, (int) walkHits + 1), here = killS + Decide.hpS(g, g.getHealth(), 0, hereHits * perHit, perHit, (int) Math.ceil(hereHits) + 1);
-        var pick = Decide.choose(g, "wither.cover_walk", "a wither skeleton " + String.format("%.1f", mob.distanceTo(g)) + " off, his gap " + Math.round(far) + " off, health " + (int) g.getHealth(), last == null || last[1] != (here < walk ? 1 : 0), List.of(
+        var pick = Decide.choose(g, "wither.cover_walk", "a wither skeleton " + String.format("%.1f", mob.distanceTo(g)) + " off, his gap " + (far >= 64 ? "with no walk to it" : Math.round(far) + " off on foot") + ", health " + (int) g.getHealth(), last == null || last[1] != (here < walk ? 1 : 0), List.of(
             Decide.Option.of("walk to the gap", walk, "~" + String.format("%.1f", walkS) + " s with it on his back, ~" + Math.round(walkHits) + " hit(s) of ~" + Math.round(perHit) + ", then the kill from the gap"),
             Decide.Option.of("fight it here", here, "~" + Math.round(killS) + " s of swings" + (shield ? " behind his shield" : "") + ", ~" + String.format("%.1f", hereHits) + " hit(s) of ~" + Math.round(perHit))));
         boolean fight = pick != null && pick.name().equals("fight it here");
         standSaid.put(g.getUUID(), new int[] {g.tickCount, fight ? 1 : 0});
         return fight;
+    }
+
+    /** Blocks of walking to the cell on his own walker (no digging, no blocks put down: the cover walk is a plain walk), or 64 when there's no such way. */
+    static double walkBlocks(ClaudeEntity g, BlockPos to) {
+        BlockPos me = feet(g); if (me.equals(to)) return 0;
+        var p = com.claudemod.entity.nav.ActionPath.plan(g, (ServerLevel) g.level(), me, to, 0.5, false, 400, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, null, 0);
+        if (p == null) return 64;
+        double d = 0; BlockPos at = me;
+        for (var a : p.acts()) { BlockPos n = a instanceof com.claudemod.entity.nav.ActionPath.Act.Walk w ? w.feet() : a instanceof com.claudemod.entity.nav.ActionPath.Act.Leap l ? l.land() : null; if (n == null) continue; d += Math.sqrt(at.distSqr(n)) + (n.getY() > at.getY() ? 0.5 : 0); at = n; } // (a step up is a jump: slower than the flat)
+        return Math.max(d, Math.sqrt(me.distSqr(to)));
     }
 
     // ------------------------------------------------------------------ mob facts

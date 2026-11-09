@@ -10799,6 +10799,7 @@ public final class ClaudeBodyTest {
             case 1211: return st1211(stage, t, c, h, level, mock);
             case 1212: return st1212(stage, t, c, h, level, mock);
             case 1213: return st1213(stage, t, c, h, level, mock);
+            case 1214: return st1214(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -21328,6 +21329,29 @@ public final class ClaudeBodyTest {
                 check(low >= 5, "deposit: the diamonds aren't in (" + low + ")");
                 pass(stage, t, "the 5 diamonds in, the 16 raw iron kept on him for the smelt queued next (" + onHim + " on him)");
             } else if (t[0] >= 1200) check(false, "deposit: not done in 60 s: diamonds in " + low + ", tasks=" + c.tasks + " now=" + c.currentTask + " skills " + c.skillQueue);
+        }
+        return true;
+    }
+    /** Stage 1214 (D2D reviews 184/185, live 23:28:10 11-08: night up top, no armor, 5 meals; strip_mine's kit-first queued "collect beef 12", the night rule refused it, strip_mine asked again, round in circles in one second, then a clock hold with no work for 5 min): food the night holds is no food to be had now: the kit's night branch decides, never a hunt it refuses. */
+    private static boolean st1214(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(21000, 80, 19600);
+        if (t[0] == 1 || t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+        if (t[0] == 1) { scenarioReset(c); c.commandActive = false; }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 10) {
+            for (int x = -8; x <= 8; x++) for (int z = -8; z <= 8; z++) { level.setBlock(o.offset(x, -2, z), Blocks.STONE.defaultBlockState(), 2); level.setBlock(o.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 4)); c.getInventory().add(new ItemStack(Items.TORCH, 32)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 40));
+            c.blueprint = null; c.nook = null; level.setDayTime(16500);
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.prefs.put("stay_close", "no"); mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 20, o.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null;
+        }
+        if (t[0] == 20) {
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "strip_mine", "iron_ore", 18);
+            var first = c.skillQueue.peek(); String q = c.skillQueue.toString();
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; level.setDayTime(1000);
+            check(!q.contains("skill=collect, target=beef"), "at night, no armor, the kit's food asked as a beef hunt the night rule refuses: " + r + " / " + q);
+            pass(stage, t, "night, no armor, " + "short of food: " + (r.length() > 110 ? r.substring(0, 110) : r));
         }
         return true;
     }

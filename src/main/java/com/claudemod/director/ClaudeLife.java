@@ -2068,9 +2068,7 @@ public final class ClaudeLife {
                         if (wet && g.tickCount - g.attempts.counters.getOrDefault("fishNoWater", -100000) > 20 * 300 && g.tickCount - g.attempts.counters.getOrDefault("fishFail", -100000) > 20 * 300) { g.skillQueue.addFirst(new Skills.Step("fish", "", count)); return "nothing to hunt in reach, but a rod and open water: fishing for it"; } // (the fishing skill wants more than "some water": two deep, open sky, water all round, a dry bank; when it says no, not again for 5 min)
                     }
                     if (herd.isEmpty()) {
-                        boolean weak = g.inventory.count(s -> (s.getItem() instanceof net.minecraft.world.item.SwordItem && !s.is(Items.WOODEN_SWORD)) || (s.getItem() instanceof net.minecraft.world.item.AxeItem && !s.is(Items.WOODEN_AXE))) == 0
-                                || g.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).isEmpty();
-                        if (!com.claudemod.director.ClaudeLife.dayHere(level) && weak) return "failed: it's night and I've nothing proper to fight with or wear; no wandering the open for " + animal + " now, shelter till morning (dig in) and look at first light";
+                        if (nightHuntNo(g, level)) return "failed: it's night and I've nothing proper to fight with or wear; no wandering the open for " + animal + " now, shelter till morning (dig in) and look at first light";
                         { String no = nightOutsideNo(g, level, g.blockPosition()); if (no != null) return no; } // (iron+ and fed, or a lit base: otherwise no hunting at night)
                         BlockPos seen = animalsSeen().get(g.getUUID()); if (seen != null && level.isLoaded(seen) && seen.getY() < level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, seen.getX(), seen.getZ()) - 3) seen = null; // (a cave spot is no pasture: the chicken 60 down was saved as one)
                         // the spot he last found animals at: there first (sheep 180 blocks north fed him once; a blind sweep walked 500 blocks past them)
@@ -9399,6 +9397,8 @@ public final class ClaudeLife {
 
     /** A crafting table on his queue (a notch dug for it, then the table): a craft waits for it, never reports "no table" past it (review 58). */
     public static boolean tableComing(ClaudeEntity g) { return g.tasks.stream().anyMatch(t -> t instanceof Task.Place p && p.item() == Items.CRAFTING_TABLE); }
+    /** Night, and nothing proper to fight with or wear (a stone-or-better sword or axe, and a chestplate): no hunting in the open. One rule for the hunt and for the kit that would send him on it (they disagreed: round in circles, then 5 min idle; review 184). */
+    static boolean nightHuntNo(ClaudeEntity g, ServerLevel level) { return !dayHere(level) && (g.inventory.count(s -> (s.getItem() instanceof net.minecraft.world.item.SwordItem && !s.is(Items.WOODEN_SWORD)) || (s.getItem() instanceof net.minecraft.world.item.AxeItem && !s.is(Items.WOODEN_AXE))) == 0 || g.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).isEmpty()); }
     /** Places a block from his inventory right next to him (instantly; a player would too). */
     /** (tests: where a station of his would go down from where he stands) */
     public static BlockPos placeStation(ClaudeEntity g, ServerLevel level, Item item) { return placeNextTo(g, level, item); }
@@ -9595,8 +9595,9 @@ public final class ClaudeLife {
             plan = Procure.planAll(g, level, Kit.totals(g, missing));
         }
         boolean foodShort = false; for (Item m0 : missing.keySet()) if (m0.components().has(net.minecraft.core.component.DataComponents.FOOD)) { foodShort = true; break; }
-        if (plan.problem() != null && foodShort && Kit.food(g) < 6) { // the user: the kit never waives food. None to be had here means a wider search and a farm, not a mine trip on an empty bag
-            if (com.claudemod.director.ClaudeLife.dayHere(level) || nightOutsideNo(g, level, g.blockPosition()) == null) { // by day, or at night in iron with an iron sword: out getting food, not hiding
+        boolean nightHeld = foodShort && nightHuntNo(g, level); // (the hunt the night rule refuses is no food to be had now: queued anyway, the night refused it and strip_mine asked again, round in circles, then 5 min idle; live 23:28 11-08, reviews 184/185, stage 1214)
+        if ((plan.problem() != null || nightHeld) && foodShort && Kit.food(g) < 6) { // the user: the kit never waives food. None to be had here means a wider search and a farm, not a mine trip on an empty bag
+            if ((com.claudemod.director.ClaudeLife.dayHere(level) || nightOutsideNo(g, level, g.blockPosition()) == null) && !nightHuntNo(g, level)) { // by day, or at night in iron with an iron sword: out getting food, not hiding (and never a hunt the hunt itself refuses)
                 g.skillQueue.addFirst(st);
                 g.skillQueue.addFirst(new Skills.Step("collect", "beef", 8)); // fish in reach first, else legs out looking for animals (and up out of the mine first)
                 BlockPos fc = g.stairStart != null ? g.stairStart : g.blockPosition(); // a wheat patch by his mine: bread whatever the land holds

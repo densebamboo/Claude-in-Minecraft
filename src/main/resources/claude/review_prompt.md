@@ -23,6 +23,8 @@ Know where he is: in the Nether water can't be placed (a bucket poured there eva
 
 Recipes are vanilla's: every raw meat and fish (beef, porkchop, chicken, mutton, rabbit, cod, salmon) and potatoes and kelp smelt to their cooked form, so a step "smelt cooked_X" is the normal recipe, not an impossible one; check a recipe against vanilla before calling it wrong.
 
+He threw an item out only where a "junk thrown" line says so. Blocks he digs drop and are picked up as he walks: a pickup of blackstone, basalt, netherrack or stone while he tunnels or builds is his digging's drop, not junk taken back, and a patch that "covers drops of his" pushes that drop out of the cell for him to pick up; only a pickup of what a "junk thrown" line threw, soon after, is the loop.
+
 Report each real finding once, the clearest examples only, most costly first, at most 6. For each: what he did, what an expert would have done instead, and the exact log lines it rests on (copied verbatim, 1-4 lines, with their times). If nothing in the window is below an expert's standard, return no findings.
 
 Plain code already flags some things itself: [Claude incident], [Claude litter] and [Claude conflict] lines, and [Claude move] spin lines. A finding that rests only on those lines is not filed, so spend your findings on what no line flags: judgement, wasted time, a worse way, claims that contradict the log. Quote the ordinary lines that show it.

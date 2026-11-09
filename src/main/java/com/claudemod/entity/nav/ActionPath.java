@@ -118,6 +118,8 @@ public final class ActionPath {
     /** planSliced: still searching, ask again next tick. */
     public static final Plan PENDING = new Plan(List.of(), 0, 0, 0);
     private static final Map<ClaudeEntity, Search> RUNNING = new java.util.WeakHashMap<>();
+    /** His plans searched before a ruling on a cell (Gate.referee) are stale: the next ask searches fresh (live 17:17:32 11-08, the same way through a kept cell 24 times in 3 s; audit 1, stage 1205). */
+    public static void forget(ClaudeEntity g) { FINISHED.remove(g); RUNNING.remove(g); }
     private static final Map<ClaudeEntity, java.util.ArrayDeque<Object[]>> FINISHED = new java.util.WeakHashMap<>(); // the last 4 finished: {key, plan, tick}
     private static final Map<ClaudeEntity, long[]> TICK_USED = new java.util.WeakHashMap<>(); // {tick, ns of search in it}
 

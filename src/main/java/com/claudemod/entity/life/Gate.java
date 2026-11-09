@@ -173,6 +173,7 @@ public final class Gate {
         var redo = Decide.Option.of(what + " again (" + redoBy + ")", work + (wants == null ? 0 : wants == redoSolid ? 0 : against), "");
         var pick = Decide.choose(g, "referee", p.toShortString() + " " + what + " by " + redoBy + ", then " + other + " by " + undoBy + ", now " + what + " again", true, java.util.List.of(keep, redo));
         REFEREED.merge(g.getUUID(), 1, Integer::sum);
+        com.claudemod.entity.nav.ActionPath.forget(g); // (a ruling: plans searched before it are stale)
         Map<Task, Lost> ls = LOST.computeIfAbsent(g.getUUID(), k -> new HashMap<>()); if (ls.size() > 256) ls.clear();
         if (pick == keep) {
             String why = p.toShortString() + " " + what + " again by " + redoBy + ": " + undoBy + " had it " + other + " " + (now(g) - undo.tick()) / 20 + " s ago, the referee kept that (" + keep.detail() + ")";

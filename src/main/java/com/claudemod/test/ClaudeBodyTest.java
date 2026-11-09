@@ -8034,7 +8034,7 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
-        if ((stage[0] >= 494 && stage[0] <= 1099 || stage[0] >= 1130 && stage[0] <= 1199) && stages494(stage, t, c, h, level, mock)) return true; // (1150-1199: Big Picture's next range)
+        if ((stage[0] >= 494 && stage[0] <= 1099 || stage[0] >= 1130 && stage[0] <= 1249) && stages494(stage, t, c, h, level, mock)) return true; // (1150-1199: Big Picture's next range)
         if (stage[0] >= 1100 && stage[0] < 1100 + BENCH.length - 16) return bench(stage, t, c, h, level); // (the combat benchmark, part 2: every enemy type, mixed groups)
         if (stage[0] >= 279 && stage[0] <= 285) {
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Whereabouts.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.ExactSpot.reset(c); com.claudemod.director.Primitives.reset(c);
@@ -10758,6 +10758,7 @@ public final class ClaudeBodyTest {
             case 1047: return st1047(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
+            case 1205: return st1205(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -20496,6 +20497,32 @@ public final class ClaudeBodyTest {
             check(r.startsWith("waiting") && !walks, "10 cobblestone (worth 0) with a zombie on it: he went for it anyway: \"" + r + "\"");
             pass(stage, t, "a junk pile with a mob on it waits: \"" + r + "\"");
         }
+        return true;
+    }
+    private static int st1205R;
+    private static boolean st1205(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // as 1049 with him standing still beside the kept cell (live 17:17:32 11-08 at -83,16,-230, audit 1: the way through it planned and dropped 24 times in 3 s: planSliced served its finished plan from before the ruling for 40 ticks): planned round it at once. Was: a made way through a cell the referee kept (live 15:07 11-08, review 274/275: his notch at -39,16,-222 dug, put back, the next way dug it again; the referee kept it filled but the way's walk stayed queued behind it, 8 s of no headway and the walk written off): the way goes, the plan goes round the kept cell
+        BlockPos x = h.absolutePos(new BlockPos(4, 2, 6)), goal = h.absolutePos(new BlockPos(4, 2, 9));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.prefs.put("stay_close", "no"); }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) e.discard();
+        if (t[0] == 10) { // underground: his room (z 2-5) and the goal's room (z 7-11), one wall between at z 6
+            for (int xx = -2; xx <= 10; xx++) for (int z = -1; z <= 14; z++) for (int yy = -1; yy <= 6; yy++) level.setBlock(h.absolutePos(new BlockPos(xx, yy, z)), Blocks.STONE.defaultBlockState(), 2);
+            for (int xx = 2; xx <= 6; xx++) for (int yy = 2; yy <= 3; yy++) { if (xx == 4) level.setBlock(h.absolutePos(new BlockPos(xx, yy, 5)), Blocks.AIR.defaultBlockState(), 2); /* (his cell: one, beside the kept one) */ for (int z = 7; z <= 11; z++) level.setBlock(h.absolutePos(new BlockPos(xx, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            level.setDayTime(6000); c.blueprint = null;
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.STONE, 1)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 6));
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) c.tasks.add(new Task.Break(x)); // one job digs the wall cell
+        if (t[0] == 70) { check(level.getBlockState(x).isAir(), "the dig never came out: " + level.getBlockState(x)); c.tasks.add(new Task.Place(x, Items.STONE)); } // another fills it back
+        if (t[0] == 140) { check(level.getBlockState(x).is(Blocks.STONE), "the fill never went in: " + level.getBlockState(x)); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 6));
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; }
+        if (t[0] == 145) { st1205R = com.claudemod.entity.life.Gate.refused(c); c.tasks.add(new Task.GoTo(goal, 1.0)); } // the walk: its straight way digs the kept cell again
+        if (t[0] > 145 && c.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(goal)) < 1.6) {
+            check(level.getBlockState(x).is(Blocks.STONE), "the kept cell was dug after all: " + level.getBlockState(x));
+            int refusals = com.claudemod.entity.life.Gate.refused(c) - st1205R; check(refusals <= 3, "the way through the kept cell asked " + refusals + " times (planned again from before the ruling)");
+            check(t[0] - 145 <= 160, "there in " + (t[0] - 145) + " ticks (a player's pace: a wall cell beside it dug, 8 s at most)");
+            pass(stage, t, "the referee's kept cell left as it stands, the way made round it, there in " + (t[0] - 145) + " ticks");
+        }
+        if (t[0] == 145 + 400) check(false, "never got to the goal room: at " + c.blockPosition().toShortString() + ", the kept cell " + level.getBlockState(x) + ", tasks " + c.tasks + " / " + c.currentTask);
         return true;
     }
     private static boolean st1049(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // a made way through a cell the referee kept (live 15:07 11-08, review 274/275: his notch at -39,16,-222 dug, put back, the next way dug it again; the referee kept it filled but the way's walk stayed queued behind it, 8 s of no headway and the walk written off): the way goes, the plan goes round the kept cell

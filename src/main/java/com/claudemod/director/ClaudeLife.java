@@ -7968,7 +7968,7 @@ public final class ClaudeLife {
         Item it = st.target().equals("cobbled_deepslate") ? Items.COBBLED_DEEPSLATE : st.target().equals("cobblestone") || st.target().equals("cobble") ? Items.COBBLESTONE : null;
         if (it == null || g.inventory.count(s -> s.is(it)) < st.count()) return;
         int before = g.tasks.size();
-        g.tasks.removeIf(t -> t instanceof Task.GoTo || t instanceof Task.Break b && level.getBlockState(b.pos()).is(net.minecraft.tags.BlockTags.BASE_STONE_OVERWORLD));
+        g.tasks.removeIf(t -> t instanceof Task.GoTo || t instanceof Task.Break b && (level.getBlockState(b.pos()).is(net.minecraft.tags.BlockTags.BASE_STONE_OVERWORLD) || g.blueprint != null && g.blueprint.rowOf(b.pos()) >= 0 && !com.claudemod.entity.life.MineBlueprint.ore(level.getBlockState(b.pos())))); // (a row's dirt or gravel too: kept alone past the dropped rock it was cut off, and the walk to it went over the top at night, stage 126)
         if (g.tasks.size() < before) ClaudeMod.LOGGER.info("[Claude life] {} {}: {} on him of {}: the rest of the dig left ({} task(s) dropped; ore, patches, torches and pickups kept) (ClaudeLife.collectMet)", st.skill(), st.target(), g.inventory.count(s -> s.is(it)), st.count(), before - g.tasks.size());
     }
     private static int torchWhyAt; // (static: fields added live start 0)

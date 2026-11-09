@@ -10824,6 +10824,7 @@ public final class ClaudeBodyTest {
             case 1228: return st1228(stage, t, c, h, level, mock);
             case 1229: return st1229(stage, t, c, h, level, mock);
             case 1230: return st1230(stage, t, c, h, level, mock);
+            case 1231: return st1231(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -21997,6 +21998,32 @@ public final class ClaudeBodyTest {
             if (food && s1230Q < 0) s1230Q = t[0];
             if (s1230Q > 0 && t[0] - s1230Q >= 60) { c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null; c.dropCurrent = true; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.animal.Cow.class, c.getBoundingBox().inflate(48))) m.discard(); pass(stage, t, "his food trip from a hole off his mine: no walk into the mine first"); }
             if (s1230Q < 0 && t[0] - 10 > 400) { String q = "tasks=" + c.tasks.stream().limit(4).toList() + " steps=" + c.skillQueue; c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; check(false, "setup: no food trip in 20 s (" + q + ")"); }
+        }
+        return true;
+    }
+    /** Stage 1231 (D2D review 185, live 04:10:00 11-09 at 127,60,514 in the Nether): the highway's netherrack under falling lava at 127,61,514; its spread ring cell 127,61,515 had no face but the stopper itself, so the stopper queued the ring first and the ring waited behind the stopper, 3 times a second, till the watchdog dropped 38 tasks. Lava falling onto an open cell beside him, its ring cell hanging over lava with nothing to set a block against: the stopper goes in, no loop. */
+    private static BlockPos s1231P, s1231R, s1231L;
+    private static boolean st1231(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); c.skillQueue.clear(); }
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(6000);
+            BlockPos me = h.absolutePos(new BlockPos(6, 2, 9)); ggFace(c, me, -90, 20); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5);
+            s1231P = h.absolutePos(new BlockPos(8, 3, 8)); s1231R = s1231P.above().south(); s1231L = s1231P.above();
+            level.setBlock(s1231P.below(), Blocks.STONE.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.NETHERRACK, 32)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            level.setBlock(s1231L, Blocks.LAVA.defaultBlockState(), 2); level.setBlock(s1231R.below(), Blocks.LAVA.defaultBlockState(), 2); // (live: the lava already spread under the ring cell, no column up to it)
+            for (BlockPos o : new BlockPos[] {s1231L.north(), s1231L.east(), s1231L.west()}) level.setBlock(o, Blocks.LAVA.defaultBlockState(), 2); // (its other sides lava already: the one ring cell open, no footing by it)
+            c.tasks.add(new Task.Place(s1231P, Items.NETHERRACK));
+        }
+        if (t[0] > 10 && s1231P != null) {
+            boolean p = level.getBlockState(s1231P).is(Blocks.NETHERRACK), r = true; // (the ring cell has nothing to set a block against: the stopper alone, no loop on it)
+            if (p && r || t[0] - 10 >= 200) {
+                String q = "pos " + level.getBlockState(s1231P).getBlock() + ", ring " + level.getBlockState(s1231R).getBlock() + ", now=" + c.currentTask + " tasks=" + c.tasks.stream().limit(4).toList();
+                c.tasks.clear(); c.dropCurrent = true;
+                for (BlockPos q2 : BlockPos.betweenClosed(s1231P.offset(-4, -1, -4), s1231P.offset(4, 3, 4))) if (!level.getFluidState(q2).isEmpty() || level.getBlockState(q2).is(Blocks.NETHERRACK)) level.setBlock(q2, Blocks.AIR.defaultBlockState(), 2);
+                check(p, "lava's stopper not in after 10 s: " + q);
+                pass(stage, t, "lava falling beside him: the stopper in (its ring cell unwallable), " + (t[0] - 10) + " ticks");
+            }
         }
         return true;
     }

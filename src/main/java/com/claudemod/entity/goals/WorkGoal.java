@@ -2795,6 +2795,13 @@ public class WorkGoal extends Goal {
     String exitWhy = null; // why the last dig/place ended without its block changed (the user: every give-up says why)
     public String exitWhyForTest() { return exitWhy; }
     /** Lava let spread from {@code from} (open cells sideways and down, 8 steps: the Nether's reach) gets to his feet or head. */
+    /** A block can go in at p: something solid beside it, a footing beside it with something solid by that, or an open dry column under it. */
+    private static boolean wallable(ServerLevel level, BlockPos p) {
+        for (Direction d : Direction.values()) { BlockPos n = p.relative(d); if (!level.getBlockState(n).getCollisionShape(level, n).isEmpty()) return true;
+            if (!level.getBlockState(n).canBeReplaced() || !level.getFluidState(n).isEmpty()) continue;
+            for (Direction d2 : Direction.values()) { BlockPos s2 = n.relative(d2); if (!s2.equals(p) && !level.getBlockState(s2).getCollisionShape(level, s2).isEmpty()) return true; } }
+        return false;
+    }
     private boolean spreadReaches(ServerLevel level, BlockPos from) {
         BlockPos feet = g.blockPosition(), head = feet.above(); java.util.ArrayDeque<BlockPos> q = new java.util.ArrayDeque<>(); java.util.Map<BlockPos, Integer> seen = new java.util.HashMap<>(); q.add(from); seen.put(from, 0);
         while (!q.isEmpty()) { BlockPos c = q.poll(); int n = seen.get(c); if (c.equals(feet) || c.equals(head)) return true; if (n >= 8) continue;
@@ -3810,6 +3817,7 @@ public class WorkGoal extends Goal {
             for (Direction d : Direction.Plane.HORIZONTAL) { BlockPos ring = pos.above().relative(d);
                 if (!level.getBlockState(ring).canBeReplaced() || !level.getFluidState(ring).isEmpty() || !spreadReaches(level, ring)) continue;
                 if (ring.equals(g.blockPosition()) || ring.equals(g.blockPosition().above())) continue; // (his own cell: the view rule keeps him off cells beside lava; nothing to wall here)
+                if (!wallable(level, ring)) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} stops the lava falling at {}: its spread runs through {}, but that cell has nothing to set a block against (no face, footing or column): the stopper goes in, the spread dealt with as it comes (WorkGoal.doPlace)", pos.toShortString(), pos.above().toShortString(), ring.toShortString()); continue; } // (live 04:10 11-09, review 185: the ring queued first, waiting on the stopper, 3 times a second; stage 1231)
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} stops the lava falling at {}: its spread runs through {} to him at {}: a block there first (WorkGoal.doPlace)", pos.toShortString(), pos.above().toShortString(), ring.toShortString(), g.blockPosition().toShortString());
                 g.tasks.addFirst(t); g.tasks.addFirst(new Task.Place(ring.immutable(), t.item())); return exit("walling the lava's spread first"); }
         }

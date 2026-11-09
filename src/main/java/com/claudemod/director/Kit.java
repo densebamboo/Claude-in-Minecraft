@@ -232,6 +232,8 @@ public final class Kit {
      * every option pays for what it leaves uncovered at kit.short_meal_s a meal, and going as he is pays it all.
      */
     private static final java.util.Map<java.util.UUID, String> foodSaid = new java.util.HashMap<>();
+    /** (tests) */
+    public static String foodSaidTest(ClaudeEntity g) { return foodSaid.getOrDefault(g.getUUID(), ""); }
     /**
      * The trip's food for the planner, when he's short: the kit's own priced options from where he stands (what's in view, how
      * far, what's out and why) and the means he has for the rest. D2D review 083848 11-07: told only "you see: no creatures",
@@ -301,7 +303,7 @@ public final class Kit {
             int k = (int) Math.min(near.size(), Math.ceil(shortP / (yield * pts(item)))); double got = k * yield * pts(item), left = Math.max(0, shortP - got);
             opts.add(com.claudemod.entity.life.Decide.Option.of(name, walk / sprint + k * (kill + yield * cook) + rest.applyAsDouble(left) + ClaudeLife.nightOutS(g, level, near.get(0).blockPosition(), -1), k + " of " + near.size() + ", nearest " + (int) walk + " walk"));
             asks.put(name, new FoodAsk(item, (int) Math.ceil(Math.min(got, shortP) / pts(item)))); }
-        { var fishBox = g.getBoundingBox().inflate(w("kit.fish_range", 24));
+        { var fishBox = g.getBoundingBox().inflate(w("kit.prey_range", 48)); // (the herds' range, and the collect step's: fish 27 off were out of the kit's 24 but the hunt's pick, so "search" came back and he swapped salmon for beef 11 s after the reverse, D2D review 53, stage 1235)
           var fish = level.getEntitiesOfClass(net.minecraft.world.entity.animal.AbstractFish.class, fishBox, f -> f.isAlive() && (f instanceof net.minecraft.world.entity.animal.Salmon || f instanceof net.minecraft.world.entity.animal.Cod));
           var shallow = fish.stream().filter(f -> ClaudeLife.shallowFish(level, f)).sorted(java.util.Comparator.comparingDouble(g::distanceToSqr)).toList();
           if (!fish.isEmpty() && shallow.isEmpty()) opts.add(com.claudemod.entity.life.Decide.Option.out("fish", fish.size() + " about, all too deep to reach"));

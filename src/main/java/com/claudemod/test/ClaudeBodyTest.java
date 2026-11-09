@@ -10833,6 +10833,7 @@ public final class ClaudeBodyTest {
             case 1232: return st1232(stage, t, c, h, level, mock);
             case 1233: return st1233(stage, t, c, h, level, mock);
             case 1234: return st1234(stage, t, c, h, level, mock);
+            case 1235: return st1235(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -19338,7 +19339,7 @@ public final class ClaudeBodyTest {
             for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) e.discard();
             for (int x = -10; x <= 50; x++) for (int z = -10; z <= 10; z++) for (int y = -3; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
             check(fishN == 3, "setup: 3 salmon in the pool, saw " + fishN);
-            check(fa != null && fa.item() == Items.COOKED_BEEF, "setup: the kit should search for animals (cooked_beef), it asked " + (fa == null ? "nothing" : fa.count() + " " + fa.item()));
+            check(fa != null && (fa.item() == Items.COOKED_BEEF || fa.item() == Items.COOKED_SALMON), /* (salmon since the kit sees fish as far as the hunt, 48: review 53, stage 1235) */ "setup: the kit should ask beef (a search) or the salmon, it asked " + (fa == null ? "nothing" : fa.count() + " " + fa.item()));
             check(targets.stream().distinct().count() == 1 || targets.stream().distinct().count() == targets.size(), "the collect step flipped kinds: " + targets + " (" + String.join(" / ", said) + ")");
             nsHome(c, h, level); pass(stage, t, "one answer for the kit's food: " + targets + " (" + String.join(" / ", said) + ")"); }
         return true;
@@ -22258,6 +22259,25 @@ public final class ClaudeBodyTest {
             check(wet, "set up: he isn't in the water");
             check(r == null || !r.contains("open ground"), "in water, his own furnace 13 off: priced a new one here with no walk, then swam for open ground: " + r + " " + q);
             pass(stage, t, "in water, his own furnace 13 off: " + r);
+        }
+        return true;
+    }
+    /** Stage 1235 (D2D review 53, live 06:07:27-38 11-09): short of trip food, no land animals about, 2 salmon in a pond 30 off. The kit took the salmon when they were within its 24, then 11 s later they were 27 off: still the collect step's pick (it looks 48 out), but gone from the kit's options, so "search ~304 s" came back and he swapped back to beef. The kit sees fish as far as the hunt does. */
+    private static boolean st1235(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); }
+        if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 4, c.blockPosition());
+        BlockPos me = c.blockPosition();
+        if (t[0] == 10) {
+            for (int x = -6; x <= 36; x++) for (int z = -6; z <= 6; z++) { level.setBlock(me.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = 29; x <= 31; x++) for (int z = -1; z <= 1; z++) { level.setBlock(me.offset(x, -3, z), Blocks.STONE.defaultBlockState(), 2); level.setBlock(me.offset(x, -2, z), Blocks.WATER.defaultBlockState(), 2); level.setBlock(me.offset(x, -1, z), Blocks.WATER.defaultBlockState(), 2); }
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 1));
+            for (int k = 0; k < 2; k++) { var f = EntityType.SALMON.create(level); f.moveTo(me.getX() + 30.5, me.getY() - 2, me.getZ() + 0.5 + k * 0.4, 0, 0); f.setNoAi(true); f.setPersistenceRequired(); level.addFreshEntity(f); }
+        }
+        if (t[0] == 15) {
+            var fa = com.claudemod.director.Kit.foodAsk(c); String said = com.claudemod.director.Kit.foodSaidTest(c);
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); c.getInventory().clearContent();
+            check(said.contains("fish ~"), "2 salmon 30 off (the collect step's pick, inside its 48): the kit didn't price them, so its search undid the swap to them: " + said);
+            pass(stage, t, "the salmon 30 off priced by the kit as the hunt sees them: " + (fa == null ? "none" : fa.count() + " " + fa.item()));
         }
         return true;
     }

@@ -5481,7 +5481,7 @@ public final class ClaudeLife {
             if (p.distSqr(me) > Math.min(48, maxRoute) * Math.min(48, maxRoute) || !level.isLoaded(p) || !chestRoom(level, p)) continue;
             if (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, p, g.tickCount, 20 * 300) || g.attempts.within(com.claudemod.entity.life.Attempts.Kind.REACH, p, g.tickCount, 20 * 300)) continue;
             toWork(g); g.tasks.addFirst(new Task.Deposit(p)); g.tasks.addFirst(new Task.GoTo(p, 2));
-            return "putting the spare cobble in my junk chest at " + p.toShortString();
+            return "putting the spare blocks in my junk chest at " + p.toShortString(); // (whatever junk he carries, not only cobble: review 011942-277 said cobble storing deepslate)
         }
         MineBlueprint b = g.blueprint; if (b == null || b.isEmpty() || !cutNew) return null;
         int have = g.inventory.count(t -> t.is(Items.CHEST));
@@ -5512,8 +5512,8 @@ public final class ClaudeLife {
             g.tasks.add(new Task.Deposit(a.immutable()));
             g.tasks.add(new Task.Pickup(20)); // (the rock cut for it: on the floor while his pack was full, picked up once there's room)
             String list = g.pref("junk_chests", ""); g.prefs.put("junk_chests", (list.isEmpty() ? "" : list + ";") + a.getX() + " " + a.getY() + " " + a.getZ() + ";" + a2.getX() + " " + a2.getY() + " " + a2.getZ());
-            ClaudeMod.LOGGER.info("[Claude life] pack full of cobble and junk: a junk chest set into the {} wall at {} and {}", wall.getName(), a.toShortString(), a2.toShortString());
-            return "setting a junk chest into the tunnel wall at " + a.toShortString() + " for the spare cobble";
+            ClaudeMod.LOGGER.info("[Claude life] pack full of spare blocks and junk: a junk chest set into the {} wall at {} and {}", wall.getName(), a.toShortString(), a2.toShortString());
+            return "setting a junk chest into the tunnel wall at " + a.toShortString() + " for the spare blocks";
         }
         ClaudeMod.LOGGER.info("[Claude chest] no wall for a junk chest from {}: {} tunnel row(s) within 16 (flat/run/branch, dug), all refused, last: {} (ClaudeLife.junkChestRound)", me.toShortString(), near.size(), why); // ponytail: silent null had him walk to the stash every 20 s with 7 stacks of deepslate (22:42); branch rows count since then (deep in a branch, 0 rows in 16)
         return null;
@@ -9272,8 +9272,10 @@ public final class ClaudeLife {
             Crafting.Result cr = Crafting.craft(level, g.inventory, kinds[i], kinds[i] == Items.STONE_PICKAXE ? (int) com.claudemod.entity.life.Weights.w("tools.stone_pick_handful", 3) : 1, table); // stone picks by the handful (the user: strip mining is for mass-made stone picks; the iron one is kept for ore till there's a diamond one)
             if (cr.made() == 0) ClaudeMod.LOGGER.info("[Claude life] couldn't make a {} on the spot: table {}, missing {}", Crafting.name(kinds[i]), table, cr.missing());
             if (cr.made() > 0) {
-                g.noteDoing("my tool broke, made a new " + Crafting.name(kinds[i]) + " on the spot and kept going");
-                ClaudeMod.LOGGER.info("[Claude life] tool broke: made a {} on the spot", Crafting.name(kinds[i]));
+                String kept = null; for (int j = kinds.length - 1; j > i && kept == null; j--) { Item k0 = kinds[j]; if (g.inventory.count(x -> x.is(k0)) > 0) kept = Crafting.name(k0); } // (a better one on him, kept)
+                String why = kept == null ? "none on him" : "his " + kept + " kept for better work"; // (the truth, not "tool broke": with an iron pick kept for ore he makes stone ones for rock, review 003922-104)
+                g.noteDoing("made " + cr.made() + " " + Crafting.name(kinds[i]) + " on the spot for " + state.getBlock().getName().getString() + " (" + why + ") and kept going");
+                ClaudeMod.LOGGER.info("[Claude life] no tool he'd use on {} ({}): made {} {} on the spot", state.getBlock().getName().getString(), why, cr.made(), Crafting.name(kinds[i]));
                 return true;
             }
         }

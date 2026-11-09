@@ -2165,7 +2165,7 @@ public class WorkGoal extends Goal {
             if (g.lastStep != null && g.skillQueue.peek() != g.lastStep) g.skillQueue.addFirst(g.lastStep);
             String pick = g.inventory.count(s -> s.is(net.minecraft.tags.ItemTags.STONE_TOOL_MATERIALS)) >= 3 ? "stone_pickaxe" : "wooden_pickaxe"; // nothing to make one from here: the whole chain for one first (wood, planks, sticks, a table)
             if (g.skillQueue.stream().noneMatch(s -> s.skill().equals("obtain") && s.target().endsWith("pickaxe"))) g.skillQueue.addFirst(new com.claudemod.entity.life.Skills.Step("obtain", pick, 1));
-            g.noteDoing("my tool broke (nothing that can mine " + name(state) + "), making a new one before going on");
+            g.noteDoing("nothing on me that can mine " + name(state) + ", getting a " + pick + " before going on");
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no tool for {} anymore (broke?), re-tooling", name(state));
             return exit("doBreak line 1501");
         }

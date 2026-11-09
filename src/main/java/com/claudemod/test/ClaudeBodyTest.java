@@ -10871,6 +10871,7 @@ public final class ClaudeBodyTest {
             case 1263: return st1263(stage, t, c, h, level, mock);
             case 1264: return st1264(stage, t, c, h, level, mock);
             case 1265: return st1265(stage, t, c, h, level, mock);
+            case 1266: return st1266(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -22998,6 +22999,29 @@ public final class ClaudeBodyTest {
             check(!(furn >= 1 && raw >= 1), "the furnace packed up with a raw cod still on him (cooked " + cooked + "): the kit sets it straight back down for it");
             if (furn >= 1 && raw == 0 && cooked >= 9) pass(stage, t, "the cod cooked, then the furnace up, in " + (t[0] - 10) + " ticks");
             else check(t[0] < 600, "after 30 s: furnace on him " + furn + ", raw cod " + raw + ", cooked " + cooked + ", furnace block " + level.getBlockState(fu).getBlock().getName().getString() + ", task " + c.currentTask + ", queue " + c.tasks);
+        }
+        return true;
+    }
+
+    /** Cobble from a little staircase, facing the pond he fished: its first step is water, so the steps go another way (or the step fails and says so), never "a few steps down right here" with no step queued (live 12:16:41 11-09 World 17 at 21,62,-483: collect said it 8 times in 1 s, a Pickup alone each time, strip_mine called round in circles and skipped; review 22). */
+    private static boolean st1266(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.TempLedger.reset(c); }
+        if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(6000);
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) for (int yy = -2; yy <= 0; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.DIRT); // (dirt over the stone: none showing)
+            BlockPos me = h.absolutePos(new BlockPos(8, 2, 8)); ggFace(c, me, 0, 0); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5);
+            for (BlockPos p : BlockPos.betweenClosed(me.offset(-2, -3, 1), me.offset(2, -1, 6))) level.setBlock(p, Blocks.WATER.defaultBlockState(), 2); // the pond in front of him (south), its surface a block down
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 8)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.mineFace = me.offset(400, -50, 0).immutable(); c.stairStart = me.offset(400, 0, 0).immutable();
+            ggSaid = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "cobblestone", 14);
+            long breaks = c.tasks.stream().filter(x -> x instanceof Task.Break).count();
+            boolean wet = c.tasks.stream().anyMatch(x -> x instanceof Task.Break b && (!level.getFluidState(b.pos()).isEmpty() || !level.getFluidState(b.pos().above()).isEmpty()));
+            String q = c.tasks.stream().limit(6).toList().toString();
+            c.mineFace = null; c.stairStart = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.skillQueue.clear(); com.claudemod.entity.life.TempLedger.reset(c); c.getInventory().clearContent();
+            check(ggSaid.startsWith("failed") || breaks > 0, "said it digs a few steps down but queued none: " + ggSaid + " | " + q);
+            check(!wet, "a step dug into the pond: " + q);
+            pass(stage, t, breaks + " step digs queued, none in the water: " + ggSaid);
         }
         return true;
     }

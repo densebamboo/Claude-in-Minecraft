@@ -6798,7 +6798,7 @@ public final class ClaudeLife {
         long tod = level.getDayTime() % 24000;
         double tripS = outS >= 0 ? outS : 2 * Math.sqrt(at.distSqr(g.blockPosition())) / com.claudemod.entity.life.Decide.sprint() + com.claudemod.entity.life.Weights.w("night.job_s", 30);
         double hp = com.claudemod.entity.life.Decide.danger(g, level, tod, tripS, com.claudemod.entity.life.Decide.hostilesKnown(g));
-        return com.claudemod.entity.life.Decide.hpS(g, 0, hp, com.claudemod.entity.life.Decide.hitHp() * com.claudemod.entity.life.Decide.armorF(g));
+        return com.claudemod.entity.life.Decide.hpS(g, 0, hp, com.claudemod.entity.life.Decide.hitHp() * com.claudemod.entity.life.Decide.armorF(g)) + com.claudemod.entity.life.Decide.creeperTailS(g, hp); // (the user's night rule: no chopping or hunting out in the dark ungeared; a blast at armor 0 kills from full, review 126-128)
     }
     /** A far cell let through by the night rule's light checks, logged (World 17 21:45:41: village_iron walked him 139 blocks out of his lit mine at tick ~13620, ungeared, the rule at the village's cell passing, which way unknown; 20 -> 2 HP). */
     private static void nightPass(ClaudeEntity g, ServerLevel level, BlockPos at, String why) {

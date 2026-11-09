@@ -75,6 +75,17 @@ public final class Decide {
     }
     /** Hits at hitHp() each (a zombie's, Normal) through his armor. */
     public static double hpS(ClaudeEntity g, double hits) { return hpS(g, 0, hits, hitHp() * armorF(g)); }
+    /**
+     * The creeper in a night out's hits: hpS prices every hit as a zombie's (hitHp), but a share of them (night.creeper_share: 69 of
+     * 1107 overworld night-mob hits on him at y 55+ since 11-05) is a blast of creeper.blast_hp through his armor, death at armor 0
+     * from 17-20 HP (14 creeper deaths since 11-05). Priced as the chance of one such blast times what it does: death, or under his floor.
+     */
+    public static double creeperTailS(ClaudeEntity g, double hp) {
+        double per = hitHp() * armorF(g); if (hp <= 0 || per <= 0) return 0;
+        double lamC = hp / per * w("night.creeper_share", 0.07), blast = w("creeper.blast_hp", 22) * armorF(g), h = g.getHealth();
+        double cost = blast >= h ? w("danger.death_s", 1800) : h - blast < w("danger.min_hp_left", 4) ? w("danger.under_floor_s", 300) : 0;
+        return atLeast(lamC, 1) * cost;
+    }
     /** The chance of k or more hits when lam are expected (Poisson). */
     static double atLeast(double lam, int k) { if (k <= 0) return 1; double term = Math.exp(-lam), cum = term; for (int i = 1; i < k; i++) { term *= lam / i; cum += term; } return Math.max(0, 1 - cum); }
     /** Seconds a block at a sprint, the walk prices' speed. */

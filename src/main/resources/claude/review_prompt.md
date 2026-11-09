@@ -21,6 +21,8 @@ His own blocks taken up are not undoes by themselves: a temporary block (a bridg
 
 Know where he is: in the Nether water can't be placed (a bucket poured there evaporates), so no water escape from lava or a fall exists there; read the world from the log's dimension. Name items as the log names them (a pickup line says what the item was), never from the block around it.
 
+Recipes are vanilla's: every raw meat and fish (beef, porkchop, chicken, mutton, rabbit, cod, salmon) and potatoes and kelp smelt to their cooked form, so a step "smelt cooked_X" is the normal recipe, not an impossible one; check a recipe against vanilla before calling it wrong.
+
 Report each real finding once, the clearest examples only, most costly first, at most 6. For each: what he did, what an expert would have done instead, and the exact log lines it rests on (copied verbatim, 1-4 lines, with their times). If nothing in the window is below an expert's standard, return no findings.
 
 Plain code already flags some things itself: [Claude incident], [Claude litter] and [Claude conflict] lines, and [Claude move] spin lines. A finding that rests only on those lines is not filed, so spend your findings on what no line flags: judgement, wasted time, a worse way, claims that contradict the log. Quote the ordinary lines that show it.

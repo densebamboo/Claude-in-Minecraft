@@ -5510,7 +5510,7 @@ public final class ClaudeLife {
         MineBlueprint b = g.blueprint; if (b == null || b.isEmpty() || !cutNew) return null;
         int have = g.inventory.count(t -> t.is(Items.CHEST));
         if (have < 2 && g.inventory.count(t -> t.is(ItemTags.PLANKS)) + 4 * g.inventory.count(t -> t.is(ItemTags.LOGS)) >= 8 * (2 - have)) { boolean tbl = ensureCraftingTable(g, level, Items.CHEST); Crafting.craft(level, g.inventory, Items.CHEST, 2 - have, tbl); have = g.inventory.count(t -> t.is(Items.CHEST)); }
-        if (have < 2) return null;
+        if (have < 2) return tableComing(g) || g.currentTask instanceof Task.Place tp && tp.item() == Items.CRAFTING_TABLE ? "making a junk chest for the spare blocks: the crafting table first, then the chest" : null; // (the table for it on its way in: the junk waits for its chest, not thrown on his tunnel floor that same pass and walked back over, live 03:59:45 11-09, D2D review 153, stage 1242)
         List<MineBlueprint.Row> rs = b.rows(); List<Integer> near = new ArrayList<>();
         for (int i = 0; i + 1 < rs.size(); i++) { MineBlueprint.Kind k = b.segments.get(rs.get(i).segment()).kind; if ((k == MineBlueprint.Kind.BRANCH || (k == MineBlueprint.Kind.FLAT || k == MineBlueprint.Kind.RUN) && rs.get(i).feet().length >= 2) && rs.get(i + 1).segment() == rs.get(i).segment() && rs.get(i).first().distSqr(me) <= 16 * 16) near.add(i); }
         near.sort(java.util.Comparator.comparingDouble(i -> rs.get(i).first().distSqr(me)));

@@ -10834,6 +10834,7 @@ public final class ClaudeBodyTest {
             case 1233: return st1233(stage, t, c, h, level, mock);
             case 1234: return st1234(stage, t, c, h, level, mock);
             case 1235: return st1235(stage, t, c, h, level, mock);
+            case 1242: return st1242(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -22278,6 +22279,28 @@ public final class ClaudeBodyTest {
             for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); c.getInventory().clearContent();
             check(said.contains("fish ~"), "2 salmon 30 off (the collect step's pick, inside its 48): the kit didn't price them, so its search undid the swap to them: " + said);
             pass(stage, t, "the salmon 30 off priced by the kit as the hunt sees them: " + (fa == null ? "none" : fa.count() + " " + fa.item()));
+        }
+        return true;
+    }
+    /** Stage 1242 (D2D review 153, live 03:59:45 11-09): down his mine, pack full of cobble and dirt, logs but no chest, no junk chest within 160. junkChestRound queued a table notch to make the chest, found no chest yet, returned nothing, and the same pass threw 5 stacks on his tunnel floor; he walked back over them and took them up. The toss waits for the junk chest it is making. */
+    private static boolean st1242(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            var b = nightMine(h, level); c.prefs.put("mine_model", "blueprint"); c.blueprint = b; com.claudemod.director.ClaudeLife.bpSync(c);
+            c.tasks.clear(); c.skillQueue.clear(); if (c.currentTask != null) c.dropCurrent = true; c.storageChests.clear(); c.prefs.remove("junk_chests");
+            BlockPos me = b.rows().get(4).first(); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5);
+            c.playerGoal = "beat the ender dragon"; c.prefs.put("stay_close", "no"); level.setDayTime(6000); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            for (var ie : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) ie.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 8)); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE));
+            for (int i = 0; i < 40; i++) c.getInventory().add(new ItemStack(i % 3 == 0 ? Items.DIRT : Items.COBBLESTONE, 64)); // (as live: cobble and dirt, a chest's worth of logs, his table on him)
+            com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+            int thrown = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16)).size(); String q = c.tasks.stream().limit(6).toList().toString();
+            boolean tbl = com.claudemod.director.ClaudeLife.tableComing(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.getInventory().clearContent();
+            for (var ie : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) ie.discard();
+            for (BlockPos p : BlockPos.betweenClosed(me.offset(-12, -6, -12), me.offset(12, 6, 12))) if (level.getBlockState(p).is(Blocks.CRAFTING_TABLE) || level.getBlockState(p).is(Blocks.CHEST)) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            check(thrown == 0 || !tbl, "making a junk chest (the table on its way in) and the junk thrown on his tunnel floor in the same pass: " + thrown + " stack(s), queue " + q);
+            pass(stage, t, "pack full down his mine, no chest: " + (tbl ? "the table first, nothing thrown" : thrown + " thrown, no table queued") + " " + q);
         }
         return true;
     }

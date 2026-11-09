@@ -10537,6 +10537,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1177: return st1177(stage, t, c, h, level, mock);
             case 1176: return st1176(stage, t, c, h, level, mock);
             case 1174: return st1174(stage, t, c, h, level, mock);
             case 1173: return st1173(stage, t, c, h, level, mock);
@@ -15966,6 +15967,25 @@ public final class ClaudeBodyTest {
             check(!r2.startsWith("leaving") && !r2.startsWith("failed"), "a diamond pick and 64 diamonds 800 off: \"" + r2 + "\" (" + com.claudemod.entity.life.FortressScout.lastTravel + ")");
             c.skillQueue.clear(); c.tasks.clear(); com.claudemod.entity.life.DeathLog.reset(c);
             nsHome(c, h, level); pass(stage, t, "raw iron left: \"" + r + "\"; diamonds gone for: \"" + r2 + "\"");
+        }
+        return true;
+    }
+    /** Stage 1177 (found on review 46's stage: a pile skipped as not worth its run got "done: nothing of yours left on the ground: it despawned or someone took it", a false claim about a pile still there, still on his list): 5 birch logs pending 800 off, recover_drops. He says it isn't worth the run, never that it's gone. */
+    private static boolean st1177(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(8100, 70, 7600), pile = o.offset(800, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 900; c.prefs.put("stay_close", "no"); com.claudemod.entity.life.DeathLog.reset(c); }
+        if (t[0] == 10) {
+            for (int x = -3; x <= 3; x++) for (int z = -3; z <= 3; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+        }
+        if (t[0] == 20) {
+            c.skillQueue.clear(); c.tasks.clear();
+            com.claudemod.entity.life.DeathLog.died(c, level, pile, java.util.List.of(new net.minecraft.world.entity.item.ItemEntity(level, pile.getX() + 0.5, pile.getY(), pile.getZ() + 0.5, new ItemStack(Items.BIRCH_LOG, 5))));
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
+            check(!r.contains("despawned") && !r.contains("someone took"), "5 birch logs still pending 800 off: \"" + r + "\" (a false claim: the pile is there, just not worth the run)");
+            check(r.contains("worth"), "5 birch logs pending 800 off: \"" + r + "\" doesn't say why he isn't going");
+            c.skillQueue.clear(); c.tasks.clear(); com.claudemod.entity.life.DeathLog.reset(c);
+            pass(stage, t, "\"" + r + "\"");
         }
         return true;
     }

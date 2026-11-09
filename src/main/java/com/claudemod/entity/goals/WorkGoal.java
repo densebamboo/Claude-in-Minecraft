@@ -4992,6 +4992,15 @@ public class WorkGoal extends Goal {
      * skeleton, HP 6 and recovery-run rules.
      */
     private static double w(String name, double dflt) { return com.claudemod.entity.life.Weights.w(name, dflt); }
+    private final java.util.Map<java.util.UUID, int[]> reachMemo = new java.util.HashMap<>(); // mob -> {tick, 1 he can get to it / 0 not}
+    /** He can get to it by his own moves (a walk, a block put down to step up, a dig): the zombie probe first, then his own planner, as he'd walk it (audit 11: the probe can't dig, place or leap; a skeleton on a 2-high ledge read "out of his reach" and cost 120 s in every fight price). */
+    private boolean canGetTo(net.minecraft.world.entity.Entity m) {
+        if (g.getNavigation().createPath(m, 1) instanceof net.minecraft.world.level.pathfinder.Path np && np.canReach()) return true;
+        int[] k = reachMemo.get(m.getUUID()); if (k != null && g.tickCount - k[0] >= 0 && g.tickCount - k[0] < 40) return k[1] == 1; // (priced every tick in a fight: his planner once in 2 s per mob)
+        if (reachMemo.size() > 64) reachMemo.clear();
+        var plan = com.claudemod.entity.nav.ActionPath.plan(g, (ServerLevel) g.level(), g.blockPosition(), m.blockPosition(), w("fight.reach_blocks", 3.5) - 1, !scaffoldBlock().isEmpty(), 2000, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount);
+        reachMemo.put(m.getUUID(), new int[] {g.tickCount, plan != null ? 1 : 0}); return plan != null;
+    }
     private boolean fleePriced(net.minecraft.world.entity.Entity foe, java.util.List<net.minecraft.world.entity.Mob> crowd, boolean underground, boolean say) {
         java.util.List<net.minecraft.world.entity.LivingEntity> them = new java.util.ArrayList<>(crowd);
         if (foe instanceof net.minecraft.world.entity.LivingEntity lf && lf.isAlive() && !them.contains(lf)) them.add(lf);
@@ -5012,7 +5021,7 @@ public class WorkGoal extends Goal {
             double dmg = witch ? w("fight.witch_hit_hp", 6) : mobHit(m); boolean ranged = shoots(m) || witch; // (a wither skeleton is a skeleton by class, but a sword, never a bow)
             boolean bowDuel = ranged && !witch && m instanceof net.minecraft.world.entity.monster.Enemy && m.distanceTo(g) >= 6 && m.distanceTo(g) <= 28 && canHit(m) && g.inventory.count(s0 -> s0.is(net.minecraft.world.item.Items.BOW)) > 0 && g.inventory.count(s0 -> s0.is(net.minecraft.world.item.Items.ARROW)) > 0; // (a shooter in his bow's range: doAttack shoots it from where he stands (shootAt), never the walk in under its arrows; stage 546 ran from one skeleton 9 off, bow and 16 arrows on him, priced as a sword fight)
             int k = bowDuel ? (int) Math.ceil(m.getHealth() / w("fight.bow_arrow_hp", 6)) : hitsToKill(m); swings += k; t += k * (bowDuel ? w("fight.bow_draw_s", 1.1) : swing);
-            if (ranged && !bowDuel && m.distanceTo(g) > w("fight.reach_blocks", 3.5) && !(g.getNavigation().createPath(m, 1) instanceof net.minecraft.world.level.pathfinder.Path np && np.canReach())) { t += w("fight.unreachable_s", 120); unreachable = m.getType().getDescription().getString(); } // a shooter he can't walk up to: no sword fight to be had, it shoots the while (live 11:19-11:21 11-07 death 109: a crossbow piglin 5 up on a ledge, "fight ~73 s (3 swings)" every hit, 20 -> 0; stage 1002)
+            if (ranged && !bowDuel && m.distanceTo(g) > w("fight.reach_blocks", 3.5) && !canGetTo(m)) { t += w("fight.unreachable_s", 120); unreachable = m.getType().getDescription().getString(); } // a shooter he can't walk up to: no sword fight to be had, it shoots the while (live 11:19-11:21 11-07 death 109: a crossbow piglin 5 up on a ledge, "fight ~73 s (3 swings)" every hit, 20 -> 0; stage 1002)
             double start = !ranged && !witch && meleeDeaths.size() >= atOnce ? meleeDeaths.get(meleeDeaths.size() - atOnce) : 0; // (waits its turn for a cell on him)
             double h = bowDuel ? t * w("fight.shooter_shots_per_s", 0.5) * w("fight.shooter_hit_chance", 0.7) : (t - start) * (witch ? w("fight.witch_throws_per_s", 0.33) : rate) + (ranged ? m.distanceTo(g) / w("fight.close_blocks_per_shot", 6) : 0); // (Normal: a skeleton draws every 2 s)
             if (shoots(m) && shield && !bowDuel) h *= w("fight.shield_arrow_factor", 0.25); // (a shield up toward it while he closes in takes its arrows; stage 38 ran from one skeleton with a shield on him after 924759d) // (each hits him till it's down: the first for its own time, the next for both; a shooter ~a shot each 6 blocks he closes)

@@ -10592,6 +10592,7 @@ public final class ClaudeBodyTest {
             case 1141: return st1141(stage, t, c, h, level, mock);
             case 1142: return st1142(stage, t, c, h, level, mock);
             case 1143: return st1143(stage, t, c, h, level, mock);
+            case 1146: return st1146(stage, t, c, h, level, mock);
             case 999: return st999(stage, t, c, h, level, mock);
             case 997: return st997(stage, t, c, h, level, mock);
             case 996: return st996(stage, t, c, h, level, mock);
@@ -14463,7 +14464,7 @@ public final class ClaudeBodyTest {
         if (t[0] == 10) {
             for (int x = -6; x <= 40; x++) for (int z = -6; z <= 6; z++) { level.setBlock(me.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
             c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 1));
-            var cow = EntityType.COW.create(level); cow.moveTo(me.getX() + 30.5, me.getY(), me.getZ() + 0.5, 0, 0); cow.setNoAi(true); cow.setPersistenceRequired(); level.addFreshEntity(cow);
+            var cow = EntityType.COW.create(level); cow.moveTo(me.getX() + 30.5, me.getY(), me.getZ() + 0.5, 0, 0); cow.setPersistenceRequired(); level.addFreshEntity(cow);
         }
         if (t[0] == 15) {
             var fa = com.claudemod.director.Kit.foodAsk(c);
@@ -19024,6 +19025,34 @@ public final class ClaudeBodyTest {
             check(!(c.currentTask instanceof Task.Attack a && st1143S.isAlive() && a.target().equals(st1143S.getUUID()) && st1143C.isAlive() && st1143C.distanceTo(c) < 7 && st1143S.distanceTo(c) > st1143C.distanceTo(c) + 2), "turned to the Skeleton " + (int) st1143S.distanceTo(c) + " off with the creeper " + (int) st1143C.distanceTo(c) + " off at his back");
             check(c.isAlive() && st1143Low > 8, "the creeper's blast caught him: low " + st1143Low);
             if (t[0] - st1143Start >= 20 * 10) { for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); c.tasks.clear(); c.dropCurrent = true; c.setHealth(20); pass(stage, t, "10 s from the run's end with the skeleton's hit still on him: the creeper dealt with first, low " + st1143Low + ", creeper " + (st1143C.isAlive() ? "alive" : "dead")); }
+        }
+        return true;
+    }
+    /** Stage 1146 (death 02:06 11-09, blown up by a creeper at night, no armor, a stone sword, 2 min after "collect beef x10 -> hunting 6 cow"):
+     *  the hunt asked the night rule about a 30 s job at his own feet ("0 off ... ~30 s out: go now"), never the herd's trip. Night, no armor, a stone
+     *  sword, 6 cows 6 off: the night is priced at the herd, out and back plus the kills (a price, not a refusal: what killed him was the creeper fight). */
+    private static boolean st1146(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(23000, 80, 21600);
+        if (t[0] == 1 || t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+        if (t[0] == 1) { scenarioReset(c); c.commandActive = false; }
+        if (t[0] > 1) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 10) {
+            for (int x = -20; x <= 20; x++) for (int z = -20; z <= 20; z++) { level.setBlock(o.offset(x, -2, z), Blocks.STONE.defaultBlockState(), 2); level.setBlock(o.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) m.discard();
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_MUTTON, 2));
+            c.blueprint = null; c.nook = null; level.setDayTime(13600);
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.prefs.put("stay_close", "no"); mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 20, o.getZ() + 0.5, 0f, 0f);
+            for (int i = 0; i < 6; i++) { var cow = EntityType.COW.create(level); cow.moveTo(o.getX() + 6.5 + (i % 3), o.getY(), o.getZ() + 0.5 + (i / 3) * 2, 0, 0); cow.setNoAi(true); cow.setPersistenceRequired(); level.addFreshEntity(cow); }
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null;
+        }
+        if (t[0] == 70) {
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "beef", 10);
+            boolean atFeet = c.attempts.counters.containsKey("nightPrice:" + c.blockPosition().asLong()), atHerd = c.attempts.counters.keySet().stream().anyMatch(k -> k.startsWith("nightPrice:") && BlockPos.of(Long.parseLong(k.substring(11))).distSqr(o) >= 5 * 5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; level.setDayTime(1000);
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.animal.Cow.class, new net.minecraft.world.phys.AABB(o).inflate(40))) m.discard();
+            check(!atFeet && atHerd, "night, cows 6 off: the hunt's night price was " + (atFeet ? "a job at his own feet" : "never asked") + ", not the herd's trip: " + r);
+            pass(stage, t, "night, cows in sight: priced at the herd: " + (r.length() > 120 ? r.substring(0, 120) : r));
         }
         return true;
     }

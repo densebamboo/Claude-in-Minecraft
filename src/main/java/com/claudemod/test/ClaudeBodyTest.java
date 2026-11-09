@@ -10872,6 +10872,7 @@ public final class ClaudeBodyTest {
             case 1264: return st1264(stage, t, c, h, level, mock);
             case 1265: return st1265(stage, t, c, h, level, mock);
             case 1266: return st1266(stage, t, c, h, level, mock);
+            case 1268: return st1268(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -23026,6 +23027,41 @@ public final class ClaudeBodyTest {
         return true;
     }
 
+    /** A cut through his mine's wall put back from the far side, his way going on out (ActionPath "put back from X once past": two cells past the cut, the next leg two more on): patched from where he stands, never a walk back into his mine to patch it from inside, which shut him in and the way on cut a new hole (live 12:59-13:05 11-09 World 17 at -26,18,-273 and -30,18,-289, D2D reviews 110/154: "first: to the cell beside it (doPlace 2599)", down into his tunnel, the stair sealed over him, dug again 2 s later, a minute of it). */
+    private static int s1268T; private static BlockPos s1268Wall, s1268To; private static boolean s1268In;
+    private static boolean st1268(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(21800, 80, 22200);
+        if (t[0] % 10 == 0 || t[0] < 10) for (int k = -16; k <= 32; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(1000); s1268T = -1; s1268In = false;
+            for (int x = -12; x <= 24; x++) for (int z = -10; z <= 10; z++) for (int y = -20; y <= 5; y++) level.setBlock(o.offset(x, y, z), (y <= 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            var b = new com.claudemod.entity.life.MineBlueprint(o.above(), net.minecraft.core.Direction.EAST, 2, 3); b.segments.get(0).n = 14; c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.prefs.put("stay_close", "no"); com.claudemod.director.ClaudeLife.bpSync(c);
+            for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK) level.setBlock(e.getKey(), Blocks.AIR.defaultBlockState(), 2);
+            // a walkway cell mid-mine, his wall beside it cut, and a tunnel of rock past it running 4 out
+            BlockPos w = null, wall = null; net.minecraft.core.Direction dw = null; var rows = b.rows(); var mid = rows.get(rows.size() / 2).first();
+            for (var e : b.roles().entrySet()) { if (e.getValue() != com.claudemod.entity.life.MineBlueprint.Role.WALK || w != null) continue; BlockPos p = e.getKey(); if (Math.abs(p.getX() - mid.getX()) + Math.abs(p.getZ() - mid.getZ()) > 3 || b.isWalk(p.below()) || !b.isWalk(p.above())) continue;
+                for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) { boolean ok = b.isShell(p.relative(d)) && b.isShell(p.relative(d).above()); for (int k = 2; k <= 5 && ok; k++) ok = b.roleAt(p.relative(d, k)) == null && b.roleAt(p.relative(d, k).above()) == null && b.roleAt(p.relative(d, k).below()) == null; if (ok) { w = p; wall = p.relative(d); dw = d; break; } } }
+            check(w != null, "no walkway cell with his wall and 4 of rock beside it in the test mine");
+            for (int k = 1; k <= 5; k++) { level.setBlock(w.relative(dw, k), Blocks.AIR.defaultBlockState(), 2); level.setBlock(w.relative(dw, k).above(), Blocks.AIR.defaultBlockState(), 2); }
+            s1268Wall = wall; s1268To = w.relative(dw, 5);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.getInventory().add(new ItemStack(Items.TORCH, 16));
+            BlockPos at = w.relative(dw, 3); // two cells past the cut, where the way's put-back runs
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, at.getX() + 0.5, at.getY(), at.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f); }
+        if (t[0] == 5) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+        if (t[0] == 10) { c.tasks.clear(); c.skillQueue.clear(); c.tasks.add(new Task.Place(s1268Wall, Items.COBBLESTONE, null, Blocks.COBBLESTONE.defaultBlockState())); c.tasks.add(new Task.GoTo(s1268To, 0.9)); s1268T = t[0]; }
+        if (t[0] > 10) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear(); if (c.blueprint != null && c.blueprint.isWalk(c.blockPosition())) s1268In = true; }
+        boolean wallBack = s1268Wall != null && !level.getBlockState(s1268Wall).getCollisionShape(level, s1268Wall).isEmpty();
+        if (s1268T > 0 && (wallBack && c.blockPosition().equals(s1268To) && c.tasks.isEmpty() && c.currentTask == null || s1268In || t[0] >= s1268T + 20 * 15)) {
+            double s = (t[0] - s1268T) / 20.0; String at = c.blockPosition().toShortString(); boolean in = s1268In;
+            c.tasks.clear(); c.skillQueue.clear(); c.blueprint = null; c.mineFace = null; c.dropCurrent = true;
+            for (int x = -12; x <= 24; x++) for (int z = -10; z <= 10; z++) for (int y = -20; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(30))) e.discard();
+            check(!in, "walked back into his mine to patch the cut at " + s1268Wall.toShortString() + " with his way going on out (" + s + " s)");
+            check(wallBack, "his wall at " + s1268Wall.toShortString() + " not put back (" + s + " s, at " + at + ")");
+            check(at.equals(s1268To.toShortString()), "not on out at " + s1268To.toShortString() + ": at " + at + " after " + s + " s");
+            check(s <= 5, "the put-back and two cells on: " + s + " s (a player ~2)");
+            pass(stage, t, "patched from outside and on out in " + s + " s"); }
+        return true;
+    }
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

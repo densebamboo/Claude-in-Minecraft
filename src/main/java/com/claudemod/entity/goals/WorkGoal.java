@@ -3934,6 +3934,11 @@ public class WorkGoal extends Goal {
                     }
                 }
             }
+            if (g.blueprint.roleAt(pos) != null) for (Task q0 : g.tasks) if (q0 instanceof Task.Place qp && qp.pos().distManhattan(pos) == 1 && g.blueprint.roleAt(qp.pos()) == null && Vec3.atCenterOf(qp.pos()).distanceToSqr(g.getEyePosition()) > Vec3.atCenterOf(pos).distanceToSqr(g.getEyePosition()) + 0.25 && level.getBlockState(qp.pos()).canBeReplaced() && !g.attempts.within(com.claudemod.entity.life.Attempts.Kind.PLACE, qp.pos(), g.tickCount, 20 * 60)) { // a pocket is filled from its deepest cell out: his mine's cell at its mouth patched first shut the ore cells behind it off, left open (stage 568); inside the pocket the vein's own order stands
+                g.tasks.remove(q0); g.tasks.addFirst(t); g.tasks.addFirst(q0);
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude patch] {} behind the hole at {} filled first: the pocket from its deepest cell out (WorkGoal.doPlace)", qp.pos().toShortString(), pos.toShortString());
+                return exit("first: the cell behind it");
+            }
             int refusedBehind = 0; java.util.List<BlockPos> behind0 = veinBehind(g, level, pos); // (live 12:14: the vein went on past the hole's own faces, the patch sealed 3 diamond ore and a drop in)
             BlockPos wetAt = level.getFluidState(pos).is(net.minecraft.tags.FluidTags.WATER) ? pos : null; for (Direction d : Direction.values()) if (wetAt == null && level.getFluidState(pos.relative(d)).is(net.minecraft.tags.FluidTags.WATER)) wetAt = pos.relative(d);
             if (wetAt != null && !behind0.isEmpty()) { // water in or by the hole: the patch first, the vein behind it waits (live 00:55 11-05: "mined first, then the patch" had him after the coal into a flooded pocket, mining from its bottom, up for air, back down; the user: plug the water, never dive for it)

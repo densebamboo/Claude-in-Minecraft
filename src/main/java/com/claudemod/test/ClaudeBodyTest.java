@@ -10877,6 +10877,7 @@ public final class ClaudeBodyTest {
             case 1270: return st1270(stage, t, c, h, level, mock);
             case 1271: return st1271(stage, t, c, h, level, mock);
             case 1272: return st1272(stage, t, c, h, level, mock);
+            case 1273: return st1273(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -23166,6 +23167,33 @@ public final class ClaudeBodyTest {
             check(!outLeft, "his mine for the night, and the side job's walk 50 out over open ground still queued (shelter step " + shelter + ")");
             check(shelter, "his mine for the night, no shelter step to take him down its rows");
             pass(stage, t, "dusk: the walk out set aside, the shelter step down his mine");
+        }
+        return true;
+    }
+    /** Pack full in his mine, the junk chest's share one stack of 7 diorite, the rest his stash's goods (lapis): his storage first, not a trip to the junk chest that frees a slot and has him full again in a minute (live 12:50:45-12:53:02 11-09 World 17, D2D reviews 81/13: four trips to his junk chest at -63,16,-290, 27 off, storing 7, 17, 31 and 23). */
+    private static boolean st1273(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(29800, 80, 30200);
+        if (t[0] % 10 == 0 || t[0] < 10) for (int k = -16; k <= 32; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(1000); c.storageChests.clear(); c.prefs.remove("junk_chests");
+            for (int x = -12; x <= 24; x++) for (int z = -10; z <= 10; z++) for (int y = -20; y <= 5; y++) level.setBlock(o.offset(x, y, z), (y <= 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            var b = new com.claudemod.entity.life.MineBlueprint(o.above(), net.minecraft.core.Direction.EAST, 2, 3); b.segments.get(0).n = 14; c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.prefs.put("stay_close", "no"); com.claudemod.director.ClaudeLife.bpSync(c);
+            for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK) level.setBlock(e.getKey(), Blocks.AIR.defaultBlockState(), 2);
+            BlockPos w = b.rows().get(b.rows().size() / 2).first(); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, w.getX() + 0.5, w.getY(), w.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f); }
+        if (t[0] == 5) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+        if (t[0] == 10) {
+            BlockPos me = c.blockPosition(), junk = me.offset(-20, 0, 6), store = me.offset(-6, 0, 8);
+            level.setBlock(junk, Blocks.CHEST.defaultBlockState(), 2); level.setBlock(store, Blocks.CHEST.defaultBlockState(), 2);
+            c.prefs.put("junk_chests", junk.getX() + " " + junk.getY() + " " + junk.getZ()); c.storageChests.add(store.immutable());
+            var inv = c.getInventory(); inv.clearContent(); inv.items.set(0, new ItemStack(Items.STONE_PICKAXE)); inv.selected = 0; inv.items.set(1, new ItemStack(Items.COOKED_COD, 9)); inv.items.set(2, new ItemStack(Items.DIORITE, 7)); inv.items.set(3, new ItemStack(Items.COBBLESTONE, 64)); inv.items.set(4, new ItemStack(Items.COBBLESTONE, 64));
+            for (int i = 0; i < inv.items.size(); i++) if (inv.items.get(i).isEmpty()) inv.items.set(i, new ItemStack(Items.LAPIS_LAZULI, 64));
+            c.tasks.clear(); c.currentTask = null;
+            com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+            boolean toJunk = c.tasks.stream().anyMatch(q -> q instanceof Task.Deposit d0 && d0.pos().equals(junk)), toStore = c.tasks.stream().anyMatch(q -> q instanceof Task.Deposit d0 && d0.pos().equals(store)); String q0 = c.tasks.toString();
+            c.getInventory().clearContent(); c.tasks.clear(); c.dropCurrent = true; c.prefs.remove("junk_chests"); c.storageChests.clear(); c.blueprint = null; c.mineFace = null;
+            for (int x = -12; x <= 24; x++) for (int z = -10; z <= 10; z++) for (int y = -20; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(!toJunk, "a trip to his junk chest 21 off for 7 diorite with 30 stacks of lapis on him and his storage 10 off: " + q0);
+            check(toStore, "his storage 10 off not used: " + q0);
+            pass(stage, t, "full in his mine: his storage first, not a junk trip for one stack");
         }
         return true;
     }

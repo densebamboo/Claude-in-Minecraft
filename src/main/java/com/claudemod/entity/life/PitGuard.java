@@ -61,7 +61,9 @@ public final class PitGuard {
     private static State st(ClaudeEntity g) { return states.computeIfAbsent(g.getUUID(), k -> new State()); }
     public static void reset(ClaudeEntity g) { states.remove(g.getUUID()); }
     /** A cell of a hole's mouth he closed (or is closing), or of the hole under it: his build (never temporary, never dug through). */
-    public static boolean isCap(ClaudeEntity g, BlockPos p) { State s = states.get(g.getUUID()); return s != null && (s.caps.contains(p) || s.hole.contains(p) || s.lights.contains(p)); }
+    public static boolean isCap(ClaudeEntity g, BlockPos p) { State s = states.get(g.getUUID()); if (s != null && (s.caps.contains(p) || s.hole.contains(p) || s.lights.contains(p))) return true; String by = TempLedger.builtCells(g).get(p); return by != null && by.startsWith("PitGuard"); } // (his ledger's mark too: the state is gone after a restart; live 11-06 a cap set at 10:12 was dug out by a staircase at 23:21, restarts between, D2D 135/237)
+    /** A small hole a step or two off his door: capped whatever its depth or a walk out of it (a player fills a 1-wide hole at his door; live 11-09 one 2 deep there was "natural ground" for 2 hours and his walker stepped into it, D2D 135/237, stage 1236). */
+    static boolean byDoor(java.util.Collection<BlockPos> cells, BlockPos door) { return door != null && cells.size() <= HOLE_MAX && cells.stream().anyMatch(c -> across(c, door) <= 3); }
     public static Set<BlockPos> lights(ClaudeEntity g) { return st(g).lights; }
     static long col(int x, int z) { return ((long) x << 32) | (z & 0xffffffffL); }
     /** Within a block of a column one of his recent routes by his door ran over. */
@@ -239,7 +241,7 @@ public final class PitGuard {
             BlockPos s0 = left.iterator().next(); List<BlockPos> cl = new ArrayList<>(); ArrayDeque<BlockPos> q = new ArrayDeque<>(); q.add(s0); left.remove(s0);
             while (!q.isEmpty()) { BlockPos c = q.poll(); cl.add(c); for (Direction d : Direction.Plane.HORIZONTAL) for (int dy = -1; dy <= 1; dy++) { BlockPos n = c.relative(d).above(dy); if (left.remove(n)) q.add(n); } }
             int deep = 0; for (BlockPos c : cl) { int k = 0; BlockPos q1 = c.below(); while (k < 8 && open(level, q1)) { k++; q1 = q1.below(); } deep = Math.max(deep, k); }
-            if (cl.size() <= HOLE_MAX && deep >= 4) continue; // (a true hole's cap: it stays)
+            if (cl.size() <= HOLE_MAX && deep >= 4 || deep >= 1 && byDoor(cl, door(g))) continue; // (a true hole's cap, or a small hole's by his door: it stays)
             cl.sort(Comparator.comparingDouble(c -> c.distSqr(g.blockPosition())));
             for (BlockPos c : cl) { if (take.size() >= 16) break; take.add(c); }
         }
@@ -285,7 +287,7 @@ public final class PitGuard {
             }
         }
         int depth = 0; { BlockPos q0 = seed; while (depth < 8 && open(level, q0)) { depth++; q0 = q0.below(); } }
-        if (!down0(g, seed) && (mouth.size() > HOLE_MAX || depth < 4 || low)) { // (natural ground: a slope, a dip or a drop he can step down: walked round, never capped; World 15: a 400-cell "mouth" by his door took 389 blocks of cobble, a grey blob the user took for a base)
+        if (!down0(g, seed) && !byDoor(mouth, door) && (mouth.size() > HOLE_MAX || depth < 4 || low)) { // (natural ground: a slope, a dip or a drop he can step down: walked round, never capped; World 15: a 400-cell "mouth" by his door took 389 blocks of cobble, a grey blob the user took for a base)
             ClaudeMod.LOGGER.info("[Claude life] the drop at {} ({}): a mouth of {} cells, {} deep{}: natural ground, walked round, not capped (PitGuard.close)", seed.toShortString(), why, mouth.size(), depth, low ? ", a walk back up out of it" : ""); return; }
         List<BlockPos> cells = new ArrayList<>(mouth); String part = "its whole mouth (" + mouth.size() + " cells, " + depth + " deep)";
         if (low || cells.size() > MAX_CAP) { cells.removeIf(c -> across(c, door) > 3 && !byRoute(s, c)); part = "the apron within 3 of his door and the strip his routes cross (" + cells.size() + " of a mouth of " + mouth.size() + " cells" + (low ? "; low ground, " + (int) back + " blocks' walk back up from its bottom at " + bottom.toShortString() + ", but a hazard by his door" : "") + ")"; }

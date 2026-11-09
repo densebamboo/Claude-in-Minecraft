@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1236: return st1236(stage, t, c, h, level, mock);
             case 1199: return st1199(stage, t, c, h, level, mock);
             case 1196: return st1196(stage, t, c, h, level, mock);
             case 1195: return st1195(stage, t, c, h, level, mock);
@@ -16436,6 +16437,44 @@ public final class ClaudeBodyTest {
             c.skillQueue.clear(); c.tasks.clear(); com.claudemod.entity.life.Highway.reset(c);
             check(head != null && head.skill().equals("collect") && head.target().equals("cobbled_deepslate"), "a fortress trip with his highway 72 rows short and 0 deepslate on him: into the portal unpacked (" + r + "; queue " + q + ")");
             pass(stage, t, "packed first: " + r);
+        }
+        return true;
+    }
+    /** Stage 1236 (D2D 135/237, live 02:29-04:27 11-09 at -15,66..67,-20 and -14,67,-18: a 1-wide hole 2 deep a block off his mine's door, his own cap dug back out by a staircase 11-06; his routes skirted it again and again and PitGuard.close called it "a mouth of 1 cells, 2 deep, a walk back up out of it: natural ground, walked round, not capped" every time, and his walker stepped into it at his door): a small hole right by his door, skirted twice, is capped whatever its depth; cleanup keeps that cap. */
+    private static BlockPos s1236H;
+    private static boolean st1236(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); com.claudemod.entity.life.PitGuard.reset(c); level.setDayTime(1000); }
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            BlockPos door = com.claudemod.entity.life.PitGuard.door(c); s1236H = null; BlockPos stand = null;
+            for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) { if (s1236H != null) break;
+                BlockPos q = door.relative(d).below(), s0 = door.relative(d, 2); // a cell beside his door, and his route's step beside it (one further out)
+                boolean free = true; for (BlockPos x : new BlockPos[] {q, q.below(), s0, s0.below(), s0.above()}) if (b.touches(x) || com.claudemod.director.ClaudeLife.isMineCell(c, x)) free = false;
+                if (free) { s1236H = q.immutable(); stand = s0.immutable(); } }
+            check(s1236H != null, "setup: no cell beside his door off his mine");
+            level.setBlock(s1236H, Blocks.AIR.defaultBlockState(), 2); level.setBlock(s1236H.below(), Blocks.AIR.defaultBlockState(), 2); level.setBlock(s1236H.below(2), Blocks.STONE.defaultBlockState(), 2);
+            level.setBlock(stand.below(), Blocks.STONE.defaultBlockState(), 2); level.setBlock(stand, Blocks.AIR.defaultBlockState(), 2); level.setBlock(stand.above(), Blocks.AIR.defaultBlockState(), 2);
+            var inv = c.getInventory(); inv.clearContent(); inv.add(new ItemStack(Items.COBBLESTONE, 16));
+            lnStand(c, mock, stand, door); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            java.util.List<long[]> path = new java.util.ArrayList<>(); path.add(new long[] {stand.getX(), stand.getZ(), stand.getY()});
+            com.claudemod.entity.life.PitGuard.planned(c, level, path);
+            c.attempts.counters.put("s1236Y", stand.getY()); c.attempts.counters.put("s1236X", stand.getX()); c.attempts.counters.put("s1236Z", stand.getZ());
+        }
+        if (t[0] == 130) {
+            java.util.List<long[]> path = new java.util.ArrayList<>(); path.add(new long[] {c.attempts.counters.get("s1236X"), c.attempts.counters.get("s1236Z"), c.attempts.counters.get("s1236Y")});
+            com.claudemod.entity.life.PitGuard.planned(c, level, path); // (skirted again: the close)
+            boolean capped = com.claudemod.entity.life.PitGuard.caps(c).contains(s1236H) && c.tasks.stream().anyMatch(q -> q instanceof Task.Place p && p.pos().equals(s1236H));
+            // his cap in: cleanup (idle, by day) keeps it
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; com.claudemod.entity.life.PitGuard.reset(c);
+            level.setBlock(s1236H, Blocks.COBBLESTONE.defaultBlockState(), 2); var bc = com.claudemod.entity.life.TempLedger.builtCells(c); bc.put(s1236H, "PitGuard.close:308");
+            boolean kept = com.claudemod.entity.life.PitGuard.isCap(c, s1236H); // (his state gone, as after a restart: the ledger's mark still makes it his cap)
+            com.claudemod.entity.life.PitGuard.cleanup(c, level);
+            boolean taken = c.tasks.stream().anyMatch(q -> q instanceof Task.Break k && k.pos().equals(s1236H));
+            bc.remove(s1236H); c.tasks.clear(); c.getInventory().clearContent(); c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            for (String k : new String[] {"s1236X", "s1236Y", "s1236Z"}) c.attempts.counters.remove(k);
+            check(capped, "the 1-wide hole 2 deep a block off his door, skirted twice: not capped (caps " + com.claudemod.entity.life.PitGuard.caps(c) + ")");
+            check(!taken, "cleanup took back his cap of the hole by his door");
+            check(kept, "his cap by his door (on his ledger as PitGuard's) not his cap once his PitGuard state is gone: a dig would take it");
+            pass(stage, t, "the hole by his door capped, the cap kept");
         }
         return true;
     }

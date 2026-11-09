@@ -7099,7 +7099,7 @@ public class WorkGoal extends Goal {
         // only a tower he'll come back down (to reach a tree, glowstone, ore up in a ceiling) goes on the list to take down;
         // one to get out of somewhere (a pit, water, a hole in his mine's floor) is his way up and stays, like a player's
         boolean comesDown = g.tasks.stream().anyMatch(q -> q instanceof Task.Pillar p && p.steps() < 0 || q instanceof Task.FinishTree || q instanceof Task.ChopTree);
-        if (comesDown && !(com.claudemod.director.ClaudeLife.isMineCell(g, pillarFeet.above()) && !com.claudemod.director.ClaudeLife.isMineCell(g, pillarFeet)))
+        if (comesDown && !com.claudemod.entity.life.PitGuard.isCap(g, pillarFeet) && !(com.claudemod.director.ClaudeLife.isMineCell(g, pillarFeet.above()) && !com.claudemod.director.ClaudeLife.isMineCell(g, pillarFeet))) // (a tower up out of the hole his PitGuard is closing is the cap's fill, his build: on the list mid-chop, the next chop dug at the cap, review 372, stage 1218)
             { g.pillarBlocks.remove(pillarFeet); g.pillarBlocks.addFirst(pillarFeet.immutable()); }
         pillarDone++;
         pillarPhase = 0;

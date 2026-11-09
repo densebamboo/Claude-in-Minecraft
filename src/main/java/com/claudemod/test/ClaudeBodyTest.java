@@ -10806,6 +10806,7 @@ public final class ClaudeBodyTest {
             case 1215: return st1215(stage, t, c, h, level, mock);
             case 1216: return st1216(stage, t, c, h, level, mock);
             case 1217: return st1217(stage, t, c, h, level, mock);
+            case 1218: return st1218(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -21519,6 +21520,31 @@ public final class ClaudeBodyTest {
             check(drops.isEmpty(), "junk thrown on his mine floor from the ore hole: " + dropped);
             check(dep, "no trip to his junk chest queued");
             pass(stage, t, "the junk to his junk chest from the ore hole, nothing on his floor");
+        }
+        return true;
+    }
+    /** Stage 1218 (D2D review 372, live 00:12:49-00:13:42 11-09 at -11,64..66,-21: he fell in a hole by his door mid-chop; PitGuard's tower up out of it (the cap's first block, his build) went on his take-down list because a ChopTree was queued, and the next chop queued digs through the cap, refused by doBreak each time): a tower up out of a hole his PitGuard is closing, a chop queued behind it. The tower is the cap's, never on his take-down list. */
+    private static BlockPos s1218At;
+    private static boolean st1218(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.pillarBlocks.clear(); com.claudemod.entity.life.PitGuard.reset(c); }
+        if (t[0] == 10) {
+            s1218At = c.blockPosition().immutable();
+            for (int y = 0; y <= 5; y++) level.setBlock(s1218At.above(y), Blocks.AIR.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            var caps = com.claudemod.entity.life.PitGuard.caps(c); caps.add(s1218At); caps.add(s1218At.above());
+            c.tasks.add(new Task.Pillar(2)); c.tasks.add(new Task.ChopTree(s1218At.offset(12, 0, 0), 0));
+        }
+        if (t[0] > 10) {
+            boolean up = level.getBlockState(s1218At).isSolid() && level.getBlockState(s1218At.above()).isSolid();
+            if (up || t[0] > 300) {
+                boolean listed = c.pillarBlocks.contains(s1218At) || c.pillarBlocks.contains(s1218At.above());
+                String pl = c.pillarBlocks.toString();
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.pillarBlocks.clear(); com.claudemod.entity.life.PitGuard.reset(c);
+                level.setBlock(s1218At, Blocks.AIR.defaultBlockState(), 2); level.setBlock(s1218At.above(), Blocks.AIR.defaultBlockState(), 2); c.teleportTo(s1218At.getX() + 0.5, s1218At.getY(), s1218At.getZ() + 0.5); c.getInventory().clearContent();
+                check(up, "setup: the tower never went up");
+                check(!listed, "the pit cap's tower on his take-down list: " + pl);
+                pass(stage, t, "the tower up out of the pit kept as the cap's, off his take-down list");
+            }
         }
         return true;
     }

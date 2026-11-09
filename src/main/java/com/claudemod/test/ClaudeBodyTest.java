@@ -10814,6 +10814,7 @@ public final class ClaudeBodyTest {
             case 1220: return st1220(stage, t, c, h, level, mock);
             case 1221: return st1221(stage, t, c, h, level, mock);
             case 1222: return st1222(stage, t, c, h, level, mock);
+            case 1223: return st1223(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -21613,7 +21614,7 @@ public final class ClaudeBodyTest {
         if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.pillarBlocks.clear(); com.claudemod.entity.life.PitGuard.reset(c); }
         if (t[0] == 10) {
             s1218At = c.blockPosition().immutable();
-            for (int y = 0; y <= 5; y++) level.setBlock(s1218At.above(y), Blocks.AIR.defaultBlockState(), 2);
+            for (int y = 0; y <= 5; y++) level.setBlock(s1218At.above(y), Blocks.AIR.defaultBlockState(), 2); level.setBlock(s1218At.below(), Blocks.STONE.defaultBlockState(), 2); c.teleportTo(s1218At.getX() + 0.5, s1218At.getY(), s1218At.getZ() + 0.5); c.currentTask = null; c.dropCurrent = true; c.pillarBlocks.clear(); // (ground under him: after 86 he stood on air)
             c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
             var caps = com.claudemod.entity.life.PitGuard.caps(c); caps.add(s1218At); caps.add(s1218At.above());
             c.tasks.add(new Task.Pillar(2)); c.tasks.add(new Task.ChopTree(s1218At.offset(12, 0, 0), 0));
@@ -21741,6 +21742,29 @@ public final class ClaudeBodyTest {
                 c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.skillQueue.clear(); com.claudemod.director.Structures.testPieces().clear(); c.getInventory().clearContent();
                 pass(stage, t, "the village's log posts never taken for trees (" + ggSaid + ")");
             }
+        }
+        return true;
+    }
+    /** Stage 1223 (D2D review 308, live 01:43:36-01:43:49 11-09 at 197,71,199: a dirt step put down to climb a 2-high village terrace on his go_to; up on it, the next step (village_food) took it back 1 s later, and 13 s later the chicken hunt "heading up top" put it down again): his step beside a 2-high ledge, him up on the ledge, a new job starting. The step stays while he works up there (it comes up when he leaves). */
+    private static BlockPos s1223S;
+    private static boolean st1223(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.TempLedger.reset(c); }
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(6000);
+            for (int x = 8; x < 16; x++) for (int z = 0; z < 16; z++) for (int yy = 2; yy <= 3; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE_BRICKS); // the ledge, 2 high, x 8 on
+            h.setBlock(new BlockPos(7, 2, 8), Blocks.STONE_BRICKS); s1223S = h.absolutePos(new BlockPos(7, 3, 8)).immutable(); // (a 1-high rise by the ledge, his step on it: live he stood a block over it, beside it)
+            c.teleportTo(s1223S.getX() + 0.5, s1223S.getY() + 1, s1223S.getZ() + 0.5); c.currentTask = new Task.Pillar(1); level.setBlock(s1223S, Blocks.COBBLESTONE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, s1223S, Blocks.COBBLESTONE.defaultBlockState(), Blocks.AIR.defaultBlockState()); c.currentTask = null;
+            var e = com.claudemod.entity.life.TempLedger.entry(c, s1223S); check(e != null && "pillar".equals(e.why), "setup: the step not booked as his pillar: " + e);
+            BlockPos up = h.absolutePos(new BlockPos(9, 4, 8)); c.teleportTo(up.getX() + 0.5, up.getY(), up.getZ() + 0.5); mock[0].teleportTo(up.getX() + 0.5, up.getY() + 30, up.getZ() + 0.5);
+
+            c.tasks.clear();
+        }
+        if (t[0] == 15) {
+            int n = com.claudemod.entity.life.TempLedger.stepStart(c, level, "village_food");
+            boolean queued = c.tasks.contains(new Task.Break(s1223S));
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; com.claudemod.entity.life.TempLedger.reset(c);
+            check(n == 0 && !queued, "his step up the ledge taken back at the new job, him up on the ledge (" + n + " block(s))");
+            pass(stage, t, "his step up the ledge left standing while he works up there");
         }
         return true;
     }

@@ -258,6 +258,9 @@ public final class TempLedger {
                 if (g.holdingNight()) return false;
                 if (!Perception.known(g, net.minecraft.world.entity.monster.Monster.class, new net.minecraft.world.phys.AABB(p).inflate(16), m -> m.isAlive()).isEmpty()) return false;
                 break;
+            case "pillar": case "step":
+                if (stepStart && g.getBlockY() >= p.getY() + 1 && solid(level, p.below())) return false; // his way up onto where he stands: kept while he works up here, taken when he leaves (put down, taken at the next job 1 s later, put down again 13 s on, review 308, stage 1223)
+                break;
             default: break;
         }
         if (g.house != null && g.house.centre().distSqr(p) <= 16 * 16 && !g.house.complete(level)) return false; // his house going up: its scaffold is the build's

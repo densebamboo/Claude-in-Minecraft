@@ -78,7 +78,9 @@ public final class OwnEvents {
     public static void onBreak(net.neoforged.neoforge.event.level.BlockEvent.BreakEvent e) {
         if (!(e.getPlayer() instanceof ClaudeEntity g)) return;
         String id = BuiltInRegistries.BLOCK.getKey(e.getState().getBlock()).getPath();
-        if (e.getState().is(net.minecraft.tags.BlockTags.GUARDED_BY_PIGLINS)) ClaudeMod.LOGGER.info("[Claude piglin] he broke {} at {}: piglins in sight get angry (OwnEvents.onBreak)", id, e.getPos().toShortString()); // ponytail: the 16:49 death's cause, logged
+        if (e.getState().is(net.minecraft.tags.BlockTags.GUARDED_BY_PIGLINS) && g.level() instanceof net.minecraft.server.level.ServerLevel sl) { // ponytail: the 16:49 death's cause, logged
+            int seen = sl.getEntitiesOfClass(net.minecraft.world.entity.monster.piglin.Piglin.class, g.getBoundingBox().inflate(16), p -> p.isAlive() && p.hasLineOfSight(g)).size(); // (vanilla's angerNearbyPiglins: within 16, seeing him; none in the Overworld, review 66 took the old line for a fight)
+            if (seen > 0) ClaudeMod.LOGGER.info("[Claude piglin] he broke {} at {}: {} piglin(s) in sight get angry (OwnEvents.onBreak)", id, e.getPos().toShortString(), seen); }
         if (id.endsWith("_ore") || id.equals("ancient_debris")) { note(g, Kind.MINED, id, 1, e.getPos(), "", null); ClaudeMod.LOGGER.info("[Claude ore] mined {} at {} (OwnEvents.onBreak)", id, e.getPos().toShortString()); } // (a patch in that cell after reads as into air, not over the ore: D2D review 189)
         LessonWords.broke(g, e.getState(), e.getPos()); // (their lesson's count: dug by him)
     }

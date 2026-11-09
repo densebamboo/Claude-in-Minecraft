@@ -5007,7 +5007,7 @@ public class WorkGoal extends Goal {
         if (them.isEmpty()) { fightOdds = "nothing on him"; return false; }
         them.sort(java.util.Comparator.comparingDouble(m -> m.distanceTo(g)));
         double swing = w("fight.swing_s", 0.6), rate = w("fight.mob_hits_per_s", 0.8) * (armed() ? w("fight.knockback_hits_factor", 0.35) : 1), cool = w("fight.mob_cooldown_s", 1.0); // (a sword or axe knocks each one back: it walks in again before its next swing, about half the hits; HuntPatrol.fightS prices an enderman the same, 0.4. Stage 48: one zombie at 12 HP priced as 3 hits in 2.4 s, he ran) // (0.35, from the fight records 11-08: 38 won melee fights, ~0.21-0.3 hits per zombie-second armed; 0.5 priced 5 zombies in iron at 17 HP when they cost 7-11)
-        String unreachable = null; double t = 0, hits = 0, hp = 0, runHits = 0, burnS = 0; int most = 0, swings = 0; boolean sprint = g.getFoodData().getFoodLevel() > 6, allBurn = true, anyPace = false;
+        String unreachable = null; double t = 0, hits = 0, hp = 0, runHits = 0, burnS = 0, witherF = 0, witherR = 0; int most = 0, swings = 0; boolean sprint = g.getFoodData().getFoodLevel() > 6, allBurn = true, anyPace = false;
         boolean shield = g.getItemBySlot(EquipmentSlot.OFFHAND).is(net.minecraft.world.item.Items.SHIELD) && !g.getCooldowns().isOnCooldown(net.minecraft.world.item.Items.SHIELD);
         // only so many melee can be on him at once (the open cells round him: a few out in the open, one or two in a tunnel): the next one starts hitting when one before it dies (5 zombies on him in iron read as ~17 HP when the real fights cost 2-9; bench 1117, he ran in circles)
         int atOnce = Math.max(1, Math.min((int) w("fight.melee_at_once_max", 3), openRound(them))); java.util.List<Double> meleeDeaths = new java.util.ArrayList<>();
@@ -5026,16 +5026,16 @@ public class WorkGoal extends Goal {
             double h = bowDuel ? t * w("fight.shooter_shots_per_s", 0.5) * w("fight.shooter_hit_chance", 0.7) : (t - start) * (witch ? w("fight.witch_throws_per_s", 0.33) : rate) + (ranged ? m.distanceTo(g) / w("fight.close_blocks_per_shot", 6) : 0); // (Normal: a skeleton draws every 2 s)
             if (shoots(m) && shield && !bowDuel) h *= w("fight.shield_arrow_factor", 0.25); // (a shield up toward it while he closes in takes its arrows; stage 38 ran from one skeleton with a shield on him after 924759d) // (each hits him till it's down: the first for its own time, the next for both; a shooter ~a shot each 6 blocks he closes)
             if (!ranged && !witch) meleeDeaths.add(t);
-            hits += h; hp += h * dmg; most += (int) Math.ceil(t / cool) + (ranged ? 2 : 0);
+            hits += h; hp += h * dmg; most += (int) Math.ceil(t / cool) + (ranged ? 2 : 0); if (m instanceof net.minecraft.world.entity.monster.WitherSkeleton) witherF += h;
             boolean pace = !sprint || m instanceof net.minecraft.world.entity.monster.EnderMan || m instanceof net.minecraft.world.entity.FlyingMob || m.isNoGravity() || (m instanceof net.minecraft.world.entity.monster.Zombie z && z.isBaby()); // (a flier keeps pace with any run: phantoms, ghasts, an evoker's vexes, which hit 9 through iron; bench 1110: 'running west from [Vex 1 east, Vex 1 east ...]', dead)
             anyPace |= pace || ranged && !witch; // (the pile: a shooter gets its shots either way, a run avoids no fight with it; review 1292)
-            runHits += (witch && sprint ? w("flee.witch_hits", 1) : pace ? w("flee.chase_hits", 3) : m.distanceTo(g) < 4 ? w("flee.hits_breaking_off", 0.7) : 0) * dmg;
+            double rh = witch && sprint ? w("flee.witch_hits", 1) : pace ? w("flee.chase_hits", 3) : m.distanceTo(g) < 4 ? w("flee.hits_breaking_off", 0.7) : 0; runHits += rh * dmg; if (m instanceof net.minecraft.world.entity.monster.WitherSkeleton) witherR += rh;
             boolean burning = m.isOnFire() && !m.fireImmune() && g.level().isDay(); allBurn &= burning; burnS = Math.max(burnS, m.getHealth() / w("flee.burn_hp_per_s", 1.0));
         }
         double perHit = hits > 0 ? hp / hits : 3;
         boolean shooters = them.stream().anyMatch(m -> shoots(m)); double sightHp = shooters && sprint ? bestSightHp(crowd) : 0; runHits += sightHp; // (a shooter gets its shots while he is in its sight: on the heading that breaks it soonest, not three each whatever the ground)
         if (underground && !g.level().dimensionType().hasCeiling()) runHits += w("flee.dark_hits", 1.0) * perHit; // (the Nether is "underground" by its roof, but lit to the eye: no dark surcharge there)
-        if (them.stream().anyMatch(m -> m instanceof net.minecraft.world.entity.monster.WitherSkeleton)) { double dot = w("fight.wither_hp_per_s", 0.5); hp += dot * (t + w("fight.wither_s", 10)); runHits += dot * w("fight.wither_s", 10) * Math.min(1, runHits); } // (after perHit: the Wither is no hit. Each hit puts the Wither on him, armor no help: on all through the fight and its 10 s after; a run that takes a hit gets its 10 s too)
+        { double dot = w("fight.wither_hp_per_s", 0.5) * w("fight.wither_s", 10); hp += dot * (1 - Math.exp(-witherF)); runHits += dot * (1 - Math.exp(-witherR)); } // (the Wither rides on a hit: its 10 s only with the chance one of its hits lands, in the fight as on the run; was the fight's whole time + 10 s with no hit, and the run's scaled by its HP, not its hits: 18:39 11-08 both priced ~50% death) // (after perHit: the Wither is no hit. Each hit puts the Wither on him, armor no help: on all through the fight and its 10 s after; a run that takes a hit gets its 10 s too)
         boolean pile = g.getArmorValue() == 0 && (g.lastStep != null && g.lastStep.skill().equals("recover_drops") || g.skillQueue.stream().anyMatch(s0 -> s0.skill().equals("recover_drops")))
                 && com.claudemod.entity.life.DeathLog.next(g, g.level().dimension().location().getPath()) != null && !anyPace; // (one that keeps pace with him gets its hits either way: running avoids no fight, review 1292)
         double fightNow = t + com.claudemod.entity.life.Decide.hpS(g, g.getHealth(), 0, hp, perHit, most), fightFull = t + com.claudemod.entity.life.Decide.hpS(g, g.getMaxHealth(), 0, hp, perHit, most);
@@ -5137,17 +5137,20 @@ public class WorkGoal extends Goal {
 
     /** The way to run: away from them, with footing (no drop over 3), clear ahead, best where terrain hides him from them by 8 out. */
     /** HP the shooters' arrows cost him running 16 out on this heading: each step in a shooter's sight (its eye to his) at a sprint, flee.shots_per_s at flee.shot_hit_chance; a wall in the way leaves him standing there in view (flee.stuck_exposed_s). Behind rock it's none: the run that breaks their sight (World 17 09:40, 10:19; stage 773). */
-    private double sightHp(Vec3 hd, java.util.List<? extends net.minecraft.world.entity.Entity> mobs) {
+    private double sightHp(Vec3 hd, java.util.List<? extends net.minecraft.world.entity.Entity> mobs) { return sightHp(hd, mobs, false); }
+    /** runsOn: he keeps running (the run's price): no shots out of its weapon's range, and he outruns it at the pace he gains. Off for an escape that holds at its spot: there only breaking its sight helps, it walks back into range (stage 773). */
+    private double sightHp(Vec3 hd, java.util.List<? extends net.minecraft.world.entity.Entity> mobs, boolean runsOn) {
         ServerLevel lv = (ServerLevel) g.level(); double hp = 0, step = 1 / com.claudemod.entity.life.Decide.sprint();
         for (var e : mobs) {
             if (!(e instanceof net.minecraft.world.entity.LivingEntity m) || !m.isAlive() || !shoots(m) || m.distanceTo(g) > 24) continue;
-            double seenS = 0; java.util.List<Vec3> eyes = new java.util.ArrayList<>(); for (Vec3 off : new Vec3[] {Vec3.ZERO, new Vec3(3, 0, 0), new Vec3(-3, 0, 0), new Vec3(0, 0, 3), new Vec3(0, 0, -3)}) { Vec3 e0 = m.getEyePosition().add(off); BlockPos eb = BlockPos.containing(e0); if (off == Vec3.ZERO || lv.getBlockState(eb).getCollisionShape(lv, eb).isEmpty() && lv.getBlockState(eb.below()).getCollisionShape(lv, eb.below()).isEmpty()) eyes.add(e0); } // (where it stands and a few steps round: it moves; behind one pillar is no cover from a skeleton that steps off it)
+            double seenS = 0, range = runsOn ? shotRange(m) : Double.MAX_VALUE; java.util.List<Vec3> eyes = new java.util.ArrayList<>(); for (Vec3 off : new Vec3[] {Vec3.ZERO, new Vec3(3, 0, 0), new Vec3(-3, 0, 0), new Vec3(0, 0, 3), new Vec3(0, 0, -3)}) { Vec3 e0 = m.getEyePosition().add(off); BlockPos eb = BlockPos.containing(e0); if (off == Vec3.ZERO || lv.getBlockState(eb).getCollisionShape(lv, eb).isEmpty() && lv.getBlockState(eb.below()).getCollisionShape(lv, eb.below()).isEmpty()) eyes.add(e0); } // (where it stands and a few steps round: it moves; behind one pillar is no cover from a skeleton that steps off it)
             java.util.function.Predicate<Vec3> sees = pt -> eyes.stream().anyMatch(e0 -> com.claudemod.entity.life.Perception.clear(lv, e0, pt));
             for (int i = 1; i <= 16; i++) {
                 Vec3 at = g.position().add(hd.scale(i)); BlockPos f = BlockPos.containing(at);
                 if (!lv.getBlockState(f.above()).getCollisionShape(lv, f.above()).isEmpty() || !lv.getBlockState(f).getCollisionShape(lv, f).isEmpty() && !lv.getBlockState(f.above(2)).getCollisionShape(lv, f.above(2)).isEmpty()) { // (a wall: he stops at the last step in view)
-                    if (sees.test(g.position().add(hd.scale(i - 1)).add(0, 1.6, 0))) seenS += w("flee.stuck_exposed_s", 4); break; }
-                if (sees.test(at.add(0, 1.6, 0))) { seenS += step; if (i == 16) seenS += w("flee.open_exposed_s", 6); } // (still in its sight 16 out: open ground, it follows and shoots on; World 17 05:18, arrows of 5 and 3 in his back on the run, 16 -> 1)
+                    Vec3 last = g.position().add(hd.scale(i - 1)); if (last.distanceTo(m.position()) <= range && sees.test(last.add(0, 1.6, 0))) seenS += w("flee.stuck_exposed_s", 4); break; } // (stopped by the wall out of its range: no shots there either)
+                if (at.distanceTo(m.position()) > range) continue; // (out of its bow's range there: it walks after him, never shoots)
+                if (sees.test(at.add(0, 1.6, 0))) { seenS += step; if (i == 16) seenS += runsOn ? Math.max(0, range - at.distanceTo(m.position())) / Math.max(0.5, com.claudemod.entity.life.Decide.sprint() - mobPace(m, 1.0)) : w("flee.open_exposed_s", 6); } // (still in its sight 16 out: open ground, it follows and shoots on; World 17 05:18, arrows of 5 and 3 in his back on the run, 16 -> 1)
             }
             hp += seenS * w("flee.shots_per_s", 0.5) * w("flee.shot_hit_chance", 0.7) * mobHit(m);
         }
@@ -5156,7 +5159,7 @@ public class WorkGoal extends Goal {
     /** The least arrow HP of the 12 headings round the way away from them (sightHp). */
     private double bestSightHp(java.util.List<? extends net.minecraft.world.entity.Mob> mobs) {
         Vec3 base = fleeHeading(mobs); double best = Double.MAX_VALUE;
-        for (int r = 0; r < 360; r += 30) { double a = Math.toRadians(r); best = Math.min(best, sightHp(new Vec3(base.x * Math.cos(a) - base.z * Math.sin(a), 0, base.x * Math.sin(a) + base.z * Math.cos(a)), mobs)); }
+        for (int r = 0; r < 360; r += 30) { double a = Math.toRadians(r); best = Math.min(best, sightHp(new Vec3(base.x * Math.cos(a) - base.z * Math.sin(a), 0, base.x * Math.sin(a) + base.z * Math.cos(a)), mobs, true)); }
         return best == Double.MAX_VALUE ? 0 : best;
     }
     private Vec3 fleeHeading(java.util.List<? extends net.minecraft.world.entity.Mob> mobs) {
@@ -6831,8 +6834,12 @@ public class WorkGoal extends Goal {
     /** A melee mob on him that walks into reach before a meal (1.6 s) is down: vanilla's pace, ~44 x (speed x its chase modifier)^2 blocks a second (a zombie 2.3, a wither skeleton at its 1.2 about 4). Live 18:39 11-08: "eating first" at 2 HP, a wither skeleton 5 off was on him in 1.1 s. */
     private boolean meleeInByMeal() {
         return !level().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(16), m -> m.isAlive() && m.getTarget() == g && !shoots(m) && !(m instanceof net.minecraft.world.entity.monster.Creeper)
-            && m.distanceTo(g) - w("fight.reach_blocks", 3.5) < 44 * Math.pow(m.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED) * 1.2, 2) * w("food.eat_s", 1.6)).isEmpty();
+            && m.distanceTo(g) - w("fight.reach_blocks", 3.5) < mobPace(m, 1.2) * w("food.eat_s", 1.6)).isEmpty();
     }
+    /** Blocks a second a mob walks at its goal's speed modifier: vanilla moves it speed x speed (setSpeed sets its input too), a player at 0.98 x 0.1 for 4.317. */
+    static double mobPace(net.minecraft.world.entity.LivingEntity m, double mod) { return 44.05 * Math.pow(m.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED) * mod, 2); }
+    /** How far a shooter looses from: its weapon's own range (a bow 15, a crossbow 8), a trident drowned's goal 10. */
+    static double shotRange(net.minecraft.world.entity.LivingEntity m) { return m.getMainHandItem().getItem() instanceof net.minecraft.world.item.ProjectileWeaponItem pw ? pw.getDefaultProjectileRange() : 10; }
 
     /** Right click held on the shield in his off hand, facing the threat (a shield only stops what's in front of him). */
     private void shieldUp(net.minecraft.world.entity.LivingEntity threat) {

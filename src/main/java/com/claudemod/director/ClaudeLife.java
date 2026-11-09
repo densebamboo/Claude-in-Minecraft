@@ -5502,20 +5502,28 @@ public final class ClaudeLife {
     /** maxRoute: how far by his tunnels a junk chest may be; cutNew: a new chest cut into his tunnel wall when none is in reach. */
     /** A step bound for the fortress: with his highway unfinished, the way there is the highway, and its blocks go in the pack before the portal (D2D review 133, live 03:54 11-09: in for blaze rods with 0 deepslate, out again 12 s later; stage 1199). */
     static boolean fortressBound(Skills.Step s0) { return s0.skill().equals("find_fortress") || s0.target().equals("fortress") || s0.target().contains("blaze_rod") || s0.target().contains("blaze_powder") || s0.target().contains("nether_wart") || s0.target().contains("wither_skeleton"); }
+    /** A chest errand met mid-walk: nearer by his tunnels than where the walk goes, the chest first and the walk after it (live 09:02:57 11-09, D2D review 378: his furnace ~50 round his tunnels, his junk chest 13 back along the row; he walked furnace, chest, furnace). Call before queueing the errand's tasks. */
+    static void errandFirst(ClaudeEntity g, BlockPos stop) {
+        if (!(g.currentTask instanceof Task.GoTo cur) || g.dropCurrent) return;
+        BlockPos me = g.blockPosition(); int dStop = routeDist(g, me, stop), dWalk = routeDist(g, me, cur.pos());
+        if (dStop >= dWalk) return;
+        g.tasks.addFirst(cur); dropCurrent(g); g.getNavigation().stop();
+        ClaudeMod.LOGGER.info("[Claude life] {} is {} off by his tunnels, his walk to {} {}: there first, the walk after (ClaudeLife.errandFirst)", stop.toShortString(), dStop, cur.pos().toShortString(), dWalk);
+    }
     static String junkChestRound(ClaudeEntity g, ServerLevel level, double maxRoute, boolean cutNew) {
         BlockPos me = g.blockPosition();
         for (com.claudemod.entity.life.BaseNook jn : nooksByRoute(g, me)) for (BlockPos p : jn.junkChestCells()) { // his nearest nook's junk row first (by his tunnels): a walk home beats a new chest cut into the tunnel wall
             if (routeDist(g, me, p) > maxRoute || !level.isLoaded(p) || !level.getBlockState(p).is(Blocks.CHEST) || !chestRoom(level, p)) { ClaudeMod.LOGGER.info("[Claude chest] nook junk chest at {} skipped (ClaudeLife.junkChestRound): {}", p.toShortString(), routeDist(g, me, p) > maxRoute ? "over " + (int) maxRoute + " off by his tunnels" : !level.isLoaded(p) ? "not loaded" : !level.getBlockState(p).is(Blocks.CHEST) ? "not set yet" : "full"); continue; }
             if (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, p, g.tickCount, 20 * 300) || g.attempts.within(com.claudemod.entity.life.Attempts.Kind.REACH, p, g.tickCount, 20 * 300)) continue;
             if (!isJunkChest(g, p)) { String list = g.pref("junk_chests", ""); g.prefs.put("junk_chests", (list.isEmpty() ? "" : list + ";") + p.getX() + " " + p.getY() + " " + p.getZ()); }
-            toWork(g); g.tasks.addFirst(new Task.Deposit(p)); g.tasks.addFirst(new Task.GoTo(jn.standFor(p), 0.8));
+            toWork(g); errandFirst(g, p); g.tasks.addFirst(new Task.Deposit(p)); g.tasks.addFirst(new Task.GoTo(jn.standFor(p), 0.8));
             ClaudeMod.LOGGER.info("[Claude chest] junk round to the nook's top row at {} (ClaudeLife.junkChestRound)", p.toShortString());
             return "putting the spare blocks in the junk chest at my base";
         }
         for (BlockPos p : junkChests(g)) {
             if (p.distSqr(me) > Math.min(48, maxRoute) * Math.min(48, maxRoute) || !level.isLoaded(p) || !chestRoom(level, p)) continue;
             if (g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, p, g.tickCount, 20 * 300) || g.attempts.within(com.claudemod.entity.life.Attempts.Kind.REACH, p, g.tickCount, 20 * 300)) continue;
-            toWork(g); g.tasks.addFirst(new Task.Deposit(p)); g.tasks.addFirst(new Task.GoTo(p, 2));
+            toWork(g); errandFirst(g, p); g.tasks.addFirst(new Task.Deposit(p)); g.tasks.addFirst(new Task.GoTo(p, 2));
             return "putting the spare blocks in my junk chest at " + p.toShortString(); // (whatever junk he carries, not only cobble: review 011942-277 said cobble storing deepslate)
         }
         MineBlueprint b = g.blueprint; if (b == null || b.isEmpty() || !cutNew) return null;
@@ -5601,7 +5609,7 @@ public final class ClaudeLife {
             for (int i = 0; i < box.getContainerSize() && !room; i++) room = box.getItem(i).isEmpty();
             if (!room) continue; // that one's full: the next (all full: the junk goes, below)
             if (g.tasks.stream().anyMatch(t -> t instanceof Task.Deposit)) return;
-            toWork(g);
+            toWork(g); errandFirst(g, p);
             g.tasks.addFirst(new Task.Deposit(p));
             g.tasks.addFirst(new Task.GoTo(p, 2));
             ClaudeMod.LOGGER.info("[Claude life] inventory full: putting it in his storage at {}", p.toShortString());

@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1306: return st1306(stage, t, c, h, level, mock);
             case 1305: return st1305(stage, t, c, h, level, mock);
             case 1350: return st1350(stage, t, c, h, level, mock);
             case 1301: return st1301(stage, t, c, h, level, mock);
@@ -16793,6 +16794,33 @@ public final class ClaudeBodyTest {
             String at = c.blockPosition().toShortString(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; level.setDayTime(6000); flatBox(h);
             check(!refused, "a hole dug by the pond's corner where the dig refuses its blocks: down to " + s1305Low + ", at " + at);
             pass(stage, t, "no hole by the pond's corner: at " + at);
+        }
+        return true;
+    }
+    /** Stage 1306 (D2D review 378, live 09:02:55-09:03:41 11-09 at -110,16,-277: off to his furnace ~50 round his tunnels when his pack filled; his junk chest 13 back along the row was queued after that walk, so he walked furnace, chest, furnace, ~150 blocks for ~60). A chest errand nearer than where his walk goes comes first, the walk after. Here: walking to a spot 9 off, his junk chest 3 the other way, pack full of junk: the chest before he gets near the spot, then the walk. */
+    private static BlockPos s1306C, s1306F; private static int s1306T; private static boolean s1306Near;
+    private static boolean st1306(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1306T = -1; s1306Near = false; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, c.getBoundingBox().inflate(48), e -> !(e instanceof net.minecraft.world.entity.player.Player))) e.discard();
+            BlockPos s = h.absolutePos(new BlockPos(8, 2, 8)); s1306C = h.absolutePos(new BlockPos(11, 2, 8)); s1306F = h.absolutePos(new BlockPos(1, 2, 3));
+            level.setBlock(s1306C, Blocks.CHEST.defaultBlockState(), 2); c.prefs.put("junk_chests", s1306C.getX() + " " + s1306C.getY() + " " + s1306C.getZ());
+            var inv = c.getInventory(); inv.clearContent(); inv.add(new ItemStack(Items.IRON_PICKAXE)); for (int i = 0; i < 5; i++) inv.add(new ItemStack(Items.COBBLESTONE, 64)); inv.add(new ItemStack(Items.ANDESITE, 32)); inv.add(new ItemStack(Items.DIORITE, 32));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(s.getX() + 0.5, s.getY(), s.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 12) c.tasks.add(new Task.GoTo(s1306F, 0.8));
+        if (t[0] == 16) { String r = com.claudemod.director.ClaudeLife.junkChestRoundNow(c, level); check(r != null, "no junk round with his junk chest 3 off"); s1306T = t[0]; }
+        if (s1306T > 0) {
+            boolean in = level.getBlockEntity(s1306C) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box && !box.isEmpty();
+            if (!in && Math.sqrt(s1306F.distToCenterSqr(c.position())) < 4) s1306Near = true;
+            if (in || t[0] == s1306T + 20 * 20) { double secs = (t[0] - s1306T) / 20.0;
+                boolean walkOn = c.currentTask instanceof Task.GoTo g0 && g0.pos().equals(s1306F) || c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo g1 && g1.pos().equals(s1306F));
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.prefs.remove("junk_chests"); level.setBlock(s1306C, Blocks.AIR.defaultBlockState(), 2); c.getInventory().clearContent(); flatBox(h);
+                check(in, "nothing in his junk chest 3 off in 20 s");
+                check(!s1306Near, "walked to the spot 9 off first, the chest 3 the other way after (" + secs + " s)");
+                check(walkOn, "the walk to the spot dropped for the chest, not resumed after it");
+                pass(stage, t, "junk chest first in " + secs + " s, the walk after"); }
         }
         return true;
     }

@@ -10554,6 +10554,7 @@ public final class ClaudeBodyTest {
             case 1351: return st1351(stage, t, c, h, level, mock);
             case 1352: return st1352(stage, t, c, h, level, mock);
             case 1353: return st1353(stage, t, c, h, level, mock);
+            case 1354: return st1354(stage, t, c, h, level, mock);
             case 1301: return st1301(stage, t, c, h, level, mock);
             case 1302: return st1302(stage, t, c, h, level, mock);
             case 1303: return st1303(stage, t, c, h, level, mock);
@@ -26000,6 +26001,35 @@ public final class ClaudeBodyTest {
             h.setBlock(new BlockPos(6, 4, 12), Blocks.DEEPSLATE); c.blueprint = null;
             check(!cut, "his route past his wall digs his own water plug at (6,3,12): " + (plan == null ? "-" : plan.acts()));
             pass(stage, t, "his water plug kept: the route " + (plan == null ? "found no way" : "goes " + plan.acts().size() + " acts round it"));
+        }
+        return true;
+    }
+    private static java.util.List<net.minecraft.world.entity.Mob> st1354M = new java.util.ArrayList<>();
+    private static boolean st1354(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 11:29:54 11-09: "recovery.trip (26 stacks at 274,65,466): go ~198 s (the walk there and back, the hits on it); leave ~1521 s" while grabAndRun the same second read "~1980 s of hits in ~21 s on them (7 hostiles known)": back into the fortress swarm that killed him at 10:33, dead 11:33:55. 10 of World 17's 62 deaths on a recovery run, most into what killed him there (piglins x3, skeletons x2, zombies x2, wither skeletons x2)
+        BlockPos spot = h.absolutePos(new BlockPos(6, 2, 6));
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.DeathLog.reset(c); st1354M.clear(); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 16; x++) for (int z = -4; z <= 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 2; y <= 6; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS));
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.setHealth(20);
+            BlockPos me = spot.offset(0, 0, 4); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(180); c.setXRot(0);
+            int[][] at = {{-3, -2}, {-2, -3}, {0, -3}, {2, -3}, {3, -2}, {-3, 0}, {3, 0}, {0, -4}};
+            for (int[] a : at) { var ws = net.minecraft.world.entity.EntityType.WITHER_SKELETON.create(level); BlockPos b = spot.offset(a[0], 0, a[1]); ws.moveTo(b.getX() + 0.5, b.getY(), b.getZ() + 0.5, 0, 0); ws.setNoAi(true); ws.setPersistenceRequired(); level.addFreshEntity(ws); st1354M.add(ws); }
+        }
+        if (t[0] == 60) { // he's had them in view: he dies by them
+            var fell = new java.util.ArrayList<net.minecraft.world.entity.item.ItemEntity>();
+            for (var it : new net.minecraft.world.item.Item[] {Items.DIAMOND_HELMET, Items.DIAMOND_PICKAXE, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_SWORD, Items.ENDER_PEARL, Items.BOW}) fell.add(new net.minecraft.world.entity.item.ItemEntity(level, spot.getX() + 0.5, spot.getY(), spot.getZ() + 0.5, new ItemStack(it)));
+            com.claudemod.entity.life.DeathLog.died(c, level, spot, fell);
+            for (var m : st1354M) m.discard(); // (the live pile was 542 off, unloaded: what's there is only what he knew when he died)
+            BlockPos far = spot.offset(0, 0, 60); for (int x = -2; x <= 2; x++) for (int z = 58; z <= 62; z++) level.setBlock(spot.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2);
+            c.teleportTo(far.getX() + 0.5, far.getY(), far.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+        }
+        if (t[0] == 70) {
+            var d = com.claudemod.entity.life.DeathLog.of(c).get(com.claudemod.entity.life.DeathLog.of(c).size() - 1);
+            double trip = com.claudemod.entity.life.DeathLog.tripS(c, d.dim, d.at), worth = com.claudemod.entity.life.DeathLog.worthS(d.what);
+            com.claudemod.entity.life.DeathLog.reset(c);
+            check(trip > worth, "the run back to the pile where 8 wither skeletons killed him priced ~" + (int) trip + " s against its worth ~" + (int) worth + " s: he goes back into them as he is (iron, a sword)");
+            pass(stage, t, "the run back into what killed him ~" + (int) trip + " s against the pile's ~" + (int) worth + " s: it waits for better gear"); return true;
         }
         return true;
     }

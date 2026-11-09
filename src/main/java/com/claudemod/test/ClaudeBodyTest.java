@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1195: return st1195(stage, t, c, h, level, mock);
             case 1194: return st1194(stage, t, c, h, level, mock);
             case 1192: return st1192(stage, t, c, h, level, mock);
             case 1191: return st1191(stage, t, c, h, level, mock);
@@ -16361,6 +16362,22 @@ public final class ClaudeBodyTest {
             check(told.contains((rowsN - 1) + " of " + rowsN + " rows laid"), "the planner told the highway stands at its first gap, not what's laid (" + (rowsN - 1) + " of " + rowsN + "): " + told.trim());
             check(want <= 64, "one row to lay (the gap at row 4, the rest laid to the end): a trip for " + want + " deepslate (" + r + ")");
             pass(stage, t, "one gap: a trip for " + want + " (" + r + ")");
+        }
+        return true;
+    }
+    /** Stage 1195 (D2D 11-09: 19:01 11-08 his own table at -2,61,32 refused by doBreak's station rule three times; the conflict the planner got, "breaking crafting_table queued by Highway.skill", named no owner, and the planner asked the user about "your crafting table"): a refused break of a station says whose it is. */
+    private static boolean st1195(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(4, 2, 4)), tb = me.east(2);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 10) { flatBox(h); level.setBlock(tb, Blocks.CRAFTING_TABLE.defaultBlockState(), 3); c.myStations.add(tb.immutable());
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; }
+        if (t[0] == 15) c.tasks.add(new Task.Break(tb.immutable()));
+        if (t[0] == 25) {
+            String why = c.work.exitWhyForTest();
+            check(level.getBlockState(tb).is(Blocks.CRAFTING_TABLE), "his table was broken: not the scene (the station rule keeps it here)");
+            c.myStations.remove(tb); level.setBlock(tb, Blocks.AIR.defaultBlockState(), 3);
+            check(why != null && why.contains("his own"), "the refused break of his own table says nobody's: \"" + why + "\" (the planner guessed \"your crafting table\")");
+            pass(stage, t, "refused, and says whose: " + why);
         }
         return true;
     }

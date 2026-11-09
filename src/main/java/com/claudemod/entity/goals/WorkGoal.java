@@ -2141,7 +2141,7 @@ public class WorkGoal extends Goal {
                 liftFor().remove(pos.immutable()); com.claudemod.director.ClaudeLife.takeUpStation(pos); g.myStations.remove(pos); g.notches.remove(pos); g.tempStations.remove(pos);
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] his own {} at {} over the station he's reaching (WorkGoal.doBreak): taking it up, back in his pack", name(state), pos.toShortString());
                 g.tasks.addFirst(new Task.Pickup(40));
-            } else { if (ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not breaking the {} at {} (WorkGoal.doBreak): stations and storage stay put (his own: {}, in his walkway: {}, in his nook: {})", name(state), pos.toShortString(), his0, bpS != null && bpS.isWalk(pos), com.claudemod.director.ClaudeLife.inHisNook(g, pos)); keptAsBuild(pos); return true; }
+            } else { if (ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not breaking the {} at {} (WorkGoal.doBreak): stations and storage stay put (his own: {}, in his walkway: {}, in his nook: {})", name(state), pos.toShortString(), his0, bpS != null && bpS.isWalk(pos), com.claudemod.director.ClaudeLife.inHisNook(g, pos)); keptAsBuild(pos); return exit((his0 ? "his own " : "not his: ") + name(state) + ", kept: stations and storage stay put"); } // (whose it is in the refusal: the conflict the planner got named nobody, and it asked the user about "your crafting table", D2D 11-09, stage 1195)
         } // stations and storage stay put (except his own temporary ones, and his own taken up on purpose)
         if (g.getTarget() instanceof net.minecraft.server.level.ServerPlayer owner
                 && com.claudemod.director.ClaudeLife.protectedBlock(g, owner, pos) && !com.claudemod.entity.life.Consent.theirWord(g, pos, "their build", "part of their build", null)) { if (ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not breaking {}: it's part of their build", pos.toShortString()); return true; }
@@ -2790,6 +2790,7 @@ public class WorkGoal extends Goal {
     /** A player glances at the walls and mines any ore showing (that their pickaxe can take). */
     private int pulledAt = -100000; private final java.util.Set<Task> pulled = new java.util.HashSet<>(); // (jobs pulled ahead of a walk, per walk target)
     String exitWhy = null; // why the last dig/place ended without its block changed (the user: every give-up says why)
+    public String exitWhyForTest() { return exitWhy; }
     /** A dig of ore he can't have seen (every face closed; the dig that opens it dropped or not yet done): not started, his lesson or their step naming the cell aside. The plan and the vein scan queue it again once a face is open. */
     private boolean unseenOre(Task t) {
         if (!(t instanceof Task.Break b) || !com.claudemod.entity.life.Watchdog.hiddenOre(g.level(), b.pos())) return false;

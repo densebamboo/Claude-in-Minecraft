@@ -3168,8 +3168,10 @@ public class WorkGoal extends Goal {
             if (digThroughToward(nearest.position())) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} at {} is down an ore hole off his tunnel: opening the wall under it to step in for it", nearest.getItem().getHoverName().getString(), ip.toShortString()); return true; }
             g.tasks.remove(again);
         }
-        com.claudemod.ClaudeMod.LOGGER.info("[Claude life] left {} at {} behind: no way to it (he's at {}, {} up)", nearest.getItem().getHoverName().getString(),
-                ip.toShortString(), g.blockPosition().toShortString(), String.format("%.1f", dy));
+        { StringBuilder round = new StringBuilder(); BlockPos me0 = g.blockPosition(); // (what the moves met: the cells between him and it, so a "no way" beside him can be read from the log; review 84 live 02:11 11-09 didn't repro)
+          for (BlockPos q : new BlockPos[] {new BlockPos(ip.getX(), me0.getY(), me0.getZ()), new BlockPos(me0.getX(), me0.getY(), ip.getZ()), ip.above(), ip, ip.below()}) round.append(round.length() == 0 ? "" : ", ").append(q.toShortString()).append("=").append(level.getBlockState(q).getBlock().getName().getString());
+          com.claudemod.ClaudeMod.LOGGER.info("[Claude life] left {} at {} behind: no way to it (he's at {}, {} up, {} off; effort {}, path {}; round it: {})", nearest.getItem().getHoverName().getString(),
+                ip.toShortString(), g.blockPosition().toShortString(), String.format("%.1f", dy), String.format("%.1f", horiz), pickupEffort, path == null ? "none" : path.getNodeCount() + " nodes, reaches " + path.canReach(), round); }
         com.claudemod.entity.life.OwnEvents.left(g, nearest, "no way to it"); // (on his book: "you didn't grab all your diamonds" resolves to it)
         if (!leaveOwn(nearest)) g.markGift(nearest); // given up on: he doesn't keep going back for it (a valuable of his by his own mine: his still, recover_left)
         g.tasks.addFirst(again); return true; // nothing works: leave it

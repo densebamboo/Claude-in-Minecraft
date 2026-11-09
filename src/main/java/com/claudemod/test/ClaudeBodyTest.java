@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1237: return st1237(stage, t, c, h, level, mock);
             case 1236: return st1236(stage, t, c, h, level, mock);
             case 1199: return st1199(stage, t, c, h, level, mock);
             case 1196: return st1196(stage, t, c, h, level, mock);
@@ -16476,6 +16477,31 @@ public final class ClaudeBodyTest {
             check(!taken, "cleanup took back his cap of the hole by his door");
             check(kept, "his cap by his door (on his ledger as PitGuard's) not his cap once his PitGuard state is gone: a dig would take it");
             pass(stage, t, "the hole by his door capped, the cap kept");
+        }
+        return true;
+    }
+    /** Stage 1237 (D2D review 116/91, live 05:02:20 11-09 in the Nether: from 145,62,177 on a soul-soil floor 1 thick over a hollow, to 144,52,177 on its bottom 10 down: "no way with every planner", the search ran out bridging the void round it; 04:50-04:51 the same over a 13-high hall to his road at y 33. No move dug the floor in front of him to drop through it, as a player does): a 1-thick floor over a closed 6-high hollow, his goal on its bottom. He digs the floor ahead and drops in. */
+    private static BlockPos s1237G; private static int s1237T;
+    private static boolean st1237(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); flatBox(h); c.nextPlanTick = c.tickCount + 12000; c.prefs.put("stay_close", "no"); c.setHealth(20); }
+        if (t[0] == 10) {
+            for (int x = 2; x <= 10; x++) for (int z = 2; z <= 10; z++) { for (int y = 2; y <= 8; y++) h.setBlock(new BlockPos(x, y, z), x >= 4 && x <= 8 && z >= 4 && z <= 8 && y >= 3 ? Blocks.AIR : Blocks.BEDROCK); h.setBlock(new BlockPos(x, 9, z), Blocks.NETHERRACK); } // bedrock round and under it: the floor over it the one way in
+            var inv = c.getInventory(); inv.items.set(0, new ItemStack(Items.DIAMOND_PICKAXE)); inv.selected = 0;
+            BlockPos me = h.absolutePos(new BlockPos(6, 10, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.currentTask = null; c.dropCurrent = true; c.getNavigation().stop();
+            s1237G = h.absolutePos(new BlockPos(6, 3, 7)).immutable(); s1237T = t[0];
+            c.tasks.add(new Task.GoTo(s1237G, 0.6));
+        }
+        if (t[0] > 10) {
+            boolean there = c.blockPosition().distSqr(s1237G) <= 1;
+            boolean gaveUp = c.attempts.last(com.claudemod.entity.life.Attempts.Kind.WALK, s1237G) != null;
+            if (there || gaveUp || t[0] - s1237T > 400) {
+                String at = c.blockPosition().toShortString(); float hp = c.getHealth();
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); flatBox(h);
+                BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(back.getX() + 0.5, back.getY(), back.getZ() + 0.5); c.setHealth(20);
+                check(there, "never got down into the hollow through its 1-thick floor (he's at " + at + (gaveUp ? ", the walk written off" : "") + " after " + (t[0] - s1237T) + " ticks)");
+                check(t[0] - s1237T <= 200, "the dig and drop took " + (t[0] - s1237T) + " ticks (a player: 1 s)");
+                pass(stage, t, "dug the floor and dropped in (" + (t[0] - s1237T) + " ticks, " + hp + " HP after)");
+            }
         }
         return true;
     }

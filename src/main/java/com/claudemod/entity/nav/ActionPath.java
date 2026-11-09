@@ -702,6 +702,23 @@ public final class ActionPath {
                 List<Act> acts = new ArrayList<>(); acts.add(new Act.Leap(feet.immutable(), f.land().immutable(), Leaps.DROP, f.down(), f.hp(), cost));
                 out.add(new Move(f.land().immutable(), cost, acts));
             }
+            // the floor in front of him dug out and dropped through (live 05:02 11-09, review 116: a 1-thick soul-soil floor over a hollow, his goal on its bottom 10 down, "no way with every planner"; review 91 the same over a hall to his road): the block under the cell ahead dug, the fall into what's under it priced like any drop; the leap looks down the open hole before he steps off (Leaps.drop)
+            if (!swimming && floor(feet)) for (Direction d : Direction.Plane.HORIZONTAL) {
+                BlockPos ahead = feet.relative(d), fl = ahead.below();
+                if (!passable(ahead) || !head(ahead.above()) || water(ahead) || !solid(fl) || !passable(fl.below()) || water(fl.below()) || lavaBy(fl)) continue;
+                double sec = digSeconds(fl); if (sec < 0) continue;
+                Leaps.Fall f = Leaps.fall(g, level, fl, fl.getY() - 0.001, 0); // (from just under the dug block: what's under it)
+                int down = ahead.getY() - f.land().getY();
+                if (!f.ok() || down <= 3) continue; // (lava, fire, no bottom; up to 3 down the ordinary step down digs it)
+                if (!water(f.land()) && hurts(f.land())) continue;
+                float fhp = water(f.land()) ? 0 : Leaps.damage(g, level, down, bs(f.land().below()));
+                String what = "dig the floor off " + feet.toShortString() + " " + d.getName() + " and drop";
+                if (hp - hurtNow - fhp < margin) { refuse(what, down + " down is " + Leaps.fmt(fhp) + " HP: he's at " + Leaps.fmt(hp - hurtNow) + ", under the " + (int) margin + " he keeps"); continue; }
+                double cost = (sec + com.claudemod.entity.life.Weights.w("path.dig_overhead_s", 0.05)) * com.claudemod.entity.life.Weights.w("path.dig_per_s", 5.6) + 1.2 + down * 0.05 + hpCost(fhp) + failPenalty(f.land());
+                double av = avoidCost(f.land()); if (av < 0) continue; cost += av;
+                List<Act> acts = new ArrayList<>(); acts.add(new Act.Dig(fl.immutable())); acts.add(new Act.Leap(feet.immutable(), f.land().immutable(), Leaps.DROP, down, fhp, cost));
+                out.add(new Move(f.land().immutable(), cost, acts));
+            }
             // a jump over a gap (the user, 16:48: "he should get better and jumping across platforms and parkour. and use it in his pathing"): vanilla's motion (Leaps.reach, jumpKind):
             // a walk-jump over 1, a sprint-jump over 2 (up one), 3 and 4 (down); priced by the chance of a miss times what's under the gap; a miss onto lava, no bottom or
             // past his margin: no jump, a bridge (or the way round) instead

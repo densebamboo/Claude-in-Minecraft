@@ -575,15 +575,17 @@ public final class Watchdog {
         BlockPos want = g.currentTask instanceof Task.GoTo c ? c.pos() : null;
         if (want == null) for (Task t : g.tasks) if (t instanceof Task.GoTo q) { want = q.pos(); break; }
         long pos = g.blockPosition().asLong();
-        boolean excused = g.holdingNight() || g.isSleeping() || g.staying || Consent.lesson(g) || !on();
+        boolean excused = g.holdingNight() || g.isSleeping() || g.staying || Consent.lesson(g) || !on() || bedHold(g); // (by his bed for the morning: live 07:26 11-09, STUCK 3)
         if (excused || want == null || pos != s.stillPos || !want.equals(s.stillWant) || s.broken != s.stillBroken) { s.stillPos = pos; s.stillWant = want; s.stillSince = now(g); s.stillBroken = s.broken; return; } // (digging from one spot is work: an obsidian pocket's 10 blocks)
         if (now(g) - s.stillSince >= stuckTicks)
             fileOnce(g, "STUCK", "STUCK|" + pos + "|" + want.asLong(), String.format("at %s for %d s with the walk to %s queued all that time, doing %s (queue %d, step %s)", g.blockPosition().toShortString(), (now(g) - s.stillSince) / 20, want.toShortString(), g.currentTask, g.tasks.size(), g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target()));
     }
+    /** sleepIfNight holding him by his bed tonight, the walks waiting for the morning: a night hold like holdingNight. */
+    private static boolean bedHold(ClaudeEntity g) { return g.level() instanceof net.minecraft.server.level.ServerLevel sl && com.claudemod.director.ClaudeLife.nightBedHold(g, sl) != null; }
     /** No task, nothing queued, standing still 20 s+ (not holding the night, asleep, held by them, or thinking under 45 s). */
     private static void idle(ClaudeEntity g, St s) {
         boolean still = s.idleSince >= 0 && Math.abs(g.getX() - s.idleX) + Math.abs(g.getZ() - s.idleZ) < 2;
-        boolean excused = g.holdingNight() || g.isSleeping() || g.staying || g.planning && g.tickCount - g.planStartTick < 20 * 45;
+        boolean excused = g.holdingNight() || g.isSleeping() || g.staying || g.planning && g.tickCount - g.planStartTick < 20 * 45 || bedHold(g);
         if (g.currentTask != null || !g.tasks.isEmpty() || excused || !on()) { s.idleSince = -1; return; }
         if (!still) { s.idleSince = now(g); s.idleX = g.getX(); s.idleZ = g.getZ(); return; }
         if (now(g) - s.idleSince >= 20 * 20)

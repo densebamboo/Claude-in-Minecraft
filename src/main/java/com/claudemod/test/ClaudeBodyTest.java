@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1243: return st1243(stage, t, c, h, level, mock);
             case 1241: return st1241(stage, t, c, h, level, mock);
             case 1240: return st1240(stage, t, c, h, level, mock);
             case 1238: return st1238(stage, t, c, h, level, mock);
@@ -16601,6 +16602,24 @@ public final class ClaudeBodyTest {
             check(!toMine, "32 cobble 150 off his mine, stone under his feet: the walk to his mine taken (\"" + r + "\", tasks " + tl + ")");
             pass(stage, t, "dug here: \"" + r + "\"");
         }
+        return true;
+    }
+    private static BlockPos s1243A;
+    /** Stage 1243 (D2D, live 07:23-07:26 11-09, STUCK incident 20261109-072638-stuck-3): at night by his bed with the walk to his mine queued, sleepIfNight held the walk for the morning ("the walk to -16,68,-20 waits for the morning"), a Wait in front of it every 10 s; the watchdog filed STUCK at 180 s. A bed hold is a night hold: no STUCK. */
+    private static boolean st1243(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var W = com.claudemod.entity.life.Watchdog.recentKinds;
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 24000; c.tasks.clear(); c.skillQueue.clear(); W.clear(); com.claudemod.entity.life.Watchdog.stuckTicks = 200; com.claudemod.entity.life.Watchdog.linesInTests = true;
+            s1243A = h.absolutePos(new BlockPos(3, 40, 8)); level.setDayTime(18000);
+            for (int x = -2; x <= 20; x++) for (int z = -2; z <= 2; z++) for (int y = -1; y <= 3; y++) level.setBlockAndUpdate(s1243A.offset(x, y, z), y == -1 || y == 3 || Math.abs(z) == 2 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState());
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(s1243A.getX() + 0.5, s1243A.getY(), s1243A.getZ() + 0.5); c.fallDistance = 0;
+        }
+        try {
+        if (t[0] >= 10 && t[0] % 100 == 10) com.claudemod.director.ClaudeLife.noteNightBed(c, s1243A.west(1)); // (sleepIfNight's check every 5 s: by his bed tonight)
+        if (t[0] >= 10 && !(c.currentTask instanceof com.claudemod.entity.life.Task.Wait)) { c.tasks.clear(); c.dropCurrent = true; c.tasks.add(new com.claudemod.entity.life.Task.Wait(200, false)); c.tasks.add(new com.claudemod.entity.life.Task.GoTo(s1243A.offset(16, 0, 0).immutable(), 1.0)); } // (the morning's walk held behind a Wait)
+        check(!W.contains("STUCK"), "STUCK while sleepIfNight holds him by his bed: " + com.claudemod.entity.life.Watchdog.lastIncident);
+        if (t[0] >= 400) { com.claudemod.entity.life.Watchdog.stuckTicks = 20 * 180; com.claudemod.entity.life.Watchdog.linesInTests = false; c.tasks.clear(); c.dropCurrent = true; level.setDayTime(1000); pass(stage, t, "20 s held by his bed for the morning, no STUCK"); }
+        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.stuckTicks = 20 * 180; com.claudemod.entity.life.Watchdog.linesInTests = false; level.setDayTime(1000); throw e; }
         return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */

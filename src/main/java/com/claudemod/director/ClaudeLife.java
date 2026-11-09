@@ -1121,7 +1121,7 @@ public final class ClaudeLife {
     }
 
     private static java.util.Map<java.util.UUID, long[]> nightBedAt; // his bed sleepIfNight holds him to tonight -> {bed, tick} (lazy: fields added live start null)
-    static void noteNightBed(ClaudeEntity g, BlockPos bed) { if (nightBedAt == null) nightBedAt = new java.util.HashMap<>(); nightBedAt.put(g.getUUID(), new long[] {bed.asLong(), g.tickCount}); }
+    public static void noteNightBed(ClaudeEntity g, BlockPos bed) { if (nightBedAt == null) nightBedAt = new java.util.HashMap<>(); nightBedAt.put(g.getUUID(), new long[] {bed.asLong(), g.tickCount}); }
     /**
      * The bed sleepIfNight holds him to tonight (asleep in it, by it, or walking back to it, noted in the last 15 s: it looks every
      * 5 s), or null by day or with no bed hold on. The one answer a job asks before a walk off into the dark (PitGuard's hole).

@@ -10808,6 +10808,7 @@ public final class ClaudeBodyTest {
             case 1217: return st1217(stage, t, c, h, level, mock);
             case 1218: return st1218(stage, t, c, h, level, mock);
             case 1219: return st1219(stage, t, c, h, level, mock);
+            case 1220: return st1220(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -21576,6 +21577,28 @@ public final class ClaudeBodyTest {
                 check(standing, "his mine wall dug for his table");
                 pass(stage, t, "his kept wall left alone, the table looked at from elsewhere");
             }
+        }
+        return true;
+    }
+    /** Stage 1220 (D2D review 166 / CONFLICT 00:47:01 11-09: digging tuff 4 above his tunnel by his junk chest at -354,-58,26, full pack; "inventory full: threw out 3 tuff" at 00:46:51 and 7 at :56 with the chest 4 off, because the junk chest was tried only in his mine): a full pack with tuff, his junk chest 3 off, him not in a mine. The tuff goes in the chest, nothing on the ground. */
+    private static BlockPos s1220C;
+    private static boolean st1220(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null; for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard(); }
+        if (t[0] == 10) {
+            BlockPos me = c.blockPosition(); s1220C = me.offset(3, 0, 0).immutable();
+            level.setBlock(s1220C, Blocks.CHEST.defaultBlockState(), 2); c.prefs.put("junk_chests", s1220C.getX() + " " + s1220C.getY() + " " + s1220C.getZ());
+            var inv = c.getInventory(); inv.clearContent();
+            inv.items.set(0, new ItemStack(Items.IRON_PICKAXE)); inv.selected = 0; inv.items.set(4, new ItemStack(Items.TUFF, 7));
+            for (int i = 0; i < inv.items.size(); i++) if (inv.items.get(i).isEmpty()) inv.items.set(i, new ItemStack(Items.OAK_LOG, 64));
+            com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+            var drops = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(12));
+            String dropped = drops.stream().map(e -> e.getItem().getCount() + " " + e.getItem().getItem()).toList().toString();
+            boolean dep = c.tasks.stream().anyMatch(q -> q instanceof Task.Deposit d0 && d0.pos().equals(s1220C));
+            for (var it : drops) it.discard();
+            c.getInventory().clearContent(); c.tasks.clear(); c.dropCurrent = true; c.prefs.remove("junk_chests"); level.setBlock(s1220C, Blocks.AIR.defaultBlockState(), 2);
+            check(drops.isEmpty(), "junk thrown on the ground with his junk chest 3 off: " + dropped);
+            check(dep, "no trip to his junk chest 3 off");
+            pass(stage, t, "the tuff to his junk chest 3 off, nothing on the ground");
         }
         return true;
     }

@@ -5546,8 +5546,10 @@ public final class ClaudeLife {
         { int free0 = 0; for (var st0 : inv.items) if (st0.isEmpty()) free0++; if (free0 >= 2) return; } // (room for a craft's two steps: one free slot and "could not make a crafting table: missing room" every 5 s, 05:11)
         if (g.commandActive && g.lastStep != null && (g.lastStep.skill().equals("go_to") || g.lastStep.skill().equals("follow")) && inv.getFreeSlot() >= 0) return; // on their go_to/follow: the junk waits till the pack is truly full (they called him over to teach him; a 17-block junk chest run went first, 14:25)
         if (g.currentTask instanceof Task.Deposit || g.tasks.stream().anyMatch(t -> t instanceof Task.Deposit)) return; // on his way to put it away: nothing on the floor meanwhile (the toss went while the walk to the chest was queued)
-        if (g.level() instanceof ServerLevel sl0 && spareStacks(g) >= 1 && g.blueprint != null && !g.blueprint.isEmpty() && inMineOrHole(g, g.blockPosition()) && g.tasks.stream().noneMatch(t -> t instanceof Task.Deposit)) { // in his mine: the junk chest, never his own floor
-            String r = junkChestRound(g, sl0); if (r != null) { ClaudeMod.LOGGER.info("[Claude life] inventory full in his mine: {}", r); return; }
+        if (g.level() instanceof ServerLevel sl0 && spareStacks(g) >= 1 && g.tasks.stream().noneMatch(t -> t instanceof Task.Deposit)) { // in his mine, or by a junk chest of his: the junk chest, never the floor
+            boolean inMine = g.blueprint != null && !g.blueprint.isEmpty() && inMineOrHole(g, g.blockPosition()); double nearR = com.claudemod.entity.life.Weights.w("junk.chest_near", 16);
+            boolean chestNear = !inMine && junkChests(g).stream().anyMatch(p -> p.distSqr(g.blockPosition()) <= nearR * nearR); // (4 above his tunnel, his junk chest 4 off: tuff thrown out twice in 10 s, review 166, stage 1220)
+            String r = inMine ? junkChestRound(g, sl0) : chestNear ? junkChestRound(g, sl0, nearR, false) : null; if (r != null) { ClaudeMod.LOGGER.info("[Claude life] inventory full {}: {}", inMine ? "in his mine" : "by his junk chest", r); return; }
         }
         boolean storable = false; for (var st0 : inv.items) if (!st0.isEmpty() && !cobbleItem(st0) && !junkItem(st0) && !com.claudemod.entity.goals.WorkGoal.keeps(st0)) storable = true; // (a pack of only cobble and junk: his stash takes none of it, a walk there for nothing)
         // his storage close by: it goes in there, not on the floor

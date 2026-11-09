@@ -17,6 +17,8 @@ What is NOT a bug: waiting where the player told him to stay (the log says "stay
 
 Deaths are facts with times: say he died only where a death line shows it ("[Claude incident] DEATH: died to ...", "[Claude life] death kit: died to ..."), and tie it to what came before that time. A walk or job that starts after the death (after the respawn) did not end in it: "he died on that walk" for a walk begun after the death line is a false claim (review 66, 11-08).
 
+His own blocks taken up are not undoes by themselves: a temporary block (a bridge, a step, a pillar, a scaffold) comes back up once he's past or when it stands in the way of a dig, and a crafting table or furnace comes back up after its craft or smelt; that is the placed-blocks rule, not wasted work. A pickup line ("[Claude pickup] got ...", "picked back up 1 X he'd left") is an item off the ground, not a placed block coming back: check the block itself (a break line for that cell) before calling a placement undone (reviews 110 and 37, 11-08).
+
 Report each real finding once, the clearest examples only, most costly first, at most 6. For each: what he did, what an expert would have done instead, and the exact log lines it rests on (copied verbatim, 1-4 lines, with their times). If nothing in the window is below an expert's standard, return no findings.
 
 Plain code already flags some things itself: [Claude incident], [Claude litter] and [Claude conflict] lines, and [Claude move] spin lines. A finding that rests only on those lines is not filed, so spend your findings on what no line flags: judgement, wasted time, a worse way, claims that contradict the log. Quote the ordinary lines that show it.

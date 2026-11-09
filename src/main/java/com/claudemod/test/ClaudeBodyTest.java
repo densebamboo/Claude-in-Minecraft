@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1199: return st1199(stage, t, c, h, level, mock);
             case 1196: return st1196(stage, t, c, h, level, mock);
             case 1195: return st1195(stage, t, c, h, level, mock);
             case 1194: return st1194(stage, t, c, h, level, mock);
@@ -16418,6 +16419,22 @@ public final class ClaudeBodyTest {
             st1196Low = Math.min(st1196Low, c.getHealth());
             check(!c.isInLava() && st1196Low >= 20, "in the lava placing into its column: health " + st1196Low + " at " + c.blockPosition().toShortString() + " (the step up beside the column at " + h.absolutePos(v).toShortString() + ")");
             if (t[0] - st1196Start >= 20 * 10) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "10 s at the column, never in its lava (at " + c.blockPosition().toShortString() + ")"); }
+        }
+        return true;
+    }
+    /** Stage 1199 (D2D review 133, live 03:54:43 11-09: "through the lit portal into the Nether, then 7 blaze rods off a fortress" with a highway underway to the fortress, 72 rows short, and 0 cobbled deepslate on him; in the Nether the plan was build_highway, out of blocks, back out through the portal 12 s later): a fortress trip with his highway unfinished packs the highway's blocks before the portal, not only a build_highway step. */
+    private static boolean st1199(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); com.claudemod.entity.life.Highway.reset(c); }
+        if (t[0] == 10) { flatBox(h); nsKit(c); c.getInventory().removeItem(new ItemStack(Items.COBBLED_DEEPSLATE, 9999)); for (int k = 0; k < c.getInventory().getContainerSize(); k++) if (c.getInventory().getItem(k).is(Items.COBBLED_DEEPSLATE)) c.getInventory().setItem(k, ItemStack.EMPTY);
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var tag = new net.minecraft.nbt.CompoundTag(); tag.putInt("portal", 3); tag.putLong("dest", new BlockPos(193, 58, 514).asLong()); tag.putInt("built", 638); tag.putInt("rows", 710); com.claudemod.entity.life.Highway.load(c, tag); }
+        if (t[0] == 15) {
+            c.skillQueue.clear(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("find_fortress", "", 1)); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("obtain", "blaze_rod", 7));
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "enter_portal", "", 1);
+            var head = c.skillQueue.peekFirst(); String q = String.valueOf(c.skillQueue);
+            c.skillQueue.clear(); c.tasks.clear(); com.claudemod.entity.life.Highway.reset(c);
+            check(head != null && head.skill().equals("collect") && head.target().equals("cobbled_deepslate"), "a fortress trip with his highway 72 rows short and 0 deepslate on him: into the portal unpacked (" + r + "; queue " + q + ")");
+            pass(stage, t, "packed first: " + r);
         }
         return true;
     }

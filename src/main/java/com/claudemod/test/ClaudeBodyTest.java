@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1309: return st1309(stage, t, c, h, level, mock);
             case 1308: return st1308(stage, t, c, h, level, mock);
             case 1307: return st1307(stage, t, c, h, level, mock);
             case 1306: return st1306(stage, t, c, h, level, mock);
@@ -16902,6 +16903,24 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    /** Stage 1309 (D2D 12:33 11-09, review 64: "the pack lines show no sword" against a plan that rightly had his iron sword; the [Claude pack] line at 12:26:06 had iron_sword=1, but pack lines were in the reviewer's SKIP list, so it never saw one): his pack reaches the reviewer when an item comes or goes, not each count change. */
+    /** Is a line holding this text in the reviewer's window being gathered (its buffer, read as the reviewer will get it). */
+    @SuppressWarnings("unchecked") private static boolean LRbuf(String part) { try { var f = com.claudemod.entity.life.LogReviewer.class.getDeclaredField("buf"); f.setAccessible(true); var b = (java.util.ArrayDeque<String>) f.get(null); synchronized (b) { for (String l : b) if (l.contains(part)) return true; } return false; } catch (ReflectiveOperationException e) { throw new RuntimeException(e); } }
+    private static boolean st1309(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] != 2) { if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.LogReviewer.reset(c); } return true; }
+        String p1 = "[Claude pack] 7 free slots: {cobblestone=34, cooked_cod=9, iron_sword=1, oak_log=34}", p2 = "[Claude pack] 7 free slots: {cobblestone=35, cooked_cod=9, iron_sword=1, oak_log=34}", p3 = "[Claude pack] 6 free slots: {cobblestone=35, cooked_cod=9, iron_sword=1, oak_log=34, stick=4}";
+        com.claudemod.entity.life.LogReviewer.add("12:26:06", p1);
+        boolean first = LRbuf("iron_sword=1");
+        com.claudemod.entity.life.LogReviewer.add("12:26:16", p2);
+        boolean countOnly = LRbuf("cobblestone=35");
+        com.claudemod.entity.life.LogReviewer.add("12:26:26", p3);
+        boolean newItem = LRbuf("stick=4");
+        com.claudemod.entity.life.LogReviewer.reset(c);
+        check(first, "his pack line (iron_sword=1) never reached the reviewer");
+        check(!countOnly, "a pack line with only a count changed kept too (~6 a minute: the reviewer's bill)");
+        check(newItem, "a pack line with a new item (sticks) not kept");
+        pass(stage, t, "his pack reaches the reviewer when an item comes or goes"); return true;
+    }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */
     private static int s934T, s934Deep;
     private static boolean st934(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
@@ -18548,7 +18567,7 @@ public final class ClaudeBodyTest {
         }
         if (t[0] == 6) {
             String asked = com.claudemod.entity.life.LogReviewer.lastAsked;
-            check(s627Calls == 1 && asked.contains("stage 627 line 39"), "first read: calls " + s627Calls + ", asked [" + asked.substring(0, Math.min(200, asked.length())) + "]");
+            check(s627Calls == 1 && asked.contains("stage 627 line 0") && asked.contains("37 more lines like this"), /* (lines alike but for their numbers fold to 3 and a count) */ "first read: calls " + s627Calls + ", asked [" + asked.substring(0, Math.min(200, asked.length())) + "]");
             check(com.claudemod.entity.life.Watchdog.lastIncident.startsWith("REVIEW: placed sand at 1, 2, 3"), "no REVIEW incident: last " + com.claudemod.entity.life.Watchdog.lastIncident);
             com.claudemod.entity.life.LogReviewer.reset2(c);
             for (int i = 0; i < 40; i++) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] stage 627 more {}", i);

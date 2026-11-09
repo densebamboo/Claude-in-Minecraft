@@ -10842,6 +10842,7 @@ public final class ClaudeBodyTest {
             case 1249: return st1249(stage, t, c, h, level, mock);
             case 1250: return st1250(stage, t, c, h, level, mock);
             case 1251: return st1251(stage, t, c, h, level, mock);
+            case 1252: return st1252(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -22467,6 +22468,31 @@ public final class ClaudeBodyTest {
             check(sand == 0, "pack full in the Nether: " + sand + " soul sand / soil / wart block kept, " + rack + " netherrack (his building block) left");
             check(rack >= 64, "his netherrack went below a stack: " + rack);
             pass(stage, t, "the soul sand, soil and wart blocks out, " + rack + " netherrack kept");
+        }
+        return true;
+    }
+    /** Stage 1252 (D2D review 118, live 05:04:44-50 11-09, a 1-wide stair tunnel home in the Nether): pack full, his next dig ahead (west), one open cell behind him then rock. "junk thrown away from his work": it landed right behind him, a step back took it up 2 s later (THROW_LOOP). With no room to throw it clear, it stays on him. */
+    private static boolean st1252(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(21200, 90, 21000);
+        if (t[0] == 1 || t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); c.skillQueue.clear(); c.blueprint = null; c.storageChests.clear(); c.myStations.clear();
+            for (int x = -8; x <= 8; x++) for (int z = -4; z <= 4; z++) for (int y = -2; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.NETHERRACK.defaultBlockState(), 2);
+            for (int x = 0; x <= 1; x++) for (int y = 0; y <= 1; y++) level.setBlock(o.offset(x, y, 0), Blocks.AIR.defaultBlockState(), 2); // (him, and the one cell he came from)
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f); c.prefs.put("stay_close", "no"); }
+        if (t[0] == 12) {
+            for (var ie : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(16))) ie.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD));
+            for (int i = 0; i < 40; i++) c.getInventory().add(new ItemStack(i < 3 ? Items.NETHERRACK : Items.TORCH, 64));
+            c.getInventory().selected = 0; c.tasks.clear(); c.tasks.add(new Task.Break(o.offset(-1, 0, 0))); c.tasks.add(new Task.Break(o.offset(-1, 1, 0)));
+            com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+        }
+        if (t[0] == 40) {
+            var near = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(3), ie -> ie.getItem().is(Items.NETHERRACK));
+            String at = near.stream().map(ie -> String.format("%.1f %.1f %.1f", ie.getX() - o.getX(), ie.getY() - o.getY(), ie.getZ() - o.getZ())).toList().toString();
+            for (var ie : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(16))) ie.discard();
+            c.tasks.clear(); c.getInventory().clearContent();
+            check(near.isEmpty(), "a 1-wide tunnel, one cell behind him: the netherrack thrown where a step back takes it up (" + at + ")");
+            pass(stage, t, "nowhere to throw it clear: kept");
         }
         return true;
     }

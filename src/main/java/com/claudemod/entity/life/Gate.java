@@ -173,6 +173,7 @@ public final class Gate {
         if (!here.equals(mine.before()) || !mine.before().equals(undo.after())) return true; // (not a flip back: something else since)
         if (t.equals(g.currentTask)) return true;
         String redoBy = ClaudeEntity.originOf(t), undoBy = undo.origin();
+        if (t instanceof Task.Break && redoBy.equals(undoBy) && redoBy.equals(mine.origin()) && g.tasks.stream().anyMatch(q -> q instanceof Task.Place pl && pl.pos().equals(p))) return true; // his walker's own cut, its own put-back, and this way's put-back queued again: one job reusing its door, no flip between two systems (ruled "leave it filled" at 0 s, the way round cut more of his wall, three plans a second: live 13:14:50 and 12:59-13:05 11-09, reviews 17/156, stage 1271)
         boolean full = t instanceof Task.Place pl ? pl.item() instanceof net.minecraft.world.item.BlockItem bi && bi.getBlock().defaultBlockState().isCollisionShapeFullBlock(g.level(), p) : g.level().getBlockState(p).isCollisionShapeFullBlock(g.level(), p);
         Boolean wants = full ? planWants(g, p) : null; boolean redoSolid = t instanceof Task.Place; // (a torch in his walkway is no wall: the plan has no say on thin blocks)
         double work = Weights.w("referee.work_s", 2), against = Weights.w("referee.against_plan_s", 60);

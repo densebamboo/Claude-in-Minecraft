@@ -215,7 +215,7 @@ public final class Decide {
             }
         }
         said.add("no sword, armor or kit: they're in what fell (" + (dn.what.length() > 80 ? dn.what.substring(0, 80) + "..." : dn.what) + ")");
-        return new RunKit(first, "the run to his pile in " + dn.dim + " at " + dn.at.toShortString() + (runS >= 0 ? " (~" + runS + " s from " + fromName + ")" : "") + ": " + String.join("; ", said));
+        return new RunKit(first, "the run to his pile in " + dn.dim + " at " + dn.at.toShortString() + (runS >= 0 ? " (~" + runS + " s straight from " + fromName + "; the way itself is priced there)" : "") + ": " + String.join("; ", said));
     }
 
     /** His drops to fetch and, when he grabs and runs, where to run to (null: a plain pickup, then he carries on). */

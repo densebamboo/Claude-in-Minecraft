@@ -10537,6 +10537,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1176: return st1176(stage, t, c, h, level, mock);
             case 1174: return st1174(stage, t, c, h, level, mock);
             case 1173: return st1173(stage, t, c, h, level, mock);
             case 1172: return st1172(stage, t, c, h, level, mock);
@@ -15940,6 +15941,31 @@ public final class ClaudeBodyTest {
         if (st1174T0 > 0 && t[0] > st1174T0 + 66) {
             if (level.getBlockState(hole).is(Blocks.COBBLESTONE)) { int s = t[0] - st1174T0 - 66; for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); nsHome(c, h, level); pass(stage, t, "out of the pocket and its patch in, " + s / 20.0 + " s after the other work"); return true; }
             check(t[0] < st1174T0 + 66 + 20 * 8, "the patch for the pocket he stood in: not in 8 s after the other work; at " + c.position() + ", doing " + c.currentTask + ", queue " + c.tasks);
+        }
+        return true;
+    }
+    /** Stage 1176 (D2D review 46, live 13:33:29 11-08: the run to his pile in the Nether decided at "~100 s" straight-line, the way itself ~998 s of bridge or bore, never weighed against what was in it): in the Nether, his pile 800 off across a lava lake. 60 raw iron (worth a straight-line run, not the bridge it takes) are left; a diamond pick and 64 diamonds are gone for. */
+    private static boolean st1176(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12400, 70, 12400), pile = o.offset(800, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 900; c.prefs.put("stay_close", "no"); com.claudemod.entity.life.DeathLog.reset(c); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            for (int x = -3; x <= 803; x++) for (int z = -3; z <= 3; z++) for (int y = -5; y <= 4; y++) { boolean shore = x <= 1 || x >= 799; nl.setBlock(o.offset(x, y, z), (Math.abs(z) == 3 || y == 4 || y == -5 ? Blocks.NETHERRACK : y <= -2 ? Blocks.LAVA : y == -1 && shore ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2); } // a lava lake 800 across under a roof: his shore, the pile's shore
+            nsKit(c); c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); com.claudemod.entity.life.Watchdog.teleported(c);
+        }
+        if (t[0] == 40) {
+            c.skillQueue.clear(); c.tasks.clear();
+            check(!nl.isPositionEntityTicking(pile), "the stage's pile chunk is entity-ticking: not live's unseen far pile");
+            com.claudemod.entity.life.DeathLog.died(c, nl, pile, java.util.List.of(new net.minecraft.world.entity.item.ItemEntity(nl, pile.getX() + 0.5, pile.getY(), pile.getZ() + 0.5, new ItemStack(Items.RAW_IRON, 60))));
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
+            check(r.startsWith("leaving my things"), "60 raw iron 800 off across a lava lake: \"" + r + "\" (" + com.claudemod.entity.life.FortressScout.lastTravel + "), queue " + c.skillQueue + ", tasks " + c.tasks);
+            c.skillQueue.clear(); c.tasks.clear(); com.claudemod.entity.life.DeathLog.reset(c);
+            com.claudemod.entity.life.DeathLog.died(c, nl, pile, java.util.List.of(new net.minecraft.world.entity.item.ItemEntity(nl, pile.getX() + 0.5, pile.getY(), pile.getZ() + 0.5, new ItemStack(Items.DIAMOND, 64)), new net.minecraft.world.entity.item.ItemEntity(nl, pile.getX() + 0.5, pile.getY(), pile.getZ() + 0.5, new ItemStack(Items.DIAMOND_PICKAXE))));
+            String r2 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "recover_drops", "", 1);
+            check(!r2.startsWith("leaving") && !r2.startsWith("failed"), "a diamond pick and 64 diamonds 800 off: \"" + r2 + "\" (" + com.claudemod.entity.life.FortressScout.lastTravel + ")");
+            c.skillQueue.clear(); c.tasks.clear(); com.claudemod.entity.life.DeathLog.reset(c);
+            nsHome(c, h, level); pass(stage, t, "raw iron left: \"" + r + "\"; diamonds gone for: \"" + r2 + "\"");
         }
         return true;
     }

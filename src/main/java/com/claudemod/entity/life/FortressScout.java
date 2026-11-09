@@ -416,6 +416,7 @@ public final class FortressScout {
         return null;
     }
     public static String lastTravel = ""; // (the last choice and its costs: for stages)
+    public static double lastTravelS = Double.MAX_VALUE; // (the last choice's price in seconds: the run to a pile weighs it, review 46)
     /**
      * The way there, whichever of three he reckons the fastest (the user 11-05: "fully capable of navigating around the terrain, or paving his own way across lava"):
      * the walk round by its path's length at a sprint, no path = no walk; the bridge, the straight line priced by what he sees of it (open lava paved, open
@@ -446,6 +447,7 @@ public final class FortressScout {
         if (path != null && path.canReach()) { nodes = path.getNodeCount(); double len = 0; for (int i = 1; i < nodes; i++) len += Math.sqrt(path.getNode(i).distanceToSqr(path.getNode(i - 1))); walkS = walkRowS * len; }
         if (lava > 0) boreS = bridgeS; // (lava he can see on the line: the bore meets it too and paves it, the same line at the same price; short of blocks, neither can)
         String pick = walkS <= bridgeS && walkS <= boreS ? "walk" : bridgeS <= boreS ? "bridge" : "bore";
+        lastTravelS = Math.min(walkS, Math.min(bridgeS, boreS));
         lastTravel = String.format("to %s: walk %s vs bridge %s vs bore %s: %s", to.toShortString(), walkS == Double.MAX_VALUE ? "no path" : String.format("~%.0f s (%d steps)", walkS, nodes),
                 bridgeS == Double.MAX_VALUE ? (!can ? "no pick" : "no lava in sight on the line") : String.format("~%.0f s (%s%d paved over lava%s, %d open, %d through rock)", bridgeS, mine > 0 ? mine + " blocks to mine first, " : "", lava, shooter == null ? "" : ", walled against the " + shooter.getType().getDescription().getString().toLowerCase(), open, rock),
                 boreS == Double.MAX_VALUE ? "no pick" : String.format("~%.0f s (%d digs, pick wear %.2f s a dig, %d uses left)", boreS, boreDigs, wear[0], (int) wear[1]), pick);

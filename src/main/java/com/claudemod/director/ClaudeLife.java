@@ -8326,6 +8326,7 @@ public final class ClaudeLife {
         if (level.dimensionType().hasCeiling() && !com.claudemod.entity.life.FortressScout.ghastProof(g).isEmpty()) scaff = com.claudemod.entity.life.FortressScout.ghastProof(g).getItem(); // the Nether: cobble, not netherrack or dirt (the user: "its not ghast proof")
         long t0 = System.nanoTime();
         var plan = com.claudemod.entity.nav.ActionPath.plan(g, level, feet, to, within, scaff != null, 4000, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount);
+        if (plan != null && plan.acts().isEmpty()) { escapeHow.put(g.getUUID(), "already within " + within + " of " + to.toShortString() + " as his planner counts it"); ClaudeMod.LOGGER.info("[Claude life] stuck at {}: already within {} of {} as his planner counts it, no way out to make (ClaudeLife.escapeStuck)", feet.toShortString(), within, to.toShortString()); return false; } // (an empty plan is "there", not "no way": the line said "no way even digging" a cell from a flat goal, live 12:59/13:05 11-09, D2D reviews 110/154)
         if (plan == null || plan.acts().isEmpty()) { escapeHow.put(g.getUUID(), "no way to " + to.toShortString() + " even digging"); ClaudeMod.LOGGER.info("[Claude life] stuck at {}: no way to {} even digging", feet.toShortString(), to.toShortString()); return false; }
         var steps = com.claudemod.entity.nav.ActionPath.tasks(plan, feet, scaff == null ? Items.COBBLESTONE : scaff, to, within, level);
         if (steps.isEmpty()) return false;

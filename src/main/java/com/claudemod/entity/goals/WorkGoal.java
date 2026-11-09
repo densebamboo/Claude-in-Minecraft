@@ -5132,7 +5132,7 @@ public class WorkGoal extends Goal {
             if (m instanceof net.minecraft.world.entity.monster.Creeper cr) { // (its blast, not a swing: the chance it goes off in the fight, armed he knocks it out of its fuse; on the run, near or lit it may still catch him. Was "armed and over 10 HP: hit it, else run", audit)
                 int k = hitsToKill(m); swings += k; t += k * swing;
                 double blast = w("creeper.blast_hp", 22) * (1 - Math.min(20, g.getArmorValue()) / 25.0);
-                double pf = armed() && !weakFighter() ? w("creeper.blast_chance_armed", 0.15) : w("creeper.blast_chance_unarmed", 0.8), pr = cr.distanceTo(g) < 3 || cr.getSwellDir() > 0 ? w("creeper.blast_chance_close_run", 0.4) : w("creeper.blast_chance_run", 0.05);
+                double pf = armed() && !weakFighter() ? w("creeper.blast_chance_armed", 0.45) : w("creeper.blast_chance_unarmed", 0.8), pr = cr.distanceTo(g) < 3 || cr.getSwellDir() > 0 ? w("creeper.blast_chance_close_run", 0.4) : w("creeper.blast_chance_run", 0.05); // (0.45: 52 of 111 armed creeper fights 11-05..11-09 ended in its blast; 0.15 priced ~3 HP and he fought it bare, 12:20 11-09 18 -> 5)
                 hits += pf; hp += pf * blast; most += 1; runHits += pr * blast; allBurn = false; continue; }
             boolean witch = m instanceof net.minecraft.world.entity.monster.Witch; // (harming: 6 at Normal, armor no help)
             double dmg = witch ? w("fight.witch_hit_hp", 6) : mobHit(m); boolean ranged = shoots(m) || witch; // (a wither skeleton is a skeleton by class, but a sword, never a bow)

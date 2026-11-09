@@ -10557,6 +10557,7 @@ public final class ClaudeBodyTest {
             case 1352: return st1352(stage, t, c, h, level, mock);
             case 1353: return st1353(stage, t, c, h, level, mock);
             case 1354: return st1354(stage, t, c, h, level, mock);
+            case 1355: return st1355(stage, t, c, h, level, mock);
             case 1301: return st1301(stage, t, c, h, level, mock);
             case 1302: return st1302(stage, t, c, h, level, mock);
             case 1303: return st1303(stage, t, c, h, level, mock);
@@ -26196,6 +26197,33 @@ public final class ClaudeBodyTest {
             h.setBlock(new BlockPos(6, 4, 12), Blocks.DEEPSLATE); c.blueprint = null;
             check(!cut, "his route past his wall digs his own water plug at (6,3,12): " + (plan == null ? "-" : plan.acts()));
             pass(stage, t, "his water plug kept: the route " + (plan == null ? "found no way" : "goes " + plan.acts().size() + " acts round it"));
+        }
+        return true;
+    }
+    private static net.minecraft.world.entity.monster.Creeper st1355Cr;
+    /** Stage 1355 (live 12:20:49 11-09: "fight.flee (Creeper, health 18, armor 0): fight ~297 s (3 swings, ~3 HP of hits); run ~304 s: fight", then a
+     *  blast 18 -> 5): one creeper on him, a hit already in it, iron sword, no armor, no shield. The blast was priced at 15% armed; 52 of 111 armed creeper
+     *  fights 11-05..11-09 ended in its blast, so he runs. */
+    private static boolean st1355(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(2, 2, 5));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; if (st1355Cr != null) st1355Cr.discard(); st1355Cr = null; level.setDayTime(18000); /* night, as live */ flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_COD, 9));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY);
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(18); c.getFoodData().setFoodLevel(18); c.getFoodData().setSaturation(10f); /* well fed: live he had just eaten, the fight priced at 297 */ c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+            var cr = EntityType.CREEPER.create(level); BlockPos at = me.east(5); cr.moveTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5, 90, 0); cr.setNoAi(true); cr.setPersistenceRequired(); level.addFreshEntity(cr); cr.setHealth(14); cr.setTarget(c); st1355Cr = cr;
+        }
+        if (t[0] == 14) {
+            boolean run; String odds;
+            try { var m = c.work.getClass().getDeclaredMethod("shouldFlee", net.minecraft.world.entity.Entity.class, boolean.class); m.setAccessible(true); run = (Boolean) m.invoke(c.work, st1355Cr, false);
+                var fo = c.work.getClass().getDeclaredField("fightOdds"); fo.setAccessible(true); odds = (String) fo.get(c.work); } catch (ReflectiveOperationException e) { check(false, "shouldFlee: " + e); return true; }
+            st1355Cr.discard(); st1355Cr = null;
+            var mh = java.util.regex.Pattern.compile("~([0-9]+) HP of hits").matcher(odds); int hpPriced = mh.find() ? Integer.parseInt(mh.group(1)) : -1;
+            check(hpPriced >= 8, "one creeper 5 off, iron sword, no armor: its blast priced ~" + hpPriced + " HP (15% of 22); 52 of 111 armed creeper fights 11-05..11-09 blew, ~10 HP: " + odds);
+            check(run, "one creeper 5 off, iron sword, no armor, no shield, health 18: priced a fight: " + odds);
+            pass(stage, t, "a creeper on him bare, no shield: he runs (" + odds + ")");
         }
         return true;
     }

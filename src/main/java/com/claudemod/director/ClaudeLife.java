@@ -8975,12 +8975,16 @@ public final class ClaudeLife {
             var hit = level.clip(new ClipContext(eye, mid, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, g));
             return hit.getType() == HitResult.Type.BLOCK && ((net.minecraft.world.phys.BlockHitResult) hit).getBlockPos().equals(b);
         }
-        for (Direction d : Direction.values()) {
-            Vec3 face = Vec3.atCenterOf(b).add(d.getStepX() * 0.5, d.getStepY() * 0.5, d.getStepZ() * 0.5);
+        // the face centres first; on a miss, 4 points inset toward each open face's corners: part of a face in view is the block seen, as a player sees it (stage 565: the centre ray clipped the pocket's lip, the iron under the one he'd mined unseen, sealed in)
+        for (int pass = 0; pass < 2; pass++) for (Direction d : Direction.values()) {
             if (!level.getBlockState(b.relative(d)).getCollisionShape(level, b.relative(d)).isEmpty()) continue; // a covered face
-            var hit = level.clip(new net.minecraft.world.level.ClipContext(eye, face.add(Vec3.atLowerCornerOf(d.getNormal()).scale(-0.01)),
-                    net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g));
-            if (hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK && hit.getBlockPos().equals(b)) return true;
+            Vec3 face = Vec3.atCenterOf(b).add(d.getStepX() * 0.5, d.getStepY() * 0.5, d.getStepZ() * 0.5).add(Vec3.atLowerCornerOf(d.getNormal()).scale(-0.01));
+            Vec3 u = d.getAxis() == Direction.Axis.X ? new Vec3(0, 1, 0) : new Vec3(1, 0, 0), v = d.getAxis() == Direction.Axis.Z ? new Vec3(0, 1, 0) : new Vec3(0, 0, 1);
+            Vec3[] pts = pass == 0 ? new Vec3[] {face} : new Vec3[] {face.add(u.scale(0.35)).add(v.scale(0.35)), face.add(u.scale(0.35)).add(v.scale(-0.35)), face.add(u.scale(-0.35)).add(v.scale(0.35)), face.add(u.scale(-0.35)).add(v.scale(-0.35))};
+            for (Vec3 pt : pts) {
+                var hit = level.clip(new net.minecraft.world.level.ClipContext(eye, pt, net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g));
+                if (hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK && hit.getBlockPos().equals(b)) return true;
+            }
         }
         return false;
     }

@@ -10853,6 +10853,7 @@ public final class ClaudeBodyTest {
             case 1253: return st1253(stage, t, c, h, level, mock);
             case 1254: return st1254(stage, t, c, h, level, mock);
             case 1255: return st1255(stage, t, c, h, level, mock);
+            case 1256: return st1256(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -22692,6 +22693,24 @@ public final class ClaudeBodyTest {
             check(!l.startsWith("collect logs"), "sent for logs the night rule refuses: " + l + " (queue " + c.skillQueue + ")");
             if (l.startsWith("strip_mine iron_ore") && !l.contains("packing") && !l.contains("failed") && !l.contains("kit first") && !l.contains("cover")) { level.setDayTime(6000); pass(stage, t, "night, 17 logs on him: down the mine with them (" + l + ")"); }
             if (t[0] >= 20 + 300) check(false, "not mining 15 s on: " + l + " (queue " + c.skillQueue + ", task " + c.currentTask + ")");
+        }
+        return true;
+    }
+    private static boolean st1256(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // stage 565's flake (D2D 11-09): after his pickup, the iron under the one he'd just mined, its top face mostly in view through the open cell, unseen by canSee's one centre ray (it clipped the pocket's lip); the patch sealed it in
+        BlockPos me = h.absolutePos(new BlockPos(8, 3, 8)), ore = me.north().below(), sealed = me.east(2).below();
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 5) {
+            for (BlockPos q : BlockPos.betweenClosed(me.offset(-3, -3, -3), me.offset(3, 3, 3))) level.setBlock(q, Blocks.STONE.defaultBlockState(), 2);
+            for (BlockPos q : new BlockPos[] {me, me.above(), me.north()}) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2); // his cell, his head, the mined iron's cell (its top, the lip, stays stone)
+            level.setBlock(ore, Blocks.IRON_ORE.defaultBlockState(), 2); level.setBlock(sealed, Blocks.IRON_ORE.defaultBlockState(), 2); // and one in the rock, no face open
+            c.tasks.clear(); c.skillQueue.clear(); if (c.currentTask != null) c.dropCurrent = true;
+        }
+        if (t[0] >= 6 && t[0] < 20) { c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.teleportTo(me.getX() + 0.39, me.getY(), me.getZ() + 0.3); c.setYRot(180); c.setXRot(60); }
+        if (t[0] == 20) {
+            check(c.blockPosition().equals(me), "set up: not on his spot: " + c.position());
+            check(!com.claudemod.director.ClaudeLife.canSee(c, level, sealed), "sees an ore with no open face (through the rock)");
+            check(com.claudemod.director.ClaudeLife.canSee(c, level, ore), "the iron's top face in view through the open cell beside him, unseen from " + c.getEyePosition());
+            pass(stage, t, "the iron under the mined one seen through the open cell; the one in the rock not");
         }
         return true;
     }

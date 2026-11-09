@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1196: return st1196(stage, t, c, h, level, mock);
             case 1195: return st1195(stage, t, c, h, level, mock);
             case 1194: return st1194(stage, t, c, h, level, mock);
             case 1192: return st1192(stage, t, c, h, level, mock);
@@ -16382,6 +16383,29 @@ public final class ClaudeBodyTest {
             c.myStations.remove(tb); level.setBlock(tb, Blocks.AIR.defaultBlockState(), 3);
             check(why != null && why.contains("his own"), "the refused break of his own table says nobody's: \"" + why + "\" (the planner guessed \"your crafting table\")");
             pass(stage, t, "refused, and says whose: " + why);
+        }
+        return true;
+    }
+    /** Stage 1196 (D2D death 30, live 01:39:39 11-09 at 127,61,513, full diamond lost: Highway.skill placing into a falling lava column at 128,59..61,513; doPlace's spot that sees a face to set against was "a step up at 127,61,513", beside the column; the blocks put in plugged its fall and the lava spread sideways into his cell): no spot beside lava to place from. */
+    private static int st1196Start; private static float st1196Low;
+    private static boolean st1196(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos p = new BlockPos(8, 4, 8), s0 = p.offset(-1, 1, 1), v = p.offset(-1, 2, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1196Start = -1; st1196Low = 20; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(96))) m.discard(); }
+        if (t[0] == 10) {
+            flatBox(h);
+            for (int dx = -3; dx <= 3; dx++) for (int dz = -3; dz <= 3; dz++) for (int dy = -2; dy <= 7; dy++) h.setBlock(p.offset(dx, dy, dz), Blocks.NETHERRACK);
+            for (int dy = 0; dy <= 4; dy++) h.setBlock(p.offset(0, dy, 0), Blocks.AIR); h.setBlock(p.offset(0, 5, 0), Blocks.LAVA); // the column, falling into the cell to fill (its source well over his head: only a plug spreads it)
+            for (int dy = 0; dy <= 2; dy++) h.setBlock(s0.above(dy), Blocks.AIR); // where he stands
+            for (int dy = 0; dy <= 1; dy++) h.setBlock(v.above(dy), Blocks.AIR); // the step up beside the column: the one cell that sees into it
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 8));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 220) { BlockPos me = h.absolutePos(s0); check(level.getFluidState(h.absolutePos(p)).is(net.minecraft.tags.FluidTags.LAVA) && level.getFluidState(h.absolutePos(p.above(2))).is(net.minecraft.tags.FluidTags.LAVA), "the column isn't falling all the way down yet: not the scene"); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.add(new Task.Place(h.absolutePos(p), Items.COBBLED_DEEPSLATE)); c.tasks.add(new Task.Place(h.absolutePos(p.above()), Items.COBBLED_DEEPSLATE)); st1196Start = t[0]; }
+        if (st1196Start > 0) {
+            st1196Low = Math.min(st1196Low, c.getHealth());
+            check(!c.isInLava() && st1196Low >= 20, "in the lava placing into its column: health " + st1196Low + " at " + c.blockPosition().toShortString() + " (the step up beside the column at " + h.absolutePos(v).toShortString() + ")");
+            if (t[0] - st1196Start >= 20 * 10) { c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "10 s at the column, never in its lava (at " + c.blockPosition().toShortString() + ")"); }
         }
         return true;
     }

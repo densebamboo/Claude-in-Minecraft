@@ -2791,6 +2791,16 @@ public class WorkGoal extends Goal {
     private int pulledAt = -100000; private final java.util.Set<Task> pulled = new java.util.HashSet<>(); // (jobs pulled ahead of a walk, per walk target)
     String exitWhy = null; // why the last dig/place ended without its block changed (the user: every give-up says why)
     public String exitWhyForTest() { return exitWhy; }
+    /** Lava let spread from {@code from} (open cells sideways and down, 8 steps: the Nether's reach) gets to his feet or head. */
+    private boolean spreadReaches(ServerLevel level, BlockPos from) {
+        BlockPos feet = g.blockPosition(), head = feet.above(); java.util.ArrayDeque<BlockPos> q = new java.util.ArrayDeque<>(); java.util.Map<BlockPos, Integer> seen = new java.util.HashMap<>(); q.add(from); seen.put(from, 0);
+        while (!q.isEmpty()) { BlockPos c = q.poll(); int n = seen.get(c); if (c.equals(feet) || c.equals(head)) return true; if (n >= 8) continue;
+            BlockPos dn = c.below(); boolean fallsDown = level.getBlockState(dn).canBeReplaced() && level.getFluidState(dn).isEmpty();
+            for (BlockPos nb : fallsDown ? java.util.List.of(dn) : java.util.List.of(c.north(), c.south(), c.east(), c.west())) if (!seen.containsKey(nb) && level.getBlockState(nb).canBeReplaced() && !level.getFluidState(nb).is(net.minecraft.tags.FluidTags.LAVA)) { seen.put(nb, n + 1); q.add(nb); } }
+        return false;
+    }
+    /** Lava beside a standing cell at feet or head, or over his head. */
+    static boolean besideLava(ServerLevel level, BlockPos sp) { if (level.getFluidState(sp.above(2)).is(net.minecraft.tags.FluidTags.LAVA)) return true; for (Direction d : Direction.Plane.HORIZONTAL) for (int dy = 0; dy <= 1; dy++) if (level.getFluidState(sp.relative(d).above(dy)).is(net.minecraft.tags.FluidTags.LAVA)) return true; return false; }
     /** A dig of ore he can't have seen (every face closed; the dig that opens it dropped or not yet done): not started, his lesson or their step naming the cell aside. The plan and the vein scan queue it again once a face is open. */
     private boolean unseenOre(Task t) {
         if (!(t instanceof Task.Break b) || !com.claudemod.entity.life.Watchdog.hiddenOre(g.level(), b.pos())) return false;
@@ -3784,6 +3794,13 @@ public class WorkGoal extends Goal {
     private boolean doPlace(Task.Place t) {
         ServerLevel level = (ServerLevel) g.level();
         BlockPos pos = t.pos();
+        if (ticks == 1 && level.getFluidState(pos.above()).is(net.minecraft.tags.FluidTags.LAVA) && level.getBlockState(pos).canBeReplaced() && t.item() instanceof BlockItem && g.inventory.count(x -> x.is(t.item())) >= 2) { // under falling lava: this block stops its fall and it spreads sideways from the cell over it; an open cell of that spread that runs on to him gets a block first (death 30, live 01:39 11-09: the spread came into his cell; stage 1196)
+            for (Direction d : Direction.Plane.HORIZONTAL) { BlockPos ring = pos.above().relative(d);
+                if (!level.getBlockState(ring).canBeReplaced() || !level.getFluidState(ring).isEmpty() || !spreadReaches(level, ring)) continue;
+                if (ring.equals(g.blockPosition()) || ring.equals(g.blockPosition().above())) continue; // (his own cell: the view rule keeps him off cells beside lava; nothing to wall here)
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} stops the lava falling at {}: its spread runs through {} to him at {}: a block there first (WorkGoal.doPlace)", pos.toShortString(), pos.above().toShortString(), ring.toShortString(), g.blockPosition().toShortString());
+                g.tasks.addFirst(t); g.tasks.addFirst(new Task.Place(ring.immutable(), t.item())); return exit("walling the lava's spread first"); }
+        }
         if (upHisSkytower() && coverCell(pos) && !inReach(pos) && level.getBlockState(pos).canBeReplaced() && !enemiesNear(16).isEmpty()) { // up his tower with mobs about: never off it for a wall block (live 16:57: the walls' Places walked him off his tower into the wither skeletons, knocked into the lava)
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] his cover's block at {} is out of reach from up his tower at {} with {} hostile(s) within 16: left out, he stays up (WorkGoal.doPlace)", pos.toShortString(), g.blockPosition().toShortString(), enemiesNear(16).size());
             return exit("a cover block out of reach from up his tower (doPlace)");
@@ -4162,6 +4179,7 @@ public class WorkGoal extends Goal {
                     BlockPos sp = p0.immutable();
                     if (sp.equals(pos) || !level.getBlockState(sp).getCollisionShape(level, sp).isEmpty() || !level.getBlockState(sp.above()).getCollisionShape(level, sp.above()).isEmpty() || level.getBlockState(sp.below()).getCollisionShape(level, sp.below()).isEmpty() || level.getFluidState(sp).is(net.minecraft.tags.FluidTags.LAVA) || level.getFluidState(sp.above()).is(net.minecraft.tags.FluidTags.LAVA) || level.getBlockState(sp.below()).getCollisionShape(level, sp.below()).max(net.minecraft.core.Direction.Axis.Y) > 1.0) continue; // (never on top of a fence or a wall: no jump gets him up there, a pillar did, its dirt left outside his farm to plant a seed from a fence post, stage 93) (farmland, a slab: something to stand on, not only a full-faced block; never a lava cell: stage 816 was nudged into one)
                     double dd = sp.distSqr(g.blockPosition()); if (dd >= vd) continue;
+                    if (besideLava(level, sp)) continue; // (lava beside an open cell that hasn't flowed in is falling: plug its fall and it spreads sideways into him; death 30, live 01:39 11-09, stage 1196)
                     Vec3 e2 = Vec3.atBottomCenterOf(sp).add(0, 1.62, 0);
                     for (Direction d : Direction.values()) {
                         BlockPos nb = pos.relative(d); BlockState ns = level.getBlockState(nb);

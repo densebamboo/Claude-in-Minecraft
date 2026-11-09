@@ -7897,7 +7897,7 @@ public final class ClaudeBodyTest {
     private static void pass(int[] stage, int[] t, String what) {
         ClaudeMod.LOGGER.info("[Claude test] PASS stage {}: {}", stage[0], what);
         String list = System.getProperty("claude.stages"); // -Dclaude.stages=a,b,c (with startStage=a): those stages only, in that order, in one launch; the run ends after the last
-        if (list != null) { int next = 9999; boolean after = false; for (String x : list.split(",")) { int n = Integer.parseInt(x.trim()); if (after) { next = n; break; } after = n == stage[0]; } stage[0] = next; t[0] = 0; return; }
+        if (list != null) { int next = Integer.MAX_VALUE; /* (past any endStage: 9999 under endStage 99999 had skipGap walk ~90,000 empty numbers before ALL PASSED) */ boolean after = false; for (String x : list.split(",")) { int n = Integer.parseInt(x.trim()); if (after) { next = n; break; } after = n == stage[0]; } stage[0] = next; t[0] = 0; return; }
         stage[0]++;
         if (stage[0] == Integer.getInteger("claude.endStage", -1) + 1) stage[0] = 9999; // -Dclaude.endStage=N: the run ends after stage N
         t[0] = 0;

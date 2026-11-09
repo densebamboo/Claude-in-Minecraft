@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
             case 1305: return st1305(stage, t, c, h, level, mock);
+            case 1350: return st1350(stage, t, c, h, level, mock);
             case 1301: return st1301(stage, t, c, h, level, mock);
             case 1302: return st1302(stage, t, c, h, level, mock);
             case 1303: return st1303(stage, t, c, h, level, mock);
@@ -25830,6 +25831,28 @@ public final class ClaudeBodyTest {
             h.setBlock(new BlockPos(6, 4, 12), Blocks.DEEPSLATE); c.blueprint = null;
             check(!cut, "his route past his wall digs his own water plug at (6,3,12): " + (plan == null ? "-" : plan.acts()));
             pass(stage, t, "his water plug kept: the route " + (plan == null ? "found no way" : "goes " + plan.acts().size() + " acts round it"));
+        }
+        return true;
+    }
+    private static int st1350Start;
+    private static boolean st1350(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 09:25:09 11-09 (the_nether 199,52,512, his death pile): 63 oak logs and 20 torches taken, then "no stone or junk to throw for it: it waits" x20 and a diamond pickaxe, iron boots/leggings/swords left on the floor (D2D review 6; 150 valuables skipped for "no room" over 10 sessions)
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); st1350Start = 0; }
+        if (t[0] == 10) {
+            for (int x = -1; x <= 14; x++) for (int z = -1; z <= 14; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 1; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+            var inv = c.getInventory(); inv.clearContent(); inv.add(new ItemStack(Items.IRON_PICKAXE)); inv.add(new ItemStack(Items.SHIELD)); inv.add(new ItemStack(Items.BLAZE_ROD, 3)); inv.add(new ItemStack(Items.COOKED_PORKCHOP, 10));
+            inv.add(new ItemStack(Items.CRAFTING_TABLE)); inv.add(new ItemStack(Items.COAL, 13)); inv.add(new ItemStack(Items.TORCH, 64)); inv.add(new ItemStack(Items.WHITE_BED));
+            while (inv.getFreeSlot() >= 0) inv.add(new ItemStack(Items.OAK_LOG, 64)); // full: logs, torches and kit, no stone or junk (his pack at the pile)
+            c.attempts.clear();
+            BlockPos me = h.absolutePos(new BlockPos(5, 1, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            BlockPos at = h.absolutePos(new BlockPos(8, 1, 5)); var pick = new net.minecraft.world.entity.item.ItemEntity(level, at.getX() + 0.5, at.getY(), at.getZ() + 0.5, new ItemStack(Items.DIAMOND_PICKAXE)); pick.setDeltaMovement(0, 0, 0); level.addFreshEntity(pick);
+            c.tasks.add(new Task.Pickup(16)); st1350Start = t[0];
+        }
+        if (st1350Start > 0) {
+            var inv = c.getInventory();
+            if (c.inventory.count(s -> s.is(Items.DIAMOND_PICKAXE)) > 0) {
+                check(c.inventory.count(s -> s.is(Items.BLAZE_ROD)) == 3 && c.inventory.count(s -> s.is(Items.SHIELD)) == 1 && c.inventory.count(s -> s.is(Items.WHITE_BED)) == 1 && c.inventory.count(s -> s.is(Items.IRON_PICKAXE)) == 1, "the diamond pickaxe taken, but his blaze rods, shield, bed or iron pick went for it");
+                c.tasks.clear(); c.dropCurrent = true; pass(stage, t, "the diamond pickaxe taken into a pack full of logs and torches (the least of it thrown) in " + (t[0] - st1350Start) / 20 + " s"); return true; }
+            check(t[0] - st1350Start < 20 * 10, "10 s and the diamond pickaxe still on the floor beside his pack of logs (doing " + c.currentTask + ")");
         }
         return true;
     }

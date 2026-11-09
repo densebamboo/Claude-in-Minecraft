@@ -9951,7 +9951,7 @@ public final class ClaudeLife {
     public static int lootValue(ItemStack s) {
         if (s.isEmpty()) return 0;
         Item it = s.getItem();
-        int per = it == Items.ENCHANTED_GOLDEN_APPLE ? 60 : it == Items.DIAMOND ? 40 : it == Items.ENCHANTED_BOOK ? 30 : it == Items.ENDER_PEARL ? 30 : it == Items.FLINT_AND_STEEL ? 25 : it == Items.GOLDEN_APPLE ? 20
+        int per = it == Items.ENCHANTED_GOLDEN_APPLE ? 60 : it == Items.DIAMOND ? 40 : it == Items.ENCHANTED_BOOK ? 30 : it == Items.ENDER_PEARL || it == Items.BLAZE_ROD || it == Items.ENDER_EYE ? 30 : it == Items.FLINT_AND_STEEL ? 25 : it == Items.GOLDEN_APPLE ? 20
                 : it == Items.BUCKET || it == Items.WATER_BUCKET ? 15 : it == Items.FIRE_CHARGE ? 12 : it == Items.SADDLE ? 10 : it == Items.OBSIDIAN ? 8 : it == Items.EMERALD ? 8 : it == Items.TNT ? 8
                 : it == Items.IRON_INGOT || it == Items.GOLD_INGOT || it == Items.RAW_IRON ? 6 : it == Items.NAME_TAG ? 6 : it == Items.STRING ? 2 : it == Items.ARROW ? 1 : it == Items.IRON_NUGGET || it == Items.GOLD_NUGGET ? 1 : 0;
         if (per == 0 && (it instanceof net.minecraft.world.item.TieredItem || it instanceof net.minecraft.world.item.ArmorItem || it instanceof net.minecraft.world.item.BowItem || it instanceof net.minecraft.world.item.CrossbowItem)) per = 12;
@@ -9990,11 +9990,14 @@ public final class ClaudeLife {
 
     public static void makeRoom(ClaudeEntity g) { dumpJunk(g); }
     /** Room for something he came for (an ore drop, a pearl): the junk first; nothing junk and still full, his smallest stack of stone goes, thrown away from it (a stack of cobble is a minute of mining, a diamond isn't: live 04:58 the patch waited 5 min on one, "no room", stage 798). */
-    public static void makeRoom(ClaudeEntity g, Vec3 forIt) {
+    public static void makeRoom(ClaudeEntity g, Vec3 forIt) { makeRoom(g, forIt, null); }
+    public static void makeRoom(ClaudeEntity g, Vec3 forIt, ItemStack want) {
         dumpJunk(g); if (g.getInventory().getFreeSlot() >= 0) return;
         var inv = g.getInventory(); int pick = -1;
         for (int i = 0; i < inv.items.size(); i++) { var st = inv.items.get(i); if (i == inv.selected || st.isEmpty()) continue; if (!(cobbleItem(st) || st.is(Items.NETHERRACK) || st.is(Items.BLACKSTONE) || junkItem(st))) continue; if (pick < 0 || st.getCount() < inv.items.get(pick).getCount()) pick = i; }
-        if (pick < 0) { ClaudeMod.LOGGER.info("[Claude life] pack full for what he came for, and no stone or junk to throw for it: it waits (ClaudeLife.makeRoom)"); return; }
+        if (pick < 0 && want != null) { int wv = Math.max(lootValue(want), 1), pv = Integer.MAX_VALUE; // no stone or junk: the stack worth least goes, when it's worth less than what he came for (live 09:25 11-09: a diamond pickaxe and iron gear left on his death pile for 63 oak logs, stage 1350)
+            for (int i = 0; i < inv.items.size(); i++) { var st = inv.items.get(i); if (i == inv.selected || st.isEmpty() || st.isDamageableItem() || st.is(ItemTags.BEDS)) continue; int v = lootValue(st); if (v < wv && (v < pv || v == pv && st.getCount() < inv.items.get(pick).getCount())) { pv = v; pick = i; } } }
+        if (pick < 0) { ClaudeMod.LOGGER.info("[Claude life] pack full for what he came for, and nothing on him worth less to throw for it: it waits (ClaudeLife.makeRoom)"); return; }
         Vec3 away = g.position().subtract(forIt).multiply(1, 0, 1); if (away.lengthSqr() > 1e-4) { g.setYRot((float) Math.toDegrees(Math.atan2(away.z, away.x)) - 90f); g.setXRot(-25f); }
         var st = inv.items.get(pick); ClaudeMod.LOGGER.info("[Claude life] pack full for what he came for: {} {} thrown out for it, away from it (ClaudeLife.makeRoom)", st.getCount(), Crafting.name(st.getItem()));
         var e = g.drop(st.copy(), false, true); if (e != null) g.markGift(e); com.claudemod.entity.life.Watchdog.thrown(g, e); inv.items.set(pick, ItemStack.EMPTY);

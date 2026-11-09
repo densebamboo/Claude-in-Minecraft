@@ -95,6 +95,7 @@ public final class Crafting {
             for (Ingredient ing : needed) inv.remove(ing::test, 1);
             int n = out.getCount();
             ItemStack rest = inv.add(out);
+            com.claudemod.entity.life.Watchdog.noteMade(inv.player());
             return new Result(n - rest.getCount(), null, false);
         }
         if (tableProblem) return new Result(0, "a crafting table nearby", true); // a recipe he has everything for but the 3x3: the table is the lack

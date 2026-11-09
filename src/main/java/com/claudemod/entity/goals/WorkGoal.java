@@ -4690,7 +4690,7 @@ public class WorkGoal extends Goal {
         if (!out.isEmpty()) furnace.awardUsedRecipesAndPopExperience(g); // the XP a player gets for taking the output
         if (!out.isEmpty()) {
             g.noteDoing("smelted " + out.getCount() + " " + itemName(out));
-            g.inventory.add(out);
+            g.inventory.add(out); com.claudemod.entity.life.Watchdog.noteMade(g);
         }
         g.swing(InteractionHand.MAIN_HAND);
         return true;
@@ -4836,7 +4836,7 @@ public class WorkGoal extends Goal {
         if (!out.isEmpty()) furnace.awardUsedRecipesAndPopExperience(g); // the XP a player gets for taking the output
         if (!out.isEmpty()) {
             g.noteDoing("smelted " + out.getCount() + " " + itemName(out));
-            g.inventory.add(out);
+            g.inventory.add(out); com.claudemod.entity.life.Watchdog.noteMade(g);
         }
         if (!furnace.getItem(0).isEmpty() && furnace.getItem(1).isEmpty() && !level.getBlockState(t.pos()).getValue(net.minecraft.world.level.block.AbstractFurnaceBlock.LIT)) { // burnt out with raw left: that comes back out too, to be smelted again with fuel (left in, it was lost to him)
             ItemStack raw = furnace.removeItem(0, 64);

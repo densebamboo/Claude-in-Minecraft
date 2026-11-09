@@ -10537,6 +10537,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1179: return st1179(stage, t, c, h, level, mock);
             case 1175: return st1175(stage, t, c, h, level, mock);
             case 1177: return st1177(stage, t, c, h, level, mock);
             case 1176: return st1176(stage, t, c, h, level, mock);
@@ -16010,6 +16011,37 @@ public final class ClaudeBodyTest {
             check(c.isAlive() && c.getAirSupply() > 0, "drowned crossing a lake 29 across");
             if (c.position().distanceTo(to.getBottomCenter()) < 1.5) { double s = (t[0] - st1175T0) / 20.0; check(st1175Cheat <= 10, "sprinting at the surface " + st1175Cheat + " ticks, not swimming (a player's client drops that sprint: he paddles at 2 b/s or sprint-swims), " + String.format("%.1f", st1175Swim) + " s in the swim pose"); check(s <= 11, "29 blocks of lake (35 to walk) in " + s + " s, " + String.format("%.1f", st1175Swim) + " s of it in the swim pose: a player sprint-swims it in ~10"); for (int x = -4; x <= 36; x++) for (int z = -6; z <= 6; z++) for (int y = -5; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); nsHome(c, h, level); pass(stage, t, "across a 29-wide lake in " + s + " s (" + String.format("%.1f", st1175Swim) + " s swimming, " + st1175Cheat + " ticks of surface sprint)"); return true; }
             check(t[0] - st1175T0 < 20 * 30, "a lake 29 across: not over in 30 s, at " + c.blockPosition().subtract(o).toShortString() + ", doing " + c.currentTask + ", swimming " + c.isSwimming());
+        }
+        return true;
+    }
+    /** Stage 1179 (audit 12, 11-08: 14 of the day's 42 PLACE_BREAKs were a table taken up after a craft or a furnace after its smelt, e.g. live 06:59:44 a furnace at 314,64,-230, 1 chicken cooked, back up 11 s later "with nothing broken or gained": the cooked chicken and the crafted pick weren't counted, a craft or smelt leaves fewer items than went in): a table set down for a stone pickaxe, a furnace for a chicken, each taken back up as he moves on. Normal work, nothing filed. */
+    private static int s1179T, s1179Ph; private static BlockPos s1179Tab, s1179Fur;
+    private static boolean st1179(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(9300, 80, 9300); var W = com.claudemod.entity.life.Watchdog.recentKinds;
+        if (t[0] == 1) { scenarioReset(c); W.clear(); com.claudemod.entity.life.Watchdog.linesInTests = true; s1179T = 0; s1179Ph = 0; s1179Tab = null; s1179Fur = null; c.prefs.put("stay_close", "no"); level.setDayTime(6000); }
+        if (t[0] == 10) {
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = -1; y <= 4; y++) level.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE)); c.getInventory().add(new ItemStack(Items.FURNACE)); c.getInventory().add(new ItemStack(Items.STICK, 2)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 3)); c.getInventory().add(new ItemStack(Items.CHICKEN)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 1));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.myStations.clear(); c.tempStations.clear(); c.nextPlanTick = c.tickCount + 20 * 600;
+            mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 40, o.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 20) { com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "craft", "stone_pickaxe", 1); s1179T = t[0]; s1179Ph = 1; }
+        if (s1179Ph > 0 && t[0] > s1179T) {
+            for (BlockPos q : BlockPos.betweenClosed(o.offset(-6, -1, -6), o.offset(6, 4, 6))) { if (level.getBlockState(q).is(Blocks.CRAFTING_TABLE)) s1179Tab = q.immutable(); if (level.getBlockState(q).is(Blocks.FURNACE)) s1179Fur = q.immutable(); }
+            if (s1179Ph == 1 && c.getInventory().countItem(Items.STONE_PICKAXE) > 0 && c.tasks.isEmpty()) { c.skillQueue.clear(); com.claudemod.entity.life.TempLedger.stepStart(c, level, "collect"); s1179Ph = 2; s1179T = t[0]; }
+            else if (s1179Ph == 2 && t[0] - s1179T > 40 && c.tasks.isEmpty()) { com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "cooked_chicken", 1); s1179Ph = 3; s1179T = t[0]; }
+            else if (s1179Ph == 3 && c.getInventory().countItem(Items.COOKED_CHICKEN) > 0 && c.tasks.isEmpty()) { c.skillQueue.clear(); com.claudemod.entity.life.TempLedger.stepStart(c, level, "collect"); s1179Ph = 4; s1179T = t[0]; }
+            else if (s1179Ph == 4 && t[0] - s1179T > 60 && c.tasks.isEmpty() || t[0] - s1179T > 20 * 40) {
+                int ph = s1179Ph; String w = W.toString(); com.claudemod.entity.life.Watchdog.linesInTests = false;
+                boolean tableUp = s1179Tab == null || !level.getBlockState(s1179Tab).is(Blocks.CRAFTING_TABLE), furUp = s1179Fur == null || !level.getBlockState(s1179Fur).is(Blocks.FURNACE);
+                c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.tempStations.clear(); c.myStations.clear();
+                for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = -1; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(12))) e.discard();
+                check(ph == 4, "stuck at phase " + ph + " (1 craft, 2 move on, 3 smelt, 4 move on): pick " + c.getInventory().countItem(Items.STONE_PICKAXE) + ", cooked " + c.getInventory().countItem(Items.COOKED_CHICKEN));
+                check(s1179Tab != null && s1179Fur != null && tableUp && furUp, "table " + s1179Tab + " up " + tableUp + ", furnace " + s1179Fur + " up " + furUp + ": not the scene");
+                check(!w.contains("PLACE_BREAK"), "a table up after its craft, a furnace up after its smelt: filed " + w + " (last " + com.claudemod.entity.life.Watchdog.lastIncident + ")");
+                c.getInventory().clearContent(); nsHome(c, h, level); pass(stage, t, "table and furnace up after their work, nothing filed (" + w + ")");
+            }
         }
         return true;
     }

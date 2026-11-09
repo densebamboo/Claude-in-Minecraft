@@ -69,6 +69,7 @@ public final class Watchdog {
         Task started; int startTick, startBroken, startItems; double startDist; // the action now running, as it began
         Map<String, Integer> bagAtStart;                     // (a chest action only: what he had going in)
         int broken;                                          // blocks he's broken (ClaudeLife.noteBroken)
+        int made;                                            // crafts and furnace takes (a craft or smelt leaves fewer items than went in)
         String pending;                                      // a line to say on the next ClaudeLife tick (it has the player)
         final java.util.ArrayDeque<double[]> samples = new java.util.ArrayDeque<>(); // {tick, x, y, z, health, food, fire ticks}, one a second, the last 60
         double px = Double.NaN, py, pz; int pTick; Object pDim; int handOff = -100000; // (the last tick he was handing things over: give, a chest, a deposit)          // his position last tick (the silent-move check)
@@ -136,6 +137,8 @@ public final class Watchdog {
      * ladder has queued the next way (or written it off). True: run it.
      */
     public static void noteBroken(ClaudeEntity g) { st(g).broken++; }
+    /** He crafted something or took a furnace's output: work done, though his item count went down. */
+    public static void noteMade(net.minecraft.world.entity.player.Player p) { if (p instanceof ClaudeEntity g) st(g).made++; }
     /** A walk ended again no nearer than his best on that walk within the window (a step cut and climbed back is no gain; blocks broken on the way don't count for a walk). Nearer by a block, and its count starts over. */
     private static boolean walkNoGain(St s, String k, ClaudeEntity g, Task t) {
         double d = targetDist(g, t); double[] last = s.lastEnd.get(k);
@@ -618,14 +621,14 @@ public final class Watchdog {
     /** Leaps: a planned drop landed for the damage it planned (no more): that much falling health is his plan, not a threat. */
     public static void plannedHurt(ClaudeEntity g, float hp) { St s = st(g); s.plannedHp = hp; s.plannedAt = now(g); }
     /** He put a block down (the place event). */
-    public static void placedOwn(ClaudeEntity g, BlockPos p) { St s = st(g); if (s.placedAt.size() > 256) s.placedAt.clear(); s.placedAt.put(p.immutable(), new int[] {now(g), s.broken, items(g)}); }
+    public static void placedOwn(ClaudeEntity g, BlockPos p) { St s = st(g); if (s.placedAt.size() > 256) s.placedAt.clear(); s.placedAt.put(p.immutable(), new int[] {now(g), s.broken, items(g), s.made}); }
     /** He broke a block (the break event, before the drop): his own placement undone with nothing done (PLACE_BREAK); a tool block by hand or with the wrong tool (BARE_HANDS). */
     public static void brokeOwn(ClaudeEntity g, BlockPos p, net.minecraft.world.level.block.state.BlockState st) {
         if (!on()) return;
         St s = st(g);
         int[] pl = s.placedAt.remove(p);
-        if (pl != null && now(g) - pl[0] <= 20 * 60 && s.broken == pl[1] && items(g) <= pl[2])
-            fileOnce(g, "PLACE_BREAK", "PLACE_BREAK|" + p.asLong(), "put " + nm(st) + " down at " + p.toShortString() + " and broke it " + (now(g) - pl[0]) / 20 + " s later with nothing broken or gained between; doing " + (g.currentTask == null ? "-" : g.currentTask) + ", step " + (g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target()));
+        if (pl != null && now(g) - pl[0] <= 20 * 60 && s.broken == pl[1] && items(g) <= pl[2] && s.made == pl[3])
+            fileOnce(g, "PLACE_BREAK", "PLACE_BREAK|" + p.asLong(), "put " + nm(st) + " down at " + p.toShortString() + " and broke it " + (now(g) - pl[0]) / 20 + " s later with nothing broken, made or gained between; doing " + (g.currentTask == null ? "-" : g.currentTask) + ", step " + (g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target()));
         boolean axe = st.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_AXE), pick = st.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_PICKAXE);
         if (!axe && !pick) return;
         var held = g.getMainHandItem(); float hs = held.getDestroySpeed(st), best = hs; String bestName = "";

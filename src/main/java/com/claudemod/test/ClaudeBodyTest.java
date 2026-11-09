@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1191: return st1191(stage, t, c, h, level, mock);
             case 1190: return st1190(stage, t, c, h, level, mock);
             case 1187: return st1187(stage, t, c, h, level, mock);
             case 1188: return st1188(stage, t, c, h, level, mock);
@@ -16266,6 +16267,26 @@ public final class ClaudeBodyTest {
         boolean r = st765(stage, t, c, h, level, mock);
         if (t[0] == 1) c.work.escapeHoldForTest(new BlockPos(9200, 64, 5600), "backoff"); // (overworld coordinates: in the Nether they'd be 400 west of his portal)
         return r;
+    }
+    /** Stage 1191 (D2D 11-08, highway family B: Atlas.find's sliver check dropped a spot whenever the biome underfoot wasn't its name; "fortress" is no biome, so every fortress spot went off the record the moment he stood by it: 5 of 7 drops, 193,57,514 among them, the highway's own fortress): by a fortress spot on record in the Nether, it stays; a biome spot that's only a sliver still goes. */
+    private static boolean st1191(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(9800, 64, 5800);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] > 4 && t[0] % 10 == 0) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 10) { for (int x = -3; x <= 3; x++) for (int z = -3; z <= 3; z++) { nl.setBlock(o.offset(x, -1, z), Blocks.NETHERRACK.defaultBlockState(), 2); for (int y = 0; y <= 2; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; }
+        if (t[0] == 30) {
+            check(c.level() == nl, "not in the Nether: not the scene");
+            var hk = nl.getBiome(c.blockPosition()).unwrapKey(); String here = hk.isPresent() ? hk.get().location().getPath() : "";
+            String other = here.equals("crimson_forest") ? "warped_forest" : "crimson_forest";
+            com.claudemod.entity.life.Atlas.note(c, nl, "fortress", o.east(2)); com.claudemod.entity.life.Atlas.note(c, nl, other, o.west(2));
+            BlockPos f = com.claudemod.entity.life.Atlas.find(c, nl, "fortress"), b = com.claudemod.entity.life.Atlas.find(c, nl, other);
+            check(f != null, "standing by a fortress on record in " + here + ": the fortress went off his atlas (a fortress is no biome, \"only a sliver\" never fits it)");
+            check(b == null, "the " + other + " spot 2 off in " + here + " stayed: the sliver check for real biomes is gone");
+            pass(stage, t, "the fortress at " + f.toShortString() + " kept in " + here + "; the " + other + " sliver dropped");
+        }
+        return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */
     private static int s934T, s934Deep;

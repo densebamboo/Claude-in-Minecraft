@@ -122,7 +122,8 @@ public final class Atlas {
         List<BlockPos> spots = m.get(biome); if (spots == null) return null;
         BlockPos best = null; double bd = Double.MAX_VALUE;
         var hk = l.getBiome(g.blockPosition()).unwrapKey(); String here = hk.isPresent() ? hk.get().location().getPath() : ""; // (no lambda: live hotswap)
-        for (var it = spots.iterator(); it.hasNext(); ) { BlockPos q = it.next(); if (!here.equals(biome) && q.distSqr(g.blockPosition()) <= 16) { it.remove(); ClaudeMod.LOGGER.info("[Claude atlas] {} at {}: stood by it and it's {} here, only a sliver: off the record (Atlas.find)", biome, q.toShortString(), here); } }
+        boolean isBiome = l.registryAccess().registryOrThrow(net.minecraft.core.registries.Registries.BIOME).containsKey(net.minecraft.resources.ResourceLocation.withDefaultNamespace(biome)); // (a fortress is a structure, no biome: underfoot it's always something else, D2D 11-08: 5 of 7 drops were fortresses)
+        for (var it = spots.iterator(); isBiome && it.hasNext(); ) { BlockPos q = it.next(); if (!here.equals(biome) && q.distSqr(g.blockPosition()) <= 16) { it.remove(); ClaudeMod.LOGGER.info("[Claude atlas] {} at {}: stood by it and it's {} here, only a sliver: off the record (Atlas.find)", biome, q.toShortString(), here); } }
         for (BlockPos q : spots) { double dd = q.distSqr(g.blockPosition()); if (dd < bd && !quietAt(g, l, q)) { bd = dd; best = q; } }
         return best;
     }

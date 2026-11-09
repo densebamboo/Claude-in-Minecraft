@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1240: return st1240(stage, t, c, h, level, mock);
             case 1238: return st1238(stage, t, c, h, level, mock);
             case 1237: return st1237(stage, t, c, h, level, mock);
             case 1236: return st1236(stage, t, c, h, level, mock);
@@ -16544,6 +16545,35 @@ public final class ClaudeBodyTest {
                     pass(stage, t, "held in cover while a second blaze saw the spot; in on the first once it was gone");
                 }
             }
+        }
+        return true;
+    }
+    /** Stage 1240 (D2D review 110, live 06:14:04-06:14:22 11-09 at -83,16,-261: after a zombie fight in a 1-wide tunnel bend his walk's next node was the one past the bend, -84,16,-260, the bend's own node -84,16,-261 marked passed while he was knocked about; pushed back to his cell's far corner, the line to it clipped the bend's stone; "back to his cell's middle", "on though its line clips", the same node 3 plans running, 18 s): a 1-wide bend, him in his cell's far corner, the next node past the bend. He walks round it in a couple of seconds. */
+    private static int s1240T; private static BlockPos s1240To;
+    private static boolean st1240(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1240T = -1; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            for (int x = 4; x <= 14; x++) for (int z = 6; z <= 16; z++) for (int y = 2; y <= 4; y++) h.setBlock(new BlockPos(x, y, z), Blocks.STONE);
+            int[][] open = {{10, 10}, {9, 10}, {9, 11}, {9, 12}, {9, 13}}; for (int[] o : open) for (int y = 2; y <= 3; y++) h.setBlock(new BlockPos(o[0], y, o[1]), Blocks.AIR); // S, then west a cell, then south: the bend's corner (10, 11) stone
+            c.getInventory().clearContent(); c.setHealth(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            BlockPos s = h.absolutePos(new BlockPos(10, 2, 10)); c.teleportTo(s.getX() + 0.85, s.getY(), s.getZ() + 0.85); // his cell's far corner, off the bend
+            s1240To = h.absolutePos(new BlockPos(9, 2, 13));
+        }
+        if (t[0] == 14) { c.tasks.add(new Task.GoTo(s1240To, 0.6)); s1240T = t[0]; }
+        if (t[0] == 16) { // the state live: the bend's node already passed, the next one past it
+            java.util.List<net.minecraft.world.level.pathfinder.Node> ns = new java.util.ArrayList<>();
+            int[][] cells = {{10, 10}, {9, 10}, {9, 11}, {9, 12}, {9, 13}}; for (int[] q : cells) { BlockPos a = h.absolutePos(new BlockPos(q[0], 2, q[1])); ns.add(new net.minecraft.world.level.pathfinder.Node(a.getX(), a.getY(), a.getZ())); }
+            var path = new net.minecraft.world.level.pathfinder.Path(ns, s1240To, true); path.setNextNodeIndex(2);
+            c.getNavigation().moveTo(path, 1.0);
+        }
+        if (s1240T > 0 && t[0] > 16) {
+            boolean there = c.distanceToSqr(s1240To.getX() + 0.5, s1240To.getY(), s1240To.getZ() + 0.5) < 1.0;
+            if (there || t[0] == s1240T + 20 * 6) { String at = String.format("%.2f %.2f", c.getX() - h.absolutePos(BlockPos.ZERO).getX(), c.getZ() - h.absolutePos(BlockPos.ZERO).getZ());
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; flatBox(h);
+                check(there, "round a 1-wide bend from his cell's far corner not done in 6 s: at " + at);
+                check(t[0] - s1240T <= 60, "round the bend took " + (t[0] - s1240T) + " ticks (a player: 1 s)");
+                pass(stage, t, "round the bend in " + (t[0] - s1240T) + " ticks"); }
         }
         return true;
     }

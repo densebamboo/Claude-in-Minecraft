@@ -96,6 +96,14 @@ public final class PlayerNav {
         return sb.append("(").append(i0).append(" of ").append(path.getNodeCount()).append(")").toString();
     }
     /** This tick: the horizontal direction to walk along the route (null when not walking), and whether to jump. */
+    /** The node before the next one, a flat step from his cell with a clear line to it: made the next again. */
+    private boolean backToSkipped(Vec3 pos, BlockPos here) {
+        Node pn = path.getNode(path.getNextNodeIndex() - 1);
+        if (pn.y != here.getY() || pn.x == here.getX() && pn.z == here.getZ() || Math.abs(pn.x - here.getX()) + Math.abs(pn.z - here.getZ()) > 1) return false;
+        double fx = pn.x + 0.5 - pos.x, fz = pn.z + 0.5 - pos.z, fl = Math.sqrt(fx * fx + fz * fz); if (fl < 1e-3) return false;
+        for (double s0 = 0.2; s0 < fl + 0.1; s0 += 0.2) if (!p.level().noCollision(p, p.getBoundingBox().move(fx / fl * Math.min(s0, fl), 0.01, fz / fl * Math.min(s0, fl)))) return false;
+        path.setNextNodeIndex(path.getNextNodeIndex() - 1); return true;
+    }
     @Nullable Vec3 steer() {
         jump = false; steerWhy = "";
         if (isDone()) { path = null; return null; }
@@ -148,6 +156,7 @@ public final class PlayerNav {
                 Node n0 = path.getNextNode(); double fx = n0.x + 0.5 - pos.x, fz = n0.z + 0.5 - pos.z, fl = Math.sqrt(fx * fx + fz * fz);
                 boolean clear0 = n0 != n && n0.y == here.getY() && fl > 1e-3; for (double s = 0.2; clear0 && s < fl + 0.1; s += 0.2) clear0 = p.level().noCollision(p, p.getBoundingBox().move(fx / fl * Math.min(s, fl), 0.01, fz / fl * Math.min(s, fl))); // (the whole line to it: a corner past the first step is the one stage 1010 pressed into)
                 if (clear0) { n = n0; ax = 0.5; az = 0.5; } // the far node's line clips a block (a leaf at head height over the diagonal): the next node on the grid first, never back to the cell's middle and out at the diagonal again, a 50 s spin (D2D review 87, live 20:08 11-07; stage 1016)
+                else if (path.getNextNodeIndex() > 0 && backToSkipped(pos, here)) { n = path.getNextNode(); ax = 0.5; az = 0.5; steerWhy = "back to the node he'd passed, " + n.x + "," + n.y + "," + n.z + ": the line past it clips a block"; } // (marked passed while he was knocked about, then pushed back to his cell's far corner: the bend's own node first; live 06:14 11-09, review 110, 18 s at a tunnel bend; stage 1240)
                 else if (cx * cx + cz * cz > 0.1 * 0.1 && p.level().noCollision(p, p.getBoundingBox().move(cx, 0.01, cz))) { steerWhy = "back to his cell's middle: the line to " + n.x + "," + n.y + "," + n.z + " clips a block"; return new Vec3(cx, 0, cz).normalize(); }
                 else steerWhy = "on at " + n.x + "," + n.y + "," + n.z + " though its line clips a block (at his cell's middle, the next node not clear either)";
             }

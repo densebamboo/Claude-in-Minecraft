@@ -10809,6 +10809,7 @@ public final class ClaudeBodyTest {
             case 1218: return st1218(stage, t, c, h, level, mock);
             case 1219: return st1219(stage, t, c, h, level, mock);
             case 1220: return st1220(stage, t, c, h, level, mock);
+            case 1221: return st1221(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -21599,6 +21600,37 @@ public final class ClaudeBodyTest {
             check(drops.isEmpty(), "junk thrown on the ground with his junk chest 3 off: " + dropped);
             check(dep, "no trip to his junk chest 3 off");
             pass(stage, t, "the tuff to his junk chest 3 off, nothing on the ground");
+        }
+        return true;
+    }
+    /** Stage 1221 (D2D review 124, live 00:41:30-00:42:22 11-09 at -359,-58,-31: his branch "hit lava at -359,-58,-32" with -31 not dug yet; the plan ended the branch at the lava cell (the plug there), so -31 was to be dug (refused: lava behind it) and -32 plugged (no face: -31 in front), break and place refused by turns): his branch dug 6 rows, the 7th still rock, lava behind it. The branch ends one short, the rock its end wall: nothing dug toward the lava, nothing set into it. */
+    private static boolean st1221(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(7, 2, 6));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) for (int yy = -3; yy <= 9; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE);
+            for (int x = 2; x <= 7; x++) for (int yy = 2; yy <= 3; yy++) h.setBlock(new BlockPos(x, yy, 1), Blocks.AIR); // the main tunnel
+            for (int z = 2; z <= 7; z++) for (int yy = 2; yy <= 3; yy++) h.setBlock(new BlockPos(7, yy, z), Blocks.AIR); // his branch, dug 6 of 12
+            for (int x = 6; x <= 8; x++) for (int z = 9; z <= 11; z++) for (int yy = 2; yy <= 3; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.LAVA); // the pool past the 7th row's rock
+            var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(new BlockPos(2, 2, 1)), net.minecraft.core.Direction.EAST, 1, 2); b.segments.clear();
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, h.absolutePos(new BlockPos(2, 2, 1)), net.minecraft.core.Direction.EAST, 6, null));
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.BRANCH, h.absolutePos(new BlockPos(7, 2, 2)), net.minecraft.core.Direction.SOUTH, 12, null)); b.invalidate();
+            c.prefs.put("mine_model", "blueprint"); c.prefs.put("torches_while_digging", "no"); c.blueprint = b; com.claudemod.director.ClaudeLife.bpSync(c);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5); level.setDayTime(1000);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+            com.claudemod.director.ClaudeLife.bpReconcile(c, level, 0, 99, false);
+        }
+        if (t[0] == 100) {
+            int n = c.blueprint.segments.get(1).n; boolean rock = level.getBlockState(h.absolutePos(new BlockPos(7, 2, 8))).is(Blocks.STONE) && level.getBlockState(h.absolutePos(new BlockPos(7, 3, 8))).is(Blocks.STONE);
+            boolean lavaIn = false; for (int z = 2; z <= 8; z++) for (int yy = 2; yy <= 3; yy++) if (!level.getFluidState(h.absolutePos(new BlockPos(7, yy, z))).isEmpty()) lavaIn = true;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); c.getInventory().clearContent();
+            for (int x = 6; x <= 8; x++) for (int z = 2; z <= 11; z++) for (int yy = 2; yy <= 3; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE);
+            check(!lavaIn, "lava in his branch");
+            check(rock, "the rock in front of the lava dug");
+            check(n <= 6, "the branch planned " + n + " rows: into the rock in front of the lava (6 dug)");
+            pass(stage, t, "the branch ends at its 6 dug rows, the rock before the lava its wall");
         }
         return true;
     }

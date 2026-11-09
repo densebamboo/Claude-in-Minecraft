@@ -6780,6 +6780,13 @@ public class WorkGoal extends Goal {
             BlockPos under = BlockPos.containing(spot.x, mob.getY(), spot.z);
             for (int k = 0; k < 6 && !com.claudemod.entity.life.FortressFight.stand(level, under) && under.getY() > g.getBlockY() - 3; k++) under = under.below();
             if (!com.claudemod.entity.life.FortressFight.stand(level, under)) { under = BlockPos.containing(mob.getX(), mob.getY(), mob.getZ()); for (int k = 0; k < 6 && !com.claudemod.entity.life.FortressFight.stand(level, under) && under.getY() > g.getBlockY() - 3; k++) under = under.below(); }
+            net.minecraft.world.entity.monster.Blaze watcher = null; for (var b2 : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(24), net.minecraft.world.entity.Entity::isAlive)) if (b2 != mob && com.claudemod.entity.life.FortressFight.sees(level, b2, under)) watcher = b2;
+            if (watcher != null) { // one at a time: another blaze sees where he'd stand to hit this one; lit or not, its volley comes once he's out there (live 05:44 11-09, death 115: "closing in: the blaze is quiet, 13 off" with 3 more about, between volleys; they lit up and hit him out there, 20 -> 8; stage 1238)
+                if (!inCover) { g.setSprinting(true); cfMove(cv.cover(), 1.3); } else g.getNavigation().stop();
+                if (shield && watcher.hasLineOfSight(g)) shieldUp(watcher);
+                cfSay("one at a time", "another blaze " + (int) watcher.distanceTo(g) + " off sees " + under.toShortString() + ", where he'd hit this one: in cover till it doesn't");
+                return false;
+            }
             g.setSprinting(true); cfMove(under, 1.3);
             cfSay("closing in", "the blaze is " + (age < 0 ? "quiet" : "lit " + age + " ticks") + ", " + (int) mob.distanceTo(g) + " off" + (shield ? ", shield ready" : ""));
             return false;

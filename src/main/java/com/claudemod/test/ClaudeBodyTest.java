@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1238: return st1238(stage, t, c, h, level, mock);
             case 1237: return st1237(stage, t, c, h, level, mock);
             case 1236: return st1236(stage, t, c, h, level, mock);
             case 1199: return st1199(stage, t, c, h, level, mock);
@@ -16501,6 +16502,45 @@ public final class ClaudeBodyTest {
                 check(there, "never got down into the hollow through its 1-thick floor (he's at " + at + (gaveUp ? ", the walk written off" : "") + " after " + (t[0] - s1237T) + " ticks)");
                 check(t[0] - s1237T <= 200, "the dig and drop took " + (t[0] - s1237T) + " ticks (a player: 1 s)");
                 pass(stage, t, "dug the floor and dropped in (" + (t[0] - s1237T) + " ticks, " + hp + " HP after)");
+            }
+        }
+        return true;
+    }
+    /** Stage 1238 (D2D death 115, live 05:44 11-09 at the fortress by 200,58,514: fighting a blaze from a corner, "closing in: the blaze is quiet, 13 off" out into the open with 3 more blazes about; they were between volleys, so "one at a time" (lit ones only) let him go, they lit up and hit him there, 20 -> 14 -> 8, and the fight never got back to cover; dead at 05:45:29): the blaze he fights past a wall's end, a second one quiet in plain view of where he'd stand to hit it. He waits in cover till no other blaze sees that spot, then closes in. */
+    private static net.minecraft.world.entity.monster.Blaze s1238A, s1238B; private static int s1238Near, s1238T;
+    private static boolean st1238(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1238A = s1238B = null; s1238Near = 0; }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) if (e != s1238A && e != s1238B) e.discard();
+        if (t[0] == 10) {
+            for (int x = -20; x <= 24; x++) for (int z = -16; z <= 16; z++) { level.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); for (int y = 0; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int z = -10; z <= 1; z++) for (int y = 0; y <= 5; y++) level.setBlock(o.offset(4, y, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // the wall, its end a corner to peek round
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() - 3 + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; mock[0].teleportTo(o.getX() + 0.5, o.getY() + 45, o.getZ() + 0.5);
+            level.setDayTime(6000);
+        }
+        if (t[0] == 20) {
+            s1238A = EntityType.BLAZE.create(level); s1238A.moveTo(o.getX() + 9.5, o.getY(), o.getZ() - 3 + 0.5, 90, 0); s1238A.setPersistenceRequired(); s1238A.setNoAi(true); level.addFreshEntity(s1238A);
+            s1238B = EntityType.BLAZE.create(level); s1238B.moveTo(o.getX() + 13.5, o.getY() + 1, o.getZ() + 12.5, 180, 0); s1238B.setPersistenceRequired(); s1238B.setNoAi(true); level.addFreshEntity(s1238B);
+            c.tasks.add(new Task.Attack(s1238A.getUUID(), 20 * 30)); s1238T = t[0];
+        }
+        if (t[0] > 20 && s1238A != null) {
+            double d = s1238A.distanceTo(c);
+            if (s1238B != null && t[0] <= s1238T + 160) { if (d < 4.5) s1238Near++; }
+            if (s1238B != null && t[0] == s1238T + 160) {
+                boolean bSees = com.claudemod.entity.life.FortressFight.sees(level, s1238B, BlockPos.containing(s1238A.getX() - 2.7, o.getY(), s1238A.getZ()));
+                check(bSees, "setup: the second blaze has no sight of where he'd stand to hit the first");
+                check(s1238Near == 0, "closed in on the blaze in plain view of a second (quiet) one: " + s1238Near + " ticks within 4.5 of it, at " + c.blockPosition().toShortString());
+                s1238B.discard(); s1238B = null; s1238T = t[0]; s1238Near = 0;
+            }
+            if (s1238B == null) {
+                if (d < 4.5) s1238Near++;
+                if (s1238Near > 0 || !s1238A.isAlive() || t[0] > s1238T + 200) {
+                    boolean went = s1238Near > 0 || !s1238A.isAlive();
+                    s1238A.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY); c.getInventory().clearContent();
+                    check(went, "the second blaze gone, still never closed in on the first in 10 s (at " + c.blockPosition().toShortString() + ")");
+                    pass(stage, t, "held in cover while a second blaze saw the spot; in on the first once it was gone");
+                }
             }
         }
         return true;

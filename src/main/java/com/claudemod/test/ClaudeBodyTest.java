@@ -10539,6 +10539,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1184: return st1184(stage, t, c, h, level, mock);
             case 1183: return st1183(stage, t, c, h, level, mock);
             case 1179: return st1179(stage, t, c, h, level, mock);
             case 1175: return st1175(stage, t, c, h, level, mock);
@@ -16081,6 +16082,35 @@ public final class ClaudeBodyTest {
                 check(s <= 15, "a 6-high tower and a step onto the ledge: " + s + " s (a player ~8)");
                 c.getInventory().clearContent(); pass(stage, t, "towered up beside the ledge and onto it in " + s + " s");
             }
+        }
+        return true;
+    }
+    /** Stage 1184 (audit 11, 11-08: his decisions judge reach with the zombie probe's pathfinder, which can't dig, put a block down or leap, while he walks with ActionPath; a skeleton on a 2-high ledge read "out of his reach on foot" and fleePriced added 120 s to the fight): a skeleton on a ledge 2 up, 7 off, a sword, a pick and cobble on him. His fight price has it in reach. */
+    private static boolean st1184(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = new BlockPos(10100, 80, 10100);
+        if (t[0] == 1) { scenarioReset(c); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = -6; x <= 12; x++) for (int z = -6; z <= 6; z++) for (int y = -1; y <= 6; y++) level.setBlock(me.offset(x, y, z), (y < 0 || x >= 6 && x <= 8 && Math.abs(z) <= 1 && y <= 1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            mock[0].teleportTo(level, me.getX() + 0.5, me.getY() + 40, me.getZ() - 20.5, 0f, 0f);
+        }
+        if (t[0] == 30) {
+            var sk = EntityType.SKELETON.create(level); sk.moveTo(me.getX() + 7.5, me.getY() + 2, me.getZ() + 0.5, 90, 0); sk.setNoAi(true); sk.setPersistenceRequired(); level.addFreshEntity(sk);
+        }
+        if (t[0] == 35) {
+            var sks = level.getEntitiesOfClass(net.minecraft.world.entity.monster.Skeleton.class, c.getBoundingBox().inflate(16));
+            check(!sks.isEmpty(), "no skeleton on the ledge: not the scene");
+            var sk = sks.get(0); String odds;
+            try {
+                var m = c.work.getClass().getDeclaredMethod("fleePriced", net.minecraft.world.entity.Entity.class, java.util.List.class, boolean.class, boolean.class); m.setAccessible(true);
+                m.invoke(c.work, sk, new java.util.ArrayList<net.minecraft.world.entity.Mob>(java.util.List.of(sk)), false, false);
+                var fo = c.work.getClass().getDeclaredField("fightOdds"); fo.setAccessible(true); odds = (String) fo.get(c.work);
+            } catch (ReflectiveOperationException ex) { throw new RuntimeException(ex); }
+            sk.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (int x = -6; x <= 12; x++) for (int z = -6; z <= 6; z++) for (int y = -1; y <= 6; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(odds != null && !odds.contains("out of his reach"), "a skeleton on a ledge 2 up, cobble and a pick on him: " + odds);
+            c.getInventory().clearContent(); pass(stage, t, odds);
         }
         return true;
     }

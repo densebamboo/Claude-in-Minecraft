@@ -10581,6 +10581,7 @@ public final class ClaudeBodyTest {
             case 1139: return st1139(stage, t, c, h, level, mock);
             case 1140: return st1140(stage, t, c, h, level, mock);
             case 1141: return st1141(stage, t, c, h, level, mock);
+            case 1142: return st1142(stage, t, c, h, level, mock);
             case 999: return st999(stage, t, c, h, level, mock);
             case 997: return st997(stage, t, c, h, level, mock);
             case 996: return st996(stage, t, c, h, level, mock);
@@ -18765,6 +18766,35 @@ public final class ClaudeBodyTest {
             check(!line.contains("need cobblestone") && !line.contains("need blackstone"), "no blackstone about, yet a collect for a furnace's stone: " + line);
             if (line.contains("failed: no furnace nearby and nothing to make one")) { c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; nsHome(c, h, level); pass(stage, t, "blackstone for a Nether furnace when there is some, a plain no when there isn't"); }
             else check(t[0] < 380, "8 s and no plain answer with no stone about: " + line);
+        }
+        return true;
+    }
+    private static net.minecraft.world.entity.monster.Ghast st1142G; private static net.minecraft.world.entity.monster.ZombifiedPiglin st1142P; private static int st1142Shot; private static net.minecraft.world.entity.projectile.LargeFireball st1142B; private static boolean st1142Gone;
+    /** A ghast 20 off fires at him and drifts 6 aside; a zombified piglin stands 46 off behind the ball's first line: the hit-back goes at the ghast (vanilla aims a deflect where he looks) and kills it, never on along the ball's line into the piglin. Live 20:22 11-08: aimed at the ball, it flew past the drifted ghast into a zombified piglin 50 off, the horde killed him (death 58). */
+    private static boolean st1142(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER); BlockPos o = new BlockPos(9900, 80, 7600);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1142G = null; st1142P = null; st1142Shot = -1; }
+        if (t[0] > 4 && t[0] % 10 == 0) for (int cz = -1; cz <= 4; cz++) { BlockPos q = o.offset(0, 0, cz * 16); nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(q), 2, q); }
+        if (t[0] == 10) {
+            for (int x = -10; x <= 10; x++) for (int z = -6; z <= 54; z++) for (int y = -1; y <= 16; y++) nl.setBlock(o.offset(x, y, z), y == -1 || y == 16 || Math.abs(x) == 10 || z == -6 || z == 54 ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 3);
+            for (var m : nl.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new net.minecraft.world.phys.AABB(o).inflate(80), e -> !(e instanceof ClaudeEntity) && !(e instanceof ServerPlayer))) m.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 19) { int old = 0; for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new net.minecraft.world.phys.AABB(o).inflate(80), e -> e instanceof net.minecraft.world.entity.monster.Ghast || e instanceof net.minecraft.world.entity.monster.ZombifiedPiglin || e instanceof net.minecraft.world.entity.projectile.LargeFireball)) { e.discard(); old++; } if (old > 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 1142: cleared {} left from earlier runs (the Nether keeps them; t10 ran before their chunks loaded)", old); }
+        if (t[0] == 20) {
+            var gh = EntityType.GHAST.create(nl); gh.moveTo(o.getX() + 0.5, o.getY() + 4, o.getZ() + 20.5, 180, 0); gh.setNoAi(true); gh.setPersistenceRequired(); nl.addFreshEntity(gh); st1142G = gh;
+            var zp = EntityType.ZOMBIFIED_PIGLIN.create(nl); zp.moveTo(o.getX() + 0.5, o.getY(), o.getZ() + 46.5, 180, 0); zp.setNoAi(true); zp.setPersistenceRequired(); nl.addFreshEntity(zp); st1142P = zp;
+        }
+        if (t[0] == 30) { net.minecraft.world.phys.Vec3 from = st1142G.position().add(0, 0.5, -2.5), dir = c.getEyePosition().subtract(from).normalize();
+            var fb = new net.minecraft.world.entity.projectile.LargeFireball(nl, st1142G, dir, 1); fb.setPos(from.x, from.y, from.z); nl.addFreshEntity(fb); st1142Shot = t[0]; st1142B = fb; st1142Gone = false;
+            st1142G.moveTo(st1142G.getX() + 6, st1142G.getY(), st1142G.getZ(), 180, 0); } // (it drifts off the line it shot along)
+        if (st1142Shot > 0) {
+            if (st1142B != null && !st1142Gone && t[0] - st1142Shot >= 28) { var bb = st1142B; if (bb.isRemoved()) { st1142Gone = true; com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 1142 t{} ball REMOVED reason {} at {} | ghast box {} hp {}", t[0] - st1142Shot, bb.getRemovalReason(), bb.position(), st1142G.getBoundingBox(), st1142G.getHealth()); } }
+            check(st1142P.getLastHurtByMob() != c && st1142P.isAlive(), "the hit-back flew past the ghast into the zombified piglin behind it");
+            if (!st1142G.isAlive()) { /* (he is a ServerPlayer: his returned ball one-shots it, Ghast.isReflectedFireball) */ st1142P.discard(); for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.projectile.LargeFireball.class, new net.minecraft.world.phys.AABB(o).inflate(80))) e.discard(); nsHome(c, h, level); pass(stage, t, "hit the fireball back into the ghast in " + (t[0] - st1142Shot) / 20 + " s (its health " + st1142G.getHealth() + ")"); }
+            else check(t[0] - st1142Shot < 20 * 8, "8 s and the ghast lives (hit back " + com.claudemod.entity.goals.WorkGoal.fireballsHit + " so far)");
         }
         return true;
     }

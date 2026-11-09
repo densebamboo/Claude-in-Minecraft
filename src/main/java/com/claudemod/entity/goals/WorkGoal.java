@@ -166,6 +166,7 @@ public class WorkGoal extends Goal {
             Vec3 to = g.getEyePosition().subtract(fb.position());
             if (fb.getDeltaMovement().dot(to) <= 0 || !g.hasLineOfSight(fb)) continue;
             g.getLookControl().setLookAt(fb); g.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, fb.position());
+            if (to.length() <= 3.0 && fb.getOwner() instanceof net.minecraft.world.entity.monster.Ghast gh && gh.isAlive() && g.hasLineOfSight(gh)) g.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, g.getEyePosition().add(gh.getBoundingBox().getCenter().subtract(fb.position()))); // (the swing sends it along his look from where the ball is, vanilla's aim deflect: so he looks the way from the ball to the ghast, never his eye's line (the ball is up to 3 off it, a miss on a 4-wide ghast) nor back along the ball's own line; live 20:22 11-08 the ghast had drifted, the ball flew past it 30 more blocks into a zombified piglin and the horde killed him)
             if (to.length() <= 3.0) { g.attack(fb); g.swing(net.minecraft.world.InteractionHand.MAIN_HAND); fireballsHit++; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] a ghast fireball at {}, {} off: hit it back (WorkGoal.reflexes)", fb.blockPosition().toShortString(), String.format("%.1f", to.length())); }
             break;
         }
@@ -378,7 +379,7 @@ public class WorkGoal extends Goal {
             desperateNow = true;
             boolean dug = digInFromArrows();
             desperateNow = false;
-            if (dug) { current = null; g.currentTask = null; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] weak kit, hostiles within 12, {} (health {}): under cover first", com.claudemod.director.ClaudeLife.dayHere(g.level()) ? "hurt" : "night", (int) g.getHealth()); }
+            if (dug) { current = null; g.currentTask = null; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] weak kit, hostiles within 12, cover priced over carrying on (cover.dig_in; health {}): under cover first", (int) g.getHealth()); } // (it said "hurt" by day at 20 HP: a label from the old night-or-under-10 rule, review 306)
             else if (current != null) { g.tasks.pollFirst(); }
         }
         // Phantoms out at night (someone's insomnia): working in the open just bleeds hearts; under cover till morning, like a player with no bed
@@ -5536,9 +5537,10 @@ public class WorkGoal extends Goal {
             shouldFlee(near); boolean unpriced = Double.isNaN(pricedFightS); double fightS = unpriced ? Double.MAX_VALUE / 4 : pricedFightS, runS = (Double.isNaN(pricedRunS) ? w("flee.run_s", 20) : pricedRunS) + w("flee.cornered_run_s", 30); // (fight.flee's own prices, refreshed; the run from a corner costs its dead ends again)
             double build = w("cover.build_s", 2.5), buildHp = 0; for (var m : mobs) if (m.distanceTo(g) < 4 && !shoots(m)) buildHp += w("fight.mob_hits_per_s", 0.8) * build * mobHit(m);
             double coverS = build + com.claudemod.entity.life.Decide.hpS(g, 0, buildHp, 3) + w("cover.wait_out_s", 60);
+            double meleeOn = mobs.stream().filter(m -> !shoots(m)).mapToDouble(m -> m.distanceTo(g)).min().orElse(99);
             var corner = com.claudemod.entity.life.Decide.choose(g, "flee.cornered", (int) g.getHealth() + " HP, " + mobs.size() + " on him, " + near.getType().getDescription().getString() + " " + (int) near.distanceTo(g) + " off", true, java.util.List.of(
                 unpriced ? com.claudemod.entity.life.Decide.Option.out("fight", "not priced: " + fightOdds) : com.claudemod.entity.life.Decide.Option.of("fight", weakFighter() ? Double.MAX_VALUE / 4 : fightS, weakFighter() ? "bare hands or wood" : "his way out through them"),
-                com.claudemod.entity.life.Decide.Option.of("cover", coverS, "dug in or boxed here, ~" + Math.round(buildHp) + " HP while it goes up"),
+                meleeOn < 6 ? com.claudemod.entity.life.Decide.Option.out("cover", String.format("a melee mob %.1f off: a tower needs 6+, a hole 12+ (the cover proximity rule)", meleeOn)) : com.claudemod.entity.life.Decide.Option.of("cover", coverS, "dug in or boxed here, ~" + Math.round(buildHp) + " HP while it goes up"), // (priced as open while digInFromArrows would refuse it: "cover" won and he did the fight it had priced dearer, live 18:39 and 20:25 11-08)
                 "backoff".equals(escapeKind) ? com.claudemod.entity.life.Decide.Option.out("run", "every way out goes past them (held where he backed off to)") : com.claudemod.entity.life.Decide.Option.of("run", runS, "on, another way"))); // (priced as a getaway that isn't there, run won every 1.5 s and he died holding: stage 1052)
             String pick = corner == null ? "fight" : corner.name();
             if (pick.equals("run")) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] cornered (health {}): on another way (WorkGoal.doFlee)", (int) g.getHealth()); clearEscape(); pickEscape(mobs); fleeFrom = g.position(); return false; }

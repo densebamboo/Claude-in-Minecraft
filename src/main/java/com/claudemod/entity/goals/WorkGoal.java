@@ -39,6 +39,9 @@ public class WorkGoal extends Goal {
     private final ClaudeEntity g;
     private Task current;
     private int ticks;
+    /** Lava over the cell or beside the space over it (up to 4): leaning out over it puts him where it falls (stage 1196). Lava under it is the bridge's own. */
+    private static boolean lavaOverCell(ServerLevel level, BlockPos pos) { for (int k = 1; k <= 4; k++) { BlockPos q = pos.above(k); if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) return true; for (Direction d : Direction.Plane.HORIZONTAL) if (level.getFluidState(q.relative(d)).is(net.minecraft.tags.FluidTags.LAVA)) return true; } return false; }
+    private BlockPos leanFor; // the cell he leans out over the edge to place (sneaking): the sneak comes off once it's placed or he's on to something else
     private static java.util.Map<BlockPos, Integer> spineWalkTick; // when the stairs-walk rule last fired for a spot (static: fields added live start null)
     private static java.util.Map<BlockPos, Integer> spineWalkTick() { if (spineWalkTick == null) spineWalkTick = new java.util.HashMap<>(); return spineWalkTick; }
     public int taskAge() { return ticks; }
@@ -486,6 +489,7 @@ public class WorkGoal extends Goal {
             while (current != null && (unseenOre(current) || !com.claudemod.entity.life.Watchdog.starting(g, current))) current = g.tasks.poll(); /* the no-progress watchdog: an action that kept failing goes up its ladder, not round again */
             g.busy = current != null;
             ticks = 0; stuck = 0; lastDist = Double.MAX_VALUE; breakProgress = 0; bridged = 0;
+            if (leanFor != null && !(current instanceof Task.Place pl0 && pl0.pos().equals(leanFor))) { g.setShiftKeyDown(false); leanFor = null; } // (a lean left for another task: off the sneak)
             g.currentTask = current;
             if (current != null) com.claudemod.entity.life.Gate.started(g, current, exitWhy); // (the no-progress gate measures it from here)
             if (current == null) return;
@@ -4192,6 +4196,7 @@ public class WorkGoal extends Goal {
                 Vec3 fp = visibleFacePoint(level, eye0, nb, d, 4.5);
                 if (fp != null) { seenFace = d; seenAt = fp; break; }
             }
+            if (seenFace != null && leanFor != null) { if (leanFor.equals(pos)) g.setShiftKeyDown(false); leanFor = null; } // (the lean done: up off the sneak for the step onto it)
             if (seenFace != null) { against = seenFace; sneak = com.claudemod.entity.ClaudeEntity.usableBlock(level, pos.relative(against)); hit = seenAt; } // (the spot on that face his eyes reach: the top of a wall's face over a block below, a floor block's side seen past the edge)
             if (seenFace == null && coverCell(pos)) { // his cover's own block with no face he can see from inside it: into the middle of the cover first, then left out; never a walk out of the cover for it (he walked out of his box for its corners, live 04:42, and the way back in was dug through its walls)
                 if (nudgeIntoCover(t, "out of his sight")) return false; // (the Place stays on while he steps in)
@@ -4213,6 +4218,11 @@ public class WorkGoal extends Goal {
                         if (visibleFacePoint(level, e2, nb, d, 4.25) != null) { view = sp; vd = dd; break; }
                     }
                 }
+                { BlockPos fl = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); // one motion a block, like a player bridging: the cell that sees the face is the one he's on (or the next), at his level or one under; he sneaks to its edge by the cell (vanilla keeps a sneaking player on it) and the place goes in the tick the face comes into view; was a nudge, an exit, a 10-tick wait and the place again, two moves a block, ~1.2 blocks/s (Loops: stages 816/819)
+                  if (view != null && ticks <= 30 && view.distSqr(fl) <= 2 && view.getY() <= fl.getY() && fl.getY() - view.getY() <= 1 && Math.abs(pos.getX() - view.getX()) + Math.abs(pos.getZ() - view.getZ()) == 1 && pos.getY() == view.getY() - 1 && g.onGround() && !lavaOverCell(level, pos)) { // (the floor under his next step only: a wall cell at his level is his body's way into what it holds back, lava in 1196)
+                    double ex = view.getX() + 0.5 + (pos.getX() - view.getX()) * 0.72, ez = view.getZ() + 0.5 + (pos.getZ() - view.getZ()) * 0.72;
+                    g.getNavigation().stop(); g.setShiftKeyDown(true); leanFor = pos.immutable(); g.getMoveControl().setWantedPosition(ex, view.getY(), ez, 0.6);
+                    return false; } }
                 BlockPos feetV = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
                 long[] lastV = viewTry().get(pos); boolean moved = lastV == null || view == null || lastV[0] != view.asLong() || lastV[1] != feetV.asLong(); // the state: since his last step for this face he's moved, or the cell that sees one is another
                 if (view != null) { BlockPos seal = sealedByHisBuild(level, pos); if (seal != null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude patch] the hole at {} is shut off from his mine by his own patch at {}: no opening left, nothing to fill (the view at {} is only reached through it) (WorkGoal.doPlace)", pos.toShortString(), seal.toShortString(), view.toShortString()); return true; } } // (live 09:03-09:16 11-07: sent into a sealed vein pocket, the route dug his patch to get in and put it back, 13 min; stage 785; before the nudge too: 12:45 11-07 a view 2 off in a column his patches had walled off, nudged at, NO_FACE, back on, again, stage 1006)

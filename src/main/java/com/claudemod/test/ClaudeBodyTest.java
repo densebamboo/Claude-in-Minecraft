@@ -16354,8 +16354,10 @@ public final class ClaudeBodyTest {
         if (t[0] == 35) {
             c.skillQueue.clear(); c.tasks.clear(); String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", "", 1);
             int want = 0; for (var s0 : c.skillQueue) if (s0.skill().equals("collect") && s0.target().equals("cobbled_deepslate")) want += s0.count(); else if (s0.skill().equals("take_from_chest") && s0.target().equals("cobbled_deepslate")) want += s0.count();
+            String told = com.claudemod.entity.life.Highway.describe(c); int rowsN = com.claudemod.entity.life.Highway.plan(c).rows.size();
             c.skillQueue.clear(); c.tasks.clear(); nsHome(c, h, level);
             check(r.contains("out of cobbled deepslate"), "no trip for blocks with none on him at the gap: " + r);
+            check(told.contains((rowsN - 1) + " of " + rowsN + " rows laid"), "the planner told the highway stands at its first gap, not what's laid (" + (rowsN - 1) + " of " + rowsN + "): " + told.trim());
             check(want <= 64, "one row to lay (the gap at row 4, the rest laid to the end): a trip for " + want + " deepslate (" + r + ")");
             pass(stage, t, "one gap: a trip for " + want + " (" + r + ")");
         }

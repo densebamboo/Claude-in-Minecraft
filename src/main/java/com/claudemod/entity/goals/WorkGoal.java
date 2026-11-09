@@ -4586,6 +4586,7 @@ public class WorkGoal extends Goal {
             if (junkBox) { if (cob ? kept.merge(net.minecraft.world.item.Items.COBBLESTONE, 1, Integer::sum) > 2 : com.claudemod.director.ClaudeLife.junkItem(s) && !(s.is(net.minecraft.world.item.Items.ROTTEN_FLESH) && com.claudemod.director.Kit.foodAsk(g) != null)) slots.add(i); continue; } // his junk chest: the junk and the stone past two stacks all told, as his toss keeps (kept for patching; 2 a kind left 2 stacks for the toss to throw on his floor, 05:17 11-05, stage 713)
             if (cob) continue; // for patching, and spare cobble never goes on the shelves: his junk chest takes what he can't carry (his chests filled up with it and "store" walked him 240 blocks to your chest)
             if (com.claudemod.director.ClaudeLife.junkItem(s)) continue; // (andesite and dirt on his loot shelves filled his stash)
+            if (com.claudemod.director.ClaudeLife.neededByPlan(g, s.getItem())) continue; // (a queued step needs it: it stays on him, never stored and fetched back; review 73, stage 1213)
             slots.add(i);
         }
         if (junkBox) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] junk chest at {}: {} stacks in, cobble stacks kept {}", t.pos().toShortString(), slots.size(), kept);

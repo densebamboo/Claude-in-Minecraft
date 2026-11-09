@@ -5532,11 +5532,12 @@ public final class ClaudeLife {
         return false;
     }
     /** An item one of his queued steps needs: a step's own target, or what a queued craft is made of (a furnace: its stone). The toss read none of his plan and threw out the blackstone his furnace wanted (review 65, stage 1209). */
-    static boolean neededByPlan(ClaudeEntity g, Item it) {
+    public static boolean neededByPlan(ClaudeEntity g, Item it) {
         java.util.List<Skills.Step> steps = new java.util.ArrayList<>(g.skillQueue); if (g.lastStep != null) steps.add(g.lastStep);
         ItemStack probe = new ItemStack(it);
         for (var s : steps) { Item t = item(s.target()); if (t == null) continue; if (t == it) return true;
-            if (s.skill().equals("craft")) for (var r : Crafting.recipesFor(g.level(), t)) for (var ing : r.value().getIngredients()) if (ing.test(probe)) return true; }
+            if (s.skill().equals("craft")) for (var r : Crafting.recipesFor(g.level(), t)) for (var ing : r.value().getIngredients()) if (ing.test(probe)) return true;
+            if (s.skill().equals("smelt") && g.level() instanceof ServerLevel sl && sl.getRecipeManager().getRecipeFor(net.minecraft.world.item.crafting.RecipeType.SMELTING, new net.minecraft.world.item.crafting.SingleRecipeInput(probe), sl).map(rh -> rh.value().getResultItem(sl.registryAccess()).is(t)).orElse(false)) return true; } // (what a queued smelt cooks: the store put his raw iron away and the smelt fetched it back, review 73)
         return false;
     }
     private static void dumpJunk(ClaudeEntity g) {

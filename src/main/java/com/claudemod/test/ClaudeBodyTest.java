@@ -10797,6 +10797,7 @@ public final class ClaudeBodyTest {
             case 1210: return st1210(stage, t, c, h, level, mock);
             case 1211: return st1211(stage, t, c, h, level, mock);
             case 1212: return st1212(stage, t, c, h, level, mock);
+            case 1213: return st1213(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -21284,6 +21285,28 @@ public final class ClaudeBodyTest {
                 check(el <= 200, "over the lily pond in " + el + " ticks (live: 90 s and never; the first walk's vanilla path still tries the pad for ~2 s before his own way: audit 11)");
                 pass(stage, t, "over the lily pond in " + el + " ticks");
             }
+        }
+        return true;
+    }
+    /** Stage 1213 (D2D review 73, live 21:43:50 11-08: "store" put his 16 raw iron in his chest at -78,16,-228, then "smelt iron_ingot x8 -> my raw_iron is in my chest, getting it" seconds later): what a queued step needs stays on him; the rest goes in. */
+    private static boolean st1213(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) lnReset(c);
+        if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
+        if (t[0] == 10) {
+            var b = lnMine(h, level, c); int G = com.claudemod.director.ClaudeLife.nookGap(b);
+            lnLow = com.claudemod.director.ClaudeLife.nookFrame(b, 5, G); lnPlace(level, c, lnLow); c.nook = lnLow;
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.getInventory().add(new ItemStack(Items.DIAMOND, 5)); c.getInventory().add(new ItemStack(Items.RAW_IRON, 16));
+            BlockPos me = lnRow(b, 5, 12); lnStand(c, mock, me, lnRow(b, 5, 13));
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("store", "", 1)); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("smelt", "iron_ingot", 8));
+        }
+        if (t[0] > 10) {
+            int low = lnCount(level, lnLow, Items.DIAMOND), iron = lnCount(level, lnLow, Items.RAW_IRON);
+            if (low >= 5 || iron > 0) {
+                int onHim = c.inventory.count(s -> s.is(Items.RAW_IRON));
+                check(iron == 0, "deposit: " + iron + " raw iron put in his chest with a smelt of it queued next (" + onHim + " on him, skills " + c.skillQueue + ")");
+                check(low >= 5, "deposit: the diamonds aren't in (" + low + ")");
+                pass(stage, t, "the 5 diamonds in, the 16 raw iron kept on him for the smelt queued next (" + onHim + " on him)");
+            } else if (t[0] >= 1200) check(false, "deposit: not done in 60 s: diamonds in " + low + ", tasks=" + c.tasks + " now=" + c.currentTask + " skills " + c.skillQueue);
         }
         return true;
     }

@@ -672,6 +672,17 @@ public final class ClaudeLife {
     private static java.util.Map<java.util.UUID, Integer> foodTripTicks; // when he last went off for food at a heart or two (static, lazily made)
     private static java.util.Map<java.util.UUID, Integer> respawnTicks, spawnRunTicks; // when he last respawned / last ran clear of the spawn (static: fields added live start null)
     /** The collect step just before came up with none of its target (the hunt broke off, the tree went, the clock refused it): the craft or smelt that needs it isn't run on nothing (live 11-08, reviews 259/292/392/212: "missing oak_log", "nothing that smelts into cooked_porkchop" 3-4x in a minute). The planner hears the collect came up empty; a clock-held collect keeps the rest of its plan going. */
+    /** That item goes into the craft, itself or down its own crafts to depth (a log in a stick: log, planks, stick). */
+    static boolean craftUses(ServerLevel level, Item target, Item got, int depth) {
+        if (depth <= 0) return false;
+        ItemStack gs = new ItemStack(got);
+        for (var h : Crafting.recipesFor(level, target)) for (var ing : h.value().getIngredients()) {
+            if (ing.isEmpty()) continue;
+            if (ing.test(gs)) return true;
+            ItemStack[] alts = ing.getItems(); for (int k = 0; k < Math.min(alts.length, 4); k++) if (alts[k].getItem() != target && craftUses(level, alts[k].getItem(), got, depth - 1)) return true;
+        }
+        return false;
+    }
     static boolean emptyGather(ClaudeEntity g, Skills.Step step) {
         Skills.Step prev = g.lastStep;
         if (prev == null || prev == step || !prev.skill().equals("collect") || prev.target().isBlank() || !(step.skill().equals("smelt") || step.skill().equals("craft"))) return false;
@@ -679,6 +690,9 @@ public final class ClaudeLife {
         if (step.skill().equals("smelt") && g.level() instanceof ServerLevel sl0) { // (a smelt is held only by an empty collect of what it smelts: "collect porkchop" held "smelt cooked_cod" for every new plan, ~70 s idle, live 22:29 11-08, reviews 153/154, stage 1211)
             Item made = item(step.target()), got = prev.target().equals("logs") ? Items.OAK_LOG : item(prev.target()) != null ? item(prev.target()) : item(prev.target().replaceAll("s$", ""));
             if (made != null && got != null && !sl0.getRecipeManager().getRecipeFor(net.minecraft.world.item.crafting.RecipeType.SMELTING, new net.minecraft.world.item.crafting.SingleRecipeInput(new ItemStack(got)), sl0).map(rh -> rh.value().getResultItem(sl0.registryAccess()).is(made)).orElse(false)) return false; }
+        if (step.skill().equals("craft") && g.level() instanceof ServerLevel sl1) { // (a craft likewise only by an empty collect of what goes into it: "collect beef" came up empty and held "craft iron_chestplate" with 23 raw iron and a furnace on him, its own fail line re-held every requeue, ~2 min, D2D 79/88/89 live 06:19-06:22 11-10; stage 1371)
+            Item made = item(step.target()), got = prev.target().equals("logs") ? Items.OAK_LOG : item(prev.target()) != null ? item(prev.target()) : item(prev.target().replaceAll("s$", ""));
+            if (made != null && got != null && !craftUses(sl1, made, got, 3)) return false; }
         String t = prev.target(); int n = 0;
         for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { ItemStack it = g.inventory.items.getItem(i); if (it.isEmpty()) continue; String id = BuiltInRegistries.ITEM.getKey(it.getItem()).getPath();
             if (t.equals("logs") ? it.is(ItemTags.LOGS) : id.equals(t) || id.equals(t.replaceAll("s$", ""))) n += it.getCount(); }

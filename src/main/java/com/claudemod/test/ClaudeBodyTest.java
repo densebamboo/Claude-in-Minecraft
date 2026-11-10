@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1371: return st1371(stage, t, c, h, level, mock);
             case 1370: return st1370(stage, t, c, h, level, mock);
             case 1369: return st1369(stage, t, c, h, level, mock);
             case 1368: return st1368(stage, t, c, h, level, mock);
@@ -17698,6 +17699,36 @@ public final class ClaudeBodyTest {
             check(boxed, "never walled in: two blazes in a bare hall, health 10 and burning (health now " + hp + ")");
             check(!opened, "walled in at " + (s1370Box == null ? "?" : s1370Box.toShortString()) + ", then out of his box or set on leaving it (at " + at.toShortString() + ", \"" + s1370Mode + "\") within 8 s, hurt, the blazes still there, for a cover 3 off");
             pass(stage, t, "boxed in, a cover 3 off, the box stood while he healed (health " + hp + ")");
+        }
+        return true;
+    }
+    /** Stage 1371 (D2D 79/88/89, live 06:19-06:22 11-10: "collect beef x4" came up empty (no cow within 48), then every 5 s "craft iron_chestplate not run: the collect beef before it came up empty", 23 raw iron, coal and a furnace on him; its own fail line re-held the requeued craft for ~2 min): an empty beef hunt doesn't hold an iron craft; an empty log collect still holds a crafting table. */
+    private static int s1371P, s1371T;
+    private static boolean st1371(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(4, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; s1371P = 0; s1371T = -1; level.setDayTime(6000); }
+        if (t[0] == 10) {
+            for (int x = -2; x <= 12; x++) for (int z = 2; z <= 14; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int yy = 2; yy <= 6; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.RAW_IRON, 23)); c.getInventory().add(new ItemStack(Items.COAL, 8)); c.getInventory().add(new ItemStack(Items.FURNACE)); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 10));
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.skillQueue.clear();
+            c.lastStep = new com.claudemod.entity.life.Skills.Step("collect", "beef", 4); c.lastSkillLine = "collect beef x4 -> failed: no cow within 48 blocks of you or them; animals are on the surface, explore up top for them";
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "iron_chestplate", 1)); s1371P = 1; s1371T = t[0];
+        }
+        if (s1371P == 1) { c.nextPlanTick = c.tickCount + 20 * 600;
+            String l = c.lastSkillLine == null ? "" : c.lastSkillLine;
+            check(!l.contains("so no craft iron_chestplate"), "an empty beef hunt held the iron chestplate craft: " + l);
+            if (t[0] - s1371T >= 40) { // its craft ran (smelting the raw on the way): on to the logs case
+                check(l.startsWith("craft iron_chestplate") || l.startsWith("smelt"), "the chestplate craft never ran in 2 s: " + l + ", queue " + c.skillQueue + ", doing " + c.currentTask);
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.skillQueue.clear(); c.getInventory().clearContent();
+                c.lastStep = new com.claudemod.entity.life.Skills.Step("collect", "logs", 4); c.lastSkillLine = "collect logs x4 -> failed: no tree within 48 blocks";
+                c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "crafting_table", 1)); s1371P = 2; s1371T = t[0]; }
+        }
+        if (s1371P == 2 && t[0] - s1371T >= 20) { c.nextPlanTick = c.tickCount + 20 * 600;
+            String l = c.lastSkillLine == null ? "" : c.lastSkillLine;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.skillQueue.clear(); c.getInventory().clearContent(); c.lastStep = null; c.lastSkillLine = "";
+            check(l.contains("so no craft crafting_table"), "an empty log collect didn't hold the crafting table it was for: " + l);
+            pass(stage, t, "the beef hunt left the iron craft alone; the empty log collect held the table (" + l + ")");
         }
         return true;
     }

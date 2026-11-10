@@ -414,7 +414,7 @@ public final class PortalMap {
             Integer last = walkedTo.get(p.id); Double from = walkedFrom.get(p.id); if (last != null && g.getServer().getTickCount() - last < 20 * 120 && d > 6 && (from == null || d > from - 4)) return "failed: couldn't get to portal #" + p.id + " at " + p.where() + " (" + (int) d + " off) on the last try";
             walkedFrom.put(p.id, d); walkedTo.put(p.id, g.getServer().getTickCount()); // ponytail: server ticks, his own tickCount restarts at 0 on every dimension change
             g.tasks.add(new Task.GoTo(p.at, 2)); g.skillQueue.addFirst(new Skills.Step(st.skill(), target, st.count(), st.where()));
-            ClaudeMod.LOGGER.info("[Claude portal] enter \"{}\" -> #{} at {} ({}, {} off): walking there (PortalMap.enterStep)", t, p.id, p.where(), p.state, (int) d);
+            ClaudeMod.LOGGER.info("[Claude portal] enter \"{}\" -> #{} at {} ({}, {} off from him at {}): walking there (PortalMap.enterStep)", t, p.id, p.where(), p.state, (int) d, g.blockPosition().toShortString()); // (his spot on the line: the reviewer judged this choice from a [Claude where] 90 s old, review 165856-21)
             return "walking to portal #" + p.id + " at " + p.where() + " (" + linkTalk(g, p) + ")";
         }
         if ("unlit".equals(p.state)) { // a ghast's fireball put it out, or it was never lit: flint and steel on the bottom obsidian, from inside the frame

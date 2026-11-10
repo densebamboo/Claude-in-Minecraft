@@ -10563,6 +10563,7 @@ public final class ClaudeBodyTest {
             case 1353: return st1353(stage, t, c, h, level, mock);
             case 1354: return st1354(stage, t, c, h, level, mock);
             case 1355: return st1355(stage, t, c, h, level, mock);
+            case 1357: return st1357(stage, t, c, h, level, mock);
             case 1356: return st1356(stage, t, c, h, level, mock);
             case 1301: return st1301(stage, t, c, h, level, mock);
             case 1302: return st1302(stage, t, c, h, level, mock);
@@ -26720,6 +26721,30 @@ public final class ClaudeBodyTest {
             check(next == n - 1, "his save says " + (n - 1) + " of " + n + " rows laid, the far ones out in unloaded ground: next row " + next + ", not " + (n - 1) + " (he goes home for blocks to build a road he built)");
             check(gap == 2, "a gap he can see at row 2 still reads off the world: got " + gap);
             pass(stage, t, "the rows he laid out of sight count as laid (next " + next + " of " + n + "), a gap in sight is still a gap (" + gap + ")");
+        }
+        return true;
+    }
+    private static final java.util.List<net.minecraft.world.entity.animal.Salmon> st1357F = new java.util.ArrayList<>();
+    /** Stage 1357 (live 18:49-18:50 11-09, review 185243-100: "collect salmon x3 -> failed: ... the salmon in sight and the rest have no short way to
+     *  them on foot", 82 times in 70 s, his iron helmet held behind it): kit.food priced the fish by the straight line, collect's own walk check said no
+     *  way, and the kit offered them again. Three salmon in a shallow pool on a 6-high pillar 11 off, nothing to climb with: the kit's pick is no fish. */
+    private static boolean st1357(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var f : st1357F) f.discard(); st1357F.clear(); level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD));
+            BlockPos me = h.absolutePos(new BlockPos(2, 2, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+            for (int y = 2; y <= 8; y++) for (int x = 12; x <= 14; x++) for (int z = 4; z <= 6; z++) h.setBlock(new BlockPos(x, y, z), Blocks.STONE);
+            h.setBlock(new BlockPos(13, 8, 5), Blocks.WATER); // the pool on top: 1 deep, open to the sky
+            BlockPos pool = h.absolutePos(new BlockPos(13, 8, 5));
+            for (int i = 0; i < 3; i++) { var f = EntityType.SALMON.create(level); f.moveTo(pool.getX() + 0.5, pool.getY() + 0.1, pool.getZ() + 0.5, 0, 0); f.setNoAi(true); f.setPersistenceRequired(); level.addFreshEntity(f); st1357F.add(f); }
+        }
+        if (t[0] == 70) {
+            var fa = com.claudemod.director.Kit.foodAsk(c); String said = com.claudemod.director.Kit.foodLine(c);
+            for (var f : st1357F) f.discard(); st1357F.clear();
+            check(fa == null || (fa.item() != Items.COOKED_SALMON && fa.item() != Items.COOKED_COD), "salmon up a 6-high pillar he can't climb, priced as food to fish and picked: " + (fa == null ? "null" : fa.count() + " " + fa.item()) + " | " + said);
+            check(said.contains("no short way to them on foot"), "the kit's fish option doesn't say why it's out: " + said);
+            pass(stage, t, "fish he can't walk to are out of the kit's pick: " + said);
         }
         return true;
     }

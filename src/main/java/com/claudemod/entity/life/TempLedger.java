@@ -285,10 +285,10 @@ public final class TempLedger {
     static boolean shutOff(ClaudeEntity g, ServerLevel level, BlockPos pos) {
         if (g.blueprint == null || g.blueprint.isEmpty()) return false;
         java.util.Set<BlockPos> seen = new java.util.HashSet<>(); java.util.ArrayDeque<BlockPos> todo = new java.util.ArrayDeque<>();
-        for (Direction d : Direction.values()) { BlockPos n = pos.relative(d); if (level.getBlockState(n).getCollisionShape(level, n).isEmpty() && seen.add(n.immutable())) todo.add(n.immutable()); }
+        for (Direction d : Direction.values()) { BlockPos n = pos.relative(d); if (level.getBlockState(n).getCollisionShape(level, n).isEmpty() && !g.blueprint.isShell(n) && seen.add(n.immutable())) todo.add(n.immutable()); } // (an open cell of his mine's shell is shut: his patch closes it; through a hole in his floor the pocket read as open, every walk to it cut his wall and his mine filled it back, live 14:29-14:37 11-10, stage 1431)
         while (!todo.isEmpty()) { BlockPos p = todo.poll();
             if (seen.size() > 64 || g.blueprint.isWalk(p) || level.canSeeSky(p) || !level.isLoaded(p)) return false;
-            for (Direction d : Direction.values()) { BlockPos n = p.relative(d); if (!n.equals(pos) && level.getBlockState(n).getCollisionShape(level, n).isEmpty() && seen.add(n.immutable())) todo.add(n.immutable()); } }
+            for (Direction d : Direction.values()) { BlockPos n = p.relative(d); if (!n.equals(pos) && level.getBlockState(n).getCollisionShape(level, n).isEmpty() && !g.blueprint.isShell(n) && seen.add(n.immutable())) todo.add(n.immutable()); } }
         return !seen.isEmpty();
     }
     static boolean takeable(ClaudeEntity g, ServerLevel level, Entry e) {

@@ -10888,6 +10888,7 @@ public final class ClaudeBodyTest {
             case 1046: return st1046(stage, t, c, h, level, mock);
             case 1047: return st1047(stage, t, c, h, level, mock);
             case 1430: return st1430(stage, t, c, h, level, mock);
+            case 1431: return st1431(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -26002,6 +26003,36 @@ public final class ClaudeBodyTest {
             for (int x = -4; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = -2; y <= 6; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // (the floor left)
             check(cut == null, cut);
             pass(stage, t, "the cover block shut off over his ceiling left as rock, his ceiling whole for 10 s idle");
+        }
+        return true;
+    }
+    private static String s1431Cut;
+    /** Stage 1431 (D2D, live 14:29:54-14:37 11-10 at -146..-143,13..17,-369/-368, 89 conflict lines): his tidy-up wanted two old pocket blocks back, two under his tunnel; the pocket reached his mine only through a hole in his floor (a cell his blueprint wants solid), so it read as open, not shut off; every walk to them cut his wall, his mine filled it back. 1416 with the hole in his floor. */
+    private static boolean st1431(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9820, 80, 9800), hole = at.offset(6, -1, 0), cover = at.offset(5, -3, 1);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.TempLedger.reset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("mine_model", "blueprint"); s1431Cut = null; }
+        if (t[0] == 5) mock[0].teleportTo(at.getX() + 0.5, at.getY() + 40, at.getZ() + 0.5);
+        if (t[0] == 10) {
+            var b = new com.claudemod.entity.life.MineBlueprint(at, net.minecraft.core.Direction.EAST, 1, 2); b.segments.clear(); b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, at.west(3), net.minecraft.core.Direction.EAST, 12, null)); c.blueprint = b; // his mine: a one-wide branch, two tall
+            for (int x = -4; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = -6; y <= 4; y++) { BlockPos q = at.offset(x, y, z); level.setBlock(q, (b.isWalk(q) ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            for (int x = 4; x <= 8; x++) for (int y = -2; y <= -1; y++) level.setBlock(at.offset(x, y, 1), Blocks.AIR.defaultBlockState(), 2); // the pocket beside and under his tunnel
+            level.setBlock(hole, Blocks.AIR.defaultBlockState(), 2); // a hole in his floor into it
+            level.setBlock(cover.below(), Blocks.AIR.defaultBlockState(), 2); level.setBlock(cover, Blocks.COBBLESTONE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, cover, Blocks.COBBLESTONE.defaultBlockState(), Blocks.AIR.defaultBlockState()); // his old bridge block over a gap in the pocket's floor, on his book
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.teleportTo(at.getX() - 1.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); level.setDayTime(6000);
+            check(com.claudemod.entity.life.TempLedger.has(c, cover), "the pocket block not on his book");
+        }
+        if (t[0] > 12 && s1431Cut == null) {
+            for (int x = 4; x <= 8 && s1431Cut == null; x++) for (int y = 0; y <= 1; y++) if (level.getBlockState(at.offset(x, y, 1)).isAir()) { s1431Cut = "his wall at " + at.offset(x, y, 1).toShortString() + " cut at tick " + (t[0] - 12); break; }
+            if (s1431Cut == null) for (Task k : c.currentTask == null ? c.tasks : java.util.stream.Stream.concat(c.tasks.stream(), java.util.stream.Stream.of(c.currentTask)).toList()) if (k instanceof Task.Break br && br.pos().equals(cover)) { s1431Cut = "the pocket block behind his floor's hole queued for taking back at tick " + (t[0] - 12); break; }
+        }
+        if (t[0] == 12 + 20 * 10) {
+            String cut = s1431Cut;
+            c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); com.claudemod.entity.life.TempLedger.reset(c);
+            for (int x = -4; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = -6; y <= 4; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            check(cut == null, cut);
+            pass(stage, t, "the pocket block behind the hole in his floor left as rock, his wall whole for 10 s idle");
         }
         return true;
     }

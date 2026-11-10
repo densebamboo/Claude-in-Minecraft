@@ -10920,6 +10920,7 @@ public final class ClaudeBodyTest {
             case 1291: return st1291(stage, t, c, h, level, mock);
             case 1292: return st1292(stage, t, c, h, level, mock);
             case 1293: return st1293(stage, t, c, h, level, mock);
+            case 1294: return st1294(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -24294,9 +24295,10 @@ public final class ClaudeBodyTest {
             c.setHealth(20); c.getFoodData().setFoodLevel(20); c.currentTask = null; c.dropCurrent = true;
         }
         if (t[0] == 12) { var s = EntityType.SALMON.create(level); s.moveTo(fp.getX() + 0.5, fp.getY(), fp.getZ() + 0.5, 0, 0); s.setNoAi(true); s.setPersistenceRequired(); level.addFreshEntity(s); st1293F = s; }
-        if (t[0] == 20) {
+        if (t[0] >= 20 && st1293T < 0 && t[0] % 5 == 0) { // (the hunt once his eyes have the fish: a stage before can leave his sight memory a beat behind)
             check(st1293F != null && st1293F.isAlive() && c.hasLineOfSight(st1293F), "setup: the salmon out of sight at the start");
-            c.skillQueue.clear(); c.tasks.clear(); String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "salmon", 1); ClaudeMod.LOGGER.info("[Claude test] 1293 collect -> {}", r); st1293T = t[0];
+            c.skillQueue.clear(); c.tasks.clear(); String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "salmon", 1); ClaudeMod.LOGGER.info("[Claude test] 1293 collect -> {}", r);
+            if (r.startsWith("hunting")) st1293T = t[0]; else { c.tasks.clear(); c.skillQueue.clear(); check(t[0] < 80, "setup: no hunt for the salmon in sight in 3 s: " + r); }
         }
         if (st1293T > 0 && t[0] == st1293T + 3) for (int x = -3; x <= 4; x++) for (int y = -1; y <= 0; y++) level.setBlock(o.offset(x, y, 3), Blocks.STONE.defaultBlockState(), 2); // (the wall up to the top: the fish behind it, out of his sight, the way round still open)
         if (st1293T > 0) {
@@ -24310,6 +24312,27 @@ public final class ClaudeBodyTest {
                 return true;
             }
             check(t[0] - st1293T < 20 * 30, "30 s on the salmon behind the wall");
+        }
+        return true;
+    }
+    /** Stage 1294 (D2D item 4, reviews 60/62, live 01:23:44 11-10 World 17: "explore river -> heading for the river I saw at -57, 62, -184", then "out of the water: the swim waypoint -57, 62, -184 dropped", the walk ended at once with no reason given, explore failed and the next target was 267 off): on dry ground, the walk to water he saw (within 0.8, as explore queues it). He walks there; only a stuck swim's own waypoints are dropped once he's out. */
+    private static int st1294T;
+    private static boolean st1294(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1294T = -1; level.setDayTime(6000); flatBox(h); }
+        BlockPos me = h.absolutePos(new BlockPos(2, 2, 3)), water = h.absolutePos(new BlockPos(9, 1, 3));
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            for (int x = 8; x <= 10; x++) for (int z = 2; z <= 4; z++) level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.WATER.defaultBlockState(), 2); // (a pond in the floor: the "river")
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.BREAD, 4));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 20) { check(!c.isInWater() && c.onGround(), "setup: not on dry ground"); c.tasks.clear(); c.tasks.add(new Task.GoTo(water.immutable(), 0.8)); st1294T = t[0]; }
+        if (st1294T > 0) {
+            double d = Math.sqrt(c.blockPosition().distSqr(water));
+            if (d <= 2.5) { c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; pass(stage, t, "walked to the water he saw in " + (t[0] - st1294T) + " ticks"); return true; }
+            boolean on = c.currentTask instanceof Task.GoTo || c.tasks.stream().anyMatch(x -> x instanceof Task.GoTo);
+            check(on || t[0] - st1294T < 3, "the walk to the water ended " + (int) d + " off it, dry ground under him (dropped as a swim waypoint?)");
+            check(t[0] - st1294T < 20 * 10, "10 s and not at the water");
         }
         return true;
     }
@@ -26312,7 +26335,7 @@ public final class ClaudeBodyTest {
             c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5); level.setDayTime(1000);
             c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
         }
-        if (t[0] == 16) { c.tasks.add(new Task.GoTo(wp.immutable(), 0.8)); c.tasks.add(new Task.GoTo(wp.east().immutable(), 0.8)); } // (the swim waypoints, as the stuck-swimming shore queued them; once he has landed from the teleport, as live: queued the same tick as the teleport he was still in the air and the walk planned a route from mid-air)
+        if (t[0] == 16) { c.tasks.add(c.work.swimWaypoint(wp.immutable())); c.tasks.add(c.work.swimWaypoint(wp.east().immutable())); } // (the swim waypoints, as the stuck-swimming shore queued them; once he has landed from the teleport, as live: queued the same tick as the teleport he was still in the air and the walk planned a route from mid-air)
         if (t[0] > 17) {
             boolean wallDug = false; for (int z = 0; z < 16; z++) for (int y = 2; y <= 5; y++) if (level.getBlockState(h.absolutePos(new BlockPos(6, y, z))).isAir() || !level.getFluidState(h.absolutePos(new BlockPos(6, y, z))).isEmpty()) wallDug = true;
             check(!wallDug && !c.isInWater(), "dug the wall into the water for his old swim waypoints: in water " + c.isInWater() + ", task " + c.currentTask + ", queue " + c.tasks);

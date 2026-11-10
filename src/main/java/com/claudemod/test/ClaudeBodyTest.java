@@ -10966,6 +10966,7 @@ public final class ClaudeBodyTest {
             case 1415: return st1415(stage, t, c, h, level, mock);
             case 1416: return st1416(stage, t, c, h, level, mock);
             case 1417: return st1417(stage, t, c, h, level, mock);
+            case 1418: return st1418(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -25470,6 +25471,34 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static int s1417T; private static boolean s1417Out;
+    /** Stage 1418 (D2D review 17, live 06:53:58-06:54:11 11-10 at -77,20,-343 over his branch, World 17): his old cover blocks up over his tunnel's ceiling, tidied; the made way there walked, then "the walk to -77,20,-343 waits for its own cell's dig ... digging first" from under his ceiling 3.6 off but out of sight: the Breaks failed OUT_OF_REACH "not in sight from any cell he can stand in" and were dropped, left as litter. A dig is put ahead of the walk only where he can see to dig it. */
+    private static boolean st1418(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9940, 80, 9780), blk = at.offset(0, 4, -2);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("mine_model", "blueprint"); s1418T = -1; s1418F = 0; }
+        if (t[0] == 10) {
+            var b = new com.claudemod.entity.life.MineBlueprint(at, net.minecraft.core.Direction.EAST, 1, 2); b.segments.clear(); b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, at.west(3), net.minecraft.core.Direction.EAST, 12, null)); c.blueprint = b; // his branch, its ceiling at y+2, the ground over it at y+3
+            for (int x = -5; x <= 12; x++) for (int z = -4; z <= 4; z++) for (int y = -2; y <= 6; y++) { BlockPos q = at.offset(x, y, z); level.setBlock(q, (b.isWalk(q) ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); } // the rock over his ceiling round it
+            level.setBlock(blk, Blocks.COBBLESTONE.defaultBlockState(), 2); // his old cover block, sealed in the rock over his ceiling as live
+            c.getInventory().clearContent(); c.getInventory().add(new net.minecraft.world.item.ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new net.minecraft.world.item.ItemStack(Items.COBBLESTONE, 16));
+            c.teleportTo(at.getX() + 8.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); // 8 down his branch from under it: a way made
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+        }
+        if (t[0] == 20) c.tasks.add(new Task.Break(blk)); // the tidy's break: no way on foot, a way made
+        if (t[0] > 20 && c.attempts.of(com.claudemod.entity.life.Attempts.Kind.BREAK).get(blk) != null) s1418F++;
+        if (t[0] > 20 && s1418T < 0 && level.getBlockState(blk).isAir()) s1418T = t[0];
+        if (t[0] == 20 + 20 * 20 || s1418T > 0 && t[0] == s1418T + 100) {
+            BlockPos ceil = at.offset(0, 2, 0), wall = at.offset(0, 1, -1); boolean back = !level.getBlockState(ceil).isAir() && !level.getBlockState(wall).isAir(); // (the way's cuts in his ceiling and wall, as live)
+            int took = s1418T < 0 ? -1 : s1418T - 20; String why = String.valueOf(c.attempts.why(com.claudemod.entity.life.Attempts.Kind.BREAK, blk)); int f = s1418F;
+            c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            for (int x = -5; x <= 12; x++) for (int z = -4; z <= 4; z++) for (int y = 0; y <= 6; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); // (the floor left)
+            check(took >= 0, "his cover block over his ceiling still there after 20 s (" + (f > 0 ? "its break failed: " + why : "no try") + ")");
+            check(took < 0 || back, "the way's cuts in his ceiling/wall not put back 5 s after: " + level.getBlockState(ceil) + " " + level.getBlockState(wall));
+            check(f == 0, "the break failed first (" + why + "), dug for from under his ceiling");
+            pass(stage, t, "his block over his ceiling dug to and taken in " + took + " ticks");
+        }
+        return true;
+    }
+    private static int s1418T, s1418F;
 
 
 

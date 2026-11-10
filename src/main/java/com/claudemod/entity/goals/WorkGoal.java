@@ -1878,6 +1878,8 @@ public class WorkGoal extends Goal {
             if (plan != null) {
                 var tasks = com.claudemod.entity.nav.ActionPath.tasks(plan, feet, scaff.isEmpty() ? net.minecraft.world.item.Items.COBBLESTONE : scaff.getItem(), pos, 3.2, level);
                 if (plan.puts() > 0) { for (var a : plan.acts()) if (a instanceof com.claudemod.entity.nav.ActionPath.Act.Put pt) g.pillarBlocks.addFirst(pt.pos().immutable()); g.tasks.addFirst(new Task.Pillar(-1)); } // every block the way puts down is his to take back (a tower under a block overhead comes down once it's out; the Pillar(-1) is kept while a Break in reach is queued)
+                java.util.List<Task> backs = new java.util.ArrayList<>(); for (Task k : tasks) if (k instanceof Task.Place pl && pl.want() != null) backs.add(k); // the way's dug cells put back once the block is out: before it they shut his sight of it, the break failed out of sight and was dropped (live 06:54 11-10, D2D review 17, stage 1418)
+                if (!backs.isEmpty()) { java.util.Set<Task> bs = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()); bs.addAll(backs); tasks = new java.util.ArrayList<>(tasks); tasks.removeIf(bs::contains); for (int i = backs.size() - 1; i >= 0; i--) { com.claudemod.entity.ClaudeEntity.ORIGIN.put(backs.get(i), "WorkGoal.approach"); g.tasks.addFirst(backs.get(i)); } }
                 g.tasks.addFirst(new Task.Break(pos));
                 queueWay(tasks, "WorkGoal.approach");
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no way to the {} at {} on foot: made one ({} digs, {} blocks put down, {} walks; {} ms)", name(level.getBlockState(pos)), pos.toShortString(), plan.digs(), plan.puts(), plan.walks(), (System.nanoTime() - t0) / 1000000);

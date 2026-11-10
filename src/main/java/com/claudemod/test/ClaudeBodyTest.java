@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1373: return st1373(stage, t, c, h, level, mock);
             case 1372: return st1372(stage, t, c, h, level, mock);
             case 1371: return st1371(stage, t, c, h, level, mock);
             case 1370: return st1370(stage, t, c, h, level, mock);
@@ -17765,6 +17766,30 @@ public final class ClaudeBodyTest {
                 if (ing >= 3) { level.setDayTime(6000); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; pass(stage, t, ing + " iron ingots smelted in his hole in " + (t[0] - s1372In) + " ticks, never out of it"); }
                 else check(t[0] - s1372In < 2000, "night smelt: 100 s holding (8 smelts are 80 s), fed, 8 raw iron and coal on him, " + ing + " ingots (raw " + c.getInventory().countItem(Items.RAW_IRON) + "), now=" + c.currentTask + " tasks=" + c.tasks + " holdWork=" + c.work.holdWork + " furnaces=" + BlockPos.betweenClosedStream(f.offset(-2, -1, -2), f.offset(2, 2, 2)).filter(q -> level.getBlockEntity(q) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity).map(q -> { var fe = (net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity) level.getBlockEntity(q); return q.toShortString() + ":" + fe.getItem(0) + "/" + fe.getItem(1) + "/" + fe.getItem(2); }).toList());
             }
+        }
+        return true;
+    }
+    /** Stage 1373 (D2D 71, live 06:17:19 11-10: the junk pair at -145/-146,16,-348, the chest at -145 gave up with him in its pocket, -146 got one; the deposit went to -145, "is no chest: not putting things in it", and his full pack walked 342 blocks home to store): the pair's first cell empty, its second a chest, the deposit queued for the first. The junk goes into the chest that's there. */
+    private static int s1373T;
+    private static boolean st1373(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(4, 2, 8)), a = me.offset(2, 0, 0), a2 = me.offset(2, 0, 1);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; s1373T = -1; c.prefs.remove("junk_chests"); }
+        if (t[0] == 10) {
+            for (int x = -2; x <= 12; x++) for (int z = 2; z <= 14; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int yy = 2; yy <= 6; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            level.setBlock(a2, Blocks.CHEST.defaultBlockState(), 3);
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); for (int k = 0; k < 4; k++) c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.ANDESITE, 40));
+            c.prefs.put("junk_chests", a.getX() + " " + a.getY() + " " + a.getZ() + ";" + a2.getX() + " " + a2.getY() + " " + a2.getZ());
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.skillQueue.clear();
+            c.tasks.add(new com.claudemod.entity.life.Task.Deposit(a.immutable())); s1373T = t[0];
+        }
+        if (s1373T > 0) { c.nextPlanTick = c.tickCount + 20 * 600;
+            int inBox = 0; if (level.getBlockEntity(a2) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box) for (int i = 0; i < box.getContainerSize(); i++) inBox += box.getItem(i).getCount();
+            if (inBox > 0 && c.tasks.isEmpty() && c.currentTask == null) {
+                int left = c.getInventory().countItem(Items.COBBLESTONE) + c.getInventory().countItem(Items.ANDESITE);
+                if (level.getBlockEntity(a2) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box) box.clearContent(); level.setBlock(a2, Blocks.AIR.defaultBlockState(), 2); c.prefs.remove("junk_chests"); c.getInventory().clearContent();
+                pass(stage, t, inBox + " junk items into the pair's chest at its other half, " + left + " left on him (" + (t[0] - s1373T) + " ticks)");
+            } else check(t[0] - s1373T < 200, "10 s: the deposit aimed at the pair's empty half put nothing in the chest beside it (in it " + inBox + ", now " + c.currentTask + " tasks " + c.tasks + ")");
         }
         return true;
     }

@@ -94,6 +94,20 @@ public final class DeathLog {
         if (changed) save(g);
     }
 
+    /** Logging only (11-10: his 7 rods' pile was "gone (nothing left there)" at 290 s counted, cause unproven): why an item off a pending pile left the world. */
+    public static void onLeave(net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent e) {
+        if (all == null || !(e.getEntity() instanceof ItemEntity it) || !(e.getLevel() instanceof ServerLevel level)) return;
+        var r = it.getRemovalReason();
+        if (r == null || r == net.minecraft.world.entity.Entity.RemovalReason.UNLOADED_TO_CHUNK || r == net.minecraft.world.entity.Entity.RemovalReason.UNLOADED_WITH_PLAYER || r == net.minecraft.world.entity.Entity.RemovalReason.CHANGED_DIMENSION) return;
+        String dim = level.dimension().location().getPath(); BlockPos p = it.blockPosition();
+        for (List<Death> l : all.values()) for (Death d : l) if (d.pending() && d.dim.equals(dim) && d.at.distSqr(p) <= 8 * 8) {
+            String why = it.getItem().isEmpty() ? "picked up (or merged)" : r == net.minecraft.world.entity.Entity.RemovalReason.KILLED ? "destroyed (fire, lava, cactus, explosion)" : it.getAge() >= 6000 ? "despawned" : "discarded (" + r + ")";
+            var pl = level.getNearestPlayer(it, -1);
+            ClaudeMod.LOGGER.info("[Claude deaths] an item off his pile at {} left the world: {} ({}), age {} ticks ({} s counted on the pile), at {} in {} on {}, nearest player {}", d.at.toShortString(), BuiltInRegistries.ITEM.getKey(it.getItem().getItem()).getPath(), why, it.getAge(), d.loadedTicks / 20, p.toShortString(), level.getBlockState(p).getBlock().getName().getString() + (level.getFluidState(p).isEmpty() ? "" : " / " + level.getFluidState(p).getType()), level.getBlockState(p.below()).getBlock().getName().getString(), pl == null ? "none" : pl.getName().getString() + " " + (int) pl.distanceTo(it) + " off");
+            return;
+        }
+    }
+
     /** The stages' reset. */
     public static void reset(ClaudeEntity g) { of(g).clear(); save(g); }
 

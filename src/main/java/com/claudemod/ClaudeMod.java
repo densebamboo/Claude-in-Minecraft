@@ -40,6 +40,7 @@ public class ClaudeMod {
         NeoForge.EVENT_BUS.addListener(com.claudemod.entity.life.OwnEvents::onBreak); // his own events: what he mined, picked up, put down
         NeoForge.EVENT_BUS.addListener(com.claudemod.entity.life.OwnEvents::onPickup);
         NeoForge.EVENT_BUS.addListener(com.claudemod.entity.life.OwnEvents::onPlace);
+        NeoForge.EVENT_BUS.addListener(com.claudemod.entity.life.DeathLog::onLeave); // why items off his death piles leave the world
         NeoForge.EVENT_BUS.addListener(com.claudemod.context.PlayerTrace::onTick); // how the real player plays, recorded (to model him after them)
         NeoForge.EVENT_BUS.addListener(com.claudemod.context.PlayerTrace::onAttack);
         NeoForge.EVENT_BUS.addListener(com.claudemod.context.PlayerTrace::onRightClickBlock);

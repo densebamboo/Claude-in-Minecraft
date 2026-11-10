@@ -22,11 +22,11 @@ public final class LagWatch {
         watcher = new Thread(() -> {
             int loggedTick = -1, samples = 0;
             while (true) {
-                try { Thread.sleep(1000); } catch (InterruptedException ie) { return; }
+                try { Thread.sleep(250); } catch (InterruptedException ie) { return; }
                 long t0 = tickStart; Thread s = server; if (t0 == 0 || s == null) continue;
                 long ms = (System.nanoTime() - t0) / 1_000_000; int tk = tick;
                 if (tk != loggedTick) { loggedTick = tk; samples = 0; }
-                if (ms < 3000 || samples >= 4 || ms < 3000L * (1L << samples)) continue; // a sample at 3, 6, 12 and 24 s into one tick
+                if (ms < 1500 || samples >= 4 || ms < 1500L * (1L << samples)) continue; // a sample at 1.5, 3, 6 and 12 s into one tick (at 3 s the 2.2 s ticks went unsampled, live 14:15:24 11-10)
                 samples++;
                 StringBuilder sb = new StringBuilder(); int n = 0;
                 for (StackTraceElement el : s.getStackTrace()) { if (n++ >= 40) break; sb.append("\n    at ").append(el); }

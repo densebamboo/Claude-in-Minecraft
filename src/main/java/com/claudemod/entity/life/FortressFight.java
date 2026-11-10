@@ -528,6 +528,7 @@ public final class FortressFight {
                     ClaudeMod.LOGGER.info("[Claude fight] {}, no spawner known: along the deck to {} for the spawner room (FortressFight.blazeRods)", why, step.toShortString());
                     return "the blazes here stay out of my reach and i've no bow: looking along the fortress for their spawner (" + have + "/" + goal + " rods)"; } }
                 ClaudeMod.LOGGER.info("[Claude fight] {}, no spawner known and no deck left to look along: a bow is what this needs (FortressFight.blazeRods)", why);
+                noteBowNeeded(g, level);
                 runs().remove(g.getUUID());
                 return "failed: the blazes stay out of sword reach, I know of no spawner to fight them at, and I've no bow and arrows (a bow, or their spawner, is what this needs)";
             }
@@ -659,4 +660,9 @@ public final class FortressFight {
         sb.append(DESPAWN).append(".\n");
         return sb.toString();
     }
+
+    /** When his rods last failed for want of a bow (game time, so a portal trip's tick reset doesn't lose it): the bow is then the rods' own need, not just the End's (live 23:20 11-09: "a bow is what this needs", then "the bow is stuck waiting on string" with 17 string in his chests; stage 1360). */
+    private static final java.util.Map<java.util.UUID, Long> BOW_NEEDED = new java.util.HashMap<>(); // shortcut: in memory, lost on a restart; the next out-of-reach fight sets it again
+    public static void noteBowNeeded(ClaudeEntity g, ServerLevel level) { BOW_NEEDED.put(g.getUUID(), level.getGameTime()); }
+    public static boolean bowNeeded(ClaudeEntity g, ServerLevel level) { Long t = BOW_NEEDED.get(g.getUUID()); return t != null && level.getGameTime() - t < 20L * 60 * 60; }
 }

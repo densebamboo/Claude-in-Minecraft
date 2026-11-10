@@ -10574,6 +10574,7 @@ public final class ClaudeBodyTest {
             case 1355: return st1355(stage, t, c, h, level, mock);
             case 1357: return st1357(stage, t, c, h, level, mock);
             case 1358: return st1358(stage, t, c, h, level, mock);
+            case 1360: return st1360(stage, t, c, h, level, mock);
             case 1356: return st1356(stage, t, c, h, level, mock);
             case 1301: return st1301(stage, t, c, h, level, mock);
             case 1302: return st1302(stage, t, c, h, level, mock);
@@ -27226,6 +27227,37 @@ public final class ClaudeBodyTest {
     /** Stage 1357 (live 18:49-18:50 11-09, review 185243-100: "collect salmon x3 -> failed: ... the salmon in sight and the rest have no short way to
      *  them on foot", 82 times in 70 s, his iron helmet held behind it): kit.food priced the fish by the straight line, collect's own walk check said no
      *  way, and the kit offered them again. Three salmon in a shallow pool on a 6-high pillar 11 off, nothing to climb with: the kit's pick is no fish. */
+    private static int st1360 = -1;
+    private static boolean st1360(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // the user 11-09: a bow in the Nether kit whenever he can get one (ghasts); live 23:20 11-09 the rods failed "a bow is what this needs" and the planner: "the bow is stuck waiting on string" with 17 string in his chests 360 off
+        BlockPos home = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { ledReset(c, level); ledFar = home.offset(160, 0, 0); c.planning = false; c.nextPlanTick = c.tickCount + 100000; com.claudemod.director.ClaudeLife.hisPortal.remove(c.getUUID()); st1360 = -1; }
+        if (t[0] % 10 == 0) { ledTicket(level, ledFar); ledTicket(level, home); }
+        if (t[0] == 5) { flatBox(h); ledPad(level, ledFar); level.setBlock(ledFar, Blocks.CHEST.defaultBlockState(), 3); c.storageChests.add(ledFar); c.myStations.add(ledFar); ledDeposit(c, ledFar, new ItemStack(Items.STRING, 3)); }
+        if (t[0] > 5 && st1360 < 0) {
+            if (ledCount(c, ledFar, Items.STRING) != 3 || c.inventory.count(s -> s.is(Items.STRING)) != 0) { check(t[0] < 200, "setup: the 3 string never made his ledger"); return true; }
+            st1360 = t[0]; ledTo(c, home);
+            c.playerGoal = "beat the ender dragon"; c.prefs.put("stay_close", "no");
+            c.getInventory().clearContent();
+            c.getInventory().add(new ItemStack(Items.GOLDEN_BOOTS)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.FLINT_AND_STEEL));
+            btKit(c); check(com.claudemod.director.Kit.missing(c, true).isEmpty(), "setup: the kit still misses " + com.claudemod.director.Kit.missing(c, true));
+            com.claudemod.director.ClaudeLife.hisPortal.put(c.getUUID(), h.absolutePos(new BlockPos(3000, 2, 3000))); // (unloaded far off: taken as standing)
+            String p = com.claudemod.director.ClaudeLife.dragonPath(c, level);
+            var rs = com.claudemod.director.ClaudeLife.ruleStep(c, mock[0]);
+            check(rs != null && rs.skill().equals("obtain") && rs.target().equals("bow"), "Nether prep done but for the bow, 3 string in his chest 160 off: the rules' next step is " + rs + " (run: " + p + ")");
+            check(com.claudemod.director.ClaudeLife.bowHard(c, level), "the bow is the prep's last piece: his chest's string isn't worth the walk (bowHard false)");
+            c.getInventory().add(new ItemStack(Items.BOW)); // with a bow on him the prep is done and the rods are next: no must for the string
+            check(!com.claudemod.director.ClaudeLife.bowHard(c, level), "a bow on him, the rods next: bowHard true anyway");
+            c.getInventory().removeItem(c.getInventory().findSlotMatchingItem(new ItemStack(Items.BOW)), 1); c.getInventory().add(new ItemStack(Items.BLAZE_ROD, 3));
+            c.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, ledFar, c.tickCount); // (his string's chest out of reach just now: no bow to be had, so the prep is done without one, never a wait)
+            var rs2 = com.claudemod.director.ClaudeLife.ruleStep(c, mock[0]);
+            check(rs2 == null || !rs2.target().equals("bow"), "no string anywhere: the prep still waits on a bow (" + rs2 + ")");
+            try { Class.forName("com.claudemod.entity.life.FortressFight").getMethod("noteBowNeeded", ClaudeEntity.class, ServerLevel.class).invoke(null, c, level); } catch (Exception e) { /* main: no such record */ }
+            check(com.claudemod.director.ClaudeLife.bowHard(c, level), "the rods next and they just failed for want of a bow: bowHard false");
+            c.getInventory().clearContent(); c.playerGoal = null; c.dropCurrent = true;
+            pass(stage, t, "a bow to be had is the Nether prep's last piece; none to be had, no wait; rods that need one make it the must"); return true;
+        }
+        return true;
+    }
     private static boolean st1358(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 20:19:21 11-09 (the_nether): "0 meal(s) left ... home through his portal for food" with 7 raw porkchop, 2 furnaces and 46 logs on him (review 189)
         if (t[0] == 1) { scenarioReset(c); }
         if (t[0] == 10) {

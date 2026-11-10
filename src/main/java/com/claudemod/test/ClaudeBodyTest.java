@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1316: return st1316(stage, t, c, h, level, mock);
             case 1315: return st1315(stage, t, c, h, level, mock);
             case 1314: return st1314(stage, t, c, h, level, mock);
             case 1313: return st1313(stage, t, c, h, level, mock);
@@ -17125,6 +17126,33 @@ public final class ClaudeBodyTest {
             check(Math.abs(ow - nether) <= Math.max(20, nether * 0.4), "the run priced ~" + (int) ow + " s from the Overworld side, ~" + (int) nether + " s from the Nether side (" + why + ")");
             check(owFar > back + 1000 / 5.6 && owFar < offRoad, "a pile 40 past the end of a 1000-long highway priced ~" + (int) owFar + " s from the Overworld side: not along the highway (back alone ~" + (int) back + " s, the way off-road ~" + (int) offRoad + " s)");
             pass(stage, t, why + "; the run ~" + (int) nether + " s from the Nether side, ~" + (int) ow + " s from the Overworld side; 1040 along a highway ~" + (int) owFar + " s (off-road ~" + (int) offRoad + " s)");
+        }
+        return true;
+    }
+    /** Stage 1316 (D2D 11-09, reviews 190259-113 and 190746-125, live 18:58:07-19:02 at 185,69,197: night, a diamond pick and an iron helmet, no chestplate; "shelter -> done: past the early game (armor 3): no hole tonight; a bed if there's one, else on with the work", then the work's own night rule held it till morning ("not geared for the open"), so he stood in the open 4 min under "the clock holds his step, no work meanwhile"; 71 min of it since 11-07): night, ungeared but for a diamond pick and an iron helmet, "shelter": under cover within 15 s, not the open. */
+    private static boolean st1316(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) {
+                for (int yy = -4; yy <= -2; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE);
+                for (int yy = -1; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.DIRT);
+                for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR);
+            }
+            level.setDayTime(18000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 6)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 11)); c.setHealth(20);
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET));
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+            mock[0].teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 6.5);
+            com.claudemod.director.ClaudeLife.command(c, mock[0], steps1("shelter", "", 1, "near_you"), "it's night, get under cover", "replace");
+        }
+        if (t[0] > 10) {
+            BlockPos f = c.blockPosition();
+            boolean lid = !level.getBlockState(f.above(2)).getCollisionShape(level, f.above(2)).isEmpty();
+            if (lid && c.holdingNight()) {
+                c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, ItemStack.EMPTY); level.setDayTime(6000);
+                pass(stage, t, "under cover at " + f.toShortString() + " in " + (t[0] - 10) + " ticks (" + c.lastSkillLine + ")");
+            } else if (t[0] - 10 >= 300) { c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, ItemStack.EMPTY); level.setDayTime(6000); check(false, "night, no chestplate: still in the open 15 s after \"shelter\" at " + f.toShortString() + " (" + c.lastSkillLine + ")"); }
         }
         return true;
     }

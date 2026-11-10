@@ -3155,8 +3155,8 @@ public final class ClaudeLife {
                         return "down my mine for the night: " + g.skillQueue.stream().skip(1).findFirst().map(s0 -> s0.skill() + " " + s0.target()).orElse("the next step") + " waits for first light";
                     }
                     return mine; } }
-                if (pastEarly(g) && com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(8), m -> m.isAlive() && m.getTarget() == g).isEmpty())
-                    return "done: past the early game (armor " + g.getArmorValue() + "): no hole tonight; a bed if there's one, else on with the work"; // (the user: holes are for the early phases; hunted and hurt, the reflexes still take cover)
+                if (pastEarly(g) && nightGearNo(g, level, g.blockPosition(), false) == null && com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(8), m -> m.isAlive() && m.getTarget() == g).isEmpty())
+                    return "done: past the early game (armor " + g.getArmorValue() + "): no hole tonight; a bed if there's one, else on with the work"; // (the user: holes are for the early phases; hunted and hurt, the reflexes still take cover) (the work's own night rule asked too: a diamond pick and no chestplate let the shelter go while the work waited for morning, 4 min stood in the open, live 18:58 11-09, reviews 190259-113, 190746-125; stage 1316)
                 com.claudemod.entity.life.Perception.glance(g); // a look round before choosing the cover (zombies behind him make it a tower, not a hole)
                 if (g.isInWater()) { // in the water no cover can be made: the nearest dry ground first, then cover there (live 18:05 11-04: dusk in open ocean, "no cover right now: in the water" every second, "explore beach" refused at night, and the mobs found him on the shore bare)
                     BlockPos land = null; BlockPos me = g.blockPosition();

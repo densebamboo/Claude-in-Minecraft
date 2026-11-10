@@ -10602,6 +10602,7 @@ public final class ClaudeBodyTest {
             case 1355: return st1355(stage, t, c, h, level, mock);
             case 1357: return st1357(stage, t, c, h, level, mock);
             case 1358: return st1358(stage, t, c, h, level, mock);
+            case 1359: return st1359(stage, t, c, h, level, mock);
             case 1360: return st1360(stage, t, c, h, level, mock);
             case 1361: return st1361(stage, t, c, h, level, mock);
             case 1362: return st1362(stage, t, c, h, level, mock);
@@ -29084,6 +29085,42 @@ public final class ClaudeBodyTest {
                 check(first != null && !"Pickup".equals(first), "at 4 HP with a blaze shooting at him, the first after the kill was " + first + ", ahead of the meal and the retreat");
                 pass(stage, t, "the kill's drops waited behind the meal and the retreat (first: " + first + ")"); return true;
             }
+        }
+        return true;
+    }
+    private static net.minecraft.world.entity.monster.WitherSkeleton st1359W; private static int st1359Plugged = -1; private static String st1359Broke = null;
+    private static boolean st1359(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 09:33:26-30 11-10 (death 75, the fortress at 299,65,486): through a 1-wide gap at 1 HP, plugged it with two netherrack, the wither skeleton 8 off on the far side; 2 s later his queued walk back made a way through the plug, dug both, and it killed him. Hurt, with them across it, the plug stays and he heals behind it
+        if (t[0] == 1) { scenarioReset(c); if (st1359W != null) st1359W.discard(); st1359W = null; st1359Plugged = -1; st1359Broke = null; }
+        if (t[0] == 10) {
+            for (int x = -3; x <= 20; x++) for (int z = -3; z <= 16; z++) for (int y = 1; y <= 7; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 || y == 7 || x == -3 || x == 20 || z == -3 || z == 16 || z == 5 && !(x == 8 && y <= 3) ? Blocks.NETHER_BRICKS.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); // a fortress room split by a wall at z 5, a 1-wide gap at x 8
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 10)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 6)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            BlockPos me = h.absolutePos(new BlockPos(8, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(0); c.setHealth(2); c.getFoodData().setFoodLevel(19); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            st1359W = EntityType.WITHER_SKELETON.create(level); BlockPos wp = h.absolutePos(new BlockPos(8, 2, 14)); st1359W.moveTo(wp.getX() + 0.5, wp.getY(), wp.getZ() + 0.5, 180, 0); st1359W.setNoAi(true); st1359W.setPersistenceRequired(); level.addFreshEntity(st1359W); // (10 off across the plug, as live at the run's end)
+        }
+        if (t[0] == 14) {
+            try {
+                var wg = com.claudemod.entity.goals.WorkGoal.class;
+                var se = wg.getDeclaredMethod("setEscape", String.class, BlockPos.class, BlockPos.class); se.setAccessible(true); se.invoke(c.work, "gap", c.blockPosition().immutable(), h.absolutePos(new BlockPos(8, 2, 5)));
+                var ae = wg.getDeclaredMethod("atEscape", java.util.List.class); ae.setAccessible(true); Object r = ae.invoke(c.work, java.util.List.of(st1359W));
+                var ce = wg.getDeclaredMethod("clearEscape"); ce.setAccessible(true); ce.invoke(c.work); // (the run's end decided, as live)
+                c.tasks.addLast(new Task.GoTo(h.absolutePos(new BlockPos(8, 2, 9)), 1.0)); // (his queued walk on, past the plug: live his route back to 280,65,506)
+                if (!Integer.valueOf(2).equals(r)) { st1359Broke = "setup: atEscape returned " + r + ", no plug"; }
+            } catch (Exception e) { st1359Broke = "setup threw " + e; }
+        }
+        if (t[0] > 14 && st1359W != null && st1359Broke == null) {
+            BlockPos g0 = h.absolutePos(new BlockPos(8, 2, 5)), g1 = g0.above();
+            boolean shut = !level.getBlockState(g0).isAir() && !level.getBlockState(g1).isAir();
+            if (st1359Plugged < 0 && shut) st1359Plugged = t[0];
+            if (st1359Plugged > 0 && !shut && c.getHealth() < 16) st1359Broke = "the plug opened " + (t[0] - st1359Plugged) + " ticks after it went in, health " + c.getHealth() + ", the wither skeleton " + (int) c.distanceTo(st1359W) + " off across it (tasks " + c.tasks + ")";
+        }
+        if (t[0] > 14 && (st1359Broke != null || t[0] > 14 + 240)) {
+            String broke = st1359Broke; int plugged = st1359Plugged; float hp = c.getHealth();
+            if (st1359W != null) st1359W.discard(); st1359W = null; c.tasks.clear(); c.setHealth(20); c.getInventory().clearContent(); c.dropCurrent = true;
+            check(broke == null || !broke.startsWith("setup"), broke == null ? "" : broke);
+            check(plugged > 0, "the plug never went in (health " + hp + ")");
+            check(broke == null, broke == null ? "" : broke);
+            pass(stage, t, "plugged at tick " + plugged + ", still shut 10 s on, health " + hp); return true;
         }
         return true;
     }

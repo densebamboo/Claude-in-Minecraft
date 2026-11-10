@@ -2132,8 +2132,20 @@ public class WorkGoal extends Goal {
     private java.util.Map<BlockPos, Integer> plugLog; // water sources he plugged, and when (lazy: fields added live start null)
     private java.util.Map<BlockPos, Integer> plugLog() { if (plugLog == null) plugLog = new java.util.HashMap<>(); if (plugLog.size() > 200) plugLog.clear(); return plugLog; }
 
+    private java.util.Set<BlockPos> plugCells; private java.util.List<java.util.UUID> plugFrom; private int plugSaid = -100000; // his escape plug and what he fled through it (lazy: fields added live start null)
     private boolean doBreak(BlockPos pos) {
         ServerLevel level = (ServerLevel) g.level();
+        if (plugCells != null && plugCells.contains(pos)) { // his own escape plug, with what he fled still across it and him hurt: kept shut, he heals behind it (D2D death 75; stage 1359)
+            net.minecraft.world.entity.Mob across = null;
+            if (g.getHealth() < w("escape.plug_heal_hp", 16) && plugFrom != null) for (var u : plugFrom) if (level.getEntity(u) instanceof net.minecraft.world.entity.Mob m && m.isAlive() && m.distanceTo(g) < 16) { across = m; break; }
+            if (across == null) plugCells = null;
+            else {
+                if (g.tickCount - plugSaid > 20 * 30) { plugSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not opening his plug at {}: health {}, the {} he shut out {} off: healing behind it first (WorkGoal.doBreak)", pos.toShortString(), (int) g.getHealth(), across.getType().getDescription().getString(), (int) across.distanceTo(g)); }
+                g.tasks.addFirst(new Task.Wait(20 * 5, false));
+                net.minecraft.world.item.Item meal = com.claudemod.director.ClaudeLife.foodToEat(g, g.getHealth() <= 6); if (meal != null && g.getFoodData().needsFood()) g.tasks.addFirst(new Task.Eat(meal));
+                return exit("his escape plug, hurt with them across it");
+            }
+        }
         if ((com.claudemod.director.ClaudeLife.bridgeBlocks().contains(pos) || com.claudemod.entity.life.TempLedger.has(g, pos)) /* (the take-back list is open-sky blocks only: in the Nether his soul sand way block went out from under him into lava, live 02:32 11-10, stage 1362) */ && g.getBoundingBox().move(0, -0.1, 0).intersects(new net.minecraft.world.phys.AABB(pos)) && level.getBlockState(pos.below()).getCollisionShape(level, pos.below()).isEmpty()) return exit("a block he put down to climb by, still under him (the walk off it ended at once): never cut from under his own (doBreak 1445)"); // a block he put down to climb by, still under him (the walk off it ended at once): never cut from under his own feet over a drop; it stays on the take-down list (a pillar's top with its next block under it is the take-down itself, one block down like a player: the guard refused it 3x a second at 4,86,2, live 23:32)
         if (com.claudemod.director.ClaudeLife.bridgeBlocks().contains(pos) && com.claudemod.entity.life.TempLedger.dirtHillStep(g, level, pos)) { com.claudemod.director.ClaudeLife.bridgeBlocks().remove(pos); com.claudemod.ClaudeMod.LOGGER.info("[Claude temp] not taking back {}: dirt, a step into the hill, may stay (his way planned another block for it) (WorkGoal.doBreak)", pos.toShortString()); return exit("a dirt step into the hill stays (doBreak)"); } // (the way booked the take-back by the block it planned, cobblestone under a roof; the step went in as dirt under the sky: up a second later, put in again each pass, review 454, stage 1286)
         if (ticks == 1 && com.claudemod.director.ClaudeLife.bridgeBlocks().contains(pos)) com.claudemod.ClaudeMod.LOGGER.info("[Claude temp] taking back {}: he is at {} {} {} onGround {} box {} (WorkGoal.doBreak)", pos.toShortString(), String.format("%.2f", g.getX()), String.format("%.2f", g.getY()), String.format("%.2f", g.getZ()), g.onGround(), g.getBoundingBox());
@@ -5674,6 +5686,11 @@ public class WorkGoal extends Goal {
             boolean clearOfThem = escapeGap != null && mobs.stream().noneMatch(m -> m.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(escapeGap).minmax(new net.minecraft.world.phys.AABB(escapeGap.above()))));
             if (plug.getCount() >= 2 && clearOfThem && g.getEyePosition().distanceTo(Vec3.atCenterOf(escapeGap)) <= 4.5) { // two blocks across the gap: shut out, like a player
                 escapePlugged = true;
+                plugCells = new java.util.HashSet<>(java.util.List.of(escapeGap.immutable(), escapeGap.above().immutable())); plugFrom = new java.util.ArrayList<>(); for (var m : mobs) plugFrom.add(m.getUUID());
+                if (g.getHealth() < w("escape.plug_heal_hp", 16)) { // hurt: behind the plug till healed, never straight back out to them (D2D death 75, live 09:33:26-30 11-10: plugged at 1 HP, the queued walk dug the plug 2 s later, the wither skeleton 8 off on the far side; stage 1359)
+                    g.tasks.addFirst(new Task.Wait(20 * (int) w("escape.plug_heal_s", 30), false));
+                    net.minecraft.world.item.Item meal = com.claudemod.director.ClaudeLife.foodToEat(g, g.getHealth() <= 6); if (meal != null && g.getFoodData().needsFood()) g.tasks.addFirst(new Task.Eat(meal));
+                }
                 g.tasks.addFirst(new Task.Place(escapeGap.above().immutable(), plug.getItem())); g.tasks.addFirst(new Task.Place(escapeGap.immutable(), plug.getItem()));
                 com.claudemod.director.ClaudeLife.bridgeBlocks().add(escapeGap.immutable()); com.claudemod.director.ClaudeLife.bridgeBlocks().add(escapeGap.above().immutable()); // (the daylight chore's, once all is quiet: on his tower list it came straight back out and the horde had him)
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] through the gap at {}: plugging it with two {} (WorkGoal.atEscape)", escapeGap.toShortString(), plug.getItem().getDescription().getString());

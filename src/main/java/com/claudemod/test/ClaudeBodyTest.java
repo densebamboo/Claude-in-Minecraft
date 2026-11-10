@@ -10988,6 +10988,7 @@ public final class ClaudeBodyTest {
             case 1424: return st1424(stage, t, c, h, level, mock);
             case 1425: return st1425(stage, t, c, h, level, mock);
             case 1426: return st1426(stage, t, c, h, level, mock);
+            case 1427: return st1427(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -26048,6 +26049,33 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static int s1426T; private static String s1426Undone; private static boolean s1426Filled;
+    /** Stage 1427 (D2D, live 10:41:38-11:30 11-10 at -6..-2,50-55,-158): the flooded cave his stuck-escape dug him into, cell for cell from the 11:27:13 incident maps (him at -2,51,-158 = 0,0,0; gravel, water, the air pocket over him). The planner found a swim up through it to the ledge at -5,58,-157 every time; the body never finished it, the swim reflexes turned him back, 49 min. Out onto the ledge, or out some other way, like a player: within 60 s. */
+    private static final String CAVE1427 = "-8,4,-1,g;-7,3,-2,g;-7,3,-1,g;-7,3,0,g;-7,3,1,g;-7,3,2,g;-7,4,-3,g;-7,4,-2,g;-7,4,-1,g;-7,4,0,g;-7,4,1,g;-7,4,2,g;-7,5,-3,g;-7,5,-2,g;-7,5,-1,g;-7,5,0,g;-7,5,1,g;-7,6,-2,g;-7,6,-1,g;-6,2,-3,W;-6,2,-2,W;-6,2,-1,g;-6,2,1,g;-6,3,-3,g;-6,3,-2,g;-6,3,-1,g;-6,3,0,g;-6,3,1,g;-6,3,2,g;-6,4,-3,W;-6,4,-2,W;-6,4,-1,g;-6,4,0,g;-6,4,1,g;-6,4,2,g;-6,5,-3,W;-6,5,-2,W;-6,5,-1,g;-6,5,0,g;-6,5,1,g;-6,5,2,g;-6,6,-3,W;-6,6,-2,W;-6,6,-1,g;-6,6,0,g;-6,7,-3,W;-5,2,-3,W;-5,2,-2,W;-5,2,-1,W;-5,2,0,W;-5,3,-3,W;-5,3,-2,g;-5,3,-1,g;-5,3,0,g;-5,3,1,g;-5,3,2,g;-5,4,-3,W;-5,4,-2,W;-5,4,-1,W;-5,4,0,W;-5,4,1,W;-5,4,2,g;-5,5,-3,W;-5,5,-2,W;-5,5,-1,W;-5,5,0,W;-5,5,1,W;-5,6,-3,W;-5,6,-2,W;-5,6,-1,W;-5,6,0,W;-5,6,1,W;-4,2,-3,W;-4,2,-2,W;-4,2,-1,W;-4,2,0,W;-4,2,1,W;-4,2,2,W;-4,2,3,W;-4,3,-3,W;-4,3,-2,W;-4,3,-1,W;-4,3,0,W;-4,3,1,W;-4,4,-3,W;-4,4,-2,W;-4,4,-1,W;-4,4,0,W;-4,4,1,W;-4,4,2,W;-4,4,3,W;-4,5,-3,W;-4,5,-2,W;-4,5,-1,W;-4,5,0,W;-4,5,1,W;-4,5,2,W;-4,5,3,W;-4,6,0,W;-4,6,1,W;-4,6,2,W;-4,6,3,W;-3,-1,-3,W;-3,-1,-2,W;-3,-1,-1,W;-3,-1,0,W;-3,-1,1,W;-3,-1,2,W;-3,-1,3,W;-3,0,-3,W;-3,0,-2,W;-3,0,-1,W;-3,0,0,W;-3,0,1,W;-3,0,2,W;-3,0,3,W;-3,1,-3,W;-3,1,-2,W;-3,1,-1,W;-3,1,0,W;-3,1,1,W;-3,1,2,W;-3,1,3,W;-3,2,-3,W;-3,2,-2,W;-3,2,-1,W;-3,2,0,W;-3,2,1,W;-3,2,2,W;-3,2,3,W;-3,3,-3,W;-3,3,-2,W;-3,3,-1,W;-3,3,1,W;-3,3,2,W;-3,3,3,W;-3,4,-3,W;-3,4,-2,W;-3,4,-1,W;-3,4,0,W;-3,4,1,W;-3,4,2,W;-3,4,3,W;-3,5,0,W;-3,5,1,W;-3,5,2,W;-3,5,3,W;-3,7,-3,.;-3,7,-2,.;-3,7,-1,.;-3,7,0,.;-3,7,1,.;-2,-1,-3,W;-2,-1,-2,W;-2,-1,-1,W;-2,-1,0,W;-2,-1,1,W;-2,-1,2,W;-2,-1,3,W;-2,0,-2,W;-2,0,-1,W;-2,0,0,W;-2,0,1,W;-2,0,2,W;-2,0,3,W;-2,1,-1,W;-2,1,0,W;-2,1,1,W;-2,1,2,W;-2,1,3,W;-2,2,2,W;-2,2,3,W;-2,3,2,W;-2,3,3,W;-2,4,2,W;-2,4,3,W;-2,6,-3,.;-2,6,-2,.;-2,6,-1,.;-2,6,0,.;-2,6,1,.;-2,7,-3,.;-2,7,-2,.;-2,7,-1,.;-2,7,0,.;-2,7,1,.;-2,7,2,.;-2,7,3,.;-1,-1,0,.;-1,0,0,.;-1,1,0,.;-1,2,-2,.;-1,2,-1,.;-1,2,0,.;-1,2,1,.;-1,3,-2,.;-1,3,-1,.;-1,3,0,.;0,-2,1,.;0,-1,0,.;0,-1,3,.;0,0,0,.;0,0,1,.;0,0,2,.;0,0,3,.;0,1,-1,.;0,1,0,.;0,1,1,.;0,1,2,.;0,1,3,.;0,2,-2,.;0,2,-1,.;0,2,0,.;0,2,1,.;0,2,2,.;0,2,3,.;0,3,-2,.;0,3,-1,.;0,3,0,.";
+    private static boolean st1427(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = new BlockPos(9800, 80, 9700), goal = me.offset(0, 8, 1);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1427T = -1; }
+        if (t[0] == 5) mock[0].teleportTo(me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5);
+        if (t[0] == 10) {
+            for (int x = -12; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = -5; y <= 14; y++) level.setBlock(me.offset(x, y, z), (y >= 7 && y <= 10 && x >= -3 && x <= 3 && z >= -3 && z <= 3 ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); // rock round it; the ledge's room up top, its floor the cave's roof
+            for (String e : CAVE1427.split(";")) { String[] f = e.split(","); BlockPos q = me.offset(Integer.parseInt(f[0]), Integer.parseInt(f[1]), Integer.parseInt(f[2])); level.setBlock(q, (f[3].equals("W") ? Blocks.WATER : f[3].equals("g") ? Blocks.GRAVEL : Blocks.AIR).defaultBlockState(), 2); }
+            for (int x = -3; x <= 3; x++) for (int z = -3; z <= 3; z++) if (level.getBlockState(me.offset(x, 7, z)).isAir() && level.getBlockState(me.offset(x, 6, z)).isAir()) level.setBlock(me.offset(x, 6, z), Blocks.STONE.defaultBlockState(), 2); // (the room's floor where the map has no cell)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 34)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 6));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); com.claudemod.entity.nav.Route.forgetTrail(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.setAirSupply(c.getMaxAirSupply());
+        }
+        if (t[0] == 30) c.tasks.add(new Task.GoTo(goal, 1.0));
+        if (t[0] > 30 && s1427T < 0 && c.getY() >= me.getY() + 6.9 && !c.isInWater()) s1427T = t[0];
+        if (t[0] > 30 && c.getHealth() < 20 && c.getAirSupply() <= 0 && s1427T < 0 && t[0] % 100 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 1427: drowning at {}", c.blockPosition().toShortString());
+        if (t[0] == 30 + 20 * 60 || s1427T > 0) {
+            int took = s1427T < 0 ? -1 : s1427T - 30; float hp = c.getHealth(); BlockPos at = c.blockPosition();
+            c.tasks.clear(); c.dropCurrent = true;
+            for (int x = -12; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = -5; y <= 14; y++) level.setBlock(me.offset(x, y, z), (y < -4 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // (the floor left)
+            check(took >= 0, "still in the flooded cave after 60 s, at " + at.toShortString() + ", health " + hp);
+            pass(stage, t, "out of the flooded cave in " + took + " ticks, health " + hp);
+        }
+        return true;
+    }
+    private static int s1427T;
     /** Stage 1420 (D2D review 21, live 06:46:25-06:46:43 11-10 at -114,17,-329, World 17): his furnace at -113,18,-328, ceiling high in the rock beside his tunnel; the way made to the cell beside it dug his ceiling and a wall cell, and put both back at the way's end, before the load: his way in to it shut, 9 s of loops and spins one block off, the walk written off UNKNOWN and the spot skipped. The way's put-backs come after the job. */
     private static boolean st1420(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos at = new BlockPos(9960, 80, 9780), fur = at.offset(1, 2, 1);

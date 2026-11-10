@@ -10900,6 +10900,7 @@ public final class ClaudeBodyTest {
             case 1279: return st1279(stage, t, c, h, level, mock);
             case 1280: return st1280(stage, t, c, h, level, mock);
             case 1281: return st1281(stage, t, c, h, level, mock);
+            case 1282: return st1282(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -23769,6 +23770,32 @@ public final class ClaudeBodyTest {
             check(fa != null && fa.item() == Items.COOKED_SALMON, "setup: the kit's pick isn't the salmon: " + said);
             check(said.contains("obtain cooked_salmon " + (fa.count() + 6)), "the kit asks " + fa.count() + " more with 6 on him, and the line doesn't name the step's total (" + (fa.count() + 6) + "): " + said);
             pass(stage, t, "the kit's line names the total to hold: " + said.substring(Math.max(0, said.indexOf("the pick"))));
+        }
+        return true;
+    }
+    private static int st1282T; private static net.minecraft.world.entity.monster.Blaze st1282B;
+    /** Stage 1282 (death-220, live 21:52:43-21:53:18 11-09 at a fortress, 322,60,495, health 10, blazes 5 off): "back into cover" to 319,59,485, a cover FortressFight.coverFor priced reachable by his own walker (ActionPath, a block put down where he has them), but cfMove steered by vanilla's path, a partial one to the tip 321,60,495; Controls refused the lava edge past it ("not stepping off" 11 times in 15 s) and he stood there till he burned. A tip over lava, the wall to hide behind across a 1-wide gap, a blaze in sight of him, health 10: into cover, by the way his walker makes. */
+    private static boolean st1282(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(10, 10, 14));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1282B = null; com.claudemod.entity.life.FortressFight.reset(c); }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) if (e != st1282B) e.discard();
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(-9, -9, -13), o.offset(9, 6, 9))) { int y = p.getY() - o.getY(); level.setBlock(p, y == -9 ? Blocks.STONE.defaultBlockState() : y == -8 ? Blocks.LAVA.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = -1; x <= 1; x++) for (int z = 0; z <= 2; z++) level.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // his tip
+            for (int x = -8; x <= 8; x++) for (int z = -12; z <= -2; z++) level.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // the deck, a 1-wide gap at z -1 between
+            for (int x = -4; x <= 4; x++) for (int y = 0; y <= 3; y++) level.setBlock(o.offset(x, y, -6), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // the wall to hide behind
+            level.setDayTime(6000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 16)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setHealth(10); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 1.5); mock[0].teleportTo(o.getX() + 0.5, o.getY() + 40, o.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear();
+        }
+        if (t[0] == 20) { st1282B = EntityType.BLAZE.create(level); st1282B.moveTo(o.getX() + 0.5, o.getY() + 2, o.getZ() + 7.5, 180, 0); st1282B.setPersistenceRequired(); st1282B.setNoAi(true); level.addFreshEntity(st1282B); }
+        if (t[0] == 25) { c.tasks.add(new Task.Attack(st1282B.getUUID(), 20 * 30)); st1282T = t[0]; }
+        if (t[0] > 25) {
+            check(c.isAlive() && !c.isInLava() && c.getY() > o.getY() - 2, "off the tip toward the lava at " + c.blockPosition().subtract(o).toShortString());
+            if (c.getZ() < o.getZ() - 6 && c.onGround()) { int took = t[0] - st1282T; st1282B.discard(); check(took <= 20 * 8, "behind the wall " + took / 20.0 + " s after the fight began (a block over a 1-wide gap and 8 steps)"); pass(stage, t, "into cover behind the wall in " + took / 20.0 + " s, at " + c.blockPosition().subtract(o).toShortString()); }
+            else if (t[0] - st1282T >= 20 * 10) { st1282B.discard(); check(false, "not behind the wall 10 s on (at " + c.blockPosition().subtract(o).toShortString() + ", task " + c.currentTask + ", health " + c.getHealth() + ")"); }
         }
         return true;
     }

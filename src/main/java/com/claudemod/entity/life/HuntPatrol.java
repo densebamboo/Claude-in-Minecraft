@@ -177,8 +177,9 @@ public final class HuntPatrol {
         double[] m = melee(g); double swings = Math.ceil(w("pearls.enderman_hp", 40) / m[0]), len = swings * m[1];
         double dmg = w("pearls.enderman_hit_hp", 7), perHit = dmg * (1 - Math.min(20, Math.max(armor / 5, armor - dmg / (2 + tough / 4))) / 25); // (vanilla's armor sum: armor 14 takes a 7 to ~4)
         double hits = len * w("pearls.enderman_hits_per_s", 0.4), hp = hits * perHit;
-        double s0 = len + w("pearls.fight_s", 4) + Decide.hpS(g, health, 0, hp, perHit, (int) Math.ceil(len) + 1, fed ? 20 : g.getFoodData().getFoodLevel(), fed ? w("food.fed_saturation", 5) : g.getFoodData().getSaturationLevel());
-        return s0;
+        int was = Food.mealsWhatIf; if (fed) Food.mealsWhatIf = (int) w("pearls.ready_meals", 8); // (fed: meals on him to win the HP back with)
+        try { return len + w("pearls.fight_s", 4) + Decide.hpS(g, health, 0, hp, perHit, (int) Math.ceil(len) + 1, fed ? 20 : g.getFoodData().getFoodLevel(), fed ? w("food.fed_saturation", 5) : g.getFoodData().getSaturationLevel()); }
+        finally { Food.mealsWhatIf = was; }
     }
     /** At his own health, armor and food. */
     public static double fightS(ClaudeEntity g) { return fightS(g, g.getHealth(), g.getArmorValue(), g.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS), false); }
@@ -226,6 +227,12 @@ public final class HuntPatrol {
           double trip = nether ? (portal == null ? w("pearls.no_portal_s", 1800) : 2 * (Math.sqrt(portal.at.distSqr(g.blockPosition())) * road / sprint + w("highway.portal_s", 8))) : 0, cost = w("pearls.ready_s", 240) + trip;
           opts.add(Decide.Option.of("get ready first", cost + readyFight, (nether ? "through the portal and back (~" + Math.round(trip) + " s), " : "") + "gear_up's kit (~" + Math.round(w("pearls.ready_s", 240)) + " s: food, armor), then the fight ~" + Math.round(readyFight) + " s at 20 HP, armor " + (int) readyArmor + (noArmorToHave ? " (no armor came of the last go)" : "")));
           acts.put("get ready first", new Next("ready", null, null, "the kit first")); }
+        // 5. food first, here (its own time isn't counted: the kit is short of it either way, before the fight or after; the difference is the fight fed, and finding them again): the kit's own pick for it (hoglins, fish, his furnace's raw), then the fight fed; "get ready" above goes home for armor too (D2D review 87, 23:31 11-09: 0 meals, the fight in the open at 19 HP, 20 -> 10 with nothing to win it back; "get ready" priced a portal trip he didn't need, armor 14 already)
+        { var fa = com.claudemod.director.Kit.foodAsk(g); Double fs = fa == null ? null : com.claudemod.director.Kit.foodPickS.get(g.getUUID());
+          if (fa != null && fs != null && !fs.isNaN()) { int was = Food.mealsWhatIf; double heal; Food.mealsWhatIf = (int) w("pearls.ready_meals", 8); try { heal = Food.regenS(g, Math.max(0, g.getMaxHealth() - g.getHealth()), 20, w("food.fed_saturation", 5)); } finally { Food.mealsWhatIf = was; }
+            double fedFight = fightS(g, g.getMaxHealth(), g.getArmorValue(), g.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS), true);
+            opts.add(Decide.Option.of("food first", heal + fedFight + w("pearls.food_first_s", 30), "the kit's food here ~" + Math.round(fs) + " s, wanted either way, so not counted (" + fa.count() + " " + Crafting.name(fa.item()) + "), then the fight ~" + Math.round(fedFight) + " s fed"));
+            acts.put("food first", new Next("food", null, null, fa.count() + " " + Crafting.name(fa.item()))); } }
         acts.put("explore for a new forest", new Next("explore", null, null, "a new forest"));
         var pick = Decide.choose(g, "pearls.next", (here.isEmpty() ? "" : here + ", ") + g.blockPosition().toShortString(), true, opts);
         Next nx = acts.get(pick.name());

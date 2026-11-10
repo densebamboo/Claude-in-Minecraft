@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1328: return st1328(stage, t, c, h, level, mock);
             case 1327: return st1327(stage, t, c, h, level, mock);
             case 1326: return st1326(stage, t, c, h, level, mock);
             case 1325: return st1325(stage, t, c, h, level, mock);
@@ -17470,6 +17471,38 @@ public final class ClaudeBodyTest {
             check(inWeak <= 2, "at 5 HP, no food, 7 rods on him: the route home goes " + inWeak + " samples through the crimson forest (legs " + wk + ", ~" + (int) weak.seconds() + " s)");
             check(well.seconds() <= weak.seconds(), "at 20 HP fed the route (~" + (int) well.seconds() + " s) is dearer than at 5 HP (~" + (int) weak.seconds() + " s)");
             nsHome(c, h, level); pass(stage, t, "at 5 HP round the crimson (~" + (int) weak.seconds() + " s, legs " + wk + "); at 20 HP fed ~" + (int) well.seconds() + " s, " + inWell + " samples in it");
+        }
+        return true;
+    }
+    /** Stage 1328 (D2D review 87, live 23:31 11-09 in a warped forest: 0 meals, the pearl hunt picked the enderman 18 off and fought it in the open at 19 HP, 20 -> 10 with nothing to win it back; "get ready first" priced a portal trip home he didn't need with armor 14 on, and its fed fight as if every HP past the bar had to be found first): the Nether, armor 15, 19 HP, a full bar but no meals, an enderman 18 off in sight, hoglins 24 off. The hunt doesn't pick the fight. */
+    private static boolean st1328(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(15400, 64, 8400);
+        if (t[0] == 1) { scenarioReset(c); }
+        if (t[0] < 19 || t[0] > 40) nsTick(nl, c, o, t);
+        if (t[0] % 10 == 0 || t[0] < 10) for (int mx = -32; mx <= 32; mx += 16) for (int mz = -32; mz <= 32; mz += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(mx, 0, mz)), 1, o.offset(mx, 0, mz));
+        if (t[0] == 10) {
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+            for (int x = -30; x <= 30; x++) for (int z = -30; z <= 30; z++) { nl.setBlock(o.offset(x, -1, z), Blocks.NETHERRACK.defaultBlockState(), 2); for (int y = 0; y <= 5; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setHealth(19f); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5f); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 19) {
+            var em = EntityType.ENDERMAN.create(nl); em.moveTo(o.getX() + 18.5, o.getY(), o.getZ() + 0.5, 90, 0); em.setNoAi(true); em.setPersistenceRequired(); nl.addFreshEntity(em);
+            for (int i = 0; i < 3; i++) { var hg = EntityType.HOGLIN.create(nl); hg.moveTo(o.getX() + 0.5 - 24, o.getY(), o.getZ() + 0.5 + i * 3, 0, 0); hg.setNoAi(true); hg.setPersistenceRequired(); nl.addFreshEntity(hg); }
+        }
+        if (t[0] == 25) com.claudemod.entity.life.Perception.glance(c);
+        if (t[0] == 30) {
+            c.setHealth(19f); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5f);
+            var nx = com.claudemod.entity.life.HuntPatrol.decide(c, nl, true);
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+            for (int x = -30; x <= 30; x++) for (int z = -30; z <= 30; z++) nl.setBlock(o.offset(x, -1, z), Blocks.AIR.defaultBlockState(), 2);
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.setHealth(20f);
+            check(nx != null, "no pick at all");
+            check(!"engage".equals(nx.kind()), "0 meals, 19 HP: the hunt picked the fight (" + nx.why() + ")");
+            nsHome(c, h, level); pass(stage, t, "0 meals: " + nx.kind() + " (" + nx.why() + ")");
         }
         return true;
     }

@@ -250,6 +250,8 @@ public final class Kit {
     private static final java.util.Map<java.util.UUID, String> foodPick = new java.util.HashMap<>();
     /** The kit is short and its pick is cooking the raw food he carries (smelt's "cooks at home" gives way only to that). */
     public static boolean cooksRaw(ClaudeEntity g) { return foodAsk(g) != null && "cook his raw".equals(foodPick.get(g.getUUID())); }
+    /** What the kit's food pick costs, in seconds (NaN: none): the pearl hunt's "food first" is priced by it. */
+    public static final java.util.Map<java.util.UUID, Double> foodPickS = new java.util.HashMap<>();
     public static FoodAsk foodAsk(ClaudeEntity g) {
         Object[] memo = foodAskMemo.get(g.getUUID()); if (memo != null && g.tickCount - (int) memo[0] >= 0 && g.tickCount - (int) memo[0] < 40) return (FoodAsk) memo[1];
         FoodAsk fa = foodAsk0(g); if (foodAskMemo.size() > 64) foodAskMemo.clear(); foodAskMemo.put(g.getUUID(), new Object[] {g.tickCount, fa}); return fa;
@@ -340,7 +342,7 @@ public final class Kit {
           opts.add(com.claudemod.entity.life.Decide.Option.of("search for animals", searchS.applyAsDouble(shortP), k + " cows' worth" + (nether ? ", through the portal and back ~" + Math.round(home) + " s" : ""))); asks.put("search for animals", new FoodAsk(Items.COOKED_BEEF, 2 * k)); }
         var pick = com.claudemod.entity.life.Decide.choose(g, "kit.food", "", false, opts);
         StringBuilder said = new StringBuilder(); for (var o : opts) said.append(said.length() == 0 ? "" : "; ").append(o.no() != null ? o.name() + " out (" + o.no() + ")" : o.name() + " ~" + Math.round(o.s()) + " s" + (o.detail().isEmpty() ? "" : " (" + o.detail() + ")"));
-        FoodAsk fa = pick == null ? null : asks.get(pick.name()); foodPick.put(g.getUUID(), pick == null ? null : pick.name());
+        FoodAsk fa = pick == null ? null : asks.get(pick.name()); foodPick.put(g.getUUID(), pick == null ? null : pick.name()); foodPickS.put(g.getUUID(), pick == null ? Double.NaN : pick.s());
         foodSaid.put(g.getUUID(), (int) shortP + " food points short (" + (int) carried + " on him): " + said + "; the pick: " + (pick == null ? "none" : pick.name()) + (fa == null ? "" : " -> " + fa.count() + " more " + Crafting.name(fa.item()) + " (obtain " + Crafting.name(fa.item()) + " " + (fa.count() + g.inventory.count(x -> x.is(fa.item()))) + ": a step's count is what he holds, " + g.inventory.count(x -> x.is(fa.item())) + " on him)")); /* (the planner wrote "obtain cooked_salmon x3" off "-> 3", done at once on the 10 he had, the kit still short: fish, beef, smelt in a minute, live 21:23 11-09, review 141, stage 1281) */
         ClaudeLife.nookSay(g, "kitFood", "[Claude decide] kit.food (" + (int) shortP + " food points short of the trip's " + (int) need + ", " + (int) carried + " on him): " + said + ": " + (pick == null ? "none" : pick.name()) + (fa == null ? "" : " -> " + fa.count() + " " + Crafting.name(fa.item())) + " (Kit.foodAsk)");
         return fa;

@@ -51,9 +51,12 @@ public final class Food {
      */
     public static double regenS(ClaudeEntity g, double hp) { var fd = g.getFoodData(); return regenS(g, hp, fd.getFoodLevel(), fd.getSaturationLevel()); }
     /** The same from the given food and saturation (a what-if: fed after gear_up, HuntPatrol.fightS). */
+    /** A what-if's meals on top of what he carries (cooked porkchops): "fed" is food on him, not only a full bar (D2D review 87, 23:31 11-09: the fed fight was priced as if every HP past the bar had to be found first). */
+    public static int mealsWhatIf = 0;
     public static double regenS(ClaudeEntity g, double hp, double food, double sat) {
         double t = 0;
         java.util.List<FoodProperties> bag = new java.util.ArrayList<>();
+        { var pork = props(new ItemStack(net.minecraft.world.item.Items.COOKED_PORKCHOP)); if (pork != null) for (int k = 0; k < mealsWhatIf; k++) bag.add(pork); }
         for (int i = 0; i < g.getInventory().getContainerSize(); i++) { ItemStack s = g.getInventory().getItem(i); var f = props(s); if (f != null && !bad(s)) for (int k = 0; k < s.getCount() && bag.size() < 64; k++) bag.add(f); }
         bag.sort((a, b) -> Double.compare(b.nutrition() + b.saturation(), a.nutrition() + a.saturation()));
         int n = (int) Math.ceil(Math.max(0, hp));

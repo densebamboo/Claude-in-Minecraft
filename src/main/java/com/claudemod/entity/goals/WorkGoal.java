@@ -3198,7 +3198,9 @@ public class WorkGoal extends Goal {
             }
         }
         // 5. a jump gets him there (a ledge up to ~3 blocks right beside it): jump for it, like a player
-        if (dy > 1.5 && dy < 3.4 && g.onGround()) {
+        BlockPos jx = g.blockPosition().relative(Direction.getNearest(nearest.getX() - g.getX(), 0, nearest.getZ() - g.getZ()));
+        boolean jumpReach = Math.max(Math.abs(ip.getX() - g.getBlockX()), Math.abs(ip.getZ() - g.getBlockZ())) <= 1 || level.getBlockState(jx).getCollisionShape(level, jx).isEmpty() && level.getBlockState(jx.above()).getCollisionShape(level, jx.above()).isEmpty(); // (a jump reaches a drop on the ledge beside him, or he steps closer first; 2 cells off behind a wall it only pushes him into the wall: 100 ticks at a time, live 13:13 11-09, stage 1276)
+        if (dy > 1.5 && dy < 3.4 && g.onGround() && jumpReach) {
             g.getMoveControl().setWantedPosition(nearest.getX(), g.getY(), nearest.getZ(), 1.0);
             if (horiz < 1.3) g.getJumpControl().jump();
             return false;

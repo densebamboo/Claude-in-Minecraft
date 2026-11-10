@@ -10880,6 +10880,7 @@ public final class ClaudeBodyTest {
             case 1273: return st1273(stage, t, c, h, level, mock);
             case 1274: return st1274(stage, t, c, h, level, mock);
             case 1275: return st1275(stage, t, c, h, level, mock);
+            case 1276: return st1276(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -23254,6 +23255,42 @@ public final class ClaudeBodyTest {
             for (int x = -2; x <= 76; x++) for (int z = -3; z <= 18; z++) { for (int yy = 0; yy <= 1; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), (yy == 1 ? Blocks.GRASS_BLOCK : Blocks.STONE).defaultBlockState(), 2); for (int yy = 2; yy <= 12; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
             check(toTree, "the tree he knows 66 off not walked to: " + s1275Said + " " + (q.length() > 200 ? q.substring(0, 200) : q));
             pass(stage, t, "the tree 66 off walked to, the long way round: " + s1275Said);
+        }
+        return true;
+    }
+    /** Stage 1276 (D2D conflicts 4/5/152, live 13:13:27-13:14:20 11-09 at -85,17,-301 World 17: coal from a vein by his tunnel lay 2 up and 2 across in the ore hole, the wall cells between solid; the pickup's "jump for it" pushed him into his cobble wall for 100 ticks at a time (DRAG incidents 3, 5), gave up after 16 ways, and only recover_left got it ~60 s later by opening the wall under the hole): the cells round him and round the coal as the DRAG incident read them, his tunnel a step down; a Pickup. The coal in hand within 3 s, a player's pace. */
+    private static final String[] S1276H = { // round his feet (-85,17,-301 live), y15..y20; groups z-3..z+3, chars x-3..x+3
+        "#######|#######|#######|#######|#######|#######|#######", "#######|#######|#.#.###|#.#####|#....##|###..##|###..##", "#######|#######|#.#####|..#.###|#.....#|###..##|###..##",
+        "#######|#######|#.#####|..#..##|.##..##|###..##|###..##", "#######|###.###|#.#..##|.....##|..#####|..#####|#######", "#######|#######|#.#####|#...###|..#####|#######|#######" };
+    private static final String[] S1276T = { // round the coal (-85,19,-303 live), y17..y22
+        "#######|#######|#######|#######|#.#####|..#.###|#.....#", "#######|#######|#######|#######|#.#####|..#..##|.##..##", "#######|#######|#######|###.###|#.#..##|.....##|..#####",
+        "#######|#######|#######|###.###|#.#####|#...###|..#####", "#######|#######|#######|#######|#######|#######|#######", "#######|#######|#######|#######|#######|#######|#######" };
+    private static boolean st1276(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(9, 4, 6)), at = o.offset(0, 2, -2);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(-5, -3, -6), o.offset(5, 6, 5))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            for (int k = 0; k < 2; k++) { String[] g0 = k == 0 ? S1276H : S1276T; int y0 = k == 0 ? -2 : 0, z0 = k == 0 ? -3 : -5;
+                for (int yi = 0; yi < 6; yi++) { String row = g0[yi]; for (int gz = 0; gz < 7; gz++) for (int ix = 0; ix < 7; ix++) {
+                    int dy = y0 + yi, dz = z0 + gz, dx = ix - 3;
+                    if (k == 1 && dy <= 3 && dz >= -3) continue; // (his own slice has it)
+                    level.setBlock(o.offset(dx, dy, dz), (row.charAt(gz * 8 + ix) == '.' ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); } } }
+            level.setBlock(o.below(), Blocks.COBBLESTONE.defaultBlockState(), 2); level.setBlock(o.offset(0, 0, -1), Blocks.COBBLESTONE.defaultBlockState(), 2); level.setBlock(o.offset(0, 1, -1), Blocks.DIORITE.defaultBlockState(), 2); // (his cobble under him and in the wall, the diorite over it)
+            var b = new com.claudemod.entity.life.MineBlueprint(o.offset(-2, -1, 1), net.minecraft.core.Direction.EAST, 1, 2); b.segments.clear(); // his tunnel: the open row a step down, south of him
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, o.offset(-2, -1, 1), net.minecraft.core.Direction.EAST, 4, null)); b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, o, net.minecraft.core.Direction.SOUTH, 2, null)); b.invalidate(); // (and his cell up off it: the live pickup counted the hole as joined to his mine)
+            c.prefs.put("mine_model", "blueprint"); c.prefs.put("torches_while_digging", "no"); c.blueprint = b; com.claudemod.director.ClaudeLife.bpSync(c);
+            level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setYRot(180); mock[0].teleportTo(o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+            var it = new net.minecraft.world.entity.item.ItemEntity(level, at.getX() + 0.5, at.getY(), at.getZ() + 0.5, new ItemStack(Items.COAL)); it.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); it.setPickUpDelay(0); level.addFreshEntity(it);
+        }
+        if (t[0] == 12) c.tasks.add(new Task.Pickup(100));
+        if (t[0] > 12) {
+            boolean got = c.getInventory().countItem(Items.COAL) > 0, late = t[0] >= 12 + 20 * 3; String where = c.blockPosition().subtract(o) + ", task " + c.currentTask + ", queue " + c.tasks;
+            if (got || late) { c.blueprint = null; c.mineFace = null; c.tasks.clear(); c.dropCurrent = true; for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(12))) e.discard(); }
+            if (got) pass(stage, t, "the coal 2 up in the ore hole picked up in " + (t[0] - 12) + " ticks");
+            else check(!late, "the coal 2 up in the ore hole not picked up in 3 s (a player: the wall block, a step up, take it): at " + where);
         }
         return true;
     }

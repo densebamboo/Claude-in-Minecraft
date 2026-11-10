@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1387: return st1387(stage, t, c, h, level, mock);
             case 1386: return st1386(stage, t, c, h, level, mock);
             case 1385: return st1385(stage, t, c, h, level, mock);
             case 1384: return st1384(stage, t, c, h, level, mock);
@@ -18229,6 +18230,37 @@ public final class ClaudeBodyTest {
                 c.teleportTo(h.absolutePos(new BlockPos(8, 2, 8)).getX() + 0.5, h.absolutePos(new BlockPos(8, 2, 8)).getY(), h.absolutePos(new BlockPos(8, 2, 8)).getZ() + 0.5);
                 check(toB, "2 diamonds left over from a full chest and no trip on to his other chest with room");
                 pass(stage, t, "one flint kept on him, the diamonds on to the next chest");
+            }
+        }
+        return true;
+    }
+    /** Stage 1387 (D2D 32, live 07:48:47-48 11-10 at 15,49,-111: "obtain shield" -> strip_mine iron_ore 1, smelt, craft; the iron ore 3 off mined and picked up, then "strip_mine iron_ore -> done: already have 1 raw_iron" 3 times in 0.3 s, skipped as failed 3x, the smelt and the shield craft gone with it): an iron ore in sight 3 off, the plan strip_mine 1, smelt 1, craft shield. The ore mined once, the plan on to the smelt, no repeat. */
+    private static int s1387T; private static BlockPos s1387Ore;
+    private static boolean st1387(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(5, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; s1387T = -1; flatBox(h); level.setDayTime(6000); c.prefs.put("stay_close", "no"); c.prefs.put("mine_model", "blueprint"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            s1387Ore = me.east(7).immutable(); level.setBlock(s1387Ore, Blocks.IRON_ORE.defaultBlockState(), 2); level.setBlock(s1387Ore.above(), Blocks.STONE.defaultBlockState(), 2);
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(level, me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5, 0f, 0f);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 8)); c.getInventory().add(new ItemStack(Items.COAL, 8)); c.getInventory().add(new ItemStack(Items.FURNACE)); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE));
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.TORCH, 64)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 40)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.COAL, 24)); c.getInventory().add(new ItemStack(Items.STICK, 8));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear(); c.failCount.clear();
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("strip_mine", "iron_ore", 1)); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("smelt", "iron_ingot", 1)); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "shield", 1));
+            s1387T = t[0];
+        }
+        if (s1387T > 0 && t[0] > s1387T) {
+            c.nextPlanTick = c.tickCount + 20 * 600;
+            int fails = c.failCount.getOrDefault("strip_mine iron_ore", 0); String l = c.lastSkillLine == null ? "" : c.lastSkillLine;
+            boolean on = l.startsWith("smelt") || l.startsWith("craft shield");
+            if (on || fails >= 2 || l.contains("skipped") || t[0] - s1387T > 20 * 20) {
+                String q = String.valueOf(c.skillQueue); boolean mined = level.getBlockState(s1387Ore).isAir();
+                c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.failCount.clear(); c.attempts.clear(); for (var es : net.minecraft.world.entity.EquipmentSlot.values()) if (es.getType() == net.minecraft.world.entity.EquipmentSlot.Type.HUMANOID_ARMOR) c.setItemSlot(es, ItemStack.EMPTY);
+                level.setBlock(s1387Ore, Blocks.AIR.defaultBlockState(), 2); level.setBlock(s1387Ore.above(), Blocks.AIR.defaultBlockState(), 2);
+                for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(me).inflate(12))) e.discard();
+                check(mined, "the iron ore 3 off not mined in 20 s (last: " + l + ")");
+                check(on && fails < 2, "after the ore: the strip_mine step again " + fails + " time(s) as a failure, the plan not on to the smelt (last: " + l + "; plan " + q + ")");
+                pass(stage, t, "the ore mined once, on to: " + l);
             }
         }
         return true;

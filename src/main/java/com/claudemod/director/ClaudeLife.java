@@ -150,6 +150,7 @@ public final class ClaudeLife {
             }
             if (g.lastStep != null && g.lastStep.skill().equals("go_to")) ClaudeMod.LOGGER.info("[Claude walk] next step {} after go_to: tasks {} busy {} current {}", step.skill(), g.tasks.size(), g.busy, g.currentTask);
             g.lastStep = step;
+            String prevLine = g.lastSkillLine; // (this step's own last line: a "done" right after its own progress is it finished)
             String result;
             try {
                 result = Errand.after(g, player, step, runSkill(g, player, step)); // (a make step of their errand that fails doesn't clear the delivery with it)
@@ -176,9 +177,13 @@ public final class ClaudeLife {
                 PlayerProfile.noteDoing(player, "'" + line + "' came back the same over and over within seconds: run again here it gives the same; what it says stands in the way is the thing to deal with");
                 ClaudeMod.LOGGER.info("[Claude skill] round in circles on \"{}\": stopping that", line); g.attempts.bandaid("round in circles: " + line);
             }
+            // a step back on after its own progress (the ore mined, then counted again) that now has enough: finished, not a "done" he keeps re-planning; the rest of the plan goes on (D2D 32, live 07:48:48 11-10: "done: already have 1 raw_iron" counted a failure 3x, the smelt and the shield craft cleared with it; stage 1387)
+            String head0 = step.skill() + (step.target().isBlank() ? "" : " " + step.target());
+            boolean finishedOwn = result.startsWith("done: already have") && prevLine != null && (prevLine.startsWith(head0 + " ->") || prevLine.startsWith(head0 + " x")) && !prevLine.contains("-> done") && !prevLine.contains("-> failed") && !prevLine.contains("-> skipped");
+            if (finishedOwn) ClaudeMod.LOGGER.info("[Claude skill] {}: finished by its own work (before: {}), the plan goes on: {} (ClaudeLife.runWork)", head0, prevLine, g.skillQueue);
             boolean nightRefusal = result.startsWith("failed") && (result.contains("it's night") || result.contains("it's day,")); // (and the pearl hunt's "it's day": waits for dusk, 02:01 the watchdog asked them for help with it)
             if (nightRefusal) { g.failReason.put(step.skill(), result); long t = g.level().getDayTime() % 24000; int until = Math.max(200, (int) (result.contains("it's day,") ? 12542 - t : (24000 - t) % 24000)); g.attempts.counters.put("timeWaitRefusals", g.tickCount < g.attempts.counters.getOrDefault("timeWait", 0) ? g.attempts.counters.getOrDefault("timeWaitRefusals", 0) + 1 : 1); g.attempts.counters.put("timeWait", g.tickCount + until); g.attempts.counters.put("timeWaitDay", result.contains("it's day,") ? 0 : 1); ClaudeMod.LOGGER.info("[Claude plan] {} waits on the time of day: no thinking ahead mid-work for {} s, till it changes (ClaudeLife.skillDone)", step.skill(), until / 20); } // (01:54 the pearl hunt refused by day re-planned every 10 s through the meanwhile walk) // the planner still hears why, so it plans round the wait // a "not at night" is a wait, not a failure: by day the same step is the right one
-            if ((result.startsWith("failed") || result.startsWith("done:")) && !nightRefusal) { // a "done" he keeps re-planning is a loop too
+            if ((result.startsWith("failed") || result.startsWith("done:") && !finishedOwn) && !nightRefusal) { // a "done" he keeps re-planning is a loop too
                 g.failCount.merge(failKey, 1, Integer::sum);
                 g.failReason.put(step.skill(), result);
             } else if (Set.of("collect", "craft", "smelt", "strip_mine", "dig_down").contains(step.skill()) && !nightRefusal) {
@@ -188,7 +193,7 @@ public final class ClaudeLife {
             }
             if (nightRefusal && !g.skillQueue.isEmpty()) { // only this step waits on the clock: the rest of the plan goes on (live 13:16 World 17, review 522: village_iron refused at night cleared strip_mine 17 and smelt 17 with it, then 2-4 min idle in his mine)
                 ClaudeMod.LOGGER.info("[Claude plan] {} waits on the clock; the rest of the plan goes on meanwhile: {} (ClaudeLife.runWork)", step.skill(), g.skillQueue);
-            } else if (result.startsWith("failed") || result.startsWith("done:")) {
+            } else if (result.startsWith("failed") || result.startsWith("done:") && !finishedOwn) {
                 boolean pile = !step.skill().equals("recover_drops") && g.skillQueue.stream().anyMatch(s0 -> s0.skill().equals("recover_drops")) && g.failCount.getOrDefault(failKey, 0) < 2; // the run to his death pile is his rule, not the plan's: it outlives a replan (live 11:47 11-07: "smelt iron_ingot -> done: rides home" cleared it, the Nether pile forgotten for a beef hunt, stage 1050)
                 g.skillQueue.clear();                    // the plan no longer holds; think again at once (a failure stood him idle 15 s each time; the plan gap, spinning() and planRepeats catch the loops)
                 if (pile) { g.skillQueue.add(new Skills.Step("recover_drops", "", 1)); ClaudeMod.LOGGER.info("[Claude plan] {} ended ({}): the plan's thought again, the run to his pile stays on (ClaudeLife.runWork)", step.skill(), result.length() > 60 ? result.substring(0, 60) : result); }

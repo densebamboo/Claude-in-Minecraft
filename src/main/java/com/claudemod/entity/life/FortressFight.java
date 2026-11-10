@@ -111,8 +111,30 @@ public final class FortressFight {
         return c;
     }
 
+    private static Map<UUID, Map<Long, Integer>> burnt; // per bot: blaze cover cells a fireball reached him in, and when (static: fields added live start null)
+    private static Map<Long, Integer> burnt(ClaudeEntity g) { if (burnt == null) burnt = new HashMap<>(); return burnt.computeIfAbsent(g.getUUID(), k -> new HashMap<>()); }
+    /** A cell a fireball got him in within cover.hit_forget_s: no cover, whatever the sight lines say. */
+    public static boolean burntCell(ClaudeEntity g, BlockPos c) { Integer t = burnt(g).get(c.asLong()); return t != null && g.tickCount - t >= 0 && g.tickCount - t < 20 * Weights.w("cover.hit_forget_s", 30); }
+
+    /** A blaze's fireball hurt him: in his blaze cover, that cover failed him, so it's dropped and its cell left out of the next pick (D2D death 74, live 07:10:40-07:11:35 11-10 at 285,65,500: six fireballs in "cover cutting the sight of 5 blazes", re-picked every time, 20 -> 0; stage 1376). The shooter's eye, his spot and the sight model's answer go to the log. */
+    public static void fireballHit(ClaudeEntity g, Entity fireball) {
+        if (!(g.level() instanceof ServerLevel level)) return;
+        Cover c = covers().get(g.getUUID());
+        if (c == null || !c.kind().equals("blaze") || !at(g, c.cover())) return;
+        Entity owner = fireball instanceof net.minecraft.world.entity.projectile.Projectile pr ? pr.getOwner() : null;
+        int seeing = 0; for (Blaze b : level.getEntitiesOfClass(Blaze.class, new AABB(c.cover()).inflate(SHOT_RANGE), Entity::isAlive)) if (sees(level, b, c.cover())) seeing++;
+        ClaudeMod.LOGGER.info("[Claude fight] fireball got him in cover at {}: he's at {}, the shot from {} (its blaze {}{}), the blaze's eye {}; the sight model: it sees the cell {}, he knows of {} blaze(s), {} within {} see the cell: cover dropped, the cell left out {} s (FortressFight.fireballHit)",
+            c.cover().toShortString(), String.format("%.2f,%.2f,%.2f", g.getX(), g.getY(), g.getZ()), String.format("%.1f,%.1f,%.1f", fireball.getX(), fireball.getY(), fireball.getZ()),
+            owner == null ? "gone" : owner.blockPosition().toShortString(), owner == null ? "" : String.format(", %.1f off", owner.distanceTo(g)),
+            owner == null ? "?" : String.format("%.1f,%.1f,%.1f", owner.getEyePosition().x, owner.getEyePosition().y, owner.getEyePosition().z),
+            owner instanceof LivingEntity lo ? String.valueOf(sees(level, lo, c.cover())) : "?", blazesNear(g, level, c.cover(), SHOT_RANGE).size(), seeing, SHOT_RANGE, (int) Weights.w("cover.hit_forget_s", 30));
+        burnt(g).put(c.cover().asLong(), g.tickCount);
+        covers().remove(g.getUUID()); nones().remove(g.getUUID());
+    }
+
     static boolean stillGood(ClaudeEntity g, ServerLevel level, Cover c, LivingEntity foe) {
         if (!stand(level, c.cover())) return false;
+        if (c.kind().equals("blaze") && burntCell(g, c.cover())) return false;
         if (c.kind().equals("wither")) return witherSafe(level, c.cover()) && blazeSees(g, level, c.cover()) == null;
         List<BlockPos> put = builds().get(g.getUUID()); if (put != null && !c.cover().equals(buildFor().get(g.getUUID()))) put = null;
         for (Blaze b : blazesNear(g, level, c.cover(), SHOT_RANGE)) if (sees(level, b, c.cover()) && (put == null || seenPast(level, b.getEyePosition(), c.cover(), put, g))) return false;
@@ -217,7 +239,7 @@ public final class FortressFight {
         Cand best = null; int[] no = new int[6]; // why the cells were passed over: {can't stand / near the anchor, a line's first cell can't take a block, too many blocks, a block with no face, no peek, no walk}
         for (int dx = -3; dx <= 3; dx++) for (int dz = -3; dz <= 3; dz++) for (int dy = -1; dy <= 1; dy++) {
             BlockPos c = me.offset(dx, dy, dz);
-            if (!stand(level, c) || Math.sqrt(c.distToCenterSqr(anchor)) < 3.0) { no[0]++; continue; }
+            if (!stand(level, c) || Math.sqrt(c.distToCenterSqr(anchor)) < 3.0 || burntCell(g, c)) { no[0]++; continue; }
             List<BlockPos> put = new ArrayList<>(); boolean ok = true;
             for (Vec3 e : eyes) {
                 for (Vec3 p : new Vec3[] {eyeOf(c), new Vec3(c.getX() + 0.5, c.getY() + 0.9, c.getZ() + 0.5)}) {
@@ -279,7 +301,7 @@ public final class FortressFight {
         List<Cand> cands = new ArrayList<>();
         for (int dx = -10; dx <= 10; dx++) for (int dz = -10; dz <= 10; dz++) for (int dy = -3; dy <= 3; dy++) {
             BlockPos c = me.offset(dx, dy, dz);
-            if (!stand(level, c)) continue;
+            if (!stand(level, c) || burntCell(g, c)) continue;
             double da = Math.sqrt(c.distToCenterSqr(anchor));
             if (da < 3.0 || da > 18) continue;
             boolean seen = false; for (Vec3 e : eyes) if (clear(level, e, eyeOf(c), g) || clear(level, e, new Vec3(c.getX() + 0.5, c.getY() + 0.9, c.getZ() + 0.5), g)) { seen = true; break; }

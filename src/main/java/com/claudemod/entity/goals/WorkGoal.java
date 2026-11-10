@@ -390,7 +390,7 @@ public class WorkGoal extends Goal {
             else { current = new Task.Flee(60); g.currentTask = current; ticks = 0; stuck = 0; lastDist = Double.MAX_VALUE; }
         }
         // Nothing to fight with or in, hostiles closing, dark or hurt: under cover now, before the first hit (a fresh respawn at night died idle, then "while wait" in a hole with no lid)
-        if (g.tickCount % 20 == 11 && !(current instanceof Task.Flee) && !(current instanceof Task.Attack) && !diggingIn() && !g.isSleeping() && weakKit()
+        if (g.tickCount % 20 == 11 && !(current instanceof Task.Flee) && !(current instanceof Task.Attack) && !diggingIn() && !coverFightOwns() && !g.isSleeping() && weakKit()
                 && !((g.getHealth() >= 14 || g.inventory.count(x -> !x.isEmpty()) <= 4) && g.lastStep != null && g.lastStep.skill().equals("recover_drops")) // healthy and running for his things before they vanish (his whole iron kit): not pulled back into cover every 2 s
                 && !com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(12), m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy && (m.getTarget() == g || m.distanceTo(g) < 6 || g.level().canSeeSky(g.blockPosition()))).isEmpty()
                 && coverPays("weak kit", com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(12), m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy).size())) { // (priced, cover.dig_in: was "night, or health under 10") // (underground: only one that's after him or close; anything in the cave within 12 kept him on a tower at 2 health for good)
@@ -459,7 +459,7 @@ public class WorkGoal extends Goal {
             }
             // Gone, dead or far off, or hurt by a stray hit with nothing actually on him: nothing to fight or run from.
             // Running from a mob that isn't there is how he looped at 6 health; a player steps clear and eats.
-            if (!(foe instanceof net.minecraft.world.entity.LivingEntity l) || !l.isAlive() || foe.distanceTo(g) > 24 && !(foe instanceof net.minecraft.world.entity.Mob fm && huntsHim(fm)) || (shouldFlee(foe) && hostilesNear(14).isEmpty() && foe.distanceTo(g) > 8)) { // (a mob 2 blocks off that just hit him is on him, whatever its target says: "healing up" there is how a skeleton killed him) // (past 24 but within its follow range and after him, it's on him: World 17 04:52:31, a blaze 32 off "isn't on him", he walked on in its fire 17 -> 0, stage 763)
+            if (!(foe instanceof net.minecraft.world.entity.LivingEntity l) || !l.isAlive() || foe.distanceTo(g) > 24 && !(foe instanceof net.minecraft.world.entity.Mob fm && huntsHim(fm)) || (shouldFlee(foe) && hostilesNear(14).isEmpty() && foe.distanceTo(g) > 8 && !(foe instanceof net.minecraft.world.entity.Mob fs && (shoots(fs) || fs instanceof net.minecraft.world.entity.monster.Blaze || fs instanceof net.minecraft.world.entity.monster.Ghast) && huntsHim(fs)))) { // (a shooter after him within its follow range is on him from there: D2D death 74, live 07:11:05 11-10, a blaze 25 off "isn't on him" at health 2) // (a mob 2 blocks off that just hit him is on him, whatever its target says: "healing up" there is how a skeleton killed him) // (past 24 but within its follow range and after him, it's on him: World 17 04:52:31, a blaze 32 off "isn't on him", he walked on in its fire 17 -> 0, stage 763)
                 if (foe != null) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] hit by a {} that isn't on him ({} blocks off, health {}): healing up, not running", foe.getType().getDescription().getString(), (int) foe.distanceTo(g), (int) g.getHealth());
                 else com.claudemod.ClaudeMod.LOGGER.info("[Claude life] hit by a mob that's gone from the world now (health {}): nothing to fight, healing up (WorkGoal.tick)", (int) g.getHealth());
                 g.urgentAttacker = null;
@@ -6777,13 +6777,19 @@ public class WorkGoal extends Goal {
         }
         return null;
     }
+    /** The blaze / wither skeleton fight is making his cover (walling in, or its blocks put up with the fight queued behind them): no second cover over it (the weak-kit dig-in built skytowers out of both, stages 1375 and 1376). */
+    private boolean coverFightOwns() {
+        if (cfBoxAt != null) return true;
+        for (Task q : g.tasks) if (q instanceof Task.Attack a && com.claudemod.entity.life.FortressFight.coverMob(((ServerLevel) g.level()).getEntity(a.target()))) return true;
+        return false;
+    }
     private BlockPos cfBoxAt; // the box blazeRetreat walled him into: his cover till he's healed (lazy: a field added live starts null)
     private Boolean blazeRetreat(Task.Attack t, net.minecraft.world.entity.LivingEntity mob) {
         ServerLevel level = (ServerLevel) g.level();
         var blazes = level.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(48), this::shootsHere);
         if (blazes.isEmpty()) return null;
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
-        java.util.function.Predicate<BlockPos> hidden = c -> { for (var b : blazes) if (com.claudemod.entity.life.FortressFight.sees(level, b, c)) return false; return true; };
+        java.util.function.Predicate<BlockPos> hidden = c -> { if (com.claudemod.entity.life.FortressFight.burntCell(g, c)) return false; for (var b : blazes) if (com.claudemod.entity.life.FortressFight.sees(level, b, c)) return false; return true; }; // (a cell a fireball just got him in hides him from nothing, whatever the sight lines say: stage 1376)
         if (hidden.test(feet)) {
             g.getNavigation().stop(); g.setSprinting(false); shieldDown(); g.getLookControl().setLookAt(mob);
             net.minecraft.world.item.Item food = g.getFoodData().getFoodLevel() < 20 ? com.claudemod.director.ClaudeLife.foodToEat(g, g.getHealth() <= 6) : null;

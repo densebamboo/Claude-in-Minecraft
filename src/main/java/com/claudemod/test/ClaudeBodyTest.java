@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1376: return st1376(stage, t, c, h, level, mock);
             case 1375: return st1375(stage, t, c, h, level, mock);
             case 1374: return st1374(stage, t, c, h, level, mock);
             case 1373: return st1373(stage, t, c, h, level, mock);
@@ -17851,6 +17852,44 @@ public final class ClaudeBodyTest {
                 check(s1375Hid > 0, "setup: never in cover on the open bridge");
                 check(s1375Raised, "hurt in cover, a fireball on its way to him from the open side: no shield up (now " + c.currentTask + ")");
                 pass(stage, t, "the shield up in cover for the fireball " + (t[0] - s1375Hid - 20) + " ticks after it came");
+            }
+        }
+        return true;
+    }
+    /** Stage 1376 (D2D death 74, live 07:10:40-07:11:35 11-10 at 285,65,500: six fireballs got him in "cover cutting the sight of 5 blazes", the same cell re-picked every time, 20 -> 0): an open bridge, cover built from two blazes, no shield, hurt (10 HP), then a fireball gets him in that cell. The cell is no cover now: 3 s on he's off it or walled in, not healing there. */
+    private static net.minecraft.world.entity.monster.Blaze s1376A, s1376B; private static int s1376T, s1376Hid; private static boolean s1376Raised; private static BlockPos s1376Cell; private static boolean s1376Got;
+    private static boolean st1376(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1376A = s1376B = null; s1376Hid = -1; s1376Raised = false; s1376Cell = null; s1376Got = false; }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) if (e != s1376A && e != s1376B) e.discard();
+        if (t[0] == 10) {
+            for (int x = -20; x <= 24; x++) for (int z = -16; z <= 16; z++) for (int y = -6; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (int x = -20; x <= 24; x++) for (int z = -2; z <= 2; z++) level.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().items.set(1, new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().items.set(2, new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().selected = 0; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY);
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; mock[0].teleportTo(o.getX() + 0.5, o.getY() + 45, o.getZ() + 0.5);
+            level.setDayTime(6000);
+        }
+        if (t[0] == 20) {
+            s1376A = EntityType.BLAZE.create(level); s1376A.moveTo(o.getX() + 12.5, o.getY() + 1, o.getZ() + 0.5, 90, 0); s1376A.setPersistenceRequired(); s1376A.setNoAi(true); s1376A.setNoGravity(true); level.addFreshEntity(s1376A);
+            s1376B = EntityType.BLAZE.create(level); s1376B.moveTo(o.getX() + 7.5, o.getY() + 3, o.getZ() + 8.5, 180, 0); s1376B.setPersistenceRequired(); s1376B.setNoAi(true); s1376B.setNoGravity(true); level.addFreshEntity(s1376B);
+            c.tasks.add(new Task.Attack(s1376A.getUUID(), 20 * 60)); s1376T = t[0];
+        }
+        if (t[0] > 20 && s1376A != null) {
+            c.getFoodData().setFoodLevel(20);
+            BlockPos f = BlockPos.containing(c.getX(), c.getY() + 0.2, c.getZ());
+            boolean hid = c.onGround() && !com.claudemod.entity.life.FortressFight.sees(level, s1376A, f) && !com.claudemod.entity.life.FortressFight.sees(level, s1376B, f);
+            if (s1376Hid < 0 && hid) { s1376Hid = t[0]; s1376Cell = f.immutable(); c.setHealth(10); }
+            if (s1376Hid > 0 && t[0] == s1376Hid + 20) { // a fireball from the open side his cover doesn't block, 4 off and on its way
+                var fb = new net.minecraft.world.entity.projectile.SmallFireball(level, s1376A, new net.minecraft.world.phys.Vec3(1, 0, 0)); fb.moveTo(c.getX() - 1.6, c.getEyeY() - 0.5, c.getZ(), 0, 0); fb.setDeltaMovement(0.5, 0, 0); c.hurtSaid = ""; level.addFreshEntity(fb); }
+            boolean boxed = true; for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) if (level.getBlockState(f.relative(d).above()).getCollisionShape(level, f.relative(d).above()).isEmpty()) boxed = false;
+            if (s1376Hid > 0 && t[0] > s1376Hid + 20 && t[0] < s1376Hid + 30 && c.hurtSaid.startsWith("health ")) s1376Got = true;
+            if (s1376Hid > 0 && t[0] == s1376Hid + 80) s1376Raised = f.getY() == s1376Cell.getY() && (!f.equals(s1376Cell) || boxed); // (another cell on the bridge, or his box: never a tower against blazes)
+            if (s1376Hid > 0 && t[0] >= s1376Hid + 80 || t[0] > s1376T + 400) {
+                for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.projectile.SmallFireball.class, new net.minecraft.world.phys.AABB(o).inflate(30))) e.discard();
+                s1376A.discard(); s1376B.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY); c.getInventory().clearContent(); c.clearFire(); c.setHealth(20);
+                check(s1376Hid > 0, "setup: never in cover on the open bridge");
+                check(s1376Got, "setup: the fireball never got him (last hit: " + c.hurtSaid + ")"); check(s1376Raised, "a fireball got him in his cover at " + s1376Cell.toShortString() + ": 3 s on he's still in that cell, not walled in (at " + f.toShortString() + ", now " + c.currentTask + ")");
+                pass(stage, t, "the cover a fireball got him in dropped: at " + f.toShortString() + (f.equals(s1376Cell) ? ", walled in" : ", off the cell " + s1376Cell.toShortString()));
             }
         }
         return true;

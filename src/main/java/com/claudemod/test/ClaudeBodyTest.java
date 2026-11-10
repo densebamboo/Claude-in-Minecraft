@@ -10956,6 +10956,7 @@ public final class ClaudeBodyTest {
             case 1410: return st1410(stage, t, c, h, level, mock);
             case 1411: return st1411(stage, t, c, h, level, mock);
             case 1412: return st1412(stage, t, c, h, level, mock);
+            case 1413: return st1413(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -25099,7 +25100,7 @@ public final class ClaudeBodyTest {
         }
         if (t[0] == 20) { var it = new net.minecraft.world.entity.item.ItemEntity(level, drop.getX() + 0.5, drop.getY() + 0.1, drop.getZ() + 0.5, new ItemStack(Items.RAW_IRON)); it.setDeltaMovement(0, 0, 0); level.addFreshEntity(it); }
         if (t[0] == 22) c.tasks.add(new Task.Pickup(100));
-        if (t[0] > 22 && s1410Stray == null) { // a patch-back for a cell of his wall that's still stone, its break nowhere on the queue
+        if (t[0] > 22 && s1410Stray == null && s1410T < 0) { // (till he has it: the patch-up after is its own work) a patch-back for a cell of his wall that's still stone, its break nowhere on the queue
             java.util.List<Task> all = new java.util.ArrayList<>(c.tasks); if (c.currentTask != null) all.add(c.currentTask);
             for (Task k : all) if (k instanceof Task.Place pl && !level.getBlockState(pl.pos()).getCollisionShape(level, pl.pos()).isEmpty() && !all.contains(new Task.Break(pl.pos()))) { s1410Stray = pl.pos().toShortString() + " (" + level.getBlockState(pl.pos()).getBlock().getName().getString() + ") at tick " + (t[0] - 22); break; }
         }
@@ -25143,6 +25144,35 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static int s1412T;
+    /** Stage 1413 (D2D reviews 76/29, live 04:53:20 and 06:00:52 11-10): raw gold just mined in a shaft off his tunnel, still popping up (age 0, on ground false): "left Raw Gold behind: no way to it", and it was got 1 s later once it had landed. A drop in the air is waited for, never judged. */
+    private static boolean st1413(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9880, 80, 9780), me = at.offset(2, 0, 0), top = at.offset(0, 3, -1);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("mine_model", "blueprint"); s1413T = -1; s1413Left = null; }
+        if (t[0] == 5) mock[0].teleportTo(at.getX() + 0.5, at.getY() + 40, at.getZ() + 0.5); // (a player over his arena: its drops in the level's entity lookup)
+        if (t[0] == 10) {
+            var b = new com.claudemod.entity.life.MineBlueprint(at, net.minecraft.core.Direction.EAST, 1, 2); b.segments.clear(); b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, at.west(3), net.minecraft.core.Direction.EAST, 12, null)); c.blueprint = b; // his mine: a one-wide branch, two tall
+            for (int x = -4; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = -2; y <= 5; y++) { BlockPos q = at.offset(x, y, z); level.setBlock(q, (b.isWalk(q) ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            for (int y = 0; y <= 3; y++) level.setBlock(at.offset(0, y, -1), Blocks.AIR.defaultBlockState(), 2); // a shaft up off his wall, the ore at its top just mined
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(90f); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+        }
+        if (t[0] == 20) { var it = new net.minecraft.world.entity.item.ItemEntity(level, top.getX() + 0.5, top.getY() + 0.25, top.getZ() + 0.5, new ItemStack(Items.RAW_GOLD)); it.setDeltaMovement(0, 0.2, 0); it.setPickUpDelay(10); level.addFreshEntity(it); c.tasks.add(new Task.Pickup(100)); } // (as a broken ore's: popping up, a pickup delay)
+        if (t[0] == 1) com.claudemod.entity.life.OwnEvents.reset(c);
+        if (t[0] > 20 && s1413Left == null && com.claudemod.entity.life.OwnEvents.lastLeft(c, "raw gold") != null) s1413Left = "left behind as no way at tick " + (t[0] - 20);
+        if (t[0] > 20 && s1413T < 0 && c.getInventory().countItem(Items.RAW_GOLD) > 0) s1413T = t[0];
+        if (t[0] == 20 + 20 * 8 || s1413T > 0 && t[0] == s1413T + 2) {
+            int took = s1413T < 0 ? -1 : s1413T - 20; String left = s1413Left;
+            c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(at).inflate(12))) e.discard();
+            for (int x = -4; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = -2; y <= 5; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // (the floor left)
+            check(left == null, "the raw gold still in the air: " + left);
+            check(took >= 0 && took <= 60, "the raw gold down the shaft: " + (took < 0 ? "not got in 8 s" : took + " ticks"));
+            pass(stage, t, "waited for the raw gold to land, got it in " + took + " ticks");
+        }
+        return true;
+    }
+    private static int s1413T; private static String s1413Left;
     /** Stage 1411 (D2D review 60, live 06:04:40-06:05:00 11-10 at -75,16,-345): stone picks to make in his one-wide iron tunnel, his mine's table elsewhere: the temp table went down on the tunnel floor at -74, between him and his dig at -70; the way over it dug 3 of his ceiling, his mine wanted them back, the put-back refused. The table goes on the side away from his work. */
     private static boolean st1411(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos at = new BlockPos(9940, 80, 9780), me = at.offset(3, 0, 0), work = at.offset(7, 0, 0), mineTable = at.offset(0, 0, 1);

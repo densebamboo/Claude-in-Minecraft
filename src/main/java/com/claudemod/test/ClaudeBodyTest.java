@@ -10965,6 +10965,7 @@ public final class ClaudeBodyTest {
             case 1414: return st1414(stage, t, c, h, level, mock);
             case 1415: return st1415(stage, t, c, h, level, mock);
             case 1416: return st1416(stage, t, c, h, level, mock);
+            case 1417: return st1417(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -25438,6 +25439,40 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static String s1416Cut;
+    /** Stage 1417 (D2D review 16, live 06:54:19-06:54:39 11-10 at -82,18,-345 in World 17): the access notch in his branch's ceiling, sealed once his work out past it was done; its patch went to the nearest spot that sees a face, out past the notch at -82,18,-344 (his pillar block in the walkway under it), and the walk back in was cut off: "the walk back into his mine at -82,16,-345 failed: patching -82,18,-345 from where he is", sealed outside his own mine. A patch of his mine's shell is set from inside it. */
+    private static boolean st1417(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9900, 80, 9780), notch = at.offset(0, 2, 4), out = at.offset(0, 2, 3), pillar = at.offset(0, 0, 4);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("mine_model", "blueprint"); s1417T = -1; s1417Out = false; }
+        if (t[0] == 10) {
+            var b = new com.claudemod.entity.life.MineBlueprint(at, net.minecraft.core.Direction.EAST, 1, 2); b.segments.clear(); // his mine as live: a row he stands in, a branch off it south, then east to under the notch
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, at.west(3), net.minecraft.core.Direction.EAST, 8, null));
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, at.offset(-2, 0, 1), net.minecraft.core.Direction.SOUTH, 4, null));
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, at.offset(-1, 0, 4), net.minecraft.core.Direction.EAST, 2, null));
+            c.blueprint = b;
+            for (int x = -5; x <= 6; x++) for (int z = -3; z <= 7; z++) for (int y = -2; y <= 5; y++) { BlockPos q = at.offset(x, y, z); level.setBlock(q, (b.isWalk(q) ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            level.setBlock(notch, Blocks.AIR.defaultBlockState(), 2); level.setBlock(out, Blocks.AIR.defaultBlockState(), 2); level.setBlock(out.above(), Blocks.AIR.defaultBlockState(), 2); // the notch cut, and the spot out past it his work was at
+            level.setBlock(pillar, Blocks.COBBLESTONE.defaultBlockState(), 2); // his pillar block up to it, still in the walkway under it
+            c.getInventory().clearContent(); c.getInventory().add(new net.minecraft.world.item.ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new net.minecraft.world.item.ItemStack(Items.COBBLESTONE, 32));
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+        }
+        if (t[0] == 20) c.tasks.add(new Task.Place(notch, Items.COBBLESTONE)); // the seal's patch
+        if (t[0] > 20 && c.blueprint != null && !c.blueprint.isWalk(c.blockPosition())) s1417Out = true;
+        if (t[0] > 20 && s1417T < 0 && level.getBlockState(notch).is(Blocks.COBBLESTONE)) s1417T = t[0];
+        if (t[0] == 20 + 20 * 15 || s1417T > 0 && t[0] == s1417T + 20) {
+            int took = s1417T < 0 ? -1 : s1417T - 20; BlockPos me = c.blockPosition(); boolean inside = c.blueprint != null && c.blueprint.isWalk(me); boolean wentOut = s1417Out;
+            c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            for (int x = -5; x <= 6; x++) for (int z = -3; z <= 7; z++) for (int y = 0; y <= 5; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); // (the floor left)
+            check(took >= 0, "the notch's patch not in after 15 s");
+            check(!wentOut && inside, "the notch patched from outside his mine: " + (wentOut ? "he went out past it" : "") + (inside ? "" : ", ended at " + me.toShortString() + " outside"));
+            pass(stage, t, "the notch in his ceiling patched from inside in " + took + " ticks, him still in his mine");
+        }
+        return true;
+    }
+    private static int s1417T; private static boolean s1417Out;
+
+
+
     /** Stage 1411 (D2D review 60, live 06:04:40-06:05:00 11-10 at -75,16,-345): stone picks to make in his one-wide iron tunnel, his mine's table elsewhere: the temp table went down on the tunnel floor at -74, between him and his dig at -70; the way over it dug 3 of his ceiling, his mine wanted them back, the put-back refused. The table goes on the side away from his work. */
     private static boolean st1411(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos at = new BlockPos(9940, 80, 9780), me = at.offset(3, 0, 0), work = at.offset(7, 0, 0), mineTable = at.offset(0, 0, 1);

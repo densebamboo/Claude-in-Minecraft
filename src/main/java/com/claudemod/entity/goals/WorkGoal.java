@@ -4312,18 +4312,21 @@ public class WorkGoal extends Goal {
             }
             if (seenFace == null) {
                 BlockPos view = null; double vd = Double.MAX_VALUE; // the nearest spot he can stand that sees some face of a neighbour
+                boolean shellPatch = com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.isShell(pos); BlockPos viewIn = null; double vdIn = Double.MAX_VALUE; // a patch of his mine's shell is set from inside it: a spot out past it seals him out (the notch at -82,18,-345 patched from -82,18,-344, his walk back in cut off, live 06:54 11-10, D2D review 16, stage 1417)
                 for (BlockPos p0 : BlockPos.betweenClosed(pos.offset(-3, -3, -3), pos.offset(3, 2, 3))) { // (3 down too: under a two-deep hole over his ceiling his eye is 2.4 from the top cell's lid; 2 down never tried that spot, NO_FACE and the cell sealed in, D2D review 37, stage 1401)
                     BlockPos sp = p0.immutable();
                     if (sp.equals(pos) || !level.getBlockState(sp).getCollisionShape(level, sp).isEmpty() || !level.getBlockState(sp.above()).getCollisionShape(level, sp.above()).isEmpty() || level.getBlockState(sp.below()).getCollisionShape(level, sp.below()).isEmpty() || level.getFluidState(sp).is(net.minecraft.tags.FluidTags.LAVA) || level.getFluidState(sp.above()).is(net.minecraft.tags.FluidTags.LAVA) || level.getBlockState(sp.below()).getCollisionShape(level, sp.below()).max(net.minecraft.core.Direction.Axis.Y) > 1.0) continue; // (never on top of a fence or a wall: no jump gets him up there, a pillar did, its dirt left outside his farm to plant a seed from a fence post, stage 93) (farmland, a slab: something to stand on, not only a full-faced block; never a lava cell: stage 816 was nudged into one)
-                    double dd = sp.distSqr(g.blockPosition()); if (dd >= vd) continue;
+                    if (sp.above().equals(pos)) continue; // (his head in the cell it goes in: no stand for it)
+                    double dd = sp.distSqr(g.blockPosition()); boolean inSide = shellPatch && g.blueprint.isWalk(sp); if (dd >= (inSide ? vdIn : vd)) continue;
                     if (besideLava(level, sp)) continue; // (lava beside an open cell that hasn't flowed in is falling: plug its fall and it spreads sideways into him; death 30, live 01:39 11-09, stage 1196)
                     Vec3 e2 = Vec3.atBottomCenterOf(sp).add(0, 1.62, 0);
                     for (Direction d : Direction.values()) {
                         BlockPos nb = pos.relative(d); BlockState ns = level.getBlockState(nb);
                         if (ns.isAir() || !ns.getFluidState().isEmpty() || ns.canBeReplaced()) continue;
-                        if (visibleFacePoint(level, e2, nb, d, 4.25) != null) { view = sp; vd = dd; break; }
+                        if (visibleFacePoint(level, e2, nb, d, 4.25) != null) { if (inSide) { viewIn = sp; vdIn = dd; } else { view = sp; vd = dd; } break; }
                     }
                 }
+                if (viewIn != null) view = viewIn;
                 { BlockPos fl = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); // one motion a block, like a player bridging: the cell that sees the face is the one he's on (or the next), at his level or one under; he sneaks to its edge by the cell (vanilla keeps a sneaking player on it) and the place goes in the tick the face comes into view; was a nudge, an exit, a 10-tick wait and the place again, two moves a block, ~1.2 blocks/s (Loops: stages 816/819)
                   if (view != null && ticks <= 30 && view.distSqr(fl) <= 2 && view.getY() <= fl.getY() && fl.getY() - view.getY() <= 1 && Math.abs(pos.getX() - view.getX()) + Math.abs(pos.getZ() - view.getZ()) == 1 && pos.getY() == view.getY() - 1 && g.onGround() && !lavaOverCell(level, pos)) { // (the floor under his next step only: a wall cell at his level is his body's way into what it holds back, lava in 1196)
                     double ex = view.getX() + 0.5 + (pos.getX() - view.getX()) * 0.72, ez = view.getZ() + 0.5 + (pos.getZ() - view.getZ()) * 0.72;

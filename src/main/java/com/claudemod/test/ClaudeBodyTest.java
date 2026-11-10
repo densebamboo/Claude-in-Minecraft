@@ -10932,6 +10932,7 @@ public final class ClaudeBodyTest {
             case 1298: return st1298(stage, t, c, h, level, mock);
             case 1299: return st1299(stage, t, c, h, level, mock);
             case 1401: return st1401(stage, t, c, h, level, mock);
+            case 1402: return st1402(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -24534,6 +24535,31 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static int s1401T;
+    /** Stage 1402 (D2D review 109/46, live 02:14-02:15 and 02:29 11-10 by Nether lava pools): a block for a cell out in the lava, no face to set it against from anywhere: NO_FACE, and back on each time he stood somewhere new, round after round for 25 s. Where he stands is no part of that cause. */
+    private static boolean st1402(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9800, 80, 9780), cell = at.offset(4, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1402N = 0; s1402L = -1; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 9; x++) for (int z = -4; z <= 4; z++) for (int y = -2; y <= 4; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            for (int x = 2; x <= 7; x++) for (int z = -2; z <= 2; z++) { level.setBlock(at.offset(x, -1, z), Blocks.LAVA.defaultBlockState(), 2); level.setBlock(at.offset(x, 0, z), Blocks.LAVA.defaultBlockState(), 2); } // a pool, the cell two out in it
+            c.getInventory().clearContent(); c.getInventory().add(new net.minecraft.world.item.ItemStack(Items.NETHERRACK, 32));
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.clearFire();
+        }
+        if (t[0] >= 20 && t[0] < 200 && t[0] % 30 == 20) { // queued again every 1.5 s, from a new cell of the shore each time (live: the job behind it re-queued it as he moved)
+            int k = (t[0] - 20) / 30; c.teleportTo(at.getX() + 0.5 - (k % 3), at.getY(), at.getZ() + 0.5 + (k % 2)); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.removeIf(q -> q instanceof Task.Place); c.tasks.add(new Task.Place(cell, Items.NETHERRACK));
+        }
+        { Integer f = c.attempts.of(com.claudemod.entity.life.Attempts.Kind.PLACE).get(cell); if (f != null && f != s1402L) { s1402L = f; s1402N++; } }
+        if (t[0] == 210) {
+            int n = s1402N; c.tasks.clear(); c.dropCurrent = true; c.clearFire();
+            for (int x = -4; x <= 9; x++) for (int z = -4; z <= 4; z++) for (int y = -1; y <= 4; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // (the lava out, the floor left)
+            check(n == 1, "the block for the cell out in the lava failed NO_FACE " + n + " times, once for each new cell he stood on");
+            pass(stage, t, "no face for the cell in the lava: failed once, held while nothing round it changed");
+        }
+        return true;
+    }
+    private static int s1402N, s1402L;
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

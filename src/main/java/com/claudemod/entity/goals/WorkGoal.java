@@ -4120,7 +4120,7 @@ public class WorkGoal extends Goal {
         }
         if (against == null && t.want() != null) { // a build's block with nothing to go against yet: no column or footing of its block outside the plan; the build's check comes back to it
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] nothing to set {} against at {} yet (a build's cell): left for the build's check (WorkGoal.doPlace)", itemName(new ItemStack(t.item())), pos.toShortString());
-            failed(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, com.claudemod.entity.life.Attempts.Reason.NO_FACE, "nothing to set it against yet (a build's cell)");
+            g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, g.tickCount, null, com.claudemod.entity.life.Attempts.Reason.NO_FACE, "nothing to set it against yet (a build's cell)"); /* (the cell itself, not where he stands: held till the blocks round it change, stage 1402) */
             return exit("nothing to go against yet (doPlace want)");
         }
         if (against == null && upHisSkytower() && !enemiesNear(16).isEmpty()) { // (a column up from the floor is a walk down off the tower)
@@ -4171,7 +4171,7 @@ public class WorkGoal extends Goal {
                 return exit("doPlace line 2702");
             }
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't place at {}: nothing to place it against", pos.toShortString());
-            failed(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, com.claudemod.entity.life.Attempts.Reason.NO_FACE, "nothing to place it against"); // (remembered: 56 tries at floating cells in a flooded cave in 3 minutes, 40 cobble gone)
+            g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, g.tickCount, null, com.claudemod.entity.life.Attempts.Reason.NO_FACE, "nothing to place it against"); /* (the cell itself, not where he stands: held till the blocks round it change, stage 1402) */ // (remembered: 56 tries at floating cells in a flooded cave in 3 minutes, 40 cobble gone)
             return exit("doPlace line 2706");
         }
         if (!inReach(pos) && com.claudemod.director.ClaudeLife.isCastBlock(pos) && com.claudemod.director.ClaudeLife.portalEdge() != null) { // a mould block from his pillar: to its near edge, never a walk off the pillar (he walked off to "reach" a side wall and the pour came from the ground)
@@ -4334,7 +4334,8 @@ public class WorkGoal extends Goal {
                   for (int dy = -1; dy <= 1; dy++) { mp.append(" y").append(pos.getY() + dy).append(":"); for (int dz = -2; dz <= 2; dz++) { for (int dx = -2; dx <= 2; dx++) { BlockPos q = pos.offset(dx, dy, dz); var st5 = g.level().getBlockState(q);
                       mp.append(q.equals(pos) ? 'P' : q.equals(me5) || q.equals(me5.above()) ? '@' : !g.level().getFluidState(q).isEmpty() ? '~' : st5.getCollisionShape(g.level(), q).isEmpty() ? '.' : '#'); } if (dz < 2) mp.append('|'); } }
                   com.claudemod.ClaudeMod.LOGGER.info("[Claude life] NO_FACE round {} (x {}..{}, z {}..{}):{} (WorkGoal.doPlace)", pos.toShortString(), pos.getX() - 2, pos.getX() + 2, pos.getZ() - 2, pos.getZ() + 2, mp); }
-                failed(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, com.claudemod.entity.life.Attempts.Reason.NO_FACE, "no face in sight from anywhere he can stand");
+                if (view == null) g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, g.tickCount, null, com.claudemod.entity.life.Attempts.Reason.NO_FACE, "no face in sight from anywhere he can stand"); // (no spot at all: where he stands is no part of it, the blocks round the cell are; keyed on his standing it came back each step he took, 25 s of NO_FACE rounds by a lava pool, D2D review 109/46, stage 1402)
+                else failed(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, com.claudemod.entity.life.Attempts.Reason.NO_FACE, "no face in sight from anywhere he can stand");
                 return exit("doPlace line 2844");
             }
         }

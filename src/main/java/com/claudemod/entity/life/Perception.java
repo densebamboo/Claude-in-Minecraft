@@ -550,6 +550,12 @@ public final class Perception {
     /** The hazard he knows at this cell (seen there, or heard from about there), or null. */
     /** (tests) A sign he saw earlier: on his record as if seen. */
     public static void noteSignTest(ClaudeEntity g, BlockPos p, String what) { seenSigns(g).put(p.immutable(), what); }
+    /** The nearest spawner he has seen (heard ones are only a guess at where) within r of p and still standing there, or null. */
+    public static BlockPos seenSpawner(ClaudeEntity g, ServerLevel level, BlockPos p, int r) {
+        BlockPos best = null; double bd = (double) r * r;
+        for (var e : seenSigns(g).entrySet()) { if (!"a mob spawner".equals(e.getValue())) continue; double d = e.getKey().distSqr(p); if (d <= bd && level.isLoaded(e.getKey()) && level.getBlockState(e.getKey()).is(net.minecraft.world.level.block.Blocks.SPAWNER)) { bd = d; best = e.getKey(); } }
+        return best;
+    }
     public static String signAt(ClaudeEntity g, BlockPos p) { String s = seenSigns(g).get(p); return s != null ? s : heardSigns(g).get(p); }
     /** The nearest sign of {@code what} ("the deep dark", "a trial chamber"...) he has seen or heard within r of p, or null. */
     public static BlockPos nearestSign(ClaudeEntity g, BlockPos p, int r, String what) {

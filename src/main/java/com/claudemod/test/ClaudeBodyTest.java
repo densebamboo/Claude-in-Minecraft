@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1459: return st1459(stage, t, c, h, level, mock);
             case 1457: return st1457(stage, t, c, h, level, mock);
             case 1456: return st1456(stage, t, c, h, level, mock);
             case 1455: return st1455(stage, t, c, h, level, mock);
@@ -18485,6 +18486,30 @@ public final class ClaudeBodyTest {
             check(fa == null, "30 cooked beef on him and the kit still asks " + fa);
             check(!walk && r.startsWith("done"), "the kit says he goes as he is, nothing in view, and the collect of chicken: " + r);
             pass(stage, t, "stood down: " + r);
+        }
+        return true;
+    }
+    /** Stage 1459 (D2D death 76, live 11:39:04-11:44:31 11-10 at -81,14,-363: strip-mining by a mineshaft, "saw Monster Spawner" 2 off, nothing reacted to it; clearOnSight went after each cave spider it made, 9 fights in 5 min, 7 salmon eaten, gold boots only, dead at 11:44:31): a cave spider spawner 3 off in his sight, an iron pickaxe on him. It's broken within 25 s, its spiders not farmed. */
+    private static boolean st1459(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos sp = h.absolutePos(new BlockPos(7, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); flatBox(h); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) h.setBlock(new BlockPos(x, 5, z), Blocks.STONE); // a roof: underground, dark
+            level.setBlock(sp, Blocks.SPAWNER.defaultBlockState(), 2); if (level.getBlockEntity(sp) instanceof net.minecraft.world.level.block.entity.SpawnerBlockEntity sb) sb.setEntityId(EntityType.CAVE_SPIDER, level.getRandom());
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 7));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS));
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(-90f); c.setYHeadRot(-90f); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5);
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear(); c.commandActive = false;
+        }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.CaveSpider.class, c.getBoundingBox().inflate(30))) m.discard(); // (its spawns kept out: the job is the spawner)
+        if (t[0] > 10) c.nextPlanTick = c.tickCount + 20 * 600;
+        boolean gone = t[0] > 20 && !level.getBlockState(sp).is(Blocks.SPAWNER);
+        if (gone || t[0] > 20 * 25) {
+            String q = c.tasks.toString();
+            level.setBlock(sp, Blocks.AIR.defaultBlockState(), 2); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, ItemStack.EMPTY);
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) h.setBlock(new BlockPos(x, 5, z), Blocks.AIR);
+            check(gone, "a cave spider spawner 3 off in his sight for 25 s, an iron pickaxe on him, and it stands (tasks " + q + ")");
+            pass(stage, t, "the spawner broken in " + (t[0] - 10) + " ticks");
         }
         return true;
     }

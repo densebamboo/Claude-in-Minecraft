@@ -398,7 +398,7 @@ public final class ClaudeLife {
                 && ((g.currentTask == null && g.tasks.isEmpty()) || (g.lastStep != null && java.util.Set.of("string", "bone", "bone_meal", "arrow", "fishing_rod", "bow").contains(g.lastStep.target())))) { // the user: a distraction from the job in hand is a bug; only when idle, or when string/bones are the job (it broke off a walk to his mine for a skeleton) // the user: a player knows spiders and cobwebs mean string, skeletons bones and arrows, and takes them when they're about
             stringRound(g, ((ServerLevel) g.level()));
         }
-        if (g.tickCount % 20 == 9 && !com.claudemod.entity.ClaudeSpawner.testing) clearOnSight(g, player);
+        if (g.tickCount % 20 == 9 && !spawnerJob(g, player) && !com.claudemod.entity.ClaudeSpawner.testing) clearOnSight(g, player);
         if (g.tickCount % 200 == 37) { // an aquifer, not a leak: 25+ water plugs in 5 minutes (40 took 7 minutes of plugging at y13) and the water still coming (every cobble he dug went straight back into it for 10 minutes); a player gives that mine up and digs a fresh one on dry ground
             BlockPos nKey = new BlockPos(0, -30010, 0), tKey = new BlockPos(0, -30011, 0);
             if (g.tickCount - g.attempts.counters.getOrDefault("aquiferSince", -100000) > 20 * 300) { g.attempts.counters.put("aquiferSince", g.tickCount); g.attempts.counters.put("aquiferPlugs", 0); }
@@ -14175,6 +14175,42 @@ public final class ClaudeLife {
     }
     /** (tests) */
     public static void clearOnSightTest(ClaudeEntity g, ServerPlayer player) { clearOnSight(g, player); }
+    private static java.util.Set<Long> spawnerSaid;
+    /**
+     * A spawner he has seen within spawner.job_r of him: broken with any pickaxe before its mobs are fought, like a player; with no
+     * pickaxe, a torch on it (block light at its spawn spots stops it, 1.18+). Its mobs keep coming while it stands: a fight with them
+     * never ends. Mid-fight only when it's in his reach (a pickaxe takes it in about a second), else once the fight is over. Not in the
+     * Nether (a fortress's spawner is his blaze rods), not while a dungeon's loot step handles its own. True when it's his job now.
+     * (D2D death 76, live 11:39:04-11:44:31 11-10: "saw Monster Spawner" 2 off while strip-mining, nothing reacted, 9 cave spider
+     * fights in 5 min, his food gone, dead; stage 1459.)
+     */
+    static boolean spawnerJob(ClaudeEntity g, ServerPlayer player) {
+        if (!(g.level() instanceof ServerLevel lv) || lv.dimensionType().hasCeiling() || g.isSleeping() || g.isInWater() || g.isInLava()) return false;
+        if (g.staying || com.claudemod.entity.life.ExactSpot.lesson(g, player)) return false;
+        java.util.function.Predicate<Task> onIt = t -> t instanceof Task.Break b && lv.getBlockState(b.pos()).is(Blocks.SPAWNER);
+        if (g.currentTask != null && onIt.test(g.currentTask) || g.tasks.stream().anyMatch(onIt)) return true; // (at it already)
+        if (g.lastStep != null && "loot".equals(g.lastStep.skill()) && g.lastStep.target().startsWith("dungeon") || g.skillQueue.stream().anyMatch(s -> "loot".equals(s.skill()) && s.target().startsWith("dungeon"))) return false;
+        BlockPos sp = com.claudemod.entity.life.Perception.seenSpawner(g, lv, g.blockPosition(), (int) com.claudemod.entity.life.Weights.w("spawner.job_r", 16));
+        if (sp == null) return false;
+        boolean fighting = g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee || g.tasks.stream().anyMatch(t -> t instanceof Task.Flee);
+        boolean reach = net.minecraft.world.phys.Vec3.atCenterOf(sp).distanceTo(g.getEyePosition()) <= 4.4 && com.claudemod.entity.life.Perception.seesBlock(g, lv, sp);
+        if (g.currentTask instanceof Task.Flee || fighting && !reach) return false; // (the fight first, the spawner when it's over; a run is a run)
+        if (spawnerSaid == null) spawnerSaid = new java.util.HashSet<>(); if (spawnerSaid.size() > 256) spawnerSaid.clear();
+        boolean pick = g.inventory.count(s -> s.is(net.minecraft.tags.ItemTags.PICKAXES)) > 0;
+        if (!pick) {
+            if (g.inventory.count(s -> s.is(Items.TORCH)) == 0 || !lv.getBlockState(sp.above()).isAir() || lv.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, sp.above()) >= 13) {
+                if (spawnerSaid.add(sp.asLong())) ClaudeMod.LOGGER.info("[Claude life] a spawner at {}, {} off: no pickaxe to break it, no torch for it: kept clear of (ClaudeLife.spawnerJob)", sp.toShortString(), (int) Math.sqrt(sp.distSqr(g.blockPosition())));
+                return false; }
+            if (fighting) { var cur = g.currentTask; dropCurrent(g); g.tasks.addFirst(cur); g.tasks.addFirst(new Task.Place(sp.above(), Items.TORCH)); }
+            else { g.tasks.addFirst(new Task.Place(sp.above(), Items.TORCH)); if (!reach) g.tasks.addFirst(new Task.GoTo(sp.above(), 3.5)); }
+            ClaudeMod.LOGGER.info("[Claude life] a spawner at {}, {} off: no pickaxe on me, a torch on it so it makes nothing (ClaudeLife.spawnerJob)", sp.toShortString(), (int) Math.sqrt(sp.distSqr(g.blockPosition())));
+            return true;
+        }
+        if (fighting) { var cur = g.currentTask; dropCurrent(g); g.tasks.addFirst(cur); g.tasks.addFirst(new Task.Break(sp)); }
+        else { g.tasks.addFirst(new Task.Break(sp)); if (!reach) g.tasks.addFirst(new Task.GoTo(sp, 3.5)); }
+        ClaudeMod.LOGGER.info("[Claude life] a spawner at {}, {} off{}: breaking it first, its mobs keep coming while it stands (ClaudeLife.spawnerJob)", sp.toShortString(), (int) Math.sqrt(sp.distSqr(g.blockPosition())), fighting ? ", in reach mid-fight" : "");
+        return true;
+    }
     static void clearOnSight(ClaudeEntity g, ServerPlayer player) {
         if (!(g.level() instanceof ServerLevel lv) || g.isSleeping() || g.isInWater() || g.isInLava()) return;
         if (g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee || g.currentTask instanceof Task.Break || g.currentTask instanceof Task.Place || g.currentTask instanceof Task.Pillar || g.currentTask instanceof Task.Leap) return;

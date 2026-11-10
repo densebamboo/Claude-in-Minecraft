@@ -10971,6 +10971,7 @@ public final class ClaudeBodyTest {
             case 1418: return st1418(stage, t, c, h, level, mock);
             case 1419: return st1419(stage, t, c, h, level, mock);
             case 1420: return st1420(stage, t, c, h, level, mock);
+            case 1421: return st1421(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -25585,6 +25586,26 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static BlockPos s1419Bad; private static int s1419N;
+    /** Stage 1421 (D2D reviews 67 and 101, live 07:55:32 and 08:31:44 11-10, World 17): stuck in a pit at 15,49,-111 (and in water at 14,55,-94), the walk 40 off and 23 up through solid diorite; the planner's search budget ran out on a way that's all digging, "no way even digging" though each cell of the straight line was a 0.4 s dig, 90 s still and the queue dropped. A way out that's mostly digging is searched greedily, as the obsidian route does. */
+    private static boolean st1421(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9790, 60, 9780), far = at.offset(40, 24, 3);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -3; x <= 44; x++) for (int z = -4; z <= 7; z++) for (int y = -2; y <= 27; y++) level.setBlock(at.offset(x, y, z), (y <= 23 ? Blocks.DIORITE : Blocks.AIR).defaultBlockState(), 2); // solid diorite, the ground 24 up
+            level.setBlock(at, Blocks.AIR.defaultBlockState(), 2); level.setBlock(at.above(), Blocks.AIR.defaultBlockState(), 2); // his pocket
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); mock[0].teleportTo(far.getX() + 0.5, far.getY() + 2, far.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 20) {
+            boolean out = com.claudemod.director.ClaudeLife.escapeStuck(c, level, new Task.GoTo(far, 2.0)); int n = c.tasks.size();
+            c.tasks.clear(); c.dropCurrent = true;
+            for (int x = -3; x <= 44; x++) for (int z = -4; z <= 7; z++) for (int y = 0; y <= 27; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); // (the floor left)
+            check(out, "stuck in solid diorite, the walk 40 off and 24 up: \"no way even digging\"");
+            pass(stage, t, "a way out dug toward it planned (" + n + " tasks)");
+        }
+        return true;
+    }
     /** Stage 1420 (D2D review 21, live 06:46:25-06:46:43 11-10 at -114,17,-329, World 17): his furnace at -113,18,-328, ceiling high in the rock beside his tunnel; the way made to the cell beside it dug his ceiling and a wall cell, and put both back at the way's end, before the load: his way in to it shut, 9 s of loops and spins one block off, the walk written off UNKNOWN and the spot skipped. The way's put-backs come after the job. */
     private static boolean st1420(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos at = new BlockPos(9960, 80, 9780), fur = at.offset(1, 2, 1);

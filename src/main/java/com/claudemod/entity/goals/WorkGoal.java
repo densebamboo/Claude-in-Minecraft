@@ -3057,7 +3057,8 @@ public class WorkGoal extends Goal {
     private static java.util.Set<String> pickupSaid; private static int pickupEmptySaid = -1000; // (each drop's skip said once; an empty sweep at most every 5 s)
     static int buildingBlocks(ClaudeEntity g) { return g.inventory.count(st -> com.claudemod.director.ClaudeLife.junkItem(st) || st.is(net.minecraft.world.item.Items.COBBLESTONE) || st.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE)); }
     /** Junk his pickup leaves (a stack of building blocks on him already): no patch waits on it either (live 08:26-09:01 11-07: 113 give-ups on 2 gravel, stage 898). */
-    static boolean junkSkipped(ClaudeEntity g, ItemStack s) { return com.claudemod.director.ClaudeLife.junkItem(s) && buildingBlocks(g) >= 64; }
+    static boolean junkSkipped(ClaudeEntity g, ItemStack s) { return com.claudemod.director.ClaudeLife.junkItem(s) && buildingBlocks(g) >= 64
+        && !(s.has(net.minecraft.core.component.DataComponents.FOOD) && (g.getFoodData().getFoodLevel() < 20 || com.claudemod.director.Kit.foodAsk(g) != null)); } // food while he's hungry or his kit is short, the dump's own test (D2D 98, live 08:28:53 11-10: at food 2 with nothing to eat, 1 rotten flesh left as "junk")
     private static boolean pickupSkipped(net.minecraft.world.entity.item.ItemEntity i, String why) {
         if (why == null) return false;
         if (pickupSaid == null) pickupSaid = new java.util.HashSet<>(); if (pickupSaid.size() > 512) pickupSaid.clear(); // said once per kind of drop, cell and reason: three netherrack drops in one cell were three identical lines, read as a conflict (stage 923 flaky 1 in 6)

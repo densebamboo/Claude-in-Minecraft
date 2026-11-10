@@ -10548,6 +10548,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1385: return st1385(stage, t, c, h, level, mock);
+            case 1384: return st1384(stage, t, c, h, level, mock);
             case 1383: return st1383(stage, t, c, h, level, mock);
             case 1382: return st1382(stage, t, c, h, level, mock);
             case 1381: return st1381(stage, t, c, h, level, mock);
@@ -18136,6 +18138,60 @@ public final class ClaudeBodyTest {
                 c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.attempts.clear(); if (alive) s1383Cow.discard(); { BlockPos home = h.absolutePos(new BlockPos(8, 2, 8)); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, home.getX() + 0.5, home.getY(), home.getZ() + 0.5, 0f, 0f); } // (back to the arena: the next stage starts him there)
                 check(beef > 0, (dropped ? "the hunt stopped with no beef " : "60 s and no beef ") + "from the cow 6 up past the rock (cow alive " + alive + "; last: " + l + ")");
                 pass(stage, t, "up to the cow and the beef in " + (t[0] - s1383T) + " ticks");
+            }
+        }
+        return true;
+    }
+    /** Stage 1384 (D2D food major, live 07:36-08:23 11-10: 47 min after cows that weren't there, 0 kills, food 4; the kit's options had no rod, and the planner's own "craft fishing_rod, fish" failed "no open water within 16" by water he'd swum through): no animals about and his search for them 10 min empty, 2 string and planks on him, a pond 6 off with no fish in sight, the trip's food short. The kit picks a rod at the water: a rod made, fish caught. */
+    private static int s1384T;
+    private static boolean st1384(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1384T = -1; level.setDayTime(3000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) e.discard();
+            for (int x = 10; x <= 14; x++) for (int z = 8; z <= 12; z++) level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.WATER.defaultBlockState(), 2); // a pond, one deep
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STRING, 2)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 8)); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            BlockPos me = h.absolutePos(new BlockPos(5, 2, 10)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5);
+            c.setHealth(20); c.getFoodData().setFoodLevel(18); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear(); c.attempts.counters.put("searchFrom", c.tickCount - 20 * 600); // (as live: his search for animals 10 min empty already)
+        }
+        if (t[0] == 70) { String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "beef", 8); c.lastSkillLine = "collect beef x8 -> " + r; s1384T = t[0]; } // (the trip's food ask as the plan makes it; past the kit's 40-tick memo)
+        if (s1384T > 0 && t[0] > s1384T) {
+            c.nextPlanTick = c.tickCount + 20 * 600; c.getFoodData().setFoodLevel(18);
+            if (c.tasks.isEmpty() && c.currentTask == null && !c.skillQueue.isEmpty() && t[0] % 10 == 0) { var st = c.skillQueue.pollFirst(); String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], st.skill(), st.target(), st.count()); c.lastSkillLine = st.skill() + " " + st.target() + " x" + st.count() + " -> " + r; } // (his plan's next steps, as the planner runs them)
+            int fish = c.getInventory().countItem(Items.COD) + c.getInventory().countItem(Items.SALMON);
+            boolean rod = c.getInventory().countItem(Items.FISHING_ROD) > 0;
+            if (fish > 0 || t[0] - s1384T > 20 * 120) {
+                String l = c.lastSkillLine;
+                c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.attempts.clear();
+                for (int x = 10; x <= 14; x++) for (int z = 8; z <= 12; z++) level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.DIRT.defaultBlockState(), 2);
+                for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.projectile.FishingHook.class, c.getBoundingBox().inflate(30))) e.discard();
+                check(fish > 0, "120 s, no animals and a pond 6 off, string on him: no fish caught (rod " + rod + "; last: " + l + ")");
+                pass(stage, t, fish + " fish with a rod he made, " + (t[0] - s1384T) + " ticks: " + l);
+            }
+        }
+        return true;
+    }
+    /** Stage 1385 (D2D 98, live 08:28:53 11-10: at food 2 with nothing to eat, "not going for 1 Rotten Flesh ...: junk, with 197 building blocks on him already"): a stack of cobble on him, food 2, no food, a rotten flesh on the ground 3 off. He picks it up: food when starving. */
+    private static int s1385T;
+    private static boolean st1385(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos base = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; s1385T = -1; level.setDayTime(3000); flatBox(h); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.IRON_SWORD));
+            c.teleportTo(base.getX() + 0.5, base.getY(), base.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(2); mock[0].teleportTo(level, base.getX() + 0.5, base.getY() + 30, base.getZ() + 0.5, 0f, 0f); c.prefs.put("stay_close", "no");
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear();
+        }
+        if (t[0] == 14) {
+            var it = new net.minecraft.world.entity.item.ItemEntity(level, base.getX() + 3.5, base.getY(), base.getZ() + 0.5, new ItemStack(Items.ROTTEN_FLESH, 1)); it.setDeltaMovement(0, 0, 0); level.addFreshEntity(it);
+            c.tasks.add(new Task.Pickup(200)); s1385T = t[0];
+        }
+        if (s1385T > 0 && t[0] > s1385T) {
+            c.nextPlanTick = c.tickCount + 20 * 600; c.getFoodData().setFoodLevel(Math.min(c.getFoodData().getFoodLevel(), 2));
+            boolean got = c.getInventory().countItem(Items.ROTTEN_FLESH) > 0 || level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(base).inflate(12)).isEmpty();
+            if (got || t[0] - s1385T > 20 * 8) {
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.attempts.clear(); c.getFoodData().setFoodLevel(20);
+                for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(base).inflate(12))) e.discard();
+                check(got, "8 s at food 2 with nothing to eat: the rotten flesh 3 off left on the ground (junk with 128 cobble on him)");
+                pass(stage, t, "the rotten flesh picked up at food 2 in " + (t[0] - s1385T) + " ticks");
             }
         }
         return true;

@@ -251,6 +251,8 @@ public final class Kit {
     }
     private static final java.util.Map<java.util.UUID, String> foodPick = new java.util.HashMap<>();
     /** The kit is short and its pick is cooking the raw food he carries (smelt's "cooks at home" gives way only to that). */
+    /** The kit's food pick is fishing with a rod (the collect of cod runs the fish skill for it). */
+    public static boolean rodPick(ClaudeEntity g) { return foodAsk(g) != null && "fish with a rod".equals(foodPick.get(g.getUUID())); }
     public static boolean cooksRaw(ClaudeEntity g) { FoodAsk fa = foodAsk(g); if (fa == null) return false; if ("cook his raw".equals(foodPick.get(g.getUUID()))) return true;
         for (Item[] rc : RAW_COOKED) if (rc[1] == fa.item() && g.inventory.count(x -> x.is(rc[0])) >= fa.count()) return true; // the raw for the kit's ask already on him: collect stops there ("the raw on me, cooked, not a hunt"), so the furnace is the kit's too (live 04:28-04:31 11-10, D2D reviews 70 and 14: collect and smelt each said the other did it, re-planned every few seconds for 2 min; stage 1404)
         return false; }
@@ -278,11 +280,16 @@ public final class Kit {
             home = pt == null ? w("kit.no_portal_s", 1800) : 2 * (Math.sqrt(pt.at.distSqr(g.blockPosition())) * com.claudemod.entity.life.PortalMap.NETHER_OFF_ROAD / sprint + w("highway.portal_s", 8)); } // (no animals in the Nether: through his portal for them, and back)
         final double homeS = home;
         // a search for cows: one kit.search_s a herd it has to find (7 cows is 3 herds, not one look round: live 02:51 World 17 five empty legs east, 4 sheep 2 off passed by; reviews 386/408)
-        java.util.function.DoubleUnaryOperator searchS = p -> { if (p <= 0) return 0; int k = (int) Math.ceil(p / (2 * pts(Items.COOKED_BEEF))); return homeS + Math.ceil(k / w("kit.herd_cows", 3)) * w("kit.search_s", 120) + k * (kill + 2 * cook); };
+        // a herd costs what his own searching shows: kit.search_s, or the time his search has gone without finding one, whichever is more (live 07:36-08:23 11-10: 47 min of legs and "no cow within 48" and every pick still "~472 s", 0 kills, food 4)
+        Integer sf = g.attempts.counters.get("searchFrom"); double emptyS = sf == null || g.tickCount < sf || g.tickCount - sf > 20 * 60 * w("kit.search_memory_min", 30) ? 0 : (g.tickCount - sf) / 20.0;
+        final double perHerd = Math.max(w("kit.search_s", 120), emptyS);
+        java.util.function.DoubleUnaryOperator searchS = p -> { if (p <= 0) return 0; int k = (int) Math.ceil(p / (2 * pts(Items.COOKED_BEEF))); return homeS + Math.ceil(k / w("kit.herd_cows", 3)) * perHerd + k * (kill + 2 * cook); };
         // what an option leaves: a search for the rest after it, or the trip without it, whichever is less (charged as never found, the sheep beside him lost to the search)
         java.util.function.DoubleUnaryOperator rest = p -> p <= 0 ? 0 : Math.min(p / meal * shortS, searchS.applyAsDouble(p));
         java.util.List<com.claudemod.entity.life.Decide.Option> opts = new java.util.ArrayList<>(); java.util.Map<String, FoodAsk> asks = new java.util.HashMap<>();
-        opts.add(com.claudemod.entity.life.Decide.Option.of("as he is", shortP / meal * shortS, (int) Math.ceil(shortP / meal) + " meal(s) short, found on the way"));
+        // as he is: only with the meals his mine lets him work on (under trip.food_back_meals it sends him straight back up for food: the trip never starts. The user: "the kit never waives food"; live 07:36-08:23 11-10 it won at 0 meals and the collect searched on for 47 min)
+        if (carried / meal < w("trip.food_back_meals", 6)) opts.add(com.claudemod.entity.life.Decide.Option.out("as he is", (int) Math.floor(carried / meal) + " meal(s) on me, under the " + (int) w("trip.food_back_meals", 6) + " that send me back up from the mine"));
+        else opts.add(com.claudemod.entity.life.Decide.Option.of("as he is", shortP / meal * shortS, (int) Math.ceil(shortP / meal) + " meal(s) short, found on the way"));
         if (rawN > 0) { // his own raw meat, at a furnace of his close by (the smelt skill's rule: a few raws ride home, never a furnace set down out here; live 03:17 the kit asked and smelt said "cooks at home", every few seconds)
             double fur = Double.MAX_VALUE; for (var q : g.myStations) if (level.getBlockState(q).is(net.minecraft.world.level.block.Blocks.FURNACE)) fur = Math.min(fur, Math.sqrt(q.distSqr(g.blockPosition())));
             int n = (int) Math.min(rawN, Math.ceil(shortP / pts(rawCooked))); double left = Math.max(0, shortP - n * pts(rawCooked));
@@ -320,6 +327,20 @@ public final class Kit {
             int k = (int) Math.min(shallow.size(), Math.ceil(shortP / pts(item))); double left = Math.max(0, shortP - k * pts(item));
             opts.add(com.claudemod.entity.life.Decide.Option.of("fish", walk1 / sprint + k * (w("kit.fish_s", 15) + cook) + rest.applyAsDouble(left) + ClaudeLife.nightOutS(g, level, shallow.get(0).blockPosition(), -1), k + " of " + shallow.size() + " near the top, nearest " + (int) walk1 + " walk"));
             asks.put("fish", new FoodAsk(item, k)); } }
+        if (!nether) { // a rod at the water, like a player where the land has no animals (D2D food major, live 07:36-08:23 11-10: 47 min after cows, 0 kills, food 4; the kit had no rod in its options). Vanilla: a bite in 5-30 s (~20 with the reel and recast), twice that with no sky over the water; 85% of catches are fish, 85% of those cod or salmon
+            int string = g.inventory.count(x -> x.is(Items.STRING)); boolean rod = g.inventory.count(x -> x.is(Items.FISHING_ROD)) > 0;
+            var strSpots = rod || string >= 2 ? java.util.List.<com.claudemod.entity.life.ChestLedger.Spot>of() : com.claudemod.entity.life.ChestLedger.where(g, level, x -> x.is(Items.STRING));
+            int chestStr = strSpots.stream().mapToInt(com.claudemod.entity.life.ChestLedger.Spot::count).sum(); double fetch = rod || string >= 2 ? 0 : strSpots.isEmpty() ? -1 : 2.0 * strSpots.get(0).dist() / sprint;
+            if (!rod && string + chestStr < 2) opts.add(com.claudemod.entity.life.Decide.Option.out("fish with a rod", "no rod, and " + (string + chestStr) + " string on me and in my chests (a rod takes 2)"));
+            else { BlockPos[] spot = ClaudeLife.fishSpot(g, level, (int) w("kit.rod_water_range", 48));
+                if (spot == null) opts.add(com.claudemod.entity.life.Decide.Option.out("fish with a rod", "no water to fish in within " + (int) w("kit.rod_water_range", 48)));
+                else { boolean sky = level.canSeeSky(spot[0].above()); double share = w("kit.rod_food_share", 0.72), perPt = 5.3; // (cod 5 and salmon 6 points cooked, 60:25)
+                    double perCatch = w("kit.rod_catch_s", 20) * (sky ? 1 : 2) / share;
+                    int k = (int) Math.min(w("kit.rod_max_fish", 24), Math.ceil(shortP / perPt)); double left = Math.max(0, shortP - k * perPt);
+                    double walk = Math.sqrt(spot[1].distSqr(g.blockPosition())) / sprint;
+                    opts.add(com.claudemod.entity.life.Decide.Option.of("fish with a rod", walk + Math.max(0, fetch) + (rod ? 0 : w("kit.rod_craft_s", 5)) + k * (perCatch + cook) + rest.applyAsDouble(left) + ClaudeLife.nightOutS(g, level, spot[1], -1),
+                        k + " fish at " + spot[0].toShortString() + ", " + (int) Math.sqrt(spot[1].distSqr(g.blockPosition())) + " off" + (sky ? "" : " (no sky over it: slower bites)") + (rod ? "" : string >= 2 ? ", a rod made from my string" : ", a rod from the string in my chest " + strSpots.get(0).dist() + " off")));
+                    asks.put("fish with a rod", new FoodAsk(Items.COOKED_COD, k)); } } }
         if (nether) { // the Nether's own meat: hoglins (crimson forest), 2-4 pork each, fought from 2 up (collect's hoglin tower), cooked at a furnace of his or one set down here (D2D 01:46 World 17: 1 meal, "search for animals" took him back to the portal for cows)
             var hogs = new java.util.ArrayList<>(level.getEntitiesOfClass(net.minecraft.world.entity.monster.hoglin.Hoglin.class, g.getBoundingBox().inflate(w("kit.prey_range", 48)), a -> a.isAlive() && !a.isBaby()));
             double fur = Double.MAX_VALUE; for (var q : g.myStations) if (level.getBlockState(q).is(net.minecraft.world.level.block.Blocks.FURNACE)) fur = Math.min(fur, Math.sqrt(q.distSqr(g.blockPosition())));
@@ -343,7 +364,7 @@ public final class Kit {
         if (inView) opts.add(com.claudemod.entity.life.Decide.Option.out("search for animals", "food in view to hunt first: the search is only for what that leaves, in its price"));
         else if (!nether && ClaudeLife.nightOutsideNo(g, level, g.blockPosition(), w("kit.search_s", 120)) != null) opts.add(com.claudemod.entity.life.Decide.Option.out("search for animals", "night: the collect's own night rule holds the search till first light")); // (the kit priced it bare, the collect refused it, strip_mine asked again each tick: live 07:43 11-09, reviews 54/56, stage 1255)
         else { int k = (int) Math.ceil(shortP / (2 * pts(Items.COOKED_BEEF)));
-          opts.add(com.claudemod.entity.life.Decide.Option.of("search for animals", searchS.applyAsDouble(shortP), k + " cows' worth" + (nether ? ", through the portal and back ~" + Math.round(home) + " s" : ""))); asks.put("search for animals", new FoodAsk(Items.COOKED_BEEF, 2 * k)); }
+          opts.add(com.claudemod.entity.life.Decide.Option.of("search for animals", searchS.applyAsDouble(shortP), k + " cows' worth" + (emptyS > w("kit.search_s", 120) ? ", a herd priced at the " + (int) emptyS + " s his search has gone without one" : "") + (nether ? ", through the portal and back ~" + Math.round(home) + " s" : ""))); asks.put("search for animals", new FoodAsk(Items.COOKED_BEEF, 2 * k)); }
         var pick = com.claudemod.entity.life.Decide.choose(g, "kit.food", "", false, opts);
         StringBuilder said = new StringBuilder(); for (var o : opts) said.append(said.length() == 0 ? "" : "; ").append(o.no() != null ? o.name() + " out (" + o.no() + ")" : o.name() + " ~" + Math.round(o.s()) + " s" + (o.detail().isEmpty() ? "" : " (" + o.detail() + ")"));
         FoodAsk fa = pick == null ? null : asks.get(pick.name()); foodPick.put(g.getUUID(), pick == null ? null : pick.name()); foodPickS.put(g.getUUID(), pick == null ? Double.NaN : pick.s());

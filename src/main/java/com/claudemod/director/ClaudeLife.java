@@ -539,6 +539,7 @@ public final class ClaudeLife {
                 && com.claudemod.director.ClaudeLife.dayHere(((ServerLevel) g.level())) && !(g.currentTask instanceof Task.Wait) // never out of his hole for it at night (that wiped his cover at 2 health: a pillager shot him a minute later); by day, and not mid-wait
                 && !(g.getHealth() <= 4 && com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(16)).size() >= 3) // at two hearts with a crowd round him: up 33 steps past 10 of them for beef killed him; the cover holds
                 && (!mobsAbout || underground) // in the open with mobs about: cover rules; down a dark mine with mobs about: out, up his stairs, into daylight (on hard a zombie hit is 4.5: at 7 health in the dark he's one mob from dead)
+                && g.level().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, g.getBoundingBox().inflate(8), i -> i.getItem().has(net.minecraft.core.component.DataComponents.FOOD) && g.hasLineOfSight(i)).isEmpty() // food on the ground in sight: his pickup takes it first, not a trip for 14 beef past it (stage 1385, D2D 98)
                 && g.skillQueue.stream().noneMatch(s -> s == g.skillQueue.peek() && s.skill().equals("obtain") && s.target().startsWith("cooked"))) { // (only food as the NEXT step stands this down: one queued behind a whole iron job kept him mining at 7 health, hunger 1)
             // half health, nothing to eat, nothing on him: food is the job now, whatever was queued waits (health never comes back otherwise; hunger under 18 doesn't regen)
             foodTripTicks().put(g.getUUID(), g.tickCount);
@@ -2026,6 +2027,12 @@ public final class ClaudeLife {
                         if (no != null) return no; } // (any hunt, fish too: up his stairs at night for salmon, a skeleton at the top shot him dead; starving at 6 or under still goes)
                     { int before0 = g.tasks.size(); BlockPos mouth0 = g.blueprint != null && !g.blueprint.isEmpty() ? g.blueprint.entrance : !g.mineSpine.isEmpty() ? g.mineSpine.get(0) : g.stairStart; if ((mouth0 == null || mouth0.distSqr(g.blockPosition()) > 4 * 4) && level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.getBlockX(), g.getBlockZ()) > g.getBlockY() + 3 && g.mineFace != null && (inHisMine(g, g.blockPosition()) || g.mineSpine.stream().anyMatch(sp -> sp.distSqr(g.blockPosition()) <= 48 * 48)) && routeOutOfMine(g, level) && g.tasks.size() > before0) { g.skillQueue.addFirst(st); return "heading up my stairs and out of the mine for " + animal; } } // (only when the route out added steps: at his entrance under the arch it added none and this ran six times a second) // (only down his mine: 270 blocks off in his night hole this sent him for the mine's entrance) // (down his mine, the animals are up top: out by his own stairs, not 15 new steps cut up through the rock)
                     var area = new net.minecraft.world.phys.AABB(g.blockPosition()).minmax(new net.minecraft.world.phys.AABB(theirOr(g, player))).inflate(48);
+                    { String fishT = target.replace("raw_", "").replace("cooked_", ""); // the kit's pick is a rod at the water: the fish skill, not a hunt for fish in view (D2D food major 11-10: no rod option, 47 min after cows)
+                      // any meat the plan asked for the trip's food: the kit priced the rod over the search for it (stage 1384: "collect beef" walked 8 legs south with the rod the pick and the pond 2 off)
+                      if (java.util.Set.of("cod", "salmon", "beef", "porkchop", "mutton", "chicken", "rabbit").contains(fishT) && !g.commandActive && Kit.rodPick(g) && g.tickCount - g.attempts.counters.getOrDefault("fishNoWater", -100000) > 20 * 300) {
+                          int n = (int) Math.ceil(Kit.foodAsk(g).count() / com.claudemod.entity.life.Weights.w("kit.rod_food_share", 0.72));
+                          g.skillQueue.addFirst(new Skills.Step("fish", "", n)); com.claudemod.ClaudeMod.LOGGER.info("[Claude skill] collect {}: the kit's food pick is a rod at the water, {} casts' worth of fish for it instead (ClaudeLife.collect)", target, n);
+                          return "the kit's pick is a rod at the water: fishing instead of " + target; } }
                     boolean kitSays = !g.commandActive && Kit.foodAsk(g) != null; // his own errand with the kit's priced pick: that animal is the hunt (live 23:17:52: "hunting 6 cow for beef", every kill a salmon, the smelt of cooked_beef with no beef, 3 rounds); no other food mob taken in, no swap that flips back (live 19:53:53)
                     var herd = level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, area, // (animals, and the fish in the river: a player with nothing hunts what's there)
                             e -> e.isAlive() && !(e instanceof net.minecraft.world.entity.AgeableMob am0 && am0.isBaby()) && (Math.abs(e.getBlockY() - g.getBlockY()) <= 6 || e instanceof net.minecraft.world.entity.animal.AbstractFish && shallowFish(level, e) /* (fish the kit counts, shallowFish: salmon 7 under him were the kit's pick and "no salmon in sight" to the hunt, review 53, stage 781) */ || level.dimensionType().hasCeiling() || e.getBlockY() >= level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, e.getBlockX(), e.getBlockZ()) - 3) /* (under a roof the heightmap is the roof: the hoglin 10 below that the kit priced was left out, "no hoglin within 48", review 314, stage 1215) */ && (BuiltInRegistries.ENTITY_TYPE.getKey(e.getType()).getPath().equals(animal) || !kitSays && Set.of("cow", "pig", "sheep", "chicken", "salmon", "cod").contains(animal) && Set.of("cow", "pig", "sheep", "chicken", "salmon", "cod").contains(BuiltInRegistries.ENTITY_TYPE.getKey(e.getType()).getPath()) && !(e instanceof net.minecraft.world.entity.AgeableMob am && am.isBaby())) && (!(e instanceof net.minecraft.world.entity.animal.WaterAnimal) || shallowFish(level, e))); // food is food (the user): a cod hunt takes the salmon and chickens beside him too, nearest first // (deep fish only: the attack skips each one on sight, 13 "attacks" and no food)
@@ -2095,8 +2102,7 @@ public final class ClaudeLife {
                         }
                     }
                     if (herd.isEmpty() && Set.of("beef", "porkchop", "mutton", "chicken", "salmon", "cod").contains(target.replace("raw_", "").replace("cooked_", "")) && g.inventory.count(s -> s.is(Items.FISHING_ROD)) > 0) {
-                        boolean wet = false;
-                        for (BlockPos w : BlockPos.betweenClosed(g.blockPosition().offset(-16, -4, -16), g.blockPosition().offset(16, 3, 16))) if (level.getFluidState(w).is(net.minecraft.tags.FluidTags.WATER) && level.getFluidState(w.below()).is(net.minecraft.tags.FluidTags.WATER) && level.canSeeSky(w.above())) { wet = true; break; }
+                        boolean wet = fishSpot(g, level, (int) com.claudemod.entity.life.Weights.w("kit.rod_water_range", 48)) != null;
                         if (wet && g.tickCount - g.attempts.counters.getOrDefault("fishNoWater", -100000) > 20 * 300 && g.tickCount - g.attempts.counters.getOrDefault("fishFail", -100000) > 20 * 300) { g.skillQueue.addFirst(new Skills.Step("fish", "", count)); return "nothing to hunt in reach, but a rod and open water: fishing for it"; } // (the fishing skill wants more than "some water": two deep, open sky, water all round, a dry bank; when it says no, not again for 5 min)
                     }
                     if (herd.isEmpty()) {
@@ -2116,6 +2122,7 @@ public final class ClaudeLife {
                         int groundY = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.getBlockX(), g.getBlockZ());
                         if (groundY <= g.getBlockY() + 6 || (g.stairStart != null && g.stairStart.distSqr(g.blockPosition()) <= 6 * 6)) { // up top with nothing in sight (his mine's entrance counts: the arch over it read as ground, and the search never started: food 1 at the door): a leg outward and another look (a few legs, then it's a failure the planner hears about)
                             int legs = huntLegs().merge(g.getUUID(), 1, Integer::sum);
+                            g.attempts.counters.putIfAbsent("searchFrom", g.tickCount); // (his search for animals came up empty from here on: the kit prices the next one by it)
                             if (legs <= 8) { // one heading, kept leg after leg (a fresh random direction each leg just circled the same empty grass); 8 legs is ~350 blocks out
                                 Direction heading = huntDir().computeIfAbsent(g.getUUID(), k -> Direction.Plane.HORIZONTAL.getRandomDirection(g.getRandom()));
                                 if (g.stairStart != null && Math.sqrt(g.stairStart.distSqr(g.blockPosition())) > 220) { // far enough out: the search sweeps round HIS home (the mine), it doesn't march to the horizon (500 blocks out at 4 health, nothing found); never round where the user stands
@@ -2158,7 +2165,7 @@ public final class ClaudeLife {
                     }
                     herd.sort(Comparator.comparingDouble(walk0::applyAsDouble));
                     if (g.getHealth() > 6) { String no = nightOutsideNo(g, level, herd.get(0).blockPosition()); if (no != null) return no; } // the night rule where the hunt is, not only where he stands (World 17 02:10 11-06: lit at his mine's mouth, out to the river for salmon in the dark)
-                    huntLegs().remove(g.getUUID()); huntDir().remove(g.getUUID()); // found some: the search starts fresh next time
+                    huntLegs().remove(g.getUUID()); huntDir().remove(g.getUUID()); g.attempts.counters.remove("searchFrom"); // found some: the search starts fresh next time
                     herd.sort(Comparator.comparingDouble(walk0::applyAsDouble)); // (by the walk, as picked)
                     int n = Math.min(16, herd.size()); // the whole herd in sight, not four of it (the user: "look how many animals are around him, he should kill all of them"): one trip stocks him up
                     if (herd.size() > n) animalsSeen().put(g.getUUID(), herd.get(n).blockPosition().immutable()); // a player remembers where animals are left (one he doesn't kill)
@@ -4071,24 +4078,14 @@ public final class ClaudeLife {
             }
             case "fish": { // a rod at open water, like a player: steady food where the land has no animals
                 if (g.inventory.count(s -> s.is(Items.FISHING_ROD)) == 0) {
-                    if (g.inventory.count(s -> s.is(Items.STRING)) < 2) return "failed: no fishing rod and no string for one (a rod is 3 sticks + 2 string: spiders drop it at night, cobwebs give it)";
+                    if (g.inventory.count(s -> s.is(Items.STRING)) < 2 && com.claudemod.entity.life.ChestLedger.where(g, level, s -> s.is(Items.STRING)).stream().mapToInt(com.claudemod.entity.life.ChestLedger.Spot::count).sum() < 2) return "failed: no fishing rod and no string for one, on me or in my chests (a rod is 3 sticks + 2 string: spiders drop it at night, cobwebs give it)"; // (the craft takes the string out of his chests: 11 there at 08:08 11-10, never priced)
                     g.skillQueue.addFirst(st);
                     g.skillQueue.addFirst(new Skills.Step("craft", "fishing_rod", 1));
                     return "making a fishing rod first";
                 }
-                BlockPos water = null, stand = null; double bestD = Double.MAX_VALUE;
-                for (BlockPos w : BlockPos.betweenClosed(g.blockPosition().offset(-16, -4, -16), g.blockPosition().offset(16, 3, 16))) {
-                    if (!level.getFluidState(w).is(net.minecraft.tags.FluidTags.WATER) || !level.getFluidState(w.below()).is(net.minecraft.tags.FluidTags.WATER) || !level.getBlockState(w.above()).isAir() || !level.canSeeSky(w.above())) continue; // open water, two deep, sky over it
-                    boolean ring = true; for (Direction d0 : Direction.Plane.HORIZONTAL) if (!level.getFluidState(w.relative(d0)).is(net.minecraft.tags.FluidTags.WATER)) { ring = false; break; }
-                    if (!ring) continue; // water all round the spot: a cast a little off still lands wet (the pond's edge row put every other cast on the bank)
-                    for (BlockPos s0 : BlockPos.betweenClosed(w.offset(-4, 0, -4), w.offset(4, 2, 4))) {
-                        double hd = Math.sqrt(Math.pow(s0.getX() - w.getX(), 2) + Math.pow(s0.getZ() - w.getZ(), 2));
-                        if (hd < 2.5 || hd > 4.5 || !standable(level, s0) || !level.getFluidState(s0).isEmpty()) continue; // dry bank, a cast's length off
-                        double d = s0.distSqr(g.blockPosition());
-                        if (d < bestD) { bestD = d; water = w.immutable(); stand = s0.immutable(); }
-                    }
-                }
-                if (water == null) { g.attempts.counters.put("fishNoWater", g.tickCount); return "failed: no open water (two deep, sky above, a dry bank beside it) within 16 to fish in"; }
+                BlockPos[] spot = fishSpot(g, level, (int) com.claudemod.entity.life.Weights.w("kit.rod_water_range", 48));
+                if (spot == null) { g.attempts.counters.put("fishNoWater", g.tickCount); return "failed: no water to fish in within " + (int) com.claudemod.entity.life.Weights.w("kit.rod_water_range", 48) + " (water on all sides of the cast's spot, a dry bank a cast off)"; }
+                BlockPos water = spot[0], stand = spot[1];
                 int n = Math.max(1, Math.min(count, 16));
                 g.tasks.add(new Task.GoTo(stand, 0.6));
                 g.tasks.add(new Task.Fish(water, n, 20 * 240));
@@ -14492,6 +14489,42 @@ public final class ClaudeLife {
         if (g.inventory.count(s -> s.getItem() instanceof net.minecraft.world.item.AxeItem || s.getItem() instanceof net.minecraft.world.item.SwordItem) == 0) return false;
         if (g.inventory.count(ClaudeInventory::isBuildingBlock) < 4) return false;
         if (g.inventory.count(s -> s.getItem() instanceof net.minecraft.world.item.PickaxeItem) == 0 && g.inventory.count(s -> s.is(Items.DIRT)) < 4) return false; // the tower comes down after: a pickaxe for cobble, or dirt by hand (a cobble tower and no pick: the take-down read as a broken pick and the fight was dropped)
+        return true;
+    }
+
+    /**
+     * Where he fishes, like a player: surface water (air over it) with water on all four sides, so a cast a little off still lands
+     * wet, and a dry bank a cast's length off (2.5-4.5) to stand on. Vanilla bites in any water: no depth needed, no sky needed
+     * (with none the bite comes slower, priced by the kit). Every cell within 16 (a cave lake too), then the surface's water out to
+     * `far` by the heightmap, loaded chunks only. {water, stand} nearest by the stand, or null. (D2D 99, live 08:16 11-10: "no open
+     * water within 16" with water he'd swum through minutes before: two deep, sky and 16 blocks were all the old test's.)
+     */
+    public static BlockPos[] fishSpot(ClaudeEntity g, ServerLevel level, int far) {
+        BlockPos me = g.blockPosition(); List<BlockPos> cand = new ArrayList<>();
+        for (BlockPos w : BlockPos.betweenClosed(me.offset(-16, -6, -16), me.offset(16, 4, 16))) if (fishWater(level, w)) cand.add(w.immutable());
+        if (far > 16) for (int x = -far; x <= far; x++) for (int z = -far; z <= far; z++) {
+            if (Math.abs(x) <= 16 && Math.abs(z) <= 16) continue;
+            int cx = me.getX() + x, cz = me.getZ() + z; if (!level.hasChunkAt(new BlockPos(cx, me.getY(), cz))) continue;
+            BlockPos w = new BlockPos(cx, level.getHeight(Heightmap.Types.MOTION_BLOCKING, cx, cz) - 1, cz);
+            if (fishWater(level, w)) cand.add(w);
+        }
+        cand.sort(Comparator.comparingDouble(w -> w.distSqr(me)));
+        BlockPos[] best = null; double bestD = Double.MAX_VALUE; int looked = 0;
+        for (BlockPos w : cand) {
+            if (looked++ >= 60) break;
+            if (best != null && Math.sqrt(w.distSqr(me)) - 5 > Math.sqrt(bestD)) break; // (nearer water was looked at first: past this none beats it)
+            for (BlockPos s0 : BlockPos.betweenClosed(w.offset(-4, 0, -4), w.offset(4, 2, 4))) {
+                double hd = Math.sqrt(Math.pow(s0.getX() - w.getX(), 2) + Math.pow(s0.getZ() - w.getZ(), 2));
+                if (hd < 2.5 || hd > 4.5 || !standable(level, s0) || !level.getFluidState(s0).isEmpty()) continue; // dry bank, a cast's length off
+                double d = s0.distSqr(me);
+                if (d < bestD) { bestD = d; best = new BlockPos[] {w, s0.immutable()}; }
+            }
+        }
+        return best;
+    }
+    private static boolean fishWater(ServerLevel level, BlockPos w) {
+        var f = level.getFluidState(w); if (!f.is(net.minecraft.tags.FluidTags.WATER) || !f.isSource() || !level.getBlockState(w.above()).isAir()) return false;
+        for (Direction d0 : Direction.Plane.HORIZONTAL) if (!level.getFluidState(w.relative(d0)).is(net.minecraft.tags.FluidTags.WATER)) return false;
         return true;
     }
 

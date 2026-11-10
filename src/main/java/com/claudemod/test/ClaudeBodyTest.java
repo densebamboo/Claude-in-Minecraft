@@ -10549,6 +10549,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1465: return st1465(stage, t, c, h, level, mock);
             case 1464: return st1464(stage, t, c, h, level, mock);
             case 1463: return st1463(stage, t, c, h, level, mock);
             case 1462: return st1462(stage, t, c, h, level, mock);
@@ -18703,6 +18704,30 @@ public final class ClaudeBodyTest {
             check(plan != null, "no way past the trench at all");
             check(places == 0, "a trench 41 long across his way in the Nether, the way round ~20 more walk: bridged it with " + places + " block(s) (" + ts.subList(0, Math.min(8, ts.size())) + ")");
             pass(stage, t, "walked round the trench: " + walks + " walk legs, 0 blocks put");
+        }
+        return true;
+    }
+    /** Stage 1465 (D2D review 152206-19, live 15:20 11-10, blaze search on the fortress: deckStep "along its deck to 275, 65, 464", then from there "to 299, 65, 485", then "to 250, 65, 504": west, back east, west, the furthest unwalked cell in any way each time): a deck corridor, him walking it west, 40 unwalked ahead; behind him a side branch 60 long. He goes on west first. */
+    private static boolean st1465(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13400, 64, 7600);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int dx = -48; dx <= 32; dx += 16) for (int dz = 0; dz <= 64; dz += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(dx, 0, dz)), 1, o.offset(dx, 0, dz));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); com.claudemod.entity.life.FortressScout.deckReset(c); }
+        if (t[0] == 10) {
+            for (int x = -42; x <= 32; x++) for (int z = -2; z <= 62; z++) for (int y = -2; y <= 3; y++) { boolean deck = y == -1 && (z == 0 && x >= -40 && x <= 30 || x == 20 && z >= 0 && z <= 60);
+                nl.setBlock(o.offset(x, y, z), (deck ? Blocks.NETHER_BRICKS : Blocks.AIR).defaultBlockState(), 2 | 16); }
+            for (var m : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(70))) m.discard();
+            for (int x : new int[] {30, 24, 18, 12, 6, 0}) { c.teleportTo(nl, o.getX() + x + 0.5, o.getY(), o.getZ() + 0.5, 90f, 0f); com.claudemod.entity.life.FortressScout.noteDeck(c); } // (walked west from the east end: that deck seen)
+            try { com.claudemod.entity.life.FortressScout.class.getMethod("deckHeadingTest", ClaudeEntity.class, int.class, int.class).invoke(null, c, -1, 0); } catch (ReflectiveOperationException e) { } // (his last leg went west; reflective so the stage runs on code without the heading too)
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 20) {
+            BlockPos step = com.claudemod.entity.life.FortressScout.deckStep(c, nl);
+            for (int x = -42; x <= 32; x++) for (int z = -2; z <= 62; z++) nl.setBlock(o.offset(x, -1, z), Blocks.AIR.defaultBlockState(), 2 | 16);
+            com.claudemod.entity.life.FortressScout.deckReset(c); nsHome(c, h, level);
+            check(step != null, "no deck step at all");
+            check(step.getX() < o.getX(), "walking the deck west, 40 unwalked ahead: sent back east to the side branch at " + step.toShortString() + " (" + (step.getX() - o.getX()) + ", " + (step.getZ() - o.getZ()) + " from him)");
+            pass(stage, t, "on west first: " + step.toShortString());
         }
         return true;
     }

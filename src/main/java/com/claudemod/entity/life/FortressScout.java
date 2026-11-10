@@ -83,7 +83,10 @@ public final class FortressScout {
     private static java.util.Map<java.util.UUID, java.util.Set<Long>> deckSeen;
     static java.util.Set<Long> deckSeen(ClaudeEntity g) { if (deckSeen == null) deckSeen = new java.util.HashMap<>(); return deckSeen.computeIfAbsent(g.getUUID(), k -> new java.util.HashSet<>()); }
     static long deckKey(BlockPos p) { return BlockPos.asLong(p.getX() >> 2, p.getY() >> 2, p.getZ() >> 2); }
-    public static void deckReset(ClaudeEntity g) { if (deckSeen != null) deckSeen.remove(g.getUUID()); }
+    public static void deckReset(ClaudeEntity g) { if (deckSeen != null) deckSeen.remove(g.getUUID()); if (deckDir != null) deckDir.remove(g.getUUID()); }
+    private static java.util.Map<java.util.UUID, int[]> deckDir; // his last deck leg's heading {dx, dz}: the sweep goes on that way first
+    /** (tests) */
+    public static void deckHeadingTest(ClaudeEntity g, int dx, int dz) { if (deckDir == null) deckDir = new java.util.HashMap<>(); deckDir.put(g.getUUID(), new int[] {dx, dz}); }
     static boolean fortressFloor(net.minecraft.world.level.block.state.BlockState s) {
         return s.is(net.minecraft.world.level.block.Blocks.NETHER_BRICKS) || s.is(net.minecraft.world.level.block.Blocks.NETHER_BRICK_STAIRS) || s.is(net.minecraft.world.level.block.Blocks.NETHER_BRICK_SLAB) || s.is(net.minecraft.world.level.block.Blocks.SOUL_SAND);
     }
@@ -97,11 +100,12 @@ public final class FortressScout {
     public static BlockPos deckStep(ClaudeEntity g, ServerLevel level) {
         BlockPos start = g.blockPosition(); noteDeck(g); java.util.Set<Long> seen = deckSeen(g); seen.add(deckKey(start));
         java.util.Map<BlockPos, Integer> dist = new java.util.HashMap<>(); java.util.ArrayDeque<BlockPos> q = new java.util.ArrayDeque<>();
-        dist.put(start, 0); q.add(start); BlockPos best = null; int bd = -1;
+        dist.put(start, 0); q.add(start); BlockPos best = null; int bd = -1, bdF = -1; BlockPos bestF = null;
+        int[] hd = deckDir == null ? null : deckDir.get(g.getUUID()); // (on along his last leg's way first, like a player sweeping a deck: the furthest unwalked in any way sent him 35 west, then back east past where he'd been, then west again; live 15:20 11-10, review 152206-19, stage 1465)
         while (!q.isEmpty() && dist.size() < 4000) {
             BlockPos f = q.poll(); int d0 = dist.get(f);
             if (d0 > 64) continue;
-            if (d0 >= 6 && !seen.contains(deckKey(f)) && d0 > bd) { bd = d0; best = f; }
+            if (d0 >= 6 && !seen.contains(deckKey(f))) { if (d0 > bd) { bd = d0; best = f; } if (hd != null && (f.getX() - start.getX()) * hd[0] + (f.getZ() - start.getZ()) * hd[1] > 0 && d0 > bdF) { bdF = d0; bestF = f; } }
             for (Direction dir : Direction.Plane.HORIZONTAL) for (int dy = -1; dy <= 1; dy++) {
                 BlockPos n = f.relative(dir).above(dy); if (dist.containsKey(n) || !level.isLoaded(n)) continue;
                 if (!level.getBlockState(n).getCollisionShape(level, n).isEmpty() || !level.getBlockState(n.above()).getCollisionShape(level, n.above()).isEmpty()) continue;
@@ -110,7 +114,9 @@ public final class FortressScout {
                 dist.put(n.immutable(), d0 + 1); q.add(n.immutable());
             }
         }
-        if (best != null) ClaudeMod.LOGGER.info("[Claude scout] on the fortress at {}: along its deck to {} ({} steps, not walked yet; {} cells of deck in reach) (FortressScout.deckStep)", start.toShortString(), best.toShortString(), bd, dist.size());
+        boolean on = bestF != null; if (on) { best = bestF; bd = bdF; }
+        if (best != null) { if (deckDir == null) deckDir = new java.util.HashMap<>(); deckDir.put(g.getUUID(), new int[] {best.getX() - start.getX(), best.getZ() - start.getZ()}); }
+        if (best != null) ClaudeMod.LOGGER.info("[Claude scout] on the fortress at {}: along its deck to {} ({} steps, not walked yet; {} cells of deck in reach{}) (FortressScout.deckStep)", start.toShortString(), best.toShortString(), bd, dist.size(), on ? ", on the way he was going" : hd != null ? ", nothing unwalked ahead: back the other way" : "");
         return best;
     }
 

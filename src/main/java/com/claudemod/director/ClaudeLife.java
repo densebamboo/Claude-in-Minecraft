@@ -9558,8 +9558,10 @@ public final class ClaudeLife {
         boolean utility = item == Items.CRAFTING_TABLE || item == Items.FURNACE || item == Items.CHEST;
         Direction ahead = corridorDir(g, g.blockPosition());
         if (item == Items.CRAFTING_TABLE && (inHisMine(g, g.blockPosition()) || touchesMine(g, g.blockPosition())) && !inHisNook(g, g.blockPosition()) && otherMineTable(g, null)) { // his mine has its table: this one's only for now, on his tunnel floor beside him like a player's, crafted at and taken back up (a notch cut and refilled for it is double work: live 01:23 11-07 the notch's own block read as a pocket to clear and the table never went in; stage 887)
-            for (Direction d : new Direction[] {ahead.getClockWise(), ahead.getCounterClockWise(), ahead.getOpposite()}) {
+            BlockPos work = taskPos(g.currentTask); if (work == null) for (Task k : g.tasks) if ((work = taskPos(k)) != null) break; // his next work: the table never goes down on the way to it (review 60, stage 1411: on the floor between him and his dig in a one-wide tunnel, the way over it dug his ceiling)
+            for (Direction d : new Direction[] {ahead.getClockWise(), ahead.getCounterClockWise(), ahead.getOpposite(), ahead}) {
                 BlockPos p = g.blockPosition().relative(d);
+                if (work != null && d.getStepX() * (work.getX() - g.getBlockX()) + d.getStepZ() * (work.getZ() - g.getBlockZ()) > 0) continue;
                 if (!level.getBlockState(p).isAir() || !level.getFluidState(p).isEmpty() || !level.getBlockState(p.below()).isSolid() || g.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(p))) continue;
                 if (g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.isWayIn(p)) continue;
                 if (g.placeAt(p, item)) { noteStation(g, p); g.tempStations.add(p.immutable()); ClaudeMod.LOGGER.info("[Claude life] his table down on his tunnel floor at {} for now: his mine's own stands elsewhere, this one comes back up (ClaudeLife.placeNextTo)", p.toShortString()); return p; }

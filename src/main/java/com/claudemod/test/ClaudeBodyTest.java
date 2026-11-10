@@ -10949,6 +10949,7 @@ public final class ClaudeBodyTest {
             case 1408: return st1407(stage, t, c, h, level, mock);
             case 1409: return st1409(stage, t, c, h, level, mock);
             case 1410: return st1410(stage, t, c, h, level, mock);
+            case 1411: return st1411(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -24977,6 +24978,30 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static int s1410T; private static String s1410Stray;
+    /** Stage 1411 (D2D review 60, live 06:04:40-06:05:00 11-10 at -75,16,-345): stone picks to make in his one-wide iron tunnel, his mine's table elsewhere: the temp table went down on the tunnel floor at -74, between him and his dig at -70; the way over it dug 3 of his ceiling, his mine wanted them back, the put-back refused. The table goes on the side away from his work. */
+    private static boolean st1411(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9940, 80, 9780), me = at.offset(3, 0, 0), work = at.offset(7, 0, 0), mineTable = at.offset(0, 0, 1);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("mine_model", "blueprint"); }
+        if (t[0] == 10) {
+            var b = new com.claudemod.entity.life.MineBlueprint(at, net.minecraft.core.Direction.EAST, 1, 2); b.segments.clear(); b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, at.west(3), net.minecraft.core.Direction.EAST, 12, null)); c.blueprint = b; // his mine: a one-wide branch, two tall, dug to x+6
+            for (int x = -4; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = -2; y <= 4; y++) { BlockPos q = at.offset(x, y, z); level.setBlock(q, (b.isWalk(q) && x <= 6 ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK && e.getKey().getX() <= at.getX() + 6) c.mineCells.add(e.getKey().immutable()); // (what he dug: the legacy cells follow the blueprint live)
+            level.setBlock(mineTable, Blocks.CRAFTING_TABLE.defaultBlockState(), 2); c.myStations.add(mineTable); // his mine's own table, in a notch by its start
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(90f); c.setYHeadRot(90f); com.claudemod.entity.life.Watchdog.teleported(c); // (facing back west, the way he came)
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+        }
+        if (t[0] == 20) {
+            c.tasks.clear(); c.tasks.add(new Task.Break(work)); // his dig on east along the tunnel
+            BlockPos p = com.claudemod.director.ClaudeLife.testPlaceNextTo(c, level, Items.CRAFTING_TABLE);
+            c.tasks.clear(); c.dropCurrent = true; c.myStations.clear(); c.tempStations.clear(); c.mineCells.clear(); c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            for (int x = -4; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = 0; y <= 4; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); // (the floor left)
+            check(p != null, "no spot for the table at all");
+            check(p.getX() < me.getX() || p.getZ() != me.getZ(), "his table at " + p.toShortString() + ": between him at " + me.toShortString() + " and his dig at " + work.toShortString());
+            pass(stage, t, "the table down at " + p.toShortString() + ", out of his way on to " + work.toShortString() + " clear");
+        }
+        return true;
+    }
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1319: return st1319(stage, t, c, h, level, mock);
             case 1318: return st1318(stage, t, c, h, level, mock);
             case 1317: return st1317(stage, t, c, h, level, mock);
             case 1316: return st1316(stage, t, c, h, level, mock);
@@ -17216,6 +17217,40 @@ public final class ClaudeBodyTest {
             check(claimed.isPresent(), "setup: the bed's claim not taken");
             check(pick != null && !"a free bed".equals(pick[0]) && !said.toString().contains("a free bed 35 off"), "dusk, the bed 34 off a villager's: priced as his night's bed (" + said + ")");
             pass(stage, t, "dusk: the villager's bed left to it: " + said); return true;
+        }
+        return true;
+    }
+    /** Stage 1319 (D2D 171/170, live 21:30:55-21:32:12 11-09 at 309,33,402, 12 below the fortress: "walking the fortress to its piece at 300, 45, 413 to look", then the same second "no blaze or blaze spawner in view, and no part of the fortress i've seen left to look in": each pick wrote its piece off before a step was walked, the skill failed three times and was skipped; 50 min before he'd fought five blazes round 300-319,60,487-515): a fortress piece 24 off, a blaze seen and gone. Asked twice in the same second he still walks to the piece; at the piece with none in view, back to where he saw the blaze. */
+    private static boolean st1319(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13000, 64, 7720), piece = o.offset(24, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.FortressFight.reset(c); }
+        if (t[0] < 19 || t[0] > 20) nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+            for (int x = -6; x <= 30; x++) for (int z = -8; z <= 8; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), y < 0 ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            com.claudemod.director.Structures.testPiece = piece;
+        }
+        if (t[0] == 19) { var b = net.minecraft.world.entity.EntityType.BLAZE.create(nl); b.moveTo(o.getX() - 4.5, o.getY() + 2, o.getZ() + 12.5, 0, 0); b.setNoAi(true); b.setNoGravity(true); b.setPersistenceRequired(); nl.addFreshEntity(b); for (int z = 7; z <= 8; z++) for (int y = 0; y <= 4; y++) nl.setBlock(o.offset(-4, y, z), Blocks.AIR.defaultBlockState(), 2); com.claudemod.entity.life.FortressFight.observe(c, nl); }
+        if (t[0] == 20) {
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+            c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600;
+            var st = new com.claudemod.entity.life.Skills.Step("blaze_rods", "blaze_rod@7", 7, "near_you");
+            String r1 = com.claudemod.entity.life.FortressFight.blazeRods(c, mock[0], nl, st); c.tasks.clear(); c.skillQueue.clear();
+            String r2 = com.claudemod.entity.life.FortressFight.blazeRods(c, mock[0], nl, st); c.tasks.clear(); c.skillQueue.clear();
+            c.teleportTo(nl, piece.getX() + 0.5, piece.getY(), piece.getZ() + 0.5, -90f, 0f);
+            String r3 = com.claudemod.entity.life.FortressFight.blazeRods(c, mock[0], nl, st);
+            c.tasks.clear(); c.skillQueue.clear(); com.claudemod.director.Structures.testPiece = null; com.claudemod.entity.life.FortressFight.reset(c);
+            for (int x = -6; x <= 30; x++) for (int z = -8; z <= 8; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+            check(r1.contains("walking the fortress"), "setup: the first ask didn't walk to the piece: " + r1);
+            check(!r2.startsWith("failed"), "asked again the same second, the piece he hasn't reached written off: " + r2);
+            check(r3.contains("where I last saw blazes"), "at the piece, none in view, a blaze seen 26 off: not back to where it was: " + r3);
+            nsHome(c, h, level); pass(stage, t, r1 + " | " + r2 + " | " + r3);
         }
         return true;
     }

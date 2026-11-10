@@ -54,6 +54,10 @@ public final class FortressFight {
     private static Map<UUID, int[]> runs() { if (runs == null) runs = new HashMap<>(); return runs; }
     private static Map<UUID, long[]> blazeLast; // per bot: {the cell, the tick} of the last blaze he saw, and the waits for the next since (static: fields added live start null)
     private static Map<UUID, long[]> blazeLast() { if (blazeLast == null) blazeLast = new HashMap<>(); return blazeLast; }
+    /** Server ticks: his own tickCount starts again at 0 after a portal trip, and a time kept from before it read wrong. */
+    static long serverT(ClaudeEntity g) { return g.getServer() == null ? g.tickCount : g.getServer().getTickCount(); }
+    /** A blaze seen at {@code at}: where their spawner or spawning ground is. */
+    public static void noteBlaze(ClaudeEntity g, BlockPos at) { blazeLast().put(g.getUUID(), new long[] {at.asLong(), serverT(g), 0}); }
 
     public static void reset(ClaudeEntity g) { covers().remove(g.getUUID()); runs().remove(g.getUUID()); riskSaid().remove(g.getUUID()); }
 
@@ -323,7 +327,7 @@ public final class FortressFight {
     public static void observe(ClaudeEntity g, ServerLevel level) {
         for (Blaze b : blazesNear(g, level, g.blockPosition(), 32)) {
             if (!g.hasLineOfSight(b)) continue;
-            blazeLast().put(g.getUUID(), new long[] {b.blockPosition().asLong(), g.tickCount, 0}); // (where the blazes are: their spawner or their spawning ground is round there)
+            noteBlaze(g, b.blockPosition()); // (where the blazes are: their spawner or their spawning ground is round there)
             if (b.isOnFire()) chargedSince().putIfAbsent(b.getUUID(), g.tickCount - 40); // (Blaze.isOnFire is its charged flag: the glow and smoke a player sees)
             else chargedSince().remove(b.getUUID());
         }
@@ -450,7 +454,7 @@ public final class FortressFight {
         if (bl.isEmpty() && spawner == null) {
             // none in view: walk the fortress he has seen, piece by piece (each piece once a while), looking
             if (FortressScout.onFortress(g)) { BlockPos step = FortressScout.deckStep(g, level); long[] last = blazeLast().get(g.getUUID()); // where the last blaze was, or along the deck into pieces he hasn't seen, priced (D2D 07:20 11-07: one blaze killed, 0/6, he walked the deck to 297,65,485 into a wither skeleton and piglins and died; a player waits where the blazes come from)
-              if (last != null && g.tickCount - last[1] < 20 * Weights.w("blaze.wait_memory_s", 600)) { BlockPos lastAt = BlockPos.of(last[0]); double age = (g.tickCount - last[1]) / 20.0, far = Math.sqrt(lastAt.distSqr(g.blockPosition()));
+              if (last != null && serverT(g) - last[1] < 20 * Weights.w("blaze.wait_memory_s", 600)) { BlockPos lastAt = BlockPos.of(last[0]); double age = (serverT(g) - last[1]) / 20.0, far = Math.sqrt(lastAt.distSqr(g.blockPosition()));
                 double waitS = far / Decide.sprint() + Weights.w("blaze.wait_s", 30) * (1 + last[2] * 10 / Weights.w("blaze.spawner_max_s", 40)) * (1 + age / 300); // (a spawner sends more every 10-40 s while he's within 16: the longer he's waited past that with none, and the older the sighting, the less likely one's there)
                 double lookS = step == null ? Double.MAX_VALUE : Math.sqrt(step.distSqr(g.blockPosition())) / Decide.sprint() + Weights.w("fortress.look_risk_s", 45); // (pieces he hasn't seen: wither skeletons, a skeleton group, piglins, met out of cover)
                 var pick = Decide.choose(g, "blaze.look", "no blaze in view; the last one " + Math.round(age) + " s ago at " + lastAt.toShortString() + ", " + last[2] + " wait(s) since", true, List.of(
@@ -458,14 +462,27 @@ public final class FortressFight {
                 if (pick != null && pick.name().startsWith("wait")) { last[2]++; g.tasks.add(far > 6 ? new Task.GoTo(lastAt, 4.0) : new Task.Wait(20 * 10, false)); g.skillQueue.addFirst(again); return "no blaze in view: waiting where the last one was (" + lastAt.toShortString() + ", " + Math.round(age) + " s ago) for the next (" + have + "/" + goal + " rods)"; } }
               if (step != null) { run[3]++; g.tasks.add(new Task.GoTo(step, 1.0)); g.skillQueue.addFirst(again); return "no blaze in view: along the fortress deck to " + step.toShortString() + " to look (" + have + "/" + goal + " rods)"; } } // (on its deck: along it, never back down to a box's middle)
             BlockPos best = null; double bd = Double.MAX_VALUE;
+            // a piece counts as looked in once he's been at it, not when the walk there is queued (live 21:30:55 11-09, D2D 171/170: each pick wrote its piece off at once, the step ran again that second, every piece read "walked lately" and the skill failed 12 below the fortress, never having looked; stage 1319)
+            for (var s : Perception.sightings(g)) { if (s.dim() != level.dimension() || !s.id().contains("fortress")) continue; BlockPos c = s.box().getCenter(), dk = deckCell(level, c);
+                if (c.distSqr(g.blockPosition()) <= 10 * 10 || dk != null && dk.distSqr(g.blockPosition()) <= 6 * 6) g.attempts.fail(Attempts.Kind.WALK, c, g.tickCount); }
+            if (com.claudemod.director.Structures.testPiece != null && com.claudemod.director.Structures.testPiece.distSqr(g.blockPosition()) <= 10 * 10) g.attempts.fail(Attempts.Kind.WALK, com.claudemod.director.Structures.testPiece, g.tickCount);
             for (var s : Perception.sightings(g)) {
                 if (s.dim() != level.dimension() || !s.id().contains("fortress")) continue;
                 BlockPos c = s.box().getCenter(); if (g.attempts.within(Attempts.Kind.WALK, c, g.tickCount, 20 * 300)) continue;
                 double d = c.distSqr(g.blockPosition()); if (d < bd && d > 6 * 6) { bd = d; best = c.immutable(); }
             }
             if (best == null && com.claudemod.director.Structures.testPiece != null && !g.attempts.within(Attempts.Kind.WALK, com.claudemod.director.Structures.testPiece, g.tickCount, 20 * 300)) best = com.claudemod.director.Structures.testPiece;
-            if (best == null) { ClaudeMod.LOGGER.info("[Claude fight] no blaze or blaze spawner in view, every fortress piece he has seen walked lately (FortressFight.blazeRods)"); runs().remove(g.getUUID()); return "failed: no blaze or blaze spawner in view, and no part of the fortress i've seen left to look in (find the fortress's spawner room first)"; }
-            g.attempts.fail(Attempts.Kind.WALK, best, g.tickCount); run[3]++;
+            if (best == null) { long[] last = blazeLast().get(g.getUUID()); // where he saw blazes last, however long ago: their spawner or their spawning ground is round there (D2D 171: five fought round 300-319,60,487-515 50 min before "nothing left to look in")
+                if (last != null && last[2] < Weights.w("blaze.last_spot_waits", 6)) { BlockPos lastAt = BlockPos.of(last[0]); double far = Math.sqrt(lastAt.distSqr(g.blockPosition())), age = (serverT(g) - last[1]) / 20.0;
+                    if (far > 8) g.tasks.add(new Task.GoTo(lastAt, 4.0)); else { last[2]++; g.tasks.add(new Task.Wait(20 * 10, false)); } g.skillQueue.addFirst(again);
+                    ClaudeMod.LOGGER.info("[Claude fight] no blaze in view, every fortress piece he has seen looked in: {} where he saw blazes last ({}, {} s ago, {} off, {} wait(s) there) (FortressFight.blazeRods)", far > 8 ? "back to" : "waiting at", lastAt.toShortString(), Math.round(age), Math.round(far), last[2]);
+                    return "no blaze in view: " + (far > 8 ? "back to where I last saw blazes, " + lastAt.toShortString() : "waiting where the blazes were for the next") + " (" + have + "/" + goal + " rods)"; }
+                if (last != null) ClaudeMod.LOGGER.info("[Claude fight] where he saw blazes last ({}): {} waits there with none come: no spawner round it (FortressFight.blazeRods)", BlockPos.of(last[0]).toShortString(), last[2]);
+                blazeLast().remove(g.getUUID());
+                ClaudeMod.LOGGER.info("[Claude fight] no blaze or blaze spawner in view, every fortress piece he has seen walked lately (FortressFight.blazeRods)"); runs().remove(g.getUUID()); return "failed: no blaze or blaze spawner in view, and no part of the fortress i've seen left to look in (find the fortress's spawner room first)"; }
+            { String k = "blazePiece:" + best.asLong(); int n = g.attempts.counters.getOrDefault(k, 0) + 1; g.attempts.counters.put(k, n); // (a piece he never gets to: written off after its 4th pick, said)
+              if (n >= 4) { g.attempts.fail(Attempts.Kind.WALK, best, g.tickCount); g.attempts.counters.remove(k); ClaudeMod.LOGGER.info("[Claude fight] the fortress piece at {}: picked {} times, never got to: written off for now (FortressFight.blazeRods)", best.toShortString(), n); } }
+            run[3]++;
             BlockPos deck = deckCell(level, best); // (onto its deck, the bricks he can stand on: the box's middle is in its wall or under it, and the route there went by the lava sea)
             g.tasks.add(new Task.GoTo(deck != null ? deck : best, deck != null ? 1.5 : 3));
             g.skillQueue.addFirst(again);

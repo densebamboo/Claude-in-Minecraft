@@ -10912,6 +10912,7 @@ public final class ClaudeBodyTest {
             case 1286: return st1286(stage, t, c, h, level, mock);
             case 1287: return st1287(stage, t, c, h, level, mock);
             case 1288: return st1288(stage, t, c, h, level, mock);
+            case 1289: return st1289(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -24102,6 +24103,33 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static int s1288T = -1, s1288R, s1288N; private static Task s1288W; private static int s1288K;
+    /** Stage 1289 (D2D review 55, live 22:49:02-22:49:43 11-09 at his notch -83/-82,18,-317): the work out past his 2-cell access notch done; sealNotches sealed -83 and queued its patch, then read that patch, a Place just outside his mine, as "work queued out past" -82 and held -82 open 40 s, till he left the area. Him back in his mine, nothing queued: both cells of the notch sealed in one pass. */
+    private static boolean st1289(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            BlockPos d = lnRow(b, 5, 4).immutable(), d2 = lnRow(b, 5, 5).immutable();
+            net.minecraft.core.Direction side = null; for (var dd : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && !com.claudemod.director.ClaudeLife.isMineCell(c, d.relative(dd)) && level.getBlockState(d.relative(dd)).isSolid()) side = dd;
+            check(side != null, "setup: no wall beside the row");
+            BlockPos n1 = d.relative(side).above(), n2 = d2.relative(side).above(), far = d.relative(side, 3); // (the live notch: two cells side by side, a block up)
+            for (BlockPos q : new BlockPos[] {n1, n2}) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2);
+            lnStand(c, mock, d, b.entrance); c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null; c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16));
+            try {
+                Class<?> L = com.claudemod.director.ClaudeLife.class; var nm = L.getDeclaredMethod("notches", ClaudeEntity.class); nm.setAccessible(true);
+                @SuppressWarnings("unchecked") var m = (java.util.Map<BlockPos, Object>) nm.invoke(null, c); m.clear();
+                Class<?> N = java.util.Arrays.stream(L.getDeclaredClasses()).filter(k -> k.getSimpleName().equals("Notch")).findFirst().get(); var nc = N.getDeclaredConstructors()[0]; nc.setAccessible(true);
+                for (BlockPos q : new BlockPos[] {n1, n2}) m.put(q.immutable(), nc.newInstance(far, level.dimension(), c.tickCount, true));
+                var sm = L.getDeclaredMethod("sealNotches", ClaudeEntity.class, ServerLevel.class); sm.setAccessible(true);
+                sm.invoke(null, c, level); sm.invoke(null, c, level); // (two passes, as his life ticks it)
+                java.util.List<BlockPos> held = new java.util.ArrayList<>(m.keySet());
+                long patches = c.tasks.stream().filter(x -> x instanceof Task.Place pl && (pl.pos().equals(n1) || pl.pos().equals(n2))).count();
+                m.clear(); c.tasks.clear(); c.blueprint = null; c.prefs.put("mine_model", "legacy");
+                check(held.isEmpty(), "his notch cell(s) " + held + " still held: the other cell's patch read as work out past it");
+                check(patches == 2, patches + " of the notch's 2 cells patched");
+            } catch (ReflectiveOperationException e) { throw new RuntimeException(e); }
+            pass(stage, t, "both cells of his notch sealed in one pass, both patched");
+        }
+        return true;
+    }
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

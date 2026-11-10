@@ -10894,6 +10894,7 @@ public final class ClaudeBodyTest {
             case 1275: return st1275(stage, t, c, h, level, mock);
             case 1276: return st1276(stage, t, c, h, level, mock);
             case 1277: return st1277(stage, t, c, h, level, mock);
+            case 1278: return st1278(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -23599,6 +23600,36 @@ public final class ClaudeBodyTest {
         } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
         return true;
     }
+    /** Stage 1278 (D2D Nether sinks, live 09:42 11-09: 47 cobbled deepslate on him, 12 rows left (~31 by his own blocks_per_row), the highway's end 493 off: "blocks first, not a walk out for a row or two" sent him home for 64 more, a ~13 min trip; the check held a flat 64, not what the rows left take): 1156's highway, shortened to ~10 rows, him 60 off its end with 47. Out to build it, not home. */
+    private static boolean st1278(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(9400, 64, 5320);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            var rack = Blocks.NETHERRACK.defaultBlockState(); var air = Blocks.AIR.defaultBlockState();
+            for (int x = -6; x <= 8; x++) for (int z = -6; z <= 72; z++) for (int y = -3; y <= 5; y++) nl.setBlock(o.offset(x, y, z), y < 0 ? rack : air, 2);
+            for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, 0), x == -1 || x == 2 || y == -1 || y == 3 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+            nsKit(c); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 1.5, 0f, 0f);
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o, "him", "lit");
+        }
+        String dest = (o.getX() + 2) + " " + o.getY() + " " + (o.getZ() + 10);
+        if (t[0] == 20) {
+            c.skillQueue.clear(); com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", dest, 1); c.skillQueue.clear(); c.tasks.clear();
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 66.5, 0f, 0f); com.claudemod.entity.life.Watchdog.teleported(c);
+        }
+        if (t[0] == 30) {
+            c.getInventory().clearContent(); nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 47));
+            c.skillQueue.clear(); c.tasks.clear(); String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", "", 1);
+            var q = new java.util.ArrayList<>(c.skillQueue); String tk = c.tasks.toString();
+            c.skillQueue.clear(); c.tasks.clear(); c.getInventory().clearContent();
+            check(!r.contains("out of cobbled deepslate") && (q.isEmpty() || !q.get(0).skill().equals("enter_portal")), "47 on him for ~10 rows, sent home for blocks: \"" + r + "\", queue " + q);
+            pass(stage, t, "out to the highway's end with what the rows take: " + r + " (" + (tk.length() > 120 ? tk.substring(0, 120) : tk) + ")");
+        }
+        return true;
+    }
+    /** Stage 1279 (D2D reviews 192252-203, 193017-27, live 19:18-19:21 11-09 at -149,16,-301 / -297: 9 raw iron split over 2 furnaces at the ends of two tunnels 4 apart; the way to the other furnace was made (39 acts, 8 digs) and queued, but reachFor took walkTo's "ended" for a failed reach: REACH NO_PATH, the load dropped, he walked the way with no job and the next load sent him back; over a minute): two tunnels with rock between, his furnace at the far end of the other one, a FurnaceLoad for it. The iron in it within 15 s. */
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

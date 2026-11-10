@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1311: return st1311(stage, t, c, h, level, mock);
             case 1310: return st1310(stage, t, c, h, level, mock);
             case 1309: return st1309(stage, t, c, h, level, mock);
             case 1308: return st1308(stage, t, c, h, level, mock);
@@ -16967,6 +16968,35 @@ public final class ClaudeBodyTest {
                 check(used <= 8, "cover took " + used + " blocks (8 at most)");
                 pass(stage, t, "cover built on the open bridge in " + (t[0] - s1310T) / 20.0 + " s with " + used + " block(s)");
             }
+        }
+        return true;
+    }
+    /** Stage 1311 (D2D 11-09, the rods priority: in the Nether since 11-07 he held rods three times, 1, 2 and 4, and lost them on death each time, none ever banked; the price of a death never counted what he carried): in the Nether with 4 rods, 10 HP, no armor, no shield, a blaze in view, his portal 30 off. Going home first banks the rods (a store step before the trip back). */
+    private static boolean st1311(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12400, 64, 7320);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); }
+        if (t[0] != 20) nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(30))) e.discard();
+            for (int x = -6; x <= 12; x++) for (int z = -6; z <= 6; z++) for (int y = -3; y <= 5; y++) nl.setBlock(o.offset(x, y, z), y < 0 ? Blocks.NETHER_BRICKS.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.BLAZE_ROD, 4));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setHealth(10); c.getFoodData().setFoodLevel(20);
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(-30, 0, 0), "him", "lit");
+        }
+        if (t[0] == 19) { var b = net.minecraft.world.entity.EntityType.BLAZE.create(nl); b.moveTo(o.getX() + 7.5, o.getY() + 1, o.getZ() + 0.5, 0, 0); b.setNoAi(true); b.setNoGravity(true); b.setPersistenceRequired(); nl.addFreshEntity(b); }
+        if (t[0] == 20) {
+            c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600;
+            String r = com.claudemod.entity.life.FortressFight.blazeRods(c, mock[0], nl, new com.claudemod.entity.life.Skills.Step("blaze_rods", "blaze_rod@7", 3, "near_you"));
+            java.util.List<String> q = new java.util.ArrayList<>(); for (var s0 : c.skillQueue) q.add(s0.skill());
+            c.tasks.clear(); c.skillQueue.clear();
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(30))) e.discard();
+            for (int x = -6; x <= 12; x++) for (int z = -6; z <= 6; z++) for (int y = -3; y <= 5; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.getInventory().clearContent(); com.claudemod.entity.life.PortalMap.net(c).portals.clear();
+            int portal = q.indexOf("enter_portal"), store = q.indexOf("store");
+            check(portal >= 0 && store == portal + 1, "home first with 4 rods on him at 10 HP, no armor: the rods banked straight through the portal; blaze_rods said \"" + r + "\", queue " + q);
+            nsHome(c, h, level); pass(stage, t, r + " | " + q);
         }
         return true;
     }

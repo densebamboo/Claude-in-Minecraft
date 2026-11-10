@@ -68,10 +68,23 @@ public final class Decide {
     public static double hpS(ClaudeEntity g, double health, double sure, double hits, double perHit, int most, double food, double sat) {
         double per = Food.sPerHp(g, Math.max(0, sure) + Math.max(0, hits), food, sat), h0 = health - Math.max(0, sure); // (vanilla regen at his food and saturation, eating what he carries: Big Picture's Food)
         double s = (Math.max(0, sure) + Math.max(0, hits)) * per;
-        if (h0 <= 0) return s + w("danger.death_s", 1800);
+        if (h0 <= 0) return s + deathS(g);
         double floor = w("danger.min_hp_left", 4), ph = Math.max(0.5, perHit), lam = Math.max(0, hits) / ph;
         int kDie = (int) Math.ceil(h0 / ph), kFloor = (int) Math.ceil((h0 - floor) / ph);
-        return s + (kDie > most ? 0 : atLeast(lam, kDie)) * w("danger.death_s", 1800) + (kFloor > most ? 0 : atLeast(lam, kFloor)) * w("danger.under_floor_s", 300);
+        return s + (kDie > most ? 0 : atLeast(lam, kDie)) * deathS(g) + (kFloor > most ? 0 : atLeast(lam, kFloor)) * w("danger.under_floor_s", 300);
+    }
+    /**
+     * What a death costs him: danger.death_s, plus the dragon-path items on him he'd lose (they drop where he dies, into lava or
+     * fire as often as not in the Nether): each blaze rod danger.rod_s, pearl danger.pearl_s, eye both. He held rods three times
+     * 11-07..09 (1, 2, 4) and lost them on death each time, none ever banked: the price never knew they were on him.
+     * carriedWhatIf: a what-if with nothing carried (the bank-them-first option), null otherwise.
+     */
+    public static Double carriedWhatIf;
+    public static double deathS(ClaudeEntity g) { return w("danger.death_s", 1800) + (carriedWhatIf != null ? carriedWhatIf : carriedS(g)); }
+    public static double carriedS(ClaudeEntity g) {
+        if (g == null || g.inventory == null) return 0;
+        int rods = g.inventory.count(x -> x.is(net.minecraft.world.item.Items.BLAZE_ROD)), powder = g.inventory.count(x -> x.is(net.minecraft.world.item.Items.BLAZE_POWDER)), pearls = g.inventory.count(x -> x.is(net.minecraft.world.item.Items.ENDER_PEARL)), eyes = g.inventory.count(x -> x.is(net.minecraft.world.item.Items.ENDER_EYE));
+        return (rods + powder / 2.0 + eyes / 2.0) * w("danger.rod_s", 300) + (pearls + eyes) * w("danger.pearl_s", 200);
     }
     /** Hits at hitHp() each (a zombie's, Normal) through his armor. */
     public static double hpS(ClaudeEntity g, double hits) { return hpS(g, 0, hits, hitHp() * armorF(g)); }
@@ -83,7 +96,7 @@ public final class Decide {
     public static double creeperTailS(ClaudeEntity g, double hp) {
         double per = hitHp() * armorF(g); if (hp <= 0 || per <= 0) return 0;
         double lamC = hp / per * w("night.creeper_share", 0.07), blast = w("creeper.blast_hp", 22) * armorF(g), h = g.getHealth();
-        double cost = blast >= h ? w("danger.death_s", 1800) : h - blast < w("danger.min_hp_left", 4) ? w("danger.under_floor_s", 300) : 0;
+        double cost = blast >= h ? deathS(g) : h - blast < w("danger.min_hp_left", 4) ? w("danger.under_floor_s", 300) : 0;
         return atLeast(lamC, 1) * cost;
     }
     /** The chance of k or more hits when lam are expected (Poisson). */

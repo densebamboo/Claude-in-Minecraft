@@ -433,15 +433,15 @@ public final class FortressFight {
           double tough = g.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS); int left = goal - have;
           double now = fightS(g, g.getHealth(), g.getArmorValue(), tough, shield, false, left);
           boolean inVain = HuntPatrol.readiedInVain(g); double readyArmor = inVain ? g.getArmorValue() : Math.max(g.getArmorValue(), Weights.w("blaze.ready_armor", 15)); boolean readyShield = shield || !inVain;
-          double ready = fightS(g, 20, readyArmor, tough, readyShield, true, left);
+          double ready; if (have > 0) { Decide.carriedWhatIf = 0.0; try { ready = fightS(g, 20, readyArmor, tough, readyShield, true, left); } finally { Decide.carriedWhatIf = null; } } else ready = fightS(g, 20, readyArmor, tough, readyShield, true, left); // (home first banks the rods he has: the fight after it risks none of them)
           var portal = PortalMap.net(g).portals.stream().filter(p0 -> PortalMap.NETHER.equals(p0.dim)).min(java.util.Comparator.comparingDouble(p0 -> p0.at.distSqr(g.blockPosition()))).orElse(null);
           double trip = portal == null ? Weights.w("pearls.no_portal_s", 1800) : 2 * (Math.sqrt(portal.at.distSqr(g.blockPosition())) * PortalMap.NETHER_OFF_ROAD / Decide.sprint() + Weights.w("highway.portal_s", 8));
           var pick = Decide.choose(g, "blaze.ready", left + " rod(s) to go", true, List.of(
               Decide.Option.of("fight now", now, (int) g.getHealth() + " HP, armor " + g.getArmorValue() + (shield ? ", a shield" : ", no shield")),
-              Decide.Option.of("get ready first", trip + Weights.w("blaze.ready_s", 240) + ready, "through the portal and back ~" + Math.round(trip) + " s, gear_up's kit, then the fight at 20 HP, armor " + (int) readyArmor + (readyShield ? ", a shield" : "") + (inVain ? " (no armor came of the last go)" : ""))));
+              Decide.Option.of("get ready first", trip + Weights.w("blaze.ready_s", 240) + ready, "through the portal and back ~" + Math.round(trip) + " s, gear_up's kit, then the fight at 20 HP, armor " + (int) readyArmor + (readyShield ? ", a shield" : "") + (have > 0 ? ", his " + have + " rod(s) in his chest first" : "") + (inVain ? " (no armor came of the last go)" : ""))));
           if (pick != null && pick.name().equals("get ready first")) {
-              HuntPatrol.readying(g); g.skillQueue.addFirst(again); g.skillQueue.addFirst(new Skills.Step("enter_portal", "", 1)); g.skillQueue.addFirst(new Skills.Step("gear_up", "", 1)); g.skillQueue.addFirst(new Skills.Step("enter_portal", "", 1));
-              return "getting ready first: through the portal for armor and a shield (the blazes' fireballs at armor " + g.getArmorValue() + " priced ~" + Math.round(now) + " s against ~" + Math.round(trip + Weights.w("blaze.ready_s", 240) + ready) + " s geared)";
+              HuntPatrol.readying(g); g.skillQueue.addFirst(again); g.skillQueue.addFirst(new Skills.Step("enter_portal", "", 1)); g.skillQueue.addFirst(new Skills.Step("gear_up", "", 1)); if (have > 0) g.skillQueue.addFirst(new Skills.Step("store", "", 1)); g.skillQueue.addFirst(new Skills.Step("enter_portal", "", 1));
+              return "getting ready first: through the portal" + (have > 0 ? " to bank my " + have + " rod(s) and" : "") + " for armor and a shield (the blazes' fireballs at armor " + g.getArmorValue() + " priced ~" + Math.round(now) + " s against ~" + Math.round(trip + Weights.w("blaze.ready_s", 240) + ready) + " s geared)";
           } }
         observe(g, level);
         List<Blaze> bl = blazesNear(g, level, g.blockPosition(), 32);

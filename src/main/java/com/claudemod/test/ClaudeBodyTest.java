@@ -10903,6 +10903,7 @@ public final class ClaudeBodyTest {
             case 1279: return st1279(stage, t, c, h, level, mock);
             case 1280: return st1280(stage, t, c, h, level, mock);
             case 1281: return st1281(stage, t, c, h, level, mock);
+            case 1283: return st1283(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -23856,6 +23857,26 @@ public final class ClaudeBodyTest {
             check(fa != null && fa.item() == Items.COOKED_SALMON, "setup: the kit's pick isn't the salmon: " + said);
             check(said.contains("obtain cooked_salmon " + (fa.count() + 6)), "the kit asks " + fa.count() + " more with 6 on him, and the line doesn't name the step's total (" + (fa.count() + 6) + "): " + said);
             pass(stage, t, "the kit's line names the total to hold: " + said.substring(Math.max(0, said.indexOf("the pick"))));
+        }
+        return true;
+    }
+    private static int st1283T;
+    /** Stage 1283 (D2D 187/188/190, live 21:37-21:39 11-09 at the fortress, 318,56,441: 2 gravel, 12 soul sand, 12 magma on him, his netherrack gone; the made way put gravel ("MAY_DIG: 0 digs, 2 blocks put down"), doPlace refused it over air ("it would fall"), the way dropped and made again the same second, ~2 min on one diagonal step): a 2-wide gap over lava, that pack, a walk across. Over it in good time, no gravel thrown at the gap. */
+    private static boolean st1283(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(6, 8, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(-4, -7, -4), o.offset(9, 4, 4))) { int y = p.getY() - o.getY(), x = p.getX() - o.getX(); level.setBlock(p, y == -7 ? Blocks.STONE.defaultBlockState() : y == -6 ? Blocks.LAVA.defaultBlockState() : y == -1 && (x <= 0 || x >= 3) ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+            level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.GRAVEL, 2)); c.getInventory().add(new ItemStack(Items.SOUL_SAND, 12)); c.getInventory().add(new ItemStack(Items.MAGMA_BLOCK, 12)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(o.getX() - 1.5, o.getY(), o.getZ() + 0.5); mock[0].teleportTo(o.getX() - 1.5, o.getY() + 20, o.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear();
+        }
+        if (t[0] == 15) { c.tasks.add(new Task.GoTo(o.offset(6, 0, 0).immutable(), 0.6)); st1283T = t[0]; }
+        if (t[0] > 15) {
+            check(c.isAlive() && !c.isInLava() && c.getY() > o.getY() - 2, "into the gap at " + c.blockPosition().subtract(o).toShortString());
+            if (c.getX() > o.getX() + 4 && c.onGround()) { int took = t[0] - st1283T; check(took <= 20 * 12, "across a 2-wide gap in " + took / 20.0 + " s (a player: a few blocks and a walk, well under 12 s)"); pass(stage, t, "across the gap in " + took / 20.0 + " s, " + c.inventory.count(x -> x.is(Items.SOUL_SAND)) + " soul sand left, " + c.inventory.count(x -> x.is(Items.GRAVEL)) + " gravel"); }
+            else check(t[0] - st1283T < 20 * 20, "not across a 2-wide gap in 20 s (at " + c.blockPosition().subtract(o).toShortString() + ", task " + c.currentTask + ")");
         }
         return true;
     }

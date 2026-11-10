@@ -1213,7 +1213,7 @@ public class WorkGoal extends Goal {
             plannedAt().put(pos.immutable(), g.tickCount); if (plannedAt().size() > 64) plannedAt().clear(); airPlanFor = null; planningFor = null;
             long t0 = System.nanoTime();
             var mode = mayDig(pos) ? com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG : com.claudemod.entity.nav.ActionPath.Mode.NO_DIG;
-            ItemStack scaff = scaffoldBlock();
+            ItemStack scaff0 = scaffoldBlock(), scaff = solidScaffold(); // (the made way's puts: never a block that falls; doPlace won't set gravel over air, the way was dropped and made again the same second, ~2 min at 318,56,441, live 21:37 11-09, D2D 187/188/190, stage 1283; a tower takes gravel fine)
             boolean dirtOnHim = !scaff.isEmpty() && (scaff.is(net.minecraft.world.item.Items.DIRT) || scaff.is(net.minecraft.world.item.Items.GRASS_BLOCK) || scaff.is(net.minecraft.world.item.Items.COARSE_DIRT) || scaff.is(net.minecraft.world.item.Items.ROOTED_DIRT));
             boolean outside = g.level().canSeeSky(feetCell.above()) && !com.claudemod.director.ClaudeLife.inHisMine(g, feetCell);
             var plan = outside && !scaff.isEmpty() && !dirtOnHim ? com.claudemod.entity.nav.ActionPath.planSliced(g, (ServerLevel) g.level(), feetCell, pos, Math.max(within, 1.0), false, climbBudget(feetCell, pos), mode, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount, java.util.List.of(), 1.0) : null; if (plan == com.claudemod.entity.nav.ActionPath.PENDING) { planningFor = pos.immutable(); planningTick = g.tickCount; g.getNavigation().stop(); return false; } // (still searching: stood still, the walk on, the search on next tick) // (the user: out in the world only dirt is put down and left; with none on him, a way without placing first)
@@ -1242,8 +1242,8 @@ public class WorkGoal extends Goal {
             if (plan != null) { // a way on foot the vanilla path missed (over a ledge, through an open door): its waypoints
                 var tasks = com.claudemod.entity.nav.ActionPath.tasks(plan, feetCell, net.minecraft.world.item.Items.COBBLESTONE, pos, within);
                 if (tasks.size() > 1) { queueWay(tasks, "WorkGoal.walkTo"); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] route to {} found on foot ({} walks, {} waypoints): acts {} -> {} (WorkGoal.walkTo)", pos.toShortString(), plan.walks(), tasks.size() - 1, plan.acts(), tasks); return true; }
-            } else if (towerTo(pos, feetCell, scaff)) { return true;
-            } else if (bendWay(pos, within, feetCell, scaff, mode)) { return true;
+            } else if (towerTo(pos, feetCell, scaff0)) { return true;
+            } else if (bendWay(pos, within, feetCell, scaff0, mode)) { return true;
             } else if (level().dimension() == net.minecraft.world.level.Level.NETHER && com.claudemod.entity.life.FortressScout.bores(g, level()) && Math.abs(pos.getX() - feetCell.getX()) + Math.abs(pos.getZ() - feetCell.getZ()) >= 3
                     && !boreLineStopped(feetCell, pos)) { // the user 11-05: "he should be able to bridge over lava"; no walk there: straight there, lava paved and rock dug (review-186/192, live 13:06 the walk home ended 27 off at a lava gap)
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude route] no walk to {} from {} ({}): straight there instead, the lava paved and the rock dug (WorkGoal.walkTo)", pos.toShortString(), feetCell.toShortString(), mode);
@@ -1860,7 +1860,7 @@ public class WorkGoal extends Goal {
         if (g.tickCount - plannedAt().getOrDefault(planKey, -100000) > 60 || !Integer.valueOf(feet.hashCode()).equals(plannedAt().get(fromKey))) { // (once per 3 s from one spot; from a new spot, at once)
             if (plannedAt().size() > 64) plannedAt().clear(); plannedAt().put(planKey, g.tickCount); plannedAt().put(fromKey, feet.hashCode());
             long t0 = System.nanoTime();
-            ItemStack scaff = scaffoldBlock();
+            ItemStack scaff = solidScaffold();
             var plan = com.claudemod.entity.nav.ActionPath.plan(g, level, feet, pos, 3.2, !scaff.isEmpty(), 3000, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount);
             if (plan != null) {
                 var tasks = com.claudemod.entity.nav.ActionPath.tasks(plan, feet, scaff.isEmpty() ? net.minecraft.world.item.Items.COBBLESTONE : scaff.getItem(), pos, 3.2, level);
@@ -2008,7 +2008,11 @@ public class WorkGoal extends Goal {
     /** A block that stays where it's put (for plugs and patches): the scaffold choice without gravel or sand. */
     private ItemStack solidScaffold() {
         ItemStack s = scaffoldBlock();
-        return s.is(net.minecraft.world.item.Items.GRAVEL) || s.is(net.minecraft.world.item.Items.SAND) ? ItemStack.EMPTY : s;
+        if (!s.is(net.minecraft.world.item.Items.GRAVEL) && !s.is(net.minecraft.world.item.Items.SAND)) return s;
+        // it falls where nothing holds it: the wood past what he keeps back, as ActionPath.moveBlocks counts it (gravel picked for the made way with 48 logs on him, doPlace refused it over air, the way made again every second, ~2 min, live 21:37 11-09, stage 1283)
+        if (g.inventory.count(x -> x.is(net.minecraft.tags.ItemTags.PLANKS)) > com.claudemod.entity.life.Weights.w("scaffold.keep_planks", 8)) return g.inventory.find(x -> x.is(net.minecraft.tags.ItemTags.PLANKS));
+        if (g.inventory.count(x -> x.is(net.minecraft.tags.ItemTags.LOGS)) > com.claudemod.entity.life.Weights.w("scaffold.keep_logs", 4)) return g.inventory.find(x -> x.is(net.minecraft.tags.ItemTags.LOGS));
+        return ItemStack.EMPTY;
     }
 
     /** The biggest stack on him that fits. */
@@ -2029,6 +2033,8 @@ public class WorkGoal extends Goal {
         s0 = biggestStack(s -> s.is(net.minecraft.world.item.Items.ANDESITE) || s.is(net.minecraft.world.item.Items.DIORITE)
                 || s.is(net.minecraft.world.item.Items.GRANITE) || s.is(net.minecraft.world.item.Items.TUFF) || s.is(net.minecraft.world.item.Items.DEEPSLATE)
                 || s.is(net.minecraft.world.item.Items.STONE) || s.is(net.minecraft.world.item.Items.CALCITE) || s.is(net.minecraft.world.item.Items.NETHERRACK) || s.is(net.minecraft.world.item.Items.BLACKSTONE));
+        if (!s0.isEmpty()) return s0;
+        s0 = biggestStack(s -> s.is(net.minecraft.world.item.Items.SOUL_SAND) || s.is(net.minecraft.world.item.Items.SOUL_SOIL) || s.is(net.minecraft.world.item.Items.BASALT) || s.is(net.minecraft.world.item.Items.SMOOTH_BASALT) || s.is(net.minecraft.world.item.Items.NETHER_WART_BLOCK) || s.is(net.minecraft.world.item.Items.WARPED_WART_BLOCK) || s.is(net.minecraft.world.item.Items.END_STONE)); // the Nether's other solid blocks: they hold where gravel falls (12 soul sand on him, gravel chosen, live 21:37 11-09, stage 1283)
         if (!s0.isEmpty()) return s0;
         // gravel or sand: junk, but it stands on a block under him (a player in a pit with nothing else towers up on it)
         s0 = g.inventory.find(s -> s.is(net.minecraft.world.item.Items.GRAVEL) || s.is(net.minecraft.world.item.Items.SAND));

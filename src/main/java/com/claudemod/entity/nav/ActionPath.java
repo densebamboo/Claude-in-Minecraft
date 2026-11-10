@@ -416,7 +416,8 @@ public final class ActionPath {
     public static int moveBlocks(com.claudemod.entity.ClaudeEntity g) { return g.inventory.count(s -> s.is(net.minecraft.world.item.Items.DIRT) || s.is(net.minecraft.world.item.Items.GRASS_BLOCK) || s.is(net.minecraft.world.item.Items.COBBLESTONE)
                     || s.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE) || s.is(net.minecraft.world.item.Items.ANDESITE) || s.is(net.minecraft.world.item.Items.DIORITE) || s.is(net.minecraft.world.item.Items.GRANITE)
                     || s.is(net.minecraft.world.item.Items.TUFF) || s.is(net.minecraft.world.item.Items.DEEPSLATE) || s.is(net.minecraft.world.item.Items.STONE) || s.is(net.minecraft.world.item.Items.CALCITE)
-                    || s.is(net.minecraft.world.item.Items.NETHERRACK) || s.is(net.minecraft.world.item.Items.BLACKSTONE)) + spareWood(g); }
+                    || s.is(net.minecraft.world.item.Items.NETHERRACK) || s.is(net.minecraft.world.item.Items.BLACKSTONE)
+                    || s.is(net.minecraft.world.item.Items.SOUL_SAND) || s.is(net.minecraft.world.item.Items.SOUL_SOIL) || s.is(net.minecraft.world.item.Items.BASALT) || s.is(net.minecraft.world.item.Items.SMOOTH_BASALT) || s.is(net.minecraft.world.item.Items.NETHER_WART_BLOCK) || s.is(net.minecraft.world.item.Items.WARPED_WART_BLOCK) || s.is(net.minecraft.world.item.Items.END_STONE)) + spareWood(g); } // (scaffoldBlock's tiers, the same list: stage 1283)
     /** Planks and logs past what he keeps back for tools and a table: what WorkGoal.scaffoldBlock towers on when nothing else is left. */
     public static int spareWood(com.claudemod.entity.ClaudeEntity g) {
         return Math.max(0, g.inventory.count(s -> s.is(net.minecraft.tags.ItemTags.PLANKS)) - (int) com.claudemod.entity.life.Weights.w("scaffold.keep_planks", 8))

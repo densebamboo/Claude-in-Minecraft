@@ -59,7 +59,7 @@ public final class FortressFight {
     /** A blaze seen at {@code at}: where their spawner or spawning ground is. */
     public static void noteBlaze(ClaudeEntity g, BlockPos at) { blazeLast().put(g.getUUID(), new long[] {at.asLong(), serverT(g), 0}); }
 
-    public static void reset(ClaudeEntity g) { covers().remove(g.getUUID()); runs().remove(g.getUUID()); riskSaid().remove(g.getUUID()); }
+    public static void reset(ClaudeEntity g) { covers().remove(g.getUUID()); runs().remove(g.getUUID()); riskSaid().remove(g.getUUID()); blazeLast().remove(g.getUUID()); }
 
     private static java.util.Map<java.util.UUID, BlockPos> lastGap; // the last 2-high gap he fought a wither skeleton from (static: fields added live start null)
     public static boolean coverMob(Entity e) { return e instanceof Blaze || e instanceof WitherSkeleton; }

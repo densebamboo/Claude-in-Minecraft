@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1321: return st1321(stage, t, c, h, level, mock);
             case 1320: return st1320(stage, t, c, h, level, mock);
             case 1319: return st1319(stage, t, c, h, level, mock);
             case 1318: return st1318(stage, t, c, h, level, mock);
@@ -17273,6 +17274,40 @@ public final class ClaudeBodyTest {
             for (int x = -10; x <= 10; x++) for (int z = -10; z <= 10; z++) for (int y = -2; y <= 18; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
             check(d != null && d.getY() == o.getY() + 13, "the fortress walked to at " + (d == null ? "none" : d.toShortString()) + ": not up on its deck (y " + (o.getY() + 13) + "), his bore through its pillar is at y " + o.getY());
             nsHome(c, h, level); pass(stage, t, "its deck at " + d.toShortString());
+        }
+        return true;
+    }
+    /** Stage 1321 (D2D death-220, live 21:52:43-21:53:18 11-09 at 321,60,495: health 10, food 17, 7 cooked salmon, 4-5 blazes 5 off; "back into cover" every tick while Controls refused the step to it ("lava 29 below the open cell: not stepping off") 11 times, the queue [Eat, Wait, Eat, Attack] behind the held attack for 35 s, never a meal, 10 -> 5 -> dead): him at 10 HP, food 17, salmon and a shield, the cover 6 off behind a wall but the way to it shut, a blaze 5 off. He eats where he stands within 6 s. */
+    private static net.minecraft.world.entity.monster.Blaze s1321B;
+    private static boolean st1321(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13400, 64, 7720);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.FortressFight.reset(c); s1321B = null; }
+        if (t[0] < 29) nsTick(nl, c, o, t);
+        if (t[0] > 40 && t[0] % 10 == 0) for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) if (e != s1321B) e.discard();
+        if (t[0] == 10) {
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+            for (int x = -12; x <= 12; x++) for (int z = -12; z <= 12; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), y < 0 ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            for (int z = -3; z <= 3; z++) for (int y = 0; y <= 3; y++) nl.setBlock(o.offset(5, y, z), Blocks.NETHERRACK.defaultBlockState(), 2); // a wall: the cover behind it
+
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 7)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 90f, 0f); c.setHealth(10); c.getFoodData().setFoodLevel(17); c.getFoodData().setSaturation(0);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 29) { s1321B = net.minecraft.world.entity.EntityType.BLAZE.create(nl); s1321B.moveTo(o.getX() - 4.5, o.getY() + 1, o.getZ() + 0.5, 0, 0); s1321B.setPersistenceRequired(); nl.addFreshEntity(s1321B); s1321B.setTarget(c); }
+        if (t[0] == 36) { c.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN, 20 * 30, 255, false, false)); /* the walk to cover goes nowhere (live: Controls refused the step over the drop 11 times) */ c.getFoodData().setFoodLevel(17); c.getFoodData().setSaturation(0); com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 1321 food to 17, doing {} queue {}", c.currentTask, c.tasks); }
+        if (t[0] == 30) { c.stopUsingItem(); c.tasks.clear(); c.currentTask = null; c.setHealth(10); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(0); com.claudemod.entity.life.FortressFight.observe(c, nl); c.tasks.add(new Task.Attack(s1321B.getUUID(), 20 * 60)); }
+        if (t[0] > 30) {
+            boolean ate = t[0] > 36 && c.getFoodData().getFoodLevel() > 17;
+            if (ate || t[0] - 36 >= 200) {
+                if (s1321B != null) s1321B.discard(); c.removeAllEffects(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+                for (int x = -12; x <= 12; x++) for (int z = -12; z <= 12; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+                check(ate, "health 10, food 17, salmon on him, the walk to cover going nowhere: no meal in 10 s (" + c.lastSkillLine + ")");
+                nsHome(c, h, level); pass(stage, t, "ate where he stood " + (t[0] - 36) + " ticks in, " + c.lastSkillLine);
+            }
         }
         return true;
     }

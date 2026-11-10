@@ -469,6 +469,9 @@ public class WorkGoal extends Goal {
             if (g.tickCount - wsDugTick < 100 && !(current instanceof Task.Attack) && wsDug != null && (current instanceof Task.Place || current instanceof Task.Break || current instanceof Task.GoTo go0 && go0.pos().equals(wsDug))) { // making cover (WorkGoal.tallCover): a hit doesn't turn him back to the open fight (stage 555: the re-arm cleared the build mid-way, the next hit knocked him off it)
                 sdSay("coverbuild", "[Claude fight] hit by a {} while making cover (health {}): still at it, the fight from it after (WorkGoal.tick)", foe.getType().getDescription().getString(), (int) g.getHealth()); g.urgentAttacker = null; return;
             }
+            if (current instanceof Task.Eat && g.tickCount - cfEatTick < 60) { // the fight chose this meal where he stands (the way to cover went nowhere): a hit doesn't take it off him, the fight comes after it (death-220: [Eat] pushed back behind each new fight; stage 1321)
+                sdSay("fightmeal", "[Claude fight] hit by a {} mid-meal (health {}): eating on, the fight after it (WorkGoal.tick)", foe == null ? "?" : foe.getType().getDescription().getString(), (int) g.getHealth()); g.urgentAttacker = null; return;
+            }
             if (foe instanceof net.minecraft.world.entity.monster.Blaze && g.tickCount - blazeRetreatTick < 200 && !(current instanceof Task.Attack)) { // walking out of their sight: a fireball doesn't turn him back to fight (each hit re-armed the fight, the fight re-queued the walk; he stood on a fence burning 13 -> 0, World 15 12:40)
                 sdSay("blazewalk", "[Claude fight] hit by a Blaze while getting out of their sight (health {}): still going, the fight comes after (WorkGoal.tick)", (int) g.getHealth()); g.urgentAttacker = null; return;
             }
@@ -5861,6 +5864,8 @@ public class WorkGoal extends Goal {
         return false;
     }
 
+    private int cfEatTick = -100000; // (coverFight: when it chose a meal where he stands)
+    private double cfBackBest = Double.MAX_VALUE; private int cfBackTick = -1; // (coverFight: the nearest he got to the cover on the way back, and when)
     private boolean coverGap; // the last digInFromArrows said no for now: a melee mob too close to finish the cover (the cover proximity rule), so he runs for the gap
     private boolean noCoverGap(String why) { coverGap = true; return noCover(why); }
     /** The last no-cover was the gap kind (a mob too close to finish it, or the edge): run for the gap, cover after. */
@@ -6842,6 +6847,17 @@ public class WorkGoal extends Goal {
             net.minecraft.world.entity.monster.Blaze near = null; for (var b2 : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(4), net.minecraft.world.entity.Entity::isAlive)) if (b2.distanceTo(g) < 3.0 && g.hasLineOfSight(b2) && (near == null || b2.distanceTo(g) < near.distanceTo(g))) near = b2;
             if (near != null && near.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0) { cfClose(level, near, due, shield); return false; }
         }
+        if (backing && !inCover) { // the way back measured: a walk that isn't bringing him nearer is no way back (D2D death-220, live 21:52:43-21:53:18 11-09: "back into cover" 35 s while Controls refused the step to it, 10 -> 5 -> dead with 7 salmon on him and [Eat] queued behind the held attack; stage 1321)
+            double dc = Math.sqrt(g.distanceToSqr(cv.cover().getX() + 0.5, cv.cover().getY(), cv.cover().getZ() + 0.5));
+            if (cfBackTick < 0 || dc < cfBackBest - 0.5 || g.tickCount - cfBackTick > 20 * 30) { cfBackBest = dc; cfBackTick = g.tickCount; }
+            if (g.tickCount - cfBackTick > com.claudemod.entity.life.Weights.w("cover.back_stuck_ticks", 40)) { // no nearer in 2 s: the fight where he stands
+                net.minecraft.world.item.Item meal = g.getFoodData().getFoodLevel() < 20 ? com.claudemod.director.ClaudeLife.foodToEat(g, hp <= 6) : null;
+                String why = "the way back to cover hasn't brought him nearer in " + (g.tickCount - cfBackTick) / 20 + " s (" + String.format("%.1f", dc) + " off)";
+                if (due != null && shield) { g.getNavigation().stop(); g.setSprinting(false); shieldUp(due); cfSay("shield up where he stands", why + ": the volley on the shield here"); return false; }
+                if (meal != null) { g.getNavigation().stop(); shieldDown(); cfBackTick = g.tickCount; cfEatTick = g.tickCount; g.tasks.removeIf(x -> x instanceof Task.Eat); g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(meal)); cfSay("eating where he stands", why + ", health " + (int) hp + ", hunger " + g.getFoodData().getFoodLevel() + ", no volley due: " + BuiltInRegistries.ITEM.getKey(meal).getPath() + " now"); return true; }
+                cfSay("fighting where he stands", why + ", nothing to eat: the fight here, not a walk that goes nowhere"); cfBackTick = g.tickCount; cfHealing = false; backing = false;
+            }
+        } else if (inCover) cfBackTick = -1;
         if (backing) { // (an expert backs off with health to spare and heals all the way: food's plenty)
             cfHealing = true;
             if (!inCover && due != null && shield) { shieldUp(due); cfMove(cv.cover(), 1.0); /* walking back behind the shield: stopping for every volley, 6 blazes always had one due and he never made the 3 steps (12:22) */ cfSay("shield up on the way back", "health " + (int) hp + ", a volley due: on the shield, not on his back"); return false; }

@@ -4787,14 +4787,15 @@ public class WorkGoal extends Goal {
         }
         for (Container c : storeTargets) c.setChanged();
         if (g.storageChests.contains(t.pos())) { // more than this chest took: on to the next of his chests with room, like a player with a row of them
-            boolean left = false; int cobbleLeft = 0;
-            for (int i = 0; i < g.inventory.items.getContainerSize() && !left; i++) {
+            boolean left = false; int cobbleLeft = 0; int leftSlots = 0, leftWorth = 0; String leftWhat = "";
+            for (int i = 0; i < g.inventory.items.getContainerSize(); i++) {
                 ItemStack s = g.inventory.items.getItem(i);
                 if (s.isEmpty() || keeps(s)) continue;
                 if (s.is(net.minecraft.world.item.Items.COBBLESTONE) || s.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE)) continue; /* (cobble is never for his other chests, only the junk chest: a third stack of it sent him chest to chest, open-close, at 01:58) */ if (s.is(net.minecraft.tags.ItemTags.LOGS) || com.claudemod.director.ClaudeLife.junkItem(s)) continue; /* (left over means what his other chests take: never cobble, logs or junk; each one sent him chest to chest) */
                 if (com.claudemod.director.ClaudeLife.neededByPlan(g, s.getItem())) continue; // (kept for a queued step, as the store above keeps it: counted here it sent him chest to chest with 10 iron, 63 trips in 18 min, reviews 35/38, stage 1227)
-                left = true; com.claudemod.ClaudeMod.LOGGER.info("[Claude chest] {} x{} still on him after {}: on to his next chest for it", net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(s.getItem()).getPath(), s.getCount(), t.pos().toShortString());
+                left = true; leftSlots++; leftWorth += com.claudemod.director.ClaudeLife.lootValue(s); if (leftWhat.isEmpty()) leftWhat = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(s.getItem()).getPath() + " x" + s.getCount();
             }
+            if (left) com.claudemod.ClaudeMod.LOGGER.info("[Claude chest] {} stack(s) still on him after {} ({}{}, worth {}): his next chest with room?", leftSlots, t.pos().toShortString(), leftWhat, leftSlots > 1 ? " and more" : "", leftWorth);
             if (left) {
                 BlockPos partner = chestState.getBlock() instanceof net.minecraft.world.level.block.ChestBlock && chestState.getValue(net.minecraft.world.level.block.ChestBlock.TYPE) != net.minecraft.world.level.block.state.properties.ChestType.SINGLE
                         ? t.pos().relative(net.minecraft.world.level.block.ChestBlock.getConnectedDirection(chestState)) : null;
@@ -4804,6 +4805,11 @@ public class WorkGoal extends Goal {
                     if (p.equals(t.pos()) || p.equals(partner) || !(level.getBlockEntity(p) instanceof Container c) || c instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity) continue;
                     boolean room = false; for (int i = 0; i < c.getContainerSize() && !room; i++) room = c.getItem(i).isEmpty();
                     if (!room) continue;
+                    // the walk there priced against what it carries, like a player: the next of a row, valuables, a pile of stacks or a full pack go on; one flint 59 blocks off waits on him for the next store (D2D 26, live 07:38:39 11-10: a full chest, then 59 blocks and back for 1 flint)
+                    int walk = com.claudemod.director.ClaudeLife.routeDist(g, t.pos(), p); int free = 0; for (int i = 0; i < g.inventory.items.getContainerSize(); i++) if (g.inventory.items.getItem(i).isEmpty()) free++;
+                    if (walk > com.claudemod.entity.life.Weights.w("store.onward_walk", 8) && leftWorth == 0 && leftSlots < com.claudemod.entity.life.Weights.w("store.onward_slots", 4) && free >= com.claudemod.entity.life.Weights.w("store.free_slots_min", 4)) {
+                        com.claudemod.ClaudeMod.LOGGER.info("[Claude chest] kept on him: {} stack(s) worth nothing to stash, {} free slots, the next chest with room {} blocks off at {}: not worth the walk (WorkGoal.doDeposit)", leftSlots, free, walk, p.toShortString());
+                        break; }
                     g.tasks.addFirst(new Task.Deposit(p.immutable()));
                     g.tasks.addFirst(new Task.GoTo(p.immutable(), 2));
                     break;

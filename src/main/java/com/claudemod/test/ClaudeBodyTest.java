@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1386: return st1386(stage, t, c, h, level, mock);
             case 1385: return st1385(stage, t, c, h, level, mock);
             case 1384: return st1384(stage, t, c, h, level, mock);
             case 1383: return st1383(stage, t, c, h, level, mock);
@@ -18195,6 +18196,39 @@ public final class ClaudeBodyTest {
                 for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(base).inflate(12))) e.discard();
                 check(got, "8 s at food 2 with nothing to eat: the rotten flesh 3 off left on the ground (junk with 128 cobble on him)");
                 pass(stage, t, "the rotten flesh picked up at food 2 in " + (t[0] - s1385T) + " ticks");
+            }
+        }
+        return true;
+    }
+    /** Stage 1386 (D2D 26, live 07:38:39 11-10: his chest at 16,67,-46 full, "flint x1 still on him: on to his next chest for it", 59 blocks to -36,52,-22 and back for 1 flint): a full chest by him, another of his 14 off with room. One flint stays on him; a diamond left over still goes on. */
+    private static BlockPos s1386A, s1386B; private static int s1386Phase;
+    private static boolean st1386(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; s1386Phase = 0; }
+        if (t[0] == 10 || t[0] == 70) {
+            if (t[0] == 10) { flatBox(h); level.setDayTime(6000); }
+            BlockPos me = h.absolutePos(new BlockPos(1, 2, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(level, me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5, 0f, 0f);
+            s1386A = me.east().immutable(); s1386B = h.absolutePos(new BlockPos(15, 2, 8)).immutable();
+            for (BlockPos p : new BlockPos[] {s1386A, s1386B}) { if (level.getBlockEntity(p) instanceof net.minecraft.world.Container cc) cc.clearContent(); level.setBlock(p, Blocks.AIR.defaultBlockState(), 2); level.setBlock(p, Blocks.CHEST.defaultBlockState(), 2); c.storageChests.add(p); c.myStations.add(p); }
+            if (level.getBlockEntity(s1386A) instanceof net.minecraft.world.Container ca) for (int i = 0; i < ca.getContainerSize(); i++) ca.setItem(i, new ItemStack(Items.REDSTONE, i == 0 ? 60 : 64)); // full but for 4 redstone
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.REDSTONE, 4)); c.getInventory().add(new ItemStack(Items.FLINT, 1)); if (t[0] == 70) c.getInventory().add(new ItemStack(Items.DIAMOND, 2));
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.tasks.add(new Task.Deposit(s1386A)); s1386Phase = t[0];
+        }
+        if (s1386Phase > 0 && t[0] > s1386Phase && t[0] < s1386Phase + 50) {
+            java.util.List<Task> all = new java.util.ArrayList<>(c.tasks); if (c.currentTask != null) all.add(c.currentTask);
+            boolean toB = all.stream().anyMatch(k -> k instanceof Task.Deposit d0 && d0.pos().equals(s1386B) || k instanceof Task.GoTo gt && gt.pos().distSqr(s1386B) <= 9);
+            if (s1386Phase == 10 && (toB || t[0] == s1386Phase + 49)) {
+                int flint = c.getInventory().countItem(Items.FLINT), red = c.getInventory().countItem(Items.REDSTONE);
+                check(red == 0, "the 4 redstone not merged into the full chest's stack (" + red + " on him)");
+                check(!toB, "14 blocks on to his other chest for 1 flint");
+                check(flint == 1, "the flint gone from him: " + flint);
+                s1386Phase = -1;
+            }
+            if (s1386Phase == 70 && (toB || t[0] == s1386Phase + 49)) {
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.storageChests.remove(s1386A); c.storageChests.remove(s1386B); c.myStations.remove(s1386A); c.myStations.remove(s1386B); c.getInventory().clearContent();
+                for (BlockPos p : new BlockPos[] {s1386A, s1386B}) { if (level.getBlockEntity(p) instanceof net.minecraft.world.Container cc) cc.clearContent(); level.setBlock(p, Blocks.AIR.defaultBlockState(), 2); }
+                c.teleportTo(h.absolutePos(new BlockPos(8, 2, 8)).getX() + 0.5, h.absolutePos(new BlockPos(8, 2, 8)).getY(), h.absolutePos(new BlockPos(8, 2, 8)).getZ() + 0.5);
+                check(toB, "2 diamonds left over from a full chest and no trip on to his other chest with room");
+                pass(stage, t, "one flint kept on him, the diamonds on to the next chest");
             }
         }
         return true;

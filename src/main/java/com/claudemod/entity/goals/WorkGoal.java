@@ -6955,7 +6955,7 @@ public class WorkGoal extends Goal {
                 return false;
             }
             g.setSprinting(true); cfMove(under, 1.3);
-            cfSay("closing in", "the blaze is " + (age < 0 ? "quiet" : "lit " + age + " ticks") + ", " + (int) mob.distanceTo(g) + " off" + (shield ? ", shield ready" : ""));
+            cfSay("closing in", "the blaze is " + (age < 0 ? "quiet" : "lit " + age + " ticks") + ", " + String.format("%.1f", mob.distanceTo(g)) + " off" + (shield ? ", shield ready" : "") + ": to " + under.toShortString() + ", " + String.format("%.1f", Math.sqrt(g.distanceToSqr(Vec3.atBottomCenterOf(under)))) + " from it, " + (g.getNavigation().isDone() ? "no path" : "nav on")); // (D2D 188, 05:34 11-10: "closing in" and "waiting at the cover's edge" flipping each second for a minute at 13-14 off: the spot and the way to it on the log, to prove why)
             return false;
         }
         // out of reach (floating high) or no time: a bow and arrows on him: shot from where he stands while it's quiet (vanilla's blaze hangs back from a player it sees: it never comes to a sword); drawing a bow and holding a shield up can't both be done, so the volley's blocked first (above) and the shot taken between
@@ -6963,7 +6963,7 @@ public class WorkGoal extends Goal {
         BlockPos wait = shield ? cv.peek() : (age >= 0 ? cv.cover() : cv.peek());
         if (!com.claudemod.entity.life.FortressFight.at(g, wait)) cfMove(wait, 1.1); else g.getNavigation().stop();
         if (++cfIdle > 20 * 45) { cfSay("it stays out of reach", "45 s and the blaze never came in reach: done with this one"); return true; }
-        cfSay("waiting at " + (wait.equals(cv.peek()) ? "the cover's edge" : "cover"), (low ? "" : "the blaze is up out of reach, ") + (age >= 0 ? "lit " + age : "quiet") + ", " + (int) mob.distanceTo(g) + " off");
+        cfSay("waiting at " + (wait.equals(cv.peek()) ? "the cover's edge" : "cover"), (low ? "" : "the blaze is up out of reach, ") + (age >= 0 ? "lit " + age : "quiet") + ", " + String.format("%.1f", mob.distanceTo(g)) + " off" + (!time ? " (no time before its volley)" : low && mob.distanceTo(g) > 14 ? " (past the 14 to close in)" : "") + (g.inventory.count(x -> x.is(net.minecraft.world.item.Items.BOW)) > 0 && g.inventory.count(x -> x.is(net.minecraft.world.item.Items.ARROW)) == 0 ? ", a bow and no arrows" : ""));
         return false;
     }
 

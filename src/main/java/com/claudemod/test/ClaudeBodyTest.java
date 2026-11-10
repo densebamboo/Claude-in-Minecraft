@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1369: return st1369(stage, t, c, h, level, mock);
             case 1368: return st1368(stage, t, c, h, level, mock);
             case 1366: return st1366(stage, t, c, h, level, mock);
             case 1329: return st1329(stage, t, c, h, level, mock);
@@ -17627,6 +17628,34 @@ public final class ClaudeBodyTest {
             check(trip > worth, "armor 0, killed there by a skeleton he never saw, a creeper by the pile: the run back ~" + (int) trip + " s priced under the pile's ~" + (int) worth + " s (threat " + d.threat + ")");
             pass(stage, t, "the run back ~" + (int) trip + " s against the pile's ~" + (int) worth + " s (threat " + d.threat + "): left");
         }
+        return true;
+    }
+    /** Stage 1369 (D2D 188, live 05:08-05:35 11-10: "obtain bow -> crafted 1 bow", no arrows, into the Nether, a minute 23 off a blaze shooting nothing; 20 feathers in his chests): kit, portal, gold boots, food, blocks, flint and steel, a bow and no arrows, 4 feathers in his chest. The dragon path keeps the prep open for the arrows: the rules' step obtain arrow, the planner told so. */
+    private static int st1369At = -1;
+    private static boolean st1369(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos home = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { ledReset(c, level); ledFar = home.offset(40, 0, 0); c.planning = false; c.nextPlanTick = c.tickCount + 100000; com.claudemod.director.ClaudeLife.hisPortal.remove(c.getUUID()); st1369At = -1; }
+        if (t[0] % 10 == 0) { ledTicket(level, ledFar); ledTicket(level, home); }
+        if (t[0] == 5) {
+            flatBox(h); ledPad(level, ledFar); level.setBlock(ledFar, Blocks.CHEST.defaultBlockState(), 3);
+            c.storageChests.add(ledFar); c.myStations.add(ledFar);
+            ledDeposit(c, ledFar, new ItemStack(Items.FEATHER, 4));
+        }
+        if (t[0] > 5 && st1369At < 0 && ledCount(c, ledFar, Items.FEATHER) == 4 && c.inventory.count(s -> s.is(Items.FEATHER)) == 0 && c.currentTask == null && c.tasks.isEmpty()) {
+            st1369At = t[0]; ledTo(c, home); c.playerGoal = "beat the ender dragon"; c.prefs.put("stay_close", "no");
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.GOLDEN_BOOTS)); c.getInventory().add(new ItemStack(Items.FLINT_AND_STEEL)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 64)); btKit(c);
+            for (int i = 0; i < c.getInventory().getContainerSize(); i++) if (c.getInventory().getItem(i).is(Items.ARROW)) c.getInventory().setItem(i, ItemStack.EMPTY);
+            if (c.inventory.count(s -> s.is(Items.BOW)) == 0) c.getInventory().add(new ItemStack(Items.BOW));
+            com.claudemod.director.ClaudeLife.hisPortal.put(c.getUUID(), h.absolutePos(new BlockPos(3000, 2, 3000))); // (unloaded far off: taken as standing)
+        }
+        if (st1369At > 0 && t[0] == st1369At + 45) { btKit(c); for (int i = 0; i < c.getInventory().getContainerSize(); i++) if (c.getInventory().getItem(i).is(Items.ARROW)) c.getInventory().setItem(i, ItemStack.EMPTY); } // (the kit's food memo, 40 ticks, held the last stage's answer at setup)
+        if (st1369At > 0 && t[0] == st1369At + 90) {
+            String p = com.claudemod.director.ClaudeLife.dragonPath(c, level);
+            ledClear(level, ledFar); c.getInventory().clearContent(); c.playerGoal = ""; c.prefs.remove("stay_close"); com.claudemod.director.ClaudeLife.hisPortal.remove(c.getUUID());
+            check(p.contains("NEXT: Nether prep"), "bow, no arrows: NEXT isn't the Nether prep (a bow with no arrows counted as the bow): " + p);
+            check(p.contains("obtain arrow 16 before the portal"), "bow, no arrows: the planner isn't told the arrows are this step's: " + p);
+            pass(stage, t, "a bow and no arrows, feathers in his chest: the prep stays open for obtain arrow 16");
+        } else if (st1369At < 0 && t[0] > 5) check(t[0] < 200, "bow, no arrows: the 4 feathers never made his ledger (" + com.claudemod.entity.life.ChestLedger.book(c) + ")");
         return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */

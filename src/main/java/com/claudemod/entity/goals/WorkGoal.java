@@ -5209,8 +5209,14 @@ public class WorkGoal extends Goal {
                 || m instanceof net.minecraft.world.entity.FlyingMob || m.isNoGravity()) return false;
         if (!(m instanceof net.minecraft.world.entity.animal.IronGolem || m instanceof net.minecraft.world.entity.monster.Monster || m instanceof net.minecraft.world.entity.monster.hoglin.Hoglin)) return false; // (a hoglin is an Animal, not a Monster, in 1.21: it fights like one)
         double y = g.getY(); BlockPos f0 = g.blockPosition(); for (int d = 0; d <= 1; d++) { BlockPos q = f0.below(d); if (!g.level().getBlockState(q).getCollisionShape(g.level(), q).isEmpty()) { y = Math.max(y, q.getY() + 1); break; } } // (in the air settling onto his tower top counts: the fight starts as the last block goes in, him still rising; read by his height then, he "lost" the fight and jumped off, stage 826)
-        return y >= m.getBoundingBox().maxY + 0.05;
+        if (y < m.getBoundingBox().maxY + 0.05) return false;
+        // above its head is out of its reach only with no way up to him for it: on a slope or a rise it walks round (live 21:53 11-09: a zombie 27 off down a hill read as no threat, so "fight it", then the priced fight said run, review 233, stage 1285)
+        if (m.getUUID().equals(reachMob) && g.tickCount - reachTick < 20) return reachOut;
+        var way = m instanceof net.minecraft.world.entity.Mob mm ? mm.getNavigation().createPath(g, 1) : null;
+        reachMob = m.getUUID(); reachTick = g.tickCount; reachOut = way == null || !way.canReach();
+        return reachOut;
     }
+    private java.util.UUID reachMob; private int reachTick; private boolean reachOut; // (outOfItsReach's last path, for a second: shouldFlee asks it every tick of a fight)
 
     /** Swings to kill it with the best weapon he carries (the one he'll be holding once the fight starts). */
     private int hitsToKill(net.minecraft.world.entity.LivingEntity mob) {

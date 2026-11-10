@@ -10905,6 +10905,7 @@ public final class ClaudeBodyTest {
             case 1281: return st1281(stage, t, c, h, level, mock);
             case 1283: return st1283(stage, t, c, h, level, mock);
             case 1284: return st1284(stage, t, c, h, level, mock);
+            case 1285: return st1285(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -23904,6 +23905,40 @@ public final class ClaudeBodyTest {
                 c.blueprint = null; c.prefs.put("mine_model", "legacy");
                 check(there, "not through the gravel to " + s1284P.toShortString() + " in 20 s (at " + c.blockPosition().toShortString() + ", " + refused + " gate refusals)");
                 pass(stage, t, "dug the gravel column out and through in " + (t[0] - 10) / 20 + " s, " + refused + " gate refusals");
+            }
+        }
+        return true;
+    }
+    /** Stage 1285 (D2D review 233, live 21:53:33-21:53:36 11-09 at -177,69,20, naked after a respawn): his run's end on a rise 3 above the grass, a zombie 27 off down there. atEscape read "its head below his feet" as out of its reach, so nothing to run from, so "the fight is the better way again" and turned to it; 2 s on, closer, the priced fight said run (~174 s against ~25 s): run, fight, run. The zombie walks up the slope: the run's end prices it like the fight does, no turn to it. */
+    private static net.minecraft.world.entity.monster.Zombie s1285Z; private static int s1285S;
+    private static boolean st1285(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(12, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1285S = -1; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(96))) m.discard(); }
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(6000);
+            var st = Blocks.STONE.defaultBlockState();
+            for (int dx = -2; dx <= 2; dx++) for (int dz = -2; dz <= 2; dz++) for (int dy = 0; dy < 3; dy++) level.setBlock(at.offset(dx, dy, dz), st, 2); // a rise 3 high
+            for (int dz = -2; dz <= 2; dz++) { level.setBlock(at.offset(-3, 0, dz), st, 2); level.setBlock(at.offset(-3, 1, dz), st, 2); level.setBlock(at.offset(-4, 0, dz), st, 2); } // its slope, a block a step
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.teleportTo(at.getX() + 0.5, at.getY() + 3, at.getZ() + 0.5); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 40, at.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 12) {
+            var z = EntityType.ZOMBIE.create(level); z.moveTo(at.getX() - 10.5, at.getY(), at.getZ() + 0.5, 90, 0); z.setPersistenceRequired(); level.addFreshEntity(z); z.setTarget(c); s1285Z = z; c.setYRot(90f); c.setYHeadRot(90f); // (facing it: seen, as the live one was)
+        }
+        if (t[0] == 20) { // (the zombie seen and on him first)
+            ClaudeMod.LOGGER.info("[Claude test] 1285 zombie {} off, its target {}", (int) s1285Z.distanceTo(c), s1285Z.getTarget());
+            c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Flee(600));
+            try { var m = c.work.getClass().getDeclaredMethod("setEscape", String.class, BlockPos.class, BlockPos.class); m.setAccessible(true); m.invoke(c.work, "run", c.blockPosition(), null); } catch (Exception e) { throw new RuntimeException(e); }
+            s1285S = t[0];
+        }
+        if (s1285S > 0) {
+            boolean turned = java.util.stream.Stream.concat(c.tasks.stream(), java.util.stream.Stream.ofNullable(c.currentTask)).anyMatch(x -> x instanceof Task.Attack a0 && a0.target().equals(s1285Z.getUUID()));
+            if (turned || t[0] - s1285S >= 40) {
+                double off = s1285Z.distanceTo(c);
+                for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; s1285S = -1;
+                check(!turned, "his run's end turned him to the zombie " + (int) off + " off, bare-handed, the zombie on its way up the slope (out of its reach read from its height alone)");
+                pass(stage, t, "the run's end priced the zombie that walks up the slope: no turn to it");
             }
         }
         return true;

@@ -18715,7 +18715,7 @@ public final class ClaudeBodyTest {
             BlockPos to = new BlockPos(-77, from.getY() + up, 135); int budget = 3000 + 400 * Math.max(0, up - 4); // (WorkGoal.climbBudget)
             long t0 = System.nanoTime();
             var plan = com.claudemod.entity.nav.ActionPath.plan(c, nether, c.blockPosition(), to, 1.5, true, budget, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, null, 0); String which = "plain";
-            if (plan == null) { plan = com.claudemod.entity.nav.ActionPath.plan(c, nether, c.blockPosition(), to, 1.5, true, budget * 2, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, null, 0, java.util.List.of(), 2.5); which = "greedy"; } // (WorkGoal.walkTo's Nether retry)
+            if (plan == null) { plan = com.claudemod.entity.nav.ActionPath.plan(c, nether, c.blockPosition(), to, 1.5, true, budget * 2, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, null, 0, java.util.List.of(), com.claudemod.entity.nav.ActionPath.lineWeight(nether, c.blockPosition(), to)); which = "greedy"; } // (WorkGoal.walkTo's retry: weighted by the straight line's own cost)
             long ms = (System.nanoTime() - t0) / 1_000_000;
             check(plan != null, "the tower leg " + up + " up from " + c.blockPosition().toShortString() + " to " + to.toShortString() + ": no way, plain or greedy (" + ms + " ms)");
             how.append(up).append(" up (").append(which).append("): ").append(plan.acts().size()).append(" acts, ").append(plan.puts()).append(" put, ").append(plan.digs()).append(" dug, ").append(ms).append(" ms; ");

@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1370: return st1370(stage, t, c, h, level, mock);
             case 1369: return st1369(stage, t, c, h, level, mock);
             case 1368: return st1368(stage, t, c, h, level, mock);
             case 1366: return st1366(stage, t, c, h, level, mock);
@@ -17656,6 +17657,45 @@ public final class ClaudeBodyTest {
             check(p.contains("obtain arrow 16 before the portal"), "bow, no arrows: the planner isn't told the arrows are this step's: " + p);
             pass(stage, t, "a bow and no arrows, feathers in his chest: the prep stays open for obtain arrow 16");
         } else if (st1369At < 0 && t[0] > 5) check(t[0] < 200, "bow, no arrows: the 4 feathers never made his ledger (" + com.claudemod.entity.life.ChestLedger.book(c) + ")");
+        return true;
+    }
+    /** Stage 1370 (D2D death 73, live 05:38:25-36 11-10: walled in from 6 blazes at 276,65,531, health 17 burning; the cover coverFor had just built 3 cells off at 276,65,528 stood, so the next tick's "back into cover" walked him to it, digging out two of his fresh walls; the referee kept them open, a wither skeleton came in the gap, 13 -> 0): a bare hall, two blazes up, health 10 and burning, walled in; then a cover stands 3 off. The box stands while he's hurt. */
+    private static int s1370T, s1370Boxed; private static boolean s1370Opened; private static BlockPos s1370Box; private static String s1370Mode = "";
+    private static boolean st1370(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13200, 70, 7900);
+        if (t[0] == 1) { scenarioReset(c); s1370T = -1; s1370Boxed = -1; s1370Opened = false; s1370Box = null; }
+        if (t[0] % 10 == 0 || t[0] < 10) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 5) {
+            for (int x = -14; x <= 14; x++) for (int z = -14; z <= 14; z++) for (int y = -2; y <= 12; y++) nl.setBlock(o.offset(x, y, z), (y < 0 || y == 12 || Math.abs(x) == 14 || Math.abs(z) == 14 ? Blocks.NETHER_BRICKS : Blocks.AIR).defaultBlockState(), 2);
+            nsKit(c); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 32)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 15) for (int k = 0; k < 2; k++) { var bz = EntityType.BLAZE.create(nl); bz.moveTo(o.getX() + 9.5, o.getY() + 4, o.getZ() + 0.5 + k * 3, 90, 0); bz.setNoAi(true); bz.setPersistenceRequired(); nl.addFreshEntity(bz); }
+        if (t[0] == 20) { var b = nl.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(o).inflate(20)).get(0);
+            c.setHealth(10); c.setRemainingFireTicks(100); c.tasks.clear(); c.skillQueue.clear();
+            c.tasks.add(new com.claudemod.entity.life.Task.Attack(b.getUUID(), 20 * 30)); s1370T = t[0]; }
+        if (s1370T > 0) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.clear();
+            BlockPos f = c.blockPosition(); int walls = 0, roof = nl.getBlockState(f.above(2)).isAir() ? 0 : 1; for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) if (!nl.getBlockState(f.relative(d)).isAir() && !nl.getBlockState(f.relative(d).above()).isAir()) walls++;
+            if (s1370Boxed < 0 && walls == 4 && roof == 1) { s1370Boxed = t[0]; s1370Box = f;
+                BlockPos cv = f.offset(-3, 0, 0); // the cover coverFor built 3 off, finished behind the box (live: 276,65,528, its 4 blocks went in after the box's), held as his cover
+                for (BlockPos q : new BlockPos[] {cv.east(), cv.east().above(), cv.north(), cv.north().above(), cv.south(), cv.south().above(), cv.above(2), cv.above(2).east()}) nl.setBlock(q, Blocks.NETHER_BRICKS.defaultBlockState(), 2);
+                try { var fld = com.claudemod.entity.life.FortressFight.class.getDeclaredField("covers"); fld.setAccessible(true); @SuppressWarnings("unchecked") var m = (java.util.Map<java.util.UUID, com.claudemod.entity.life.FortressFight.Cover>) fld.get(null);
+                    m.put(c.getUUID(), new com.claudemod.entity.life.FortressFight.Cover(cv, cv.west(), cv, "blaze", "built: 4 blocks at " + cv.toShortString() + " (stage 1370)", c.tickCount)); } catch (ReflectiveOperationException e) { check(false, "setup: " + e); }
+                c.setHealth(10); c.setRemainingFireTicks(60); }
+            if (s1370Boxed > 0 && t[0] - s1370Boxed < 20 * 8 && c.getHealth() < c.getMaxHealth()) { String md = cfMode(c);
+                if (walls < 4 || !f.equals(s1370Box) || java.util.Set.of("back into cover", "fighting where he stands", "shield up on the way back", "closing in", "waiting at the cover's edge").contains(md)) { s1370Opened = true; s1370Mode = md; } } }
+        if (s1370T > 0 && (s1370Opened || t[0] >= s1370T + 20 * 15)) {
+            boolean boxed = s1370Boxed > 0, opened = s1370Opened; float hp = c.getHealth(); BlockPos at = c.blockPosition();
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.clearFire();
+            for (var b : nl.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(o).inflate(40))) b.discard();
+            for (int x = -14; x <= 14; x++) for (int z = -14; z <= 14; z++) for (int y = -2; y <= 12; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(20))) e.discard();
+            nsHome(c, h, level);
+            check(boxed, "never walled in: two blazes in a bare hall, health 10 and burning (health now " + hp + ")");
+            check(!opened, "walled in at " + (s1370Box == null ? "?" : s1370Box.toShortString()) + ", then out of his box or set on leaving it (at " + at.toShortString() + ", \"" + s1370Mode + "\") within 8 s, hurt, the blazes still there, for a cover 3 off");
+            pass(stage, t, "boxed in, a cover 3 off, the box stood while he healed (health " + hp + ")");
+        }
         return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */

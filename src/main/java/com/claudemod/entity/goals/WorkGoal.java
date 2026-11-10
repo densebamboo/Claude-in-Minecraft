@@ -6759,6 +6759,7 @@ public class WorkGoal extends Goal {
         }
         return null;
     }
+    private BlockPos cfBoxAt; // the box blazeRetreat walled him into: his cover till he's healed (lazy: a field added live starts null)
     private Boolean blazeRetreat(Task.Attack t, net.minecraft.world.entity.LivingEntity mob) {
         ServerLevel level = (ServerLevel) g.level();
         var blazes = level.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(48), this::shootsHere);
@@ -6807,7 +6808,7 @@ public class WorkGoal extends Goal {
                 for (int i = box.size() - 1; i >= 0; i--) g.tasks.addFirst(new Task.Place(box.get(i).immutable(), blocks.getItem()));
                 g.getNavigation().stop(); shieldDown();
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] health {}{}, no cell out of {} blaze(s)' sight within 24 steps: walled in where he stands ({} {} at feet, head and over him), then food, then the fight (WorkGoal.blazeRetreat)", (int) g.getHealth(), g.isOnFire() ? ", burning" : "", blazes.size(), box.size(), com.claudemod.entity.life.Crafting.name(blocks.getItem()));
-                cfMode = "walling in"; return true;
+                cfBoxAt = feet.immutable(); cfMode = "walling in"; return true;
             }
         }
         g.tasks.addFirst(new Task.Flee(20 * 10));
@@ -6852,6 +6853,9 @@ public class WorkGoal extends Goal {
         if (ticks == 1 && !mob.getUUID().equals(cfTarget)) { cfTarget = mob.getUUID(); cfMode = ""; cfIdle = 0; } // (a fight carried on past its clock keeps its counters)
         if (ticks >= t.maxTicks() - 1 && cfIdle < 20 * 20 && mob.distanceTo(g) < 24) { ticks = 2; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the {} is still on: the same fight goes on from cover past its {} s (WorkGoal.coverFight)", mob.getType().getDescription().getString(), t.maxTicks() / 20); } // (in place: a new task left a tick with no fight, and self-defence armed a second, plain one on the blaze) // (a fight from cover is slow by design: its clock running out left him idle in the gap and the follow rule walked him out)
         var cv = com.claudemod.entity.life.FortressFight.coverFor(g, level, mob);
+        if (cfBoxAt != null) { // in the box he walled himself into, hurt or burning: it's his cover till he's healed, never dug out for a cover elsewhere (D2D death 73, live 05:38:25-36 11-10: walled in at 276,65,531, the next tick's "back into cover" walked him to the cover built 3 off at 276,65,528, two of his fresh walls dug out, a wither skeleton in through the gap, 13 -> 0; stage 1370)
+            if (!BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()).equals(cfBoxAt) || g.getHealth() >= g.getMaxHealth() && !g.isOnFire()) cfBoxAt = null;
+            else if (blaze) { Boolean r = blazeRetreat(t, mob); if (r != null) return r; } }
         if ((cv == null || blaze && !com.claudemod.entity.life.FortressFight.unbuilt(g, level, cv).isEmpty()) && blaze && g.getHealth() < g.getMaxHealth() && blazeRetreatPays()) { Boolean r = blazeRetreat(t, mob); if (r != null) return r; } // (priced, blaze.retreat: was "health 12 or less, 14 on fire") // (hurt, no cover: out of their sight first, never the open fight; World 15 10:09 burned to death "in the open" at 6) // (a cover still to build is no cover yet: hurt, the retreat's own choice first, the full box where nowhere's out of sight; stage 947)
         if (cv == null && !blaze) { Boolean wp = witherHole(t, mob); if (wp != null) return wp; } // (no 2-high gap for a wither skeleton: he digs a 2-high gap, never the open fight; World 15 19:00, two of them in the open, dead)
         if (cv == null) { if (ticks == 1) cfSay("in the open", "no cover for this " + mob.getType().getDescription().getString() + " here: the ordinary fight, shield and crits"); return null; }

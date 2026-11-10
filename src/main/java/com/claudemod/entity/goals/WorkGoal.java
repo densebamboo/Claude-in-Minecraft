@@ -2809,6 +2809,8 @@ public class WorkGoal extends Goal {
     /** Steps of the way to the torch he's on when that way is far past his walk back for it (doWallTorch drops it next tick), else 0. */
     private int torchFar;
     private boolean torchTooFar(int steps) { if (!(current instanceof Task.WallTorch wt) || steps <= torchBack(wt) * com.claudemod.entity.life.Weights.w("torch.way_over_back", 1.5)) return false; torchFar = steps; return true; }
+    /** A torch skipped for where he can stand: remembered as a failed place, so his torch rounds don't queue it again while nothing round it or him has changed (review 35, live 22:44 11-09: queued again every 10 s till the 45 s stuck rung; stage 1291). */
+    private void torchOff(BlockPos pos, String why) { g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, g.tickCount, g.blockPosition(), com.claudemod.entity.life.Attempts.Reason.NO_PATH, why); }
     private boolean doWallTorch(Task.WallTorch t) {
         ServerLevel level = (ServerLevel) g.level();
         boolean slot = com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.isTorchSlot(t.pos()); // a slot of his blueprint mine: exactly there. The eye-level guess read the world mid-dig: a step's bottom block still to dig lifted the torch a block, a floor mined out for ore dropped it one (world 14's stairs: 0, +1, -1 off the step)
@@ -2832,13 +2834,13 @@ public class WorkGoal extends Goal {
         BlockPos under = pos; for (int k = 0; k < 3 && !level.getBlockState(under.below()).isFaceSturdy(level, under.below(), Direction.UP); k++) under = under.below(); // (the floor under the torch's cell, not the cell: a torch up on a 3-high wall is mid-air, live 05:13-05:50 11-07 NO_PATH to it from the notch under its wall for 40 min)
         if (!inReach(pos)) {
             if (!g.blockPosition().equals(under) && ticks < 200) { if (under.distSqr(g.blockPosition()) <= 2) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(under.getX() + 0.5, under.getY(), under.getZ() + 0.5, 0.5); } else walkTo(under, 0.4); return false; } // onto it, not near it: the notch 1 off it is where the wall's face is out of sight and reach (a step: a nudge, a walk "arrives" a block short)
-            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] torch at {} on the {} wall: out of reach from the floor under it, skipped", pos.toShortString(), t.wall().getName());
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] torch at {} on the {} wall: out of reach from the floor under it, skipped", pos.toShortString(), t.wall().getName()); torchOff(pos, "out of reach from the floor under it");
             return true;
         }
         Vec3 face = Vec3.atCenterOf(wall).subtract(t.wall().getStepX() * 0.5, 0, t.wall().getStepZ() * 0.5);
         if (!com.claudemod.entity.life.Perception.clear(level, g.getEyePosition(), face.add(t.wall().getStepX() * -0.05, 0, t.wall().getStepZ() * -0.05))) { // the wall's face out of his sight (round a corner, behind a block): no torch clicked through it; up to the torch's own cell for a look, else skipped (no sensing through walls: the one place path that skipped the check)
             if (!g.blockPosition().equals(under) && ticks < 200) { if (under.distSqr(g.blockPosition()) <= 2) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(under.getX() + 0.5, under.getY(), under.getZ() + 0.5, 0.5); } else walkTo(under, 0.4); return false; } // onto it, not near it: a notch 1 off it is where the face can't be seen
-            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] torch at {} on the {} wall: can't see that face from where he can stand, skipped", pos.toShortString(), t.wall().getName());
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] torch at {} on the {} wall: can't see that face from where he can stand, skipped", pos.toShortString(), t.wall().getName()); torchOff(pos, "its face out of sight from where he can stand");
             return true;
         }
         g.getNavigation().stop();

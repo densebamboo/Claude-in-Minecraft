@@ -10916,6 +10916,7 @@ public final class ClaudeBodyTest {
             case 1288: return st1288(stage, t, c, h, level, mock);
             case 1289: return st1289(stage, t, c, h, level, mock);
             case 1290: return st1290(stage, t, c, h, level, mock);
+            case 1291: return st1291(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -24185,6 +24186,32 @@ public final class ClaudeBodyTest {
             c.blueprint = null; c.prefs.put("mine_model", "legacy"); level.setBlock(lava, Blocks.STONE.defaultBlockState(), 2); level.setBlock(lava.relative(side), Blocks.STONE.defaultBlockState(), 2);
             check(held == null, "the hole's patch held for ore the lava keeps him from: " + held);
             pass(stage, t, "the patch not held for ore behind it he can't take (lava beside it)");
+        }
+        return true;
+    }
+    /** Stage 1291 (D2D review 35, live 22:44-22:45 11-09 World 17: the torch at -38,17,-313 "out of reach from the floor under it, skipped" every 10 s, queued again each time, till the 45 s stuck rung): a wall torch whose floor he can't get to is skipped once, and the skip is remembered, so the same torch isn't queued again while nothing has changed. */
+    private static int st1291T;
+    private static boolean st1291(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1291T = -1; level.setDayTime(6000); flatBox(h); }
+        BlockPos me = h.absolutePos(new BlockPos(2, 2, 3)), tp = h.absolutePos(new BlockPos(7, 3, 1));
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            for (int x = 0; x <= 10; x++) for (int z = 0; z <= 5; z++) for (int y = 1; y <= 5; y++) { boolean tunnel = (y == 2 || y == 3) && z == 3 && x >= 1 && x <= 9, pocket = (y == 2 || y == 3) && z == 1 && x == 7; level.setBlock(h.absolutePos(new BlockPos(x, y, z)), (tunnel || pocket ? Blocks.AIR : x >= 6 && x <= 8 && z <= 2 ? Blocks.BEDROCK : Blocks.STONE).defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.TORCH, 8)); c.getInventory().add(new ItemStack(Items.BREAD, 4));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.tasks.add(new Task.WallTorch(tp.immutable(), net.minecraft.core.Direction.NORTH)); st1291T = t[0]; }
+        if (st1291T > 0) {
+            boolean on = c.currentTask instanceof Task.WallTorch || c.tasks.stream().anyMatch(x -> x instanceof Task.WallTorch);
+            check(!level.getBlockState(tp).is(Blocks.WALL_TORCH), "setup: the torch went up in a pocket sealed off by bedrock");
+            if (!on && t[0] - st1291T > 3) { // skipped: the mine's torch rounds queue it again, as they did every 10 s live
+                c.tasks.add(new Task.WallTorch(tp.immutable(), net.minecraft.core.Direction.NORTH));
+                boolean again = c.tasks.stream().anyMatch(x -> x instanceof Task.WallTorch);
+                check(!again, "the torch he just skipped as out of reach was queued again, nothing changed (" + (t[0] - st1291T) + " ticks in)");
+                pass(stage, t, "out of reach, skipped after " + (t[0] - st1291T) + " ticks, and not queued again while that holds");
+                return true;
+            }
+            check(t[0] - st1291T < 20 * 30, "30 s on a torch he can't get to");
         }
         return true;
     }

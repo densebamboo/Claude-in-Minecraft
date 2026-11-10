@@ -7021,7 +7021,9 @@ public class WorkGoal extends Goal {
         boolean time = shield || age < 0 || age < 24; // quiet, or lit just now: time to get there and back before the shots
         net.minecraft.world.entity.monster.Blaze other = null; for (var b2 : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(24), net.minecraft.world.entity.Entity::isAlive)) if (b2 != mob && com.claudemod.entity.life.FortressFight.chargeAge(g, b2) >= 16 && b2.hasLineOfSight(g)) other = b2;
         if (other != null && low && time) { if (shield) { g.getNavigation().stop(); shieldUp(other); } cfSay("one at a time", "another blaze " + (int) other.distanceTo(g) + " off is lit and sees him: no walking out under its volley"); if (!shield && !inCover) cfMove(cv.cover(), 1.3); return false; }
-        if (low && time && mob.distanceTo(g) <= 14) {
+        // a bow and arrows on him: a blaze out of sword reach is shot from cover's edge at any height, never walked out to (D2D review 093355-37, live 09:32 11-10: a blaze 2 below him, "closing in" to a stand across lava he couldn't reach, 15 s held, a bow and 16 arrows never drawn; stage 1450). Closing in stays the way without one.
+        boolean bowOn = g.inventory.count(s0 -> s0.is(net.minecraft.world.item.Items.BOW)) > 0 && g.inventory.count(s0 -> s0.is(net.minecraft.world.item.Items.ARROW)) > 0;
+        if (low && time && mob.distanceTo(g) <= 14 && !bowOn) {
             Vec3 toMe = g.position().subtract(mob.position()).multiply(1, 0, 1); if (toMe.length() < 0.01) toMe = new Vec3(1, 0, 0);
             Vec3 spot = mob.position().add(toMe.normalize().scale(2.7)); // in his reach, out of its touch
             BlockPos under = BlockPos.containing(spot.x, mob.getY(), spot.z);
@@ -7039,7 +7041,7 @@ public class WorkGoal extends Goal {
             return false;
         }
         // out of reach (floating high) or no time: a bow and arrows on him: shot from where he stands while it's quiet (vanilla's blaze hangs back from a player it sees: it never comes to a sword); drawing a bow and holding a shield up can't both be done, so the volley's blocked first (above) and the shot taken between
-        if (!low || mob.distanceTo(g) > 14) { boolean drawingBow = g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW); if (canHit(mob) && (age < 0 || drawingBow)) { if (shootAt(mob)) { cfIdle = 0; cfSay("shooting it", "the blaze is " + (low ? "" : "up ") + "out of sword reach, " + (int) mob.distanceTo(g) + " off and quiet: arrows"); return false; } } }
+        if (!low || mob.distanceTo(g) > 14 || bowOn) { boolean drawingBow = g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW); if (canHit(mob) && (age < 0 || drawingBow)) { if (shootAt(mob)) { cfIdle = 0; cfSay("shooting it", "the blaze is " + (low ? "" : "up ") + "out of sword reach, " + (int) mob.distanceTo(g) + " off and quiet: arrows"); return false; } } }
         BlockPos wait = shield ? cv.peek() : (age >= 0 ? cv.cover() : cv.peek());
         if (!com.claudemod.entity.life.FortressFight.at(g, wait)) cfMove(wait, 1.1); else g.getNavigation().stop();
         if (++cfIdle > 20 * 45) { cfSay("it stays out of reach", "45 s and the blaze never came in reach: done with this one"); return true; }

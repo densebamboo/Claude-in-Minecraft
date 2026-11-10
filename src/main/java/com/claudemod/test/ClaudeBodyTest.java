@@ -8044,7 +8044,7 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
-        if ((stage[0] >= 494 && stage[0] <= 1099 || stage[0] >= 1130 && stage[0] <= 1449) && stages494(stage, t, c, h, level, mock)) return true; // (1150-1199: Big Picture's next range)
+        if ((stage[0] >= 494 && stage[0] <= 1099 || stage[0] >= 1130 && stage[0] <= 1599) && stages494(stage, t, c, h, level, mock)) return true; // (1150-1199: Big Picture's next range)
         if (stage[0] >= 1100 && stage[0] < 1100 + BENCH.length - 16) return bench(stage, t, c, h, level); // (the combat benchmark, part 2: every enemy type, mixed groups)
         if (stage[0] >= 279 && stage[0] <= 285) {
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Whereabouts.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.ExactSpot.reset(c); com.claudemod.director.Primitives.reset(c);
@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1450: return st1450(stage, t, c, h, level, mock);
             case 1387: return st1387(stage, t, c, h, level, mock);
             case 1386: return st1386(stage, t, c, h, level, mock);
             case 1385: return st1385(stage, t, c, h, level, mock);
@@ -18262,6 +18263,41 @@ public final class ClaudeBodyTest {
                 check(mined, "the iron ore 3 off not mined in 20 s (last: " + l + ")");
                 check(on && fails < 2, "after the ore: the strip_mine step again " + fails + " time(s) as a failure, the plan not on to the smelt (last: " + l + "; plan " + q + ")");
                 pass(stage, t, "the ore mined once, on to: " + l);
+            }
+        }
+        return true;
+    }
+    /** Stage 1450 (D2D review 093355-37, live 09:32:05-22 11-10 at 316,65,496: a blaze 2 below him, 5 off, "closing in" to a stand he couldn't reach (lava under the way), 15 s held, "FIGHT NO EFFECT", a bow and 16 arrows on him never drawn): a blaze at his level 9 off across a lava gap, quiet; bow, arrows, shield, sword. He shoots it. */
+    private static net.minecraft.world.entity.monster.Blaze s1450B; private static int s1450T;
+    private static boolean st1450(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1450B = null; s1450T = -1; }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) if (e != s1450B) e.discard();
+        if (t[0] == 10) {
+            for (int x = -8; x <= 16; x++) for (int z = -6; z <= 6; z++) for (int y = -3; y <= 6; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (int x = -8; x <= 16; x++) for (int z = -2; z <= 2; z++) { level.setBlock(o.offset(x, -2, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); level.setBlock(o.offset(x, -1, z), x >= 3 && x <= 6 ? Blocks.LAVA.defaultBlockState() : Blocks.NETHER_BRICKS.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().items.set(1, new ItemStack(Items.BOW)); c.getInventory().items.set(2, new ItemStack(Items.ARROW, 16)); c.getInventory().items.set(3, new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().selected = 0;
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 45, o.getZ() + 0.5, 0f, 0f);
+            level.setDayTime(6000);
+        }
+        if (t[0] == 20) {
+            s1450B = EntityType.BLAZE.create(level); s1450B.moveTo(o.getX() + 9.5, o.getY(), o.getZ() + 0.5, 90, 0); s1450B.setPersistenceRequired(); s1450B.setNoAi(true); s1450B.setNoGravity(true); level.addFreshEntity(s1450B);
+            c.tasks.add(new Task.Attack(s1450B.getUUID(), 20 * 60)); s1450T = t[0];
+        }
+        if (s1450T > 0 && t[0] > s1450T) {
+            c.getFoodData().setFoodLevel(20);
+            boolean hurt = !s1450B.isAlive() || s1450B.getHealth() < s1450B.getMaxHealth();
+            if (hurt || t[0] > s1450T + 20 * 20) {
+                int arrows = c.getInventory().countItem(Items.ARROW); String said = c.lastSkillLine;
+                s1450B.discard(); for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.projectile.AbstractArrow.class, new net.minecraft.world.phys.AABB(o).inflate(30))) e.discard();
+                for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl != net.minecraft.world.entity.EquipmentSlot.MAINHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); if (c.isUsingItem()) c.stopUsingItem();
+                for (int x = -8; x <= 16; x++) for (int z = -2; z <= 2; z++) { level.setBlock(o.offset(x, -1, z), Blocks.AIR.defaultBlockState(), 2); level.setBlock(o.offset(x, -2, z), Blocks.AIR.defaultBlockState(), 2); }
+                flatBox(h); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5);
+                check(hurt, "20 s at a quiet blaze 9 off across lava with a bow and 16 arrows: not a hit (" + arrows + " arrows left)");
+                pass(stage, t, "the blaze across the lava shot: " + (16 - arrows) + " arrow(s), " + (t[0] - s1450T) + " ticks");
             }
         }
         return true;

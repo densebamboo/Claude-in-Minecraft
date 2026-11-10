@@ -3289,8 +3289,10 @@ public final class ClaudeLife {
                 return "gearing up, missing " + Kit.describe(missing) + ": " + Procure.describe(plan.steps()) + com.claudemod.entity.life.ChestLedger.fetchNote(g, level, plan.fromChests());
             }
             case "take_from_chest": { // "grab X from your chest" said to him: X out of his own chests into HIS pack, nothing to them (17:13 the chat model made it a give: he handed them the stack)
-                Item want0 = item(target);
-                if (want0 == null && target.matches("(?s).*(block|building|bridg|cobble|stone|rock|filler).*")) { // "blocks": the building block his chests hold most of
+                String bare = target.replaceFirst("^-?\\d+[ _,]+-?\\d+[ _,]+-?\\d+[ _,]+", "").replaceFirst("(?i)[ _,]+(?:at|from|in)?[ _,]*-?\\d+[ _,]+-?\\d+[ _,]+-?\\d+[ _,]*$", "");
+                  if (bare.isBlank()) bare = target; else if (!bare.equals(target)) { ClaudeMod.LOGGER.info("[Claude skill] take_from_chest \"{}\" read as \"{}\": the spot is the chest's, his to find (ClaudeLife take_from_chest)", target, bare); } // (the chest's spot before or after the item: "flint at -78 16 -228" failed as 'flint_at_-78_16_-228', review 135705-487, stage 1390)
+                Item want0 = item(bare);
+                if (want0 == null && bare.matches("(?s).*(block|building|bridg|cobble|stone|rock|filler).*")) { // "blocks": the building block his chests hold most of
                     java.util.Set<Item> build = java.util.Set.of(Items.COBBLED_DEEPSLATE, Items.COBBLESTONE, Items.DEEPSLATE, Items.STONE, Items.DIRT, Items.NETHERRACK, Items.ANDESITE, Items.DIORITE, Items.GRANITE, Items.TUFF, Items.BLACKSTONE);
                     int bn = 0; for (var e0 : com.claudemod.entity.life.ChestLedger.totals(g, level).entrySet()) if (build.contains(e0.getKey()) && e0.getValue() > bn) { bn = e0.getValue(); want0 = e0.getKey(); }
                     if (want0 != null) ClaudeMod.LOGGER.info("[Claude skill] take_from_chest \"{}\": the building block my chests hold most of is {} ({}) (ClaudeLife take_from_chest)", target, Crafting.name(want0), bn);

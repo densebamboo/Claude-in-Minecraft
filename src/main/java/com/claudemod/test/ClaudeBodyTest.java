@@ -10564,6 +10564,7 @@ public final class ClaudeBodyTest {
             case 1450: return st1450(stage, t, c, h, level, mock);
             case 1387: return st1387(stage, t, c, h, level, mock);
             case 1388: return st1388(stage, t, c, h, level, mock);
+            case 1390: return st1390(stage, t, c, h, level, mock);
             case 1389: return st1389(stage, t, c, h, level, mock);
             case 1386: return st1386(stage, t, c, h, level, mock);
             case 1385: return st1385(stage, t, c, h, level, mock);
@@ -29680,6 +29681,19 @@ public final class ClaudeBodyTest {
                 check(!lava, "he went into the lava");
                 pass(stage, t, "no wood put down by the lava (only logs on him: the pool isn't bridged with them)"); return true;
             }
+        }
+        return true;
+    }
+    /** Stage 1390 (D2D, review 135705-487, live 13:51:38 11-10): the planner's "take_from_chest flint at -78 16 -228 x3" failed with
+     * "I don't know what 'flint_at_-78_16_-228' is in my chests": the chest's spot after the item was read as part of its name. */
+    private static boolean st1390(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.lastSkillLine = ""; c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 10) c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("take_from_chest", "flint at -78 16 -228", 3));
+        if (t[0] > 10 && c.lastSkillLine != null && c.lastSkillLine.startsWith("take_from_chest") || t[0] > 200) {
+            String l = String.valueOf(c.lastSkillLine); c.tasks.clear(); c.skillQueue.clear();
+            check(l.startsWith("take_from_chest"), "setup: the step never ran (last line: " + l + ")");
+            check(!l.contains("don't know what"), "the chest's spot read as part of the item: " + l);
+            pass(stage, t, "\"flint at -78 16 -228\" read as flint: " + l); return true;
         }
         return true;
     }

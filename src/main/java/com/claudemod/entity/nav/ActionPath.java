@@ -472,6 +472,24 @@ public final class ActionPath {
         final boolean bp, house;
         final java.util.Set<BlockPos> reserved = new java.util.HashSet<>(); // cells another job of his fills (a replant's stump, a patch): never a block of the walk's put down in one (05:26 a step went on the stump the sapling was for)
         List<net.minecraft.world.phys.Vec3> avoid = List.of();
+        // the shooters and swordsmen he knows of, priced into every cell (D2D 11-09, the rods priority: walks through the fortress took 48 blaze
+        // fireballs and 22 wither skeleton hits 11-07..09, enter_portal, recover_drops and go_to legs walking the open deck past them): a cell a
+        // known blaze sees costs path.blaze_seen a blaze, a cell near a known wither skeleton path.wither_near a block closer than 7. A price,
+        // never a refusal: a fortress corridor past one is still a way, the dearer one.
+        List<net.minecraft.world.phys.Vec3> blazeEyes, withers; final Map<BlockPos, Double> threatMemo = new HashMap<>();
+        double threatCost(BlockPos t) {
+            if (blazeEyes == null) { blazeEyes = new ArrayList<>(); withers = new ArrayList<>();
+                if (g != null && level.dimension() == net.minecraft.world.level.Level.NETHER) {
+                    for (var b : com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(64), e -> e.isAlive())) blazeEyes.add(b.getEyePosition());
+                    for (var w0 : com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.WitherSkeleton.class, g.getBoundingBox().inflate(48), e -> e.isAlive())) withers.add(w0.position()); } }
+            if (blazeEyes.isEmpty() && withers.isEmpty()) return 0;
+            Double m = threatMemo.get(t); if (m != null) return m;
+            double add = 0; net.minecraft.world.phys.Vec3 eye = new net.minecraft.world.phys.Vec3(t.getX() + 0.5, t.getY() + 1.62, t.getZ() + 0.5);
+            int seen = 0; for (var e : blazeEyes) if (e.distanceToSqr(eye) <= 24 * 24 && level.clip(new net.minecraft.world.level.ClipContext(e, eye, net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g)).getType() == net.minecraft.world.phys.HitResult.Type.MISS) seen++;
+            add += Math.min(3, seen) * com.claudemod.entity.life.Weights.w("path.blaze_seen", 2.0);
+            for (var w0 : withers) { double d = Math.sqrt(Math.pow(t.getX() + 0.5 - w0.x, 2) + Math.pow(t.getZ() + 0.5 - w0.z, 2)) + Math.abs(t.getY() - w0.y) * 0.5; if (d < 7) add += (7 - d) * com.claudemod.entity.life.Weights.w("path.wither_near", 1.5); }
+            threatMemo.put(t.immutable(), add); return add;
+        }
         int airRefused; // moves turned down as a longer swim under water than half his air
         float hurtNow; // the HP the drops on the way to the node being expanded took (no regen counted)
         final float hp, margin; final double hpPrice; // his health now; the HP he keeps after any drop (Leaps.margin); what an HP is worth to him now (Leaps.hpPrice: dear when he can't regen it)
@@ -667,6 +685,7 @@ public final class ActionPath {
                     cost += failPenalty(t);
                     { double lb = 0; for (Direction hd : Direction.Plane.HORIZONTAL) for (int up = -1; up <= 1; up++) { BlockPos n0 = t.relative(hd).above(up); var lf = fs(n0); if (!lf.is(net.minecraft.tags.FluidTags.LAVA) || !com.claudemod.entity.life.Perception.knowsLava(g, n0)) continue; lb = Math.max(lb, up < 0 ? com.claudemod.entity.life.Weights.w("path.lava_beside_floor", 4) : lf.isSource() ? com.claudemod.entity.life.Weights.w("path.lava_beside_source", 10) : com.claudemod.entity.life.Weights.w("path.lava_beside_flow", 14)); } cost += lb; } // a step with lava beside his feet or head (a fall's flow spreads into the cell, a knock-back or a strafe puts him in it) or at the floor beside him (one step sideways off the shore): priced, so a way a block off wins, the only way still walked (the user 11-05 20:45: "steer away from standing near lava in the nether... path around lava falls"; World 17 20:41, burned beside one at -108, 50, 9)
                     { double av = avoidCost(t); if (av < 0) continue; cost += av; } // (a crowd of hostiles: round them, like a player)
+                    cost += threatCost(t); // (the blazes' sight and the wither skeletons he knows of: round them where there's a way)
                     acts.add(new Act.Walk(t.immutable()));
                     out.add(new Move(t.immutable(), cost, acts));
                 }
@@ -678,7 +697,7 @@ public final class ActionPath {
                 if (!passable(t) || !head(t.above()) || !passable(s1) || !head(s1.above()) || !passable(s2) || !head(s2.above())) continue;
                 if (water(t) || !floor(t) || tall(t.below()) || hurts(t) || hurts(s1) || hurts(s2) || door(s1) || door(s2)) continue;
                 double cost = 1.414 + failPenalty(t); if (mine(t)) cost *= 0.7;
-                double av = avoidCost(t); if (av < 0) continue; cost += av;
+                double av = avoidCost(t); if (av < 0) continue; cost += av + threatCost(t);
                 List<Act> acts = new ArrayList<>(); acts.add(new Act.Walk(t.immutable())); out.add(new Move(t.immutable(), cost, acts));
             }
             // off an edge, 4 or more down (the user, 16:42: "he should be able to calculate fall damage and assess risk"): vanilla's fall worked out tick by tick (Leaps.fall:

@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1313: return st1313(stage, t, c, h, level, mock);
             case 1312: return st1312(stage, t, c, h, level, mock);
             case 1311: return st1311(stage, t, c, h, level, mock);
             case 1310: return st1310(stage, t, c, h, level, mock);
@@ -17034,6 +17035,36 @@ public final class ClaudeBodyTest {
                 check(hp > 6, "killed them, but at health " + hp + " (" + took + " hits landed)");
                 pass(stage, t, "no dig with one 5 off; killed both in " + (t[0] - s1312T) / 20.0 + " s, " + took + " hit(s) landed, health " + hp);
             }
+        }
+        return true;
+    }
+    /** Stage 1313 (D2D 11-09, the rods priority: walks through the fortress took 48 blaze fireballs and 22 wither skeleton hits 11-07..09, enter_portal, recover_drops and go_to legs along the open deck past them; the walk's plan never knew they were there): two lanes 20 long, a wall between them, a blaze hovering off the near one. His walk's plan takes the far lane, out of its sight, 8 blocks longer. */
+    private static boolean st1313(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12600, 64, 7320);
+        if (t[0] == 1) { scenarioReset(c); }
+        if (t[0] < 19 || t[0] > 30) nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+            for (int x = -4; x <= 26; x++) for (int z = -14; z <= 8; z++) for (int y = -3; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (int x = 0; x <= 20; x++) { nl.setBlock(o.offset(x, -1, 0), Blocks.NETHER_BRICKS.defaultBlockState(), 2); nl.setBlock(o.offset(x, -1, 4), Blocks.NETHER_BRICKS.defaultBlockState(), 2); } // the two lanes
+            for (int z = 1; z <= 3; z++) for (int x : new int[] {0, 20}) nl.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // joined at both ends
+            for (int x = 2; x <= 18; x++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, 2), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // the wall between them
+            c.getInventory().clearContent(); c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -129f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 19) { var b = net.minecraft.world.entity.EntityType.BLAZE.create(nl); b.moveTo(o.getX() + 10.5, o.getY() + 2, o.getZ() - 7.5, 0, 0); b.setNoAi(true); b.setNoGravity(true); b.setPersistenceRequired(); nl.addFreshEntity(b); }
+        if (t[0] == 30) {
+            var bl = nl.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, new net.minecraft.world.phys.AABB(o).inflate(30));
+            boolean known = !com.claudemod.entity.life.Perception.known(c, net.minecraft.world.entity.monster.Blaze.class, c.getBoundingBox().inflate(40), e -> true).isEmpty();
+            var plan = com.claudemod.entity.nav.ActionPath.plan(c, nl, o, o.offset(20, 0, 0), 0.5, false, 8000, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, null, 0);
+            int seen = 0, steps = 0; StringBuilder way = new StringBuilder();
+            if (plan != null && !bl.isEmpty()) for (var a : plan.acts()) if (a instanceof com.claudemod.entity.nav.ActionPath.Act.Walk w) { steps++; if (com.claudemod.entity.life.FortressFight.sees(nl, bl.get(0), w.feet())) seen++; if (steps % 4 == 0) way.append(w.feet().getX() - o.getX()).append(',').append(w.feet().getZ() - o.getZ()).append(' '); }
+            for (var b : bl) b.discard();
+            for (int x = -4; x <= 26; x++) for (int z = -14; z <= 8; z++) for (int y = -3; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(!bl.isEmpty() && known, "setup: the blaze not there or not known to him (" + bl.size() + ", known " + known + ")");
+            check(plan != null, "no plan along the lanes");
+            check(seen <= 8, "the walk planned " + steps + " steps, " + seen + " of them in the blaze's sight: along the open lane past it (" + way + ")");
+            nsHome(c, h, level); pass(stage, t, steps + " steps, " + seen + " in the blaze's sight (" + way + ")");
         }
         return true;
     }

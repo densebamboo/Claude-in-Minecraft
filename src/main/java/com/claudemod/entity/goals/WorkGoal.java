@@ -1805,6 +1805,7 @@ public class WorkGoal extends Goal {
             if (best == null || (dx == 0 || dz == 0)) { best = q.immutable(); if (dx == 0 || dz == 0) return best; } }
         return best;
     }
+    public boolean inReachOf(BlockPos pos) { return inReach(pos); }
     private boolean inReach(BlockPos pos) {
         Vec3 eye = g.getEyePosition(); // a player's reach: a face of it he sees, its point inside 4.5 (block_interaction_range), aimed at as blockInTheWay aims; 4.25 to the middle left a floating log 4.37 off, a face 3.8 off, "can't get at it" (reviews 199/200, stage 988)
         if (eye.distanceTo(Vec3.atCenterOf(pos)) > w("reach.block", 4.45) + 0.87) return false; // (no face of it within reach: no rays; a ray to a block far off stepped every cell and loaded every chunk on the way, the test server hung, stages 548, 781)

@@ -10911,6 +10911,7 @@ public final class ClaudeBodyTest {
             case 1285: return st1285(stage, t, c, h, level, mock);
             case 1286: return st1286(stage, t, c, h, level, mock);
             case 1287: return st1287(stage, t, c, h, level, mock);
+            case 1288: return st1288(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -24020,7 +24021,7 @@ public final class ClaudeBodyTest {
             level.setBlock(at.above(2), st, 2); // a roof over where he starts
             for (int dx = 3; dx <= 7; dx++) for (int dz = -3; dz <= 3; dz++) { level.setBlock(at.offset(dx, 0, dz), st, 2); level.setBlock(at.offset(dx, 1, dz), st, 2); } // the ledge, 2 up
             c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 20)); /* (no pick: a step put down beats one cut, as live) */ c.getInventory().add(new ItemStack(Items.DIRT, 4));
-            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 40, at.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setHealth(20); c.getFoodData().setFoodLevel(20);
             c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
         }
         if (t[0] == 40) c.tasks.add(new Task.GoTo(top, 0.6)); // (settled on the ground first)
@@ -24046,7 +24047,7 @@ public final class ClaudeBodyTest {
         if (t[0] == 10) {
             for (int x = -4; x <= 6; x++) for (int z = -4; z <= 4; z++) for (int y = -5; y <= 6; y++) level.setBlock(at.offset(x, y, z), (y < 0 && (x <= 0 || y < -4) ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // his ledge to x 0, open past it
             for (int x = 1; x <= 6; x++) for (int z = -4; z <= 4; z++) level.setBlock(at.offset(x, -4, z), Blocks.LAVA.defaultBlockState(), 2); // lava 3 under the open cells (live: "lava 3 below")
-            c.getInventory().clearContent(); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); mock[0].teleportTo(level, at.getX() + 0.5, at.getY() + 40, at.getZ() + 0.5, 0f, 0f);
+            c.getInventory().clearContent(); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
             c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
         }
         if (t[0] >= 20 && t[0] < 60) { // his walk's path: his cell, then the open cell's lava-side drop (the live node 3 down)
@@ -24067,6 +24068,40 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static boolean s1287R;
+    /** Stage 1288 (D2D review 157/158/148, live 23:55:11-23:55:13 11-09 at his furnace -30,62,17 by the water): swimming 6 west of it with raw salmon, "smelt cooked_salmon" walked him over; the walk ended 4.9 off with no reason given, the next one at once, the gate refused it and the smelt failed, twice, a 2-block shuffle in the water between. The bank rebuilt from the incident's map: the salmon in the furnace in good time. */
+    private static boolean st1288(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos f = new BlockPos(9990, 80, 9700);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1288T = -1; }
+        if (t[0] == 10) {
+            String[] y60 = {"#######", "#####.#", "#######", "#######", "#######", "#######", "#######"};
+            String[] y61 = {"###....", "####...", "####...", "#####..", "#######", "WW#####", "WWW####"};
+            String[] y62 = {"###....", "###....", "W##....", "W#W@...", "W#WW###", "W#WWW##", "W#WWWW#"};
+            for (int dx = -9; dx <= 6; dx++) for (int dz = -6; dz <= 6; dz++) for (int dy = -4; dy <= 6; dy++) level.setBlock(f.offset(dx, dy, dz), (dy < -2 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            for (int dx = -9; dx <= -4; dx++) for (int dz = -6; dz <= 6; dz++) { level.setBlock(f.offset(dx, -2, dz), Blocks.STONE.defaultBlockState(), 2); level.setBlock(f.offset(dx, -1, dz), Blocks.STONE.defaultBlockState(), 2); level.setBlock(f.offset(dx, 0, dz), Blocks.WATER.defaultBlockState(), 2); } // the water he swam in, west of the map
+            for (int dx = -3; dx <= 6; dx++) for (int dz = -6; dz <= 6; dz++) for (int dy = -2; dy <= 0; dy++) level.setBlock(f.offset(dx, dy, dz), Blocks.STONE.defaultBlockState(), 2); // outside the map: bank
+            for (int r = 0; r < 7; r++) for (int i = 0; i < 7; i++) { String[][] rows = {y60, y61, y62}; for (int k = 0; k < 3; k++) { char ch = rows[k][r].charAt(i); BlockPos q = f.offset(i - 3, k - 2, r - 3);
+                level.setBlock(q, (ch == '#' ? Blocks.STONE : ch == 'W' ? Blocks.WATER : Blocks.AIR).defaultBlockState(), 2); } }
+            level.setBlock(f, Blocks.FURNACE.defaultBlockState(), 2);
+            c.myStations.add(f.immutable());
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.SALMON, 6)); c.getInventory().add(new ItemStack(Items.COAL, 4)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 8));
+            c.teleportTo(f.getX() - 6 + 0.45, f.getY() + 0.7, f.getZ() + 1.42); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.getFoodData().setFoodLevel(20);
+        }
+        if (t[0] == 30) { String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "cooked_salmon", 6); ClaudeMod.LOGGER.info("[Claude test] 1288 smelt -> {}", r); s1288T = t[0]; s1288R = com.claudemod.entity.life.Gate.refused(c); s1288K = c.stationWalkTick; s1288N = 1; check(!r.contains("failed"), "the smelt failed at once: " + r); }
+        if (s1288T > 0) {
+            if (c.stationWalkTick != s1288K) { s1288K = c.stationWalkTick; s1288N++; } // (each walk to a station goToStation queues)
+            boolean in = level.getBlockEntity(f) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fz && (!fz.getItem(0).isEmpty() || !fz.getItem(2).isEmpty());
+            if (in || t[0] - s1288T >= 20 * 8) { // (a player: 5 blocks through shallow water, ~2 s)
+                BlockPos at = c.blockPosition(); int ref = com.claudemod.entity.life.Gate.refused(c) - s1288R, walks = s1288N; s1288N = 0; s1288W = null; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.myStations.remove(f); s1288T = -1; level.setBlock(f, Blocks.AIR.defaultBlockState(), 2); c.getInventory().clearContent(); com.claudemod.entity.life.TempLedger.reset(c); // (the batch cooking in it read as the smelt in hand by the next stage, 1136)
+                check(in, "the salmon not in his furnace 4-6 off in 8 s (at " + at.toShortString() + ")");
+                check(walks <= 1, walks + " walks to his furnace: the first ended in his reach of it, and the station check (4 round his feet) sent him again");
+                check(ref == 0, ref + " gate refusal(s) on the way to his furnace (the walk there ended on reach, the station check wanted him 4 round his feet)");
+                pass(stage, t, "the salmon in his furnace by the water");
+            }
+        }
+        return true;
+    }
+    private static int s1288T = -1, s1288R, s1288N; private static Task s1288W; private static int s1288K;
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

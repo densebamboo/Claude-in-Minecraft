@@ -9036,6 +9036,7 @@ public final class ClaudeLife {
     }
     private static String goToStation(ClaudeEntity g, ServerLevel level, net.minecraft.world.level.block.Block block, Skills.Step st) {
         if (findNear(level, g.blockPosition(), 4, b -> b.is(block)) != null) return null;
+        { BlockPos r6 = findNear(level, g.blockPosition(), 6, b -> b.is(block)); if (r6 != null && g.work.inReachOf(r6)) return null; } // in his reach is at it, as his walk there ends (WorkGoal.walkTo): "4 round his feet" sent him again from 5 off, that walk ended at once, the gate refused the next and the smelt failed (live 23:55 11-09, review 157, stage 1288)
         // Working a mine (or just walked to a station for this): don't trek off and back. Put his own down here (picked up after).
         // Underground or by his mine, nobody climbs back out to a table: his own goes down right here.
         // (only if he can put one down: carrying one, or the wood to make it; otherwise he uses the one there is)

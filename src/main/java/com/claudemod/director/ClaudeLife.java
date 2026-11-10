@@ -4750,6 +4750,8 @@ public final class ClaudeLife {
             if (fromChests > 0) { g.tasks.addAll(fetch); g.skillQueue.addFirst(st); ClaudeMod.LOGGER.info("[Claude skill] packing for the trip: {} logs short, {} of them out of his chests (ClaudeLife.packForTrip)", logShort, fromChests); return "packing for the trip: " + fromChests + " logs out of my chest first"; }
             if (noTreesNear(g, level)) ClaudeMod.LOGGER.info("[Claude skill] packing for the trip: {} logs short, none in his chests and no trees he can walk to within 100 of here: the trip waits, he goes looking for trees (the kit is all there before he goes down) (ClaudeLife.packForTrip)", logShort);
         }
+        if (cobbleShort > 0 && !aquifer && (st.skill().equals("strip_mine") || st.skill().equals("dig_down"))) { String night = nightOutsideNo(g, level, g.blockPosition()); // the night rule holds him off the surface: the cobble comes out of the digging itself, as deep down (live 04:31 11-10, D2D review 17: "collect stone x3" refused for the night, strip_mine asked again, 3 times in a second; stage 1403)
+            if (night != null) { ClaudeMod.LOGGER.info("[Claude skill] packing at night: {} cobble short, and the surface is out ({}): it comes out of the digging (ClaudeLife.packForTrip)", cobbleShort, night); cobbleShort = 0; } }
         if (cobbleShort == 0 && logShort == 0 && cooked == null) return null;
         g.packTick = g.tickCount;
         g.skillQueue.addFirst(st);

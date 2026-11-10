@@ -10935,6 +10935,7 @@ public final class ClaudeBodyTest {
             case 1299: return st1299(stage, t, c, h, level, mock);
             case 1401: return st1401(stage, t, c, h, level, mock);
             case 1402: return st1402(stage, t, c, h, level, mock);
+            case 1403: return st1403(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -24630,6 +24631,29 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static int s1402N, s1402L;
+    /** Stage 1403 (D2D review 17, live 04:31:48-04:31:49 11-10 at -81,63,16 on the surface before dawn, no iron gear): strip_mine packed for the trip, 3 cobblestone short; "collect stone x3" was refused for the night, strip_mine packed again, three times in a second, then skipped. Held off the surface by the night rule, the cobble comes out of the digging. */
+    private static boolean st1403(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9780, 80, 9780);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1403C = 0; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = -6; y <= 4; y++) level.setBlock(at.offset(x, y, z), (y < -1 ? Blocks.STONE : y == -1 ? Blocks.GRASS_BLOCK : Blocks.AIR).defaultBlockState(), 2);
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            for (var it : new ItemStack[] {new ItemStack(Items.STONE_PICKAXE), new ItemStack(Items.STONE_SWORD), new ItemStack(Items.STONE_AXE), new ItemStack(Items.FURNACE), new ItemStack(Items.CRAFTING_TABLE), new ItemStack(Items.OAK_LOG, 40), new ItemStack(Items.TORCH, 32), new ItemStack(Items.COOKED_BEEF, 24)}) c.getInventory().add(it);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            level.setDayTime(14000); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("strip_mine", "iron_ore", 32, ""));
+        }
+        if (t[0] > 10) { level.setDayTime(14000); var ls = c.lastStep; if (ls != null && ls.skill().equals("collect") && (ls.target().equals("stone") || ls.target().equals("cobblestone")) && s1403C == 0) s1403C = t[0]; }
+        if (t[0] == 10 + 20 * 4) {
+            int at0 = s1403C; String last = String.valueOf(c.lastStep);
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.lastStep = null; level.setDayTime(1000);
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = -1; y <= 4; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // (the floor left)
+            check(at0 == 0, "strip_mine at night on the surface sent him to collect stone for the packing (tick " + at0 + "), refused for the night: the pack-collect-pack loop");
+            pass(stage, t, "the packing's cobble left to the digging at night; step now " + last);
+        }
+        return true;
+    }
+    private static int s1403C;
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

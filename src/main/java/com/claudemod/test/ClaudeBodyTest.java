@@ -10982,6 +10982,7 @@ public final class ClaudeBodyTest {
             case 1422: return st1422(stage, t, c, h, level, mock);
             case 1423: return st1423(stage, t, c, h, level, mock);
             case 1424: return st1424(stage, t, c, h, level, mock);
+            case 1425: return st1425(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -25880,6 +25881,36 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static BlockPos s1424L;
+    /** Stage 1425 (D2D review 26, live 09:07:38-09:07:46 11-10 at -133,15,-358): an iron vein mined off his one-wide tunnel; the raw iron lay 1 below him and 1 across, in a 1-high pocket whose roof was the vein's next iron ore. "left Raw Iron behind: no way to it", then recover_left dug that ore 2 s later and had it. The ore over a drop is the vein's own: mined first, the drop got. */
+    private static boolean st1425(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9940, 80, 9780), me = at.offset(3, 0, 0), drop = me.offset(-1, -1, -1), roof = drop.above();
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("mine_model", "blueprint"); s1425T = -1; s1425Left = null; }
+        if (t[0] == 5) mock[0].teleportTo(at.getX() + 0.5, at.getY() + 40, at.getZ() + 0.5); // (a player over his arena: out here a drop was never in the level's entity lookup)
+        if (t[0] == 10) {
+            var b = new com.claudemod.entity.life.MineBlueprint(at, net.minecraft.core.Direction.EAST, 1, 2); b.segments.clear(); b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, at.west(3), net.minecraft.core.Direction.EAST, 12, null)); c.blueprint = b; // his mine: a one-wide branch, two tall
+            for (int x = -4; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = -4; y <= 4; y++) { BlockPos q = at.offset(x, y, z); level.setBlock(q, (b.isWalk(q) ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            for (BlockPos q : new BlockPos[] {me.offset(0, 0, -1), me.offset(0, -1, -1), me.offset(0, -2, -1), drop}) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2); // as live: the vein's mined cells, a 2-deep hole beside his tunnel and the cell off it the drop lies in
+            level.setBlock(roof, Blocks.IRON_ORE.defaultBlockState(), 2); level.setBlock(drop.below(), Blocks.OAK_PLANKS.defaultBlockState(), 2); level.setBlock(drop.north(), Blocks.IRON_ORE.defaultBlockState(), 2); level.setBlock(drop.west(), Blocks.COPPER_ORE.defaultBlockState(), 2); level.setBlock(drop.south(), Blocks.COPPER_ORE.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+        }
+        if (t[0] == 20) { var it = new net.minecraft.world.entity.item.ItemEntity(level, drop.getX() + 0.5, drop.getY() + 0.1, drop.getZ() + 0.5, new ItemStack(Items.RAW_IRON)); it.setPickUpDelay(0); it.setDeltaMovement(0, 0, 0); level.addFreshEntity(it); s1425E = com.claudemod.entity.life.OwnEvents.lastLeft(c, "raw iron"); }
+        if (t[0] == 30) c.tasks.add(new Task.Pickup(100));
+        if (t[0] > 30 && s1425Left == null) { var l = com.claudemod.entity.life.OwnEvents.lastLeft(c, "raw iron"); if (l != null && l != s1425E) s1425Left = "left behind (" + l.why + ") at tick " + (t[0] - 30); }
+        if (t[0] > 30 && s1425T < 0 && c.getInventory().countItem(Items.RAW_IRON) > 0) s1425T = t[0];
+        if (t[0] == 30 + 20 * 10 || s1425T > 0 && t[0] == s1425T + 2) {
+            int took = s1425T < 0 ? -1 : s1425T - 30; String left = s1425Left;
+            c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(at).inflate(12))) e.discard();
+            for (int x = -4; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = -4; y <= 4; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // (the floor left)
+            check(left == null, "the raw iron under the vein's ore: " + left);
+            check(took >= 0, "the raw iron in the pocket under the iron ore: not got in 10 s");
+            pass(stage, t, "the ore over the drop mined, the raw iron got in " + took + " ticks, never left");
+        }
+        return true;
+    }
+    private static int s1425T; private static String s1425Left; private static Object s1425E;
     /** Stage 1420 (D2D review 21, live 06:46:25-06:46:43 11-10 at -114,17,-329, World 17): his furnace at -113,18,-328, ceiling high in the rock beside his tunnel; the way made to the cell beside it dug his ceiling and a wall cell, and put both back at the way's end, before the load: his way in to it shut, 9 s of loops and spins one block off, the walk written off UNKNOWN and the spot skipped. The way's put-backs come after the job. */
     private static boolean st1420(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos at = new BlockPos(9960, 80, 9780), fur = at.offset(1, 2, 1);

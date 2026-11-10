@@ -173,6 +173,19 @@ public final class FortressFight {
         for (var it : new net.minecraft.world.item.Item[] {Items.NETHERRACK, Items.DIRT, Items.SOUL_SOIL, Items.SOUL_SAND, Items.MAGMA_BLOCK}) if (g.inventory.count(x -> x.is(it)) > 0) return it; // (soul sand, soul soil, magma: a wall he stands behind, never on; live 21:39 11-09 'no blocks to build with' with 12 of each on him, D2D 189; stage 1322)
         return null;
     }
+    /** A cover his own walker reaches (no digging, a block put down where he has them); a way that puts one over lava is said, with the cells: D2D death-220 / Loops asked whether the cover at 326,61,497 (live 21:52:35 11-09) was reached only by bridging over the drop the bridge rule forbids under fire; the log there didn't show the way's acts, and no stage repro'd it (a 1-wide gap with lava 30 down: no way at all), so this says it next time. */
+    static boolean reachNoLavaPut(ClaudeEntity g, ServerLevel level, BlockPos me, BlockPos c, int budget) {
+        var p = com.claudemod.entity.nav.ActionPath.plan(g, level, me, c, 0.5, true, budget, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, null, 0);
+        if (p == null) return false;
+        List<BlockPos> hot = new ArrayList<>(); for (var a : p.acts()) if (a instanceof com.claudemod.entity.nav.ActionPath.Act.Put put && overLava(level, put.pos())) hot.add(put.pos());
+        if (!hot.isEmpty()) ClaudeMod.LOGGER.info("[Claude fight] the way to cover at {} puts {} block(s) over lava ({}), {} walk(s), {} put(s) in all: taken as it is (FortressFight.reachNoLavaPut)", c.toShortString(), hot.size(), hot.stream().map(BlockPos::toShortString).toList(), p.walks(), p.puts());
+        return true;
+    }
+    /** Lava under the cell, down through open air (a fall into it). */
+    static boolean overLava(ServerLevel level, BlockPos p) {
+        for (int d = 0; d <= 48; d++) { BlockPos q = p.below(d); if (level.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) return true; if (d > 0 && !level.getBlockState(q).getCollisionShape(level, q).isEmpty()) return false; }
+        return false;
+    }
     /** The cells along the line from a to b, in order (eighth-block steps). */
     static List<BlockPos> cellsOn(Vec3 a, Vec3 b) { List<BlockPos> out = new ArrayList<>(); int n = Math.max(1, (int) Math.ceil(a.distanceTo(b) * 8)); for (int i = 0; i <= n; i++) { BlockPos p = BlockPos.containing(a.lerp(b, i / (double) n)); if (out.isEmpty() || !out.get(out.size() - 1).equals(p)) out.add(p); } return out; }
     /** An eye still sees the cell (his eyes or his middle) with the blocks of {@code put} standing, each a full block. */
@@ -228,7 +241,7 @@ public final class FortressFight {
             if (peek == null) { no[4]++; continue; }
             double score = up.size() * Weights.w("blaze.cover_block_weight", 1.0) + Math.sqrt(c.distSqr(me)) * 0.6 + Math.abs(Math.sqrt(c.distToCenterSqr(anchor)) - 7) * 0.2;
             if (best != null && best.score() <= score) continue;
-            if (!c.equals(me) && com.claudemod.entity.nav.ActionPath.plan(g, level, me, c, 0.5, true, 400, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, null, 0) == null) { no[5]++; continue; }
+            if (!c.equals(me) && !reachNoLavaPut(g, level, me, c, 400)) { no[5]++; continue; }
             best = new Cand(c.immutable(), peek, up, score);
         }
         if (best == null) { buildWhy = "; none to build with " + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item).getPath() + ": " + no[0] + " no standing/by the anchor, " + no[1] + " a line's cell can't take a block, " + no[2] + " over " + max + " blocks, " + no[3] + " a block with no face, " + no[4] + " no peek, " + no[5] + " no walk"; return null; }
@@ -274,7 +287,7 @@ public final class FortressFight {
         for (int i = 0; i < Math.min(12, cands.size()); i++) {
             Cand k = cands.get(i);
             // reached by his own walker (no digging, a block put down where he has them), not vanilla's: live 17:37 11-07 "12 spots out of sight, none walkable" with 4 blazes on him, every spot refused by createPath
-            if (!k.c().equals(me) && com.claudemod.entity.nav.ActionPath.plan(g, level, me, k.c(), 0.5, true, 800, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, null, 0) == null) continue;
+            if (!k.c().equals(me) && !reachNoLavaPut(g, level, me, k.c(), 800)) continue;
             builds().remove(g.getUUID()); buildFor().remove(g.getUUID());
             String shape = k.walls() >= 3 ? "a nook" : k.walls() == 2 ? "a doorway's side" : "a corner";
             return new Cover(k.c(), k.peek(), spawner != null ? spawner : foe.blockPosition(), "blaze",

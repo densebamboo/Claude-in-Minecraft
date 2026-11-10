@@ -29,6 +29,8 @@ Which mobs are on him: one is attacking him if a [Claude hurt] line names it in 
 
 A [Claude decide] price line logged again on its clock while he holds (night.out every 30 s, the same choice each time) is his standing choice re-priced, not a re-decision: it is a flip-flop only when the chosen option or what he does changes.
 
+A walk that "ended at once" with "paused for N job(s) in reach, the walk queued after them" or "split into N legs of his route" is not a walk given up: it runs after those jobs, or as those legs. Call it abandoned only where his later positions (the at ... in [Claude where] and [Claude hurt] lines) never move toward its goal.
+
 Report each real finding once, the clearest examples only, most costly first, at most 6. For each: what he did, what an expert would have done instead, and the exact log lines it rests on (copied verbatim, 1-4 lines, with their times). If nothing in the window is below an expert's standard, return no findings.
 
 Plain code already flags some things itself: [Claude incident], [Claude litter] and [Claude conflict] lines, and [Claude move] spin lines. A finding that rests only on those lines is not filed, so spend your findings on what no line flags: judgement, wasted time, a worse way, claims that contradict the log. Quote the ordinary lines that show it.

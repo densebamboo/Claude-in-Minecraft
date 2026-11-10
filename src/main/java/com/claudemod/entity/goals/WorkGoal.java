@@ -3271,6 +3271,16 @@ public class WorkGoal extends Goal {
         BlockPos jx = g.blockPosition().relative(Direction.getNearest(nearest.getX() - g.getX(), 0, nearest.getZ() - g.getZ()));
         boolean jumpReach = Math.max(Math.abs(ip.getX() - g.getBlockX()), Math.abs(ip.getZ() - g.getBlockZ())) <= 1 || level.getBlockState(jx).getCollisionShape(level, jx).isEmpty() && level.getBlockState(jx.above()).getCollisionShape(level, jx.above()).isEmpty(); // (a jump reaches a drop on the ledge beside him, or he steps closer first; 2 cells off behind a wall it only pushes him into the wall: 100 ticks at a time, live 13:13 11-09, stage 1276)
         if (dy > 1.5 && dy < 3.4 && g.onGround() && jumpReach) {
+            BlockPos hop = null; double hd = Double.MAX_VALUE; // where a jump lifts his reach to it: his cell or one beside, open 2 over his head (straight under it his own ceiling stopped the jump: a table's drop up a hole in his tunnel's roof, stage 1426)
+            for (BlockPos s0 : BlockPos.betweenClosed(g.blockPosition().offset(-1, 0, -1), g.blockPosition().offset(1, 0, 1))) {
+                if (!level.getBlockState(s0.below()).isFaceSturdy(level, s0.below(), Direction.UP)) continue; boolean open = true;
+                for (int k = 0; k <= 2 && open; k++) open = level.getBlockState(s0.above(k)).getCollisionShape(level, s0.above(k)).isEmpty();
+                double hx = Math.abs(nearest.getX() - (s0.getX() + 0.5)), hz2 = Math.abs(nearest.getZ() - (s0.getZ() + 0.5)); // (the body's pickup box: 0.3 + 1 out each way)
+                if (!open || hx > 1.2 || hz2 > 1.2) continue; double d0 = s0.distToCenterSqr(g.position()); if (d0 < hd) { hd = d0; hop = s0.immutable(); } }
+            if (hop != null) { double ox = hop.getX() + 0.5 - g.getX(), oz = hop.getZ() + 0.5 - g.getZ();
+                g.getMoveControl().setWantedPosition(hop.getX() + 0.5, g.getY(), hop.getZ() + 0.5, 0.6);
+                if (ox * ox + oz * oz < 0.3 * 0.3) g.getJumpControl().jump();
+                return false; }
             g.getMoveControl().setWantedPosition(nearest.getX(), g.getY(), nearest.getZ(), 1.0);
             if (horiz < 1.3) g.getJumpControl().jump();
             return false;

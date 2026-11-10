@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1317: return st1317(stage, t, c, h, level, mock);
             case 1316: return st1316(stage, t, c, h, level, mock);
             case 1315: return st1315(stage, t, c, h, level, mock);
             case 1314: return st1314(stage, t, c, h, level, mock);
@@ -17153,6 +17154,38 @@ public final class ClaudeBodyTest {
                 c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, ItemStack.EMPTY); level.setDayTime(6000);
                 pass(stage, t, "under cover at " + f.toShortString() + " in " + (t[0] - 10) + " ticks (" + c.lastSkillLine + ")");
             } else if (t[0] - 10 >= 300) { c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, ItemStack.EMPTY); level.setDayTime(6000); check(false, "night, no chestplate: still in the open 15 s after \"shelter\" at " + f.toShortString() + " (" + c.lastSkillLine + ")"); }
+        }
+        return true;
+    }
+    /** Stage 1317 (D2D 11-09, review 190259-113, live 18:58:29 at 185,69,197: night, "shelter: no cover right now: a melee mob 8.4 off: the hole needs 12.4+, no tower to be had (the cover proximity rule): running for the gap first" and "shelter -> done": he never ran, the step was over, and he stood in the open 4 min with the zombie stuck 16 off): night, ungeared, a zombie after him 8 off that can't get out of its fence ring. He gets the gap and digs in: under cover within 20 s. */
+    private static net.minecraft.world.entity.monster.Zombie s1317Z;
+    private static boolean st1317(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(8, 2, 8)), zp = h.absolutePos(new BlockPos(8, 2, 0));
+        if (t[0] == 1) { scenarioReset(c); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); s1317Z = null; }
+        if (t[0] > 1 && t[0] % 5 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) if (m != s1317Z) m.discard();
+        if (t[0] == 10) {
+            for (int x = -8; x < 24; x++) for (int z = -8; z < 24; z++) {
+                for (int yy = -4; yy <= -2; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE);
+                for (int yy = -1; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.DIRT);
+                for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR);
+            }
+            for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) if (x != 0 || z != 0) h.setBlock(new BlockPos(8 + x, 2, z), Blocks.OAK_FENCE); // its ring: it sees him, it can't reach him
+            level.setDayTime(18000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 6)); // (nothing to tower with: the hole or nothing, as live) c.setHealth(20);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+            mock[0].teleportTo(at.getX() + 0.5, at.getY() + 40, at.getZ() + 0.5);
+        }
+        if (t[0] == 15) { s1317Z = EntityType.ZOMBIE.create(level); s1317Z.moveTo(zp.getX() + 0.5, zp.getY(), zp.getZ() + 0.5, 0, 0); s1317Z.setPersistenceRequired(); level.addFreshEntity(s1317Z); s1317Z.setTarget(c); com.claudemod.entity.life.Perception.glance(c); }
+        if (t[0] == 20) com.claudemod.director.ClaudeLife.command(c, mock[0], steps1("shelter", "", 1, "near_you"), "it's night, get under cover", "replace");
+        if (t[0] > 20) {
+            BlockPos f = c.blockPosition();
+            boolean lid = !level.getBlockState(f.above(2)).getCollisionShape(level, f.above(2)).isEmpty();
+            if (lid && c.holdingNight() || t[0] - 20 >= 400) {
+                boolean ok = lid && c.holdingNight(); if (s1317Z != null) s1317Z.discard();
+                c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; level.setDayTime(6000);
+                check(ok, "night, a zombie penned 8 off: still in the open 20 s after \"shelter\" at " + f.toShortString() + " (" + c.lastSkillLine + ")");
+                pass(stage, t, "under cover at " + f.toShortString() + " in " + (t[0] - 20) + " ticks (" + c.lastSkillLine + ")");
+            }
         }
         return true;
     }

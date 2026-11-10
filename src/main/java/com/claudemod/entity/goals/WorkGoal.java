@@ -5860,6 +5860,8 @@ public class WorkGoal extends Goal {
 
     private boolean coverGap; // the last digInFromArrows said no for now: a melee mob too close to finish the cover (the cover proximity rule), so he runs for the gap
     private boolean noCoverGap(String why) { coverGap = true; return noCover(why); }
+    /** The last no-cover was the gap kind (a mob too close to finish it, or the edge): run for the gap, cover after. */
+    public boolean coverGapNow() { return lastNoCoverTick == g.tickCount && coverGap; }
     private boolean digInFromArrows() {
         if (leaveBore != null && current == leaveBore) return noCover("tunnelling out of his cover under the rock: the tunnel is his cover"); // (World 17 05:24 fix: a skeleton heard above walled him in every block of it, 12 times; stage 769)
         coverGap = false;

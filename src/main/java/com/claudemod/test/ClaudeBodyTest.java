@@ -10583,6 +10583,7 @@ public final class ClaudeBodyTest {
             case 1361: return st1361(stage, t, c, h, level, mock);
             case 1362: return st1362(stage, t, c, h, level, mock);
             case 1363: return st1363(stage, t, c, h, level, mock);
+            case 1364: return st1364(stage, t, c, h, level, mock);
             case 1356: return st1356(stage, t, c, h, level, mock);
             case 1301: return st1301(stage, t, c, h, level, mock);
             case 1302: return st1302(stage, t, c, h, level, mock);
@@ -27758,6 +27759,34 @@ public final class ClaudeBodyTest {
     /** Stage 1357 (live 18:49-18:50 11-09, review 185243-100: "collect salmon x3 -> failed: ... the salmon in sight and the rest have no short way to
      *  them on foot", 82 times in 70 s, his iron helmet held behind it): kit.food priced the fish by the straight line, collect's own walk check said no
      *  way, and the kit offered them again. Three salmon in a shallow pool on a 6-high pillar 11 off, nothing to climb with: the kit's pick is no fish. */
+    private static net.minecraft.world.entity.monster.Blaze st1364B; private static net.minecraft.world.entity.monster.Zombie st1364Z;
+    private static boolean st1364(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 04:04:56-04:05:46 11-10 (death 70, the fortress at 314,59,484): held at a hide spot "out of the shooters' sight" picked from the blazes 4-9 off; a blaze 27-31 off with a clear line burned him 13 -> 0 there, the hold never re-picked: its mob list was hostilesNear(14) and what the flee set out from. What just shot him counts, however far
+        if (t[0] == 1) { scenarioReset(c); if (st1364B != null) st1364B.discard(); if (st1364Z != null) st1364Z.discard(); st1364B = null; st1364Z = null; }
+        if (t[0] == 10) {
+            for (int x = -3; x <= 34; x++) for (int z = 0; z <= 10; z++) for (int y = 1; y <= 9; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 12));
+            BlockPos me = h.absolutePos(new BlockPos(2, 2, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(-90); c.setHealth(13); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            st1364Z = EntityType.ZOMBIE.create(level); BlockPos zp = h.absolutePos(new BlockPos(2, 2, 10)); st1364Z.moveTo(zp.getX() + 0.5, zp.getY(), zp.getZ() + 0.5, 0, 0); st1364Z.setNoAi(true); st1364Z.setPersistenceRequired(); level.addFreshEntity(st1364Z); // (one near him: the flee's list isn't empty, as live with the blazes 4-9 off)
+            st1364B = EntityType.BLAZE.create(level); BlockPos bp = h.absolutePos(new BlockPos(30, 5, 5)); st1364B.moveTo(bp.getX() + 0.5, bp.getY(), bp.getZ() + 0.5, 90, 0); st1364B.setNoAi(true); st1364B.setPersistenceRequired(); level.addFreshEntity(st1364B);
+        }
+        if (t[0] == 30) {
+            BlockPos at = c.blockPosition().immutable(); Object after = "?"; String err = "";
+            try {
+                c.setLastHurtByMob(st1364B);
+                var wg = com.claudemod.entity.goals.WorkGoal.class;
+                var tk = wg.getDeclaredField("ticks"); tk.setAccessible(true); tk.setInt(c.work, 5);
+                var se = wg.getDeclaredMethod("setEscape", String.class, BlockPos.class, BlockPos.class); se.setAccessible(true); se.invoke(c.work, "hide", at, null);
+                var df = wg.getDeclaredMethod("doFlee", Task.Flee.class); df.setAccessible(true); df.invoke(c.work, new Task.Flee(160));
+                var ea = wg.getDeclaredField("escapeAt"); ea.setAccessible(true); after = ea.get(c.work);
+            } catch (Exception e) { err = " threw " + e; }
+            double dist = c.distanceTo(st1364B);
+            st1364B.discard(); st1364Z.discard(); st1364B = null; st1364Z = null; c.tasks.clear(); c.setHealth(20); c.getInventory().clearContent(); c.dropCurrent = true;
+            check(!at.equals(after), "held at his hide spot " + at.toShortString() + " with the blaze that just shot him " + (int) dist + " off seeing him there (escape now " + after + ")" + err);
+            pass(stage, t, "the blaze " + (int) dist + " off that just shot him sees the hide spot: on from it (escape now " + after + ")"); return true;
+        }
+        return true;
+    }
     private static net.minecraft.world.entity.monster.Skeleton st1363K;
     private static boolean st1363(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 02:42:45-59 11-10 (death 58, a cave at -105,26,-248): respawned with nothing, 14 HP, no armor, a stone sword, 2 gravel, no pick; a skeleton in sight: cover.dig_in "build 2.5 s" won, but underground with 2 blocks and stone he can't dig there's no cover to make ("no tower to be had (2 blocks) and no hole here"); he ran for it under the arrows, dead. Cover is priced only when he can make it
         if (t[0] == 1) { scenarioReset(c); if (st1363K != null) st1363K.discard(); st1363K = null; }

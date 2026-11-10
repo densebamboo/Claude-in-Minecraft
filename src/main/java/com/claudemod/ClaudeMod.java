@@ -67,6 +67,8 @@ public class ClaudeMod {
         NeoForge.EVENT_BUS.addListener(PlayerActivityListener::onSleepAttempt);
         NeoForge.EVENT_BUS.addListener(ContainerWatch::onOpen);
         NeoForge.EVENT_BUS.addListener(ContainerWatch::onClose);
+        NeoForge.EVENT_BUS.addListener(LagWatch::onTickPre);
+        NeoForge.EVENT_BUS.addListener(LagWatch::onTickPost);
         NeoForge.EVENT_BUS.addListener(ClaudeChat::onServerTick);
         NeoForge.EVENT_BUS.addListener(ClaudeSpawner::onServerTick);
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);

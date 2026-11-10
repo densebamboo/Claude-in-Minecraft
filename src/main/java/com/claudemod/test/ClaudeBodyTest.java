@@ -10953,6 +10953,7 @@ public final class ClaudeBodyTest {
             case 1409: return st1409(stage, t, c, h, level, mock);
             case 1410: return st1410(stage, t, c, h, level, mock);
             case 1411: return st1411(stage, t, c, h, level, mock);
+            case 1412: return st1412(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -25029,6 +25030,7 @@ public final class ClaudeBodyTest {
         BlockPos at = new BlockPos(9880, 80, 9780), hole = at.offset(3, -1, 0), drop = at.offset(4, -2, 1);
         BlockPos[] pocket = {hole, at.offset(3, -1, 1), at.offset(4, -1, 1), drop};
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("mine_model", "blueprint"); s1410T = -1; s1410Stray = null; }
+        if (t[0] == 5) mock[0].teleportTo(at.getX() + 0.5, at.getY() + 40, at.getZ() + 0.5); // (a player over his arena: out here a drop was never in the level's entity lookup)
         if (t[0] == 10) {
             var b = new com.claudemod.entity.life.MineBlueprint(at, net.minecraft.core.Direction.EAST, 1, 2); b.segments.clear(); b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, at.west(3), net.minecraft.core.Direction.EAST, 12, null)); c.blueprint = b; // his mine: a one-wide branch, two tall
             for (int x = -4; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = -4; y <= 4; y++) { BlockPos q = at.offset(x, y, z); level.setBlock(q, (b.isWalk(q) ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
@@ -25055,6 +25057,34 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static int s1410T; private static String s1410Stray;
+    /** Stage 1412 (D2D reviews 75 and 7, live 04:52:50-04:53:05 and 05:55:48 11-10): a copper vein mined up out of his one-wide tunnel's wall, its drops in the pocket 2-3 cells off the opening; "not going for: in his mine only drops in it or in open air joined to it count", the patch over them. The pocket's air search gave up at 8 cells, short of the opening. */
+    private static boolean st1412(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9820, 80, 9780), me = at.offset(3, 0, 1), drop = at.offset(3, 2, 3); // (him in the wall's opening, the drop in view as live: he'd just mined it)
+        BlockPos[] pocket = {at.offset(3, 0, 1), at.offset(3, 1, 1), at.offset(3, 0, 2), at.offset(3, 1, 2), at.offset(3, 2, 2), at.offset(2, 1, 2), at.offset(2, 2, 2), at.offset(4, 1, 2), at.offset(4, 2, 2), at.offset(4, 1, 3), at.offset(4, 2, 3), drop};
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("mine_model", "blueprint"); s1412T = -1; }
+        if (t[0] == 5) mock[0].teleportTo(at.getX() + 0.5, at.getY() + 40, at.getZ() + 0.5); // (a player over his arena: out here a drop was never in the level's entity lookup)
+        if (t[0] == 10) {
+            var b = new com.claudemod.entity.life.MineBlueprint(at, net.minecraft.core.Direction.EAST, 1, 2); b.segments.clear(); b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, at.west(3), net.minecraft.core.Direction.EAST, 12, null)); c.blueprint = b; // his mine: a one-wide branch, two tall
+            for (int x = -4; x <= 9; x++) for (int z = -3; z <= 5; z++) for (int y = -2; y <= 5; y++) { BlockPos q = at.offset(x, y, z); level.setBlock(q, (b.isWalk(q) ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            for (BlockPos q : pocket) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2); // the vein mined out up off his wall, the wall opened into it
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+        }
+        if (t[0] == 20) { var it = new net.minecraft.world.entity.item.ItemEntity(level, drop.getX() + 0.5, drop.getY() + 0.1, drop.getZ() + 0.5, new ItemStack(Items.RAW_COPPER, 4)); it.setPickUpDelay(0); it.setDeltaMovement(0, 0, 0); level.addFreshEntity(it); }
+        if (t[0] == 22) c.tasks.add(new Task.Pickup(100));
+        if (t[0] > 22 && s1412T < 0 && c.getInventory().countItem(Items.RAW_COPPER) > 0) s1412T = t[0];
+        if (t[0] == 22 + 20 * 10 || s1412T > 0 && t[0] == s1412T + 2) {
+            int took = s1412T < 0 ? -1 : s1412T - 22;
+            c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(at).inflate(12))) e.discard();
+            for (int x = -4; x <= 9; x++) for (int z = -3; z <= 5; z++) for (int y = -2; y <= 5; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // (the floor left)
+            check(took >= 0, "the raw copper 3 cells into the vein pocket off his wall: not got in 10 s");
+            pass(stage, t, "the raw copper in the vein pocket got in " + took + " ticks");
+        }
+        return true;
+    }
+    private static int s1412T;
     /** Stage 1411 (D2D review 60, live 06:04:40-06:05:00 11-10 at -75,16,-345): stone picks to make in his one-wide iron tunnel, his mine's table elsewhere: the temp table went down on the tunnel floor at -74, between him and his dig at -70; the way over it dug 3 of his ceiling, his mine wanted them back, the put-back refused. The table goes on the side away from his work. */
     private static boolean st1411(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos at = new BlockPos(9940, 80, 9780), me = at.offset(3, 0, 0), work = at.offset(7, 0, 0), mineTable = at.offset(0, 0, 1);

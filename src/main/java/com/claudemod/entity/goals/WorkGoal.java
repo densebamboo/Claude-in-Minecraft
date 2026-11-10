@@ -3791,10 +3791,10 @@ public class WorkGoal extends Goal {
         if (!open.test(from)) return false;
         java.util.ArrayDeque<BlockPos> todo = new java.util.ArrayDeque<>(); java.util.Set<BlockPos> seen = new java.util.HashSet<>();
         todo.add(from.immutable()); seen.add(from.immutable());
-        while (!todo.isEmpty() && seen.size() <= 8) {
+        while (!todo.isEmpty() && seen.size() <= 64) { // (within 8 of it: a mined-out vein off his wall is more than 8 cells of air, and at 8 the drop 3 in from the opening read as shut off, the patch sealed it in, reviews 75/7, stage 1412)
             BlockPos p = todo.poll();
             if (bp.touches(p)) return true;
-            for (Direction d : Direction.values()) { BlockPos n = p.relative(d); if (!seen.contains(n) && open.test(n)) { seen.add(n.immutable()); todo.add(n.immutable()); } }
+            for (Direction d : Direction.values()) { BlockPos n = p.relative(d); if (n.distManhattan(from) <= 8 && !seen.contains(n) && open.test(n)) { seen.add(n.immutable()); todo.add(n.immutable()); } }
         }
         return false;
     }

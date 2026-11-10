@@ -10941,6 +10941,8 @@ public final class ClaudeBodyTest {
             case 1403: return st1403(stage, t, c, h, level, mock);
             case 1404: return st1404(stage, t, c, h, level, mock);
             case 1406: return st1406(stage, t, c, h, level, mock);
+            case 1407: return st1407(stage, t, c, h, level, mock);
+            case 1408: return st1407(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -24774,6 +24776,31 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static int s1406T;
+    /** Stage 1407 (D2D review 151, live 05:20:04-06 11-10 at 324,32,340 on the Nether's lava sea): bridging north over lava, on the back edge of his block (z .89) with the next cell's only face the north side of the block he stands on. "Into the middle" was refused by the lava guard probing 0.9 ahead, past the move's own end, and he gave the cell up (NO_FACE). He leans out sneaking and places it. 1408: lava sealed in the rock over the cell, no lean; the nudge into his block's middle, where the face is in view, then the place. */
+    private static boolean st1407(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9760, 80, 9780), cell = at.offset(0, -1, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1407T = -1; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 4; x++) for (int z = -4; z <= 4; z++) for (int y = -3; y <= 4; y++) { boolean pad = (x == 0 || x == 1) && (z == 1 || z == 2);
+                level.setBlock(at.offset(x, y, z), (y <= -3 ? Blocks.NETHERRACK : y == -2 ? Blocks.LAVA : y == -1 ? (pad ? Blocks.NETHERRACK : Blocks.LAVA) : Blocks.AIR).defaultBlockState(), 2); } // a lava sea two deep, his 2x2 block in it
+            if (stage[0] == 1408) { BlockPos lv = at.offset(-1, 3, 0); for (net.minecraft.core.Direction d : net.minecraft.core.Direction.values()) level.setBlock(lv.relative(d), Blocks.NETHERRACK.defaultBlockState(), 2); level.setBlock(lv, Blocks.LAVA.defaultBlockState(), 2); } // (lava over the cell in the rock: no leaning out under it)
+            c.getInventory().add(new ItemStack(Items.NETHERRACK, 16));
+            c.teleportTo(at.getX() + 0.55, at.getY(), at.getZ() + 1.89); com.claudemod.entity.life.Watchdog.teleported(c); // (the back edge of his block, as live: 324.55, 340.89)
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.clearFire();
+        }
+        if (t[0] == 20) c.tasks.add(new Task.Place(cell, Items.NETHERRACK));
+        if (t[0] > 20 && s1407T < 0 && level.getBlockState(cell).is(Blocks.NETHERRACK)) s1407T = t[0];
+        if (t[0] == 20 + 20 * 5 || s1407T > 0 && t[0] == s1407T + 2) {
+            int took = s1407T < 0 ? -1 : s1407T - 20; BlockPos was = c.blockPosition(); boolean ok = c.isAlive() && !c.isInLava();
+            c.tasks.clear(); c.dropCurrent = true; c.setShiftKeyDown(false); c.clearFire();
+            for (int x = -4; x <= 4; x++) for (int z = -4; z <= 4; z++) for (int y = -3; y <= 4; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // (the floor left, the lava gone)
+            check(ok, "in the lava (at " + was.toShortString() + ")");
+            check(took >= 0 && took <= 40, "the block over the lava from the back edge: " + (took < 0 ? "not placed in 5 s, at " + was.toShortString() + " " + c.position() : took + " ticks"));
+            pass(stage, t, (stage[0] == 1408 ? "into his block's middle" : "leaned out") + " over the lava and placed it in " + took + " ticks");
+        }
+        return true;
+    }
+    private static int s1407T;
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

@@ -234,11 +234,14 @@ public final class Controls {
             double hv = Math.sqrt(p.getDeltaMovement().x * p.getDeltaMovement().x + p.getDeltaMovement().z * p.getDeltaMovement().z);
             double[] reaches = p.isSprinting() || hv > 0.2 ? new double[] {0.45, 0.9, 1.4} : new double[] {0.45, 0.9}; // (at a sprint he slides a block on: 0.9 was seen too late)
             Vec3 sd = new Vec3(-ld.z, 0, ld.x).scale(0.3); // his shoulders, either side
+            double reachCap = "move".equals(from) && hv <= 0.2 ? move.wantedDist() + 0.3 : Double.MAX_VALUE; // a short move's own end, his half-width past it: no farther (review 151, stage 1407: "into the middle" of his own block was refused for lava 0.9 ahead, past the move's end)
+            boolean sneakEdge = p.isShiftKeyDown() && p.onGround() && !jumpNow; // vanilla keeps a sneaking player on his block: lava under the next cell is no fall (the lean to place a bridge block was refused, review 151)
             outer:
             for (double reach : reaches) for (int k = -1; k <= 1; k++) {
+                if (reach > reachCap) continue;
                 net.minecraft.core.BlockPos ah = net.minecraft.core.BlockPos.containing(p.getX() + ld.x * reach + sd.x * k, p.getY() + 0.1, p.getZ() + ld.z * reach + sd.z * k);
                 if (ah.equals(p.blockPosition())) continue;
-                boolean lavaAt = lavaCell(p, ah);
+                boolean lavaAt = lavaCell(p, ah) && !(sneakEdge && !p.level().getFluidState(ah).is(net.minecraft.tags.FluidTags.LAVA));
                 if (lavaAt && k != 0) { walk = ld.subtract(sd.scale(k * 2.0)).normalize(); guard = "steered off lava at his shoulder " + ah.toShortString() + " (the new way not looked at)"; continue outer; } // (only his shoulder would touch it: steered off that side, not stopped; walking a lava hole's edge stalled him dead) // ponytail: live 19:13 -153,51,-956: a shoulder hit at reach 0.45 stopped him dead 40+ s, the lava beside him not ahead
                 if (lavaAt && nextNode != null && Math.abs(nextNode.x - p.getBlockX()) == 1 && Math.abs(nextNode.z - p.getBlockZ()) == 1 && Math.abs(nextNode.y - p.getBlockY()) <= 1) { // a diagonal step whose corner is over lava: round the other corner, one straight step then the next, like a player (stage 538: the path's diagonal past a lava pool's corner and the guard's stop, 2 min stood still at -49 102 89)
                     net.minecraft.core.BlockPos corner = null;

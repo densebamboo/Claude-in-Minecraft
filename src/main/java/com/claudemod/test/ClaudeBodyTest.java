@@ -10548,6 +10548,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1457: return st1457(stage, t, c, h, level, mock);
+            case 1456: return st1456(stage, t, c, h, level, mock);
             case 1455: return st1455(stage, t, c, h, level, mock);
             case 1454: return st1454(stage, t, c, h, level, mock);
             case 1453: return st1453(stage, t, c, h, level, mock);
@@ -18438,6 +18440,52 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    /** Stage 1456 (D2D review 091428-41, live 09:10:41-09:13:04 11-10: down his mine at y 16, 12 meals on him and 1 short, kit.food "hunt chicken ~52 s (nearest 78 walk)" over "as he is ~84 s"; the walk out was 300 blocks of mine, then 4 search legs and no chicken): him on a mine row 100 in from the entrance, under rock, a chicken on the ground over him. His walk to it is the way out of the mine and over, not the line through the rock. */
+    private static boolean st1456(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("mine_model", "blueprint"); level.setDayTime(3000); flatBox(h); }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) { for (int y = 4; y <= 11; y++) h.setBlock(new BlockPos(x, y, z), Blocks.STONE); h.setBlock(new BlockPos(x, 12, z), Blocks.GRASS_BLOCK); } // rock over him, ground on top
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(60))) m.discard();
+            BlockPos me = h.absolutePos(new BlockPos(3, 2, 8));
+            BlockPos e = me.relative(net.minecraft.core.Direction.EAST, 104).above(3); // his entrance, 104 east: stairs 4 down west, then 101 of flat tunnel west to where he stands
+            var b = new com.claudemod.entity.life.MineBlueprint(e, net.minecraft.core.Direction.WEST, 2, 4); b.segments.get(0).n = 4;
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, e.relative(net.minecraft.core.Direction.WEST, 4).below(3), net.minecraft.core.Direction.WEST, 101, null));
+            c.blueprint = b; c.nook = null; c.nooks.clear(); c.stairStart = e;
+            var ch = EntityType.CHICKEN.create(level); BlockPos cp = h.absolutePos(new BlockPos(9, 13, 8)); ch.moveTo(cp.getX() + 0.5, cp.getY(), cp.getZ() + 0.5, 0, 0); ch.setNoAi(true); ch.setPersistenceRequired(); level.addFreshEntity(ch);
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f); mock[0].teleportTo(level, me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear();
+        }
+        if (t[0] == 30) {
+            var ch = level.getEntitiesOfClass(net.minecraft.world.entity.animal.Chicken.class, c.getBoundingBox().inflate(30)).stream().findFirst().orElse(null);
+            check(ch != null, "the stage's chicken not found");
+            double walk = com.claudemod.director.ClaudeLife.preyWalk(c, level, ch), line = c.distanceTo(ch);
+            int route = com.claudemod.director.ClaudeLife.routeDist(c, c.blockPosition(), ch.blockPosition());
+            ch.discard(); c.blueprint = null; c.stairStart = null;
+            check(walk >= 150, "a chicken " + (int) line + " off through the rock, his way to it 100 back along his mine, out and over (route " + route + "): priced a " + (int) walk + " walk");
+            pass(stage, t, "the chicken over him priced " + (int) walk + " walk (" + (int) line + " through the rock)");
+        }
+        return true;
+    }
+    /** Stage 1457 (D2D review 091428-41, live 09:12:22-09:13:04 11-10: kit.food "as he is" with 224 food points on him, and gear_up's "collect chicken" walked 4 search legs north, 44-58 blocks each, no animal in view): no animal about, 30 cooked beef on him, his own errand. The collect stands down on the kit's word, no search leg. */
+    private static boolean st1457(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(3000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 30)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            BlockPos me = h.absolutePos(new BlockPos(5, 2, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5);
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear(); c.commandActive = false; c.stairStart = null; c.blueprint = null;
+        }
+        if (t[0] == 70) { // (past the kit's 40-tick memo)
+            var fa = com.claudemod.director.Kit.foodAsk(c);
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "chicken", 1);
+            boolean walk = c.tasks.stream().anyMatch(q -> q instanceof com.claudemod.entity.life.Task.GoTo);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent();
+            check(fa == null, "30 cooked beef on him and the kit still asks " + fa);
+            check(!walk && r.startsWith("done"), "the kit says he goes as he is, nothing in view, and the collect of chicken: " + r);
+            pass(stage, t, "stood down: " + r);
+        }
+        return true;
+    }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */
     private static int s934T, s934Deep;
     private static boolean st934(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
@@ -19184,7 +19232,7 @@ public final class ClaudeBodyTest {
         if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(1000);
             for (int x = -10; x <= 50; x++) for (int z = -10; z <= 10; z++) { level.setBlock(o.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
             for (int x = -2; x <= 2; x++) for (int z = -2; z <= 2; z++) { level.setBlock(pool.offset(x, -2, z), Blocks.SAND.defaultBlockState(), 2); for (int y = -1; y <= 0; y++) level.setBlock(pool.offset(x, y, z), Blocks.WATER.defaultBlockState(), 2); }
-            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 13)); c.getInventory().add(new ItemStack(Items.BREAD, 3));
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 15)); c.getInventory().add(new ItemStack(Items.BREAD, 3)); // (15, not 13: the kit's fish range is 48 since stage 1235, the pool's fish 40 off are in it when they've loaded, and at 13 it rightly asked for 2 of them; enough on him that it asks nothing)
             c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5);
             com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f); }
         if (t[0] == 5) { for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) e.discard();

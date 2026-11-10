@@ -2119,6 +2119,7 @@ public final class ClaudeLife {
                         if (wet && g.tickCount - g.attempts.counters.getOrDefault("fishNoWater", -100000) > 20 * 300 && g.tickCount - g.attempts.counters.getOrDefault("fishFail", -100000) > 20 * 300) { g.skillQueue.addFirst(new Skills.Step("fish", "", count)); return "nothing to hunt in reach, but a rod and open water: fishing for it"; } // (the fishing skill wants more than "some water": two deep, open sky, water all round, a dry bank; when it says no, not again for 5 min)
                     }
                     if (herd.isEmpty()) {
+                        if (!g.commandActive && Set.of("beef", "porkchop", "mutton", "chicken", "salmon", "cod", "rabbit").contains(product0) && Kit.foodAsk(g) == null) return "done: no " + animal + " in sight, and the kit's food weighed from here says I go as I am: no search for it (Kit.foodAsk)"; // his own errand for food the kit no longer wants (D2D 091428-41, live 09:12:22 11-10: "as he is" with 224 points on him, and gear_up's collect chicken walked 4 search legs; stage 1457)
                         if (nightHuntNo(g, level)) return "failed: it's night and I've nothing proper to fight with or wear; no wandering the open for " + animal + " now, shelter till morning (dig in) and look at first light";
                         { String no = nightOutsideNo(g, level, g.blockPosition(), com.claudemod.entity.life.Weights.w("kit.search_s", 120)); if (no != null) return no; } // (iron+ and fed, or a lit base: otherwise no hunting at night; priced as the search it is, not a 30 s job)
                         BlockPos seen = animalsSeen().get(g.getUUID()); if (seen != null && level.isLoaded(seen) && seen.getY() < level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, seen.getX(), seen.getZ()) - 3) seen = null; // (a cave spot is no pasture: the chicken 60 down was saved as one)
@@ -9884,7 +9885,7 @@ public final class ClaudeLife {
         BlockPos me = g.blockPosition(), at = e.blockPosition();
         if (preyNoWay == null) preyNoWay = new java.util.HashMap<>(); if (preyNoWay.size() > 256) preyNoWay.clear();
         { double[] nw = preyNoWay.get(e.getUUID()); if (nw != null && g.tickCount - nw[6] >= 0 && g.tickCount - nw[6] < 20 * com.claudemod.entity.life.Weights.w("hunt.no_way_memo_s", 30) && e.position().distanceTo(new net.minecraft.world.phys.Vec3(nw[0], nw[1], nw[2])) <= 3 && g.position().distanceTo(new net.minecraft.world.phys.Vec3(nw[3], nw[4], nw[5])) <= 2) return -1; } // its "no way" holds while he and it stay put: the kit priced the same salmon every ~2 s, a full search each to its budget, 150-300 ms a time on the server thread (live 08:48 and 09:20-09:24 11-10, D2D reviews 085246-67/69, stage 1423)
-        if (me.getY() < level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, me.getX(), me.getZ()) - 3) return d;
+        if (me.getY() < level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, me.getX(), me.getZ()) - 3) return Math.max(d, routeDist(g, me, at)); // underground: his way out along his mine and over, not the line through the rock (D2D 091428-41, live 09:10:41 11-10: a chicken "78 walk" from y 16 was 300 blocks of mine; stage 1456)
         double limit = 1.6 * d + 12, len;
         boolean fish = e instanceof net.minecraft.world.entity.animal.WaterAnimal;
         if (Math.max(Math.abs(at.getX() - me.getX()), Math.abs(at.getZ() - me.getZ())) <= com.claudemod.entity.nav.Route.FAR) {
@@ -9900,7 +9901,7 @@ public final class ClaudeLife {
     /**
      * The real walk to within {@code within} of a spot (blocks of route), or -1 when there's no short way: ActionPath with nothing dug
      * (blocks put down if he has them and {@code canPlace}) within 24, the land plan farther; at most 1.6x the straight line + 12 counts.
-     * Under the ground: the straight line (the land plans start up top).
+     * Under the ground: out along his mine and over (routeDist; the line when he's off his mine), the land plans start up top.
      */
     public static double reachWalk(ClaudeEntity g, ServerLevel level, BlockPos at, double within, boolean canPlace) { return reachWalk(g, level, at, within, canPlace, 0); }
     /** As above, with {@code atLeast} the walk always allowed (a stand of trees he knows beats scouting bare ground: stage 1275). */
@@ -9908,7 +9909,7 @@ public final class ClaudeLife {
         BlockPos me = g.blockPosition();
         double d = Math.sqrt(me.distSqr(at));
         if (d <= within + 1) return d;
-        if (me.getY() < level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, me.getX(), me.getZ()) - 3) return d;
+        if (me.getY() < level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, me.getX(), me.getZ()) - 3) return Math.max(d, routeDist(g, me, at)); // underground: his way out along his mine and over, not the line through the rock (D2D 091428-41, live 09:10:41 11-10: a chicken "78 walk" from y 16 was 300 blocks of mine; stage 1456)
         double limit = Math.max(1.6 * d + 12, atLeast), len;
         if (Math.max(Math.abs(at.getX() - me.getX()), Math.abs(at.getZ() - me.getZ())) <= com.claudemod.entity.nav.Route.FAR) {
             var plan = com.claudemod.entity.nav.ActionPath.plan(g, level, me, at, within, canPlace, 2500, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount);

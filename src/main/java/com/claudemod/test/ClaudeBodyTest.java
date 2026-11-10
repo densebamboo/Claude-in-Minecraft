@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1377: return st1377(stage, t, c, h, level, mock);
             case 1376: return st1376(stage, t, c, h, level, mock);
             case 1375: return st1375(stage, t, c, h, level, mock);
             case 1374: return st1374(stage, t, c, h, level, mock);
@@ -17892,6 +17893,35 @@ public final class ClaudeBodyTest {
                 check(s1376Got, "setup: the fireball never got him (last hit: " + c.hurtSaid + ")"); check(s1376Raised, "a fireball got him in his cover at " + s1376Cell.toShortString() + ": 3 s on he's still in that cell, not walled in (at " + f.toShortString() + ", now " + c.currentTask + ")");
                 pass(stage, t, "the cover a fireball got him in dropped: at " + f.toShortString() + (f.equals(s1376Cell) ? ", walled in" : ", off the cell " + s1376Cell.toShortString()));
             }
+        }
+        return true;
+    }
+    /** Stage 1377 (D2D major, live 07:20:10 11-10: packing for the trip 32 logs short, "collect logs x44 -> the trees here are out of reach, walking off to find others", but the walk was an explore that "a strip_mine is queued" skipped; nothing walked, the collect dropped, strip_mine went down with 0 logs, the iron pick wore out at 07:28:50 and no stone pick could be made): his mine's blueprint set, strip_mine queued behind collect logs, the one tree in view one he just failed to reach. The tree search walks (or the collect stays queued): it's never dropped. */
+    private static int s1377T;
+    private static boolean st1377(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; s1377T = -1; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            lnMine(h, level, c);
+            c.tasks.clear(); c.skillQueue.clear(); if (c.currentTask != null) c.dropCurrent = true;
+            BlockPos me = h.absolutePos(new BlockPos(12, 14, 20)), tree = me.offset(5, 0, 0);
+            for (int y = 0; y < 5; y++) level.setBlock(tree.above(y), Blocks.OAK_LOG.defaultBlockState(), 2);
+            for (int dx = -2; dx <= 2; dx++) for (int dz = -2; dz <= 2; dz++) for (int y = 3; y <= 5; y++) if (dx != 0 || dz != 0 || y == 5) level.setBlock(tree.offset(dx, y, dz), Blocks.OAK_LEAVES.defaultBlockState().setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true), 2);
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5);
+            c.prefs.put("stay_close", "no"); level.setDayTime(6000); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.TORCH, 32)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 20));
+            c.attempts.clear(); c.attempts.any.put(tree.immutable(), c.tickCount); // he couldn't get to it a moment ago
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("collect", "logs", 44)); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("strip_mine", "iron_ore", 22));
+            c.nextPlanTick = c.tickCount + 20 * 600; s1377T = t[0];
+        }
+        if (s1377T > 0 && t[0] - s1377T == 60) {
+            String l = c.lastSkillLine == null ? "" : c.lastSkillLine;
+            boolean walking = c.currentTask instanceof com.claudemod.entity.life.Task.GoTo || c.tasks.stream().anyMatch(x -> x instanceof com.claudemod.entity.life.Task.GoTo);
+            boolean kept = c.skillQueue.stream().anyMatch(s -> s.skill().equals("collect") && s.target().equals("logs"));
+            boolean mining = c.skillQueue.stream().anyMatch(s -> s.skill().equals("strip_mine")) && !kept && !walking;
+            String qs = c.skillQueue.toString(), ts = c.currentTask + " " + c.tasks.stream().limit(4).toList();
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.getInventory().clearContent(); c.attempts.clear(); c.blueprint = null; c.prefs.remove("mine_model");
+            check(!mining && (walking || kept), "the trip's log collect dropped: no walk for trees and no collect left (last: " + l + "; queue " + qs + "; doing " + ts + ")");
+            pass(stage, t, "the tree search kept on (" + (walking ? "walking" : "collect queued") + "): " + l);
         }
         return true;
     }

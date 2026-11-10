@@ -9048,10 +9048,13 @@ public final class ClaudeLife {
      */
     private static boolean ownTableBeats(ClaudeEntity g, ServerLevel level, BlockPos at, String what) {
         int r = routeDist(g, g.blockPosition(), at);
-        boolean inMine = inHisMine(g, g.blockPosition()) || inHisMine(g, g.blockPosition().above()); // his mine is no house: a table set into its wall and taken back up as he moves on (the user 11-07 reviews 22/28/96/116/148/177: 54-171 blocks to an old table with one in his pack; stage 887)
+        boolean inMine = inHisMine(g, g.blockPosition()) || inHisMine(g, g.blockPosition().above()) || touchesMine(g, g.blockPosition()) || g.mineFace != null && g.blockPosition().distSqr(g.mineFace) <= 12 * 12; // (an ore pocket off his tunnel is his mine too, not his house's ground: baseArea's mine half read it as base and ruled his own table out, a 68-block walk with one in his pack, D2D 20 live 06:47 11-10; stage 1380) // his mine is no house: a table set into its wall and taken back up as he moves on (the user 11-07 reviews 22/28/96/116/148/177: 54-171 blocks to an old table with one in his pack; stage 887)
         double his = r >= Integer.MAX_VALUE / 2 ? Double.MAX_VALUE : 2.0 * r / com.claudemod.entity.life.Decide.sprint(), own = (g.inventory.count(s -> s.is(Items.CRAFTING_TABLE)) > 0 ? com.claudemod.entity.life.Weights.w("station.table_set_s", 3) : com.claudemod.entity.life.Weights.w("station.table_make_s", 5)) + (inMine ? com.claudemod.entity.life.Weights.w("station.mine_notch_s", 4) : 0);
+        Integer noSpot = g.attempts.counters.get("tableNoSpot"); BlockPos noSpotAt = tableNoSpotAt;
+        boolean noSpotHere = noSpot != null && noSpotAt != null && g.tickCount - noSpot >= 0 && g.tickCount - noSpot < 20 * 60 && noSpotAt.distSqr(g.blockPosition()) <= 4 * 4;
         var pick = com.claudemod.entity.life.Decide.choose(g, "station.table", what + ", the table at " + at.toShortString() + " " + r + " off", true, List.of(
-                baseArea(g, g.blockPosition()) && !inMine ? com.claudemod.entity.life.Decide.Option.out("his own here", "one set down at his base stays: the base's own table is the one (the user: no tables littered round his house)")
+                noSpotHere ? com.claudemod.entity.life.Decide.Option.out("his own here", "no spot for it here " + (g.tickCount - noSpot) / 20 + " s ago (" + tableNoSpotWhy + ")") // (D2D 15, live 06:56 11-10: "his own here" picked 3 times, no spot each time, the bucket never made; stage 1379)
+                : baseArea(g, g.blockPosition()) && !inMine ? com.claudemod.entity.life.Decide.Option.out("his own here", "one set down at his base stays: the base's own table is the one (the user: no tables littered round his house)")
                     : com.claudemod.entity.life.Decide.Option.of("his own here", own, (g.inventory.count(s -> s.is(Items.CRAFTING_TABLE)) > 0 ? "set down from his pack, taken back up" : "made from the wood on him, taken back up") + (inMine ? " (a notch in his mine's wall, refilled after)" : "")),
                 com.claudemod.entity.life.Decide.Option.of("walk to that one", his, r + " blocks there and back")));
         return pick != null && pick.name().equals("his own here");
@@ -9524,7 +9527,7 @@ public final class ClaudeLife {
         boolean placed = tableAt != null && level.getBlockState(tableAt).is(Blocks.CRAFTING_TABLE); // (a notch only queues the dig and the table: no craft against a table that isn't there yet, the vanilla rule; the craft comes once it stands)
         if (tableAt != null && !placed) { ClaudeMod.LOGGER.info("[Claude skill] a crafting table going into the notch at {}: the craft once it stands (ClaudeLife.ensureCraftingTable)", tableAt.toShortString()); return false; }
         if (placed) g.tablePlacedTick = g.tickCount;
-        if (!placed) ClaudeMod.LOGGER.info("[Claude skill] could not find a spot to put a crafting table at {}", g.blockPosition().toShortString());
+        if (!placed) { g.attempts.counters.put("tableNoSpot", g.tickCount); tableNoSpotAt = g.blockPosition().immutable(); tableNoSpotWhy = placeNoSpotWhy.length() == 0 ? "no open floor or wall beside him" : placeNoSpotWhy.toString(); ClaudeMod.LOGGER.info("[Claude skill] could not find a spot to put a crafting table at {}: {} (ClaudeLife.ensureCraftingTable)", g.blockPosition().toShortString(), tableNoSpotWhy); }
         return placed;
     }
 
@@ -9554,7 +9557,11 @@ public final class ClaudeLife {
     }
     public static BlockPos testPlaceNextTo(ClaudeEntity g, ServerLevel level, Item item) { return placeNextTo(g, level, item); }
 
+    private static BlockPos tableNoSpotAt; private static String tableNoSpotWhy = ""; // (where and why his own table last found no spot: the next station.table pick knows; static: fields added live start null)
+    private static final StringBuilder placeNoSpotWhy = new StringBuilder(); // (the wall sides refused on the last placeNextTo, and why: those were silent)
+    private static void noSpot(BlockPos p, String why) { if (placeNoSpotWhy.length() < 300) placeNoSpotWhy.append(placeNoSpotWhy.length() > 0 ? "; " : "").append(p.toShortString()).append(' ').append(why); }
     private static BlockPos placeNextTo(ClaudeEntity g, ServerLevel level, Item item) {
+        placeNoSpotWhy.setLength(0);
         if (!(item instanceof net.minecraft.world.item.BlockItem bi)) return null;
         boolean utility = item == Items.CRAFTING_TABLE || item == Items.FURNACE || item == Items.CHEST;
         Direction ahead = corridorDir(g, g.blockPosition());
@@ -9578,24 +9585,24 @@ public final class ClaudeLife {
                 BlockPos p = at.relative(side);
                 boolean hole = false;
                 for (int k = 0; k < 4 && level.getBlockState(p).getCollisionShape(level, p).isEmpty(); k++) { if (!isMineCell(g, p) && g.mineShape != null) hole = true; p = p.relative(side); }
-                if (hole || Math.sqrt(p.distSqr(at)) > 4) continue; // too far to reach, or across a hole in the wall (an ore pocket): that gets patched, not furnished
+                if (hole || Math.sqrt(p.distSqr(at)) > 4) { noSpot(p, hole ? "across a hole in the wall" : "no wall within 4"); continue; } // too far to reach, or across a hole in the wall (an ore pocket): that gets patched, not furnished
                 BlockState wall = level.getBlockState(p);
                 boolean solidWall = !wall.isAir() && !wall.canBeReplaced() && wall.getDestroySpeed(level, p) >= 0 && !wall.hasBlockEntity()
                         && wall.getFluidState().isEmpty() && !(g.getTarget() instanceof ServerPlayer o && protectedBlock(g, o, p))
                         && (wall.is(BlockTags.BASE_STONE_OVERWORLD) || wall.is(BlockTags.BASE_STONE_NETHER) || wall.is(BlockTags.STONE_ORE_REPLACEABLES) || wall.is(BlockTags.DEEPSLATE_ORE_REPLACEABLES) || wall.is(BlockTags.DIRT) || wall.is(Blocks.GRAVEL) || wall.is(Blocks.SAND) || wall.is(Blocks.SANDSTONE) || wall.is(Blocks.RED_SANDSTONE) || wall.is(Blocks.RED_SAND) || wall.is(BlockTags.TERRACOTTA)) // (a desert mine is sandstone all the way: no notch there left him with a broken pick and no table, 10 s loop) // a notch goes into rock or earth, never a tree (under a canopy he set a furnace into a trunk and cobbled the trunk after)
                         && !wall.is(BlockTags.LOGS) && !wall.is(BlockTags.LEAVES);
-                if (!solidWall || g.inventory.count(t -> t.is(item)) == 0) continue;
+                if (!solidWall || g.inventory.count(t -> t.is(item)) == 0) { noSpot(p, !solidWall ? "not plain rock (" + BuiltInRegistries.BLOCK.getKey(wall.getBlock()).getPath() + ")" : "none on him"); continue; }
                 if (inHisNook(g, p) || (g.house != null && g.house.roleAt(p) != null) || (g.farm != null && g.farm.touches(p))) { ClaudeMod.LOGGER.info("[Claude life] no notch for his {} at {}: a cell of his {} (ClaudeLife.placeNextTo)", Crafting.name(item), p.toShortString(), inHisNook(g, p) ? "base nook" : g.house != null && g.house.roleAt(p) != null ? "house" : "farm"); continue; }
                 if (g.blueprint != null && !g.blueprint.isEmpty()) { // never into rock his mine is about to dig: a planned row, or the next few cells past the face (the user: a table set "in the path" at the tunnel's end)
-                    { MineBlueprint.Role ro = g.blueprint.roleAt(p); if (ro != null && ro != MineBlueprint.Role.WALL) continue; }
+                    { MineBlueprint.Role ro = g.blueprint.roleAt(p); if (ro != null && ro != MineBlueprint.Role.WALL) { noSpot(p, "his mine's " + ro.name().toLowerCase()); continue; } }
                     if (g.blueprint.isWayIn(p)) { ClaudeMod.LOGGER.info("[Claude life] no notch for his {} at {}: his mine's way in (ClaudeLife.placeNextTo)", Crafting.name(item), p.toShortString()); continue; } // a wall block only: never the path, a step or the roof (the user: a furnace set into a step) // (its walls are where a notch goes: "touches" refused every wall, no table anywhere in his mine, a broken pick unreplaced)
                     BlockPos fc = g.blueprint.face(); Direction ed = g.blueprint.exitDir();
-                    if (fc != null && ed != null) { boolean ahead0 = false; for (int k = 0; k <= 5 && !ahead0; k++) { BlockPos q0 = fc.relative(ed, k); if (Math.abs(p.getY() - q0.getY()) <= 4 && Math.abs((p.getX() - q0.getX()) * ed.getClockWise().getStepX() + (p.getZ() - q0.getZ()) * ed.getClockWise().getStepZ()) <= 2 && (p.getX() - q0.getX()) * ed.getStepX() + (p.getZ() - q0.getZ()) * ed.getStepZ() == 0) ahead0 = true; } if (ahead0) continue; }
+                    if (fc != null && ed != null) { boolean ahead0 = false; for (int k = 0; k <= 5 && !ahead0; k++) { BlockPos q0 = fc.relative(ed, k); if (Math.abs(p.getY() - q0.getY()) <= 4 && Math.abs((p.getX() - q0.getX()) * ed.getClockWise().getStepX() + (p.getZ() - q0.getZ()) * ed.getClockWise().getStepZ()) <= 2 && (p.getX() - q0.getX()) * ed.getStepX() + (p.getZ() - q0.getZ()) * ed.getStepZ() == 0) ahead0 = true; } if (ahead0) { noSpot(p, "rock his mine digs next"); continue; } }
                 }
                 { final BlockPos pq = p; if (g.notches.contains(pq) || g.tasks.stream().anyMatch(q0 -> q0 instanceof Task.Place pl0 && pl0.pos().equals(pq))) continue; } // a notch already planned for a station: not a second one in it (three furnaces went into one notch, the same cell picked three times before the first was dug)
                 boolean torchBy = false; // never right where a torch is (or goes)
                 for (BlockPos q : new BlockPos[] {p, p.above(), p.below()}) if (level.getBlockState(q).is(Blocks.WALL_TORCH) || level.getBlockState(q).is(Blocks.TORCH)) torchBy = true;
-                if (torchBy) continue;
+                if (torchBy) { noSpot(p, "by a torch"); continue; }
                 // ponytail: the notch is mined instantly (a 1-block side job); a slow version would queue a Break first
                 g.tasks.addFirst(new Task.Place(p.immutable(), item)); // right click it in, facing him like a player's would
                 g.tasks.addFirst(new Task.Break(p.immutable())); if (!at.equals(g.blockPosition())) g.tasks.addFirst(new Task.GoTo(at, 0.6)); // (the notch is in the tunnel by the branch: there first) // mined with the pick like any block (it used to vanish instantly: no dig time, no tool wear)

@@ -10548,6 +10548,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1380: return st1380(stage, t, c, h, level, mock);
+            case 1379: return st1379(stage, t, c, h, level, mock);
             case 1378: return st1378(stage, t, c, h, level, mock);
             case 1377: return st1377(stage, t, c, h, level, mock);
             case 1376: return st1376(stage, t, c, h, level, mock);
@@ -17953,6 +17955,77 @@ public final class ClaudeBodyTest {
                 check(charcoal <= 1 && mines <= 1, "side-job rounds at the furnace piled up the plan: " + charcoal + " charcoal step(s), " + mines + " strip_mine(s) after " + (t[0] - s1378T) + " ticks: " + q);
                 pass(stage, t, "15 s of side-job rounds, the plan as it was: " + q);
             }
+        }
+        return true;
+    }
+    /** Stage 1379 (D2D 15, live 06:56:51-06:56:58 11-10 at -82,18,-344 in his mine: station.table "his own here ~3 s" over the table 43 off ~15 s, "could not find a spot to put a crafting table", craft bucket failed, the same pick and the same fail 3 times): a crafting table in his pack, no wall here takes a notch (glass), a table standing in the tunnel wall 20 back. The bucket gets made, at that table if his own can't go down here. */
+    private static int s1379Start;
+    private static boolean st1379(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(19800, 80, 17800);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -16; k <= 64; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; s1379Start = 0; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 50; x++) for (int z = -5; z <= 5; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+            var E = net.minecraft.core.Direction.EAST;
+            var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 44, null)); b.invalidate();
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            BlockPos me = b.rows().get(30).first();
+            for (int i = 24; i <= 36; i++) for (BlockPos f : b.rows().get(i).feet()) for (int yy = -1; yy <= 3; yy++) for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) { BlockPos q = f.above(yy).relative(d); if (level.getBlockState(q).is(Blocks.STONE)) level.setBlock(q, Blocks.GLASS.defaultBlockState(), 2); } // no wall here takes a notch
+            BlockPos table = b.rows().get(10).feet()[0].relative(net.minecraft.core.Direction.NORTH); if (!level.getBlockState(table).is(Blocks.STONE)) table = b.rows().get(10).feet()[b.rows().get(10).feet().length - 1].relative(net.minecraft.core.Direction.SOUTH);
+            level.setBlock(table, Blocks.CRAFTING_TABLE.defaultBlockState(), 3);
+            c.myStations.clear(); c.notches.clear(); c.tempStations.clear();
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = b.rows().get(43).first(); c.mineIsTunnel = true; level.setDayTime(1000);
+            c.mineShape = new ClaudeEntity.MineShape(2, 3, 4, 8, 6, "right"); c.mineCells.clear(); for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) c.mineCells.add(f.above(yy).immutable());
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE)); c.getInventory().add(new ItemStack(Items.IRON_INGOT, 3));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no"); mock[0].teleportTo(level, me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 20) { com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "craft", "bucket", 1); s1379Start = t[0]; }
+        if (s1379Start > 0 && t[0] > s1379Start) {
+            c.nextPlanTick = c.tickCount + 20 * 600;
+            boolean made = c.getInventory().countItem(Items.BUCKET) > 0;
+            if (made || t[0] - s1379Start > 20 * 30) {
+                String l = c.lastSkillLine;
+                c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; c.mineIsTunnel = false; c.mineShape = null; c.mineCells.clear(); c.myStations.clear(); c.notches.clear(); c.tempStations.clear(); c.getInventory().clearContent();
+                check(made, "30 s: no bucket, a table in his pack and one standing 20 back in his tunnel (last: " + l + ")");
+                pass(stage, t, "the bucket made in " + (t[0] - s1379Start) + " ticks: " + l);
+            } else if (s1379Start > 0 && (t[0] - s1379Start) % 20 == 0 && c.tasks.isEmpty() && c.skillQueue.isEmpty() && c.currentTask == null && c.getInventory().countItem(Items.BUCKET) == 0) com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "craft", "bucket", 1); // (his plan would ask again: the same craft once a second)
+        }
+        return true;
+    }
+    /** Stage 1380 (D2D 20, live 06:47:24 11-10 at -113,16,-329, in an ore pocket off his tunnel: station.table "his own here out (one set down at his base stays)", his mine's cells read as his base, a table in his pack and a 68-block walk to a table, review 20): a pocket beside his tunnel, a table in his pack, one standing 30 back. His own goes down here: no walk back for it. */
+    private static int s1380Start; private static double s1380Far; private static net.minecraft.world.phys.Vec3 s1380Me;
+    private static boolean st1380(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(19800, 80, 16800);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -16; k <= 64; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; s1380Start = 0; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 50; x++) for (int z = -5; z <= 5; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+            var E = net.minecraft.core.Direction.EAST;
+            var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 44, null)); b.invalidate();
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            BlockPos me = b.rows().get(34).feet()[0].relative(net.minecraft.core.Direction.NORTH); while (b.touches(me) || !level.getBlockState(me).is(Blocks.STONE)) me = me.relative(net.minecraft.core.Direction.NORTH); for (int yy = 0; yy < 2; yy++) level.setBlock(me.above(yy), Blocks.AIR.defaultBlockState(), 2); // an ore pocket off the tunnel, beside its row
+            BlockPos table = b.rows().get(4).feet()[0].relative(net.minecraft.core.Direction.NORTH); if (!level.getBlockState(table).is(Blocks.STONE)) table = b.rows().get(4).feet()[b.rows().get(4).feet().length - 1].relative(net.minecraft.core.Direction.SOUTH);
+            level.setBlock(table, Blocks.CRAFTING_TABLE.defaultBlockState(), 3);
+            c.myStations.clear(); c.notches.clear(); c.tempStations.clear(); c.myStations.add(table.immutable()); // (his own, remembered: live it was 68 off)
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = b.rows().get(43).first(); c.mineIsTunnel = true; level.setDayTime(1000);
+            c.mineShape = new ClaudeEntity.MineShape(2, 3, 4, 8, 6, "right"); c.mineCells.clear(); for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) c.mineCells.add(f.above(yy).immutable());
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE)); c.getInventory().add(new ItemStack(Items.IRON_INGOT, 3));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no"); mock[0].teleportTo(level, me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 20) { s1380Me = c.position(); s1380Far = 0; com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "craft", "bucket", 1); s1380Start = t[0]; }
+        if (s1380Start > 0 && t[0] > s1380Start) {
+            c.nextPlanTick = c.tickCount + 20 * 600;
+            boolean made = c.getInventory().countItem(Items.BUCKET) > 0; if (s1380Far < c.position().distanceTo(s1380Me)) s1380Far = c.position().distanceTo(s1380Me);
+            if (made || t[0] - s1380Start > 20 * 30) {
+                String l = c.lastSkillLine;
+                c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; c.mineIsTunnel = false; c.mineShape = null; c.mineCells.clear(); c.myStations.clear(); c.notches.clear(); c.tempStations.clear(); c.getInventory().clearContent();
+                check(made && t[0] - s1380Start <= 60 && s1380Far < 8, "a table in his pack: the bucket took " + (t[0] - s1380Start) + " ticks (walked " + (int) s1380Far + " off), not his own set down here in 3 s, or 30 s: no bucket, a table in his pack and one standing 30 back in his tunnel (last: " + l + ")");
+                pass(stage, t, "the bucket made " + (int) s1380Far + " from where he stood in " + (t[0] - s1380Start) + " ticks: " + l);
+            } else if (s1380Start > 0 && (t[0] - s1380Start) % 20 == 0 && c.tasks.isEmpty() && c.skillQueue.isEmpty() && c.currentTask == null && c.getInventory().countItem(Items.BUCKET) == 0) com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "craft", "bucket", 1); // (his plan would ask again: the same craft once a second)
         }
         return true;
     }

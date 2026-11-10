@@ -320,7 +320,7 @@ public final class PortalMap {
         double walkCost = Math.sqrt(from.distSqr(to)); String best = null; double bestCost = walkCost;
         for (Portal a : net(g).portals) { if (!OW.equals(a.dim) || "gone".equals(a.state)) continue; Portal na = leadsTo(g, a); if (na == null) continue;
             for (Portal b : net(g).portals) { if (!OW.equals(b.dim) || b == a || "gone".equals(b.state)) continue; Portal nb = leadsTo(g, b); if (nb == null || nb == na) continue;
-                Edge e = edge(g, na.id, nb.id); double nether = e != null ? e.length * ("highway".equals(e.kind) ? 0.8 : 1.0) : Math.sqrt(na.at.distSqr(nb.at)) * NETHER_OFF_ROAD;
+                Edge e = edge(g, na.id, nb.id); double nether = e != null ? e.length * ("highway".equals(e.kind) ? 0.8 : 1.0) : Math.sqrt(na.at.distSqr(nb.at)) * com.claudemod.entity.nav.NetherRoute.offRoad(g);
                 double c = Math.sqrt(from.distSqr(a.at)) + nether + Math.sqrt(b.at.distSqr(to)) + 20; // (+20: two crossings, 4 s each, and the step-outs)
                 if (c < bestCost) { bestCost = c; best = "via portals: walk " + (int) Math.sqrt(from.distSqr(a.at)) + " to #" + a.id + " (" + a.where() + "), " + (int) nether + " in the Nether " + (e != null ? "along your " + e.kind + " at y " + e.y : "off-road (no way of yours there yet)") + " to #" + nb.id + ", out at #" + b.id + " (" + b.where() + "), walk " + (int) Math.sqrt(b.at.distSqr(to)) + ": about " + (int) c; } } }
         return best == null ? null : "walking: about " + (int) walkCost + "; " + best;

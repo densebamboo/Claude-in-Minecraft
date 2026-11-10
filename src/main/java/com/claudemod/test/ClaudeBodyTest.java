@@ -2216,6 +2216,7 @@ public final class ClaudeBodyTest {
     }
     private static void scenarioReset(ClaudeEntity c) {
         com.claudemod.director.Kit.forgetFoodAsk(c); // (the 40-tick food memo answered the next stage with the last one's pack)
+        com.claudemod.entity.life.HuntPatrol.forgetReadied(c); // (the last stage's "get ready first" read as this one's go that brought no armor)
         com.claudemod.entity.life.Gate.reset(c); // (the no-progress gate's record of the last stage's jobs)
         com.claudemod.entity.life.PitGuard.reset(c); // (stages 245-247: his holes' caps and skirts)
         com.claudemod.entity.life.DeathLog.reset(c); // (the test world keeps his death checklist: a stage he died in left piles 2953 off pending, and 817's pearl hunt went to recover them)
@@ -10548,6 +10549,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1464: return st1464(stage, t, c, h, level, mock);
             case 1463: return st1463(stage, t, c, h, level, mock);
             case 1462: return st1462(stage, t, c, h, level, mock);
             case 1461: return st1461(stage, t, c, h, level, mock);
@@ -18673,6 +18675,32 @@ public final class ClaudeBodyTest {
             check(walk < 0, "the hoglin his chase wrote off still reads as reachable to collect (" + walk + ")");
             check(fa == null || fa.item() != Items.COOKED_PORKCHOP, "the one hoglin about written off by his chase, 10 meals on him: the kit still asks a hunt of it (" + fa + ")");
             pass(stage, t, "the written-off hoglin not priced: " + fa);
+        }
+        return true;
+    }
+    /** Stage 1464 (the user 15:2x 11-10 via D2D: "he has littered the FUCK out of the nether ... placing and breaking blocks is generally a last resort"; that day 1868 blocks put down, 971 of them bridges, 1321 left standing): a trench 2 wide and 12 deep across his way, 41 long, bedrock (no dig), the way round ~20 more walk. He walks round; no bridge. */
+    private static boolean st1464(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13200, 64, 7600), me = o, far = o.east(11);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int dz = -32; dz <= 32; dz += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(6, 0, dz)), 2, o.offset(6, 0, dz));
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 900; c.prefs.put("stay_close", "no"); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); com.claudemod.entity.life.Highway.reset(c); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 16; x++) for (int z = -25; z <= 25; z++) for (int y = -13; y <= 4; y++) { boolean trench = (x == 5 || x == 6) && Math.abs(z) <= 20 && y >= -12 && y <= -1;
+                nl.setBlock(o.offset(x, y, z), (y <= -1 && !trench || Math.abs(z) == 25 || x == -4 || x == 16 || y == 4 ? Blocks.BEDROCK : Blocks.AIR).defaultBlockState(), 2 | 16); }
+            for (var m : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) m.discard();
+            c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(nl, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 30) {
+            var plan = com.claudemod.entity.nav.ActionPath.plan(c, nl, me, far, 1.0, true, 20000); if (plan == null) plan = com.claudemod.entity.nav.ActionPath.plan(c, nl, me, far, 1.0, true, 20000, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, c.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), c.tickCount, java.util.List.of(), 2.5);
+            var ts = plan == null ? java.util.List.<Task>of() : com.claudemod.entity.nav.ActionPath.tasks(plan, me, Items.COBBLESTONE, far, 1.0, nl);
+            long places = ts.stream().filter(x -> x instanceof Task.Place).count(), walks = ts.stream().filter(x -> x instanceof Task.GoTo).count();
+            c.tasks.clear(); c.dropCurrent = true; c.getInventory().clearContent(); com.claudemod.entity.life.PortalMap.net(c).segments.clear();
+            for (int x = -4; x <= 16; x++) for (int z = -25; z <= 25; z++) for (int y = -13; y <= 4; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2 | 16);
+            nsHome(c, h, level);
+            check(plan != null, "no way past the trench at all");
+            check(places == 0, "a trench 41 long across his way in the Nether, the way round ~20 more walk: bridged it with " + places + " block(s) (" + ts.subList(0, Math.min(8, ts.size())) + ")");
+            pass(stage, t, "walked round the trench: " + walks + " walk legs, 0 blocks put");
         }
         return true;
     }

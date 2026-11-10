@@ -165,7 +165,7 @@ public final class Highway {
             if (level.isLoaded(p.at) && p.at.distSqr(g.blockPosition()) <= 16 * 16) { String now = PortalMap.stateAt(level, p.at); if (!now.equals(p.state)) { ClaudeMod.LOGGER.info("[Claude portal] #{} is {} now (was {}) (Highway.makePlan)", p.id, now, p.state); p.state = now; } } // (the one he's by, as it is: a record 300 min old said unlit with him stood in it lit, D2D live 13:53; stage 909)
             if (!"lit".equals(p.state)) { opts.add(Decide.Option.out(n, p.state + ("unlit".equals(p.state) ? ": the plan reads its face off the lit portal, relight it first" : ""))); continue; } // shortcut: an unlit frame is out (live 15:05 picked #4 "to relight", its frame gone); price a relight step once enter/light runs before the plan
             double relight = 0;
-            int rowsN = Math.abs(dest.getX() - p.at.getX()) + Math.abs(dest.getZ() - p.at.getZ()); double walk = Math.sqrt(g.blockPosition().distSqr(p.at)) * PortalMap.NETHER_OFF_ROAD / sprint;
+            int rowsN = Math.abs(dest.getX() - p.at.getX()) + Math.abs(dest.getZ() - p.at.getZ()); double walk = PortalMap.NETHER.equals(PortalMap.dim((ServerLevel) g.level())) ? com.claudemod.entity.nav.NetherRoute.priceS(g, g.blockPosition(), p.at) : Math.sqrt(g.blockPosition().distSqr(p.at)) * com.claudemod.entity.nav.NetherRoute.offRoad(g) / sprint;
             opts.add(Decide.Option.of(n, rowsN * rowS + walk + relight, rowsN + " rows x " + rowS + " s + " + Math.round(walk) + " s to it" + (relight > 0 ? " + " + Math.round(relight) + " s to relight it" : "")));
         }
         var pick = Decide.choose(g, "highway.portal", "to " + dest.toShortString(), true, opts);

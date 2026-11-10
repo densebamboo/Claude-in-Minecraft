@@ -153,7 +153,7 @@ public final class EyeHunt {
         BlockPos ne = PortalMap.partnerSpot(p), to = new BlockPos(Math.floorDiv(est.getX(), 8), ne.getY(), Math.floorDiv(est.getZ(), 8));
         int obs = g.inventory.count(x -> x.is(Items.OBSIDIAN)); boolean lighter = g.inventory.count(x -> x.is(Items.FLINT_AND_STEEL) || x.is(Items.FIRE_CHARGE)) > 0;
         boolean kit = obs >= 10 && lighter;
-        double cost = pd + horiz(Vec3.atCenterOf(ne), Vec3.atCenterOf(to)) * PortalMap.NETHER_OFF_ROAD + 100 + (kit ? 0 : 300); // (+100: the frame and two crossings; +300: the kit got first)
+        double cost = pd + horiz(Vec3.atCenterOf(ne), Vec3.atCenterOf(to)) * com.claudemod.entity.nav.NetherRoute.offRoad(g) + 100 + (kit ? 0 : 300); // (+100: the frame and two crossings; +300: the kit got first)
         if (cost >= toEst) return null;
         if (!kit) {
             if (h.viaKit) { ClaudeMod.LOGGER.info("[Claude eye] the Nether way to {} would save {} blocks but the kit didn't come ({} obsidian of 10, lighter {}): walking (EyeHunt.viaNether)", est.toShortString(), (int) (toEst - cost), obs, lighter); return null; }

@@ -526,7 +526,11 @@ public final class ActionPath {
             for (var a : avoid) { double d = Math.sqrt(Math.pow(c.x - a.x, 2) + Math.pow(c.z - a.z, 2)) + Math.abs(c.y - a.y) * 0.5, d0 = Math.sqrt(Math.pow(g.getX() - a.x, 2) + Math.pow(g.getZ() - a.z, 2)) + Math.abs(g.getY() - a.y) * 0.5; if (d < 3 && d < d0 + 0.5) return -1; if (d < 7) add += (7 - d) * 2.5; } // (a step away from one he's already close to is never banned, only priced: two skeletons 2 over his hole banned every cell round him, live 10:46 11-05, stage 672)
             return add;
         }
+        /** The world changed by a dig or a put, out in the Nether (the user 15:2x 11-10: "placing and breaking blocks is generally a last resort"; 1868 put down that day, 1321 left standing): walk-steps on top of its time. His own temporary blocks dug are the take-back, no change. */
+        boolean nether; double digWorld, putWorld;
+        double digWorld(BlockPos q) { return nether && !com.claudemod.entity.life.TempLedger.has(g, q) ? digWorld : 0; }
         Costs(ClaudeEntity g, ServerLevel level, boolean canPlace, Mode mode, Map<BlockPos, Integer> failedAt, int now) {
+            this.nether = level.dimensionType().ultraWarm(); this.digWorld = com.claudemod.entity.life.Weights.w("path.nether_dig_world", 7); this.putWorld = com.claudemod.entity.life.Weights.w("path.nether_put_world", 18); // (a dig matches NetherRoute's ~1.6 s a netherrack cell: the two planners priced it 1.5 and 9 walk-steps)
             this.g = g; this.level = level; this.canPlace = canPlace; this.mode = mode; this.failedAt = failedAt; this.now = now;
             this.hp = Leaps.health(g); this.margin = Leaps.margin(g); this.hpPrice = Leaps.hpPrice(g);
             this.maxPuts = !canPlace ? 0 : moveBlocks(g); this.fireProof = !canPlace ? 0 : maxPuts - spareWood(g); // (what scaffoldBlock picks from, its wood fallback too: 2 netherrack and 67 logs planned "2 blocks to put", no way up off his bridge, death 109 11-07, stage 1004: netherrack and blackstone too, or a Nether way with only those on him planned no block put down)
@@ -666,7 +670,7 @@ public final class ActionPath {
                         if (q.equals(t.above()) || q.equals(feet.above(2)) || dy < 0 && q.equals(ahead.above()) ? head(q) : passable(q)) { if (water(q)) cost += 1.5; continue; } // (a head cell: no low floor in it, a lily pad blocks him; review 143)
                         double sec = digSeconds(q);
                         if (sec < 0) { ok = false; break; }
-                        cost += (sec + com.claudemod.entity.life.Weights.w("path.dig_overhead_s", 0.05)) * com.claudemod.entity.life.Weights.w("path.dig_per_s", 5.6); acts.add(new Act.Dig(q.immutable())); // (its real time: the break with his best tool, plus 0.05 s from one block to the next, measured: 8 netherrack with an iron pick in 23 ticks, stage 986; a flat 6 walk-steps a dig made an 11-down staircase ~237 against an 8 HP drop's ~51, review 244. Etiquette, structures and his builds are their own seconds in sec) // (in walk-steps: his dig time at a sprint's 5.6 b/s plus the swing, the pickup and the hole; the user 11-06: digging and putting down weighed well under walking the terrain)
+                        cost += (sec + com.claudemod.entity.life.Weights.w("path.dig_overhead_s", 0.05)) * com.claudemod.entity.life.Weights.w("path.dig_per_s", 5.6) + (sec > 0 ? digWorld(q) : 0); acts.add(new Act.Dig(q.immutable())); // (its real time: the break with his best tool, plus 0.05 s from one block to the next, measured: 8 netherrack with an iron pick in 23 ticks, stage 986; a flat 6 walk-steps a dig made an 11-down staircase ~237 against an 8 HP drop's ~51, review 244. Etiquette, structures and his builds are their own seconds in sec) // (in walk-steps: his dig time at a sprint's 5.6 b/s plus the swing, the pickup and the hole; the user 11-06: digging and putting down weighed well under walking the terrain)
                     }
                     boolean lavaFloor = dy == 0 && canPlace && fs(t.below()).is(net.minecraft.tags.FluidTags.LAVA) && !floor(t) && !reserved.contains(t.below()); // a gap over lava: a block put into the lava is the way across (a player bridging a lava lake), never a jump
                     if (!ok || hurts(t, lavaFloor)) continue; // (magma underfoot, a cactus, fire: a player goes round)
@@ -682,7 +686,7 @@ public final class ActionPath {
                         if (com.claudemod.entity.life.Gate.keptOpen(g, under)) continue; /* (ruled open: his held notch, or the referee kept it dug; audit 1) */ { Integer pf = g.attempts.of(com.claudemod.entity.life.Attempts.Kind.PLACE).get(under); if (pf != null && now - pf < 20 * 300) continue; } // ponytail: the body's own place memory (WorkGoal.doPlace refuses for 5 min), so the plan and the body agree; live 14:22, the body refused this put (no face he can reach) and the plan made the same put 3 times in 9 s: a put that failed lately is off the plan, the way round instead
                         boolean overLava = false; for (int k = 1; k <= 64 && !overLava; k++) { BlockPos q = under.below(k); if (fs(q).is(net.minecraft.tags.FluidTags.LAVA)) overLava = true; else if (solid(q)) break; }
                         boolean onBridge = false; for (int k = 1; k <= 64; k++) { BlockPos q = feet.below(k); if (fs(q).is(net.minecraft.tags.FluidTags.LAVA)) { onBridge = true; break; } if (solid(q)) break; }
-                        cost += com.claudemod.entity.life.Weights.w("path.put_bridge", 12) + ((lavaFloor || overLava) && !onBridge ? 16 : 0); /* (a block put down out here is also one to go back for and take up: ~2 s, 12 walk-steps; the user 11-06: tree to tree on bridges in a warped forest) */ /* (a lava bridge, into it or over it however far down, paid once, stepping off real ground: a way over land wins. Per cell, 8 a block ran both searches out of budget on a 12-wide crossing; a price stopping at a depth made the bridge one higher, on a pillar, the cheap way; stages 386 and 541) */ acts.add(new Act.Put(under.immutable()));
+                        cost += com.claudemod.entity.life.Weights.w("path.put_bridge", 12) + (nether ? putWorld : 0) + ((lavaFloor || overLava) && !onBridge ? 16 : 0); /* (a block put down out here is also one to go back for and take up: ~2 s, 12 walk-steps; the user 11-06: tree to tree on bridges in a warped forest) */ /* (a lava bridge, into it or over it however far down, paid once, stepping off real ground: a way over land wins. Per cell, 8 a block ran both searches out of budget on a 12-wide crossing; a price stopping at a depth made the bridge one higher, on a pillar, the cheap way; stages 386 and 541) */ acts.add(new Act.Put(under.immutable()));
                     }
                     if (dy < 0 && water(t)) cost += 1; // a drop into water: fine, a bit slower
                     if (mine(t)) cost *= 0.7; // his own tunnels: the way he knows
@@ -738,7 +742,7 @@ public final class ActionPath {
                 float fhp = water(f.land()) ? 0 : Leaps.damage(g, level, down, bs(f.land().below()));
                 String what = "dig the floor off " + feet.toShortString() + " " + d.getName() + " and drop";
                 if (hp - hurtNow - fhp < margin) { refuse(what, down + " down is " + Leaps.fmt(fhp) + " HP: he's at " + Leaps.fmt(hp - hurtNow) + ", under the " + (int) margin + " he keeps"); continue; }
-                double cost = (sec + com.claudemod.entity.life.Weights.w("path.dig_overhead_s", 0.05)) * com.claudemod.entity.life.Weights.w("path.dig_per_s", 5.6) + 1.2 + down * 0.05 + hpCost(fhp) + failPenalty(f.land());
+                double cost = (sec + com.claudemod.entity.life.Weights.w("path.dig_overhead_s", 0.05)) * com.claudemod.entity.life.Weights.w("path.dig_per_s", 5.6) + (sec > 0 ? digWorld(fl) : 0) + 1.2 + down * 0.05 + hpCost(fhp) + failPenalty(f.land());
                 double av = avoidCost(f.land()); if (av < 0) continue; cost += av;
                 List<Act> acts = new ArrayList<>(); acts.add(new Act.Dig(fl.immutable())); acts.add(new Act.Leap(feet.immutable(), f.land().immutable(), Leaps.DROP, down, fhp, cost));
                 out.add(new Move(f.land().immutable(), cost, acts));
@@ -852,10 +856,10 @@ public final class ActionPath {
             if (canPlace && (!swimming || floor(feet) && fs(feet.above()).isEmpty())) {
                 BlockPos up = feet.above();
                 List<Act> acts = new ArrayList<>();
-                double cost = com.claudemod.entity.life.Weights.w("path.put_tower", 14); // (a tower step: the jump, the put, and the take-down after)
+                double cost = com.claudemod.entity.life.Weights.w("path.put_tower", 14) + (nether ? putWorld : 0); // (a tower step: the jump, the put, and the take-down after)
                 BlockPos head = feet.above(2);
                 boolean ok = true;
-                if (!passable(head)) { double sec = digSeconds(head); if (sec < 0) ok = false; else { cost += (sec + com.claudemod.entity.life.Weights.w("path.dig_overhead_s", 0.05)) * com.claudemod.entity.life.Weights.w("path.dig_per_s", 5.6); acts.add(new Act.Dig(head.immutable())); } }
+                if (!passable(head)) { double sec = digSeconds(head); if (sec < 0) ok = false; else { cost += (sec + com.claudemod.entity.life.Weights.w("path.dig_overhead_s", 0.05)) * com.claudemod.entity.life.Weights.w("path.dig_per_s", 5.6) + (sec > 0 ? digWorld(head) : 0); acts.add(new Act.Dig(head.immutable())); } }
                 if (ok && !passable(up)) ok = false;
                 if (reserved.contains(feet) || !bs(feet).canBeReplaced()) ok = false; // (another job's cell: the stump a sapling is for; a vine he hangs in takes no block)
                 if (ok) { acts.add(new Act.Put(feet.immutable())); acts.add(new Act.Walk(up.immutable())); out.add(new Move(up.immutable(), cost + failPenalty(up), acts)); }

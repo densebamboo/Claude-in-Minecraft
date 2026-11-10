@@ -238,10 +238,10 @@ public final class NetherRoute {
     /** Nether ground with no way of his yet, against a sprint: what the search reads it as (netherrack, tunnelled 2 high with the pickaxe on him), never under PortalMap.NETHER_OFF_ROAD.
      * (The user 15:08 11-10, "why is he digging there when he has a perfectly good highway": the rest past a part-way search was priced at 1.6x a sprint, ~0.3 s a block, while the
      * search's own legs through that rock ran ~3 s a block; his highway lost to it and he tunnelled 230 blocks in 6 min; stage 1391.) */
-    static double offRoad(ClaudeEntity g) {
+    public static double offRoad(ClaudeEntity g) {
         net.minecraft.world.level.block.state.BlockState rack = net.minecraft.world.level.block.Blocks.NETHERRACK.defaultBlockState(); float speed = 0; // (0: nothing on him takes it)
         for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { ItemStack it = g.inventory.items.getItem(i); if (!it.isEmpty() && it.isCorrectToolForDrops(rack)) speed = Math.max(speed, it.getDestroySpeed(rack)); }
-        double dig = speed <= 0 ? 10 : Math.min(10, 1.0 / (speed / 0.4 / 30 * 20)) + 0.25; // (Reader.dig's sum: hardness 0.4, + aiming and the pickup)
+        double dig = (speed <= 0 ? 1.0 / (1.0 / 0.4 / 100 * 20) : Math.min(10, 1.0 / (speed / 0.4 / 30 * 20))) + 0.25; // (by hand: vanilla's wrong-tool 1/100, 2 s a netherrack; it was 10 s, a portal 80 off priced ~1600 s each way, stage 1458) // (Reader.dig's sum: hardness 0.4, + aiming and the pickup)
         return Math.max(com.claudemod.entity.life.PortalMap.NETHER_OFF_ROAD, (WALK + 2 * dig) / WALK);
     }
     static double h(int x, int y, int z, BlockPos to) { double dx = Math.abs(x - to.getX()), dz = Math.abs(z - to.getZ()); return (Math.max(dx, dz) + 0.414 * Math.min(dx, dz)) * WALK + Math.max(0, to.getY() - y) * 0.5 + Math.max(0, y - to.getY()) * 0.15; }
@@ -366,7 +366,7 @@ public final class NetherRoute {
             why = "";
             double len = Math.hypot(cx - x, cz - z); int steps = (int) Math.ceil(len);
             double sec = len * WALK; int digs = 0, puts = 0;
-            double PUT = com.claudemod.entity.life.Weights.w("netherroute.put_s", 2.2); // (a put out here is also one to go back for and take up: ~12 walk-blocks; was 0.6, 3 walk-blocks, and he bridged tree to tree, the user 11-06)
+            double PUT = com.claudemod.entity.life.Weights.w("netherroute.put_s", 5.4); // (5.4 s, ~30 walk-steps, as ActionPath's bridge put with the world it changes: a last resort, the user 15:2x 11-10) // (a put out here is also one to go back for and take up: ~12 walk-blocks; was 0.6, 3 walk-blocks, and he bridged tree to tree, the user 11-06)
             int dy = ny - y;
             if (dy > 1) sec += (dy - 1) * CLIMB; // steps cut up or a pillar
             if (dy < -3) sec += (-dy - 3) * DESCEND; // steps dug down, or a drop he can take

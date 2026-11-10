@@ -186,7 +186,7 @@ public final class HuntPatrol {
 
     public static Next decide(ClaudeEntity g, ServerLevel level, boolean nether) {
         java.util.List<Decide.Option> opts = new ArrayList<>(); Map<String, Next> acts = new HashMap<>();
-        double sprint = Decide.sprint(), road = nether ? PortalMap.NETHER_OFF_ROAD : 1.2;
+        double sprint = Decide.sprint(), road = nether ? com.claudemod.entity.nav.NetherRoute.offRoad(g) : 1.2;
         // a go last round that didn't get him there: against that forest from now on (D2D: the 'there' leg priced ~50 s failed across a lava lake again and again)
         if (trips != null && trips.get(g.getUUID()) instanceof Object[] tr) { BlockPos to = (BlockPos) tr[0]; double d0 = (double) tr[2];
             if (g.blockPosition().distSqr(to) > 24 * 24 && Math.sqrt(g.blockPosition().distSqr(to)) > d0 - 16) { int f = fails(g).merge(to.asLong(), 1, Integer::sum); ClaudeMod.LOGGER.info("[Claude skill] ender_pearls: the trip to the forest at {} got nowhere ({} off, was {}): {} failed trip(s) there on record (HuntPatrol.decide)", to.toShortString(), (int) Math.sqrt(g.blockPosition().distSqr(to)), (int) d0, f); }
@@ -241,6 +241,8 @@ public final class HuntPatrol {
     }
 
     private static Map<UUID, Object[]> readied; // his last "get ready first": {server tick, armor then}
+    /** (tests: a stage's own readying read as the next stage's "no armor came of the last go", 1458 -> 844) */
+    public static void forgetReadied(ClaudeEntity g) { if (readied != null) readied.remove(g.getUUID()); }
     /** He got ready a while ago (pearls or blazes) and his armor's no better: the kit can't give armor now, only health and food. */
     public static boolean readiedInVain(ClaudeEntity g) { Object[] lr = readied == null ? null : readied.get(g.getUUID()); return lr != null && now(g) - (long) lr[0] < 20 * w("pearls.ready_again_s", 1200) && g.getArmorValue() <= (int) lr[1]; }
     /** He goes to get ready: noted, so a kit that gave no armor isn't promised again. */

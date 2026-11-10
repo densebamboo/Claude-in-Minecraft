@@ -281,13 +281,14 @@ public final class ClaudeLife {
         if (g.level().dimension() != net.minecraft.world.level.Level.OVERWORLD) { // away from home (the Nether): his places (house, mine, farm, chests, beds) are overworld ones; no night rules (a bed set down here explodes), no following; the basics, then the work
             if (g.tickCount % 100 == 0) equipArmor(g);
             if (g.tickCount % 100 == 0) dumpJunk(g); // ponytail: live 13:20, 320 netherrack and 0 free slots in the Nether: this branch never dumped, pickups and crafts failed
-            if (g.tickCount % 20 == 10 && g.getFoodData().getFoodLevel() < 20 && !(g.currentTask instanceof Task.Eat) && !(g.tasks.peekFirst() instanceof Task.Eat)) { Item f0 = foodToEat(g, true); if (f0 != null) g.tasks.addFirst(new Task.Eat(f0)); } // ponytail: live 15:36 an Eat queued at the END of a 18-leg route (recover_drops) blocked this the whole walk: food 20 -> 6, 63 beef in the pack, killed by a magma cube // (no lava-edge hold: it kept him from eating at all while stuck by lava, live 12:23-12:49 11-05 health 4 food 13; eating is no riskier there than standing)
+            if (g.tickCount % 20 == 10 && g.getFoodData().getFoodLevel() < 20 && !(g.currentTask instanceof Task.Eat) && !(g.tasks.peekFirst() instanceof Task.Eat) && !g.buildingCover()) { Item f0 = foodToEat(g, true); if (f0 != null) g.tasks.addFirst(new Task.Eat(f0)); } // ponytail: live 15:36 an Eat queued at the END of a 18-leg route (recover_drops) blocked this the whole walk: food 20 -> 6, 63 beef in the pack, killed by a magma cube // (no lava-edge hold: it kept him from eating at all while stuck by lava, live 12:23-12:49 11-05 health 4 food 13; eating is no riskier there than standing)
             if (g.tickCount % 20 == 11 && foodToEat(g, true) == null) eatIfHungry(g, player); // ponytail: the user 16:50, nothing to eat in the Nether: hoglins in the crimson forest, cooked into porkchops (this branch never ran the hunt)
             if (g.tickCount % 200 == 77) netherFood(g, (ServerLevel) g.level()); // the food trip away from home too: eatIfHungry only takes an animal in sight with no monster within 16, never true here (live 04:00-04:23 11-07: 6 meals in, 45 min on the highway, starved to 0 and a magma cube finished him)
             mlg(g, (ServerLevel) g.level());
             if (g.planning && g.tickCount - g.planStartTick > 20 * 45) g.planning = false;
             if (g.tickCount % 200 == 3) logWhere(g, player, g.level() == player.level() ? g.distanceTo(player) : -1);
             if (g.tickCount % 1200 == 9) ClaudeMod.LOGGER.info("[Claude life] away in {} at {} (health {}, food {})", g.level().dimension().location(), g.blockPosition().toShortString(), (int) g.getHealth(), g.getFoodData().getFoodLevel());
+            if (g.tickCount % 20 == 13) com.claudemod.entity.life.TempLedger.tick(g, (ServerLevel) g.level()); // his blocks put down for now, away too: this branch returned before it, nothing in the Nether came back up (the user 11-10, 1868 blocks; stage 1393)
             sideJobWhileCooking(g, player); // (away too: the Nether skipped it, and he stared at 10 porkchop cooking for 100 s, live 00:49 11-06)
             runWork(g, player);
             return;
@@ -13648,7 +13649,7 @@ public final class ClaudeLife {
     private static void eatIfHungry(ClaudeEntity g, ServerPlayer player) {
         int food = g.getFoodData().getFoodLevel();
         boolean hungry = food < 20 || (g.getHealth() < g.getMaxHealth() * 0.6f && food < 20) || (g.getHealth() < g.getMaxHealth() && food < 18); // (hurt and under 18: no healing till he eats; 16 health and 4 meals sat on a tower all night unhealed)
-        if (!hungry || g.isUsingItem() || g.currentTask instanceof Task.Eat) return;
+        if (!hungry || g.isUsingItem() || g.currentTask instanceof Task.Eat || g.buildingCover()) return; // (his cover goes up whole first: 33 ticks eating on a bare tower top, a fireball knocked him off, D2D death 23; the cover eats in it once it's up)
         Task queuedEat = null; for (Task t : g.tasks) if (t instanceof Task.Eat) { queuedEat = t; break; }
         if (queuedEat != null) { // a meal's already queued: hurt or properly hungry, it goes first, like a player eating on the spot (it sat behind a long walk and a torch for two minutes at hunger 6, no regen; a creeper and a zombie finished him at 10 health with 27 meals on him)
             if (g.tasks.peek() != queuedEat /* (the user: eat the moment he's below full; it waited behind a 134-leg climb at food 13, live 12:31) */ && !(g.currentTask instanceof Task.Attack) && !(g.currentTask instanceof Task.Flee)) {

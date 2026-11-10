@@ -10567,6 +10567,8 @@ public final class ClaudeBodyTest {
             case 1387: return st1387(stage, t, c, h, level, mock);
             case 1388: return st1388(stage, t, c, h, level, mock);
             case 1391: return st1391(stage, t, c, h, level, mock);
+            case 1392: return st1392(stage, t, c, h, level, mock);
+            case 1393: return st1393(stage, t, c, h, level, mock);
             case 1390: return st1390(stage, t, c, h, level, mock);
             case 1389: return st1389(stage, t, c, h, level, mock);
             case 1386: return st1386(stage, t, c, h, level, mock);
@@ -29762,6 +29764,87 @@ public final class ClaudeBodyTest {
      * but the part-way search won: the rest of it priced at 1.6x a sprint (~0.3 s a block), while the search itself reads that unseen
      * ground as netherrack to tunnel (its legs "about 70 s: 49 dug" for ~22 blocks). He tunnelled 230 blocks in 6 min. Here: his highway
      * an L to near the goal, the straight way solid rock, the search cut part way: the plan must be his highway. */
+    /** Stage 1392 (D2D death 23, live 15:22:22-24 11-10, a fortress deck): his skytower up, the hut's first wall block in, then a
+     *  top-up meal at food 19 (the Nether's eat-below-full, queued first) for 33 ticks on the bare tower top; a blaze's fireball
+     *  knocked him off before a wall was up, the wither skeletons below killed him. The cover goes up whole before any top-up meal. */
+    private static int s1392Up = -1;
+    private static boolean st1392(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13600, 64, 7920);
+        if (t[0] == 1) { scenarioReset(c); s1392Up = -1; }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        Runnable clean = () -> { for (int x = -8; x <= 8; x++) for (int z = -8; z <= 8; z++) for (int y = -1; y <= 12; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); nsHome(c, h, level); };
+        if (t[0] == 12) {
+            for (int x = -8; x <= 8; x++) for (int z = -8; z <= 8; z++) { nl.setBlock(o.offset(x, -1, z), Blocks.OBSIDIAN.defaultBlockState(), 2); for (int y = 0; y <= 12; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 8)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 20) {
+            boolean ok = c.work.shelter();
+            if (!ok) clean.run();
+            check(ok, "setup: no cover queued on the obsidian, tasks=" + c.tasks);
+            c.getFoodData().setFoodLevel(19); // (a bite short of full: the top-up meal's trigger)
+        }
+        if (t[0] > 20) {
+            BlockPos f = c.blockPosition();
+            int walls = 0; for (int k = 0; k <= 1; k++) for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) if (!nl.getBlockState(f.above(k).relative(d)).getCollisionShape(nl, f.above(k).relative(d)).isEmpty()) walls++;
+            boolean lid = !nl.getBlockState(f.above(2)).getCollisionShape(nl, f.above(2)).isEmpty();
+            boolean up = f.getY() >= o.getY() + 3 && walls == 8 && lid;
+            boolean eating = c.currentTask instanceof Task.Eat;
+            if (eating && !up && f.getY() >= o.getY() + 1) { String m = "ate on his half-built tower (" + (f.getY() - o.getY()) + " up, " + walls + " walls, lid " + lid + ", food " + c.getFoodData().getFoodLevel() + "): the top-up meal before the cover, tasks=" + c.tasks; clean.run(); check(false, m); }
+            if (up && s1392Up < 0) s1392Up = t[0];
+            if (s1392Up > 0 && t[0] - s1392Up >= 80) { int food = c.getFoodData().getFoodLevel(); clean.run(); pass(stage, t, "walled and lidded up his tower before any top-up meal (food " + food + " 4 s on)"); }
+            if (s1392Up < 0 && t[0] - 20 > 400) { String m = "not walled in up a tower 20 s on (he's at " + f.toShortString() + ", " + walls + " walls, lid " + lid + "), now=" + c.currentTask + " tasks=" + c.tasks; clean.run(); check(false, m); }
+        }
+        return true;
+    }
+    /** Stage 1393 (D2D, the user 15:2x 11-10: "he has littered the FUCK out of the nether"): live 11-10 1868 blocks put down for now, the
+     *  Nether's ones never back up. ClaudeLife's away-from-home branch returned before TempLedger.tick: in the Nether no idle tidy, no
+     *  clear-up before leaving, no litter report; and the ledger kept no dimension, so a Nether block read against the overworld's cell
+     *  at the same numbers was "gone" and dropped. (1) his netherrack step 2 off, him setting off on a walk 40 along (a step's start took
+     *  them back; a walk off never did): back up before he's gone; (2) a Nether block
+     *  stays his after a spell in the overworld with air in that cell. */
+    private static int s1393Phase = 0;
+    private static boolean st1393(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13800, 64, 8120), q1 = o.offset(2, 0, 0), q2 = o.offset(0, 0, 3);
+        if (t[0] == 1) { scenarioReset(c); s1393Phase = 0; }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) { nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o); }
+        Runnable clean = () -> { for (int x = -6; x <= 46; x++) for (int z = -6; z <= 6; z++) for (int y = -1; y <= 4; y++) { nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); } nsHome(c, h, level); com.claudemod.entity.life.TempLedger.reset(c); };
+        if (t[0] == 12) {
+            for (int x = -6; x <= 46; x++) for (int z = -6; z <= 6; z++) { nl.setBlock(o.offset(x, -1, z), Blocks.NETHERRACK.defaultBlockState(), 2); level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) { nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); } }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 16)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 16) {
+            nl.setBlock(q1, Blocks.NETHERRACK.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, nl, q1, Blocks.NETHERRACK.defaultBlockState(), Blocks.AIR.defaultBlockState());
+            boolean booked = com.claudemod.entity.life.TempLedger.has(c, q1);
+            if (!booked) clean.run();
+            check(booked, "setup: his step at " + q1.toShortString() + " not booked as temporary");
+            c.tasks.clear(); c.skillQueue.clear(); c.tasks.add(new Task.GoTo(o.offset(40, 0, 0), 1.0));
+            s1393Phase = 1;
+        }
+        if (s1393Phase == 1 && t[0] > 16) {
+            if (c.getX() >= o.getX() + 30 || t[0] - 16 > 20 * 40) {
+                boolean up = !nl.getBlockState(q1).isAir();
+                if (up) { String m = "his netherrack step " + q1.toShortString() + " still up with him " + (int) (c.getX() - q1.getX()) + " along on his walk off (on the ledger " + com.claudemod.entity.life.TempLedger.has(c, q1) + "), now=" + c.currentTask + " tasks=" + c.tasks; clean.run(); check(false, m); }
+                s1393Phase = 2; s1393At = t[0];
+            }
+        }
+        if (s1393Phase == 2 && t[0] == s1393At + 5) {
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            nl.setBlock(q2, Blocks.NETHERRACK.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, nl, q2, Blocks.NETHERRACK.defaultBlockState(), Blocks.AIR.defaultBlockState());
+            c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); // (home a while: the overworld's cell at q2 is air)
+        }
+        if (s1393Phase == 2 && t[0] == s1393At + 60) c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+        if (s1393Phase == 2 && t[0] == s1393At + 62) {
+            boolean still = com.claudemod.entity.life.TempLedger.has(c, q2); clean.run();
+            check(still, "his Nether block at " + q2.toShortString() + " off the ledger after 3 s in the overworld (its cell read there: air, 'gone')");
+            pass(stage, t, "his Nether step back up while idle; his other Nether block still his after a spell in the overworld");
+        }
+        return true;
+    }
+    private static int s1393At;
     private static boolean st1391(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
         BlockPos o = new BlockPos(13200, 64, 7720), me = o.offset(0, 0, -6), goal = o.offset(116, 0, 30);

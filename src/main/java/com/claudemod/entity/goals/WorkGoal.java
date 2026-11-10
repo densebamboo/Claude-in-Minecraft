@@ -5978,6 +5978,8 @@ public class WorkGoal extends Goal {
     }
 
     /** In the middle of digging in (its steps still queued or running, not long ago). */
+    /** His cover queued or going up, not yet held (walls, lid, the climb): a top-up meal waits for it (D2D death 23, stage 1392). */
+    public boolean buildingCover() { return diggingIn() && !holdingCover(); }
     private boolean diggingIn() {
         if (digInAt == null || digInTasks == null) return false;
         for (Task t : digInTasks) if (t == current || g.tasks.contains(t)) return true; // its wait still running counts, however long (the 28 s cap below had the cover rules stack a second tower on the first)

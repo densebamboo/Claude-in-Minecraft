@@ -302,6 +302,7 @@ public class ClaudeEntity extends ServerPlayer {
     public String noCoverWhyNow() { return work.lastNoCoverTick == tickCount ? work.lastNoCoverWhy : null; }
     public boolean noCoverGapNow() { return work.coverGapNow(); }
     public boolean holdingCover() { return work.holdingCover(); }
+    public boolean buildingCover() { return work.buildingCover(); }
     public boolean coverCell(BlockPos p) { return work.coverCell(p); }
     public java.util.List<com.claudemod.entity.life.Task> coverTasks() { return work.coverTasks(); }
 

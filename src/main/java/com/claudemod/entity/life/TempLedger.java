@@ -63,12 +63,16 @@ public final class TempLedger {
         Owed(BlockPos base, int logs, String why, long at) { this.base = base; this.logs = logs; this.why = why; this.at = at; }
     }
 
-    private static final Map<UUID, LinkedHashMap<BlockPos, Entry>> books = new HashMap<>();
+    // per dimension: a Nether block read against the overworld's cell at the same numbers was "gone" or "not his now" and dropped, or
+    // reported as litter while he was home (live 11-10: 1868 Nether blocks, "now: collect beef"); never taken back when he was next by it
+    private static final Map<UUID, Map<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>, LinkedHashMap<BlockPos, Entry>>> books = new HashMap<>();
+    private static final Map<UUID, List<Entry>> unsorted = new HashMap<>(); // from a save before the dimension was kept: claimed by the first dimension where his block stands in the cell
     private static final Map<UUID, LinkedHashMap<BlockPos, Owed>> trees = new HashMap<>();
 
-    public static LinkedHashMap<BlockPos, Entry> book(ClaudeEntity g) { return books.computeIfAbsent(g.getUUID(), k -> new LinkedHashMap<>()); }
+    public static LinkedHashMap<BlockPos, Entry> book(ClaudeEntity g) { return book(g, g.level().dimension()); }
+    public static LinkedHashMap<BlockPos, Entry> book(ClaudeEntity g, net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dim) { return books.computeIfAbsent(g.getUUID(), k -> new HashMap<>()).computeIfAbsent(dim, k -> new LinkedHashMap<>()); }
     public static LinkedHashMap<BlockPos, Owed> owedTrees(ClaudeEntity g) { return trees.computeIfAbsent(g.getUUID(), k -> new LinkedHashMap<>()); }
-    public static void reset(ClaudeEntity g) { books.remove(g.getUUID()); trees.remove(g.getUUID()); lastSkill.remove(g.getUUID()); if (builds != null) builds.remove(g.getUUID()); }
+    public static void reset(ClaudeEntity g) { books.remove(g.getUUID()); unsorted.remove(g.getUUID()); trees.remove(g.getUUID()); lastSkill.remove(g.getUUID()); if (builds != null) builds.remove(g.getUUID()); }
 
     // ---- his builds: a block one of his build systems put down (his bedroom's walls, his nook, house, farm, his mine's patches) is his build: it stays, never on the ledger, never dug through by a walk (ActionPath) ----
     private static Map<UUID, LinkedHashMap<BlockPos, String>> builds; // cell -> who put it there, "ClaudeLife.secureBedroom:5707" (static: fields added live start null)
@@ -183,7 +187,7 @@ public final class TempLedger {
         if (DragonFight.active(g)) return; // (in the End fight nothing he puts down is litter)
         { String by = buildOrigin(g, pos); if (by != null) { // a build system of his put it there: his build (live: secureBedroom's walls booked "cover"/"step", tidied back out, walled again, round and round)
             var bc = builtCells(g); bc.remove(pos); bc.put(pos.immutable(), by); while (bc.size() > 65536) bc.remove(bc.keySet().iterator().next()); /* shortcut: oldest-first eviction past 65k standing builds (4096 dropped his early builds within a day of patching); broken cells already leave it, so only a huge base gets here */
-            if (book(g).remove(pos) != null) trace(g, "temp_left", new Entry(pos.immutable(), name(placed), "build", level.getGameTime(), before(g), line(g)), null);
+            if (book(g, level.dimension()).remove(pos) != null) trace(g, "temp_left", new Entry(pos.immutable(), name(placed), "build", level.getGameTime(), before(g), line(g)), null);
             ClaudeMod.LOGGER.info("[Claude temp] {} at {} put down by {}: his build, it stays (never temporary, never dug through by a walk) (TempLedger.placed)", name(placed), pos.toShortString(), by);
             return; } }
         if (built(g, pos)) { // no build system of his put this one down, and the cell was open for it: the build's block that stood here is gone (blown up, burnt, the ground made over), so the record is stale; kept, every block he puts here for now read as "his build" and nothing took it back (stage 86: stage 84's house cells, a bridge and a step under the oak left standing)
@@ -199,7 +203,7 @@ public final class TempLedger {
             ClaudeMod.LOGGER.info("[Claude temp] dirt step at {} into the hill: it may stay", p.toShortString());
             return;
         }
-        book(g).put(p, e);
+        book(g, level.dimension()).put(p, e);
         // a station also goes on the old station queue (the walk-off rule turns him back for a table or furnace he's leaving); his
         // blocks don't (the walk-off rule for towers sent him back down a ledge for the steps that got him up it, then up it again
         // on new ones): the ledger's own rules take those, and the climb itself takes its steps back from the top
@@ -244,7 +248,7 @@ public final class TempLedger {
 
     /** He (or someone) broke a block: off the ledger, the after-record written. */
     public static void broken(ServerPlayer by, ClaudeEntity g, ServerLevel level, BlockPos pos) {
-        Entry e = book(g).remove(pos);
+        Entry e = book(g, level.dimension()).remove(pos);
         if (e == null) return;
         e.now = line(g);
         e.after = cap((by == g ? "back up after " + ago(level, e.at) + " (task " + task(g.currentTask) + ")" : "taken up by " + by.getGameProfile().getName() + " after " + ago(level, e.at)));
@@ -343,6 +347,8 @@ public final class TempLedger {
     /** Every second: what's gone, what he can't get to, the idle tidy, the litter report. */
     public static void tick(ClaudeEntity g, ServerLevel level) {
         if (DragonFight.active(g)) return; // (the End fight: his pillars stay up, the user: they needn't be cleaned up; their take-down queued 159 breaks on him)
+        var old = unsorted.get(g.getUUID());
+        if (old != null && g.tickCount % 100 == 0) for (var it = old.iterator(); it.hasNext(); ) { Entry e = it.next(); if (level.isLoaded(e.pos) && name(level.getBlockState(e.pos)).equals(e.item)) { it.remove(); book(g, level.dimension()).putIfAbsent(e.pos, e); } }
         var book = book(g); if (book.isEmpty() && owedTrees(g).isEmpty()) return;
         BlockPos me = g.blockPosition();
         for (var it = book.values().iterator(); it.hasNext(); ) {
@@ -494,10 +500,11 @@ public final class TempLedger {
     // ---- save / load (his mine record, "temps")
     public static CompoundTag save(ClaudeEntity g) {
         CompoundTag t = new CompoundTag(); ListTag l = new ListTag();
-        for (Entry e : book(g).values()) {
-            CompoundTag c = new CompoundTag(); c.putLong("p", e.pos.asLong()); c.putString("i", e.item); c.putString("w", e.why); c.putLong("t", e.at);
+        for (var de : books.getOrDefault(g.getUUID(), Map.of()).entrySet()) for (Entry e : de.getValue().values()) {
+            CompoundTag c = new CompoundTag(); c.putString("dim", de.getKey().location().toString()); c.putLong("p", e.pos.asLong()); c.putString("i", e.item); c.putString("w", e.why); c.putLong("t", e.at);
             c.putString("b", e.before); c.putString("d", e.during); c.putString("n", e.now); c.putString("x", e.blocked); c.putBoolean("r", e.reported); l.add(c);
         }
+        for (Entry e : unsorted.getOrDefault(g.getUUID(), List.of())) { CompoundTag c = new CompoundTag(); c.putLong("p", e.pos.asLong()); c.putString("i", e.item); c.putString("w", e.why); c.putLong("t", e.at); c.putString("b", e.before); c.putString("d", e.during); c.putString("n", e.now); c.putString("x", e.blocked); c.putBoolean("r", e.reported); l.add(c); }
         t.put("e", l); ListTag tr = new ListTag();
         for (Owed o : owedTrees(g).values()) { CompoundTag c = new CompoundTag(); c.putLong("p", o.base.asLong()); c.putInt("n", o.logs); c.putString("w", o.why); c.putLong("t", o.at); tr.add(c); }
         t.put("trees", tr);
@@ -505,17 +512,18 @@ public final class TempLedger {
         return t;
     }
     public static void load(ClaudeEntity g, CompoundTag t) {
-        var book = book(g); book.clear();
+        books.remove(g.getUUID()); List<Entry> old = new ArrayList<>(); unsorted.put(g.getUUID(), old); int n = 0;
         for (Tag x : t.getList("e", Tag.TAG_COMPOUND)) {
             CompoundTag c = (CompoundTag) x;
             Entry e = new Entry(BlockPos.of(c.getLong("p")), c.getString("i"), c.getString("w"), c.getLong("t"), c.getString("b"), c.getString("d"));
             e.now = c.getString("n"); e.blocked = c.getString("x"); e.reported = c.getBoolean("r"); if (!e.blocked.isEmpty()) { e.triedAt = 0; e.awayAfterTry = false; }
-            book.put(e.pos, e);
+            if (c.contains("dim")) book(g, net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, net.minecraft.resources.ResourceLocation.parse(c.getString("dim")))).put(e.pos, e); else old.add(e);
+            n++;
         }
         { var bc = builtCells(g); bc.clear(); for (Tag x : t.getList("built", Tag.TAG_COMPOUND)) { CompoundTag c = (CompoundTag) x; bc.put(BlockPos.of(c.getLong("p")), c.getString("w")); } }
         var tr = owedTrees(g); tr.clear();
         for (Tag x : t.getList("trees", Tag.TAG_COMPOUND)) { CompoundTag c = (CompoundTag) x; Owed o = new Owed(BlockPos.of(c.getLong("p")), c.getInt("n"), c.getString("w"), c.getLong("t")); tr.put(o.base, o); }
-        if (!book.isEmpty() || !tr.isEmpty()) ClaudeMod.LOGGER.info("[Claude temp] {} temporary block(s) and {} unfinished tree(s) back from his saved state", book.size(), tr.size());
+        if (n > 0 || !tr.isEmpty()) ClaudeMod.LOGGER.info("[Claude temp] {} temporary block(s) ({} from before dimensions were kept: claimed where his block stands) and {} unfinished tree(s) back from his saved state", n, old.size(), tr.size());
     }
     /** A save from before the ledger: his old take-down lists, so nothing on them is forgotten. */
     public static void seedFrom(ClaudeEntity g, ServerLevel level) {

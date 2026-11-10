@@ -10924,6 +10924,7 @@ public final class ClaudeBodyTest {
             case 1293: return st1293(stage, t, c, h, level, mock);
             case 1294: return st1294(stage, t, c, h, level, mock);
             case 1295: return st1295(stage, t, c, h, level, mock);
+            case 1296: return st1296(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -24366,6 +24367,31 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static com.claudemod.entity.life.Stall.Cause s1295R;
+    /** Stage 1296 (D2D review 67, live 02:04:16-02:04:24 11-10 at 232,71,257 in the Nether): his route's legs 233,70,257 (a notch 1 down, within 0.9) then 234,71,257 (air over air, within 1.5); the notch leg "ended at once" from 232,71,257 without him going down it, and the last leg stood 8 s with no path, then NO_PATH. */
+    private static boolean st1296(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9940, 80, 9780);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 6; x++) for (int z = -4; z <= 4; z++) for (int y = -4; y <= 6; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2);
+            level.setBlock(at.offset(1, -1, 0), Blocks.AIR.defaultBlockState(), 2); level.setBlock(at.offset(2, -1, 0), Blocks.AIR.defaultBlockState(), 2); // the notch 1 down, the leg's end over it
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+        }
+        if (t[0] == 20) { c.tasks.add(new Task.GoTo(at.offset(1, -1, 0), 0.9)); c.tasks.add(new Task.GoTo(at.offset(2, 0, 0), 1.5)); s1296T = -1; }
+        if (t[0] > 20 && s1296T < 0 && c.tasks.isEmpty() && c.currentTask == null) s1296T = t[0];
+        if (t[0] == 20 + 20 * 6 || s1296T > 0 && t[0] == s1296T + 5) {
+            boolean down = c.blockPosition().equals(at.offset(1, -1, 0)) || c.blockPosition().equals(at.offset(2, -1, 0));
+            boolean failed = c.attempts.why(com.claudemod.entity.life.Attempts.Kind.WALK, at.offset(2, 0, 0)) != null;
+            int took = s1296T < 0 ? -1 : s1296T - 20; BlockPos was = c.blockPosition();
+            c.tasks.clear(); c.dropCurrent = true;
+            for (int x = -4; x <= 6; x++) for (int z = -4; z <= 4; z++) for (int y = -4; y <= 6; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(!failed && took >= 0 && took <= 40, "the two legs: " + (took < 0 ? "not done in 6 s" : took + " ticks") + ", the last " + (failed ? "failed" : "not failed") + ", he's at " + was.toShortString());
+            check(down, "the legs ended with him not down the notch (at " + was.toShortString() + ")");
+            pass(stage, t, "down the notch and the leg over it done in " + took + " ticks");
+        }
+        return true;
+    }
+    private static int s1296T;
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

@@ -1033,7 +1033,7 @@ public class WorkGoal extends Goal {
             return false;
         }
         boolean towardIt = !(g.tasks.peekFirst() instanceof Task.GoTo nx2) || Math.sqrt(feetCell.distSqr(nx2.pos())) <= Math.sqrt(pos.distSqr(nx2.pos())) + 1.0; // (run through a waypoint only where skipping it leaves the next leg no farther: a corner, not the step before it. On the Nether ledge the planner's first step -26,38,-48 was 2.0 off and "run through" on its first tick, his momentum toward it notwithstanding, the spot still 4 off and the same way planned again every 15 s, 08:16-08:45 11-05, stage 715)
-        if ((d <= within || (chain && towardIt && d <= 2.0 && pos.getY() <= feetCell.getY())) && !onLeavesAbove) { // ponytail: live 19:40 -58,79,-901: a route's 1-up step 1.4 off counted as reached in a chain, so the next leg was 2 up and refused, a loop for minutes; a step up is only reached by stepping up
+        if ((d <= within || (chain && towardIt && d <= 2.0 && pos.getY() <= feetCell.getY() && g.tasks.peekFirst() instanceof Task.GoTo nx3 && !(g.level().getBlockState(nx3.pos().below()).getCollisionShape(g.level(), nx3.pos().below()).isEmpty() && g.level().getFluidState(nx3.pos()).isEmpty() && g.level().getFluidState(nx3.pos().below()).isEmpty()))) && !onLeavesAbove) { /* (and only when the next leg's own cell isn't over open air: one over air is reached from this one, the planner's stand spot; run through, the next leg stood 8 s with no path, D2D review 67, stage 1296) */ // ponytail: live 19:40 -58,79,-901: a route's 1-up step 1.4 off counted as reached in a chain, so the next leg was 2 up and refused, a loop for minutes; a step up is only reached by stepping up
             if (!chain) g.getNavigation().stop();
             return true;
         }

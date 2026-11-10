@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1314: return st1314(stage, t, c, h, level, mock);
             case 1313: return st1313(stage, t, c, h, level, mock);
             case 1312: return st1312(stage, t, c, h, level, mock);
             case 1311: return st1311(stage, t, c, h, level, mock);
@@ -17066,6 +17067,28 @@ public final class ClaudeBodyTest {
             check(seen <= 8, "the walk planned " + steps + " steps, " + seen + " of them in the blaze's sight: along the open lane past it (" + way + ")");
             nsHome(c, h, level); pass(stage, t, steps + " steps, " + seen + " in the blaze's sight (" + way + ")");
         }
+        return true;
+    }
+    /** Stage 1314 (D2D review 174926-189, live 17:48:21-17:48:46 11-09 at the fortress by 205,58,516: "no blaze in view: along the fortress deck to" 217, then 193, 215, 196, 217, 204, 217, 25 s end to end on a 139-cell deck, each leg reached; only the 4-block bucket he stood in was ever marked seen, never the deck he walked and looked over): a straight deck 29 long, him at one end. He walks to the far end deckStep picks; asked again from there, it never sends him back over the deck he just walked. */
+    private static BlockPos s1314Step; private static int s1314T;
+    private static boolean st1314(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1314Step = null; com.claudemod.entity.life.FortressScout.deckReset(c);
+            for (int x = -6; x <= 34; x++) for (int z = -6; z <= 6; z++) for (int y = -3; y <= 6; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (int x = 0; x <= 28; x++) for (int z = -1; z <= 1; z++) level.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // a 3-wide deck, 29 long
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); mock[0].teleportTo(o.getX() + 0.5, o.getY() + 45, o.getZ() + 0.5); }
+        if (t[0] == 5) {
+            s1314Step = com.claudemod.entity.life.FortressScout.deckStep(c, level);
+            check(s1314Step != null && s1314Step.getX() - o.getX() >= 20, "setup: the first step " + s1314Step + " isn't toward the far end");
+            c.tasks.add(new Task.GoTo(s1314Step, 1.0)); s1314T = t[0];
+        }
+        if (t[0] > 5 && s1314Step != null && c.blockPosition().distSqr(s1314Step) <= 2 && c.currentTask == null && c.tasks.isEmpty()) {
+            BlockPos again = com.claudemod.entity.life.FortressScout.deckStep(c, level);
+            for (int x = -6; x <= 34; x++) for (int z = -6; z <= 6; z++) level.setBlock(o.offset(x, -1, z), Blocks.AIR.defaultBlockState(), 2);
+            com.claudemod.entity.life.FortressScout.deckReset(c);
+            check(again == null, "at the far end after walking the whole deck, deckStep sent him back to " + (again == null ? "-" : (again.getX() - o.getX()) + "," + (again.getZ() - o.getZ())) + " (deck x 0..28)");
+            pass(stage, t, "walked the deck to its end in " + (t[0] - s1314T) + " ticks; nothing of it left unseen");
+        } else if (t[0] == 400) check(false, "not at the deck's far end in 20 s (at " + c.blockPosition().toShortString() + ")");
         return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */

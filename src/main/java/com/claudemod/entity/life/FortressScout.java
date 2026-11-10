@@ -88,10 +88,14 @@ public final class FortressScout {
         return s.is(net.minecraft.world.level.block.Blocks.NETHER_BRICKS) || s.is(net.minecraft.world.level.block.Blocks.NETHER_BRICK_STAIRS) || s.is(net.minecraft.world.level.block.Blocks.NETHER_BRICK_SLAB) || s.is(net.minecraft.world.level.block.Blocks.SOUL_SAND);
     }
     /** Where he stands on the fortress, the 4x4 patch counted as walked (every 2 s, Atlas.tick). */
-    public static void noteDeck(ClaudeEntity g) { if (onFortress(g)) deckSeen(g).add(deckKey(g.blockPosition())); }
+    /** The deck round him as seen: every bucket within fortress.deck_seen_r (6) of him, a step up or down, as a player takes in what's round him on the way (live 17:48 11-09, review 174926-189: only the bucket he stood in every 2 s was marked, the deck between read unseen, and deckStep sent him end to end of a 139-cell deck for 25 s; stage 1314). */
+    public static void noteDeck(ClaudeEntity g) {
+        if (!onFortress(g)) return; java.util.Set<Long> s = deckSeen(g); BlockPos me = g.blockPosition(); int r = (int) Weights.w("fortress.deck_seen_r", 6);
+        for (int dx = -r; dx <= r; dx += 2) for (int dz = -r; dz <= r; dz += 2) if (dx * dx + dz * dz <= r * r) for (int dy = -2; dy <= 2; dy += 2) s.add(deckKey(me.offset(dx, dy, dz)));
+    }
     /** The far end of the deck he hasn't walked: the unwalked cell furthest along the bricks he can walk from here (64 at most), or null. */
     public static BlockPos deckStep(ClaudeEntity g, ServerLevel level) {
-        BlockPos start = g.blockPosition(); java.util.Set<Long> seen = deckSeen(g); seen.add(deckKey(start));
+        BlockPos start = g.blockPosition(); noteDeck(g); java.util.Set<Long> seen = deckSeen(g); seen.add(deckKey(start));
         java.util.Map<BlockPos, Integer> dist = new java.util.HashMap<>(); java.util.ArrayDeque<BlockPos> q = new java.util.ArrayDeque<>();
         dist.put(start, 0); q.add(start); BlockPos best = null; int bd = -1;
         while (!q.isEmpty() && dist.size() < 4000) {

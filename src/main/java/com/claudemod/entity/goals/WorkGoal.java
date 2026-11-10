@@ -818,6 +818,7 @@ public class WorkGoal extends Goal {
     private boolean wayOut(BlockPos pos, double within) {
         ServerLevel lv = (ServerLevel) g.level(); BlockPos here = g.blockPosition();
         int up = lv.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, here.getX(), here.getZ()) - here.getY();
+        java.util.function.Predicate<BlockPos> stand = q -> !lv.getBlockState(q.below()).getCollisionShape(lv, q.below()).isEmpty() || !lv.getFluidState(q).isEmpty() || lv.getBlockState(q).is(net.minecraft.tags.BlockTags.CLIMBABLE); // a cell he can stand in: his trail has cells in the air, a jump or a fall over a ravine (11,51,-108 was one: the leg there ended at once and the walk asked again, ~40 min, live 07:48-08:29 11-10, D2D review pass 07:42, stage 1419)
         java.util.List<BlockPos> way = null;
         { java.util.List<BlockPos> back = com.claudemod.entity.nav.Route.wayBack(g, 20 * 60 * 20);
           java.util.function.Predicate<BlockPos> lava = q -> { for (BlockPos c0 : new BlockPos[] {q, q.above()}) { if (lv.getFluidState(c0).is(net.minecraft.tags.FluidTags.LAVA)) return true; for (Direction d : Direction.values()) if (lv.getFluidState(c0.relative(d)).is(net.minecraft.tags.FluidTags.LAVA)) return true; } return false; }; // (lava in or beside a cell, feet or head: it may have run there since he passed, D2D 12:17)
@@ -828,7 +829,7 @@ public class WorkGoal extends Goal {
           java.util.Map<BlockPos, BlockPos> came = new java.util.HashMap<>(); java.util.ArrayDeque<BlockPos> fr = new java.util.ArrayDeque<>(); BlockPos top = null;
           if (start != null) { came.put(start, start); fr.add(start); }
           final boolean toMine = com.claudemod.director.ClaudeLife.inHisMine(g, pos) || com.claudemod.director.ClaudeLife.touchesMine(g, pos); // (a walk into his mine: his trail back into it is the way, never up to the sky and round by his door; live 09:01 11-08, reviews 30/31: a staircase cut 120 up through deepslate, his way in 12 blocks back)
-          while (!fr.isEmpty()) { BlockPos q = fr.poll(); if ((lv.canSeeSky(q.above()) || toMine && com.claudemod.director.ClaudeLife.inHisMine(g, q)) && !g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.WALK, q, g.tickCount, 20 * 60)) { top = q; break; }
+          while (!fr.isEmpty()) { BlockPos q = fr.poll(); if ((lv.canSeeSky(q.above()) || toMine && com.claudemod.director.ClaudeLife.inHisMine(g, q)) && stand.test(q) && !g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.WALK, q, g.tickCount, 20 * 60)) { top = q; break; }
               for (Direction d : Direction.values()) { BlockPos n = q.relative(d); if (cells.contains(n) && !came.containsKey(n)) { came.put(n, q); fr.add(n); } } }
           if (top != null) { way = new java.util.ArrayList<>(); for (BlockPos q = top; ; q = came.get(q)) { way.add(0, q); if (q.equals(start)) break; } } }
         double sprint = com.claudemod.entity.life.Decide.sprint(), digS = com.claudemod.entity.life.Weights.w("move.dig_down_s_per_block", 1.0);
@@ -843,7 +844,7 @@ public class WorkGoal extends Goal {
         var pick = com.claudemod.entity.life.Decide.choose(g, "walk.out", (int) hd + " off, " + up + " under the surface, away from his mine", false, opts);
         if (pick == null) return false;
         g.tasks.addFirst(new Task.GoTo(pos, within));
-        if (pick.name().startsWith("back")) { for (int k = way.size() - 1; k >= 1; k -= 5) g.tasks.addFirst(new Task.GoTo(way.get(k), 1.2)); } // (a leg every 5 cells back from the open sky, the nearest first)
+        if (pick.name().startsWith("back")) { for (int k = way.size() - 1; k >= 1; k -= 5) { int k0 = k; while (k0 > 1 && k0 < way.size() - 1 && !stand.test(way.get(k0))) k0--; g.tasks.addFirst(new Task.GoTo(way.get(k0), k0 == way.size() - 1 ? 0.4 : 1.2)); } } // (legs on cells he can stand in; the last one into the open cell itself: a stop beside it left him under the rock, and the walk asked again) // (a leg every 5 cells back from the open sky, the nearest first)
         else g.tasks.addFirst(new Task.GoTo(stairTop, 2));
         hopsTried.put(pick.name().startsWith("back") ? way.get(way.size() - 1) : stairTop, g.tickCount); // (the way out's own walk is the walker's: the step cutter cuts it, never a way out of its own)
         com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} under the surface, the walk to {} {} off: {} first (WorkGoal.wayOut)", up, pos.toShortString(), (int) hd, pick.name());

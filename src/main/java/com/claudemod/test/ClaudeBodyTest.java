@@ -10967,6 +10967,7 @@ public final class ClaudeBodyTest {
             case 1416: return st1416(stage, t, c, h, level, mock);
             case 1417: return st1417(stage, t, c, h, level, mock);
             case 1418: return st1418(stage, t, c, h, level, mock);
+            case 1419: return st1419(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -25499,6 +25500,34 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static int s1418T, s1418F;
+    /** Stage 1419 (D2D review pass 07:42-08:33, ~40 min stuck round 11,51,-108, live 07:48-08:29 11-10 World 17): in a cave 16 under the surface by a ravine, a walk 42 off to the surface; "back out the way he came" took the first cell of his trail under the open sky, 11,51,-108, a cell in the air over the ravine he'd passed through, one off: the leg there ended at once (within 1.2), the walk asked again, a dozen times a second, then minutes of sprint-jumps at it. A way out ends where he can stand. */
+    private static boolean st1419(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9975, 70, 9780), air0 = at.offset(1, 0, 0), air1 = at.offset(1, 1, 0), far = at.offset(-34, 19, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1419Bad = null; s1419N = 0; for (var mb : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) mb.discard(); }
+        if (t[0] == 10) {
+            for (int x = -40; x <= 8; x++) for (int z = -6; z <= 6; z++) for (int y = -5; y <= 22; y++) level.setBlock(at.offset(x, y, z), (y <= 18 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // rock 18 up over him, the ground on top
+            level.setBlock(at, Blocks.AIR.defaultBlockState(), 2); level.setBlock(at.above(), Blocks.AIR.defaultBlockState(), 2); // his cave cell
+            for (int x = 1; x <= 2; x++) for (int z = -1; z <= 1; z++) for (int y = -4; y <= 18; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); // the ravine beside it, open to the sky, its floor 5 down
+            level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            com.claudemod.entity.nav.Route.forgetTrail(c);
+            c.teleportTo(air1.getX() + 0.5, air1.getY(), air1.getZ() + 0.5); com.claudemod.entity.nav.Route.step(c); // his trail: through the air over the ravine, into the cave
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.nav.Route.step(c); com.claudemod.entity.life.Watchdog.teleported(c);
+            mock[0].teleportTo(far.getX() + 0.5, far.getY() + 2, far.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 12) c.tasks.add(new Task.GoTo(far, 2.0)); // the walk to the surface, 34 off
+        if (t[0] > 12) { java.util.List<Task> ts = new java.util.ArrayList<>(c.tasks); if (c.currentTask != null) ts.add(c.currentTask); for (Task k : ts) if (k instanceof Task.GoTo go && (go.pos().equals(air0) || go.pos().equals(air1))) { s1419Bad = go.pos(); s1419N++; } }
+        if (t[0] == 12 + 20 * 8) {
+            BlockPos bad = s1419Bad; int n = s1419N;
+            c.tasks.clear(); c.dropCurrent = true;
+            for (int x = -40; x <= 8; x++) for (int z = -6; z <= 6; z++) for (int y = 0; y <= 22; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); // (the floor left)
+            check(bad == null, "the way out sent him to " + (bad == null ? "" : bad.toShortString()) + ", a cell in the air over the ravine (" + n + " ticks of it queued)");
+            pass(stage, t, "the way out of the cave never aimed at a cell in the air");
+        }
+        return true;
+    }
+    private static BlockPos s1419Bad; private static int s1419N;
 
 
 

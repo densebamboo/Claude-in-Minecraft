@@ -258,7 +258,7 @@ public final class Controls {
                         && ((ah0.getX() == nextNode.x && ah0.getZ() == p.getBlockZ()) || (ah0.getZ() == nextNode.z && ah0.getX() == p.getBlockX()))) continue; // ponytail: a flat diagonal to a floored node: his box stays over the two floors, the corner cell is no step (live 17:06, froze at -83 78 -919 over lava 10 down)
                 int dn = 0; net.minecraft.core.BlockPos q0 = ah0.below(); boolean lv0 = false;
                 while (dn < 48 && p.level().getBlockState(q0).getCollisionShape(p.level(), q0).isEmpty()) { if (p.level().getFluidState(q0).is(net.minecraft.tags.FluidTags.LAVA)) { lv0 = true; break; } if (!p.level().getFluidState(q0).isEmpty()) break; dn++; q0 = q0.below(); }
-                if (lv0) { p.setSprinting(false); walk = null; if (p instanceof com.claudemod.entity.ClaudeEntity ce && ce.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] lava {} below the open cell at {}: not stepping off (Controls.apply)", dn + 1, ah0.toShortString()); break; }
+                if (lv0) { p.setSprinting(false); walk = null; refusedStep(p); /* (on record, as lava ahead and 2+ up are: his walker plans round it; unrecorded, it kept the path for 45 s, review 89, stage 1287) */ if (p instanceof com.claudemod.entity.ClaudeEntity ce && ce.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] lava {} below the open cell at {}: not stepping off (Controls.apply)", dn + 1, ah0.toShortString()); break; }
             }
         }
         { Vec3 v = p.getDeltaMovement(); double hv = Math.sqrt(v.x * v.x + v.z * v.z); // his own slide, whatever the walk says: a spin or a stall's recovery step carried him into lava past the guard on the walk's line (World 15 21:27, 115 48 -46)

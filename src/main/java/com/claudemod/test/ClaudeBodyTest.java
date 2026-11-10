@@ -10909,6 +10909,7 @@ public final class ClaudeBodyTest {
             case 1284: return st1284(stage, t, c, h, level, mock);
             case 1285: return st1285(stage, t, c, h, level, mock);
             case 1286: return st1286(stage, t, c, h, level, mock);
+            case 1287: return st1287(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -24010,6 +24011,34 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static int s1286T = -1;
+    /** Stage 1287 (D2D review 89, live 23:32:21-23:33:10 11-09 in the Nether at 324,34,469: his walk's path, next node 323,31,469, stepped off his ledge over lava; Controls' open-cell guard said "lava 3 below the open cell: not stepping off" 20 times and never put it on record as a refused step, so his walker never heard it and kept that path till the 45 s clock wrote the walk off; its siblings, lava ahead and 2+ up, put it on record): him on a ledge, the path's next node in the open cell over lava 3 below. He holds the edge and his body's refusal is on record for the walker. */
+    private static boolean st1287(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9980, 80, 9780), cell = at.east();
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 6; x++) for (int z = -4; z <= 4; z++) for (int y = -5; y <= 6; y++) level.setBlock(at.offset(x, y, z), (y < 0 && (x <= 0 || y < -4) ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // his ledge to x 0, open past it
+            for (int x = 1; x <= 6; x++) for (int z = -4; z <= 4; z++) level.setBlock(at.offset(x, -4, z), Blocks.LAVA.defaultBlockState(), 2); // lava 3 under the open cells (live: "lava 3 below")
+            c.getInventory().clearContent(); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); mock[0].teleportTo(level, at.getX() + 0.5, at.getY() + 40, at.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+        }
+        if (t[0] >= 20 && t[0] < 60) { // his walk's path: his cell, then the open cell's lava-side drop (the live node 3 down)
+            var nodes = new java.util.ArrayList<net.minecraft.world.level.pathfinder.Node>(); nodes.add(new net.minecraft.world.level.pathfinder.Node(at.getX(), at.getY(), at.getZ())); nodes.add(new net.minecraft.world.level.pathfinder.Node(cell.getX(), cell.getY() - 3, cell.getZ()));
+            var path = new net.minecraft.world.level.pathfinder.Path(nodes, cell.below(3), false); path.advance();
+            if (c.getNavigation().getPath() == null || c.getNavigation().isDone()) c.getNavigation().moveTo(path, 1.0);
+            if (com.claudemod.entity.body.Controls.refusedLately(c, 10)) s1287R = true;
+        }
+        if (t[0] == 60) {
+            boolean held = c.blockPosition().equals(at) && c.isAlive() && !c.isInLava();
+            c.getNavigation().stop(); c.tasks.clear(); c.dropCurrent = true; c.clearFire(); c.setHealth(20);
+            for (int x = -4; x <= 6; x++) for (int z = -4; z <= 4; z++) for (int y = -5; y <= 6; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            boolean r = s1287R; s1287R = false;
+            check(held, "stepped off his ledge toward the lava (at " + c.blockPosition().toShortString() + ")");
+            check(r, "his body refused the step over the lava but it's not on record (Controls.refusedLately): his walker never hears it and keeps that path");
+            pass(stage, t, "held the edge, the refusal on record for his walker");
+        }
+        return true;
+    }
+    private static boolean s1287R;
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1368: return st1368(stage, t, c, h, level, mock);
             case 1366: return st1366(stage, t, c, h, level, mock);
             case 1329: return st1329(stage, t, c, h, level, mock);
             case 1328: return st1328(stage, t, c, h, level, mock);
@@ -17584,6 +17585,45 @@ public final class ClaudeBodyTest {
             check(p.contains("obtain bow before the portal") && !p.contains("not this step's gate"), "bow prep: the planner isn't told the bow is this step's (the rules say " + rs + "): " + p);
             pass(stage, t, "the planner's path names the bow as the prep's missing piece, the rules' step " + rs);
         } else if (st1366At < 0 && t[0] > 5) check(t[0] < 200, "bow prep: the 3 string never made his ledger (" + com.claudemod.entity.life.ChestLedger.book(c) + ")");
+        return true;
+    }
+    /** Stage 1368 (D2D 133, live 04:12:19 11-10: shot dead in a cave by a skeleton he never saw, creepers about, armor 0; recovery.trip priced "go for them ~214 s" against "leave them ~240 s" for 6 iron and an iron sword 194 off, and he ran straight back and died again at 04:15): the skeleton that killed him unseen, a creeper by the pile in view, armor 0, the pile 60 off. The run back prices as the blast and the arrows it is: he leaves it. */
+    private static boolean st1368(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(4, 2, 8)), pile = me.offset(60, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.DeathLog.reset(c); com.claudemod.entity.life.Perception.reset(c); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(96), m -> !m.getUUID().equals(c.getUUID()))) m.discard(); }
+        if (t[0] == 5) for (int cx = -1; cx <= 5; cx++) for (int cz = -1; cz <= 1; cz++) { BlockPos q = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(q), 2, q); }
+        if (t[0] == 10) {
+            for (int x = -6; x <= 72; x++) for (int z = 0; z <= 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int yy = 2; yy <= 8; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            level.setDayTime(6000);
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            mock[0].teleportTo(me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5);
+            c.teleportTo(pile.getX() + 0.5, pile.getY(), pile.getZ() + 0.5); c.setYRot(-90); c.setYHeadRot(-90); c.setXRot(0); // (facing east, at the pile)
+            var cr = EntityType.CREEPER.create(level); cr.moveTo(pile.getX() + 4.5, pile.getY(), pile.getZ() + 0.5, 0, 0); cr.setNoAi(true); cr.setPersistenceRequired(); level.addFreshEntity(cr);
+            var sk = EntityType.SKELETON.create(level); sk.moveTo(pile.getX() - 8.5, pile.getY(), pile.getZ() + 0.5, 0, 0); sk.setNoAi(true); sk.setPersistenceRequired(); level.addFreshEntity(sk); // (behind him: never seen)
+        }
+        if (t[0] == 14) com.claudemod.entity.life.Perception.glance(c);
+        if (t[0] == 16) {
+            var cr = level.getEntitiesOfClass(net.minecraft.world.entity.monster.Creeper.class, new net.minecraft.world.phys.AABB(pile).inflate(8)).get(0);
+            var sk = level.getEntitiesOfClass(net.minecraft.world.entity.monster.Skeleton.class, new net.minecraft.world.phys.AABB(pile).inflate(12)).get(0);
+            com.claudemod.entity.life.Perception.forget(c, sk);
+            check(com.claudemod.entity.life.Perception.aware(c, cr), "setup: the creeper by the pile isn't known");
+            c.setLastHurtByMob(sk); // (its arrow killed him)
+            var fell = new java.util.ArrayList<net.minecraft.world.entity.item.ItemEntity>();
+            for (var st0 : new ItemStack[] {new ItemStack(Items.IRON_INGOT, 6), new ItemStack(Items.IRON_SWORD), new ItemStack(Items.STICK, 3)}) { var ie = new net.minecraft.world.entity.item.ItemEntity(level, pile.getX() + 0.5, pile.getY(), pile.getZ() + 0.5, st0); ie.setDeltaMovement(0, 0, 0); level.addFreshEntity(ie); fell.add(ie); }
+            com.claudemod.entity.life.DeathLog.died(c, level, pile, fell);
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20);
+        }
+        if (t[0] == 20) {
+            var d = com.claudemod.entity.life.DeathLog.of(c).get(com.claudemod.entity.life.DeathLog.of(c).size() - 1);
+            String dim = level.dimension().location().getPath();
+            double worth = com.claudemod.entity.life.DeathLog.worthS(d.what), trip = com.claudemod.entity.life.DeathLog.tripS(c, dim, pile);
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(pile).inflate(16))) m.discard();
+            for (var ie : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(pile).inflate(4))) ie.discard();
+            com.claudemod.entity.life.DeathLog.reset(c);
+            check(trip > worth, "armor 0, killed there by a skeleton he never saw, a creeper by the pile: the run back ~" + (int) trip + " s priced under the pile's ~" + (int) worth + " s (threat " + d.threat + ")");
+            pass(stage, t, "the run back ~" + (int) trip + " s against the pile's ~" + (int) worth + " s (threat " + d.threat + "): left");
+        }
         return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */

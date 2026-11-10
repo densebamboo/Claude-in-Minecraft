@@ -95,7 +95,11 @@ public final class Decide {
      */
     public static double creeperTailS(ClaudeEntity g, double hp) {
         double per = hitHp() * armorF(g); if (hp <= 0 || per <= 0) return 0;
-        double lamC = hp / per * w("night.creeper_share", 0.07), blast = w("creeper.blast_hp", 22) * armorF(g), h = g.getHealth();
+        return blastS(g, hp / per * w("night.creeper_share", 0.07));
+    }
+    /** lamC creeper blasts expected (creeper.blast_hp through his armor), as his time: the chance of one, times death or a fall under his floor. */
+    public static double blastS(ClaudeEntity g, double lamC) {
+        double blast = w("creeper.blast_hp", 22) * armorF(g), h = g.getHealth();
         double cost = blast >= h ? deathS(g) : h - blast < w("danger.min_hp_left", 4) ? w("danger.under_floor_s", 300) : 0;
         return atLeast(lamC, 1) * cost;
     }

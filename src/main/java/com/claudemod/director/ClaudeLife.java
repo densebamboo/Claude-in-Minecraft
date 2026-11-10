@@ -4290,7 +4290,7 @@ public final class ClaudeLife {
                 if (g.blockPosition().distSqr(spot) > 12 * 12) { // (one in reach is a pickup, not a run)
                     double worthS = dropsWorth(drops) * com.claudemod.entity.life.Weights.w("recovery.trip_s_per_point", 3), tripS = com.claudemod.entity.life.DeathLog.tripS(g, dimHere, spot);
                     var pick = com.claudemod.entity.life.Decide.choose(g, "recovery.trip", drops.size() + " stack(s) of his at " + spot.toShortString() + ", " + (int) Math.sqrt(g.blockPosition().distSqr(spot)) + " off", true, java.util.List.of(
-                        com.claudemod.entity.life.Decide.Option.of("go for them", tripS, "the walk there and back, the hits on it"), com.claudemod.entity.life.Decide.Option.of("leave them", worthS, "the time to get them again")));
+                        com.claudemod.entity.life.Decide.Option.of("go for them", tripS, "the walk there and back, the hits on it (" + com.claudemod.entity.life.DeathLog.threatNote(g, dimHere, spot) + ")"), com.claudemod.entity.life.Decide.Option.of("leave them", worthS, "the time to get them again")));
                     if (pick.name().equals("leave them")) {
                         if (dn != null && spot.equals(dn.at) && level.isPositionEntityTicking(spot)) {
                             com.claudemod.entity.life.DeathLog.abandon(g, dn, "looked: worth ~" + (int) worthS + " s, the run ~" + (int) tripS + " s");

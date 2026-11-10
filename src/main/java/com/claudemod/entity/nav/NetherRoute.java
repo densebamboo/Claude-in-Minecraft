@@ -56,7 +56,7 @@ public final class NetherRoute {
         if (tp != null && tp.seconds() <= straight * com.claudemod.entity.life.Weights.w("nether.trail_ok_ratio", 1.5)) return tp;
         Plan sp = search(g, level, from, to, false);
         if (tp == null) return sp;
-        double est = sp == null ? Double.MAX_VALUE : sp.partial() && !sp.legs().isEmpty() ? sp.seconds() + h(sp.legs().get(sp.legs().size() - 1).getX(), sp.legs().get(sp.legs().size() - 1).getY(), sp.legs().get(sp.legs().size() - 1).getZ(), to) * com.claudemod.entity.life.PortalMap.NETHER_OFF_ROAD : sp.seconds(); // (the rest past what it read, priced as the highway's way off is: ground with no way of his yet)
+        double est = sp == null ? Double.MAX_VALUE : sp.partial() && !sp.legs().isEmpty() ? sp.seconds() + h(sp.legs().get(sp.legs().size() - 1).getX(), sp.legs().get(sp.legs().size() - 1).getY(), sp.legs().get(sp.legs().size() - 1).getZ(), to) * offRoad(g) : sp.seconds(); // (the rest past what it read, priced as the highway's way off is: ground with no way of his yet)
         if (tp.seconds() < est) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: his own way, ~{} s, over the search's ~{} s{} (NetherRoute.plan)", from.toShortString(), to.toShortString(), (int) tp.seconds(), sp == null ? "-" : String.valueOf((int) est), sp != null && sp.partial() ? " (part way, the rest at a sprint)" : ""); return tp; }
         return sp;
     }
@@ -95,7 +95,7 @@ public final class NetherRoute {
         if (best == null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: no highway of his on record within {} with a way along it to the goal (NetherRoute.ontoHighway)", from.toShortString(), to.toShortString(), (int) reach); return null; }
         Plan s = search(g, level, from, best, true); if (s == null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: onto his highway at {}: the search found no way (NetherRoute.ontoHighway)", from.toShortString(), to.toShortString(), best.toShortString()); return null; }
         if (s.partial()) { // into rock he hasn't seen: the rest to the highway priced as Nether ground, the plan walked as far as it goes and made again from there (Loops' sink 3, live 17:00:19 11-09: the whole highway dropped, a 1566-dig bore priced and his pile abandoned; stage 1315)
-            BlockPos end = s.legs().isEmpty() ? from : s.legs().get(s.legs().size() - 1); double rest = h(end.getX(), end.getY(), end.getZ(), best) * com.claudemod.entity.life.PortalMap.NETHER_OFF_ROAD;
+            BlockPos end = s.legs().isEmpty() ? from : s.legs().get(s.legs().size() - 1); double rest = h(end.getX(), end.getY(), end.getZ(), best) * offRoad(g);
             com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: onto his highway at {}: the search got only part way, to {} (~{} s), the rest to it ~{} s as Nether ground, then along it ({} legs, ~{} s) (NetherRoute.ontoHighway)", from.toShortString(), to.toShortString(), best.toShortString(), end.toShortString(), (int) s.seconds(), (int) rest, bh.legs().size(), (int) bh.seconds());
             return new Plan(new ArrayList<>(s.legs()), true, s.seconds() + rest + bh.seconds(), s.digs(), s.puts(), s.climb() + bh.climb(), s.nodes(), s.ms() + bh.ms()); }
         List<BlockPos> legs = new ArrayList<>(s.legs()); legs.addAll(bh.legs());
@@ -105,11 +105,11 @@ public final class NetherRoute {
 
     /** The way from {@code from} to {@code to} in the Nether priced off his records alone (no search: the far side of a portal isn't loaded): onto the highway segment nearest, as Nether ground, then along his highways, or straight as Nether ground, the cheaper; recover_drops prices the Nether run with it from the Overworld side (stage 1315). */
     public static double priceS(ClaudeEntity g, BlockPos from, BlockPos to) {
-        double best = h(from.getX(), from.getY(), from.getZ(), to) * com.claudemod.entity.life.PortalMap.NETHER_OFF_ROAD;
+        double best = h(from.getX(), from.getY(), from.getZ(), to) * offRoad(g);
         Plan hw = highway(g, from, to, false); if (hw != null) best = Math.min(best, hw.seconds());
         for (var sg : com.claudemod.entity.life.PortalMap.net(g).segments) { if (!com.claudemod.entity.life.PortalMap.NETHER.equals(sg.dim)) continue;
             BlockPos q = feet(sg, Math.max(sg.lo(), Math.min(sg.hi(), along(sg, from)))); Plan on = highway(g, q, to, false); if (on == null) continue;
-            best = Math.min(best, h(from.getX(), from.getY(), from.getZ(), q) * com.claudemod.entity.life.PortalMap.NETHER_OFF_ROAD + on.seconds()); }
+            best = Math.min(best, h(from.getX(), from.getY(), from.getZ(), q) * offRoad(g) + on.seconds()); }
         return best;
     }
 
@@ -129,7 +129,7 @@ public final class NetherRoute {
             for (int v = 0; v < n; v++) { if (v == u || done[v]) continue; BlockPos a = pt.get(u), b = pt.get(v); double d = Math.sqrt(a.distSqr(b)), c;
                 if (on.get(u) >= 0 && on.get(u).equals(on.get(v))) c = d * WALK; // along one segment
                 else if (u == 0 && on.get(v) >= 0 && d <= 4 || v == 1 && on.get(u) >= 0 && d <= 8) c = d * WALK + Math.max(0, b.getY() - a.getY()) * 0.5; // onto it by him, off it by the goal
-                else if (v == 1 && on.get(u) >= 0) c = h(a.getX(), a.getY(), a.getZ(), b) * com.claudemod.entity.life.PortalMap.NETHER_OFF_ROAD; // off it anywhere: the rest priced as Nether ground with no way of his yet (the straight line alone is never dearer than the road: every plan left it at his feet), and planned from there (D2D 11-08: off only within 8 of the goal, a goal past the road's end got no highway at all; stage 1192)
+                else if (v == 1 && on.get(u) >= 0) c = h(a.getX(), a.getY(), a.getZ(), b) * offRoad(g); // off it anywhere: the rest priced as Nether ground with no way of his yet (the straight line alone is never dearer than the road: every plan left it at his feet), and planned from there (D2D 11-08: off only within 8 of the goal, a goal past the road's end got no highway at all; stage 1192)
                 else if (on.get(u) >= 0 && on.get(v) >= 0 && d <= 6) c = d * WALK + Math.max(0, b.getY() - a.getY()) * 0.5; // a join: the turn, a staircase between two runs
                 else c = -1;
                 if (c >= 0 && dist[u] + c < dist[v]) { dist[v] = dist[u] + c; prev[v] = u; } } }
@@ -235,6 +235,15 @@ public final class NetherRoute {
 
     static long key(int x, int y, int z) { return ((long) (x & 0x3FFFFFF) << 38) | ((long) (z & 0x3FFFFFF) << 12) | ((y + 2048) & 0xFFF); }
     /** At least the time a sprint straight there takes, the climb counted too. */
+    /** Nether ground with no way of his yet, against a sprint: what the search reads it as (netherrack, tunnelled 2 high with the pickaxe on him), never under PortalMap.NETHER_OFF_ROAD.
+     * (The user 15:08 11-10, "why is he digging there when he has a perfectly good highway": the rest past a part-way search was priced at 1.6x a sprint, ~0.3 s a block, while the
+     * search's own legs through that rock ran ~3 s a block; his highway lost to it and he tunnelled 230 blocks in 6 min; stage 1391.) */
+    static double offRoad(ClaudeEntity g) {
+        net.minecraft.world.level.block.state.BlockState rack = net.minecraft.world.level.block.Blocks.NETHERRACK.defaultBlockState(); float speed = 0; // (0: nothing on him takes it)
+        for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { ItemStack it = g.inventory.items.getItem(i); if (!it.isEmpty() && it.isCorrectToolForDrops(rack)) speed = Math.max(speed, it.getDestroySpeed(rack)); }
+        double dig = speed <= 0 ? 10 : Math.min(10, 1.0 / (speed / 0.4 / 30 * 20)) + 0.25; // (Reader.dig's sum: hardness 0.4, + aiming and the pickup)
+        return Math.max(com.claudemod.entity.life.PortalMap.NETHER_OFF_ROAD, (WALK + 2 * dig) / WALK);
+    }
     static double h(int x, int y, int z, BlockPos to) { double dx = Math.abs(x - to.getX()), dz = Math.abs(z - to.getZ()); return (Math.max(dx, dz) + 0.414 * Math.min(dx, dz)) * WALK + Math.max(0, to.getY() - y) * 0.5 + Math.max(0, y - to.getY()) * 0.15; }
 
     /** The world as the plan reads it: loaded chunks only, each column's standing heights and each block's dig time kept for the plan. */

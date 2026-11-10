@@ -10564,6 +10564,7 @@ public final class ClaudeBodyTest {
             case 1450: return st1450(stage, t, c, h, level, mock);
             case 1387: return st1387(stage, t, c, h, level, mock);
             case 1388: return st1388(stage, t, c, h, level, mock);
+            case 1391: return st1391(stage, t, c, h, level, mock);
             case 1390: return st1390(stage, t, c, h, level, mock);
             case 1389: return st1389(stage, t, c, h, level, mock);
             case 1386: return st1386(stage, t, c, h, level, mock);
@@ -29725,6 +29726,40 @@ public final class ClaudeBodyTest {
             check(l.startsWith("take_from_chest"), "setup: the step never ran (last line: " + l + ")");
             check(!l.contains("don't know what"), "the chest's spot read as part of the item: " + l);
             pass(stage, t, "\"flint at -78 16 -228\" read as flint: " + l); return true;
+        }
+        return true;
+    }
+    /** Stage 1391 (D2D, the user 15:08 11-10: "why is he digging there when he has a perfectly good highway that he built"): live 14:59:30,
+     * out of his portal at -6,81,-21 for the fortress at 310,33,402, NetherRoute.plan had "onto his highway ... then along it (70 legs, ~153 s)"
+     * but the part-way search won: the rest of it priced at 1.6x a sprint (~0.3 s a block), while the search itself reads that unseen
+     * ground as netherrack to tunnel (its legs "about 70 s: 49 dug" for ~22 blocks). He tunnelled 230 blocks in 6 min. Here: his highway
+     * an L to near the goal, the straight way solid rock, the search cut part way: the plan must be his highway. */
+    private static boolean st1391(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13200, 64, 7720), me = o.offset(0, 0, -6), goal = o.offset(116, 0, 30);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); }
+        nsTick(nl, c, me, t); if (t[0] % 10 == 0 || t[0] < 10) for (int m = -16; m <= 176; m += 16) for (int k = -16; k <= 136; k += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, m)), 1, o.offset(k, 0, m));
+        if (t[0] == 12) {
+            for (int x = -10; x <= 125; x++) for (int z = -10; z <= 166; z++) for (int y = -2; y <= 4; y++) nl.setBlock(o.offset(x, y, z), Blocks.NETHERRACK.defaultBlockState(), 2);
+            for (int x = 0; x <= 1; x++) for (int z = -6; z <= 161; z++) { BlockPos p = o.offset(x, 0, z); nl.setBlock(p.below(), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); for (int y = 0; y <= 2; y++) nl.setBlock(p.above(y), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = 0; x <= 121; x++) for (int z = 160; z <= 161; z++) { BlockPos p = o.offset(x, 0, z); nl.setBlock(p.below(), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); for (int y = 0; y <= 2; y++) nl.setBlock(p.above(y), Blocks.AIR.defaultBlockState(), 2); }
+            com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(0, -1, 0), o.offset(0, -1, 160), net.minecraft.core.Direction.Axis.Z, 2);
+            com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(0, -1, 160), o.offset(120, -1, 160), net.minecraft.core.Direction.Axis.X, 2);
+            for (int x = 120; x <= 121; x++) for (int z = 30; z <= 161; z++) { BlockPos p = o.offset(x, 0, z); nl.setBlock(p.below(), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); for (int y = 0; y <= 2; y++) nl.setBlock(p.above(y), Blocks.AIR.defaultBlockState(), 2); }
+            com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(120, -1, 160), o.offset(120, -1, 30), net.minecraft.core.Direction.Axis.Z, 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64));
+            c.teleportTo(nl, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 15) com.claudemod.entity.nav.Route.forgetTrail(c);
+        if (t[0] == 20) {
+            com.claudemod.entity.nav.NetherRoute.testBudget = 10; com.claudemod.entity.nav.NetherRoute.Plan p;
+            try { p = com.claudemod.entity.nav.NetherRoute.plan(c, nl, c.blockPosition(), goal); } finally { com.claudemod.entity.nav.NetherRoute.testBudget = 0; }
+            boolean onHw = p != null && p.legs().stream().anyMatch(q -> q.getZ() - o.getZ() >= 150);
+            String legs = p == null ? "none" : p.legs().stream().limit(6).map(BlockPos::toShortString).toList() + " (" + p.legs().size() + " legs, ~" + (int) p.seconds() + " s, " + p.digs() + " dug)";
+            for (int x = -10; x <= 125; x++) for (int z = -10; z <= 166; z++) for (int y = -2; y <= 4; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            com.claudemod.entity.life.PortalMap.net(c).segments.clear(); nsHome(c, h, level);
+            check(onHw, "his highway (a U to beside the goal) beside him, the straight way solid rock he hasn't seen: the plan tunnels instead: " + legs);
+            pass(stage, t, "along his highway: " + legs);
         }
         return true;
     }

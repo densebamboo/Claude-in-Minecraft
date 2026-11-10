@@ -10897,6 +10897,7 @@ public final class ClaudeBodyTest {
             case 1278: return st1278(stage, t, c, h, level, mock);
             case 1279: return st1279(stage, t, c, h, level, mock);
             case 1280: return st1280(stage, t, c, h, level, mock);
+            case 1281: return st1281(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -23692,6 +23693,26 @@ public final class ClaudeBodyTest {
             var q = new java.util.ArrayList<>(c.skillQueue); c.skillQueue.clear(); c.tasks.clear();
             check(!r.contains("full pack for the highway") && q.stream().noneMatch(x -> x.skill().equals("collect") && x.target().equals("cobbled_deepslate")), "the rails pass held up the blaze rods: \"" + r + "\", queue " + q);
             pass(stage, t, "through the portal for blaze rods, the rails left for the way home: " + r);
+        }
+        return true;
+    }
+    /** Stage 1281 (D2D review 212521-141, live 21:23:49-21:24:47 11-09): 10 cooked salmon on him, the kit's pick "fish -> 3 cooked_salmon" (3 more); the planner wrote obtain cooked_salmon x3, the step counts what he holds ("done: already have 10"), the kit stayed short and the plan flipped to fish, beef, smelt in a minute. The kit's line names the step's total. 1235's pond, 6 cooked salmon on him. */
+    private static boolean st1281(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); }
+        if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 4, c.blockPosition());
+        BlockPos me = c.blockPosition();
+        if (t[0] == 10) {
+            for (int x = -6; x <= 36; x++) for (int z = -6; z <= 6; z++) { level.setBlock(me.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = 29; x <= 31; x++) for (int z = -1; z <= 1; z++) { level.setBlock(me.offset(x, -3, z), Blocks.STONE.defaultBlockState(), 2); level.setBlock(me.offset(x, -2, z), Blocks.WATER.defaultBlockState(), 2); level.setBlock(me.offset(x, -1, z), Blocks.WATER.defaultBlockState(), 2); }
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 6));
+            for (int k = 0; k < 2; k++) { var f = EntityType.SALMON.create(level); f.moveTo(me.getX() + 30.5, me.getY() - 2, me.getZ() + 0.5 + k * 0.4, 0, 0); f.setNoAi(true); f.setPersistenceRequired(); level.addFreshEntity(f); }
+        }
+        if (t[0] == 15) {
+            var fa = com.claudemod.director.Kit.foodAsk(c); String said = com.claudemod.director.Kit.foodSaidTest(c);
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); c.getInventory().clearContent();
+            check(fa != null && fa.item() == Items.COOKED_SALMON, "setup: the kit's pick isn't the salmon: " + said);
+            check(said.contains("obtain cooked_salmon " + (fa.count() + 6)), "the kit asks " + fa.count() + " more with 6 on him, and the line doesn't name the step's total (" + (fa.count() + 6) + "): " + said);
+            pass(stage, t, "the kit's line names the total to hold: " + said.substring(Math.max(0, said.indexOf("the pick"))));
         }
         return true;
     }

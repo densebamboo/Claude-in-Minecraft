@@ -9657,7 +9657,7 @@ public final class ClaudeLife {
         if (fa == null) { ClaudeMod.LOGGER.info("[Claude life] {} meal(s) left in {} (food {}): no food trip, the pricing says go as he is (kit.food line above) (ClaudeLife.netherFood)", meals, level.dimension().location().getPath(), g.getFoodData().getFoodLevel()); return; }
         Skills.Step job = g.lastStep; int n = g.tasks.size(); clearTasks(g); g.dropCurrent = true;
         if (job != null && !job.skill().equals("obtain") && g.skillQueue.stream().noneMatch(s0 -> s0.skill().equals(job.skill()) && s0.target().equals(job.target()))) g.skillQueue.addFirst(job);
-        g.skillQueue.addFirst(new Skills.Step("obtain", Crafting.name(fa.item()), fa.count()));
+        g.skillQueue.addFirst(new Skills.Step("obtain", Crafting.name(fa.item()), fa.count() + g.inventory.count(x -> x.is(fa.item())))); // (the kit's count is the shortfall, the step's the total held: Kit.totals, stage 1281)
         ClaudeMod.LOGGER.info("[Claude life] {} meal(s) left in {} (food {}, health {}){}: off for {} {} first, then {} ({} task(s) set aside) (ClaudeLife.netherFood)", meals, level.dimension().location().getPath(), g.getFoodData().getFoodLevel(), (int) g.getHealth(), starving ? ", nothing to eat" : "", fa.count(), Crafting.name(fa.item()), job == null ? "the work" : job.skill() + " " + job.target(), n);
     }
 

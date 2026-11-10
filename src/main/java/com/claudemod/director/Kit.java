@@ -341,7 +341,7 @@ public final class Kit {
         var pick = com.claudemod.entity.life.Decide.choose(g, "kit.food", "", false, opts);
         StringBuilder said = new StringBuilder(); for (var o : opts) said.append(said.length() == 0 ? "" : "; ").append(o.no() != null ? o.name() + " out (" + o.no() + ")" : o.name() + " ~" + Math.round(o.s()) + " s" + (o.detail().isEmpty() ? "" : " (" + o.detail() + ")"));
         FoodAsk fa = pick == null ? null : asks.get(pick.name()); foodPick.put(g.getUUID(), pick == null ? null : pick.name());
-        foodSaid.put(g.getUUID(), (int) shortP + " food points short (" + (int) carried + " on him): " + said + "; the pick: " + (pick == null ? "none" : pick.name()) + (fa == null ? "" : " -> " + fa.count() + " " + Crafting.name(fa.item())));
+        foodSaid.put(g.getUUID(), (int) shortP + " food points short (" + (int) carried + " on him): " + said + "; the pick: " + (pick == null ? "none" : pick.name()) + (fa == null ? "" : " -> " + fa.count() + " more " + Crafting.name(fa.item()) + " (obtain " + Crafting.name(fa.item()) + " " + (fa.count() + g.inventory.count(x -> x.is(fa.item()))) + ": a step's count is what he holds, " + g.inventory.count(x -> x.is(fa.item())) + " on him)")); /* (the planner wrote "obtain cooked_salmon x3" off "-> 3", done at once on the 10 he had, the kit still short: fish, beef, smelt in a minute, live 21:23 11-09, review 141, stage 1281) */
         ClaudeLife.nookSay(g, "kitFood", "[Claude decide] kit.food (" + (int) shortP + " food points short of the trip's " + (int) need + ", " + (int) carried + " on him): " + said + ": " + (pick == null ? "none" : pick.name()) + (fa == null ? "" : " -> " + fa.count() + " " + Crafting.name(fa.item())) + " (Kit.foodAsk)");
         return fa;
     }

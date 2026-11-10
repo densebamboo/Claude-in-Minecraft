@@ -11885,6 +11885,7 @@ public final class ClaudeLife {
         ServerPlayer owner = player;
         List<Task> ts = h.reconcile(level, it -> g.inventory.count(s0 -> s0.is(it)), p -> owner != null && (PlayerProfile.placedBy(owner).contains(p) || protectedByThem(g, owner, p)), shellOnly ? 256 : 12);
         ts.removeIf(t -> g.tasks.contains(t));
+        ts.removeIf(t -> { BlockPos tp = taskPos(t); return tp != null && g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.BREAK, tp, g.tickCount, 0); }); // (a cell whose break just failed, out of sight from here: its break and its block both wait till that changes, not queued again from the same stand; his grove's leaves in a roof cell behind a post, live 08:45:47 11-10, D2D review 084752-56, stage 1424)
         if (shellOnly) { ts.removeIf(t -> { BlockPos tp = t instanceof Task.Place pl ? pl.pos() : t instanceof Task.Break br ? br.pos() : null; HouseBlueprint.Role r = tp == null ? null : h.roleAt(tp); return r == null || !SHUT_ROLES.contains(r); });
             if (ts.isEmpty() && g.tickCount - houseLogTick > 20 * 600) { houseLogTick = g.tickCount; ClaudeMod.LOGGER.info("[Claude life] house at {} wants its shell or bed ({}), and he carries nothing for it: {} (ClaudeLife.hbUpkeep)", h.centre().toShortString(), h.stage(level), h.missing.isEmpty() ? "nothing missing on record" : "short of " + h.missing); }
             if (ts.isEmpty()) return; if (ts.size() > 12) ts = new ArrayList<>(ts.subList(0, 12)); }

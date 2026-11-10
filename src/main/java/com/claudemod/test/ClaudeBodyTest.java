@@ -10978,6 +10978,7 @@ public final class ClaudeBodyTest {
             case 1421: return st1421(stage, t, c, h, level, mock);
             case 1422: return st1422(stage, t, c, h, level, mock);
             case 1423: return st1423(stage, t, c, h, level, mock);
+            case 1424: return st1424(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -25768,6 +25769,42 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static final java.util.List<net.minecraft.world.entity.Mob> s1423F = new java.util.ArrayList<>();
+    /** Stage 1424 (D2D review 084752-56, live 08:45:47 11-10 at 14,73,-47, World 17): leaves from his grove grown into a roof cell of his house; the house upkeep queued the leaves out and planks in; the break failed "not in sight from any cell he can stand in" (a post log in the way), the planks then refused into the leaves, and both queued again from the same stand, a conflict every few seconds. A roof fix whose break just failed out of sight waits till that changes. */
+    private static boolean st1424(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9900, 70, 9760);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -6; x <= 14; x++) for (int z = -6; z <= 14; z++) for (int y = -2; y <= 8; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            var hb = new com.claudemod.entity.life.HouseBlueprint(at, net.minecraft.core.Direction.NORTH); c.house = hb;
+            BlockPos leafCell = null;
+            for (var e : hb.cells().entrySet()) { var r = e.getValue(); net.minecraft.world.item.Item it = hb.filler(r); BlockPos q = e.getKey();
+                if (r == com.claudemod.entity.life.HouseBlueprint.Role.DOOR) level.setBlock(q, Blocks.OAK_DOOR.defaultBlockState(), 18);
+                else if (r == com.claudemod.entity.life.HouseBlueprint.Role.BED) level.setBlock(q, Blocks.RED_BED.defaultBlockState(), 18);
+                else if (it != null) level.setBlock(q, net.minecraft.world.level.block.Block.byItem(it).defaultBlockState(), 18);
+                if (r == com.claudemod.entity.life.HouseBlueprint.Role.ROOF && (leafCell == null || q.compareTo(leafCell) < 0)) leafCell = q.immutable(); }
+            level.setBlock(leafCell, Blocks.OAK_LEAVES.defaultBlockState().setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true), 18); s1424L = leafCell; // his grove's leaves in a roof cell
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 16)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.teleportTo(hb.centre().getX() + 0.5, hb.centre().getY(), hb.centre().getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear();
+        }
+        if (t[0] == 14) {
+            BlockPos lc = s1424L; java.util.function.Predicate<Task> atCell = q -> q instanceof Task.Break b && b.pos().equals(lc) || q instanceof Task.Place pl && pl.pos().equals(lc);
+            try {
+                var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("hbUpkeep", ClaudeEntity.class, ServerPlayer.class, ServerLevel.class); m.setAccessible(true);
+                m.invoke(null, c, mock[0], level); boolean fresh = c.tasks.stream().anyMatch(atCell);
+                c.tasks.clear(); c.dropCurrent = true;
+                c.attempts.fail(com.claudemod.entity.life.Attempts.Kind.BREAK, lc, c.tickCount, c.blockPosition(), com.claudemod.entity.life.Attempts.Reason.OUT_OF_REACH, "not in sight from any cell he can stand in"); // its break just failed so, from here
+                m.invoke(null, c, mock[0], level); boolean again = c.tasks.stream().anyMatch(atCell); String q0 = String.valueOf(c.tasks);
+                c.tasks.clear(); c.dropCurrent = true; c.house = null; c.attempts.clear();
+                for (int x = -6; x <= 14; x++) for (int z = -6; z <= 14; z++) for (int y = 0; y <= 8; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); // (the floor left)
+                check(fresh, "setup: the house upkeep never asked for the leaves in its roof at " + lc.toShortString());
+                check(!again, "the roof fix at " + lc.toShortString() + " queued again right after its break failed out of sight from here: " + q0);
+                pass(stage, t, "the roof cell's fix held back while its break can't be made from here");
+            } catch (ReflectiveOperationException e) { throw new RuntimeException(e); }
+        }
+        return true;
+    }
+    private static BlockPos s1424L;
     /** Stage 1420 (D2D review 21, live 06:46:25-06:46:43 11-10 at -114,17,-329, World 17): his furnace at -113,18,-328, ceiling high in the rock beside his tunnel; the way made to the cell beside it dug his ceiling and a wall cell, and put both back at the way's end, before the load: his way in to it shut, 9 s of loops and spins one block off, the walk written off UNKNOWN and the spot skipped. The way's put-backs come after the job. */
     private static boolean st1420(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos at = new BlockPos(9960, 80, 9780), fur = at.offset(1, 2, 1);

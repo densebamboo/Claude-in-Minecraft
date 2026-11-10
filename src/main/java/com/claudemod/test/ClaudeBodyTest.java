@@ -10972,6 +10972,7 @@ public final class ClaudeBodyTest {
             case 1419: return st1419(stage, t, c, h, level, mock);
             case 1420: return st1420(stage, t, c, h, level, mock);
             case 1421: return st1421(stage, t, c, h, level, mock);
+            case 1422: return st1422(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -25606,6 +25607,37 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    /** Stage 1422 (D2D review 33, live 07:49:10-07:49:25 11-10, World 17): ~19 down in a cave away from his mine, collect logs picked surface trees 10, 21, 8, 20, 12 off in turn, each walk planned through the cave and failing, never a cut tree. The underground exit rule (the user): away from his mine underground, out the way he came in to the surface first, at any distance (it took only walks past 28). His trail up a staircase, the target 10 across on the ground above him. */
+    private static boolean st1422(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9860, 50, 9780), to = at.offset(10, 22, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1422T = -1; s1422D = 0; for (var mb : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) mb.discard(); }
+        if (t[0] == 10) {
+            for (int x = -56; x <= 16; x++) for (int z = -5; z <= 5; z++) for (int y = -2; y <= 25; y++) level.setBlock(at.offset(x, y, z), (y <= 21 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // rock, the ground 22 up
+            level.setBlock(at, Blocks.AIR.defaultBlockState(), 2); level.setBlock(at.above(), Blocks.AIR.defaultBlockState(), 2);
+            for (int x = 1; x <= 30; x++) for (int y = 0; y <= 1; y++) level.setBlock(at.offset(-x, y, 0), Blocks.AIR.defaultBlockState(), 2); // the tunnel he came along, 30
+            for (int k = 1; k <= 22; k++) for (int y = k - 1; y <= k + 2; y++) level.setBlock(at.offset(-30 - k, y, 0), Blocks.AIR.defaultBlockState(), 2); // and the staircase he came down
+            level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            com.claudemod.entity.nav.Route.forgetTrail(c);
+            for (int k = 22; k >= 1; k--) { c.teleportTo(at.getX() - 30 - k + 0.5, at.getY() + k - 1, at.getZ() + 0.5); com.claudemod.entity.nav.Route.step(c); } // his trail: down the stairs
+            for (int x = 30; x >= 1; x--) { c.teleportTo(at.getX() - x + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.nav.Route.step(c); } // and along the tunnel
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.nav.Route.step(c); com.claudemod.entity.life.Watchdog.teleported(c);
+            mock[0].teleportTo(to.getX() + 0.5, to.getY() + 2, to.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 12) c.tasks.add(new Task.GoTo(to, 2.0)); // the walk to the trees on the ground above
+        if (t[0] > 12) { int dug = 0; for (int x = -1; x <= 16; x++) for (int y = 1; y <= 21; y++) for (int z = -2; z <= 2; z++) { BlockPos q = at.offset(x, y, z); if (x >= 0 && level.getBlockState(q).isAir() && !(x == 0 && y == 1 && z == 0)) dug++; } s1422D = Math.max(s1422D, dug); if (s1422T < 0 && c.blockPosition().distSqr(to) <= 9) s1422T = t[0]; }
+        if (t[0] == 12 + 20 * 40 || s1422T > 0 && t[0] == s1422T + 2) {
+            int took = s1422T < 0 ? -1 : s1422T - 12, dug = s1422D; BlockPos me = c.blockPosition();
+            c.tasks.clear(); c.dropCurrent = true;
+            for (int x = -56; x <= 16; x++) for (int z = -5; z <= 5; z++) for (int y = 0; y <= 25; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); // (the floor left)
+            check(took >= 0, "the walk to the ground 22 above, 10 across: not there in 40 s (~115 blocks out and over) (at " + me.toShortString() + ", " + dug + " cells dug)");
+            check(dug <= 2, "the walk to the ground above dug " + dug + " cells of rock up through it, not out the way he came");
+            pass(stage, t, "out the way he came and over in " + took + " ticks, " + dug + " dug");
+        }
+        return true;
+    }
+    private static int s1422T, s1422D;
     /** Stage 1420 (D2D review 21, live 06:46:25-06:46:43 11-10 at -114,17,-329, World 17): his furnace at -113,18,-328, ceiling high in the rock beside his tunnel; the way made to the cell beside it dug his ceiling and a wall cell, and put both back at the way's end, before the load: his way in to it shut, 9 s of loops and spins one block off, the walk written off UNKNOWN and the spot skipped. The way's put-backs come after the job. */
     private static boolean st1420(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos at = new BlockPos(9960, 80, 9780), fur = at.offset(1, 2, 1);

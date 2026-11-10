@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1374: return st1374(stage, t, c, h, level, mock);
             case 1373: return st1373(stage, t, c, h, level, mock);
             case 1372: return st1372(stage, t, c, h, level, mock);
             case 1371: return st1371(stage, t, c, h, level, mock);
@@ -17790,6 +17791,28 @@ public final class ClaudeBodyTest {
                 if (level.getBlockEntity(a2) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box) box.clearContent(); level.setBlock(a2, Blocks.AIR.defaultBlockState(), 2); c.prefs.remove("junk_chests"); c.getInventory().clearContent();
                 pass(stage, t, inBox + " junk items into the pair's chest at its other half, " + left + " left on him (" + (t[0] - s1373T) + " ticks)");
             } else check(t[0] - s1373T < 200, "10 s: the deposit aimed at the pair's empty half put nothing in the chest beside it (in it " + inBox + ", now " + c.currentTask + " tasks " + c.tasks + ")");
+        }
+        return true;
+    }
+    /** Stage 1374 (D2D 72, live 06:12:45-06:15:00 11-10: pack full at -145,16,-349 in his mine, a walk out for beef (50 legs) queued; junkChestRound's new junk chest went on the end of the queue, ran once he was up top, and walked him 273 blocks back down to cut it): down his mine, two chests on him, pack full, a walk out queued. The chest job comes first, the walk after. */
+    private static boolean st1374(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            var b = lnMine(h, level, c);
+            c.tasks.clear(); c.skillQueue.clear(); if (c.currentTask != null) c.dropCurrent = true; c.storageChests.clear(); c.prefs.remove("junk_chests");
+            BlockPos me = lnRow(b, 5, 6); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5);
+            c.prefs.put("stay_close", "no"); level.setDayTime(6000); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.CHEST, 2));
+            for (int i = 0; i < 34; i++) c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64));
+            BlockPos out = me.offset(0, 40, 120); c.tasks.add(new com.claudemod.entity.life.Task.GoTo(out, 1.5)); // the walk out for beef
+            String r = com.claudemod.director.ClaudeLife.junkChestRoundNow(c, level);
+            java.util.List<com.claudemod.entity.life.Task> q = new java.util.ArrayList<>(c.tasks); int iChest = -1, iOut = -1;
+            for (int i = 0; i < q.size(); i++) { if (iChest < 0 && q.get(i) instanceof com.claudemod.entity.life.Task.Place pl && pl.item() == Items.CHEST) iChest = i; if (iOut < 0 && q.get(i) instanceof com.claudemod.entity.life.Task.GoTo go && go.pos().equals(out)) iOut = i; }
+            String qs = q.stream().limit(10).toList().toString();
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.getInventory().clearContent(); c.prefs.remove("junk_chests");
+            check(r != null && r.contains("junk chest"), "no junk chest round with 2 chests and a full pack in his mine: " + r);
+            check(iChest >= 0 && (iOut < 0 || iChest < iOut), "the junk chest queued behind the walk out (chest at " + iChest + ", walk at " + iOut + "): " + qs);
+            pass(stage, t, "the junk chest first (" + iChest + "), the walk out after (" + iOut + "): " + r);
         }
         return true;
     }

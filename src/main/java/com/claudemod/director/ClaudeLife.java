@@ -5575,11 +5575,13 @@ public final class ClaudeLife {
             }
             if (!ok) continue;
             toWork(g);
-            g.tasks.add(new Task.GoTo(col, 0.5));
-            for (BlockPos q : new BlockPos[] {a.above(), a2.above(), a, a2}) { g.tasks.add(new Task.Break(q.immutable())); g.landingCells.add(q.immutable()); } // the cells over them cut too: a chest under rock won't open
-            g.tasks.add(new Task.Place(a.immutable(), Items.CHEST, wall.getOpposite())); g.tasks.add(new Task.Place(a2.immutable(), Items.CHEST, wall.getOpposite()));
-            g.tasks.add(new Task.Deposit(a.immutable()));
-            g.tasks.add(new Task.Pickup(20)); // (the rock cut for it: on the floor while his pack was full, picked up once there's room)
+            List<Task> job = new ArrayList<>(); // first, where he stands, ahead of any walk queued (D2D 72, live 06:12:45 11-10: appended behind his 50-leg walk out of the mine for beef, it ran on the surface and walked him 273 blocks back down to cut it; stage 1374)
+            job.add(new Task.GoTo(col, 0.5));
+            for (BlockPos q : new BlockPos[] {a.above(), a2.above(), a, a2}) { job.add(new Task.Break(q.immutable())); g.landingCells.add(q.immutable()); } // the cells over them cut too: a chest under rock won't open
+            job.add(new Task.Place(a.immutable(), Items.CHEST, wall.getOpposite())); job.add(new Task.Place(a2.immutable(), Items.CHEST, wall.getOpposite()));
+            job.add(new Task.Deposit(a.immutable()));
+            job.add(new Task.Pickup(20)); // (the rock cut for it: on the floor while his pack was full, picked up once there's room)
+            errandFirst(g, col); for (int k = job.size() - 1; k >= 0; k--) g.tasks.addFirst(job.get(k));
             String list = g.pref("junk_chests", ""); g.prefs.put("junk_chests", (list.isEmpty() ? "" : list + ";") + a.getX() + " " + a.getY() + " " + a.getZ() + ";" + a2.getX() + " " + a2.getY() + " " + a2.getZ());
             ClaudeMod.LOGGER.info("[Claude life] pack full of spare blocks and junk: a junk chest set into the {} wall at {} and {}", wall.getName(), a.toShortString(), a2.toShortString());
             return "setting a junk chest into the tunnel wall at " + a.toShortString() + " for the spare blocks";

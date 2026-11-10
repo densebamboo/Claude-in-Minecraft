@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1461: return st1461(stage, t, c, h, level, mock);
             case 1460: return st1460(stage, t, c, h, level, mock);
             case 1458: return st1458(stage, t, c, h, level, mock);
             case 1459: return st1459(stage, t, c, h, level, mock);
@@ -18584,6 +18585,34 @@ public final class ClaudeBodyTest {
                 check(s1460A, "2 cave spiders 3 and 4.5 off and after him on his way, 9 HP, an iron sword: 3 s and not one fought (now " + now + ")");
                 pass(stage, t, "clearing the spiders on his way: " + now);
             }
+        }
+        return true;
+    }
+    /** Stage 1461 (D2D 13:03-13:31 11-10 World 17: 50 off his fortress, 20 HP, iron with gold boots on (iron ones in his pack), a shield, 12 meals, 0 rods of 7; blaze.ready "get ready first ~28578 s" over "fight now ~31581 s", priced at armor 15 and 16 meals; ~400 blocks to his portal, gear_up "kitted out already" or 3 porkchops, back again: 3 trips of ~10 min): that state. He fights now; no trip home. */
+    private static boolean st1461(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12600, 64, 7600);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); com.claudemod.entity.life.Highway.reset(c);
+            com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).edges.clear();
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o.west(400), "him", "lit"); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(60))) m.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_BOOTS)); c.getInventory().add(new ItemStack(Items.COOKED_PORKCHOP, 12));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            for (int x = -3; x <= 3; x++) for (int z = -3; z <= 3; z++) for (int y = -2; y <= 3; y++) nl.setBlock(o.offset(x, y, z), (y < 0 || y == 3 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2);
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear(); c.commandActive = false;
+        }
+        if (t[0] == 30) {
+            String r = com.claudemod.entity.life.FortressFight.blazeRods(c, mock[0], nl, new com.claudemod.entity.life.Skills.Step("blaze_rods", "blaze_rod@7", 1, "near_you"));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent();
+            for (var sl : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET, net.minecraft.world.entity.EquipmentSlot.OFFHAND}) c.setItemSlot(sl, ItemStack.EMPTY);
+            com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).edges.clear();
+            for (int x = -3; x <= 3; x++) for (int z = -3; z <= 3; z++) for (int y = -2; y <= 3; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            nsHome(c, h, level);
+            check(!r.startsWith("getting ready first"), "50 off the fortress, iron and a shield on, 12 meals, 0 rods, his portal 400 off: sent home to get ready (" + r + ")");
+            pass(stage, t, "on with the fight: " + r);
         }
         return true;
     }

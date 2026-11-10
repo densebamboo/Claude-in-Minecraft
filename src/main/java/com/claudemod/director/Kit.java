@@ -68,6 +68,15 @@ public final class Kit {
             || g.inventory.count(s -> s.getItem() instanceof ArmorItem c && c.getEquipmentSlot() == a.getEquipmentSlot() && c.getDefense() >= a.getDefense()) > 0; // (a better one in his bag too: the diamond chestplate just crafted, not on yet, and obtain iron_chestplate planned 8 iron, live 17:24 11-04)
     }
 
+    /** What gear_up's own kit would add to him (the same list, missing(g, true)): his armor with its pieces on, its food in meals, a shield. "Get ready first" is priced at this, never at an assumed kit (D2D 13:03-13:31 11-10: blaze.ready priced armor 15 and 16 meals; gear_up stopped at its 12-13 meals and made no armor; 3 trips home of ~10 min for nothing, stage 1461). */
+    public record Ready(double armor, int meals, boolean shield) { public boolean adds(ClaudeEntity g) { return armor > g.getArmorValue() || meals > 0 || shield; } }
+    public static Ready ready(ClaudeEntity g) {
+        var m = missing(g, true); double armor = g.getArmorValue();
+        for (Item it : m.keySet()) if (it instanceof ArmorItem a) { ItemStack worn = g.getItemBySlot(a.getEquipmentSlot()); armor += Math.max(0, a.getDefense() - (worn.getItem() instanceof ArmorItem w0 ? w0.getDefense() : 0)); }
+        FoodAsk fa = foodAsk(g); int meals = fa == null ? 0 : (int) Math.round(fa.count() * pts(fa.item()) / w("food.meal_points", 20.8));
+        return new Ready(armor, meals, m.containsKey(Items.SHIELD) && !shield(g));
+    }
+
     /** Past the iron stage: any diamond armor or a diamond pickaxe on him, or the full iron kit (four iron pieces, iron pick, iron sword). */
     public static boolean diamondStage(ClaudeEntity g) {
         for (Item a : new Item[] {Items.DIAMOND_HELMET, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_BOOTS}) if (g.getItemBySlot(((ArmorItem) a).getEquipmentSlot()).is(a) || g.inventory.count(s -> s.is(a)) > 0) return true;

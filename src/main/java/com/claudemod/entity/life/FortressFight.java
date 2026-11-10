@@ -449,8 +449,7 @@ public final class FortressFight {
         double hits = Weights.w("blaze.hits_per_blaze", 24) * (shield ? Weights.w("blaze.shield_factor", 0.28) : 1), blazes = blazesN >= 0 ? blazesN : Math.ceil(Math.max(0, rodsLeft) / Weights.w("blaze.rods_per_kill", 0.5));
         var fd = g.getFoodData(); double food = fed ? 20 : fd.getFoodLevel(), sat = fed ? Weights.w("food.fed_saturation", 5) : fd.getSaturationLevel();
         double burst = hits * Weights.w("blaze.burst_share", 0.33); // the run of them that lands before he can eat between volleys: what kills (deaths 70-75: 15-17 HP in 10-20 s)
-        int was = Food.mealsWhatIf; if (fed) Food.mealsWhatIf = Math.max(0, (int) Weights.w("blaze.ready_meals", 16) - com.claudemod.director.Kit.food(g)); // (fed: the trip kit's food on him, what he carries topped up to it)
-        double heal; try { heal = Food.regenS(g, blazes * hits * perHit, food, sat); } finally { Food.mealsWhatIf = was; } // the meals on him win back the whole fight's HP once (each blaze was healed from the same meals again)
+        double heal = Food.regenS(g, blazes * hits * perHit, food, sat); // (the meals on him, plus a caller's what-if: blazeRods' "ready" sets gear_up's own top-up, never an assumed 16: in-fight callers got 16 meals they didn't have) // the meals on him win back the whole fight's HP once (each blaze was healed from the same meals again)
         return blazes * (kill + Decide.riskS(g, health, burst * perHit, perHit, (int) Math.ceil(burst) + 2)) + heal;
     }
 
@@ -483,14 +482,22 @@ public final class FortressFight {
         }
         { // fight now or get ready first, priced (D2D 04:52 World 17: no armor, every fireball the full 5, 20 -> 3 in 18 s, burned to death; the user's rule: a price, never a gate)
           double tough = g.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS); int left = goal - have;
-          double now = fightS(g, g.getHealth(), g.getArmorValue(), tough, shield, false, left);
-          boolean inVain = HuntPatrol.readiedInVain(g); double readyArmor = inVain ? g.getArmorValue() : Math.max(g.getArmorValue(), Weights.w("blaze.ready_armor", 15)); boolean readyShield = shield || !inVain;
-          double ready; if (have > 0) { Decide.carriedWhatIf = 0.0; try { ready = fightS(g, 20, readyArmor, tough, readyShield, true, left); } finally { Decide.carriedWhatIf = null; } } else ready = fightS(g, 20, readyArmor, tough, readyShield, true, left); // (home first banks the rods he has: the fight after it risks none of them)
           var portal = PortalMap.net(g).portals.stream().filter(p0 -> PortalMap.NETHER.equals(p0.dim)).min(java.util.Comparator.comparingDouble(p0 -> p0.at.distSqr(g.blockPosition()))).orElse(null);
           double trip = portal == null ? Weights.w("pearls.no_portal_s", 1800) : 2 * (Math.sqrt(portal.at.distSqr(g.blockPosition())) * PortalMap.NETHER_OFF_ROAD / Decide.sprint() + Weights.w("highway.portal_s", 8));
+          // "ready" is what gear_up's own kit makes of him, read off the same list (D2D 13:03-13:31 11-10: priced at armor 15 and 16 meals, gear_up stopped at 12-13 meals and no armor: 3 trips home for nothing, stage 1461)
+          var kit = com.claudemod.director.Kit.ready(g); boolean inVain = HuntPatrol.readiedInVain(g); double readyArmor = inVain ? g.getArmorValue() : kit.armor(); boolean readyShield = shield || kit.shield() && !inVain;
+          // HP past his meals out here is a trip home for a kit of food, not 60 s an HP found from nothing (that priced 3 meals at ~2000 s and the trip won every time)
+          int kitMeals = Math.max((int) Weights.w("trip.food_back_meals", 6), com.claudemod.director.Kit.food(g) + kit.meals()); double hpPerMeal = Weights.w("food.meal_points", 20.8) / 1.5;
+          Double wasNf = Food.noFoodHpWhatIf; int wasM = Food.mealsWhatIf; double now, ready;
+          try { Food.noFoodHpWhatIf = (trip + Weights.w("blaze.ready_s", 240)) / (kitMeals * hpPerMeal) + 4;
+            now = fightS(g, g.getHealth(), g.getArmorValue(), tough, shield, false, left);
+            Food.mealsWhatIf = kit.meals(); if (have > 0) Decide.carriedWhatIf = 0.0; // (home first banks the rods he has: the fight after it risks none of them)
+            ready = fightS(g, 20, readyArmor, tough, readyShield, true, left);
+          } finally { Food.noFoodHpWhatIf = wasNf; Food.mealsWhatIf = wasM; Decide.carriedWhatIf = null; }
+          boolean adds = have > 0 || readyArmor > g.getArmorValue() || readyShield && !shield || kit.meals() > 0;
           var pick = Decide.choose(g, "blaze.ready", left + " rod(s) to go", true, List.of(
               Decide.Option.of("fight now", now, (int) g.getHealth() + " HP, armor " + g.getArmorValue() + (shield ? ", a shield" : ", no shield")),
-              Decide.Option.of("get ready first", trip + Weights.w("blaze.ready_s", 240) + ready, "through the portal and back ~" + Math.round(trip) + " s, gear_up's kit, then the fight at 20 HP, armor " + (int) readyArmor + (readyShield ? ", a shield" : "") + (have > 0 ? ", his " + have + " rod(s) in his chest first" : "") + (inVain ? " (no armor came of the last go)" : ""))));
+              !adds ? Decide.Option.out("get ready first", "gear_up's kit adds nothing to him (armor " + g.getArmorValue() + (shield ? ", a shield" : "") + ", " + com.claudemod.director.Kit.food(g) + " meals): kitted out already") : Decide.Option.of("get ready first", trip + Weights.w("blaze.ready_s", 240) + ready, "through the portal and back ~" + Math.round(trip) + " s, gear_up's kit, then the fight at 20 HP, armor " + (int) readyArmor + (readyShield ? ", a shield" : "") + (kit.meals() > 0 ? ", +" + kit.meals() + " meal(s)" : "") + (have > 0 ? ", his " + have + " rod(s) in his chest first" : "") + (inVain ? " (no armor came of the last go)" : ""))));
           if (pick != null && pick.name().equals("get ready first")) {
               HuntPatrol.readying(g); g.skillQueue.addFirst(again); g.skillQueue.addFirst(new Skills.Step("enter_portal", "", 1)); g.skillQueue.addFirst(new Skills.Step("gear_up", "", 1)); if (have > 0) g.skillQueue.addFirst(new Skills.Step("store", "", 1)); g.skillQueue.addFirst(new Skills.Step("enter_portal", "", 1));
               return "getting ready first: through the portal" + (have > 0 ? " to bank my " + have + " rod(s) and" : "") + " for armor and a shield (the blazes' fireballs at armor " + g.getArmorValue() + " priced ~" + Math.round(now) + " s against ~" + Math.round(trip + Weights.w("blaze.ready_s", 240) + ready) + " s geared)";

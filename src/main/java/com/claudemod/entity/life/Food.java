@@ -53,6 +53,8 @@ public final class Food {
     /** The same from the given food and saturation (a what-if: fed after gear_up, HuntPatrol.fightS). */
     /** A what-if's meals on top of what he carries (cooked porkchops): "fed" is food on him, not only a full bar (D2D review 87, 23:31 11-09: the fed fight was priced as if every HP past the bar had to be found first). */
     public static int mealsWhatIf = 0;
+    /** A what-if price an HP past the meals on him (null: food.no_food_hp_s, finding food first): away from home it's a resupply trip a kit of HP (FortressFight.blazeRods). */
+    public static Double noFoodHpWhatIf = null;
     public static double regenS(ClaudeEntity g, double hp, double food, double sat) {
         double t = 0;
         java.util.List<FoodProperties> bag = new java.util.ArrayList<>();
@@ -64,7 +66,7 @@ public final class Food {
             while ((food < 18 || food < 20 && sat <= 0) && !bag.isEmpty()) { var f = bag.remove(0); food = Math.min(20, food + f.nutrition()); sat = Math.min(food, sat + f.saturation()); t += f.eatSeconds(); }
             if (food >= 20 && sat > 0) t += 0.5;
             else if (food >= 18) t += 4;
-            else return t + (n - h) * w("food.no_food_hp_s", 60);
+            else return t + (n - h) * (noFoodHpWhatIf != null ? noFoodHpWhatIf : w("food.no_food_hp_s", 60));
             double cost = 1.5; double fromSat = Math.min(sat, cost); sat -= fromSat; food -= cost - fromSat; // (6 exhaustion an HP: saturation first)
         }
         return t;

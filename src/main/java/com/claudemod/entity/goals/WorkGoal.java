@@ -4299,7 +4299,7 @@ public class WorkGoal extends Goal {
             }
             if (seenFace == null) {
                 BlockPos view = null; double vd = Double.MAX_VALUE; // the nearest spot he can stand that sees some face of a neighbour
-                for (BlockPos p0 : BlockPos.betweenClosed(pos.offset(-3, -2, -3), pos.offset(3, 2, 3))) {
+                for (BlockPos p0 : BlockPos.betweenClosed(pos.offset(-3, -3, -3), pos.offset(3, 2, 3))) { // (3 down too: under a two-deep hole over his ceiling his eye is 2.4 from the top cell's lid; 2 down never tried that spot, NO_FACE and the cell sealed in, D2D review 37, stage 1401)
                     BlockPos sp = p0.immutable();
                     if (sp.equals(pos) || !level.getBlockState(sp).getCollisionShape(level, sp).isEmpty() || !level.getBlockState(sp.above()).getCollisionShape(level, sp.above()).isEmpty() || level.getBlockState(sp.below()).getCollisionShape(level, sp.below()).isEmpty() || level.getFluidState(sp).is(net.minecraft.tags.FluidTags.LAVA) || level.getFluidState(sp.above()).is(net.minecraft.tags.FluidTags.LAVA) || level.getBlockState(sp.below()).getCollisionShape(level, sp.below()).max(net.minecraft.core.Direction.Axis.Y) > 1.0) continue; // (never on top of a fence or a wall: no jump gets him up there, a pillar did, its dirt left outside his farm to plant a seed from a fence post, stage 93) (farmland, a slab: something to stand on, not only a full-faced block; never a lava cell: stage 816 was nudged into one)
                     double dd = sp.distSqr(g.blockPosition()); if (dd >= vd) continue;

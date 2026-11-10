@@ -10930,6 +10930,7 @@ public final class ClaudeBodyTest {
             case 1297: return st1297(stage, t, c, h, level, mock);
             case 1298: return st1298(stage, t, c, h, level, mock);
             case 1299: return st1299(stage, t, c, h, level, mock);
+            case 1401: return st1401(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -24507,6 +24508,31 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static boolean s1299B;
+    /** Stage 1401 (D2D review 37, live 03:18:25-03:18:33 11-10 at -96..-98,18..19,-329 over his strip-mine branch): the patches for the ore holes just over his one-wide branch's ceiling failed NO_FACE "from anywhere he can stand" and were queued again; from under a hole its side walls face him. */
+    private static boolean st1401(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9820, 80, 9780);
+        BlockPos[] holes = {at.offset(2, 2, 0), at.offset(4, 3, 0), at.offset(4, 2, 0), at.offset(5, 2, 0)};
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1401T = -1; }
+        if (t[0] == 10) {
+            var b = new com.claudemod.entity.life.MineBlueprint(at, net.minecraft.core.Direction.EAST, 1, 2); b.segments.clear(); b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, at.west(3), net.minecraft.core.Direction.EAST, 12, null)); c.blueprint = b; // his mine: a one-wide branch, two tall
+            for (int x = -4; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = -2; y <= 5; y++) { BlockPos q = at.offset(x, y, z); level.setBlock(q, (b.isWalk(q) ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            for (BlockPos q : holes) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2); // ore holes over its ceiling: one, a two-deep one, one beside it
+            c.getInventory().clearContent(); c.getInventory().add(new net.minecraft.world.item.ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new net.minecraft.world.item.ItemStack(Items.COBBLESTONE, 32));
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+        }
+        if (t[0] == 20) for (BlockPos q : new BlockPos[] {holes[0], holes[1], holes[2], holes[3]}) c.tasks.add(new Task.Place(q, Items.COBBLESTONE));
+        if (t[0] > 20 && s1401T < 0 && java.util.Arrays.stream(holes).allMatch(q -> level.getBlockState(q).is(Blocks.COBBLESTONE))) s1401T = t[0];
+        if (t[0] == 20 + 20 * 15 || s1401T > 0 && t[0] == s1401T + 2) {
+            int took = s1401T < 0 ? -1 : s1401T - 20; StringBuilder left = new StringBuilder(); for (BlockPos q : holes) if (!level.getBlockState(q).is(Blocks.COBBLESTONE)) left.append(q.toShortString()).append(' ').append(c.attempts.why(com.claudemod.entity.life.Attempts.Kind.PLACE, q)).append("; ");
+            c.tasks.clear(); c.dropCurrent = true; c.blueprint = null;
+            for (int x = -4; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = 0; y <= 5; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); // (the floor left)
+            check(took >= 0 && took <= 20 * 8, "the ceiling holes' patches: " + (took < 0 ? "not all in after 15 s: " + left : took + " ticks"));
+            pass(stage, t, "the holes over his branch patched from under them in " + took + " ticks");
+        }
+        return true;
+    }
+    private static int s1401T;
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

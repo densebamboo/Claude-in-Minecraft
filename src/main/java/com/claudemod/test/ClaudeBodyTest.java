@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1378: return st1378(stage, t, c, h, level, mock);
             case 1377: return st1377(stage, t, c, h, level, mock);
             case 1376: return st1376(stage, t, c, h, level, mock);
             case 1375: return st1375(stage, t, c, h, level, mock);
@@ -17922,6 +17923,33 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.getInventory().clearContent(); c.attempts.clear(); c.blueprint = null; c.prefs.remove("mine_model");
             check(!mining && (walking || kept), "the trip's log collect dropped: no walk for trees and no collect left (last: " + l + "; queue " + qs + "; doing " + ts + ")");
             pass(stage, t, "the tree search kept on (" + (walking ? "walking" : "collect queued") + "): " + l);
+        }
+        return true;
+    }
+    /** Stage 1378 (D2D 47, live 07:16:19-07:16:59 11-10: at the furnace, his plan's next step strip_mine tried as the side job every 5 s; each try pushed "smelt charcoal 4, craft torch 16, strip_mine" on the queue and queued no work, so it all stayed: 4 charcoal steps merged into "4 oak_log and 4 oak_log and 4 oak_log and 4 oak_log", 16 logs in one furnace for 4 charcoal, a 160 s wait and his trip's logs burned): a batch in the furnace, strip_mine next with logs and no coal or torches on him. 15 s of side-job rounds leave one strip_mine and at most one charcoal step. */
+    private static int s1378T;
+    private static boolean st1378(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1378T = -1; level.setDayTime(3000); flatBox(h); }
+        BlockPos fp = h.absolutePos(new BlockPos(6, 1, 4));
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            level.setBlock(fp, Blocks.FURNACE.defaultBlockState(), 2);
+            if (level.getBlockEntity(fp) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f) { f.setItem(0, new ItemStack(Items.SALMON, 8)); f.setItem(1, new ItemStack(Items.OAK_PLANKS, 8)); }
+            c.getInventory().clearContent(); for (var it : new net.minecraft.world.item.Item[] {Items.IRON_PICKAXE, Items.STONE_SWORD}) c.getInventory().add(new ItemStack(it)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 22)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 20));
+            BlockPos me = h.absolutePos(new BlockPos(5, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.mineFace = me.offset(300, -40, 0); c.stairStart = me.offset(300, 0, 0); c.mineDir = net.minecraft.core.Direction.EAST;
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.tasks.add(new Task.FurnaceTake(fp.immutable())); c.skillQueue.clear(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("strip_mine", "iron_ore", 22)); c.sideJobTick = -100000; s1378T = t[0]; }
+        if (s1378T > 0 && t[0] > s1378T) {
+            c.nextPlanTick = c.tickCount + 20 * 600;
+            long charcoal = c.skillQueue.stream().filter(s -> s.skill().equals("smelt") && s.target().contains("charcoal")).count(), mines = c.skillQueue.stream().filter(s -> s.skill().equals("strip_mine")).count();
+            if (charcoal > 1 || mines > 1 || t[0] - s1378T > 20 * 15) {
+                String q = String.valueOf(c.skillQueue);
+                c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.myStations.remove(fp); c.mineFace = null; c.stairStart = null; c.mineDir = null; c.getInventory().clearContent();
+                if (level.getBlockEntity(fp) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f) f.clearContent(); level.setBlock(fp, Blocks.AIR.defaultBlockState(), 2);
+                check(charcoal <= 1 && mines <= 1, "side-job rounds at the furnace piled up the plan: " + charcoal + " charcoal step(s), " + mines + " strip_mine(s) after " + (t[0] - s1378T) + " ticks: " + q);
+                pass(stage, t, "15 s of side-job rounds, the plan as it was: " + q);
+            }
         }
         return true;
     }

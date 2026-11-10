@@ -598,6 +598,7 @@ public final class ClaudeLife {
             || mineSide || !g.pillarBlocks.isEmpty() || free != null;
         if (!anyJob) { int logs9 = 0; for (int i9 = 0; i9 < g.inventory.items.getContainerSize(); i9++) if (g.inventory.items.getItem(i9).is(net.minecraft.tags.ItemTags.LOGS)) logs9 += g.inventory.items.getItem(i9).getCount(); ClaudeMod.LOGGER.info("[Claude life] at the furnace: no side job near ({}s left; kit short of food: " + (Kit.foodAsk(g) != null ? "yes, no animal in reach of the clock" : "no") + "; tree within {}: {}, logs on him {}; his mine's face {}; plan step free of the batch: {}; his blocks about: {}) (ClaudeLife.sideJobWhileCooking)", left, treeRange, tree == null ? "none" : tree.toShortString(), logs9, g.mineFace == null ? "none" : (int) Math.sqrt(g.blockPosition().distSqr(g.mineFace)) + " off", free == null ? "none" : free.skill() + " " + free.target(), g.pillarBlocks.size()); return; } // nothing nearby to do: keep waiting, queue untouched (clearing and re-adding it logged "dropping FurnaceTake" every 5 s, live 01:05 World 15)
         List<Task> rest = new ArrayList<>(g.tasks);
+        List<Skills.Step> plan0 = new ArrayList<>(g.skillQueue); // (a side job that queues no work leaves his plan as it was: the strip_mine tried each 5 s pushed its prep and itself again every round, 4 charcoal steps burned 16 logs, live 07:16 11-10; stage 1378)
         clearTasks(g);
         String r = null;
         if (g.mineFace != null && !g.mineIsTunnel && inHisMine(g, g.blockPosition()) && g.blockPosition().distSqr(g.mineFace) <= 8 * 8) { // (a SHORT job by the furnace: his mine's end across the map turned "two more steps" into a climb to the surface entrance and back)
@@ -618,7 +619,7 @@ public final class ClaudeLife {
         } else if (!g.pillarBlocks.isEmpty()) { // the cover blocks he left about: down while it cooks
             tidyLitter(g, level); r = "tidying the blocks i left";
         }
-        if (g.tasks.isEmpty()) { ClaudeMod.LOGGER.info("[Claude life] at the furnace: the side job queued nothing ({}): waiting ({}s left) (ClaudeLife.sideJobWhileCooking)", r, left); g.tasks.addAll(rest); return; } // nothing useful to do nearby: keep waiting
+        if (g.tasks.isEmpty()) { ClaudeMod.LOGGER.info("[Claude life] at the furnace: the side job queued nothing ({}): waiting ({}s left) (ClaudeLife.sideJobWhileCooking)", r, left); g.tasks.addAll(rest); g.skillQueue.clear(); g.skillQueue.addAll(plan0); return; } // nothing useful to do nearby: keep waiting
         dropCurrent(g); // off the furnace for now...
         g.tasks.add(ft);      // ...and back to it after
         g.tasks.addAll(rest);

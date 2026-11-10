@@ -10881,6 +10881,7 @@ public final class ClaudeBodyTest {
             case 1274: return st1274(stage, t, c, h, level, mock);
             case 1275: return st1275(stage, t, c, h, level, mock);
             case 1276: return st1276(stage, t, c, h, level, mock);
+            case 1277: return st1277(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -23292,6 +23293,32 @@ public final class ClaudeBodyTest {
             if (got) pass(stage, t, "the coal 2 up in the ore hole picked up in " + (t[0] - 12) + " ticks");
             else check(!late, "the coal 2 up in the ore hole not picked up in 3 s (a player: the wall block, a step up, take it): at " + where);
         }
+        return true;
+    }
+    /** Stage 1277 (D2D conflicts 70/71, live 12:51:10-12:51:20 11-09 at -73..-66,16,-293: the walk to his junk chest paused for the 2 jobs in reach at each step, did them and went on, a cell nearer each time; the conflict watch counted the watchdog's "ended short, not counted" echo and the "jobs in reach done first" line as a fight and filed two CONFLICT incidents): those lines three times in 2 s, as live. No CONFLICT filed; a walker's own refusal three times still is. */
+    private static int s1277N0;
+    private static boolean st1277(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        try {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; com.claudemod.entity.life.Watchdog.linesInTests = true; s1277N0 = com.claudemod.entity.life.Watchdog.incidents;
+            var L = com.claudemod.ClaudeMod.LOGGER;
+            for (int k = 0; k < 3; k++) {
+                L.info("[Claude dig] 2 job(s) in reach at 1277, 16, -293 done first, then the walk to 1277, 16, -290");
+                L.info("[Claude watchdog] walk to 1277, 16, -290 ended short, not counted (ended at once: paused for 2 job(s) in reach, the walk queued after them) (Watchdog.ended)");
+            }
+        }
+        if (t[0] == 4) {
+            int n = com.claudemod.entity.life.Watchdog.incidents - s1277N0;
+            check(n == 0, n + " incident(s) filed for a walk that paused for its jobs in reach and went on: last " + com.claudemod.entity.life.Watchdog.lastIncident);
+            for (int k = 0; k < 3; k++) com.claudemod.ClaudeMod.LOGGER.info("[Claude watchdog] walk to 1277, 18, -276 ended short, not counted (ended at once: the walker's own refusal) (Watchdog.ended)");
+        }
+        if (t[0] == 8) {
+            int n = com.claudemod.entity.life.Watchdog.incidents - s1277N0;
+            com.claudemod.entity.life.Watchdog.linesInTests = false;
+            check(n == 1, n + " incident(s) for the walker's own refusal three times, not 1: last " + com.claudemod.entity.life.Watchdog.lastIncident);
+            pass(stage, t, "the paused-for-jobs walk not a conflict, the walker's own refusal still one");
+        }
+        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
         return true;
     }
     private static int st739T;

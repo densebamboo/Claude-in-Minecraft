@@ -63,6 +63,7 @@ public final class MindLog {
     private static void watch(String m, long now) {
         String key = m.replaceAll("\\([^()]*\\)", "").replaceAll("\\d+ ?s ago|after \\d+ ticks|\\d+ ticks|\\d+ s\\b|\\d+s\\b", "#").trim(); // (the timings and the "(he's at ...)" asides change; the spot and the words don't)
         if (!key.matches(".*-?\\d+, -?\\d+, -?\\d+.*")) return; // a conflict is about a spot: a line naming none (a fall waited out, "made a sword") is just the same news again
+        if (m.contains("not counted (ended at once: paused for") || m.startsWith("[Claude dig]") && m.contains(" job(s) in reach at ") && m.contains(" done first, then the walk")) return; // a walk paused for the jobs in reach, done, and on: progress each time, not a fight (live 12:51 11-09, conflicts 70/71, stage 1277)
         synchronized (seen) {
             if (seen.size() > 2000) seen.clear();
             var q = seen.computeIfAbsent(key, k -> new java.util.ArrayDeque<>());

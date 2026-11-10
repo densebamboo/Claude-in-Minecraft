@@ -2084,6 +2084,9 @@ public final class ClaudeLife {
                         ok.sort(Comparator.comparingDouble(walk0::applyAsDouble));
                         if (ok.isEmpty()) reachNote = "the " + BuiltInRegistries.ENTITY_TYPE.getKey(byLine.get(0).getType()).getPath() + " in sight " + (byLine.size() > 1 ? "and the rest have" : "has") + " no short way to them on foot (the nearest " + (int) g.distanceTo(byLine.get(0)) + " across)";
                         herd = ok;
+                        if (!herd.isEmpty() && herd.get(0) instanceof net.minecraft.world.entity.animal.AbstractFish) { List<net.minecraft.world.entity.Mob> sc = school(herd, herd.get(0)); // fish: the school by the nearest, like a player; the rest of the lake is another trip, priced again (D2D 090430-13/094354-73, live 09:38 11-10: 2 kills, then a swim 43 off after one salmon, air running out; stage 1455)
+                            if (sc.size() < herd.size()) ClaudeMod.LOGGER.info("[Claude skill] collect {}: the school by the nearest, {} of the {} fish he can get at (within {} of it); the rest are another trip (ClaudeLife collect)", target, sc.size(), herd.size(), (int) com.claudemod.entity.life.Weights.w("hunt.fish_school_r", 8));
+                            herd = sc; }
                     }
                     // the night's price of this hunt: out to the herd and back plus its kills (World 17 02:06 11-09: priced as 30 s at his own feet, "go now", armor 0, a creeper; 5 of 5 night deaths came minutes into a hunt)
                     if (!herd.isEmpty() && g.getHealth() > 6) { double sprint = com.claudemod.entity.life.Decide.sprint(), walk = Math.max(0, walk0.applyAsDouble(herd.get(0)));
@@ -9967,6 +9970,12 @@ public final class ClaudeLife {
     }
 
     /** A fish within three blocks of the surface: a sword reaches it from the bank or afloat; the deep ones are a dive he can't path (and a drowning). */
+    /** The fish within hunt.fish_school_r of the lead one (it included): what a hunt takes in one go; the next school is its own trip. */
+    public static <T extends net.minecraft.world.entity.Entity> List<T> school(List<T> fish, net.minecraft.world.entity.Entity lead) {
+        double r = com.claudemod.entity.life.Weights.w("hunt.fish_school_r", 8); List<T> out = new ArrayList<>();
+        for (T f : fish) if (f.distanceTo(lead) <= r) out.add(f);
+        return out;
+    }
     static boolean shallowFish(ServerLevel level, net.minecraft.world.entity.Entity e) {
         BlockPos p = e.blockPosition();
         for (int k = 1; k <= 6; k++) { // the user: a player dives 5-6 down for a fish (15 s of air), as long as it's open water up to the air (no cave lid over it); the old 3-deep limit skipped half the river

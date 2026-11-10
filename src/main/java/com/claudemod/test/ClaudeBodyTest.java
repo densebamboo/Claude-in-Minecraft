@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1455: return st1455(stage, t, c, h, level, mock);
             case 1454: return st1454(stage, t, c, h, level, mock);
             case 1453: return st1453(stage, t, c, h, level, mock);
             case 1452: return st1452(stage, t, c, h, level, mock);
@@ -18406,6 +18407,34 @@ public final class ClaudeBodyTest {
                 check(now.indexOf("strip_mine") == now.lastIndexOf("strip_mine"), "the plan piled up: " + now);
                 pass(stage, t, "the packing gathered while it cooks: " + now);
             }
+        }
+        return true;
+    }
+    /** Stage 1455 (D2D reviews 090430-13, 094354-73, live 09:38:25-09:41:12 11-10: "hunting 6 salmon", 2 killed by him, the next Attack a salmon 43 off across the lake, swum to with air running out; then "not closing" on fish 18-19 off, one after another): a school of 3 salmon by his bank and 2 more 40 down the channel. The hunt takes the school, no swim down the lake after the far ones. */
+    private static boolean st1455(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(0, 0, 4));
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -16; k <= 64; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 2, o.offset(k, 0, 0));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(3000); }
+        if (t[0] == 10) {
+            for (int x = -8; x <= 52; x++) for (int z = -6; z <= 8; z++) { for (int y = -3; y <= 0; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2); level.setBlock(o.offset(x, 1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 2; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = 0; x <= 48; x++) for (int z = 0; z <= 3; z++) for (int y = 0; y <= 1; y++) level.setBlock(o.offset(x, y, z), Blocks.WATER.defaultBlockState(), 2); // a channel, two deep, 49 long
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) m.discard();
+            for (int[] xz : new int[][] {{3, 1}, {5, 2}, {6, 1}, {42, 1}, {44, 2}}) { var f = EntityType.SALMON.create(level); f.moveTo(o.getX() + xz[0] + 0.5, o.getY() + 1.1, o.getZ() + xz[1] + 0.5, 0, 0); f.setNoAi(true); f.setPersistenceRequired(); level.addFreshEntity(f); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY() + 2, o.getZ() - 1.5, 0f, 0f); mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 40, o.getZ() - 1.5, 0f, 0f);
+            c.setHealth(20); c.getFoodData().setFoodLevel(16); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear();
+        }
+        if (t[0] == 30) {
+            var fish = level.getEntitiesOfClass(net.minecraft.world.entity.animal.Salmon.class, new net.minecraft.world.phys.AABB(o).inflate(60));
+            java.util.Set<java.util.UUID> far = new java.util.HashSet<>(); for (var f : fish) if (f.getX() - o.getX() > 30) far.add(f.getUUID());
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "salmon", 8);
+            long farQ = c.tasks.stream().filter(q -> q instanceof com.claudemod.entity.life.Task.Attack a && far.contains(a.target())).count(), nearQ = c.tasks.stream().filter(q -> q instanceof com.claudemod.entity.life.Task.Attack a && !far.contains(a.target())).count();
+            String qs = c.tasks.toString();
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; for (var f : fish) f.discard();
+            check(far.size() == 2, "the stage's 2 far salmon not found (" + far.size() + " of " + fish.size() + ": " + fish.stream().map(f -> f.blockPosition().toShortString()).toList() + ")");
+            check(farQ == 0, "a school of 3 by his bank, and the hunt queued " + farQ + " salmon 40 down the channel too (collect: " + r + "; " + qs + ")");
+            check(nearQ == 3, "the school of 3 by his bank: " + nearQ + " queued (collect: " + r + "; " + qs + ")");
+            pass(stage, t, "the school by him queued, the 2 far ones left: " + r);
         }
         return true;
     }

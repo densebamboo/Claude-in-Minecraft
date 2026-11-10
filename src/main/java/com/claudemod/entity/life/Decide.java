@@ -69,9 +69,14 @@ public final class Decide {
         double per = Food.sPerHp(g, Math.max(0, sure) + Math.max(0, hits), food, sat), h0 = health - Math.max(0, sure); // (vanilla regen at his food and saturation, eating what he carries: Big Picture's Food)
         double s = (Math.max(0, sure) + Math.max(0, hits)) * per;
         if (h0 <= 0) return s + deathS(g);
+        return s + riskS(g, h0, hits, perHit, most);
+    }
+    /** hpS's chance part alone: hits HP of perHit each landing from health, the chance they put him under danger.min_hp_left or kill him, priced (the HP's regen is the caller's). */
+    public static double riskS(ClaudeEntity g, double health, double hits, double perHit, int most) {
+        if (health <= 0) return deathS(g);
         double floor = w("danger.min_hp_left", 4), ph = Math.max(0.5, perHit), lam = Math.max(0, hits) / ph;
-        int kDie = (int) Math.ceil(h0 / ph), kFloor = (int) Math.ceil((h0 - floor) / ph);
-        return s + (kDie > most ? 0 : atLeast(lam, kDie)) * deathS(g) + (kFloor > most ? 0 : atLeast(lam, kFloor)) * w("danger.under_floor_s", 300);
+        int kDie = (int) Math.ceil(health / ph), kFloor = (int) Math.ceil((health - floor) / ph);
+        return (kDie > most ? 0 : atLeast(lam, kDie)) * deathS(g) + (kFloor > most ? 0 : atLeast(lam, kFloor)) * w("danger.under_floor_s", 300);
     }
     /**
      * What a death costs him: danger.death_s, plus the dragon-path items on him he'd lose (they drop where he dies, into lava or

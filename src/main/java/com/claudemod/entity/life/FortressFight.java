@@ -445,9 +445,13 @@ public final class FortressFight {
     public static double fightS(ClaudeEntity g, double health, double armor, double tough, boolean shield, boolean fed, int rodsLeft, double blazesN) {
         double[] m = HuntPatrol.melee(g); double kill = Math.ceil(Weights.w("blaze.hp", 20) / m[0]) * m[1] + Weights.w("blaze.approach_s", 8);
         double dmg = Weights.w("blaze.fireball_hp", 5), perHit = dmg * (1 - Math.min(20, Math.max(armor / 5, armor - dmg / (2 + tough / 4))) / 25) + (g.hasEffect(net.minecraft.world.effect.MobEffects.FIRE_RESISTANCE) ? 0 : Weights.w("blaze.fire_hp", 3));
-        double hits = Weights.w("blaze.hits_per_blaze", 1.5) * (shield ? Weights.w("blaze.shield_factor", 0.4) : 1), blazes = blazesN >= 0 ? blazesN : Math.ceil(Math.max(0, rodsLeft) / Weights.w("blaze.rods_per_kill", 0.5));
+        // fireballs at him a kill, and the shield's share of them through: his own fights 11-10 (217 at him in 9 kills, 60 through the shield, 157 blocked; was 1.5 x 0.4, a tenth of it: "fight now ~38 s" with 3 meals and 6 rods on him, the meals gone in 3 min, dead at 00:45, the rods lost; stage 1458)
+        double hits = Weights.w("blaze.hits_per_blaze", 24) * (shield ? Weights.w("blaze.shield_factor", 0.28) : 1), blazes = blazesN >= 0 ? blazesN : Math.ceil(Math.max(0, rodsLeft) / Weights.w("blaze.rods_per_kill", 0.5));
         var fd = g.getFoodData(); double food = fed ? 20 : fd.getFoodLevel(), sat = fed ? Weights.w("food.fed_saturation", 5) : fd.getSaturationLevel();
-        return blazes * (kill + Decide.hpS(g, health, 0, hits * perHit, perHit, (int) Math.ceil(hits) + 2, food, sat));
+        double burst = hits * Weights.w("blaze.burst_share", 0.33); // the run of them that lands before he can eat between volleys: what kills (deaths 70-75: 15-17 HP in 10-20 s)
+        int was = Food.mealsWhatIf; if (fed) Food.mealsWhatIf = Math.max(0, (int) Weights.w("blaze.ready_meals", 16) - com.claudemod.director.Kit.food(g)); // (fed: the trip kit's food on him, what he carries topped up to it)
+        double heal; try { heal = Food.regenS(g, blazes * hits * perHit, food, sat); } finally { Food.mealsWhatIf = was; } // the meals on him win back the whole fight's HP once (each blaze was healed from the same meals again)
+        return blazes * (kill + Decide.riskS(g, health, burst * perHit, perHit, (int) Math.ceil(burst) + 2)) + heal;
     }
 
     public static String blazeRods(ClaudeEntity g, ServerPlayer player, ServerLevel level, Skills.Step st) {

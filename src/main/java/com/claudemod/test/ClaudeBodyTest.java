@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1458: return st1458(stage, t, c, h, level, mock);
             case 1459: return st1459(stage, t, c, h, level, mock);
             case 1457: return st1457(stage, t, c, h, level, mock);
             case 1456: return st1456(stage, t, c, h, level, mock);
@@ -17591,7 +17592,7 @@ public final class ClaudeBodyTest {
             for (int x = 0; x <= 40; x++) for (int dz = -1; dz <= 1; dz++) nl.setBlock(o.offset(x, 11, dz), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // one arm, along x at z 0
             for (int z = 0; z <= 40; z++) for (int dx = -1; dx <= 1; dx++) nl.setBlock(o.offset(40 + dx, 11, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // the other, along z at x 40
             for (int y = 0; y <= 10; y++) for (BlockPos p : new BlockPos[] {o.offset(0, y, 0), o.offset(40, y, 0), o.offset(40, y, 40)}) nl.setBlock(p, Blocks.NETHER_BRICKS.defaultBlockState(), 2); // its pillars
-            nsKit(c); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.setHealth(20f); c.getFoodData().setFoodLevel(20);
+            nsKit(c); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8)); /* (the trip kit's 16 meals: nsKit's 16 bread is 8, and short of it blaze.ready now sends him home first, priced by his measured fights) */ c.getInventory().add(new ItemStack(Items.NETHERRACK, 64)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.setHealth(20f); c.getFoodData().setFoodLevel(20);
             c.teleportTo(nl, o.getX() + 22.5, o.getY(), o.getZ() + 18.5, -135f, -30f); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600;
         }
         if (t[0] == 20) for (float yaw = -180; yaw < 180; yaw += 45) { c.setYRot(yaw); c.setYHeadRot(yaw); c.setXRot(-35f); com.claudemod.entity.life.FarSight.scan(c, nl, true); } // (a look all round, up at it)
@@ -18510,6 +18511,39 @@ public final class ClaudeBodyTest {
             for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) h.setBlock(new BlockPos(x, 5, z), Blocks.AIR);
             check(gone, "a cave spider spawner 3 off in his sight for 25 s, an iron pickaxe on him, and it stands (tasks " + q + ")");
             pass(stage, t, "the spawner broken in " + (t[0] - 10) + " ticks");
+        }
+        return true;
+    }
+    /** Stage 1458 (fight replay 11-10, live 00:35:44-00:45 World 17: 6 rods of 7 on him, 3 meals, 20 HP, iron and a shield; blaze.ready "fight now ~38 s" over "get ready first ~505 s", priced at 0.6 fireball hits a blaze. The day's fights took 6.7 through the shield a kill (60 in 9, 157 blocked) and ~3 HP of burning each: his meals went 3 -> 0 by 00:38:48, he left at 5 HP and burned to death on the way, the 6 rods lost): phase 1, that state: he banks the rods first. Phase 2, no rods on him and 16 meals: he fights now. */
+    private static String s1458A;
+    private static boolean st1458(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12400, 64, 7600);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1458A = null; com.claudemod.entity.life.Highway.reset(c);
+            com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).edges.clear();
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o.east(80), "him", "lit"); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10 || t[0] == 40) {
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(60))) m.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            if (t[0] == 10) { c.getInventory().add(new ItemStack(Items.BLAZE_ROD, 6)); c.getInventory().add(new ItemStack(Items.COOKED_PORKCHOP, 3)); }
+            else c.getInventory().add(new ItemStack(Items.COOKED_PORKCHOP, 16));
+            for (int x = -3; x <= 3; x++) for (int z = -3; z <= 3; z++) for (int y = -2; y <= 3; y++) nl.setBlock(o.offset(x, y, z), (y < 0 || y == 3 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2);
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear(); c.commandActive = false;
+        }
+        if (t[0] == 30) { s1458A = com.claudemod.entity.life.FortressFight.blazeRods(c, mock[0], nl, new com.claudemod.entity.life.Skills.Step("blaze_rods", "blaze_rod@7", 1, "near_you")); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; }
+        if (t[0] == 60) {
+            String b = com.claudemod.entity.life.FortressFight.blazeRods(c, mock[0], nl, new com.claudemod.entity.life.Skills.Step("blaze_rods", "blaze_rod@1", 1, "near_you"));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent();
+            for (var sl : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET, net.minecraft.world.entity.EquipmentSlot.OFFHAND}) c.setItemSlot(sl, ItemStack.EMPTY);
+            com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).edges.clear();
+            for (int x = -3; x <= 3; x++) for (int z = -3; z <= 3; z++) for (int y = -2; y <= 3; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            nsHome(c, h, level);
+            check(s1458A != null && s1458A.startsWith("getting ready first"), "6 rods of 7 on him, 3 meals: the blazes' fight priced on, not the rods banked first (" + s1458A + ")");
+            check(!b.startsWith("getting ready first"), "no rods on him, 16 meals, 20 HP in iron with a shield: sent home instead of the fight (" + b + ")");
+            pass(stage, t, "6 rods and 3 meals: " + s1458A + " | none and 16 meals: " + b);
         }
         return true;
     }

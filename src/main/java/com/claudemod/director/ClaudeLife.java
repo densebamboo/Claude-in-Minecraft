@@ -399,6 +399,7 @@ public final class ClaudeLife {
             stringRound(g, ((ServerLevel) g.level()));
         }
         if (g.tickCount % 20 == 9 && !spawnerJob(g, player) && !com.claudemod.entity.ClaudeSpawner.testing) clearOnSight(g, player);
+        if (g.tickCount % 20 == 11) unansweredBite(g);
         if (g.tickCount % 200 == 37) { // an aquifer, not a leak: 25+ water plugs in 5 minutes (40 took 7 minutes of plugging at y13) and the water still coming (every cobble he dug went straight back into it for 10 minutes); a player gives that mine up and digs a fresh one on dry ground
             BlockPos nKey = new BlockPos(0, -30010, 0), tKey = new BlockPos(0, -30011, 0);
             if (g.tickCount - g.attempts.counters.getOrDefault("aquiferSince", -100000) > 20 * 300) { g.attempts.counters.put("aquiferSince", g.tickCount); g.attempts.counters.put("aquiferPlugs", 0); }
@@ -14175,6 +14176,12 @@ public final class ClaudeLife {
     }
     /** (tests) */
     public static void clearOnSightTest(ClaudeEntity g, ServerPlayer player) { clearOnSight(g, player); }
+    /** Logging: bitten by a hostile in the last 2 s and neither fighting nor running, with where the self-defence stood (D2D 114522-49, death 76: bitten at 11:44:10-11 doing a Break, 18 -> 12, no "fighting back" line and no hold logged: the path unproven). */
+    static void unansweredBite(ClaudeEntity g) {
+        var m = g.getLastHurtByMob(); if (!(m instanceof net.minecraft.world.entity.monster.Enemy) || !m.isAlive() || g.tickCount - g.getLastHurtByMobTimestamp() > 40) return;
+        if (g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee || g.currentTask instanceof Task.Eat || g.currentTask instanceof Task.Pillar) return;
+        ClaudeMod.LOGGER.info("[Claude fight] bitten by a {} {} off {} ticks ago and not fighting it: doing {}, attacker armed {}, self-defence {} (ClaudeLife.unansweredBite)", m.getType().getDescription().getString(), String.format("%.1f", m.distanceTo(g)), g.tickCount - g.getLastHurtByMobTimestamp(), g.currentTask == null ? "nothing" : g.currentTask.getClass().getSimpleName(), g.urgentAttacker != null, g.work == null ? "?" : g.work.heldWhy);
+    }
     private static java.util.Set<Long> spawnerSaid;
     /**
      * A spawner he has seen within spawner.job_r of him: broken with any pickaxe before its mobs are fought, like a player; with no

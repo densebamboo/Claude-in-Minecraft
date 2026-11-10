@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1460: return st1460(stage, t, c, h, level, mock);
             case 1458: return st1458(stage, t, c, h, level, mock);
             case 1459: return st1459(stage, t, c, h, level, mock);
             case 1457: return st1457(stage, t, c, h, level, mock);
@@ -18345,7 +18346,7 @@ public final class ClaudeBodyTest {
                 for (var ws : s1451W) ws.discard();
                 for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl != net.minecraft.world.entity.EquipmentSlot.MAINHAND) c.setItemSlot(sl, ItemStack.EMPTY);
                 c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.setHealth(20); if (c.isUsingItem()) c.stopUsingItem();
-                for (int x = -6; x <= 26; x++) for (int z = -6; z <= 6; z++) level.setBlock(o.offset(x, -1, z), Blocks.AIR.defaultBlockState(), 2);
+                for (int x = -6; x <= 26; x++) for (int z = -6; z <= 6; z++) level.setBlock(o.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); // (the floor back, not pits past flatBox's 16: the next stage's run ends fell in them, 1355)
                 flatBox(h); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5);
                 check(s1451Legs < 2, "a way of " + s1451Legs + " legs planned round 2 wither skeletons 3 off and after him, at 14 HP (now " + now + ")");
                 pass(stage, t, "no way round the wither skeletons on him: " + now);
@@ -18505,6 +18506,7 @@ public final class ClaudeBodyTest {
         }
         if (t[0] > 10 && t[0] % 5 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.CaveSpider.class, c.getBoundingBox().inflate(30))) m.discard(); // (its spawns kept out: the job is the spawner)
         if (t[0] > 10) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] > 10 && t[0] <= 30) c.getLookControl().setLookAt(sp.getX() + 0.5, sp.getY() + 0.5, sp.getZ() + 0.5); // (facing it, as live: "saw Monster Spawner" 2 off; a stage before left him looking elsewhere)
         boolean gone = t[0] > 20 && !level.getBlockState(sp).is(Blocks.SPAWNER);
         if (gone || t[0] > 20 * 25) {
             String q = c.tasks.toString();
@@ -18545,6 +18547,42 @@ public final class ClaudeBodyTest {
             check(s1458A != null && s1458A.startsWith("getting ready first"), "6 rods of 7 on him, 3 meals: the blazes' fight priced on, not the rods banked first (" + s1458A + ")");
             check(!b.startsWith("getting ready first"), "no rods on him, 16 meals, 20 HP in iron with a shield: sent home instead of the fight (" + b + ")");
             pass(stage, t, "6 rods and 3 meals: " + s1458A + " | none and 16 meals: " + b);
+        }
+        return true;
+    }
+    /** Stage 1460 (D2D review 114522-51, live 11:44:19 11-10, death 76: health 9, nothing to eat, 2 cave spiders on his way out, one 3 off after him; walk.blocked "clear them ~90 s" vs "wait ~90 s (for them to move off his way)", wait, 6 legs written off BLOCKED_MOB in half a second and the 2 in reach never fought): 2 cave spiders 3 and 4.5 off and after him, his walk past them. He clears them; no wait for what walks after him. */
+    private static net.minecraft.world.entity.monster.CaveSpider[] s1460S; private static int s1460T; private static boolean s1460A;
+    private static boolean st1460(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1460S = null; s1460T = -1; s1460A = false; }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) if (s1460S == null || !java.util.Arrays.asList(s1460S).contains(e)) e.discard();
+        if (t[0] == 10) {
+            for (int x = -6; x <= 26; x++) for (int z = -6; z <= 6; z++) { for (int y = 0; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); level.setBlock(o.offset(x, -1, z), Math.abs(z) <= 4 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().items.set(1, new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().selected = 0;
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setYRot(-90); c.setHealth(9); c.getFoodData().setFoodLevel(15); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear(); mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 45, o.getZ() + 0.5, 0f, 0f);
+            level.setDayTime(6000);
+        }
+        if (t[0] == 20) {
+            s1460S = new net.minecraft.world.entity.monster.CaveSpider[2]; double[][] at = {{3.5, 0.5}, {4.5, -0.5}};
+            for (int k = 0; k < 2; k++) { var cs = EntityType.CAVE_SPIDER.create(level); cs.moveTo(o.getX() + at[k][0], o.getY(), o.getZ() + at[k][1], 90, 0); cs.setPersistenceRequired(); cs.setNoAi(true); level.addFreshEntity(cs); cs.setTarget(c); s1460S[k] = cs; com.claudemod.entity.life.Perception.felt(c, cs); }
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.tasks.add(new Task.GoTo(o.offset(20, 0, 0), 1.5)); s1460T = t[0]; // (after a Nether stage his move back re-plans him: that queue out, the stage's walk only)
+        }
+        if (t[0] > 10) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (s1460T > 0 && t[0] > s1460T) {
+            c.getFoodData().setFoodLevel(15); for (var cs : s1460S) if (cs.isAlive()) cs.setTarget(c);
+            java.util.List<Task> all = new java.util.ArrayList<>(c.tasks); if (c.currentTask != null) all.add(0, c.currentTask);
+            if (all.stream().anyMatch(k -> k instanceof Task.Attack a && java.util.Arrays.stream(s1460S).anyMatch(cs -> cs.getUUID().equals(a.target()))) || java.util.Arrays.stream(s1460S).anyMatch(cs -> !cs.isAlive())) s1460A = true;
+            if (s1460A || t[0] == s1460T + 60) {
+                String now = all.stream().limit(4).toList().toString();
+                for (var cs : s1460S) cs.discard();
+                for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl != net.minecraft.world.entity.EquipmentSlot.MAINHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.setHealth(20); c.attempts.clear(); try { var nw = c.work.getClass().getDeclaredField("noWayOutTick"); nw.setAccessible(true); nw.setInt(c.work, -100000); } catch (ReflectiveOperationException e) { } // (its escape check's "no way out" held 10 s into the next stage)
+                for (int x = -6; x <= 26; x++) for (int z = -6; z <= 6; z++) level.setBlock(o.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); // (the floor back, not pits past flatBox's 16: the next stage's run ends fell in them, 1355)
+                flatBox(h); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5);
+                check(s1460A, "2 cave spiders 3 and 4.5 off and after him on his way, 9 HP, an iron sword: 3 s and not one fought (now " + now + ")");
+                pass(stage, t, "clearing the spiders on his way: " + now);
+            }
         }
         return true;
     }

@@ -290,9 +290,10 @@ public class WorkGoal extends Goal {
     public void tick() {
         if (g.tickCount % 5 == 0) g.attempts.sweep(); // (failures whose cause no longer holds leave the records the planners read)
         if (g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW) && g.tickCount - bowAimTick > 2) g.stopUsingItem(); /* the user: "walking super slow with his bow pulled back": the fight ended (target dead, out of sight, timed out, another job) with the draw still held, and a draw walks at 1/5 speed */
-        if (reflexes()) return; // fire, air, lava first (WorkGoal.reflexes; also run while he's only hanging out with them)
-        if (g.isSleeping()) return; // in bed: the job waits for morning (ticking on in bed timed the vein and its patches out)
-        if (gravelOverHim()) return; // gravel coming down into a column his body is in: out from under it first (04:01 Nov 4, suffocated on a fresh step)
+        heldWhy = "reflexes"; if (reflexes()) return; // fire, air, lava first (WorkGoal.reflexes; also run while he's only hanging out with them)
+        heldWhy = "asleep"; if (g.isSleeping()) return; // in bed: the job waits for morning (ticking on in bed timed the vein and its patches out)
+        heldWhy = "gravel over him"; if (gravelOverHim()) return; // gravel coming down into a column his body is in: out from under it first (04:01 Nov 4, suffocated on a fresh step)
+        heldWhy = g.urgentAttacker == null ? "no attacker armed" : "the self-defence block";
         if (g.tickCount % 40 == 7 && (digInAt == null || digInTasks == null || !inDigInHole())) adoptPitCover(); // his hole from before a restart: its cover state died with it (or an old cover's record, somewhere else)
         // On fire out of the lava with a water bucket on him: water at his feet puts it out, like a player (live 14:07: out of the lava at 17 health, he burned down to 9 with a water bucket in his pack); his fillBucket scoops it back up
         if (g.isOnFire() && !g.isInLava() && !g.isInWater() && g.tickCount % 10 == 3 && !g.level().dimensionType().ultraWarm()) {
@@ -1099,7 +1100,8 @@ public class WorkGoal extends Goal {
                         if (!Double.isNaN(fightS)) {
                             var pick = com.claudemod.entity.life.Decide.choose(g, "walk.blocked", onRoute + " hostile(s) on the way to " + pos.toShortString() + " and no way round them, health " + (int) g.getHealth() + ", armor " + g.getArmorValue(), true, java.util.List.of(
                                 com.claudemod.entity.life.Decide.Option.of("clear them", fightS, "the fight as fight.flee prices it" + (fightOdds == null ? "" : " (" + fightOdds + ")") + ", then on"),
-                                com.claudemod.entity.life.Decide.Option.of("wait", w("walk.blocked_wait_s", 90), "for them to move off his way; the walk written off till then")));
+                                chaser != null ? com.claudemod.entity.life.Decide.Option.out("wait", "the " + chaser.getType().getDescription().getString() + " " + (int) chaser.distanceTo(g) + " off is after him: it comes to him, it doesn't move off his way") // (D2D 114522-51, death 76: "wait" for 2 cave spiders on him, 6 legs refused in half a second, never fought; stage 1460)
+                                    : com.claudemod.entity.life.Decide.Option.of("wait", w("walk.blocked_wait_s", 90), "for them to move off his way; the walk written off till then")));
                             if (pick != null && pick.name().equals("clear them")) {
                                 g.tasks.addFirst(new Task.GoTo(pos.immutable(), within));
                                 for (int i = blockers.size() - 1; i >= 0; i--) g.tasks.addFirst(new Task.Attack(blockers.get(i).getUUID(), 20 * 30));
@@ -5944,6 +5946,8 @@ public class WorkGoal extends Goal {
     private int digInRise; // how high the tower under his cover is (0: a hole)
     private static java.util.Map<String, Integer> sdSaid; // when each self-defence skip/clear reason was last said (static: fields added live start null)
     /** A self-defence skip or clear, said with its reason; the same reason at most every 2 s (it can hold for many ticks). */
+    /** Where this tick's self-defence stood last (logging: a bite with no fight after it, ClaudeLife.unansweredBite). */
+    public String heldWhy = "";
     private void sdSay(String key, String line, Object... args) {
         if (sdSaid == null) sdSaid = new java.util.HashMap<>();
         Integer last = sdSaid.get(g.getUUID() + key);

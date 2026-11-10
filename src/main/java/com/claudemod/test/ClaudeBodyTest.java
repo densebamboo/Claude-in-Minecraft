@@ -10961,6 +10961,7 @@ public final class ClaudeBodyTest {
             case 1413: return st1413(stage, t, c, h, level, mock);
             case 1414: return st1414(stage, t, c, h, level, mock);
             case 1415: return st1415(stage, t, c, h, level, mock);
+            case 1416: return st1416(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -25301,6 +25302,35 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static net.minecraft.world.entity.monster.Blaze s1415Bz; private static int s1415N0, s1415N;
+    /** Stage 1416 (D2D review 19, live 06:44-06:47 11-10 at -77..-84,18-20,-341..-346 and -114,17/18,-328/9): idle in his mine, tidying old cover blocks of his 76 min old that sit over his tunnel's ceiling, the pocket under them shut off by his ceiling's patch; the walks cut his ceiling to get at them, his mine filled it back, for 2.5 min. A block in a shut-off pocket is rock now, not litter. */
+    private static boolean st1416(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9820, 80, 9780), ceil = at.offset(7, 2, 0), pocket = at.offset(7, 3, 0), cover = at.offset(7, 4, 0);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.TempLedger.reset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("mine_model", "blueprint"); s1416Cut = null; }
+        if (t[0] == 5) mock[0].teleportTo(at.getX() + 0.5, at.getY() + 40, at.getZ() + 0.5);
+        if (t[0] == 10) {
+            var b = new com.claudemod.entity.life.MineBlueprint(at, net.minecraft.core.Direction.EAST, 1, 2); b.segments.clear(); b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, at.west(3), net.minecraft.core.Direction.EAST, 12, null)); c.blueprint = b; // his mine: a one-wide branch, two tall
+            for (int x = -4; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = -2; y <= 6; y++) { BlockPos q = at.offset(x, y, z); level.setBlock(q, (b.isWalk(q) ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            level.setBlock(pocket, Blocks.AIR.defaultBlockState(), 2); // an old dig-in's hole over his ceiling, shut off by its patch
+            level.setBlock(cover, Blocks.COBBLESTONE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, cover, Blocks.COBBLESTONE.defaultBlockState(), Blocks.AIR.defaultBlockState()); // its cover block, on his book
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.teleportTo(at.getX() - 1.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); // (9 along his tunnel from it, as live: a walk to it)
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); level.setDayTime(6000);
+            check(com.claudemod.entity.life.TempLedger.has(c, cover), "the cover block not on his book");
+        }
+        if (t[0] > 12 && s1416Cut == null) {
+            if (level.getBlockState(ceil).isAir()) s1416Cut = "his ceiling at " + ceil.toShortString() + " cut at tick " + (t[0] - 12);
+            else for (Task k : c.currentTask == null ? c.tasks : java.util.stream.Stream.concat(c.tasks.stream(), java.util.stream.Stream.of(c.currentTask)).toList()) if (k instanceof Task.Break br && br.pos().equals(cover)) { s1416Cut = "the shut-off cover block queued for taking back at tick " + (t[0] - 12); break; }
+        }
+        if (t[0] == 12 + 20 * 10) {
+            String cut = s1416Cut;
+            c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy"); com.claudemod.entity.life.TempLedger.reset(c);
+            for (int x = -4; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = -2; y <= 6; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // (the floor left)
+            check(cut == null, cut);
+            pass(stage, t, "the cover block shut off over his ceiling left as rock, his ceiling whole for 10 s idle");
+        }
+        return true;
+    }
+    private static String s1416Cut;
     /** Stage 1411 (D2D review 60, live 06:04:40-06:05:00 11-10 at -75,16,-345): stone picks to make in his one-wide iron tunnel, his mine's table elsewhere: the temp table went down on the tunnel floor at -74, between him and his dig at -70; the way over it dug 3 of his ceiling, his mine wanted them back, the put-back refused. The table goes on the side away from his work. */
     private static boolean st1411(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos at = new BlockPos(9940, 80, 9780), me = at.offset(3, 0, 0), work = at.offset(7, 0, 0), mineTable = at.offset(0, 0, 1);

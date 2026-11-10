@@ -281,6 +281,16 @@ public final class TempLedger {
         return true;
     }
 
+    /** The open cells beside it are a small closed pocket: no sky, none of his mine's walkway, all of it found within 64 cells. Reached only by cutting his mine's shell or the rock. */
+    static boolean shutOff(ClaudeEntity g, ServerLevel level, BlockPos pos) {
+        if (g.blueprint == null || g.blueprint.isEmpty()) return false;
+        java.util.Set<BlockPos> seen = new java.util.HashSet<>(); java.util.ArrayDeque<BlockPos> todo = new java.util.ArrayDeque<>();
+        for (Direction d : Direction.values()) { BlockPos n = pos.relative(d); if (level.getBlockState(n).getCollisionShape(level, n).isEmpty() && seen.add(n.immutable())) todo.add(n.immutable()); }
+        while (!todo.isEmpty()) { BlockPos p = todo.poll();
+            if (seen.size() > 64 || g.blueprint.isWalk(p) || level.canSeeSky(p) || !level.isLoaded(p)) return false;
+            for (Direction d : Direction.values()) { BlockPos n = p.relative(d); if (!n.equals(pos) && level.getBlockState(n).getCollisionShape(level, n).isEmpty() && seen.add(n.immutable())) todo.add(n.immutable()); } }
+        return !seen.isEmpty();
+    }
     static boolean takeable(ClaudeEntity g, ServerLevel level, Entry e) {
         BlockState s = level.getBlockState(e.pos);
         { var m = level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(e.pos).inflate(8), x -> x.isAlive() && x.getTarget() == g); if (!m.isEmpty()) { ClaudeMod.LOGGER.info("[Claude temp] his {} at {} stays up for now: a {} after him {} off (TempLedger.takeable)", e.item, e.pos.toShortString(), m.get(0).getType().getDescription().getString(), (int) Math.sqrt(m.get(0).blockPosition().distSqr(e.pos))); return false; } } // ponytail: live 2026-11-01, off to explore he took his cover and gap plug down with 4 hoglins after him 7 off; a player keeps the wall till they're gone
@@ -291,6 +301,8 @@ public final class TempLedger {
         if ("step out".equals(e.blocked)) e.blocked = ""; // (the hollow opened up since: litter again)
         { boolean open = false; for (Direction d : Direction.values()) { BlockPos n = e.pos.relative(d); if (level.getBlockState(n).getCollisionShape(level, n).isEmpty()) { open = true; break; } }
           if (!open) { if (!"buried".equals(e.blocked)) ClaudeMod.LOGGER.info("[Claude temp] his {} at {} is buried (solid on all six sides): part of the rock now, not litter; left (TempLedger.takeable)", e.item, e.pos.toShortString()); e.blocked = "buried"; return false; } } // live 01:19: a pillar block in his mine, built over since, re-queued and refused every 10 ticks
+        if (shutOff(g, level, e.pos)) { if (!"shut off".equals(e.blocked)) ClaudeMod.LOGGER.info("[Claude temp] his {} at {} faces only a pocket shut off from his mine and the sky: part of the rock now, not litter; left (TempLedger.takeable)", e.item, e.pos.toShortString()); e.blocked = "shut off"; return false; } // (an old dig-in's cover over his tunnel, its hole sealed by his ceiling's patch: the walks to it cut his ceiling, his mine filled it back, 2.5 min, review 19, stage 1416)
+        if ("shut off".equals(e.blocked)) e.blocked = "";
         for (Direction d : Direction.values()) { BlockPos n = e.pos.relative(d); if (d != Direction.DOWN && !level.getFluidState(n).isEmpty()) { if (!"holds fluid".equals(e.blocked)) ClaudeMod.LOGGER.info("[Claude temp] his {} at {} holds back the {} at {} now: a plug, not litter; it stays (TempLedger.takeable)", e.item, e.pos.toShortString(), level.getFluidState(n).getType().builtInRegistryHolder().key().location().getPath(), n.toShortString()); e.blocked = "holds fluid"; return false; } } // live 02:01 11-05: his 23-min-old scaffold at -91,14,-46 came up and let the water into his tunnel
         if ("holds fluid".equals(e.blocked)) e.blocked = ""; // (the water gone: litter again)
         if (s.requiresCorrectToolForDrops() && g.inventory.find(t -> t.isCorrectToolForDrops(s)).isEmpty()) { e.blocked = "no tool that drops it"; return false; }

@@ -727,6 +727,7 @@ public class ClaudeEntity extends ServerPlayer {
         if (mine != null && mine.contains("whereabouts")) com.claudemod.entity.life.Whereabouts.load(this, mine.getCompound("whereabouts"));
         if (mine != null && mine.contains("atlas")) com.claudemod.entity.life.Atlas.load(this, mine.getCompound("atlas"));
         if (mine != null && mine.contains("seenOre")) for (long l0 : mine.getLongArray("seenOre")) ClaudeLife.seenOre(this).add(BlockPos.of(l0));
+        if (mine != null && mine.contains("signs")) com.claudemod.entity.life.Perception.loadSigns(this, mine.getCompound("signs"));
         if (mine != null && mine.contains("lava")) ClaudeLife.loadLavaMemory(this, mine.getLongArray("lava"));
         if (mine != null && mine.contains("lavaNether")) ClaudeLife.loadLavaList(this, net.minecraft.world.level.Level.NETHER, mine.getLongArray("lavaNether"));
         if (mine != null && mine.contains("netherPortal")) ClaudeLife.netherPortal.put(getUUID(), BlockPos.of(mine.getLong("netherPortal")));
@@ -817,6 +818,7 @@ public class ClaudeEntity extends ServerPlayer {
         mine.put("atlas", com.claudemod.entity.life.Atlas.save(this)); // the biomes he has seen, the ground he has covered
         mine.put("whereabouts", com.claudemod.entity.life.Whereabouts.save(this)); // where people were last seen, kept across a relaunch
         mine.putLongArray("seenOre", ClaudeLife.seenOre(this).stream().mapToLong(BlockPos::asLong).toArray()); // ore he saw (and maybe sealed behind a patch), kept across a relaunch
+        mine.put("signs", com.claudemod.entity.life.Perception.saveSigns(this)); // the hazards he saw (spawners, the deep dark...), kept across a relaunch
         mine.putLongArray("deaths", ClaudeLife.deathSpotsFor(this)); // where he's died: the den rules need it across a relaunch
         var ls = new net.minecraft.nbt.ListTag(); for (String l : ClaudeLife.lessonsFor(this)) ls.add(net.minecraft.nbt.StringTag.valueOf(l)); mine.put("lessons", ls); // and what he's learned
         var before = PlayerProfile.mine(owner); if (before != null && before.contains("animals")) mine.putLong("animals", before.getLong("animals"));

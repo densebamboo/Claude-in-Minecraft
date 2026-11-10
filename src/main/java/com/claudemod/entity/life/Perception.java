@@ -550,6 +550,9 @@ public final class Perception {
     /** The hazard he knows at this cell (seen there, or heard from about there), or null. */
     /** (tests) A sign he saw earlier: on his record as if seen. */
     public static void noteSignTest(ClaudeEntity g, BlockPos p, String what) { seenSigns(g).put(p.immutable(), what); }
+    /** The signs he has seen, kept across a relaunch like his seen ore (live 12:09 11-10: the relaunch dropped death 76's spawner and the spiders came again). Heard ones are only a guess at where: not kept. */
+    public static net.minecraft.nbt.CompoundTag saveSigns(ClaudeEntity g) { var t = new net.minecraft.nbt.CompoundTag(); seenSigns(g).forEach((p, w) -> t.putString(Long.toString(p.asLong()), w)); return t; }
+    public static void loadSigns(ClaudeEntity g, net.minecraft.nbt.CompoundTag t) { var m = seenSigns(g); for (String k : t.getAllKeys()) { try { m.put(BlockPos.of(Long.parseLong(k)), t.getString(k)); } catch (NumberFormatException ignored) {} } }
     /** The nearest spawner he has seen (heard ones are only a guess at where) within r of p and still standing there, or null. */
     public static BlockPos seenSpawner(ClaudeEntity g, ServerLevel level, BlockPos p, int r) {
         BlockPos best = null; double bd = (double) r * r;

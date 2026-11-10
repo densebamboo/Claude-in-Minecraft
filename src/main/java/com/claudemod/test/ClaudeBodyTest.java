@@ -10559,6 +10559,7 @@ public final class ClaudeBodyTest {
             case 1451: return st1451(stage, t, c, h, level, mock);
             case 1450: return st1450(stage, t, c, h, level, mock);
             case 1387: return st1387(stage, t, c, h, level, mock);
+            case 1388: return st1388(stage, t, c, h, level, mock);
             case 1386: return st1386(stage, t, c, h, level, mock);
             case 1385: return st1385(stage, t, c, h, level, mock);
             case 1384: return st1384(stage, t, c, h, level, mock);
@@ -29489,6 +29490,25 @@ public final class ClaudeBodyTest {
             st1364B.discard(); st1364Z.discard(); st1364B = null; st1364Z = null; c.tasks.clear(); c.setHealth(20); c.getInventory().clearContent(); c.dropCurrent = true;
             check(!at.equals(after), "held at his hide spot " + at.toShortString() + " with the blaze that just shot him " + (int) dist + " off seeing him there (escape now " + after + ")" + err);
             pass(stage, t, "the blaze " + (int) dist + " off that just shot him sees the hide spot: on from it (escape now " + after + ")"); return true;
+        }
+        return true;
+    }
+    /** Stage 1388 (D2D, live 12:09-12:10 11-10 at -84,15,-371): death 76's cave spider spawner at -81,14,-363, seen 11:39 and kept as
+     * a sign; the 11:59 relaunch dropped it (signs lived only in memory), so ClaudeLife.spawnerJob found no seen spawner, he only heard
+     * it, and its spiders' poison took him 20 -> 0.x HP. What he has seen must outlast a relaunch, like his seen ore and lava. */
+    private static boolean st1388(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) scenarioReset(c);
+        if (t[0] == 10) {
+            if (mock[0] == null) mock[0] = h.makeMockServerPlayerInLevel();
+            BlockPos sp = h.absolutePos(new BlockPos(4, 2, 4)); level.setBlock(sp, Blocks.SPAWNER.defaultBlockState(), 2);
+            BlockPos me = h.absolutePos(new BlockPos(1, 2, 1)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.Perception.noteSignTest(c, sp, "a mob spawner");
+            check(sp.equals(com.claudemod.entity.life.Perception.seenSpawner(c, level, c.blockPosition(), 16)), "setup: the spawner isn't on his record");
+            c.saveMine(mock[0]); com.claudemod.entity.life.Perception.reset(c); c.loadMineTest(mock[0]); // (a relaunch: saved, memory gone, loaded)
+            BlockPos got = com.claudemod.entity.life.Perception.seenSpawner(c, level, c.blockPosition(), 16);
+            level.setBlock(sp, Blocks.AIR.defaultBlockState(), 2); com.claudemod.entity.life.Perception.reset(c);
+            check(sp.equals(got), "the spawner he saw before the relaunch is forgotten after it (seenSpawner " + got + ")");
+            pass(stage, t, "the spawner he saw is still on his record after a relaunch"); return true;
         }
         return true;
     }

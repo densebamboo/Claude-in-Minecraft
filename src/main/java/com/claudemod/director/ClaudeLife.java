@@ -820,6 +820,7 @@ public final class ClaudeLife {
         if (hd == null) return "no bed there";
         BlockPos ft = bedFootOf(level, hd);
         if (level.getBlockState(hd).getValue(net.minecraft.world.level.block.BedBlock.OCCUPIED)) return "someone's in it";
+        if (level.getPoiManager().existsAtPosition(net.minecraft.world.entity.ai.village.poi.PoiTypes.HOME, hd) && level.getPoiManager().getFreeTickets(hd) == 0) return "a villager's (it sleeps there at night)"; // (every villager has its bed and gets into it at dusk: live 18:57 11-09, review 185745-104, the 21 s bed taken as he got there, then the open; stage 1318)
         if (bedBlockedAt(level, hd, ft)) return "obstructed (a block over it)";
         String site = bedSiteBadAt(g, level, hd); if (site != null) return site;
         Integer failed = g.attempts.any.get(hd); if (failed != null && g.tickCount - failed < 20 * 300) return "couldn't get to it " + (g.tickCount - failed) / 20 + " s ago";

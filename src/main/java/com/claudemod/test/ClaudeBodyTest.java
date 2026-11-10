@@ -10580,6 +10580,7 @@ public final class ClaudeBodyTest {
             case 1358: return st1358(stage, t, c, h, level, mock);
             case 1360: return st1360(stage, t, c, h, level, mock);
             case 1361: return st1361(stage, t, c, h, level, mock);
+            case 1362: return st1362(stage, t, c, h, level, mock);
             case 1356: return st1356(stage, t, c, h, level, mock);
             case 1301: return st1301(stage, t, c, h, level, mock);
             case 1302: return st1302(stage, t, c, h, level, mock);
@@ -27616,6 +27617,28 @@ public final class ClaudeBodyTest {
     /** Stage 1357 (live 18:49-18:50 11-09, review 185243-100: "collect salmon x3 -> failed: ... the salmon in sight and the rest have no short way to
      *  them on foot", 82 times in 70 s, his iron helmet held behind it): kit.food priced the fish by the straight line, collect's own walk check said no
      *  way, and the kit offered them again. Three salmon in a shallow pool on a 6-high pillar 11 off, nothing to climb with: the kit's pick is no fish. */
+    private static int st1362T = -1; private static BlockPos st1362G; private static boolean st1362S;
+    private static boolean st1362(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 02:31:57-02:32:00 11-10 (the_nether 311,46,389, death 57): a walk to an air cell off a ledge made its way with soul sand (his only blocks), stood on it, then the walk's leg dig broke that soul sand "in the leg's cell" under his feet: 16 down into lava, everything lost. Soul sand isn't a full collision block, so the temp ledger never booked it as his
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1362T = -1; st1362S = false; }
+        if (t[0] == 10) {
+            for (int x = -2; x <= 14; x++) for (int z = 2; z <= 8; z++) for (int y = 1; y <= 12; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 || y == 12 || (y == 7 && x <= 5 && z >= 4 && z <= 6) ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); // a ledge 6 up over open ground, under a roof (no sky: the Nether, where his way blocks never go on the take-back list)
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.getInventory().add(new ItemStack(Items.SOUL_SAND, 32));
+            BlockPos me = h.absolutePos(new BlockPos(4, 8, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(-90); c.setHealth(20); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            st1362G = h.absolutePos(new BlockPos(7, 7, 5)).immutable(); // the air cell at the ledge's floor level, past a one-cell gap (live: GoTo 311,46,389 from 312,46,390)
+        }
+        if (t[0] == 15) { c.tasks.clear(); c.tasks.add(new Task.GoTo(st1362G, 0.9)); c.tasks.add(new Task.GoTo(h.absolutePos(new BlockPos(2, 8, 5)).immutable(), 0.9)); st1362T = t[0]; } // (more walks queued behind it, as live: the leg dig only fires then)
+        if (st1362T > 0) {
+            int floor = st1362G.getY();
+            if (level.getBlockState(st1362G).is(Blocks.SOUL_SAND)) st1362S = true;
+            check(!st1362S || level.getBlockState(st1362G).is(Blocks.SOUL_SAND) || c.tasks.isEmpty(), "his own soul sand way block at the goal broken mid-walk (the leg dig: live 02:31:59, 16 down into lava; at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ")");
+            check(c.getY() > floor - 0.5, "fell off his own soul sand way (at " + String.format("%.2f", c.getY()) + ", the floor's top " + (floor + 1) + "; the goal cell now " + level.getBlockState(st1362G).getBlock().getName().getString() + ", task " + c.currentTask + ")");
+            boolean there = Math.abs(c.getX() - (st1362G.getX() - 5 + 0.5)) < 1.3 && Math.abs(c.getZ() - (st1362G.getZ() + 0.5)) < 1.3; // (out to the goal and back onto the ledge)
+            if (there && c.currentTask == null && c.tasks.isEmpty() && t[0] - st1362T > 40) { c.dropCurrent = true; com.claudemod.entity.life.TempLedger.reset(c); pass(stage, t, "out over the drop on his own soul sand and back, the walks done in " + (t[0] - st1362T) / 20.0 + " s, nothing broken under him"); }
+            else check(t[0] - st1362T < 20 * 20, "never got out to the goal in 20 s (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ", tasks " + c.tasks + ")");
+        }
+        return true;
+    }
     private static boolean st1361(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 00:31 11-10 (the_nether, rods 6/7): "get_string: nothing to get string from right now (... none in my chests ...)" with 17 string in his chests at home: the rods' "a bow is what this needs" made the bow the must, but the ledger only reads chests in the dimension he's in
         if (t[0] == 1) { scenarioReset(c); }
         if (t[0] == 10) {

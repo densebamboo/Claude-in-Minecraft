@@ -154,9 +154,9 @@ public final class TempLedger {
             return b instanceof CraftingTableBlock ? "craft table" : "furnace";
         }
         if (b instanceof TorchBlock || b == Blocks.LANTERN) return ClaudeLife.baseArea(g, p) || !level.canSeeSky(p) ? null : "light"; // (a torch down a cave is a way-mark: it stays)
-        if (placed.isCollisionShapeFullBlock(level, p) && !placed.hasBlockEntity() && holeFilled(g, level, p)) return null; // a hole filled level with the ground, his cover's too (his dug-in hole pillared full on the way out was booked "cover" and dug back out 2 s on, live 12:07 11-09: stage 1262)
+        if (fullCell(level, p, placed) && !placed.hasBlockEntity() && holeFilled(g, level, p)) return null; // a hole filled level with the ground, his cover's too (his dug-in hole pillared full on the way out was booked "cover" and dug back out 2 s on, live 12:07 11-09: stage 1262)
         if (g.coverCell(p)) return "cover"; // a block of the cover he's making (by its shape the box's walls read as "step", "bridge", "scaffold", booked to the hunt that was running, live 04:42)
-        if (placed.hasBlockEntity() || !placed.isCollisionShapeFullBlock(level, p) || b == Blocks.OBSIDIAN) return null; // chests, beds, crops, saplings, fences, the portal's frame: none of it temporary
+        if (placed.hasBlockEntity() || !fullCell(level, p, placed) || b == Blocks.OBSIDIAN) return null; // chests, beds, crops, saplings, fences, the portal's frame: none of it temporary
         BlockPos feet = g.blockPosition();
         if (holeFilled(g, level, p)) return null; // a hole filled (the ground made good again)
         boolean hostile = !Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(12), m -> m.isAlive()).isEmpty();
@@ -166,6 +166,9 @@ public final class TempLedger {
         if (p.getY() >= feet.getY() - 1 && p.getY() <= feet.getY()) return "step";
         return "scaffold";
     }
+
+    /** A block that fills its cell: by its shape, not its collision (soul sand and mud collide 2 px short, and his soul sand bridge went unbooked: live 02:32 11-10, stage 1362). */
+    private static boolean fullCell(ServerLevel level, BlockPos p, BlockState s) { return Block.isShapeFullBlock(s.getShape(level, p)); }
 
     /** The place event: he put a block down. */
     private static Map<UUID, java.util.Set<BlockPos>> plugs; // blocks he put down into water or lava: he knows what's behind them (static: fields added live start null)

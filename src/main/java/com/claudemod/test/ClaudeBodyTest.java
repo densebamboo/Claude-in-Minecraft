@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1454: return st1454(stage, t, c, h, level, mock);
             case 1453: return st1453(stage, t, c, h, level, mock);
             case 1452: return st1452(stage, t, c, h, level, mock);
             case 1451: return st1451(stage, t, c, h, level, mock);
@@ -18377,6 +18378,34 @@ public final class ClaudeBodyTest {
                 for (int x = 10; x <= 14; x++) for (int z = 6; z <= 10; z++) for (int yy = 0; yy <= 1; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.DIRT.defaultBlockState(), 2);
                 check(on, "20 s at the furnace with his kit short and a salmon 8 off in a pond, not after it: now " + c.currentTask + ", queue " + c.tasks);
                 pass(stage, t, "went for the salmon 8 off while the salmon cooked, " + (t[0] - s1453T) + " ticks"); }
+        }
+        return true;
+    }
+    /** Stage 1454 (D2D review 102539-23, live 09:47:31-50 11-10 at -82,62,13: 3 salmon cooking, 28 logs on him, the plan's strip_mine; the side job ran it, it said "packing for the trip in one go: 3 logs and 32 cobblestone" and queued those as steps, no task, so the side job "queued nothing" and he stood 20 s): the same, a cobble floor to dig. He gathers the packing while it cooks. */
+    private static int s1454T;
+    private static boolean st1454(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1454T = -1; level.setDayTime(3000); flatBox(h); }
+        BlockPos fp = h.absolutePos(new BlockPos(6, 1, 4));
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            level.setBlock(fp, Blocks.FURNACE.defaultBlockState(), 2); c.myStations.add(fp.immutable());
+            if (level.getBlockEntity(fp) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f) { f.setItem(0, new ItemStack(Items.SALMON, 3)); f.setItem(1, new ItemStack(Items.OAK_PLANKS, 2)); }
+            c.getInventory().clearContent(); for (var it : new net.minecraft.world.item.Item[] {Items.IRON_PICKAXE, Items.STONE_SWORD}) c.getInventory().add(new ItemStack(it)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 28)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 20)); c.getInventory().add(new ItemStack(Items.TORCH, 64)); c.getInventory().add(new ItemStack(Items.COAL, 32));
+            BlockPos me = h.absolutePos(new BlockPos(5, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.mineFace = me.offset(300, -40, 0); c.stairStart = me.offset(300, 0, 0); c.mineDir = net.minecraft.core.Direction.EAST;
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.tasks.add(new Task.FurnaceTake(fp.immutable())); c.skillQueue.clear(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("strip_mine", "iron_ore", 22)); c.sideJobTick = -100000; s1454T = t[0]; }
+        if (s1454T > 0 && t[0] > s1454T) {
+            c.nextPlanTick = c.tickCount + 20 * 600;
+            boolean busy = c.currentTask != null && !(c.currentTask instanceof Task.FurnaceTake) && !(c.currentTask instanceof Task.Wait);
+            if (busy || t[0] - s1454T > 20 * 12) {
+                String now = c.currentTask + " " + c.tasks.stream().limit(3).toList() + " plan " + c.skillQueue;
+                c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.myStations.remove(fp); c.mineFace = null; c.stairStart = null; c.mineDir = null; c.getInventory().clearContent();
+                if (level.getBlockEntity(fp) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f) f.clearContent(); level.setBlock(fp, Blocks.AIR.defaultBlockState(), 2); flatBox(h);
+                check(busy, "12 s at the furnace with the trip's packing to gather and nothing done: " + now);
+                check(now.indexOf("strip_mine") == now.lastIndexOf("strip_mine"), "the plan piled up: " + now);
+                pass(stage, t, "the packing gathered while it cooks: " + now);
+            }
         }
         return true;
     }

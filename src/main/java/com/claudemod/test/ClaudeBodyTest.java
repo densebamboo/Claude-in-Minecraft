@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1312: return st1312(stage, t, c, h, level, mock);
             case 1311: return st1311(stage, t, c, h, level, mock);
             case 1310: return st1310(stage, t, c, h, level, mock);
             case 1309: return st1309(stage, t, c, h, level, mock);
@@ -16569,7 +16570,7 @@ public final class ClaudeBodyTest {
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1238A = s1238B = null; s1238Near = 0; }
         if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) if (e != s1238A && e != s1238B) e.discard();
         if (t[0] == 10) {
-            for (int x = -20; x <= 24; x++) for (int z = -16; z <= 16; z++) { level.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); for (int y = 0; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = -30; x <= 34; x++) for (int z = -26; z <= 26; z++) { level.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); for (int y = 0; y <= 20; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); } // (wide and high: the terrain round the arena moves with the stage list, and a hill in the blazes' sight lines took his cover away)
             for (int z = -10; z <= 1; z++) for (int y = 0; y <= 5; y++) level.setBlock(o.offset(4, y, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // the wall, its end a corner to peek round
             c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
             c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() - 3 + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; mock[0].teleportTo(o.getX() + 0.5, o.getY() + 45, o.getZ() + 0.5);
@@ -16997,6 +16998,42 @@ public final class ClaudeBodyTest {
             int portal = q.indexOf("enter_portal"), store = q.indexOf("store");
             check(portal >= 0 && store == portal + 1, "home first with 4 rods on him at 10 HP, no armor: the rods banked straight through the portal; blaze_rods said \"" + r + "\", queue " + q);
             nsHome(c, h, level); pass(stage, t, r + " | " + q);
+        }
+        return true;
+    }
+    /** Stage 1312 (D2D 11-09, death-197 17:50:11 at 293,62,534: a wither skeleton 5 off, "making cover, a 2-high tunnel into the rock", hit mid-dig 15 -> 10, then the run and dead; tallCover took any wall within 6 whatever the mob's distance): rock 3 off behind him, one wither skeleton 5 off, a second 9 off, him at 15 in iron with sword and shield, no pick. No tunnel begun that it reaches long before it's dug (the cover proximity rule, priced in tallCover); both killed, his health over 6. */
+    private static net.minecraft.world.entity.monster.WitherSkeleton s1312W, s1312V; private static int s1312T, s1312Hits, s1312Blocked, s1312Dug;
+    private static boolean st1312(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1312W = null; s1312Hits = 0; s1312Blocked = 0; s1312Dug = 0; }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) if (e != s1312W && e != s1312V) e.discard();
+        if (t[0] == 10) {
+            for (int x = -16; x <= 16; x++) for (int z = -16; z <= 16; z++) for (int y = -6; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (int x = -12; x <= 12; x++) for (int z = -12; z <= 12; z++) level.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // a deck one block thick over air: no hole
+            for (int x = -12; x <= -3; x++) for (int z = -12; z <= 12; z++) for (int y = 0; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.NETHERRACK.defaultBlockState(), 2); // rock 3 off behind him: a tunnel he could dig
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().items.set(1, new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().selected = 0; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; mock[0].teleportTo(o.getX() + 0.5, o.getY() + 45, o.getZ() + 0.5);
+            level.setDayTime(18000); // (night: a skeleton by day hides from the sun and never comes at him)
+        }
+        if (t[0] == 20) {
+            s1312W = EntityType.WITHER_SKELETON.create(level); s1312W.moveTo(o.getX() + 5.5, o.getY(), o.getZ() + 0.5, 90, 0); c.setHealth(15); s1312W.setPersistenceRequired(); s1312W.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); level.addFreshEntity(s1312W); s1312W.setTarget(c);
+            s1312V = EntityType.WITHER_SKELETON.create(level); s1312V.moveTo(o.getX() + 0.5, o.getY(), o.getZ() + 9.5, 180, 0); s1312V.setPersistenceRequired(); s1312V.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); level.addFreshEntity(s1312V); s1312V.setTarget(c);
+            c.tasks.add(new Task.Attack(s1312W.getUUID(), 20 * 60)); s1312T = t[0];
+        }
+        if (t[0] > 20 && s1312W != null) {
+            if (c.hurtTime == c.hurtDuration && c.getLastDamageSource() != null && (c.getLastDamageSource().getEntity() == s1312W || c.getLastDamageSource().getEntity() == s1312V)) s1312Hits++;
+            if (s1312W.isAlive() && s1312W.distanceTo(c) < 6 && (c.currentTask instanceof Task.Break || c.tasks.stream().anyMatch(k -> k instanceof Task.Break))) s1312Dug++;
+            if (c.isBlocking() && s1312W.swinging && s1312W.swingTime == 0 && s1312W.distanceTo(c) < 3.5) s1312Blocked++;
+            if (!s1312W.isAlive() && !s1312V.isAlive() || c.getHealth() <= 4 || t[0] > s1312T + 20 * 30) {
+                boolean dead = !s1312W.isAlive() && !s1312V.isAlive(); float hp = c.getHealth(); int took = s1312Hits;
+                s1312W.discard(); s1312V.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.removeAllEffects(); c.setHealth(20);
+                for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+                check(dead, "a wither skeleton still up after " + (t[0] - s1312T) / 20 + " s: " + took + " of its hits landed, health " + hp);
+                check(s1312Dug == 0, "a cover dig begun with the wither skeleton under 6 off (" + s1312Dug + " ticks): it is on him long before the tunnel is");
+                check(hp > 6, "killed them, but at health " + hp + " (" + took + " hits landed)");
+                pass(stage, t, "no dig with one 5 off; killed both in " + (t[0] - s1312T) / 20.0 + " s, " + took + " hit(s) landed, health " + hp);
+            }
         }
         return true;
     }

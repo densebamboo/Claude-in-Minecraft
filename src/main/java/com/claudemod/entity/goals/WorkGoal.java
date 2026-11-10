@@ -6464,6 +6464,7 @@ public class WorkGoal extends Goal {
         if (!(mob instanceof net.minecraft.world.entity.monster.WitherSkeleton)) return null;
         return tallCover(t, mob, true);
     }
+    private int wsLateSaid = -1000; // (the no-cover-in-time line: its own clock, the other tallCover lines' never hides it)
     /**
      * Cover from a mob too tall for a 2-high space (a wither skeleton 2.4, an enderman 2.9): in a capped hole, the fight from it; else,
      * with it within 12 and in sight, the cover made (a 2-high tunnel into rock within 6, or with {@code cap} the capped hole at his
@@ -6519,6 +6520,22 @@ public class WorkGoal extends Goal {
                 dig.add(new Task.Place(f.above(2).immutable(), it)); // (the cap first, over his head while he still stands on the floor: from the hole the dug blocks' drops sat in its cell and the face was out of his place logic's view, stage 553)
                 dig.add(new Task.Break(f.below().immutable())); dig.add(new Task.Break(f.below(2).immutable()));
                 in = f.below(2).immutable(); capped = true; how = "a 2-deep hole at " + f.toShortString() + " capped two above the floor (a 3-block post on the " + d.getName() + " rim)"; break; }
+        }
+        if (in != null) { // the cover proximity rule, computed: the dig or build done before the first melee mob after him is in reach, or no cover (live 17:50:04 11-09, death-197: a tunnel begun with a wither skeleton 5 off, hit mid-dig 15 -> 10, then dead; stage 1312)
+            double buildS = 0; BlockPos at = f;
+            for (Task k : dig) {
+                if (k instanceof Task.GoTo gt) { buildS += Math.sqrt(at.distSqr(gt.pos())) / 4.3; at = gt.pos(); }
+                else if (k instanceof Task.Place) buildS += w("cover.place_s", 0.35);
+                else if (k instanceof Task.Break br) { BlockState bs = level.getBlockState(br.pos()); float hard = bs.getDestroySpeed(level, br.pos()); if (hard <= 0) continue;
+                    float speed = 1; boolean right = !bs.requiresCorrectToolForDrops(); for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { ItemStack st = g.inventory.items.getItem(i); float sp = st.getDestroySpeed(bs); if (sp > speed) { speed = sp; right = right || st.isCorrectToolForDrops(bs); } }
+                    buildS += hard * (right ? 30 : 100) / speed / 20.0 + w("cover.dig_aim_s", 0.2); }
+            }
+            net.minecraft.world.entity.Mob first = null; double arrive = Double.MAX_VALUE;
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(16), m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy && !shoots(m) && !(m instanceof net.minecraft.world.entity.monster.Creeper) && !(m instanceof net.minecraft.world.entity.monster.EnderMan) && (m.getTarget() == g || m == mob))) { // (an enderman teleports to him from any distance: its distance buys no time either way, stage 527 built its hole unhurt)
+                double s0 = Math.max(0, m.distanceTo(g) - w("fight.mob_reach_blocks", 2.0)) / Math.max(0.5, mobPace(m, m instanceof net.minecraft.world.entity.monster.AbstractSkeleton ? 1.2 : 1.0)); if (s0 < arrive) { arrive = s0; first = m; } } // (its chase goal's speed: a skeleton's melee 1.2, the rest 1.0)
+            if (first != null && arrive < buildS) {
+                if (g.tickCount - wsLateSaid > 100 || g.tickCount < wsLateSaid) { wsLateSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] {} {} off and no 2-high gap: {} would take ~{} s, the {} {} off is on him in ~{} s: no cover to make in time, the fight where he stands (WorkGoal.tallCover)", aWho, (int) mob.distanceTo(g), how, String.format("%.1f", buildS), first.getType().getDescription().getString().toLowerCase(java.util.Locale.ROOT), (int) first.distanceTo(g), String.format("%.1f", arrive)); }
+                return null; }
         }
         if (in == null) { if (g.tickCount - wsDugSaid > 100) { wsDugSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] {} {} off and no 2-high gap: no rock within 6 to tunnel into and no ground for a capped hole (fluid, bedrock, falling blocks, open round it, or under 3 blocks), the open fight" + (cap ? "" : " (no capped hole: one foe and health to spare)") + " (WorkGoal.tallCover)", aWho, (int) mob.distanceTo(g)); } return null; }
         g.getNavigation().stop(); g.xxa = 0; g.zza = 0; wsDug = in; wsDugTick = g.tickCount;

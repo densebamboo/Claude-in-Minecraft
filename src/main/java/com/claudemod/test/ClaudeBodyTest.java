@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1326: return st1326(stage, t, c, h, level, mock);
             case 1325: return st1325(stage, t, c, h, level, mock);
             case 1323: return st1323(stage, t, c, h, level, mock);
             case 1322: return st1322(stage, t, c, h, level, mock);
@@ -17400,6 +17401,33 @@ public final class ClaudeBodyTest {
                 check(moved > 3, "hit by a blaze out of his reach: not walking on (" + String.format("%.1f", moved) + " blocks in 3 s)");
                 nsHome(c, h, level); pass(stage, t, "walked on " + String.format("%.1f", moved) + " blocks, no fight with the blaze up there");
             }
+        }
+        return true;
+    }
+    /** Stage 1326 (D2D review 49, live 23:20:24 11-09 at 321,47,494 in the Nether: out of blocks under blaze fire, "collect logs: 36 near him are his own blocks put down on a way: not those", then "spotted 20 logs blocks nearby, going to mine 6" and ChopTree on his own oak-log bridge over lava, rounds 0-6: the wider search past 24 had none of the first search's rules, and the first search's leaves rule turns down every Nether fungus, so in the Nether the wider one always ran): his oak-log bridge and pillar on his ledger, a crimson fungus 10 off. "collect logs" chops the fungus, nothing of his bridge. */
+    private static boolean st1326(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -1; x <= 20; x++) for (int z = -1; z <= 12; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), Blocks.NETHERRACK.defaultBlockState(), 2); for (int y = 1; y <= 10; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = -1; x <= 9; x++) for (int z = 5; z <= 7; z++) for (int y = -2; y <= 0; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); // the gap (live: lava) he bridged
+            BlockPos me = h.absolutePos(new BlockPos(4, 1, 2)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            java.util.List<BlockPos> his = new java.util.ArrayList<>();
+            for (int z = 5; z <= 7; z++) his.add(h.absolutePos(new BlockPos(4, 0, z)).immutable()); // his bridge
+            for (int y = 1; y <= 3; y++) his.add(h.absolutePos(new BlockPos(4, y, 8)).immutable()); // and his pillar on the far side
+            for (BlockPos q : his) { level.setBlock(q, Blocks.OAK_LOG.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, q, Blocks.OAK_LOG.defaultBlockState(), Blocks.AIR.defaultBlockState()); }
+            BlockPos fb = h.absolutePos(new BlockPos(14, 1, 2)); // a crimson fungus: a stem 4 high under a wart crown
+            for (int y = 0; y < 4; y++) level.setBlock(fb.above(y), Blocks.CRIMSON_STEM.defaultBlockState(), 2);
+            for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) level.setBlock(fb.offset(x, 4, z), Blocks.NETHER_WART_BLOCK.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_AXE)); c.tasks.clear(); c.skillQueue.clear();
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "logs", 6);
+            var onHis = c.tasks.stream().filter(q -> !ClaudeEntity.originOf(q).contains("TempLedger") && (q instanceof Task.ChopTree ct && his.contains(ct.base()) || q instanceof Task.Break br && his.contains(br.pos()))).toList();
+            boolean fungus = c.tasks.stream().anyMatch(q -> q instanceof Task.ChopTree ct && ct.base().getX() == fb.getX() && ct.base().getZ() == fb.getZ());
+            for (BlockPos q : his) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2);
+            for (BlockPos q : BlockPos.betweenClosed(fb.offset(-1, 0, -1), fb.offset(1, 4, 1))) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2);
+            c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear(); com.claudemod.entity.life.TempLedger.reset(c);
+            check(onHis.isEmpty(), "collect logs: " + onHis.size() + " task(s) at his own bridge/pillar logs: " + onHis + " (said: " + r + ")");
+            check(fungus, "collect logs: the crimson fungus 10 off not chopped (said: " + r + ")");
+            pass(stage, t, "collect logs: the fungus, none of his bridge (" + r + ")");
         }
         return true;
     }

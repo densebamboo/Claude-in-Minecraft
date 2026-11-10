@@ -190,7 +190,7 @@ public final class TempLedger {
         if (why == null) return;
         BlockPos p = pos.immutable();
         Entry e = new Entry(p, name(placed), why, level.getGameTime(), before(g), line(g));
-        if (why.equals("step") && dirtLike(placed) && hillStep(g, level, p)) { // the user: dirt may stay (a hill)
+        if ((why.equals("step") || why.equals("pillar")) && dirtLike(placed) && hillStep(g, level, p)) { // the user: dirt may stay (a hill); a one-block tower step up a ledge is one too (review 454, stage 1286)
             e.after = "kept: a dirt step into the hill (may stay)"; trace(g, "temp_left", e, null);
             ClaudeMod.LOGGER.info("[Claude temp] dirt step at {} into the hill: it may stay", p.toShortString());
             return;
@@ -224,6 +224,8 @@ public final class TempLedger {
     }
     /** Dirt into a hill: his own ground under it, and beside it natural ground that rises past it (the slope it steps up). A lone
      *  pillar has nothing beside it; a raised line over flat ground has nothing higher beside it. */
+    /** His dirt at p is a step into the hill, which may stay (the rule read off the block really there: his way may have planned another block). */
+    public static boolean dirtHillStep(ClaudeEntity g, ServerLevel level, BlockPos p) { return dirtLike(level.getBlockState(p)) && hillStep(g, level, p); }
     static boolean hillStep(ClaudeEntity g, ServerLevel level, BlockPos p) {
         if (!solid(level, p.below()) || has(g, p.below())) return false;
         for (Direction d : Direction.Plane.HORIZONTAL) { BlockPos n = p.relative(d); if (solid(level, n) && solid(level, n.above()) && !has(g, n) && !has(g, n.above())) return true; }

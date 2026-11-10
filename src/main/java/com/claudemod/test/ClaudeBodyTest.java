@@ -10906,6 +10906,7 @@ public final class ClaudeBodyTest {
             case 1283: return st1283(stage, t, c, h, level, mock);
             case 1284: return st1284(stage, t, c, h, level, mock);
             case 1285: return st1285(stage, t, c, h, level, mock);
+            case 1286: return st1286(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -23943,6 +23944,36 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    /** Stage 1286 (D2D review 454, live 22:06-22:07 11-09 at 13,71,-54 by the village): a ledge 2 up, him starting under a roof with more cobblestone than dirt. The way was planned with cobblestone (his scaffold under the roof) and booked its tower step for taking back; the step went in as dirt (his scaffold under the sky), so a dirt step into the hill, one the rule lets stay, came back up a second later, and went in again on each pass (3 times). Up onto the ledge, the dirt step left standing, no litter on his ledger. */
+    private static boolean st1286(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9960, 80, 9840), step = at.offset(2, 0, 0), top = at.offset(4, 2, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(96))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = -6; x <= 10; x++) for (int z = -6; z <= 6; z++) for (int y = -1; y <= 10; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            level.setDayTime(6000);
+            var st = Blocks.STONE.defaultBlockState();
+            level.setBlock(at.above(2), st, 2); // a roof over where he starts
+            for (int dx = 3; dx <= 7; dx++) for (int dz = -3; dz <= 3; dz++) { level.setBlock(at.offset(dx, 0, dz), st, 2); level.setBlock(at.offset(dx, 1, dz), st, 2); } // the ledge, 2 up
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 20)); /* (no pick: a step put down beats one cut, as live) */ c.getInventory().add(new ItemStack(Items.DIRT, 4));
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 40, at.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 40) c.tasks.add(new Task.GoTo(top, 0.6)); // (settled on the ground first)
+        if (t[0] > 40) {
+            boolean there = c.blockPosition().equals(top);
+            if (there && s1286T < 0) s1286T = t[0];
+            if (s1286T > 0 && t[0] - s1286T >= 60 || t[0] == 40 + 20 * 30) {
+                String b = level.getBlockState(step).getBlock().getName().getString(); boolean booked = com.claudemod.entity.life.TempLedger.has(c, step);
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); s1286T = -1;
+                check(there, "not up on the ledge at " + top.toShortString() + " in 30 s (at " + c.blockPosition().toShortString() + ")");
+                check(level.getBlockState(step).is(Blocks.DIRT), "the dirt step into the ledge taken back up: " + b + " at " + step.toShortString());
+                check(!booked, "the dirt step into the ledge booked on his ledger as litter to tidy");
+                pass(stage, t, "up the ledge, the dirt step left standing, off his ledger");
+            }
+        }
+        return true;
+    }
+    private static int s1286T = -1;
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

@@ -7249,7 +7249,8 @@ public final class ClaudeLife {
                     : id.contains("netherite") ? 200
                     : id.startsWith("iron_") && (s.getItem() instanceof net.minecraft.world.item.ArmorItem || s.getItem() instanceof net.minecraft.world.item.TieredItem) ? 40
                     : id.equals("iron_ingot") || id.equals("raw_iron") ? 6 : id.contains("gold") ? 5 : id.equals("emerald") ? 15
-                    : id.equals("shield") || id.endsWith("_bed") ? 25 : id.equals("bow") ? 20 : id.equals("ender_pearl") || id.equals("blaze_rod") ? 30
+                    : id.equals("blaze_rod") ? (int) Math.round(com.claudemod.entity.life.Weights.w("recovery.blaze_rod_s", 600) / com.claudemod.entity.life.Weights.w("recovery.trip_s_per_point", 3)) // what a rod costs him to get again: the fight time per rod kept (11-10: 78 min on the step for 7 rods, ~670 s each; 30 points priced 2 rods at 180 s, "not worth the run" with them on his pile; D2D 094354-72)
+                    : id.equals("shield") || id.endsWith("_bed") ? 25 : id.equals("bow") ? 20 : id.equals("ender_pearl") ? 30
                     : s.getItem() instanceof net.minecraft.world.item.TieredItem ? 8 : s.getItem() instanceof net.minecraft.world.item.ArmorItem ? 10
                     : id.equals("torch") || id.equals("coal") || id.equals("arrow") || id.equals("string") || id.equals("flint") || id.equals("feather") ? 1
                     : s.get(net.minecraft.core.component.DataComponents.FOOD) != null ? 1 : 0;

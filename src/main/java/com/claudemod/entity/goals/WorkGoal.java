@@ -1080,7 +1080,10 @@ public class WorkGoal extends Goal {
                 int crowd = !armed() || weakKit() ? 1 : 2;
                 if (onRoute >= crowd && pos.distSqr(g.blockPosition()) > 4) {
                     g.getNavigation().stop();
-                    if (g.tickCount - plannedAt().getOrDefault(pos.above(500).immutable(), -100000) > 60) {
+                    // a way round keeps 3 off where they stand now: a melee mob already after him and close walks after him onto it, so no way round those; clearing them or waiting is priced below (D2D review 093356-38, death 75: 2 wither skeletons 3 off, "going round them (51 walks)", 15 -> 10 in a hit, twice; stage 1451)
+                    net.minecraft.world.entity.Mob chaser = blockers.stream().filter(m -> m.getTarget() == g && !shoots(m) && m.distanceTo(g) < w("walk.round_chaser_r", 6)).findFirst().orElse(null);
+                    if (chaser != null && ticks % 40 == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} hostile(s) on the way to {}, a {} {} off after him: no way round what walks after him (WorkGoal.walkTo)", onRoute, pos.toShortString(), chaser.getType().getDescription().getString(), (int) chaser.distanceTo(g));
+                    if (chaser == null && g.tickCount - plannedAt().getOrDefault(pos.above(500).immutable(), -100000) > 60) {
                         plannedAt().put(pos.above(500).immutable(), g.tickCount); // (keyed apart from the ordinary plans for this spot)
                         var plan = com.claudemod.entity.nav.ActionPath.plan(g, (ServerLevel) g.level(), feetCell, pos, Math.max(within, 1.0), false, 3000, mayDig(pos) ? com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG : com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount, threats); // (round them through the rock too, with a pick: from a hole the only way round is a tunnel, live 10:46 11-05 Nether, stage 672)
                         if (plan != null) {

@@ -10548,6 +10548,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1452: return st1452(stage, t, c, h, level, mock);
+            case 1451: return st1451(stage, t, c, h, level, mock);
             case 1450: return st1450(stage, t, c, h, level, mock);
             case 1387: return st1387(stage, t, c, h, level, mock);
             case 1386: return st1386(stage, t, c, h, level, mock);
@@ -18301,6 +18303,53 @@ public final class ClaudeBodyTest {
                 check(hurt, "20 s at a quiet blaze 9 off across lava with a bow and 16 arrows: not a hit (" + arrows + " arrows left)");
                 pass(stage, t, "the blaze across the lava shot: " + (16 - arrows) + " arrow(s), " + (t[0] - s1450T) + " ticks");
             }
+        }
+        return true;
+    }
+    /** Stage 1451 (D2D review 093356-38, death 75 lead-in, live 09:33:02-06 11-10: at 14 HP, 2 wither skeletons on his way and after him 3 off, "going round them (51 walks)", the way passed within their reach, 15 -> 10 in a hit; 09:33:16 again, 11 -> 6 -> 2): two wither skeletons 3-4 off on his way, after him, a 9-wide deck round them. No way planned round melee chasers already on him: the way round can't keep clear of what walks after him. */
+    private static net.minecraft.world.entity.monster.WitherSkeleton[] s1451W; private static int s1451T, s1451Legs;
+    private static boolean st1451(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1451W = null; s1451T = -1; s1451Legs = 0; }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) if (s1451W == null || !java.util.Arrays.asList(s1451W).contains(e)) e.discard();
+        if (t[0] == 10) {
+            for (int x = -6; x <= 26; x++) for (int z = -6; z <= 6; z++) { for (int y = 0; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); level.setBlock(o.offset(x, -1, z), Math.abs(z) <= 4 ? Blocks.NETHER_BRICKS.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().items.set(1, new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().items.set(2, new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().selected = 0;
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setYRot(-90); c.setHealth(14); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear(); mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 45, o.getZ() + 0.5, 0f, 0f);
+            level.setDayTime(6000);
+        }
+        if (t[0] == 20) {
+            s1451W = new net.minecraft.world.entity.monster.WitherSkeleton[2]; double[][] at = {{3.5, 0.5}, {4.5, -0.5}};
+            for (int k = 0; k < 2; k++) { var ws = EntityType.WITHER_SKELETON.create(level); ws.moveTo(o.getX() + at[k][0], o.getY(), o.getZ() + at[k][1], 90, 0); ws.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); ws.setPersistenceRequired(); ws.setNoAi(true); level.addFreshEntity(ws); ws.setTarget(c); s1451W[k] = ws; com.claudemod.entity.life.Perception.felt(c, ws); }
+            c.tasks.add(new Task.GoTo(o.offset(20, 0, 0), 1.5)); s1451T = t[0];
+        }
+        if (s1451T > 0 && t[0] > s1451T) {
+            c.getFoodData().setFoodLevel(20); for (var ws : s1451W) ws.setTarget(c);
+            java.util.List<Task> all = new java.util.ArrayList<>(c.tasks); if (c.currentTask != null) all.add(0, c.currentTask);
+            int legs = (int) all.stream().filter(k -> k instanceof Task.GoTo gt && gt.pos().distSqr(o.offset(20, 0, 0)) > 4).count(); s1451Legs = Math.max(s1451Legs, legs);
+            if (t[0] == s1451T + 60) {
+                String now = all.stream().limit(4).toList().toString();
+                for (var ws : s1451W) ws.discard();
+                for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl != net.minecraft.world.entity.EquipmentSlot.MAINHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.setHealth(20); if (c.isUsingItem()) c.stopUsingItem();
+                for (int x = -6; x <= 26; x++) for (int z = -6; z <= 6; z++) level.setBlock(o.offset(x, -1, z), Blocks.AIR.defaultBlockState(), 2);
+                flatBox(h); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5);
+                check(s1451Legs < 2, "a way of " + s1451Legs + " legs planned round 2 wither skeletons 3 off and after him, at 14 HP (now " + now + ")");
+                pass(stage, t, "no way round the wither skeletons on him: " + now);
+            }
+        }
+        return true;
+    }
+    /** Stage 1452 (D2D review 094354-72, live 09:33:31 11-10, death 75's pile in the Nether: "aren't worth the run (~1371 s to get them again, ~2350 s there and back)" with 2 blaze rods in it, each priced 90 s; today's fights took ~670 s of the blaze step per rod kept). The pile as it lay, priced: worth the 2350 s run. */
+    private static boolean st1452(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 2) {
+            String pile = "arrow 16, birch_log 26, blaze_rod 2, bow, coal 21, cooked_cod 8, cooked_salmon 5, crafting_table 4, fishing_rod, flint_and_steel, furnace 2, golden_boots, iron_boots, iron_chestplate, iron_helmet, iron_leggings, iron_pickaxe, iron_sword, leather_boots, magma_cream, netherrack, oak_log 38, pufferfish 2, shield, stick 3, stone_axe, stone_pickaxe 3, torch 13, water_bucket";
+            double all = com.claudemod.entity.life.DeathLog.worthS(pile), rods = com.claudemod.entity.life.DeathLog.worthS("blaze_rod 2");
+            check(rods >= 1000, "2 blaze rods priced " + (int) rods + " s to get again (the blaze step took ~670 s a rod on 11-10)");
+            check(all > 2350, "death 75's pile priced " + (int) all + " s, under the 2350 s run there and back, with 2 of the 7 rods in it");
+            pass(stage, t, "the pile " + (int) all + " s, its 2 rods " + (int) rods + " s");
         }
         return true;
     }

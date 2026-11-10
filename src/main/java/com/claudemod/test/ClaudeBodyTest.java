@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1382: return st1382(stage, t, c, h, level, mock);
             case 1381: return st1381(stage, t, c, h, level, mock);
             case 1380: return st1380(stage, t, c, h, level, mock);
             case 1379: return st1379(stage, t, c, h, level, mock);
@@ -18067,6 +18068,39 @@ public final class ClaudeBodyTest {
                 check(s1381Hid > 0, "setup: never in cover on the open bridge");
                 check(s1381Got, "setup: the fireball never got him (last hit: " + c.hurtSaid + ")"); check(alive, "dead in his cover"); check(s1381Raised, "a fireball got him in his cover at " + s1381Cell.toShortString() + ": 3 s on he's still in that cell, not walled in (at " + f.toShortString() + ", now " + c.currentTask + ")");
                 pass(stage, t, "the cover a fireball got him in dropped: at " + f.toShortString() + (f.equals(s1381Cell) ? ", walled in" : ", off the cell " + s1381Cell.toShortString()));
+            }
+        }
+        return true;
+    }
+    /** Stage 1382 (D2D 36, live 07:13:42-43 11-10 at -14,73,-25: up on the log he put down to climb a tree by, the chop's logs on the ground 5 below; "Oak Log at -14,68,-24 is behind oak log at -14,73,-25: digging that out first", doBreak "never cut from under his own", asked again 3 times in 0 s, a CONFLICT, the log left standing as litter): his own 5-high log pillar, him on top, a log on the ground by its foot. He gets down and picks it up, no ask to dig out the block under him. */
+    private static int s1382T, s1382Asks; private static BlockPos s1382Under;
+    private static boolean st1382(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos base = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; s1382T = -1; s1382Asks = 0; level.setDayTime(3000); flatBox(h); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (int y = 0; y < 5; y++) { BlockPos q = base.above(y); level.setBlock(q, Blocks.OAK_LOG.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, q, Blocks.OAK_LOG.defaultBlockState(), Blocks.AIR.defaultBlockState()); }
+            s1382Under = base.above(4).immutable();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_AXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.teleportTo(base.getX() + 0.5, base.getY() + 5, base.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); mock[0].teleportTo(base.getX() + 0.5, base.getY() + 30, base.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear();
+        }
+        if (t[0] == 10) {
+            var it = new net.minecraft.world.entity.item.ItemEntity(level, base.getX() + 0.5, base.getY(), base.getZ() + 1.5, new ItemStack(Items.OAK_LOG, 3)); it.setDeltaMovement(0, 0, 0); level.addFreshEntity(it);
+            c.tasks.add(new Task.Pickup(200)); s1382T = t[0];
+        }
+        if (s1382T > 0 && t[0] > s1382T) {
+            c.nextPlanTick = c.tickCount + 20 * 600;
+            if (c.currentTask instanceof Task.Break br && br.pos().equals(s1382Under) && c.blockPosition().below().equals(s1382Under)) s1382Asks++;
+            for (Task q : c.tasks) if (q instanceof Task.Break br && br.pos().equals(s1382Under) && c.blockPosition().below().equals(s1382Under)) { s1382Asks++; break; }
+            int got = c.getInventory().countItem(Items.OAK_LOG);
+            if (got >= 3 || t[0] - s1382T > 20 * 15) {
+                String now = c.currentTask + " " + c.tasks;
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.attempts.clear();
+                for (int y = 0; y < 5; y++) level.setBlock(base.above(y), Blocks.AIR.defaultBlockState(), 2);
+                for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(base).inflate(12))) e.discard();
+                check(got >= 3, "15 s: the logs at his pillar's foot not picked up (" + got + " on him, asked to dig the block under him " + s1382Asks + " ticks; doing " + now + ")");
+                check(s1382Asks < 3, "asked to dig out the block under his own feet " + s1382Asks + " ticks on the way to the logs below");
+                pass(stage, t, "down off his pillar and the logs picked up in " + (t[0] - s1382T) + " ticks");
             }
         }
         return true;

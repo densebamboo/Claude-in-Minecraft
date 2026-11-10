@@ -10926,6 +10926,7 @@ public final class ClaudeBodyTest {
             case 1294: return st1294(stage, t, c, h, level, mock);
             case 1295: return st1295(stage, t, c, h, level, mock);
             case 1296: return st1296(stage, t, c, h, level, mock);
+            case 1297: return st1297(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -24428,6 +24429,32 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static int s1296T;
+    /** Stage 1297 (D2D review 36, live 03:18:16-03:18:27 11-10 at -98,16,-329 in his strip mine): recover_left pillared him up in his own tunnel; the two blocks in the walkway were booked "his build (mine): a patch", never came back up, and the next walks dug round them through his ceiling patches, placed and broken 3 s apart. A block put in the walkway is temporary; one put in its wall is a patch. */
+    private static boolean st1297(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9900, 80, 9780);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 12; x++) for (int z = -4; z <= 4; z++) for (int y = -8; y <= 6; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            var b = new com.claudemod.entity.life.MineBlueprint(at, net.minecraft.core.Direction.EAST, 2, 4); b.segments.get(0).n = 4; c.blueprint = b;
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+        }
+        if (t[0] == 20) {
+            var b = c.blueprint; BlockPos walk = null, wall = null;
+            for (var e : b.roles().entrySet()) { if (walk == null && e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK && b.isWalk(e.getKey().above())) walk = e.getKey(); if (wall == null && e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALL) wall = e.getKey(); }
+            check(walk != null && wall != null, "no walk/wall cell in the test blueprint");
+            level.setBlock(walk, Blocks.AIR.defaultBlockState(), 2); level.setBlock(walk.above(), Blocks.AIR.defaultBlockState(), 2); level.setBlock(wall, Blocks.AIR.defaultBlockState(), 2);
+            c.teleportTo(walk.getX() + 0.5, walk.getY() + 1, walk.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); // on top of the block he puts in the walkway: a pillar
+            level.setBlock(walk, Blocks.COBBLESTONE.defaultBlockState(), 3); com.claudemod.entity.life.TempLedger.placed(c, level, walk, Blocks.COBBLESTONE.defaultBlockState(), Blocks.AIR.defaultBlockState());
+            level.setBlock(wall, Blocks.COBBLESTONE.defaultBlockState(), 3); com.claudemod.entity.life.TempLedger.placed(c, level, wall, Blocks.COBBLESTONE.defaultBlockState(), Blocks.AIR.defaultBlockState());
+            boolean walkTemp = com.claudemod.entity.life.TempLedger.has(c, walk), wallTemp = com.claudemod.entity.life.TempLedger.has(c, wall);
+            c.blueprint = null; c.tasks.clear(); c.dropCurrent = true;
+            for (int x = -4; x <= 12; x++) for (int z = -4; z <= 4; z++) for (int y = -8; y <= 6; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(walkTemp, "the block put in his mine's walkway at " + walk.toShortString() + " was booked as a patch of his mine, not temporary: it blocks his own tunnel for good");
+            check(!wallTemp, "the block put in his mine's wall at " + wall.toShortString() + " was booked temporary: a patch there stays");
+            pass(stage, t, "walkway block temporary, wall block a patch");
+        }
+        return true;
+    }
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

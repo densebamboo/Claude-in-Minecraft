@@ -122,7 +122,8 @@ public final class TempLedger {
     /** Part of one of his builds (or a station at his base): never temporary. */
     static boolean hisBuild(ClaudeEntity g, ServerLevel level, BlockPos p) {
         if (WatchBuild.ownsCell(g, p)) return true; // a learned build going up (or done): its blocks stay
-        if (g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.touches(p)) return true;
+        boolean walkway = g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.isWalk(p) || g.mineCells.contains(p) || g.landingCells.contains(p); // the mine's walkway is kept open: a block put in it (a pillar to a drop, live 03:18 11-10, D2D review 36) blocks his own tunnel, never a patch
+        if (g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.touches(p) && !walkway) return true;
         if (g.house != null && g.house.touches(p)) return true;
         if (g.farm != null && g.farm.touches(p)) return true;
         if (com.claudemod.director.ClaudeLife.anyNookTouches(g, p)) return true;
@@ -131,7 +132,7 @@ public final class TempLedger {
         if (PitGuard.isCap(g, p)) return true; // the mouth of a hole by his door he closed: it stays
         if (ClaudeLife.portalFrameOf(g, p) != null || ClaudeLife.portalFrameKnown(g, p) != null) return true; // his portal's frame and corners (or the corners they had him fill): they stay
         if (built(g, p)) return true; // a block a build system of his put there (his bedroom's wall)
-        return ClaudeLife.inHisMine(g, p) || ClaudeLife.touchesMine(g, p); // in the mine, placing is a patch
+        return !walkway && (ClaudeLife.inHisMine(g, p) || ClaudeLife.touchesMine(g, p)); // in the mine, placing is a patch (but not in the walkway itself)
     }
 
     /** Natural ground on 3+ sides and solid under it: the block fills a hole, the ground made good. */

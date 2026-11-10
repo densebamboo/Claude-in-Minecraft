@@ -14174,6 +14174,14 @@ public final class ClaudeLife {
             ClaudeMod.LOGGER.info("[Claude life] get_string: {} string in his chest at {}, {} blocks off by route{}: getting {} (ClaudeLife.getString)", spot.count(), spot.pos().toShortString(), spot.dist(), hard ? " (the bow is the dragon run's next must: worth the walk)" : " (a short walk)", take);
             return "my string is in my chest at " + spot.pos().toShortString() + " (" + spot.dist() + " blocks off" + (hard ? "; the bow is the dragon run's next must" : "") + "), getting " + take;
         }
+        if (hard && spot == null && level.dimension() == net.minecraft.world.level.Level.NETHER) { // his string at home through the portal: the bow's the run's must, so that's the way to it (live 00:31 11-10: "none in my chests" in the Nether with 17 at home, the rods 6/7 and the blazes out of sword reach; stage 1361)
+            int home = 0; for (var e : com.claudemod.entity.life.ChestLedger.book(g).values()) if (e.dim().equals("minecraft:overworld")) home += e.items().getOrDefault(Items.STRING, 0);
+            if (home > 0) {
+                g.skillQueue.addFirst(again); g.skillQueue.addFirst(new Skills.Step("enter_portal", "home", 1));
+                ClaudeMod.LOGGER.info("[Claude life] get_string: none here, {} string in his chests at home and the bow's the run's must: home through his portal for it (ClaudeLife.getString)", home);
+                return "my string's in my chests at home (" + home + "): home through my portal for it, the bow's what the rods need";
+            }
+        }
         String note = bowWantNote(g, level);
         ClaudeMod.LOGGER.info("[Claude life] get_string: nothing to get string from right now ({}; {}): the want waits, the plan moves on (ClaudeLife.getString)", note, spot != null ? "my chest's " + spot.dist() + " blocks off, past a short walk while the bow isn't the run's must" : "no string in my chests");
         return "done: no string to be had right now" + (hard ? " (the bow is the run's next must: spiders come out at night, a mineshaft's cobwebs)" : "") + "; " + note;

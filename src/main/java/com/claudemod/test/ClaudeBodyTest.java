@@ -10578,6 +10578,7 @@ public final class ClaudeBodyTest {
             case 1357: return st1357(stage, t, c, h, level, mock);
             case 1358: return st1358(stage, t, c, h, level, mock);
             case 1360: return st1360(stage, t, c, h, level, mock);
+            case 1361: return st1361(stage, t, c, h, level, mock);
             case 1356: return st1356(stage, t, c, h, level, mock);
             case 1301: return st1301(stage, t, c, h, level, mock);
             case 1302: return st1302(stage, t, c, h, level, mock);
@@ -27419,10 +27420,32 @@ public final class ClaudeBodyTest {
     /** Stage 1357 (live 18:49-18:50 11-09, review 185243-100: "collect salmon x3 -> failed: ... the salmon in sight and the rest have no short way to
      *  them on foot", 82 times in 70 s, his iron helmet held behind it): kit.food priced the fish by the straight line, collect's own walk check said no
      *  way, and the kit offered them again. Three salmon in a shallow pool on a 6-high pillar 11 off, nothing to climb with: the kit's pick is no fish. */
+    private static boolean st1361(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 00:31 11-10 (the_nether, rods 6/7): "get_string: nothing to get string from right now (... none in my chests ...)" with 17 string in his chests at home: the rods' "a bow is what this needs" made the bow the must, but the ledger only reads chests in the dimension he's in
+        if (t[0] == 1) { scenarioReset(c); }
+        if (t[0] == 10) {
+            var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+            c.playerGoal = "beat the ender dragon"; c.commandActive = false;
+            c.getInventory().clearContent();
+            c.getInventory().add(new ItemStack(Items.GOLDEN_BOOTS)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.FLINT_AND_STEEL)); c.getInventory().add(new ItemStack(Items.BLAZE_ROD, 6));
+            btKit(c);
+            BlockPos chest = new BlockPos(-23, 68, -22);
+            com.claudemod.entity.life.ChestLedger.book(c).put(chest, new com.claudemod.entity.life.ChestLedger.Entry("minecraft:overworld", new java.util.HashMap<>(java.util.Map.of(Items.STRING, 17)), level.getGameTime()));
+            com.claudemod.entity.life.FortressFight.noteBowNeeded(c, nl);
+            check(com.claudemod.director.ClaudeLife.bowHard(c, nl), "setup: the bow isn't the must in the Nether after the rods' no-bow failure (run: " + com.claudemod.director.ClaudeLife.dragonPath(c, nl) + ")");
+            c.tasks.clear(); c.skillQueue.clear();
+            String r = "?";
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("getString", ClaudeEntity.class, ServerLevel.class, com.claudemod.entity.life.Skills.Step.class); m.setAccessible(true); r = (String) m.invoke(null, c, nl, new com.claudemod.entity.life.Skills.Step("get_string", "string", 3)); } catch (Exception e) { r = "threw " + e; }
+            var first = c.skillQueue.peekFirst();
+            com.claudemod.entity.life.ChestLedger.book(c).remove(chest); com.claudemod.entity.life.FortressFight.reset(c); c.skillQueue.clear(); c.getInventory().clearContent(); c.playerGoal = null; c.dropCurrent = true;
+            check(first != null && first.skill().equals("enter_portal") && first.target().equals("home"), "in the Nether, the bow the must, 17 string in his chest at home: \"" + r + "\" (queue head " + first + ")");
+            pass(stage, t, "home through his portal for his string: " + r); return true;
+        }
+        return true;
+    }
     private static int st1360 = -1;
     private static boolean st1360(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // the user 11-09: a bow in the Nether kit whenever he can get one (ghasts); live 23:20 11-09 the rods failed "a bow is what this needs" and the planner: "the bow is stuck waiting on string" with 17 string in his chests 360 off
         BlockPos home = h.absolutePos(new BlockPos(8, 2, 8));
-        if (t[0] == 1) { ledReset(c, level); ledFar = home.offset(160, 0, 0); c.planning = false; c.nextPlanTick = c.tickCount + 100000; com.claudemod.director.ClaudeLife.hisPortal.remove(c.getUUID()); st1360 = -1; }
+        if (t[0] == 1) { ledReset(c, level); com.claudemod.entity.life.FortressFight.reset(c); ledFar = home.offset(160, 0, 0); c.planning = false; c.nextPlanTick = c.tickCount + 100000; com.claudemod.director.ClaudeLife.hisPortal.remove(c.getUUID()); st1360 = -1; }
         if (t[0] % 10 == 0) { ledTicket(level, ledFar); ledTicket(level, home); }
         if (t[0] == 5) { flatBox(h); ledPad(level, ledFar); level.setBlock(ledFar, Blocks.CHEST.defaultBlockState(), 3); c.storageChests.add(ledFar); c.myStations.add(ledFar); ledDeposit(c, ledFar, new ItemStack(Items.STRING, 3)); }
         if (t[0] > 5 && st1360 < 0) {

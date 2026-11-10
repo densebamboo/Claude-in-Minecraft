@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1329: return st1329(stage, t, c, h, level, mock);
             case 1328: return st1328(stage, t, c, h, level, mock);
             case 1327: return st1327(stage, t, c, h, level, mock);
             case 1326: return st1326(stage, t, c, h, level, mock);
@@ -17510,6 +17511,41 @@ public final class ClaudeBodyTest {
             check(nx != null, "no pick at all");
             check(!"engage".equals(nx.kind()), "0 meals, 19 HP: the hunt picked the fight (" + nx.why() + ")");
             nsHome(c, h, level); pass(stage, t, "0 meals: " + nx.kind() + " (" + nx.why() + ")");
+        }
+        return true;
+    }
+    /** Stage 1329 (D2D reviews 25/27/44/108, live 02:24-02:31 11-10: under the fortress, "no blaze in view: walking the fortress to its piece at 312, 47, 399" again and again, a nerd-pole into mid-air at the box's middle, blaze_rods failed 3 times, then the plan's explore off east and back; ~15 lines a minute, the spawner never found: the fortress he'd seen was one box, its "piece" the box's middle, with nowhere to stand within 12 of it): an L of fortress deck 12 up, him on the ground under it. He gets up onto its deck within 40 s, no failed step. */
+    private static int s1329T;
+    private static boolean st1329(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12700, 64, 8100);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.FortressFight.reset(c); com.claudemod.entity.life.FortressScout.deckReset(c); s1329T = -1; }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) for (int mx = -16; mx <= 64; mx += 16) for (int mz = -16; mz <= 64; mz += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(mx, 0, mz)), 1, o.offset(mx, 0, mz));
+        if (t[0] == 10) {
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(64))) e.discard();
+            for (int x = -12; x <= 52; x++) for (int z = -12; z <= 52; z++) { nl.setBlock(o.offset(x, -1, z), Blocks.NETHERRACK.defaultBlockState(), 2); for (int y = 0; y <= 20; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = 0; x <= 40; x++) for (int dz = -1; dz <= 1; dz++) nl.setBlock(o.offset(x, 11, dz), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // one arm, along x at z 0
+            for (int z = 0; z <= 40; z++) for (int dx = -1; dx <= 1; dx++) nl.setBlock(o.offset(40 + dx, 11, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // the other, along z at x 40
+            for (int y = 0; y <= 10; y++) for (BlockPos p : new BlockPos[] {o.offset(0, y, 0), o.offset(40, y, 0), o.offset(40, y, 40)}) nl.setBlock(p, Blocks.NETHER_BRICKS.defaultBlockState(), 2); // its pillars
+            nsKit(c); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.setHealth(20f); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(nl, o.getX() + 22.5, o.getY(), o.getZ() + 18.5, -135f, -30f); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 20) for (float yaw = -180; yaw < 180; yaw += 45) { c.setYRot(yaw); c.setYHeadRot(yaw); c.setXRot(-35f); com.claudemod.entity.life.FarSight.scan(c, nl, true); } // (a look all round, up at it)
+        if (t[0] == 30) {
+            boolean seen = false; for (var s : com.claudemod.entity.life.Perception.sightings(c)) if (s.dim() == nl.dimension() && s.id().contains("fortress")) seen = true;
+            check(seen, "setup: the deck 12 up not seen as a fortress");
+            c.lastSkillLine = ""; c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("blaze_rods", "blaze_rod", 7, "near_you")); s1329T = t[0];
+        }
+        if (s1329T > 0 && t[0] > s1329T) { c.nextPlanTick = c.tickCount + 20 * 600;
+            boolean on = com.claudemod.entity.life.FortressScout.onFortress(c) && c.getY() >= o.getY() + 11.5;
+            boolean failed = c.lastSkillLine != null && c.lastSkillLine.contains("blaze_rods") && c.lastSkillLine.contains("failed");
+            if (on || failed || t[0] - s1329T >= 20 * 40) {
+                String at = c.blockPosition().toShortString(), line = c.lastSkillLine;
+                c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+                for (int x = -12; x <= 52; x++) for (int z = -12; z <= 52; z++) for (int y = -1; y <= 20; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(on, "under an L of fortress deck 12 up: not on it after " + (t[0] - s1329T) / 20 + " s, at " + at + " (" + line + ")");
+                nsHome(c, h, level); pass(stage, t, "onto the deck in " + (t[0] - s1329T) / 20 + " s at " + at);
+            }
         }
         return true;
     }

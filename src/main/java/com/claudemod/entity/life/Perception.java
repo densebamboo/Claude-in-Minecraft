@@ -503,7 +503,7 @@ public final class Perception {
             minX = maxX = at.getX(); minY = maxY = at.getY(); minZ = maxZ = at.getZ(); add(at, tick);
         }
         void add(BlockPos p, int now) {
-            if (cells.size() < 512) cells.add(p.immutable());
+            if (cells.size() < 4096) cells.add(p.immutable()); // (a fortress is thousands of bricks: its first 512 seen were all the search had to go on)
             minX = Math.min(minX, p.getX()); minY = Math.min(minY, p.getY()); minZ = Math.min(minZ, p.getZ()); maxX = Math.max(maxX, p.getX()); maxY = Math.max(maxY, p.getY()); maxZ = Math.max(maxZ, p.getZ());
             tick = Math.max(tick, now);
         }

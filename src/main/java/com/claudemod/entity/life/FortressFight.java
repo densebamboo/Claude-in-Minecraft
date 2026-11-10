@@ -488,7 +488,16 @@ public final class FortressFight {
             for (var s : Perception.sightings(g)) { if (s.dim() != level.dimension() || !s.id().contains("fortress")) continue; BlockPos c = s.box().getCenter(), dk = deckCell(level, c);
                 if (c.distSqr(g.blockPosition()) <= 10 * 10 || dk != null && dk.distSqr(g.blockPosition()) <= 6 * 6) g.attempts.fail(Attempts.Kind.WALK, c, g.tickCount); }
             if (com.claudemod.director.Structures.testPiece != null && com.claudemod.director.Structures.testPiece.distSqr(g.blockPosition()) <= 10 * 10) g.attempts.fail(Attempts.Kind.WALK, com.claudemod.director.Structures.testPiece, g.tickCount);
+            // onto its deck first: the nearest brick of it he has seen with room to stand on, on deck he hasn't walked; from there the deck walk (deckStep) follows its bridges and corridors out (D2D 25/27/44/108, live 02:24-02:31 11-10: the box's middle, 312,47,399, was mid-air with nothing to stand on within 12; he pillared at it, wrote it off, failed, and the plan's explore took him off east and back, the spawner never found; stage 1329)
+            BlockPos onto = null; double od = Double.MAX_VALUE; java.util.Set<Long> walkedDeck = FortressScout.deckSeen(g);
             for (var s : Perception.sightings(g)) {
+                if (s.dim() != level.dimension() || !s.id().contains("fortress")) continue;
+                for (BlockPos c : s.cells()) { BlockPos f = c.above();
+                    if (!level.isLoaded(c) || !level.getBlockState(c).is(net.minecraft.world.level.block.Blocks.NETHER_BRICKS) || walkedDeck.contains(FortressScout.deckKey(f)) || !FortressScout.stand(level, f) || g.attempts.within(Attempts.Kind.WALK, f, g.tickCount, 20 * 300)) continue;
+                    double d = f.distSqr(g.blockPosition()); if (d < od) { od = d; onto = f.immutable(); } }
+            }
+            if (onto != null) { best = onto; bd = od; }
+            else for (var s : Perception.sightings(g)) { // (none of its deck seen to stand on: its box's middle, as before)
                 if (s.dim() != level.dimension() || !s.id().contains("fortress")) continue;
                 BlockPos c = s.box().getCenter(); if (g.attempts.within(Attempts.Kind.WALK, c, g.tickCount, 20 * 300)) continue;
                 double d = c.distSqr(g.blockPosition()); if (d < bd && d > 6 * 6) { bd = d; best = c.immutable(); }
@@ -505,7 +514,7 @@ public final class FortressFight {
             { String k = "blazePiece:" + best.asLong(); int n = g.attempts.counters.getOrDefault(k, 0) + 1; g.attempts.counters.put(k, n); // (a piece he never gets to: written off after its 4th pick, said)
               if (n >= 4) { g.attempts.fail(Attempts.Kind.WALK, best, g.tickCount); g.attempts.counters.remove(k); ClaudeMod.LOGGER.info("[Claude fight] the fortress piece at {}: picked {} times, never got to: written off for now (FortressFight.blazeRods)", best.toShortString(), n); } }
             run[3]++;
-            BlockPos deck = deckCell(level, best); // (onto its deck, the bricks he can stand on: the box's middle is in its wall or under it, and the route there went by the lava sea)
+            BlockPos deck = best.equals(onto) ? onto : deckCell(level, best); // (onto its deck, the bricks he can stand on: the box's middle is in its wall or under it, and the route there went by the lava sea)
             g.tasks.add(new Task.GoTo(deck != null ? deck : best, deck != null ? 1.5 : 3));
             g.skillQueue.addFirst(again);
             ClaudeMod.LOGGER.info("[Claude fight] no blaze in view: walking the fortress to its piece at {} to look (FortressFight.blazeRods)", best.toShortString());

@@ -44,19 +44,23 @@ public final class Highway {
     static int clear(BridgeBlueprint.Row r) { return r.stair() ? Math.max(3, stairH) : 3; }
     private static double w(String n, double d) { return Weights.w(n, d); }
 
-    static final class State { BridgeBlueprint plan; int portalId = -1; BlockPos dest; boolean said; int built = -1, rows = -1; int[] stairs; } // stairs: {leg, row, steps} of the plan underway, pinned (BridgeBlueprint.plan)
+    static final class State { BridgeBlueprint plan; int portalId = -1; BlockPos dest; boolean said; int built = -1, rows = -1, laidTo = -1; int[] stairs; } // laidTo: the furthest row he has seen laid; a row out in unloaded ground at or before it is his own work, laid (a player remembers how far his road goes) // stairs: {leg, row, steps} of the plan underway, pinned (BridgeBlueprint.plan)
     private static Map<UUID, State> states; // (static: fields added live start null)
     static State state(ClaudeEntity g) { if (states == null) states = new HashMap<>(); return states.computeIfAbsent(g.getUUID(), k -> new State()); }
     public static void reset(ClaudeEntity g) { if (states != null) states.remove(g.getUUID()); }
     /** The highway underway (portal, destination, rows laid), saved with his portal map: a restart lost it and he walked for the fortress with its deepslate as loose bridge blocks (D2D live 14:19, the user: "bug. he should be building the highway"; stage 913). */
-    public static net.minecraft.nbt.CompoundTag save(ClaudeEntity g) { State s = state(g); if (s.dest == null || s.portalId < 0) return null; var t = new net.minecraft.nbt.CompoundTag(); t.putInt("portal", s.portalId); t.putLong("dest", s.dest.asLong()); t.putInt("built", s.built); t.putInt("rows", s.rows); if (s.stairs != null) t.putIntArray("stairs", s.stairs); return t; }
-    public static void load(ClaudeEntity g, net.minecraft.nbt.CompoundTag t) { State s = state(g); s.plan = null; s.portalId = t.getInt("portal"); s.dest = BlockPos.of(t.getLong("dest")); s.built = t.getInt("built"); s.rows = t.getInt("rows"); s.stairs = t.contains("stairs") ? t.getIntArray("stairs") : null; ClaudeMod.LOGGER.info("[Claude highway] underway from his saved state: portal #{} to {}, {} of {} rows (Highway.load)", s.portalId, s.dest.toShortString(), s.built, s.rows); }
+    public static net.minecraft.nbt.CompoundTag save(ClaudeEntity g) { State s = state(g); if (s.dest == null || s.portalId < 0) return null; var t = new net.minecraft.nbt.CompoundTag(); t.putInt("portal", s.portalId); t.putLong("dest", s.dest.asLong()); t.putInt("built", s.built); t.putInt("rows", s.rows); t.putInt("laidTo", s.laidTo); if (s.stairs != null) t.putIntArray("stairs", s.stairs); return t; }
+    public static void load(ClaudeEntity g, net.minecraft.nbt.CompoundTag t) { State s = state(g); s.plan = null; s.portalId = t.getInt("portal"); s.dest = BlockPos.of(t.getLong("dest")); s.built = t.getInt("built"); s.rows = t.getInt("rows"); s.laidTo = t.contains("laidTo") ? t.getInt("laidTo") : s.built - 1; /* (a save from before laidTo: built rows laid reach at least row built-1) */ s.stairs = t.contains("stairs") ? t.getIntArray("stairs") : null; ClaudeMod.LOGGER.info("[Claude highway] underway from his saved state: portal #{} to {}, {} of {} rows (Highway.load)", s.portalId, s.dest.toShortString(), s.built, s.rows); }
     /** A highway of his is underway (its block is his building stock, never junk). */
     public static boolean underway(ClaudeEntity g) { State s = state(g); return s.dest != null && s.portalId >= 0; }
     /** For his planner: the highway he's building and that build_highway resumes it. */
     public static String describe(ClaudeEntity g) { State s = state(g); if (s.dest == null || s.portalId < 0) return "";
         return "\nHIGHWAY UNDERWAY (yours, in the Nether): from portal #" + s.portalId + " to " + s.dest.getX() + " " + s.dest.getY() + " " + s.dest.getZ() + (s.built >= 0 && s.rows > 0 ? ", " + s.built + " of " + s.rows + " rows laid" : "") + "; build_highway (no target) resumes it, and it is your way there: build it on rather than walking or bridging to that spot; it packs its own cobbled deepslate from your chests (no take_from_chest of your own for it).\n"; }
     public static BridgeBlueprint plan(ClaudeEntity g) { return state(g).plan; }
+    public static void planForTest(ClaudeEntity g, BridgeBlueprint b) { state(g).plan = b; }
+    /** The state whose plan this is (one Claude per server: the map holds one). */
+    static State owner(BridgeBlueprint b) { if (states != null && b != null) for (State s : states.values()) if (s.plan == b) return s; return null; }
+    static int laidTo(BridgeBlueprint b) { State o = owner(b); return o == null ? -1 : o.laidTo; }
 
     /** Where it goes: "x y z" in the words, else "fortress" (the one he scouted, on his atlas). */
     public static BlockPos destination(ClaudeEntity g, ServerLevel level, String words) {
@@ -89,7 +93,7 @@ public final class Highway {
         int next = next(level, b); boolean apron = false;
         if (next == 0 && b.rows.size() > 1 && standable(level, b.rows.get(0), lo, hi)) { // the apron, the row in front of the portal: he steps out onto it (no reach through a portal, vanilla) and swaps it last, from row 2
             int n1 = nextFrom(level, b, 1); if (n1 < b.rows.size()) next = n1; else apron = true; }
-        { int front = next; while (front < b.rows.size() && level.hasChunkAt(b.rows.get(front).centre()) && floorDone(level, b.rows.get(front), lo, hi)) front++; // frontier first: a row behind it short only of a rail waits for the way home (D2D 12:34 11-07: at the end by 223,33,402, then ~250 back for "rails on row 359 ... > 3 s for the rail", the walk not in the price)
+        { int front = next; while (front < b.rows.size() && (level.hasChunkAt(b.rows.get(front).centre()) ? floorDone(level, b.rows.get(front), lo, hi) : front <= laidTo(b))) front++; // frontier first: a row behind it short only of a rail waits for the way home (D2D 12:34 11-07: at the end by 223,33,402, then ~250 back for "rails on row 359 ... > 3 s for the rail", the walk not in the price)
           if (front > next && front < b.rows.size() && front - next > w("highway.rail_behind_rows", 8) && g.blockPosition().distSqr(b.rows.get(next).centre()) > 16 * 16) { ClaudeMod.LOGGER.info("[Claude highway] rails from row {} wait for the way home: the frontier is row {} ({} rows on), he is {} off the rail row (Highway.skill)", next + 1, front + 1, front - next, (int) Math.sqrt(g.blockPosition().distSqr(b.rows.get(next).centre()))); next = front; } }
         record(g, b, next);
         state(g).built = b.rows.size() - rowsLeft(level, b, 0); // (the rows laid, not the first gap: "31 of 710 rows laid" with the road laid past 529 told the planner it was stuck at the start, and sized the chest fetch from there; D2D 11-09, stage 1194)
@@ -170,7 +174,8 @@ public final class Highway {
         int width = (int) Math.max(1, w("highway.first_width", 2));
         var b = BridgeBlueprint.plan(level, portal.at, axis, dest, width, false, portal.id == s.portalId && s.dest != null && Math.abs(s.dest.getX() - dest.getX()) + Math.abs(s.dest.getZ() - dest.getZ()) <= 2 ? s.stairs : null);
         if (b == null) return "failed: " + dest.toShortString() + " is straight off the side of portal #" + portal.id + ": no leg out of its face";
-        s.plan = b; s.portalId = portal.id; s.dest = dest.immutable(); s.stairs = new int[] {b.stairLeg, b.stairFrom, stepsOf(b)};
+        boolean same = portal.id == s.portalId && s.dest != null && Math.abs(s.dest.getX() - dest.getX()) + Math.abs(s.dest.getZ() - dest.getZ()) <= 2;
+        s.plan = b; s.portalId = portal.id; s.dest = dest.immutable(); s.stairs = new int[] {b.stairLeg, b.stairFrom, stepsOf(b)}; if (!same) s.laidTo = -1; // (another highway: nothing of it laid yet; the same one planned again keeps how far it goes)
         ClaudeMod.LOGGER.info("[Claude highway] planned from portal #{}: {} (Highway.makePlan)", portal.id, b);
         return null;
     }
@@ -203,7 +208,8 @@ public final class Highway {
         // (rows go down in order: an unloaded row with a laid row past it is laid. Read as unfinished, at row 387 the unloaded row 14 sent him 370 back and there the unloaded far rows sent him out again, every minute, live 18:18-18:35 11-06, stage 872)
         int lastLaid = lastLaid(level, b, from);
         int n = from; for (; n < b.rows.size(); n++) if (open(level, b, n, lastLaid)) break; return n; }
-    static int lastLaid(ServerLevel level, BridgeBlueprint b, int from) { for (int i = b.rows.size() - 1; i >= from; i--) { var r = b.rows.get(i); if (level.hasChunkAt(r.centre()) && done(level, r, b.lo(), b.hi())) return i; } return -1; }
+    static int lastLaid(ServerLevel level, BridgeBlueprint b, int from) { int seen = -1; for (int i = b.rows.size() - 1; i >= from; i--) { var r = b.rows.get(i); if (level.hasChunkAt(r.centre()) && done(level, r, b.lo(), b.hi())) { seen = i; break; } }
+        State o = owner(b); if (o == null) return seen; if (seen > o.laidTo) o.laidTo = seen; return o.laidTo >= from ? Math.max(seen, o.laidTo) : seen; } // (and the rows he laid that are out in unloaded ground now: live 17:14 11-09 back at his portal with 698 of 710 laid, the loaded rows ended at 415 and he went home to mine 383 deepslate for a road already built; stage 1356)
     /** Row i still to lay: not done where it's loaded; unloaded, only past the last laid row. */
     static boolean open(ServerLevel level, BridgeBlueprint b, int i, int lastLaid) { var r = b.rows.get(i); return level.hasChunkAt(r.centre()) ? !done(level, r, b.lo(), b.hi()) : i > lastLaid; }
     /** The rows still to lay from {@code from}: the gaps behind the frontier and the rows past it, not every row past the first gap (live 00:30 11-09: a gap at row 31, the road laid past 529, "680 rows left", a 576-block trip; stage 1194). */

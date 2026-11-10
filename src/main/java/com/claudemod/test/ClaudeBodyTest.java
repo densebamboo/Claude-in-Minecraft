@@ -10558,6 +10558,7 @@ public final class ClaudeBodyTest {
             case 1353: return st1353(stage, t, c, h, level, mock);
             case 1354: return st1354(stage, t, c, h, level, mock);
             case 1355: return st1355(stage, t, c, h, level, mock);
+            case 1356: return st1356(stage, t, c, h, level, mock);
             case 1301: return st1301(stage, t, c, h, level, mock);
             case 1302: return st1302(stage, t, c, h, level, mock);
             case 1303: return st1303(stage, t, c, h, level, mock);
@@ -26539,6 +26540,33 @@ public final class ClaudeBodyTest {
             h.setBlock(new BlockPos(6, 4, 12), Blocks.DEEPSLATE); c.blueprint = null;
             check(!cut, "his route past his wall digs his own water plug at (6,3,12): " + (plan == null ? "-" : plan.acts()));
             pass(stage, t, "his water plug kept: the route " + (plan == null ? "found no way" : "goes " + plan.acts().size() + " acts round it"));
+        }
+        return true;
+    }
+    /** Stage 1356 (live 17:14 11-09, back at his portal: his save said 698 of 710 rows laid, the rows he could see ended at 415, and "out of cobbled
+     *  deepslate for the highway (row 415 of 710 next): strip mine it for 383". The user: "the highway is done, it just needs the rails"). Rows 0-5 laid
+     *  near him, rows 6-11 out in unloaded ground; his saved state (the live format: built only) says 11 laid: the next row is 11, not 6. A loaded gap
+     *  still reads off the world. */
+    private static boolean st1356(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 10) {
+            com.claudemod.entity.life.Highway.reset(c);
+            BlockPos o = h.absolutePos(new BlockPos(2, 4, 2));
+            var b = com.claudemod.entity.life.BridgeBlueprint.plan(level, o, net.minecraft.core.Direction.Axis.Z, new BlockPos(o.getX(), o.getY(), o.getZ() + 15), 2, false);
+            check(b != null && b.rows.size() >= 12, "1356: no plan of 12+ rows (" + (b == null ? "null" : b.rows.size()) + ")");
+            int n = b.rows.size();
+            for (int i = 6; i < n; i++) { var r = b.rows.get(i); b.rows.set(i, new com.claudemod.entity.life.BridgeBlueprint.Row(r.centre().offset(4000 + 16 * i, 0, 4000), r.dir(), r.leg(), r.k(), r.stair(), r.tunnel())); }
+            check(!level.hasChunkAt(b.rows.get(6).centre()), "1356: the far rows' chunks are loaded");
+            var right = b.rows.get(0).dir().getClockWise();
+            for (int i = 0; i < 6; i++) { var r = b.rows.get(i); for (int ofs = b.lo(); ofs <= b.hi(); ofs++) { BlockPos f = r.centre().relative(right, ofs); level.setBlock(f, Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); for (int y = 1; y <= 3; y++) level.setBlock(f.above(y), Blocks.AIR.defaultBlockState(), 2); } }
+            var tag = new net.minecraft.nbt.CompoundTag(); tag.putInt("portal", 3); tag.putLong("dest", b.rows.get(n - 1).centre().asLong()); tag.putInt("built", n - 1); tag.putInt("rows", n);
+            com.claudemod.entity.life.Highway.load(c, tag); com.claudemod.entity.life.Highway.planForTest(c, b);
+            int next = com.claudemod.entity.life.Highway.next(level, b);
+            var r2 = b.rows.get(2); for (int ofs = b.lo(); ofs <= b.hi(); ofs++) level.setBlock(r2.centre().relative(right, ofs), Blocks.AIR.defaultBlockState(), 2);
+            int gap = com.claudemod.entity.life.Highway.next(level, b);
+            com.claudemod.entity.life.Highway.reset(c);
+            check(next == n - 1, "his save says " + (n - 1) + " of " + n + " rows laid, the far ones out in unloaded ground: next row " + next + ", not " + (n - 1) + " (he goes home for blocks to build a road he built)");
+            check(gap == 2, "a gap he can see at row 2 still reads off the world: got " + gap);
+            pass(stage, t, "the rows he laid out of sight count as laid (next " + next + " of " + n + "), a gap in sight is still a gap (" + gap + ")");
         }
         return true;
     }

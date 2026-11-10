@@ -10547,6 +10547,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1323: return st1323(stage, t, c, h, level, mock);
+            case 1322: return st1322(stage, t, c, h, level, mock);
             case 1321: return st1321(stage, t, c, h, level, mock);
             case 1320: return st1320(stage, t, c, h, level, mock);
             case 1319: return st1319(stage, t, c, h, level, mock);
@@ -17307,6 +17309,56 @@ public final class ClaudeBodyTest {
                 check(ate, "health 10, food 17, salmon on him, the walk to cover going nowhere: no meal in 10 s (" + c.lastSkillLine + ")");
                 nsHome(c, h, level); pass(stage, t, "ate where he stood " + (t[0] - 36) + " ticks in, " + c.lastSkillLine);
             }
+        }
+        return true;
+    }
+    /** Stage 1322 (D2D 189/207, live 21:39-21:47 11-09 at the fortress, 12 soul sand and 12 magma on him, netherrack all round: "no cover ... no blocks to build with", then "[Claude bore] no block on him to floor 286, 60, 477 with, and none mined from where he stands: the bore ends"): soul sand and magma on him, nothing else to build with, a 3-wide gap: the bore floors it with the soul sand and crosses; the cover counts them too. */
+    private static int st1322Start;
+    private static boolean st1322(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13600, 80, 7600), goal = o.offset(14, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1322Start = -1; }
+        if (t[0] > 4 && t[0] % 10 == 0) for (int cx = -1; cx <= 2; cx++) { BlockPos q = o.offset(cx * 16, 0, 0); nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(q), 2, q); }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(50))) e.discard();
+        if (t[0] == 10) { // a hall: his ledge (x <= 0), a gap 3 wide (x 1..3) down 9, ground again from x 4
+            for (int x = -4; x <= 20; x++) for (int z = -4; z <= 4; z++) for (int y = -10; y <= 5; y++) { boolean shell = y == -10 || y == 5 || Math.abs(z) == 4 || x == -4 || x == 20;
+                boolean solid = shell || (x <= 0 || x >= 4) && y <= -1; nl.setBlock(o.offset(x, y, z), solid ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = -3; x <= 0; x++) for (int z = -3; z <= 3; z++) for (int y = 0; y <= 4; y++) if (Math.abs(z) >= 2) nl.setBlock(o.offset(x, y, z), Blocks.NETHERRACK.defaultBlockState(), 2); // rock beside him on his ledge
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.SOUL_SAND, 12)); c.getInventory().add(new ItemStack(Items.MAGMA_BLOCK, 12)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null; c.pillarBlocks.clear();
+        }
+        if (t[0] == 30) { check(com.claudemod.entity.life.FortressFight.wallItem(c) != null, "12 soul sand and 12 magma on him: no cover block counted"); com.claudemod.entity.life.Perception.reset(c); c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Bore(goal, goal.getY())); st1322Start = t[0]; }
+        if (st1322Start > 0) {
+            check(c.isAlive(), "dead on a bore over a gap");
+            if (c.getX() >= o.getX() + 6) { int at = t[0] - st1322Start; for (int x = -4; x <= 20; x++) for (int z = -4; z <= 4; z++) for (int y = -10; y <= 5; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); nsHome(c, h, level); pass(stage, t, "over the 3-wide gap in " + at / 20.0 + " s"); }
+            else check(t[0] - st1322Start < 20 * 40 && (c.currentTask != null || !c.tasks.isEmpty() || t[0] - st1322Start < 40), "12 soul sand on him: the bore over a 3-wide gap ended at " + c.blockPosition().subtract(o).toShortString() + " (" + c.lastSkillLine + ")");
+        }
+        return true;
+    }
+    /** Stage 1323 (D2D 189/207, live 21:39-21:47 11-09 at the fortress, 12 soul sand and 12 magma on him, netherrack all round: "no cover ... no blocks to build with", then "[Claude bore] no block on him to floor 286, 60, 477 with, and none mined from where he stands: the bore ends"): no blocks at all, netherrack beside him on his ledge, his ledge one block thick over a drop, a 3-wide gap: he mines a few and the bore floors the gap and crosses. */
+    private static int st1323Start;
+    private static boolean st1323(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13800, 80, 7600), goal = o.offset(14, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1323Start = -1; }
+        if (t[0] > 4 && t[0] % 10 == 0) for (int cx = -1; cx <= 2; cx++) { BlockPos q = o.offset(cx * 16, 0, 0); nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(q), 2, q); }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(50))) e.discard();
+        if (t[0] == 10) { // a hall: his ledge (x <= 0), a gap 3 wide (x 1..3) down 9, ground again from x 4
+            for (int x = -4; x <= 20; x++) for (int z = -4; z <= 4; z++) for (int y = -10; y <= 5; y++) { boolean shell = y == -10 || y == 5 || Math.abs(z) == 4 || x == -4 || x == 20;
+                boolean solid = shell || x <= 0 && y == -1 || x >= 4 && y <= -1; nl.setBlock(o.offset(x, y, z), solid ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = -3; x <= 0; x++) for (int z = -3; z <= 3; z++) for (int y = 0; y <= 4; y++) if (Math.abs(z) >= 2) nl.setBlock(o.offset(x, y, z), Blocks.NETHERRACK.defaultBlockState(), 2); // rock beside him on his ledge
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE));  c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null; c.pillarBlocks.clear();
+        }
+        if (t[0] == 30) {  com.claudemod.entity.life.Perception.reset(c); c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Bore(goal, goal.getY())); st1323Start = t[0]; }
+        if (st1323Start > 0) {
+            check(c.isAlive(), "dead on a bore over a gap");
+            if (c.getX() >= o.getX() + 6) { int at = t[0] - st1323Start; for (int x = -4; x <= 20; x++) for (int z = -4; z <= 4; z++) for (int y = -10; y <= 5; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); nsHome(c, h, level); pass(stage, t, "over the 3-wide gap in " + at / 20.0 + " s"); }
+            else check(t[0] - st1323Start < 20 * 40 && (c.currentTask != null || !c.tasks.isEmpty() || t[0] - st1323Start < 40), "no blocks, rock beside him: the bore over a 3-wide gap ended at " + c.blockPosition().subtract(o).toShortString() + " (" + c.lastSkillLine + ")");
         }
         return true;
     }

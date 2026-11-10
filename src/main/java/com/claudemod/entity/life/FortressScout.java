@@ -474,7 +474,7 @@ public final class FortressScout {
     }
     /** Nether travel by bore: a pickaxe and 16+ blocks to floor with. */
     /** What a bore floors and plugs with (doBore's fill, first on him wins): the one list bores() and Decide.walkRefused count (audit 9: they counted 4 of these 7, "0 blocks to floor with" on dirt and stone). */
-    public static final net.minecraft.world.item.Item[] BORE_FILL = {net.minecraft.world.item.Items.NETHERRACK, net.minecraft.world.item.Items.COBBLESTONE, net.minecraft.world.item.Items.COBBLED_DEEPSLATE, net.minecraft.world.item.Items.BLACKSTONE, net.minecraft.world.item.Items.BASALT, net.minecraft.world.item.Items.DIRT, net.minecraft.world.item.Items.STONE};
+    public static final net.minecraft.world.item.Item[] BORE_FILL = {net.minecraft.world.item.Items.NETHERRACK, net.minecraft.world.item.Items.COBBLESTONE, net.minecraft.world.item.Items.COBBLED_DEEPSLATE, net.minecraft.world.item.Items.BLACKSTONE, net.minecraft.world.item.Items.BASALT, net.minecraft.world.item.Items.DIRT, net.minecraft.world.item.Items.STONE, net.minecraft.world.item.Items.SOUL_SOIL, net.minecraft.world.item.Items.SOUL_SAND}; // (soul sand last: a floor that slows him, still a floor; never magma, it burns underfoot; D2D 207, stage 1322)
     public static int boreBlocks(ClaudeEntity g) { int n = 0; for (var it : BORE_FILL) n += g.inventory.count(x -> x.is(it)); return n; }
     public static boolean bores(ClaudeEntity g, ServerLevel level) {
         return level.dimension() == net.minecraft.world.level.Level.NETHER && g.inventory.count(x -> x.getItem() instanceof net.minecraft.world.item.PickaxeItem) > 0

@@ -3387,6 +3387,7 @@ public class WorkGoal extends Goal {
         BlockPos fl = f.below(); var fls = level.getBlockState(fl);
         boolean overLava = level.getFluidState(fl).is(net.minecraft.tags.FluidTags.LAVA) || level.getFluidState(fl.below()).is(net.minecraft.tags.FluidTags.LAVA); // (his own floor over it still counts: its rails and wall come after it; stage 820 got none)
         if (todo.isEmpty() && (!fls.isFaceSturdy(level, fl, Direction.UP) || fls.is(net.minecraft.world.level.block.Blocks.MAGMA_BLOCK))) {
+            if (fill == null && boreStock(t, 8, "no block on him to floor " + fl.toShortString() + " with: a few dug from the rock beside him first")) return true; // (netherrack is a tenth of a second with his pick: a player mines some, never ends the way; live 21:47 11-09, D2D 207, on a floor one block thick; stage 1323)
             if (fill == null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude bore] no block on him to floor {} with, and none mined from where he stands: the bore ends at {} (WorkGoal.doBore)", fl.toShortString(), me.toShortString()); boreRun = null; return true; }
             if (fls.is(net.minecraft.world.level.block.Blocks.MAGMA_BLOCK)) todo.add(new Task.Break(fl));
             todo.add(new Task.Place(fl, fill));

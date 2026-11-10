@@ -170,7 +170,7 @@ public final class FortressFight {
     /** What he walls with in the Nether, as WorkGoal.scaffoldBlock picks it there: cobblestone or deepslate first (ghast-proof), else netherrack or dirt. */
     public static net.minecraft.world.item.Item wallItem(ClaudeEntity g) {
         var s = FortressScout.ghastProof(g); if (!s.isEmpty()) return s.getItem();
-        for (var it : new net.minecraft.world.item.Item[] {Items.NETHERRACK, Items.DIRT}) if (g.inventory.count(x -> x.is(it)) > 0) return it;
+        for (var it : new net.minecraft.world.item.Item[] {Items.NETHERRACK, Items.DIRT, Items.SOUL_SOIL, Items.SOUL_SAND, Items.MAGMA_BLOCK}) if (g.inventory.count(x -> x.is(it)) > 0) return it; // (soul sand, soul soil, magma: a wall he stands behind, never on; live 21:39 11-09 'no blocks to build with' with 12 of each on him, D2D 189; stage 1322)
         return null;
     }
     /** The cells along the line from a to b, in order (eighth-block steps). */

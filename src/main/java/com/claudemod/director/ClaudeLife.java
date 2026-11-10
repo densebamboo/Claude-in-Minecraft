@@ -9637,6 +9637,14 @@ public final class ClaudeLife {
         if (g.commandActive || !starving && (meals >= com.claudemod.entity.life.Weights.w("trip.food_back_meals", 6) || g.lastStep == null)) return;
         if (g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee || g.currentTask instanceof Task.Eat || g.currentTask instanceof Task.FurnaceTake || g.tickCount - foodTripTick(g) < 20 * 300) return;
         for (Skills.Step s0 : g.skillQueue) { Item f0 = item(s0.target()); if (f0 != null && f0.components().has(net.minecraft.core.component.DataComponents.FOOD)) return; } // the food's on its way already
+        { Item raw = null; int rawN = 0; // raw meat, a furnace and fuel on him: he cooks it here like a player, no walk home (live 20:19 11-09: home with 7 raw porkchop, 2 furnaces and 46 logs on him, review 189; stage 1358)
+          for (Item[] rc : Kit.RAW_COOKED) { int c0 = g.inventory.count(t -> t.is(rc[0])); if (c0 > rawN) { rawN = c0; raw = rc[1]; } }
+          boolean fuel = !g.inventory.find(t -> (t.is(Items.COAL) || t.is(Items.CHARCOAL) || t.is(ItemTags.LOGS) || t.is(ItemTags.PLANKS) || t.is(Items.STICK)) && !t.is(ItemTags.NON_FLAMMABLE_WOOD)).isEmpty();
+          if (level.dimension() == net.minecraft.world.level.Level.NETHER && raw != null && fuel && (g.inventory.count(t -> t.is(Items.FURNACE)) > 0 || reachableFurnace(g, level, g.blockPosition(), 16) != null)) {
+            noteFoodTrip(g); g.skillQueue.addFirst(new Skills.Step("smelt", Crafting.name(raw), rawN));
+            ClaudeMod.LOGGER.info("[Claude life] {} meal(s) left in {} (food {}): {} raw for {} on him with a furnace and fuel: cooking it here, not a trip home (ClaudeLife.netherFood)", meals, level.dimension().location().getPath(), g.getFoodData().getFoodLevel(), rawN, Crafting.name(raw));
+            return;
+          } }
         if (level.dimension() == net.minecraft.world.level.Level.NETHER && com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.hoglin.Hoglin.class, g.getBoundingBox().inflate(24), h0 -> h0.isAlive()).isEmpty()) { // back up for food means home (the user's trip rule): through his portal along the way he knows, the kit packed there; never a hunt off into unknown Nether (live 10:49 11-07: 3 meals, a 255-block crimson forest trip off his highway, shot dead on his own bridge over lava at 11:21, stage 1051)
             noteFoodTrip(g); Skills.Step job = g.lastStep; int n = g.tasks.size(); clearTasks(g); g.dropCurrent = true;
             if (job != null && !job.skill().equals("obtain") && !job.skill().equals("enter_portal") && g.skillQueue.stream().noneMatch(s0 -> s0.skill().equals(job.skill()) && s0.target().equals(job.target()))) g.skillQueue.addFirst(job);

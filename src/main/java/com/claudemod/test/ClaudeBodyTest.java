@@ -10567,6 +10567,7 @@ public final class ClaudeBodyTest {
             case 1354: return st1354(stage, t, c, h, level, mock);
             case 1355: return st1355(stage, t, c, h, level, mock);
             case 1357: return st1357(stage, t, c, h, level, mock);
+            case 1358: return st1358(stage, t, c, h, level, mock);
             case 1356: return st1356(stage, t, c, h, level, mock);
             case 1301: return st1301(stage, t, c, h, level, mock);
             case 1302: return st1302(stage, t, c, h, level, mock);
@@ -26825,6 +26826,22 @@ public final class ClaudeBodyTest {
     /** Stage 1357 (live 18:49-18:50 11-09, review 185243-100: "collect salmon x3 -> failed: ... the salmon in sight and the rest have no short way to
      *  them on foot", 82 times in 70 s, his iron helmet held behind it): kit.food priced the fish by the straight line, collect's own walk check said no
      *  way, and the kit offered them again. Three salmon in a shallow pool on a 6-high pillar 11 off, nothing to climb with: the kit's pick is no fish. */
+    private static boolean st1358(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 20:19:21 11-09 (the_nether): "0 meal(s) left ... home through his portal for food" with 7 raw porkchop, 2 furnaces and 46 logs on him (review 189)
+        if (t[0] == 1) { scenarioReset(c); }
+        if (t[0] == 10) {
+            var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.PORKCHOP, 7)); c.getInventory().add(new ItemStack(Items.FURNACE, 2)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 46));
+            c.getFoodData().setFoodLevel(20); c.setHealth(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.commandActive = false; c.lastStep = new com.claudemod.entity.life.Skills.Step("obtain", "blaze_rod", 7);
+            com.claudemod.director.ClaudeLife.netherFoodTest(c, nl);
+            var q = new java.util.ArrayList<>(c.skillQueue);
+            c.skillQueue.clear(); c.lastStep = null; c.getInventory().clearContent(); c.dropCurrent = true;
+            check(q.stream().noneMatch(s0 -> s0.skill().equals("enter_portal")), "7 raw porkchop, 2 furnaces and 46 logs on him: sent home through his portal for food (queue " + q + ")");
+            check(q.stream().anyMatch(s0 -> s0.skill().equals("smelt") && s0.target().equals("cooked_porkchop")), "raw porkchop and a furnace on him: no smelt of it queued (queue " + q + ")");
+            pass(stage, t, "cooks his raw porkchop here: no trip home"); return true;
+        }
+        return true;
+    }
     private static boolean st1357(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var f : st1357F) f.discard(); st1357F.clear(); level.setDayTime(6000); flatBox(h); }
         if (t[0] == 10) {

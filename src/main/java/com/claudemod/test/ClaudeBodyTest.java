@@ -10879,6 +10879,7 @@ public final class ClaudeBodyTest {
             case 1272: return st1272(stage, t, c, h, level, mock);
             case 1273: return st1273(stage, t, c, h, level, mock);
             case 1274: return st1274(stage, t, c, h, level, mock);
+            case 1275: return st1275(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -23222,6 +23223,37 @@ public final class ClaudeBodyTest {
             check(kept, "his wall torch broken for the view of the ore a cell past it, " + (t[0] - 12) + " ticks in, he at " + at);
             if (mined) pass(stage, t, "the ore past his torch mined in " + (t[0] - 12) + " ticks, the torch kept");
             else check(!late, "the ore not mined in 6 s: at " + at);
+        }
+        return true;
+    }
+    /** Stage 1275 (D2D conflicts 56/57, live 13:18-13:30 11-09 at -9,64,58: 13 logs short for the trip; the trees by his mine 63-83 off had a walk of ~97 blocks (9 of them swimming), turned down as "no short way on foot" by the 1.6x-the-line cutoff; so he scouted the same 45-block leg south 5 times from his furnace, never found any, and night came with the logs still short): one tree 66 off down a walled run, three zig-zag walls and a 9-wide pond between; collect 4 logs. He heads for the tree he knows, not a scouting leg. */
+    private static String s1275Said;
+    private static boolean st1275(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos tree = h.absolutePos(new BlockPos(68, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; c.blueprint = null; s1275Said = null; }
+        if (t[0] > 1 && t[0] % 10 == 0) { BlockPos mid = h.absolutePos(new BlockPos(38, 2, 8)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(mid), 4, mid); }
+        if (t[0] == 10) {
+            for (int x = -2; x <= 76; x++) for (int z = -3; z <= 18; z++) { for (int yy = -1; yy <= 0; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); boolean edge = x == -2 || x == 76 || z == -3 || z == 18; for (int yy = 2; yy <= 12; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), (edge && yy <= 7 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); }
+            for (int z = -2; z <= 17; z++) for (int yy = 2; yy <= 5; yy++) { if (z <= 14) level.setBlock(h.absolutePos(new BlockPos(14, yy, z)), Blocks.STONE.defaultBlockState(), 2); if (z >= 1) level.setBlock(h.absolutePos(new BlockPos(28, yy, z)), Blocks.STONE.defaultBlockState(), 2); if (z <= 14) level.setBlock(h.absolutePos(new BlockPos(42, yy, z)), Blocks.STONE.defaultBlockState(), 2); } // zig-zag walls, their gaps at the far sides
+            for (int x = 50; x <= 58; x++) for (int z = -2; z <= 17; z++) for (int yy = 0; yy <= 1; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.WATER.defaultBlockState(), 2); // a pond right across, 2 deep
+            for (int yy = 0; yy <= 4; yy++) level.setBlock(tree.above(yy), Blocks.OAK_LOG.defaultBlockState(), 2);
+            for (int dx = -2; dx <= 2; dx++) for (int dz = -2; dz <= 2; dz++) for (int yy = 3; yy <= 5; yy++) { BlockPos q = tree.offset(dx, yy, dz); if (level.getBlockState(q).isAir()) level.setBlock(q, Blocks.OAK_LEAVES.defaultBlockState().setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_AXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.setHealth(20); c.getFoodData().setFoodLevel(20); level.setDayTime(1000);
+            BlockPos me = h.absolutePos(new BlockPos(2, 2, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5);
+        }
+        if (t[0] == 30) {
+            double d = Math.sqrt(c.blockPosition().distSqr(tree)), w = com.claudemod.entity.nav.Route.walkLength(c, level, c.blockPosition(), tree, 1000, 2);
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 1275 setup: the tree {} across, the walk there costs {} (1.6x the line + 12 = {})", (int) d, w, (int) (1.6 * d + 12));
+            check(w > 1.6 * d + 12, "set up: the walk to the tree is a short one (" + w + " for " + (int) d + " across): no repro");
+            s1275Said = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "logs", 4);
+        }
+        if (t[0] == 31) {
+            boolean toTree = c.tasks.stream().anyMatch(k -> k instanceof Task.GoTo gt && Math.abs(gt.pos().getX() - tree.getX()) <= 8 && Math.abs(gt.pos().getZ() - tree.getZ()) <= 8);
+            String q = c.tasks.toString();
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.skillQueue.clear(); c.getInventory().clearContent();
+            for (int x = -2; x <= 76; x++) for (int z = -3; z <= 18; z++) { for (int yy = 0; yy <= 1; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), (yy == 1 ? Blocks.GRASS_BLOCK : Blocks.STONE).defaultBlockState(), 2); for (int yy = 2; yy <= 12; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            check(toTree, "the tree he knows 66 off not walked to: " + s1275Said + " " + (q.length() > 200 ? q.substring(0, 200) : q));
+            pass(stage, t, "the tree 66 off walked to, the long way round: " + s1275Said);
         }
         return true;
     }

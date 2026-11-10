@@ -9837,12 +9837,14 @@ public final class ClaudeLife {
      * (blocks put down if he has them and {@code canPlace}) within 24, the land plan farther; at most 1.6x the straight line + 12 counts.
      * Under the ground: the straight line (the land plans start up top).
      */
-    public static double reachWalk(ClaudeEntity g, ServerLevel level, BlockPos at, double within, boolean canPlace) {
+    public static double reachWalk(ClaudeEntity g, ServerLevel level, BlockPos at, double within, boolean canPlace) { return reachWalk(g, level, at, within, canPlace, 0); }
+    /** As above, with {@code atLeast} the walk always allowed (a stand of trees he knows beats scouting bare ground: stage 1275). */
+    public static double reachWalk(ClaudeEntity g, ServerLevel level, BlockPos at, double within, boolean canPlace, double atLeast) {
         BlockPos me = g.blockPosition();
         double d = Math.sqrt(me.distSqr(at));
         if (d <= within + 1) return d;
         if (me.getY() < level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, me.getX(), me.getZ()) - 3) return d;
-        double limit = 1.6 * d + 12, len;
+        double limit = Math.max(1.6 * d + 12, atLeast), len;
         if (Math.max(Math.abs(at.getX() - me.getX()), Math.abs(at.getZ() - me.getZ())) <= com.claudemod.entity.nav.Route.FAR) {
             var plan = com.claudemod.entity.nav.ActionPath.plan(g, level, me, at, within, canPlace, 2500, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount);
             len = plan == null ? -1 : plan.acts().size() + 2 * plan.puts();
@@ -9875,7 +9877,7 @@ public final class ClaudeLife {
             if (looked.size() >= 8 || Math.sqrt(p.distSqr(from)) - 4 >= bw) break; // (none farther could be a shorter walk)
             if (looked.stream().anyMatch(q -> q.distSqr(p) <= 8 * 8)) continue; // the same stand of trees: looked at once
             looked.add(p);
-            double w = reachWalk(g, level, p, 4, true);
+            double w = reachWalk(g, level, p, 4, true, com.claudemod.entity.life.Weights.w("trees.known_walk_max", 240)); // (trees he sees, a minute's walk round a pond and a wall: still better than a scouting leg over bare ground; the 1.6x-the-line cutoff sent him 5 times over the same leg south, 13 logs short at nightfall, live 13:18-13:30 11-09, stage 1275)
             if (w >= 0 && w < bw) { bw = w; best = p; }
             if (w < 0) ClaudeMod.LOGGER.info("[Claude life] trees at {} ({} across): no short way on foot", p.toShortString(), (int) Math.sqrt(p.distSqr(from)));
         }

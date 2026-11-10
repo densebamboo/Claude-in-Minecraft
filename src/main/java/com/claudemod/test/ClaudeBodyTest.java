@@ -10581,6 +10581,7 @@ public final class ClaudeBodyTest {
             case 1360: return st1360(stage, t, c, h, level, mock);
             case 1361: return st1361(stage, t, c, h, level, mock);
             case 1362: return st1362(stage, t, c, h, level, mock);
+            case 1363: return st1363(stage, t, c, h, level, mock);
             case 1356: return st1356(stage, t, c, h, level, mock);
             case 1301: return st1301(stage, t, c, h, level, mock);
             case 1302: return st1302(stage, t, c, h, level, mock);
@@ -27617,6 +27618,27 @@ public final class ClaudeBodyTest {
     /** Stage 1357 (live 18:49-18:50 11-09, review 185243-100: "collect salmon x3 -> failed: ... the salmon in sight and the rest have no short way to
      *  them on foot", 82 times in 70 s, his iron helmet held behind it): kit.food priced the fish by the straight line, collect's own walk check said no
      *  way, and the kit offered them again. Three salmon in a shallow pool on a 6-high pillar 11 off, nothing to climb with: the kit's pick is no fish. */
+    private static net.minecraft.world.entity.monster.Skeleton st1363K;
+    private static boolean st1363(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 02:42:45-59 11-10 (death 58, a cave at -105,26,-248): respawned with nothing, 14 HP, no armor, a stone sword, 2 gravel, no pick; a skeleton in sight: cover.dig_in "build 2.5 s" won, but underground with 2 blocks and stone he can't dig there's no cover to make ("no tower to be had (2 blocks) and no hole here"); he ran for it under the arrows, dead. Cover is priced only when he can make it
+        if (t[0] == 1) { scenarioReset(c); if (st1363K != null) st1363K.discard(); st1363K = null; }
+        if (t[0] == 10) {
+            for (int x = -3; x <= 12; x++) for (int z = -3; z <= 12; z++) for (int y = 1; y <= 12; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), x >= 0 && x <= 9 && z >= 0 && z <= 9 && y >= 2 && y <= 4 ? Blocks.AIR.defaultBlockState() : Blocks.STONE.defaultBlockState(), 2); // a cave room under 8 of rock
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.GRAVEL, 2));
+            BlockPos me = h.absolutePos(new BlockPos(2, 2, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(-90); c.setHealth(14); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            st1363K = EntityType.SKELETON.create(level); BlockPos sp = h.absolutePos(new BlockPos(8, 2, 5)); st1363K.moveTo(sp.getX() + 0.5, sp.getY(), sp.getZ() + 0.5, 90, 0); st1363K.setNoAi(true); st1363K.setPersistenceRequired(); level.addFreshEntity(st1363K);
+        }
+        if (t[0] == 40) {
+            boolean under = com.claudemod.entity.goals.WorkGoal.underground(level, c.blockPosition());
+            boolean cover = true; String err = "";
+            try { var m = com.claudemod.entity.goals.WorkGoal.class.getDeclaredMethod("coverPays", String.class, int.class); m.setAccessible(true); cover = (Boolean) m.invoke(c.work, "nothing to eat", 1); } catch (Exception e) { err = " threw " + e; }
+            st1363K.discard(); st1363K = null; c.tasks.clear(); c.setHealth(20); c.getInventory().clearContent(); c.dropCurrent = true;
+            check(under, "setup: not underground at " + c.blockPosition().toShortString());
+            check(!cover, "underground with 2 gravel and no pick, a skeleton in sight: cover.dig_in still picked cover, none to be made" + err);
+            pass(stage, t, "no cover to be had: cover isn't on the table"); return true;
+        }
+        return true;
+    }
     private static int st1362T = -1; private static BlockPos st1362G; private static boolean st1362S;
     private static boolean st1362(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 02:31:57-02:32:00 11-10 (the_nether 311,46,389, death 57): a walk to an air cell off a ledge made its way with soul sand (his only blocks), stood on it, then the walk's leg dig broke that soul sand "in the leg's cell" under his feet: 16 down into lava, everything lost. Soul sand isn't a full collision block, so the temp ledger never booked it as his
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1362T = -1; st1362S = false; }

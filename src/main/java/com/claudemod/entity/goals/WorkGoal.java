@@ -5053,6 +5053,26 @@ public class WorkGoal extends Goal {
     /** That HP as seconds of his time at his health and food (Decide.hpS: regen, the floor, the death odds). */
     private double backAmongS(int n) { return com.claudemod.entity.life.Decide.hpS(g, 0, onHp(n), com.claudemod.entity.life.Decide.hitHp() * com.claudemod.entity.life.Decide.armorF(g)); }
     /** Under cover now, or on with what he's doing among n hostiles (cover.dig_in): the HP he can expect to lose out here over cover.look_ahead_s (Decide.danger at his armor, priced by hpS: his health, food, the death odds) against building cover and waiting it out. True: cover. Logged when cover wins. */
+    /** Two down and a lid can go in here: the cells under him dig with what he has, no water by them, no cave under. */
+    private boolean holeOkAt(ServerLevel level, BlockPos feet) {
+        boolean holeOk = true; // the ground under him only matters for the hole: the tower stands on anything (130 cobble on him at a river bank and "no cover to be had")
+        for (BlockPos q : new BlockPos[] {feet.below(), feet.below(2), feet.below(3)}) {
+            BlockState st = level.getBlockState(q);
+            boolean diggable = st.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_SHOVEL)
+                    || (st.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_PICKAXE) && !g.inventory.find(i -> i.isCorrectToolForDrops(st)).isEmpty());
+            if (!diggable || st.hasBlockEntity() || !level.getFluidState(q).isEmpty()) { holeOk = false; break; }
+            for (BlockPos w : BlockPos.betweenClosed(q.offset(-1, -1, -1), q.offset(1, 1, 1))) if (!level.getFluidState(w).isEmpty()) { holeOk = false; break; } // (water by the column, diagonals too, as doBreak's open-water guard reads it: it refuses those blocks, and at the shore (live 08:17 11-09, review 2) the hole went down refused cell by cell and got a lid over a pit; stage 1305) // (water beside the column floods the hole: refused further down with no tower tried, at a lake edge with 50 cobble on him)
+        }
+        if (level.getBlockState(feet.below(4)).getCollisionShape(level, feet.below(4)).isEmpty()) holeOk = false; // a cave under: not a hiding hole
+        return holeOk;
+    }
+    /** Any cover he could make here now: a tower (blocks, head room; underground 6+) or the hole. On the safe side: when this says yes, digInFromArrows still decides. */
+    private boolean coverToBeHad() {
+        ServerLevel level = (ServerLevel) g.level(); BlockPos feet = g.blockPosition();
+        boolean under = underground(level, feet) || com.claudemod.director.ClaudeLife.isMineCell(g, feet);
+        boolean room = true; for (int up = 2; up <= 5; up++) room &= level.getBlockState(feet.above(up)).getCollisionShape(level, feet.above(up)).isEmpty();
+        return scaffoldBlock().getCount() >= (under ? 6 : 2) && room || holeOkAt(level, feet);
+    }
     private boolean coverPays(String why, int n) {
         ServerLevel lv = (ServerLevel) g.level(); long tod = lv.getDayTime() % 24000;
         double perHit = com.claudemod.entity.life.Decide.hitHp() * com.claudemod.entity.life.Decide.armorF(g);
@@ -5064,6 +5084,7 @@ public class WorkGoal extends Goal {
         double on = backAmongS(n), cover = build + com.claudemod.entity.life.Decide.hpS(g, 0, buildHp, perHit) + w("cover.wait_out_s", 60);
         var opts = new java.util.ArrayList<>(java.util.List.of(com.claudemod.entity.life.Decide.Option.of("cover", cover, "build " + build + " s (~" + String.format("%.1f", buildHp) + " HP while he does), wait it out ~" + Math.round(w("cover.wait_out_s", 60)) + " s"),
             com.claudemod.entity.life.Decide.Option.of("carry on", on, "~" + String.format("%.1f", onHp) + " HP to expect out here over " + Math.round(w("cover.look_ahead_s", 10)) + " s")));
+        if (!coverToBeHad()) opts.removeIf(o -> o.name().equals("cover")); // (no cover he can make here: underground with 2 gravel and no pick it won "build 2.5 s" under a skeleton's arrows and he ran for it till dead, live 02:42 11-10, stage 1363)
         // the fight itself, as fight.flee prices it (a shield's share of the arrows, the swings, the HP): a lone skeleton with a shield on him is an 8 s fight, not a cover to wait out all night with it camped round it (D2D 1059, live 20:29-20:33 11-07: cover won "~77 s" against "carry on" alone, three covers under its arrows, dead)
         net.minecraft.world.entity.Mob foe = null; for (var m : com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(16), x -> x.isAlive() && x instanceof net.minecraft.world.entity.monster.Enemy && !(x instanceof net.minecraft.world.entity.monster.Phantom))) if (foe == null || m.distanceTo(g) < foe.distanceTo(g)) foe = m;
         if (foe != null && armed()) { shouldFlee(foe, false); if (!Double.isNaN(pricedFightS)) opts.add(com.claudemod.entity.life.Decide.Option.of("fight", pricedFightS, fightOdds)); }
@@ -5968,15 +5989,7 @@ public class WorkGoal extends Goal {
         // the plan), or he's running from it and gets out of its sight, then eats (the user: hiding is for the early game).
         if (!underground && !shooters.isEmpty() && !swarmed && phantoms.isEmpty() && !desperate && !desperateNow && com.claudemod.director.ClaudeLife.pastEarly(g) && !weakFighter() && com.claudemod.director.ClaudeLife.foodToEat(g, true) != null)
             return noCover("past the early game in the open (armor " + g.getArmorValue() + ", a real sword, food on him): no box or hole for " + shooters.size() + " shooter(s); he closes in on it or gets out of its sight");
-        boolean holeOk = true; // the ground under him only matters for the hole: the tower stands on anything (130 cobble on him at a river bank and "no cover to be had")
-        for (BlockPos q : new BlockPos[] {feet.below(), feet.below(2), feet.below(3)}) {
-            BlockState st = level.getBlockState(q);
-            boolean diggable = st.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_SHOVEL)
-                    || (st.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_PICKAXE) && !g.inventory.find(i -> i.isCorrectToolForDrops(st)).isEmpty());
-            if (!diggable || st.hasBlockEntity() || !level.getFluidState(q).isEmpty()) { holeOk = false; break; }
-            for (BlockPos w : BlockPos.betweenClosed(q.offset(-1, -1, -1), q.offset(1, 1, 1))) if (!level.getFluidState(w).isEmpty()) { holeOk = false; break; } // (water by the column, diagonals too, as doBreak's open-water guard reads it: it refuses those blocks, and at the shore (live 08:17 11-09, review 2) the hole went down refused cell by cell and got a lid over a pit; stage 1305) // (water beside the column floods the hole: refused further down with no tower tried, at a lake edge with 50 cobble on him)
-        }
-        if (level.getBlockState(feet.below(4)).getCollisionShape(level, feet.below(4)).isEmpty()) holeOk = false; // a cave under: not a hiding hole
+        boolean holeOk = holeOkAt(level, feet);
         // Mobs right on him: digging in front of them only gets him hit. Two down is out of their reach, so he runs till
         // he's got the gap that two blocks take him to dig (or he can't shake them), then digs.
         double melee = hostilesNear(14).stream().filter(m -> !shoots(m)).mapToDouble(m -> m.distanceTo(g)).min().orElse(99); // (a wither skeleton is melee: left out with the bowmen it read "nearest melee 99" 13 off, live 23:13 11-07)

@@ -29,7 +29,7 @@ public final class Stall {
     /** What's in the way of him getting to target (within: how near counts as there). */
     public static Cause diagnose(ClaudeEntity g, BlockPos target, double within) {
         if (!(g.level() instanceof ServerLevel lv)) return new Cause(Attempts.Reason.UNKNOWN, "no level", null);
-        if (com.claudemod.entity.body.Controls.refusedLately(g, 20)) return new Cause(Attempts.Reason.BODY_REFUSED, "his body refused the path's step (2+ up, or lava)", null);
+        if (com.claudemod.entity.body.Controls.refusedLately(g, 20)) return new Cause(Attempts.Reason.BODY_REFUSED, "his body refused the path's step (" + com.claudemod.entity.body.Controls.refusedWhy(g) + ")", null);
         BlockPos feet = g.blockPosition();
         var path = g.getNavigation().getPath();
         BlockPos next = path != null && !path.isDone() ? path.getNextNodePos() : null;

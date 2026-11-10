@@ -10921,6 +10921,7 @@ public final class ClaudeBodyTest {
             case 1292: return st1292(stage, t, c, h, level, mock);
             case 1293: return st1293(stage, t, c, h, level, mock);
             case 1294: return st1294(stage, t, c, h, level, mock);
+            case 1295: return st1295(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -24336,6 +24337,33 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    /** Stage 1295 (D2D review 42/51, live 01:40-02:35 11-10): the lip guard held him at a drop off his path's next node, and Stall.diagnose named a block by the node (crimson_stem) as what was in the way: the lip refusal was never on record. Now it is (Controls.refusedStep), so his walker hears it and the stall names the lip. */
+    private static boolean st1295(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9960, 80, 9780), cell = at.east();
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1295R = null; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 6; x++) for (int z = -4; z <= 4; z++) for (int y = -7; y <= 6; y++) level.setBlock(at.offset(x, y, z), (y < 0 && (x <= 0 || y < -6) ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // his ledge to x 0, a 6 drop past it
+            c.getInventory().clearContent(); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+        }
+        if (t[0] >= 20 && t[0] < 60) { // his walk's path: his cell, then the open cell 5 down (no ground within 3 of the node's column top: not a safe step)
+            var nodes = new java.util.ArrayList<net.minecraft.world.level.pathfinder.Node>(); nodes.add(new net.minecraft.world.level.pathfinder.Node(at.getX(), at.getY(), at.getZ())); nodes.add(new net.minecraft.world.level.pathfinder.Node(cell.getX(), cell.getY() - 6, cell.getZ()));
+            var path = new net.minecraft.world.level.pathfinder.Path(nodes, cell.below(6), false); path.advance();
+            if (c.getNavigation().getPath() == null || c.getNavigation().isDone()) c.getNavigation().moveTo(path, 1.0);
+        }
+        if (t[0] == 55) s1295R = com.claudemod.entity.life.Stall.diagnose(c, cell.below(6), 1.0);
+        if (t[0] == 60) {
+            boolean held = c.blockPosition().equals(at) && c.isAlive();
+            c.getNavigation().stop(); c.tasks.clear(); c.dropCurrent = true; c.setHealth(20);
+            for (int x = -4; x <= 6; x++) for (int z = -4; z <= 4; z++) for (int y = -7; y <= 6; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            var r = s1295R; s1295R = null;
+            check(held, "walked off the lip (at " + c.blockPosition().toShortString() + ")");
+            check(r != null && r.reason() == com.claudemod.entity.life.Attempts.Reason.BODY_REFUSED && r.detail().contains("lip"), "the stall at the lip read as " + (r == null ? "nothing" : r.reason() + ": " + r.detail()) + ", not his body refusing the drop off the lip");
+            pass(stage, t, "held the lip, the stall names it: " + r.detail());
+        }
+        return true;
+    }
+    private static com.claudemod.entity.life.Stall.Cause s1295R;
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

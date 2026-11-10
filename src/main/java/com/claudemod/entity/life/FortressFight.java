@@ -44,6 +44,10 @@ public final class FortressFight {
 
     private static Map<UUID, Cover> covers; // per bot (static: fields added live start null)
     private static Map<UUID, Cover> covers() { if (covers == null) covers = new HashMap<>(); return covers; }
+    private static Map<UUID, long[]> nones; // per bot: {tick, his cell, blaze 1 / wither 0} of the last scan that found no cover (static: fields added live start null)
+    private static Map<UUID, long[]> nones() { if (nones == null) nones = new HashMap<>(); return nones; }
+    /** Cover scans run (for the stages). */
+    public static int scans;
     private static Map<UUID, Integer> chargedSince; // per blaze: the tick he first saw it glow this volley
     private static Map<UUID, Integer> chargedSince() { if (chargedSince == null) chargedSince = new HashMap<>(); return chargedSince; }
     private static Map<UUID, Integer> riskSaid; // per bot: when the risk was said for this rod run
@@ -59,7 +63,7 @@ public final class FortressFight {
     /** A blaze seen at {@code at}: where their spawner or spawning ground is. */
     public static void noteBlaze(ClaudeEntity g, BlockPos at) { blazeLast().put(g.getUUID(), new long[] {at.asLong(), serverT(g), 0}); }
 
-    public static void reset(ClaudeEntity g) { covers().remove(g.getUUID()); runs().remove(g.getUUID()); riskSaid().remove(g.getUUID()); blazeLast().remove(g.getUUID()); BOW_NEEDED.remove(g.getUUID()); }
+    public static void reset(ClaudeEntity g) { covers().remove(g.getUUID()); nones().remove(g.getUUID()); runs().remove(g.getUUID()); riskSaid().remove(g.getUUID()); blazeLast().remove(g.getUUID()); BOW_NEEDED.remove(g.getUUID()); }
 
     private static java.util.Map<java.util.UUID, BlockPos> lastGap; // the last 2-high gap he fought a wither skeleton from (static: fields added live start null)
     public static boolean coverMob(Entity e) { return e instanceof Blaze || e instanceof WitherSkeleton; }
@@ -96,8 +100,11 @@ public final class FortressFight {
         String kind = blaze ? "blaze" : "wither";
         if (c != null && c.kind().equals(kind) && g.tickCount - c.tick() < 20 * 20 && c.cover().closerThan(g.blockPosition(), 16) && stillGood(g, level, c, foe)) return c;
         if (c != null && c.kind().equals(kind) && g.tickCount - c.tick() < 20) return c; // (picked under a second ago: no re-scan every tick)
+        { long[] nn = nones().get(g.getUUID()); if (nn != null && g.tickCount - nn[0] < 20 && g.tickCount >= nn[0] && nn[1] == g.blockPosition().asLong() && nn[2] == (blaze ? 1 : 0)) return null; } // (none from this cell under a second ago: no re-scan every tick either; live 00:07:47-00:08:23 11-10 walled in by the blazes, the scan and its walk plan 20 times a second, the server 10 s behind; stage 1292)
+        scans++;
         c = blaze ? pickBlaze(g, level, foe) : pickWither(g, level, foe);
-        if (c == null) { covers().remove(g.getUUID()); return null; }
+        if (c == null) { covers().remove(g.getUUID()); nones().put(g.getUUID(), new long[] {g.tickCount, g.blockPosition().asLong(), blaze ? 1 : 0}); return null; }
+        nones().remove(g.getUUID());
         covers().put(g.getUUID(), c);
         if (!blaze) { if (lastGap == null) lastGap = new java.util.HashMap<>(); lastGap.put(g.getUUID(), c.cover()); }
         ClaudeMod.LOGGER.info("[Claude fight] cover for the {}: {} (FortressFight.coverFor)", foe.getType().getDescription().getString(), c.how());

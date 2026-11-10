@@ -10918,6 +10918,7 @@ public final class ClaudeBodyTest {
             case 1289: return st1289(stage, t, c, h, level, mock);
             case 1290: return st1290(stage, t, c, h, level, mock);
             case 1291: return st1291(stage, t, c, h, level, mock);
+            case 1292: return st1292(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -24245,6 +24246,33 @@ public final class ClaudeBodyTest {
                 return true;
             }
             check(t[0] - st1291T < 20 * 30, "30 s on a torch he can't get to");
+        }
+        return true;
+    }
+    /** Stage 1292 (D2D review 30, live 00:07:47-00:08:23 11-10 World 17: walled in by blazes, no cover to find, the cover scan and its walk plan ran every tick, 704 plans, the server 10 s behind): no cover anywhere, coverFor asked every tick for a second scans once, not 20 times. */
+    private static int st1292S;
+    private static boolean st1292(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); flatBox(h); com.claudemod.entity.life.FortressFight.reset(c); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD));
+            BlockPos me = h.absolutePos(new BlockPos(2, 2, 3)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+            var b = EntityType.BLAZE.create(level); BlockPos bp = h.absolutePos(new BlockPos(9, 2, 3));
+            b.moveTo(bp.getX() + 0.5, bp.getY(), bp.getZ() + 0.5, 90, 0); b.setNoAi(true); b.setPersistenceRequired(); level.addFreshEntity(b);
+        }
+        if (t[0] >= 14 && t[0] < 34) {
+            var bl = level.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, c.getBoundingBox().inflate(16), net.minecraft.world.entity.Entity::isAlive);
+            check(!bl.isEmpty(), "no blaze");
+            c.getNavigation().stop(); c.setDeltaMovement(0, c.getDeltaMovement().y, 0);
+            if (t[0] == 14) st1292S = com.claudemod.entity.life.FortressFight.scans;
+            var cov = com.claudemod.entity.life.FortressFight.coverFor(c, level, bl.get(0));
+            check(cov == null, "setup: a cover found on open ground with no blocks: " + (cov == null ? "-" : cov.how()));
+        }
+        if (t[0] == 34) {
+            int n = com.claudemod.entity.life.FortressFight.scans - st1292S;
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, c.getBoundingBox().inflate(16))) e.discard(); com.claudemod.entity.life.FortressFight.reset(c);
+            check(n <= 2, "no cover here, and the scan ran " + n + " times in 20 ticks from the same cell");
+            pass(stage, t, "no cover: scanned " + n + " time(s) in a second, not every tick");
         }
         return true;
     }

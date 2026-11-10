@@ -44,8 +44,8 @@ public final class CombatLog {
         Dec(long t, String key, long s, float taken0, float dealt0) { this.t = t; this.key = key; this.s = s; this.taken0 = taken0; this.dealt0 = dealt0; }
     }
     static final class Fight {
-        final int n; final long start; long last; final float hp0; float hpMin; final int armor; final String weapon, offhand, dim; final boolean underground, night;
-        final double dps, speed; // his full-charge damage per second with what he held at the start
+        final int n; final long start; long last; final float hp0; float hpMin; final int armor; String weapon; final String offhand, dim; final boolean underground, night;
+        double dps, speed; // his full-charge damage per second with what he swung (the hand at the start till his first swing)
         final Map<UUID, Foe> foes = new LinkedHashMap<>(); final List<Dec> decs = new ArrayList<>(); final Map<String, Double> pending = new LinkedHashMap<>(); final Map<String, Integer> idleBy = new TreeMap<>(), moves = new TreeMap<>(), missWhy = new TreeMap<>(), foeHurtBy = new TreeMap<>(); final Map<String, Long> moveLast = new HashMap<>();
         int swings, landed, weakSwings, blocked, hitsOnHim, flips, readyIdle, runHits, shotThroughShield, attackTicks, fleeTicks, otherTicks, ticks;
         float dealt, taken, blastHp, runHp; String lastPick; Vec3 lastPos; double moved; boolean readyLast;
@@ -119,6 +119,7 @@ public final class CombatLog {
     /** A swing of his at a mob (hit or miss), before vanilla resets the charge. */
     public static void swing(ClaudeEntity g) {
         Fight f = OPEN.get(g.getUUID()); if (f == null) return;
+        if (f.swings == 0) { f.weapon = BuiltInRegistries.ITEM.getKey(g.getMainHandItem().getItem()).getPath(); f.speed = g.getAttributeValue(Attributes.ATTACK_SPEED); f.dps = g.getAttributeValue(Attributes.ATTACK_DAMAGE) * f.speed; } // what he fought with: the fight opens before equipWeapon, and the summaries read wooden_sword or cobblestone with the iron sword swinging (D2D 11-10)
         f.swings++; if (g.getAttackStrengthScale(0.5f) < w("combat.review.charged", 0.9)) f.weakSwings++;
     }
     /** A fight/flee/cover decision (Decide.choose): the pick, its price, the weights read since the last one; a flip when the pick changes. */

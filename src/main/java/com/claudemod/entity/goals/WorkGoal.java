@@ -4086,6 +4086,17 @@ public class WorkGoal extends Goal {
         // that Pickup's own end (picked up, or its time out with the drop still there: left, logged) ends the wait, never a count of tries; a drop his pickup left for recover_left is no wait (00:39 11-04: the patch waited on redstone the pickup had given up, 93 TRIPs that day)
         com.claudemod.entity.life.MineBlueprint bpIn = com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.touches(g.blockPosition()) ? g.blueprint : null; // (as his Pickup sees it from where he stands)
         final java.util.Set<BlockPos> pocket0 = pocketBehind(g, level, pos); // (a drop a cell or two deeper in the pocket is sealed in all the same: 12:14 a diamond behind the patch)
+        Integer sHeld = g.attempts.counters.get("stationHold:" + pos.asLong());
+        if (minePatch(pos) && level.getBlockState(pos).canBeReplaced() && (sHeld == null || g.tickCount - sHeld > 20 * 60)) for (BlockPos st : g.tempStations) { // his own table or furnace in the pocket behind this patch: it comes out first, the patch goes in once after (live 09:06:38 11-10, D2D reviews 24/27: the patch sealed his table in, the walk to it dug the patch out 1 s later; stage 1426)
+            BlockState ss = level.getBlockState(st); if (st.distManhattan(pos) > 6 || !(ss.is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE) || ss.is(net.minecraft.world.level.block.Blocks.FURNACE) || ss.is(net.minecraft.world.level.block.Blocks.CHEST))) continue;
+            boolean touches = false; for (Direction d : Direction.values()) if (pocket0.contains(st.relative(d))) { touches = true; break; }
+            if (!touches || g.attempts.within(com.claudemod.entity.life.Attempts.Kind.BREAK, st, g.tickCount, 20 * 60) || g.attempts.within(com.claudemod.entity.life.Attempts.Kind.REACH, st, g.tickCount, 20 * 60)) continue; // (its break refused a moment ago: no hold, the patch goes in)
+            g.attempts.counters.put("stationHold:" + pos.asLong(), g.tickCount); // (once a minute a cell: a dig of the station that comes back for this patch never loops with it)
+            g.tasks.removeIf(t0 -> t0 instanceof Task.Break b0 && b0.pos().equals(st));
+            g.tasks.addFirst(t); g.tasks.addFirst(new Task.Pickup(60)); g.tasks.addFirst(new Task.Break(st.immutable()));
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude patch] {} at {} waits for his {} at {} in the pocket behind it: that out first, then the patch (WorkGoal.doPlace)", t.item(), pos.toShortString(), name(level.getBlockState(st)), st.toShortString());
+            return exit("his station in the pocket: out first (WorkGoal.doPlace)");
+        }
         var coveredDrops = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(pos).inflate(5), i -> i.isAlive() && !g.isGift(i) && (pocket0.contains(i.blockPosition()) || i.getBoundingBox().intersects(new net.minecraft.world.phys.AABB(pos))));
         var inside = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(pos).inflate(5),
                 i -> i.isAlive() && (i.position().distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(pos)) <= holdR2() || pocket0.contains(i.blockPosition())) && !g.isGift(i) && !com.claudemod.entity.life.OwnEvents.waiting(g, i) && (minePatch(pos) || g.inventory.hasRoomFor(i.getItem())) && (bpIn == null || bpIn.touches(i.blockPosition()) || airJoinedToMine(level, bpIn, i.blockPosition())));

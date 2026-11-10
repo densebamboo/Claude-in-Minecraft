@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1462: return st1462(stage, t, c, h, level, mock);
             case 1461: return st1461(stage, t, c, h, level, mock);
             case 1460: return st1460(stage, t, c, h, level, mock);
             case 1458: return st1458(stage, t, c, h, level, mock);
@@ -18614,6 +18615,32 @@ public final class ClaudeBodyTest {
             nsHome(c, h, level);
             check(!r.startsWith("getting ready first"), "50 off the fortress, iron and a shield on, 12 meals, 0 rods, his portal 400 off: sent home to get ready (" + r + ")");
             pass(stage, t, "on with the fight: " + r);
+        }
+        return true;
+    }
+    /** Stage 1462 (D2D death 77, live 13:57-14:01 11-10: into the Nether with 64 cobble and 22 netherrack; each lava crossing on his walk built as "a piece of highway, 4 wide with rails (20 blocks)", 86 gone in 2 min (47 left by 13:58:14), then oak logs over lava burned under him, 20 -> 0 at 14:01:30): a 3-wide lava strip, 40 cobble on him. The crossing is the 2-wide line; the highway's 20 would leave him under his reserve for the way on. */
+    private static boolean st1462(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12800, 67, 7600), me = o, far = o.east(10);
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.nextPlanTick = c.tickCount + 20 * 900; c.prefs.put("stay_close", "no"); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); com.claudemod.entity.life.Highway.reset(c); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            for (int x = -6; x <= 16; x++) for (int z = -6; z <= 6; z++) for (int y = -8; y <= 9; y++) { boolean wall = Math.abs(z) == 6 || x == -6 || x == 16 || y == -8 || y == 9; boolean lava = x >= 3 && x <= 5 && y <= -1;
+                nl.setBlock(o.offset(x, y, z), (wall ? Blocks.BEDROCK : y <= -1 ? (lava ? Blocks.LAVA : Blocks.NETHERRACK) : Blocks.AIR).defaultBlockState(), 2 | 16); }
+            for (var m : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) m.discard();
+            c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 40));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(nl, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 30) {
+            var plan = com.claudemod.entity.nav.ActionPath.plan(c, nl, me, far, 1.0, true, 20000); if (plan == null) plan = com.claudemod.entity.nav.ActionPath.plan(c, nl, me, far, 1.0, true, 20000, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, c.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), c.tickCount, java.util.List.of(), 2.5);
+            var ts = plan == null ? java.util.List.<Task>of() : com.claudemod.entity.nav.ActionPath.tasks(plan, me, Items.COBBLESTONE, far, 1.0, nl);
+            long places = ts.stream().filter(x -> x instanceof Task.Place).count();
+            c.tasks.clear(); c.dropCurrent = true; c.getInventory().clearContent(); com.claudemod.entity.life.PortalMap.net(c).segments.clear();
+            for (int x = -6; x <= 16; x++) for (int z = -6; z <= 6; z++) for (int y = -8; y <= 9; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2 | 16);
+            nsHome(c, h, level);
+            check(plan != null, "no plan across a 3-wide lava strip with 40 cobble");
+            check(places > 0 && places <= 40 - 32, "40 cobble on him, a 3-wide lava strip: the crossing took " + places + " of them, under his reserve for the way on (" + ts + ")");
+            pass(stage, t, "the crossing on 40 cobble: " + places + " blocks, the rest kept");
         }
         return true;
     }

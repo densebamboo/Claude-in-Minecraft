@@ -438,7 +438,8 @@ public final class ActionPath {
         if (seg != null && seg.width == width) { int across = d.getAxis() == Direction.Axis.X ? first.getZ() : first.getX(); int sgn = (right.getAxis() == Direction.Axis.X ? right.getStepX() : right.getStepZ()); shift = (seg.line() - across) * sgn; if (shift < lo || shift > hi) shift = 0; }
         int blocks = 0; for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { var it = g.inventory.items.getItem(i); if (it.is(scaffold)) blocks += it.getCount(); }
         int need = rows * (width + 2) + 2;
-        if (blocks < need) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] a lava crossing of {} rows at {}: the highway's {} wide with rails needs {} blocks, {} {} on him: 2 wide this time (ActionPath.crossingTasks)", rows, first.toShortString(), width, need, blocks, com.claudemod.entity.life.Crafting.name(scaffold)); return false; }
+        int keep = (int) com.claudemod.entity.life.Weights.w("crossing.block_reserve", 32); // (his last stone kept for the way on: death 77, live 13:57-14:01 11-10, 86 blocks gone in 2 min on 20-block crossings, then a bridge of oak logs over lava that burned under him; stage 1462)
+        if (blocks < need + keep) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] a lava crossing of {} rows at {}: the highway's {} wide with rails needs {} blocks and {} kept for the way on, {} {} on him: 2 wide this time (ActionPath.crossingTasks)", rows, first.toShortString(), width, need, keep, blocks, com.claudemod.entity.life.Crafting.name(scaffold)); return false; }
         int[] order = new int[width]; { int k = 0; order[k++] = 0; for (int o = 1; k < width; o++) { if (o <= hi && k < width) order[k++] = o; if (-o >= lo && k < width) order[k++] = -o; } } // (from his way outward: each block against the one before)
         String by = "ActionPath.crossing";
         for (int i = i0; i <= i1; i += 2) {

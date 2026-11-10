@@ -4162,6 +4162,15 @@ public class WorkGoal extends Goal {
                 return exit("doPlace line 2644");
             }
         }
+        if ((stack.is(net.minecraft.tags.ItemTags.LOGS) || stack.is(net.minecraft.tags.ItemTags.PLANKS)) && com.claudemod.entity.nav.ActionPath.byLava(level, pos)) { // wood by lava catches fire and burns away under him (death 77 11-10, stage 1389)
+            ItemStack fp = scaffoldBlock();
+            if (!fp.isEmpty() && !fp.is(net.minecraft.tags.ItemTags.LOGS) && !fp.is(net.minecraft.tags.ItemTags.PLANKS)) stack = fp;
+            else {
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not putting {} at {}: lava beside it sets wood alight, and nothing on him that doesn't burn (WorkGoal.doPlace)", itemName(stack), pos.toShortString());
+                failed(com.claudemod.entity.life.Attempts.Kind.WALK, pos, com.claudemod.entity.life.Attempts.Reason.NO_BLOCKS, "wood by lava burns");
+                return exit("wood by lava (doPlace)");
+            }
+        }
         if (stack.getItem() instanceof BlockItem fb && fb.getBlock() instanceof net.minecraft.world.level.block.FallingBlock && net.minecraft.world.level.block.FallingBlock.isFree(level.getBlockState(pos.below()))) { // sand or gravel with nothing under it falls at once (live 12:37 11-04: a sand lid over his cover hole came down on his head and suffocated him)
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not putting {} at {}: nothing under it, it would fall (WorkGoal.doPlace)", itemName(stack), pos.toShortString());
             failed(com.claudemod.entity.life.Attempts.Kind.WALK, pos, com.claudemod.entity.life.Attempts.Reason.NO_FACE, "nothing under it: it would fall");

@@ -70,7 +70,7 @@ public final class ActionPath {
         record Leap(BlockPos from, BlockPos land, int kind, int down, float hp, double cost) implements Act {} // a drop (4+ down) or a jump over a gap (Leaps works it out, Task.Leap does it)
     }
 
-    private record Node(BlockPos feet, double g, double f, Node from, List<Act> acts, int puts, float hurt, int wet) {} // hurt: the HP the drops on the way here took; wet: cells in a row with his head under water (his air)
+    private record Node(BlockPos feet, double g, double f, Node from, List<Act> acts, int puts, float hurt, int wet, int fire) {} // fire: puts by lava (wood won't do for those) // hurt: the HP the drops on the way here took; wet: cells in a row with his head under water (his air)
 
     public record Plan(List<Act> acts, int digs, int puts, int walks) {}
 
@@ -132,7 +132,7 @@ public final class ActionPath {
         Search(ClaudeEntity g, ServerLevel level, BlockPos from, BlockPos to, double within, boolean canPlace, int budget, Mode mode, Map<BlockPos, Integer> failedAt, int now, List<net.minecraft.world.phys.Vec3> avoid, double w) {
             this.g = g; this.level = level; this.from = from; this.to = to; this.within = within; this.w = w; this.budget = budget; this.mode = mode; firstTick = g.tickCount;
             c = new Costs(g, level, canPlace, mode, failedAt, now); c.avoid = avoid;
-            open.add(new Node(from.immutable(), 0, w * h(from, to), null, List.of(), 0, 0f, c.water(from.above()) ? (g.getMaxAirSupply() - Math.max(0, g.getAirSupply())) / 10 : 0));
+            open.add(new Node(from.immutable(), 0, w * h(from, to), null, List.of(), 0, 0f, c.water(from.above()) ? (g.getMaxAirSupply() - Math.max(0, g.getAirSupply())) / 10 : 0, 0));
             best.put(from.immutable(), open.peek());
             scarce = c.maxPuts < 2 * (Math.abs(from.getX() - to.getX()) + Math.abs(from.getY() - to.getY()) + Math.abs(from.getZ() - to.getZ())) + 16; // blocks that can run short on this way: then fewer puts is a way of its own (with plenty, 538 expanded each cell ~3 times for it, out of nodes under a fortress)
         }
@@ -143,19 +143,19 @@ public final class ActionPath {
                 if ((expanded & 15) == 0 && spent + System.nanoTime() - t0 > 500_000_000L) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] plan {} -> {} stopped at 500 ms ({} nodes of {}): no way found in time (ActionPath.plan)", from.toShortString(), to.toShortString(), expanded, budget); spent += System.nanoTime() - t0; break; } // (no budget in time: 3.8 s freezes, "Can't keep up" 172x on 11-04)
                 if ((expanded & 15) == 0 && System.nanoTime() - t0 > sliceNs) { expanded--; spent += System.nanoTime() - t0; return PENDING; } // (this tick's slice is spent: on next tick)
                 Node n = open.poll();
-                { Node b0 = best.get(n.feet); if (b0 != n && b0.g() <= n.g() && (!scarce || b0.puts() <= n.puts()) && b0.wet() <= n.wet() && b0.hurt() <= n.hurt()) { expanded--; continue; } } // (a stale entry: a way here no worse was expanded already)
+                { Node b0 = best.get(n.feet); if (b0 != n && b0.g() <= n.g() && (!scarce || b0.puts() <= n.puts()) && b0.fire() <= n.fire() && b0.wet() <= n.wet() && b0.hurt() <= n.hurt()) { expanded--; continue; } } // (a stale entry: a way here no worse was expanded already)
                 double dd = Math.sqrt(n.feet.distSqr(to));
                 if (dd <= within && !(n.feet.equals(to.below()) && c.floor(to) && !c.passable(to.below()))) { coverNote(c, from, to); /* (never the cell under a goal he can stand on: that's its floor, dug out to "arrive" a block short, and the last step up had nothing to stand on: stage 937, live 03:44 11-07 in a 4-deep hole for minutes) */ leapNote(c, from, to, n); Plan pl = unwind(n); if (mode == Mode.MAY_DIG && c.bp) prune(level.getGameTime()); if (mode == Mode.MAY_DIG && c.bp) for (Act a : pl.acts()) if (a instanceof Act.Dig dg && cuttableShell(g, level, dg.pos())) { SHELL_CUT.put(dg.pos().immutable(), level.getGameTime()); SHELL_CUT_BY.put(dg.pos().immutable(), g); } if (mode == Mode.MAY_BEND) { Map<BlockPos, String> b = new java.util.LinkedHashMap<>(); for (Act a : pl.acts()) if (a instanceof Act.Dig dg && c.bent.containsKey(dg.pos())) b.put(dg.pos(), c.bent.get(dg.pos())); lastBent = b; } return pl; }
                 c.hurtNow = n.hurt;
                 for (Move m : c.moves(n.feet)) {
-                    int np = n.puts; float nh = n.hurt; for (Act a : m.acts) { if (a instanceof Act.Put) np++; else if (a instanceof Act.Leap lp) nh += lp.hp(); }
-                    if (np > c.maxPuts) continue; // (no more blocks put down than he has: the third put of a bridge with two dirt left him at the lip of a mineshaft)
+                    int np = n.puts, nf = n.fire; float nh = n.hurt; for (Act a : m.acts) { if (a instanceof Act.Put pu) { np++; if (byLava(level, pu.pos())) nf++; } else if (a instanceof Act.Leap lp) nh += lp.hp(); }
+                    if (np > c.maxPuts || nf > c.fireProof) continue; // (by lava only blocks that don't burn: a log bridge over a lava lake caught fire under him, death 77 11-10, stage 1389) // (no more blocks put down than he has: the third put of a bridge with two dirt left him at the lip of a mineshaft)
                     int nw = c.water(m.feet.above()) ? n.wet + 1 : 0;
                     if (nw > g.getMaxAirSupply() / 20) { c.airRefused++; continue; } // a swim under water no longer than half his air (~10 ticks a cell): a player turns back from an unknown flooded passage while he still can (live 12:02 11-04: 10 cells in, drowned)
                     double ng = n.g + m.cost;
                     Node was = best.get(m.feet);
-                    if (was != null && was.g() <= ng && (!scarce || was.puts() <= np) && was.wet() <= nw && was.hurt() <= nh) continue;
-                    Node nn = new Node(m.feet, ng, ng + w * h(m.feet, to), n, m.acts, np, nh, nw);
+                    if (was != null && was.g() <= ng && (!scarce || was.puts() <= np) && was.fire() <= nf && was.wet() <= nw && was.hurt() <= nh) continue;
+                    Node nn = new Node(m.feet, ng, ng + w * h(m.feet, to), n, m.acts, np, nh, nw, nf);
                     if (was == null || was.g() > ng) best.put(m.feet, nn);
                     open.add(nn);
                 }
@@ -418,6 +418,8 @@ public final class ActionPath {
                     || s.is(net.minecraft.world.item.Items.TUFF) || s.is(net.minecraft.world.item.Items.DEEPSLATE) || s.is(net.minecraft.world.item.Items.STONE) || s.is(net.minecraft.world.item.Items.CALCITE)
                     || s.is(net.minecraft.world.item.Items.NETHERRACK) || s.is(net.minecraft.world.item.Items.BLACKSTONE)
                     || s.is(net.minecraft.world.item.Items.SOUL_SAND) || s.is(net.minecraft.world.item.Items.SOUL_SOIL) || s.is(net.minecraft.world.item.Items.BASALT) || s.is(net.minecraft.world.item.Items.SMOOTH_BASALT) || s.is(net.minecraft.world.item.Items.NETHER_WART_BLOCK) || s.is(net.minecraft.world.item.Items.WARPED_WART_BLOCK) || s.is(net.minecraft.world.item.Items.END_STONE)) + spareWood(g); } // (scaffoldBlock's tiers, the same list: stage 1283)
+    /** Lava within a block of this cell (beside, under, over): lava sets wood there alight, so it burns away under him (death 77 11-10). */
+    public static boolean byLava(net.minecraft.world.level.BlockGetter lv, BlockPos p) { for (BlockPos q : BlockPos.betweenClosed(p.offset(-1, -1, -1), p.offset(1, 1, 1))) if (lv.getFluidState(q).is(net.minecraft.tags.FluidTags.LAVA)) return true; return false; }
     /** Planks and logs past what he keeps back for tools and a table: what WorkGoal.scaffoldBlock towers on when nothing else is left. */
     public static int spareWood(com.claudemod.entity.ClaudeEntity g) {
         return Math.max(0, g.inventory.count(s -> s.is(net.minecraft.tags.ItemTags.PLANKS)) - (int) com.claudemod.entity.life.Weights.w("scaffold.keep_planks", 8))
@@ -468,6 +470,7 @@ public final class ActionPath {
         BlockState bs(BlockPos p) { long k = p.asLong(); BlockState s = stateMemo.get(k); if (s == null) { s = level.getBlockState(p); stateMemo.put(k, s); } return s; }
         net.minecraft.world.level.material.FluidState fs(BlockPos p) { return bs(p).getFluidState(); }
         final int maxPuts; // the blocks he has to put down
+        final int fireProof; // of those, the ones that don't burn (not wood): what goes down by lava
         final ClaudeEntity g; final ServerLevel level; final boolean canPlace; final Mode mode; final Map<BlockPos, Integer> failedAt; final int now;
         final net.minecraft.server.level.ServerPlayer owner;
         final boolean bp, house;
@@ -525,7 +528,7 @@ public final class ActionPath {
         Costs(ClaudeEntity g, ServerLevel level, boolean canPlace, Mode mode, Map<BlockPos, Integer> failedAt, int now) {
             this.g = g; this.level = level; this.canPlace = canPlace; this.mode = mode; this.failedAt = failedAt; this.now = now;
             this.hp = Leaps.health(g); this.margin = Leaps.margin(g); this.hpPrice = Leaps.hpPrice(g);
-            this.maxPuts = !canPlace ? 0 : moveBlocks(g); // (what scaffoldBlock picks from, its wood fallback too: 2 netherrack and 67 logs planned "2 blocks to put", no way up off his bridge, death 109 11-07, stage 1004: netherrack and blackstone too, or a Nether way with only those on him planned no block put down)
+            this.maxPuts = !canPlace ? 0 : moveBlocks(g); this.fireProof = !canPlace ? 0 : maxPuts - spareWood(g); // (what scaffoldBlock picks from, its wood fallback too: 2 netherrack and 67 logs planned "2 blocks to put", no way up off his bridge, death 109 11-07, stage 1004: netherrack and blackstone too, or a Nether way with only those on him planned no block put down)
             this.owner = g.getTarget() instanceof net.minecraft.server.level.ServerPlayer p ? p : null;
             this.bp = com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty();
             this.house = com.claudemod.director.ClaudeLife.houseMode(g) && g.house != null;

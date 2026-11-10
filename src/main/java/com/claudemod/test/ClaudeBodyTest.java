@@ -10946,6 +10946,7 @@ public final class ClaudeBodyTest {
             case 1407: return st1407(stage, t, c, h, level, mock);
             case 1408: return st1407(stage, t, c, h, level, mock);
             case 1409: return st1409(stage, t, c, h, level, mock);
+            case 1410: return st1410(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -24897,6 +24898,37 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static java.util.List<BlockPos> s1409Cover;
+    /** Stage 1410 (D2D reviews 68/69, live 06:10:00-06:10:19 11-10 at -25,15,-349): in an ore hole under his tunnel floor, raw iron down the pocket beside it. The ore-hole pickup queued his wall's patch-back for the cell beside him, then the dig climbed him out instead; the patch-back sat on the queue for stone never broken ("filled already", the guard refusing its break, "no way" and back 12 s on). Every patch-back is for a cell he opens. */
+    private static boolean st1410(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9880, 80, 9780), hole = at.offset(3, -1, 0), drop = at.offset(4, -2, 1);
+        BlockPos[] pocket = {hole, at.offset(3, -1, 1), at.offset(4, -1, 1), drop};
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("mine_model", "blueprint"); s1410T = -1; s1410Stray = null; }
+        if (t[0] == 10) {
+            var b = new com.claudemod.entity.life.MineBlueprint(at, net.minecraft.core.Direction.EAST, 1, 2); b.segments.clear(); b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, at.west(3), net.minecraft.core.Direction.EAST, 12, null)); c.blueprint = b; // his mine: a one-wide branch, two tall
+            for (int x = -4; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = -4; y <= 4; y++) { BlockPos q = at.offset(x, y, z); level.setBlock(q, (b.isWalk(q) ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            for (BlockPos q : pocket) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2); // the ore hole under his floor and the pocket off it, the ore mined out
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            c.teleportTo(hole.getX() + 0.5, hole.getY(), hole.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+        }
+        if (t[0] == 20) { var it = new net.minecraft.world.entity.item.ItemEntity(level, drop.getX() + 0.5, drop.getY() + 0.1, drop.getZ() + 0.5, new ItemStack(Items.RAW_IRON)); it.setDeltaMovement(0, 0, 0); level.addFreshEntity(it); }
+        if (t[0] == 22) c.tasks.add(new Task.Pickup(100));
+        if (t[0] > 22 && s1410Stray == null) { // a patch-back for a cell of his wall that's still stone, its break nowhere on the queue
+            java.util.List<Task> all = new java.util.ArrayList<>(c.tasks); if (c.currentTask != null) all.add(c.currentTask);
+            for (Task k : all) if (k instanceof Task.Place pl && !level.getBlockState(pl.pos()).getCollisionShape(level, pl.pos()).isEmpty() && !all.contains(new Task.Break(pl.pos()))) { s1410Stray = pl.pos().toShortString() + " (" + level.getBlockState(pl.pos()).getBlock().getName().getString() + ") at tick " + (t[0] - 22); break; }
+        }
+        if (t[0] > 22 && s1410T < 0 && c.getInventory().countItem(Items.RAW_IRON) > 0) s1410T = t[0];
+        if (t[0] == 22 + 20 * 15 || s1410T > 0 && t[0] == s1410T + 40) {
+            int took = s1410T < 0 ? -1 : s1410T - 22; String stray = s1410Stray;
+            c.tasks.clear(); c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            for (int x = -4; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = -4; y <= 4; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // (the floor left)
+            check(stray == null, "a patch-back queued for a cell he never opened: " + stray);
+            check(took >= 0, "the raw iron down the pocket: not got in 15 s");
+            pass(stage, t, "the raw iron got in " + took + " ticks, every patch-back for a cell he opened");
+        }
+        return true;
+    }
+    private static int s1410T; private static String s1410Stray;
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

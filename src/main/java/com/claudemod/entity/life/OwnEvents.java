@@ -82,6 +82,10 @@ public final class OwnEvents {
             int seen = sl.getEntitiesOfClass(net.minecraft.world.entity.monster.piglin.Piglin.class, g.getBoundingBox().inflate(16), p -> p.isAlive() && p.hasLineOfSight(g)).size(); // (vanilla's angerNearbyPiglins: within 16, seeing him; none in the Overworld, review 66 took the old line for a fight)
             if (seen > 0) ClaudeMod.LOGGER.info("[Claude piglin] he broke {} at {}: {} piglin(s) in sight get angry (OwnEvents.onBreak)", id, e.getPos().toShortString(), seen); }
         if (id.endsWith("_ore") || id.equals("ancient_debris")) { note(g, Kind.MINED, id, 1, e.getPos(), "", null); ClaudeMod.LOGGER.info("[Claude ore] mined {} at {} (OwnEvents.onBreak)", id, e.getPos().toShortString()); } // (a patch in that cell after reads as into air, not over the ore: D2D review 189)
+        if (g.level() instanceof net.minecraft.server.level.ServerLevel lsl) { StringBuilder lb = new StringBuilder(); // lava on a face of a cell he opened: it runs in (D2D 133600-322, 13:35:18-21 11-10: ActionPath dug 256,68,248, 3 s later lava fell into it onto him, 20 -> 10; known to him or not unproven)
+            for (net.minecraft.core.Direction d : net.minecraft.core.Direction.values()) { BlockPos q = e.getPos().relative(d); var fq = lsl.getFluidState(q); if (!fq.is(net.minecraft.tags.FluidTags.LAVA)) continue;
+                lb.append(d.getName()).append(' ').append(q.toShortString()).append(fq.isSource() ? " source" : " flow " + fq.getAmount() + (fq.getValue(net.minecraft.world.level.material.FlowingFluid.FALLING) ? " falling" : "")).append(", known ").append(Perception.knowsLavaBody(g, lsl, q)).append("; "); }
+            if (lb.length() > 0) ClaudeMod.LOGGER.info("[Claude dig] broke {} at {} with lava on its faces: {}he's at {}, task {} (OwnEvents.onBreak)", id, e.getPos().toShortString(), lb, g.blockPosition().toShortString(), g.currentTask); }
         LessonWords.broke(g, e.getState(), e.getPos()); // (their lesson's count: dug by him)
     }
 

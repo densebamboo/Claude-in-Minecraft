@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1463: return st1463(stage, t, c, h, level, mock);
             case 1462: return st1462(stage, t, c, h, level, mock);
             case 1461: return st1461(stage, t, c, h, level, mock);
             case 1460: return st1460(stage, t, c, h, level, mock);
@@ -18641,6 +18642,34 @@ public final class ClaudeBodyTest {
             check(plan != null, "no plan across a 3-wide lava strip with 40 cobble");
             check(places > 0 && places <= 40 - 32, "40 cobble on him, a 3-wide lava strip: the crossing took " + places + " of them, under his reserve for the way on (" + ts + ")");
             pass(stage, t, "the crossing on 40 cobble: " + places + " blocks, the rest kept");
+        }
+        return true;
+    }
+    /** Stage 1463 (D2D review 140159-550, live 14:00:41-14:00:57 11-10: 10 meals on him in the Nether, a hoglin chase that got nowhere (collect's preyOut), then kit.food "hunt hoglins ~77 s (1 of 1 hoglin(s), nearest 32 off)" while collect said "no hoglin here: to the crimson forest at -36, 61, 218 (340 blocks)"): 10 meals, the one hoglin about written off by his last chase. The kit doesn't price a hunt of it. */
+    private static boolean st1463(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13000, 64, 7600);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); }
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = 0; k <= 48; k += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 2, o.offset(k, 0, 0)); // (him and the hoglin 40 off loaded; no nsTick: its clear takes the stage's own mob)
+        if (t[0] == 10) {
+            for (int x = -3; x <= 44; x++) for (int z = -3; z <= 3; z++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, z), (y == -1 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2);
+            for (var m : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) m.discard();
+            var hg = EntityType.HOGLIN.create(nl); hg.moveTo(o.getX() + 40.5, o.getY(), o.getZ() + 0.5, 0, 0); hg.setNoAi(true); hg.setPersistenceRequired(); hg.setImmuneToZombification(true); nl.addFreshEntity(hg);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_PORKCHOP, 10));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear(); c.commandActive = false;
+        }
+        if (t[0] == 70) { // (past the kit's 40-tick memo)
+            var hg = nl.getEntitiesOfClass(net.minecraft.world.entity.monster.hoglin.Hoglin.class, new net.minecraft.world.phys.AABB(o).inflate(50)).stream().findFirst().orElse(null);
+            check(hg != null, "the stage's hoglin not found");
+            com.claudemod.director.ClaudeLife.preyOutNow(c, hg, c.distanceTo(hg)); // (his chase at it got nowhere: collect reads it out of reach)
+            var fa = com.claudemod.director.Kit.foodAsk(c); double walk = com.claudemod.director.ClaudeLife.preyWalk(c, nl, hg);
+            hg.discard(); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (int x = -3; x <= 44; x++) for (int z = -3; z <= 3; z++) nl.setBlock(o.offset(x, -1, z), Blocks.AIR.defaultBlockState(), 2);
+            nsHome(c, h, level);
+            check(walk < 0, "the hoglin his chase wrote off still reads as reachable to collect (" + walk + ")");
+            check(fa == null || fa.item() != Items.COOKED_PORKCHOP, "the one hoglin about written off by his chase, 10 meals on him: the kit still asks a hunt of it (" + fa + ")");
+            pass(stage, t, "the written-off hoglin not priced: " + fa);
         }
         return true;
     }

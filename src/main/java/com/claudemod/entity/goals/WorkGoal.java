@@ -6926,6 +6926,12 @@ public class WorkGoal extends Goal {
             cfHealing = true;
             if (!inCover && due != null && shield) { shieldUp(due); cfMove(cv.cover(), 1.0); /* walking back behind the shield: stopping for every volley, 6 blazes always had one due and he never made the 3 steps (12:22) */ cfSay("shield up on the way back", "health " + (int) hp + ", a volley due: on the shield, not on his back"); return false; }
             if (!inCover) { shieldDown(); g.setSprinting(true); cfMove(cv.cover(), 1.3); cfSay("back into cover", "at " + String.format("%.2f,%.2f", g.getX(), g.getZ()) + ", health " + (int) hp + (withered ? ", Wither on" : "") + (g.isOnFire() ? ", burning" : "") + ": to " + cv.cover().toShortString()); return false; }
+            if (due != null && shield) { // in cover and a volley still comes his way (a blaze his cover doesn't hide him from, a shot on its way): on the shield, the meal and the heal after it (D2D, the rods, live 07:10:40-54 11-10 at 285,65,500: "eating in cover", "healing in cover", shield down, 8 -> 5, 7 -> 4, burning to 2; stage 1375)
+                g.getNavigation().stop(); g.setSprinting(false); shieldUp(due);
+                if (g.hurtTime == 9) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] hit in cover at {} by {} at {}: it sees the cell {}, he's {} off its middle (WorkGoal.coverFight)", cv.cover().toShortString(), due.getType().getDescription().getString(), due.blockPosition().toShortString(), com.claudemod.entity.life.FortressFight.sees(level, due, cv.cover()), String.format("%.2f", Math.hypot(g.getX() - cv.cover().getX() - 0.5, g.getZ() - cv.cover().getZ() - 0.5)));
+                cfSay("shield up in cover", "health " + (int) hp + ", a volley due from the " + due.getType().getDescription().getString() + " " + (int) due.distanceTo(g) + " off at " + due.blockPosition().toShortString() + " even here: on the shield, the heal after");
+                return false;
+            }
             g.getNavigation().stop(); g.setSprinting(false); g.getLookControl().setLookAt(mob);
             if (withered && g.inventory.count(s -> s.is(net.minecraft.world.item.Items.MILK_BUCKET)) > 0) { g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks))); g.tasks.addFirst(new Task.Eat(net.minecraft.world.item.Items.MILK_BUCKET)); cfSay("milk", "Wither on at health " + (int) hp + ": the milk clears it"); return true; }
             net.minecraft.world.item.Item food = g.getFoodData().getFoodLevel() < 20 ? com.claudemod.director.ClaudeLife.foodToEat(g, hp <= 6) : null;

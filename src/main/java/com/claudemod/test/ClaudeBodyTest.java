@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1375: return st1375(stage, t, c, h, level, mock);
             case 1374: return st1374(stage, t, c, h, level, mock);
             case 1373: return st1373(stage, t, c, h, level, mock);
             case 1372: return st1372(stage, t, c, h, level, mock);
@@ -17815,6 +17816,42 @@ public final class ClaudeBodyTest {
             check(r != null && r.contains("junk chest"), "no junk chest round with 2 chests and a full pack in his mine: " + r);
             check(iChest >= 0 && (iOut < 0 || iChest < iOut), "the junk chest queued behind the walk out (chest at " + iChest + ", walk at " + iOut + "): " + qs);
             pass(stage, t, "the junk chest first (" + iChest + "), the walk out after (" + iOut + "): " + r);
+        }
+        return true;
+    }
+    /** Stage 1375 (D2D, the rods, live 07:10:40-07:10:54 11-10 at 285,65,500: "eating in cover" / "healing in cover" with his shield down, fireballs landing on him there, 8 -> 5, 7 -> 4, burning 4 -> 2): an open bridge, cover built from two blazes, then hurt (10 HP) in it and a fireball on its way to him from a side his cover doesn't block. The shield goes up in cover, not the heal with it down. */
+    private static net.minecraft.world.entity.monster.Blaze s1375A, s1375B; private static int s1375T, s1375Hid; private static boolean s1375Raised;
+    private static boolean st1375(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1375A = s1375B = null; s1375Hid = -1; s1375Raised = false; }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) if (e != s1375A && e != s1375B) e.discard();
+        if (t[0] == 10) {
+            for (int x = -20; x <= 24; x++) for (int z = -16; z <= 16; z++) for (int y = -6; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (int x = -20; x <= 24; x++) for (int z = -2; z <= 2; z++) level.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().items.set(1, new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().items.set(2, new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().selected = 0; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; mock[0].teleportTo(o.getX() + 0.5, o.getY() + 45, o.getZ() + 0.5);
+            level.setDayTime(6000);
+        }
+        if (t[0] == 20) {
+            s1375A = EntityType.BLAZE.create(level); s1375A.moveTo(o.getX() + 12.5, o.getY() + 1, o.getZ() + 0.5, 90, 0); s1375A.setPersistenceRequired(); s1375A.setNoAi(true); s1375A.setNoGravity(true); level.addFreshEntity(s1375A);
+            s1375B = EntityType.BLAZE.create(level); s1375B.moveTo(o.getX() + 7.5, o.getY() + 3, o.getZ() + 8.5, 180, 0); s1375B.setPersistenceRequired(); s1375B.setNoAi(true); s1375B.setNoGravity(true); level.addFreshEntity(s1375B);
+            c.tasks.add(new Task.Attack(s1375A.getUUID(), 20 * 60)); s1375T = t[0];
+        }
+        if (t[0] > 20 && s1375A != null) {
+            c.getFoodData().setFoodLevel(20);
+            BlockPos f = BlockPos.containing(c.getX(), c.getY() + 0.2, c.getZ());
+            boolean hid = c.onGround() && !com.claudemod.entity.life.FortressFight.sees(level, s1375A, f) && !com.claudemod.entity.life.FortressFight.sees(level, s1375B, f);
+            if (s1375Hid < 0 && hid) { s1375Hid = t[0]; c.setHealth(10); }
+            if (s1375Hid > 0 && t[0] == s1375Hid + 20) { // a fireball from the open side his cover doesn't block, 4 off and on its way
+                var fb = new net.minecraft.world.entity.projectile.SmallFireball(level, s1375A, new net.minecraft.world.phys.Vec3(1, 0, 0)); fb.moveTo(c.getX() - 4, c.getEyeY() - 0.3, c.getZ(), 0, 0); fb.setDeltaMovement(0.3, 0, 0); level.addFreshEntity(fb); }
+            if (s1375Hid > 0 && t[0] > s1375Hid + 20 && c.isUsingItem() && c.getUseItem().is(Items.SHIELD)) s1375Raised = true;
+            if (s1375Raised || t[0] > s1375T + 400) {
+                for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.projectile.SmallFireball.class, new net.minecraft.world.phys.AABB(o).inflate(30))) e.discard();
+                s1375A.discard(); s1375B.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY); c.getInventory().clearContent(); c.clearFire(); c.setHealth(20);
+                check(s1375Hid > 0, "setup: never in cover on the open bridge");
+                check(s1375Raised, "hurt in cover, a fireball on its way to him from the open side: no shield up (now " + c.currentTask + ")");
+                pass(stage, t, "the shield up in cover for the fireball " + (t[0] - s1375Hid - 20) + " ticks after it came");
+            }
         }
         return true;
     }

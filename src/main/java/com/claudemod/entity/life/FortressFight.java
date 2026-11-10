@@ -372,6 +372,8 @@ public final class FortressFight {
         for (BlockPos q : BlockPos.betweenClosed(c.offset(-12, -10, -12), c.offset(12, 14, 12))) {
             if (!level.isLoaded(q) || !level.getBlockState(q).is(net.minecraft.world.level.block.Blocks.NETHER_BRICKS)) continue;
             BlockPos f = q.above(); if (!level.getBlockState(f).getCollisionShape(level, f).isEmpty() || !level.getBlockState(f.above()).getCollisionShape(level, f.above()).isEmpty() || !level.getFluidState(f).isEmpty()) continue;
+            int walls = 0; for (var dir : net.minecraft.core.Direction.Plane.HORIZONTAL) { BlockPos a = f.relative(dir), b = a.above(); if (level.getBlockState(a).isCollisionShapeFullBlock(level, a) && level.getBlockState(b).isCollisionShapeFullBlock(level, b)) walls++; }
+            if (walls >= 2) continue; // (a 1-wide bore, his own through its pillar: not its floor; live 21:32 11-09, "the fortress I found at 310, 33, 402", 12 under its deck; stage 1320)
             double score = -f.distSqr(c); if (score > bs) { bs = score; best = f.immutable(); } // (nearest its middle: its floor or deck, not a corridor's roof, the highest bricks)
         }
         return best;

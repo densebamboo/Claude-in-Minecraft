@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1320: return st1320(stage, t, c, h, level, mock);
             case 1319: return st1319(stage, t, c, h, level, mock);
             case 1318: return st1318(stage, t, c, h, level, mock);
             case 1317: return st1317(stage, t, c, h, level, mock);
@@ -17251,6 +17252,26 @@ public final class ClaudeBodyTest {
             check(!r2.startsWith("failed"), "asked again the same second, the piece he hasn't reached written off: " + r2);
             check(r3.contains("where I last saw blazes"), "at the piece, none in view, a blaze seen 26 off: not back to where it was: " + r3);
             nsHome(c, h, level); pass(stage, t, r1 + " | " + r2 + " | " + r3);
+        }
+        return true;
+    }
+    /** Stage 1320 (D2D 170 / Loops, live 21:32:00-21:32:42 11-09: "go_to fortress -> heading to the fortress I found at 310, 33, 402 (1 blocks)", three times: the fortress's spot was his own 1-wide bore through its brick pillar 12 under the deck, so the walk ended at once under it and blaze_rods saw nothing): a deck 5 wide at +12, a brick pillar under it from the rock, his bore through the pillar. Where the fortress is walked is up on its deck, not in his bore. */
+    private static boolean st1320(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13200, 50, 7720);
+        if (t[0] == 1) { scenarioReset(c); }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 10) {
+            for (int x = -10; x <= 10; x++) for (int z = -10; z <= 10; z++) for (int y = -2; y <= 18; y++) nl.setBlock(o.offset(x, y, z), y <= 10 ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) for (int y = -2; y <= 11; y++) nl.setBlock(o.offset(x, y, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // its pillar, up through the rock
+            for (int x = -9; x <= 9; x++) for (int z = -2; z <= 2; z++) nl.setBlock(o.offset(x, 12, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // its deck, 5 wide, open over it
+            for (int x = -8; x <= 8; x++) for (int y = 0; y <= 1; y++) nl.setBlock(o.offset(x, y, 0), Blocks.AIR.defaultBlockState(), 2); // his bore through the pillar, 1 wide, 2 high
+        }
+        if (t[0] == 20) {
+            BlockPos d = com.claudemod.entity.life.FortressScout.deck(nl, o);
+            for (int x = -10; x <= 10; x++) for (int z = -10; z <= 10; z++) for (int y = -2; y <= 18; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(d != null && d.getY() == o.getY() + 13, "the fortress walked to at " + (d == null ? "none" : d.toShortString()) + ": not up on its deck (y " + (o.getY() + 13) + "), his bore through its pillar is at y " + o.getY());
+            nsHome(c, h, level); pass(stage, t, "its deck at " + d.toShortString());
         }
         return true;
     }

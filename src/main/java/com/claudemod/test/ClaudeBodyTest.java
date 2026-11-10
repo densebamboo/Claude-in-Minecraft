@@ -10915,6 +10915,7 @@ public final class ClaudeBodyTest {
             case 1287: return st1287(stage, t, c, h, level, mock);
             case 1288: return st1288(stage, t, c, h, level, mock);
             case 1289: return st1289(stage, t, c, h, level, mock);
+            case 1290: return st1290(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -24165,6 +24166,25 @@ public final class ClaudeBodyTest {
                 check(patches == 2, patches + " of the notch's 2 cells patched");
             } catch (ReflectiveOperationException e) { throw new RuntimeException(e); }
             pass(stage, t, "both cells of his notch sealed in one pass, both patched");
+        }
+        return true;
+    }
+    /** Stage 1290 (D2D review 36, live 22:43-22:46 11-09 at -28,16,-314: a hole in his mine wall, iron ore behind it at -27,11,-314 with lava he knows of beside it; doBreak refused the ore every time (its lava guard), and the hole's patch gave up every time, "ore behind the hole: left open, never sealed in", the two re-queued for minutes, the hole open): the patch waits only for ore he can take. The hole, the ore behind it, lava he knows beside the ore: the patch isn't held for it. */
+    private static boolean st1290(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            BlockPos d = lnRow(b, 5, 4).immutable();
+            net.minecraft.core.Direction side = null; for (var dd : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && !com.claudemod.director.ClaudeLife.isMineCell(c, d.relative(dd)) && level.getBlockState(d.relative(dd)).isSolid()) side = dd;
+            check(side != null, "setup: no wall beside the row");
+            BlockPos hole = d.relative(side), ore = hole.relative(side), lava = ore.relative(side);
+            level.setBlock(hole, Blocks.AIR.defaultBlockState(), 2); level.setBlock(hole.above(), Blocks.AIR.defaultBlockState(), 2); level.setBlock(ore, Blocks.IRON_ORE.defaultBlockState(), 2); level.setBlock(lava, Blocks.LAVA.defaultBlockState(), 2); level.setBlock(lava.relative(side), Blocks.LAVA.defaultBlockState(), 2); // (a body, as live: one block in it holds nothing back, so no plug)
+            lnStand(c, mock, d, b.entrance); c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null;
+            com.claudemod.entity.life.Perception.sawCell(c, level, lava); // (he knows the lava there, as live: it ran in behind a log he broke)
+            check(com.claudemod.director.ClaudeLife.canSee(c, level, ore), "setup: the ore not in his sight through the hole");
+            String held = com.claudemod.entity.goals.WorkGoal.sealsIn(c, level, hole);
+            c.blueprint = null; c.prefs.put("mine_model", "legacy"); level.setBlock(lava, Blocks.STONE.defaultBlockState(), 2); level.setBlock(lava.relative(side), Blocks.STONE.defaultBlockState(), 2);
+            check(held == null, "the hole's patch held for ore the lava keeps him from: " + held);
+            pass(stage, t, "the patch not held for ore behind it he can't take (lava beside it)");
         }
         return true;
     }

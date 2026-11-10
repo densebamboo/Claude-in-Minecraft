@@ -1806,6 +1806,8 @@ public class WorkGoal extends Goal {
         return best;
     }
     public boolean inReachOf(BlockPos pos) { return inReach(pos); }
+    /** doBreak's lava guard on a block: lava he knows of beside it (not under it) that no block of his plugs from this side. */
+    public boolean lavaHolds(ServerLevel level, BlockPos pos) { for (Direction d : Direction.values()) { if (d == Direction.DOWN) continue; BlockPos a = pos.relative(d); if (level.getFluidState(a).is(net.minecraft.tags.FluidTags.LAVA) && com.claudemod.entity.life.Perception.knowsLavaBody(g, level, a) && plugFace(level, pos, a) == null) return true; } return false; }
     private boolean inReach(BlockPos pos) {
         Vec3 eye = g.getEyePosition(); // a player's reach: a face of it he sees, its point inside 4.5 (block_interaction_range), aimed at as blockInTheWay aims; 4.25 to the middle left a floating log 4.37 off, a face 3.8 off, "can't get at it" (reviews 199/200, stage 988)
         if (eye.distanceTo(Vec3.atCenterOf(pos)) > w("reach.block", 4.45) + 0.87) return false; // (no face of it within reach: no rays; a ray to a block far off stepped every cell and loaded every chunk on the way, the test server hung, stages 548, 781)
@@ -3007,7 +3009,7 @@ public class WorkGoal extends Goal {
     public static java.util.List<BlockPos> veinBehind(com.claudemod.entity.ClaudeEntity g, ServerLevel level, BlockPos pos) {
         java.util.Set<BlockPos> pocket = pocketBehind(g, level, pos); java.util.LinkedHashSet<BlockPos> out = new java.util.LinkedHashSet<>();
         for (BlockPos p : pocket) for (Direction d : Direction.values()) { BlockPos q = p.relative(d); if (pocket.contains(q)) continue; BlockState s = level.getBlockState(q);
-            if (!com.claudemod.entity.life.MineBlueprint.ore(s) || (g.blueprint != null && g.blueprint.isWalk(q)) || !com.claudemod.director.ClaudeLife.canSee(g, level, q) && !com.claudemod.director.ClaudeLife.seenOre(g).contains(q)) continue; // (in sight, or seen before: live 16:32:56 a diamond seen through the hole, out of sight 3 s later as he backed out, sealed in; stage 1013)
+            if (!com.claudemod.entity.life.MineBlueprint.ore(s) || g.work != null && g.work.lavaHolds(level, q) /* (ore his lava guard keeps him from: the patch waited for it for good, both re-queued for minutes, live 22:43-22:46 11-09, review 36, stage 1290) */ || (g.blueprint != null && g.blueprint.isWalk(q)) || !com.claudemod.director.ClaudeLife.canSee(g, level, q) && !com.claudemod.director.ClaudeLife.seenOre(g).contains(q)) continue; // (in sight, or seen before: live 16:32:56 a diamond seen through the hole, out of sight 3 s later as he backed out, sealed in; stage 1013)
             out.add(q.immutable()); }
         java.util.List<BlockPos> l = new java.util.ArrayList<>(out); l.sort(java.util.Comparator.<BlockPos>comparingInt(q -> level.getBlockState(q).is(net.minecraft.tags.BlockTags.DIAMOND_ORES) ? 0 : 1).thenComparingDouble(q -> q.distSqr(pos))); return l;
     }

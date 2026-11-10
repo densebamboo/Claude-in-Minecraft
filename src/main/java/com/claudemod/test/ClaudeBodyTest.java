@@ -10896,6 +10896,7 @@ public final class ClaudeBodyTest {
             case 1277: return st1277(stage, t, c, h, level, mock);
             case 1278: return st1278(stage, t, c, h, level, mock);
             case 1279: return st1279(stage, t, c, h, level, mock);
+            case 1280: return st1280(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -23650,6 +23651,47 @@ public final class ClaudeBodyTest {
             if (in || late) { c.tasks.clear(); c.dropCurrent = true; c.myStations.remove(fur); for (BlockPos p : BlockPos.betweenClosed(o.offset(-9, -1, -2), o.offset(3, 3, 5))) level.setBlock(p, Blocks.AIR.defaultBlockState(), 2); }
             if (in) pass(stage, t, "the far furnace loaded in " + (t[0] - 12) + " ticks, by the way made to it");
             else check(!late, "the far furnace not loaded in 15 s: at " + where);
+        }
+        return true;
+    }
+    /** Stage 1280 (D2D 11-09, the user: "it just needs the rails"; rails wait for the way home): a highway whose floor reaches its end over lava, its rails not up yet, him in the overworld with blaze rods to get. Through the portal, not a full pack of cobbled deepslate for rails first (rail-only rows counted as rows left: rows x 2.6 blocks). */
+    private static boolean st1280(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(9800, 64, 5320);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            var rack = Blocks.NETHERRACK.defaultBlockState(); var air = Blocks.AIR.defaultBlockState(); var lava = Blocks.LAVA.defaultBlockState();
+            for (int x = -6; x <= 8; x++) for (int z = -6; z <= 50; z++) for (int y = -5; y <= 5; y++) nl.setBlock(o.offset(x, y, z), y < -4 ? rack : y < 0 ? (z <= 2 ? rack : lava) : air, 2);
+            for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, 0), x == -1 || x == 2 || y == -1 || y == 3 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+            nsKit(c); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 1.5, 0f, 0f);
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o, "him", "lit");
+        }
+        String dest = (o.getX() + 2) + " " + o.getY() + " " + (o.getZ() + 40);
+        if (t[0] == 20) { // planned, then its floor laid as he left it: every row's floor cobbled deepslate, no rails
+            c.skillQueue.clear(); com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", dest, 1); c.skillQueue.clear(); c.tasks.clear();
+            var b = com.claudemod.entity.life.Highway.plan(c);
+            check(b != null && b.rows.size() >= 30, "setup: no plan of 30+ rows: " + b);
+            for (var r : b.rows) for (int k = b.lo(); k <= b.hi(); k++) { BlockPos f = r.centre().relative(r.dir().getClockWise(), k); nl.setBlock(f, Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); for (int y = 1; y <= 3; y++) nl.setBlock(f.above(y), Blocks.AIR.defaultBlockState(), 2); }
+            BlockPos end = b.rows.get(b.rows.size() - 1).centre();
+            c.teleportTo(nl, end.getX() + 0.5, end.getY() + 1, end.getZ() + 0.5, 0f, 0f); com.claudemod.entity.life.Watchdog.teleported(c);
+        }
+        if (t[0] == 30) { // at its end with none on him: the highway read off the world (its floor done, its rails not)
+            c.getInventory().clearContent(); nsKit(c);
+            c.skillQueue.clear(); c.tasks.clear(); String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", "", 1);
+            ClaudeMod.LOGGER.info("[Claude test] 1280 at the end -> {}", r);
+            var b = com.claudemod.entity.life.Highway.plan(c);
+            check(b != null && com.claudemod.entity.life.Highway.next(nl, b) < b.rows.size(), "setup: the rails over the lava aren't wanted (the highway reads finished): " + r);
+            c.skillQueue.clear(); c.tasks.clear();
+        }
+        if (t[0] == 40) {
+            nsHome(c, h, level); c.getInventory().clearContent(); nsKit(c); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 32));
+            c.skillQueue.clear(); c.tasks.clear(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("collect", "blaze_rod", 6));
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "enter_portal", "", 1);
+            var q = new java.util.ArrayList<>(c.skillQueue); c.skillQueue.clear(); c.tasks.clear();
+            check(!r.contains("full pack for the highway") && q.stream().noneMatch(x -> x.skill().equals("collect") && x.target().equals("cobbled_deepslate")), "the rails pass held up the blaze rods: \"" + r + "\", queue " + q);
+            pass(stage, t, "through the portal for blaze rods, the rails left for the way home: " + r);
         }
         return true;
     }

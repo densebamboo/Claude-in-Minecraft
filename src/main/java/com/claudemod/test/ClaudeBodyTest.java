@@ -10977,6 +10977,7 @@ public final class ClaudeBodyTest {
             case 1420: return st1420(stage, t, c, h, level, mock);
             case 1421: return st1421(stage, t, c, h, level, mock);
             case 1422: return st1422(stage, t, c, h, level, mock);
+            case 1423: return st1423(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -25741,6 +25742,32 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static int s1422T, s1422D;
+    /** Stage 1423 (D2D reviews 085246-67/69 and the 09:22 conflicts, live 08:48 and 09:20-09:24 11-10, World 17): salmon in a lake he can't walk to; the kit's food ask priced the four nearest every ~2 s, each a full route search to its budget from the same spot, "no short way on foot" for the same fish again and again. A fish's "no way" holds while he and it stay put. */
+    private static boolean st1423(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9800, 70, 9760);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1423F.clear(); for (var mb : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) mb.discard(); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 50; x++) for (int z = -10; z <= 10; z++) for (int y = -3; y <= 6; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // flat ground
+            for (int[] pond : new int[][] {{18, 0}, {38, 0}}) for (int x = -3; x <= 3; x++) for (int z = -3; z <= 3; z++) for (int y = -3; y <= 3; y++) { boolean wall = Math.abs(x) == 3 || Math.abs(z) == 3; level.setBlock(at.offset(pond[0] + x, y, pond[1] + z), (wall ? Blocks.STONE : y < 0 ? Blocks.WATER : Blocks.AIR).defaultBlockState(), 2); } // two ponds, walled 4 high: no way in on foot
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.setHealth(20); c.getFoodData().setFoodLevel(10);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); mock[0].teleportTo(at.getX() + 20.5, at.getY() + 30, at.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) for (int px : new int[] {18, 38}) { var f = net.minecraft.world.entity.EntityType.SALMON.create(level); f.moveTo(at.getX() + px + 0.5, at.getY() - 1, at.getZ() + 0.5, 0, 0); f.setNoAi(true); level.addFreshEntity(f); s1423F.add(f); } // near the top of each
+        if (t[0] == 20) {
+            long[] first = new long[2], again = new long[2]; double[] w0 = new double[2], w1 = new double[2];
+            for (int i = 0; i < 2; i++) { var f = s1423F.get(i); long t0 = System.nanoTime(); w0[i] = com.claudemod.director.ClaudeLife.preyWalk(c, level, f); first[i] = System.nanoTime() - t0; }
+            for (int i = 0; i < 2; i++) { var f = s1423F.get(i); long t0 = System.nanoTime(); w1[i] = com.claudemod.director.ClaudeLife.preyWalk(c, level, f); again[i] = System.nanoTime() - t0; }
+            for (var f : s1423F) f.discard(); s1423F.clear();
+            for (int x = -4; x <= 50; x++) for (int z = -10; z <= 10; z++) for (int y = 0; y <= 6; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); // (the floor left; the ponds' water below it goes too)
+            for (int x = -4; x <= 50; x++) for (int z = -10; z <= 10; z++) for (int y = -3; y < 0; y++) level.setBlock(at.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+            check(w0[0] < 0 && w0[1] < 0 && w1[0] < 0 && w1[1] < 0, "the walled ponds' salmon priced as walkable: " + w0[0] + ", " + w0[1] + " then " + w1[0] + ", " + w1[1]);
+            check((again[0] + again[1]) * 20 < first[0] + first[1], "the same two salmon from the same spot searched again: " + (first[0] + first[1]) / 1000 + " us, then " + (again[0] + again[1]) / 1000 + " us");
+            pass(stage, t, "no way to the salmon, held: " + (first[0] + first[1]) / 1000 + " us, then " + (again[0] + again[1]) / 1000 + " us");
+        }
+        return true;
+    }
+    private static final java.util.List<net.minecraft.world.entity.Mob> s1423F = new java.util.ArrayList<>();
     /** Stage 1420 (D2D review 21, live 06:46:25-06:46:43 11-10 at -114,17,-329, World 17): his furnace at -113,18,-328, ceiling high in the rock beside his tunnel; the way made to the cell beside it dug his ceiling and a wall cell, and put both back at the way's end, before the load: his way in to it shut, 9 s of loops and spins one block off, the walk written off UNKNOWN and the spot skipped. The way's put-backs come after the job. */
     private static boolean st1420(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos at = new BlockPos(9960, 80, 9780), fur = at.offset(1, 2, 1);

@@ -9863,6 +9863,7 @@ public final class ClaudeLife {
      * line and 12 more (round a pond or a tree, not a 35-leg climb up a mountain for a sheep 57 across, 9 meals on him). An animal a
      * chase didn't close on: -1 while that still stands (same spot, no nearer, no new blocks to climb with). Under the ground (his mine, a cave): the straight line, as before (the hunt takes him up first).
      */
+    private static java.util.Map<java.util.UUID, double[]> preyNoWay; // a no-way verdict: where the animal and he were, and when (static: fields added live start null)
     public static double preyWalk(ClaudeEntity g, ServerLevel level, net.minecraft.world.entity.Entity e) {
         double d = g.distanceTo(e);
         double[] out = preyOut().get(e.getUUID());
@@ -9872,6 +9873,8 @@ public final class ClaudeLife {
         }
         if (d <= 3) return d;
         BlockPos me = g.blockPosition(), at = e.blockPosition();
+        if (preyNoWay == null) preyNoWay = new java.util.HashMap<>(); if (preyNoWay.size() > 256) preyNoWay.clear();
+        { double[] nw = preyNoWay.get(e.getUUID()); if (nw != null && g.tickCount - nw[6] >= 0 && g.tickCount - nw[6] < 20 * com.claudemod.entity.life.Weights.w("hunt.no_way_memo_s", 30) && e.position().distanceTo(new net.minecraft.world.phys.Vec3(nw[0], nw[1], nw[2])) <= 3 && g.position().distanceTo(new net.minecraft.world.phys.Vec3(nw[3], nw[4], nw[5])) <= 2) return -1; } // its "no way" holds while he and it stay put: the kit priced the same salmon every ~2 s, a full search each to its budget, 150-300 ms a time on the server thread (live 08:48 and 09:20-09:24 11-10, D2D reviews 085246-67/69, stage 1423)
         if (me.getY() < level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, me.getX(), me.getZ()) - 3) return d;
         double limit = 1.6 * d + 12, len;
         boolean fish = e instanceof net.minecraft.world.entity.animal.WaterAnimal;
@@ -9881,6 +9884,7 @@ public final class ClaudeLife {
         } else len = com.claudemod.entity.nav.Route.walkLength(g, level, me, at, limit, fish ? 6 : 2);
         if (len > limit) len = -1;
         if (len < 0) ClaudeMod.LOGGER.info("[Claude life] no short way on foot to the {} at {} ({} across)", e.getType().getDescription().getString(), at.toShortString(), (int) d);
+        if (len < 0) preyNoWay.put(e.getUUID(), new double[] {e.getX(), e.getY(), e.getZ(), g.getX(), g.getY(), g.getZ(), g.tickCount});
         return len;
     }
 

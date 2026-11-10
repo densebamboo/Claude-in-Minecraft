@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1383: return st1383(stage, t, c, h, level, mock);
             case 1382: return st1382(stage, t, c, h, level, mock);
             case 1381: return st1381(stage, t, c, h, level, mock);
             case 1380: return st1380(stage, t, c, h, level, mock);
@@ -18101,6 +18102,37 @@ public final class ClaudeBodyTest {
                 check(got >= 3, "15 s: the logs at his pillar's foot not picked up (" + got + " on him, asked to dig the block under him " + s1382Asks + " ticks; doing " + now + ")");
                 check(s1382Asks < 3, "asked to dig out the block under his own feet " + s1382Asks + " ticks on the way to the logs below");
                 pass(stage, t, "down off his pillar and the logs picked up in " + (t[0] - s1382T) + " ticks");
+            }
+        }
+        return true;
+    }
+    /** Stage 1383 (D2D food major, live 08:08:08-10 11-10 at 15,49,-111: kit.food "hunt cow ~356 s (nearest 22 walk)", collect beef "hunting 1 cow" with the cow up on the grass 19 above through rock; the Attack went in with no walk, doAttack "out of sight 6 up/down for 3 s and isn't after him: leaving it" 2 s on, the cow marked out, then a 472 s search and 47 min with no kill, food 4): him in a pocket under the rock, a cow on the grass 6 up past the rock (live: \"6 up/down\"). The hunt walks (digs) up to it and gets the beef. */
+    private static int s1383T; private static net.minecraft.world.entity.animal.Cow s1383Cow;
+    private static boolean st1383(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(18800, 60, 15800);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -16; k <= 32; k += 16) for (int kz = -16; kz <= 32; kz += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, kz)), 2, o.offset(k, 0, kz));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; s1383T = -1; s1383Cow = null; }
+        if (t[0] == 10) {
+            for (int x = -6; x <= 26; x++) for (int z = -10; z <= 16; z++) { for (int y = -2; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2); level.setBlock(o.offset(x, 5, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 6; y <= 14; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = 0; x <= 2; x++) for (int z = 0; z <= 2; z++) for (int y = 0; y <= 2; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); // his pocket down in the rock
+            level.setBlock(o.offset(1, 2, 1), Blocks.TORCH.defaultBlockState(), 2);
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) m.discard();
+            s1383Cow = EntityType.COW.create(level); s1383Cow.moveTo(o.getX() + 14.5, o.getY() + 6, o.getZ() + 3.5, 0, 0); s1383Cow.setPersistenceRequired(); s1383Cow.setNoAi(true); level.addFreshEntity(s1383Cow);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 1.5, o.getY(), o.getZ() + 1.5, 0f, 0f); mock[0].teleportTo(level, o.getX() + 1.5, o.getY() + 40, o.getZ() + 1.5, 0f, 0f);
+            c.setHealth(20); c.getFoodData().setFoodLevel(14); level.setDayTime(3000); c.prefs.put("stay_close", "no");
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear(); c.stairStart = null; c.mineFace = null; c.blueprint = null;
+        }
+        if (t[0] == 70) { String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "beef", 2); c.lastSkillLine = "collect beef x2 -> " + r; s1383T = t[0]; } // (past the kit's 40-tick food memo)
+        if (s1383T > 0 && t[0] > s1383T) {
+            c.nextPlanTick = c.tickCount + 20 * 600; c.getFoodData().setFoodLevel(14);
+            int beef = c.getInventory().countItem(Items.BEEF);
+            boolean dropped = c.tasks.isEmpty() && c.currentTask == null && t[0] - s1383T > 40 && beef == 0;
+            if (beef > 0 || dropped || t[0] - s1383T > 20 * 60) {
+                String l = c.lastSkillLine; boolean alive = s1383Cow.isAlive();
+                c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.attempts.clear(); if (alive) s1383Cow.discard(); { BlockPos home = h.absolutePos(new BlockPos(8, 2, 8)); com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, home.getX() + 0.5, home.getY(), home.getZ() + 0.5, 0f, 0f); } // (back to the arena: the next stage starts him there)
+                check(beef > 0, (dropped ? "the hunt stopped with no beef " : "60 s and no beef ") + "from the cow 6 up past the rock (cow alive " + alive + "; last: " + l + ")");
+                pass(stage, t, "up to the cow and the beef in " + (t[0] - s1383T) + " ticks");
             }
         }
         return true;

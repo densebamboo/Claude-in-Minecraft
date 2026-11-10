@@ -10895,6 +10895,7 @@ public final class ClaudeBodyTest {
             case 1276: return st1276(stage, t, c, h, level, mock);
             case 1277: return st1277(stage, t, c, h, level, mock);
             case 1278: return st1278(stage, t, c, h, level, mock);
+            case 1279: return st1279(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -23630,6 +23631,28 @@ public final class ClaudeBodyTest {
         return true;
     }
     /** Stage 1279 (D2D reviews 192252-203, 193017-27, live 19:18-19:21 11-09 at -149,16,-301 / -297: 9 raw iron split over 2 furnaces at the ends of two tunnels 4 apart; the way to the other furnace was made (39 acts, 8 digs) and queued, but reachFor took walkTo's "ended" for a failed reach: REACH NO_PATH, the load dropped, he walked the way with no job and the next load sent him back; over a minute): two tunnels with rock between, his furnace at the far end of the other one, a FurnaceLoad for it. The iron in it within 15 s. */
+    private static boolean st1279(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(10, 4, 6)), fur = o.offset(-7, 0, 3);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(-9, -1, -2), o.offset(3, 3, 5))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            for (int x = -6; x <= 1; x++) for (int y = 0; y <= 1; y++) { level.setBlock(o.offset(x, y, 0), Blocks.AIR.defaultBlockState(), 2); level.setBlock(o.offset(x, y, 3), Blocks.AIR.defaultBlockState(), 2); } // two tunnels along x, 2 of rock between
+            level.setBlock(fur, Blocks.FURNACE.defaultBlockState().setValue(net.minecraft.world.level.block.FurnaceBlock.FACING, net.minecraft.core.Direction.EAST), 2); c.myStations.add(fur.immutable());
+            level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.RAW_IRON, 9)); c.getInventory().add(new ItemStack(Items.COAL, 8)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(o.getX() + 0.5 - 5, o.getY(), o.getZ() + 0.5); mock[0].teleportTo(o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+        }
+        if (t[0] == 12) c.tasks.add(new Task.FurnaceLoad(fur.immutable(), Items.RAW_IRON, 5));
+        if (t[0] > 12) {
+            boolean in = level.getBlockEntity(fur) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fe && fe.getItem(0).is(Items.RAW_IRON), late = t[0] >= 12 + 20 * 15;
+            String where = c.blockPosition().subtract(o) + ", task " + c.currentTask + ", queue " + c.tasks;
+            if (in || late) { c.tasks.clear(); c.dropCurrent = true; c.myStations.remove(fur); for (BlockPos p : BlockPos.betweenClosed(o.offset(-9, -1, -2), o.offset(3, 3, 5))) level.setBlock(p, Blocks.AIR.defaultBlockState(), 2); }
+            if (in) pass(stage, t, "the far furnace loaded in " + (t[0] - 12) + " ticks, by the way made to it");
+            else check(!late, "the far furnace not loaded in 15 s: at " + where);
+        }
+        return true;
+    }
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

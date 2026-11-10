@@ -7026,6 +7026,9 @@ public class WorkGoal extends Goal {
      * to 3, digs, blocks put down), never by lava, sized up against its fire. 0: no way worth it (out of its sight instead);
      * 1: walking the way in (the fight goes on); 2: its first steps put in front of the fight (the fight after them).
      */
+    private int shooterPlans; // (the way-in searches run: stage 1415 counts them)
+    private java.util.Map<java.util.UUID, long[]> noWayIn; // a shooter -> {tick, where it was, where he searched from, his blocks} of the last search that found no way in
+    private java.util.Map<java.util.UUID, long[]> noWayIn() { if (noWayIn == null) noWayIn = new java.util.HashMap<>(); return noWayIn; }
     private int closeOnShooter(net.minecraft.world.entity.LivingEntity mob, Task.Attack t) {
         ServerLevel level = (ServerLevel) g.level();
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()), to = mob.blockPosition();
@@ -7036,8 +7039,11 @@ public class WorkGoal extends Goal {
         java.util.List<Vec3> wide = new java.util.ArrayList<>();
         com.claudemod.entity.nav.ActionPath.Plan plan = null;
         java.util.Set<BlockPos> edges = new java.util.HashSet<>(); double edgeHp = 0;
+        int blocks0 = com.claudemod.entity.nav.ActionPath.moveBlocks(g);
+        { long[] nw = noWayIn().get(mob.getUUID()); // the last "no way in" to this one: it holds while he, it and his blocks are where they were (review 202: the same 3000-node search from each cell his footing moved him to, 4 a second, by the lava sea)
+          if (nw != null && g.tickCount - nw[0] < 20 * w("fight.no_way_memo_s", 5) && BlockPos.of(nw[1]).closerThan(to, 2.5) && BlockPos.of(nw[2]).closerThan(feet, 2.5) && nw[3] == blocks0) { closeSay("no way in to the " + who + " (" + below + " below, " + off + " off), searched " + (g.tickCount - nw[0]) / 20 + " s ago from " + BlockPos.of(nw[2]).toShortString() + ": out of its sight instead"); return 0; } }
         for (int k = 0; k < 3; k++) {
-            plan = com.claudemod.entity.nav.ActionPath.plan(g, level, feet, to, 2.0, !scaff.isEmpty(), 3000, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount, wide);
+            shooterPlans++; plan = com.claudemod.entity.nav.ActionPath.plan(g, level, feet, to, 2.0, !scaff.isEmpty(), 3000, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount, wide);
             if (plan == null) break;
             BlockPos lava = null; edges.clear(); edgeHp = 0;
             for (var a : plan.acts()) {
@@ -7053,7 +7059,7 @@ public class WorkGoal extends Goal {
             if (level.getFluidState(lava).is(net.minecraft.tags.FluidTags.LAVA)) closeSay("the way in to the " + who + " runs by lava at " + lava.toShortString() + ": planned again wide of it");
             wide.add(Vec3.atBottomCenterOf(lava)); plan = null;
         }
-        if (plan == null) { closeSay("no way in to the " + who + " (" + below + " below, " + off + " off) on foot, by digging or by blocks" + (wide.isEmpty() ? "" : " wide of the lava") + ": out of its sight instead"); return 0; }
+        if (plan == null) { if (noWayIn().size() > 32) noWayIn().clear(); noWayIn().put(mob.getUUID(), new long[] {g.tickCount, to.asLong(), feet.asLong(), blocks0}); closeSay("no way in to the " + who + " (" + below + " below, " + off + " off) on foot, by digging or by blocks" + (wide.isEmpty() ? "" : " wide of the lava") + ": out of its sight instead"); return 0; }
         boolean shield = g.getItemBySlot(EquipmentSlot.OFFHAND).is(net.minecraft.world.item.Items.SHIELD);
         double secs = plan.walks() * 0.25 + plan.digs() * 0.6 + plan.puts() * 0.8;
         double take = Math.floor(secs / 2.0) * 4.0 * (1 - Math.min(20, g.getArmorValue()) / 25.0) * (shield ? 0.3 : 1.0) + edgeHp; // (a shot every ~2 s on the way in, ~4 a bolt or arrow less his armor; a shield takes most; and the falls its edges risk)

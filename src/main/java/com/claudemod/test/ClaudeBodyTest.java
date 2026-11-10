@@ -10958,6 +10958,7 @@ public final class ClaudeBodyTest {
             case 1412: return st1412(stage, t, c, h, level, mock);
             case 1413: return st1413(stage, t, c, h, level, mock);
             case 1414: return st1414(stage, t, c, h, level, mock);
+            case 1415: return st1415(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -25199,6 +25200,34 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static int s1414T;
+    /** Stage 1415 (D2D review 202, also 114/137/169, live 05:33:11-12 11-10 at 280,65,435 by a fortress over the lava sea): a blaze he can't get at, the way-in search out of budget; "out of its sight", then his footing a cell back, and the same 3000-node search again from each cell, 4 a second. A no-way answer holds while he and it are where they were. */
+    private static boolean st1415(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9760, 80, 9780);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1415Bz = null; s1415N0 = -1; }
+        if (t[0] == 5) mock[0].teleportTo(at.getX() + 0.5, at.getY() + 40, at.getZ() + 0.5);
+        if (t[0] == 10) {
+            for (int x = -4; x <= 18; x++) for (int z = -4; z <= 4; z++) for (int y = -12; y <= 6; y++) level.setBlock(at.offset(x, y, z), (y == -12 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // a gap 12 down
+            for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) { level.setBlock(at.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); level.setBlock(at.offset(x + 14, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); } // his deck, and the blaze's 13 off
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8)); // (no blocks on him: no bridge)
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+            var bz = EntityType.BLAZE.create(level); bz.moveTo(at.getX() + 14.5, at.getY(), at.getZ() + 0.5, 90, 0); bz.setNoAi(true); bz.setPersistenceRequired(); level.addFreshEntity(bz); s1415Bz = bz;
+        }
+        if (t[0] >= 20 && t[0] < 120 && s1415Bz != null) {
+            if (t[0] % 4 == 0) { double x = at.getX() + 0.5 + (t[0] % 8 == 0 ? 0 : 1); c.teleportTo(x, at.getY(), at.getZ() + 0.5); } // (stepped off the lip and back, a cell each way, as live)
+            try { var m = com.claudemod.entity.goals.WorkGoal.class.getDeclaredMethod("closeOnShooter", net.minecraft.world.entity.LivingEntity.class, Task.Attack.class); m.setAccessible(true); m.invoke(c.work, s1415Bz, new Task.Attack(s1415Bz.getUUID(), 400));
+                var f = com.claudemod.entity.goals.WorkGoal.class.getDeclaredField("shooterPlans"); f.setAccessible(true); if (s1415N0 < 0) s1415N0 = f.getInt(c.work) - 1; s1415N = f.getInt(c.work) - s1415N0; } catch (Exception e) { check(false, "closeOnShooter: " + e); }
+        }
+        if (t[0] == 121) {
+            int n = s1415N;
+            if (s1415Bz != null) s1415Bz.discard(); c.getNavigation().stop(); c.tasks.clear(); c.dropCurrent = true;
+            for (int x = -4; x <= 18; x++) for (int z = -4; z <= 4; z++) for (int y = -12; y <= 6; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // (the floor left)
+            check(n <= 3, "the way in to the blaze searched " + n + " times in 5 s from the same two cells");
+            pass(stage, t, "the way in to the blaze searched " + n + " time(s) in 5 s, the no-way answer kept");
+        }
+        return true;
+    }
+    private static net.minecraft.world.entity.monster.Blaze s1415Bz; private static int s1415N0, s1415N;
     /** Stage 1411 (D2D review 60, live 06:04:40-06:05:00 11-10 at -75,16,-345): stone picks to make in his one-wide iron tunnel, his mine's table elsewhere: the temp table went down on the tunnel floor at -74, between him and his dig at -70; the way over it dug 3 of his ceiling, his mine wanted them back, the put-back refused. The table goes on the side away from his work. */
     private static boolean st1411(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos at = new BlockPos(9940, 80, 9780), me = at.offset(3, 0, 0), work = at.offset(7, 0, 0), mineTable = at.offset(0, 0, 1);

@@ -10878,6 +10878,7 @@ public final class ClaudeBodyTest {
             case 1271: return st1271(stage, t, c, h, level, mock);
             case 1272: return st1272(stage, t, c, h, level, mock);
             case 1273: return st1273(stage, t, c, h, level, mock);
+            case 1274: return st1274(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -23194,6 +23195,33 @@ public final class ClaudeBodyTest {
             check(!toJunk, "a trip to his junk chest 21 off for 7 diorite with 30 stacks of lapis on him and his storage 10 off: " + q0);
             check(toStore, "his storage 10 off not used: " + q0);
             pass(stage, t, "full in his mine: his storage first, not a junk trip for one stack");
+        }
+        return true;
+    }
+    /** Ore in his tunnel's wall a cell past his wall torch, he 4 back down the tunnel: the torch at head height covers every face he sees from there, so a step closer, never the torch broken for the view and put back (live 12:54:2x 11-09 World 17, D2D review 84: "wall torch at -113, 17, -293 is in the way of copper ore at -114, 17, -294 (he's at -110, 16, -293)", picked up, placed again, broken again). */
+    private static boolean st1274(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(9, 3, 4)), ore = o.offset(-4, 1, -1), torch = o.offset(-3, 1, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(-8, -1, -2), o.offset(3, 3, 2))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            for (int x = -7; x <= 2; x++) for (int y = 0; y <= 1; y++) level.setBlock(o.offset(x, y, 0), Blocks.AIR.defaultBlockState(), 2); // his tunnel along x, its north wall at z -1
+            level.setBlock(ore, Blocks.COPPER_ORE.defaultBlockState(), 2);
+            level.setBlock(torch, Blocks.WALL_TORCH.defaultBlockState().setValue(net.minecraft.world.level.block.WallTorchBlock.FACING, net.minecraft.core.Direction.SOUTH), 2); // on the north wall, a cell short of the ore
+            var b = new com.claudemod.entity.life.MineBlueprint(o.offset(-7, 0, 0), net.minecraft.core.Direction.EAST, 1, 2); b.segments.clear(); // his mine's row, 1 wide and 2 tall, as the live branch: its walls are his shell
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, o.offset(-7, 0, 0), net.minecraft.core.Direction.EAST, 10, null)); b.invalidate();
+            c.prefs.put("mine_model", "blueprint"); c.prefs.put("torches_while_digging", "no"); c.blueprint = b; com.claudemod.director.ClaudeLife.bpSync(c);
+            level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setYRot(90); mock[0].teleportTo(o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+        }
+        if (t[0] == 12) c.tasks.add(new Task.Break(ore));
+        if (t[0] > 12) {
+            boolean kept = level.getBlockState(torch).is(Blocks.WALL_TORCH), mined = level.getBlockState(ore).isAir(), late = t[0] >= 12 + 20 * 6; String at = c.blockPosition().subtract(o) + ", task " + c.currentTask + ", queue " + c.tasks;
+            if (!kept || mined || late) { c.blueprint = null; c.mineFace = null; c.tasks.clear(); c.dropCurrent = true; }
+            check(kept, "his wall torch broken for the view of the ore a cell past it, " + (t[0] - 12) + " ticks in, he at " + at);
+            if (mined) pass(stage, t, "the ore past his torch mined in " + (t[0] - 12) + " ticks, the torch kept");
+            else check(!late, "the ore not mined in 6 s: at " + at);
         }
         return true;
     }

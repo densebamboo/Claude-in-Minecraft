@@ -587,11 +587,12 @@ public final class ClaudeLife {
             String outName = level.getRecipeManager().getRecipeFor(net.minecraft.world.item.crafting.RecipeType.SMELTING, new net.minecraft.world.item.crafting.SingleRecipeInput(f.getItem(0)), level).map(rh -> net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(rh.value().getResultItem(level.registryAccess()).getItem()).getPath()).orElse("?");
             for (Skills.Step s : g.skillQueue) if (Set.of("collect", "strip_mine", "dig_down", "fight", "explore").contains(s.skill()) && !s.target().contains(outName)) { free = s; break; } // (crafts, smelts and stores wait: they may need what's cooking)
         }
-        net.minecraft.world.entity.animal.Animal prey = null; // his kit short of food and an animal he knows of in reach of the clock: the nearest one while it cooks (the user, 11-06: "staring into his furnace again instead of hunting"; "proximity should be #1")
+        net.minecraft.world.entity.Mob prey = null; // his kit short of food and an animal he knows of in reach of the clock: the nearest one while it cooks (the user, 11-06: "staring into his furnace again instead of hunting"; "proximity should be #1")
         if (left >= 15 && Kit.foodAsk(g) != null) {
             double kill = com.claudemod.entity.life.Weights.w("smelt.side_hunt_kill_s", 6), budget = left - com.claudemod.entity.life.Weights.w("smelt.side_slack_s", 5);
-            var meat = new java.util.ArrayList<>(com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.animal.Animal.class, g.getBoundingBox().inflate(24), a -> a.isAlive() && !a.isBaby()
-                    && (a instanceof net.minecraft.world.entity.animal.Cow || a instanceof net.minecraft.world.entity.animal.Pig || a instanceof net.minecraft.world.entity.animal.Sheep || a instanceof net.minecraft.world.entity.animal.Chicken || a instanceof net.minecraft.world.entity.animal.Rabbit)));
+            var meat = new java.util.ArrayList<>(com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(24), a -> a.isAlive() && !a.isBaby()
+                    && (a instanceof net.minecraft.world.entity.animal.Cow || a instanceof net.minecraft.world.entity.animal.Pig || a instanceof net.minecraft.world.entity.animal.Sheep || a instanceof net.minecraft.world.entity.animal.Chicken || a instanceof net.minecraft.world.entity.animal.Rabbit
+                        || (a instanceof net.minecraft.world.entity.animal.Salmon || a instanceof net.minecraft.world.entity.animal.Cod) && shallowFish(level, a)))); // (fish the kit counts as food too: 10 salmon 11 off and "wait at the furnace ~39 s" twice, D2D review 094354-74; stage 1453)
             meat.sort(java.util.Comparator.comparingDouble(a -> a.distanceToSqr(g)));
             for (var a : meat) if (2 * com.claudemod.entity.life.Clocks.eta(g.blockPosition(), a.blockPosition()) + kill <= budget) { prey = a; break; }
         }

@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1453: return st1453(stage, t, c, h, level, mock);
             case 1452: return st1452(stage, t, c, h, level, mock);
             case 1451: return st1451(stage, t, c, h, level, mock);
             case 1450: return st1450(stage, t, c, h, level, mock);
@@ -18350,6 +18351,31 @@ public final class ClaudeBodyTest {
             check(rods >= 1000, "2 blaze rods priced " + (int) rods + " s to get again (the blaze step took ~670 s a rod on 11-10)");
             check(all > 2350, "death 75's pile priced " + (int) all + " s, under the 2350 s run there and back, with 2 of the 7 rods in it");
             pass(stage, t, "the pile " + (int) all + " s, its 2 rods " + (int) rods + " s");
+        }
+        return true;
+    }
+    /** Stage 1453 (D2D review 094354-74, live 09:39:22-09:41:17 11-10 at -30,62,17: 4 salmon cooking, his kit 261 points short, 10 salmon swimming 11 off, "smelt.side_mine ... wait at the furnace ~39 s", twice; the side job's prey was land animals only): salmon cooking, his kit short, salmon in a pond 8 off. He goes after one while it cooks. */
+    private static int s1453T; private static net.minecraft.world.entity.animal.Salmon s1453S; private static BlockPos s1453F;
+    private static boolean st1453(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(4, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; s1453T = 0; com.claudemod.entity.life.Perception.reset(c); c.prefs.put("stay_close", "no"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64), m -> !m.getUUID().equals(c.getUUID()))) m.discard(); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 24; x++) for (int z = -4; z <= 20; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.GRASS_BLOCK.defaultBlockState(), 2); level.setBlock(h.absolutePos(new BlockPos(x, 0, z)), Blocks.DIRT.defaultBlockState(), 2); for (int yy = 2; yy <= 8; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = 10; x <= 14; x++) for (int z = 6; z <= 10; z++) for (int yy = 0; yy <= 1; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.WATER.defaultBlockState(), 2); // a pond, 2 deep
+            level.setDayTime(1000); s1453F = me.west();
+            level.setBlock(s1453F, Blocks.FURNACE.defaultBlockState(), 3); c.myStations.add(s1453F);
+            if (level.getBlockEntity(s1453F) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fb) { fb.setItem(0, new ItemStack(Items.SALMON, 4)); fb.setItem(1, new ItemStack(Items.COAL, 2)); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 2));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(-90); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear();
+            s1453S = EntityType.SALMON.create(level); BlockPos sp = h.absolutePos(new BlockPos(12, 1, 8)); s1453S.moveTo(sp.getX() + 0.5, sp.getY() + 0.3, sp.getZ() + 0.5, 0, 0); s1453S.setNoAi(true); s1453S.setPersistenceRequired(); level.addFreshEntity(s1453S);
+        }
+        if (t[0] == 40) { com.claudemod.entity.life.Perception.felt(c, s1453S); c.tasks.add(new Task.FurnaceTake(s1453F)); s1453T = t[0]; }
+        if (s1453T > 0) {
+            boolean on = !s1453S.isAlive() || c.currentTask instanceof Task.Attack a && a.target().equals(s1453S.getUUID()) || c.tasks.stream().anyMatch(k -> k instanceof Task.Attack a2 && a2.target().equals(s1453S.getUUID()));
+            if (on || t[0] - s1453T >= 20 * 20) { s1453S.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.myStations.remove(s1453F); level.setBlock(s1453F, Blocks.AIR.defaultBlockState(), 3); c.getInventory().clearContent();
+                for (int x = 10; x <= 14; x++) for (int z = 6; z <= 10; z++) for (int yy = 0; yy <= 1; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.DIRT.defaultBlockState(), 2);
+                check(on, "20 s at the furnace with his kit short and a salmon 8 off in a pond, not after it: now " + c.currentTask + ", queue " + c.tasks);
+                pass(stage, t, "went for the salmon 8 off while the salmon cooked, " + (t[0] - s1453T) + " ticks"); }
         }
         return true;
     }

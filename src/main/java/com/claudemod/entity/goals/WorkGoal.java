@@ -2885,6 +2885,7 @@ public class WorkGoal extends Goal {
             com.claudemod.director.ClaudeLife.nookSay(g, "seenShut" + b.pos().asLong(), "[Claude dig] the " + net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(g.level().getBlockState(b.pos()).getBlock()).getPath() + " at " + b.pos().toShortString() + ": seen, every face closed since (" + shut + "): digging to it (WorkGoal.unseenOre)");
             return false; }
         com.claudemod.ClaudeMod.LOGGER.info("[Claude dig] not digging the {} at {}: every face of it closed, he can't have seen it; dropped till a dig opens it (he's at {}; queued by {}) (WorkGoal.unseenOre)", net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(g.level().getBlockState(b.pos()).getBlock()).getPath(), b.pos().toShortString(), g.blockPosition().toShortString(), com.claudemod.entity.ClaudeEntity.originOf(t));
+        { int out = 0; for (var it = g.tasks.iterator(); it.hasNext();) if (it.next() instanceof Task.Place pl && pl.pos().equals(b.pos())) { it.remove(); out++; } if (out > 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude dig] its patch at {} dropped with it: the ore still fills the cell (WorkGoal.unseenOre)", b.pos().toShortString()); } // (the hole's patch queued behind the dig would only fail on the ore: D2D review 79, live 03:33:38 11-10, stage 1298)
         return true;
     }
     private boolean exit(String why) { exitWhy = why; return true; }

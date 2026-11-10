@@ -10927,6 +10927,7 @@ public final class ClaudeBodyTest {
             case 1295: return st1295(stage, t, c, h, level, mock);
             case 1296: return st1296(stage, t, c, h, level, mock);
             case 1297: return st1297(stage, t, c, h, level, mock);
+            case 1298: return st1298(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -24395,7 +24396,7 @@ public final class ClaudeBodyTest {
         if (t[0] == 60) {
             boolean held = c.blockPosition().equals(at) && c.isAlive();
             c.getNavigation().stop(); c.tasks.clear(); c.dropCurrent = true; c.setHealth(20);
-            for (int x = -4; x <= 6; x++) for (int z = -4; z <= 4; z++) for (int y = -7; y <= 6; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (int x = -4; x <= 6; x++) for (int z = -4; z <= 4; z++) for (int y = 0; y <= 6; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); // (the floor left: cleared, he fell 60+ after the stage and died in the next one)
             var r = s1295R; s1295R = null;
             check(held, "walked off the lip (at " + c.blockPosition().toShortString() + ")");
             check(r != null && r.reason() == com.claudemod.entity.life.Attempts.Reason.BODY_REFUSED && r.detail().contains("lip"), "the stall at the lip read as " + (r == null ? "nothing" : r.reason() + ": " + r.detail()) + ", not his body refusing the drop off the lip");
@@ -24421,7 +24422,7 @@ public final class ClaudeBodyTest {
             boolean failed = c.attempts.why(com.claudemod.entity.life.Attempts.Kind.WALK, at.offset(2, 0, 0)) != null;
             int took = s1296T < 0 ? -1 : s1296T - 20; BlockPos was = c.blockPosition();
             c.tasks.clear(); c.dropCurrent = true;
-            for (int x = -4; x <= 6; x++) for (int z = -4; z <= 4; z++) for (int y = -4; y <= 6; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (int x = -4; x <= 6; x++) for (int z = -4; z <= 4; z++) for (int y = 0; y <= 6; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); // (the floor left: cleared, he fell 60+ after the stage and died in the next one)
             check(!failed && took >= 0 && took <= 40, "the two legs: " + (took < 0 ? "not done in 6 s" : took + " ticks") + ", the last " + (failed ? "failed" : "not failed") + ", he's at " + was.toShortString());
             check(down, "the legs ended with him not down the notch (at " + was.toShortString() + ")");
             pass(stage, t, "down the notch and the leg over it done in " + took + " ticks");
@@ -24448,13 +24449,37 @@ public final class ClaudeBodyTest {
             level.setBlock(wall, Blocks.COBBLESTONE.defaultBlockState(), 3); com.claudemod.entity.life.TempLedger.placed(c, level, wall, Blocks.COBBLESTONE.defaultBlockState(), Blocks.AIR.defaultBlockState());
             boolean walkTemp = com.claudemod.entity.life.TempLedger.has(c, walk), wallTemp = com.claudemod.entity.life.TempLedger.has(c, wall);
             c.blueprint = null; c.tasks.clear(); c.dropCurrent = true;
-            for (int x = -4; x <= 12; x++) for (int z = -4; z <= 4; z++) for (int y = -8; y <= 6; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (int x = -4; x <= 12; x++) for (int z = -4; z <= 4; z++) for (int y = 0; y <= 6; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); // (the floor left: cleared, he fell 60+ after the stage and died in the next one)
             check(walkTemp, "the block put in his mine's walkway at " + walk.toShortString() + " was booked as a patch of his mine, not temporary: it blocks his own tunnel for good");
             check(!wallTemp, "the block put in his mine's wall at " + wall.toShortString() + " was booked temporary: a patch there stays");
             pass(stage, t, "walkway block temporary, wall block a patch");
         }
         return true;
     }
+    /** Stage 1298 (D2D review 79, live 03:33:26-03:33:38 11-10 at -39,16,-331 in his mine): the dig to an iron ore dropped as unseen (every face closed), and the patch queued for its hole stayed; it ran and failed on the ore ("the cell's filled already"). The patch goes with the dig. */
+    private static boolean st1298(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9880, 80, 9780), ore = at.offset(3, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1298P = false; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 6; x++) for (int z = -4; z <= 4; z++) for (int y = -2; y <= 4; y++) level.setBlock(at.offset(x, y, z), (y < 0 || x >= 2 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            level.setBlock(ore, Blocks.IRON_ORE.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new net.minecraft.world.item.ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new net.minecraft.world.item.ItemStack(Items.COBBLESTONE, 16));
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+        }
+        if (t[0] == 20) { c.tasks.add(new Task.Break(ore)); c.tasks.add(new Task.Place(ore, Items.COBBLESTONE)); }
+        if (t[0] > 20 && (c.currentTask instanceof Task.Place pl && pl.pos().equals(ore) || c.work.exitWhyForTest() != null && c.work.exitWhyForTest().contains("filled already"))) s1298P = true; // (it runs and ends inside one tick: its exit is the trace)
+        if (t[0] == 80) {
+            boolean ran = s1298P || c.attempts.why(com.claudemod.entity.life.Attempts.Kind.PLACE, ore) != null, queued = c.tasks.stream().anyMatch(q -> q instanceof Task.Place pl && pl.pos().equals(ore)); boolean still = level.getBlockState(ore).is(Blocks.IRON_ORE);
+            c.tasks.clear(); c.dropCurrent = true;
+            for (int x = -4; x <= 6; x++) for (int z = -4; z <= 4; z++) for (int y = 0; y <= 4; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); // (the floor left: cleared, he fell 60+ after the stage and died in the next one)
+            check(still, "the hidden ore was dug (it was never seen)");
+            check(!ran && !queued, "the patch for the hidden ore's cell " + (ran ? "ran on the ore" : "is still queued") + " after the dig was dropped");
+            pass(stage, t, "the hidden ore's dig and its patch dropped together");
+        }
+        return true;
+    }
+    private static boolean s1298P;
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

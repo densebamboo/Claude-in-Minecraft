@@ -10556,6 +10556,7 @@ public final class ClaudeBodyTest {
             case 1369: return st1369(stage, t, c, h, level, mock);
             case 1368: return st1368(stage, t, c, h, level, mock);
             case 1366: return st1366(stage, t, c, h, level, mock);
+            case 1367: return st1367(stage, t, c, h, level, mock);
             case 1329: return st1329(stage, t, c, h, level, mock);
             case 1328: return st1328(stage, t, c, h, level, mock);
             case 1327: return st1327(stage, t, c, h, level, mock);
@@ -28304,6 +28305,32 @@ public final class ClaudeBodyTest {
             st1364B.discard(); st1364Z.discard(); st1364B = null; st1364Z = null; c.tasks.clear(); c.setHealth(20); c.getInventory().clearContent(); c.dropCurrent = true;
             check(!at.equals(after), "held at his hide spot " + at.toShortString() + " with the blaze that just shot him " + (int) dist + " off seeing him there (escape now " + after + ")" + err);
             pass(stage, t, "the blaze " + (int) dist + " off that just shot him sees the hide spot: on from it (escape now " + after + ")"); return true;
+        }
+        return true;
+    }
+    private static net.minecraft.world.entity.monster.Zombie st1367Z; private static net.minecraft.world.entity.monster.Blaze st1367B; private static int st1367Dead = -1; private static String st1367First = null;
+    private static boolean st1367(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 07:11:30-35 11-10 (death 74, the fortress at 282,65,502): 4 HP, blazes shooting, [Eat, GoTo the retreat] queued; he killed a wither skeleton and the post-kill Pickup went first: walked to the skull at 281,65,500 and was fireballed there. Hurt with a shooter on him, the meal and the way out come before the drops
+        if (t[0] == 1) { scenarioReset(c); if (st1367Z != null) st1367Z.discard(); if (st1367B != null) st1367B.discard(); st1367Z = null; st1367B = null; st1367Dead = -1; st1367First = null; }
+        if (t[0] == 10) {
+            for (int x = -3; x <= 26; x++) for (int z = 0; z <= 10; z++) for (int y = 1; y <= 9; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 12));
+            BlockPos me = h.absolutePos(new BlockPos(2, 2, 5)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(-90); c.setHealth(4); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            st1367Z = EntityType.ZOMBIE.create(level); BlockPos zp = h.absolutePos(new BlockPos(3, 2, 5)); st1367Z.moveTo(zp.getX() + 0.5, zp.getY(), zp.getZ() + 0.5, 90, 0); st1367Z.setNoAi(true); st1367Z.setPersistenceRequired(); level.addFreshEntity(st1367Z); st1367Z.setHealth(1);
+            BlockPos dp = h.absolutePos(new BlockPos(4, 2, 6)); var drop = new net.minecraft.world.entity.item.ItemEntity(level, dp.getX() + 0.5, dp.getY(), dp.getZ() + 0.5, new ItemStack(Items.WITHER_SKELETON_SKULL)); drop.setDeltaMovement(0, 0, 0); level.addFreshEntity(drop); // (the skull beside the kill, as live)
+            st1367B = EntityType.BLAZE.create(level); BlockPos bp = h.absolutePos(new BlockPos(22, 5, 5)); st1367B.moveTo(bp.getX() + 0.5, bp.getY(), bp.getZ() + 0.5, 90, 0); st1367B.setNoAi(true); st1367B.setPersistenceRequired(); level.addFreshEntity(st1367B); st1367B.setTarget(c);
+            c.tasks.addLast(new Task.Attack(st1367Z.getUUID(), 200)); c.tasks.addLast(new Task.Eat(Items.COOKED_SALMON)); c.tasks.addLast(new Task.GoTo(h.absolutePos(new BlockPos(-2, 2, 5)), 0.5));
+        }
+        if (t[0] > 10 && st1367Z != null) {
+            if (st1367Dead < 0 && !st1367Z.isAlive()) st1367Dead = t[0];
+            if (st1367Dead > 0 && st1367First == null) { if (c.currentTask instanceof Task.Pickup) st1367First = "Pickup"; else if (c.currentTask instanceof Task.Eat) st1367First = "Eat"; else if (c.currentTask instanceof Task.GoTo) st1367First = "GoTo"; }
+            if (st1367First != null || t[0] > 300 || st1367Dead > 0 && t[0] - st1367Dead > 60) {
+                int dead = st1367Dead; String first = st1367First; float hp = c.getHealth();
+                st1367Z.discard(); st1367B.discard(); st1367Z = null; st1367B = null; c.tasks.clear(); c.setHealth(20); c.getInventory().clearContent(); c.dropCurrent = true;
+                check(dead > 0, "setup: the zombie never died (health " + hp + ")");
+                check(first != null && !"Pickup".equals(first), "at 4 HP with a blaze shooting at him, the first after the kill was " + first + ", ahead of the meal and the retreat");
+                pass(stage, t, "the kill's drops waited behind the meal and the retreat (first: " + first + ")"); return true;
+            }
         }
         return true;
     }

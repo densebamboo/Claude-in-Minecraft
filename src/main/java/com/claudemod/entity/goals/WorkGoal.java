@@ -6233,7 +6233,16 @@ public class WorkGoal extends Goal {
                     while (end < all.size() && all.get(end) instanceof Task.Attack) end++;
                     if (end >= all.size() || !(all.get(end) instanceof Task.Pickup)) { all.add(end, new Task.Pickup(80 + 40 * end)); g.tasks.clear(); g.tasks.addAll(all); }
                     com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the {}'s drops wait: the next one ({}) is {} off, {} kill(s) queued, then one sweep (WorkGoal.doAttack)", e.getType().getDescription().getString(), nl.getType().getDescription().getString(), (int) nl.distanceTo(g), end);
-                } else g.tasks.addFirst(new Task.Pickup(80));
+                } else {
+                    net.minecraft.world.entity.Mob gun = g.getHealth() <= w("fight.drops_hurt_hp", 12) ? level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(48), m0 -> m0.isAlive() && m0.getTarget() == g && farShooter(m0)).stream().findFirst().orElse(null) : null;
+                    if (gun == null) g.tasks.addFirst(new Task.Pickup(80));
+                    else { // hurt with a shooter on him: the meal and the way out of its sight first, the drops after (D2D death 74, live 07:11:30 11-10: 4 HP, the skull walked to ahead of [Eat, the retreat], fireballed there; stage 1367)
+                        java.util.List<Task> all = new java.util.ArrayList<>(g.tasks); int end = 0;
+                        while (end < all.size() && (all.get(end) instanceof Task.Eat || all.get(end) instanceof Task.GoTo)) end++;
+                        if (all.stream().noneMatch(x -> x instanceof Task.Pickup)) { all.add(end, new Task.Pickup(80)); g.tasks.clear(); g.tasks.addAll(all); }
+                        com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the {}'s drops wait: health {}, a {} {} off shooting at him: {} first (WorkGoal.doAttack)", e.getType().getDescription().getString(), (int) g.getHealth(), gun.getType().getDescription().getString(), (int) gun.distanceTo(g), end == 0 ? "the rest of the fight" : g.tasks.stream().limit(end).map(x -> x.getClass().getSimpleName()).toList());
+                    }
+                }
             }
             return true;
         }

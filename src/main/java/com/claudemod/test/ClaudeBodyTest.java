@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1366: return st1366(stage, t, c, h, level, mock);
             case 1329: return st1329(stage, t, c, h, level, mock);
             case 1328: return st1328(stage, t, c, h, level, mock);
             case 1327: return st1327(stage, t, c, h, level, mock);
@@ -17554,6 +17555,35 @@ public final class ClaudeBodyTest {
                 nsHome(c, h, level); pass(stage, t, "onto the deck in " + (t[0] - s1329T) / 20 + " s at " + at);
             }
         }
+        return true;
+    }
+    /** Stage 1366 (D2D death 70, live 03:46 11-10: the rules said "the dragon path's next step: obtain bow" with 14 string in his chests, but the planner was told the bow was "not this step's gate" and the prep row's "you have" never named it; it went in bowless and died to blazes over a lava pit): kit, portal, gold boots, food, blocks, flint and steel, no bow, 3 string in his chest. The planner's dragon path says the bow is this step's missing piece, before the portal. */
+    private static int st1366At = -1;
+    private static boolean st1366(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos home = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { ledReset(c, level); ledFar = home.offset(40, 0, 0); c.planning = false; c.nextPlanTick = c.tickCount + 100000; com.claudemod.director.ClaudeLife.hisPortal.remove(c.getUUID()); st1366At = -1; }
+        if (t[0] % 10 == 0) { ledTicket(level, ledFar); ledTicket(level, home); }
+        if (t[0] == 5) {
+            flatBox(h); ledPad(level, ledFar); level.setBlock(ledFar, Blocks.CHEST.defaultBlockState(), 3);
+            c.storageChests.add(ledFar); c.myStations.add(ledFar);
+            ledDeposit(c, ledFar, new ItemStack(Items.STRING, 3));
+        }
+        if (t[0] > 5 && st1366At < 0 && ledCount(c, ledFar, Items.STRING) == 3 && c.inventory.count(s -> s.is(Items.STRING)) == 0 && c.currentTask == null && c.tasks.isEmpty()) {
+            st1366At = t[0]; ledTo(c, home); c.playerGoal = "beat the ender dragon"; c.prefs.put("stay_close", "no");
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.GOLDEN_BOOTS)); c.getInventory().add(new ItemStack(Items.FLINT_AND_STEEL)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 64)); btKit(c);
+            for (int i = 0; i < c.getInventory().getContainerSize(); i++) if (c.getInventory().getItem(i).is(Items.BOW) || c.getInventory().getItem(i).is(Items.ARROW)) c.getInventory().setItem(i, ItemStack.EMPTY);
+            com.claudemod.director.ClaudeLife.hisPortal.put(c.getUUID(), h.absolutePos(new BlockPos(3000, 2, 3000))); // (unloaded far off: taken as standing)
+        }
+        if (st1366At > 0 && t[0] == st1366At + 45) { btKit(c); for (int i = 0; i < c.getInventory().getContainerSize(); i++) if (c.getInventory().getItem(i).is(Items.BOW) || c.getInventory().getItem(i).is(Items.ARROW)) c.getInventory().setItem(i, ItemStack.EMPTY); } // (the kit's food memo, 40 ticks, held the last stage's answer at setup)
+        if (st1366At > 0 && t[0] == st1366At + 90) {
+            check(com.claudemod.director.Kit.missing(c, true).keySet().stream().allMatch(it -> it == Items.BOW || it == Items.ARROW), "bow prep: setup: the kit still misses " + com.claudemod.director.Kit.missing(c, true) + " (in " + c.level().dimension().location() + ", " + c.getHealth() + " HP, food " + c.getFoodData().getFoodLevel() + ", beef " + c.inventory.count(x -> x.is(Items.COOKED_BEEF)) + ")");
+            String p = com.claudemod.director.ClaudeLife.dragonPath(c, level);
+            var rs = com.claudemod.director.ClaudeLife.ruleStep(c, mock[0]);
+            ledClear(level, ledFar); c.getInventory().clearContent(); c.playerGoal = ""; c.prefs.remove("stay_close"); com.claudemod.director.ClaudeLife.hisPortal.remove(c.getUUID());
+            check(p.contains("NEXT: Nether prep"), "bow prep: NEXT isn't the Nether prep: " + p);
+            check(p.contains("obtain bow before the portal") && !p.contains("not this step's gate"), "bow prep: the planner isn't told the bow is this step's (the rules say " + rs + "): " + p);
+            pass(stage, t, "the planner's path names the bow as the prep's missing piece, the rules' step " + rs);
+        } else if (st1366At < 0 && t[0] > 5) check(t[0] < 200, "bow prep: the 3 string never made his ledger (" + com.claudemod.entity.life.ChestLedger.book(c) + ")");
         return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */

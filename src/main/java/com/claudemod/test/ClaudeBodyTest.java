@@ -10548,6 +10548,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1372: return st1372(stage, t, c, h, level, mock);
             case 1371: return st1371(stage, t, c, h, level, mock);
             case 1370: return st1370(stage, t, c, h, level, mock);
             case 1369: return st1369(stage, t, c, h, level, mock);
@@ -17730,6 +17731,39 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.skillQueue.clear(); c.getInventory().clearContent(); c.lastStep = null; c.lastSkillLine = "";
             check(l.contains("so no craft crafting_table"), "an empty log collect didn't hold the crafting table it was for: " + l);
             pass(stage, t, "the beef hunt left the iron craft alone; the empty log collect held the table (" + l + ")");
+        }
+        return true;
+    }
+    /** Stage 1372 (D2D 79/88/89 night, live 06:2x 11-10: in his hole for the night with 23 raw iron, coal and a furnace on him, fed; 3 min of "the jobs wait", the armor waiting on the smelt after): night, his covered hole, fed, 8 raw iron, coal, cobble. The iron smelts in his hole wall while he holds: ingots on him, still in his hole. */
+    private static int s1372In;
+    private static boolean st1372(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.blueprint = null; c.house = null; c.nook = null; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); s1372In = -1; }
+        if (t[0] == 10) {
+            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) {
+                for (int yy = -4; yy <= -2; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.STONE);
+                for (int yy = -1; yy <= 1; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.DIRT);
+                for (int yy = 2; yy <= 13; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR);
+            }
+            level.setDayTime(18000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.RAW_IRON, 8)); c.getInventory().add(new ItemStack(Items.COAL, 4)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 8)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 24)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.STONE_SHOVEL)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 10));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+            mock[0].teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 6.5);
+            com.claudemod.director.ClaudeLife.command(c, mock[0], steps1("shelter", "", 1, "near_you"), "it's night, get under cover", "replace");
+        }
+        if (t[0] > 10) {
+            BlockPos f = c.blockPosition();
+            boolean lid = !level.getBlockState(f.above(2)).getCollisionShape(level, f.above(2)).isEmpty();
+            boolean in = f.getY() <= at.getY() - 2 && lid;
+            c.getFoodData().setFoodLevel(20); // (fed all night: the smelt is the night's work, not a meal)
+            if (s1372In < 0) { if (in && c.holdingNight()) s1372In = t[0]; else check(t[0] - 10 < 300, "night smelt: not holding in a covered hole after 15 s, now=" + c.currentTask + " tasks=" + c.tasks); }
+            else {
+                check(in, "night smelt: out of his hole at night " + (t[0] - s1372In) + " ticks after covering (he's at " + f.toShortString() + ", now=" + c.currentTask + ")");
+                int ing = c.getInventory().countItem(Items.IRON_INGOT);
+                if (ing >= 3) { level.setDayTime(6000); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; pass(stage, t, ing + " iron ingots smelted in his hole in " + (t[0] - s1372In) + " ticks, never out of it"); }
+                else check(t[0] - s1372In < 2000, "night smelt: 100 s holding (8 smelts are 80 s), fed, 8 raw iron and coal on him, " + ing + " ingots (raw " + c.getInventory().countItem(Items.RAW_IRON) + "), now=" + c.currentTask + " tasks=" + c.tasks + " holdWork=" + c.work.holdWork + " furnaces=" + BlockPos.betweenClosedStream(f.offset(-2, -1, -2), f.offset(2, 2, 2)).filter(q -> level.getBlockEntity(q) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity).map(q -> { var fe = (net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity) level.getBlockEntity(q); return q.toShortString() + ":" + fe.getItem(0) + "/" + fe.getItem(1) + "/" + fe.getItem(2); }).toList());
+            }
         }
         return true;
     }

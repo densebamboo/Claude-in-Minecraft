@@ -13530,22 +13530,36 @@ public final class ClaudeLife {
      */
     static void nightCook(ClaudeEntity g, ServerLevel level) {
         var hw = g.work.holdWork; hw.removeIf(t -> t != g.currentTask && g.tasks.stream().noneMatch(x -> x == t)); // (by identity: the first-light cleanup's Break of the same cell is equal to this round's)
-        if (!hw.isEmpty() || g.getFoodData().getFoodLevel() >= 20 || g.currentTask instanceof Task.Eat) return;
-        Item best = foodToEat(g, false);
+        if (!hw.isEmpty() || g.currentTask instanceof Task.Eat) return;
+        boolean hungry = g.getFoodData().getFoodLevel() < 20;
+        Item best = hungry ? foodToEat(g, false) : null;
         if (best != null && !rawOrBad(level, new ItemStack(best))) { // cooked food on him: eaten now, in the hold (queued behind the night's wait it never came)
             g.tasks.removeIf(t -> t instanceof Task.Eat); Task e = new Task.Eat(best); hw.add(e);
             if (g.currentTask != null) { g.tasks.addFirst(g.currentTask); dropCurrent(g); }
             g.tasks.addFirst(e); return;
         }
-        Item raw = cookable(g, level); if (raw == null) return;
+        Item raw = hungry ? cookable(g, level) : null; boolean ore = false;
+        if (raw == null) { raw = nightOre(g); ore = raw != null; } // fed: the raw iron (or gold) he carries smelts through the night instead (D2D 79/88/89, live 06:2x 11-10: 23 raw iron, coal and a furnace on him, 3 min "the jobs wait" in his hole, the armor waiting on it after; stage 1372)
+        if (raw == null) { // nothing left to put in: what's done in his wall furnace comes out (all 8 raw went in at once and the ingots sat there, stage 1372)
+            for (Direction d : Direction.Plane.HORIZONTAL) for (int y = 0; y < 2; y++) { BlockPos q = g.blockPosition().relative(d).above(y);
+                if (g.tempStations.contains(q) && level.getBlockEntity(q) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fe && !fe.getItem(2).isEmpty()) {
+                    Task tk = new Task.FurnaceTake(q.immutable()); hw.add(tk); if (g.currentTask != null) { g.tasks.addFirst(g.currentTask); dropCurrent(g); } g.tasks.addFirst(tk);
+                    ClaudeMod.LOGGER.info("[Claude life] holding the night: taking my {} out of the furnace in my hole wall", Crafting.name(fe.getItem(2).getItem())); return; } }
+            return; }
+        final Item rawF = raw;
         BlockPos feet = g.blockPosition(), furnace = null, table = null;
         for (Direction d : Direction.Plane.HORIZONTAL) for (int y = 0; y < 2; y++) { BlockPos q = feet.relative(d).above(y); var s = level.getBlockState(q); if (s.is(Blocks.FURNACE)) furnace = q; if (s.is(Blocks.CRAFTING_TABLE)) table = q; }
         List<Task> ts = new ArrayList<>(); String what;
-        if (furnace != null) {
+        if (furnace != null && ore) {
+            if (!(level.getBlockEntity(furnace) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fe)) return;
+            if (!fe.getItem(2).isEmpty()) { ts.add(new Task.FurnaceTake(furnace.immutable())); what = "taking my " + Crafting.name(fe.getItem(2).getItem()) + " out of the furnace in my hole wall"; }
+            else if (fe.getItem(0).isEmpty()) { int n = Math.min(64, g.inventory.count(x -> x.is(rawF))); ts.add(new Task.FurnaceLoad(furnace.immutable(), rawF, n)); what = "smelting my " + n + " " + Crafting.name(rawF) + " in the furnace in my hole wall while the night passes"; }
+            else return; // (smelting: the next round takes what's done)
+        } else if (furnace != null) {
             Item cooked = level.getRecipeManager().getRecipeFor(net.minecraft.world.item.crafting.RecipeType.SMELTING, new net.minecraft.world.item.crafting.SingleRecipeInput(new ItemStack(raw)), level).map(r -> r.value().getResultItem(level.registryAccess()).getItem()).orElse(null);
             var cf = cooked == null ? null : new ItemStack(cooked).get(net.minecraft.core.component.DataComponents.FOOD);
             int need = Math.max(1, (int) Math.ceil((20 - g.getFoodData().getFoodLevel()) / (double) (cf == null ? 6 : Math.max(1, cf.nutrition())))); // what fills him now (10 s a piece): the rest cooks when he's hungry again
-            if (level.getBlockEntity(furnace) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fe && fe.getItem(0).isEmpty() && fe.getItem(2).isEmpty()) ts.add(new Task.FurnaceLoad(furnace.immutable(), raw, Math.min(need, g.inventory.count(s -> s.is(raw)))));
+            if (level.getBlockEntity(furnace) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fe && fe.getItem(0).isEmpty() && fe.getItem(2).isEmpty()) ts.add(new Task.FurnaceLoad(furnace.immutable(), raw, Math.min(need, g.inventory.count(s -> s.is(rawF)))));
             ts.add(new Task.FurnaceTake(furnace.immutable())); // (then eaten next round, cooked)
             what = "cooking the " + Crafting.name(raw) + " in the furnace in my hole wall";
         } else {
@@ -13562,13 +13576,20 @@ public final class ClaudeLife {
             ts.add(new Task.Place(cell.immutable(), put));
             g.tempStations.add(cell.immutable());
             g.work.afterHold(List.of(new Task.Break(cell.immutable()), new Task.Pickup(20), new Task.Place(cell.immutable(), cell.getY() < 0 ? Items.COBBLED_DEEPSLATE : Items.COBBLESTONE))); // first light: back in his pack, the wall made good
-            what = "setting a " + Crafting.name(put) + " into my hole wall to cook the " + Crafting.name(raw);
+            what = "setting a " + Crafting.name(put) + " into my hole wall to " + (ore ? "smelt" : "cook") + " the " + Crafting.name(raw);
         }
         hw.addAll(ts);
         if (g.currentTask != null) { g.tasks.addFirst(g.currentTask); dropCurrent(g); }
         for (int i = ts.size() - 1; i >= 0; i--) g.tasks.addFirst(ts.get(i));
         g.noteDoing(what);
-        ClaudeMod.LOGGER.info("[Claude life] holding the night, hungry (food {}): {}", g.getFoodData().getFoodLevel(), what);
+        ClaudeMod.LOGGER.info("[Claude life] holding the night, {} (food {}): {}", ore ? "fed, raw ore on him" : "hungry", g.getFoodData().getFoodLevel(), what);
+    }
+
+    /** Raw iron (else gold) he carries, with fuel to smelt it: the night's work in his hole when he isn't hungry. */
+    private static Item nightOre(ClaudeEntity g) {
+        boolean fuel = !g.inventory.find(t -> t.is(Items.COAL) || t.is(Items.CHARCOAL) || t.is(ItemTags.LOGS) || t.is(ItemTags.PLANKS) || t.is(Items.STICK)).isEmpty();
+        if (!fuel) return null;
+        return g.inventory.count(x -> x.is(Items.RAW_IRON)) > 0 ? Items.RAW_IRON : g.inventory.count(x -> x.is(Items.RAW_GOLD)) > 0 ? Items.RAW_GOLD : null;
     }
 
     /** Raw food he carries that cooks into something good, if he has fuel to cook it with. */

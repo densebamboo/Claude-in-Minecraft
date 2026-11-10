@@ -10944,6 +10944,7 @@ public final class ClaudeBodyTest {
             case 1406: return st1406(stage, t, c, h, level, mock);
             case 1407: return st1407(stage, t, c, h, level, mock);
             case 1408: return st1407(stage, t, c, h, level, mock);
+            case 1409: return st1409(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -24832,6 +24833,36 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static int s1407T;
+    /** Stage 1409 (D2D reviews 84/86, live 06:22:51-06:23:08 11-10 at 11,67,-48): night, no mob about, the planner thinking; its meanwhile shelter walled him in (a hole for the night), and 2 s later "nothing about his cover any more" took the 7 blocks back: nightShelter() read the last queued step (a failed collect beef), not the shelter running. The night's cover stands. */
+    private static boolean st1409(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9760, 80, 9780);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1409Cover = null; }
+        if (t[0] > 5) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, new net.minecraft.world.phys.AABB(at).inflate(48))) m.discard();
+        if (t[0] == 10) {
+            for (int x = -4; x <= 4; x++) for (int z = -4; z <= 4; z++) for (int y = -4; y <= 6; y++) level.setBlock(at.offset(x, y, z), (Math.abs(x) <= 1 && Math.abs(z) <= 1 && (y == 0 || y == 1) ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); // a 3x3 room under rock
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+            level.setDayTime(19400);
+        }
+        if (t[0] == 20) {
+            c.lastStep = new com.claudemod.entity.life.Skills.Step("collect", "beef", 4); // (the plan's last step, failed; the planner thinking)
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("runSkill", ClaudeEntity.class, ServerPlayer.class, com.claudemod.entity.life.Skills.Step.class); m.setAccessible(true);
+                ClaudeMod.LOGGER.info("[Claude test] 1409 shelter meanwhile: {}", m.invoke(null, c, mock[0], new com.claudemod.entity.life.Skills.Step("shelter", "", 1))); } catch (Exception e) { check(false, "runSkill: " + e); }
+        }
+        if (t[0] == 20 + 60) { s1409Cover = new java.util.ArrayList<>(); for (BlockPos q : BlockPos.betweenClosed(at.offset(-4, -4, -4), at.offset(4, 6, 4))) if (level.getBlockState(q).is(Blocks.COBBLESTONE)) s1409Cover.add(q.immutable()); }
+        if (t[0] == 20 + 20 * 12) {
+            java.util.List<BlockPos> gone = new java.util.ArrayList<>(); for (BlockPos q : s1409Cover) if (!level.getBlockState(q).is(Blocks.COBBLESTONE)) gone.add(q);
+            int n = s1409Cover.size();
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; level.setDayTime(6000);
+            for (int x = -4; x <= 4; x++) for (int z = -4; z <= 4; z++) for (int y = -4; y <= 6; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            check(n > 0, "no cover put up in 3 s (the shelter ran otherwise)");
+            check(gone.isEmpty(), "the night's cover taken back with nothing about: " + gone.size() + " of " + n + " gone in 12 s " + gone);
+            pass(stage, t, "the night's cover stands: " + n + " blocks, none taken back in 12 s");
+        }
+        return true;
+    }
+    private static java.util.List<BlockPos> s1409Cover;
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

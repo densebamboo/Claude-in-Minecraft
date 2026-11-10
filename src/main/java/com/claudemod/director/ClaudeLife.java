@@ -3193,6 +3193,7 @@ public final class ClaudeLife {
                     return "in the air: cover once I land";
                 }
                 { String go = com.claudemod.entity.life.Decide.nightWalk(g, level, st); if (go != null) return go; } // his mine, a bed or a village, priced against the cover here (the user 11-06: "he could easily go sleep in the village rn ... or in his mine")
+                g.lastStep = st; // (the shelter is the step now, whoever ran it: the planner's meanwhile left the failed step before it there, and the night's cover came down 2 s in as cover against nothing, reviews 84/86, stage 1409)
                 if (g.shelter()) return "getting under cover here (out of reach, with a lid over me)";
                 { String why = g.noCoverWhyNow(); // a reason that isn't the ground or the blocks (a creeper close, a mob too near to finish it, in the air): that's the answer, not "nothing to tower with"
                   if (why != null && !why.startsWith("no tower to be had") && !why.startsWith("underground with") && !why.startsWith("water ")) {

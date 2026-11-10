@@ -10904,6 +10904,7 @@ public final class ClaudeBodyTest {
             case 1280: return st1280(stage, t, c, h, level, mock);
             case 1281: return st1281(stage, t, c, h, level, mock);
             case 1283: return st1283(stage, t, c, h, level, mock);
+            case 1284: return st1284(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -23877,6 +23878,33 @@ public final class ClaudeBodyTest {
             check(c.isAlive() && !c.isInLava() && c.getY() > o.getY() - 2, "into the gap at " + c.blockPosition().subtract(o).toShortString());
             if (c.getX() > o.getX() + 4 && c.onGround()) { int took = t[0] - st1283T; check(took <= 20 * 12, "across a 2-wide gap in " + took / 20.0 + " s (a player: a few blocks and a walk, well under 12 s)"); pass(stage, t, "across the gap in " + took / 20.0 + " s, " + c.inventory.count(x -> x.is(Items.SOUL_SAND)) + " soul sand left, " + c.inventory.count(x -> x.is(Items.GRAVEL)) + " gravel"); }
             else check(t[0] - st1283T < 20 * 20, "not across a 2-wide gap in 20 s (at " + c.blockPosition().subtract(o).toShortString() + ", task " + c.currentTask + ")");
+        }
+        return true;
+    }
+    /** Stage 1284 (D2D, live 22:18-22:38 11-09 at -84..-80,16,-316: a walk out through his mine's wall where it was gravel, a column of it above; each cell dug filled again from above, the next dig read the gravel back in his wall cell as "his wall in the way" and dropped, the way's put-backs gave up on cells still gravel and the gate then refused every identical way: about 40 ways made and dropped in 20 min): his tunnel's wall gravel 2 deep with gravel 7 high over it, a pocket behind. He digs the column out and gets there in a player's time. */
+    private static BlockPos s1284P; private static int s1284R;
+    private static boolean st1284(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            BlockPos d = lnRow(b, 5, 4).immutable(); // (the lower level, 10 under the grass: no cheaper way in from above)
+            net.minecraft.core.Direction side = null; for (var dd : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && !com.claudemod.director.ClaudeLife.isMineCell(c, d.relative(dd)) && level.getBlockState(d.relative(dd)).isSolid()) side = dd;
+            check(side != null, "setup: no wall beside the row"); for (int k = 1; k <= 3; k++) check(!com.claudemod.director.ClaudeLife.isMineCell(c, d.relative(side, k)) && (c.blueprint == null || !c.blueprint.isWalk(d.relative(side, k))), "setup: a planned cell " + k + " out (a branch row)");
+            for (int k = 1; k <= 2; k++) for (int y = 0; y <= 6; y++) level.setBlock(d.relative(side, k).above(y), Blocks.GRAVEL.defaultBlockState(), 2);
+            s1284P = d.relative(side, 3).immutable(); level.setBlock(s1284P, Blocks.AIR.defaultBlockState(), 2); level.setBlock(s1284P.above(), Blocks.AIR.defaultBlockState(), 2);
+            var inv = c.getInventory(); inv.clearContent(); inv.items.set(0, new ItemStack(Items.IRON_PICKAXE)); inv.items.set(1, new ItemStack(Items.IRON_SHOVEL)); inv.items.set(2, new ItemStack(Items.COBBLESTONE, 32)); inv.selected = 0;
+            lnStand(c, mock, d, b.entrance); c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null;
+            s1284R = com.claudemod.entity.life.Gate.refused(c);
+            c.tasks.add(new Task.GoTo(s1284P, 0.6));
+        }
+        if (t[0] > 10 && s1284P != null) {
+            boolean there = c.blockPosition().equals(s1284P);
+            if (there || t[0] == 10 + 20 * 20) { // (a player: 14 gravel with an iron shovel in about 8 s)
+                int refused = com.claudemod.entity.life.Gate.refused(c) - s1284R;
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent();
+                c.blueprint = null; c.prefs.put("mine_model", "legacy");
+                check(there, "not through the gravel to " + s1284P.toShortString() + " in 20 s (at " + c.blockPosition().toShortString() + ", " + refused + " gate refusals)");
+                pass(stage, t, "dug the gravel column out and through in " + (t[0] - 10) / 20 + " s, " + refused + " gate refusals");
+            }
         }
         return true;
     }

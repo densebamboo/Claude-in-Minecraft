@@ -124,7 +124,13 @@ public final class DeathLog {
         return Decide.hpS(g, Decide.danger(g, level, tod, on, th) - Decide.danger(g, level, tod, on, 0));
     }
     public static double tripS(ClaudeEntity g, String dim, BlockPos at) {
-        if (!dim.equals(g.level().dimension().location().getPath())) return Weights.w("recovery.other_dim_trip_s", 180) + pileS(g, dim, at); // shortcut: a flat price for the portal and the far side's walk; take PortalMap's route price once it has one
+        if (!dim.equals(g.level().dimension().location().getPath())) { // through a portal of his: the walk to it, the crossing, the far side's way as it's priced there (Nether: his highways, the rest as Nether ground), and back the same (Loops' sink 3, D2D 11-09: the same price on both sides of the portal; stage 1315)
+            double best = Double.MAX_VALUE, cross = Weights.w("recovery.portal_cross_s", 4);
+            for (var p : PortalMap.net(g).portals) { if (!p.dim.equals(g.level().dimension().location().getPath()) || !"lit".equals(p.state)) continue; var q = PortalMap.leadsTo(g, p); if (q == null || !q.dim.equals(dim)) continue;
+                double here = Math.sqrt(g.blockPosition().distSqr(p.at)) / Decide.sprint(), far = PortalMap.NETHER.equals(dim) ? com.claudemod.entity.nav.NetherRoute.priceS(g, q.at, at) + Math.sqrt(q.at.distSqr(at)) / Decide.sprint() : 2 * Math.sqrt(q.at.distSqr(at)) / Decide.sprint();
+                if (PortalMap.NETHER.equals(p.dim)) { here = com.claudemod.entity.nav.NetherRoute.priceS(g, g.blockPosition(), p.at) + Math.sqrt(g.blockPosition().distSqr(p.at)) / Decide.sprint(); far = 2 * Math.sqrt(q.at.distSqr(at)) / Decide.sprint(); } else here *= 2;
+                best = Math.min(best, here + 2 * cross + far); }
+            return (best == Double.MAX_VALUE ? Weights.w("recovery.other_dim_trip_s", 180) : best) + pileS(g, dim, at); } // (no portal of his that leads there: a flat price)
         ServerLevel level = (ServerLevel) g.level();
         double s = 2 * Math.sqrt(g.blockPosition().distSqr(at)) / Decide.sprint(); // shortcut: straight there and back, not the walker's route
         long tod = level.getDayTime() % 24000; int n = Decide.hostilesAlong(g, g.blockPosition(), at); double pass = Math.min(s, Weights.w("recovery.hostile_pass_s", 10)); // (a mob he knows of is passed or shaken off, not at his heels the whole 300 blocks: one zombie by him priced a run for his iron at certain death)

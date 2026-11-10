@@ -92,10 +92,24 @@ public final class NetherRoute {
             Plan hw = highway(g, q, to, false); if (hw == null) continue;
             double c = d * com.claudemod.entity.life.Weights.w("nether.onto_highway_s_per_block", 1.0) + hw.seconds(); if (c < bc) { bc = c; best = q; bh = hw; } }
         if (best == null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: no highway of his on record within {} with a way along it to the goal (NetherRoute.ontoHighway)", from.toShortString(), to.toShortString(), (int) reach); return null; }
-        Plan s = search(g, level, from, best, true); if (s == null || s.partial()) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: onto his highway at {}: the search {} (NetherRoute.ontoHighway)", from.toShortString(), to.toShortString(), best.toShortString(), s == null ? "found no way" : "got only part way, to " + (s.legs().isEmpty() ? "-" : s.legs().get(s.legs().size() - 1).toShortString())); return null; }
+        Plan s = search(g, level, from, best, true); if (s == null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: onto his highway at {}: the search found no way (NetherRoute.ontoHighway)", from.toShortString(), to.toShortString(), best.toShortString()); return null; }
+        if (s.partial()) { // into rock he hasn't seen: the rest to the highway priced as Nether ground, the plan walked as far as it goes and made again from there (Loops' sink 3, live 17:00:19 11-09: the whole highway dropped, a 1566-dig bore priced and his pile abandoned; stage 1315)
+            BlockPos end = s.legs().isEmpty() ? from : s.legs().get(s.legs().size() - 1); double rest = h(end.getX(), end.getY(), end.getZ(), best) * com.claudemod.entity.life.PortalMap.NETHER_OFF_ROAD;
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: onto his highway at {}: the search got only part way, to {} (~{} s), the rest to it ~{} s as Nether ground, then along it ({} legs, ~{} s) (NetherRoute.ontoHighway)", from.toShortString(), to.toShortString(), best.toShortString(), end.toShortString(), (int) s.seconds(), (int) rest, bh.legs().size(), (int) bh.seconds());
+            return new Plan(new ArrayList<>(s.legs()), true, s.seconds() + rest + bh.seconds(), s.digs(), s.puts(), s.climb() + bh.climb(), s.nodes(), s.ms() + bh.ms()); }
         List<BlockPos> legs = new ArrayList<>(s.legs()); legs.addAll(bh.legs());
         com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: onto his highway at {} (~{} s: {} dug, {} put, {} up), then along it ({} legs, ~{} s) (NetherRoute.ontoHighway)", from.toShortString(), to.toShortString(), best.toShortString(), (int) s.seconds(), s.digs(), s.puts(), s.climb(), bh.legs().size(), (int) bh.seconds());
         return new Plan(legs, bh.partial(), s.seconds() + bh.seconds(), s.digs(), s.puts(), s.climb() + bh.climb(), s.nodes(), s.ms() + bh.ms());
+    }
+
+    /** The way from {@code from} to {@code to} in the Nether priced off his records alone (no search: the far side of a portal isn't loaded): onto the highway segment nearest, as Nether ground, then along his highways, or straight as Nether ground, the cheaper; recover_drops prices the Nether run with it from the Overworld side (stage 1315). */
+    public static double priceS(ClaudeEntity g, BlockPos from, BlockPos to) {
+        double best = h(from.getX(), from.getY(), from.getZ(), to) * com.claudemod.entity.life.PortalMap.NETHER_OFF_ROAD;
+        Plan hw = highway(g, from, to, false); if (hw != null) best = Math.min(best, hw.seconds());
+        for (var sg : com.claudemod.entity.life.PortalMap.net(g).segments) { if (!com.claudemod.entity.life.PortalMap.NETHER.equals(sg.dim)) continue;
+            BlockPos q = feet(sg, Math.max(sg.lo(), Math.min(sg.hi(), along(sg, from)))); Plan on = highway(g, q, to, false); if (on == null) continue;
+            best = Math.min(best, h(from.getX(), from.getY(), from.getZ(), q) * com.claudemod.entity.life.PortalMap.NETHER_OFF_ROAD + on.seconds()); }
+        return best;
     }
 
     static Plan highway(ClaudeEntity g, BlockPos from, BlockPos to, boolean log) {

@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1315: return st1315(stage, t, c, h, level, mock);
             case 1314: return st1314(stage, t, c, h, level, mock);
             case 1313: return st1313(stage, t, c, h, level, mock);
             case 1312: return st1312(stage, t, c, h, level, mock);
@@ -17090,6 +17091,41 @@ public final class ClaudeBodyTest {
             check(again == null, "at the far end after walking the whole deck, deckStep sent him back to " + (again == null ? "-" : (again.getX() - o.getX()) + "," + (again.getZ() - o.getZ())) + " (deck x 0..28)");
             pass(stage, t, "walked the deck to its end in " + (t[0] - s1314T) + " ticks; nothing of it left unseen");
         } else if (t[0] == 400) check(false, "not at the deck's far end in 20 s (at " + c.blockPosition().toShortString() + ")");
+        return true;
+    }
+    /** Stage 1315 (Loops' sink 3, D2D 11-09, live 17:00:19: out of his portal at -6,81,-21 for his iron set, shield and sword by the fortress, 560 off; onto his highway 23 below "the search got only part way" into rock he hadn't seen, so the whole highway was dropped, a 1566-dig bore priced at ~6796 s and the pile abandoned; 1h45 rebuilding instead): him sealed in rock 23 above and 19 short of his highway's start, the goal 40 past its end. Travel goes by his highway (the part he can't plan yet priced as Nether ground), no bore; and the same run priced from the Overworld side of a portal into that spot comes to about the same. */
+    private static boolean st1315(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12800, 64, 7720), to = o.offset(3, -4, 200), me = o.offset(-5, 23, -19);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); }
+        nsTick(nl, c, me, t); if (t[0] % 10 == 0 || t[0] < 10) for (int m = -32; m <= 208; m += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(0, 0, m)), 2, o.offset(0, 0, m));
+        if (t[0] == 12) {
+            for (int x = -10; x <= 6; x++) for (int z = -24; z <= 206; z++) for (int y = -7; y <= 27; y++) nl.setBlock(o.offset(x, y, z), Blocks.NETHERRACK.defaultBlockState(), 2);
+            for (int x = 0; x <= 1; x++) for (int z = 0; z <= 160; z++) { BlockPos p = o.offset(x, 0, z); nl.setBlock(p.below(), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); for (int y = 0; y <= 2; y++) nl.setBlock(p.above(y), Blocks.AIR.defaultBlockState(), 2); }
+            nl.setBlock(me, Blocks.AIR.defaultBlockState(), 2); nl.setBlock(me.above(), Blocks.AIR.defaultBlockState(), 2); // his pocket: 2 high, rock all round
+            com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(0, -1, 0), o.offset(0, -1, 160), net.minecraft.core.Direction.Axis.Z, 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64));
+            c.teleportTo(nl, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 15) com.claudemod.entity.nav.Route.forgetTrail(c);
+        if (t[0] == 20) {
+            var tr = com.claudemod.entity.life.FortressScout.travel(c, nl, to); String why = com.claudemod.entity.life.FortressScout.lastTravel;
+            double nether = com.claudemod.entity.life.FortressScout.lastTravelS + Math.sqrt(me.distSqr(to)) / com.claudemod.entity.life.Decide.sprint(); // (the Nether side's run, as recover_drops prices it: the way there, back along the way made)
+            for (int x = -10; x <= 6; x++) for (int z = -24; z <= 206; z++) for (int y = -7; y <= 27; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            nsHome(c, h, level);
+            BlockPos owP = c.blockPosition().offset(6, 0, 0);
+            var a = com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.OW, owP, "him", "lit"); var b = com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, me, "him", "lit");
+            a.link = b.id; a.linkWalked = true; b.link = a.id; b.linkWalked = true;
+            double ow = com.claudemod.entity.life.DeathLog.tripS(c, com.claudemod.entity.life.PortalMap.NETHER, to);
+            com.claudemod.entity.life.PortalMap.net(c).segments.clear(); com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(0, -1, 0), o.offset(0, -1, 1000), net.minecraft.core.Direction.Axis.Z, 2); // (a 1000-long highway on record, the pile 40 past its end: the flat price can't be right for it)
+            BlockPos far = o.offset(3, -4, 1040); double owFar = com.claudemod.entity.life.DeathLog.tripS(c, com.claudemod.entity.life.PortalMap.NETHER, far), back = Math.sqrt(me.distSqr(far)) / com.claudemod.entity.life.Decide.sprint();
+            double offRoad = Math.sqrt(me.distSqr(far)) / 5.6 * com.claudemod.entity.life.PortalMap.NETHER_OFF_ROAD + back;
+            com.claudemod.entity.life.PortalMap.net(c).portals.remove(a); com.claudemod.entity.life.PortalMap.net(c).portals.remove(b); com.claudemod.entity.life.PortalMap.net(c).segments.clear();
+            check(!(tr instanceof Task.Bore), "a bore past his own highway 23 below: " + why);
+            check(Math.abs(ow - nether) <= Math.max(20, nether * 0.4), "the run priced ~" + (int) ow + " s from the Overworld side, ~" + (int) nether + " s from the Nether side (" + why + ")");
+            check(owFar > back + 1000 / 5.6 && owFar < offRoad, "a pile 40 past the end of a 1000-long highway priced ~" + (int) owFar + " s from the Overworld side: not along the highway (back alone ~" + (int) back + " s, the way off-road ~" + (int) offRoad + " s)");
+            pass(stage, t, why + "; the run ~" + (int) nether + " s from the Nether side, ~" + (int) ow + " s from the Overworld side; 1040 along a highway ~" + (int) owFar + " s (off-road ~" + (int) offRoad + " s)");
+        }
         return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */

@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1310: return st1310(stage, t, c, h, level, mock);
             case 1309: return st1309(stage, t, c, h, level, mock);
             case 1308: return st1308(stage, t, c, h, level, mock);
             case 1307: return st1307(stage, t, c, h, level, mock);
@@ -16937,6 +16938,37 @@ public final class ClaudeBodyTest {
         check(!countOnly, "a pack line with only a count changed kept too (~6 a minute: the reviewer's bill)");
         check(newItem, "a pack line with a new item (sticks) not kept");
         pass(stage, t, "his pack reaches the reviewer when an item comes or goes"); return true;
+    }
+    /** Stage 1310 (D2D 11-09, the rods priority: live 04:39-04:48 11-09 on an open fortress bridge by 275,65,460, "no cover from the blazes ... 0 spots out of sight" the whole fight, "in the open: the ordinary fight", 7 blazes, 20 -> 2; across 11-07..09 ~360 no-cover lines against ~50 covers found, 21 fireball hits in the open): an open bridge, no wall anywhere, two blazes hovering off it, him with sword, shield and 32 cobblestone. He builds cover (8 blocks at most) and stands in a cell neither blaze sees. */
+    private static net.minecraft.world.entity.monster.Blaze s1310A, s1310B; private static int s1310T;
+    private static boolean st1310(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1310A = s1310B = null; }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) if (e != s1310A && e != s1310B) e.discard();
+        if (t[0] == 10) {
+            for (int x = -20; x <= 24; x++) for (int z = -16; z <= 16; z++) for (int y = -6; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (int x = -20; x <= 24; x++) for (int z = -2; z <= 2; z++) level.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // the bridge: 5 wide, open air round it
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().items.set(1, new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().items.set(2, new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().selected = 0; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; mock[0].teleportTo(o.getX() + 0.5, o.getY() + 45, o.getZ() + 0.5);
+            level.setDayTime(6000);
+        }
+        if (t[0] == 20) {
+            s1310A = EntityType.BLAZE.create(level); s1310A.moveTo(o.getX() + 12.5, o.getY() + 1, o.getZ() + 0.5, 90, 0); s1310A.setPersistenceRequired(); s1310A.setNoAi(true); s1310A.setNoGravity(true); level.addFreshEntity(s1310A);
+            s1310B = EntityType.BLAZE.create(level); s1310B.moveTo(o.getX() + 7.5, o.getY() + 3, o.getZ() + 8.5, 180, 0); s1310B.setPersistenceRequired(); s1310B.setNoAi(true); s1310B.setNoGravity(true); level.addFreshEntity(s1310B);
+            c.tasks.add(new Task.Attack(s1310A.getUUID(), 20 * 60)); s1310T = t[0];
+        }
+        if (t[0] > 20 && s1310A != null) {
+            BlockPos f = BlockPos.containing(c.getX(), c.getY() + 0.2, c.getZ());
+            boolean hid = c.onGround() && !com.claudemod.entity.life.FortressFight.sees(level, s1310A, f) && !com.claudemod.entity.life.FortressFight.sees(level, s1310B, f);
+            int used = 32 - c.inventory.count(s -> s.is(Items.COBBLESTONE));
+            if (hid || t[0] > s1310T + 240) {
+                s1310A.discard(); s1310B.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY); c.getInventory().clearContent();
+                check(hid, "no cover in 12 s on an open bridge with 32 cobblestone: at " + f.toShortString() + ", " + used + " block(s) put down");
+                check(used <= 8, "cover took " + used + " blocks (8 at most)");
+                pass(stage, t, "cover built on the open bridge in " + (t[0] - s1310T) / 20.0 + " s with " + used + " block(s)");
+            }
+        }
+        return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */
     private static int s934T, s934Deep;

@@ -103,7 +103,8 @@ public final class FortressFight {
     static boolean stillGood(ClaudeEntity g, ServerLevel level, Cover c, LivingEntity foe) {
         if (!stand(level, c.cover())) return false;
         if (c.kind().equals("wither")) return witherSafe(level, c.cover()) && blazeSees(g, level, c.cover()) == null;
-        for (Blaze b : blazesNear(g, level, c.cover(), SHOT_RANGE)) if (sees(level, b, c.cover())) return false;
+        List<BlockPos> put = builds().get(g.getUUID()); if (put != null && !c.cover().equals(buildFor().get(g.getUUID()))) put = null;
+        for (Blaze b : blazesNear(g, level, c.cover(), SHOT_RANGE)) if (sees(level, b, c.cover()) && (put == null || seenPast(level, b.getEyePosition(), c.cover(), put, g))) return false;
         return true;
     }
 
@@ -152,6 +153,85 @@ public final class FortressFight {
      * he waits in the corner, steps out to draw or strike, steps back in before the volley. Walls on more sides (a doorway's
      * jamb, a corner) and 4-12 off the spawner are better; the nearest of those he can walk to.
      */
+    private static Map<UUID, List<BlockPos>> builds; // per bot: the blocks his built blaze cover wants (static: fields added live start null)
+    private static Map<UUID, List<BlockPos>> builds() { if (builds == null) builds = new HashMap<>(); return builds; }
+    private static Map<UUID, BlockPos> buildFor; // per bot: the cover cell those blocks are for
+    private static Map<UUID, BlockPos> buildFor() { if (buildFor == null) buildFor = new HashMap<>(); return buildFor; }
+    /** The blocks his blaze cover still wants put down (open cells), or an empty list: none, or the cover is found, not built. */
+    public static List<BlockPos> unbuilt(ClaudeEntity g, ServerLevel level, Cover c) {
+        List<BlockPos> put = builds().get(g.getUUID());
+        if (put == null || c == null || !c.cover().equals(buildFor().get(g.getUUID()))) return List.of();
+        List<BlockPos> out = new ArrayList<>(); for (BlockPos q : put) if (level.getBlockState(q).canBeReplaced()) out.add(q); return out;
+    }
+    /** What he walls with in the Nether, as WorkGoal.scaffoldBlock picks it there: cobblestone or deepslate first (ghast-proof), else netherrack or dirt. */
+    public static net.minecraft.world.item.Item wallItem(ClaudeEntity g) {
+        var s = FortressScout.ghastProof(g); if (!s.isEmpty()) return s.getItem();
+        for (var it : new net.minecraft.world.item.Item[] {Items.NETHERRACK, Items.DIRT}) if (g.inventory.count(x -> x.is(it)) > 0) return it;
+        return null;
+    }
+    /** The cells along the line from a to b, in order (eighth-block steps). */
+    static List<BlockPos> cellsOn(Vec3 a, Vec3 b) { List<BlockPos> out = new ArrayList<>(); int n = Math.max(1, (int) Math.ceil(a.distanceTo(b) * 8)); for (int i = 0; i <= n; i++) { BlockPos p = BlockPos.containing(a.lerp(b, i / (double) n)); if (out.isEmpty() || !out.get(out.size() - 1).equals(p)) out.add(p); } return out; }
+    /** An eye still sees the cell (his eyes or his middle) with the blocks of {@code put} standing, each a full block. */
+    static boolean seenPast(ServerLevel level, Vec3 eye, BlockPos c, List<BlockPos> put, Entity ctx) {
+        for (Vec3 p : new Vec3[] {eyeOf(c), new Vec3(c.getX() + 0.5, c.getY() + 0.9, c.getZ() + 0.5)}) { if (!clear(level, eye, p, ctx)) continue; boolean cut = false; for (BlockPos q : cellsOn(p, eye)) if (put.contains(q)) { cut = true; break; } if (!cut) return true; }
+        return false;
+    }
+    /**
+     * Cover put up where there's none to find, as a player does on an open fortress bridge (live 04:39-04:48 11-09: "no cover from the
+     * blazes ... 0 spots out of sight" the whole fight, 7 blazes, 20 -> 2; ~360 such lines against ~50 covers found, 11-07..09): a cell
+     * near him, a block in each line of sight to it (the first cell out of his own two that the line crosses: a wall in front, a roof
+     * when they're above), and a step beside it, clear of the blocks, that sees what he's fighting. Fewest blocks, then nearest.
+     */
+    /** A face to put a block in q against: a solid block beside it, or one of {@code up} (put there before it). */
+    static boolean faced(ServerLevel level, BlockPos q, List<BlockPos> up) { for (Direction d : Direction.values()) { BlockPos n = q.relative(d); if (up.contains(n) || !level.getBlockState(n).getCollisionShape(level, n).isEmpty()) return true; } return false; }
+    private static String buildWhy = ""; // why the last buildBlaze built nothing (for the no-cover line)
+    static Cover buildBlaze(ClaudeEntity g, ServerLevel level, List<Vec3> eyes, Vec3 anchor, int seen, BlockPos spawner, LivingEntity foe) {
+        var item = wallItem(g); if (item == null || eyes.isEmpty()) { buildWhy = item == null ? "; no blocks to build with" : ""; return null; }
+        int max = (int) Math.min(g.inventory.count(x -> x.is(item)), Weights.w("blaze.cover_build_max", 8));
+        BlockPos me = feet(g);
+        record Cand(BlockPos c, BlockPos peek, List<BlockPos> put, double score) {}
+        Cand best = null; int[] no = new int[6]; // why the cells were passed over: {can't stand / near the anchor, a line's first cell can't take a block, too many blocks, a block with no face, no peek, no walk}
+        for (int dx = -3; dx <= 3; dx++) for (int dz = -3; dz <= 3; dz++) for (int dy = -1; dy <= 1; dy++) {
+            BlockPos c = me.offset(dx, dy, dz);
+            if (!stand(level, c) || Math.sqrt(c.distToCenterSqr(anchor)) < 3.0) { no[0]++; continue; }
+            List<BlockPos> put = new ArrayList<>(); boolean ok = true;
+            for (Vec3 e : eyes) {
+                for (Vec3 p : new Vec3[] {eyeOf(c), new Vec3(c.getX() + 0.5, c.getY() + 0.9, c.getZ() + 0.5)}) {
+                    if (!clear(level, e, p, g)) continue;
+                    List<BlockPos> line = cellsOn(p, e); boolean cut = false; for (BlockPos q : line) if (put.contains(q)) { cut = true; break; } if (cut) continue;
+                    BlockPos first = null; for (BlockPos q : line) if (!q.equals(c) && !q.equals(c.above())) { first = q; break; }
+                    if (first == null || g.attempts.within(Attempts.Kind.PLACE, first, g.tickCount, 20 * 60) || !level.getBlockState(first).canBeReplaced() || !level.getFluidState(first).isEmpty() || !level.getEntitiesOfClass(LivingEntity.class, new AABB(first), x -> x != g).isEmpty()) { ok = false; break; }
+                    put.add(first.immutable());
+                }
+                if (!ok) { no[1]++; break; }
+                if (put.size() > max) { ok = false; no[2]++; break; }
+            }
+            if (!ok) continue;
+            put.sort(java.util.Comparator.comparingInt(BlockPos::getY)); // (each against one under or beside it: bottom up)
+            List<BlockPos> up = new ArrayList<>();
+            for (BlockPos q : put) { // a block with nothing to go against gets one under it first (or beside it, on something), as a player props a roof
+                if (up.contains(q)) continue;
+                if (!faced(level, q, up)) { BlockPos prop = null;
+                    for (BlockPos n : new BlockPos[] {q.below(), q.north(), q.south(), q.east(), q.west()}) if (!n.equals(c) && !n.equals(c.above()) && !up.contains(n) && level.getBlockState(n).canBeReplaced() && level.getFluidState(n).isEmpty() && faced(level, n, up)) { prop = n.immutable(); break; }
+                    if (prop == null) { ok = false; break; } up.add(prop); }
+                up.add(q); }
+            if (ok && up.size() > max) { no[2]++; continue; }
+            if (!ok) { no[3]++; continue; }
+            BlockPos peek = null; double pd = Double.MAX_VALUE;
+            for (Direction d : Direction.Plane.HORIZONTAL) { BlockPos q = c.relative(d); if (up.contains(q) || up.contains(q.above()) || !stand(level, q) || !clear(level, eyeOf(q), anchor, g)) continue;
+                boolean cut = false; for (BlockPos x : cellsOn(eyeOf(q), anchor)) if (up.contains(x)) { cut = true; break; } if (cut) continue;
+                double qd = q.distToCenterSqr(anchor); if (qd < pd) { pd = qd; peek = q.immutable(); } }
+            if (peek == null) { no[4]++; continue; }
+            double score = up.size() * Weights.w("blaze.cover_block_weight", 1.0) + Math.sqrt(c.distSqr(me)) * 0.6 + Math.abs(Math.sqrt(c.distToCenterSqr(anchor)) - 7) * 0.2;
+            if (best != null && best.score() <= score) continue;
+            if (!c.equals(me) && com.claudemod.entity.nav.ActionPath.plan(g, level, me, c, 0.5, true, 400, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, null, 0) == null) { no[5]++; continue; }
+            best = new Cand(c.immutable(), peek, up, score);
+        }
+        if (best == null) { buildWhy = "; none to build with " + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item).getPath() + ": " + no[0] + " no standing/by the anchor, " + no[1] + " a line's cell can't take a block, " + no[2] + " over " + max + " blocks, " + no[3] + " a block with no face, " + no[4] + " no peek, " + no[5] + " no walk"; return null; }
+        builds().put(g.getUUID(), best.put()); buildFor().put(g.getUUID(), best.c());
+        return new Cover(best.c(), best.peek(), spawner != null ? spawner : foe.blockPosition(), "blaze",
+                "built: " + best.put().size() + " " + net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item).getPath() + " at " + best.c().toShortString() + " cutting the sight of " + seen + " blaze(s)" + (spawner != null ? " and the spawner at " + spawner.toShortString() : "") + " (no cover to find here), stepping out to " + best.peek().toShortString(), g.tickCount);
+    }
     /** The solid cells in the line from his eyes to a blaze's: at most 3, the first in his reach, each soft (netherrack, soul soil...), no fortress block, no lava beside any; null when that's no window to cut. */
     static List<BlockPos> windowTo(ServerLevel level, ClaudeEntity g, Blaze b) {
         Vec3 a = g.getEyePosition(), e = b.getEyePosition(); List<BlockPos> cells = new ArrayList<>(); int n = (int) Math.ceil(a.distanceTo(e) * 4);
@@ -191,11 +271,13 @@ public final class FortressFight {
             Cand k = cands.get(i);
             // reached by his own walker (no digging, a block put down where he has them), not vanilla's: live 17:37 11-07 "12 spots out of sight, none walkable" with 4 blazes on him, every spot refused by createPath
             if (!k.c().equals(me) && com.claudemod.entity.nav.ActionPath.plan(g, level, me, k.c(), 0.5, true, 800, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, null, 0) == null) continue;
+            builds().remove(g.getUUID()); buildFor().remove(g.getUUID());
             String shape = k.walls() >= 3 ? "a nook" : k.walls() == 2 ? "a doorway's side" : "a corner";
             return new Cover(k.c(), k.peek(), spawner != null ? spawner : foe.blockPosition(), "blaze",
                     shape + " at " + k.c().toShortString() + " out of sight of " + bl.size() + " blaze(s)" + (spawner != null ? " and the spawner at " + spawner.toShortString() : "") + ", stepping out to " + k.peek().toShortString() + " (" + (int) k.da() + " off, " + cands.size() + " spots looked at)", g.tickCount);
         }
-        com.claudemod.director.ClaudeLife.nookSay(g, "blazeNoCover", "[Claude fight] no cover from the blazes within 10 of " + g.blockPosition().toShortString() + " (" + cands.size() + " spots out of sight, none walkable or with a step that sees them) (FortressFight.pickBlaze)"); /* once per spot (the backlog: every few seconds at the fortress, 03:54) */ // ponytail: once per 5 s, one shared clock (it is asked every tick, 20 lines a second live)
+        { Cover built = buildBlaze(g, level, eyes, anchor, bl.size(), spawner, foe); if (built != null) return built; }
+        com.claudemod.director.ClaudeLife.nookSay(g, "blazeNoCover", "[Claude fight] no cover from the blazes within 10 of " + g.blockPosition().toShortString() + " (" + cands.size() + " spots out of sight, none walkable or with a step that sees them" + buildWhy + ") (FortressFight.pickBlaze)"); /* once per spot (the backlog: every few seconds at the fortress, 03:54) */ // ponytail: once per 5 s, one shared clock (it is asked every tick, 20 lines a second live)
         return null;
     }
 

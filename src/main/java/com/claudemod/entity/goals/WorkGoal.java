@@ -6779,6 +6779,14 @@ public class WorkGoal extends Goal {
         if (cv == null && !blaze) { Boolean wp = witherHole(t, mob); if (wp != null) return wp; } // (no 2-high gap for a wither skeleton: he digs a 2-high gap, never the open fight; World 15 19:00, two of them in the open, dead)
         if (cv == null) { if (ticks == 1) cfSay("in the open", "no cover for this " + mob.getType().getDescription().getString() + " here: the ordinary fight, shield and crits"); return null; }
         if (!(g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW))) equipWeapon(); // ponytail: live 18:56 "shooting it" x4 and arrows stayed 57: the sword swapped in every tick and cut each draw
+        if (blaze) { var put = com.claudemod.entity.life.FortressFight.unbuilt(g, level, cv); var wallItem = com.claudemod.entity.life.FortressFight.wallItem(g); // cover with nothing to find (an open bridge): his blocks put up first, then the fight from behind them
+            if (!put.isEmpty() && wallItem != null && g.inventory.count(x -> x.is(wallItem)) >= put.size() && g.tasks.stream().noneMatch(x -> x instanceof Task.Place)) {
+                g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks)));
+                for (int i = put.size() - 1; i >= 0; i--) g.tasks.addFirst(new Task.Place(put.get(i), wallItem));
+                if (!com.claudemod.entity.life.FortressFight.at(g, cv.cover())) g.tasks.addFirst(new Task.GoTo(cv.cover(), 0.3));
+                g.getNavigation().stop(); shieldDown();
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] building cover from the blazes: {} block(s) at {} ({}) (WorkGoal.coverFight)", put.size(), put.stream().map(BlockPos::toShortString).toList(), cv.how());
+                cfMode = "building cover"; return true; } }
 
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
         boolean inCover = com.claudemod.entity.life.FortressFight.at(g, cv.cover());

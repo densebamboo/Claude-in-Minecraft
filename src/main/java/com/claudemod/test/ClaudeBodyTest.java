@@ -10940,6 +10940,7 @@ public final class ClaudeBodyTest {
             case 1402: return st1402(stage, t, c, h, level, mock);
             case 1403: return st1403(stage, t, c, h, level, mock);
             case 1404: return st1404(stage, t, c, h, level, mock);
+            case 1406: return st1406(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -24751,6 +24752,28 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    /** Stage 1406 (D2D review 135, live 05:14:18-05:14:25 11-10 at 324,39,462 in a warped forest): a step to the diagonal cell beside him, off his cell's middle toward the open side; the straight line crossed the corner of a cell over a 6-deep drop, the lip guard held him 7 s. By the corner he can stand on instead. */
+    private static boolean st1406(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9760, 80, 9780), to = at.offset(-1, 0, 1), drop = at.west();
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1406T = -1; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 4; x++) for (int z = -4; z <= 4; z++) for (int y = -8; y <= 4; y++) level.setBlock(at.offset(x, y, z), (y == -8 || y < 0 && !(x == -1 && z <= 0) ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // floor all round but the column west of him and north of that: 7 down
+            c.teleportTo(at.getX() + 0.38, at.getY(), at.getZ() + 0.39); com.claudemod.entity.life.Watchdog.teleported(c); // (off his cell's middle, as live: 324.38, 462.39)
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+        }
+        if (t[0] == 20) c.tasks.add(new Task.GoTo(to, 0.9));
+        if (t[0] > 20 && s1406T < 0 && c.blockPosition().equals(to) && c.onGround()) s1406T = t[0];
+        if (t[0] == 20 + 20 * 5 || s1406T > 0 && t[0] == s1406T + 2) {
+            int took = s1406T < 0 ? -1 : s1406T - 20; BlockPos was = c.blockPosition(); boolean alive = c.isAlive() && c.getHealth() >= 20;
+            c.tasks.clear(); c.dropCurrent = true;
+            for (int x = -4; x <= 4; x++) for (int z = -4; z <= 4; z++) for (int y = -8; y <= 4; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // (the floor left)
+            check(alive, "fell in the drop (at " + was.toShortString() + ")");
+            check(took >= 0 && took <= 30, "the diagonal step by the drop: " + (took < 0 ? "not there in 5 s, at " + was.toShortString() : took + " ticks"));
+            pass(stage, t, "round the drop's corner to the diagonal cell in " + took + " ticks");
+        }
+        return true;
+    }
+    private static int s1406T;
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

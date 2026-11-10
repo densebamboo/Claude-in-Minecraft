@@ -1029,6 +1029,10 @@ public class WorkGoal extends Goal {
             if (stepInFor != current) { stepInFor = current; stepInAt = ticks; } // (its own clock: the walk that brought him beside it doesn't count)
             if (hx * hx + hz * hz <= 0.09) { g.getNavigation().stop(); return true; }
             if (ticks - stepInAt > 30) { g.getNavigation().stop(); com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] 1.5 s stepping into {} beside him and not in its middle (at {}, {}): that's there (WorkGoal.walkTo)", pos.toShortString(), String.format("%.2f", g.getX()), String.format("%.2f", g.getZ())); return true; }
+            if (pos.getX() != feetCell.getX() && pos.getZ() != feetCell.getZ()) { // a diagonal step: never across the corner of a cell he can't stand in (an open drop off it: the lip guard held him 7 s at 324,39,462 over 6 down, D2D review 135, stage 1406); by the corner cell he can stand in, like a player
+                BlockPos ca = new BlockPos(pos.getX(), feetCell.getY(), feetCell.getZ()), cb = new BlockPos(feetCell.getX(), feetCell.getY(), pos.getZ());
+                boolean fa = com.claudemod.entity.life.PlaceAim.standable((ServerLevel) g.level(), ca), fb = com.claudemod.entity.life.PlaceAim.standable((ServerLevel) g.level(), cb);
+                if (fa != fb) { BlockPos via = fa ? ca : cb; g.getNavigation().stop(); g.getMoveControl().setWantedPosition(via.getX() + 0.5, via.getY(), via.getZ() + 0.5, 0.5); return false; } }
             g.getNavigation().stop(); g.getMoveControl().setWantedPosition(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0.5);
             return false;
         }

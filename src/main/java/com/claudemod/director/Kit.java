@@ -220,6 +220,8 @@ public final class Kit {
     /** What the kit asks for in food: an item and a count, or null (he goes as he is). */
     public record FoodAsk(Item item, int count) {}
     private static final java.util.Map<java.util.UUID, Object[]> foodAskMemo = new java.util.HashMap<>();
+    /** (tests: a stage's fresh scene asks afresh; the memo outlived scenarioReset and answered the next stage with the last one's pack, BP 11-10 on 845) */
+    public static void forgetFoodAsk(ClaudeEntity g) { foodAskMemo.remove(g.getUUID()); foodPick.remove(g.getUUID()); }
     private static double w(String name, double def) { return com.claudemod.entity.life.Weights.w(name, def); }
     /** Food points (nutrition + saturation) in one of the item. */
     static double pts(Item i) { var f = new ItemStack(i).get(DataComponents.FOOD); return f == null ? 0 : f.nutrition() + f.saturation(); }
@@ -249,7 +251,9 @@ public final class Kit {
     }
     private static final java.util.Map<java.util.UUID, String> foodPick = new java.util.HashMap<>();
     /** The kit is short and its pick is cooking the raw food he carries (smelt's "cooks at home" gives way only to that). */
-    public static boolean cooksRaw(ClaudeEntity g) { return foodAsk(g) != null && "cook his raw".equals(foodPick.get(g.getUUID())); }
+    public static boolean cooksRaw(ClaudeEntity g) { FoodAsk fa = foodAsk(g); if (fa == null) return false; if ("cook his raw".equals(foodPick.get(g.getUUID()))) return true;
+        for (Item[] rc : RAW_COOKED) if (rc[1] == fa.item() && g.inventory.count(x -> x.is(rc[0])) >= fa.count()) return true; // the raw for the kit's ask already on him: collect stops there ("the raw on me, cooked, not a hunt"), so the furnace is the kit's too (live 04:28-04:31 11-10, D2D reviews 70 and 14: collect and smelt each said the other did it, re-planned every few seconds for 2 min; stage 1404)
+        return false; }
     /** What the kit's food pick costs, in seconds (NaN: none): the pearl hunt's "food first" is priced by it. */
     public static final java.util.Map<java.util.UUID, Double> foodPickS = new java.util.HashMap<>();
     public static FoodAsk foodAsk(ClaudeEntity g) {

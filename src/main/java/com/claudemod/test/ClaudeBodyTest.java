@@ -2215,6 +2215,7 @@ public final class ClaudeBodyTest {
         BlockPos m0 = h.absolutePos(new BlockPos(2, 2, 2)); mock.teleportTo(h.getLevel(), m0.getX() + 0.5, m0.getY(), m0.getZ() + 0.5, 0f, 0f);
     }
     private static void scenarioReset(ClaudeEntity c) {
+        com.claudemod.director.Kit.forgetFoodAsk(c); // (the 40-tick food memo answered the next stage with the last one's pack)
         com.claudemod.entity.life.Gate.reset(c); // (the no-progress gate's record of the last stage's jobs)
         com.claudemod.entity.life.PitGuard.reset(c); // (stages 245-247: his holes' caps and skirts)
         com.claudemod.entity.life.DeathLog.reset(c); // (the test world keeps his death checklist: a stage he died in left piles 2953 off pending, and 817's pearl hunt went to recover them)
@@ -10936,6 +10937,7 @@ public final class ClaudeBodyTest {
             case 1401: return st1401(stage, t, c, h, level, mock);
             case 1402: return st1402(stage, t, c, h, level, mock);
             case 1403: return st1403(stage, t, c, h, level, mock);
+            case 1404: return st1404(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -24654,6 +24656,32 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static int s1403C;
+    /** Stage 1404 (D2D reviews 70 and 04:33-14, live 04:28:31-04:31 11-10 by a salmon lake): the kit short of trip food, its pick fishing, the raw salmon for its ask already on him; "collect salmon" said done ("the raw on me, cooked, not a hunt") and "smelt cooked_salmon" said done ("isn't worth a furnace out here"), each leaving it to the other, re-planned every few seconds for 2 minutes. */
+    private static boolean st1404(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.myStations.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); }
+        if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 4, c.blockPosition());
+        BlockPos me = c.blockPosition();
+        if (t[0] == 10) {
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) { level.setBlock(me.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = 3; x <= 6; x++) for (int z = -2; z <= 2; z++) { level.setBlock(me.offset(x, -2, z), Blocks.STONE.defaultBlockState(), 2); level.setBlock(me.offset(x, -1, z), Blocks.WATER.defaultBlockState(), 2); } // a shallow pool, salmon in it (live: a lake of them)
+            for (int k = 0; k < 2; k++) { var fish = net.minecraft.world.entity.EntityType.SALMON.create(level); if (fish != null) { fish.moveTo(me.getX() + 4.5 + k, me.getY() - 0.8, me.getZ() + 0.5, 0, 0); fish.setPersistenceRequired(); level.addFreshEntity(fish); } }
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 5)); c.getInventory().add(new ItemStack(Items.SALMON, 5)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 8));
+            c.getFoodData().setFoodLevel(20);
+        }
+        if (t[0] == 15) {
+            var fa = com.claudemod.director.Kit.foodAsk(c);
+            try { var f = com.claudemod.director.Kit.class.getDeclaredField("foodPick"); f.setAccessible(true); @SuppressWarnings("unchecked") var m = (java.util.Map<java.util.UUID, String>) f.get(null); m.put(c.getUUID(), "fish"); } catch (Exception e) { throw new RuntimeException(e); } // (live: the pick was fishing, its count already on him raw)
+            c.tasks.clear(); c.skillQueue.clear();
+            String rc = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "salmon", 5);
+            c.tasks.clear(); c.skillQueue.clear();
+            String rs = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "cooked_salmon", 5); try { var f = com.claudemod.director.Kit.class.getDeclaredField("foodPick"); f.setAccessible(true); ((java.util.Map<?, ?>) f.get(null)).remove(c.getUUID()); } catch (Exception e) { throw new RuntimeException(e); } // (the pick set above goes: it leaked into 968's next ask)
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.animal.Salmon.class, c.getBoundingBox().inflate(16))) m.discard(); for (int x = 3; x <= 6; x++) for (int z = -2; z <= 2; z++) level.setBlock(me.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2);
+            check(fa != null && fa.item() == Items.COOKED_SALMON && fa.count() <= 5, "short of trip food, 5 raw salmon on him: the kit's ask " + (fa == null ? "none" : fa.count() + " " + fa.item()));
+            check(!(rc.contains("cooked, not a hunt") && rs.contains("isn't worth a furnace")), "collect and smelt each left it to the other: collect \"" + rc + "\", smelt \"" + rs + "\"");
+            pass(stage, t, "collect: " + rc + "; smelt: " + rs);
+        }
+        return true;
+    }
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

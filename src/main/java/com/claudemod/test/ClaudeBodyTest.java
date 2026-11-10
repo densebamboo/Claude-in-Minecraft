@@ -10584,6 +10584,7 @@ public final class ClaudeBodyTest {
             case 1362: return st1362(stage, t, c, h, level, mock);
             case 1363: return st1363(stage, t, c, h, level, mock);
             case 1364: return st1364(stage, t, c, h, level, mock);
+            case 1365: return st1365(stage, t, c, h, level, mock);
             case 1356: return st1356(stage, t, c, h, level, mock);
             case 1301: return st1301(stage, t, c, h, level, mock);
             case 1302: return st1302(stage, t, c, h, level, mock);
@@ -27785,6 +27786,31 @@ public final class ClaudeBodyTest {
     /** Stage 1357 (live 18:49-18:50 11-09, review 185243-100: "collect salmon x3 -> failed: ... the salmon in sight and the rest have no short way to
      *  them on foot", 82 times in 70 s, his iron helmet held behind it): kit.food priced the fish by the straight line, collect's own walk check said no
      *  way, and the kit offered them again. Three salmon in a shallow pool on a 6-high pillar 11 off, nothing to climb with: the kit's pick is no fish. */
+    private static int st1365 = -1; private static BlockPos st1365T, st1365C; private static boolean st1365S;
+    private static boolean st1365(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 04:07:52-04:10:51 11-10 (death 71): craft iron_pickaxe with no wood on him: one log out of his chest for the sticks, 2 planks left, no table's worth, so "walking to a crafting table at -111,27,-254" 40 off: his table in a dark cave over his mine (death 58's too), a skeleton there. Logs come out of a chest by the handful: his own table on the spot is then priced against the walk
+        BlockPos home = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { ledReset(c, level); st1365 = -1; st1365S = false; c.planning = false; c.nextPlanTick = c.tickCount + 100000; }
+        if (st1365C != null && t[0] % 10 == 0) { ledTicket(level, st1365T); ledTicket(level, st1365C); ledTicket(level, home); }
+        if (t[0] == 5) {
+            flatBox(h); st1365C = home.offset(90, 0, 0).immutable(); st1365T = home.offset(130, 0, 0).immutable(); // (as live: the chest far off, his old table 40 past it: out of range till he is at the chest)
+            ledPad(level, st1365C); level.setBlock(st1365C, Blocks.CHEST.defaultBlockState(), 3); c.storageChests.add(st1365C); c.myStations.add(st1365C);
+            ledPad(level, st1365T); level.setBlock(st1365T, Blocks.CRAFTING_TABLE.defaultBlockState(), 3); c.myStations.add(st1365T); ledTicket(level, st1365T);
+            if (level.getBlockEntity(st1365C) instanceof net.minecraft.world.Container box) box.setItem(0, new ItemStack(Items.OAK_LOG, 20)); // (he keeps wood on him: no deposit puts logs in a chest)
+            com.claudemod.entity.life.ChestLedger.book(c).put(st1365C, new com.claudemod.entity.life.ChestLedger.Entry("minecraft:overworld", new java.util.HashMap<>(java.util.Map.of(Items.OAK_LOG, 20)), level.getGameTime()));
+        }
+        if (t[0] > 5 && st1365 < 0) {
+            if (ledCount(c, st1365C, Items.OAK_LOG) != 20 || c.inventory.count(s -> s.is(Items.OAK_LOG)) != 0) { check(t[0] < 200, "setup: the 20 logs never made his ledger"); return true; }
+            st1365 = t[0]; c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_INGOT, 3)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            ledTo(c, home); c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "iron_pickaxe", 1));
+        }
+        if (st1365 > 0) {
+            if (!st1365S && ledChestTask(c, st1365C) && c.blockPosition().distSqr(st1365C) > 4 * 4) { st1365S = true; ledTo(c, st1365C.west(2)); c.tasks.removeIf(q -> q instanceof Task.GoTo); if (c.currentTask instanceof Task.GoTo) c.dropCurrent = true; } // (the 90-block walk to the chest skipped)
+            check(c.blockPosition().distSqr(st1365T) > 8 * 8, "walked 40 to his far table for the pickaxe (the walk to the cave's table, death 71), with 20 logs in the chest by him (pack " + c.inventory.count(s -> s.is(Items.OAK_LOG)) + " logs, " + c.inventory.count(s -> s.is(net.minecraft.tags.ItemTags.PLANKS)) + " planks)");
+            if (c.inventory.count(s -> s.is(Items.IRON_PICKAXE)) > 0) { c.getInventory().clearContent(); c.myStations.remove(st1365T); c.myStations.remove(st1365C); c.storageChests.remove(st1365C); ledClear(level, st1365C); level.setBlock(st1365T, Blocks.AIR.defaultBlockState(), 3); pass(stage, t, "the pickaxe made on the spot with logs from his chest, no walk to the far table, in " + (t[0] - st1365) / 20.0 + " s"); return true; }
+            check(t[0] - st1365 < 20 * 90, "no iron pickaxe in 90 s (at " + c.blockPosition().toShortString() + ", now " + c.currentTask + ", line " + c.lastSkillLine + ")");
+        }
+        return true;
+    }
     private static net.minecraft.world.entity.monster.Blaze st1364B; private static net.minecraft.world.entity.monster.Zombie st1364Z;
     private static boolean st1364(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // live 04:04:56-04:05:46 11-10 (death 70, the fortress at 314,59,484): held at a hide spot "out of the shooters' sight" picked from the blazes 4-9 off; a blaze 27-31 off with a clear line burned him 13 -> 0 there, the hold never re-picked: its mob list was hostilesNear(14) and what the flee set out from. What just shot him counts, however far
         if (t[0] == 1) { scenarioReset(c); if (st1364B != null) st1364B.discard(); if (st1364Z != null) st1364Z.discard(); st1364B = null; st1364Z = null; }

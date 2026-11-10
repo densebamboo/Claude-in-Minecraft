@@ -8043,7 +8043,7 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
-        if ((stage[0] >= 494 && stage[0] <= 1099 || stage[0] >= 1130 && stage[0] <= 1399) && stages494(stage, t, c, h, level, mock)) return true; // (1150-1199: Big Picture's next range)
+        if ((stage[0] >= 494 && stage[0] <= 1099 || stage[0] >= 1130 && stage[0] <= 1449) && stages494(stage, t, c, h, level, mock)) return true; // (1150-1199: Big Picture's next range)
         if (stage[0] >= 1100 && stage[0] < 1100 + BENCH.length - 16) return bench(stage, t, c, h, level); // (the combat benchmark, part 2: every enemy type, mixed groups)
         if (stage[0] >= 279 && stage[0] <= 285) {
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Whereabouts.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.ExactSpot.reset(c); com.claudemod.director.Primitives.reset(c);

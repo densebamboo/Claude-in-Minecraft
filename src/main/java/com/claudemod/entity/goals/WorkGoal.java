@@ -3018,6 +3018,7 @@ public class WorkGoal extends Goal {
     /** Walk over the items that just dropped, so they get picked up (players do this without thinking). */
     /** In the air and dropping (not swimming, not on a ladder): where he'll stand is where he lands. */
     private boolean falling() { return !g.onGround() && !g.isInWater() && !g.onClimbable() && g.getDeltaMovement().y < -0.08; }
+    private int hopBeat; // (the pickup's jump branch: said once in 2 s)
     private int fallNoteTick; // the last tick a task waited on his fall (a fall logs once, when the wait starts)
     private void fallNote(String what) { if (g.tickCount - fallNoteTick > 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {}: he's falling (y {}), waiting to land first (WorkGoal.falling)", what, String.format("%.1f", g.getY())); fallNoteTick = g.tickCount; }
 
@@ -3271,16 +3272,18 @@ public class WorkGoal extends Goal {
         BlockPos jx = g.blockPosition().relative(Direction.getNearest(nearest.getX() - g.getX(), 0, nearest.getZ() - g.getZ()));
         boolean jumpReach = Math.max(Math.abs(ip.getX() - g.getBlockX()), Math.abs(ip.getZ() - g.getBlockZ())) <= 1 || level.getBlockState(jx).getCollisionShape(level, jx).isEmpty() && level.getBlockState(jx.above()).getCollisionShape(level, jx.above()).isEmpty(); // (a jump reaches a drop on the ledge beside him, or he steps closer first; 2 cells off behind a wall it only pushes him into the wall: 100 ticks at a time, live 13:13 11-09, stage 1276)
         if (dy > 1.5 && dy < 3.4 && g.onGround() && jumpReach) {
-            BlockPos hop = null; double hd = Double.MAX_VALUE; // where a jump lifts his reach to it: his cell or one beside, open 2 over his head (straight under it his own ceiling stopped the jump: a table's drop up a hole in his tunnel's roof, stage 1426)
+            BlockPos hop = null; double hd = Double.MAX_VALUE, hopX = 0, hopZ = 0; // where a jump lifts his reach to it: his cell or one beside, open 2 over his head (straight under it his own ceiling stopped the jump: a table's drop up a hole in his tunnel's roof, stage 1426)
             for (BlockPos s0 : BlockPos.betweenClosed(g.blockPosition().offset(-1, 0, -1), g.blockPosition().offset(1, 0, 1))) {
                 if (!level.getBlockState(s0.below()).isFaceSturdy(level, s0.below(), Direction.UP)) continue; boolean open = true;
                 for (int k = 0; k <= 2 && open; k++) open = level.getBlockState(s0.above(k)).getCollisionShape(level, s0.above(k)).isEmpty();
-                double hx = Math.abs(nearest.getX() - (s0.getX() + 0.5)), hz2 = Math.abs(nearest.getZ() - (s0.getZ() + 0.5)); // (the body's pickup box: 0.3 + 1 out each way)
-                if (!open || hx > 1.2 || hz2 > 1.2) continue; double d0 = s0.distToCenterSqr(g.position()); if (d0 < hd) { hd = d0; hop = s0.immutable(); } }
-            if (hop != null) { double ox = hop.getX() + 0.5 - g.getX(), oz = hop.getZ() + 0.5 - g.getZ();
-                g.getMoveControl().setWantedPosition(hop.getX() + 0.5, g.getY(), hop.getZ() + 0.5, 0.6);
-                if (ox * ox + oz * oz < 0.3 * 0.3) g.getJumpControl().jump();
+                double lx = s0.getX() + 0.5 + Math.max(-0.18, Math.min(0.18, nearest.getX() - (s0.getX() + 0.5))), lz = s0.getZ() + 0.5 + Math.max(-0.18, Math.min(0.18, nearest.getZ() - (s0.getZ() + 0.5))); // (leant to the cell's side toward it, still inside it: a jump clears a 1-wide hole)
+                net.minecraft.world.phys.AABB peak = new net.minecraft.world.phys.AABB(lx - 0.22, s0.getY() + 1.2, lz - 0.22, lx + 0.22, s0.getY() + 3.0, lz + 0.22).inflate(1.0, 0.5, 1.0); // (his pickup box at a jump's top, vanilla: his box inflated 1 across, 0.5 up and down; the worst of him 0.08 off the cell middle, his 0.3 half-width less that)
+                if (!open || !peak.intersects(nearest.getBoundingBox())) continue; double d0 = s0.distToCenterSqr(g.position()); if (d0 < hd) { hd = d0; hop = s0.immutable(); hopX = lx; hopZ = lz; } }
+            if (hop != null) { double ox = hopX - g.getX(), oz = hopZ - g.getZ(); if (g.tickCount - hopBeat > 40) { hopBeat = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude pickup] {} at {}: {} up, a jump from {} reaches it (he's at {}) (WorkGoal.doPickup)", nearest.getItem().getHoverName().getString(), ip.toShortString(), String.format("%.1f", dy), hop.toShortString(), g.blockPosition().toShortString()); }
+                g.getMoveControl().setWantedPosition(hopX, g.getY(), hopZ, 0.6);
+                if (ox * ox + oz * oz < 0.08 * 0.08) g.getJumpControl().jump();
                 return false; }
+            if (g.tickCount - hopBeat > 40) { hopBeat = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude pickup] {} at {}: {} up, no cell beside him with the headroom for a jump to it (it lies at {}, {}): a jump at it from {} (WorkGoal.doPickup)", nearest.getItem().getHoverName().getString(), ip.toShortString(), String.format("%.1f", dy), String.format("%.2f", nearest.getX()), String.format("%.2f", nearest.getZ()), g.blockPosition().toShortString()); }
             g.getMoveControl().setWantedPosition(nearest.getX(), g.getY(), nearest.getZ(), 1.0);
             if (horiz < 1.3) g.getJumpControl().jump();
             return false;

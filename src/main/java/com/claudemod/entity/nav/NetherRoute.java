@@ -154,7 +154,8 @@ public final class NetherRoute {
         Reader r = new Reader(g, level); r.to = to; r.entering = entering;
         PriorityQueue<Node> open = new PriorityQueue<>((a, b) -> Double.compare(a.f, b.f));
         Map<Long, Double> best = new HashMap<>();
-        Node start = new Node(from.getX(), from.getY(), from.getZ(), 0, h(from.getX(), from.getY(), from.getZ(), to), null, 0, 0);
+        double hf = 1 + r.minRate() * r.hitS(); // (each second in the open costs at least the least risky land's hits at his health now: the estimate keeps up, still under the true cost)
+        Node start = new Node(from.getX(), from.getY(), from.getZ(), 0, h(from.getX(), from.getY(), from.getZ(), to) * hf, null, 0, 0);
         open.add(start); best.put(key(start.x, start.y, start.z), 0.0);
         Node near = start; double nearH = start.f + Math.abs(start.y - to.getY()) * WALK; int expanded = 0; boolean edge = false;
         int budget = testBudget > 0 ? testBudget : (int) com.claudemod.entity.life.Weights.w("nether.route_budget", BUDGET);
@@ -176,7 +177,7 @@ public final class NetherRoute {
                     long k = key(cx, ny, cz); Double b0 = best.get(k);
                     if (b0 != null && b0 <= ng) continue;
                     best.put(k, ng);
-                    open.add(new Node(cx, ny, cz, ng, ng + 1.3 * h(cx, ny, cz, to), n, n.digs + (int) c[1], n.puts + (int) c[2]));
+                    open.add(new Node(cx, ny, cz, ng, ng + 1.3 * h(cx, ny, cz, to) * hf, n, n.digs + (int) c[1], n.puts + (int) c[2]));
                 }
             }
         }
@@ -198,6 +199,12 @@ public final class NetherRoute {
         }
         { StringBuilder nb = new StringBuilder(); for (int i = 0; i < path.size() && i < 40; i++) { Node b = path.get(i); nb.append(i == 0 ? "" : " ").append(b.x).append(',').append(b.y).append(',').append(b.z).append('(').append((int) b.g).append(')'); }
           com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: its nodes (x,y,z, (s so far)): {} (NetherRoute.plan)", from.toShortString(), to.toShortString(), nb); } // (Day to Day 14:48: a way over the warped canopy, 38 up; the nodes prove why next time)
+        if (path.size() > 2 && path.get(1).y >= path.get(0).y + 2 && path.stream().anyMatch(k -> k.y <= path.get(0).y - 4)) { // up first, then down past where he started (review 8, live 23:15:30 11-09: 4 up a pillar, then 17 down through it): each way down from the start priced, to prove why
+            Node s0 = path.get(0); StringBuilder dn = new StringBuilder();
+            for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) { if (dx == 0 && dz == 0) continue; int cx = s0.x + dx * S, cz = s0.z + dz * S; if (!r.loaded(cx, cz)) continue;
+                for (int ny : r.heights(cx, s0.y, cz)) if (ny < s0.y) { double[] c = r.move(s0.x, s0.y, s0.z, cx, ny, cz); dn.append(cx).append(',').append(ny).append(',').append(cz).append(c == null ? " no" : " " + (int) c[0] + " s").append(r.why.isEmpty() ? "" : " (" + r.why + ")").append("; "); } }
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: up {} first, then down past the start; the ways down from it: {}(NetherRoute.done)", from.toShortString(), to.toShortString(), path.get(1).y - path.get(0).y, dn.length() == 0 ? "none offered " : dn);
+        }
         List<BlockPos> legs = new ArrayList<>(); int climb = 0;
         for (int i = 1; i < path.size(); i++) {
             Node a = path.get(i - 1), b = path.get(i); climb += Math.max(0, b.y - a.y);
@@ -289,6 +296,29 @@ public final class NetherRoute {
                 if (!all.contains(ty) && ty >= minY && ty + 1 <= maxY && !lava(bs(x, ty, z)) && !lava(bs(x, ty + 1, z)) && bs(x, ty, z).getDestroySpeed(level, BlockPos.ZERO) >= 0 && bs(x, ty + 1, z).getDestroySpeed(level, BlockPos.ZERO) >= 0) all.add(ty); }
             c = all.stream().mapToInt(Integer::intValue).toArray(); standCache.put(k, c); return c;
         }
+        /**
+         * Hits a second he can expect walking this land in the open, by its biome: crimson forest's hoglins (and its piglins with no gold
+         * on him), soul sand valley's skeletons and ghasts, basalt deltas' magma cubes, the wastes' ghasts; a warped forest's endermen
+         * leave him be. A tunnel he digs is out of it. (D2D death-81, 00:45 11-10: home at 5 HP with no food and 7 rods, straight through
+         * a crimson forest, a hoglin and a piglin's arrow; the route priced the land's blocks only.)
+         */
+        final Map<Long, Double> rateMemo = new HashMap<>(); double hitS = -1;
+        double rate(int x, int y, int z) {
+            return rateMemo.computeIfAbsent(key(x >> 2, y >> 2, z >> 2), k -> {
+                String b = level.getBiome(new BlockPos(x, y, z)).unwrapKey().map(r -> r.location().getPath()).orElse("");
+                boolean gold = false; for (var sl : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET}) if (g.getItemBySlot(sl).is(net.minecraft.tags.ItemTags.PIGLIN_LOVED)) gold = true;
+                return switch (b) {
+                    case "crimson_forest" -> com.claudemod.entity.life.Weights.w("netherroute.hits_s_crimson", 0.01) * (gold ? 0.6 : 1);
+                    case "soul_sand_valley" -> com.claudemod.entity.life.Weights.w("netherroute.hits_s_soul_sand", 0.006);
+                    case "basalt_deltas" -> com.claudemod.entity.life.Weights.w("netherroute.hits_s_basalt", 0.006);
+                    case "warped_forest" -> com.claudemod.entity.life.Weights.w("netherroute.hits_s_warped", 0.001);
+                    default -> com.claudemod.entity.life.Weights.w("netherroute.hits_s_wastes", 0.003);
+                };
+            });
+        }
+        double minRate() { return Math.min(com.claudemod.entity.life.Weights.w("netherroute.hits_s_warped", 0.001), com.claudemod.entity.life.Weights.w("netherroute.hits_s_wastes", 0.003)); }
+        /** One expected hit (a hoglin's, through his armor) at his health and food now, the rods and pearls on him in its death price: a few seconds fed and whole, most of an hour at 5 HP with nothing to eat. */
+        double hitS() { if (hitS < 0) hitS = com.claudemod.entity.life.Decide.hpS(g, 0, 1, com.claudemod.entity.life.Weights.w("netherroute.hit_hp", 6) * com.claudemod.entity.life.Decide.armorF(g)); return hitS; }
         /** Seconds to dig it with the best tool on him, -1 never (bedrock, lava, a block entity, nothing that takes it). */
         double dig(int x, int y, int z) {
             BlockState s = bs(x, y, z); BlockPos p = new BlockPos(x, y, z);
@@ -313,7 +343,9 @@ public final class NetherRoute {
             return c + (known(x, y, z) && ActionPath.structureBlock(level, p) && !com.claudemod.entity.life.TempLedger.built(g, p) ? 40 : 0); // (a fortress's own block: very dear, round it or its doorways)
         }
         /** {seconds, digs, puts} for the move from (x, y, z) to (cx, ny, cz), or null when it can't be made. */
+        String why = ""; // (the last move's turn-down or dear part: the up-then-down log)
         double[] move(int x, int y, int z, int cx, int ny, int cz) {
+            why = "";
             double len = Math.hypot(cx - x, cz - z); int steps = (int) Math.ceil(len);
             double sec = len * WALK; int digs = 0, puts = 0;
             double PUT = com.claudemod.entity.life.Weights.w("netherroute.put_s", 2.2); // (a put out here is also one to go back for and take up: ~12 walk-blocks; was 0.6, 3 walk-blocks, and he bridged tree to tree, the user 11-06)
@@ -321,18 +353,20 @@ public final class NetherRoute {
             if (dy > 1) sec += (dy - 1) * CLIMB; // steps cut up or a pillar
             if (dy < -3) sec += (-dy - 3) * DESCEND; // steps dug down, or a drop he can take
             boolean flat = Math.abs(dy) <= 3;
-            int prevPy = y;
+            int prevPy = y; double hits = 0, stepS = len * WALK / Math.max(1, steps);
             for (int i = 1; i <= steps; i++) {
+                boolean dugHere = false;
                 double f = (double) i / steps;
                 int px = (int) Math.floor(x + 0.5 + (cx - x) * f), pz = (int) Math.floor(z + 0.5 + (cz - z) * f);
                 int py = dy > 0 ? Math.min(ny, y + (int) Math.ceil(dy * Math.min(1.0, f * 1.5))) : dy < 0 ? (int) Math.round(y + dy * f) : y; // (going up: the climb early, at the wall; going down: an even slope)
                 for (int yy = Math.min(prevPy, py); yy <= Math.max(prevPy, py) + 1; yy++) { // (every cell of height this step passes, feet to head: a steep step down sampled one cell a block and planned through bedrock under it, stage 545)
                     double d0 = dig(px, yy, pz);
-                    if (d0 < 0) return null;
-                    if (d0 > 0) { sec += d0 + com.claudemod.entity.life.Weights.w("netherroute.dig_extra_s", 1.0); digs++; } // (the swing, the pickup and the hole left: the user 11-06, "digging way too much unnecessarily")
+                    if (d0 < 0) { why = "a cell it can't dig at " + px + "," + yy + "," + pz; return null; }
+                    if (d0 > 0) { sec += d0 + com.claudemod.entity.life.Weights.w("netherroute.dig_extra_s", 1.0); digs++; dugHere = true; } // (the swing, the pickup and the hole left: the user 11-06, "digging way too much unnecessarily")
                 }
                 prevPy = py;
-                if (dy > 0 && i == 1) { double d2 = dig(x, y + 2, z); if (d2 < 0 && solid(x, y + 2, z)) return null; } // (head room over him to step or pillar up)
+                if (!dugHere) hits += stepS * rate(px, py, pz); // (out in the land: what lives there; a tunnel's step is out of it)
+                if (dy > 0 && i == 1) { double d2 = dig(x, y + 2, z); if (d2 < 0 && solid(x, y + 2, z)) { why = "no head room"; return null; } } // (head room over him to step or pillar up)
                 if (flat || i == steps) { // what's under him on the way
                     if (!solid(px, py - 1, pz)) {
                         int k = 1; boolean lavaUnder = false;
@@ -345,14 +379,15 @@ public final class NetherRoute {
                 }
             }
             if (dy > 1 && digs == 0) puts += dy - 1; // (nothing cut for the climb: a pillar, one block a step up)
-            if (bad(bs(cx, ny - 1, cz)) && !lava(bs(cx, ny - 1, cz))) return null; // (never onto magma or fire)
-            if (dy < -1 && !solid(cx, ny - 1, cz)) return null; // (a way down lands on ground: no block is put under a spot 2+ below him, nothing to set it against on the way down; the plan stepped down the open cavern on blocks it would put in mid-air, stage 1047)
-            if (failedNear(cx, ny, cz)) return null; // (the walker found no way there in the last 2 min: not that spot again, not even dearer; +20 s left the next plan a block over the same fall, live 14:04-14:06 11-08, reviews 127/128, stage 1047)
-            if (dy < -3 && failedDrop(cx, y, cz)) return null; // (a way down near one the walker found none at, from about this height: the same drop a few blocks over) // (a leg that ended there failed in the last 2 min: the way round it, never the same spot again; live -303,87,-63, a 40 s shuffle re-planned onto the node that failed)
+            if (bad(bs(cx, ny - 1, cz)) && !lava(bs(cx, ny - 1, cz))) { why = "onto magma or fire"; return null; } // (never onto magma or fire)
+            if (dy < -1 && !solid(cx, ny - 1, cz)) { why = "no ground to land on"; return null; } // (a way down lands on ground: no block is put under a spot 2+ below him, nothing to set it against on the way down; the plan stepped down the open cavern on blocks it would put in mid-air, stage 1047)
+            if (failedNear(cx, ny, cz)) { why = "a walk there failed lately"; return null; } // (the walker found no way there in the last 2 min: not that spot again, not even dearer; +20 s left the next plan a block over the same fall, live 14:04-14:06 11-08, reviews 127/128, stage 1047)
+            if (dy < -3 && failedDrop(cx, y, cz)) { why = "a way down near there failed lately"; return null; } // (a way down near one the walker found none at, from about this height: the same drop a few blocks over) // (a leg that ended there failed in the last 2 min: the way round it, never the same spot again; live -303,87,-63, a 40 s shuffle re-planned onto the node that failed)
             if (dy < -3) { // a sheer fall into that column (nothing to cut steps in): its damage against what he keeps (Leaps.margin)
                 boolean sheer = true; for (int yy = ny + 1; yy <= y; yy++) if (solid(cx, yy, cz)) { sheer = false; break; }
-                if (sheer) { float hp = -dy - 3; if (Leaps.health(g) - hp < Leaps.margin(g)) return null; sec += 1 + hp * 1.5 * Leaps.hpPrice(g); }
+                if (sheer) { float hp = -dy - 3; if (Leaps.health(g) - hp < Leaps.margin(g)) { why = "a sheer fall of " + (-dy) + " past his HP margin"; return null; } sec += 1 + hp * 1.5 * Leaps.hpPrice(g); why = "a sheer fall of " + (-dy) + ", " + (int) hp + " HP at x" + String.format("%.1f", Leaps.hpPrice(g)); }
             }
+            sec += hits * hitS();
             return new double[] {sec, digs, puts};
         }
     }

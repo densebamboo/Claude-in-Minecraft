@@ -10547,6 +10547,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1327: return st1327(stage, t, c, h, level, mock);
             case 1326: return st1326(stage, t, c, h, level, mock);
             case 1325: return st1325(stage, t, c, h, level, mock);
             case 1323: return st1323(stage, t, c, h, level, mock);
@@ -17430,6 +17431,42 @@ public final class ClaudeBodyTest {
             check(onHis.isEmpty(), "collect logs: " + onHis.size() + " task(s) at his own bridge/pillar logs: " + onHis + " (said: " + r + ")");
             check(fungus, "collect logs: the crimson fungus 10 off not chopped (said: " + r + ")");
             pass(stage, t, "collect logs: the fungus, none of his bridge (" + r + ")");
+        }
+        return true;
+    }
+    /** Stage 1327 (D2D death-81, live 00:40:59-00:45:55 11-10, Nether: all 7 rods on him, health 5-6, no food, the walk home ~5 min straight through a crimson forest; a hoglin 5 -> 0.5, a piglin arrow, dead at 244,62,281, the rods in the pile: NetherRoute priced the land by its blocks only, never what lives there or what a hit costs him now): a flat field of nether wastes, a crimson forest square on the straight line, open land round it. At 5 HP, no food, 7 rods, his route keeps out of the crimson; at 20 HP fed it goes about straight. */
+    private static boolean st1327(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(15000, 64, 8000), to = o.offset(72, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) for (int mx = -16; mx <= 96; mx += 16) for (int mz = -48; mz <= 48; mz += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(mx, 0, mz)), 1, o.offset(mx, 0, mz));
+        if (t[0] == 12) {
+            for (int x = -8; x <= 80; x++) for (int z = -44; z <= 44; z++) { nl.setBlock(o.offset(x, -1, z), Blocks.NETHERRACK.defaultBlockState(), 2); for (int y = 0; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            var src = level.getServer().createCommandSourceStack().withSuppressedOutput().withPermission(4);
+            level.getServer().getCommands().performPrefixedCommand(src, "execute in minecraft:the_nether run fillbiome " + (o.getX() - 8) + " " + (o.getY() - 4) + " " + (o.getZ() - 44) + " " + (o.getX() + 80) + " " + (o.getY() + 8) + " " + (o.getZ() + 44) + " minecraft:nether_wastes");
+            level.getServer().getCommands().performPrefixedCommand(src, "execute in minecraft:the_nether run fillbiome " + (o.getX() + 20) + " " + (o.getY() - 4) + " " + (o.getZ() - 16) + " " + (o.getX() + 52) + " " + (o.getY() + 8) + " " + (o.getZ() + 16) + " minecraft:crimson_forest");
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BLAZE_ROD, 7)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 15) com.claudemod.entity.nav.Route.forgetTrail(c);
+        if (t[0] == 20) {
+            boolean crimson = nl.getBiome(o.offset(36, 0, 0)).is(net.minecraft.world.level.biome.Biomes.CRIMSON_FOREST), wastes = nl.getBiome(o.offset(36, 0, 30)).is(net.minecraft.world.level.biome.Biomes.NETHER_WASTES);
+            c.setHealth(5f); c.getFoodData().setFoodLevel(15); c.getFoodData().setSaturation(0f);
+            var weak = com.claudemod.entity.nav.NetherRoute.plan(c, nl, c.blockPosition(), to);
+            c.setHealth(20f); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5f); c.getInventory().add(new ItemStack(Items.COOKED_PORKCHOP, 16));
+            var well = com.claudemod.entity.nav.NetherRoute.plan(c, nl, c.blockPosition(), to);
+            int inWeak = 0, inWell = 0; StringBuilder wk = new StringBuilder();
+            if (weak != null) { BlockPos prev = c.blockPosition(); for (BlockPos l : weak.legs()) { for (int i = 1; i <= 8; i++) { BlockPos q = BlockPos.containing(prev.getX() + (l.getX() - prev.getX()) * i / 8.0, l.getY(), prev.getZ() + (l.getZ() - prev.getZ()) * i / 8.0); if (nl.getBiome(q).is(net.minecraft.world.level.biome.Biomes.CRIMSON_FOREST)) inWeak++; } prev = l; wk.append(l.getX() - o.getX()).append(',').append(l.getZ() - o.getZ()).append(' '); } }
+            if (well != null) { BlockPos prev = c.blockPosition(); for (BlockPos l : well.legs()) { for (int i = 1; i <= 8; i++) { BlockPos q = BlockPos.containing(prev.getX() + (l.getX() - prev.getX()) * i / 8.0, l.getY(), prev.getZ() + (l.getZ() - prev.getZ()) * i / 8.0); if (nl.getBiome(q).is(net.minecraft.world.level.biome.Biomes.CRIMSON_FOREST)) inWell++; } prev = l; } }
+            for (int x = -8; x <= 80; x++) for (int z = -44; z <= 44; z++) nl.setBlock(o.offset(x, -1, z), Blocks.AIR.defaultBlockState(), 2);
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.setHealth(20f);
+            check(crimson && wastes, "setup: the biomes didn't take (crimson " + crimson + ", wastes " + wastes + ")");
+            check(weak != null && well != null, "no route (weak " + (weak != null) + ", well " + (well != null) + ")");
+            check(inWeak <= 2, "at 5 HP, no food, 7 rods on him: the route home goes " + inWeak + " samples through the crimson forest (legs " + wk + ", ~" + (int) weak.seconds() + " s)");
+            check(well.seconds() <= weak.seconds(), "at 20 HP fed the route (~" + (int) well.seconds() + " s) is dearer than at 5 HP (~" + (int) weak.seconds() + " s)");
+            nsHome(c, h, level); pass(stage, t, "at 5 HP round the crimson (~" + (int) weak.seconds() + " s, legs " + wk + "); at 20 HP fed ~" + (int) well.seconds() + " s, " + inWell + " samples in it");
         }
         return true;
     }

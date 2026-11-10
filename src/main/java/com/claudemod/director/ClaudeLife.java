@@ -9204,6 +9204,8 @@ public final class ClaudeLife {
         Task.GoTo go = walkingNow ? (Task.GoTo) g.currentTask : g.tasks.peek() instanceof Task.GoTo n ? n : null;
         BlockPos headed = go != null ? go.pos() : g.getNavigation().getPath() != null ? g.getNavigation().getPath().getTarget() : null;
         if (headed == null) return;
+        { BlockPos capped = null; for (BlockPos q : g.pillarBlocks) if (com.claudemod.entity.life.PitGuard.isCap(g, q)) { capped = q; break; } // a pillar his pit's fill went over (his build now, never broken): it and what's under it in that column stay, part of the fill (D2D review 15, live 03:00 11-10: breaks re-queued on his own cap, refused, TRIP; stage 1299)
+          if (capped != null) { final BlockPos cp = capped; int n0 = g.pillarBlocks.size(); g.pillarBlocks.removeIf(q -> q.getX() == cp.getX() && q.getZ() == cp.getZ() && q.getY() <= cp.getY()); ClaudeMod.LOGGER.info("[Claude life] {} block(s) of his pillar at {} under his pit's fill: they stay, part of it (ClaudeLife.pickUpTempStations)", n0 - g.pillarBlocks.size(), cp.toShortString()); } }
         // walking away from a dirt pillar he built: take it down first (and the dirt back), like he does with tables
         if (!g.pillarBlocks.isEmpty() && !(g.currentTask instanceof Task.Pillar) && !g.tasks.contains(new Task.Pillar(-1)) && g.getHealth() >= 10) { // (chores wait while he's hurt: at 2 health he came off his tower to take an old pillar down and a skeleton shot him)
             BlockPos top = g.pillarBlocks.peekFirst();

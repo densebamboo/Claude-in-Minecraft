@@ -10928,6 +10928,7 @@ public final class ClaudeBodyTest {
             case 1296: return st1296(stage, t, c, h, level, mock);
             case 1297: return st1297(stage, t, c, h, level, mock);
             case 1298: return st1298(stage, t, c, h, level, mock);
+            case 1299: return st1299(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -24480,6 +24481,31 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static boolean s1298P;
+    /** Stage 1299 (D2D review 15, live 03:00:04-03:00:22 11-10 at -12,63..66,-13 by his mine's door): his pit's fill (PitGuard's cap) went up over a pillar of his; the pillar take-down kept queueing the break of the capped block, his build, refused three times, CONFLICT and TRIP. A pillar under his pit's fill stays. */
+    private static boolean st1299(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9860, 80, 9780), p0 = at.offset(3, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1299B = false; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 30; x++) for (int z = -4; z <= 4; z++) for (int y = -2; y <= 4; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            level.setBlock(p0, Blocks.DIRT.defaultBlockState(), 2); level.setBlock(p0.above(), Blocks.DIRT.defaultBlockState(), 2); // his old pillar, the pit's fill over it
+            c.pillarBlocks.clear(); c.pillarBlocks.addFirst(p0); c.pillarBlocks.addFirst(p0.above()); com.claudemod.entity.life.PitGuard.caps(c).add(p0.above());
+            c.getInventory().clearContent(); c.getInventory().add(new net.minecraft.world.item.ItemStack(Items.STONE_PICKAXE));
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+        }
+        if (t[0] == 20) c.tasks.add(new Task.GoTo(at.offset(26, 0, 0), 1.5)); // walking off, far from the pillar
+        if (t[0] > 20 && (c.currentTask instanceof Task.Break b && (b.pos().equals(p0) || b.pos().equals(p0.above())) || c.tasks.stream().anyMatch(q -> q instanceof Task.Break b && (b.pos().equals(p0) || b.pos().equals(p0.above()))))) s1299B = true;
+        if (t[0] == 120) {
+            boolean broke = s1299B, standing = level.getBlockState(p0.above()).is(Blocks.DIRT), listed = c.pillarBlocks.contains(p0.above()) || c.pillarBlocks.contains(p0);
+            c.tasks.clear(); c.dropCurrent = true; c.pillarBlocks.clear(); com.claudemod.entity.life.PitGuard.reset(c);
+            for (int x = -4; x <= 30; x++) for (int z = -4; z <= 4; z++) for (int y = 0; y <= 4; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); // (the floor left)
+            check(!broke, "the pillar take-down queued a break on the block his pit's fill holds (" + p0.above().toShortString() + "): his build, refused");
+            check(standing && !listed, "the capped pillar " + (standing ? "still on his take-down list" : "broken"));
+            pass(stage, t, "the pillar under his pit's fill left as part of it");
+        }
+        return true;
+    }
+    private static boolean s1299B;
     private static int st739T;
     private static boolean st739(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // D2D/BP 11-07 (live 06:44-06:45 World 17, the highway front 131,59,512): "no route: made one (27 walks)" and the same route again 5 times in 50 s. netherFood read the highway step's target "@242 60 509" as an item name, ResourceLocation threw, and the brain-crash catch cleared his queue (72 tasks, the made route) every pass
         var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);

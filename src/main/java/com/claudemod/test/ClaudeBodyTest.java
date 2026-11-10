@@ -10957,6 +10957,7 @@ public final class ClaudeBodyTest {
             case 1411: return st1411(stage, t, c, h, level, mock);
             case 1412: return st1412(stage, t, c, h, level, mock);
             case 1413: return st1413(stage, t, c, h, level, mock);
+            case 1414: return st1414(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -25173,6 +25174,31 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static int s1413T; private static String s1413Left;
+    /** Stage 1414 (D2D reviews 77/78, live 07:23:33-07:26 11-10 at -63,18,-357): up in a coal pocket over his tunnel, on the diorite his walkway wants dug; "under his feet: from -64,18,-358 beside it" 107 times, the diagonal step there never made (its corner open at his feet, his fresh patch at its head), the walk "there" after 1.5 s in his own cell. A side stand is only one he can step to. */
+    private static boolean st1414(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9760, 80, 9780), side = at.offset(-1, 1, -1);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1414T = -1; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 4; x++) for (int z = -4; z <= 4; z++) for (int y = -3; y <= 5; y++) level.setBlock(at.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+            level.setBlock(at, Blocks.DIORITE.defaultBlockState(), 2); level.setBlock(at.below(), Blocks.DIORITE.defaultBlockState(), 2); // his walkway's two cells, the top one under him
+            for (BlockPos q : new BlockPos[] {at.above(), at.above(2), at.offset(-1, 1, 0), side, side.above()}) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2); // the pocket he's in, the corner cell, the side cell
+            level.setBlock(at.offset(-1, 2, 0), Blocks.COBBLESTONE.defaultBlockState(), 2); // his patch over the corner cell's head
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16));
+            c.teleportTo(at.getX() + 0.5, at.getY() + 1, at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+        }
+        if (t[0] == 20) c.tasks.add(new Task.Break(at));
+        if (t[0] > 20 && s1414T < 0 && level.getBlockState(at).isAir()) s1414T = t[0];
+        if (t[0] == 20 + 20 * 8 || s1414T > 0 && t[0] == s1414T + 2) {
+            int took = s1414T < 0 ? -1 : s1414T - 20; BlockPos was = c.blockPosition();
+            c.tasks.clear(); c.dropCurrent = true;
+            for (int x = -4; x <= 4; x++) for (int z = -4; z <= 4; z++) for (int y = -3; y <= 5; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // (the floor left)
+            check(took >= 0, "the diorite under his feet: not dug in 8 s, he's at " + was.toShortString());
+            pass(stage, t, "the diorite under him dug in " + took + " ticks, no walk to a side cell he can't step to");
+        }
+        return true;
+    }
+    private static int s1414T;
     /** Stage 1411 (D2D review 60, live 06:04:40-06:05:00 11-10 at -75,16,-345): stone picks to make in his one-wide iron tunnel, his mine's table elsewhere: the temp table went down on the tunnel floor at -74, between him and his dig at -70; the way over it dug 3 of his ceiling, his mine wanted them back, the put-back refused. The table goes on the side away from his work. */
     private static boolean st1411(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos at = new BlockPos(9940, 80, 9780), me = at.offset(3, 0, 0), work = at.offset(7, 0, 0), mineTable = at.offset(0, 0, 1);

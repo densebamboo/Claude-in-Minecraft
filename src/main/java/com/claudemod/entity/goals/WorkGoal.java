@@ -1801,11 +1801,12 @@ public class WorkGoal extends Goal {
         return true;
     }
     /** A cell beside him at his level to stand in and mine the block under his feet from: two open cells, a floor that isn't that block, no lava or fire there; null when there's none (stranded on it). */
+    private static boolean open2(ServerLevel level, BlockPos p) { return level.getBlockState(p).getCollisionShape(level, p).isEmpty() && level.getBlockState(p.above()).getCollisionShape(level, p.above()).isEmpty(); }
     private BlockPos sideStand(ServerLevel level, BlockPos under) {
         BlockPos me = under.above(); BlockPos best = null;
         for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) { if (dx == 0 && dz == 0) continue; BlockPos q = me.offset(dx, 0, dz);
             if (!com.claudemod.entity.life.FortressFight.stand(level, q) || level.getBlockState(q.below()).is(net.minecraft.world.level.block.Blocks.LAVA) || q.below().equals(under)) continue;
-            if (dx != 0 && dz != 0 && !(level.getBlockState(me.offset(dx, 0, 0)).getCollisionShape(level, me.offset(dx, 0, 0)).isEmpty() || level.getBlockState(me.offset(0, 0, dz)).getCollisionShape(level, me.offset(0, 0, dz)).isEmpty())) continue; // (a diagonal he can't squeeze to)
+            if (dx != 0 && dz != 0 && !(open2(level, me.offset(dx, 0, 0)) || open2(level, me.offset(0, 0, dz)))) continue; // (a diagonal he can't squeeze to: a corner open at his feet and his head; at his feet only, his own patch over its head, he walked at it 107 times in 3 min, reviews 77/78, stage 1414)
             if (best == null || (dx == 0 || dz == 0)) { best = q.immutable(); if (dx == 0 || dz == 0) return best; } }
         return best;
     }

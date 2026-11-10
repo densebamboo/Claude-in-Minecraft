@@ -10970,6 +10970,7 @@ public final class ClaudeBodyTest {
             case 1417: return st1417(stage, t, c, h, level, mock);
             case 1418: return st1418(stage, t, c, h, level, mock);
             case 1419: return st1419(stage, t, c, h, level, mock);
+            case 1420: return st1420(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -25584,6 +25585,31 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static BlockPos s1419Bad; private static int s1419N;
+    /** Stage 1420 (D2D review 21, live 06:46:25-06:46:43 11-10 at -114,17,-329, World 17): his furnace at -113,18,-328, ceiling high in the rock beside his tunnel; the way made to the cell beside it dug his ceiling and a wall cell, and put both back at the way's end, before the load: his way in to it shut, 9 s of loops and spins one block off, the walk written off UNKNOWN and the spot skipped. The way's put-backs come after the job. */
+    private static boolean st1420(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9960, 80, 9780), fur = at.offset(1, 2, 1);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("mine_model", "blueprint"); for (var mb : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) mb.discard(); }
+        if (t[0] == 10) {
+            var b = new com.claudemod.entity.life.MineBlueprint(at, net.minecraft.core.Direction.EAST, 1, 2); b.segments.clear(); b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, at.west(3), net.minecraft.core.Direction.EAST, 8, null)); c.blueprint = b; // his branch, one wide, two tall
+            for (int x = -5; x <= 7; x++) for (int z = -4; z <= 4; z++) for (int y = -2; y <= 5; y++) { BlockPos q = at.offset(x, y, z); level.setBlock(q, (b.isWalk(q) ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            level.setBlock(fur, Blocks.FURNACE.defaultBlockState().setValue(net.minecraft.world.level.block.FurnaceBlock.FACING, net.minecraft.core.Direction.WEST), 2); c.myStations.add(fur.immutable()); // ceiling high in the rock beside his tunnel, as live
+            for (BlockPos q : new BlockPos[] {at.offset(0, 2, 1), at.offset(0, 3, 1), at.offset(0, 2, 2), at.offset(0, 3, 2)}) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2); // the old pocket in front of it, shut off from his tunnel by his ceiling and wall
+            level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.RAW_IRON, 4)); c.getInventory().add(new ItemStack(Items.COAL, 4)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(at.getX() + 0.5 - 1, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 12) c.tasks.add(new Task.FurnaceLoad(fur.immutable(), Items.RAW_IRON, 4));
+        if (t[0] > 12) {
+            boolean in = level.getBlockEntity(fur) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fe && fe.getItem(0).is(Items.RAW_IRON), late = t[0] >= 12 + 20 * 15;
+            String where = c.blockPosition().subtract(at) + ", task " + c.currentTask + ", queue " + c.tasks;
+            if (in || late) { c.tasks.clear(); c.dropCurrent = true; c.myStations.remove(fur); c.blueprint = null; c.prefs.put("mine_model", "legacy"); for (int x = -5; x <= 7; x++) for (int z = -4; z <= 4; z++) for (int y = 0; y <= 5; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            if (in) pass(stage, t, "the furnace ceiling high beside his tunnel loaded in " + (t[0] - 12) + " ticks");
+            else check(!late, "the furnace beside his tunnel not loaded in 15 s: at " + where);
+        }
+        return true;
+    }
+
 
 
 

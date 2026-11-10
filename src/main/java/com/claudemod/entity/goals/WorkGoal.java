@@ -1879,10 +1879,8 @@ public class WorkGoal extends Goal {
             if (plan != null) {
                 var tasks = com.claudemod.entity.nav.ActionPath.tasks(plan, feet, scaff.isEmpty() ? net.minecraft.world.item.Items.COBBLESTONE : scaff.getItem(), pos, 3.2, level);
                 if (plan.puts() > 0) { for (var a : plan.acts()) if (a instanceof com.claudemod.entity.nav.ActionPath.Act.Put pt) g.pillarBlocks.addFirst(pt.pos().immutable()); g.tasks.addFirst(new Task.Pillar(-1)); } // every block the way puts down is his to take back (a tower under a block overhead comes down once it's out; the Pillar(-1) is kept while a Break in reach is queued)
-                java.util.List<Task> backs = new java.util.ArrayList<>(); for (Task k : tasks) if (k instanceof Task.Place pl && pl.want() != null) backs.add(k); // the way's dug cells put back once the block is out: before it they shut his sight of it, the break failed out of sight and was dropped (live 06:54 11-10, D2D review 17, stage 1418)
-                if (!backs.isEmpty()) { java.util.Set<Task> bs = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()); bs.addAll(backs); tasks = new java.util.ArrayList<>(tasks); tasks.removeIf(bs::contains); for (int i = backs.size() - 1; i >= 0; i--) { com.claudemod.entity.ClaudeEntity.ORIGIN.put(backs.get(i), "WorkGoal.approach"); g.tasks.addFirst(backs.get(i)); } }
-                g.tasks.addFirst(new Task.Break(pos));
-                queueWay(tasks, "WorkGoal.approach");
+                Task.Break bk = new Task.Break(pos); g.tasks.addFirst(bk);
+                queueWay(tasks, "WorkGoal.approach"); backsAfter(bk); // (the way's dug cells put back once the block is out, D2D review 17, stage 1418)
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no way to the {} at {} on foot: made one ({} digs, {} blocks put down, {} walks; {} ms)", name(level.getBlockState(pos)), pos.toShortString(), plan.digs(), plan.puts(), plan.walks(), (System.nanoTime() - t0) / 1000000);
                 return true;
             }
@@ -3076,6 +3074,16 @@ public class WorkGoal extends Goal {
     private java.util.Set<Task.GoTo> swimWps() { if (swimWps == null || swimWps.size() > 256) swimWps = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()); return swimWps; } // (shortcut: cleared past 256, a swim that long ago is long done)
     public Task.GoTo swimWaypoint(BlockPos p) { Task.GoTo w0 = new Task.GoTo(p, 0.8); swimWps().add(w0); return w0; }
     private BlockPos columnSaid; // (the gravel column last said: once per cell, not per block)
+    /** The made way's put-backs (its restore places) moved behind the job it was made for: before it they shut his way in to it or his sight of it (D2D reviews 17/21, live 06:46 and 06:54 11-10, stages 1418/1420). */
+    private void backsAfter(Task job) {
+        java.util.List<Task> front = new java.util.ArrayList<>(); boolean found = false;
+        for (Task q : g.tasks) { front.add(q); if (q == job) { found = true; break; } }
+        if (!found || front.stream().noneMatch(q -> q instanceof Task.Place pl && pl.want() != null)) return;
+        for (int i = 0; i < front.size(); i++) g.tasks.pollFirst();
+        java.util.List<Task> backs = new java.util.ArrayList<>(); for (Task q : front) if (q instanceof Task.Place pl && pl.want() != null) backs.add(q);
+        java.util.List<Task> order = new java.util.ArrayList<>(); for (Task q : front) if (backs.stream().noneMatch(b -> b == q)) order.add(q); order.addAll(backs);
+        for (int i = order.size() - 1; i >= 0; i--) g.tasks.addFirst(order.get(i));
+    }
     private void queueWay(java.util.List<Task> tasks, String by) { // (by: the planner's method, as the queue's stack walk names it; ClaudeLife.walkPlanTask reads "WorkGoal.walkTo")
         int r0 = com.claudemod.entity.life.Gate.refused(g);
         for (int i = tasks.size() - 1; i >= 0; i--) { Task t = tasks.get(i); com.claudemod.entity.ClaudeEntity.ORIGIN.put(t, by); g.tasks.addFirst(t); }
@@ -5009,7 +5017,7 @@ public class WorkGoal extends Goal {
         }
         Task job = g.currentTask; int n0 = g.tasks.size(); if (job != null) g.tasks.addFirst(job); /* (the job behind whatever the walk queues in front: a made way returned "ended" 4 off and the load was dropped as out of reach, shuttling between two furnace spots over a minute, live 19:22 and 19:30 11-09, stage 1279) */
         boolean ended = walkTo(side, side.equals(target) ? 2 : 0.6);
-        if (job != null && g.tasks.size() > n0 + 1 && g.tasks.contains(job)) { exitWhy = "the way into reach of " + target.toShortString() + " queued by the walk, the job after (WorkGoal.reachFor)"; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} at {}: into reach by the way the walk made, then the job (WorkGoal.reachFor)", name(level.getBlockState(target)), target.toShortString()); return true; }
+        if (job != null && g.tasks.size() > n0 + 1 && g.tasks.contains(job)) { backsAfter(job); exitWhy = "the way into reach of " + target.toShortString() + " queued by the walk, the job after (WorkGoal.reachFor)"; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} at {}: into reach by the way the walk made, then the job (WorkGoal.reachFor)", name(level.getBlockState(target)), target.toShortString()); return true; }
         if (job != null) g.tasks.removeFirstOccurrence(job);
         if (ended && g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.WALK, side, g.tickCount, 0)) { var why0 = g.attempts.why(com.claudemod.entity.life.Attempts.Kind.WALK, side); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't get in reach of {} at {}: the walk to {} beside it is written off ({}), nothing changed since (WorkGoal.reachFor)", name(level.getBlockState(target)), target.toShortString(), side.toShortString(), why0 == null ? "-" : why0.reason() + (why0.detail().isEmpty() ? "" : ": " + why0.detail())); failed(com.claudemod.entity.life.Attempts.Kind.REACH, target, com.claudemod.entity.life.Attempts.Reason.NO_PATH, "the walk to the spot beside the " + name(level.getBlockState(target)) + " at " + side.toShortString() + " written off"); return true; } // (a skipped walk 1 off counted as there: he waited on it for good, 180 s and again after a restart, live 23:49-23:56 11-07, D2D review 368; stage 1022)
         if (ended && BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()).distSqr(side) > 4) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't get in reach of {} at {} (he's at {})", name(level.getBlockState(target)), target.toShortString(), feet.toShortString()); failed(com.claudemod.entity.life.Attempts.Kind.REACH, target, com.claudemod.entity.life.Attempts.Reason.NO_PATH, "no way to a spot beside the " + name(level.getBlockState(target)) + " at " + side.toShortString()); return true; } // (on record: the furnace rule queued it again every 5 s, live 13:52)

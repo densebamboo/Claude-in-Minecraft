@@ -10919,6 +10919,7 @@ public final class ClaudeBodyTest {
             case 1290: return st1290(stage, t, c, h, level, mock);
             case 1291: return st1291(stage, t, c, h, level, mock);
             case 1292: return st1292(stage, t, c, h, level, mock);
+            case 1293: return st1293(stage, t, c, h, level, mock);
             case 1001: return st1001(stage, t, c, h, level, mock);
             case 1002: return st1002(stage, t, c, h, level, mock);
             case 1000: return st1000(stage, t, c, h, level, mock);
@@ -24273,6 +24274,42 @@ public final class ClaudeBodyTest {
             for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, c.getBoundingBox().inflate(16))) e.discard(); com.claudemod.entity.life.FortressFight.reset(c);
             check(n <= 2, "no cover here, and the scan ran " + n + " times in 20 ticks from the same cell");
             pass(stage, t, "no cover: scanned " + n + " time(s) in a second, not every tick");
+        }
+        return true;
+    }
+    /** Stage 1293 (D2D review 29, live 01:15 11-10 World 17, incident 011509-failed-22: in the shallows, the hunt swam straight at a salmon 4 under him, into a block (hcoll), the fish out of sight; "out of sight 3 s and isn't after him: leaving it", and nothing marked it out of reach, so the kit and the hunt sent him for it again every 3 s and recover_drops for his 7 rods never started): him in 1-deep water on a shelf, a salmon 4 under him past a wall that comes up once the hunt is on, a way round. Once he leaves it, it's out of reach to the kit and the hunt (preyWalk) till something changes. */
+    private static int st1293T; private static net.minecraft.world.entity.Entity st1293F;
+    private static boolean st1293(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(26800, 80, 26200), fp = o.offset(1, -4, 11);
+        if (t[0] % 10 == 0 || t[0] < 10) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(1000); st1293T = -1; st1293F = null; c.prefs.put("stay_close", "no");
+            for (int x = -10; x <= 10; x++) for (int z = -10; z <= 14; z++) for (int y = -10; y <= 5; y++) {
+                boolean pool = x >= -3 && x <= 5 && z >= -3 && z <= 11 && y <= 0 && (z >= 4 ? y >= -8 : z == 3 ? (x == 5 ? y >= -8 : y >= -1) : y >= 0); // (a shelf 1 deep to z 2; past it deep water; at z 3 a wall under the water, its top 2 down at first, open at x 5: the way round)
+                level.setBlock(o.offset(x, y, z), (y > 0 ? Blocks.AIR : pool ? Blocks.WATER : Blocks.STONE).defaultBlockState(), 2); }
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new net.minecraft.world.phys.AABB(o).inflate(24), e -> !(e instanceof ClaudeEntity) && !(e instanceof ServerPlayer))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 4));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 12) { var s = EntityType.SALMON.create(level); s.moveTo(fp.getX() + 0.5, fp.getY(), fp.getZ() + 0.5, 0, 0); s.setNoAi(true); s.setPersistenceRequired(); level.addFreshEntity(s); st1293F = s; }
+        if (t[0] == 20) {
+            check(st1293F != null && st1293F.isAlive() && c.hasLineOfSight(st1293F), "setup: the salmon out of sight at the start");
+            c.skillQueue.clear(); c.tasks.clear(); String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "salmon", 1); ClaudeMod.LOGGER.info("[Claude test] 1293 collect -> {}", r); st1293T = t[0];
+        }
+        if (st1293T > 0 && t[0] == st1293T + 3) for (int x = -3; x <= 4; x++) for (int y = -1; y <= 0; y++) level.setBlock(o.offset(x, y, 3), Blocks.STONE.defaultBlockState(), 2); // (the wall up to the top: the fish behind it, out of his sight, the way round still open)
+        if (st1293T > 0) {
+            if (!st1293F.isAlive() || c.inventory.count(x -> x.is(Items.SALMON)) > 0) { st1293F.discard(); pass(stage, t, "setup: the salmon got in " + (t[0] - st1293T) / 20 + " s (no leaving to test)"); return true; }
+            boolean on = c.currentTask instanceof Task.Attack || c.tasks.stream().anyMatch(x -> x instanceof Task.Attack);
+            if (!on && t[0] > st1293T + 3) {
+                double wk = com.claudemod.director.ClaudeLife.preyWalk(c, level, st1293F);
+                st1293F.discard(); c.tasks.clear(); c.skillQueue.clear();
+                check(wk < 0, "the salmon the hunt just left is still a " + (int) wk + "-walk to the kit and the hunt: they'd send him for it again, nothing changed");
+                pass(stage, t, "left after " + (t[0] - st1293T) / 20 + " s, and out of reach to the kit and the hunt till something changes");
+                return true;
+            }
+            check(t[0] - st1293T < 20 * 30, "30 s on the salmon behind the wall");
         }
         return true;
     }

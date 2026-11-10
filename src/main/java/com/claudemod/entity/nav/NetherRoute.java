@@ -38,6 +38,7 @@ public final class NetherRoute {
     static final int S = 4;            // the grid: one node every 4 blocks across
     static final int LEG_NODES = 3;    // a leg end every 3 nodes (about 12 blocks)
     static final int BUDGET = 12000;   // nodes expanded per plan (nether.route_budget)
+    public static boolean capped;      // (his own walks, WorkGoal.routeOut: the search stops at nether.route_ms once it has a part-way end, the rest planned from there; LagWatch live 12:58-13:09 11-10, a 12001-node search held the whole server 4-7 s every ~30 s; stage 1430)
     public static int testBudget = 0;  // (a stage cuts it to make the budget run out on a small map)
     static final double WALK = 1 / 5.6, CLIMB = 0.9, DESCEND = 0.35, PUT = 0.6, LAVA_RISK = 2.5, SHORE_RISK = 0.8;
 
@@ -159,7 +160,9 @@ public final class NetherRoute {
         open.add(start); best.put(key(start.x, start.y, start.z), 0.0);
         Node near = start; double nearH = start.f + Math.abs(start.y - to.getY()) * WALK; int expanded = 0; boolean edge = false;
         int budget = testBudget > 0 ? testBudget : (int) com.claudemod.entity.life.Weights.w("nether.route_budget", BUDGET);
+        long capNs = capped ? (long) (com.claudemod.entity.life.Weights.w("nether.route_ms", 200) * 1e6) : Long.MAX_VALUE; boolean outOfTime = false;
         while (!open.isEmpty() && expanded++ < budget) {
+            if ((expanded & 63) == 0 && System.nanoTime() - t0 > capNs && stepNearer(near, start, from, to)) { outOfTime = true; break; } // (a part-way end a step nearer, across or in height, in hand: no more thinking in this tick; waiting for one 12 nearer held it 2.4 s in stage 1430. With none, on to the budget as before: a "no way" there sent him boring)
             Node n = open.poll();
             Double was = best.get(key(n.x, n.y, n.z)); if (was != null && was < n.g - 1e-9) continue;
             double hz = Math.hypot(n.x - to.getX(), n.z - to.getZ());
@@ -181,13 +184,16 @@ public final class NetherRoute {
                 }
             }
         }
-        if (near != start && (edge || open.isEmpty() || expanded >= budget) && Math.hypot(near.x - to.getX(), near.z - to.getZ()) < Math.hypot(from.getX() - to.getX(), from.getZ() - to.getZ()) - 12) {
-            com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: {} (searched {} nodes): as far as {} for now, planned again from there (NetherRoute.plan)", from.toShortString(), to.toShortString(), edge ? "the land past it isn't loaded" : "no whole way in the budget", expanded, new BlockPos(near.x, near.y, near.z).toShortString());
+        if (near != start && (edge || open.isEmpty() || expanded >= budget || outOfTime) && (outOfTime || Math.hypot(near.x - to.getX(), near.z - to.getZ()) < Math.hypot(from.getX() - to.getX(), from.getZ() - to.getZ()) - 12)) {
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: {} (searched {} nodes): as far as {} for now, planned again from there (NetherRoute.plan)", from.toShortString(), to.toShortString(), outOfTime ? "out of time (" + (System.nanoTime() - t0) / 1000000 + " ms)" : edge ? "the land past it isn't loaded" : "no whole way in the budget", expanded, new BlockPos(near.x, near.y, near.z).toShortString());
             return done(r, near, true, expanded, t0, from, to);
         }
         com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: no way in the loaded land ({} nodes searched, {} ms){} (NetherRoute.plan)", from.toShortString(), to.toShortString(), expanded, (System.nanoTime() - t0) / 1000000, edge ? "; the land runs out short of it" : "");
         return null;
     }
+
+    /** The search's nearest end so far is a grid step nearer the goal than he is, across or in height (stage 1430: the goal 32 down, the first ends found were on the way down). */
+    private static boolean stepNearer(Node near, Node start, BlockPos from, BlockPos to) { return near != start && (Math.hypot(near.x - to.getX(), near.z - to.getZ()) < Math.hypot(from.getX() - to.getX(), from.getZ() - to.getZ()) - S || Math.abs(near.y - to.getY()) < Math.abs(from.getY() - to.getY()) - S); }
 
     private static Plan done(Reader r, Node end, boolean partial, int nodes, long t0, BlockPos from, BlockPos to) {
         List<Node> path = new ArrayList<>(); for (Node k = end; k != null; k = k.from) path.add(k);

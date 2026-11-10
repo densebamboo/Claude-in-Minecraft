@@ -10882,6 +10882,7 @@ public final class ClaudeBodyTest {
             case 1045: return st1045(stage, t, c, h, level, mock);
             case 1046: return st1046(stage, t, c, h, level, mock);
             case 1047: return st1047(stage, t, c, h, level, mock);
+            case 1430: return st1430(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -23338,6 +23339,37 @@ public final class ClaudeBodyTest {
             check(air1 == null, "a leg standing in mid-air over the cavern (unseen under his own bridge, read as rock) at " + (air1 == null ? "" : air1.toShortString()) + ": " + st1047A);
             check(again == null, "the walker found no way down at " + (fail == null ? "" : fail.toShortString()) + " and the route planned a drop beside it again: " + st1047A);
             nsHome(c, h, level); pass(stage, t, st1047A);
+        }
+        return true;
+    }
+    private static long st1430At, st1430Max; private static String st1430Legs;
+    private static boolean st1430(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // LagWatch, live 12:58-13:09 11-10 (D2D): his walks to a Nether goal 300+ off ran NetherRoute's 12001-node search in one server tick, 4-7 s each, every ~30 s (the whole server held: tick 778 took 6697 ms). Stage 1047's cavern, the walk given as a GoTo the way his skills give it (WorkGoal.routeOut)
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(11900, 90, 7900), goal = o.offset(44, -32, 0);
+        long now = System.nanoTime();
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); st1430Max = 0; st1430Legs = null; }
+        if (t[0] > 20 && st1430Legs == null) st1430Max = Math.max(st1430Max, (now - st1430At) / 1000000); // (the wall time since the last tick: what the tick in between took)
+        st1430At = now;
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) for (int k = -16; k <= 64; k += 16) for (int m = -16; m <= 16; m += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, m)), 2, o.offset(k, 0, m));
+        if (t[0] == 12) {
+            for (int x = -12; x <= 52; x++) for (int z = -12; z <= 12; z++) for (int y = -40; y <= 10; y++) {
+                boolean edge = x == -12 || x == 52 || z == -12 || z == 12 || y == 10 || y == -40;
+                nl.setBlock(o.offset(x, y, z), edge ? Blocks.NETHERRACK.defaultBlockState() : y <= -37 ? Blocks.LAVA.defaultBlockState() : x >= 34 && y <= -33 ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2 | 16);
+            }
+            for (int x = -11; x <= 6; x++) { nl.setBlock(o.offset(x, -1, 0), Blocks.NETHERRACK.defaultBlockState(), 2 | 16); com.claudemod.entity.life.TempLedger.builtCells(c).put(o.offset(x, -1, 0), "stage 1430"); }
+            nsKit(c); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.setHealth(20);
+        }
+        if (t[0] == 15) com.claudemod.entity.nav.Route.forgetTrail(c);
+        if (t[0] == 20) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.GoTo(goal, 1.5)); }
+        if (t[0] > 20 && st1430Legs == null && c.tasks.stream().filter(q -> q instanceof Task.GoTo).count() >= 2) st1430Legs = c.tasks.stream().filter(q -> q instanceof Task.GoTo).count() + " legs";
+        if (st1430Legs != null || t[0] > 400) {
+            String got = st1430Legs == null ? "no legs in 20 s (" + c.tasks + " / " + c.currentTask + ")" : st1430Legs;
+            c.tasks.clear(); c.currentTask = null; c.getNavigation().stop(); com.claudemod.entity.life.TempLedger.reset(c);
+            for (int x = -12; x <= 52; x++) for (int z = -12; z <= 12; z++) for (int y = -40; y <= 10; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2 | 16);
+            check(st1430Legs != null, "the walk across the cavern never became a route: " + got);
+            check(st1430Max < 1000, "a server tick took " + st1430Max + " ms while he planned the walk (" + got + "): the whole search in one tick");
+            nsHome(c, h, level); pass(stage, t, "the route planned with no tick over " + st1430Max + " ms: " + got);
         }
         return true;
     }

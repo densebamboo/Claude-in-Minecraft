@@ -60,7 +60,7 @@ public final class PortalMap {
         public int line() { return across(a); }
         public String describe() { return width + " wide along " + axis.getName() + " from " + a.toShortString() + " to " + b.toShortString(); }
     }
-    public static final class Net { public final List<Portal> portals = new ArrayList<>(); public final List<Edge> edges = new ArrayList<>(); public final List<Segment> segments = new ArrayList<>(); int next = 1; String lastInDim; BlockPos lastIn; int lastArrival = -1, lastEntered = -1; public BlockPos endPortal, endWayIn; public List<BlockPos> endTrail = new ArrayList<>(); } // (the lit End portal and his way into its stronghold: kept apart from the Nether network, which reads every Overworld portal as a Nether one)
+    public static final class Net { public final List<Portal> portals = new ArrayList<>(); public final List<Edge> edges = new ArrayList<>(); public final List<Segment> segments = new ArrayList<>(); public final List<BlockPos[]> stairs = new ArrayList<>(); /* (his highway's staircases, top feet and bottom feet: the join between two runs at different heights, death 24 11-10) */ int next = 1; String lastInDim; BlockPos lastIn; int lastArrival = -1, lastEntered = -1; public BlockPos endPortal, endWayIn; public List<BlockPos> endTrail = new ArrayList<>(); } // (the lit End portal and his way into its stronghold: kept apart from the Nether network, which reads every Overworld portal as a Nether one)
 
     private static Map<UUID, Net> nets; // (static: fields added live start null)
     public static Net net(ClaudeEntity g) { if (nets == null) nets = new HashMap<>(); return nets.computeIfAbsent(g.getUUID(), k -> new Net()); }
@@ -272,6 +272,11 @@ public final class PortalMap {
     static boolean road(net.minecraft.world.level.block.state.BlockState s) {
         return s.is(net.minecraft.tags.BlockTags.PLANKS) || s.is(net.minecraft.world.level.block.Blocks.COBBLESTONE) || s.is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE) || s.is(net.minecraft.world.level.block.Blocks.STONE_BRICKS) || s.is(net.minecraft.world.level.block.Blocks.DEEPSLATE_BRICKS) || s.is(net.minecraft.world.level.block.Blocks.DEEPSLATE_TILES) || s.is(net.minecraft.world.level.block.Blocks.POLISHED_DEEPSLATE) || s.is(net.minecraft.world.level.block.Blocks.POLISHED_BLACKSTONE) || s.is(net.minecraft.world.level.block.Blocks.POLISHED_BLACKSTONE_BRICKS) || s.is(net.minecraft.world.level.block.Blocks.SMOOTH_STONE);
     }
+    /** A staircase of his highway between two flat runs on record: top feet and bottom feet (each the end of a run), once. */
+    public static void addStair(ClaudeEntity g, BlockPos a, BlockPos b) {
+        for (BlockPos[] p : net(g).stairs) if (p[0].distSqr(a) <= 2 && p[1].distSqr(b) <= 2 || p[0].distSqr(b) <= 2 && p[1].distSqr(a) <= 2) return;
+        net(g).stairs.add(new BlockPos[] {a.immutable(), b.immutable()}); ClaudeMod.LOGGER.info("[Claude portal] highway staircase on record: {} to {} (PortalMap.addStair)", a.toShortString(), b.toShortString());
+    }
     /** A crossing he built, on record: joined to the segment it extends (same axis, line and floor), else a new one. */
     public static Segment addSegment(ClaudeEntity g, String dim, BlockPos a, BlockPos b, Direction.Axis axis, int width) {
         Segment s = segmentFor(g, dim, a, axis); if (s == null) s = segmentFor(g, dim, b, axis);
@@ -463,11 +468,11 @@ public final class PortalMap {
         Net n = net(g); CompoundTag t = new CompoundTag(); ListTag ps = new ListTag(), es = new ListTag();
         for (Portal p : n.portals) { CompoundTag c = new CompoundTag(); c.putInt("id", p.id); c.putString("dim", p.dim); c.putLong("at", p.at.asLong()); c.putString("state", p.state); c.putString("by", p.by); c.putLong("seen", p.seen); c.putInt("link", p.link); c.putBoolean("walked", p.linkWalked); c.putString("name", p.name); ps.add(c); }
         for (Edge e : n.edges) { CompoundTag c = new CompoundTag(); c.putInt("a", e.a); c.putInt("b", e.b); c.putString("kind", e.kind); c.putInt("y", e.y); c.putInt("len", e.length); c.putBoolean("cov", e.covered); c.putBoolean("lit", e.lit); es.add(c); }
-        ListTag ss = new ListTag(); for (Segment s : n.segments) { CompoundTag c = new CompoundTag(); c.putString("dim", s.dim); c.putLong("a", s.a.asLong()); c.putLong("b", s.b.asLong()); c.putString("axis", s.axis.getName()); c.putInt("w", s.width); ss.add(c); } t.put("segments", ss);
+        ListTag ss = new ListTag(); for (Segment s : n.segments) { CompoundTag c = new CompoundTag(); c.putString("dim", s.dim); c.putLong("a", s.a.asLong()); c.putLong("b", s.b.asLong()); c.putString("axis", s.axis.getName()); c.putInt("w", s.width); ss.add(c); } t.put("segments", ss); ListTag st = new ListTag(); for (BlockPos[] p : n.stairs) { CompoundTag c = new CompoundTag(); c.putLong("a", p[0].asLong()); c.putLong("b", p[1].asLong()); st.add(c); } t.put("stairs", st);
         { var hw = Highway.save(g); if (hw != null) t.put("highway", hw); } t.put("portals", ps); t.put("edges", es); t.putInt("next", n.next); t.putInt("arrival", n.lastArrival); if (n.endPortal != null) t.putLong("endPortal", n.endPortal.asLong()); if (n.endWayIn != null) t.putLong("endWayIn", n.endWayIn.asLong()); if (!n.endTrail.isEmpty()) t.putLongArray("endTrail", n.endTrail.stream().mapToLong(BlockPos::asLong).toArray()); return t;
     }
     public static void load(ClaudeEntity g, CompoundTag t) {
-        Net n = net(g); n.portals.clear(); n.edges.clear(); n.segments.clear();
+        Net n = net(g); n.portals.clear(); n.edges.clear(); n.segments.clear(); n.stairs.clear(); for (Tag x : t.getList("stairs", Tag.TAG_COMPOUND)) { CompoundTag c = (CompoundTag) x; n.stairs.add(new BlockPos[] {BlockPos.of(c.getLong("a")), BlockPos.of(c.getLong("b"))}); }
         for (Tag x : t.getList("segments", Tag.TAG_COMPOUND)) { CompoundTag c = (CompoundTag) x; Segment s = new Segment(); s.dim = c.getString("dim"); s.a = BlockPos.of(c.getLong("a")); s.b = BlockPos.of(c.getLong("b")); s.axis = Direction.Axis.byName(c.getString("axis")); s.width = c.getInt("w"); if (s.axis != null) n.segments.add(s); }
         for (Tag x : t.getList("portals", Tag.TAG_COMPOUND)) { CompoundTag c = (CompoundTag) x; Portal p = new Portal(); p.id = c.getInt("id"); p.dim = c.getString("dim"); p.at = BlockPos.of(c.getLong("at")); p.state = c.getString("state"); p.by = c.getString("by"); p.seen = c.getLong("seen"); p.link = c.getInt("link"); p.linkWalked = c.getBoolean("walked"); p.name = c.getString("name"); n.portals.add(p); }
         for (Tag x : t.getList("edges", Tag.TAG_COMPOUND)) { CompoundTag c = (CompoundTag) x; Edge e = new Edge(); e.a = c.getInt("a"); e.b = c.getInt("b"); e.kind = c.getString("kind"); e.y = c.getInt("y"); e.length = c.getInt("len"); e.covered = c.getBoolean("cov"); e.lit = c.getBoolean("lit"); n.edges.add(e); }

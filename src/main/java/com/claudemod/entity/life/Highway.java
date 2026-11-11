@@ -401,6 +401,11 @@ public final class Highway {
             if (r != null && !r.stair() && a != null && r.leg() == a.leg() && r.centre().getY() == a.centre().getY()) { z = r; continue; }
             if (a != null && z != null && a != z) PortalMap.addSegment(g, PortalMap.NETHER, a.centre(), z.centre(), a.dir().getAxis(), b.width);
             a = r != null && !r.stair() ? r : null; z = a; }
+        BridgeBlueprint.Row flat = null; boolean stair = false; // the staircases between runs: their joins on record too (only flat runs were: two runs at y 58 and y 32 read as no road through, the route home went round by the fortress deck and a branch was built over the road; death 24, live 17:32-18:08 11-10, stage 1470)
+        for (int i = 0; i < Math.min(built, b.rows.size()); i++) { var r = b.rows.get(i);
+            if (r.stair()) { if (flat != null) stair = true; continue; }
+            if (stair && flat != null) PortalMap.addStair(g, flat.centre().above(), r.centre().above());
+            stair = false; flat = r; }
     }
 
     static String finish(ClaudeEntity g, ServerPlayer player, BridgeBlueprint b, String how) {

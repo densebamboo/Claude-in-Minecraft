@@ -124,10 +124,15 @@ public final class NetherRoute {
             for (BlockPos p : new BlockPos[] {from, to}) { BlockPos q = feet(sg, Math.max(sg.lo(), Math.min(sg.hi(), along(sg, p)))); if (p == to || Math.abs(across(sg, p) - sg.line()) <= sg.width + 1 && Math.abs(p.getY() - q.getY()) <= 3 && Math.sqrt(p.distSqr(q)) <= (p == from ? 4 : 8)) { pt.add(q); on.add(i); } } }
         for (int i = 0; i < segs.size(); i++) for (int e = 0; e < 2; e++) { var si = segs.get(i); BlockPos end = feet(si, e == 0 ? si.lo() : si.hi()); // a T: a road's end by another's side (a path joined to his highway part way along it)
             for (int j = 0; j < segs.size(); j++) { if (j == i) continue; var sj = segs.get(j); BlockPos q = feet(sj, Math.max(sj.lo(), Math.min(sj.hi(), along(sj, end)))); if (q.distSqr(end) <= 36) { pt.add(q); on.add(j); } } }
+        { var st = com.claudemod.entity.life.PortalMap.net(g).stairs; // his staircases: each a link between the two runs it joins
+          for (int k = 0; k < st.size(); k++) for (BlockPos e : st.get(k)) { pt.add(e); on.add(-10 - k);
+              for (int j = 0; j < segs.size(); j++) { var sj = segs.get(j); BlockPos q = feet(sj, Math.max(sj.lo(), Math.min(sj.hi(), along(sj, e)))); if (q.distSqr(e) <= 4) { pt.add(q); on.add(j); } } } }
         int n = pt.size(); double[] dist = new double[n]; int[] prev = new int[n]; boolean[] done = new boolean[n]; java.util.Arrays.fill(dist, Double.MAX_VALUE); java.util.Arrays.fill(prev, -1); dist[0] = 0;
         for (int it = 0; it < n; it++) { int u = -1; for (int k = 0; k < n; k++) if (!done[k] && dist[k] < Double.MAX_VALUE && (u < 0 || dist[k] < dist[u])) u = k; if (u < 0 || u == 1) break; done[u] = true;
             for (int v = 0; v < n; v++) { if (v == u || done[v]) continue; BlockPos a = pt.get(u), b = pt.get(v); double d = Math.sqrt(a.distSqr(b)), c;
                 if (on.get(u) >= 0 && on.get(u).equals(on.get(v))) c = d * WALK; // along one segment
+                else if (on.get(u) <= -10 && on.get(u).equals(on.get(v))) c = (Math.abs(b.getX() - a.getX()) + Math.abs(b.getZ() - a.getZ())) * WALK + Math.max(0, b.getY() - a.getY()) * 0.5; // down or up his staircase
+                else if ((on.get(u) <= -10 && on.get(v) >= 0 || on.get(v) <= -10 && on.get(u) >= 0) && d <= 2) c = d * WALK; // off the staircase onto the run it joins
                 else if (u == 0 && on.get(v) >= 0 && d <= 4 || v == 1 && on.get(u) >= 0 && d <= 8) c = d * WALK + Math.max(0, b.getY() - a.getY()) * 0.5; // onto it by him, off it by the goal
                 else if (v == 1 && on.get(u) >= 0) c = h(a.getX(), a.getY(), a.getZ(), b) * offRoad(g); // off it anywhere: the rest priced as Nether ground with no way of his yet (the straight line alone is never dearer than the road: every plan left it at his feet), and planned from there (D2D 11-08: off only within 8 of the goal, a goal past the road's end got no highway at all; stage 1192)
                 else if (on.get(u) >= 0 && on.get(v) >= 0 && d <= 6) c = d * WALK + Math.max(0, b.getY() - a.getY()) * 0.5; // a join: the turn, a staircase between two runs

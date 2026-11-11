@@ -10549,6 +10549,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1470: return st1470(stage, t, c, h, level, mock);
             case 1469: return st1469(stage, t, c, h, level, mock);
             case 1468: return st1468(stage, t, c, h, level, mock);
             case 1467: return st1467(stage, t, c, h, level, mock);
@@ -18875,6 +18876,29 @@ public final class ClaudeBodyTest {
                 check(fish.isEmpty() || !onIt, "a salmon fleeing down a channel, him at food 5 paddling behind it: " + st);
                 pass(stage, t, st);
             }
+        }
+        return true;
+    }
+    /** Stage 1470 (D2D death 24, live 17:32-18:08 11-10 World 17: his highway to the fortress on record as two flat runs, -3..139 at y 58 and 166..310 at y 32, the staircase between them not; "no road of his reaches it" built a branch over the road twice (a 10-min deepslate trip in it), and the way home from the fortress went round by the z 509 road over the fortress deck, 14 min of blaze fights, dead): a highway from his portal laid 80 rows with a staircase 6 down in it, recorded as build_highway records it. His road reaches its end: routed along it whole, and no new road asked for. */
+    private static boolean st1470(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(15000, 70, 10600), dest = new BlockPos(o.getX(), o.getY() - 6, o.getZ() + 80);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); com.claudemod.entity.life.PortalMap.net(c).stairs.clear(); }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) for (int m = 0; m <= 96; m += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(0, 0, m)), 2, o.offset(0, 0, m));
+        if (t[0] == 12) {
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o, "him", "lit");
+            var b0 = com.claudemod.entity.life.BridgeBlueprint.plan(nl, o, net.minecraft.core.Direction.Axis.Z, dest, 2, false);
+            com.claudemod.entity.life.Highway.record(c, b0, b0.rows.size());
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 16) {
+            String segs = ""; for (var sg : com.claudemod.entity.life.PortalMap.net(c).segments) segs += sg.describe() + "; ";
+            var road = com.claudemod.entity.nav.NetherRoute.road(c, nl, o, dest);
+            String ft = com.claudemod.entity.life.Highway.firstTrip(c, nl, dest);
+            String why = "road " + (road == null ? "none" : road.legs().size() + " legs, partial " + road.partial() + ", ~" + (int) road.seconds() + " s") + "; firstTrip: " + ft + " | segments: " + segs + " stairs " + com.claudemod.entity.life.PortalMap.net(c).stairs.size();
+            com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); com.claudemod.entity.life.PortalMap.net(c).stairs.clear(); com.claudemod.entity.life.Highway.reset(c);
+            check(road != null && !road.partial() && ft == null, "his highway from the portal, 80 rows with a staircase 6 down, reaches its end: " + why);
+            nsHome(c, h, level); pass(stage, t, why);
         }
         return true;
     }

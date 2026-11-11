@@ -9202,7 +9202,8 @@ public final class ClaudeLife {
     /** Another table of his standing in his mine (its notch, his nook) besides the one at {@code p}. */
     static boolean otherMineTable(ClaudeEntity g, BlockPos p) {
         ServerLevel lv = (ServerLevel) g.level();
-        return g.myStations.stream().anyMatch(q -> !q.equals(p) && lv.isLoaded(q) && lv.getBlockState(q).is(Blocks.CRAFTING_TABLE) && (inHisMine(g, q) || touchesMine(g, q) || g.notches.contains(q) || inHisNook(g, q)));
+        return g.myStations.stream().anyMatch(q -> !q.equals(p) && (lv.isLoaded(q) ? lv.getBlockState(q).is(Blocks.CRAFTING_TABLE) && (inHisMine(g, q) || touchesMine(g, q) || g.notches.contains(q) || inHisNook(g, q))
+                : allNooks(g).stream().anyMatch(n -> n.tableCell().equals(q)))); // (his nook's table far off in an unloaded chunk still stands: remembered by its role, the one cell whose kind he knows unseen; live 13:00:50 11-11 the nook table 274 off was skipped and the branch got a table for good, stage 868)
     }
 
     /** Moving on (his next walk takes him away): pick up the temporary workstations he's leaving behind. */

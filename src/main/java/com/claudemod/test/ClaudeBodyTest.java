@@ -11185,6 +11185,7 @@ public final class ClaudeBodyTest {
             case 885: return st885(stage, t, c, h, level, mock);
             case 886: return st886(stage, t, c, h, level, mock);
             case 887: return st887(stage, t, c, h, level, mock);
+            case 868: return st868(stage, t, c, h, level, mock);
             case 888: return st888(stage, t, c, h, level, mock);
             case 889: return st889(stage, t, c, h, level, mock);
             case 890: return st890(stage, t, c, h, level, mock);
@@ -31674,6 +31675,44 @@ public final class ClaudeBodyTest {
                 check(made, "30 s: no stone pickaxe made with a table, sticks and cobble on him");
                 check(temp, "the table he set down in his mine with his old one standing: kept for good (" + newT + "), not taken back up as he moves on");
                 nsHome(c, h, level); pass(stage, t, "his own table set down, the pick made in " + (t[0] - s887Start) + " ticks, the table only for now at " + newT);
+            }
+        }
+        return true;
+    }
+    /** Stage 868 (live 13:00:50 11-11 World 17, D2D review 134; reviews 218/220/390/162/117 the same family): at a branch's far end his stone pick wore out; station.table picked "his own here ~7 s", but stationCells sent the table to a notch at the branch's mouth 55 back. As 887 with him at the end of a branch. */
+    private static int s868Start; private static BlockPos s868Old;
+    private static boolean st868(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(20400, 80, 18800);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -16; k <= 96; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; s868Start = 0; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 76; x++) for (int z = -34; z <= 5; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.DEEPSLATE.defaultBlockState(), 2);
+            var E = net.minecraft.core.Direction.EAST;
+            var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 70, null)); b.invalidate(); int fl = b.rows().size(); BlockPos mouth = b.rows().get(40).feet()[0].relative(net.minecraft.core.Direction.NORTH); b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.BRANCH, mouth, net.minecraft.core.Direction.NORTH, 24, null)); b.invalidate();
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            var oldNook = new com.claudemod.entity.life.BaseNook(o.offset(-640, 0, -1), E, net.minecraft.core.Direction.NORTH); s868Old = oldNook.tableCell().immutable(); // (his nook's own table, remembered, in a chunk nobody keeps loaded: live the nook table 274 off; never loaded here)
+            c.nooks.clear(); c.nook = null; c.nooks.add(oldNook); c.myStations.clear(); c.myStations.add(s868Old); c.notches.add(s868Old); c.tempStations.clear();
+            BlockPos me = b.rows().get(b.rows().size() - 1).first(); // (the branch's far end, 24 north of its mouth: live 13:00:50 11-11 at -391,-58,-75, the notch picked at the mouth 55 back)
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = b.rows().get(b.rows().size() - 1).first(); c.mineIsTunnel = true; level.setDayTime(1000);
+            c.mineShape = new ClaudeEntity.MineShape(2, 3, 4, 8, 6, "right"); c.mineCells.clear(); for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) c.mineCells.add(f.above(yy).immutable()); // (as live: his mine's shape and the cells he dug)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.TORCH, 32)); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE)); c.getInventory().add(new ItemStack(Items.STICK, 4)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 20));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no"); mock[0].teleportTo(level, me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 20) { com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "craft", "stone_pickaxe", 1); s868Start = t[0]; }
+        if (s868Start > 0 && t[0] > s868Start) {
+            boolean back = c.blockPosition().distSqr(s868Old) < 30 * 30 || c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().distSqr(s868Old) <= 4 * 4);
+            boolean made = c.getInventory().countItem(Items.STONE_PICKAXE) > 0;
+            if (back || made || t[0] - s868Start > 20 * 30) {
+                BlockPos newT = null; for (BlockPos q : BlockPos.betweenClosed(c.blockPosition().offset(-4, -2, -4), c.blockPosition().offset(4, 3, 4))) if (level.getBlockState(q).is(Blocks.CRAFTING_TABLE)) { newT = q.immutable(); break; }
+                boolean temp = newT != null && c.tempStations.contains(newT);
+                c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; c.prefs.remove("stay_close"); c.myStations.clear(); c.tempStations.clear(); c.notches.clear(); c.nooks.clear();
+                for (int x = -4; x <= 76; x++) for (int z = -34; z <= 5; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(newT != null, "no table set down within 4 of him at the branch end (tasks were walking him off: the notch at the branch mouth)"); check(!back, "a table in his pack, his old one 58 back down his tunnel: walked back for it");
+                check(made, "30 s: no stone pickaxe made with a table, sticks and cobble on him");
+                check(temp, "the table he set down in his mine with his old one standing: kept for good (" + newT + "), not taken back up as he moves on");
+                nsHome(c, h, level); pass(stage, t, "his own table set down, the pick made in " + (t[0] - s868Start) + " ticks, the table only for now at " + newT);
             }
         }
         return true;

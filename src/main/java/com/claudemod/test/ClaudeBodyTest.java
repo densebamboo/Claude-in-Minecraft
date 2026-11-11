@@ -10549,6 +10549,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1493: return st1493(stage, t, c, h, level, mock);
             case 1492: return st1492(stage, t, c, h, level, mock);
             case 1491: return st1491(stage, t, c, h, level, mock);
             case 1490: return st1490(stage, t, c, h, level, mock);
@@ -19693,6 +19694,29 @@ public final class ClaudeBodyTest {
                 pass(stage, t, "over the hole in his floor and his cobblestone picked up in " + s + " s");
             }
         }
+        return true;
+    }
+    /** Stage 1493 (D2D, STUCK 20261111-085316-stuck-466: fishing from the bank at -37,64,-16, 12 caught in 4 min, "at -37,64,-16 for 180 s ... doing Fish[catches=14]": a rod's catches are work from one spot, as a dig is). One spot, a walk queued behind a Wait, a fish on him every 2 s: no STUCK. Then the catches stop: STUCK. */
+    private static BlockPos s1493A;
+    private static boolean st1493(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var W = com.claudemod.entity.life.Watchdog.recentKinds;
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 24000; c.tasks.clear(); c.skillQueue.clear(); W.clear(); com.claudemod.entity.life.Watchdog.stuckTicks = 200; com.claudemod.entity.life.Watchdog.linesInTests = true;
+            s1493A = h.absolutePos(new BlockPos(3, 46, 8)); // (not 811's spot: STUCK is filed once per spot and walk)
+            for (int x = -2; x <= 20; x++) for (int z = -2; z <= 2; z++) for (int y = -1; y <= 3; y++) level.setBlockAndUpdate(s1493A.offset(x, y, z), y == -1 || y == 3 || Math.abs(z) == 2 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState());
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(s1493A.getX() + 0.5, s1493A.getY(), s1493A.getZ() + 0.5); c.fallDistance = 0; c.getInventory().clearContent();
+        }
+        try {
+        if (t[0] >= 10 && t[0] < 700 && !(c.currentTask instanceof Task.Wait)) { c.tasks.clear(); c.dropCurrent = true; c.tasks.add(new Task.Wait(200, false)); c.tasks.add(new Task.GoTo(s1493A.offset(16, 0, 0).immutable(), 1.0)); }
+        if (t[0] >= 10 && t[0] < 400 && t[0] % 40 == 0) c.getInventory().add(new ItemStack(Items.COD)); // (a catch every 2 s)
+        if (t[0] == 400) check(!W.contains("STUCK"), "STUCK while a fish came in every 2 s from one spot: " + com.claudemod.entity.life.Watchdog.lastIncident);
+        if (t[0] == 700) {
+            boolean filed = W.contains("STUCK");
+            com.claudemod.entity.life.Watchdog.stuckTicks = 20 * 180; com.claudemod.entity.life.Watchdog.linesInTests = false; c.tasks.clear(); c.dropCurrent = true; c.getInventory().clearContent();
+            check(filed, "no STUCK 15 s after the catches stopped, on one block with the walk queued: " + W);
+            pass(stage, t, "no STUCK while the catches came in; STUCK once they stopped");
+        }
+        } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.stuckTicks = 20 * 180; com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
         return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */

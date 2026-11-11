@@ -5156,7 +5156,18 @@ public class WorkGoal extends Goal {
     }
 
     private boolean armed() {
-        return g.inventory.find(s -> s.getItem() instanceof net.minecraft.world.item.SwordItem || s.getItem() instanceof net.minecraft.world.item.AxeItem).isEmpty() == false;
+        return weaponDamage(bestWeapon(g)) >= w("fight.armed_hit", 4); // anything that hits like a wooden sword or better: an iron pickaxe is one (death 25, live 20:39 11-10: "unarmed" with it, 0 swings, cave spiders 17 -> 0; stage 1397)
+    }
+    /** What he'd swing: the most damage a second of anything he carries (swords, axes, a pickaxe too); EMPTY: bare hands. */
+    public static ItemStack bestWeapon(ClaudeEntity g) {
+        ItemStack best = ItemStack.EMPTY; double bestDps = 0;
+        for (int i = 0; i < g.inventory.items.getContainerSize(); i++) {
+            ItemStack s = g.inventory.items.getItem(i);
+            if (s.isEmpty() || weaponDamage(s) <= 1.0) continue;
+            double dps = weaponDamage(s) * weaponSpeed(s); // damage a second: a wooden axe's 7 a hit at 0.8 swings a second loses to an iron sword's 6 at 1.6 (live 02:01 11-06, he died to an enderman swinging a wooden axe, the sword in his pack)
+            if (dps > bestDps) { bestDps = dps; best = s; }
+        }
+        return best;
     }
 
     /** Nothing much to fight with or in: a wooden weapon at best, or no armor on at all. Two mobs are a crowd for him then (a fresh respawn at night died twice "armed" with a wooden sword). */
@@ -5369,13 +5380,7 @@ public class WorkGoal extends Goal {
 
     /** Swings to kill it with the best weapon he carries (the one he'll be holding once the fight starts). */
     private int hitsToKill(net.minecraft.world.entity.LivingEntity mob) {
-        double hit = 1.0; // bare hands
-        for (int i = 0; i < g.inventory.items.getContainerSize(); i++) {
-            ItemStack s = g.inventory.items.getItem(i);
-            if (s.getItem() instanceof net.minecraft.world.item.SwordItem || s.getItem() instanceof net.minecraft.world.item.AxeItem)
-                hit = Math.max(hit, weaponDamage(s));
-        }
-        return (int) Math.ceil(mob.getHealth() / hit);
+        return (int) Math.ceil(mob.getHealth() / weaponDamage(bestWeapon(g))); // (the one equipWeapon holds; bare hands 1)
     }
 
     /** What a swing with this does: the attack-damage modifiers only (compute() would lump attack speed in and call a stone sword a 2.6). */
@@ -5843,13 +5848,13 @@ public class WorkGoal extends Goal {
             double coverS = build + com.claudemod.entity.life.Decide.hpS(g, 0, buildHp, 3) + w("cover.wait_out_s", 60);
             double meleeOn = mobs.stream().filter(m -> !shoots(m)).mapToDouble(m -> m.distanceTo(g)).min().orElse(99);
             var corner = com.claudemod.entity.life.Decide.choose(g, "flee.cornered", (int) g.getHealth() + " HP, " + mobs.size() + " on him, " + near.getType().getDescription().getString() + " " + (int) near.distanceTo(g) + " off", true, java.util.List.of(
-                unpriced ? com.claudemod.entity.life.Decide.Option.out("fight", "not priced: " + fightOdds) : com.claudemod.entity.life.Decide.Option.of("fight", weakFighter() ? Double.MAX_VALUE / 4 : fightS, weakFighter() ? "bare hands or wood" : "his way out through them"),
+                unpriced ? com.claudemod.entity.life.Decide.Option.out("fight", "not priced: " + fightOdds) : com.claudemod.entity.life.Decide.Option.of("fight", !armed() ? Double.MAX_VALUE / 4 : fightS, !armed() ? "bare hands" : "his way out through them, with his " + com.claudemod.entity.life.Crafting.name(bestWeapon(g).getItem())),
                 meleeOn < 6 ? com.claudemod.entity.life.Decide.Option.out("cover", String.format("a melee mob %.1f off: a tower needs 6+, a hole 12+ (the cover proximity rule)", meleeOn)) : com.claudemod.entity.life.Decide.Option.of("cover", coverS, "dug in or boxed here, ~" + Math.round(buildHp) + " HP while it goes up"), // (priced as open while digInFromArrows would refuse it: "cover" won and he did the fight it had priced dearer, live 18:39 and 20:25 11-08)
                 "backoff".equals(escapeKind) ? com.claudemod.entity.life.Decide.Option.out("run", "every way out goes past them (held where he backed off to)") : com.claudemod.entity.life.Decide.Option.of("run", runS, "on, another way"))); // (priced as a getaway that isn't there, run won every 1.5 s and he died holding: stage 1052)
             String pick = corner == null ? "fight" : corner.name();
             if (pick.equals("run")) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] cornered (health {}): on another way (WorkGoal.doFlee)", (int) g.getHealth()); clearEscape(); pickEscape(mobs); fleeFrom = g.position(); return false; }
-            if (pick.equals("cover") && !weakFighter()) { desperateNow = true; boolean dug = digInFromArrows(); desperateNow = false; if (dug) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] cornered (health {}): digging in", (int) g.getHealth()); return true; } }
-            if (weakFighter()) { // bare hands or a wooden sword: "fighting his way out" is 20 punches at 3 damage a bite (five deaths in two minutes at his bed); cover instead
+            if (pick.equals("cover") && !!armed()) { desperateNow = true; boolean dug = digInFromArrows(); desperateNow = false; if (dug) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] cornered (health {}): digging in", (int) g.getHealth()); return true; } }
+            if (!armed()) { // bare hands or a wooden sword: "fighting his way out" is 20 punches at 3 damage a bite (five deaths in two minutes at his bed); cover instead
                 desperateNow = true;
                 boolean dug = digInFromArrows();
                 desperateNow = false;
@@ -7603,14 +7608,7 @@ public class WorkGoal extends Goal {
     }
 
     private void equipWeapon() {
-        ItemStack best = ItemStack.EMPTY;
-        double bestDmg = 0;
-        for (int i = 0; i < g.inventory.items.getContainerSize(); i++) {
-            ItemStack s = g.inventory.items.getItem(i);
-            if (!(s.getItem() instanceof net.minecraft.world.item.SwordItem) && !(s.getItem() instanceof net.minecraft.world.item.AxeItem)) continue;
-            double dmg = weaponDamage(s) * weaponSpeed(s); // damage a second: a wooden axe's 7 a hit at 0.8 swings a second loses to an iron sword's 6 at 1.6 (live 02:01 11-06, he died to an enderman swinging a wooden axe, the sword in his pack)
-            if (dmg > bestDmg) { bestDmg = dmg; best = s; }
-        }
+        ItemStack best = bestWeapon(g);
         if (!best.isEmpty()) g.hold(best);
     }
 

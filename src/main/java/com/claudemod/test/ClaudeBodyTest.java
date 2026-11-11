@@ -10951,6 +10951,7 @@ public final class ClaudeBodyTest {
             case 1394: return st1394(stage, t, c, h, level, mock);
             case 1395: return st1395(stage, t, c, h, level, mock);
             case 1396: return st1396(stage, t, c, h, level, mock);
+            case 1397: return st1397(stage, t, c, h, level, mock);
             case 1242: return st1242(stage, t, c, h, level, mock);
             case 1249: return st1249(stage, t, c, h, level, mock);
             case 1250: return st1250(stage, t, c, h, level, mock);
@@ -31067,6 +31068,34 @@ public final class ClaudeBodyTest {
             if (hitBack) { for (var hg : st1052H) hg.discard(); st1052H.clear(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY); c.setHealth(20); pass(stage, t, "cornered by two hoglins, he hit back or dug in (health " + (int) c.getHealth() + ")"); return true; }
             check(st1052FirstHit == 0 || t[0] - st1052FirstHit < 20 * 12, "12 s since the first hoglin hit, health " + (int) c.getHealth() + ", not one swing back (doing " + c.currentTask + ")");
             check(t[0] - st1052Start < 20 * 40, "40 s and the hoglins never came at him (setup)");
+        }
+        return true;
+    }
+    private static int st1397Start, st1397FirstHit; private static final java.util.List<net.minecraft.world.entity.Mob> st1397S = new java.util.ArrayList<>();
+    private static boolean st1397(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // death 25, live 20:39:14 11-10 (-94,19,-402): cave spiders on him, an iron pickaxe and no sword: "fight ~19 s (12 swings)" priced with bare hands, ran into a dead end, "fight ~9e18 (bare hands or wood)" cornered, 0 swings in 20 s, 17 -> 0
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); st1397Start = 0; st1397FirstHit = 0; st1397S.clear(); }
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(60))) if (!st1397S.contains(e)) e.discard();
+        if (t[0] == 10) {
+            for (int x = -16; x <= 32; x++) for (int z = -16; z <= 32; z++) { for (int yy = -2; yy <= 1; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2); for (int yy = 2; yy <= 12; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = 0; x <= 16; x++) for (int z = 6; z <= 11; z++) for (int yy = 2; yy <= 5; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.STONE.defaultBlockState(), 2);
+            for (int x = 1; x <= 16; x++) for (int z = 8; z <= 9; z++) for (int yy = 2; yy <= 4; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); // a dead end 2 wide, open at the east end only
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 63)); c.getInventory().add(new ItemStack(Items.TORCH, 10)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 7));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY);
+            BlockPos me = h.absolutePos(new BlockPos(1, 2, 8));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 1.0); c.setHealth(17); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            level.setDayTime(6000);
+            for (int k = 0; k < 2; k++) { var sp = net.minecraft.world.entity.EntityType.CAVE_SPIDER.create(level); BlockPos sp0 = h.absolutePos(new BlockPos(8 + 3 * k, 2, 8)); sp.moveTo(sp0.getX() + 0.5, sp0.getY(), sp0.getZ() + 1.0, 90, 0); sp.setPersistenceRequired(); level.addFreshEntity(sp); sp.setTarget(c); st1397S.add(sp); }
+            c.tasks.add(new Task.Wait(20 * 60, false)); st1397Start = t[0];
+        }
+        if (st1397Start > 0) {
+            Runnable clean = () -> { for (var sp : st1397S) sp.discard(); st1397S.clear(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.removeAllEffects(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); c.setHealth(20); };
+            if (!c.isAlive()) { clean.run(); check(false, "dead in the dead end: two cave spiders, an iron pickaxe on him, never fought with it"); }
+            if (st1397FirstHit == 0 && c.getHealth() < 17) st1397FirstHit = t[0];
+            if (st1397S.stream().allMatch(sp -> !sp.isAlive())) { int hp = (int) c.getHealth(); clean.run(); pass(stage, t, "two cave spiders in a dead end, an iron pickaxe and no sword: fought with the pick and killed both (health " + hp + ")"); }
+            boolean hitBack = st1397S.stream().anyMatch(sp -> sp.getLastHurtByMob() == c);
+            if (st1397FirstHit > 0 && t[0] - st1397FirstHit >= 20 * 10 && !hitBack) { String m = "10 s since the first bite, health " + (int) c.getHealth() + ", not one swing back with his iron pickaxe (doing " + c.currentTask + ")"; clean.run(); check(false, m); }
+            if (t[0] - st1397Start >= 20 * 45) { String m = "45 s and the cave spiders still alive (health " + (int) c.getHealth() + ", hit back " + hitBack + ", doing " + c.currentTask + ")"; clean.run(); check(false, m); }
         }
         return true;
     }

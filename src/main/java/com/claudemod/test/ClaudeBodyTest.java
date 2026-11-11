@@ -10550,6 +10550,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1554: return st1554(stage, t, c, h, level, mock);
+            case 1553: return st1553(stage, t, c, h, level, mock);
             case 1552: return st1552(stage, t, c, h, level, mock);
             case 1551: return st1551(stage, t, c, h, level, mock);
             case 1550: return st1550(stage, t, c, h, level, mock);
@@ -19986,6 +19988,59 @@ public final class ClaudeBodyTest {
             level.setBlock(ore, Blocks.AIR.defaultBlockState(), 2);
             check(r != null && r.startsWith("mining the iron_ore"), "his mine's face 170 in by its door 10 off, iron in sight 200 off by day: the mine priced to its door and taken (\"" + r + "\")");
             pass(stage, t, "the mine priced to its face: \"" + r + "\"");
+        }
+        return true;
+    }
+    /** Stage 1553 (D2D review 116, live 13:24:49-13:25:02 11-11 at the fortress: a dig-and-pillar route (90 tasks) with blazes 3-6 above him, "hit by a Blaze 6 up and 6 off, out of sword reach and no bow (health 17): on with the walk", three fireballs and their fire, 20 -> 9, a wither skeleton to 8 after). A blaze up out of reach in plain view, a long dig job queued, a hit: out of its sight first, the job after. */
+    private static int s1553T; private static net.minecraft.world.entity.monster.Blaze s1553B; private static BlockPos s1553Me;
+    private static boolean st1553(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1553T = -1; if (s1553B != null) s1553B.discard(); s1553B = null; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            s1553Me = h.absolutePos(new BlockPos(4, 2, 5)).immutable();
+            for (int y = 0; y < 12; y++) level.setBlock(s1553Me.offset(-1, y, 0), Blocks.DEEPSLATE.defaultBlockState(), 2); // the job: a column to dig
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.teleportTo(s1553Me.getX() + 0.5, s1553Me.getY(), s1553Me.getZ() + 0.5); c.setHealth(17); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var b = EntityType.BLAZE.create(level); BlockPos sp = s1553Me.east(6); b.moveTo(sp.getX() + 0.5, sp.getY() + 5, sp.getZ() + 0.5, 90, 0); b.setNoAi(true); b.setNoGravity(true); b.setPersistenceRequired(); level.addFreshEntity(b); b.setTarget(c); s1553B = b;
+            com.claudemod.entity.life.Perception.noteSeenTest(c, b);
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.currentTask = null; for (int y = 0; y < 12; y++) c.tasks.add(new Task.Break(s1553Me.offset(-1, y, 0))); }
+        if (t[0] == 18) { c.hurt(level.damageSources().mobAttack(s1553B), 1.0f); s1553T = t[0]; }
+        if (s1553T > 0 && t[0] > s1553T) {
+            boolean hides = c.currentTask instanceof Task.Flee;
+            if (hides || t[0] - s1553T > 30) {
+                String q = c.currentTask + " " + c.tasks; boolean jobKept = c.tasks.stream().anyMatch(x -> x instanceof Task.Break);
+                s1553B.discard(); s1553B = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.clearFire();
+                for (int y = 0; y < 12; y++) level.setBlock(s1553Me.offset(-1, y, 0), Blocks.AIR.defaultBlockState(), 2);
+                check(hides, "hit by a blaze 5 up in plain view, 12 blocks to dig in its sight, no bow: on with the job (" + (q.length() > 140 ? q.substring(0, 140) : q) + ")");
+                check(jobKept, "out of its sight, the dig job dropped: " + q);
+                pass(stage, t, "out of its sight first, the job kept for after");
+            }
+        }
+        return true;
+    }
+    /** Stage 1554 (D2D review 48, live 13:18:53-13:19:18 11-11: a blaze fight held in cover, "healing in cover" 12 -> 18, "waiting at the cover's edge: up out of reach", "one at a time"; Watchdog's FIGHT NO EFFECT, "15 s attacking a Blaze 11.8 off, not a hit landed: breaking it off", dropped the fight, he walked on out in the open and a blaze took him 20 -> 16). A blaze up out of his reach, the fight held at the cover's edge: still his fight past 15 s, its own clocks decide. */
+    private static int s1554T; private static net.minecraft.world.entity.monster.Blaze s1554B;
+    private static boolean st1554(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1554T = -1; if (s1554B != null) s1554B.discard(); s1554B = null; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 5));
+            for (int z = -4; z <= 0; z++) for (int y = 0; y <= 7; y++) level.setBlock(me.offset(2, y, z), Blocks.STONE.defaultBlockState(), 2); // the wall: his corner behind it, the step out south of its end
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.getInventory().add(new ItemStack(Items.BOW)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() - 1.5); c.setHealth(12); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var b = EntityType.BLAZE.create(level); BlockPos sp = me.offset(8, 0, -2); b.moveTo(sp.getX() + 0.5, sp.getY() + 5, sp.getZ() + 0.5, 90, 0); b.setNoAi(true); b.setNoGravity(true); b.setPersistenceRequired(); level.addFreshEntity(b); b.setTarget(c); s1554B = b;
+            com.claudemod.entity.life.Perception.noteSeenTest(c, b);
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Attack(s1554B.getUUID(), 20 * 60)); s1554T = t[0]; }
+        if (s1554T > 0 && t[0] > s1554T + 10) {
+            boolean on = c.currentTask instanceof Task.Attack a && a.target().equals(s1554B.getUUID()) || c.tasks.stream().anyMatch(x -> x instanceof Task.Attack a && a.target().equals(s1554B.getUUID())); // an Eat in cover queues the fight behind it
+            if (!on || t[0] - s1554T > 20 * 18) {
+                double s = (t[0] - s1554T) / 20.0; String q = c.currentTask + " " + c.tasks;
+                s1554B.discard(); s1554B = null; for (int z = -4; z <= 0; z++) for (int y = 0; y <= 7; y++) level.setBlock(h.absolutePos(new BlockPos(4, 2, 5)).offset(2, y, z), Blocks.AIR.defaultBlockState(), 2); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY);
+                check(on, "a blaze up out of reach, the fight held at the cover's edge: dropped after " + s + " s (" + (q.length() > 120 ? q.substring(0, 120) : q) + ")");
+                pass(stage, t, "the held fight still his after " + s + " s");
+            }
         }
         return true;
     }

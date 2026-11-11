@@ -478,6 +478,7 @@ public class WorkGoal extends Goal {
             }
             if (foe instanceof net.minecraft.world.entity.monster.Blaze bh && !(current instanceof Task.Attack) && bh.getBoundingBox().minY > g.getY() + 3.2 && !(g.inventory.count(x -> x.is(net.minecraft.world.item.Items.BOW)) > 0 && g.inventory.count(x -> x.is(net.minecraft.world.item.Items.ARROW)) > 0)) { // a blaze up out of sword reach and no bow: a fight armed here is standing under it taking its volleys (live 23:18:40 11-09: 13 up and 25 off, 29 fireballs, no hit in, off at 8); the walk he's on goes on (up to its level, or away), standing still he gets out of its sight first (FortressFight's out-of-reach rule takes the job from there; stage 1325)
                 boolean still = current == null || current instanceof Task.Wait;
+                if (!still && !blazeHighWorkOnPays()) { clearCrack(); g.tasks.addFirst(current); still = true; } // (his job in its sight priced against getting out of it: a dig-and-pillar route under it, 20 -> 9, D2D review 116, live 13:24:49 11-11; stage 1553)
                 if (still) { current = new Task.Flee(60); g.currentTask = current; ticks = 0; stuck = 0; lastDist = Double.MAX_VALUE; }
                 sdSay("blazehigh", "[Claude fight] hit by a Blaze {} up and {} off, out of sword reach and no bow (health {}): {} (WorkGoal.tick)", (int) (bh.getY() - g.getY()), (int) bh.distanceTo(g), (int) g.getHealth(), still ? "out of its sight, not a stand under it" : "on with the walk, no stand under it"); g.urgentAttacker = null; return;
             }
@@ -6963,6 +6964,22 @@ public class WorkGoal extends Goal {
         return on > back;
     }
     /** A blaze hit on a walk off the blaze job: walking on (blaze.walk_on_sight_s in their sight, fireballs priced) against the fight now, less what the same kills cost later fed and at full health (the rods count either way). True: walk on. */
+    /** A blaze up out of his reach (no bow) on him mid-job: the job's time in its sight (a walk ~blaze.walk_on_sight_s, each dig, put or pillar step queued a second more) in fireballs, against out of its sight first (blaze.hide_s) and the job after. */
+    private boolean blazeHighWorkOnPays() {
+        int work = current instanceof Task.Break || current instanceof Task.Place || current instanceof Task.Pillar ? 1 : 0;
+        for (Task x : g.tasks) { if (x instanceof Task.Break || x instanceof Task.Place || x instanceof Task.Pillar) work++; else if (!(x instanceof Task.GoTo) && !(x instanceof Task.Leap)) break; if (work >= 20) break; }
+        var blz = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(48), this::shootsHere);
+        int n = Math.max(1, blz.size());
+        boolean shield = g.getItemBySlot(EquipmentSlot.OFFHAND).is(net.minecraft.world.item.Items.SHIELD);
+        double armor = g.getArmorValue(), tough = g.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS);
+        double fb = w("blaze.fireball_hp", 5), perB = fb * (1 - Math.min(20, Math.max(armor / 5.0, armor - fb / (2 + tough / 4))) / 25) + w("blaze.fire_hp", 3);
+        double sightS = w("blaze.walk_on_sight_s", 6) + work * w("blaze.work_in_sight_s", 1.0);
+        double hp = n * sightS * w("blaze.shots_per_s", 0.6) * w("blaze.shot_hit_chance", 0.5) * perB * (shield ? w("blaze.shield_factor", 0.4) : 1);
+        var pick = com.claudemod.entity.life.Decide.choose(g, "blaze.high_work_on", n + " blaze(s) up out of reach, no bow, health " + (int) g.getHealth() + ", " + work + " dig/put step(s) queued", true, java.util.List.of(
+            com.claudemod.entity.life.Decide.Option.of("work on", com.claudemod.entity.life.Decide.hpS(g, 0, hp, perB), "~" + Math.round(sightS) + " s in its sight, ~" + Math.round(hp) + " HP of fireballs"),
+            com.claudemod.entity.life.Decide.Option.of("out of its sight", w("blaze.hide_s", 15), "a hide, then the job")));
+        return pick == null || pick.name().equals("work on");
+    }
     private boolean blazeWalkOnPays() {
         var blz = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(48), this::shootsHere);
         int n = Math.max(1, blz.size());
@@ -7053,6 +7070,12 @@ public class WorkGoal extends Goal {
         g.tasks.addFirst(new Task.Flee(20 * 10));
         com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] health {}{}, no cover, no cell out of {} blaze(s)' sight within 24 steps and too few blocks to wall in: running (WorkGoal.blazeRetreat)", (int) g.getHealth(), g.isOnFire() ? ", burning" : "", blazes.size());
         cfMode = "running"; return true;
+    }
+    /** He is holding a fight against this foe in cover on purpose (healing, eating, waiting out a volley or a blaze out of reach): coverFight's own clocks end it, not a no-hit timer (D2D review 48, live 13:19:18 11-11; stage 1554). */
+    public boolean coverHolding(java.util.UUID foe) {
+        if (foe == null || !foe.equals(cfTarget)) return false;
+        for (String m : new String[] {"waiting", "healing", "eating", "milk", "one at a time", "shield up", "back into cover", "ducking into cover", "drawing its shots", "off the fire", "to the middle of his block"}) if (cfMode.startsWith(m)) return true;
+        return false;
     }
     private void cfSay(String mode, String why) { if (!mode.equals(cfMode)) { cfMode = mode; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] {}: {} (WorkGoal.coverFight)", mode, why); } }
     // cfMove: the last step goes straight to the centre: the path calls itself done ~0.5 short, over the cell edge (01:30 he stood at -72.0, cover -73, burning 13 -> 1)

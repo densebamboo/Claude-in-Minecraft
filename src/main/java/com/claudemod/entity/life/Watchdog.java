@@ -790,6 +790,7 @@ public final class Watchdog {
         if (g.currentTask instanceof Task.Attack a && g.level() instanceof ServerLevel sl && sl.getEntity(a.target()) instanceof net.minecraft.world.entity.LivingEntity foe) {
             if (!a.target().equals(s.atkTarget)) { s.atkTarget = a.target(); s.atkSince = now(g); s.atkHp = foe.getHealth(); }
             else if (foe.getHealth() < s.atkHp) { s.atkHp = foe.getHealth(); s.atkSince = now(g); }
+            else if (g.work.coverHolding(a.target())) s.atkSince = now(g); // a fight held in cover on purpose: its own clocks end it (D2D review 48; stage 1554)
             else if (now(g) - s.atkSince > 20 * 15 && now(g) - s.lastNoEffect > 20 * 30) { s.lastNoEffect = now(g); incident(g, "FIGHT NO EFFECT", "15 s attacking a " + foe.getType().getDescription().getString() + " " + String.format("%.1f", foe.distanceTo(g)) + " off, not a hit landed (it's at " + (int) foe.getHealth() + "): breaking it off"); g.dropCurrent = true; s.atkTarget = null; }
         } else s.atkTarget = null;
         // 4. important gear gone with no death (smelted, dropped, broken)

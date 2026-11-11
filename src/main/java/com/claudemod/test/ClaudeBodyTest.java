@@ -10919,6 +10919,7 @@ public final class ClaudeBodyTest {
             case 1440: return st1440(stage, t, c, h, level, mock);
             case 1441: return st1441(stage, t, c, h, level, mock);
             case 1442: return st1442(stage, t, c, h, level, mock);
+            case 1443: return st1443(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25000,6 +25001,31 @@ public final class ClaudeBodyTest {
         }
         if (t[0] > 10 && c.isSleeping()) { int took = t[0] - 10; c.stopSleeping(); c.tasks.clear(); level.setDayTime(6000); c.getFoodData().setFoodLevel(20); pass(stage, t, "night, food 6 and nothing to eat, 6 off his bed, nothing queued: in bed in " + took + " ticks"); }
         else if (t[0] == 10 + 20 * 30) { String q = c.currentTask + " " + c.tasks.stream().limit(4).toList() + " at " + c.blockPosition().toShortString(); c.tasks.clear(); level.setDayTime(6000); c.getFoodData().setFoodLevel(20); check(false, "night, food 6, 6 off his bed with nothing queued: not asleep in 30 s (" + q + ")"); }
+        return true;
+    }
+    /** Stage 1443 (death 27, live 22:54:42-46 11-10 at -126,17,-405, D2D): a wall west of him with a 1-wide gap 2 off, a zombie beyond it, a creeper 4 south on his own side: the gap shuts out the zombie only. Picked anyway ("held from -124 on its far side", his own side), plugged, "none of them this side: the run's over" with the creeper 3 off; back to the fight, its hiss, broken off, blown up. The run he picks is not that gap. */
+    private static boolean st1443(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) {
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 12000;
+            for (int x = 0; x <= 40; x++) for (int z = 0; z <= 40; z++) for (int y = 1; y <= 14; y++) {
+                boolean wall = y <= 5 && x == 17 && z >= 8 && z <= 32 && z != 20;
+                level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 || wall ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+            BlockPos me = h.absolutePos(new BlockPos(19, 2, 20)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.tasks.clear(); c.dropCurrent = true;
+        }
+        if (t[0] == 5) {
+            BlockPos me = h.absolutePos(new BlockPos(19, 2, 20));
+            var zb = EntityType.ZOMBIE.create(level); BlockPos zp = me.west(6); zb.moveTo(zp.getX() + 0.5, zp.getY(), zp.getZ() + 0.5, 0, 0); zb.setNoAi(true); level.addFreshEntity(zb);
+            var cr = EntityType.CREEPER.create(level); BlockPos cp = me.south(4); cr.moveTo(cp.getX() + 0.5, cp.getY(), cp.getZ() + 0.5, 0, 0); cr.setNoAi(true); level.addFreshEntity(cr);
+            BlockPos end = c.work.pickEscapeNow(java.util.List.of(zb, cr));
+            zb.discard(); cr.discard(); c.tasks.clear(); c.dropCurrent = true;
+            for (int x = 0; x <= 40; x++) for (int z = 0; z <= 40; z++) for (int y = 2; y <= 14; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2);
+            check(end != null, "no run picked from the zombie and the creeper");
+            BlockPos gap = h.absolutePos(new BlockPos(17, 2, 20));
+            boolean byGap = end.getZ() == gap.getZ() && end.getY() == gap.getY() && end.getX() > gap.getX() && end.getX() <= gap.getX() + 3;
+            check(!byGap, "the escape is the gap at " + gap.toShortString() + " held from " + end.toShortString() + ": his own side, the creeper 4 south on it with him");
+            pass(stage, t, "a gap with the creeper on his side of it is no escape: the run to " + end.toShortString());
+        }
         return true;
     }
     private static int st1249At = -1;

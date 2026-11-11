@@ -6836,6 +6836,7 @@ public class WorkGoal extends Goal {
     /** Hurt in a blaze fight with no cover (blaze.retreat): fight on in the open (FortressFight.fightS for the blazes he knows of, at his health less the fire still on him), or out of their sight (hideSpot), the fireballs on the way, healed to full (Food.regenS) and the fight then at full health. True: retreat. Logged when it wins. */
     /** A blaze in range to shoot him: out to its own follow range (48), not 24 (live 00:46 11-08: one 29 off hit him 4 times while coverFight said "no blaze sees it", stage 983). */
     private boolean shootsHere(net.minecraft.world.entity.Entity b) { return b.isAlive() && b instanceof net.minecraft.world.entity.LivingEntity l && l.distanceTo(g) <= l.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.FOLLOW_RANGE); }
+    private int blazeHeldSaid = -1;
     private boolean blazeRetreatPays() {
         ServerLevel lv = (ServerLevel) g.level();
         var blz = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(48), this::shootsHere);
@@ -6856,7 +6857,10 @@ public class WorkGoal extends Goal {
         double leaveHp = n * walk * w("blaze.shots_per_s", 0.6) * w("blaze.shot_hit_chance", 0.5) * perB * (shield ? w("blaze.shield_factor", 0.4) : 1);
         double back = 2 * walk + com.claudemod.entity.life.Decide.hpS(g, fire, leaveHp, perB) + com.claudemod.entity.life.Food.regenS(g, g.getMaxHealth() - Math.max(1, g.getHealth() - fire - leaveHp)) + com.claudemod.entity.life.FortressFight.fightS(g, g.getMaxHealth(), armor, tough, shield, fed, 0, n);
         boolean sameFight = g.tickCount - blazePickT < 20 * 30; blazePickT = g.tickCount; // (a pick 30 s after the last: a new fight, logged afresh)
-        if (sameFight && blazePick != null && blazePick == (on > back)) return on > back; // logged when the pick changes (D2D 17:40 11-07: the retreat pick logged every tick, ~900 lines in 25 min)
+        if (sameFight && blazePick != null && blazePick == (on > back)) return on > back;
+        if (sameFight && blazePick != null && Math.abs(on - back) <= w("blaze.retreat_hold_share", 0.05) * Math.min(on, back)) { // a near tie in the same fight: the plan he's on holds (review 139 11-10: "out of their sight" then "fight on" 10 s later at 8650 against 8667, back again on the next fireball, burning in the open; stage 1475)
+            if (blazeHeldSaid != g.tickCount / 200) { blazeHeldSaid = g.tickCount / 200; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] blaze.retreat: {} held, fight on ~{} s against out of their sight ~{} s, within {}% of each other (WorkGoal.blazeRetreatPays)", blazePick ? "out of their sight" : "fight on", Math.round(on), Math.round(back), Math.round(100 * w("blaze.retreat_hold_share", 0.05))); }
+            return blazePick; } // logged when the pick changes (D2D 17:40 11-07: the retreat pick logged every tick, ~900 lines in 25 min)
         blazePick = on > back;
         com.claudemod.entity.life.Decide.choose(g, "blaze.retreat", n + " blaze(s) " + (feet.equals(hide) ? "known, none sees him where he stands" : "known, no cover") + ", health " + (int) g.getHealth() + (fire > 0 ? ", on fire" : "") + ", armor " + (int) armor + (shield ? ", a shield" : ""), true, java.util.List.of(
             com.claudemod.entity.life.Decide.Option.of("fight on", on, feet.equals(hide) ? "from where he stands" : "in the open"), com.claudemod.entity.life.Decide.Option.of("out of their sight", back, (hide != null ? "to " + hide.toShortString() : box ? "boxed in where he stands, " + boxN + " blocks" : "in the open") + ", ~" + Math.round(leaveHp) + " HP of fireballs, healed, then the fight at full health")));

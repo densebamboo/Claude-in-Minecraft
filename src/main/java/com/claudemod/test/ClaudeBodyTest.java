@@ -10549,6 +10549,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1475: return st1475(stage, t, c, h, level, mock);
             case 1474: return st1474(stage, t, c, h, level, mock);
             case 1473: return st1473(stage, t, c, h, level, mock);
             case 1472: return st1472(stage, t, c, h, level, mock);
@@ -19036,6 +19037,41 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    /** Stage 1475 (D2D review 139, live 17:56:41-51 11-10: blaze.retreat "out of their sight" (8702 against 10396) at 17 HP burning, then 10 s on "fight on" at 8650 against 8667, 0.2% apart, and back again on the next fireball: two plans in turn in the open while burning): blazes about him in the open, the pick made at 17 HP burning, then again 10 s on at 19, the fire out. The second pick holds the first unless the other is clearly cheaper. */
+    private static java.util.List<net.minecraft.world.entity.monster.Blaze> s1475B;
+    private static boolean st1475(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(17000, 70, 10600);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.FortressFight.reset(c); s1475B = new java.util.ArrayList<>(); }
+        if (t[0] < 29) nsTick(nl, c, o, t);
+        if (t[0] % 10 == 0 || t[0] < 10) for (int cx = -1; cx <= 2; cx++) { BlockPos q = o.offset(cx * 16, 0, 0); nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(q), 2, q); }
+        if (t[0] == 10) {
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+            for (int x = -12; x <= 36; x++) for (int z = -12; z <= 12; z++) for (int y = -1; y <= 10; y++) nl.setBlock(o.offset(x, y, z), y < 0 ? Blocks.NETHER_BRICKS.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 4)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 19)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            for (var sl : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS}) c.setItemSlot(sl, new ItemStack(sl == net.minecraft.world.entity.EquipmentSlot.HEAD ? Items.IRON_HELMET : sl == net.minecraft.world.entity.EquipmentSlot.CHEST ? Items.IRON_CHESTPLATE : Items.IRON_LEGGINGS));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 40) for (int[] q : new int[][] {{26, 4, -6}, {28, 4, 2}, {30, 3, 8}, {24, 5, -2}}) { var b = net.minecraft.world.entity.EntityType.BLAZE.create(nl); b.moveTo(o.getX() + q[0] + 0.5, o.getY() + q[1], o.getZ() + q[2] + 0.5, 90, 0); b.setNoAi(true); b.setNoGravity(true); b.setPersistenceRequired(); nl.addFreshEntity(b); s1475B.add(b); }
+        if (t[0] > 40) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 50 || t[0] == 250) {
+            if (t[0] == 50) { c.setHealth(17); c.setRemainingFireTicks(100); } else { c.setHealth(19); c.clearFire(); }
+            c.tasks.clear(); c.currentTask = null; c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f);
+            try { var m = c.work.getClass().getDeclaredMethod("blazeRetreatPays"); m.setAccessible(true); boolean pick = (boolean) m.invoke(c.work); s1475P[t[0] == 50 ? 0 : 1] = pick ? 1 : 0; }
+            catch (Exception e) { check(false, "blazeRetreatPays: " + e); }
+        }
+        if (t[0] == 260) {
+            for (var b : s1475B) b.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.clearFire();
+            for (int x = -12; x <= 36; x++) for (int z = -12; z <= 12; z++) for (int y = -1; y <= 10; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent(); com.claudemod.entity.life.FortressFight.reset(c);
+            check(s1475P[0] == s1475P[1], "the blazes' pick at 17 HP burning: " + (s1475P[0] == 1 ? "out of their sight" : "fight on") + ", 10 s on at 19 HP: " + (s1475P[1] == 1 ? "out of their sight" : "fight on") + " (see the blaze.retreat lines)");
+            nsHome(c, h, level); pass(stage, t, "held: " + (s1475P[0] == 1 ? "out of their sight" : "fight on") + " both times");
+        }
+        return true;
+    }
+    private static int[] s1475P = new int[2];
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */
     private static int s934T, s934Deep;
     private static boolean st934(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

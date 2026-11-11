@@ -5492,6 +5492,15 @@ public class WorkGoal extends Goal {
     public String escapeKind() { return escapeKind; }
     private void clearEscape() { escapeAt = null; escapeGap = null; escapeKind = null; escapeHeld = false; escapePlugged = false; }
     /** A shooter out of his sword's reach (flee.shooter_melee_blocks): hidden from; one closer is in reach, hit like any other. */
+    private int hideHitSaid = -100000;
+    /** A hit at his held hide: who did it, and why the hold's sight check let it be (death 26: no repro yet). */
+    private void logHitAtHide(ServerLevel lv, java.util.List<? extends net.minecraft.world.entity.Mob> mobs) {
+        var src = g.getLastDamageSource(); var by = src.getEntity(); Vec3 head = Vec3.atBottomCenterOf(escapeAt).add(0, 1.6, 0);
+        StringBuilder sb = new StringBuilder();
+        for (var m : mobs) sb.append(String.format("%s %.1f off at %s (far shooter %s, line to the spot %s, to him %s); ", m.getType().getDescription().getString(), m.distanceTo(g), m.blockPosition().toShortString(), farShooter(m), com.claudemod.entity.life.Perception.clear(lv, m.getEyePosition(), head), com.claudemod.entity.life.Perception.clear(lv, m.getEyePosition(), g.getEyePosition())));
+        String who = by == null ? src.getMsgId() : String.format("%s %.1f off at %s, in his list %s, line to the spot %s, to him %s", by.getType().getDescription().getString(), by.distanceTo(g), by.blockPosition().toShortString(), mobs.contains(by), com.claudemod.entity.life.Perception.clear(lv, by.getEyePosition(), head), com.claudemod.entity.life.Perception.clear(lv, by.getEyePosition(), g.getEyePosition()));
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude life] hit at his hide {} ({} off it, he's at {}), health {}: by {}; his list: {}(WorkGoal.atEscape)", escapeAt.toShortString(), String.format("%.1f", g.position().distanceTo(Vec3.atBottomCenterOf(escapeAt))), g.blockPosition().toShortString(), (int) g.getHealth(), who, sb.length() == 0 ? "none " : sb);
+    }
     private boolean farShooter(net.minecraft.world.entity.Entity m) { return (shoots(m) || m instanceof net.minecraft.world.entity.monster.Blaze) && m.distanceTo(g) > w("flee.shooter_melee_blocks", 4); } // (a blaze's fireballs are hidden from the same way)
     /** The nearest cell on foot (flood out to flee.hide_blocks) that no shooter about sees, his head there out of each one's eye line and no melee mob within 3 of it. Null: none. */
     private BlockPos hideSpot(ServerLevel lv, BlockPos feet, java.util.List<? extends net.minecraft.world.entity.Mob> mobs) {
@@ -5732,6 +5741,7 @@ public class WorkGoal extends Goal {
             for (var m : mobs) if (farShooter(m) && m.isAlive() && com.claudemod.entity.life.Perception.clear(lv, m.getEyePosition(), Vec3.atBottomCenterOf(escapeAt).add(0, 1.6, 0))) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: the {} {} off sees him again at {}: on out of its sight (WorkGoal.atEscape)", m.getType().getDescription().getString(), (int) m.distanceTo(g), escapeAt.toShortString()); clearEscape(); pickEscape(mobs); return 0; }
             net.minecraft.world.entity.Mob close = null; for (var m : mobs) if (!farShooter(m) && m.isAlive() && (close == null || m.distanceTo(g) < close.distanceTo(g))) close = m;
             if (close != null && close.distanceTo(g) < 5) { equipWeapon(); g.getLookControl().setLookAt(close); if (canHitNow(close)) { g.attack(close); g.swing(InteractionHand.MAIN_HAND); } }
+            if (g.hurtTime > 0 && g.tickCount - hideHitSaid > 10 && g.getLastDamageSource() != null) { hideHitSaid = g.tickCount; logHitAtHide(lv, mobs); } // (death 26, live 21:49:48-21:50:34 11-10: 13 arrows at a held hide, no "sees him again" line; stage 1398 at a guessed geometry passes on main, so: what saw him, logged)
             return 1;
         }
         if ("backoff".equals(escapeKind)) { // as far from them as he gets without going by them: held there till the run's clock is out (a re-pick here was the same cell, 3 times a tick)

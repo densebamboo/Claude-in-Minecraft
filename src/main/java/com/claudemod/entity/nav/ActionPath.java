@@ -868,6 +868,7 @@ public final class ActionPath {
                 if (!passable(head)) { double sec = digSeconds(head); if (sec < 0) ok = false; else { cost += (sec + com.claudemod.entity.life.Weights.w("path.dig_overhead_s", 0.05)) * com.claudemod.entity.life.Weights.w("path.dig_per_s", 5.6) + (sec > 0 ? digWorld(head) : 0); acts.add(new Act.Dig(head.immutable())); } }
                 if (ok && !passable(up)) ok = false;
                 if (reserved.contains(feet) || !bs(feet).canBeReplaced()) ok = false; // (another job's cell: the stump a sapling is for; a vine he hangs in takes no block)
+                if (ok) { double av = avoidCost(up); if (av < 0) ok = false; else cost += av + threatCost(up); } // (a tower step pays the known blazes' sight and the crowd like a walk there: death 86, live 03:38 11-11, a tower up into two blazes' open air, its top where he died; stage 1485)
                 if (ok) { acts.add(new Act.Put(feet.immutable())); acts.add(new Act.Walk(up.immutable())); out.add(new Move(up.immutable(), cost + failPenalty(up), acts)); }
             }
             return out;

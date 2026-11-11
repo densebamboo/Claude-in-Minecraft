@@ -10549,6 +10549,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1485: return st1485(stage, t, c, h, level, mock);
             case 1484: return st1484(stage, t, c, h, level, mock);
             case 1483: return st1483(stage, t, c, h, level, mock);
             case 1482: return st1482(stage, t, c, h, level, mock);
@@ -19397,6 +19398,42 @@ public final class ClaudeBodyTest {
                 check(across, "two blazes in plain view, the cover across a 2-wide drop: not over to it in 12 s (at " + at.toShortString() + ", " + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
                 pass(stage, t, "over the drop into cover in " + s + " s");
             }
+        }
+        return true;
+    }
+    /** Stage 1485 (death 86, live 03:38:27-40 11-11 at the fortress: between fights, the blaze_rods walk planned a tower at 322,46-49 up into the open air two known blazes were in; its top, 322,48,425, was where he stood 6 min and died. ActionPath priced every walk and diagonal by known blazes' sight (threatCost) but not a tower step). A ledge 2 up, reached by a tower in an open shaft under three known blazes, or a hidden corridor and stairs the long way round: with the blazes known, the way round. */
+    private static boolean st1485(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(9400, 64, 6120), from = o.offset(-2, 0, 0), goal = o.offset(3, 2, 0);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) { nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o); nsKit(c); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600; c.teleportTo(nl, from.getX() + 0.5, from.getY(), from.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; }
+        if (t[0] == 20) {
+            StringBuilder sb = new StringBuilder(); int[] puts = {-1, -1};
+            { final int E = 18; // (the corridor's length: the way round dearer than the tower out of the blazes' sight, cheaper than one in it; the planner is deterministic, the switch at E 16-18 unpriced, 20-22 priced)
+                for (int x = -6; x <= 46; x++) for (int z = -4; z <= 3; z++) for (int y = -1; y <= 14; y++) {
+                    boolean air = y >= 6 || (y == 5 && x == 1 && z == 0) // above the roof, and the shaft through it
+                        || (x >= -3 && x <= 1 && z == 0 && y >= 0 && y <= 4) // the pocket he starts in; (1,0,0) the shaft's foot
+                        || (x == -3 && z == -1 && y >= 0 && y <= 1) // into the corridor
+                        || (x >= -3 && x <= E + 1 && z == -2 && y >= 0 && y <= 1) // the hidden corridor
+                        || (x == E + 1 && z == -1 && y >= 1 && y <= 3) || (x == E + 1 && z == -2 && y == 2) // the stair up at its end (headroom for the jump)
+                        || (x >= 2 && x <= E + 1 && z >= 0 && z <= 1 && y >= 2 && y <= 4); // over the ledge
+                    nl.setBlock(o.offset(x, y, z), air ? Blocks.AIR.defaultBlockState() : Blocks.NETHERRACK.defaultBlockState(), 2);
+                }
+                for (int k = 0; k < 2; k++) {
+                    java.util.List<net.minecraft.world.entity.monster.Blaze> bz = new java.util.ArrayList<>(); com.claudemod.entity.life.Perception.reset(c);
+                    if (k == 1) for (int i = 0; i < 3; i++) { var b = EntityType.BLAZE.create(nl); b.moveTo(o.getX() + 1.5, o.getY() + 8 + 2 * i, o.getZ() + 0.5, 0, 0); b.setNoAi(true); nl.addFreshEntity(b); bz.add(b); com.claudemod.entity.life.Perception.noteSeenTest(c, b); }
+                    var p = com.claudemod.entity.nav.ActionPath.plan(c, nl, from, goal, 0.5, true, 8000, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, new java.util.HashMap<>(), c.tickCount, java.util.List.of());
+                    sb.append(" E").append(E).append(k == 0 ? " unknown:" : " known:").append(p == null ? "none" : p.puts() + "p/" + p.walks() + "w");
+                    puts[k] = p == null ? -1 : p.puts();
+                    for (var b : bz) b.discard();
+                }
+            }
+            for (int x = -6; x <= 46; x++) for (int z = -4; z <= 3; z++) for (int y = -1; y <= 14; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            nsHome(c, h, level);
+            check(puts[0] == 1, "setup: no blazes known, the tower up the shaft should be his way (" + sb + ")");
+            check(puts[1] == 0, "three blazes known over the shaft: still the tower up into their sight, not the hidden way round (" + sb + ")");
+            pass(stage, t, "the tower when nothing watches, the hidden way round under three blazes:" + sb);
         }
         return true;
     }

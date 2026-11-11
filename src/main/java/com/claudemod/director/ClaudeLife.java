@@ -3289,6 +3289,7 @@ public final class ClaudeLife {
                 }
                 g.gearTick = g.tickCount;
                 List<Skills.Step> order = new ArrayList<>(plan.steps());
+                order = foodLast(g, order);
                 if (nightOutsideNo(g, level, g.blockPosition()) != null || nightOutsideNo(g, level, level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.blockPosition())) != null) { List<Skills.Step> outdoor = new ArrayList<>(); for (Skills.Step s1 : order) if (s1.skill().equals("fight") || (s1.skill().equals("smelt") && s1.target().startsWith("cooked_")) || (s1.skill().equals("craft") && (s1.target().equals("bow") || s1.target().equals("arrow"))) || (s1.skill().equals("collect") && !s1.target().contains("ore") && !s1.target().equals("cobble") && !s1.target().equals("cobblestone"))) outdoor.add(s1); if (!outdoor.isEmpty() && outdoor.size() < order.size()) { order.removeAll(outdoor); order.addAll(outdoor); } } // night with no kit for the open: the mine work first (iron, diamonds), the hunts and fights after first light (he re-ran gear_up every 10 s at night, the beef hunt refused each time, the iron never started)
                 for (int i = order.size() - 1; i >= 0; i--) g.skillQueue.addFirst(order.get(i));
                 return "gearing up, missing " + Kit.describe(missing) + ": " + Procure.describe(plan.steps()) + com.claudemod.entity.life.ChestLedger.fetchNote(g, level, plan.fromChests());
@@ -8995,6 +8996,14 @@ public final class ClaudeLife {
         return b -> BuiltInRegistries.BLOCK.getKey(b.getBlock()).getPath().contains(t);
     }
 
+    /** Meals enough to work on: the trip's food is the last of the kit, gathered as he sets off (food done first, then 6 min mining a bucket's iron ate it down again: the kit full at 16:41 and 16:48, back fishing at 16:54, live 11-10; stage 1395). */
+    static List<Skills.Step> foodLast(ClaudeEntity g, List<Skills.Step> order) {
+        if (Kit.food(g) < com.claudemod.entity.life.Weights.w("trip.food_back_meals", 6)) return order;
+        List<Skills.Step> fd = new ArrayList<>(), rest0 = new ArrayList<>();
+        for (Skills.Step s1 : order) { Item it1 = item(s1.target()); (s1.skill().equals("fish") || it1 != null && it1.components().has(net.minecraft.core.component.DataComponents.FOOD) ? fd : rest0).add(s1); }
+        if (fd.isEmpty() || rest0.isEmpty()) return order;
+        rest0.addAll(fd); return rest0;
+    }
     static Item item(String t) {
         var rl = t == null ? null : net.minecraft.resources.ResourceLocation.tryBuild("minecraft", t); if (rl == null) return null; // a target that's no item name ("@242 60 509", a step's spot): no item; withDefaultNamespace threw, the brain catch cleared his queue every food check (live 06:44 11-07, stage 739)
         var it = BuiltInRegistries.ITEM.getOptional(rl);

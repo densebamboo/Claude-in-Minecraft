@@ -322,8 +322,9 @@ public final class Kit {
             String name = "hunt " + net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(near.get(0).getType()).getPath();
             near.sort(java.util.Comparator.comparingDouble(g::distanceToSqr)); double walk = ClaudeLife.preyWalk(g, level, near.get(0));
             if (walk < 0) { opts.add(com.claudemod.entity.life.Decide.Option.out(name, near.size() + " about, no walk to the nearest")); continue; }
-            int k = (int) Math.min(near.size(), Math.ceil(shortP / (yield * pts(item)))); double got = k * yield * pts(item), left = Math.max(0, shortP - got);
-            opts.add(com.claudemod.entity.life.Decide.Option.of(name, walk / sprint + k * (kill + yield * cook) + rest.applyAsDouble(left) + ClaudeLife.nightOutS(g, level, near.get(0).blockPosition(), -1), k + " of " + near.size() + ", nearest " + (int) walk + " walk"));
+            int raw0 = rawBy.getOrDefault(item, 0); // the same meat raw on him: one furnace round cooks it with the catch (cooked on its own first, then the catch in a second round: live 16:45-17:14 11-10, a furnace set down per fish; stage 1394)
+            int k = (int) Math.min(near.size(), Math.ceil(Math.max(0, shortP - raw0 * pts(item)) / (yield * pts(item)))); double got = k * yield * pts(item) + raw0 * pts(item), left = Math.max(0, shortP - got);
+            opts.add(com.claudemod.entity.life.Decide.Option.of(name, walk / sprint + k * (kill + yield * cook) + raw0 * cook + rest.applyAsDouble(left) + ClaudeLife.nightOutS(g, level, near.get(0).blockPosition(), -1), k + " of " + near.size() + ", nearest " + (int) walk + " walk"));
             asks.put(name, new FoodAsk(item, (int) Math.ceil(Math.min(got, shortP) / pts(item)))); }
         { var fishBox = g.getBoundingBox().inflate(w("kit.prey_range", 48)); // (the herds' range, and the collect step's: fish 27 off were out of the kit's 24 but the hunt's pick, so "search" came back and he swapped salmon for beef 11 s after the reverse, D2D review 53, stage 1235)
           var fish = level.getEntitiesOfClass(net.minecraft.world.entity.animal.AbstractFish.class, fishBox, f -> f.isAlive() && (f instanceof net.minecraft.world.entity.animal.Salmon || f instanceof net.minecraft.world.entity.animal.Cod));
@@ -334,9 +335,10 @@ public final class Kit {
           if (!fish.isEmpty() && shallow.isEmpty()) opts.add(com.claudemod.entity.life.Decide.Option.out("fish", fish.size() + " about, all too deep to reach"));
           else if (!shallow.isEmpty() && walk1 < 0) opts.add(com.claudemod.entity.life.Decide.Option.out("fish", shallow.size() + " near the top, no short way to them on foot (the nearest " + (int) Math.sqrt(g.distanceToSqr(shallow.get(0))) + " across)"));
           else if (!shallow.isEmpty()) { long sal = shallow.stream().filter(f -> f instanceof net.minecraft.world.entity.animal.Salmon).count(); Item item = sal * 2 >= shallow.size() ? Items.COOKED_SALMON : Items.COOKED_COD;
-            int k = (int) Math.min(school, Math.ceil(shortP / pts(item))); double left = Math.max(0, shortP - k * pts(item));
-            opts.add(com.claudemod.entity.life.Decide.Option.of("fish", walk1 / sprint + k * (w("kit.fish_s", 15) + cook) + rest.applyAsDouble(left) + ClaudeLife.nightOutS(g, level, shallow.get(0).blockPosition(), -1), k + " of the school of " + school + " by the nearest (" + shallow.size() + " near the top in all), nearest " + (int) walk1 + " walk"));
-            asks.put("fish", new FoodAsk(item, k)); } }
+            int raw0 = rawBy.getOrDefault(item, 0); // the same fish raw on him: cooked with this catch in one furnace round, not a round of its own first (stage 1394)
+            int k = (int) Math.min(school, Math.ceil(Math.max(0, shortP - raw0 * pts(item)) / pts(item))); double left = Math.max(0, shortP - (k + raw0) * pts(item));
+            opts.add(com.claudemod.entity.life.Decide.Option.of("fish", walk1 / sprint + k * w("kit.fish_s", 15) + (k + raw0) * cook + rest.applyAsDouble(left) + ClaudeLife.nightOutS(g, level, shallow.get(0).blockPosition(), -1), k + " of the school of " + school + " by the nearest (" + shallow.size() + " near the top in all), nearest " + (int) walk1 + " walk"));
+            asks.put("fish", new FoodAsk(item, k + raw0)); } }
         if (!nether) { // a rod at the water, like a player where the land has no animals (D2D food major, live 07:36-08:23 11-10: 47 min after cows, 0 kills, food 4; the kit had no rod in its options). Vanilla: a bite in 5-30 s (~20 with the reel and recast), twice that with no sky over the water; 85% of catches are fish, 85% of those cod or salmon
             int string = g.inventory.count(x -> x.is(Items.STRING)); boolean rod = g.inventory.count(x -> x.is(Items.FISHING_ROD)) > 0;
             var strSpots = rod || string >= 2 ? java.util.List.<com.claudemod.entity.life.ChestLedger.Spot>of() : com.claudemod.entity.life.ChestLedger.where(g, level, x -> x.is(Items.STRING));

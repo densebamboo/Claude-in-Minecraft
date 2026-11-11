@@ -10940,6 +10940,9 @@ public final class ClaudeBodyTest {
             case 1233: return st1233(stage, t, c, h, level, mock);
             case 1234: return st1234(stage, t, c, h, level, mock);
             case 1235: return st1235(stage, t, c, h, level, mock);
+            case 1394: return st1394(stage, t, c, h, level, mock);
+            case 1395: return st1395(stage, t, c, h, level, mock);
+            case 1396: return st1396(stage, t, c, h, level, mock);
             case 1242: return st1242(stage, t, c, h, level, mock);
             case 1249: return st1249(stage, t, c, h, level, mock);
             case 1250: return st1250(stage, t, c, h, level, mock);
@@ -24644,6 +24647,86 @@ public final class ClaudeBodyTest {
             for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); c.getInventory().clearContent();
             check(said.contains("fish ~"), "2 salmon 30 off (the collect step's pick, inside its 48): the kit didn't price them, so its search undid the swap to them: " + said);
             pass(stage, t, "the salmon 30 off priced by the kit as the hunt sees them: " + (fa == null ? "none" : fa.count() + " " + fa.item()));
+        }
+        return true;
+    }
+    /** Stage 1394 (D2D hourly 16:3x, reviews 162829-22 / 163341-31, live 16:45-17:14 11-10): short of trip food, a raw salmon on him, a
+     *  school of 2 salmon in a pond 8 off, a furnace in his pack. The kit priced "cook his raw" (1) on its own and the fish with the raw
+     *  left out, so he set a furnace down for the 1, then caught 1-2 and set it down again: a furnace round per fish, 14 min for 4
+     *  salmon. The catch's ask holds the raw he carries: one furnace round for all of them. */
+    private static boolean st1394(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); }
+        if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 4, c.blockPosition());
+        BlockPos me = c.blockPosition();
+        if (t[0] == 10) {
+            for (int x = -6; x <= 14; x++) for (int z = -6; z <= 6; z++) { level.setBlock(me.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = 7; x <= 9; x++) for (int z = -1; z <= 1; z++) { level.setBlock(me.offset(x, -3, z), Blocks.STONE.defaultBlockState(), 2); level.setBlock(me.offset(x, -2, z), Blocks.WATER.defaultBlockState(), 2); level.setBlock(me.offset(x, -1, z), Blocks.WATER.defaultBlockState(), 2); }
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.FURNACE)); c.getInventory().add(new ItemStack(Items.SALMON, 1)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 10));
+            for (int k = 0; k < 2; k++) { var f = EntityType.SALMON.create(level); f.moveTo(me.getX() + 8.5, me.getY() - 2, me.getZ() + 0.5 + k * 0.4, 0, 0); f.setNoAi(true); f.setPersistenceRequired(); level.addFreshEntity(f); }
+        }
+        if (t[0] == 15) {
+            var fa = com.claudemod.director.Kit.foodAsk(c); String said = com.claudemod.director.Kit.foodSaidTest(c);
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); c.getInventory().clearContent();
+            for (int x = 7; x <= 9; x++) for (int z = -1; z <= 1; z++) for (int y = -2; y <= -1; y++) level.setBlock(me.offset(x, y, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2);
+            check(fa != null && fa.item() == Items.COOKED_SALMON && fa.count() >= 3, "a raw salmon on him and a school of 2 in reach: the ask should cook all 3 in one furnace round, got " + (fa == null ? "none" : fa.count() + " " + fa.item()) + ": " + said);
+            pass(stage, t, "the catch and the raw on him in one ask: " + fa.count() + " " + fa.item());
+        }
+        return true;
+    }
+    /** Stage 1395 (D2D, live 16:41-16:54 11-10): kit food full at 16:41 and 16:48, then 6 min mining a bucket's iron, eaten down 27 points
+     *  and back to fishing at 16:54; it never set off. gear_up's plan put the food first. With meals enough to work on, the trip food
+     *  is the kit's last piece. */
+    private static boolean st1395(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(18600, 80, 18400);
+        if (t[0] % 10 == 0) for (int k = -16; k <= 32; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(1000); c.commandActive = false;
+            for (int x = -10; x <= 30; x++) for (int z = -10; z <= 10; z++) { level.setBlock(o.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 9)); c.getInventory().add(new ItemStack(Items.TORCH, 64)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 32)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5);
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f); }
+        if (t[0] == 5) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) e.discard();
+        if (t[0] == 8) for (int k = 0; k < 3; k++) { var cow = net.minecraft.world.entity.EntityType.COW.create(level); cow.moveTo(o.getX() + 8.5, o.getY(), o.getZ() + 0.5 + k, 0, 0); cow.setNoAi(true); level.addFreshEntity(cow); }
+        if (t[0] == 12) {
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "gear_up", "", 1);
+            java.util.List<String> q = c.skillQueue.stream().map(st -> st.skill() + " " + st.target()).toList();
+            int firstFood = -1, lastOther = -1;
+            for (int i = 0; i < q.size(); i++) { String tg = q.get(i).substring(q.get(i).indexOf(' ') + 1); boolean food = q.get(i).startsWith("fish") || tg.matches(".*(beef|porkchop|mutton|chicken|salmon|cod|bread|rabbit).*"); if (food && firstFood < 0) firstFood = i; if (!food && !q.get(i).startsWith("gear_up")) lastOther = i; }
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) e.discard();
+            for (int x = -10; x <= 30; x++) for (int z = -10; z <= 10; z++) for (int y = -1; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl != net.minecraft.world.entity.EquipmentSlot.MAINHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            check(firstFood >= 0 && lastOther >= 0, "setup: gear_up didn't plan both food and another piece: " + r + " queue " + q);
+            check(firstFood > lastOther, "9 meals on him, the kit short of food and a bucket: the trip food planned before the bucket's iron (eaten down while he mines): " + q);
+            nsHome(c, h, level); pass(stage, t, "the trip food last: " + q); }
+        return true;
+    }
+    /** Stage 1396 (D2D death 24, live 18:08:31-18:08:48 11-10, a fortress deck): health 14, nothing to eat, 5 hostiles about: "cover ~63 s
+     *  (build 2.5 s, wait it out ~60 s)", a 4-high tower; 2 s later "nothing about his cover any more" (the wait reads only mobs within 8;
+     *  the wither skeletons were 11-12 off), the tower taken down into them, 7 -> 3 and withered. The cover holds while what it was for is
+     *  still about. */
+    private static int s1396Up = -1; private static java.util.List<java.util.UUID> s1396W = new java.util.ArrayList<>();
+    private static boolean st1396(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(14000, 64, 8320);
+        if (t[0] == 1) { scenarioReset(c); s1396Up = -1; s1396W.clear(); }
+        if (t[0] % 10 == 0 || t[0] < 10) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+        if (t[0] > 12 && t[0] % 10 == 0) for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) if (!s1396W.contains(e.getUUID())) e.discard();
+        Runnable clean = () -> { for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard(); for (int x = -16; x <= 16; x++) for (int z = -16; z <= 16; z++) for (int y = -1; y <= 12; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); nsHome(c, h, level); };
+        if (t[0] == 12) {
+            for (int x = -16; x <= 16; x++) for (int z = -16; z <= 16; z++) { nl.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); for (int y = 0; y <= 12; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.setHealth(14); c.getFoodData().setFoodLevel(10); c.getFoodData().setSaturation(0);
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 16) { for (int k = 0; k < 3; k++) { var w = EntityType.WITHER_SKELETON.create(nl); w.moveTo(o.getX() + 11.5, o.getY(), o.getZ() - 1.5 + k * 1.5, 90, 0); w.setNoAi(true); w.setPersistenceRequired(); nl.addFreshEntity(w); s1396W.add(w.getUUID()); } c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; }
+        if (t[0] == 22) { boolean ok = c.work.shelter(); if (!ok) { String m = "setup: no cover queued, why=" + c.work.lastNoCoverWhy; clean.run(); check(false, m); } } // (the hole-up as live: the wait's way out is what's under test)
+        if (t[0] > 22) {
+            double up = c.getY() - o.getY();
+            if (s1396Up < 0 && up >= 3) s1396Up = t[0];
+            if (s1396Up > 0 && (up < 2 && c.onGround() || !c.work.holdingCover() && !c.work.buildingCover())) { String m = "out of his cover " + (t[0] - s1396Up) + " ticks after it was up, 3 wither skeletons 11 off, health " + (int) c.getHealth() + ", nothing to eat: now=" + c.currentTask + " tasks=" + c.tasks; clean.run(); check(false, m); }
+            if (s1396Up > 0 && t[0] - s1396Up >= 300) { int hp = (int) c.getHealth(); clean.run(); pass(stage, t, "held his cover 15 s with the wither skeletons 11 off, nothing to eat (health " + hp + ")"); }
+            if (s1396Up < 0 && t[0] > 22 + 20 * 15) { String m = "setup: no cover in 15 s at health 14, nothing to eat, 3 wither skeletons 11 off: now=" + c.currentTask + " tasks=" + c.tasks + " why=" + c.work.lastNoCoverWhy; clean.run(); check(false, m); }
         }
         return true;
     }

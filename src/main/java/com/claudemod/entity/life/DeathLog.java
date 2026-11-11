@@ -78,6 +78,7 @@ public final class DeathLog {
     }
 
     /** Every 5 s: settle what can be seen. Pending piles in this dimension whose chunk is loaded are checked for what's left. */
+    private static int backForTick = -100000;
     public static void tick(ClaudeEntity g, ServerLevel level) {
         String dim = level.dimension().location().getPath(); boolean changed = false;
         for (Death d : of(g)) {
@@ -88,6 +89,9 @@ public final class DeathLog {
             if (left == 0) d.status = near || d.wasNear ? "collected" : d.loadedTicks >= 6000 ? "gone (despawned)" : "gone (nothing left there)";
             else if (d.loadedTicks >= 6000 + 200) d.status = "gone (despawned)";
             d.wasNear = near;
+            if (d.pending() && left > 0 && g.blockPosition().distSqr(d.at) <= 48 * 48 && g.tickCount - backForTick > 20 * 30 && !g.skillQueue.stream().anyMatch(s -> s.skill().equals("recover_drops")) && !(g.lastStep != null && g.lastStep.skill().equals("recover_drops")) && next(g, dim) == d && !(g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee || g.currentTask instanceof Task.Eat || g.tasks.stream().anyMatch(t -> t instanceof Task.Flee) || g.holdingCover() || g.buildingCover())) { // (deaths 25 and 26, live 21:05 and 22:05 11-10: an iron kit despawned 9 and 40 off him while he strip-mined round it; only the idle pickup read the clock)
+                backForTick = g.tickCount; g.tasks.clear(); com.claudemod.director.ClaudeLife.dropCurrent(g); g.skillQueue.addFirst(new Skills.Step("recover_drops", "", 1)); // (the work round it waits: a strip-mine's 168 queued tasks ran past the clock live)
+                ClaudeMod.LOGGER.info("[Claude deaths] his pile at {} is loaded, its clock running ({} s counted of 300), he's {} off: back for it now, before {} (DeathLog.tick)", d.at.toShortString(), d.loadedTicks / 20, (int) Math.sqrt(g.blockPosition().distSqr(d.at)), g.lastStep == null ? "anything else" : g.lastStep.skill()); }
             if (g.blockPosition().distSqr(d.at) <= 24 * 24) { int[] th = threatsAt(g, d.at, false); if (th[0] != d.threat || th[1] != d.creepers) { d.threat = th[0]; d.creepers = th[1]; changed = true; } } // (seen there now: what's there now, not what was)
             if (!d.pending()) { changed = true; ClaudeMod.LOGGER.info("[Claude deaths] his pile at {} in {}: {} ({} s loaded)", d.at.toShortString(), dim, d.status, d.loadedTicks / 20); }
         }
@@ -146,10 +150,15 @@ public final class DeathLog {
     /** The time on the pile picking it up with the hostiles he knows were round it (what killed him there, until he's seen it since), as his time: through his armor and health now, so better gear makes the run worth it again. */
     static double pileS(ClaudeEntity g, String dim, BlockPos at) {
         int th = 0, cr = 0; for (Death d : of(g)) if (d.at.equals(at) && d.dim.equals(dim)) { th = d.threat; cr = Math.min(d.creepers, d.threat); } if (th == 0) return 0;
-        ServerLevel level = (ServerLevel) g.level(); long tod = level.getDayTime() % 24000; double on = Weights.w("recovery.on_pile_s", 15);
+        ServerLevel level = (ServerLevel) g.level(); long tod = runTod(level, at); double on = Weights.w("recovery.on_pile_s", 15);
         // a creeper is its blast, not a 3 HP hit: the chance one gets to him in his time on the pile (D2D 04:12 11-10: 3-4 creepers at the pile priced as hitters, armor 0, a run back into them)
         double lamC = cr * (1 - Math.exp(-Weights.w("recovery.creeper_blast_per_s", 0.05) * on));
         return Decide.hpS(g, Decide.danger(g, level, tod, on, th - cr) - Decide.danger(g, level, tod, on, 0)) + Decide.blastS(g, lamC);
+    }
+    /** The time of day his run to a pile is priced at: now, while its chunk is loaded (its 5-min clock runs); by day when it's frozen unloaded in the overworld, since waiting for morning costs nothing (death 25, live 20:39 11-10: a pile with no threat priced ~2299 s at dusk against ~264 s of iron, ~139 s by day: never the run's target, then lost; stage 1398). */
+    static long runTod(ServerLevel level, BlockPos at) {
+        long tod = level.getDayTime() % 24000;
+        return level.dimension() == net.minecraft.world.level.Level.OVERWORLD && !level.isPositionEntityTicking(at) && (tod < 1000 || tod > 12000) ? 6000 : tod;
     }
     public static double tripS(ClaudeEntity g, String dim, BlockPos at) {
         if (!dim.equals(g.level().dimension().location().getPath())) { // through a portal of his: the walk to it, the crossing, the far side's way as it's priced there (Nether: his highways, the rest as Nether ground), and back the same (Loops' sink 3, D2D 11-09: the same price on both sides of the portal; stage 1315)
@@ -161,7 +170,7 @@ public final class DeathLog {
             return (best == Double.MAX_VALUE ? Weights.w("recovery.other_dim_trip_s", 180) : best) + pileS(g, dim, at); } // (no portal of his that leads there: a flat price)
         ServerLevel level = (ServerLevel) g.level();
         double s = 2 * Math.sqrt(g.blockPosition().distSqr(at)) / Decide.sprint(); // shortcut: straight there and back, not the walker's route
-        long tod = level.getDayTime() % 24000; int n = Decide.hostilesAlong(g, g.blockPosition(), at); double pass = Math.min(s, Weights.w("recovery.hostile_pass_s", 10)); // (a mob he knows of is passed or shaken off, not at his heels the whole 300 blocks: one zombie by him priced a run for his iron at certain death)
+        long tod = runTod(level, at); int n = Decide.hostilesAlong(g, g.blockPosition(), at); double pass = Math.min(s, Weights.w("recovery.hostile_pass_s", 10)); // (a mob he knows of is passed or shaken off, not at his heels the whole 300 blocks: one zombie by him priced a run for his iron at certain death)
         return s + Decide.hpS(g, Decide.danger(g, level, tod, s, 0) + Decide.danger(g, level, tod, pass, n) - Decide.danger(g, level, tod, pass, 0)) + pileS(g, dim, at);
     }
 

@@ -10549,6 +10549,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1492: return st1492(stage, t, c, h, level, mock);
             case 1491: return st1491(stage, t, c, h, level, mock);
             case 1490: return st1490(stage, t, c, h, level, mock);
             case 1489: return st1489(stage, t, c, h, level, mock);
@@ -19638,6 +19639,41 @@ public final class ClaudeBodyTest {
                 check(logs == 0, "no cobblestone on him for his mine's floor block: " + logs + " oak log(s) put down on the way back up to it first");
                 check(s <= 2, "no cobblestone on him for his mine's floor block: " + s + " s before giving it up (" + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
                 pass(stage, t, "no cobblestone for his mine's floor block: given up in " + s + " s, nothing put down");
+            }
+        }
+        return true;
+    }
+    /** Stage 1492 (D2D review 202, live 07:54:28-35 11-11 in his mine: no stone on him, his patch at -21,16,-440 waiting for the pocket's cobblestone, a 21-deep hole in his floor at -23,15,-441 between him and it, 3 off; doPickup's bridge is for anything but junk, and cobblestone was always junk: "left Cobblestone at -21,16,-441 behind: no way to it", the patch then short of stone). His mine's floor gone across one row, deep under it, his cobblestone 2 rows past it, no stone on him, oak logs to bridge with: across and the cobblestone picked up. */
+    private static int s1492T; private static net.minecraft.world.entity.item.ItemEntity s1492I;
+    private static boolean st1492(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8)); // (by the test structure: a drop added out at 24800 never showed in a sweep there)
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; s1492T = 0; s1492I = null; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 24; x++) for (int z = -6; z <= 6; z++) for (int y = -12; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+            var E = net.minecraft.core.Direction.EAST; var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 16, null)); b.invalidate();
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineIsTunnel = true; com.claudemod.director.ClaudeLife.bpSync(c); level.setDayTime(6000);
+            for (BlockPos f : b.rows().get(8).feet()) for (int k = 1; k <= 10; k++) level.setBlock(f.below(k), Blocks.AIR.defaultBlockState(), 2); // the floor gone across row 8, a 10-deep hole under it
+            BlockPos me = b.rows().get(7).first();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 32)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, -90f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.fallDistance = 0; mock[0].teleportTo(level, me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600; c.attempts.clear(); c.lastStep = null;
+        }
+        if (t[0] == 25) { BlockPos at = c.blueprint.rows().get(10).first(); s1492I = new net.minecraft.world.entity.item.ItemEntity(level, at.getX() + 0.5, at.getY(), at.getZ() + 0.5, new ItemStack(Items.COBBLESTONE)); s1492I.setDeltaMovement(0, 0, 0); s1492I.setNoPickUpDelay(); s1492I.setOnGround(true); level.addFreshEntity(s1492I); } // (once he stands there: an item added the tick he lands in the chunk was never in the sweep)
+        if (t[0] == 30) { c.tasks.clear(); c.tasks.add(new Task.Pickup(400)); s1492T = t[0]; }
+        if (s1492T > 0 && t[0] > s1492T) {
+            boolean got = c.getInventory().countItem(Items.COBBLESTONE) > 0, fell = c.getY() < o.getY() - 1.5, idle = c.currentTask == null && c.tasks.isEmpty() && t[0] - s1492T > 20;
+            if (got || fell || idle || t[0] - s1492T > 20 * 15) {
+                double s = (t[0] - s1492T) / 20.0; String q = c.currentTask + " " + c.tasks; BlockPos at = c.blockPosition();
+                if (s1492I != null) s1492I.discard();
+                c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.prefs.remove("stay_close"); c.pillarBlocks.clear(); c.blueprint = null; c.prefs.remove("mine_model"); c.mineShape = null; c.mineCells.clear(); c.mineSpine.clear(); c.getInventory().clearContent();
+                for (int x = -4; x <= 24; x++) for (int z = -6; z <= 6; z++) for (int y = -12; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2);
+                c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.setDeltaMovement(0, 0, 0); c.fallDistance = 0;
+                check(!fell, "fell into the hole in his floor on the way to his cobblestone (at " + at.toShortString() + ")");
+                check(got, "no stone on him, his cobblestone 2 rows past a 1-row hole in his floor: not picked up in " + s + " s (at " + at.toShortString() + ", " + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+                pass(stage, t, "over the hole in his floor and his cobblestone picked up in " + s + " s");
             }
         }
         return true;

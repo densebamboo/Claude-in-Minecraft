@@ -3345,7 +3345,7 @@ public class WorkGoal extends Goal {
         }
         // 5. across a gap: walk as close as he can, then bridge
         if (pathGetsCloser(path, nearest.position())) { g.getNavigation().moveTo(path, 1.0); return false; }
-        boolean junkDrop = nearest.getItem().is(net.minecraft.world.item.Items.COBBLESTONE) || nearest.getItem().is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE) || com.claudemod.director.ClaudeLife.junkItem(nearest.getItem());
+        boolean stoneDrop = nearest.getItem().is(net.minecraft.world.item.Items.COBBLESTONE) || nearest.getItem().is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE), junkDrop = stoneDrop ? g.inventory.count(s9 -> s9.is(net.minecraft.world.item.Items.COBBLESTONE) || s9.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE)) >= 16 : com.claudemod.director.ClaudeLife.junkItem(nearest.getItem()); // stone is junk only while he has plenty: with none on him it's his next patch (live 07:54 11-11, review 202: 0 cobble, his patch waiting on the pocket's cobblestone 3 off over a 1-block gap in his floor, left as "no way to it"; stage 1492)
         if (!junkDrop && bridgeToward(nearest.position(), isOreDrop(nearest.getItem()) ? 60 : 10)) return false; // (junk isn't worth a block put out over a drop: it waits)
         if (valuable && bp == null && digThroughToward(nearest.position())) { g.tasks.add(again); return true; } // ore: never left behind, dig straight to it (not through his mine's shell)
         if (valuable && bp != null && airJoinedToMine(level, bp, ip)) { // ore dropped in an ore hole off his tunnel (head-high, 2 deep: 03:32 two diamonds out of reach, then patched in): the player's way, break the wall block under the hole, step in, take it; the wall goes back on the patch list

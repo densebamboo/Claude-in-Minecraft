@@ -302,7 +302,9 @@ public final class Decide {
         java.util.List<String> said = new java.util.ArrayList<>();
         String best = null; double bestS = Double.MAX_VALUE;
         boolean bores = FortressScout.bores(g, level);
-        if (bores) {
+        boolean beside = Math.abs(goal.getX() - g.getBlockX()) <= 1 && Math.abs(goal.getZ() - g.getBlockZ()) <= 1; // (a bore goes across, and is there once within 1 across: it climbs nothing in place. Live 02:08 11-11, review 020925-47: 2 under his highway's end, "bore ~1 s", ran from his cell back to it, 3 times; stage 1482)
+        if (bores && beside) said.add("bore: out (he's beside it already: a bore goes across, never up in place)");
+        else if (bores) {
             int n = Math.abs(goal.getX() - g.getBlockX()) + Math.abs(goal.getZ() - g.getBlockZ()) + Math.abs(goal.getY() - g.getBlockY());
             double s = FortressScout.BORE_S * n;
             boolean out = before != null && before.option().equals("bore") && !gained;

@@ -136,6 +136,8 @@ public final class ActionPath {
             best.put(from.immutable(), open.peek());
             scarce = c.maxPuts < 2 * (Math.abs(from.getX() - to.getX()) + Math.abs(from.getY() - to.getY()) + Math.abs(from.getZ() - to.getZ())) + 16; // blocks that can run short on this way: then fewer puts is a way of its own (with plenty, 538 expanded each cell ~3 times for it, out of nodes under a fortress)
         }
+        Plan arrivedAt(Node n) { coverNote(c, from, to); /* (never the cell under a goal he can stand on: that's its floor, dug out to "arrive" a block short, and the last step up had nothing to stand on: stage 937, live 03:44 11-07 in a 4-deep hole for minutes) */ leapNote(c, from, to, n); Plan pl = unwind(n); if (mode == Mode.MAY_DIG && c.bp) prune(level.getGameTime()); if (mode == Mode.MAY_DIG && c.bp) for (Act a : pl.acts()) if (a instanceof Act.Dig dg && cuttableShell(g, level, dg.pos())) { SHELL_CUT.put(dg.pos().immutable(), level.getGameTime()); SHELL_CUT_BY.put(dg.pos().immutable(), g); } if (mode == Mode.MAY_BEND) { Map<BlockPos, String> b = new java.util.LinkedHashMap<>(); for (Act a : pl.acts()) if (a instanceof Act.Dig dg && c.bent.containsKey(dg.pos())) b.put(dg.pos(), c.bent.get(dg.pos())); lastBent = b; } return pl; }
+        boolean arrived(Node n) { return Math.sqrt(n.feet.distSqr(to)) <= within && !(n.feet.equals(to.below()) && c.floor(to) && !c.passable(to.below())); }
         /** Searches on for up to {@code sliceNs}: the plan, null (no way), or PENDING (the slice ran out, the 500 ms not). */
         Plan run(long sliceNs) {
             long t0 = System.nanoTime(); slices++;
@@ -145,7 +147,7 @@ public final class ActionPath {
                 Node n = open.poll();
                 { Node b0 = best.get(n.feet); if (b0 != n && b0.g() <= n.g() && (!scarce || b0.puts() <= n.puts()) && b0.fire() <= n.fire() && b0.wet() <= n.wet() && b0.hurt() <= n.hurt()) { expanded--; continue; } } // (a stale entry: a way here no worse was expanded already)
                 double dd = Math.sqrt(n.feet.distSqr(to));
-                if (dd <= within && !(n.feet.equals(to.below()) && c.floor(to) && !c.passable(to.below()))) { coverNote(c, from, to); /* (never the cell under a goal he can stand on: that's its floor, dug out to "arrive" a block short, and the last step up had nothing to stand on: stage 937, live 03:44 11-07 in a 4-deep hole for minutes) */ leapNote(c, from, to, n); Plan pl = unwind(n); if (mode == Mode.MAY_DIG && c.bp) prune(level.getGameTime()); if (mode == Mode.MAY_DIG && c.bp) for (Act a : pl.acts()) if (a instanceof Act.Dig dg && cuttableShell(g, level, dg.pos())) { SHELL_CUT.put(dg.pos().immutable(), level.getGameTime()); SHELL_CUT_BY.put(dg.pos().immutable(), g); } if (mode == Mode.MAY_BEND) { Map<BlockPos, String> b = new java.util.LinkedHashMap<>(); for (Act a : pl.acts()) if (a instanceof Act.Dig dg && c.bent.containsKey(dg.pos())) b.put(dg.pos(), c.bent.get(dg.pos())); lastBent = b; } return pl; }
+                if (arrived(n)) return arrivedAt(n);
                 c.hurtNow = n.hurt;
                 for (Move m : c.moves(n.feet)) {
                     int np = n.puts, nf = n.fire; float nh = n.hurt; for (Act a : m.acts) { if (a instanceof Act.Put pu) { np++; if (byLava(level, pu.pos())) nf++; } else if (a instanceof Act.Leap lp) nh += lp.hp(); }
@@ -160,6 +162,8 @@ public final class ActionPath {
                     open.add(nn);
                 }
             }
+            if (!open.isEmpty()) { Node got = null; for (Node k : best.values()) if (arrived(k) && (got == null || k.g() < got.g())) got = k; // the budget ran out with a way to the goal already found, only not yet the cheapest: that way, never "no way" (live 02:13 11-11 mid-fight: "nearest 242, 79, 506, 0.0 off", no way, 6 times in 5 s; stage 1483)
+              if (got != null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} -> {}: the search budget ran out ({} nodes) with the goal reached: that way, cost {} (ActionPath.plan)", from.toShortString(), to.toShortString(), expanded, String.format("%.1f", got.g())); return arrivedAt(got); } }
             coverNote(c, from, to); leapNote(c, from, to, null);
             { Node near = null; for (Node k : best.values()) if (near == null || h(k.feet, to) < h(near.feet, to)) near = k;
               com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} -> {}: no way: {} ({} of {} nodes, {} cells reached, {} blocks to put; nearest {}, {} off) (ActionPath.plan)", from.toShortString(), to.toShortString(), open.isEmpty() ? "every cell reachable tried" : "the search budget ran out", expanded, budget, best.size(), c.maxPuts, near == null ? "-" : near.feet.toShortString(), near == null ? "-" : String.format("%.1f", Math.sqrt(near.feet.distSqr(to)))); }

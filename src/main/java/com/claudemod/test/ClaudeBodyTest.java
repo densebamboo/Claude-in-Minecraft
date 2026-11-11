@@ -10549,6 +10549,9 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1483: return st1483(stage, t, c, h, level, mock);
+            case 1482: return st1482(stage, t, c, h, level, mock);
+            case 1481: return st1481(stage, t, c, h, level, mock);
             case 1480: return st1480(stage, t, c, h, level, mock);
             case 1479: return st1479(stage, t, c, h, level, mock);
             case 1478: return st1478(stage, t, c, h, level, mock);
@@ -19282,6 +19285,83 @@ public final class ClaudeBodyTest {
                 check(there, "not on at row 58 in 40 s after the detour (at row " + at + ")");
                 pass(stage, t, "on from the detour to row 58 in " + secs + " s, never back past row " + low);
             }
+        }
+        return true;
+    }
+    /** Stage 1481 (live 02:29-02:30 11-11, 53 "[Claude lag]" ticks of 1-14 s: take_from_chest's ChestLedger.where pricing each of his chests by routeDist from the surface, one end off his mine: rowDists from each chest's row to his entrance, a whole search of his mine's rows per chest row, the 64-entry memo churned). A mine of 1200 rows, him off it, every row's spot priced twice: fast, one search of his rows, not one per row. */
+    private static boolean st1481(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; }
+        if (t[0] == 10) {
+            BlockPos o = new BlockPos(22800, 80, 19600); var E = net.minecraft.core.Direction.EAST;
+            var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 1200, null)); b.invalidate();
+            var keep = c.blueprint; String model = c.prefs.get("mine_model"); c.blueprint = b; c.prefs.put("mine_model", "blueprint");
+            BlockPos off = o.offset(0, 0, 60); var rs = b.rows(); int n = rs.size(), sum = 0;
+            long t0 = System.nanoTime();
+            for (int pass = 0; pass < 2; pass++) for (int i = 0; i < n; i++) sum += com.claudemod.director.ClaudeLife.routeDist(c, off, rs.get(i).first());
+            long ms = (System.nanoTime() - t0) / 1_000_000;
+            int far = com.claudemod.director.ClaudeLife.routeDist(c, off, rs.get(n - 1).first()), near = com.claudemod.director.ClaudeLife.routeDist(c, off, rs.get(1).first());
+            c.blueprint = keep; if (model == null) c.prefs.remove("mine_model"); else c.prefs.put("mine_model", model);
+            check(n >= 1000, "the blueprint has " + n + " rows, not 1000+");
+            check(far > near + 1000, "the far row is " + far + " by his rows, the near one " + near + ": not along his rows");
+            check(ms <= 300, n + " rows priced twice from off his mine in " + ms + " ms: over 300, a search of his rows per row");
+            pass(stage, t, n + " rows priced twice from off his mine in " + ms + " ms (sum " + sum + ")");
+        }
+        return true;
+    }
+    /** Stage 1482 (D2D review 020925-47, live 02:08:27-02:09:25 11-11 in the Nether: at his highway branch's end, its next row's floor not down, he dropped 2 into the hole beside it at 141,57,401; the walk to the end 141,59,402 (1 across, 2 up, no floor under it) refused NO_PATH, and Decide.walkRefused took "bore straight there ~1 s": doBore is there once he's within 1 across, so it ran "141,57,401 -> 141,57,401" and the walk failed again, 3 times in 25 s). Here: that hole, that spot, walkRefused. A bore never climbs in place: he gets up onto the spot. */
+    private static int s1482T;
+    private static boolean st1482(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(9200, 64, 5920), me = o.offset(0, -2, 0), goal = o.offset(0, 0, 1);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); s1482T = 0; }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+            for (int x = -8; x <= 4; x++) for (int z = -3; z <= 4; z++) for (int y = -5; y <= 5; y++) {
+                boolean way = x <= -1 && z >= 1 && z <= 2 && y >= 0 && y <= 2, row = x == 0 && z >= 1 && z <= 2 && y >= 0 && y <= 2, shaft = x == 0 && z == 0 && y >= -2 && y <= 1, gap = x == 0 && z == 1 && y == -1;
+                nl.setBlock(o.offset(x, y, z), way || row || shaft || gap ? Blocks.AIR.defaultBlockState() : x <= -1 && y == -1 && z >= 1 && z <= 2 ? Blocks.COBBLED_DEEPSLATE.defaultBlockState() : Blocks.NETHERRACK.defaultBlockState(), 2);
+            }
+            nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f); c.fallDistance = 0;
+        }
+        if (t[0] == 30) {
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+            boolean go = com.claudemod.entity.life.Decide.walkRefused(c, nl, goal, 0.9, "NO_PATH the path stops at " + me.toShortString() + ", 2 short (2 up)");
+            check(go, "the end of his highway 1 across and 2 up: the walk refused and the spot skipped");
+            s1482T = t[0];
+        }
+        if (s1482T > 0 && t[0] > s1482T) {
+            boolean up = c.onGround() && c.getBlockY() == goal.getY() && Math.abs(c.getX() - goal.getX() - 0.5) <= 1.5 && Math.abs(c.getZ() - goal.getZ() - 0.5) <= 1.5;
+            boolean idle = c.currentTask == null && c.tasks.isEmpty() && t[0] - s1482T > 40;
+            if (up || idle || t[0] - s1482T > 20 * 20) {
+                double s = (t[0] - s1482T) / 20.0; BlockPos at = c.blockPosition(); String q = c.currentTask + " " + c.tasks;
+                c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.pillarBlocks.clear();
+                nsHome(c, h, level);
+                check(up, "2 under the end of his highway, 1 across: not up on it in " + s + " s (at " + at.toShortString() + ", " + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+                check(s <= 8, "up 2 onto the end of his highway: " + s + " s (a player: a jump-place or two and a step, ~3)");
+                pass(stage, t, "up onto the end of his highway in " + s + " s");
+            }
+        }
+        return true;
+    }
+    /** Stage 1483 (D2D 022451-88/89, live 02:13:05-09 11-11 mid-fight with a wither skeleton: the walk to his cover gap 242,79,506, "no way: the search budget ran out (401 of 400 nodes ...; nearest 242, 79, 506, 0.0 off)", 6 times in 5 s: the goal reached by a dear last move (a leap, its HP priced x5.4 with the mobs about), the budget spent on cheap ground before that way came up, and the way thrown away). Open ground, the goal at the floor of an open pit 7 down (a drop his only way), a 100-node search: the way he found is his way. */
+    private static boolean st1483(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(23200, 80, 19600), goal = o.offset(4, -7, 0);
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o); }
+        if (t[0] == 10) {
+            for (int x = -24; x <= 24; x++) for (int z = -24; z <= 24; z++) for (int y = -9; y <= 3; y++) { boolean pit = x >= 1 && x <= 5 && z >= -2 && z <= 2 && y >= -7; level.setBlock(o.offset(x, y, z), (y < 0 && !pit ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); }
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0; c.setHealth(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 20) {
+            var p = com.claudemod.entity.nav.ActionPath.plan(c, level, o, goal, 1.5, false, 100, com.claudemod.entity.nav.ActionPath.Mode.NO_DIG, new java.util.HashMap<>(), c.tickCount, java.util.List.of());
+            BlockPos end = null; if (p != null) for (var a0 : p.acts()) { if (a0 instanceof com.claudemod.entity.nav.ActionPath.Act.Walk w0) end = w0.feet(); else if (a0 instanceof com.claudemod.entity.nav.ActionPath.Act.Leap l0) end = l0.land(); }
+            for (int x = -24; x <= 24; x++) for (int z = -24; z <= 24; z++) for (int y = -9; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2);
+            check(p != null, "the floor of an open pit 7 down beside him, a 100-node search: no way (the goal reached in the search and thrown away?)");
+            check(end != null && end.distSqr(goal) <= 2.25, "the way ends at " + end + ", not within 1.5 of the goal " + goal.toShortString());
+            pass(stage, t, "the way down into the pit: " + p.acts().size() + " acts");
         }
         return true;
     }

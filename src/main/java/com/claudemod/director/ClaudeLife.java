@@ -228,7 +228,7 @@ public final class ClaudeLife {
             BlockPos headed = g.currentTask instanceof Task.GoTo go ? go.pos() : g.getNavigation().getPath() != null ? g.getNavigation().getPath().getTarget() : null;
             ClaudeMod.LOGGER.info("[Claude where] (live build) at {}{} ({}, health " + (int) g.getHealth() + " food " + g.getFoodData().getFoodLevel()
                     + ", carrying logs " + g.inventory.count(s -> s.is(ItemTags.LOGS)) + " planks " + g.inventory.count(s -> s.is(ItemTags.PLANKS)) + " cobble " + g.inventory.count(s -> s.is(Items.COBBLESTONE)) + " deepslate " + g.inventory.count(s -> s.is(Items.COBBLED_DEEPSLATE))
-                    + " torches " + g.inventory.count(s -> s.is(Items.TORCH)) + " iron " + g.inventory.count(s -> s.is(Items.IRON_INGOT) || s.is(Items.RAW_IRON)) +  " pick " + bestPickName(g) + " meals " + Kit.food(g)
+                    + " torches " + g.inventory.count(s -> s.is(Items.TORCH)) + " iron " + g.inventory.count(s -> s.is(Items.IRON_INGOT) || s.is(Items.RAW_IRON)) +  " best pick " + bestPickName(g) + " in hand " + (g.getMainHandItem().isEmpty() ? "nothing" : Crafting.name(g.getMainHandItem().getItem())) + " meals " + Kit.food(g)
                     + "), doing {}{}, {} more queued, step: {}, skills queued {}{}{}{}", (g.level().dimension() == net.minecraft.world.level.Level.OVERWORLD ? "" : g.level().dimension().location().getPath() + " "), g.blockPosition().toShortString(), dist < 0 || player.level() != g.level() ? "they're in another world" : (int) dist + " blocks from them",
                     g.currentTask == null ? "nothing" : g.currentTask.getClass().getSimpleName(), headed != null ? " -> " + headed.toShortString() : "",
                     g.tasks.size(), g.lastStep == null ? "-" : g.lastStep.skill() + " " + g.lastStep.target(), g.skillQueue.size(),
@@ -6200,7 +6200,7 @@ public final class ClaudeLife {
         if (ra == null && rc == null) return straight;
         if (ra != null && rc != null) { int k = rowDists(b, ra[0])[rc[0]]; return k < 0 ? straight + 1000 : k + ra[1] + rc[1]; } // (rows that don't join: no way through his mine)
         int[] on = ra != null ? ra : rc; BlockPos off = ra != null ? c : a;
-        int k = rowDists(b, on[0])[0]; // out by his entrance
+        int k = rowDists(b, 0)[on[0]]; // out by his entrance (rows join both ways: one search from the entrance serves every row, never one per row: live 02:29 11-11, 53 lag ticks of 1-14 s pricing his chests from the surface; stage 1481)
         return (k < 0 ? 1000 : k) + on[1] + (int) Math.sqrt(b.entrance.distSqr(off));
     }
     public static com.claudemod.entity.life.BaseNook nearestNook(ClaudeEntity g, BlockPos from, java.util.function.Predicate<com.claudemod.entity.life.BaseNook> ok) {

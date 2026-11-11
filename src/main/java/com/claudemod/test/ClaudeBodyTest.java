@@ -10965,6 +10965,7 @@ public final class ClaudeBodyTest {
             case 1510: return st1510(stage, t, c, h, level, mock);
             case 1511: return st1511(stage, t, c, h, level, mock);
             case 1512: return st1512(stage, t, c, h, level, mock);
+            case 1513: return st1513(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -20756,6 +20757,37 @@ public final class ClaudeBodyTest {
             check(down, "his cover held with him at " + where + ", not down the hole (lid " + lid + ")");
             pass(stage, t, "down his hole at " + where + " under the lid (" + lid + ")"); return true; }
         if (t[0] > 20) check(t[0] < 300, "never settled down his hole: at " + c.blockPosition().toShortString() + " (the hole's top " + at.below().toShortString() + " " + level.getBlockState(at.below()).getBlock().getName().getString() + "), now=" + c.currentTask + " tasks=" + c.tasks);
+        return true;
+    }
+    /** Stage 1513 (D2D review 87, live 11:05:23-11:05:26 11-11 at -85,16,-428): his table set down on his tunnel floor for a fishing rod, "this one comes back up"; his mine sweep queued a Break on it 2 s later, before the craft, and he set it down again. A table of his out for a job is the job's to take back up, never the sweep's. */
+    private static boolean st1513(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(19600, 80, 18700);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -16; k <= 32; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { scenarioReset(c); c.commandActive = false; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 28; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.DEEPSLATE.defaultBlockState(), 2);
+            var E = net.minecraft.core.Direction.EAST;
+            var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 20, null)); b.invalidate();
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            for (BlockPos sl : b.torchSlots().values()) { net.minecraft.core.Direction wd = b.slotWall(sl); if (wd != null && level.getBlockState(sl).isAir()) level.setBlock(sl, Blocks.WALL_TORCH.defaultBlockState().setValue(net.minecraft.world.level.block.WallTorchBlock.FACING, wd.getOpposite()), 3); }
+            BlockPos me = b.rows().get(6).first(), table = b.rows().get(7).first();
+            level.setBlock(table, Blocks.CRAFTING_TABLE.defaultBlockState(), 3); c.tempStations.add(table.immutable()); // (as ClaudeLife.placeNextTo: "his table down on his tunnel floor for now")
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = b.rows().get(19).first(); c.mineIsTunnel = true; level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.STICK, 3)); c.getInventory().add(new ItemStack(Items.STRING, 2)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no"); mock[0].teleportTo(level, me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 20) {
+            var b = c.blueprint; BlockPos table = b.rows().get(7).first(); c.tasks.clear(); if (!c.tempStations.contains(table)) c.tempStations.add(table.immutable()); // (on his list, as 2 s after placeNextTo live)
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("bpIntegrity", ClaudeEntity.class, ServerLevel.class); m.setAccessible(true); m.invoke(null, c, level); } catch (ReflectiveOperationException ex) { throw new RuntimeException(ex); }
+            boolean broke = c.tasks.stream().anyMatch(q -> q instanceof Task.Break br && br.pos().equals(table)); String held = "tempStations " + c.tempStations + ", myStations has it " + c.myStations.contains(table);
+            String q = String.valueOf(c.tasks);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; c.prefs.remove("stay_close"); c.tempStations.remove(table);
+            for (int x = -4; x <= 28; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(!broke, "his table out for a craft on his tunnel floor queued for a Break by his mine sweep: " + (q.length() > 300 ? q.substring(0, 300) : q) + " (" + held + ")");
+            nsHome(c, h, level); pass(stage, t, "his table out for the craft left to the craft");
+        }
         return true;
     }
     private static int s1511At = -1;

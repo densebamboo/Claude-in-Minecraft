@@ -10695,6 +10695,7 @@ public final class ClaudeBodyTest {
             case 1154: return st1154(stage, t, c, h, level, mock);
             case 1150: return st1150(stage, t, c, h, level, mock);
             case 1096: return st1096(stage, t, c, h, level, mock);
+            case 1097: return st1097(stage, t, c, h, level, mock);
             case 1130: return st1130(stage, t, c, h, level, mock);
             case 1132: return st1132(stage, t, c, h, level, mock);
             case 1133: return st1133(stage, t, c, h, level, mock);
@@ -16809,6 +16810,29 @@ public final class ClaudeBodyTest {
             BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(back.getX() + 0.5, back.getY(), back.getZ() + 0.5);
             check(!toMine, "32 cobble 150 off his mine, stone under his feet: the walk to his mine taken (\"" + r + "\", tasks " + tl + ")");
             pass(stage, t, "dug here: \"" + r + "\"");
+        }
+        return true;
+    }
+    /** Stage 1097 (D2D review 20261111-010856-34 / 011334-40, live 01:07-01:31 11-11: "collect cobbled_deepslate x75 -> my mine's further off than a dig here: a few steps down right here for the cobble", then pits in plain stone at y 58: cobblestone 103 -> 435, cobbled deepslate 0 the whole time, the highway pack step re-asked every few s): his mine in the arena, him 150 off on grass over plain stone, kitted, 75 cobbled deepslate asked. No local dig where no deepslate is in reach: plain stone never gives it. */
+    private static boolean st1097(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); level.setDayTime(1000); }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+        var b0 = c.blueprint; BlockPos far = h.absolutePos(new BlockPos(150, 13, 8));
+        if (t[0] == 5) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(far), 2, far);
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            for (int x = -5; x <= 5; x++) for (int z = -5; z <= 5; z++) { for (int y = 1; y <= 4; y++) level.setBlock(far.offset(x, y - 1, z), Blocks.AIR.defaultBlockState(), 2); level.setBlock(far.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); level.setBlock(far.offset(x, -2, z), Blocks.DIRT.defaultBlockState(), 2); for (int y = -9; y <= -3; y++) level.setBlock(far.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2); }
+            nsKit(c); c.getInventory().add(new ItemStack(Items.TORCH, 32));
+            c.teleportTo(far.getX() + 0.5, far.getY(), far.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            if (mock[0] != null) mock[0].teleportTo(far.getX() + 3.5, far.getY(), far.getZ() + 0.5);
+        }
+        if (t[0] == 20) {
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "cobbled_deepslate", 75);
+            BlockPos ent = c.blueprint.entrance; boolean toMine = r.contains("my mine further") || r.contains("starting my mine") || c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().distSqr(ent) <= 24 * 24);
+            String tl = c.tasks.stream().limit(4).map(Object::toString).toList().toString();
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(back.getX() + 0.5, back.getY(), back.getZ() + 0.5);
+            check(!r.contains("right here"), "75 cobbled deepslate 150 off his mine, plain stone under his feet: dug here for it (\"" + r + "\", tasks " + tl + ")");
+            pass(stage, t, "not dug out of plain stone: \"" + r + "\" (to his mine " + toMine + ")");
         }
         return true;
     }

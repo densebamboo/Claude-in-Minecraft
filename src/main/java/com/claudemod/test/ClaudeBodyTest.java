@@ -10925,6 +10925,7 @@ public final class ClaudeBodyTest {
             case 1443: return st1443(stage, t, c, h, level, mock);
             case 1444: return st1444(stage, t, c, h, level, mock);
             case 1445: return st1445(stage, t, c, h, level, mock);
+            case 1446: return st1446(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25146,6 +25147,42 @@ public final class ClaudeBodyTest {
             check(loot.startsWith("failed"), "setup: the smith's chest loot with no chest: " + loot);
             check(!after.contains("village_iron"), "no golem and the smith's house walked with no chest (" + loot + "), iron planned on the village again: " + after);
             pass(stage, t, "a village walked with nothing for iron: iron planned without it (" + after + ")");
+        }
+        return true;
+    }
+    /** Stage 1446 (D2D hourly 1b, live 00:24:03-00:27 11-11, 8 under his mine's row at -125,8,-407): iron 103 off at -22,17,-414, under rock past his mine's row. Route.expand priced his own way (ActionPath, 117 walks 10 digs) over the way in by his door, said "his walker's" and threw it away; the plain walker had no path, wayOut cut a staircase toward the grass (-33,70,-414) up into his own mine's floor, refused, written off, 2-3 min under his mine. His own way, once priced, is the way he walks. */
+    private static int st1446T; private static BlockPos st1446To;
+    private static boolean st1446(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(21400, 80, 20000);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = 0; k <= 112; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; st1446T = -1; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 100; x++) for (int z = -6; z <= 6; z++) for (int y = -34; y <= 30; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+            var E = net.minecraft.core.Direction.EAST;
+            var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 40, null)); b.invalidate();
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            var rows = b.rows(); BlockPos me = rows.get(10).first().below(8); st1446To = rows.get(rows.size() - 1).first().east(8).immutable();
+            for (BlockPos q : new BlockPos[] {me, st1446To}) for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) for (int yy = 0; yy < 2; yy++) level.setBlock(q.offset(x, yy, z), Blocks.AIR.defaultBlockState(), 2); // his cave under his row, and the pocket with the ore past his face
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = rows.get(rows.size() - 1).first(); c.mineIsTunnel = true; com.claudemod.director.ClaudeLife.bpSync(c); level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no"); c.prefs.put("torches_while_digging", "no"); mock[0].teleportTo(level, me.getX() + 0.5, me.getY() + 60, me.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.tasks.add(new Task.GoTo(st1446To, 1.0)); st1446T = t[0]; }
+        if (st1446T > 0 && t[0] > st1446T + 2) {
+            int roof = st1446To.getY() + 6;
+            java.util.function.Predicate<BlockPos> sky = q -> q.getY() > roof;
+            boolean up = c.getBlockY() > roof || c.tasks.stream().anyMatch(x -> x instanceof Task.GoTo go && sky.test(go.pos())) || c.currentTask instanceof Task.GoTo cg && sky.test(cg.pos());
+            boolean there = c.blockPosition().distSqr(st1446To) <= 9 || com.claudemod.director.ClaudeLife.inHisMine(c, c.blockPosition()); // (up in his row: this stage's part; past the face is the face loop's own, on main too)
+            if (up || there || t[0] - st1446T > 20 * 40) {
+                String now = c.currentTask + " " + c.tasks; int at = c.getBlockY(); int secs = (t[0] - st1446T) / 20; String where = c.blockPosition().toShortString();
+                c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; c.mineShape = null; c.mineCells.clear(); c.mineSpine.clear(); c.prefs.remove("stay_close"); c.prefs.remove("torches_while_digging");
+                for (int x = -4; x <= 100; x++) for (int z = -6; z <= 6; z++) for (int y = -34; y <= 30; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(!up, "heading up to the sky (at y " + at + ") for a walk to ore under rock past his mine's face: " + (now.length() > 220 ? now.substring(0, 220) : now));
+                check(there, "not up in his row (or at the ore's pocket " + st1446To.toShortString() + ") in 40 s (at " + where + "): " + (now.length() > 220 ? now.substring(0, 220) : now));
+                pass(stage, t, "up into his row on the way to the ore past his face in " + secs + " s, never up to the sky");
+            }
         }
         return true;
     }

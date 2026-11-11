@@ -337,7 +337,7 @@ public final class ActionPath {
             if (a instanceof Act.Walk w) {
                 BlockPos prevCell = cur;
                 lastWalk = w.feet(); cur = w.feet();
-                if (!restore.isEmpty()) { final BlockPos at0 = cur; if (restore.stream().allMatch(o -> { BlockPos q = (BlockPos) o[0]; return !q.equals(at0) && !q.equals(at0.above()) && Math.abs(q.getX() - at0.getX()) + Math.abs(q.getZ() - at0.getZ()) >= 2; })) { // past the structure blocks he had to dig: each goes back as it was
+                if (!restore.isEmpty()) { final BlockPos at0 = cur; if (restore.stream().allMatch(o -> { BlockPos q = (BlockPos) o[0]; int hz = Math.abs(q.getX() - at0.getX()) + Math.abs(q.getZ() - at0.getZ()), up = q.getY() - at0.getY(); return !q.equals(at0) && !q.equals(at0.above()) && (hz >= 2 || hz <= 1 && up >= 2 && up <= 3); })) { /* (or dropped past it: the cut 2-3 over his feet, in reach; from the way's end 4 down it was 4.7 off, a walk back up out of the water he can't climb, live 22:42-23:37 11-10 at -136,15,-405, D2D hourly 1, stage 1444) */ // past the structure blocks he had to dig: each goes back as it was
                     out.add(new Task.GoTo(lastWalk, 0.9)); lastWalk = null; run = 0;
                     for (Object[] o : restore) { BlockState st0 = (BlockState) o[1]; out.add(new Task.Place((BlockPos) o[0], st0.getBlock().asItem(), null, st0)); }
                     com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} structure block(s) dug for the way ({}): put back from {} once past (ActionPath.tasks)", restore.size(), restore.stream().map(o -> ((BlockPos) o[0]).toShortString()).toList(), at0.toShortString());

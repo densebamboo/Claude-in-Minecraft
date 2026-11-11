@@ -10921,6 +10921,7 @@ public final class ClaudeBodyTest {
             case 1441: return st1441(stage, t, c, h, level, mock);
             case 1442: return st1442(stage, t, c, h, level, mock);
             case 1443: return st1443(stage, t, c, h, level, mock);
+            case 1444: return st1444(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25026,6 +25027,22 @@ public final class ClaudeBodyTest {
             boolean byGap = end.getZ() == gap.getZ() && end.getY() == gap.getY() && end.getX() > gap.getX() && end.getX() <= gap.getX() + 3;
             check(!byGap, "the escape is the gap at " + gap.toShortString() + " held from " + end.toShortString() + ": his own side, the creeper 4 south on it with him");
             pass(stage, t, "a gap with the creeper on his side of it is no escape: the run to " + end.toShortString());
+        }
+        return true;
+    }
+    /** Stage 1444 (D2D hourly 1, live 22:42-23:37 11-10 at -136,15,-405, his mine over a flooded cave): the way to iron under his mine's floor was [Dig -136,15 (his floor), Walk -136,13 (in the water), Walk -136,11]; the floor went back "at the way's end", 4.7 off from -136,11: a walk back up he can't climb out of the water for, a swim to the far shore and round, the floor put back, the ore walk cut it again; an hour of it. The floor goes back from the first cell he's dropped past it, in reach, before the way goes on. */
+    private static boolean st1444(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 5) {
+            BlockPos f = h.absolutePos(new BlockPos(8, 8, 8)), cut = f.below(), end = f.below(5);
+            level.setBlock(cut, Blocks.COBBLESTONE.defaultBlockState(), 2);
+            try { var fld = com.claudemod.entity.nav.ActionPath.class.getDeclaredField("SHELL_CUT"); fld.setAccessible(true); @SuppressWarnings("unchecked") var m = (java.util.Map<BlockPos, Long>) fld.get(null); m.put(cut.immutable(), level.getGameTime()); } catch (Exception e) { check(false, "no SHELL_CUT: " + e); }
+            var acts = java.util.List.<com.claudemod.entity.nav.ActionPath.Act>of(new com.claudemod.entity.nav.ActionPath.Act.Dig(cut), new com.claudemod.entity.nav.ActionPath.Act.Walk(f.below(3)), new com.claudemod.entity.nav.ActionPath.Act.Walk(end));
+            var ts = com.claudemod.entity.nav.ActionPath.tasks(new com.claudemod.entity.nav.ActionPath.Plan(acts, 1, 0, 2), f, Items.COBBLESTONE, end, 0.9, level);
+            level.setBlock(cut, Blocks.AIR.defaultBlockState(), 2);
+            int put = -1, last = -1; for (int k = 0; k < ts.size(); k++) { if (ts.get(k) instanceof com.claudemod.entity.life.Task.Place pl && pl.pos().equals(cut)) put = k; if (ts.get(k) instanceof com.claudemod.entity.life.Task.GoTo go && go.pos().equals(end) && last < 0) last = k; }
+            check(put >= 0, "his floor at " + cut.toShortString() + " never put back: " + ts);
+            check(last < 0 || put < last, "his floor goes back from the way's end, 4 below it and out of reach, not from the first cell he's dropped past it: " + ts);
+            pass(stage, t, "his floor cut on a drop goes back from just under it: " + ts);
         }
         return true;
     }

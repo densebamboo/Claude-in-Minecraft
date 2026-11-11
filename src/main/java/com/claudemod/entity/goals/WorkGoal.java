@@ -4848,9 +4848,11 @@ public class WorkGoal extends Goal {
         int moved = 0, cobbleKept = 0;
         java.util.List<Integer> slots = new java.util.ArrayList<>();
         boolean junkBox = com.claudemod.director.ClaudeLife.isJunkChest(g, t.pos()); java.util.Map<net.minecraft.world.item.Item, Integer> kept = new java.util.HashMap<>(); final boolean deepslateWanted = com.claudemod.director.ClaudeLife.deepslateWanted(g);
+        int free0 = 0; for (int i = 0; i < g.inventory.items.getContainerSize(); i++) if (g.inventory.items.getItem(i).isEmpty()) free0++;
+        final boolean packFull = junkBox && free0 <= 1; java.util.List<String> spareIn = new java.util.ArrayList<>(); // (his pack full at his junk chest: the spare gear goes in with the junk, D2D 11-11 review 131, stage 1503)
         for (int i = 0; i < g.inventory.items.getContainerSize(); i++) {
             ItemStack s = g.inventory.items.getItem(i);
-            if (s.isEmpty()) continue; if (s.is(net.minecraft.tags.ItemTags.LOGS) && !junkBox) { if (kept.merge(net.minecraft.world.item.Items.OAK_LOG, s.getCount(), Integer::sum) > 64 + s.getCount() - 1 && kept.get(net.minecraft.world.item.Items.OAK_LOG) - s.getCount() >= 64) slots.add(i); continue; } if (keeps(s)) continue; // (logs: a stack of 64 stays (the user), , whole stacks past that go in the chest; the user: no pack full of blocks)
+            if (s.isEmpty()) continue; if (packFull) { String sp = com.claudemod.director.ClaudeLife.spareGear(g, s, i); if (sp != null) { slots.add(i); spareIn.add(s.getCount() + " " + itemName(s) + " (" + sp + ")"); continue; } } if (s.is(net.minecraft.tags.ItemTags.LOGS) && !junkBox) { if (kept.merge(net.minecraft.world.item.Items.OAK_LOG, s.getCount(), Integer::sum) > 64 + s.getCount() - 1 && kept.get(net.minecraft.world.item.Items.OAK_LOG) - s.getCount() >= 64) slots.add(i); continue; } if (keeps(s)) continue; // (logs: a stack of 64 stays (the user), , whole stacks past that go in the chest; the user: no pack full of blocks)
             boolean cob = s.is(net.minecraft.world.item.Items.COBBLESTONE) || s.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE);
             if (cob && s.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE) && deepslateWanted) { kept.merge(net.minecraft.world.item.Items.COBBLESTONE, 1, Integer::sum); continue; } /* (and it counts as his kept stone, as spareStacks counts it: cobble past it is spare. D2D review 093255 11-07: 7 stacks of highway deepslate, 2 of cobble "kept", 0 in, the trip again every 10 s for a minute) */ // (a job's material on him: kept, never the junk chest's, live 16:33 11-06)
             if (junkBox) { if (cob ? kept.merge(net.minecraft.world.item.Items.COBBLESTONE, 1, Integer::sum) > 2 : com.claudemod.director.ClaudeLife.junkItem(s) && !(s.is(net.minecraft.world.item.Items.ROTTEN_FLESH) && com.claudemod.director.Kit.foodAsk(g) != null)) slots.add(i); continue; } // his junk chest: the junk and the stone past two stacks all told, as his toss keeps (kept for patching; 2 a kind left 2 stacks for the toss to throw on his floor, 05:17 11-05, stage 713)
@@ -4860,6 +4862,7 @@ public class WorkGoal extends Goal {
             slots.add(i);
         }
         if (junkBox) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] junk chest at {}: {} stacks in, cobble stacks kept {}", t.pos().toShortString(), slots.size(), kept);
+        if (!spareIn.isEmpty()) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] his pack full at his junk chest {}: the spare gear in too, taken back out when a craft or a trip wants it: {} (WorkGoal.doDeposit)", t.pos().toShortString(), String.join(", ", spareIn));
         // organised like a player's chest: valuables first, then ores, then stone and the rest, same things together
         slots.sort(java.util.Comparator.comparingInt((Integer i) -> sortGroup(g.inventory.items.getItem(i)))
                 .thenComparing(i -> net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(g.inventory.items.getItem(i).getItem()).toString()));

@@ -5608,6 +5608,26 @@ public final class ClaudeLife {
         if (st.isDamageableItem() && !(st.getItem() instanceof net.minecraft.world.item.ArmorItem)) { int before = 0; for (int i = 0; i < slot; i++) if (g.inventory.items.getItem(i).is(st.getItem())) before++; return before >= (st.is(Items.STONE_PICKAXE) ? (int) com.claudemod.entity.life.Weights.w("tools.stone_pick_handful", 3) : 2); } // (stone picks: the handful craftToolNow makes is the handful kept; review 31, live 22:00: three made, the third thrown, walked over and taken back every 5 s)
         return false;
     }
+    /** Gear past a trip's needs, for his junk chest when his pack is full (D2D 11-11, review 131: his pack full of gear he keeps, each junk round stored a few blocks and the pack stayed full).
+     *  Stays on him: two of each pick (stone for rock, iron for ore), the best of every other tool or weapon kind, one gold armour piece (the Nether's), the best armour per slot, 64 logs, and all his kit.
+     *  Null: keep it; else why it's spare. His chests count as his pack: a craft or a trip takes it back out. */
+    public static String spareGear(ClaudeEntity g, ItemStack st, int slot) {
+        if (st.isEmpty() || neededByPlan(g, st.getItem())) return null;
+        var inv = g.inventory.items; Item it = st.getItem();
+        if (st.is(ItemTags.LOGS)) { int before = 0; for (int i = 0; i < slot; i++) if (inv.getItem(i).is(ItemTags.LOGS)) before += inv.getItem(i).getCount(); return before >= 64 ? "logs past the 64 he keeps" : null; }
+        if (it instanceof net.minecraft.world.item.ArmorItem a) {
+            java.util.function.Predicate<ItemStack> gold = x -> x.getItem() instanceof net.minecraft.world.item.ArmorItem b && b.getMaterial().is(net.minecraft.world.item.ArmorMaterials.GOLD);
+            if (gold.test(st)) { boolean worn = false; for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() && gold.test(g.getItemBySlot(sl))) worn = true; boolean earlier = false; for (int i = 0; i < slot; i++) if (gold.test(inv.getItem(i))) earlier = true; return worn || earlier ? "a gold piece past the one he keeps for the Nether" : null; }
+            var w = g.getItemBySlot(a.getEquipmentSlot());
+            if (w.getItem() instanceof net.minecraft.world.item.ArmorItem wa && !gold.test(w) && wa.getDefense() >= a.getDefense()) return "he wears as good or better there";
+            for (int i = 0; i < inv.getContainerSize(); i++) { var o = inv.getItem(i); if (i != slot && !gold.test(o) && o.getItem() instanceof net.minecraft.world.item.ArmorItem b && b.getEquipmentSlot() == a.getEquipmentSlot() && (b.getDefense() > a.getDefense() || b.getDefense() == a.getDefense() && i < slot)) return "a piece as good or better for that slot on him"; }
+            return null;
+        }
+        if (it instanceof net.minecraft.world.item.PickaxeItem) { int before = 0; for (int i = 0; i < slot; i++) if (inv.getItem(i).is(it)) before++; return before >= 2 ? "a third of them, two kept for the wear" : null; }
+        if (it instanceof net.minecraft.world.item.TieredItem) { for (int i = 0; i < inv.getContainerSize(); i++) { var o = inv.getItem(i); if (i == slot || o.getItem().getClass() != it.getClass()) continue; if (o.getMaxDamage() > st.getMaxDamage() || o.getMaxDamage() == st.getMaxDamage() && i < slot) return "a better or same one on him"; } return null; } // (swords, axes, shovels, hoes: the best of each kind)
+        if (st.isDamageableItem()) { int before = 0; for (int i = 0; i < slot; i++) if (inv.getItem(i).is(it)) before++; return before >= 1 ? "a second one" : null; } // (a bow, a rod, shears, flint and steel: one does)
+        return null;
+    }
     /** An item one of his queued steps needs: a step's own target, or what a queued craft is made of (a furnace: its stone). The toss read none of his plan and threw out the blackstone his furnace wanted (review 65, stage 1209). */
     public static boolean neededByPlan(ClaudeEntity g, Item it) {
         java.util.List<Skills.Step> steps = new java.util.ArrayList<>(g.skillQueue); if (g.lastStep != null) steps.add(g.lastStep);

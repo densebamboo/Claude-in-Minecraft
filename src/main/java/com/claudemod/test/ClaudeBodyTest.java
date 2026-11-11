@@ -10914,6 +10914,7 @@ public final class ClaudeBodyTest {
             case 1438: return st1438(stage, t, c, h, level, mock);
             case 1439: return st1439(stage, t, c, h, level, mock);
             case 1440: return st1440(stage, t, c, h, level, mock);
+            case 1441: return st1441(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -26532,6 +26533,29 @@ public final class ClaudeBodyTest {
             for (int x = -4; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = -2; y <= 4; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
             check(done, "the mineshaft's rail and fence in his mine's shell not swapped for its patch in 30 s: " + got);
             pass(stage, t, "the rail and the fence out of his mine's shell, patched, in " + (t[0] - 14) + " ticks: " + got);
+        }
+        return true;
+    }
+    /** Stage 1441 (D2D reviews 56/57/86, live 21:17-21:26 11-10 at his iron branch through a mineshaft, -85..-83,16..19,-404..-397): a rail, an oak fence and cobblestone in the pocket over his ceiling held each patch ("the whole pocket picked up before closing"): up through his shell for a rail, the walk back in failed, patched from outside, a new cut the next time; and single walks for a fence and a rail. 215 cobble on him: a mineshaft's rail and fence and one more cobble are junk to him. */
+    private static boolean st1441(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(4, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -2; x <= 8; x++) for (int z = -3; z <= 3; z++) for (int y = -1; y <= 3; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 36));
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+            for (var it : new ItemStack[] {new ItemStack(Items.RAIL), new ItemStack(Items.OAK_FENCE)}) { var e = new net.minecraft.world.entity.item.ItemEntity(level, at.getX() + 4.5, at.getY() + 0.1, at.getZ() + 0.5, it); e.setDeltaMovement(0, 0, 0); level.addFreshEntity(e); }
+        }
+        if (t[0] == 20) c.tasks.add(new Task.Pickup(100));
+        if (t[0] == 20 + 20 * 4) {
+            double moved = Math.sqrt(c.distanceToSqr(at.getX() + 0.5, at.getY(), at.getZ() + 0.5));
+            int rail = c.getInventory().countItem(Items.RAIL), fence = c.getInventory().countItem(Items.OAK_FENCE);
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(at).inflate(10))) e.discard();
+            for (int x = -2; x <= 8; x++) for (int z = -3; z <= 3; z++) for (int y = -1; y <= 3; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(rail == 0 && fence == 0 && moved < 2.0, "walked " + String.format("%.1f", moved) + " for a mineshaft rail and fence with 100 cobble on him (rail " + rail + ", fence " + fence + ")");
+            pass(stage, t, "the mineshaft rail and fence left lying");
         }
         return true;
     }

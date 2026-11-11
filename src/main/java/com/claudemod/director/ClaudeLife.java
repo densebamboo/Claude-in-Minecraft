@@ -5511,7 +5511,7 @@ public final class ClaudeLife {
     static final java.util.Set<Item> JUNK = java.util.Set.of(Items.DIRT, Items.GRAVEL, Items.GRANITE, Items.DIORITE, Items.ANDESITE, Items.TUFF, Items.CALCITE,
             Items.NETHERRACK, Items.COARSE_DIRT, Items.ROOTED_DIRT, Items.SANDSTONE, Items.SMOOTH_BASALT, Items.DRIPSTONE_BLOCK, Items.POINTED_DRIPSTONE, Items.ROTTEN_FLESH, Items.COBBLED_DEEPSLATE_SLAB, Items.CLAY_BALL, Items.MOSS_BLOCK, Items.SPIDER_EYE, Items.BASALT, Items.MAGMA_BLOCK, Items.SOUL_SAND, Items.SOUL_SOIL, Items.NETHER_WART_BLOCK, Items.WARPED_WART_BLOCK); /* (soul sand/soil and wart blocks: what a Nether walk digs; 99 of them kept while his netherrack went, live 05:04 11-09, D2D review 118, stage 1251; a step that needs them keeps them, neededByPlan) */ // (basalt and magma: what his highway's swap digs out, 192 basalt kept and magma dropped one block a time, live 00:01 11-07, stage 791) // (a full pack of dripstone and rotten flesh, none of it on this list: nothing went, and nothing could be crafted)
     public static boolean junkItem(ItemStack s) { return JUNK.contains(s.getItem()); }
-    static boolean cobbleItem(ItemStack s) { return s.is(Items.COBBLESTONE) || s.is(Items.COBBLED_DEEPSLATE); }
+    public static boolean cobbleItem(ItemStack s) { return s.is(Items.COBBLESTONE) || s.is(Items.COBBLED_DEEPSLATE); }
     /** His junk chests (both halves), from his prefs ("junk_chests": "x y z;x y z"). */
     public static java.util.List<BlockPos> junkChests(ClaudeEntity g) {
         java.util.List<BlockPos> out = new ArrayList<>();

@@ -14245,6 +14245,7 @@ public final class ClaudeLife {
             if (m instanceof net.minecraft.world.entity.monster.Creeper) continue; // never gone after: a creeper in melee is how a player dies (live 12:44 World 15 "after it", 26.8 damage at night with skeletons on him); one that closes in is the hazard layer's
             if (m instanceof net.minecraft.world.entity.monster.EnderMan && !endermanTime(g)) continue; /* the user 01:40: endermen case by case: at the pearl stage and geared, yes; otherwise leave them be */
             if (Math.abs(m.getY() - g.getY()) > 4) continue;
+            if (g.work != null && g.work.noWayInStill(m)) { if (onSightSaid == null) onSightSaid = new java.util.HashSet<>(); if (onSightSaid.add(m.getUUID())) ClaudeMod.LOGGER.info("[Claude fight] a {} {} blocks off in sight: let be, no way in to it from here a moment ago (WorkGoal.closeOnShooter search) (ClaudeLife.clearOnSight)", m.getType().getDescription().getString(), (int) Math.sqrt(g.distanceToSqr(m))); continue; } /* (no way in to it a moment ago from right here: 'out of its sight instead', then this re-queued the Attack a second on, x16, 232 s under its arrows with 0 swings, live 04:29 11-11, D2D, stage 1500) */
             if (g.distanceToSqr(m) < pd) { pd = g.distanceToSqr(m); prey = m; }
         }
         if (prey == null) return;

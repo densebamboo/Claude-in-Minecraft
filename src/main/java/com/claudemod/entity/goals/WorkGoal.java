@@ -7190,7 +7190,10 @@ public class WorkGoal extends Goal {
      */
     private int shooterPlans; // (the way-in searches run: stage 1415 counts them)
     private java.util.Map<java.util.UUID, long[]> noWayIn; // a shooter -> {tick, where it was, where he searched from, his blocks} of the last search that found no way in
+    /** closeOnShooter searched for a way in to this mob and found none, and he, it and his blocks are still where they were: the same search would find none again. */
+    public boolean noWayInStill(net.minecraft.world.entity.LivingEntity mob) { long[] nw = noWayIn == null ? null : noWayIn.get(mob.getUUID()); return nw != null && g.tickCount - nw[0] < 20 * w("fight.no_way_hold_s", 60) && BlockPos.of(nw[1]).closerThan(mob.blockPosition(), 2.5) && BlockPos.of(nw[2]).closerThan(BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()), 2.5) && nw[3] == com.claudemod.entity.nav.ActionPath.moveBlocks(g); }
     private java.util.Map<java.util.UUID, long[]> noWayIn() { if (noWayIn == null) noWayIn = new java.util.HashMap<>(); return noWayIn; }
+    public int closeOnShooterTest(net.minecraft.world.entity.LivingEntity mob) { return closeOnShooter(mob, new Task.Attack(mob.getUUID(), 300)); } // (tests)
     private int closeOnShooter(net.minecraft.world.entity.LivingEntity mob, Task.Attack t) {
         ServerLevel level = (ServerLevel) g.level();
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()), to = mob.blockPosition();

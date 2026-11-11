@@ -10935,6 +10935,7 @@ public final class ClaudeBodyTest {
             case 1447: return st1447(stage, t, c, h, level, mock);
             case 1448: return st1448(stage, t, c, h, level, mock);
             case 1449: return st1449(stage, t, c, h, level, mock);
+            case 1500: return st1500(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25436,6 +25437,33 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    /** Stage 1500 (D2D, live 04:29-04:33 11-11, fight #1 at -143,18,-416: 232 s, 0 swings, 20 -> 9 under arrows): closeOnShooter found no way in to a skeleton on a ledge ("out of its sight instead", its noWayIn kept 5 s), and within a second clearOnSight saw it, "after it", the Attack again: x16. A shooter he has just found no way in to is no prey on sight. */
+    private static boolean st1500(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.tasks.clear(); c.skillQueue.clear(); c.commandActive = false; c.prefs.put("stay_close", "no"); c.blueprint = null; }
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(1000);
+            BlockPos me = h.absolutePos(new BlockPos(3, 2, 8)), isl = h.absolutePos(new BlockPos(10, 2, 8));
+            for (int x = -3; x <= 3; x++) for (int z = -3; z <= 3; z++) { BlockPos q = isl.offset(x, -1, z); if (Math.abs(x) <= 1 && Math.abs(z) <= 1) continue; level.setBlock(q, Blocks.LAVA.defaultBlockState(), 2); } // a lava moat round a 3x3 island
+            level.setBlock(isl, Blocks.STONE.defaultBlockState(), 2); level.setBlock(isl.above(), Blocks.STONE.defaultBlockState(), 2); // its ledge, 2 up
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.setHealth(20); // (no blocks on him: no bridge over the lava)
+            var sk = EntityType.SKELETON.create(level); BlockPos sp = isl.above(2); sk.moveTo(sp.getX() + 0.5, sp.getY(), sp.getZ() + 0.5, 0, 0); sk.setNoAi(true); level.addFreshEntity(sk); s1500Sk = sk; c.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, sk.getEyePosition());
+        }
+        if (t[0] == 40) { check(com.claudemod.entity.life.Perception.aware(c, s1500Sk), "setup: he never saw the skeleton");
+            int v = c.work.closeOnShooterTest(s1500Sk); // the real search: no way in, his verdict kept
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            com.claudemod.director.ClaudeLife.clearOnSightTest(c, mock[0]);
+            boolean again = c.tasks.stream().anyMatch(x -> x instanceof Task.Attack);
+            String q = c.tasks.stream().limit(3).toList().toString();
+            s1500Sk.discard(); c.tasks.clear();
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(20))) e.discard();
+            check(v == 0, "setup: closeOnShooter found a way in to the skeleton on the island (" + v + ")");
+            check(!again, "no way in to the skeleton a moment ago, and clearOnSight is after it again: " + q);
+            pass(stage, t, "a skeleton he found no way in to: let be on sight");
+        }
+        return true;
+    }
+    private static net.minecraft.world.entity.Mob s1500Sk;
     private static int st1249At = -1;
     private static boolean st1249(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.blueprint = null; c.nook = null; c.house = null; c.myStations.clear(); st1249At = -1; }

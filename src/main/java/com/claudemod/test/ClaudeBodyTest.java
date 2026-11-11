@@ -10913,6 +10913,7 @@ public final class ClaudeBodyTest {
             case 1437: return st1437(stage, t, c, h, level, mock);
             case 1438: return st1438(stage, t, c, h, level, mock);
             case 1439: return st1439(stage, t, c, h, level, mock);
+            case 1440: return st1440(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -26531,6 +26532,36 @@ public final class ClaudeBodyTest {
             for (int x = -4; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = -2; y <= 4; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
             check(done, "the mineshaft's rail and fence in his mine's shell not swapped for its patch in 30 s: " + got);
             pass(stage, t, "the rail and the fence out of his mine's shell, patched, in " + (t[0] - 14) + " ticks: " + got);
+        }
+        return true;
+    }
+    /** Stage 1440 (D2D review 58, live 21:20:09-21:20:11 11-10 at his notch -29,18,-401 / -29,17,-402): the work out past it done, a copper ore he had just seen showing into the pocket behind it; his patch rounds held the notch ("1 ore behind it, the vein and the drops first") and sealNotches sealed it 2 s later ("no work left out"), the copper walled in. The vein first, as the rounds have it: held. */
+    private static boolean st1440(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            BlockPos d = lnRow(b, 5, 4).immutable(), d2 = lnRow(b, 5, 5).immutable();
+            net.minecraft.core.Direction side = null; for (var dd : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && !com.claudemod.director.ClaudeLife.isMineCell(c, d.relative(dd)) && level.getBlockState(d.relative(dd)).isSolid()) side = dd;
+            check(side != null, "setup: no wall beside the row");
+            BlockPos n1 = d.relative(side).above(), n2 = d2.relative(side).above(), far = d.relative(side, 3), pocket = n1.relative(side), ore = n1.relative(side, 2);
+            for (BlockPos q : new BlockPos[] {n1, n2, pocket}) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2);
+            level.setBlock(ore, Blocks.COPPER_ORE.defaultBlockState(), 2); // (showing into the pocket the notch opens on)
+            lnStand(c, mock, d, b.entrance); c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null; c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            try {
+                Class<?> L = com.claudemod.director.ClaudeLife.class; var nm = L.getDeclaredMethod("notches", ClaudeEntity.class); nm.setAccessible(true);
+                @SuppressWarnings("unchecked") var m = (java.util.Map<BlockPos, Object>) nm.invoke(null, c); m.clear();
+                Class<?> N = java.util.Arrays.stream(L.getDeclaredClasses()).filter(k -> k.getSimpleName().equals("Notch")).findFirst().get(); var nc = N.getDeclaredConstructors()[0]; nc.setAccessible(true);
+                for (BlockPos q : new BlockPos[] {n1, n2}) m.put(q.immutable(), nc.newInstance(far, level.dimension(), c.tickCount, true));
+                String behind = com.claudemod.entity.goals.WorkGoal.sealsIn(c, level, n1);
+                var sm = L.getDeclaredMethod("sealNotches", ClaudeEntity.class, ServerLevel.class); sm.setAccessible(true);
+                sm.invoke(null, c, level); sm.invoke(null, c, level);
+                java.util.List<BlockPos> held = new java.util.ArrayList<>(m.keySet());
+                long patches = c.tasks.stream().filter(x -> x instanceof Task.Place pl && (pl.pos().equals(n1) || pl.pos().equals(n2))).count();
+                m.clear(); c.tasks.clear(); c.blueprint = null; c.prefs.put("mine_model", "legacy"); level.setBlock(ore, Blocks.STONE.defaultBlockState(), 2);
+                check(behind != null, "setup: the copper not read as showing behind the notch");
+                check(patches == 0, patches + " patch(es) of his notch queued with " + behind + " behind it");
+                check(held.size() == 2, "his notch let go (" + held + " still held) with " + behind + " behind it");
+            } catch (ReflectiveOperationException e) { throw new RuntimeException(e); }
+            pass(stage, t, "his notch held, nothing patched: the copper behind it first");
         }
         return true;
     }

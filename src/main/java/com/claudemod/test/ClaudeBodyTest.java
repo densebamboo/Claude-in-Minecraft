@@ -10692,6 +10692,7 @@ public final class ClaudeBodyTest {
             case 1152: return st1152(stage, t, c, h, level, mock);
             case 1154: return st1154(stage, t, c, h, level, mock);
             case 1150: return st1150(stage, t, c, h, level, mock);
+            case 1096: return st1096(stage, t, c, h, level, mock);
             case 1130: return st1130(stage, t, c, h, level, mock);
             case 1132: return st1132(stage, t, c, h, level, mock);
             case 1133: return st1133(stage, t, c, h, level, mock);
@@ -31320,6 +31321,33 @@ public final class ClaudeBodyTest {
         return true;
     }
     /** Stage 1399 (deaths 25/26's piles, live 21:05 and 22:05 11-10: his iron kit despawned 9 and 40 off him while he strip-mined round it): a pile of his loaded, its clock running, him busy 25 off: back for it, the work after. */
+    /** Stage 1096 (death 27's pile, live 22:54-23:06 11-10): logs 38, raw copper 30, torches 15, stone tools at -126,18,-405; a relaunch dropped his queued run, he collected 39 logs fresh ~230 off while the pile sat loaded and despawned (300 s counted). A loaded pile worth the run is run for at any range he can make before its clock ends, not only within 48. */
+    private static int st1096Start;
+    private static boolean st1096(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(12, 2, 8)), pile = me.offset(110, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.DeathLog.reset(c); com.claudemod.entity.life.Perception.reset(c); st1096Start = 0; }
+        if (t[0] == 5 || t[0] % 200 == 0) for (int cx = -1; cx <= 9; cx++) for (int cz = -1; cz <= 1; cz++) { BlockPos q = h.absolutePos(new BlockPos(cx * 16, 3, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(q), 2, q); } // (entity-ticking: the pile's clock runs, as live)
+        if (t[0] > 10 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(140))) e.discard();
+        if (t[0] == 10) {
+            for (int x = -2; x <= 130; x++) for (int z = 0; z <= 16; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int yy = 2; yy <= 8; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            level.setDayTime(6000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.WOODEN_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 7)); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            var fell = new java.util.ArrayList<net.minecraft.world.entity.item.ItemEntity>();
+            for (var st0 : new ItemStack[] {new ItemStack(Items.OAK_LOG, 38), new ItemStack(Items.RAW_COPPER, 30), new ItemStack(Items.TORCH, 15), new ItemStack(Items.STONE_PICKAXE), new ItemStack(Items.STONE_AXE), new ItemStack(Items.STONE_SWORD), new ItemStack(Items.COBBLESTONE, 6)}) { var ie = new net.minecraft.world.entity.item.ItemEntity(level, pile.getX() + 0.5, pile.getY(), pile.getZ() + 0.5, st0); ie.setDeltaMovement(0, 0, 0); level.addFreshEntity(ie); fell.add(ie); }
+            com.claudemod.entity.life.DeathLog.died(c, level, pile, fell);
+            c.tasks.add(new Task.GoTo(me.offset(-8, 0, 0), 1.0)); c.tasks.add(new Task.Wait(20 * 120, false)); // (busy the other way, as live on collect logs)
+            st1096Start = t[0];
+        }
+        if (st1096Start > 0) {
+            boolean got = c.getInventory().countItem(Items.RAW_COPPER) >= 30;
+            Runnable clean = () -> { for (var ie : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(pile).inflate(130))) ie.discard(); com.claudemod.entity.life.DeathLog.reset(c); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); };
+            if (got) { int s0 = (t[0] - st1096Start) / 20; clean.run(); pass(stage, t, "his loaded pile 110 off, busy the other way: back for it, the raw copper on him in " + s0 + " s"); }
+            if (t[0] - st1096Start >= 20 * 75) { String m = "75 s by his loaded pile (110 off at the start, its clock running), the raw copper never picked up: doing " + c.currentTask + ", he's " + (int) Math.sqrt(c.blockPosition().distSqr(pile)) + " off, next " + (com.claudemod.entity.life.DeathLog.next(c, level.dimension().location().getPath()) != null); clean.run(); check(false, m); }
+        }
+        return true;
+    }
     private static int st1399Start;
     private static boolean st1399(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos me = h.absolutePos(new BlockPos(30, 2, 8)), pile = me.offset(25, 0, 0);

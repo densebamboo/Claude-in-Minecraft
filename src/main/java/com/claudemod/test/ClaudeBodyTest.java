@@ -10550,6 +10550,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1496: return st1496(stage, t, c, h, level, mock);
             case 1498: return st1498(stage, t, c, h, level, mock);
             case 1497: return st1497(stage, t, c, h, level, mock);
             case 1495: return st1495(stage, t, c, h, level, mock);
@@ -19823,6 +19824,35 @@ public final class ClaudeBodyTest {
                 level.setBlock(s1498Me.offset(-1, -1, 0), Blocks.STONE.defaultBlockState(), 2); level.setBlock(s1498Me.offset(1, 0, 0), Blocks.AIR.defaultBlockState(), 2);
                 check(!backed, "burning by lava, a blaze after him that sees every cell round: backed off into its line till the fire's out (" + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
                 pass(stage, t, "no back-off into the blaze's line: " + (q.length() > 80 ? q.substring(0, 80) : q));
+            }
+        }
+        return true;
+    }
+    /** Stage 1496 (D2D reviews 273/274, live 10:24:25-10:25:39 11-11 at the fortress: setting off home, TempLedger.leaving sent him back for his cobblestone pillar at 316,63,435 "on his level", and the way to it WorkGoal.approach made was a 7-block drop off 324,65,428 for 4 HP; then back up, and the same drop again for the next walk; at 322,51,426 a 5-drop for 2 HP to a nerd-pole, twice). A block of his to take up across a pit, the only way to it a 5-block drop (2 HP): a cobblestone is not worth his health, it's left standing. */
+    private static int s1496T; private static BlockPos s1496O;
+    private static boolean st1496(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8)), blk = o.offset(11, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1496T = 0; s1496O = o.immutable(); level.setDayTime(6000); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+            for (int x = -6; x <= 13; x++) for (int z = -1; z <= 1; z++) {
+                int stand = x <= 0 ? 0 : x <= 3 ? -5 : x <= 7 ? x - 8 : 0; // A at 0, the pit's floor 5 down, steps up its far side, B at 0
+                for (int y = -7; y <= 4; y++) level.setBlock(o.offset(x, y, z), (y < stand ? Blocks.OBSIDIAN : Blocks.AIR).defaultBlockState(), 2);
+            }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); // (obsidian: no stairs dug down with a stone pick, the drop the only way, as live)
+            c.teleportTo(o.getX() - 1.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.fallDistance = 0; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            level.setBlock(blk, Blocks.COBBLESTONE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, blk, Blocks.COBBLESTONE.defaultBlockState(), Blocks.AIR.defaultBlockState());
+        }
+        if (t[0] == 30) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Break(blk)); s1496T = t[0]; }
+        if (s1496T > 0 && t[0] > s1496T) {
+            boolean dropped = c.getY() < o.getY() - 1.5, idle = c.currentTask == null && c.tasks.isEmpty() && t[0] - s1496T > 20;
+            if (dropped || idle || t[0] - s1496T > 20 * 8) {
+                BlockPos at = c.blockPosition(); String q = c.currentTask + " " + c.tasks; float hp = c.getHealth();
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.fallDistance = 0;
+                for (int x = -6; x <= 13; x++) for (int z = -1; z <= 1; z++) for (int y = -7; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(!dropped, "his cobblestone across a pit, the way a 5-block drop: he took it (at " + at.toShortString() + ", " + hp + " HP, " + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+                check(idle, "his cobblestone across a pit: neither taken nor left in 8 s (" + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+                pass(stage, t, "his cobblestone across a 5-drop left standing, his health kept");
             }
         }
         return true;

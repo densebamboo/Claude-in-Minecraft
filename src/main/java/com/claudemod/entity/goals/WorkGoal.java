@@ -1901,6 +1901,12 @@ public class WorkGoal extends Goal {
             long t0 = System.nanoTime();
             ItemStack scaff = solidScaffold();
             var plan = com.claudemod.entity.nav.ActionPath.plan(g, level, feet, pos, 3.2, !scaff.isEmpty(), 3000, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount);
+            if (plan != null) { var tmp = com.claudemod.entity.life.TempLedger.entry(g, pos); float dropHp = 0; int down = 0; for (var a : plan.acts()) if (a instanceof com.claudemod.entity.nav.ActionPath.Act.Leap lp) { dropHp += lp.hp(); down = Math.max(down, lp.down()); }
+                if (tmp != null && dropHp > w("temp.takeup_hp", 0)) { // a block of his to take up isn't worth his health: a player leaves it (D2D reviews 273/274, live 10:24:25 11-11: a 7-drop for 4 HP to his pillar, a 5-drop for 2 HP to a nerd-pole, twice each; stage 1496)
+                    tmp.blocked = "the way to it drops " + down + " for " + dropHp + " HP";
+                    failed(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, com.claudemod.entity.life.Attempts.Reason.GUARD, "his " + tmp.why + " block: the way to it drops " + down + " for " + dropHp + " HP");
+                    com.claudemod.ClaudeMod.LOGGER.info("[Claude temp] his {} ({}) at {}: the way to it drops {} for {} HP, a block to take up isn't worth that: left standing (WorkGoal.approach)", tmp.item, tmp.why, pos.toShortString(), down, dropHp);
+                    return true; } }
             if (plan != null) {
                 var tasks = com.claudemod.entity.nav.ActionPath.tasks(plan, feet, scaff.isEmpty() ? net.minecraft.world.item.Items.COBBLESTONE : scaff.getItem(), pos, 3.2, level);
                 if (plan.puts() > 0) { for (var a : plan.acts()) if (a instanceof com.claudemod.entity.nav.ActionPath.Act.Put pt) g.pillarBlocks.addFirst(pt.pos().immutable()); g.tasks.addFirst(new Task.Pillar(-1)); } // every block the way puts down is his to take back (a tower under a block overhead comes down once it's out; the Pillar(-1) is kept while a Break in reach is queued)

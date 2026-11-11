@@ -10896,6 +10896,8 @@ public final class ClaudeBodyTest {
             case 1047: return st1047(stage, t, c, h, level, mock);
             case 1430: return st1430(stage, t, c, h, level, mock);
             case 1431: return st1431(stage, t, c, h, level, mock);
+            case 1432: return st1432(stage, t, c, h, level, mock);
+            case 1433: return st1433(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -26091,6 +26093,25 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    private static final java.util.List<Integer> s1432S = new java.util.ArrayList<>();
+    /** Stage 1432 (D2D reviews 63/83/84, live 14:43-14:49 11-10): the trip's food hunt swapped beef for a lone chicken, then for one salmon 95 walk off (out of reach on arrival), then pork. kit.food priced the search in whole cows and whole herds of 3: 127 points short was "search ~304 s (4 cows)", 121 short "~168 s (3 cows)", so one small food in view that took the need under a herd's line saved a whole herd's search and won. The search's price for each cooked chicken more on him (6 points) moves by about that food's share of a search, never by a herd. */
+    private static boolean st1432(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); s1432S.clear(); level.setDayTime(6000); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); }
+        if (t[0] > 1 && t[0] % 41 == 0 && s1432S.size() < 12) {
+            int n = 2 + s1432S.size(); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_CHICKEN, n));
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard();
+            c.tickCount += 41; String line = com.claudemod.director.Kit.foodLine(c); // (past the kit's 40-tick memo)
+            var mt = java.util.regex.Pattern.compile("search for animals ~(\\d+) s").matcher(line);
+            s1432S.add(mt.find() ? Integer.parseInt(mt.group(1)) : -1);
+            if (s1432S.get(s1432S.size() - 1) < 0) { c.getInventory().clearContent(); check(false, "no search priced with " + n + " cooked chicken on him: " + line); }
+        }
+        if (s1432S.size() == 12) {
+            c.getInventory().clearContent(); int worst = 0; for (int i = 1; i < s1432S.size(); i++) worst = Math.max(worst, Math.abs(s1432S.get(i) - s1432S.get(i - 1)));
+            check(worst <= 40, "the search's price jumped " + worst + " s for one cooked chicken (6 points) more on him: " + s1432S);
+            pass(stage, t, "the search priced by the food it must find, steps of at most " + worst + " s a chicken: " + s1432S);
+        }
+        return true;
+    }
     private static String s1431Cut;
     /** Stage 1431 (D2D, live 14:29:54-14:37 11-10 at -146..-143,13..17,-369/-368, 89 conflict lines): his tidy-up wanted two old pocket blocks back, two under his tunnel; the pocket reached his mine only through a hole in his floor (a cell his blueprint wants solid), so it read as open, not shut off; every walk to them cut his wall, his mine filled it back. 1416 with the hole in his floor. */
     private static boolean st1431(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
@@ -26319,6 +26340,44 @@ public final class ClaudeBodyTest {
                 pass(stage, t, "the roof cell's fix held back while its break can't be made from here");
             } catch (ReflectiveOperationException e) { throw new RuntimeException(e); }
         }
+        return true;
+    }
+    private static BlockPos s1433L; private static boolean s1433Fresh; private static int s1433At;
+    /** Stage 1433 (D2D review 445, live 15:26-15:32 11-10 at 14,73,-47, 114 lines): 1424's roof leaves, the break failed "not in sight from any cell he can stand in", then a few steps in his house and the record read "back on: he stands somewhere new"; the leaves and planks queued again, refused again, a 16-walk route to the cell, for 6 min. A search of every cell he can stand in doesn't change with where he stands. */
+    private static boolean st1433(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9900, 70, 9800);
+        java.util.function.Predicate<Task> atCell = q -> q instanceof Task.Break b && b.pos().equals(s1433L) || q instanceof Task.Place pl && pl.pos().equals(s1433L);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -6; x <= 14; x++) for (int z = -6; z <= 14; z++) for (int y = -2; y <= 8; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            var hb = new com.claudemod.entity.life.HouseBlueprint(at, net.minecraft.core.Direction.NORTH); c.house = hb;
+            BlockPos leafCell = null;
+            for (var e : hb.cells().entrySet()) { var r = e.getValue(); net.minecraft.world.item.Item it = hb.filler(r); BlockPos q = e.getKey();
+                if (r == com.claudemod.entity.life.HouseBlueprint.Role.DOOR) level.setBlock(q, Blocks.OAK_DOOR.defaultBlockState(), 18);
+                else if (r == com.claudemod.entity.life.HouseBlueprint.Role.BED) level.setBlock(q, Blocks.RED_BED.defaultBlockState(), 18);
+                else if (it != null) level.setBlock(q, net.minecraft.world.level.block.Block.byItem(it).defaultBlockState(), 18);
+                if (r == com.claudemod.entity.life.HouseBlueprint.Role.ROOF && (leafCell == null || q.compareTo(leafCell) < 0)) leafCell = q.immutable(); }
+            level.setBlock(leafCell, Blocks.OAK_LEAVES.defaultBlockState().setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true), 18); s1433L = leafCell;
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 16)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.teleportTo(hb.centre().getX() + 0.5, hb.centre().getY(), hb.centre().getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); mock[0].teleportTo(at.getX() + 0.5, at.getY() + 30, at.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear();
+        }
+        try {
+            var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("hbUpkeep", ClaudeEntity.class, ServerPlayer.class, ServerLevel.class); m.setAccessible(true);
+            if (t[0] == 14) {
+                m.invoke(null, c, mock[0], level); s1433Fresh = c.tasks.stream().anyMatch(atCell); c.tasks.clear(); c.dropCurrent = true;
+                c.attempts.fail(com.claudemod.entity.life.Attempts.Kind.BREAK, s1433L, c.tickCount, c.blockPosition(), com.claudemod.entity.goals.WorkGoal.NOT_IN_SIGHT, "not in sight from any cell he can stand in"); // its break failed so, filed as doBreak files it
+                var hc = c.house.centre(); c.teleportTo(hc.getX() + 0.5 + 2, hc.getY(), hc.getZ() + 0.5 + 2); s1433At = t[0]; // a few steps over, in his house
+            }
+            if (s1433At > 0 && t[0] == s1433At + 10) {
+                m.invoke(null, c, mock[0], level); boolean again = c.tasks.stream().anyMatch(atCell); String q0 = String.valueOf(c.tasks); BlockPos now = c.blockPosition();
+                c.tasks.clear(); c.dropCurrent = true; c.house = null; c.attempts.clear();
+                for (int x = -6; x <= 14; x++) for (int z = -6; z <= 14; z++) for (int y = 0; y <= 8; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(s1433Fresh, "setup: the house upkeep never asked for the leaves in its roof at " + s1433L.toShortString());
+                check(!again, "the roof fix at " + s1433L.toShortString() + " queued again a few steps on (at " + now.toShortString() + "), its break out of sight from every cell: " + q0);
+                pass(stage, t, "the roof cell's fix held back a few steps on: no cell he can stand in sees it");
+            }
+        } catch (ReflectiveOperationException e) { throw new RuntimeException(e); }
         return true;
     }
     private static BlockPos s1424L;

@@ -2306,7 +2306,7 @@ public class WorkGoal extends Goal {
                         return exit("doBreak line 1546: " + name(w) + " at " + inWay.toShortString() + " in the way, going round to " + clear.toShortString() + " to see it");
                     }
                     if (clear != null && clear.equals(g.blockPosition()) && (Math.abs(g.getX() - (clear.getX() + 0.5)) > 0.15 || Math.abs(g.getZ() - (clear.getZ() + 0.5)) > 0.15) && ticks < 40) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(clear.getX() + 0.5, clear.getY(), clear.getZ() + 0.5, 0.5); return false; } // (his own cell sees it from its middle; he stood off to the side: a step to the middle, never "refused" from the edge, 05:49 a diamond sealed in so)
-                    failed(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, com.claudemod.entity.life.Attempts.Reason.OUT_OF_REACH, "not in sight from any cell he can stand in"); // (on record: his mine check re-queued it every 3 s behind a redstone ore his stone pick can't take)
+                    failed(com.claudemod.entity.life.Attempts.Kind.BREAK, pos, NOT_IN_SIGHT, "not in sight from any cell he can stand in"); // (on record: his mine check re-queued it every 3 s behind a redstone ore his stone pick can't take)
                     if (com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.isShell(inWay)) { shellRefusals++; lastShellRefusal = inWay.immutable(); }
                     com.claudemod.ClaudeMod.LOGGER.info("[Claude life] can't break {}: {} at {} is in the way", pos.toShortString(), name(w), inWay.toShortString());
                     return exit("doBreak line 1550");
@@ -3020,6 +3020,8 @@ public class WorkGoal extends Goal {
     /** Walk over the items that just dropped, so they get picked up (players do this without thinking). */
     /** In the air and dropping (not swimming, not on a ladder): where he'll stand is where he lands. */
     private boolean falling() { return !g.onGround() && !g.isInWater() && !g.onClimbable() && g.getDeltaMovement().y < -0.08; }
+    /** doBreak's "not in sight from any cell he can stand in": a search of every cell, so a step elsewhere is no new go (Attempts.far: only another area is). Was OUT_OF_REACH, back on at each step: the house roof's leaves queued and refused for 6 min, live 15:26-15:32 11-10, D2D review 445, stage 1433. */
+    public static final com.claudemod.entity.life.Attempts.Reason NOT_IN_SIGHT = com.claudemod.entity.life.Attempts.Reason.NO_PATH;
     private int hopBeat; // (the pickup's jump branch: said once in 2 s)
     private int fallNoteTick; // the last tick a task waited on his fall (a fall logs once, when the wait starts)
     private void fallNote(String what) { if (g.tickCount - fallNoteTick > 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {}: he's falling (y {}), waiting to land first (WorkGoal.falling)", what, String.format("%.1f", g.getY())); fallNoteTick = g.tickCount; }

@@ -12342,7 +12342,8 @@ public final class ClaudeLife {
         if (best == null) return null;
         MineBlueprint b = g.blueprint; boolean has = b != null && !b.isEmpty();
         BlockPos mine = has ? b.entrance : g.stairStart; boolean inMine = has && b.rowOf(at) >= 0;
-        double mineS = com.claudemod.entity.life.Weights.w("procure.mine_s", 60) + (mine == null || inMine ? 0 : 2 * Math.sqrt(mine.distSqr(at)) / com.claudemod.entity.life.Decide.sprint());
+        BlockPos face = has ? b.face() : null; double mineWay = mine == null || inMine ? 0 : Math.sqrt(mine.distSqr(at)) + (face == null ? 0 : Math.sqrt(face.distSqr(mine))); // to its door, then in to its face: the walk he takes (D2D review 68, live 11:33:59 11-11: "132 off" to the door, 445 walked; stage 1552)
+        double mineS = com.claudemod.entity.life.Weights.w("procure.mine_s", 60) + 2 * mineWay / com.claudemod.entity.life.Decide.sprint();
         double seenS = 2 * bestD / com.claudemod.entity.life.Decide.sprint() + com.claudemod.entity.life.Weights.w("ore.seen_reach_s", 5);
         // the way to it is dark ground out of his mine: its hits priced by hpS over the time in the dark (dear bare, hurt or unfed), and the land at night as nightOutS prices surface jobs (D2D 20:40 11-07: night, armor 0, 0 meals, "the iron_ore seen at -193,-52,19 ~50 s" over "my mine ~127 s", then -133,24,-87 and -101,19,-124 in open caves; a skeleton killed him at -130,18,-202)
         String risk = "";
@@ -12352,7 +12353,7 @@ public final class ClaudeLife {
             { double r = nightOutS(g, level, at, walk) - cave; if (r > 0) { seenS += r; risk += ", the land at night ungeared ~" + Math.round(r) + " s more"; } } } // (one walk: the dearer of the two, not both)
         var pick = com.claudemod.entity.life.Decide.choose(g, "ore.where", target, true, List.of(
                 com.claudemod.entity.life.Decide.Option.of("the " + target + " seen at " + best.toShortString(), seenS, (int) bestD + " off, there and back" + risk),
-                com.claudemod.entity.life.Decide.Option.of("my mine", mineS, mine == null ? "none yet: a new one" : inMine ? "in it" : (int) Math.sqrt(mine.distSqr(at)) + " off, there and back")));
+                com.claudemod.entity.life.Decide.Option.of("my mine", mineS, mine == null ? "none yet: a new one" : inMine ? "in it" : (int) mineWay + " off by its door to its face, there and back")));
         if (pick == null || pick.name().equals("my mine")) return null;
         String tool = ensureToolFor(g, player, level, level.getBlockState(best), st); if (tool != null) return tool;
         g.attempts.counters.put("seenOre:" + best.asLong(), g.tickCount);
@@ -12362,7 +12363,7 @@ public final class ClaudeLife {
         g.tasks.add(new Task.Pickup(100));
         patchOpenings(g, level, v);
         g.skillQueue.addFirst(st); // (counted again after: the rest from the next seen ore or the mine)
-        return "mining the " + target + " I saw at " + best.toShortString() + " (" + v.size() + " blocks), not a walk to my mine";
+        return "mining the " + target + " I saw at " + best.toShortString() + " (" + (int) bestD + " off, a vein of " + v.size() + "), not a walk to my mine"; // (the vein's size alone read as its distance: "(7 blocks)" for ore 57 off, D2D review 124)
     }
     static String bpStripMine(ClaudeEntity g, ServerPlayer player, ServerLevel level, Skills.Step st, String target, int count) {
         if (g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.entrance.distSqr(g.blockPosition()) > 32 * 32 && g.blueprint.rowOf(g.blockPosition()) < 0 && level.canSeeSky(g.blockPosition().above()) && !com.claudemod.entity.ClaudeSpawner.testing) { String dark = nightOutsideNo(g, level, g.blockPosition()); if (dark != null) return "failed: it's night, I'm out in the open " + (int) Math.sqrt(g.blueprint.entrance.distSqr(g.blockPosition())) + " blocks from my mine and not geared for it: the walk there waits for morning"; } // (nightfall 120 blocks out: the walk to the mine across open ground met three zombies)

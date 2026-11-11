@@ -10550,6 +10550,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1552: return st1552(stage, t, c, h, level, mock);
             case 1551: return st1551(stage, t, c, h, level, mock);
             case 1550: return st1550(stage, t, c, h, level, mock);
             case 1499: return st1499(stage, t, c, h, level, mock);
@@ -19955,6 +19956,31 @@ public final class ClaudeBodyTest {
                 check(in, "his wall to put back as cobblestone, 12 granite on him and no cobblestone: left open (" + (q.length() > 120 ? q.substring(0, 120) : q) + ")");
                 pass(stage, t, "the wall put back with " + what);
             }
+        }
+        return true;
+    }
+    /** Stage 1552 (D2D review 68, live 11:33:59 11-11: ore.where priced "my mine ~107 s (132 off, there and back)", the straight line to its door, and the walk it took was 445-456 blocks, 71 legs, in by the door and down its rows to the face). His mine's door 10 off, its face 160 in from it; iron in plain sight 200 off the other way, by day, geared and fed: the mine priced to its face, the seen iron taken. */
+    private static boolean st1552(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(12500, 150, 7600), ore = o.offset(-200, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); com.claudemod.director.ClaudeLife.seenOre(c).clear(); level.setChunkForced(ore.getX() >> 4, ore.getZ() >> 4, true); }
+        if (t[0] == 10) {
+            for (BlockPos p : new BlockPos[] {o, ore}) for (int x = -2; x <= 2; x++) for (int z = -2; z <= 2; z++) { level.setBlock(p.offset(x, -1, z), Blocks.GLASS.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(p.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            level.setBlock(ore, Blocks.IRON_ORE.defaultBlockState(), 2); // in the open, by day
+            c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 30) {
+            var bpWas = c.blueprint; BlockPos ssWas = c.stairStart; long dayWas = level.getDayTime(); String mm = c.prefs.get("mine_model");
+            var E = net.minecraft.core.Direction.EAST; var b = new com.claudemod.entity.life.MineBlueprint(o.offset(10, -20, 0), E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 160, null)); b.invalidate();
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); level.setDayTime(6000);
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            com.claudemod.director.ClaudeLife.seenOre(c).add(ore);
+            String r = com.claudemod.director.ClaudeLife.seenOreFirst(c, mock[0], level, new com.claudemod.entity.life.Skills.Step("strip_mine", "iron_ore", 2, "near_you"), "iron_ore");
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY); com.claudemod.director.ClaudeLife.seenOre(c).clear(); c.attempts.counters.keySet().removeIf(k -> k.startsWith("seenOre:"));
+            level.setChunkForced(ore.getX() >> 4, ore.getZ() >> 4, false); c.blueprint = bpWas; c.stairStart = ssWas; level.setDayTime(dayWas); if (mm == null) c.prefs.remove("mine_model"); else c.prefs.put("mine_model", mm); c.dropCurrent = true;
+            level.setBlock(ore, Blocks.AIR.defaultBlockState(), 2);
+            check(r != null && r.startsWith("mining the iron_ore"), "his mine's face 170 in by its door 10 off, iron in sight 200 off by day: the mine priced to its door and taken (\"" + r + "\")");
+            pass(stage, t, "the mine priced to its face: \"" + r + "\"");
         }
         return true;
     }

@@ -985,7 +985,7 @@ public class WorkGoal extends Goal {
             var cause = com.claudemod.entity.life.Stall.diagnose(g, pos, within);
             g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, pos, g.tickCount, g.blockPosition(), cause.reason(), cause.detail(), cause.mob());
             g.attempts.bandaid("the 20 s walk clock fired " + (int) d + " off " + pos.toShortString() + ": " + cause.say()); // (a generic clock ending a walk: the cause it found is the bug to fix)
-            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] gave up walking to {} after 20s (he's at {}): {}", pos.toShortString(), g.blockPosition().toShortString(), cause.say());
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude life] gave up walking to {} after 20s (he's at {}): {}; the 8 s clock at {}/{} (best {}, now {}, in water {}, on ground {}, y {})", pos.toShortString(), g.blockPosition().toShortString(), cause.say(), stuck, STUCK_LIMIT, String.format("%.2f", lastDist), String.format("%.2f", d), g.isInWater(), g.onGround(), String.format("%.2f", g.getY())); // (why the 8 s clock never fired first: live 07:34-07:35 11-11, three 20 s give-ups in water by his mine, review 112)
             com.claudemod.entity.nav.Route.legFailed(g, pos);
             return true;
         }

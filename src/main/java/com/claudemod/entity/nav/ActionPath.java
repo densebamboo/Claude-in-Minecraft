@@ -132,7 +132,7 @@ public final class ActionPath {
         Search(ClaudeEntity g, ServerLevel level, BlockPos from, BlockPos to, double within, boolean canPlace, int budget, Mode mode, Map<BlockPos, Integer> failedAt, int now, List<net.minecraft.world.phys.Vec3> avoid, double w) {
             this.g = g; this.level = level; this.from = from; this.to = to; this.within = within; this.w = w; this.budget = budget; this.mode = mode; firstTick = g.tickCount;
             c = new Costs(g, level, canPlace, mode, failedAt, now); c.avoid = avoid;
-            open.add(new Node(from.immutable(), 0, w * h(from, to), null, List.of(), 0, 0f, c.water(from.above()) ? (g.getMaxAirSupply() - Math.max(0, g.getAirSupply())) / 10 : 0, 0));
+            open.add(new Node(from.immutable(), 0, w * h(from, to), null, List.of(), 0, 0f, 0, 0));
             best.put(from.immutable(), open.peek());
             scarce = c.maxPuts < 2 * (Math.abs(from.getX() - to.getX()) + Math.abs(from.getY() - to.getY()) + Math.abs(from.getZ() - to.getZ())) + 16; // blocks that can run short on this way: then fewer puts is a way of its own (with plenty, 538 expanded each cell ~3 times for it, out of nodes under a fortress)
         }
@@ -153,7 +153,7 @@ public final class ActionPath {
                     int np = n.puts, nf = n.fire; float nh = n.hurt; for (Act a : m.acts) { if (a instanceof Act.Put pu) { np++; if (byLava(level, pu.pos())) nf++; } else if (a instanceof Act.Leap lp) nh += lp.hp(); }
                     if (np > c.maxPuts || nf > c.fireProof) continue; // (by lava only blocks that don't burn: a log bridge over a lava lake caught fire under him, death 77 11-10, stage 1389) // (no more blocks put down than he has: the third put of a bridge with two dirt left him at the lip of a mineshaft)
                     int nw = c.water(m.feet.above()) ? n.wet + 1 : 0;
-                    if (nw > g.getMaxAirSupply() / 20) { c.airRefused++; continue; } // a swim under water no longer than half his air (~10 ticks a cell): a player turns back from an unknown flooded passage while he still can (live 12:02 11-04: 10 cells in, drowned)
+                    if (nw > Math.max(1, g.getAirSupply() / 20)) { c.airRefused++; continue; } // a swim under water no longer than half the air he has left (~10 ticks a cell): there and back, a player turns back from an unknown flooded passage while he still can (live 12:02 11-04: 10 cells in, drowned); half of what's left, not half a full tank less what's spent: at air 119 that refused every move, the one up to the air too (D2D review 84, stage 1557)
                     double ng = n.g + m.cost;
                     Node was = best.get(m.feet);
                     if (was != null && was.g() <= ng && (!scarce || was.puts() <= np) && was.fire() <= nf && was.wet() <= nw && was.hurt() <= nh) continue;
@@ -775,7 +775,7 @@ public final class ActionPath {
                             BlockPos land = col.above(dy);
                             if (!passable(land) || !head(land.above()) || water(land.above())) continue;
                             if (dy == 1 && !head(land.above(2))) continue; // the arc's top over a landing one up
-                            boolean clear = true; for (int k = dy + 1; k <= 1; k++) if (!passable(col.above(k))) { clear = false; break; } // the cells he comes down through at the landing
+                            boolean clear = true; for (int k = dy + 1; k <= 1; k++) if (!passable(col.above(k)) || climbable(col.above(k))) { clear = false; break; } // (a vine or ladder on the way down catches him there, short of the landing: D2D review 115, stage 1555) // the cells he comes down through at the landing
                             if (!clear) continue;
                             if (!(floor(land) || water(land))) continue; // ponytail: live 14:30, twisting vines -49,40..41,-889: a jump "landed" mid-vine, he slid off to the nylium and jumped again every 4 s; no standing mid-vine, so a vine landing needs ground under it like any other
                             if (!water(land) && hurts(land)) continue;
@@ -820,7 +820,7 @@ public final class ActionPath {
                             BlockPos land = col.above(dy);
                             if (!passable(land) || !head(land.above()) || water(land.above())) continue;
                             if (dy == 1 && !head(land.above(2))) continue;
-                            boolean clear = true; for (int k = dy + 1; k <= 1; k++) if (!passable(col.above(k))) { clear = false; break; }
+                            boolean clear = true; for (int k = dy + 1; k <= 1; k++) if (!passable(col.above(k)) || climbable(col.above(k))) { clear = false; break; } // (a vine or ladder on the way down catches him there, short of the landing: D2D review 115, stage 1555)
                             if (!clear) continue;
                             if (!(floor(land) || water(land))) continue; // ponytail: live 14:30, twisting vines -49,40..41,-889: a jump "landed" mid-vine, he slid off to the nylium and jumped again every 4 s; no standing mid-vine, so a vine landing needs ground under it like any other
                             if (!water(land) && hurts(land)) continue;

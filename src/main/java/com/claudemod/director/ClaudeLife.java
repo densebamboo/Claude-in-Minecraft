@@ -2126,6 +2126,10 @@ public final class ClaudeLife {
                     }
                     if (herd.isEmpty()) {
                         if (!g.commandActive && Set.of("beef", "porkchop", "mutton", "chicken", "salmon", "cod", "rabbit").contains(product0) && Kit.foodAsk(g) == null) return "done: no " + animal + " in sight, and the kit's food weighed from here says I go as I am: no search for it (Kit.foodAsk)"; // his own errand for food the kit no longer wants (D2D 091428-41, live 09:12:22 11-10: "as he is" with 224 points on him, and gear_up's collect chicken walked 4 search legs; stage 1457)
+                        if (!g.commandActive && Set.of("beef", "porkchop", "mutton", "chicken", "salmon", "cod", "rabbit").contains(product0)) { Kit.FoodAsk fa0 = Kit.foodAsk(g); // his own errand for food the kit now gets another way: a plan step from an older pick (D2D review 50, live 13:18:51 11-11: "cook his raw" the pick, the stale "obtain cooked_porkchop" walked 454 blocks to a crimson forest; stage 1556)
+                            if (fa0 != null && !"search for animals".equals(Kit.foodPick(g)) && !Crafting.name(fa0.item()).replace("cooked_", "").equals(product0)) {
+                                g.skillQueue.removeIf(s1 -> s1.skill().equals("smelt") && s1.target().equals("cooked_" + product0)); // (its cooking goes with it: none of that meat is coming)
+                                return "done: no " + animal + " in sight, and the kit's food weighed from here is " + Kit.foodPick(g) + " -> " + fa0.count() + " " + Crafting.name(fa0.item()) + ", not a hunt for " + animal + " (Kit.foodAsk)"; } }
                         if (nightHuntNo(g, level)) return "failed: it's night and I've nothing proper to fight with or wear; no wandering the open for " + animal + " now, shelter till morning (dig in) and look at first light";
                         { String no = nightOutsideNo(g, level, g.blockPosition(), com.claudemod.entity.life.Weights.w("kit.search_s", 120)); if (no != null) return no; } // (iron+ and fed, or a lit base: otherwise no hunting at night; priced as the search it is, not a 30 s job)
                         BlockPos seen = animalsSeen().get(g.getUUID()); if (seen != null && level.isLoaded(seen) && seen.getY() < level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, seen.getX(), seen.getZ()) - 3) seen = null; // (a cave spot is no pasture: the chicken 60 down was saved as one)
@@ -12344,12 +12348,20 @@ public final class ClaudeLife {
             int y = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z); if (level.getFluidState(new BlockPos(x, y - 1, z)).is(net.minecraft.tags.FluidTags.WATER)) n++; }
         return n;
     }
+    /** The lava pool he knows beside an ore that his break holds at (WorkGoal.doBreak's guard: known lava beside it, part of a body, no water beside to quench it, not under it); null: none. */
+    static BlockPos lavaHeld(ClaudeEntity g, ServerLevel level, BlockPos q) {
+        for (Direction d : Direction.Plane.HORIZONTAL) if (level.getFluidState(q.relative(d)).is(net.minecraft.tags.FluidTags.WATER)) return null;
+        for (Direction d : Direction.values()) { BlockPos l = q.relative(d); if (d == Direction.DOWN || !level.getFluidState(l).is(net.minecraft.tags.FluidTags.LAVA) || !com.claudemod.entity.life.Perception.knowsLavaBody(g, level, l)) continue;
+            for (Direction e : Direction.values()) if (level.getFluidState(l.relative(e)).is(net.minecraft.tags.FluidTags.LAVA)) return l.immutable(); } // (a lone pocket he plugs first: not held)
+        return null;
+    }
     public static String seenOreFirst(ClaudeEntity g, ServerPlayer player, ServerLevel level, Skills.Step st, String target) {
         Predicate<BlockState> want = blockMatcher(target); if (want == null) return null;
         BlockPos at = g.blockPosition();
         List<BlockPos> cand = new ArrayList<>(findAll(level, at, 16, want, 30)); cand.removeIf(q -> !touchesAir(level, q) || !canSee(g, level, q));
         for (BlockPos p : seenOre(g)) if (level.isLoaded(p) && want.test(level.getBlockState(p))) cand.add(p);
         cand.removeIf(q -> anyNookTouches(g, q) || PlayerProfile.placedBy(player).contains(q) || g.tickCount - g.attempts.counters.getOrDefault("seenOre:" + q.asLong(), -99999) < 20 * 120); // (one he went for in the last 2 min and it's still there: not again, the mine instead)
+        cand.removeIf(q -> { BlockPos l = lavaHeld(g, level, q); if (l != null) nookSay(g, "oreLava", "[Claude life] the " + target + " at " + q.toShortString() + " left out of ore.where: lava he knows of behind it at " + l.toShortString() + ", where his break only holds (ClaudeLife.seenOreFirst)"); return l != null; }); // (D2D review 130, live 12:57:06 11-11: 34 out to a diamond his break then held at, 34 back; stage 1558)
         BlockPos best = null; double bestD = Double.MAX_VALUE;
         for (BlockPos p : cand) { double d = Math.sqrt(p.distSqr(at)); if (d < bestD) { bestD = d; best = p; } }
         if (best == null) return null;

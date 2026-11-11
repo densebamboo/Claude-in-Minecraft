@@ -261,6 +261,8 @@ public final class Kit {
     private static final java.util.Map<java.util.UUID, String> foodPick = new java.util.HashMap<>();
     /** The kit is short and its pick is cooking the raw food he carries (smelt's "cooks at home" gives way only to that). */
     /** The kit's food pick is fishing with a rod (the collect of cod runs the fish skill for it). */
+    /** The kit's food pick by name ("cook his raw", "hunt hoglins", "search for animals", ...), null when it's not short. */
+    public static String foodPick(ClaudeEntity g) { return foodAsk(g) == null ? null : foodPick.get(g.getUUID()); }
     public static boolean rodPick(ClaudeEntity g) { return foodAsk(g) != null && "fish with a rod".equals(foodPick.get(g.getUUID())); }
     public static boolean cooksRaw(ClaudeEntity g) { FoodAsk fa = foodAsk(g); if (fa == null) return false; if ("cook his raw".equals(foodPick.get(g.getUUID()))) return true;
         for (Item[] rc : RAW_COOKED) if (rc[1] == fa.item() && g.inventory.count(x -> x.is(rc[0])) >= fa.count()) return true; // the raw for the kit's ask already on him: collect stops there ("the raw on me, cooked, not a hunt"), so the furnace is the kit's too (live 04:28-04:31 11-10, D2D reviews 70 and 14: collect and smelt each said the other did it, re-planned every few seconds for 2 min; stage 1404)

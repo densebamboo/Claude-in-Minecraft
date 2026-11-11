@@ -4190,7 +4190,7 @@ public class WorkGoal extends Goal {
             if (stack.isEmpty()) {
                 failed(com.claudemod.entity.life.Attempts.Kind.WALK, pos, com.claudemod.entity.life.Attempts.Reason.NO_BLOCKS, "the patch takes stone, not dirt"); // (the upkeep waits a minute before queueing it again: dirt on him read as filler and the stone patches came back every 3 s)
                 g.pendingPatches.add(pos.immutable()); // not forgotten: filled in once he has blocks again and is back here
-                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't place at {}: none of {} or any filler left (will come back to it)", pos.toShortString(), itemName(new ItemStack(t.item())));
+                { var inv = g.getInventory(); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] couldn't place at {}: none of {} or any filler left (will come back to it; stone on him: cobble {} cobbled deepslate {} andesite {} diorite {} granite {} stone {} tuff {} deepslate {}, dirt {}; stoneWanted {})", pos.toShortString(), itemName(new ItemStack(t.item())), inv.countItem(net.minecraft.world.item.Items.COBBLESTONE), inv.countItem(net.minecraft.world.item.Items.COBBLED_DEEPSLATE), inv.countItem(net.minecraft.world.item.Items.ANDESITE), inv.countItem(net.minecraft.world.item.Items.DIORITE), inv.countItem(net.minecraft.world.item.Items.GRANITE), inv.countItem(net.minecraft.world.item.Items.STONE), inv.countItem(net.minecraft.world.item.Items.TUFF), inv.countItem(net.minecraft.world.item.Items.DEEPSLATE), inv.countItem(net.minecraft.world.item.Items.DIRT), stoneWanted); } // (live 22:45:30 11-10: diorite 3 on him 3 s before, unproven which way)
                 return exit("doPlace line 2644");
             }
         }

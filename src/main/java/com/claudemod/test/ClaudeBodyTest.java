@@ -10983,6 +10983,7 @@ public final class ClaudeBodyTest {
             case 1517: return st1517(stage, t, c, h, level, mock);
             case 1518: return st1518(stage, t, c, h, level, mock);
             case 1519: return st1519(stage, t, c, h, level, mock);
+            case 1520: return st1520(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -21216,6 +21217,24 @@ public final class ClaudeBodyTest {
         if (t[0] > 10 && c.isSleeping()) { int took = t[0] - 10; int far = s1519Far; c.stopSleeping(); c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null; level.setDayTime(6000);
             check(far <= 10, "asleep, but only after the dig's walk took him " + far + " off his bed"); pass(stage, t, "sundown by his bed mid-dig: in bed in " + took + " ticks, never more than " + far + " off it"); }
         else if (t[0] == 10 + 20 * 40) { String q = c.currentTask + " " + c.tasks.stream().limit(4).toList() + " skills " + c.skillQueue + " at " + c.blockPosition().toShortString(); int far = s1519Far; c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null; level.setDayTime(6000); check(false, "sundown by his bed mid-dig: not asleep in 40 s, " + far + " off his bed at most (" + q + ")"); }
+        return true;
+    }
+    /** Stage 1520 (D2D 144537-23, live 14:42:29 11-11 at -65,62,21 in a river): get_arrows saw "23 gravel in sight (nearest -57, 55, 17)" on the riverbed and queued collect gravel x8; collect read only blocks touching air as lying open, threw out all 23 under the water, and said "no gravel anywhere nearby; explore first", then his flint from a chest 125 off. Gravel under water he can see is open to him: the one look. */
+    private static boolean st1520(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.blueprint = null; c.house = null; c.myStations.clear(); c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = 0; x <= 12; x++) for (int z = 0; z <= 12; z++) for (int y = 1; y <= 9; y++) { boolean rim = x == 0 || z == 0 || x == 12 || z == 12; level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 ? Blocks.STONE.defaultBlockState() : y == 2 ? (rim ? Blocks.STONE : Blocks.GRAVEL).defaultBlockState() : y <= 6 ? (rim ? Blocks.STONE : Blocks.WATER).defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); }
+            BlockPos me = h.absolutePos(new BlockPos(6, 6, 6)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SHOVEL)); level.setDayTime(6000);
+        }
+        if (t[0] == 20) {
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "gravel", 4);
+            String q = String.valueOf(c.tasks.stream().limit(4).toList());
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
+            for (int x = 0; x <= 12; x++) for (int z = 0; z <= 12; z++) for (int y = 2; y <= 9; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2);
+            check(r != null && !r.startsWith("failed"), "a riverbed of gravel in sight under him: " + r);
+            pass(stage, t, "the gravel under the water taken as there: " + r + " " + q);
+        }
         return true;
     }
     private static int s1511At = -1;

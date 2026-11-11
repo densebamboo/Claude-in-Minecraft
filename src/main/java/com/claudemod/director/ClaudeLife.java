@@ -2331,7 +2331,7 @@ public final class ClaudeLife {
                 List<BlockPos> found = pointedTree != null ? new ArrayList<>(List.of(pointedTree)) : findAll(level, from, 24, want::test, 60);
                 { int n0 = found.size(); found.removeIf(q -> hisBuildKeeps(g, level, q) || com.claudemod.entity.life.PortalMap.highwayBlock(g, com.claudemod.entity.life.PortalMap.dim(level), q, level.getBlockState(q))); if (found.size() < n0) ClaudeMod.LOGGER.info("[Claude skill] collect {}: {} of the {} near him are his build's own (mine wall, door cap, house, highway): not those (ClaudeLife.runSkill)", target, n0 - found.size(), n0); } // (his highway too: live 00:02 11-07 "collect cobbled_deepslate x64 -> spotted 60", its own blocks, its end back from 78 to 72; stage 885)
                 found.removeIf(q -> isStorageSpot(g, q)); // his storage stays: "the chests" never means those ; if (g.house != null) found.removeIf(q -> g.house.isStructure(q)); // nor his house: its log posts are no tree
-                if (pointedTree == null) found.removeIf(b -> !touchesAir(level, b) || PlayerProfile.placedBy(player).contains(b));
+                if (pointedTree == null) found.removeIf(b -> !touchesOpen(level, b) || PlayerProfile.placedBy(player).contains(b)); // (open to air or water: a riverbed's gravel in sight read "no gravel anywhere nearby" while get_arrows counted 23 of it, D2D 144537-23)
                 if (pointedTree == null) { int own = 0; for (var it = found.iterator(); it.hasNext(); ) if (com.claudemod.entity.life.TempLedger.has(g, it.next())) { it.remove(); own++; } if (own > 0) ClaudeMod.LOGGER.info("[Claude skill] collect {}: {} near him are his own blocks put down on a way (bridge, pillar, step): no quarry, not those (ClaudeLife.runSkill)", target, own); } // (his tuff bridge over lava was "6 cobblestone nearby": half an hour back and forth to it, live 08:16-08:45 11-05, stage 716)
                 if (pointedTree == null) found.removeIf(b -> level.getBlockState(b).is(BlockTags.LOGS) && (villageBuilding(g, b) || structureLog(level, b) // the user: a village's houses are no trees (he was taking their log posts for wood); a village he has seen
                         || !hasCrown(level, b))); // a tree has its own leaves on it (natural, not placed): a log with none near is a building's
@@ -9082,6 +9082,12 @@ public final class ClaudeLife {
         if (level.dimension() == net.minecraft.world.level.Level.OVERWORLD) return "cobblestone";
         if (level.dimension() != net.minecraft.world.level.Level.NETHER) return null;
         return findAll(level, g.blockPosition(), 24, s -> s.is(Blocks.BLACKSTONE), 16).stream().anyMatch(p -> touchesAir(level, p) && !hisBuildKeeps(g, level, p)) ? "blackstone" : null;
+    }
+    private static boolean touchesOpen(ServerLevel level, BlockPos p) { // air on a side; for a bed's gravel, sand or clay, water too (what a player dives for: a riverbed's gravel, a pond's clay; stone under a lake isn't worth the swim)
+        if (touchesAir(level, p)) return true;
+        var bs = level.getBlockState(p); if (!(bs.is(Blocks.GRAVEL) || bs.is(Blocks.SAND) || bs.is(Blocks.CLAY))) return false;
+        for (Direction d : Direction.values()) if (level.getFluidState(p.relative(d)).is(net.minecraft.tags.FluidTags.WATER)) return true;
+        return false;
     }
     private static boolean touchesAir(ServerLevel level, BlockPos p) {
         for (Direction d : Direction.values()) if (level.getBlockState(p.relative(d)).isAir()) return true;

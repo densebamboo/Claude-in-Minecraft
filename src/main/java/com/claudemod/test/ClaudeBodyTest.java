@@ -10549,6 +10549,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1469: return st1469(stage, t, c, h, level, mock);
             case 1468: return st1468(stage, t, c, h, level, mock);
             case 1467: return st1467(stage, t, c, h, level, mock);
             case 1466: return st1466(stage, t, c, h, level, mock);
@@ -18843,6 +18844,37 @@ public final class ClaudeBodyTest {
             for (int x = -8; x <= 52; x++) for (int z = -8; z <= 34; z++) for (int y = -14; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
             check(l3 == null, "stood at the road's real end: still a lead at " + l3 + " (" + s1468A + ")");
             nsHome(c, h, level); pass(stage, t, s1468A);
+        }
+        return true;
+    }
+    /** Stage 1469 (D2D review 154950-35, live 15:48:53-15:49:18 11-10 at -58,61,-4: "FIGHT NO EFFECT: 15 s attacking a Salmon 3.5 off, not a hit landed", food 5 so no sprint-swim, paddling at the surface at the fleeing fish's own pace ~3.4 off; the 5 s no-closing check took anything within 4 as arm's length and never ran): a salmon fleeing down a long channel, him behind it at food 5. He's on to the next thing within 8 s, not 15 s behind it. */
+    private static long s1469Start; private static net.minecraft.world.entity.Entity s1469F;
+    private static boolean st1469(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(19400, 60, 15840);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -16; k <= 80; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 2, o.offset(k, 0, 0));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(3000); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 72; x++) for (int z = -3; z <= 5; z++) { for (int y = -4; y <= 0; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 1; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = 0; x <= 70; x++) for (int z = 0; z <= 2; z++) for (int y = -3; y <= 0; y++) level.setBlock(o.offset(x, y, z), Blocks.WATER.defaultBlockState(), 2); // a channel, 4 deep, 71 long
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(90))) m.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 2.5, o.getY() + 0.1, o.getZ() + 1.5, -90f, 0f); mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 40, o.getZ() + 1.5, 0f, 0f);
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear();
+        }
+        if (t[0] == 40) { var f = EntityType.SALMON.create(level); f.moveTo(o.getX() + 6.5, o.getY() - 1, o.getZ() + 1.5, -90f, 0); f.setNoAi(true); f.setPersistenceRequired(); boolean ok = level.addFreshEntity(f); s1469F = f; }
+                if (t[0] == 50) { var fs = (s1469F instanceof net.minecraft.world.entity.animal.Salmon sf && sf.isAlive() ? java.util.List.of(sf) : java.util.List.<net.minecraft.world.entity.animal.Salmon>of()); com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 1469 at the start: {} salmon {}, him at {}", fs.size(), fs.isEmpty() ? "" : fs.get(0).position(), c.position()); if (!fs.isEmpty()) c.tasks.add(new com.claudemod.entity.life.Task.Attack(fs.get(0).getUUID(), 600)); c.getFoodData().setFoodLevel(5); c.getFoodData().setSaturation(0); try { var ft = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("foodTripTicks"); ft.setAccessible(true); Object fm = ft.invoke(null); if (fm instanceof java.util.Map m) m.put(c.getUUID(), c.tickCount); } catch (ReflectiveOperationException ex) { com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 1469 food trip mark failed: {}", ex.toString()); } s1469Start = t[0]; }
+        if (t[0] > 14) c.nextPlanTick = c.tickCount + 20 * 600; if (t[0] > 50) c.getFoodData().setFoodLevel(5);
+        if (t[0] > 50) for (var f : (s1469F instanceof net.minecraft.world.entity.animal.Salmon sf && sf.isAlive() ? java.util.List.of(sf) : java.util.List.<net.minecraft.world.entity.animal.Salmon>of())) if (f.getX() < o.getX() + 68) f.setPos(Math.max(f.getX(), c.getX() + 3.2), f.getY(), f.getZ()); // (it keeps ~3.4 ahead of him down the channel, out of his reach, as live for 15 s)
+        if (t[0] > 56) {
+            var fish = (s1469F instanceof net.minecraft.world.entity.animal.Salmon sf && sf.isAlive() ? java.util.List.of(sf) : java.util.List.<net.minecraft.world.entity.animal.Salmon>of());
+            boolean onIt = c.currentTask instanceof com.claudemod.entity.life.Task.Attack || c.tasks.stream().anyMatch(q -> q instanceof com.claudemod.entity.life.Task.Attack);
+            if (fish.isEmpty() || !onIt || t[0] - s1469Start > 20 * 8) {
+                String st = "after " + (t[0] - s1469Start) / 20.0 + " s: " + (fish.isEmpty() ? "the salmon dead" : "the salmon " + String.format("%.1f", c.distanceTo(fish.get(0))) + " off, " + (onIt ? "still on it" : "let go"));
+                for (var f : fish) f.discard(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getFoodData().setFoodLevel(20); c.getInventory().clearContent();
+                for (int x = -4; x <= 72; x++) for (int z = -3; z <= 5; z++) for (int y = -4; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(fish.isEmpty() || !onIt, "a salmon fleeing down a channel, him at food 5 paddling behind it: " + st);
+                pass(stage, t, st);
+            }
         }
         return true;
     }

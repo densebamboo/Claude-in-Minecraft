@@ -6443,7 +6443,7 @@ public class WorkGoal extends Goal {
         if (ticks % 8 != 1) return false; // re-think the chase a few times a second (it moves)
         if (mob instanceof net.minecraft.world.entity.animal.Animal || mob instanceof net.minecraft.world.entity.animal.AbstractFish) { // (a fish is no Animal: a salmon 5-7 off chased 15 s with no hit till the no-effect watchdog, live 11:18 11-09, D2D reviews 212/213) // a chase goes on while he's closing in: 5 s with no new closest approach (it keeps its distance up a slope, across water, behind a fence) and it's not to be had on foot as things stand; the next one (the hunt's choice skips it for a while)
             double dNow = g.distanceTo(mob);
-            if (ticks <= 1 || dNow <= 4) { chaseBest = Double.MAX_VALUE; chaseBestTick = ticks; } // (at arm's length it's no chase: the leaves or the ledge in the way are the code below's)
+            if (ticks <= 1 || mob.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0) { chaseBest = Double.MAX_VALUE; chaseBestTick = ticks; } // (in his reach it's no chase: the leaves or the ledge in the way are the code below's; "within 4" let a salmon 3.4 ahead of his paddle, out of reach, run 15 s to the no-effect watchdog, live 15:49 11-10, D2D review 154950-35, stage 1469)
             else if (dNow < chaseBest - 0.5) { chaseBest = dNow; chaseBestTick = ticks; }
             else if (ticks - chaseBestTick > 100) {
                 com.claudemod.director.ClaudeLife.preyOutNow(g, mob, chaseBest);

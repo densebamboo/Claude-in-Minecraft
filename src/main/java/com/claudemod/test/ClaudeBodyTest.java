@@ -10549,6 +10549,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1473: return st1473(stage, t, c, h, level, mock);
+            case 1472: return st1472(stage, t, c, h, level, mock);
             case 1471: return st1471(stage, t, c, h, level, mock);
             case 1470: return st1470(stage, t, c, h, level, mock);
             case 1469: return st1469(stage, t, c, h, level, mock);
@@ -18936,6 +18938,65 @@ public final class ClaudeBodyTest {
                 check(!fighting, "on his way home for food, hit by a blaze 20 off at his level: a fight armed with it instead of the walk on");
                 check(moved > 3, "hit by a blaze on the way home: not walking on (" + String.format("%.1f", moved) + " blocks in 3 s)");
                 nsHome(c, h, level); pass(stage, t, "walked on " + String.format("%.1f", moved) + " blocks, no fight with the blaze off the job");
+            }
+        }
+        return true;
+    }
+    /** Stage 1472 (D2D reviews 75 and 138, live 17:46:30 and 17:54:53 11-10: NetherRoute legs to 2,72,-25 and 267,52,439, each "on Air (unseen, read as netherrack)", a 37 and a 26 drop under them; the walker stalled on them 12 and 20 s, skipped one and bored a floor over the other): him on a ledge, a 40-deep drop past its edge he can't see down, the goal 20 down and 44 on. No leg of the route ends on a floor he hasn't seen: the legs stop at the edge, a look, the plan again. */
+    private static BlockPos s1472A; private static String s1472W;
+    private static boolean st1472(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(15800, 80, 10600), dest = o.offset(0, -20, 44);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); com.claudemod.entity.life.PortalMap.net(c).stairs.clear(); com.claudemod.entity.life.FarSight.reset(c); }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) for (int m = 0; m <= 48; m += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(0, 0, m)), 2, o.offset(0, 0, m));
+        if (t[0] == 10) {
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 50; z++) for (int y = -42; y <= 20; y++) {
+                boolean ledge = z <= 6 && y <= -1 && y >= -30, floor = y == -41, far = z >= 40 && y <= -21;
+                nl.setBlock(o.offset(x, y, z), ledge || floor || far ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            }
+        }
+        if (t[0] == 12) { com.claudemod.entity.life.FarSight.reset(c); c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 10f); c.setYHeadRot(0f); }
+        if (t[0] == 16) { var p0 = com.claudemod.entity.nav.NetherRoute.plan(c, nl, o, dest); s1472A = p0 == null || p0.legs().isEmpty() ? o : p0.legs().get(p0.legs().size() - 1); c.teleportTo(nl, s1472A.getX() + 0.5, s1472A.getY(), s1472A.getZ() + 0.5, 0f, 10f); s1472W = p0 == null ? "no plan" : p0.legs().toString(); if (p0 != null) for (BlockPos l : p0.legs()) if (l.getZ() > o.getZ() + 6 && l.getZ() < o.getZ() + 40 && nl.getBlockState(l.below()).isAir()) s1472W = "BAD " + l.toShortString() + " " + s1472W; }
+        if (t[0] == 20) {
+            var p = com.claudemod.entity.nav.NetherRoute.plan(c, nl, s1472A, dest);
+            String bad = s1472W.startsWith("BAD") ? "the first plan: " + s1472W : "";
+            if (p != null) for (BlockPos l : p.legs()) if (l.getZ() > o.getZ() + 6 && l.getZ() < o.getZ() + 40 && nl.getBlockState(l.below()).isAir()) bad += l.toShortString() + "; ";
+            String why = "from " + o.toShortString() + ": " + s1472W + " | then from " + s1472A.toShortString() + ": " + (p == null ? "no plan" : p.legs().size() + " legs, partial " + p.partial() + ": " + p.legs());
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 50; z++) for (int y = -42; y <= 20; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            com.claudemod.entity.life.FarSight.reset(c);
+            check(p != null && !p.legs().isEmpty(), "a route off his ledge: " + why);
+            check(bad.isEmpty(), "legs ending over the drop he can't see down, on a floor read as netherrack: " + bad + " | " + why);
+            nsHome(c, h, level); pass(stage, t, why);
+        }
+        return true;
+    }
+    /** Stage 1473 (D2D review 102, live 17:48:11-17:48:46 11-10: a bore from his highway up to a hoglin 22 up dug 3 cells of the highway's roof, "3 put back behind him" only once the bore was there, 15 blocks on: he walked back down it, dug round, put them back, and set off again, 25 s): him under a roof of his own build, a bore 12 up and 10 on through the rock. The roof cells it digs are back by the time he's there, no walk back for them. */
+    private static java.util.List<BlockPos> s1473R;
+    private static boolean st1473(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(16200, 70, 10600), goal = o.offset(10, 12, 0);
+        if (t[0] == 1) { scenarioReset(c); s1473R = new java.util.ArrayList<>(); }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 10) {
+            for (int x = -4; x <= 14; x++) for (int z = -4; z <= 4; z++) for (int y = -2; y <= 18; y++) nl.setBlock(o.offset(x, y, z), Blocks.NETHERRACK.defaultBlockState(), 2);
+            for (int x = -2; x <= 0; x++) for (int y = 0; y <= 1; y++) nl.setBlock(o.offset(x, y, 0), Blocks.AIR.defaultBlockState(), 2); // his highway's inside
+            for (int x = -2; x <= 3; x++) for (int y = 2; y <= 3; y++) for (int z = -1; z <= 1; z++) { BlockPos q = o.offset(x, y, z).immutable(); nl.setBlock(q, Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.builtCells(c).put(q, "Highway.skill"); s1473R.add(q); } // its roof, his build
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 32)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 32)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 20) c.tasks.add(new Task.Bore(goal, goal.getY()));
+        if (t[0] > 20) { c.nextPlanTick = c.tickCount + 20 * 600;
+            BlockPos me = c.blockPosition(); boolean there = Math.abs(me.getX() - goal.getX()) <= 1 && Math.abs(me.getZ() - goal.getZ()) <= 1 && t[0] > 30; // (the bore's own "there": across, at whatever height it got to)
+            if (there || t[0] > 20 * 60) {
+                String open = ""; for (BlockPos q : s1473R) if (nl.getBlockState(q).isAir()) open += q.toShortString() + "; ";
+                String q0 = c.tasks.toString();
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent();
+                for (BlockPos q : s1473R) com.claudemod.entity.life.TempLedger.builtCells(c).remove(q);
+                for (int x = -4; x <= 14; x++) for (int z = -4; z <= 4; z++) for (int y = -2; y <= 18; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(there, "the bore 12 up and 10 on not there in 60 s: at " + me.toShortString() + ", tasks " + q0);
+                check(open.isEmpty(), "there at " + me.toShortString() + " in " + (t[0] - 20) + " ticks with his roof's cells still open behind him: " + open + "(tasks " + q0 + ")");
+                nsHome(c, h, level); pass(stage, t, "there in " + (t[0] - 20) + " ticks, his roof whole behind him");
             }
         }
         return true;

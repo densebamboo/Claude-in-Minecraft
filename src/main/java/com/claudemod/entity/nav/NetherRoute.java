@@ -209,9 +209,10 @@ public final class NetherRoute {
     private static Plan done(Reader r, Node end, boolean partial, int nodes, long t0, BlockPos from, BlockPos to) {
         List<Node> path = new ArrayList<>(); for (Node k = end; k != null; k = k.from) path.add(k);
         java.util.Collections.reverse(path);
-        for (int i = 1; i < path.size(); i++) if (!r.known(path.get(i).x, path.get(i).y, path.get(i).z)) { // into ground he hasn't seen: a leg into it, then a look and the plan again from there (what he sees there decides the rest)
-            int keep = Math.min(path.size(), i + LEG_NODES);
-            if (keep < path.size()) { Node at = path.get(keep - 1); com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: into ground he hasn't seen at {},{},{}: as far as {},{},{} for now, a look and the plan again from there (NetherRoute.done)", from.toShortString(), to.toShortString(), path.get(i).x, path.get(i).y, path.get(i).z, at.x, at.y, at.z); while (path.size() > keep) path.remove(path.size() - 1); end = at; partial = true; }
+        for (int i = 1; i < path.size(); i++) if (!r.known(path.get(i).x, path.get(i).y, path.get(i).z) || !r.known(path.get(i).x, path.get(i).y - 1, path.get(i).z)) { // into ground he hasn't seen: a leg into it, then a look and the plan again from there (what he sees there decides the rest)
+            boolean noFloor = !r.known(path.get(i).x, path.get(i).y - 1, path.get(i).z); // a floor he hasn't seen (the open air over it in view): no leg ends on it, the legs stop at the edge he looks down from (reviews 75, 138 11-10: legs on "Air (unseen, read as netherrack)" over 26-37 drops; stage 1472)
+            int keep = noFloor ? Math.max(2, i) : Math.min(path.size(), i + LEG_NODES);
+            if (keep < path.size()) { Node at = path.get(keep - 1); com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: into ground he hasn't seen at {},{},{}{}: as far as {},{},{} for now, a look and the plan again from there (NetherRoute.done)", from.toShortString(), to.toShortString(), path.get(i).x, path.get(i).y, path.get(i).z, noFloor ? " (its floor unseen)" : "", at.x, at.y, at.z); while (path.size() > keep) path.remove(path.size() - 1); end = at; partial = true; }
             break;
         }
         { StringBuilder fl = new StringBuilder(); for (int i = 1; i < path.size() && i <= 3; i++) { Node b = path.get(i); var fp = new BlockPos(b.x, b.y - 1, b.z); // (the first legs' footing: seen, or read as netherrack? review 153: three plans in a row ended a leg on "Air on Air" by his trench and no line said what the route took the floor for)

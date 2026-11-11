@@ -32365,10 +32365,10 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
-    private static int st864Phase, st864Start, st864Down; private static BlockPos st864Top, st864Bottom;
+    private static int st864Phase, st864Start, st864Down; private static boolean st864Go; private static BlockPos st864Top, st864Bottom;
     private static boolean st864(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         // Live 15:29-15:31 World 17 (the user: "he is very slow going up and down his steps. if i can outrun him it's a bug"): down his stairs 3.5 blocks/s, up 1.9, a one-step GoTo per row (124 queued). A player sprints a flight: here 16 steps down within 85 ticks (4 b/s incl. the start), back up within 150 (sprint-jumping, ~2.2 b/s).
-        if (t[0] == 1) { lnReset(c); c.commandActive = false; st864Phase = 0; }
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; st864Phase = 0; st864Go = false; }
         if (t[0] == 5) for (int cx = -1; cx <= 2; cx++) for (int cz = -1; cz <= 1; cz++) { BlockPos q = h.absolutePos(new BlockPos(cx * 16, 10, cz * 16)); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(q), 2, q); }
         if (t[0] == 10) {
             var b = new com.claudemod.entity.life.MineBlueprint(h.absolutePos(new BlockPos(2, 22, 8)), net.minecraft.core.Direction.EAST, 2, 4); b.segments.get(0).n = 16; b.invalidate();
@@ -32385,9 +32385,11 @@ public final class ClaudeBodyTest {
         if (st864Phase > 0) {
             BlockPos goal = st864Phase == 1 ? st864Bottom : st864Top;
             boolean there = c.blockPosition().distSqr(goal) <= 2 && c.tasks.isEmpty() && c.currentTask == null;
+            // the clock starts on the stairs: his mine's own fix walks (the arena's mine is part-dug) go first, timed apart
+            if (!st864Go) { if (c.currentTask instanceof Task.GoTo) { st864Go = true; com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 864 onto the stairs after {} ticks of other work", t[0] - st864Start); st864Start = t[0]; } }
             int took = t[0] - st864Start;
             if (took % 4 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 864 t{} at {} {} {} v {} {} sprint {} ground {} task {}", took, String.format("%.2f", c.getX()), String.format("%.2f", c.getY()), String.format("%.2f", c.getZ()), String.format("%.2f", c.getDeltaMovement().x), String.format("%.2f", c.getDeltaMovement().y), c.isSprinting(), c.onGround(), c.currentTask);
-            if (there && st864Phase == 1) { st864Down = took; c.tasks.clear(); com.claudemod.director.ClaudeLife.bpWalkTo(c, st864Top); st864Phase = 2; st864Start = t[0];
+            if (there && st864Phase == 1) { st864Down = took; c.tasks.clear(); com.claudemod.director.ClaudeLife.bpWalkTo(c, st864Top); st864Phase = 2; st864Start = t[0]; st864Go = false;
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 864 down took {} ticks; up: {} GoTos queued", took, c.tasks.size()); }
             else if (there || took > 600) { int up = there ? took : -1; st864Phase = 0; c.tasks.clear(); c.blueprint = null; c.prefs.remove("mine_model");
                 check(st864Down > 0 && st864Down <= 85, "16 steps down his stairs took " + st864Down + " ticks (a player sprints them in 85)");

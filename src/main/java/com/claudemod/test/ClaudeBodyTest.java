@@ -10863,6 +10863,7 @@ public final class ClaudeBodyTest {
             case 744: return st744(stage, t, c, h, level, mock);
             case 745: return st745(stage, t, c, h, level, mock);
             case 746: return st746(stage, t, c, h, level, mock);
+            case 897: return st897(stage, t, c, h, level, mock);
             case 747: return st747(stage, t, c, h, level, mock);
             case 748: return st748(stage, t, c, h, level, mock);
             case 749: return st749(stage, t, c, h, level, mock);
@@ -29293,6 +29294,32 @@ public final class ClaudeBodyTest {
             check(r5.startsWith("failed") && r5.contains("golden_boots"), "recovery again within the 10 min, boots not made: not a refusal naming them (\"" + r5 + "\")");
             c.skillQueue.clear(); c.tasks.clear(); c.dropCurrent = true; com.claudemod.entity.life.DeathLog.reset(c); c.getFoodData().setFoodLevel(20); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); c.attempts.counters.remove("recoverGear");
             pass(stage, t, "the Nether pile with his kit in it: a wooden pick and cobble go straight (\"" + r1 + "\"); empty-handed and hungry, a pick and food first (\"" + r2 + "\"); no gold and none to hand, straight (\"" + r3 + "\"); gold to hand, boots first, then a refusal till made");
+        }
+        return true;
+    }
+    /** Stage 897 (death 48, live 15:04:02-07 11-11 World 17): a blaze fight's hop left him airborne beside a lava fall at 344,*,498, his own cell 344,72,499 dry, his box in the fall, his shield up. The lava reflex took his own cell as the way out, walked at a fifth (the shield up) and held jump: he rose up the fall 72 -> 76 and burnt to death. Out sideways, shield down, no climb up the fall. */
+    private static int st897In; private static double st897Top; private static float st897Hp;
+    private static boolean st897(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        BlockPos me = h.absolutePos(new BlockPos(6, 2, 8));
+        if (t[0] == 10) {
+            for (int x = 0; x <= 14; x++) for (int z = 2; z <= 14; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.NETHERRACK.defaultBlockState(), 2); for (int yy = 2; yy <= 14; yy++) level.setBlock(h.absolutePos(new BlockPos(x, yy, z)), Blocks.AIR.defaultBlockState(), 2); }
+            BlockPos f = me.north(); BlockPos src = f.above(9); level.setBlock(f.below(), Blocks.AIR.defaultBlockState(), 2); // (one tall fall north of him, a boxed-in source over a 1-deep pit: it never spreads at his level)
+            for (var d : net.minecraft.core.Direction.values()) if (d != net.minecraft.core.Direction.DOWN) level.setBlock(src.relative(d), Blocks.NETHERRACK.defaultBlockState(), 2);
+            level.setBlock(src, Blocks.LAVA.defaultBlockState(), 2);
+            for (int yy = -1; yy <= 8; yy++) level.setBlock(f.above(yy), net.minecraft.world.level.material.Fluids.FLOWING_LAVA.getFlowing(8, true).createLegacyBlock(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.teleportTo(me.getX() + 0.67, me.getY() + 0.36, me.getZ() + 0.2); c.setDeltaMovement(0.2, 0.28, -0.06); c.startUsingItem(net.minecraft.world.InteractionHand.OFF_HAND); // (as live: 344.26, 72.36, 499.28 off a hop, the box 0.1 into the fall's column, the shield up)
+            c.tasks.clear(); c.skillQueue.clear(); st897In = 0; st897Top = c.getY(); st897Hp = 20;
+        }
+        if (t[0] > 10) {
+            if (c.isInLava()) st897In++;
+            st897Top = Math.max(st897Top, c.getY()); st897Hp = Math.min(st897Hp, c.getHealth());
+            check(level.getFluidState(me).isEmpty(), "setup: his own cell took lava");
+            if (t[0] >= 10 + 100) { c.clearFire(); c.stopUsingItem(); c.tasks.clear(); c.dropCurrent = true;
+                check(st897Top < me.getY() + 1.3, "in a lava fall beside his dry cell: rose up the fall to " + String.format("%.2f", st897Top) + " (his cell's floor " + me.getY() + ")");
+                check(st897In <= 20, "in a lava fall beside his dry cell, the shield up: " + st897In + " ticks in lava in 5 s (want under 1 s), low " + st897Hp + ", at " + c.blockPosition().toShortString());
+                pass(stage, t, "out of the lava fall sideways: " + st897In + " ticks in lava, top " + String.format("%.2f", st897Top) + ", low " + st897Hp); }
         }
         return true;
     }

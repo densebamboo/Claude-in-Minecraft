@@ -245,7 +245,7 @@ public class WorkGoal extends Goal {
             if (out != null && !out.equals(lavaOut)) { lavaOut = out; lavaOutSince = g.tickCount; }
             if (out != null && g.tickCount - lavaOutSince > 30 + 15 * (int) Math.sqrt(out.distSqr(me))) { lavaOutBad.put(out, g.tickCount); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}: 1.5 s and not onto {}: that way's no good, another; {} (WorkGoal.reflexes)", me.toShortString(), out.toShortString(), lavaWhy(out)); lavaOut = null; }
             if (g.tickCount % 20 < 2) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] in lava at {}: getting out{}", me.toShortString(), out == null ? " (no dry cell near: jumping)" : " to " + out.toShortString() + (dryCells.contains(out) ? " (where he came from)" : "") + "; " + lavaWhy(out));
-            g.getNavigation().stop();
+            g.getNavigation().stop(); shieldDown(); // (a shield up walks at a fifth: death 48, 15:04 11-11, a blaze fight's shield held through 5 s in a lava fall, 0.002 a tick toward a cell 0.3 off; stage 897)
             boolean wallUp = false; // (mining his way out: feet on the floor, no jump; off the ground every block takes 5x as long, vanilla, and the pocket burnt him to death, stage 530)
             if (out == null) { // no dry cell round him (a sealed pocket the lava came into, World 15 22:08: 17 s and dead): out through the wall, the side with no lava behind it, like a player
                 BlockPos dig = null; int best = Integer.MAX_VALUE;
@@ -273,7 +273,7 @@ public class WorkGoal extends Goal {
             }
             if (wallUp) { g.getLookControl().faceNow(Vec3.atCenterOf(out)); g.getMoveControl().setWantedPosition(g.getX(), g.getY(), g.getZ(), 0); return true; }
             if (out != null) { g.getLookControl().faceNow(Vec3.atCenterOf(out)); /* (at once, then the walk: a turn over 4 ticks lost 4 of the ~22 a cell takes in lava drag) */ g.getMoveControl().setWantedPosition(out.getX() + 0.5, out.getY(), out.getZ() + 0.5, 1.3); g.getLookControl().setLookAt(out.getX() + 0.5, out.getY() + 1.0, out.getZ() + 0.5); g.setSprinting(true); }
-            g.getJumpControl().jump();
+            if (out == null || out.getY() > g.getY() + 0.1) g.getJumpControl().jump(); // (up only toward a way out above his feet: held beside a lava fall with the way out level, the jump swam him up the fall 72 -> 76 till he burnt, death 48, stage 897)
             return true;
         }
         return false;

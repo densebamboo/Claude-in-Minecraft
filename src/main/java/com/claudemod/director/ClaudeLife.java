@@ -1101,7 +1101,8 @@ public final class ClaudeLife {
             if (bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.touches(g.blockPosition()) && best.getY() > g.getBlockY() + 8 && !g.blueprint.touches(best)) bpWalkTo(g, g.blueprint.entrance); // up his mine by its rows first
             g.tasks.add(new Task.GoTo(best, 1.5));
             g.skillQueue.addFirst(new Skills.Step("sleep", "at " + best.getX() + " " + best.getY() + " " + best.getZ(), 1));
-            ClaudeMod.LOGGER.info("[Claude life] sleep: to {} ({} blocks of walk{})", name, (int) bestW, others);
+            String inMine = g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.touches(best) ? (g.blueprint.touches(g.blockPosition()) ? ": his nook bed, the walk down his own mine under cover" : ": his nook bed, " + (int) Math.sqrt(g.blockPosition().distSqr(g.blueprint.entrance)) + " to his mine's entrance, then down it under cover") : ""; // (where the walk goes, said: D2D review 80 11-10 read 130 blocks down his mine as a walk through the dusk)
+            ClaudeMod.LOGGER.info("[Claude life] sleep: to {} ({} blocks of walk{}{})", name, (int) bestW, inMine, others);
             return "heading to " + name + " to sleep (" + (int) bestW + " blocks of walk" + others + ")";
         }
         if (packBed) { // none to walk to: the one in his pack, set down where it's closed in

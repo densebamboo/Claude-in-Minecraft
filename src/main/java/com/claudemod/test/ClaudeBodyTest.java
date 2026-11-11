@@ -10549,6 +10549,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1489: return st1489(stage, t, c, h, level, mock);
+            case 1488: return st1488(stage, t, c, h, level, mock);
             case 1487: return st1487(stage, t, c, h, level, mock);
             case 1486: return st1486(stage, t, c, h, level, mock);
             case 1485: return st1485(stage, t, c, h, level, mock);
@@ -19546,6 +19548,42 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    /** Stage 1488 (D2D, live 06:32:36-06:32:45 11-11 in his mine: a WallTorch at -143,17,-429, its walk made a way (2 digs, 4 put down, a jump off -141,18,-431) queued in front, but doWallTorch dropped walkTo's "a way queued" and stayed the task: 8 s stood at -138,18,-430 with the legs behind it, "the 8 s walk clock fired ... with a plan in hand", the spot and the torch skipped). Here: a torch 7 off across a 2-wide drop, a jump the only way. The torch goes in. */
+    private static int s1488T; private static int s1488Mode;
+    private static boolean st1488(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { return st1488(stage, t, c, h, level, mock, 0); }
+    private static boolean st1488(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock, int mode) {
+        BlockPos o = new BlockPos(mode == 0 ? 23600 : 24000, 80, 19600), torch = o.offset(7, 1, 0);
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; s1488T = 0; c.prefs.put("stay_close", "no"); mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 40, o.getZ() + 0.5, 0f, 0f); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o); }
+        if (t[0] == 10) {
+            for (int x = -6; x <= 12; x++) for (int z = -6; z <= 6; z++) for (int y = -14; y <= 4; y++) {
+                boolean floor = y == -1 && (mode == 0 ? x < 2 || x > 3 : !(x >= 5 && x <= 7 && Math.abs(z) <= 1)), wall = x == 8 && y >= -1;
+                level.setBlock(o.offset(x, y, z), (floor || wall ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            }
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0; c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.TORCH, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); level.setDayTime(6000);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600; c.attempts.clear();
+        }
+        if (t[0] == 20) { c.tasks.add(new Task.WallTorch(torch, net.minecraft.core.Direction.EAST)); s1488T = t[0]; }
+        if (s1488T > 0 && t[0] > s1488T) {
+            boolean lit = level.getBlockState(torch).is(Blocks.WALL_TORCH), idle = c.currentTask == null && c.tasks.isEmpty() && t[0] - s1488T > 20;
+            if (lit || idle || t[0] - s1488T > 20 * 15) {
+                double s = (t[0] - s1488T) / 20.0; BlockPos at = c.blockPosition(); String q = c.currentTask + " " + c.tasks; int put = 0;
+                if (mode == 1) for (int x = 5; x <= 7; x++) for (int z = -1; z <= 1; z++) for (int y = -14; y <= -1; y++) if (!level.getBlockState(o.offset(x, y, z)).isAir()) put++;
+                c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.prefs.remove("stay_close");
+                for (int x = -6; x <= 12; x++) for (int z = -6; z <= 6; z++) for (int y = -14; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2);
+                c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.setDeltaMovement(0, 0, 0); c.fallDistance = 0;
+                String what = mode == 0 ? "a torch 7 off across a 2-wide drop" : "a torch on a wall over a pit, floor in reach beside it";
+                check(lit, what + ": not up in " + s + " s (at " + at.toShortString() + ", " + (q.length() > 200 ? q.substring(0, 200) : q) + ")");
+                check(put == 0, what + ": " + put + " block(s) put down in the pit to stand on");
+                check(s <= 8, what + ": " + s + " s (a player: walk, a jump, a click, ~4)");
+                pass(stage, t, what + ": up in " + s + " s");
+            }
+        }
+        return true;
+    }
+    /** Stage 1489 (the same live walk: the torch's "floor under it" went down 3 cells into his mine's pit, -143,14,-429 "Air on Air", and the walk there made a way of 4 blocks put down to stand in the air). A torch on a wall over a pit, floored ground in reach beside it: he places it from there, nothing put into the pit. */
+    private static boolean st1489(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { return st1488(stage, t, c, h, level, mock, 1); }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */
     private static int s934T, s934Deep;
     private static boolean st934(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

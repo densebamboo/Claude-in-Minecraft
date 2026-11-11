@@ -2860,6 +2860,14 @@ public class WorkGoal extends Goal {
     private boolean torchTooFar(int steps) { if (!(current instanceof Task.WallTorch wt) || steps <= torchBack(wt) * com.claudemod.entity.life.Weights.w("torch.way_over_back", 1.5)) return false; torchFar = steps; return true; }
     /** A torch skipped for where he can stand: remembered as a failed place, so his torch rounds don't queue it again while nothing round it or him has changed (review 35, live 22:44 11-09: queued again every 10 s till the 45 s stuck rung; stage 1291). */
     private void torchOff(BlockPos pos, String why) { g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.PLACE, pos, g.tickCount, g.blockPosition(), com.claudemod.entity.life.Attempts.Reason.NO_PATH, why); }
+    /** walkTo made a way (digs, puts, a jump: tasks queued in front ending in the walk to `to`): the torch goes in behind that walk, else it stands in front of its own way till the 8 s clock (live 06:32 11-11, stage 1488). */
+    private boolean torchBehindWay(Task.WallTorch t, BlockPos to) {
+        if (g.tasks.stream().noneMatch(x -> x instanceof Task.GoTo w && w.pos().equals(to))) return false;
+        java.util.ArrayDeque<Task> way = new java.util.ArrayDeque<>(); Task x;
+        while ((x = g.tasks.pollFirst()) != null) { way.addFirst(x); if (x instanceof Task.GoTo w && w.pos().equals(to)) break; }
+        g.tasks.addFirst(t); for (Task y : way) g.tasks.addFirst(y);
+        return true;
+    }
     private boolean doWallTorch(Task.WallTorch t) {
         ServerLevel level = (ServerLevel) g.level();
         boolean slot = com.claudemod.director.ClaudeLife.bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.isTorchSlot(t.pos()); // a slot of his blueprint mine: exactly there. The eye-level guess read the world mid-dig: a step's bottom block still to dig lifted the torch a block, a floor mined out for ore dropped it one (world 14's stairs: 0, +1, -1 off the step)
@@ -2881,14 +2889,15 @@ public class WorkGoal extends Goal {
         if (torch.isEmpty() && com.claudemod.entity.life.Crafting.craft(level, g.inventory, net.minecraft.world.item.Items.TORCH, 1, false).made() > 0) { torch = g.inventory.find(s -> s.is(net.minecraft.world.item.Items.TORCH)); com.claudemod.ClaudeMod.LOGGER.info("[Claude torch] none on him for the torch at {}: made {} from his coal and sticks (WorkGoal.doWallTorch)", pos.toShortString(), g.inventory.count(s -> s.is(net.minecraft.world.item.Items.TORCH))); } // (a 2x2 craft, in his hands: mining in the dark with coal and wood on him, review 437; audit 5)
         if (torch.isEmpty()) { com.claudemod.ClaudeMod.LOGGER.info("[Claude torch] the torch at {}: none on him, skipped; queued by {} (WorkGoal.doWallTorch)", pos.toShortString(), com.claudemod.entity.ClaudeEntity.originOf(t)); return true; }
         BlockPos under = pos; for (int k = 0; k < 3 && !level.getBlockState(under.below()).isFaceSturdy(level, under.below(), Direction.UP); k++) under = under.below(); // (the floor under the torch's cell, not the cell: a torch up on a 3-high wall is mid-air, live 05:13-05:50 11-07 NO_PATH to it from the notch under its wall for 40 min)
+        if (!level.getBlockState(under.below()).isFaceSturdy(level, under.below(), Direction.UP)) { under = standSpotBeside(pos, false); if (under.equals(pos)) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] torch at {} on the {} wall: no floor under it and none in reach of it, skipped", pos.toShortString(), t.wall().getName()); torchOff(pos, "no floor under it or in reach of it"); return true; } } // no floor 3 under it (a torch over a drop): a floored spot in reach of it, never the air in the drop (live 06:32 11-11: a way of 4 blocks put down into his mine's pit to stand there; stage 1489)
         if (!inReach(pos)) {
-            if (!g.blockPosition().equals(under) && ticks < 200) { if (under.distSqr(g.blockPosition()) <= 2) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(under.getX() + 0.5, under.getY(), under.getZ() + 0.5, 0.5); } else walkTo(under, 0.4); return false; } // onto it, not near it: the notch 1 off it is where the wall's face is out of sight and reach (a step: a nudge, a walk "arrives" a block short)
+            if (!g.blockPosition().equals(under) && ticks < 200) { if (under.distSqr(g.blockPosition()) <= 2) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(under.getX() + 0.5, under.getY(), under.getZ() + 0.5, 0.5); } else if (walkTo(under, 0.4) && torchBehindWay(t, under)) return true; return false; } // onto it, not near it: the notch 1 off it is where the wall's face is out of sight and reach (a step: a nudge, a walk "arrives" a block short)
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] torch at {} on the {} wall: out of reach from the floor under it, skipped", pos.toShortString(), t.wall().getName()); torchOff(pos, "out of reach from the floor under it");
             return true;
         }
         Vec3 face = Vec3.atCenterOf(wall).subtract(t.wall().getStepX() * 0.5, 0, t.wall().getStepZ() * 0.5);
         if (!com.claudemod.entity.life.Perception.clear(level, g.getEyePosition(), face.add(t.wall().getStepX() * -0.05, 0, t.wall().getStepZ() * -0.05))) { // the wall's face out of his sight (round a corner, behind a block): no torch clicked through it; up to the torch's own cell for a look, else skipped (no sensing through walls: the one place path that skipped the check)
-            if (!g.blockPosition().equals(under) && ticks < 200) { if (under.distSqr(g.blockPosition()) <= 2) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(under.getX() + 0.5, under.getY(), under.getZ() + 0.5, 0.5); } else walkTo(under, 0.4); return false; } // onto it, not near it: a notch 1 off it is where the face can't be seen
+            if (!g.blockPosition().equals(under) && ticks < 200) { if (under.distSqr(g.blockPosition()) <= 2) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(under.getX() + 0.5, under.getY(), under.getZ() + 0.5, 0.5); } else if (walkTo(under, 0.4) && torchBehindWay(t, under)) return true; return false; } // onto it, not near it: a notch 1 off it is where the face can't be seen
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] torch at {} on the {} wall: can't see that face from where he can stand, skipped", pos.toShortString(), t.wall().getName()); torchOff(pos, "its face out of sight from where he can stand");
             return true;
         }

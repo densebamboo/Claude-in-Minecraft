@@ -89,6 +89,8 @@ public class WorkGoal extends Goal {
     private BlockPos breathingSpot() {
         var level = g.level(); noOpenAir = false;
         BlockPos eye = BlockPos.containing(g.getEyePosition());
+        Vec3 from = g.getEyePosition();
+        if (!level.getBlockState(eye).getCollisionShape(level, eye).isEmpty() && !level.getFluidState(eye.below()).isEmpty()) { eye = eye.below(); from = Vec3.atCenterOf(eye); } // (pressed up under a roof in a 1-high flood his eye sits in the roof block: from inside it no column, no line, only "dig up for air" into his own floor, refused every tick, 20 -> 12 drowning a cell from the hole, live 19:49 11-10, stage 1438)
         for (int dy = 0; dy <= 16; dy++) {
             BlockPos q = eye.above(dy);
             if (!level.getFluidState(q).isEmpty()) continue;
@@ -121,7 +123,7 @@ public class WorkGoal extends Goal {
             int i = -1; for (int j = 0; j < cands.size(); j++) if (!used[j] && (i < 0 || dists.get(j) < dists.get(i))) i = j;
             used[i] = true;
             BlockPos c = cands.get(i);
-            var line = level.clip(new net.minecraft.world.level.ClipContext(g.getEyePosition(), Vec3.atCenterOf(c.above()), net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g));
+            var line = level.clip(new net.minecraft.world.level.ClipContext(from, Vec3.atCenterOf(c), /* (to the cell under the air, the air straight over it: a line on to the air itself clipped a roof corner one cell from the hole, stage 1438) */ net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, g));
             if (line.getType() == net.minecraft.world.phys.HitResult.Type.MISS) return c; // a straight swim
             if (routes++ < 4) { var p = g.getNavigation().createPath(c, 0); if (p != null && p.canReach()) return c; } // round a corner (a few tries a tick at most)
         }
@@ -1214,7 +1216,7 @@ public class WorkGoal extends Goal {
                 g.tasks.addFirst(new Task.GoTo(w.immutable(), 0.6));
                 if (!ws2.getCollisionShape(lv, w2).isEmpty()) { g.tasks.addFirst(new Task.Break(w2.immutable())); punchThrough().add(w2.immutable()); }
                 g.tasks.addFirst(new Task.Break(w.immutable())); punchThrough().add(w.immutable()); // by hand if need be: getting out of the water is not a job for the right tool (the no-tool rule dumped his queue and sent him for logs, every 30 s, from the pool)
-                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] stuck swimming at {} with nothing to tower with: a notch in the wall {} of him to climb into", feet.toShortString(), dd.getName());
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] stuck swimming at {} ({}): a notch in the wall {} of him to climb into", feet.toShortString(), scaffoldBlock().isEmpty() ? "nothing to tower with" : roof && !roofDiggable ? "a roof over him he can't dig" : "nothing solid by " + topW.toShortString() + " or under it within 8 to build a column on", dd.getName());
                 return true;
             }
             g.tasks.pollFirst();

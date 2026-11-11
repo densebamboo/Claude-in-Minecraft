@@ -5723,7 +5723,7 @@ public final class ClaudeLife {
         }
         if (n > 0) ClaudeMod.LOGGER.info("[Claude life] inventory full: threw out {} stacks of junk: {}", n, thrown.toString().trim());
         if (n == 0 && inv.getFreeSlot() < 0) { // nothing on the junk list and still no room (a craft can't even make its table): the least use of what he carries goes, like a player emptying a slot
-            int pick = -1; int pickScore = Integer.MAX_VALUE;
+            int pick = -1; int pickScore = Integer.MAX_VALUE; String pickWhy = null;
             for (int i = 0; i < inv.items.size(); i++) {
                 var st = inv.items.get(i); if (st.isEmpty() || i == inv.selected) continue;
                 Item it = st.getItem(); String id = BuiltInRegistries.ITEM.getKey(it).getPath();
@@ -5731,11 +5731,12 @@ public final class ClaudeLife {
                         || it == Items.TORCH || it == Items.COAL || it == Items.CHARCOAL || it == Items.STICK || it instanceof net.minecraft.world.item.BucketItem || it == Items.OBSIDIAN || it == Items.ENDER_PEARL || it == Items.BLAZE_ROD || it == Items.FLINT_AND_STEEL
                         || it == Items.CRAFTING_TABLE || it == Items.FURNACE || it == Items.CHEST || it == Items.COBBLESTONE || it == Items.COBBLED_DEEPSLATE
                         || id.contains("diamond") || id.contains("emerald") || id.contains("ingot") || id.startsWith("raw_") || id.endsWith("_ore") || id.contains("lapis") || id.contains("redstone");
-                if (keep) continue;
-                int score = (it instanceof net.minecraft.world.item.BlockItem ? 0 : 1000) + st.getCount(); // spare blocks first, the smallest stack first
-                if (score < pickScore) { pickScore = score; pick = i; }
+                String spare = spareGear(g, st, i); // spare gear before anything he builds with (live 09:21:17 11-11 in the Nether, D2D review 65: the 51 netherrack, his bridge and plug block, went while a wooden axe sat by a stone one and 3 stone picks by 2 iron ones; stage 1508)
+                if (keep && spare == null) continue;
+                int score = spare != null ? -1000 + st.getCount() : (it instanceof net.minecraft.world.item.BlockItem ? 0 : 1000) + st.getCount(); // spare gear first, then spare blocks, the smallest stack first
+                if (score < pickScore) { pickScore = score; pick = i; pickWhy = spare; }
             }
-            if (pick >= 0 && inv.getFreeSlot() < 0) { var st = inv.items.get(pick); ClaudeMod.LOGGER.info("[Claude life] pack full and nothing junk in it: dropping the {} {} to make room", st.getCount(), Crafting.name(st.getItem())); var e = g.drop(st.copy(), false, true); if (e != null) { g.markGift(e); e.setPickUpDelay(6000); } com.claudemod.entity.life.Watchdog.thrown(g, e); inv.items.set(pick, ItemStack.EMPTY); } // (6000: till it despawns; the 2 s default let his own touch take it back while he stood there, so the 1 lily pad went out every 5 s, 01:32) // (a bed couldn't be made for want of a slot for its table, three plans running)
+            if (pick >= 0 && inv.getFreeSlot() < 0) { var st = inv.items.get(pick); ClaudeMod.LOGGER.info("[Claude life] pack full and nothing junk in it: dropping the {} {} to make room{}", st.getCount(), Crafting.name(st.getItem()), pickWhy == null ? "" : " (spare gear: " + pickWhy + ")"); var e = g.drop(st.copy(), false, true); if (e != null) { g.markGift(e); e.setPickUpDelay(6000); } com.claudemod.entity.life.Watchdog.thrown(g, e); inv.items.set(pick, ItemStack.EMPTY); } // (6000: till it despawns; the 2 s default let his own touch take it back while he stood there, so the 1 lily pad went out every 5 s, 01:32) // (a bed couldn't be made for want of a slot for its table, three plans running)
         }
     }
 

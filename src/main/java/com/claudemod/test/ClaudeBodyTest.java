@@ -10952,6 +10952,7 @@ public final class ClaudeBodyTest {
             case 1505: return st1505(stage, t, c, h, level, mock);
             case 1506: return st1506(stage, t, c, h, level, mock);
             case 1507: return st1507(stage, t, c, h, level, mock);
+            case 1508: return st1508(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25973,6 +25974,24 @@ public final class ClaudeBodyTest {
             check(bentCut, "shut in by his own dry plug, the bent search found no way out: " + (bentPlan == null ? "none" : bentPlan.acts()));
             check(!wetCut, "the bent way dug his plug with water he knows of on it: " + (wet == null ? "-" : wet.acts()));
             pass(stage, t, "out of his pocket through his dry plug on the bent way (" + (bentPlan == null ? 0 : bentPlan.acts().size()) + " acts), the plug kept in the plain search and with water on it"); return true;
+        }
+        return true;
+    }
+    /** Stage 1508 (D2D review 65, live 09:21:17 11-11 in the Nether): pack full, nothing on the junk list, "dropping the 51 netherrack to make room" (his bridge and plug block) while a wooden axe sat by a stone axe and 3 stone picks by 2 iron ones. With no junk, the spare gear goes before his building blocks. */
+    private static boolean st1508(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard(); }
+        if (t[0] == 5) {
+            var inv = c.getInventory(); inv.clearContent();
+            inv.items.set(0, new ItemStack(Items.IRON_PICKAXE)); inv.selected = 0; inv.items.set(1, new ItemStack(Items.IRON_SWORD)); inv.items.set(2, new ItemStack(Items.STONE_AXE)); inv.items.set(3, new ItemStack(Items.WOODEN_AXE));
+            inv.items.set(4, new ItemStack(Items.NETHERRACK, 51)); inv.items.set(5, new ItemStack(Items.COBBLESTONE, 49));
+            for (int i = 6; i < inv.items.size(); i++) inv.items.set(i, new ItemStack(Items.TORCH, 64));
+            com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+            int rack = c.inventory.count(x -> x.is(Items.NETHERRACK)), wood = c.inventory.count(x -> x.is(Items.WOODEN_AXE)), stone = c.inventory.count(x -> x.is(Items.STONE_AXE)), cob = c.inventory.count(x -> x.is(Items.COBBLESTONE));
+            for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard();
+            inv.clearContent();
+            check(rack == 51 && cob == 49, "full pack, no junk: his building blocks went (netherrack " + rack + ", cobble " + cob + ") with a wooden axe by a stone one (wooden " + wood + ")");
+            check(wood == 0 && stone == 1, "full pack, no junk: wooden axe " + wood + ", stone axe " + stone + " (want 0, 1)");
+            pass(stage, t, "the wooden axe went, the netherrack, the cobble and the stone axe stayed"); return true;
         }
         return true;
     }

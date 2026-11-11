@@ -841,17 +841,19 @@ public class WorkGoal extends Goal {
         double sprint = com.claudemod.entity.life.Decide.sprint(), digS = com.claudemod.entity.life.Weights.w("move.dig_down_s_per_block", 1.0);
         double hx = pos.getX() - here.getX(), hz = pos.getZ() - here.getZ(), hd = Math.max(1, Math.sqrt(hx * hx + hz * hz)), run = up + 30; // (aimed 30 past the staircase's own length: the step cutter only works past the planner's 28, and the planner runs out of time on a 20-up dig, so the cutter must carry him all the way out)
         int sx = (int) Math.floor(here.getX() + hx / hd * run), sz = (int) Math.floor(here.getZ() + hz / hd * run);
-        BlockPos stairTop = new BlockPos(sx, lv.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, sx, sz), sz);
+        final boolean intoMine = com.claudemod.director.ClaudeLife.inHisMine(g, pos) || com.claudemod.director.ClaudeLife.touchesMine(g, pos); // a walk into his mine: the staircase goes to it, never up to the sky and round by his door (D2D review 72 11-10: 22 under his row, 28 across, "80 under the surface ... dig up from here", a staircase aimed at the grass 110 on; stage 1477)
+        BlockPos stairTop = intoMine ? pos : new BlockPos(sx, lv.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, sx, sz), sz);
         boolean digOk = !g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.WALK, stairTop, g.tickCount, 20 * 60) && !g.inventory.find(st -> st.getItem() instanceof net.minecraft.world.item.PickaxeItem).isEmpty();
         java.util.List<com.claudemod.entity.life.Decide.Option> opts = new java.util.ArrayList<>();
         if (way != null) opts.add(com.claudemod.entity.life.Decide.Option.of("back out the way he came", way.size() / sprint + Math.sqrt(way.get(way.size() - 1).distSqr(pos)) / sprint, way.size() + " cells of his trail to " + (lv.canSeeSky(way.get(way.size() - 1).above()) ? "the open sky" : "his mine") + " at " + way.get(way.size() - 1).toShortString()));
-        if (digOk) opts.add(com.claudemod.entity.life.Decide.Option.of("dig up from here", 2 * up * digS + run / sprint + Math.sqrt(stairTop.distSqr(pos)) / sprint, "a staircase " + up + " up toward it, to " + stairTop.toShortString()));
+        if (digOk && intoMine) { int rise = Math.max(0, pos.getY() - here.getY()); opts.add(com.claudemod.entity.life.Decide.Option.of("dig up from here", 2 * rise * digS + hd / sprint, "a staircase " + rise + " up to it in his mine, never up to the sky")); }
+        else if (digOk) opts.add(com.claudemod.entity.life.Decide.Option.of("dig up from here", 2 * up * digS + run / sprint + Math.sqrt(stairTop.distSqr(pos)) / sprint, "a staircase " + up + " up toward it, to " + stairTop.toShortString()));
         if (opts.isEmpty()) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} under the surface, the walk to {} {} off: no trail out and no staircase to cut (no pick, or it failed lately)", up, pos.toShortString(), (int) hd); return false; }
         var pick = com.claudemod.entity.life.Decide.choose(g, "walk.out", (int) hd + " off, " + up + " under the surface, away from his mine", false, opts);
         if (pick == null) return false;
         g.tasks.addFirst(new Task.GoTo(pos, within));
         if (pick.name().startsWith("back")) { for (int k = way.size() - 1; k >= 1; k -= 5) { int k0 = k; while (k0 > 1 && k0 < way.size() - 1 && !stand.test(way.get(k0))) k0--; g.tasks.addFirst(new Task.GoTo(way.get(k0), k0 == way.size() - 1 ? 0.4 : 1.2)); } } // (legs on cells he can stand in; the last one into the open cell itself: a stop beside it left him under the rock, and the walk asked again) // (a leg every 5 cells back from the open sky, the nearest first)
-        else g.tasks.addFirst(new Task.GoTo(stairTop, 2));
+        else if (!intoMine) g.tasks.addFirst(new Task.GoTo(stairTop, 2)); // (into his mine: the walk itself is the staircase, his walker cuts it)
         hopsTried.put(pick.name().startsWith("back") ? way.get(way.size() - 1) : stairTop, g.tickCount); // (the way out's own walk is the walker's: the step cutter cuts it, never a way out of its own)
         com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} under the surface, the walk to {} {} off: {} first (WorkGoal.wayOut)", up, pos.toShortString(), (int) hd, pick.name());
         return true;

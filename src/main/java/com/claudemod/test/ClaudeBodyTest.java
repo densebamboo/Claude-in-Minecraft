@@ -10549,6 +10549,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1477: return st1477(stage, t, c, h, level, mock);
+            case 1476: return st1476(stage, t, c, h, level, mock);
             case 1475: return st1475(stage, t, c, h, level, mock);
             case 1474: return st1474(stage, t, c, h, level, mock);
             case 1473: return st1473(stage, t, c, h, level, mock);
@@ -19079,6 +19081,68 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static int[] s1475P = new int[2];
+    /** Stage 1476 (D2D review 83, live 21:26:32 11-10: at -85,16,-378 near the far end of his mine's 380-block row, a furnace at -85,12,-421, 43 on through the rock: "47 legs, up his mine's rows and out, then over the land", back along the whole mine, out by the door and a 40-block swim): him at the end of a 150-block row, the spot 26 on through stone at his depth. The way there is his own, along and through the rock, not up the rows and out by the door. */
+    private static boolean st1476(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(17400, 70, 10600), me = o.offset(154, -3, 0), to = o.offset(180, -3, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("mine_model", "blueprint"); level.setDayTime(3000); }
+        if (t[0] % 10 == 0 || t[0] < 10) for (int k = 0; k <= 192; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 2, o.offset(k, 0, 0));
+        if (t[0] == 10) {
+            for (int x = -2; x <= 190; x++) for (int z = -3; z <= 3; z++) for (int y = -8; y <= 6; y++) level.setBlock(o.offset(x, y, z), y <= 2 ? Blocks.STONE.defaultBlockState() : y == 3 ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            for (int x = 4; x <= 154; x++) for (int y = -3; y <= -2; y++) level.setBlock(o.offset(x, y, 0), Blocks.AIR.defaultBlockState(), 2); // his mine's row, 6 under the grass (Route.under: 4+ down)
+            var b = new com.claudemod.entity.life.MineBlueprint(o, net.minecraft.core.Direction.EAST, 2, 4); b.segments.get(0).n = 4;
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, o.offset(4, -3, 0), net.minecraft.core.Direction.EAST, 151, null));
+            c.blueprint = b; c.nook = null; c.nooks.clear(); c.stairStart = o;
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, -90f, 0f); mock[0].teleportTo(level, me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear();
+        }
+        if (t[0] == 30) {
+            var r = com.claudemod.entity.nav.Route.expand(c, level, to, 1.0);
+            var b = c.blueprint; boolean door = r != null && r.stream().anyMatch(q -> q instanceof Task.GoTo go && (go.pos().equals(b.entrance) || go.pos().equals(b.outside())));
+            String said = r == null ? "his walker's" : r.size() + " tasks";
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.stairStart = null; c.getInventory().clearContent();
+            for (int x = -2; x <= 190; x++) for (int z = -3; z <= 3; z++) for (int y = -8; y <= 6; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(!door, "a spot 26 on through the rock from the end of his 150-block row: up his mine's rows and out by the door (" + said + ")");
+            pass(stage, t, "his own way there: " + said);
+        }
+        return true;
+    }
+    /** Stage 1477 (D2D review 72, live 21:24:15 11-10: in a cave 22 under his mine's row at -104,16,-401, 28 across from it: "80 under the surface, the walk to -104, 16, -401 28 off: dig up from here first", a staircase aimed at the sky 110 on toward it (-136,70,-326), the search out of time on it, steps cut up one by one for 40 s, then written off): him in a pocket 22 under his row, no trail, sent to a cell of his row 32 across. The way is up to his row, never up to the sky. */
+    private static int st1477T; private static BlockPos st1477H;
+    private static boolean st1477(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(21400, 80, 19600);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = 0; k <= 64; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; st1477T = -1; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 64; x++) for (int z = -6; z <= 6; z++) for (int y = -34; y <= 14; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+            var E = net.minecraft.core.Direction.EAST;
+            var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 56, null)); b.invalidate();
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            BlockPos me = b.rows().get(20).first().below(22); st1477H = b.rows().get(52).first().immutable();
+            for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) for (int yy = 0; yy < 2; yy++) level.setBlock(me.offset(x, yy, z), Blocks.AIR.defaultBlockState(), 2); // his cave: a pocket
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = b.rows().get(55).first(); c.mineIsTunnel = true; com.claudemod.director.ClaudeLife.bpSync(c); level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no"); c.prefs.put("torches_while_digging", "no"); mock[0].teleportTo(level, me.getX() + 0.5, me.getY() + 60, me.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.tasks.add(new Task.GoTo(st1477H, 1.0)); st1477T = t[0]; }
+        if (st1477T > 0 && t[0] > st1477T + 2) {
+            int roof = st1477H.getY() + 4;
+            java.util.function.Predicate<BlockPos> sky = q -> q.getY() > roof || q.getX() > st1477H.getX() + 10; /* a staircase aimed at the grass lands far past his row cell (on main: 21486, -60); the row cell over his head is fine */
+            boolean up = c.getBlockY() > roof || c.tasks.stream().anyMatch(x -> x instanceof Task.GoTo go && sky.test(go.pos())) || c.currentTask instanceof Task.GoTo cg && sky.test(cg.pos());
+            boolean there = c.blockPosition().distSqr(st1477H) <= 9;
+            if (up || there || t[0] - st1477T > 20 * 150) {
+                String now = c.currentTask + " " + c.tasks; int at = c.getBlockY(); int secs = (t[0] - st1477T) / 20;
+                c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; c.mineShape = null; c.mineCells.clear(); c.mineSpine.clear(); c.prefs.remove("stay_close"); c.prefs.remove("torches_while_digging");
+                for (int x = -4; x <= 64; x++) for (int z = -6; z <= 6; z++) for (int y = -34; y <= 14; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(!up, "heading up to the sky (at y " + at + ") for a walk to his own mine's row 22 over him: " + (now.length() > 220 ? now.substring(0, 220) : now));
+                check(there, "not at his row's cell in 150 s (at y " + at + ", row at " + st1477H.getY() + ")");
+                pass(stage, t, "up to his row and along it in " + secs + " s, never up to the sky");
+            }
+        }
+        return true;
+    }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */
     private static int s934T, s934Deep;
     private static boolean st934(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

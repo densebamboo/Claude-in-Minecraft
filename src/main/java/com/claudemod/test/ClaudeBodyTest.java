@@ -10970,6 +10970,7 @@ public final class ClaudeBodyTest {
             case 1513: return st1513(stage, t, c, h, level, mock);
             case 1514: return st1514(stage, t, c, h, level, mock);
             case 1515: return st1515(stage, t, c, h, level, mock);
+            case 1516: return st1516(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -20897,6 +20898,38 @@ public final class ClaudeBodyTest {
             check(valuablesLost.isEmpty(), "something past the cheap spares thrown with them in the pack: " + valuablesLost + " (all lost: " + lost + ")");
             check(free >= 1 && !lost.isEmpty(), "no room made: " + free + " free, lost " + lost);
             pass(stage, t, "room made with a cheap spare (" + lost + "), the valuables and blocks kept");
+        }
+        return true;
+    }
+    /** Stage 1516 (D2D review 134, live 13:28:53-13:29:10 11-11 in the Nether): a crossbow piglin 5 off, him in iron with a shield and an iron sword: the shield up whenever its crossbow was loaded, walking at a fifth, the piglin backing off from 5 at its own pace; 15 s, not a hit, "FIGHT NO EFFECT". A player sprints the gap with the shield down and hits it. */
+    private static net.minecraft.world.entity.monster.piglin.Piglin st1516P; private static int st1516Hit = -1; private static float st1516Hp0;
+    private static boolean st1516(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(19700, 80, 18900);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -32; k <= 32; k += 16) for (int q = -32; q <= 32; q += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, q)), 2, o.offset(k, 0, q));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); if (st1516P != null) st1516P.discard(); st1516P = null; st1516Hit = -1; }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) if (e != st1516P) e.discard();
+        if (t[0] == 10) {
+            for (int x = -30; x <= 30; x++) for (int z = -30; z <= 30; z++) { level.setBlock(o.offset(x, -1, z), Blocks.NETHERRACK.defaultBlockState(), 2); for (int y = 0; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            level.setDayTime(6000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setHealth(18); c.getFoodData().setFoodLevel(14);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 40, o.getZ() + 0.5, 0f, 0f);
+            var pg = EntityType.PIGLIN.create(level); pg.moveTo(o.getX() + 5.5, o.getY(), o.getZ() + 0.5, 90, 0); pg.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.CROSSBOW)); pg.setImmuneToZombification(true); pg.setPersistenceRequired(); level.addFreshEntity(pg); st1516P = pg; st1516Hp0 = pg.getHealth();
+        }
+        if (t[0] == 30) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Attack(st1516P.getUUID(), 600)); }
+        if (t[0] > 30 && st1516P != null) {
+            if (st1516P.isAlive()) st1516P.setTarget(c);
+            if (st1516Hit < 0 && (!st1516P.isAlive() || st1516P.getHealth() < st1516Hp0)) st1516Hit = t[0] - 30;
+            if (st1516Hit >= 0 || t[0] == 30 + 20 * 12) {
+                String d = String.format("%.1f", st1516P.distanceTo(c)); st1516P.discard(); st1516P = null; c.tasks.clear(); c.dropCurrent = true;
+                for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY);
+                for (int x = -30; x <= 30; x++) for (int z = -30; z <= 30; z++) for (int y = -1; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                nsHome(c, h, level);
+                check(st1516Hit >= 0 && st1516Hit <= 20 * 6, "a crossbow piglin 5 off: no hit landed in " + (st1516Hit < 0 ? "12 s" : st1516Hit / 20.0 + " s") + " (" + d + " off at the end)");
+                pass(stage, t, "the crossbow piglin hit " + st1516Hit / 20.0 + " s in");
+            }
         }
         return true;
     }

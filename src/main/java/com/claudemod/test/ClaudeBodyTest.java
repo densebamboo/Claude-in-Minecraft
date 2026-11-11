@@ -10549,6 +10549,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1474: return st1474(stage, t, c, h, level, mock);
             case 1473: return st1473(stage, t, c, h, level, mock);
             case 1472: return st1472(stage, t, c, h, level, mock);
             case 1471: return st1471(stage, t, c, h, level, mock);
@@ -18997,6 +18998,40 @@ public final class ClaudeBodyTest {
                 check(there, "the bore 12 up and 10 on not there in 60 s: at " + me.toShortString() + ", tasks " + q0);
                 check(open.isEmpty(), "there at " + me.toShortString() + " in " + (t[0] - 20) + " ticks with his roof's cells still open behind him: " + open + "(tasks " + q0 + ")");
                 nsHome(c, h, level); pass(stage, t, "there in " + (t[0] - 20) + " ticks, his roof whole behind him");
+            }
+        }
+        return true;
+    }
+    /** Stage 1474 (D2D review 179, live 18:05:57-18:06:07 11-10: "shot at a Blaze 26 blocks off (look -95/0 vs aim -95/0, its v 0.00 0.00, line clear)", 3 arrows, 0 hits: the aim held 0.02 a block high for the drop, ~0.5 at 26 where a full-draw arrow falls ~2, every one under it): a still blaze 26 off at his level in the open, him with a bow, arrows and a sword. His first arrow hits it. */
+    private static net.minecraft.world.entity.monster.Blaze s1474B;
+    private static boolean st1474(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(16600, 70, 10600);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.FortressFight.reset(c); s1474B = null; }
+        if (t[0] < 29) nsTick(nl, c, o, t);
+        if (t[0] % 10 == 0 || t[0] < 10) for (int cx = 0; cx <= 2; cx++) { BlockPos q = o.offset(cx * 16, 0, 0); nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(q), 2, q); }
+        if (t[0] > 30 && t[0] % 10 == 0) for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) if (e != s1474B) e.discard();
+        if (t[0] == 10) {
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+            for (int x = -4; x <= 30; x++) for (int z = -4; z <= 4; z++) for (int y = -1; y <= 8; y++) nl.setBlock(o.offset(x, y, z), y < 0 ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BOW)); c.getInventory().add(new ItemStack(Items.ARROW, 16)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 29) { s1474B = net.minecraft.world.entity.EntityType.BLAZE.create(nl); s1474B.moveTo(o.getX() + 26.5, o.getY(), o.getZ() + 0.5, 90, 0); s1474B.setNoAi(true); s1474B.setNoGravity(true); s1474B.setPersistenceRequired(); nl.addFreshEntity(s1474B); }
+        if (t[0] == 40) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Attack(s1474B.getUUID(), 20 * 30)); }
+        if (t[0] > 40) { c.nextPlanTick = c.tickCount + 20 * 600; if (c.distanceTo(s1474B) < 22) c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); // (kept at 26: the shot is what's tested, not the walk in)
+            boolean hit = s1474B.getHealth() < s1474B.getMaxHealth() || !s1474B.isAlive();
+            if (hit || t[0] >= 40 + 20 * 12) {
+                int arrows = 16 - c.inventory.count(s -> s.is(Items.ARROW)); String q0 = c.tasks.toString() + " doing " + c.currentTask;
+                s1474B.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+                for (var a : nl.getEntitiesOfClass(net.minecraft.world.entity.projectile.AbstractArrow.class, new net.minecraft.world.phys.AABB(o).inflate(40))) a.discard();
+                for (int x = -4; x <= 30; x++) for (int z = -4; z <= 4; z++) for (int y = -1; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent(); com.claudemod.entity.life.FortressFight.reset(c);
+                check(arrows > 0, "no arrow loosed at a still blaze 26 off in 12 s: " + q0);
+                check(hit && arrows == 1, arrows + " arrow(s) at a still blaze 26 off at his level: " + (hit ? "the first ones under it" : "none hit it"));
+                nsHome(c, h, level); pass(stage, t, "hit it with " + arrows + " arrow(s) in " + (t[0] - 40) + " ticks");
             }
         }
         return true;

@@ -7549,6 +7549,14 @@ public class WorkGoal extends Goal {
     }
     /** A draw someone else aims (the End fight's shots): kept, not cut as a stray draw (line ~228). */
     public void bowAimed() { bowAimTick = g.tickCount; }
+    /** The angle up (radians) and the ticks of flight for a full-draw arrow from `from` through `to`, by vanilla's AbstractArrow: 3 blocks a tick, then each tick x0.99 and 0.05 down. Out of its reach: the 45-degree lob. */
+    static double[] arrowAim(Vec3 from, Vec3 to) {
+        double hd = Math.hypot(to.x - from.x, to.z - from.z), dy = to.y - from.y, lo = Math.toRadians(-60), hi = Math.toRadians(45), ticks = 0;
+        for (int it = 0; it < 40; it++) { double a = (lo + hi) / 2, vx = 3 * Math.cos(a), vy = 3 * Math.sin(a), x = 0, y = 0, yAt = Double.NEGATIVE_INFINITY; ticks = 0;
+            for (int k = 1; k <= 200; k++) { double nx = x + vx, ny = y + vy; if (nx >= hd) { double f = (hd - x) / (nx - x); yAt = y + (ny - y) * f; ticks = k - 1 + f; break; } x = nx; y = ny; vx *= 0.99; vy = vy * 0.99 - 0.05; }
+            if (yAt < dy) lo = a; else hi = a; }
+        return new double[] {(lo + hi) / 2, ticks};
+    }
     private boolean shootAt(net.minecraft.world.entity.LivingEntity mob) {
         if (mob instanceof net.minecraft.world.entity.monster.EnderMan) { if (g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW)) g.stopUsingItem(); return false; } /* vanilla: an enderman teleports out of every arrow; live 01:42 twelve arrows at one, two after he said "switching to the diamond sword" */
         ItemStack bow = g.inventory.find(s -> s.is(net.minecraft.world.item.Items.BOW));
@@ -7563,10 +7571,11 @@ public class WorkGoal extends Goal {
         g.setSprinting(false);
         bowAimTick = g.tickCount;
         if (!drawing) { g.hold(bow); g.startUsingItem(InteractionHand.MAIN_HAND); return true; }
-        // aim: at its chest, led by where it'll be when the arrow lands (~1 block of flight per 2 ticks at full draw), a touch high for the drop
-        Vec3 vel = mob.getDeltaMovement();
-        double flight = d / 1.5;
-        Vec3 aim = mob.getBoundingBox().getCenter().add(vel.x * flight, 0, vel.z * flight).add(0, d * 0.02, 0);
+        // aim: at its middle where it'll be when the arrow gets there, along vanilla's own flight (review 179 11-10: 0.02 a block high for the drop, ~0.5 at 26 where a full draw falls ~2: 3 arrows under a blaze; stage 1474)
+        Vec3 vel = mob.getDeltaMovement(), at = mob.getBoundingBox().getCenter(), eye0 = g.getEyePosition();
+        double[] sol = arrowAim(eye0.add(0, -0.1, 0), at); for (int k = 0; k < 2; k++) sol = arrowAim(eye0.add(0, -0.1, 0), at.add(vel.x * sol[1], 0, vel.z * sol[1])); // (led by its flight time)
+        Vec3 tgt = at.add(vel.x * sol[1], 0, vel.z * sol[1]); double hx = tgt.x - eye0.x, hz = tgt.z - eye0.z, hd = Math.max(1e-3, Math.sqrt(hx * hx + hz * hz));
+        Vec3 aim = eye0.add(hx, hd * Math.tan(sol[0]), hz);
         g.getLookControl().setLookAt(aim.x, aim.y, aim.z, 90f, 90f);
         g.getLookControl().faceNow(aim);
         if (g.getTicksUsingItem() >= 20) { // full draw: loose it (the game fires along his look, takes the arrow and wears the bow, as for any player)

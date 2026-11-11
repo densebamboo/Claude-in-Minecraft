@@ -18949,21 +18949,21 @@ public final class ClaudeBodyTest {
         BlockPos o = new BlockPos(15800, 80, 10600), dest = o.offset(0, -20, 44);
         if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); com.claudemod.entity.life.PortalMap.net(c).stairs.clear(); com.claudemod.entity.life.FarSight.reset(c); }
         nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) for (int m = 0; m <= 48; m += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(0, 0, m)), 2, o.offset(0, 0, m));
-        if (t[0] == 10) {
+        if (t[0] == 30) {
             for (int x = -6; x <= 6; x++) for (int z = -6; z <= 50; z++) for (int y = -42; y <= 20; y++) {
                 boolean ledge = z <= 6 && y <= -1 && y >= -30, floor = y == -41, far = z >= 40 && y <= -21;
                 nl.setBlock(o.offset(x, y, z), ledge || floor || far ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
             }
         }
-        if (t[0] == 12) { com.claudemod.entity.life.FarSight.reset(c); c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 10f); c.setYHeadRot(0f); }
-        if (t[0] == 16) { var p0 = com.claudemod.entity.nav.NetherRoute.plan(c, nl, o, dest); s1472A = p0 == null || p0.legs().isEmpty() ? o : p0.legs().get(p0.legs().size() - 1); c.teleportTo(nl, s1472A.getX() + 0.5, s1472A.getY(), s1472A.getZ() + 0.5, 0f, 10f); s1472W = p0 == null ? "no plan" : p0.legs().toString(); if (p0 != null) for (BlockPos l : p0.legs()) if (l.getZ() > o.getZ() + 6 && l.getZ() < o.getZ() + 40 && nl.getBlockState(l.below()).isAir()) s1472W = "BAD " + l.toShortString() + " " + s1472W; }
-        if (t[0] == 20) {
+        if (t[0] == 32) { c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); /* (as live: an iron pickaxe and 71 cobblestone; the search prices its digs and puts by what he carries) */ com.claudemod.entity.life.FarSight.reset(c); c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 10f); c.setYHeadRot(0f); }
+        if (t[0] == 36) { var p0 = com.claudemod.entity.nav.NetherRoute.plan(c, nl, o, dest); s1472A = p0 == null || p0.legs().isEmpty() ? o : p0.legs().get(p0.legs().size() - 1); c.teleportTo(nl, s1472A.getX() + 0.5, s1472A.getY(), s1472A.getZ() + 0.5, 0f, 10f); s1472W = (p0 == null ? "no plan" : p0.legs().toString()) + " [he is in " + c.level().dimension().location().getPath() + " at " + c.blockPosition().toShortString() + ", under o " + nl.getBlockState(o.below()).getBlock().getName().getString() + ", at o " + nl.getBlockState(o).getBlock().getName().getString() + ", 10 on below " + nl.getBlockState(o.offset(0, -1, 3)).getBlock().getName().getString() + ", alive " + c.isAlive() + "]"; if (p0 != null) for (BlockPos l : p0.legs()) if (l.getZ() > o.getZ() + 6 && l.getZ() < o.getZ() + 40 && nl.getBlockState(l.below()).isAir()) s1472W = "BAD " + l.toShortString() + " " + s1472W; }
+        if (t[0] == 40) {
             var p = com.claudemod.entity.nav.NetherRoute.plan(c, nl, s1472A, dest);
             String bad = s1472W.startsWith("BAD") ? "the first plan: " + s1472W : "";
             if (p != null) for (BlockPos l : p.legs()) if (l.getZ() > o.getZ() + 6 && l.getZ() < o.getZ() + 40 && nl.getBlockState(l.below()).isAir()) bad += l.toShortString() + "; ";
             String why = "from " + o.toShortString() + ": " + s1472W + " | then from " + s1472A.toShortString() + ": " + (p == null ? "no plan" : p.legs().size() + " legs, partial " + p.partial() + ": " + p.legs());
             for (int x = -6; x <= 6; x++) for (int z = -6; z <= 50; z++) for (int y = -42; y <= 20; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
-            com.claudemod.entity.life.FarSight.reset(c);
+            com.claudemod.entity.life.FarSight.reset(c); c.getInventory().clearContent();
             check(p != null && !p.legs().isEmpty(), "a route off his ledge: " + why);
             check(bad.isEmpty(), "legs ending over the drop he can't see down, on a floor read as netherrack: " + bad + " | " + why);
             nsHome(c, h, level); pass(stage, t, why);

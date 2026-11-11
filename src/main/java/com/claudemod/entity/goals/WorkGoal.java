@@ -3497,13 +3497,13 @@ public class WorkGoal extends Goal {
             if (fls.is(net.minecraft.world.level.block.Blocks.MAGMA_BLOCK)) todo.add(new Task.Break(fl));
             todo.add(new Task.Place(fl, fill));
         }
-        BlockPos fl2 = f.relative(boreDir).below(); var fl2s = level.getBlockState(fl2); // (bridging: the floor a block further too, so a sprint's look ahead meets ground, never the drop)
-        if (todo.isEmpty() && off == 0 && ny == me.getY() && fill != null && fls.isFaceSturdy(level, fl, Direction.UP) && (fl2s.isAir() || fl2s.getFluidState().is(net.minecraft.tags.FluidTags.LAVA)) && level.getBlockState(fl2.above()).isAir() && level.getBlockState(fl2.below()).getCollisionShape(level, fl2.below()).isEmpty() && fl2.closerToCenterThan(g.getEyePosition(), 4.5)
-                && !(wantY < me.getY() && !level.getBlockState(fl2.below(2)).getCollisionShape(level, fl2.below(2)).isEmpty())) // (never where the line steps down next: ground 2 under it takes the line into that cell, and the block he'd put is dug back out; review 78, stage 1170)
-            todo.add(new Task.Place(fl2, fill));
         if (todo.isEmpty() && overLava && fill != null) { var sh = com.claudemod.entity.life.FortressScout.shooterInSight(g); // a shooter in sight over lava: a wall block at head height on its side (the knock's way off)
             if (sh != null) { Direction side = boreDir.getClockWise(); if ((sh.getX() - g.getX()) * side.getStepX() + (sh.getZ() - g.getZ()) * side.getStepZ() < 0) side = side.getOpposite(); BlockPos w = f.relative(side).above(); if (level.getBlockState(w).isAir() && boreFace(level, w)) todo.add(new Task.Place(w, fill)); } }
         if (todo.isEmpty() && overLava && fill != null) for (Direction side : new Direction[] {boreDir.getClockWise(), boreDir.getCounterClockWise()}) { BlockPos r = f.relative(side); var rs = level.getBlockState(r); if (rs.isAir() || rs.getFluidState().is(net.minecraft.tags.FluidTags.LAVA)) todo.add(new Task.Place(r, fill)); } // (rails: a knock-back over lava lands on a block)
+        BlockPos fl2 = f.relative(boreDir).below(); var fl2s = level.getBlockState(fl2); // (bridging: the floor a block further too, so a sprint's look ahead meets ground, never the drop; after this column's wall and rails: queued first it kept the todo full, and over a lake none were ever laid, stage 820 red since 11-07)
+        if (todo.isEmpty() && off == 0 && ny == me.getY() && fill != null && fls.isFaceSturdy(level, fl, Direction.UP) && (fl2s.isAir() || fl2s.getFluidState().is(net.minecraft.tags.FluidTags.LAVA)) && level.getBlockState(fl2.above()).isAir() && level.getBlockState(fl2.below()).getCollisionShape(level, fl2.below()).isEmpty() && fl2.closerToCenterThan(g.getEyePosition(), 4.5)
+                && !(wantY < me.getY() && !level.getBlockState(fl2.below(2)).getCollisionShape(level, fl2.below(2)).isEmpty())) // (never where the line steps down next: ground 2 under it takes the line into that cell, and the block he'd put is dug back out; review 78, stage 1170)
+            todo.add(new Task.Place(fl2, fill));
         if (kept != null) todo.clear(); // (the column won't open while that cell stays: round it, nothing of it queued)
         if (!todo.isEmpty() || loose != null || kept != null) {
             if (todo.isEmpty()) todo.add(kept != null ? new Task.Break(kept) : new Task.Place(loose, net.minecraft.world.item.Items.NETHERRACK)); // (for the log line: the dig or plug it won't make)

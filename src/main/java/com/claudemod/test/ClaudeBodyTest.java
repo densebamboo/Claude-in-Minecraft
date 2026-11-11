@@ -10982,6 +10982,7 @@ public final class ClaudeBodyTest {
             case 1516: return st1516(stage, t, c, h, level, mock);
             case 1517: return st1517(stage, t, c, h, level, mock);
             case 1518: return st1518(stage, t, c, h, level, mock);
+            case 1519: return st1519(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -21195,6 +21196,26 @@ public final class ClaudeBodyTest {
             check(p == null, "5 off the deck, nothing in the way: sent round by its open end at " + (p == null ? "-" : p.deck().toShortString()) + ": " + r);
             nsHome(c, h, level); pass(stage, t, "onto the deck on his own walk (" + r + ")");
         }
+        return true;
+    }
+    /** Stage 1519 (D2D 152442-22, live 15:20:02-15:21:35 11-11 at -176,-58,-20, his bed at -176,-58,-17): at sundown, by his bed partway through strip_mine iron_ore, its walk out queued: "sleep time: the sleep skill takes it from here" put the sleep step on his skill queue behind the dig's 100 queued walks, and the night hold stood down for it (sleepTripOn); the walks ran, 150 blocks off in the dark, the sleep step at last sending him to a bed 153 off. The sleep step comes before the dig's walks. */
+    private static int s1519Far;
+    private static boolean st1519(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.blueprint = null; c.nook = null; c.house = null; c.myStations.clear(); s1519Far = -1; }
+        for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, c.getBoundingBox().inflate(40))) m.discard();
+        BlockPos bedP = h.absolutePos(new BlockPos(3, 2, 3));
+        if (t[0] == 10) {
+            flatBox(h); bed(h, new BlockPos(3, 2, 3)); c.myStations.add(bedP);
+            BlockPos me = h.absolutePos(new BlockPos(5, 2, 3)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); if (c.currentTask != null) c.dropCurrent = true; c.prefs.put("stay_close", "no"); c.commandActive = false;
+            level.setDayTime(12560); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.OAK_LOG, 17)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 12)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            c.lastStep = new com.claudemod.entity.life.Skills.Step("strip_mine", "iron_ore", 1); c.lastSkillLine = "strip_mine iron_ore x1 -> to his face";
+        }
+        if (t[0] == 10) { BlockPos me = c.blockPosition(); c.tasks.add(new Task.Wait(200, false)); for (int k = 1; k <= 8; k++) c.tasks.add(new Task.GoTo(me.east(6 * k), 0.8)); s1519Far = 0; } // (as live: by his bed in the bed walk's 10 s Wait, the dig's walk out to its face queued behind it, in legs)
+        if (t[0] > 10 && s1519Far >= 0) s1519Far = Math.max(s1519Far, (int) Math.sqrt(c.blockPosition().distSqr(bedP)));
+        if (t[0] > 10 && c.isSleeping()) { int took = t[0] - 10; int far = s1519Far; c.stopSleeping(); c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null; level.setDayTime(6000);
+            check(far <= 10, "asleep, but only after the dig's walk took him " + far + " off his bed"); pass(stage, t, "sundown by his bed mid-dig: in bed in " + took + " ticks, never more than " + far + " off it"); }
+        else if (t[0] == 10 + 20 * 40) { String q = c.currentTask + " " + c.tasks.stream().limit(4).toList() + " skills " + c.skillQueue + " at " + c.blockPosition().toShortString(); int far = s1519Far; c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null; level.setDayTime(6000); check(false, "sundown by his bed mid-dig: not asleep in 40 s, " + far + " off his bed at most (" + q + ")"); }
         return true;
     }
     private static int s1511At = -1;

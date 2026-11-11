@@ -10550,6 +10550,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1495: return st1495(stage, t, c, h, level, mock);
+            case 1494: return st1494(stage, t, c, h, level, mock);
             case 1493: return st1493(stage, t, c, h, level, mock);
             case 1492: return st1492(stage, t, c, h, level, mock);
             case 1491: return st1491(stage, t, c, h, level, mock);
@@ -19721,6 +19723,52 @@ public final class ClaudeBodyTest {
             pass(stage, t, "no STUCK while the catches came in; STUCK once they stopped");
         }
         } catch (AssertionError e) { com.claudemod.entity.life.Watchdog.stuckTicks = 20 * 180; com.claudemod.entity.life.Watchdog.linesInTests = false; throw e; }
+        return true;
+    }
+    /** Stage 1494 (D2D, near-death 09:51-09:52 11-11, fight 29: 4 blazes, 20 -> 2; three of the five fireballs that hit him came "in cover"; at 09:52:14 one came in at 273.2,67.1,508.5, over the wall, above his eyes (66.6): FortressFight.sees tried only his eyes and middle, "it sees the cell false"). A wall 2 high 3 off him, a blaze 8 off whose lines to his eyes and middle hit the wall and whose line to the top of his head clears it: it sees him. */
+    private static boolean st1494(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 30, 8));
+        if (t[0] == 10) {
+            for (int x = -2; x <= 10; x++) for (int z = -2; z <= 2; z++) for (int y = -1; y <= 6; y++) level.setBlock(o.offset(x, y, z), (y == -1 || x == 3 && z == 0 && y <= 1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            var b = EntityType.BLAZE.create(level); b.setNoAi(true); b.setNoGravity(true);
+            b.moveTo(o.getX() + 8.5, o.getY() + 2.6 - b.getEyeHeight(), o.getZ() + 0.5, 90, 0); level.addFreshEntity(b);
+            net.minecraft.world.phys.Vec3 eye = b.getEyePosition();
+            java.util.function.Function<net.minecraft.world.phys.Vec3, Boolean> clear = p -> level.clip(new net.minecraft.world.level.ClipContext(eye, p, net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, b)).getType() == net.minecraft.world.phys.HitResult.Type.MISS;
+            boolean eyes = clear.apply(new net.minecraft.world.phys.Vec3(o.getX() + 0.5, o.getY() + 1.62, o.getZ() + 0.5)), mid = clear.apply(new net.minecraft.world.phys.Vec3(o.getX() + 0.5, o.getY() + 0.9, o.getZ() + 0.5)), top = clear.apply(new net.minecraft.world.phys.Vec3(o.getX() + 0.5, o.getY() + 1.75, o.getZ() + 0.5));
+            boolean sees = com.claudemod.entity.life.FortressFight.sees(level, b, o);
+            b.discard();
+            for (int x = -2; x <= 10; x++) for (int z = -2; z <= 2; z++) for (int y = -1; y <= 6; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(!eyes && !mid && top, "the stage's wall: eyes " + eyes + ", middle " + mid + ", top of his head " + top + " (want hidden, hidden, seen)");
+            check(sees, "a blaze with a clear line over the wall to the top of his head: the sight model says it doesn't see him");
+            pass(stage, t, "the line over the wall to the top of his head counts: it sees him");
+        }
+        return true;
+    }
+    /** Stage 1495 (D2D review 143, live 09:52:18-09:53:05 11-11, fight 29: the run from 4 blazes reached his hide at 265,64,510 out of their sight; there he held 45 s at 2-3 HP, food 17 so no regen, his queued Eat behind the run, till "stuck on Flee for 45 s, skipping it"; then he ate and healed). His hide held, a blaze behind a wall, nothing in reach, 4 HP, bread on him, hunger 20 at the start of the run and 17 once he holds (as live): he eats there. */
+    private static int s1495T; private static net.minecraft.world.entity.monster.Blaze s1495B; private static BlockPos s1495Me;
+    private static boolean st1495(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1495T = -1; if (s1495B != null) s1495B.discard(); s1495B = null; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            s1495Me = h.absolutePos(new BlockPos(4, 2, 5)).immutable();
+            for (int z = -2; z <= 2; z++) for (int y = 0; y <= 3; y++) level.setBlock(s1495Me.offset(3, y, z), Blocks.STONE.defaultBlockState(), 2); // the wall between him and the blaze
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.teleportTo(s1495Me.getX() + 0.5, s1495Me.getY(), s1495Me.getZ() + 0.5); c.setHealth(4); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(0); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var b = EntityType.BLAZE.create(level); BlockPos sp = s1495Me.east(9); b.moveTo(sp.getX() + 0.5, sp.getY() + 1, sp.getZ() + 0.5, 90, 0); b.setNoAi(true); b.setNoGravity(true); b.setPersistenceRequired(); level.addFreshEntity(b); b.setTarget(c); s1495B = b;
+            com.claudemod.entity.life.Perception.noteSeenTest(c, b);
+        }
+        if (t[0] == 12) { c.work.escapeHoldForTest(s1495Me); c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Flee(600)); }
+        if (t[0] == 40) { check(c.currentTask instanceof Task.Flee, "the run to his hide not under way: " + c.currentTask + " " + c.tasks); c.getFoodData().setFoodLevel(17); c.getFoodData().setSaturation(0); s1495T = t[0]; } // (live: hunger 20 at the hide, so no meal, then down to 17 while he held)
+        if (s1495T > 0 && t[0] > s1495T) {
+            boolean ate = c.getInventory().countItem(Items.BREAD) < 8 || c.getFoodData().getFoodLevel() > 17;
+            if (ate || t[0] - s1495T > 20 * 8) {
+                double s = (t[0] - s1495T) / 20.0; String q = c.currentTask + " " + c.tasks; float hp = c.getHealth();
+                s1495B.discard(); s1495B = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.getFoodData().setFoodLevel(20); c.work.escapeHoldForTest(null);
+                for (int z = -2; z <= 2; z++) for (int y = 0; y <= 3; y++) level.setBlock(s1495Me.offset(3, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(ate, "at his hide, out of the blaze's sight, nothing in reach, " + hp + " HP and hunger 17: no meal in 8 s (" + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+                pass(stage, t, "at his hide at 4 HP: eating in " + s + " s");
+            }
+        }
         return true;
     }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */

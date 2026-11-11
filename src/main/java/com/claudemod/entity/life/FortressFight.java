@@ -161,9 +161,13 @@ public final class FortressFight {
         java.util.Set<Blaze> known = new java.util.HashSet<>(Perception.known(g, Blaze.class, new AABB(at).inflate(r), Entity::isAlive));
         return level.getEntitiesOfClass(Blaze.class, new AABB(at).inflate(r), b -> b.isAlive() && (known.contains(b) || b.distanceTo(g) <= 16 || g.hasLineOfSight(b)));
     }
+    /** The points of a player standing in the cell a shot can land on: his eyes, middle, feet and the four corners of the top of his head. A fireball flies straight: any clear line to his body is a hit (live 09:52:14 11-11, fight 29: one came in over a wall at 67.1, above his eyes at 66.6, "it sees the cell false"; stage 1494). */
+    static Vec3[] body(BlockPos c) { double x = c.getX() + 0.5, y = c.getY(), z = c.getZ() + 0.5;
+        return new Vec3[] {eyeOf(c), new Vec3(x, y + 0.9, z), new Vec3(x, y + 0.2, z), new Vec3(x - 0.25, y + 1.75, z - 0.25), new Vec3(x + 0.25, y + 1.75, z - 0.25), new Vec3(x - 0.25, y + 1.75, z + 0.25), new Vec3(x + 0.25, y + 1.75, z + 0.25)}; }
     public static boolean sees(ServerLevel level, LivingEntity mob, BlockPos cell) {
         Vec3 from = mob.getEyePosition();
-        return clear(level, from, eyeOf(cell), mob) || clear(level, from, new Vec3(cell.getX() + 0.5, cell.getY() + 0.9, cell.getZ() + 0.5), mob);
+        for (Vec3 p : body(cell)) if (clear(level, from, p, mob)) return true;
+        return false;
     }
 
     /** A blaze spawner he can see (the blaze turning in the cage), or null. */
@@ -217,9 +221,9 @@ public final class FortressFight {
     }
     /** The cells along the line from a to b, in order (eighth-block steps). */
     static List<BlockPos> cellsOn(Vec3 a, Vec3 b) { List<BlockPos> out = new ArrayList<>(); int n = Math.max(1, (int) Math.ceil(a.distanceTo(b) * 8)); for (int i = 0; i <= n; i++) { BlockPos p = BlockPos.containing(a.lerp(b, i / (double) n)); if (out.isEmpty() || !out.get(out.size() - 1).equals(p)) out.add(p); } return out; }
-    /** An eye still sees the cell (his eyes or his middle) with the blocks of {@code put} standing, each a full block. */
+    /** An eye still sees the cell (any point of his body: FortressFight.body) with the blocks of {@code put} standing, each a full block. */
     static boolean seenPast(ServerLevel level, Vec3 eye, BlockPos c, List<BlockPos> put, Entity ctx) {
-        for (Vec3 p : new Vec3[] {eyeOf(c), new Vec3(c.getX() + 0.5, c.getY() + 0.9, c.getZ() + 0.5)}) { if (!clear(level, eye, p, ctx)) continue; boolean cut = false; for (BlockPos q : cellsOn(p, eye)) if (put.contains(q)) { cut = true; break; } if (!cut) return true; }
+        for (Vec3 p : body(c)) { if (!clear(level, eye, p, ctx)) continue; boolean cut = false; for (BlockPos q : cellsOn(p, eye)) if (put.contains(q)) { cut = true; break; } if (!cut) return true; }
         return false;
     }
     /**
@@ -242,7 +246,7 @@ public final class FortressFight {
             if (!stand(level, c) || Math.sqrt(c.distToCenterSqr(anchor)) < 3.0 || burntCell(g, c)) { no[0]++; continue; }
             List<BlockPos> put = new ArrayList<>(); boolean ok = true;
             for (Vec3 e : eyes) {
-                for (Vec3 p : new Vec3[] {eyeOf(c), new Vec3(c.getX() + 0.5, c.getY() + 0.9, c.getZ() + 0.5)}) {
+                for (Vec3 p : body(c)) { // (every line a shot can take to him: a block in each)
                     if (!clear(level, e, p, g)) continue;
                     List<BlockPos> line = cellsOn(p, e); boolean cut = false; for (BlockPos q : line) if (put.contains(q)) { cut = true; break; } if (cut) continue;
                     BlockPos first = null; for (BlockPos q : line) if (!q.equals(c) && !q.equals(c.above())) { first = q; break; }
@@ -304,7 +308,7 @@ public final class FortressFight {
             if (!stand(level, c) || burntCell(g, c)) continue;
             double da = Math.sqrt(c.distToCenterSqr(anchor));
             if (da < 3.0 || da > 18) continue;
-            boolean seen = false; for (Vec3 e : eyes) if (clear(level, e, eyeOf(c), g) || clear(level, e, new Vec3(c.getX() + 0.5, c.getY() + 0.9, c.getZ() + 0.5), g)) { seen = true; break; }
+            boolean seen = false; for (Vec3 e : eyes) { for (Vec3 p : body(c)) if (clear(level, e, p, g)) { seen = true; break; } if (seen) break; } // (any point of him: FortressFight.body)
             if (seen) continue;
             BlockPos peek = null; double pd = Double.MAX_VALUE;
             for (Direction d : Direction.Plane.HORIZONTAL) { BlockPos q = c.relative(d); if (!stand(level, q) || !clear(level, eyeOf(q), anchor, g)) continue; double qd = q.distToCenterSqr(anchor); if (qd < pd) { pd = qd; peek = q; } }

@@ -10964,6 +10964,7 @@ public final class ClaudeBodyTest {
             case 1509: return st1509(stage, t, c, h, level, mock);
             case 1510: return st1510(stage, t, c, h, level, mock);
             case 1511: return st1511(stage, t, c, h, level, mock);
+            case 1512: return st1512(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -20739,6 +20740,24 @@ public final class ClaudeBodyTest {
     }
     /** Stage 1510 (D2D reviews 24/26, live 11:19:46-11:21:03 11-11 by his mine's flooded pit): on the dry ledge at -34,51,-18, his walk to the water cell 1 off and 1 down (-34,50,-19, within 0.9); the vanilla path ended where he stood, the close step only stepped into air, he stood 8 s, the spot was dropped and queued again for minutes. He steps off into the water. */
     /** Stage 1511 (D2D review 347, live 08:18-08:19:43 11-11 in his mine's row flooded to head height): his walk 90 down the row, an oak log in the row beside him; the walker failed BLOCKED_BLOCK on it every 8 s and the next spot 1 on was tried, 90 s, till the plan came back and dug it. He cuts the log in his way. */
+    /** Stage 1512 (D2D reviews 285/72, live 10:29:21 11-11 at -34,64,9): short grass on his cell when he dug in; the grass came off first and the hole's dig came back as a new task the cover didn't know as its own, so "under his feet: from a side cell"; the hole dug from beside, the lid put on it with him outside, the cover called off and the dirt left. He ends down his hole under the lid. */
+    private static boolean st1512(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); flatBox(h); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        if (t[0] == 10) {
+            h.setBlock(new BlockPos(8, 2, 8), Blocks.SHORT_GRASS); h.setBlock(new BlockPos(8, 0, 8), Blocks.DIRT); h.setBlock(new BlockPos(8, -1, 8), Blocks.DIRT); level.setDayTime(6000); // (dirt all three down, as live)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIRT, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); // (73 building blocks on him, as live: the hole dirt not worth the walk down)
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.pillarBlocks.clear();
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); check(c.work.shelter(), "no hole dug (" + c.noCoverWhyNow() + ")"); }
+        if (t[0] > 20 && c.currentTask instanceof Task.Wait && c.work.holdingCover()) {
+            String where = c.blockPosition().toShortString(); boolean lid = !level.getBlockState(at.below()).isAir(), down = c.getBlockY() <= at.getY() - 2;
+            c.tasks.clear(); c.dropCurrent = true; c.teleportTo(at.getX() + 0.5, at.getY() + 1, at.getZ() + 0.5); flatBox(h);
+            check(down, "his cover held with him at " + where + ", not down the hole (lid " + lid + ")");
+            pass(stage, t, "down his hole at " + where + " under the lid (" + lid + ")"); return true; }
+        if (t[0] > 20) check(t[0] < 300, "never settled down his hole: at " + c.blockPosition().toShortString() + " (the hole's top " + at.below().toShortString() + " " + level.getBlockState(at.below()).getBlock().getName().getString() + "), now=" + c.currentTask + " tasks=" + c.tasks);
+        return true;
+    }
     private static int s1511At = -1;
     private static boolean st1511(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos o = h.absolutePos(new BlockPos(0, 0, 0)), me = o.offset(3, 2, 8), to = o.offset(40, 2, 8), log = o.offset(4, 2, 8);

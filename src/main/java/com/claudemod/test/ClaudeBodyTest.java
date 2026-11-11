@@ -10549,6 +10549,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1491: return st1491(stage, t, c, h, level, mock);
+            case 1490: return st1490(stage, t, c, h, level, mock);
             case 1489: return st1489(stage, t, c, h, level, mock);
             case 1488: return st1488(stage, t, c, h, level, mock);
             case 1487: return st1487(stage, t, c, h, level, mock);
@@ -19586,6 +19588,59 @@ public final class ClaudeBodyTest {
     }
     /** Stage 1489 (the same live walk: the torch's "floor under it" went down 3 cells into his mine's pit, -143,14,-429 "Air on Air", and the walk there made a way of 4 blocks put down to stand in the air). A torch on a wall over a pit, floored ground in reach beside it: he places it from there, nothing put into the pit. */
     private static boolean st1489(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { return st1488(stage, t, c, h, level, mock, 1); }
+    /** Stage 1490 (D2D review 229, live 06:52:06 11-11 in the overworld: the plan's steps were [obtain cooked_beef, obtain blaze_rod 7], no portal step; obtain queued blaze_rods as it was and it failed at once, "blazes are only in the Nether: enter_portal first", FAILED and watchdog incidents). In the overworld, "obtain blaze_rod 7": through his portal first, then the blazes. */
+    private static boolean st1490(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; }
+        if (t[0] == 10) {
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.nextPlanTick = c.tickCount + 20 * 600;
+            String said = "?"; java.util.List<String> q = new java.util.ArrayList<>();
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("runSkill", ClaudeEntity.class, ServerPlayer.class, com.claudemod.entity.life.Skills.Step.class); m.setAccessible(true);
+                said = String.valueOf(m.invoke(null, c, mock[0], new com.claudemod.entity.life.Skills.Step("obtain", "blaze_rod", 7))); } catch (Exception e) { check(false, "runSkill: " + e); }
+            for (var s0 : c.skillQueue) q.add(s0.skill() + " " + s0.target());
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            int portal = q.indexOf("enter_portal "), blaze = -1; for (int i = 0; i < q.size(); i++) if (q.get(i).startsWith("blaze_rods")) { blaze = i; break; }
+            check(level.dimension() != net.minecraft.world.level.Level.NETHER, "the stage runs in the overworld");
+            check(blaze >= 0, "obtain blaze_rod 7 queued no blaze hunt: " + said + " " + q);
+            check(portal >= 0 && portal < blaze, "obtain blaze_rod 7 from the overworld: no way through his portal before the blazes: " + q);
+            pass(stage, t, "obtain blaze_rod from the overworld: " + q);
+        }
+        return true;
+    }
+    /** Stage 1491 (D2D review 303, live 07:05:29-35 11-11: a made way dug a block of his mine's floor, -42,15,-437, dropped 4 to the iron, and queued its put-back, a cobblestone Place; his pack was full, the dug block's cobblestone never picked up, none on him. The Place sent him back up into his mine first, two oak logs pillared under him at -42,12/13,-437, and only then "no cobblestone on him for the build's cell": the logs left, the hole open all the same). His mine's floor dug through, him 3 down the hole under it, only oak logs on him, its put-back queued: given up at once, nothing put down. */
+    private static int s1491T;
+    private static boolean st1491(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(24400, 80, 19600);
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; s1491T = 0; c.prefs.put("stay_close", "no"); level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o); }
+        BlockPos cell = c.blueprint != null && c.blueprint.rows().size() > 8 ? c.blueprint.rows().get(8).first().below() : null;
+        if (t[0] == 10) {
+            for (int x = -4; x <= 24; x++) for (int z = -6; z <= 6; z++) for (int y = -8; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+            var E = net.minecraft.core.Direction.EAST; var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 16, null)); b.invalidate();
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineIsTunnel = true; com.claudemod.director.ClaudeLife.bpSync(c); level.setDayTime(6000);
+            BlockPos f0 = b.rows().get(8).first().below(); for (int k = 0; k <= 3; k++) level.setBlock(f0.below(k), Blocks.AIR.defaultBlockState(), 2); // the floor dug and the hole under it, 3 down
+            BlockPos me = f0.below(3);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 32)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, -90f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.fallDistance = 0; mock[0].teleportTo(level, me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600; c.attempts.clear(); c.lastStep = null;
+        }
+        if (t[0] == 20) { c.tasks.add(new Task.Place(cell, Items.COBBLESTONE, null, Blocks.COBBLESTONE.defaultBlockState())); s1491T = t[0]; }
+        if (s1491T > 0 && t[0] > s1491T) {
+            boolean idle = c.currentTask == null && c.tasks.isEmpty();
+            if (idle && t[0] - s1491T > 10 || t[0] - s1491T > 20 * 10) {
+                double s = (t[0] - s1491T) / 20.0; String q = c.currentTask + " " + c.tasks; int logs = 0;
+                for (int x = -4; x <= 24; x++) for (int z = -6; z <= 6; z++) for (int y = -8; y <= 8; y++) if (level.getBlockState(o.offset(x, y, z)).is(Blocks.OAK_LOG)) logs++;
+                c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.prefs.remove("stay_close"); c.pillarBlocks.clear(); c.blueprint = null; c.prefs.remove("mine_model"); c.mineShape = null; c.mineCells.clear(); c.mineSpine.clear();
+                for (int x = -4; x <= 24; x++) for (int z = -6; z <= 6; z++) for (int y = -8; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2);
+                c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.setDeltaMovement(0, 0, 0); c.fallDistance = 0;
+                check(logs == 0, "no cobblestone on him for his mine's floor block: " + logs + " oak log(s) put down on the way back up to it first");
+                check(s <= 2, "no cobblestone on him for his mine's floor block: " + s + " s before giving it up (" + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+                pass(stage, t, "no cobblestone for his mine's floor block: given up in " + s + " s, nothing put down");
+            }
+        }
+        return true;
+    }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */
     private static int s934T, s934Deep;
     private static boolean st934(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

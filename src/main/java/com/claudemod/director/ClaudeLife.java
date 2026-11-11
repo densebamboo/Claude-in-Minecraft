@@ -3319,7 +3319,9 @@ public final class ClaudeLife {
                 if (plan.problem() != null) return "failed: can't get " + target + " yet: " + plan.problem();
                 if (plan.steps().isEmpty()) { String inBox = fromMyChests(g, level, s -> s.is(item), st); if (inBox != null) return inBox; } // the thing itself sits in his chest (a bucket in storage: the plan counted it, the craft then failed for iron every 6 s)
                 if (plan.steps().isEmpty()) { g.skillQueue.addFirst(new Skills.Step(Crafting.recipesFor(level, item).isEmpty() ? "smelt" : "craft", target, count - haveN, st.where())); return "everything for the " + target + " is on hand (or in my furnace/chests): making it now"; } // (the parts counted from his furnace and chests left nothing to plan, and nothing made it: an empty "to get 1 bucket:" every 6 s)
-                for (int i = plan.steps().size() - 1; i >= 0; i--) g.skillQueue.addFirst(plan.steps().get(i));
+                int portalAt = -1; // a Nether source (a fortress's blazes, its wart) from out of the Nether: through his portal first, like a player (live 06:52 11-11: the plan said "obtain blaze_rod", no portal step, the blaze skill failed at once in the overworld; stage 1490)
+                if (level.dimension() != net.minecraft.world.level.Level.NETHER) for (int i = 0; i < plan.steps().size() && portalAt < 0; i++) { var ps = plan.steps().get(i); if (ps.skill().equals("blaze_rods") || ps.skill().equals("loot") && ps.target().equals("fortress")) portalAt = i; } // shortcut: knows the Nether's sources by skill name; a new Nether source skill goes on this list
+                for (int i = plan.steps().size() - 1; i >= 0; i--) { g.skillQueue.addFirst(plan.steps().get(i)); if (i == portalAt) g.skillQueue.addFirst(new Skills.Step("enter_portal", "", 1, st.where())); }
                 return "to get " + count + " " + target + ": " + Procure.describe(plan.steps()) + com.claudemod.entity.life.ChestLedger.fetchNote(g, level, plan.fromChests());
             }
             case "craft": {

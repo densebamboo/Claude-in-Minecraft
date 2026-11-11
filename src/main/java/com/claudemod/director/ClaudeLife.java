@@ -9528,6 +9528,12 @@ public final class ClaudeLife {
             g.skillQueue.addFirst(st);
             return "no ground for " + what + " anywhere near (all water): swimming for the shore at " + shore.toShortString() + " first";
         }
+        if ("a furnace".equals(what) && "smelt".equals(st.skill())) { // the site is known now: his own furnace against setting this one down over there, priced as goToStation prices them (it priced "here" with no walk: live 13:35 11-11 a furnace 20 off on open ground, his 25 off, then swims to work it, D2D 133954-13/134456-25/26; stage 1517)
+            BlockPos his = null; int rh = 0; for (BlockPos f : g.myStations) if (level.isLoaded(f) && level.getBlockState(f).is(Blocks.FURNACE) && f.distSqr(g.blockPosition()) <= 40 * 40 && (g.attempts.any.get(f) == null || g.tickCount - g.attempts.any.get(f) > 20 * 60)) { int r = routeDist(g, g.blockPosition(), f); if (his == null || r < rh) { his = f; rh = r; } }
+            if (his != null) { Item in0 = smeltInput(level, g, item(st.target())); int n0 = in0 == null ? st.count() : Math.min(st.count(), g.getInventory().countItem(in0)); int rr = routeDist(g, g.blockPosition(), roomy);
+                double hisS = 2.0 * rh / 5.6 + n0 * 10.0, ownS = 2.0 * rr / 5.6 + (g.getInventory().countItem(Items.FURNACE) > 0 ? 4 : 10) + n0 * 10.0;
+                if (hisS <= ownS) { g.tasks.add(new Task.GoTo(his, 2.5)); g.stationWalkTick = g.tickCount; g.skillQueue.addFirst(st); ClaudeMod.LOGGER.info("[Claude life] no room for a furnace here: his own at {} ({} on foot, ~{} s) beats setting one down on open ground at {} ({} on foot, ~{} s) (ClaudeLife.toOpenGround)", his.toShortString(), rh, (int) hisS, roomy.toShortString(), rr, (int) ownS); return "no room for a furnace right here: over to my furnace at " + his.toShortString(); } }
+        }
         g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.STATION, roomy, g.tickCount); // (once: if it doesn't take there either, the next spot; kept far above the world: the spot itself marked unreachable made the walk there end before it began, 12 spots in a second)
         g.tasks.add(new Task.GoTo(roomy, 0.8));
         g.skillQueue.addFirst(st);

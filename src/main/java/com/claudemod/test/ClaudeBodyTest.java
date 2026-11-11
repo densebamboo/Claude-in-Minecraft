@@ -10977,6 +10977,7 @@ public final class ClaudeBodyTest {
             case 1514: return st1514(stage, t, c, h, level, mock);
             case 1515: return st1515(stage, t, c, h, level, mock);
             case 1516: return st1516(stage, t, c, h, level, mock);
+            case 1517: return st1517(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -21087,6 +21088,31 @@ public final class ClaudeBodyTest {
                 check(st1516Hit >= 0 && st1516Hit <= 20 * 6, "a crossbow piglin 5 off: no hit landed in " + (st1516Hit < 0 ? "12 s" : st1516Hit / 20.0 + " s") + " (" + d + " off at the end)");
                 pass(stage, t, "the crossbow piglin hit " + st1516Hit / 20.0 + " s in");
             }
+        }
+        return true;
+    }
+    /** Stage 1517 (D2D furnace family 133954-13, 134456-25/26, 135958-74, live 13:35:18 11-11): on dry ground with no room in reach for a furnace (water all round), a furnace and salmon on him, his own furnace 14 off on land. "his own furnace set down here (~14 s) beats his (~15 s)" priced no walk, then "no room right here: over to open ground" 7 off, and the swims to work it. With the site known, his own furnace wins. */
+    private static boolean st1517(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.myStations.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); }
+        if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 4, c.blockPosition());
+        if (t[0] == 10) {
+            BlockPos me = c.blockPosition();
+            for (int x = -16; x <= 20; x++) for (int z = -16; z <= 16; z++) { level.setBlock(me.offset(x, -2, z), Blocks.STONE.defaultBlockState(), 2); level.setBlock(me.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = -7; x <= 5; x++) for (int z = -7; z <= 7; z++) if (x != 0 || z != 0) level.setBlock(me.offset(x, -1, z), Blocks.WATER.defaultBlockState(), 2); // (water all round his spit: no room in reach, dry land from 6 east)
+            BlockPos f = me.offset(14, 0, 0); level.setBlock(f, Blocks.FURNACE.defaultBlockState(), 2); c.myStations.add(f.immutable());
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.getInventory().add(new ItemStack(Items.SALMON, 1)); c.getInventory().add(new ItemStack(Items.FURNACE, 1)); c.getInventory().add(new ItemStack(Items.COAL, 8)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16));
+            c.getFoodData().setFoodLevel(20);
+        }
+        if (t[0] == 20) {
+            boolean dry = !c.isInWater();
+            c.tasks.clear(); c.skillQueue.clear();
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "cooked_salmon", 1);
+            String q = String.valueOf(c.tasks);
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear();
+            check(dry, "set up: he's in the water");
+            check(r == null || !r.contains("open ground"), "no room here, his own furnace 14 off: off to open ground to set a new one: " + r + " " + q);
+            pass(stage, t, "no room here, his own furnace 14 off: " + r);
         }
         return true;
     }

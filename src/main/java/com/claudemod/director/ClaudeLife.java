@@ -3255,6 +3255,7 @@ public final class ClaudeLife {
                 if (Kit.behind(g)) return "done: through the portal now, the kit's behind me (" + Kit.food(g) + " meals on me): on with the trip"; // (the kit is the overworld's: live 12:30 World 15 in the Nether its food line sent him "up my stairs and out of the mine for cow" 9 times in 2 s)
                 boolean full = !target.equals("basic");
                 var missing = Kit.missing(g, full);
+                if (level.dimension() != net.minecraft.world.level.Level.OVERWORLD) { missing = new java.util.LinkedHashMap<>(missing); missing.keySet().removeIf(it0 -> !it0.components().has(net.minecraft.core.component.DataComponents.FOOD)); } // (away from the overworld the kit is behind him but its food: a shield's iron is in his mine, and failing on it left him starving on build_highway in the Nether, stage 892)
                 String bowNote = full && g.inventory.count(s -> s.is(Items.BOW)) == 0 && !missing.containsKey(Items.BOW) ? bowWantNote(g, level) : null; // the bow: a want, no part of this kit (the user: the Nether wants it, the End needs it)
                 if (bowNote != null) ClaudeMod.LOGGER.info("[Claude kit] gear_up: {}: not in this kit, no spider hunt for it (ClaudeLife gear_up)", bowNote);
                 if (missing.isEmpty()) return "done: kitted out already (armor on, sword, shield, " + Kit.food(g) + " food)" + (bowNote != null ? "; " + bowNote : "");

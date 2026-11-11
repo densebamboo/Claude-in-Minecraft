@@ -12039,6 +12039,8 @@ public final class ClaudeLife {
     }
     /** Ore whose drop needs a better pick than any he carries (copper for a wooden pick, diamond for stone). */
     public static boolean pastHisPick(ClaudeEntity g, ServerLevel level, BlockPos p) { BlockState s = level.getBlockState(p); return MineBlueprint.ore(s) && s.requiresCorrectToolForDrops() && g.inventory.find(x -> x.isCorrectToolForDrops(s)).isEmpty(); }
+    /** A cell his tunnel goes through next: 1-3 ahead of his face, across its width, floor to roof (the patch rule's "no patch where air will be"). */
+    public static boolean aheadOfFace(ClaudeEntity g, BlockPos q) { MineBlueprint b = g.blueprint; if (b == null || b.isEmpty()) return false; BlockPos fc0 = b.face(); Direction ed0 = b.exitDir(); if (fc0 == null || ed0 == null || !ed0.getAxis().isHorizontal()) return false; for (int k = 1; k <= 3; k++) for (int w = -(b.width - 1); w <= b.width - 1; w++) for (int y = 0; y < b.height + 1; y++) if (q.equals(fc0.relative(ed0, k).relative(ed0.getClockWise(), w).above(y))) return true; return false; }
     public static int bpReconcile(ClaudeEntity g, ServerLevel level, int from, int to, boolean front) {
         MineBlueprint b = g.blueprint; if (b == null || b.isEmpty()) return 0;
         b.pastPick = p -> pastHisPick(g, level, p); // (ore his pick can't take: left in the wall, the row round it)

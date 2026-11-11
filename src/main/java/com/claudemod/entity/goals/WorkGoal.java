@@ -478,6 +478,9 @@ public class WorkGoal extends Goal {
                 if (still) { current = new Task.Flee(60); g.currentTask = current; ticks = 0; stuck = 0; lastDist = Double.MAX_VALUE; }
                 sdSay("blazehigh", "[Claude fight] hit by a Blaze {} up and {} off, out of sword reach and no bow (health {}): {} (WorkGoal.tick)", (int) (bh.getY() - g.getY()), (int) bh.distanceTo(g), (int) g.getHealth(), still ? "out of its sight, not a stand under it" : "on with the walk, no stand under it"); g.urgentAttacker = null; return;
             }
+            if (foe instanceof net.minecraft.world.entity.monster.Blaze bw && !(current instanceof Task.Attack) && (current instanceof Task.GoTo || g.tasks.peek() instanceof Task.GoTo) && bw.distanceTo(g) > 4 && !g.commandActive && (g.lastStep == null || !g.lastStep.skill().equals("blaze_rods")) && blazeWalkOnPays()) { // a blaze hit on a walk that isn't the blaze job: a player walks on out of its sight (D2D death 24, live 17:56-18:08 11-10: home for food, "fighting back: Blaze" 26 off, 14 min of cover fights, dead; stage 1471)
+                sdSay("blazewalkon", "[Claude fight] hit by a Blaze {} off on the way ({}, health {}): walking on out of its sight, not a fight off the job (WorkGoal.tick)", (int) bw.distanceTo(g), g.lastStep == null ? "no step" : g.lastStep.skill() + " " + g.lastStep.target(), (int) g.getHealth()); g.urgentAttacker = null; return;
+            }
             if (foe instanceof net.minecraft.world.entity.monster.Blaze && g.tickCount - blazeRetreatTick < 200 && !(current instanceof Task.Attack)) { // walking out of their sight: a fireball doesn't turn him back to fight (each hit re-armed the fight, the fight re-queued the walk; he stood on a fence burning 13 -> 0, World 15 12:40)
                 sdSay("blazewalk", "[Claude fight] hit by a Blaze while getting out of their sight (health {}): still going, the fight comes after (WorkGoal.tick)", (int) g.getHealth()); g.urgentAttacker = null; return;
             }
@@ -6851,6 +6854,20 @@ public class WorkGoal extends Goal {
         com.claudemod.entity.life.Decide.choose(g, "blaze.retreat", n + " blaze(s) " + (feet.equals(hide) ? "known, none sees him where he stands" : "known, no cover") + ", health " + (int) g.getHealth() + (fire > 0 ? ", on fire" : "") + ", armor " + (int) armor + (shield ? ", a shield" : ""), true, java.util.List.of(
             com.claudemod.entity.life.Decide.Option.of("fight on", on, feet.equals(hide) ? "from where he stands" : "in the open"), com.claudemod.entity.life.Decide.Option.of("out of their sight", back, (hide != null ? "to " + hide.toShortString() : box ? "boxed in where he stands, " + boxN + " blocks" : "in the open") + ", ~" + Math.round(leaveHp) + " HP of fireballs, healed, then the fight at full health")));
         return on > back;
+    }
+    /** A blaze hit on a walk off the blaze job: walking on (blaze.walk_on_sight_s in their sight, fireballs priced) against the fight now, less what the same kills cost later fed and at full health (the rods count either way). True: walk on. */
+    private boolean blazeWalkOnPays() {
+        var blz = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(48), this::shootsHere);
+        int n = Math.max(1, blz.size());
+        boolean shield = g.getItemBySlot(EquipmentSlot.OFFHAND).is(net.minecraft.world.item.Items.SHIELD), fed = com.claudemod.director.ClaudeLife.foodToEat(g, true) != null;
+        double armor = g.getArmorValue(), tough = g.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS);
+        double fb = w("blaze.fireball_hp", 5), perB = fb * (1 - Math.min(20, Math.max(armor / 5.0, armor - fb / (2 + tough / 4))) / 25) + w("blaze.fire_hp", 3);
+        double walkHp = n * w("blaze.walk_on_sight_s", 6) * w("blaze.shots_per_s", 0.6) * w("blaze.shot_hit_chance", 0.5) * perB * (shield ? w("blaze.shield_factor", 0.4) : 1); // shortcut: a flat time in their sight, not his route's own sight line; upgrade if walk-ons get caught in long sight
+        double on = com.claudemod.entity.life.FortressFight.fightS(g, g.getHealth(), armor, tough, shield, fed, 0, n) - com.claudemod.entity.life.FortressFight.fightS(g, g.getMaxHealth(), armor, tough, shield, true, 0, n);
+        double walk = com.claudemod.entity.life.Decide.hpS(g, 0, walkHp, perB);
+        var pick = com.claudemod.entity.life.Decide.choose(g, "blaze.walk_on", n + " blaze(s) on him on the way, health " + (int) g.getHealth() + ", armor " + (int) armor + (shield ? ", a shield" : ""), true, java.util.List.of(
+            com.claudemod.entity.life.Decide.Option.of("walk on", walk, "out of their sight, ~" + Math.round(walkHp) + " HP of fireballs"), com.claudemod.entity.life.Decide.Option.of("fight back", on, "the kills now over the same kills later, fed and at full health")));
+        return pick != null && pick.name().equals("walk on");
     }
     /** The nearest cell on foot no blaze sees (FortressFight.sees), 24 steps out, never through lava; steps in dist. Null: none. */
     private BlockPos blazeHideCell(ServerLevel level, BlockPos feet, java.util.function.Predicate<BlockPos> hidden, java.util.Map<BlockPos, Integer> dist) {

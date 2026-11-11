@@ -10549,6 +10549,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1471: return st1471(stage, t, c, h, level, mock);
             case 1470: return st1470(stage, t, c, h, level, mock);
             case 1469: return st1469(stage, t, c, h, level, mock);
             case 1468: return st1468(stage, t, c, h, level, mock);
@@ -18899,6 +18900,40 @@ public final class ClaudeBodyTest {
             com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); com.claudemod.entity.life.PortalMap.net(c).stairs.clear(); com.claudemod.entity.life.Highway.reset(c);
             check(road != null && !road.partial() && ft == null, "his highway from the portal, 80 rows with a staircase 6 down, reaches its end: " + why);
             nsHome(c, h, level); pass(stage, t, why);
+        }
+        return true;
+    }
+    /** Stage 1471 (D2D death 24, live 17:56:40-18:08:56 11-10 World 17: on "enter_portal home" for food at 5 meals, his way across the fortress deck, a blaze 26 off at his level hit him; "fighting back: Blaze" armed a fight (he had a bow, so the walk-on of stage 1325 didn't hold), every fireball re-armed it: 14 min of cover fights, 0 dealt, the meals gone, dead): him walking a leg home, a blaze 20 off at his own level hits him; sword, shield, a bow and arrows, 5 meals. He walks on, no fight armed with it. */
+    private static net.minecraft.world.entity.monster.Blaze s1471B; private static double s1471X;
+    private static boolean st1471(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(15400, 64, 10600);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.FortressFight.reset(c); s1471B = null; }
+        if (t[0] < 29) nsTick(nl, c, o, t);
+        if (t[0] % 10 == 0 || t[0] < 10) for (int cx = 0; cx <= 2; cx++) { BlockPos q = o.offset(cx * 16, 0, 0); nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(q), 2, q); }
+        if (t[0] > 30 && t[0] % 10 == 0) for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) if (e != s1471B) e.discard();
+        if (t[0] == 10) {
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+            for (int x = -4; x <= 30; x++) for (int z = -4; z <= 24; z++) for (int y = -2; y <= 16; y++) nl.setBlock(o.offset(x, y, z), y < 0 && (Math.abs(z) <= 2 || x >= 4 && x <= 8 && z >= 16 && z <= 20) ? Blocks.NETHER_BRICKS.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BOW)); c.getInventory().add(new ItemStack(Items.ARROW, 10)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 5)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setHealth(17); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600; c.commandActive = false;
+        }
+        if (t[0] == 29) { s1471B = net.minecraft.world.entity.EntityType.BLAZE.create(nl); s1471B.moveTo(o.getX() + 6.5, o.getY(), o.getZ() + 18.5, 0, 0); s1471B.setNoAi(true); s1471B.setNoGravity(true); s1471B.setPersistenceRequired(); nl.addFreshEntity(s1471B); }
+        if (t[0] == 30) { c.tasks.clear(); c.currentTask = null; c.lastStep = new com.claudemod.entity.life.Skills.Step("enter_portal", "home", 1, "near_you"); c.tasks.add(new Task.GoTo(o.offset(24, 0, 0), 1.0)); }
+        if (t[0] == 40) { com.claudemod.entity.life.FortressFight.observe(c, nl); c.urgentAttacker = s1471B.getUUID(); s1471X = c.getX(); } // (a fireball from it landed: the hurt handler names it so)
+        if (t[0] > 40) {
+            boolean fighting = c.currentTask instanceof Task.Attack a && a.target().equals(s1471B.getUUID()) || c.tasks.stream().anyMatch(x -> x instanceof Task.Attack a2 && a2.target().equals(s1471B.getUUID()));
+            if (fighting || t[0] >= 100) {
+                double moved = c.getX() - s1471X; s1471B.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.urgentAttacker = null; c.lastStep = null;
+                for (int x = -4; x <= 30; x++) for (int z = -4; z <= 24; z++) for (int y = -2; y <= 16; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent(); com.claudemod.entity.life.FortressFight.reset(c);
+                check(!fighting, "on his way home for food, hit by a blaze 20 off at his level: a fight armed with it instead of the walk on");
+                check(moved > 3, "hit by a blaze on the way home: not walking on (" + String.format("%.1f", moved) + " blocks in 3 s)");
+                nsHome(c, h, level); pass(stage, t, "walked on " + String.format("%.1f", moved) + " blocks, no fight with the blaze off the job");
+            }
         }
         return true;
     }

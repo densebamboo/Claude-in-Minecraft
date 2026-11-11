@@ -14160,9 +14160,9 @@ public final class ClaudeLife {
 
     /** Fit to pick a fight for a drop (not self-defence): a proper sword, health, food to heal on after, and at night geared for the open (the night-work rule). Null: fit; else why not. */
     /** Why he stays up tonight for string (null: he sleeps). Needs string for a bow or rod and none to hand in his chests, overworld, and geared for a night fight (night-work rule: iron+ chest and sword, food, health). */
-    static String upForString(ClaudeEntity g, ServerLevel level) {
+    public static String upForString(ClaudeEntity g, ServerLevel level) {
         if (level.dimension() != net.minecraft.world.level.Level.OVERWORLD || Kit.bowCheap(g)) return null;
-        int string = g.inventory.count(s -> s.is(Items.STRING));
+        int string = g.inventory.count(s -> s.is(Items.STRING)) + com.claudemod.entity.life.ChestLedger.count(g, level, Items.STRING); // (his chests' too, any distance: the night is no string hunt for what he has at home; only those within a 48 walk counted, and "up for spiders" from the portal flipped to his bed 10 s on, live 17:38 11-10, stage 1437)
         boolean noBow = g.inventory.count(s -> s.is(Items.BOW)) == 0, noRod = g.inventory.count(s -> s.is(Items.FISHING_ROD)) == 0;
         if (!(string < 3 && noBow || string < 2 && noRod)) return null; /* (the same want as stringRound) */
         var chest = g.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST);

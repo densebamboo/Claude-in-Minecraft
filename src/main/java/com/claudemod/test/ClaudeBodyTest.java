@@ -10910,6 +10910,7 @@ public final class ClaudeBodyTest {
             case 1434: return st1434(stage, t, c, h, level, mock);
             case 1435: return st1435(stage, t, c, h, level, mock);
             case 1436: return st1436(stage, t, c, h, level, mock);
+            case 1437: return st1437(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -26527,6 +26528,31 @@ public final class ClaudeBodyTest {
             for (int x = -4; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = -2; y <= 4; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
             check(done, "the mineshaft's rail and fence in his mine's shell not swapped for its patch in 30 s: " + got);
             pass(stage, t, "the rail and the fence out of his mine's shell, patched, in " + (t[0] - 14) + " ticks: " + got);
+        }
+        return true;
+    }
+    /** Stage 1437 (D2D review 66, live 17:38:54-17:39:04 11-10): night, geared, a bow and no rod, 0 string on him, string in his chests; "staying up for spiders" from the portal 60 off them, 10 s later in his mine within 48 of them: to bed. The string at home counted only within a 48 walk, so the night's answer turned on where he stood. A player with string in his chests sleeps. */
+    private static boolean st1437(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9900, 80, 9700), chest = at.offset(60, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.myStations.clear(); c.storageChests.clear(); com.claudemod.entity.life.ChestLedger.reset(c); }
+        if (t[0] == 10) {
+            level.setBlock(chest.below(), Blocks.STONE.defaultBlockState(), 2); level.setBlock(chest, Blocks.CHEST.defaultBlockState(), 2);
+            if (level.getBlockEntity(chest) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box) box.setItem(0, new ItemStack(Items.STRING, 4));
+            c.storageChests.add(chest); com.claudemod.entity.life.ChestLedger.look(c, level, chest);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BOW)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 10));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setHealth(20);
+            level.setBlock(at.below(), Blocks.STONE.defaultBlockState(), 2);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 20) {
+            String up = com.claudemod.director.ClaudeLife.upForString(c, level);
+            int inChest = com.claudemod.entity.life.ChestLedger.count(c, level, Items.STRING);
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY); c.storageChests.clear(); com.claudemod.entity.life.ChestLedger.reset(c);
+            level.setBlock(chest, Blocks.AIR.defaultBlockState(), 2);
+            check(inChest == 4, "the chest's 4 string not on his ledger: " + inChest);
+            check(up == null, "stays up for spiders with 4 string in his chest 60 off: " + up);
+            pass(stage, t, "4 string in his chest 60 off: no night up for spiders");
         }
         return true;
     }

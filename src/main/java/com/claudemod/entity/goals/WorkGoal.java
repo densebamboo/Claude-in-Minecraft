@@ -4627,6 +4627,14 @@ public class WorkGoal extends Goal {
             g.noteDoing(took == 0 ? "nothing worth taking in that chest" : "looted " + String.join(", ", names) + (full0 ? " (pockets full, the rest stays)" : ""));
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] looted the chest at {}: {}", pos.toShortString(), took == 0 ? "nothing worth it" : String.join(", ", names));
         } else if (t.take() && t.leave() != null) { // his own chest: take all of that item
+            if (!g.inventory.hasRoomFor(new ItemStack(t.leave()))) { // his pack full at his own chest: room made into it, the spare gear first, as a player shift-clicks his spares in; then the junk toss (live 06:59-07:02 11-11: "took no Raw Iron: pockets full", the smelt round and round 2 min, D2D reviews 276/277, stage 1505)
+                java.util.List<String> roomBy = new java.util.ArrayList<>();
+                for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { ItemStack s0 = g.inventory.items.getItem(i); if (s0.isEmpty() || s0.is(t.leave())) continue; String why = com.claudemod.director.ClaudeLife.spareGear(g, s0, i); if (why == null) continue;
+                    ItemStack rest = s0.copy(); for (int k = 0; k < box.getContainerSize() && !rest.isEmpty(); k++) { ItemStack b0 = box.getItem(k); if (b0.isEmpty()) { box.setItem(k, rest); rest = ItemStack.EMPTY; } else if (ItemStack.isSameItemSameComponents(b0, rest) && b0.getCount() < b0.getMaxStackSize()) { int mv = Math.min(rest.getCount(), b0.getMaxStackSize() - b0.getCount()); b0.grow(mv); rest.shrink(mv); } }
+                    if (rest.getCount() < s0.getCount()) roomBy.add((s0.getCount() - rest.getCount()) + " " + itemName(s0) + " (" + why + ")"); g.inventory.items.setItem(i, rest); }
+                if (!roomBy.isEmpty()) { box.setChanged(); com.claudemod.ClaudeMod.LOGGER.info("[Claude chest] his pack full at his chest {} for the {}: the spare gear in first: {} (WorkGoal.doChest)", pos.toShortString(), t.leave().getDescription().getString(), String.join(", ", roomBy)); }
+                if (!g.inventory.hasRoomFor(new ItemStack(t.leave()))) com.claudemod.director.ClaudeLife.makeRoom(g, Vec3.atCenterOf(pos), new ItemStack(t.leave()));
+            }
             int n = 0;
             for (int i = 0; i < box.getContainerSize(); i++) {
                 if (!box.getItem(i).is(t.leave())) continue;
@@ -4858,7 +4866,7 @@ public class WorkGoal extends Goal {
         java.util.List<Integer> slots = new java.util.ArrayList<>();
         boolean junkBox = com.claudemod.director.ClaudeLife.isJunkChest(g, t.pos()); java.util.Map<net.minecraft.world.item.Item, Integer> kept = new java.util.HashMap<>(); final boolean deepslateWanted = com.claudemod.director.ClaudeLife.deepslateWanted(g);
         int free0 = 0; for (int i = 0; i < g.inventory.items.getContainerSize(); i++) if (g.inventory.items.getItem(i).isEmpty()) free0++;
-        final boolean packFull = junkBox && free0 <= 1; java.util.List<String> spareIn = new java.util.ArrayList<>(); // (his pack full at his junk chest: the spare gear goes in with the junk, D2D 11-11 review 131, stage 1503)
+        final boolean packFull = junkBox && free0 <= w("junk.spare_gear_free_max", 3); /* (a trip decided on a full pack: the chest it set down and an armour piece put on free a slot or two by the time it opens) */ java.util.List<String> spareIn = new java.util.ArrayList<>(); // (his pack full at his junk chest: the spare gear goes in with the junk, D2D 11-11 review 131, stage 1503)
         for (int i = 0; i < g.inventory.items.getContainerSize(); i++) {
             ItemStack s = g.inventory.items.getItem(i);
             if (s.isEmpty()) continue; if (packFull) { String sp = com.claudemod.director.ClaudeLife.spareGear(g, s, i); if (sp != null) { slots.add(i); spareIn.add(s.getCount() + " " + itemName(s) + " (" + sp + ")"); continue; } } if (s.is(net.minecraft.tags.ItemTags.LOGS) && !junkBox) { if (kept.merge(net.minecraft.world.item.Items.OAK_LOG, s.getCount(), Integer::sum) > 64 + s.getCount() - 1 && kept.get(net.minecraft.world.item.Items.OAK_LOG) - s.getCount() >= 64) slots.add(i); continue; } if (keeps(s)) continue; // (logs: a stack of 64 stays (the user), , whole stacks past that go in the chest; the user: no pack full of blocks)

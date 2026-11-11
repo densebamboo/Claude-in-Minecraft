@@ -10944,6 +10944,8 @@ public final class ClaudeBodyTest {
             case 1501: return st1501(stage, t, c, h, level, mock);
             case 1502: return st1502(stage, t, c, h, level, mock);
             case 1503: return st1503(stage, t, c, h, level, mock);
+            case 1504: return st1504(stage, t, c, h, level, mock);
+            case 1505: return st1505(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25712,6 +25714,76 @@ public final class ClaudeBodyTest {
             check(in.getOrDefault(Items.IRON_SWORD, 0) == 1 && in.getOrDefault(Items.BOW, 0) == 1 && in.getOrDefault(Items.GOLDEN_BOOTS, 0) == 1 && in.getOrDefault(Items.IRON_HELMET, 0) == 1 && in.getOrDefault(Items.STONE_AXE, 0) == 2 && in.getOrDefault(Items.OAK_LOG, 0) == 36, "his spare gear stayed on him, the pack still full: chest " + got);
             check(in.getOrDefault(Items.IRON_PICKAXE, 0) == 0 && in.getOrDefault(Items.STONE_PICKAXE, 0) == 0 && in.getOrDefault(Items.IRON_AXE, 0) == 0 && in.getOrDefault(Items.FISHING_ROD, 0) == 0 && in.getOrDefault(Items.TORCH, 0) == 0 && in.getOrDefault(Items.COOKED_SALMON, 0) == 0, "his kit went in: chest " + got);
             pass(stage, t, "the spare gear in his junk chest beside the junk: " + got); return true;
+        }
+        return true;
+    }
+    /** Stage 1504 (D2D hourly 06:32-07:31 review 35, live 07:20:03-27 11-11 at -144,16,-412): 0 free slots in his mine, granite and spare gear on him, nothing his storage takes; no junk chest within reach and one chest on him (a junk pair needs two): dumpJunk set his one chest down as a storage chest, the Deposit stored 0, and 5 s on another chest, three in 25 s. A chest set down for a pack of junk and spares is a junk chest: the junk and the spare gear go in. */
+    private static BlockPos st1504Me;
+    private static boolean st1504(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(21400, 80, 20400);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = 0; k <= 48; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 48; x++) for (int z = -6; z <= 6; z++) for (int y = -6; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(60))) e.discard();
+            var E = net.minecraft.core.Direction.EAST;
+            var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 30, null)); b.invalidate();
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            var rows = b.rows(); BlockPos me = rows.get(12).first(); st1504Me = me.immutable();
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = rows.get(rows.size() - 1).first(); c.mineIsTunnel = true; com.claudemod.director.ClaudeLife.bpSync(c); level.setDayTime(1000);
+            c.storageChests.clear(); c.prefs.remove("junk_chests");
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET));
+            net.minecraft.world.item.Item[] gear = {Items.BOW, Items.BOW, Items.GOLDEN_BOOTS, Items.GOLDEN_BOOTS, Items.IRON_HELMET, Items.IRON_PICKAXE, Items.IRON_PICKAXE, Items.STONE_PICKAXE, Items.IRON_AXE, Items.STONE_AXE, Items.FISHING_ROD, Items.WATER_BUCKET, Items.IRON_SWORD, Items.CHEST};
+            for (net.minecraft.world.item.Item it : gear) c.getInventory().add(new ItemStack(it));
+            c.getInventory().add(new ItemStack(Items.GRANITE, 16)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 63)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 48)); c.getInventory().add(new ItemStack(Items.TORCH, 47)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 9));
+            for (int i = 0; i < c.inventory.items.getContainerSize(); i++) if (c.inventory.items.getItem(i).isEmpty()) c.inventory.items.setItem(i, new ItemStack(Items.COAL, 64)); // (the rest full: coal he keeps)
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no");
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 14) com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+        if (t[0] == 200) {
+            java.util.Map<net.minecraft.world.item.Item, Integer> in = new java.util.HashMap<>(); BlockPos chestAt = null; int chests = 0;
+            for (BlockPos q : BlockPos.betweenClosed(st1504Me.offset(-8, -3, -6), st1504Me.offset(8, 4, 6))) if (level.getBlockEntity(q) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity cb) { chests++; chestAt = q.immutable(); for (int i = 0; i < cb.getContainerSize(); i++) { var st = cb.getItem(i); if (!st.isEmpty()) in.merge(st.getItem(), st.getCount(), Integer::sum); } cb.clearContent(); }
+            if (chestAt != null) for (BlockPos q : BlockPos.betweenClosed(st1504Me.offset(-8, -3, -6), st1504Me.offset(8, 4, 6))) if (level.getBlockState(q).is(Blocks.CHEST)) level.setBlock(q, Blocks.STONE.defaultBlockState(), 2);
+            String got = in.toString(); String q0 = c.tasks.stream().limit(4).toList().toString();
+            c.tasks.clear(); c.getInventory().clearContent(); c.storageChests.clear(); c.prefs.remove("junk_chests");
+            check(chests >= 1, "setup: no chest set down for the full pack (tasks " + q0 + ")");
+            check(in.getOrDefault(Items.GRANITE, 0) >= 16, "a chest set down for his full pack and the granite not in it: chest " + got);
+            check(in.getOrDefault(Items.BOW, 0) == 1 && in.getOrDefault(Items.GOLDEN_BOOTS, 0) == 1 && in.getOrDefault(Items.IRON_HELMET, 0) == 1, "the spare gear stayed on him: chest " + got);
+            pass(stage, t, "his one chest set down as a junk chest, the junk and the spare gear in: " + got); return true;
+        }
+        return true;
+    }
+    /** Stage 1505 (D2D hourly 06:32-07:31 reviews 276/277, live 06:59-07:02 11-11): take_from_chest raw_iron x4 at his own chest with his pack full, "took no Raw Iron: pockets full", the smelt round and round for 2 min. A full pack at his own chest makes room into it, the spare gear first. */
+    private static BlockPos st1505Chest;
+    private static boolean st1505(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -3; x <= 12; x++) for (int z = -3; z <= 12; z++) for (int y = 1; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 || y == 5 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(32))) e.discard();
+            st1505Chest = h.absolutePos(new BlockPos(6, 2, 4)).immutable(); level.setBlock(st1505Chest, Blocks.CHEST.defaultBlockState(), 3);
+            if (level.getBlockEntity(st1505Chest) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity cb) cb.setItem(0, new ItemStack(Items.RAW_IRON, 4));
+            c.myStations.add(st1505Chest); c.storageChests.add(st1505Chest);
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            net.minecraft.world.item.Item[] gear = {Items.BOW, Items.BOW, Items.GOLDEN_BOOTS, Items.GOLDEN_BOOTS, Items.IRON_HELMET, Items.IRON_PICKAXE, Items.IRON_PICKAXE, Items.STONE_PICKAXE, Items.IRON_SWORD};
+            for (net.minecraft.world.item.Item it : gear) c.getInventory().add(new ItemStack(it));
+            c.getInventory().add(new ItemStack(Items.TORCH, 47)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 9));
+            for (int i = 0; i < c.inventory.items.getContainerSize(); i++) if (c.inventory.items.getItem(i).isEmpty()) c.inventory.items.setItem(i, new ItemStack(Items.COAL, 64)); // (the rest full: coal he keeps)
+            BlockPos me = h.absolutePos(new BlockPos(6, 2, 6)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.lastStep = new com.claudemod.entity.life.Skills.Step("smelt", "iron_ingot", 4); c.tasks.add(new Task.Chest(st1505Chest, true, Items.RAW_IRON, 4)); } // (as live: the smelt that wants it queued)
+        if (t[0] == 100) {
+            int iron = c.inventory.count(x -> x.is(Items.RAW_IRON)); java.util.Map<net.minecraft.world.item.Item, Integer> in = new java.util.HashMap<>();
+            if (level.getBlockEntity(st1505Chest) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity cb) { for (int i = 0; i < cb.getContainerSize(); i++) { var st = cb.getItem(i); if (!st.isEmpty()) in.merge(st.getItem(), st.getCount(), Integer::sum); } cb.clearContent(); }
+            level.setBlock(st1505Chest, Blocks.AIR.defaultBlockState(), 2); c.storageChests.remove(st1505Chest);
+            String got = in.toString(); c.tasks.clear(); c.getInventory().clearContent();
+            check(iron == 4, "his pack full at his own chest: took " + iron + " of the 4 raw iron (chest " + got + ")");
+            check(in.getOrDefault(Items.IRON_PICKAXE, 0) == 0 && in.getOrDefault(Items.TORCH, 0) == 0 && in.getOrDefault(Items.COOKED_SALMON, 0) == 0, "his kit went into the chest: " + got);
+            pass(stage, t, "the spare gear into his chest, the raw iron out: chest " + got); return true;
         }
         return true;
     }

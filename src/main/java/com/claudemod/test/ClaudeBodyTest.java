@@ -10960,6 +10960,7 @@ public final class ClaudeBodyTest {
             case 1507: return st1507(stage, t, c, h, level, mock);
             case 1508: return st1508(stage, t, c, h, level, mock);
             case 1509: return st1509(stage, t, c, h, level, mock);
+            case 1510: return st1510(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -20678,6 +20679,21 @@ public final class ClaudeBodyTest {
             String at = c.blockPosition().toShortString(); for (int x = 5; x <= 9; x++) for (int z = 3; z <= 7; z++) { h.setBlock(new BlockPos(x, 0, z), Blocks.STONE); h.setBlock(new BlockPos(x, 1, z), Blocks.GRASS_BLOCK); } c.tasks.clear();
             check(s905At >= 0 && s905At <= 40, "the pond's corner 1 down, diagonal: not in it in " + (s905At < 0 ? "10 s" : s905At + " ticks") + " (at " + at + ")");
             pass(stage, t, "stepped down into the pond's corner in " + s905At + " ticks"); }
+        return true;
+    }
+    /** Stage 1510 (D2D reviews 24/26, live 11:19:46-11:21:03 11-11 by his mine's flooded pit): on the dry ledge at -34,51,-18, his walk to the water cell 1 off and 1 down (-34,50,-19, within 0.9); the vanilla path ended where he stood, the close step only stepped into air, he stood 8 s, the spot was dropped and queued again for minutes. He steps off into the water. */
+    private static int s1510At = -1;
+    private static boolean st1510(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(5, 2, 8)), to = h.absolutePos(new BlockPos(6, 1, 8));
+        if (t[0] == 1) { scenarioReset(c); flatBox(h); s1510At = -1; c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no");
+            for (int y = -2; y <= 1; y++) h.setBlock(new BlockPos(6, y, 8), Blocks.WATER); // (a flooded shaft 1 wide: no landing past it to jump to, as by his mine)
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.fallDistance = 0; }
+        if (t[0] == 10) c.tasks.add(new Task.GoTo(to, 0.9));
+        if (t[0] > 10 && s1510At < 0 && c.blockPosition().getX() == to.getX() && c.blockPosition().getZ() == to.getZ() && c.getBlockY() <= to.getY()) s1510At = t[0] - 10;
+        if (s1510At >= 0 || t[0] == 10 + 200) {
+            String at = c.blockPosition().toShortString(); c.tasks.clear(); c.getNavigation().stop(); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); for (int y = -2; y <= 0; y++) h.setBlock(new BlockPos(6, y, 8), Blocks.STONE); h.setBlock(new BlockPos(6, 1, 8), Blocks.GRASS_BLOCK);
+            check(s1510At >= 0 && s1510At <= 60, "the water 1 down, 1 off: not in it in " + (s1510At < 0 ? "10 s" : s1510At + " ticks") + " (at " + at + ")");
+            pass(stage, t, "stepped off the ledge into the water 1 off in " + s1510At + " ticks"); }
         return true;
     }
     private static int s901At = -1;

@@ -1804,7 +1804,9 @@ public class WorkGoal extends Goal {
     /** Pathing won't finish a short step (stair steps, ledges): walk straight onto it, hopping up if it's higher. */
     private void stepTo(BlockPos pos) {
         ServerLevel level = (ServerLevel) g.level();
-        if (!(level.getBlockState(pos).isAir() && level.getBlockState(pos.above()).isAir() && level.getBlockState(pos.below()).isSolid())) return;
+        boolean dry = level.getBlockState(pos).isAir() && level.getBlockState(pos.above()).isAir() && level.getBlockState(pos.below()).isSolid();
+        boolean wet = level.getFluidState(pos).is(net.minecraft.tags.FluidTags.WATER) && open2(level, pos) && !level.getFluidState(pos.above()).is(net.minecraft.tags.FluidTags.LAVA); // a step off into water beside him (live 11:19 11-11 by his flooded pit, D2D reviews 24/26: the ledge 1 above the water, 8 s still, the spot dropped and queued again for minutes; stage 1510)
+        if (!dry && !wet) return;
         g.getNavigation().stop();
         g.getMoveControl().setWantedPosition(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 1.0);
         if (pos.getY() > g.getBlockY() && g.onGround()) g.getJumpControl().jump();

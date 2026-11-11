@@ -10550,6 +10550,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1560: return st1560(stage, t, c, h, level, mock);
+            case 1559: return st1559(stage, t, c, h, level, mock);
             case 1558: return st1558(stage, t, c, h, level, mock);
             case 1557: return st1557(stage, t, c, h, level, mock);
             case 1556: return st1556(stage, t, c, h, level, mock);
@@ -20144,6 +20146,62 @@ public final class ClaudeBodyTest {
             for (int x = -16; x <= 2; x++) for (int z = -2; z <= 2; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
             check(r == null || !r.startsWith("mining the diamond_ore"), "a diamond 12 off with a lava pool he knows behind it: picked, where his break only holds (\"" + r + "\")");
             pass(stage, t, "the diamond by his known lava left: " + r);
+        }
+        return true;
+    }
+    /** Stage 1559 (D2D review 45, live 13:47:54-13:49:15 11-11: back at the fortress, "no blaze in view: walking the fortress to its piece at 271, 65, 448", then "along the fortress deck to 281, 65, 487", 51 and 44 blocks with nothing in view, before the spawner room at 315, 63, 489 he had fought in: blazeSpawner only sees one within 20 now, nothing remembered it). A blaze spawner he saw, him 45 off with no blaze in view: to the spawner, not a walk of the pieces. */
+    private static boolean st1559(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(7240, 70, 6520), sp = o.offset(45, 1, 0);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Atlas.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); }
+        if (t[0] > 10 && t[0] % 10 == 0 && c.level() == nl) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
+        if (t[0] == 10) {
+            for (int x = -8; x <= 56; x++) for (int z = -10; z <= 10; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.NETHER_BRICKS : Blocks.AIR).defaultBlockState(), 2);
+            nl.setBlock(sp, Blocks.SPAWNER.defaultBlockState(), 2); if (nl.getBlockEntity(sp) instanceof net.minecraft.world.level.block.entity.SpawnerBlockEntity sb) sb.setEntityId(EntityType.BLAZE, nl.getRandom());
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(70))) e.discard();
+            nsKit(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 23)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 900;
+            c.teleportTo(nl, sp.getX() - 7.5, o.getY(), sp.getZ() + 0.5, -90f, 0f); c.fallDistance = 0; c.setHealth(20); c.getFoodData().setFoodLevel(20);
+        }
+        if (t[0] == 20) { BlockPos seen = com.claudemod.entity.life.FortressFight.blazeSpawner(c, nl, 20); check(sp.equals(seen), "setup: the spawner 8 off in plain sight not seen (" + seen + ")"); c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 90f, 0f); c.fallDistance = 0; }
+        if (t[0] == 40) {
+            c.skillQueue.clear(); c.tasks.clear(); c.setHealth(20);
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "blaze_rods", "blaze_rod", 7);
+            boolean toIt = c.tasks.stream().anyMatch(q -> q instanceof com.claudemod.entity.life.Task.GoTo g0 && g0.pos().distSqr(sp) <= 6 * 6);
+            String q = c.tasks.toString(); c.skillQueue.clear(); c.tasks.clear(); c.dropCurrent = true;
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl != net.minecraft.world.entity.EquipmentSlot.MAINHAND) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent(); com.claudemod.entity.life.Atlas.reset(c);
+            nl.setBlock(sp, Blocks.AIR.defaultBlockState(), 2);
+            check(toIt, "the blaze spawner he saw 45 off, no blaze in view: not to it (" + r + "; " + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+            nsHome(c, h, level); pass(stage, t, "to the spawner he knows: " + r);
+        }
+        return true;
+    }
+    /** Stage 1560 (D2D review 61, live 13:53:39-45 11-11 at 277,65,500 on the fortress bridge: "1 blaze(s) about, none in sight (all behind rock): waiting for one to come into view" four times in 6 s, the blaze 6 under the bridge he stood on; no window through nether bricks, and nothing stepped him to where he'd see it). A blaze off the side of the deck and below it, the deck's floor between: a step to the deck's edge where it's in view. */
+    private static net.minecraft.world.entity.monster.Blaze s1560B;
+    private static boolean st1560(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(7240, 80, 6620);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Atlas.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); if (s1560B != null) s1560B.discard(); s1560B = null; }
+        if (t[0] > 10 && t[0] % 10 == 0 && c.level() == nl) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
+        if (t[0] == 10) {
+            for (int x = -12; x <= 12; x++) for (int z = -12; z <= 12; z++) for (int y = -12; y <= 6; y++) nl.setBlock(o.offset(x, y, z), (y == -1 && Math.abs(x) <= 3 && Math.abs(z) <= 3 || y == -12 ? Blocks.NETHER_BRICKS : Blocks.AIR).defaultBlockState(), 2); // a 7x7 deck over a drop
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+            nsKit(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 23)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 900;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 90f, 0f); c.fallDistance = 0; c.setHealth(20); c.getFoodData().setFoodLevel(20);
+        }
+        if (t[0] == 15) { var b = EntityType.BLAZE.create(nl); b.moveTo(o.getX() + 5.5, o.getY() - 4, o.getZ() + 0.5); b.setNoAi(true); b.setNoGravity(true); b.setPersistenceRequired(); nl.addFreshEntity(b); s1560B = b; }
+        if (t[0] == 40) {
+            check(!c.hasLineOfSight(s1560B), "setup: the blaze under the deck's side is in his sight from the middle");
+            c.skillQueue.clear(); c.tasks.clear(); c.setHealth(20);
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "blaze_rods", "blaze_rod", 7);
+            boolean waits = c.tasks.stream().anyMatch(q -> q instanceof com.claudemod.entity.life.Task.Wait), step = c.tasks.stream().anyMatch(q -> q instanceof com.claudemod.entity.life.Task.GoTo);
+            String q = c.tasks.toString(); c.skillQueue.clear(); c.tasks.clear(); c.dropCurrent = true; s1560B.discard(); s1560B = null;
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl != net.minecraft.world.entity.EquipmentSlot.MAINHAND) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+            check(step && !waits, "a blaze under the deck's side, the floor between: waited where he stood, not a step to its sight (" + r + "; " + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+            nsHome(c, h, level); pass(stage, t, "a step to see it: " + r);
         }
         return true;
     }

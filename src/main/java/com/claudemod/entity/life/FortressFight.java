@@ -182,6 +182,7 @@ public final class FortressFight {
             double d = p.distSqr(g.blockPosition());
             if (d < bd) { bd = d; best = p.immutable(); }
         }
+        if (best != null) Atlas.note(g, level, "blaze_spawner", best); // a player remembers where the spawner is (D2D review 45, live 13:47:54 11-11: none within 20, he walked unseen pieces 51 and 44 blocks before the spawner room he fought in; stage 1559)
         return best;
     }
 
@@ -512,6 +513,10 @@ public final class FortressFight {
         bl.removeIf(b -> !g.hasLineOfSight(b) && b.distanceTo(g) > 12); // in view, or close enough he hears it
         BlockPos spawner = blazeSpawner(g, level, 20);
         if (bl.isEmpty() && spawner == null) {
+            { BlockPos known = null; for (BlockPos q : Atlas.spots(g, level, "blaze_spawner")) if ((!level.isLoaded(q) || level.getBlockState(q).is(net.minecraft.world.level.block.Blocks.SPAWNER)) && (known == null || q.distSqr(g.blockPosition()) < known.distSqr(g.blockPosition()))) known = q; // (one broken since: not that)
+              if (known != null && known.distSqr(g.blockPosition()) > 12 * 12) { run[3]++; g.tasks.add(new Task.GoTo(known, 4.0)); g.skillQueue.addFirst(again);
+                ClaudeMod.LOGGER.info("[Claude fight] no blaze in view: to the blaze spawner he found at {} ({} off), where they come from (FortressFight.blazeRods)", known.toShortString(), (int) Math.sqrt(known.distSqr(g.blockPosition())));
+                return "no blaze in view: to the blaze spawner I found at " + known.toShortString() + " (" + have + "/" + goal + " rods)"; } }
             // none in view: walk the fortress he has seen, piece by piece (each piece once a while), looking
             if (FortressScout.onFortress(g)) { BlockPos step = FortressScout.deckStep(g, level); long[] last = blazeLast().get(g.getUUID()); // where the last blaze was, or along the deck into pieces he hasn't seen, priced (D2D 07:20 11-07: one blaze killed, 0/6, he walked the deck to 297,65,485 into a wither skeleton and piglins and died; a player waits where the blazes come from)
               if (last != null && serverT(g) - last[1] < 20 * Weights.w("blaze.wait_memory_s", 600)) { BlockPos lastAt = BlockPos.of(last[0]); double age = (serverT(g) - last[1]) / 20.0, far = Math.sqrt(lastAt.distSqr(g.blockPosition()));
@@ -618,6 +623,14 @@ public final class FortressFight {
                 ClaudeMod.LOGGER.info("[Claude fight] rods {}/{}: {} blaze(s) about, none in sight: a window through {} block(s) of {} at {} toward the blaze {} off (FortressFight.blazeRods)", have, goal, bl.size(), win.size(), level.getBlockState(win.get(0)).getBlock().getName().getString(), win.get(0).toShortString(), (int) b0.distanceTo(g));
                 return "blaze rods " + have + "/" + goal + ": cutting a window through " + win.size() + " block(s) toward a blaze " + (int) b0.distanceTo(g) + " off";
             }
+            { Blaze b0 = bl.stream().min(java.util.Comparator.comparingDouble(x -> x.distanceToSqr(g))).get(); BlockPos me = feet(g); List<BlockPos> looks = new ArrayList<>(); // a step to where he sees it, like a player to the deck's edge (D2D review 61, live 13:53:39-45 11-11: a blaze 6 under the bridge he stood on, 4 waits in 6 s; stage 1560)
+              for (BlockPos q : BlockPos.betweenClosed(me.offset(-8, -6, -8), me.offset(8, 2, 8))) if (!q.equals(me) && b0.distanceToSqr(Vec3.atBottomCenterOf(q)) > 3 * 3 && stand(level, q) && sees(level, b0, q)) looks.add(q.immutable());
+              looks.sort(java.util.Comparator.comparingDouble(q -> q.distSqr(me)));
+              for (BlockPos q : looks.subList(0, Math.min(4, looks.size()))) { var path = g.getNavigation().createPath(q, 0); if (path == null || !path.canReach()) continue;
+                g.tasks.add(new Task.GoTo(q, 0.5)); g.skillQueue.addFirst(again);
+                ClaudeMod.LOGGER.info("[Claude fight] rods {}/{}: {} blaze(s) about, none in sight: a step to {} ({} off), where the one {} off is in view (FortressFight.blazeRods)", have, goal, bl.size(), q.toShortString(), (int) Math.sqrt(q.distSqr(me)), (int) b0.distanceTo(g));
+                return "blaze rods " + have + "/" + goal + ": a step to " + q.toShortString() + " to see the blaze " + (int) b0.distanceTo(g) + " off"; }
+              if (!looks.isEmpty()) ClaudeMod.LOGGER.info("[Claude fight] rods {}/{}: {} spot(s) within 8 see the blaze, none of the nearest 4 with a walk to it (FortressFight.blazeRods)", have, goal, looks.size()); }
             g.tasks.add(new Task.Wait(40, false)); g.skillQueue.addFirst(again);
             ClaudeMod.LOGGER.info("[Claude fight] rods {}/{}: {} blaze(s) about, none in sight (all behind rock): waiting for one to come into view (FortressFight.blazeRods)", have, goal, bl.size());
             return "blaze rods " + have + "/" + goal + ": " + bl.size() + " blaze(s) behind the rock, waiting for one to come into sight";

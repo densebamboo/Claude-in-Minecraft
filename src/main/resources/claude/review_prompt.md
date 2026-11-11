@@ -21,6 +21,8 @@ His own blocks taken up are not undoes by themselves: a temporary block (a bridg
 
 Know where he is: in the Nether water can't be placed (a bucket poured there evaporates), so no water escape from lava or a fall exists there; read the world from the log's dimension. Name items as the log names them (a pickup line says what the item was), never from the block around it.
 
+Tools are vanilla's, and his rule is a stone pickaxe for all rock and for any ore a stone pickaxe can mine, the iron or diamond pickaxe kept for ore that needs it. Any pickaxe mines nether gold ore, nether quartz, coal, copper, stone and netherrack; stone mines iron and lapis; iron is needed for overworld gold, redstone, emerald and diamond; diamond for obsidian and ancient debris. A stone pickaxe on nether gold ore with a diamond pickaxe on him is right, not the wrong tool.
+
 Recipes are vanilla's: every raw meat and fish (beef, porkchop, chicken, mutton, rabbit, cod, salmon) and potatoes and kelp smelt to their cooked form, so a step "smelt cooked_X" is the normal recipe, not an impossible one; check a recipe against vanilla before calling it wrong.
 
 He threw an item out only where a "junk thrown" line says so. Blocks he digs drop and are picked up as he walks: a pickup of blackstone, basalt, netherrack or stone while he tunnels or builds is his digging's drop, not junk taken back, and a patch that "covers drops of his" pushes that drop out of the cell for him to pick up; only a pickup of what a "junk thrown" line threw, soon after, is the loop.

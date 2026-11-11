@@ -152,12 +152,14 @@ public final class Procure {
             var vil = ClaudeLife.knownVillage(g, "village_iron", level);
             int bales0 = ClaudeLife.villageHayInSight(g, level); if (bales0 == 0 && ClaudeLife.knownVillage(g, "village_food", level) != null) bales0 = mode.equals("raid") ? 8 : 4;
             if (bales0 > 0) have.put(HAY_IN_SIGHT, bales0); // a village's bales and golem, counted like items so a plan that backs out puts them back
-            if (ClaudeLife.golemReady(g, level) != null || vil != null && ClaudeLife.golemFit(g)) have.put(GOLEM_READY, 1);
+            if (ClaudeLife.golemReady(g, level) != null) have.put(GOLEM_READY, 1);
+            else if (vil != null && ClaudeLife.golemFit(g)) { have.put(GOLEM_READY, 1); golemMaybeD = Math.sqrt(vil.nearestCell(g.position()).distToCenterSqr(g.position())); } // a village he saw, no golem seen: its golem priced with the odds there is one (need)
             if (vil != null && (mode.equals("useful") || mode.equals("raid"))) have.put(VILLAGE_BEDS, 6); // (beds are his to take, the user; a guest leaves them)
             table = ownTable || ClaudeLife.findNear(level, g.blockPosition(), 16, b -> b.is(Blocks.CRAFTING_TABLE)) != null || have.getOrDefault(Items.CRAFTING_TABLE, 0) > 0;
             furnace = ownFurnace || ClaudeLife.findNear(level, g.blockPosition(), 16, b -> b.is(Blocks.FURNACE)) != null || have.getOrDefault(Items.FURNACE, 0) > 0;
         }
 
+        private double golemMaybeD = -1; private Boolean golemTrip; // a remembered village's golem, none seen: how far the village is (-1: none, or a golem in sight)
         private final Map<Item, Integer> pocket = new HashMap<>(), start = new HashMap<>();
         /** What the plan used past his pockets that his chests hold (by his ledger). */
         Map<Item, Integer> fromChests(ClaudeEntity g) {
@@ -182,7 +184,16 @@ public final class Procure {
                 n -= Math.min(n, bales * 3);
                 if (n == 0) return null;
             }
-            if (item == Items.IRON_INGOT && have.getOrDefault(GOLEM_READY, 0) > 0) { // a golem in sight he's fit to fight: 3-5 iron from the 3-high tower beside it, quicker than any strip mine
+            if (item == Items.IRON_INGOT && have.getOrDefault(GOLEM_READY, 0) > 0 && golemMaybeD >= 0 && golemTrip == null) { // no golem seen there: the trip against the mine, by the iron it's likely to give (D2D review 67, live 11:31:54 11-11: 98 blocks to a village for a golem never seen, none there; stages 629, 630)
+                double odds = com.claudemod.entity.life.Weights.w("village.golem_odds", 0.8), e = odds * com.claudemod.entity.life.Weights.w("golem.iron", 4), perIron = com.claudemod.entity.life.Weights.w("procure.item_s", 3) + com.claudemod.entity.life.Weights.w("procure.smelt_s", 10);
+                double mineTrip = com.claudemod.entity.life.Weights.w("procure.mine_s", 60) + (g.stairStart == null ? 0 : 2 * Math.sqrt(g.stairStart.distSqr(g.blockPosition())) / com.claudemod.entity.life.Decide.sprint());
+                double villageS = 2 * golemMaybeD / com.claudemod.entity.life.Decide.sprint() + com.claudemod.entity.life.Weights.w("golem.fight_s", 40) + Math.max(0, n - e) * perIron + (n > e ? mineTrip : 0), mineS = n * perIron + mineTrip;
+                var pick = com.claudemod.entity.life.Decide.choose(g, "village.golem", n + " iron, a village " + (int) golemMaybeD + " off, no golem seen there", true, List.of(
+                    com.claudemod.entity.life.Decide.Option.of("its golem", villageS, "there and back, ~" + String.format("%.1f", e) + " iron at " + Math.round(odds * 100) + "% odds of a golem" + (n > e ? ", the rest mined" : "")),
+                    com.claudemod.entity.life.Decide.Option.of("mine it", mineS, n + " ore mined and smelted")));
+                golemTrip = pick != null && pick.name().equals("its golem"); // (asked once a plan: a back-out restores what he has, never the question)
+            }
+            if (item == Items.IRON_INGOT && have.getOrDefault(GOLEM_READY, 0) > 0 && !Boolean.FALSE.equals(golemTrip)) { // a golem in sight he's fit to fight: 3-5 iron from the 3-high tower beside it, quicker than any strip mine
                 have.remove(GOLEM_READY);
                 steps.add(new Skills.Step("village_iron", "", 1));
                 n -= Math.min(n, 3);

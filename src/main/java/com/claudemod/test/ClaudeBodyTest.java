@@ -13458,6 +13458,8 @@ public final class ClaudeBodyTest {
             String bed = com.claudemod.director.Procure.describe(com.claudemod.director.Procure.plan(c, level, Items.WHITE_BED, 1).steps());
             check(bread.contains("village_food"), "a village with hay 110 off, bread planned without it: " + bread);
             check(iron.contains("village_iron"), "a village 110 off, iron planned without its golem: " + iron);
+            String iron27 = com.claudemod.director.Procure.describe(com.claudemod.director.Procure.plan(c, level, Items.IRON_INGOT, 27).steps());
+            check(!iron27.contains("village_iron"), "27 iron, a village 110 off with no golem seen: a trip for ~3 of them when the mine gives the rest anyway (D2D review 67, priced: village.golem): " + iron27);
             check(bed.contains("village_beds"), "a village 110 off, a bed planned without its beds: " + bed);
             c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("village_food", "", 4)); s629T = t[0];
             com.claudemod.ClaudeMod.LOGGER.info("[Claude test] stage 629 plans: bread [{}], iron [{}], bed [{}]", bread, iron, bed);
@@ -21794,7 +21796,7 @@ public final class ClaudeBodyTest {
             c.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, s630A, c.tickCount); // (the walk to A failed)
             String bread = com.claudemod.director.Procure.describe(com.claudemod.director.Procure.plan(c, level, Items.BREAD, 6).steps()), iron = com.claudemod.director.Procure.describe(com.claudemod.director.Procure.plan(c, level, Items.IRON_INGOT, 3).steps());
             check(!bread.contains("village_food"), "A out of reach, B ~370 off (past the food walk): bread still planned through a village: " + bread);
-            check(iron.contains("village_iron"), "A out of reach, B ~370 off (in the long walk): iron not planned through B: " + iron);
+            check(!iron.contains("village_iron"), "A out of reach, B ~370 off, no golem seen there: 3 iron through its golem, priced dearer than the mine (D2D review 67, village.golem): " + iron);
             c.lastSkillLine = ""; c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("village_iron", "", 1)); s630Phase = 1; s630T = t[0]; return true;
         }
         if (s630Phase == 1 && line.contains("walking to the village")) {

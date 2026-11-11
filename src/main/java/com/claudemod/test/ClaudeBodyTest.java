@@ -10909,6 +10909,7 @@ public final class ClaudeBodyTest {
             case 1433: return st1433(stage, t, c, h, level, mock);
             case 1434: return st1434(stage, t, c, h, level, mock);
             case 1435: return st1435(stage, t, c, h, level, mock);
+            case 1436: return st1436(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -26526,6 +26527,30 @@ public final class ClaudeBodyTest {
             for (int x = -4; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = -2; y <= 4; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
             check(done, "the mineshaft's rail and fence in his mine's shell not swapped for its patch in 30 s: " + got);
             pass(stage, t, "the rail and the fence out of his mine's shell, patched, in " + (t[0] - 14) + " ticks: " + got);
+        }
+        return true;
+    }
+    /** Stage 1436 (D2D, live 18:36-18:38 11-10 at -32,49..51,-21 in his mine): his stairs' floor dug for a way to coal, a lake of water sources under it (3 deep, no rock in reach); in the water under the one hole, the walk out to the step beside the hole: "stuck swimming ... a block in under him", the block never went in (nothing solid to set it on), again every 20 s. A player swims up and climbs out onto the step. */
+    private static boolean st1436(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(6, 6, 8)), step = at.offset(0, 1, 1);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 4; x++) for (int z = -4; z <= 4; z++) for (int y = -4; y <= 3; y++) { BlockPos q = at.offset(x, y, z);
+                boolean lake = y >= -3 && y <= -1 && Math.abs(x) <= 3 && Math.abs(z) <= 3, hall = x == 0 && Math.abs(z) <= 1 && (y == 1 || y == 2);
+                level.setBlock(q, (lake ? Blocks.WATER : hall || q.equals(at) ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 17));
+            c.teleportTo(at.getX() + 0.5, at.getY() - 1, at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.setAirSupply(300);
+        }
+        if (t[0] == 20) c.tasks.add(new Task.GoTo(step, 0.8));
+        boolean out = t[0] > 20 && c.blockPosition().equals(step) && c.onGround();
+        if (out || t[0] == 20 + 20 * 20) {
+            String got = "at " + String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ()) + " water " + c.isInWater() + ", " + c.tasks + " / " + c.currentTask;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (int x = -4; x <= 4; x++) for (int z = -4; z <= 4; z++) for (int y = -4; y <= 3; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.teleportTo(at.getX() + 0.5, at.getY() - 4, at.getZ() + 0.5);
+            check(out, "out of a lake under his floor through its one hole onto the step beside it not done in 20 s: " + got);
+            pass(stage, t, "up through the hole onto the step in " + (t[0] - 20) + " ticks");
         }
         return true;
     }

@@ -1029,7 +1029,7 @@ public class WorkGoal extends Goal {
         // standing on a canopy right above where he's headed (dark oak, jungle): that's not there yet, he's on the leaves
         boolean onLeavesAbove = pos.getY() <= g.getBlockY() - 3 && g.level().getBlockState(g.blockPosition().below()).is(net.minecraft.tags.BlockTags.LEAVES);
         boolean chain = g.tasks.peekFirst() instanceof Task.GoTo nx && Math.abs(nx.pos().getY() - pos.getY()) <= 1; // a waypoint with the next one queued on the same level: run through it, like a player (stopping dead at every one was a hitch every few blocks down his tunnel, the user)
-        if (within < 1.0 && d <= 1.5 && pos.getY() == feetCell.getY() && !g.isInWater() && current instanceof Task.GoTo && com.claudemod.entity.life.PlaceAim.standable((ServerLevel) g.level(), pos)) { // a precise walk to the cell beside (or his own): straight into its middle (the path finder calls the cell beside "there": he stalled 10 ticks and stopped a block short, the build's stand for its next block a cell off)
+        if (within < 1.0 && d <= 1.5 && pos.getY() == feetCell.getY() && !g.isInWater() && g.onGround() && current instanceof Task.GoTo && com.claudemod.entity.life.PlaceAim.standable((ServerLevel) g.level(), pos)) { // a precise walk to the cell beside (or his own), from the ground (mid-jump out of a flooded hole his y read as the step's level: "that's there" in the air, back into the water every 20 s, live 18:37 11-10, stage 1436): straight into its middle (the path finder calls the cell beside "there": he stalled 10 ticks and stopped a block short, the build's stand for its next block a cell off)
             double hx = pos.getX() + 0.5 - g.getX(), hz = pos.getZ() + 0.5 - g.getZ();
             if (stepInFor != current) { stepInFor = current; stepInAt = ticks; } // (its own clock: the walk that brought him beside it doesn't count)
             if (hx * hx + hz * hz <= 0.09) { g.getNavigation().stop(); return true; }
@@ -1046,7 +1046,7 @@ public class WorkGoal extends Goal {
             if (!chain) g.getNavigation().stop();
             return true;
         }
-        if (d <= 1.3 && within <= 1.0 && stuck > 10 && !onLeavesAbove) { g.getNavigation().stop(); return true; } // next to it and not getting any nearer (grass in the cell, a corner): that is there (a log in the grass a block off had him "couldn't get to" every 8 s)
+        if (d <= 1.3 && within <= 1.0 && stuck > 10 && !onLeavesAbove && (g.onGround() || g.onClimbable())) { g.getNavigation().stop(); return true; } // next to it, standing, and not getting any nearer (grass in the cell, a corner): that is there (hanging in a flooded hole beside the step is not: stage 1436) (a log in the grass a block off had him "couldn't get to" every 8 s)
         if (onLeavesAbove && ticks % 10 == 0) { // dig down through the canopy, then carry on
             g.tasks.addFirst(new Task.GoTo(pos, within));
             if (descendStep(pos)) return true;
@@ -1157,7 +1157,7 @@ public class WorkGoal extends Goal {
         // Stuck swimming (a flooded cave, a pool with a roof): no route plans through water and none of the digging rules below run in it, so he'd tread water for ever
         // (45 s stuck, then idle, "nah not in water"). A player towers out of the water (a block in under him) and digs up through whatever's over him; with nothing to
         // tower with, a notch in the nearest wall at the waterline to swim into. From there the rules for land take over (steps up, digging through).
-        if (g.isInWater() && !com.claudemod.entity.body.Controls.wading(g) && stuck == 60 && !walkNoDig && pos.getY() >= g.getBlockY() - 1 && d > within) { // (once per stuck spell: every 3 s restarted the slow underwater dig and it never finished)
+        if ((g.isInWater() && !com.claudemod.entity.body.Controls.wading(g) || !g.onGround() && !g.level().getFluidState(g.blockPosition().below()).isEmpty()) && stuck == 60 && !walkNoDig && pos.getY() >= g.getBlockY() - 1 && d > within) { // (in it, or bobbing just over it: on the one tick he was up out of it the rule never ran, stage 1436) (once per stuck spell: every 3 s restarted the slow underwater dig and it never finished)
             ServerLevel lv = (ServerLevel) g.level();
             BlockPos feet = g.blockPosition(), head = feet.above(2);
             // first, the obvious: a shore. A flood-fill through the water (and the air over it) to the nearest cell with ground under it and room to stand, then waypoints there
@@ -1195,8 +1195,14 @@ public class WorkGoal extends Goal {
             boolean roof = !hs.getCollisionShape(lv, head).isEmpty();
             boolean roofDiggable = roof && hs.getDestroySpeed(lv, head) >= 0 && !hs.hasBlockEntity();
             g.tasks.addFirst(new Task.GoTo(pos, within));
-            if (!scaffoldBlock().isEmpty() && (!roof || roofDiggable)) {
+            BlockPos topW = feet; while (lv.getFluidState(topW).isEmpty() && topW.getY() > feet.getY() - 2) topW = topW.below(); // the water's top cell in his column (bobbing, his feet can be just over it)
+            for (int up = 0; up < 8 && !lv.getFluidState(topW.above()).isEmpty(); up++) topW = topW.above();
+            java.util.List<BlockPos> column = new java.util.ArrayList<>(); // deep water with nothing solid by the tower's cell (a lake under his floor's one hole: "the block didn't go in" every 20 s, live 18:37 11-10, stage 1436): like a player, a column from the bed up, each block set on the one under it, then the tower's own
+            if (!lv.getFluidState(topW).isEmpty() && !hasFace(lv, topW)) { BlockPos q = topW.below(); for (int dn = 0; dn < 8 && !lv.getFluidState(q).isEmpty() && lv.getBlockState(q).canBeReplaced(); dn++, q = q.below()) { column.add(0, q.immutable()); if (hasFace(lv, q)) break; } if (column.isEmpty() || !hasFace(lv, column.get(0)) || scaffoldBlock().getCount() < column.size() + 1) column = null; }
+            if (column != null && !scaffoldBlock().isEmpty() && (!roof || roofDiggable)) {
                 g.tasks.addFirst(new Task.Pillar(1));
+                for (int i = column.size() - 1; i >= 0; i--) g.tasks.addFirst(new Task.Place(column.get(i), scaffoldBlock().getItem()));
+                if (!column.isEmpty()) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] stuck swimming at {}: nothing solid by {} to set a block on: a column of {} up from {} first", feet.toShortString(), topW.toShortString(), column.size(), column.get(0).toShortString());
                 if (roof) g.tasks.addFirst(new Task.Break(head.immutable()));
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] stuck swimming at {} ({}): a block in under him{}", feet.toShortString(), roof ? "roof overhead" : "open over him", roof ? " after digging the roof out" : "");
                 return true;
@@ -3097,6 +3103,8 @@ public class WorkGoal extends Goal {
     /** The stuck swim's own waypoints to the shore (by identity: a walk to water he saw, explore's river at 0.8, is no swim waypoint; live 01:23:44 11-10, D2D item 4, stage 1294). */
     private java.util.Set<Task.GoTo> swimWps;
     private java.util.Set<Task.GoTo> swimWps() { if (swimWps == null || swimWps.size() > 256) swimWps = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()); return swimWps; } // (shortcut: cleared past 256, a swim that long ago is long done)
+    /** A face to set a block on in that cell, as placeAt takes it: a neighbour that is no air, no fluid, nothing that gets replaced. */
+    static boolean hasFace(net.minecraft.world.level.Level lv, BlockPos p) { for (Direction dd : Direction.values()) { BlockState ns = lv.getBlockState(p.relative(dd)); if (!ns.isAir() && ns.getFluidState().isEmpty() && !ns.canBeReplaced()) return true; } return false; }
     public Task.GoTo swimWaypoint(BlockPos p) { Task.GoTo w0 = new Task.GoTo(p, 0.8); swimWps().add(w0); return w0; }
     private BlockPos columnSaid; // (the gravel column last said: once per cell, not per block)
     /** The made way's put-backs (its restore places) moved behind the job it was made for: before it they shut his way in to it or his sight of it (D2D reviews 17/21, live 06:46 and 06:54 11-10, stages 1418/1420). */
@@ -7417,6 +7425,7 @@ public class WorkGoal extends Goal {
         if (pillarPhase == 0) {
             if (!g.onGround() && !swimming) { if (ticks > 60) dbg("never landed"); return ticks > 60; } // never landed (a ladder...): give up towering
             pillarFeet = g.blockPosition();
+            if (swimming && level.getFluidState(pillarFeet).isEmpty() && level.getBlockState(pillarFeet).canBeReplaced() && !level.getFluidState(pillarFeet.below()).isEmpty()) pillarFeet = pillarFeet.below(); // (bobbing just out of the water: the block goes in the water's top cell under him, never in the air over it with only water to set it on, stage 1436)
             if (pillarDone > 0 && t.steps() > 0 && digInAt != null && digInTasks != null && !digInTasks.isEmpty() && digInTasks.get(0) == t && (pillarFeet.getX() != digInAt.getX() || pillarFeet.getZ() != digInAt.getZ())) { // knocked off his cover's tower partway up: the next block would go where he landed, a pole beside it, and the walls and lid were planned round its top; the cover isn't there, so it's chosen again (D2D 1059, live 20:29-20:33 11-07: an arrow put him 2 off at 1 up, the hut's Places walked at its top from below, "clearing them" 179 times, shot dead on the stub)
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] knocked off his skytower at {} ({} of {} up), now at {}: the cover choice again (WorkGoal.doPillar)", digInAt.toShortString(), pillarDone, t.steps(), pillarFeet.toShortString());
                 g.tasks.removeIf(x -> digInTasks.stream().anyMatch(y -> y == x)); digInTasks = null;

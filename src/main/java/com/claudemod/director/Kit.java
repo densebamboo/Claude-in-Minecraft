@@ -292,7 +292,7 @@ public final class Kit {
         // a herd costs what his own searching shows: kit.search_s, or the time his search has gone without finding one, whichever is more (live 07:36-08:23 11-10: 47 min of legs and "no cow within 48" and every pick still "~472 s", 0 kills, food 4)
         Integer sf = g.attempts.counters.get("searchFrom"); double emptyS = sf == null || g.tickCount < sf || g.tickCount - sf > 20 * 60 * w("kit.search_memory_min", 30) ? 0 : (g.tickCount - sf) / 20.0;
         final double perHerd = Math.max(w("kit.search_s", 120), emptyS);
-        java.util.function.DoubleUnaryOperator searchS = p -> { if (p <= 0) return 0; int k = (int) Math.ceil(p / (2 * pts(Items.COOKED_BEEF))); return homeS + Math.ceil(k / w("kit.herd_cows", 3)) * perHerd + k * (kill + 2 * cook); };
+        java.util.function.DoubleUnaryOperator searchS = p -> { if (p <= 0) return 0; double k = p / (2 * pts(Items.COOKED_BEEF)); return homeS + k / w("kit.herd_cows", 3) * perHerd + k * (kill + 2 * cook); }; // (by the food it must find, not whole cows and whole herds: a lone chicken, or one salmon 95 off, that took the need under a herd's line saved a whole herd's search and won; beef -> chicken -> salmon -> pork in 6 min, live 14:43-14:49 11-10, D2D reviews 63/83/84, stage 1432)
         // what an option leaves: a search for the rest after it, or the trip without it, whichever is less (charged as never found, the sheep beside him lost to the search)
         java.util.function.DoubleUnaryOperator rest = p -> p <= 0 ? 0 : Math.min(p / meal * shortS, searchS.applyAsDouble(p));
         java.util.List<com.claudemod.entity.life.Decide.Option> opts = new java.util.ArrayList<>(); java.util.Map<String, FoodAsk> asks = new java.util.HashMap<>();

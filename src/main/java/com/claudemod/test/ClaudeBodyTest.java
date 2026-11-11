@@ -2215,6 +2215,7 @@ public final class ClaudeBodyTest {
         BlockPos m0 = h.absolutePos(new BlockPos(2, 2, 2)); mock.teleportTo(h.getLevel(), m0.getX() + 0.5, m0.getY(), m0.getZ() + 0.5, 0f, 0f);
     }
     private static void scenarioReset(ClaudeEntity c) {
+        com.claudemod.entity.life.CombatLog.closeNow(c); // (the last stage's fight still open: its junk hold kept the next stage's pack full, stage 1504 after 1501)
         com.claudemod.director.Kit.forgetFoodAsk(c); // (the 40-tick food memo answered the next stage with the last one's pack)
         com.claudemod.entity.life.HuntPatrol.forgetReadied(c); // (the last stage's "get ready first" read as this one's go that brought no armor)
         com.claudemod.entity.life.Gate.reset(c); // (the no-progress gate's record of the last stage's jobs)
@@ -10953,6 +10954,7 @@ public final class ClaudeBodyTest {
             case 1506: return st1506(stage, t, c, h, level, mock);
             case 1507: return st1507(stage, t, c, h, level, mock);
             case 1508: return st1508(stage, t, c, h, level, mock);
+            case 1509: return st1509(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25992,6 +25994,31 @@ public final class ClaudeBodyTest {
             check(rack == 51 && cob == 49, "full pack, no junk: his building blocks went (netherrack " + rack + ", cobble " + cob + ") with a wooden axe by a stone one (wooden " + wood + ")");
             check(wood == 0 && stone == 1, "full pack, no junk: wooden axe " + wood + ", stone axe " + stone + " (want 0, 1)");
             pass(stage, t, "the wooden axe went, the netherrack, the cobble and the stone axe stayed"); return true;
+        }
+        return true;
+    }
+    /** Stage 1509 (D2D reviews 50/51, live 09:15:44-09:17:01 11-11 in a fortress, 2 wither skeletons on him at 9-10 HP): their stone swords taken up by touch with the bones, each thrown back out as junk a few seconds later, picked up again, five throws. No junk toss while a fight is open; it goes once the fight is over. */
+    private static boolean st1509(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard(); }
+        if (t[0] == 5) {
+            var inv = c.getInventory(); inv.clearContent();
+            inv.items.set(0, new ItemStack(Items.IRON_PICKAXE)); inv.selected = 0; inv.items.set(1, new ItemStack(Items.IRON_SWORD)); inv.items.set(2, new ItemStack(Items.STONE_SWORD));
+            for (int i = 3; i < inv.items.size() - 1; i++) inv.items.set(i, new ItemStack(Items.TORCH, 64)); // one slot free, as live
+            String err = null; int inFightSw = -1, afterSw = -1;
+            try {
+                var open = com.claudemod.entity.life.CombatLog.class.getDeclaredMethod("open", ClaudeEntity.class); open.setAccessible(true); open.invoke(null, c);
+                com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+                inFightSw = c.inventory.count(x -> x.is(Items.STONE_SWORD));
+                var f = com.claudemod.entity.life.CombatLog.class.getDeclaredField("OPEN"); f.setAccessible(true); ((java.util.Map<?, ?>) f.get(null)).remove(c.getUUID());
+                com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+                afterSw = c.inventory.count(x -> x.is(Items.STONE_SWORD));
+            } catch (Exception e) { err = "setup threw " + e; }
+            for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard();
+            inv.clearContent();
+            check(err == null, err == null ? "" : err);
+            check(inFightSw == 1, "mid-fight: the stone sword thrown out as junk (" + inFightSw + " left on him)");
+            check(afterSw == 0, "the fight over: the stone sword still on him (" + afterSw + ")");
+            pass(stage, t, "the junk kept on him through the fight, thrown once it was over"); return true;
         }
         return true;
     }

@@ -10701,6 +10701,7 @@ public final class ClaudeBodyTest {
             case 1150: return st1150(stage, t, c, h, level, mock);
             case 1096: return st1096(stage, t, c, h, level, mock);
             case 1097: return st1097(stage, t, c, h, level, mock);
+            case 1099: return st1099(stage, t, c, h, level, mock);
             case 1130: return st1130(stage, t, c, h, level, mock);
             case 1132: return st1132(stage, t, c, h, level, mock);
             case 1133: return st1133(stage, t, c, h, level, mock);
@@ -16819,6 +16820,31 @@ public final class ClaudeBodyTest {
             BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(back.getX() + 0.5, back.getY(), back.getZ() + 0.5);
             check(!toMine, "32 cobble 150 off his mine, stone under his feet: the walk to his mine taken (\"" + r + "\", tasks " + tl + ")");
             pass(stage, t, "dug here: \"" + r + "\"");
+        }
+        return true;
+    }
+    /** Stage 1099 (D2D reviews 052856-58 / 053409-65, live 05:28:27 11-11 at -29,58,-490 on a shore: "8 cobble ... the staircase here", then "no way down for a staircase from -29,58,-490 that keeps clear of his mine, builds and water" x3, 3 stone picks on him, and the plan walked him 538 to a chest for 8): water in every way down from his feet, dry ground a few blocks off. The steps start a few blocks over, not a long walk or a fail. */
+    private static boolean st1099(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); level.setDayTime(1000); }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+        var b0 = c.blueprint; BlockPos far = h.absolutePos(new BlockPos(150, 13, 8));
+        if (t[0] == 5) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(far), 2, far);
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            for (int x = -5; x <= 5; x++) for (int z = -5; z <= 5; z++) { for (int y = 1; y <= 4; y++) level.setBlock(far.offset(x, y - 1, z), Blocks.AIR.defaultBlockState(), 2); level.setBlock(far.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); level.setBlock(far.offset(x, -2, z), Blocks.DIRT.defaultBlockState(), 2); for (int y = -9; y <= -3; y++) level.setBlock(far.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2); }
+            nsKit(c); c.getInventory().add(new ItemStack(Items.TORCH, 32));
+            for (var d0 : net.minecraft.core.Direction.Plane.HORIZONTAL) level.setBlock(far.relative(d0).below(), Blocks.WATER.defaultBlockState(), 2); // (a shore: water in each way down from his feet)
+            c.teleportTo(far.getX() + 0.5, far.getY(), far.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            if (mock[0] != null) mock[0].teleportTo(far.getX() + 3.5, far.getY(), far.getZ() + 0.5);
+        }
+        if (t[0] == 20) {
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "cobblestone", 8);
+            BlockPos ent = c.blueprint.entrance; boolean toMine = r.contains("my mine further") || r.contains("starting my mine") || c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo go && go.pos().distSqr(ent) <= 24 * 24);
+            String tl = c.tasks.stream().limit(4).map(Object::toString).toList().toString();
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            BlockPos back = h.absolutePos(new BlockPos(2, 2, 2)); c.teleportTo(back.getX() + 0.5, back.getY(), back.getZ() + 0.5);
+            for (var d0 : net.minecraft.core.Direction.Plane.HORIZONTAL) level.setBlock(far.relative(d0).below(), Blocks.GRASS_BLOCK.defaultBlockState(), 2);
+            check(!r.startsWith("failed") && !toMine, "8 cobble on a shore, water in every way down, dry ground a few off: \"" + r + "\" (tasks " + tl + ")");
+            pass(stage, t, "steps down from dry ground near by: \"" + r + "\" " + tl);
         }
         return true;
     }

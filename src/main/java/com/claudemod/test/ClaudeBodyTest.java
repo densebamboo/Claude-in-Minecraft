@@ -10967,6 +10967,7 @@ public final class ClaudeBodyTest {
             case 1511: return st1511(stage, t, c, h, level, mock);
             case 1512: return st1512(stage, t, c, h, level, mock);
             case 1513: return st1513(stage, t, c, h, level, mock);
+            case 1514: return st1514(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -20811,6 +20812,32 @@ public final class ClaudeBodyTest {
             for (int x = -4; x <= 28; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
             check(!broke, "his table out for a craft on his tunnel floor queued for a Break by his mine sweep: " + (q.length() > 300 ? q.substring(0, 300) : q) + " (" + held + ")");
             nsHome(c, h, level); pass(stage, t, "his table out for the craft left to the craft");
+        }
+        return true;
+    }
+    /** Stage 1514 (D2D review 125, live 11:51:02 11-11 underground at -128,9,-436): one zombie on him at 18 HP with an iron sword; a skeleton 31 off with a line on him and no target was counted into the zombie's fight ("counted Zombie 16 unseen, Skeleton 31", fight ~9059 s), the fight broken off, and the next second's cover.dig_in, counting the zombie alone, fought again: 6 flips in 12 s. A skeleton that isn't after him, past the range it notices him at, is no part of the fight. */
+    private static net.minecraft.world.entity.Mob st1514Z, st1514S;
+    private static boolean st1514(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(2, 2, 5));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; if (st1514Z != null) st1514Z.discard(); if (st1514S != null) st1514S.discard(); st1514Z = st1514S = null; level.setDayTime(6000); /* lit: live he saw it (no "unseen" on it) */ flatBox(h);
+            for (int x = 0; x <= 28; x++) for (int z = 0; z <= 30; z++) { level.setBlock(h.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 2); for (int y = 2; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2); } }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_COD, 9));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, -90f, 0f); c.setYHeadRot(-90f); c.setHealth(18); c.getFoodData().setFoodLevel(18); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+            var z = EntityType.ZOMBIE.create(level); BlockPos za = me.east(3); z.moveTo(za.getX() + 0.5, za.getY(), za.getZ() + 0.5, 90, 0); z.setNoAi(true); z.setPersistenceRequired(); level.addFreshEntity(z); z.setTarget(c); st1514Z = z;
+            var sk = EntityType.SKELETON.create(level); BlockPos sa = me.east(22).south(21); /* (~30 off, inside his 24-box on each axis, as live) */ sk.moveTo(sa.getX() + 0.5, sa.getY(), sa.getZ() + 0.5, 90, 0); sk.setNoAi(true); sk.setPersistenceRequired(); level.addFreshEntity(sk); st1514S = sk; // (no target: it hasn't noticed him)
+        }
+        if (t[0] == 40) {
+            boolean run; String odds; boolean los = c.hasLineOfSight(st1514S);
+            try { var m = c.work.getClass().getDeclaredMethod("shouldFlee", net.minecraft.world.entity.Entity.class, boolean.class); m.setAccessible(true); run = (Boolean) m.invoke(c.work, st1514Z, false);
+                var fo = c.work.getClass().getDeclaredField("fightOdds"); fo.setAccessible(true); odds = (String) fo.get(c.work); } catch (ReflectiveOperationException e) { check(false, "shouldFlee: " + e); return true; }
+            st1514Z.discard(); st1514S.discard(); st1514Z = st1514S = null;
+            check(los, "setup: no line of sight to the skeleton 31 off");
+            check(!odds.contains("Skeleton"), "a skeleton 31 off with no target counted into the zombie's fight: " + odds);
+            check(!run, "one zombie on him, iron sword, 18 HP: he broke off: " + odds);
+            pass(stage, t, "the zombie fought, the idle skeleton 31 off not in it (" + odds + ")");
         }
         return true;
     }

@@ -20,8 +20,8 @@ import java.util.UUID;
 public final class Gate {
     private Gate() {}
 
-    /** The world as the job saw it: his feet, the target cell's block and contents, his pack. */
-    record Snap(BlockPos feet, String block, int pack, double dist) {}
+    /** The world as the job saw it: his feet, the target cell's block and contents, his pack, the hostiles he knows are after him (a leap refused for a spider on him is no loop once it's gone: stage 978, red since this gate). */
+    record Snap(BlockPos feet, String block, int pack, double dist, int foes) {}
     /** A job that ended with nothing changed: the world then, when, why it ended, and who first queued it. */
     record Rec(Snap at, long tick, String why, String origin) {}
 
@@ -74,8 +74,9 @@ public final class Gate {
         int pack = 1;
         for (var list : java.util.List.of(g.getInventory().items, g.getInventory().armor, g.getInventory().offhand))
             for (var st : list) pack = pack * 31 + (st.isEmpty() ? 0 : st.getItem().hashCode() * 67 + st.getCount());
+        int foes = 1; for (var m : Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(16), m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy && m.getTarget() == g)) foes = foes * 31 + m.getUUID().hashCode();
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ());
-        return new Snap(feet, block, pack, p == null ? -1 : Math.sqrt(p.distToCenterSqr(g.position())));
+        return new Snap(feet, block, pack, p == null ? -1 : Math.sqrt(p.distToCenterSqr(g.position())), foes);
     }
 
     /** WorkGoal: the job starts (after Watchdog.starting let it run). */
@@ -124,6 +125,7 @@ public final class Gate {
         else if (!now0.block().equals(r.at().block())) changed = "the block there changed";
         else if (now0.pack() != r.at().pack()) changed = "his pack changed";
         else if (now0.feet().distSqr(r.at().feet()) >= 4) changed = "he moved " + (int) Math.sqrt(now0.feet().distSqr(r.at().feet())) + " off";
+        else if (now0.foes() != r.at().foes()) changed = "the mobs after him changed";
         if (changed != null) { bk.remove(t); return true; }
         String asker = asker();
         REFUSED.merge(g.getUUID(), 1, Integer::sum);

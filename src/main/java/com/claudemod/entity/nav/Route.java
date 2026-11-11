@@ -307,6 +307,8 @@ public final class Route {
 
     /** The legs as GoTos, the walk's own end last (a leg too, or, when the plan stops short, left to be planned again from there). */
     public static volatile String lastWhy = ""; // the last route's why, as said (stage 833)
+    /** Legs another planner laid (his mine's rows, his trail back into it): walked as one of his routes, so legs he's past drop off and a detour off it re-plans from where he rejoins. */
+    public static List<Task> asRoute(ClaudeEntity g, List<BlockPos> legs, List<Double> slack, String why) { if (legs.isEmpty()) return List.of(); return finish(g, legs.get(legs.size() - 1), slack.get(slack.size() - 1), legs, slack, false, why); }
     private static List<Task> finish(ClaudeEntity g, BlockPos to, double within, List<BlockPos> legs, List<Double> slack, boolean again, String why) {
         List<Task> out = new ArrayList<>(); Set<BlockPos> mark = new HashSet<>();
         BlockPos last = null, me = g.blockPosition(); boolean started = false;

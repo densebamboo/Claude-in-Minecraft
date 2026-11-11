@@ -10912,6 +10912,7 @@ public final class ClaudeBodyTest {
             case 1436: return st1436(stage, t, c, h, level, mock);
             case 1437: return st1437(stage, t, c, h, level, mock);
             case 1438: return st1438(stage, t, c, h, level, mock);
+            case 1439: return st1439(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -26529,6 +26530,29 @@ public final class ClaudeBodyTest {
             for (int x = -4; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = -2; y <= 4; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
             check(done, "the mineshaft's rail and fence in his mine's shell not swapped for its patch in 30 s: " + got);
             pass(stage, t, "the rail and the fence out of his mine's shell, patched, in " + (t[0] - 14) + " ticks: " + got);
+        }
+        return true;
+    }
+    /** Stage 1439 (D2D, live 20:37:17-20:38+ 11-10 at -93,19,-401, a cave spider spawner behind cobwebs): his wooden sword just broke in the fight, an iron pick on him: "no tool for cobweb anymore (broke?), re-tooling" (an obtain stone_pickaxe queued), then "just tried to re-tool: skip this block" on every web for 30 s, the spawner job round again every 4 s. A web is cut with the sword. */
+    private static boolean st1439(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(6, 2, 8)), web = at.east().above();
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -2; x <= 3; x++) for (int z = -2; z <= 2; z++) for (int y = -1; y <= 3; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            level.setBlock(web, Blocks.COBWEB.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 20));
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.retoolTick = -100000;
+        }
+        if (t[0] == 20) c.tasks.add(new Task.Break(web));
+        boolean cut = t[0] > 20 && !level.getBlockState(web).is(Blocks.COBWEB);
+        if (cut || t[0] == 20 + 20 * 30) {
+            String got = c.tasks + " / " + c.currentTask + ", skills " + c.skillQueue;
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (int x = -2; x <= 3; x++) for (int z = -2; z <= 2; z++) for (int y = -1; y <= 3; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(cut, "a cobweb with only an iron pick on him (the sword broke) not cut in 30 s: " + got);
+            check(!got.contains("obtain"), "a pickaxe errand queued for a cobweb: " + got);
+            pass(stage, t, "the web cut with the pick (no sword) in " + (t[0] - 20) + " ticks");
         }
         return true;
     }

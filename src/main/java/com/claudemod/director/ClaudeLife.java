@@ -12980,6 +12980,9 @@ public final class ClaudeLife {
             if (sword == Items.DIAMOND_SWORD && diamondsReserved(g)) continue; // they asked for diamonds: those are theirs, not his sword
             if (Crafting.craft(level, g.inventory, sword, 1, table).made() == 0) continue;
             ClaudeMod.LOGGER.info("[Claude skill] made a {} for the fight", Crafting.name(sword));
+            // the plan's own step for this sword is done now (live 11:00-11:04 11-11: it walked 413 blocks for the ingots of a second one, D2D review 86, stage 863)
+            for (var it = g.skillQueue.iterator(); it.hasNext();) { var s0 = it.next();
+                if (s0.skill().equals("craft") && s0.target().equals(Crafting.name(sword)) && s0.count() <= 1) { it.remove(); ClaudeMod.LOGGER.info("[Claude skill] its queued step {} is done with it: off the queue", s0); break; } }
             return;
         }
     }

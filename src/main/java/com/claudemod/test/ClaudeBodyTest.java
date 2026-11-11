@@ -11288,6 +11288,7 @@ public final class ClaudeBodyTest {
             case 519: return st519(stage, t, c, h, level, mock);
             case 518: return st518(stage, t, c, h, level, mock);
             case 857: return st857(stage, t, c, h, level, mock);
+            case 863: return st863(stage, t, c, h, level, mock);
             case 517: return st517(stage, t, c, h, level, mock);
             case 516: return st516(stage, t, c, h, level, mock);
             case 515: return st515(stage, t, c, h, level, mock);
@@ -12392,6 +12393,22 @@ public final class ClaudeBodyTest {
         if (t[0] == 780) {
             check(wiSeen.stream().filter(x -> x.contains("UNPLANNED MOVE")).count() == 1, "move: his own catch-up teleport read as unplanned: " + wiSeen);
             pass(stage, t, wiSeen.size() + " incidents: " + wiSeen.stream().map(x -> x.length() > 70 ? x.substring(0, 70) + "..." : x).toList()); }
+        return true;
+    }
+    /** Stage 863 (live 11:00:48-11:04:29 11-11 World 17, D2D review 86): after death 47 his plan held "craft iron_sword"; the fight code made one from the ingots he'd fetched ("made a iron_sword for the fight") and the plan's step, never told, walked 413 blocks to his chest for the ingots of a second. The sword made takes its step off the queue. */
+    private static boolean st863(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); }
+        if (t[0] == 5) {
+            c.getInventory().add(new ItemStack(Items.IRON_INGOT, 2)); c.getInventory().add(new ItemStack(Items.STICK, 2)); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE));
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "iron_sword", 1, "near_you")); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "iron_pickaxe", 1, "near_you"));
+            com.claudemod.director.ClaudeLife.craftSwordIfCan(c, level);
+            int swords = c.inventory.count(x -> x.is(Items.IRON_SWORD)); String q = c.skillQueue.toString();
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
+            check(swords == 1, "the fight code made no iron sword (" + swords + ")");
+            check(!q.contains("iron_sword"), "an iron sword made for the fight, its plan step still queued: " + q);
+            check(q.contains("iron_pickaxe"), "the rest of the plan went with it: " + q);
+            pass(stage, t, "sword made, its step off the queue, the rest kept: " + q);
+        }
         return true;
     }
     /** Stage 857 (live 07:00-08:06 11-11 World 17, D2D reviews 279/293/302/304): "obtain iron_sword: smelt iron_nugget 9, craft iron_ingot 1, ...". His spare iron armour planned into the furnace for nuggets, a piece a nugget; he fetched it from his chest a piece a dive. A player mines 1 more iron ore. */

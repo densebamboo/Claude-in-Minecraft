@@ -87,12 +87,12 @@ public final class NetherRoute {
     /** Along his highways on record (PortalMap segments, kept over restarts): onto the one he's by, along them and across their joins (the turn, a staircase), off by the goal; null when he or the goal isn't by one. */
     /** Off his highway: the search to the point of a segment where the way costs least (the climb or dig to it priced at a dig a block, then along it), then along it; null when none is within nether.highway_reach (48) or the search can't reach it whole. */
     static Plan ontoHighway(ClaudeEntity g, ServerLevel level, BlockPos from, BlockPos to) {
-        BlockPos best = null; double bc = Double.MAX_VALUE; Plan bh = null; double reach = com.claudemod.entity.life.Weights.w("nether.highway_reach", 48);
+        BlockPos best = null; double bc = Double.MAX_VALUE; Plan bh = null; double reach = h(from.getX(), from.getY(), from.getZ(), to) / WALK; // (any highway nearer than the goal itself: the price decides, not a fixed 48; live 15:05-15:10 11-10 ~100 off his highway to the fortress, 200+ blocks tunnelled and two lava crossings beside it, D2D review-8/9, stage 1466)
         for (var sg : com.claudemod.entity.life.PortalMap.net(g).segments) { if (!com.claudemod.entity.life.PortalMap.NETHER.equals(sg.dim)) continue;
             BlockPos q = feet(sg, Math.max(sg.lo(), Math.min(sg.hi(), along(sg, from)))); double d = Math.sqrt(q.distSqr(from)); if (d > reach) continue;
             Plan hw = highway(g, q, to, false); if (hw == null) continue;
             double c = d * com.claudemod.entity.life.Weights.w("nether.onto_highway_s_per_block", 1.0) + hw.seconds(); if (c < bc) { bc = c; best = q; bh = hw; } }
-        if (best == null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: no highway of his on record within {} with a way along it to the goal (NetherRoute.ontoHighway)", from.toShortString(), to.toShortString(), (int) reach); return null; }
+        if (best == null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: no highway of his on record nearer than the goal ({}) with a way along it to it (NetherRoute.ontoHighway)", from.toShortString(), to.toShortString(), (int) reach); return null; }
         Plan s = search(g, level, from, best, true); if (s == null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: onto his highway at {}: the search found no way (NetherRoute.ontoHighway)", from.toShortString(), to.toShortString(), best.toShortString()); return null; }
         if (s.partial()) { // into rock he hasn't seen: the rest to the highway priced as Nether ground, the plan walked as far as it goes and made again from there (Loops' sink 3, live 17:00:19 11-09: the whole highway dropped, a 1566-dig bore priced and his pile abandoned; stage 1315)
             BlockPos end = s.legs().isEmpty() ? from : s.legs().get(s.legs().size() - 1); double rest = h(end.getX(), end.getY(), end.getZ(), best) * offRoad(g);

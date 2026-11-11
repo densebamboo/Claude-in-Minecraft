@@ -10549,6 +10549,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1466: return st1466(stage, t, c, h, level, mock);
             case 1465: return st1465(stage, t, c, h, level, mock);
             case 1464: return st1464(stage, t, c, h, level, mock);
             case 1463: return st1463(stage, t, c, h, level, mock);
@@ -18728,6 +18729,34 @@ public final class ClaudeBodyTest {
             check(step != null, "no deck step at all");
             check(step.getX() < o.getX(), "walking the deck west, 40 unwalked ahead: sent back east to the side branch at " + step.toShortString() + " (" + (step.getX() - o.getX()) + ", " + (step.getZ() - o.getZ()) + " from him)");
             pass(stage, t, "on west first: " + step.toShortString());
+        }
+        return true;
+    }
+    /** Stage 1466 (D2D review-8/9, live 14:59-15:10 11-10: out of portal #8 for the fortress, the cross-country search beat the highway, and from 94,32,181 on, ~100 off his highway, "no highway of his on record within 48": 200+ blocks tunnelled and two lava crossings built beside a road that runs to the fortress; the user: "his highway already connects to the fortress"): a highway on record running 150 to the goal, him 60 to the side of its middle in solid rock with an iron pickaxe. The route heads across onto it, not diagonally through the rock to the goal. */
+    private static boolean st1466(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13800, 64, 9400), him = o.offset(60, 0, 75), goal = o.offset(0, 0, 150);
+        java.util.Set<BlockPos> W = new java.util.HashSet<>(); for (int z = 0; z <= 150; z++) for (int x = 0; x <= 1; x++) W.add(o.offset(x, 0, z));
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) for (int k = -16; k <= 80; k += 16) for (int m = -16; m <= 176; m += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, m)), 2, o.offset(k, 0, m));
+        if (t[0] >= 12 && t[0] < 12 + 77) { int x = t[0] - 12 - 8; // (a slice a tick: solid rock round it all)
+            for (int z = -8; z <= 158; z++) for (int y = -3; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.NETHERRACK.defaultBlockState(), 2); }
+        if (t[0] == 90) {
+            for (BlockPos p : W) { nl.setBlock(p.below(), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); for (int y = 0; y <= 2; y++) nl.setBlock(p.above(y), Blocks.AIR.defaultBlockState(), 2); }
+            for (int y = 0; y <= 1; y++) nl.setBlock(him.above(y), Blocks.AIR.defaultBlockState(), 2);
+            com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(0, -1, 0), o.offset(0, -1, 150), net.minecraft.core.Direction.Axis.Z, 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64));
+            c.teleportTo(nl, him.getX() + 0.5, him.getY(), him.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 93) com.claudemod.entity.nav.Route.forgetTrail(c);
+        if (t[0] == 96) {
+            var p = com.claudemod.entity.nav.NetherRoute.plan(c, nl, him, goal);
+            int on = 0; if (p != null) for (BlockPos q : p.legs()) if (W.contains(q)) on++; BlockPos end = p == null || p.legs().isEmpty() ? him : p.legs().get(p.legs().size() - 1); var road = com.claudemod.entity.nav.NetherRoute.road(c, nl, him, goal); boolean taken = p != null && road != null && Math.abs(p.seconds() - road.seconds()) < 2; // (his own way, onto the highway and along it, priced and chosen over the rock
+            String why = (road == null ? "no road of his seen" : "his road ~" + (int) road.seconds() + " s") + "; the plan: " + (p == null ? "no plan" : p.legs().size() + " legs, " + on + " on the highway, " + p.digs() + " dug, ~" + (int) p.seconds() + " s, partial " + p.partial() + ": " + p.legs());
+            for (int x = -8; x <= 68; x++) for (int z = -8; z <= 158; z++) for (int y = -3; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            com.claudemod.entity.life.PortalMap.net(c).segments.clear(); c.getInventory().clearContent();
+            check(p != null && (on >= 3 || taken), "his highway 60 to his side runs on 75 to the goal, the rest solid rock: the route " + why);
+            nsHome(c, h, level); pass(stage, t, why);
         }
         return true;
     }

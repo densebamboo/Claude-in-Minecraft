@@ -10918,6 +10918,7 @@ public final class ClaudeBodyTest {
             case 1439: return st1439(stage, t, c, h, level, mock);
             case 1440: return st1440(stage, t, c, h, level, mock);
             case 1441: return st1441(stage, t, c, h, level, mock);
+            case 1442: return st1442(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -24985,6 +24986,20 @@ public final class ClaudeBodyTest {
         return true;
     }
     /** Stage 1249 (D2D reviews 4/5/6, live 07:23:37-07:29:53 11-09): night, 6 off his bed, a walk 60 off queued. "night: by his bed ..., the walk ... waits for the morning", then a Wait re-queued every 10 s for 6 min and no sleep: the hold returned before the last steps into bed, and the bed walk below is only queued with no other walk queued (the held one was). The hold now walks him to the bed in front of its wait. */
+    /** Stage 1442 (D2D reviews 8/9, live 22:24:29-22:32:58 11-10 at -85,16,-22, his bed at -81,16,-18): night, food 6 and nothing to eat, 6 off his bed: the low-food bed rule cleared his queue (the bed walk's Wait with it), then sleepIfNight's "by his bed" returned with no bed within 3 and nothing queued; he stood there 8.5 min, never in bed. Nothing queued by his bed at night: the last steps in. */
+    private static boolean st1442(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.blueprint = null; c.nook = null; c.house = null; c.myStations.clear(); }
+        for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.monster.Monster.class, c.getBoundingBox().inflate(40))) m.discard();
+        if (t[0] == 10) {
+            flatBox(h); bed(h, new BlockPos(3, 2, 3)); c.myStations.add(h.absolutePos(new BlockPos(3, 2, 3)));
+            BlockPos me = h.absolutePos(new BlockPos(9, 2, 3)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); mock[0].teleportTo(me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); if (c.currentTask != null) c.dropCurrent = true; c.prefs.put("stay_close", "no"); c.commandActive = false;
+            level.setDayTime(18000); c.setHealth(16); c.getFoodData().setFoodLevel(6); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.OAK_LOG, 39)); // (as live: food 6, 0 meals)
+        }
+        if (t[0] > 10 && c.isSleeping()) { int took = t[0] - 10; c.stopSleeping(); c.tasks.clear(); level.setDayTime(6000); c.getFoodData().setFoodLevel(20); pass(stage, t, "night, food 6 and nothing to eat, 6 off his bed, nothing queued: in bed in " + took + " ticks"); }
+        else if (t[0] == 10 + 20 * 30) { String q = c.currentTask + " " + c.tasks.stream().limit(4).toList() + " at " + c.blockPosition().toShortString(); c.tasks.clear(); level.setDayTime(6000); c.getFoodData().setFoodLevel(20); check(false, "night, food 6, 6 off his bed with nothing queued: not asleep in 30 s (" + q + ")"); }
+        return true;
+    }
     private static int st1249At = -1;
     private static boolean st1249(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.blueprint = null; c.nook = null; c.house = null; c.myStations.clear(); st1249At = -1; }

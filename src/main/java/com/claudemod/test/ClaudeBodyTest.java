@@ -10932,6 +10932,7 @@ public final class ClaudeBodyTest {
             case 1445: return st1445(stage, t, c, h, level, mock);
             case 1446: return st1446(stage, t, c, h, level, mock);
             case 1447: return st1447(stage, t, c, h, level, mock);
+            case 1448: return st1448(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25358,6 +25359,24 @@ public final class ClaudeBodyTest {
                 check(there, "not at the ore's pocket " + st1447To.toShortString() + " 8 past his face in 40 s (at " + where + "): " + (now.length() > 220 ? now.substring(0, 220) : now));
                 pass(stage, t, "along his row and through his face to the ore 8 past it in " + secs + " s");
             }
+        }
+        return true;
+    }
+    /** Stage 1448 (D2D hourly 1, live 02:30-02:35 11-11 by his storage at -79,16,-16): a full pack of what his queued steps need and 59 logs (under the 64 he keeps); dumpJunk read "storable" without those two rules, sent him to his storage, the deposit stored 0 (it keeps them), the stash walk on, the pack still full, dumpJunk again: every 5 s for 4 min. Nothing the deposit would take: no trip to store it. */
+    private static boolean st1448(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.tasks.clear(); c.skillQueue.clear(); c.commandActive = false; c.prefs.put("stay_close", "no"); c.storageChests.clear(); c.blueprint = null; }
+        if (t[0] == 10) {
+            flatBox(h); BlockPos ch = h.absolutePos(new BlockPos(6, 2, 8)); level.setBlockAndUpdate(ch, Blocks.CHEST.defaultBlockState()); c.storageChests.add(ch.immutable());
+            BlockPos me = h.absolutePos(new BlockPos(3, 2, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.getInventory().clearContent(); for (int i = 0; i < c.inventory.items.getContainerSize(); i++) c.inventory.items.setItem(i, new ItemStack(i == 0 ? Items.OAK_LOG : Items.BOOK, i == 0 ? 59 : 1)); // (a pack of books his queued step needs, and logs under his 64)
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "book", 40));
+        }
+        if (t[0] == 12) {
+            c.tasks.clear(); com.claudemod.director.ClaudeLife.dumpJunkTest(c);
+            String q = c.tasks.stream().limit(4).toList().toString(); boolean trip = c.tasks.stream().anyMatch(x -> x instanceof Task.Deposit);
+            c.tasks.clear(); c.skillQueue.clear(); c.storageChests.clear(); c.getInventory().clearContent();
+            check(!trip, "a full pack of what his queued step needs and 59 logs: a trip to store them anyway (the deposit keeps them all): " + q);
+            pass(stage, t, "nothing the deposit would take: no trip to his storage (" + q + ")");
         }
         return true;
     }

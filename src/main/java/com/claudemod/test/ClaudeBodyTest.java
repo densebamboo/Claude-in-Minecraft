@@ -10948,6 +10948,7 @@ public final class ClaudeBodyTest {
             case 1503: return st1503(stage, t, c, h, level, mock);
             case 1504: return st1504(stage, t, c, h, level, mock);
             case 1505: return st1505(stage, t, c, h, level, mock);
+            case 1506: return st1506(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25842,6 +25843,34 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    /** Stage 1506 (D2D hourly 07:31-08:31 review 293, live 08:09:53-55 11-11 at his junk chest -149,16,-412): "smelt iron_nugget x9" (for an iron sword) took his spare iron armour out of his chest one kind a visit, boots, then the chestplate, then the helmet, each a fetch, a re-plan and an opening under water. What a step wants from one chest of his comes out in one visit, every kind of it. */
+    private static boolean st1506(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -3; x <= 12; x++) for (int z = -3; z <= 12; z++) for (int y = 1; y <= 5; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 || y == 5 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            BlockPos ch = h.absolutePos(new BlockPos(6, 2, 4)).immutable(); level.setBlock(ch, Blocks.CHEST.defaultBlockState(), 3);
+            if (level.getBlockEntity(ch) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity cb) { cb.setItem(0, new ItemStack(Items.IRON_BOOTS)); cb.setItem(1, new ItemStack(Items.IRON_CHESTPLATE)); cb.setItem(2, new ItemStack(Items.IRON_HELMET)); cb.setItem(3, new ItemStack(Items.IRON_LEGGINGS)); cb.setItem(4, new ItemStack(Items.IRON_LEGGINGS)); cb.setItem(5, new ItemStack(Items.GRANITE, 20)); }
+            c.myStations.add(ch); c.storageChests.add(ch); com.claudemod.entity.life.ChestLedger.reset(c); com.claudemod.entity.life.ChestLedger.look(c, level, ch); st1506Chest = ch;
+            c.getInventory().clearContent(); BlockPos me = h.absolutePos(new BlockPos(6, 2, 6)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+        }
+        if (t[0] == 14) {
+            String err = null; int kinds = 0, items = 0; String q = "";
+            try {
+                java.util.function.Predicate<ItemStack> want = x -> level.getRecipeManager().getRecipeFor(net.minecraft.world.item.crafting.RecipeType.SMELTING, new net.minecraft.world.item.crafting.SingleRecipeInput(x), level).map(r -> r.value().getResultItem(level.registryAccess()).is(Items.IRON_NUGGET)).orElse(false);
+                var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("fromMyChests", ClaudeEntity.class, ServerLevel.class, java.util.function.Predicate.class, com.claudemod.entity.life.Skills.Step.class); m.setAccessible(true);
+                m.invoke(null, c, level, want, new com.claudemod.entity.life.Skills.Step("smelt", "iron_nugget", 9));
+                java.util.Set<net.minecraft.world.item.Item> seen = new java.util.HashSet<>(); for (Task x : c.tasks) if (x instanceof Task.Chest ct && ct.take() && ct.pos().equals(st1506Chest)) { seen.add(ct.leave()); items += ct.max(); }
+                kinds = seen.size(); q = c.tasks.toString();
+            } catch (Exception e) { err = "setup threw " + e; }
+            c.tasks.clear(); c.skillQueue.clear(); if (level.getBlockEntity(st1506Chest) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity cb) cb.clearContent(); level.setBlock(st1506Chest, Blocks.AIR.defaultBlockState(), 2); c.storageChests.remove(st1506Chest); com.claudemod.entity.life.ChestLedger.reset(c);
+            check(err == null, err == null ? "" : err);
+            check(kinds == 4 && items >= 5, "the iron armour for the nuggets out of one chest one kind a visit: " + kinds + " kind(s), " + items + " item(s) this visit: " + q);
+            pass(stage, t, "every kind of it out of his chest in one visit: " + kinds + " kinds, " + items + " items"); return true;
+        }
+        return true;
+    }
+    private static BlockPos st1506Chest;
     private static int st1249At = -1;
     private static boolean st1249(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.blueprint = null; c.nook = null; c.house = null; c.myStations.clear(); st1249At = -1; }

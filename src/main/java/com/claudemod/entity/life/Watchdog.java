@@ -629,7 +629,7 @@ public final class Watchdog {
         s.tossed.put(e.getUUID(), now(g));
         Integer last = s.tossedItem.put(it.getItem(), now(g));
         if (it.getMaxStackSize() == 1 && last != null && now(g) - last <= 2400) fileOnce(g, "THROW_LOOP", "THROW_LOOP|" + n, "threw out " + n + " again " + (now(g) - last) / 20 + " s after the last time: he took it back in between");
-        if (valuable(it)) fileOnce(g, "THREW_VALUABLE", "THREW_VALUABLE|" + n, "threw out " + it.getCount() + " " + n + " as junk: a player stashes or keeps armor, iron+ tools and ingots");
+        if (valuable(it)) fileOnce(g, "THREW_VALUABLE", "THREW_VALUABLE|" + n, "threw out " + it.getCount() + " " + n + " as junk: a player stashes or keeps armor, iron+ tools, ingots, diamonds and emeralds");
     }
     /** He picked an item up: one he threw out within 2 min is a THROW_LOOP. */
     public static void pickedUp(ClaudeEntity g, UUID entity, net.minecraft.world.item.ItemStack what) {
@@ -638,7 +638,7 @@ public final class Watchdog {
         if (t != null && now(g) - t <= 2400) fileOnce(g, "THROW_LOOP", "THROW_LOOP|" + what.getHoverName().getString(), "picked back up the " + what.getHoverName().getString() + " he threw out " + (now(g) - t) / 20 + " s ago");
     }
     public static boolean valuable(net.minecraft.world.item.ItemStack it) {
-        if (it.getItem() instanceof net.minecraft.world.item.ArmorItem || it.is(net.neoforged.neoforge.common.Tags.Items.INGOTS) || it.is(net.neoforged.neoforge.common.Tags.Items.GEMS)) return true;
+        if (it.getItem() instanceof net.minecraft.world.item.ArmorItem || it.is(net.neoforged.neoforge.common.Tags.Items.INGOTS) || it.is(net.minecraft.world.item.Items.DIAMOND) || it.is(net.minecraft.world.item.Items.EMERALD)) return true; // (of the gems, diamonds and emeralds (his trading) only: quartz, lapis and amethyst are a dragon run's junk; 6 quartz tossed in the Nether filed THREW_VALUABLE, D2D 02:12 11-11)
         return it.getItem() instanceof net.minecraft.world.item.TieredItem t && t.getTier() != net.minecraft.world.item.Tiers.WOOD && t.getTier() != net.minecraft.world.item.Tiers.STONE; // (spent wood/stone tools are a player's junk too)
     }
     /** Leaps: a planned drop landed for the damage it planned (no more): that much falling health is his plan, not a threat. */

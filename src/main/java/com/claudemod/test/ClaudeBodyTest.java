@@ -20829,7 +20829,7 @@ public final class ClaudeBodyTest {
         var W = com.claudemod.entity.life.Watchdog.recentKinds;
         try {
         if (t[0] == 1) {
-            check(!com.claudemod.entity.life.Watchdog.valuable(new ItemStack(Items.STONE_PICKAXE)) && com.claudemod.entity.life.Watchdog.valuable(new ItemStack(Items.IRON_INGOT)) && com.claudemod.entity.life.Watchdog.valuable(new ItemStack(Items.IRON_BOOTS)), "valuable(): stone pick no, ingot and boots yes");
+            check(!com.claudemod.entity.life.Watchdog.valuable(new ItemStack(Items.STONE_PICKAXE)) && com.claudemod.entity.life.Watchdog.valuable(new ItemStack(Items.IRON_INGOT)) && com.claudemod.entity.life.Watchdog.valuable(new ItemStack(Items.IRON_BOOTS)) && com.claudemod.entity.life.Watchdog.valuable(new ItemStack(Items.DIAMOND)) && !com.claudemod.entity.life.Watchdog.valuable(new ItemStack(Items.QUARTZ)), "valuable(): stone pick and quartz no, ingot, boots and diamond yes");
             scenarioReset(c); c.nextPlanTick = c.tickCount + 24000; c.tasks.clear(); c.skillQueue.clear(); W.clear(); com.claudemod.entity.life.Watchdog.linesInTests = true;
             s802A = h.absolutePos(new BlockPos(3, 40, 8));
             for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = -1; y <= 3; y++) level.setBlockAndUpdate(s802A.offset(x, y, z), y == -1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState());

@@ -10899,6 +10899,7 @@ public final class ClaudeBodyTest {
             case 1431: return st1431(stage, t, c, h, level, mock);
             case 1432: return st1432(stage, t, c, h, level, mock);
             case 1433: return st1433(stage, t, c, h, level, mock);
+            case 1434: return st1434(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -26152,6 +26153,33 @@ public final class ClaudeBodyTest {
             c.getInventory().clearContent(); int worst = 0; for (int i = 1; i < s1432S.size(); i++) worst = Math.max(worst, Math.abs(s1432S.get(i) - s1432S.get(i - 1)));
             check(worst <= 40, "the search's price jumped " + worst + " s for one cooked chicken (6 points) more on him: " + s1432S);
             pass(stage, t, "the search priced by the food it must find, steps of at most " + worst + " s a chicken: " + s1432S);
+        }
+        return true;
+    }
+    private static int s1434Refused;
+    /** Stage 1434 (D2D, live 16:23 11-10 and earlier, reviews 142044-10, 154950-33/34, 162829-19/20: his mine cut through a mineshaft at -86..-85,15..18,-366..-371): the mineshaft's rails in his wall cells and its oak fence in his floor under his walk. The fill into a rail cell was refused ("the cell's filled already, rail there") 3x every few seconds; the fence read as solid floor, never swapped, and the walk shuffled at it ~20 s each time (vanilla won't stand on a fence). A player takes them out and patches his shell. */
+    private static boolean st1434(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = new BlockPos(9820, 80, 9820), rail = at.offset(4, 1, 1), fence = at.offset(6, -1, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("mine_model", "blueprint"); s1434Refused = 0; }
+        if (t[0] == 5) mock[0].teleportTo(at.getX() + 0.5, at.getY() + 40, at.getZ() + 0.5);
+        if (t[0] == 10) {
+            var b = new com.claudemod.entity.life.MineBlueprint(at, net.minecraft.core.Direction.EAST, 1, 2); b.segments.clear(); b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, at.west(3), net.minecraft.core.Direction.EAST, 12, null)); c.blueprint = b;
+            for (int x = -4; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = -2; y <= 4; y++) { BlockPos q = at.offset(x, y, z); level.setBlock(q, (b.isWalk(q) ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            level.setBlock(rail.below(), Blocks.OAK_PLANKS.defaultBlockState(), 2); level.setBlock(rail, Blocks.RAIL.defaultBlockState(), 2); // the mineshaft's track in his wall cell
+            level.setBlock(fence, Blocks.OAK_FENCE.defaultBlockState(), 2); // its fence in his floor, under his walk
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_AXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); level.setDayTime(6000);
+        }
+        if (t[0] == 14 || (t[0] > 14 && t[0] % 60 == 14 && c.tasks.isEmpty() && c.currentTask == null)) com.claudemod.director.ClaudeLife.bpReconcile(c, level, 0, 6, false);
+        if (t[0] > 14 && c.currentTask instanceof Task.Place pl && (pl.pos().equals(rail) || pl.pos().equals(fence)) && !level.getBlockState(pl.pos()).canBeReplaced() && !level.getBlockState(pl.pos()).is(Blocks.COBBLESTONE) && !level.getBlockState(pl.pos()).is(Blocks.OAK_FENCE)) s1434Refused++;
+        boolean done = level.getBlockState(rail).is(Blocks.COBBLESTONE) && level.getBlockState(fence).is(Blocks.COBBLESTONE);
+        if (done || t[0] == 14 + 20 * 30) {
+            String got = "rail cell " + level.getBlockState(rail).getBlock().getName().getString() + ", fence cell " + level.getBlockState(fence).getBlock().getName().getString() + ", " + s1434Refused + " tick(s) on a place into the rail";
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            for (int x = -4; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = -2; y <= 4; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            check(done, "the mineshaft's rail and fence in his mine's shell not swapped for its patch in 30 s: " + got);
+            pass(stage, t, "the rail and the fence out of his mine's shell, patched, in " + (t[0] - 14) + " ticks: " + got);
         }
         return true;
     }

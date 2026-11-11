@@ -10951,6 +10951,7 @@ public final class ClaudeBodyTest {
             case 1504: return st1504(stage, t, c, h, level, mock);
             case 1505: return st1505(stage, t, c, h, level, mock);
             case 1506: return st1506(stage, t, c, h, level, mock);
+            case 1507: return st1507(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25944,6 +25945,34 @@ public final class ClaudeBodyTest {
             check(err == null, err == null ? "" : err);
             check(kinds == 4 && items >= 5, "the iron armour for the nuggets out of one chest one kind a visit: " + kinds + " kind(s), " + items + " item(s) this visit: " + q);
             pass(stage, t, "every kind of it out of his chest in one visit: " + kinds + " kinds, " + items + " items"); return true;
+        }
+        return true;
+    }
+    /** Stage 1507 (D2D review 134, live 07:36:52-07:38:34 11-11 at his junk chest -148,16,-412): shut in a one-cell pocket by his own water plugs, the water long gone from them (the tunnel past the plug open and dry), every walk "no way" and even the bent search "no way ... even with his own rules bent: the world or a hard rule blocks it", 90 s stuck and the job dropped. A plug with no water he knows of on it is a rule his last-resort way may bend (dug, walked through, patched back behind him); his water plug in the plain search stays kept (stage 1055). */
+    private static boolean st1507(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Perception.reset(c); c.planning = false; c.prefs.put("stay_close", "no"); c.prefs.remove("mine_model"); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 10) {
+            for (int x = 0; x < 12; x++) for (int z = 0; z < 8; z++) for (int yy = 1; yy <= 5; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.BEDROCK); // (no other way out: only the plug rule stands between him and his tunnel)
+            for (int x = 2; x <= 9; x++) for (int yy = 2; yy <= 3; yy++) h.setBlock(new BlockPos(x, yy, 3), Blocks.AIR); // his tunnel, dry
+            for (int yy = 2; yy <= 3; yy++) h.setBlock(new BlockPos(5, yy, 4), Blocks.AIR); // his pocket off it
+            BlockPos plug = h.absolutePos(new BlockPos(5, 2, 3)), plug2 = plug.above();
+            for (BlockPos q : new BlockPos[] {plug, plug2}) { level.setBlock(q, Blocks.WATER.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, q, Blocks.COBBLESTONE.defaultBlockState(), Blocks.WATER.defaultBlockState()); level.setBlock(q, Blocks.COBBLESTONE.defaultBlockState(), 2); } // his plugs, put down into the water that came in then
+            BlockPos me = h.absolutePos(new BlockPos(5, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 11));
+            BlockPos goal = h.absolutePos(new BlockPos(9, 2, 3));
+            var kept = com.claudemod.entity.nav.ActionPath.plan(c, level, me, goal, 1.0, true, 3000, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, c.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), c.tickCount);
+            boolean keptCut = kept != null && kept.acts().stream().anyMatch(a -> a instanceof com.claudemod.entity.nav.ActionPath.Act.Dig d && (d.pos().equals(plug) || d.pos().equals(plug2)));
+            var bentPlan = com.claudemod.entity.nav.ActionPath.plan(c, level, me, goal, 1.0, true, 3000, com.claudemod.entity.nav.ActionPath.Mode.MAY_BEND, c.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), c.tickCount);
+            boolean bentCut = bentPlan != null && bentPlan.acts().stream().anyMatch(a -> a instanceof com.claudemod.entity.nav.ActionPath.Act.Dig d && (d.pos().equals(plug) || d.pos().equals(plug2)));
+            h.setBlock(new BlockPos(5, 2, 2), Blocks.WATER); // water he knows of on the plug now: kept even bent
+            com.claudemod.entity.life.Perception.sawCell(c, level, h.absolutePos(new BlockPos(5, 2, 2)));
+            var wet = com.claudemod.entity.nav.ActionPath.plan(c, level, me, goal, 1.0, true, 3000, com.claudemod.entity.nav.ActionPath.Mode.MAY_BEND, c.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), c.tickCount);
+            boolean wetCut = wet != null && wet.acts().stream().anyMatch(a -> a instanceof com.claudemod.entity.nav.ActionPath.Act.Dig d && d.pos().equals(plug));
+            h.setBlock(new BlockPos(5, 2, 2), Blocks.STONE);
+            check(!keptCut, "the plain search dug his plug: " + (kept == null ? "-" : kept.acts()));
+            check(bentCut, "shut in by his own dry plug, the bent search found no way out: " + (bentPlan == null ? "none" : bentPlan.acts()));
+            check(!wetCut, "the bent way dug his plug with water he knows of on it: " + (wet == null ? "-" : wet.acts()));
+            pass(stage, t, "out of his pocket through his dry plug on the bent way (" + (bentPlan == null ? 0 : bentPlan.acts().size()) + " acts), the plug kept in the plain search and with water on it"); return true;
         }
         return true;
     }

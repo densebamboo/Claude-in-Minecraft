@@ -3957,6 +3957,7 @@ public final class ClaudeLife {
                         if (piece != null && !(kind.equals("blacksmith") && phase >= 1)) { g.tasks.add(new Task.GoTo(surfaceOver(level, piece.offset(phase % 2 == 0 ? 4 : -4, 0, phase < 2 ? 4 : -4)), 1.5)); g.skillQueue.addFirst(new Skills.Step("loot", kind + "@" + (phase + 1), count, st.where())); return "no chest in view: walking the " + kind.replace('_', ' '); }
                     }
                     if (kind.equals("fortress")) { int[] got = fortressLoot().getOrDefault(g.getUUID(), new int[2]); if (got[0] + got[1] > 0) { ClaudeMod.LOGGER.info("[Claude life] fortress looted: {} chest(s), {} wart; nothing more in view (ClaudeLife.runSkill loot)", got[0], got[1]); return "done: the fortress's " + got[0] + " chest" + (got[0] == 1 ? "" : "s") + " and " + got[1] + " ripe wart in view are in; nothing more in view here"; } }
+                    if (kind.equals("blacksmith")) { villageNoIron().put(g.blockPosition().immutable(), level.getGameTime()); ClaudeMod.LOGGER.info("[Claude skill] the village by {}: no golem in sight and the smith's house walked with no chest: nothing in it for iron, off his iron plans for {} s (ClaudeLife.runSkill loot)", g.blockPosition().toShortString(), (int) com.claudemod.entity.life.Weights.w("village.no_iron_s", 1200)); } // (gear_up planned village_iron for it again at once: golem none, smith chest none, every ~8 s, live 22:37 11-10, D2D hourly 3, stage 1445)
                     return "failed: no chest in view here" + (idPart == null ? "" : " (walked the " + kind.replace('_', ' ') + ")");
                 }
                 int n = 0, want = Math.min(6, Math.max(count, 4));
@@ -14563,7 +14564,13 @@ public final class ClaudeLife {
     }
     /** The village a village skill heads for: hay within the food walk, else any within the long walk. */
     public static com.claudemod.entity.life.Perception.Sighting knownVillage(ClaudeEntity g, String skill, ServerLevel level) {
+        if (skill.equals("village_iron")) return knownVillage(g, VILLAGE_WALK, s -> !villageNoIron(level, s.nearestCell(g.position())));
         return skill.equals("village_food") ? knownVillage(g, VILLAGE_FOOD_WALK, s -> villageHay(level, s)) : knownVillage(g, VILLAGE_WALK, s -> true);
+    }
+    private static java.util.Map<BlockPos, Long> villageNoIron; // where he walked a village's smith house with no chest and saw no golem (game time); static: fields added live start null
+    static java.util.Map<BlockPos, Long> villageNoIron() { if (villageNoIron == null) villageNoIron = new java.util.HashMap<>(); return villageNoIron; }
+    /** A village with nothing in it for iron just now: its smith house walked with no chest, no golem in sight, within village.no_iron_s (golems come back with time). */
+    public static boolean villageNoIron(ServerLevel level, BlockPos cell) { long now = level.getGameTime(), keep = (long) (20 * com.claudemod.entity.life.Weights.w("village.no_iron_s", 1200)); villageNoIron().values().removeIf(t -> now - t > keep || now < t); for (BlockPos p : villageNoIron().keySet()) if (p.distSqr(cell) <= 64 * 64) return true; return false;
     }
     /** Hay he saw in it (still there where it's loaded; out there, his record of it). */
     public static boolean villageHay(ServerLevel level, com.claudemod.entity.life.Perception.Sighting s) {

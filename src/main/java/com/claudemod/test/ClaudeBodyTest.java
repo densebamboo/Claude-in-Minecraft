@@ -10922,6 +10922,7 @@ public final class ClaudeBodyTest {
             case 1442: return st1442(stage, t, c, h, level, mock);
             case 1443: return st1443(stage, t, c, h, level, mock);
             case 1444: return st1444(stage, t, c, h, level, mock);
+            case 1445: return st1445(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25043,6 +25044,28 @@ public final class ClaudeBodyTest {
             check(put >= 0, "his floor at " + cut.toShortString() + " never put back: " + ts);
             check(last < 0 || put < last, "his floor goes back from the way's end, 4 below it and out of reach, not from the first cell he's dropped past it: " + ts);
             pass(stage, t, "his floor cut on a drop goes back from just under it: " + ts);
+        }
+        return true;
+    }
+    /** Stage 1445 (D2D hourly 3, live 22:37:27-22:38 11-10 at the village by -148,77,71): gear_up planned village_iron, no golem in sight, "the smith's chest then", loot blacksmith "failed: no chest in view here (walked the blacksmith)", the planner, gear_up, village_iron again: every ~8 s. Walked with nothing in it for iron, the village is off his iron plans for a while. */
+    private static boolean st1445(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.tasks.clear(); c.skillQueue.clear(); c.commandActive = false; c.prefs.put("stay_close", "no"); c.prefs.put("village_mode", "useful"); com.claudemod.entity.life.Perception.sightings(c).removeIf(s0 -> s0.id().equals("village")); }
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(1000);
+            BlockPos hay = h.absolutePos(new BlockPos(9, 2, 8)); level.setBlockAndUpdate(hay, Blocks.HAY_BLOCK.defaultBlockState()); level.setBlockAndUpdate(hay.north(), Blocks.HAY_BLOCK.defaultBlockState());
+            c.getInventory().clearContent(); for (net.minecraft.world.item.Item it : new net.minecraft.world.item.Item[] {Items.STONE_AXE, Items.STONE_PICKAXE}) c.getInventory().add(new ItemStack(it)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 6)); c.setHealth(20f);
+            BlockPos me = h.absolutePos(new BlockPos(3, 2, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, net.minecraft.world.phys.Vec3.atCenterOf(hay));
+        }
+        if (t[0] == 12) { com.claudemod.entity.life.FarSight.lookAllRound(c, level); com.claudemod.entity.life.FarSight.nearScan(c, level); }
+        if (t[0] == 14) {
+            if (com.claudemod.entity.life.Perception.nearestLandmark(c, "village") == null) { check(false, "setup: the hay he saw never went on record as a village"); return true; }
+            String before = com.claudemod.director.Procure.describe(com.claudemod.director.Procure.plan(c, level, Items.IRON_INGOT, 3).steps());
+            check(before.contains("village_iron"), "setup: a village in sight and no walk of it yet, iron planned without it: " + before);
+            String loot = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "loot", "blacksmith@1", 1); c.tasks.clear(); c.skillQueue.clear();
+            String after = com.claudemod.director.Procure.describe(com.claudemod.director.Procure.plan(c, level, Items.IRON_INGOT, 3).steps());
+            check(loot.startsWith("failed"), "setup: the smith's chest loot with no chest: " + loot);
+            check(!after.contains("village_iron"), "no golem and the smith's house walked with no chest (" + loot + "), iron planned on the village again: " + after);
+            pass(stage, t, "a village walked with nothing for iron: iron planned without it (" + after + ")");
         }
         return true;
     }

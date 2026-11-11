@@ -5722,7 +5722,7 @@ public final class ClaudeLife {
             inv.items.set(i, net.minecraft.world.item.ItemStack.EMPTY);
             n++;
         }
-        if (n > 0) ClaudeMod.LOGGER.info("[Claude life] inventory full: threw out {} stacks of junk: {}", n, thrown.toString().trim());
+        if (n > 0) { int freeNow = 0; for (var st0 : inv.items) if (st0.isEmpty()) freeNow++; ClaudeMod.LOGGER.info("[Claude life] {}: threw out {} stacks of junk: {}", freeNow - n == 0 ? "inventory full" : "pack " + (freeNow - n) + " slot free of the 2 he keeps for a craft", n, thrown.toString().trim()); } // (the count before the toss: "inventory full" with a slot free misled the reviews, D2D 51/163/234 11-11)
         if (n == 0 && inv.getFreeSlot() < 0) { // nothing on the junk list and still no room (a craft can't even make its table): the least use of what he carries goes, like a player emptying a slot
             int pick = -1; int pickScore = Integer.MAX_VALUE; String pickWhy = null;
             for (int i = 0; i < inv.items.size(); i++) {

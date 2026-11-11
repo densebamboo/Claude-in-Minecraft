@@ -10549,6 +10549,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1484: return st1484(stage, t, c, h, level, mock);
             case 1483: return st1483(stage, t, c, h, level, mock);
             case 1482: return st1482(stage, t, c, h, level, mock);
             case 1481: return st1481(stage, t, c, h, level, mock);
@@ -19362,6 +19363,39 @@ public final class ClaudeBodyTest {
             check(p != null, "the floor of an open pit 7 down beside him, a 100-node search: no way (the goal reached in the search and thrown away?)");
             check(end != null && end.distSqr(goal) <= 2.25, "the way ends at " + end + ", not within 1.5 of the goal " + goal.toShortString());
             pass(stage, t, "the way down into the pit: " + p.acts().size() + " acts");
+        }
+        return true;
+    }
+    /** Stage 1484 (D2D STUCK 034150-71, live 03:38-03:44 11-11 at the fortress, 322,48,425: two blazes, "one at a time: another blaze sees where he'd hit this one: in cover till it doesn't"; FortressFight.coverFor's cover 325,45,422, reached by his own walker ("sprint-jump off 322,46,420 onto 324,45,422"), but cfMove walked to it with vanilla's, which jumps no gap: "the way back to cover hasn't brought him nearer in 2 s (5.0 off)", 6 min stood in the open on his shield, a shield worn out). Here: the only cover across a 2-wide drop, two blazes in plain view on his side. Into the cover, by his own walker's jump. */
+    private static net.minecraft.world.entity.monster.Blaze s1484A, s1484B; private static int s1484T;
+    private static boolean st1484(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1484A = s1484B = null; s1484T = 0; }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(80))) if (e != s1484A && e != s1484B) e.discard();
+        if (t[0] == 10) {
+            for (int x = -30; x <= 34; x++) for (int z = -26; z <= 26; z++) { boolean gap = x >= 2 && x <= 3; for (int y = -5; y <= -1; y++) level.setBlock(o.offset(x, y, z), (gap && y >= -4 ? Blocks.AIR : Blocks.NETHER_BRICKS).defaultBlockState(), 2); for (int y = 0; y <= 20; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int z = 1; z <= 6; z++) for (int y = 0; y <= 4; y++) level.setBlock(o.offset(4, y, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // the wall over the drop: the cover behind it at 5,0,3
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.fallDistance = 0; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; mock[0].teleportTo(o.getX() + 0.5, o.getY() + 45, o.getZ() + 0.5);
+            level.setDayTime(6000);
+        }
+        if (t[0] == 20) {
+            s1484A = EntityType.BLAZE.create(level); s1484A.moveTo(o.getX() - 8.5, o.getY(), o.getZ() + 0.5, -90, 0); s1484A.setPersistenceRequired(); s1484A.setNoAi(true); level.addFreshEntity(s1484A);
+            s1484B = EntityType.BLAZE.create(level); s1484B.moveTo(o.getX() - 10.5, o.getY() + 1, o.getZ() - 5.5, -90, 0); s1484B.setPersistenceRequired(); s1484B.setNoAi(true); level.addFreshEntity(s1484B);
+            c.tasks.add(new Task.Attack(s1484A.getUUID(), 20 * 30)); s1484T = t[0];
+        }
+        if (s1484T > 0 && t[0] > s1484T) {
+            boolean across = c.getX() >= o.getX() + 4 && c.getBlockY() == o.getY() && c.onGround(), fell = c.getY() < o.getY() - 2; // (the drop is 4 deep: in it, no way out without blocks)
+            if (across || fell || t[0] > s1484T + 20 * 12) {
+                BlockPos at = c.blockPosition(); int s = (t[0] - s1484T) / 20; String q = c.currentTask + " " + c.tasks;
+                for (int x = 2; x <= 3; x++) for (int z = -26; z <= 26; z++) for (int y = -4; y <= -1; y++) level.setBlock(o.offset(x, y, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // (the drop and the wall gone: the arena is the next stages' too, 525 failed after it)
+                for (int z = 1; z <= 6; z++) for (int y = 0; y <= 4; y++) level.setBlock(o.offset(4, y, z), Blocks.AIR.defaultBlockState(), 2);
+                s1484A.discard(); s1484B.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY); c.getInventory().clearContent();
+                c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.fallDistance = 0;
+                check(!fell, "fell into the drop on the way to cover (at " + at.toShortString() + ")");
+                check(across, "two blazes in plain view, the cover across a 2-wide drop: not over to it in 12 s (at " + at.toShortString() + ", " + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+                pass(stage, t, "over the drop into cover in " + s + " s");
+            }
         }
         return true;
     }

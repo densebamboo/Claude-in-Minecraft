@@ -74,6 +74,16 @@ public final class OwnEvents {
 
     // ---- what happens to him (the game's own events, his only)
 
+    /** Gear of his worn out: logged, the way a player sees it go (D2D review 71, live 10:53:24 11-11: his iron sword gone on a skeleton kill with no line, the blaze fight after on a stone one; stage 1499). */
+    public static String lastBroke = "";
+    public static void onGearBroke(net.neoforged.neoforge.event.entity.player.PlayerDestroyItemEvent e) {
+        if (!(e.getEntity() instanceof ClaudeEntity g)) return;
+        String id = BuiltInRegistries.ITEM.getKey(e.getOriginal().getItem()).getPath();
+        lastBroke = id + "@" + g.tickCount;
+        ClaudeMod.LOGGER.info("[Claude gear] his {} wore out ({}) at {} in {}, doing {}, step {} (OwnEvents.onGearBroke)", id, e.getHand() == null ? "worn" : e.getHand() == net.minecraft.world.InteractionHand.MAIN_HAND ? "main hand" : "off hand",
+            g.blockPosition().toShortString(), g.level().dimension().location().getPath(), g.currentTask, g.lastStep == null ? "-" : g.lastStep.skill());
+    }
+
     /** Ore he broke. */
     public static void onBreak(net.neoforged.neoforge.event.level.BlockEvent.BreakEvent e) {
         if (!(e.getPlayer() instanceof ClaudeEntity g)) return;

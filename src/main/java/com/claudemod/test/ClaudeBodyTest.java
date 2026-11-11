@@ -10550,6 +10550,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1550: return st1550(stage, t, c, h, level, mock);
+            case 1499: return st1499(stage, t, c, h, level, mock);
             case 1496: return st1496(stage, t, c, h, level, mock);
             case 1498: return st1498(stage, t, c, h, level, mock);
             case 1497: return st1497(stage, t, c, h, level, mock);
@@ -19871,6 +19873,59 @@ public final class ClaudeBodyTest {
                 check(!dropped, "his cobblestone across a pit, the way a 5-block drop: he took it (at " + at.toShortString() + ", " + hp + " HP, " + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
                 check(idle, "his cobblestone across a pit: neither taken nor left in 8 s (" + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
                 pass(stage, t, "his cobblestone across a 5-drop left standing, his health kept");
+            }
+        }
+        return true;
+    }
+    /** Stage 1499 (D2D review 71, live 10:53:24 11-11: his iron sword wore out on a skeleton kill and nothing said so; the blaze fight after went on a stone sword made "for the fight", unexplained in the log). His sword at its last use, one hit: the wear-out is logged. */
+    private static net.minecraft.world.entity.monster.Zombie s1499Z;
+    private static boolean st1499(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; flatBox(h); com.claudemod.entity.life.OwnEvents.lastBroke = ""; if (s1499Z != null) s1499Z.discard(); s1499Z = null; }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 5));
+            ItemStack sw = new ItemStack(Items.IRON_SWORD); sw.setDamageValue(sw.getMaxDamage() - 1);
+            c.getInventory().clearContent(); c.getInventory().items.set(0, sw); c.getInventory().selected = 0;
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            s1499Z = EntityType.ZOMBIE.create(level); s1499Z.moveTo(me.getX() + 1.5, me.getY(), me.getZ() + 0.5, 90, 0); s1499Z.setNoAi(true); s1499Z.setPersistenceRequired(); level.addFreshEntity(s1499Z);
+        }
+        if (t[0] == 20) c.attack(s1499Z);
+        if (t[0] == 25) {
+            String b = com.claudemod.entity.life.OwnEvents.lastBroke; boolean gone = c.getMainHandItem().isEmpty();
+            s1499Z.discard(); s1499Z = null; c.getInventory().clearContent();
+            check(gone, "setup: the sword at its last use didn't wear out on the hit");
+            check(b.startsWith("iron_sword"), "his iron sword wore out on a hit and nothing logged it (lastBroke \"" + b + "\")");
+            pass(stage, t, "the sword's wear-out logged: " + b);
+        }
+        return true;
+    }
+    /** Stage 1550 (D2D review 41, live 10:54:25 11-11 by the spawner at 315,63,489: "killed the Blaze at 314, 64, 488 ... its drops: [blaze rod] under it 1 down: lava", the rod burned, rods 0/7 for minutes after). A blaze at its last hit hovering over lava, him at full health: the killing hit waits till it's over ground, then lands. */
+    private static int s1550T, s1550Moved; private static net.minecraft.world.entity.monster.Blaze s1550B; private static BlockPos s1550Me;
+    private static boolean st1550(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1550T = -1; s1550Moved = -1; if (s1550B != null) s1550B.discard(); s1550B = null; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            s1550Me = h.absolutePos(new BlockPos(4, 2, 5)).immutable();
+            level.setBlock(s1550Me.offset(3, -1, 0), Blocks.LAVA.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.teleportTo(s1550Me.getX() + 0.5, s1550Me.getY(), s1550Me.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var b = EntityType.BLAZE.create(level); b.moveTo(s1550Me.getX() + 3.5, s1550Me.getY() + 0.2, s1550Me.getZ() + 0.5, 90, 0); b.setNoAi(true); b.setNoGravity(true); b.setPersistenceRequired(); level.addFreshEntity(b); b.setHealth(1); s1550B = b;
+            com.claudemod.entity.life.Perception.noteSeenTest(c, b);
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Attack(s1550B.getUUID(), 20 * 30)); s1550T = t[0]; }
+        if (s1550T > 0 && t[0] > s1550T) {
+            boolean dead = !s1550B.isAlive();
+            if (s1550Moved < 0 && (dead || t[0] - s1550T > 60)) {
+                if (dead) { String q = c.currentTask + " " + c.tasks; s1550B = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; level.setBlock(s1550Me.offset(3, -1, 0), Blocks.STONE.defaultBlockState(), 2);
+                    check(false, "a blaze at its last hit over lava, him at full health: killed there, its rod into the lava (" + (q.length() > 120 ? q.substring(0, 120) : q) + ")"); }
+                s1550B.moveTo(s1550Me.getX() + 2.5, s1550Me.getY() + 0.2, s1550Me.getZ() + 1.5, 90, 0); s1550Moved = t[0]; // over the floor now
+            }
+            if (s1550Moved > 0 && (dead || t[0] - s1550Moved > 80)) {
+                String q = c.currentTask + " " + c.tasks; double s = (t[0] - s1550Moved) / 20.0;
+                if (s1550B.isAlive()) s1550B.discard(); s1550B = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY);
+                level.setBlock(s1550Me.offset(3, -1, 0), Blocks.STONE.defaultBlockState(), 2);
+                check(dead, "the blaze over ground now, at its last hit, in his reach: not killed in 4 s (" + (q.length() > 120 ? q.substring(0, 120) : q) + ")");
+                pass(stage, t, "the killing hit held over lava, landed over ground in " + s + " s");
             }
         }
         return true;

@@ -6518,6 +6518,7 @@ public class WorkGoal extends Goal {
             }
             // Swing once the attack is charged, like a player who doesn't spam-click (the game's own cooldown: ~0.6s sword, ~1s axe).
             if (g.getAttackStrengthScale(0.5f) >= 0.95f && (mob.invulnerableTime <= w("combat.move.strike.iframes_max", 10) || !com.claudemod.entity.life.CombatLog.hitWithin(mob, 10)) && mob.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0) { // (3 to the nearest point of it, like a player's reach: to its middle, a golem from his tower top read as out of reach)
+                if (rodHold(mob)) return false; // the killing hit over lava: held till its rod lands on ground
                 reachWaitStart = -1;
                 int cj = critJump().getOrDefault(g.getUUID(), -100);
                 if (g.onGround() && !g.isInWater() && !g.isPassenger() && !(mob instanceof net.minecraft.world.entity.monster.Creeper) && !CombatBrain.sweepBeatsCrit(g, mob) && (mob instanceof net.minecraft.world.entity.monster.Monster || mob instanceof net.minecraft.world.entity.animal.IronGolem || mob instanceof net.minecraft.world.entity.monster.hoglin.Hoglin) && g.getHealth() > 8 && g.getFoodData().getFoodLevel() > 6 && g.tickCount - cj > 20) { critJump().put(g.getUUID(), g.tickCount); g.getJumpControl().jump(); return false; } // the jump first: the swing on the way down is a critical hit (x1.5), the way a player fights
@@ -7043,8 +7044,23 @@ public class WorkGoal extends Goal {
     private BlockPos cfOwnWay, cfOwnLast, cfCoverCell; private int cfOwnTick = -100000; // (a spot cfMove leaves to his own walker this tick; the last one, and when)
     private void cfMove(BlockPos to, double speed) { if (Math.abs(g.getY() - to.getY()) < 0.6 && Math.hypot(g.getX() - to.getX() - 0.5, g.getZ() - to.getZ() - 0.5) < 1.6) { g.getNavigation().stop(); g.getMoveControl().setWantedPosition(to.getX() + 0.5, to.getY(), to.getZ() + 0.5, speed); return; } var path = g.getNavigation().createPath(to, 1); if ((path == null || !path.canReach()) && to.equals(cfCoverCell) && !(to.equals(cfOwnLast) && g.tickCount - cfOwnTick < 100)) { cfOwnWay = to.immutable(); return; } /* vanilla's walker jumps no gap and makes no drop it can't see: his own walker's way (coverFor picks covers by it: the cover cell only, never a closing-in spot across lava, stage 525), once in 5 s per spot (live 03:38-03:44 11-11, death 86: the cover 5 off across a sprint-jump, vanilla's path never got him nearer, stood in the open on his shield; stage 1484) */ if (path != null) g.getNavigation().moveTo(path, speed); else g.getNavigation().moveTo(to.getX() + 0.5, to.getY(), to.getZ() + 0.5, speed); } // (in his own cell the path is "done" at once and never centres him: at() wants 0.35, so "back into cover" held him off-centre in sight, burning 13 -> 1, the Eat never reached)
     /** The swing when charged, the hop first for the crit (a 2-high ceiling caps the hop; the fall still crits). True: swung or hopping. */
+    private int rodHoldId = -1, rodHoldSince, rodHoldOut = -1;
+    /** The hit that would kill a blaze over lava: held, shield up, till it drifts over ground, its rod burns in the lava (D2D review 41, live 10:54:25 11-11 by the spawner: "its drops: [blaze rod] under it 1 down: lava", rods 0/7 after; stage 1550). Only while he's healthy (blaze.rod_hold_hp) and for blaze.rod_hold_s a blaze: a rod isn't worth his health or a long wait. */
+    private boolean rodHold(net.minecraft.world.entity.LivingEntity mob) {
+        if (!(mob instanceof net.minecraft.world.entity.monster.Blaze) || g.getHealth() <= w("blaze.rod_hold_hp", 10)) return false;
+        if (mob.getHealth() > g.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE) * 1.5) return false; // not the killing hit (a crit at most)
+        BlockPos lava = null; BlockPos p = mob.blockPosition();
+        for (int i = 0; i < 12; i++, p = p.below()) { if (level().getFluidState(p).is(net.minecraft.tags.FluidTags.LAVA)) { lava = p; break; } if (!level().getBlockState(p).getCollisionShape(level(), p).isEmpty()) break; }
+        if (lava == null) return false;
+        if (rodHoldId != mob.getId()) { rodHoldId = mob.getId(); rodHoldSince = g.tickCount; }
+        int held = g.tickCount - rodHoldSince; if (held > 20 * w("blaze.rod_hold_s", 6)) { if (rodHoldOut != mob.getId()) { rodHoldOut = mob.getId(); com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the blaze still over lava at {} after {} s: the hit now, its rod lost to the lava (WorkGoal.rodHold)", lava.toShortString(), held / 20); } return false; }
+        shieldUp(mob);
+        if (held == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the killing hit on the blaze held: it's over lava at {}, its rod would burn: shield up till it drifts over ground, {} s at most (WorkGoal.rodHold)", lava.toShortString(), (int) w("blaze.rod_hold_s", 6));
+        return true;
+    }
     private boolean cfSwing(net.minecraft.world.entity.LivingEntity mob) {
         if (g.getAttackStrengthScale(0.5f) < 0.95f) return false;
+        if (rodHold(mob)) return false; // the killing hit over lava: held
         if (g.onGround() && !g.isInWater() && g.tickCount - cfHopTick > 14 && g.getHealth() > 6) { cfHopTick = g.tickCount; g.getJumpControl().jump(); return true; }
         if (!g.onGround() && g.getDeltaMovement().y > 0 && g.tickCount - cfHopTick <= 8) return true; // still going up: the crit wants the fall
         g.getLookControl().faceNow(mob.getBoundingBox().getCenter());

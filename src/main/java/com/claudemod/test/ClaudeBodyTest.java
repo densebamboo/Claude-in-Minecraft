@@ -10550,6 +10550,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1498: return st1498(stage, t, c, h, level, mock);
+            case 1497: return st1497(stage, t, c, h, level, mock);
             case 1495: return st1495(stage, t, c, h, level, mock);
             case 1494: return st1494(stage, t, c, h, level, mock);
             case 1493: return st1493(stage, t, c, h, level, mock);
@@ -19767,6 +19769,60 @@ public final class ClaudeBodyTest {
                 for (int z = -2; z <= 2; z++) for (int y = 0; y <= 3; y++) level.setBlock(s1495Me.offset(3, y, z), Blocks.AIR.defaultBlockState(), 2);
                 check(ate, "at his hide, out of the blaze's sight, nothing in reach, " + hp + " HP and hunger 17: no meal in 8 s (" + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
                 pass(stage, t, "at his hide at 4 HP: eating in " + s + " s");
+            }
+        }
+        return true;
+    }
+    /** Stage 1497 (D2D death 47, live 10:58:00-10:58:15 11-11 at 317,61,505: "escape: out of their sight at 317, 61, 506: holding", then "hit at his hide 317, 61, 506 (1.0 off it, he's at 317, 61, 505) ... line to the spot false, to him true", 5 -> 0 from fireballs where he stood; at 10:58:00 the same at 315,60,506, and fight 29 at 09:52 "1.4 off it": a hide counts as reached within 1.5, the walk stopped there, and nothing steps him the last block in). His hide behind a wall, him one cell beside it in the blaze's line: he steps into the hide. */
+    private static int s1497T; private static net.minecraft.world.entity.monster.Blaze s1497B; private static BlockPos s1497H;
+    private static boolean st1497(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1497T = -1; if (s1497B != null) s1497B.discard(); s1497B = null; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            s1497H = h.absolutePos(new BlockPos(4, 2, 5)).immutable(); BlockPos me = s1497H.south();
+            for (int z = -2; z <= 0; z++) for (int y = 0; y <= 3; y++) level.setBlock(s1497H.offset(3, y, z), Blocks.STONE.defaultBlockState(), 2); // the wall: the hide behind it, the cell south of it in the open
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(12); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var b = EntityType.BLAZE.create(level); BlockPos sp = s1497H.east(9); b.moveTo(sp.getX() + 0.5, sp.getY() + 1, sp.getZ() + 0.5, 90, 0); b.setNoAi(true); b.setNoGravity(true); b.setPersistenceRequired(); level.addFreshEntity(b); b.setTarget(c); s1497B = b;
+            com.claudemod.entity.life.Perception.noteSeenTest(c, b);
+            check(com.claudemod.entity.life.FortressFight.sees(level, b, me) && !com.claudemod.entity.life.FortressFight.sees(level, b, s1497H), "setup: the blaze sees the cell beside the hide, not the hide");
+        }
+        if (t[0] == 12) { c.work.escapeHoldForTest(s1497H); c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Flee(600)); s1497T = t[0]; }
+        if (s1497T > 0 && t[0] > s1497T) {
+            double d = c.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(s1497H)); boolean in = d < 0.4;
+            if (in || t[0] - s1497T > 20 * 3) {
+                double s = (t[0] - s1497T) / 20.0; String q = c.currentTask + " " + c.tasks; BlockPos at = c.blockPosition();
+                s1497B.discard(); s1497B = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.work.escapeHoldForTest(null);
+                for (int z = -2; z <= 0; z++) for (int y = 0; y <= 3; y++) level.setBlock(s1497H.offset(3, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(in, "his hide 1 off, him in the blaze's line beside it: not in it in 3 s (" + String.format("%.2f", d) + " off at " + at.toShortString() + ", " + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+                pass(stage, t, "into his hide in " + s + " s");
+            }
+        }
+        return true;
+    }
+    /** Stage 1498 (D2D death 47, live 10:58:05 11-11 at 317,61,504: running from a blaze, on fire at 11 HP beside lava, lava.hold "back off ~11 s (back to 317, 61, 505 till the fire's out)" against "work on ~959 s": the back-off was in the blaze's line, its fireballs lit him again there (8 -> 5, 2 -> 0), the fire never out). Burning by lava, a blaze after him that sees every cell to back off to: no back-off into its line, his work goes on. */
+    private static int s1498T; private static net.minecraft.world.entity.monster.Blaze s1498B; private static BlockPos s1498Me;
+    private static boolean st1498(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1498T = -1; if (s1498B != null) s1498B.discard(); s1498B = null; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            s1498Me = h.absolutePos(new BlockPos(4, 2, 5)).immutable();
+            level.setBlock(s1498Me.offset(-1, -1, 0), Blocks.LAVA.defaultBlockState(), 2); // lava in the floor beside him
+            level.setBlock(s1498Me.offset(1, 0, 0), Blocks.OAK_LOG.defaultBlockState(), 2); // his work: a log in reach, by hand
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.teleportTo(s1498Me.getX() + 0.5, s1498Me.getY(), s1498Me.getZ() + 0.5); c.setHealth(11); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var b = EntityType.BLAZE.create(level); BlockPos sp = s1498Me.east(9); b.moveTo(sp.getX() + 0.5, sp.getY() + 1, sp.getZ() + 0.5, 90, 0); b.setNoAi(true); b.setNoGravity(true); b.setPersistenceRequired(); level.addFreshEntity(b); b.setTarget(c); s1498B = b;
+            com.claudemod.entity.life.Perception.noteSeenTest(c, b);
+        }
+        if (t[0] == 12) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Break(s1498Me.offset(1, 0, 0))); c.setRemainingFireTicks(100); s1498T = t[0]; }
+        if (s1498T > 0 && t[0] > s1498T) {
+            boolean backed = c.currentTask instanceof Task.Wait || c.tasks.stream().anyMatch(x -> x instanceof Task.Wait);
+            if (backed || t[0] - s1498T > 30) {
+                String q = c.currentTask + " " + c.tasks;
+                s1498B.discard(); s1498B = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.clearFire();
+                level.setBlock(s1498Me.offset(-1, -1, 0), Blocks.STONE.defaultBlockState(), 2); level.setBlock(s1498Me.offset(1, 0, 0), Blocks.AIR.defaultBlockState(), 2);
+                check(!backed, "burning by lava, a blaze after him that sees every cell round: backed off into its line till the fire's out (" + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+                pass(stage, t, "no back-off into the blaze's line: " + (q.length() > 80 ? q.substring(0, 80) : q));
             }
         }
         return true;

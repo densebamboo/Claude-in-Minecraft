@@ -10980,6 +10980,7 @@ public final class ClaudeBodyTest {
             case 1515: return st1515(stage, t, c, h, level, mock);
             case 1516: return st1516(stage, t, c, h, level, mock);
             case 1517: return st1517(stage, t, c, h, level, mock);
+            case 1518: return st1518(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -15303,18 +15304,19 @@ public final class ClaudeBodyTest {
         BlockPos o = new BlockPos(12100, 64, 7320);
         if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.nav.FortressEnds.picked = null; }
         nsTick(nl, c, o, t);
+        if (t[0] >= 10 && t[0] % 10 == 0) for (int dz = -32; dz <= 0; dz += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(0, 0, dz)), 3, o.offset(0, 0, dz)); // (the land between him and both ends loaded: no part-way plans)
         if (t[0] == 10) {
-            for (int x = -30; x <= 30; x++) for (int z = -26; z <= 6; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), y < 0 ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
-            for (int x = -15; x <= 15; x++) for (int z = -1; z <= 1; z++) nl.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // a bridge deck on the ground, 3 wide, open at x -15 and x 15
-            nsKit(c); c.teleportTo(nl, o.getX() - 1.5, o.getY(), o.getZ() - 12.5, 0f, 0f);
+            for (int x = -30; x <= 30; x++) for (int z = -40; z <= 6; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), y < 0 ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            for (int x = -15; x <= 15; x++) for (int z = -1; z <= 1; z++) nl.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // a bridge deck on the ground, 3 wide, open at x -15 and x 15 (past FAR: the long way in; a few blocks off, his own walk takes him on, stage 1518)
+            nsKit(c); c.teleportTo(nl, o.getX() - 4.5, o.getY(), o.getZ() - 30.5, 0f, 0f);
         }
         if (t[0] == 20) { c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600;
             com.claudemod.entity.nav.Route.expand(c, nl, o, 1); var p1 = com.claudemod.entity.nav.FortressEnds.picked; s973First = p1 == null ? null : p1.deck();
-            c.tasks.clear(); c.teleportTo(nl, o.getX() + 2.5, o.getY(), o.getZ() - 12.5, 0f, 0f); }
+            c.tasks.clear(); c.teleportTo(nl, o.getX() + 1.5, o.getY(), o.getZ() - 30.5, 0f, 0f); }
         if (t[0] == 30) { c.tasks.clear(); c.nextPlanTick = c.tickCount + 20 * 600;
             com.claudemod.entity.nav.Route.expand(c, nl, o, 1); var p2 = com.claudemod.entity.nav.FortressEnds.picked; BlockPos second = p2 == null ? null : p2.deck();
             c.tasks.clear(); c.skillQueue.clear();
-            for (int x = -30; x <= 30; x++) for (int z = -26; z <= 6; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (int x = -30; x <= 30; x++) for (int z = -40; z <= 6; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
             check(s973First != null && s973First.getX() < o.getX(), "setup: from a little nearer the west end the pick was " + s973First);
             check(second != null && second.equals(s973First), "4 blocks over, the end he was making for (" + s973First + ") swapped for " + second + " on a second or two of price");
             nsHome(c, h, level); pass(stage, t, "kept the end at " + second.toShortString());
@@ -21171,6 +21173,26 @@ public final class ClaudeBodyTest {
             check(dry, "set up: he's in the water");
             check(r == null || !r.contains("open ground"), "no room here, his own furnace 14 off: off to open ground to set a new one: " + r + " " + q);
             pass(stage, t, "no room here, his own furnace 14 off: " + r);
+        }
+        return true;
+    }
+    /** Stage 1518 (D2D 141425-12, live 14:09-14:13 11-11 by the fortress at 312..327,61,497..511): 4 off its deck on the netherrack beside it, a walk onto the deck went round by an open end ("to the fortress's open end at 312, 65, 511 ... ~16 s") that didn't join it: off its lip 4 down, onto the deck below, off it again for the next job, round again, 5 times. A step onto a deck with every brick left standing is his own walk. */
+    private static boolean st1518(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12300, 64, 7320);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.nav.FortressEnds.picked = null; }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            for (int x = -30; x <= 30; x++) for (int z = -12; z <= 6; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), y < 0 ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            for (int x = -15; x <= 15; x++) for (int z = -1; z <= 1; z++) nl.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // a bridge deck on the ground, 3 wide, open at x -15 and x 15
+            nsKit(c); c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() - 5.5, 0f, 0f);
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.nav.FortressEnds.picked = null;
+            var r = com.claudemod.entity.nav.Route.expand(c, nl, o, 1); var p = com.claudemod.entity.nav.FortressEnds.picked;
+            c.tasks.clear(); c.skillQueue.clear();
+            for (int x = -30; x <= 30; x++) for (int z = -12; z <= 6; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(p == null, "5 off the deck, nothing in the way: sent round by its open end at " + (p == null ? "-" : p.deck().toShortString()) + ": " + r);
+            nsHome(c, h, level); pass(stage, t, "onto the deck on his own walk (" + r + ")");
         }
         return true;
     }

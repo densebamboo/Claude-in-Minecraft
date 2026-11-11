@@ -10549,6 +10549,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1487: return st1487(stage, t, c, h, level, mock);
             case 1486: return st1486(stage, t, c, h, level, mock);
             case 1485: return st1485(stage, t, c, h, level, mock);
             case 1484: return st1484(stage, t, c, h, level, mock);
@@ -19501,6 +19502,46 @@ public final class ClaudeBodyTest {
             check(patched, "setup: the notch not sealed (no patch queued)");
             check(!contest, "his notch dug for a job and sealed after it, read as two systems contesting the cell");
             pass(stage, t, "the notch dug, then sealed: one job, no owner line");
+        }
+        return true;
+    }
+    /** Stage 1487 (D2D review 054409-89, live 05:41:54 11-11 at -72,57,-69: a few steps down a little staircase of his own for cobble, ~75 from his mine's door, sent to his iron row: "back along his trail into it at -16, 68, -20 (2210 steps)", 973 jobs queued; bpWalkTo took the trail whenever one joined his mine, never priced against going up and in by the door, the underground exit rule's way). Him 3 under the surface, his trail up to it and then 70 round to his mine; the door ~35 off over the top. Up and in by the door. */
+    private static boolean st1487(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(22600, 70, 19800);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -16; k <= 64; k += 16) for (int kz = -48; kz <= 0; kz += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, kz)), 2, o.offset(k, 0, kz));
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; }
+        if (t[0] == 10) {
+            for (int x = -10; x <= 50; x++) for (int z = -40; z <= 6; z++) for (int y = -6; y <= 20; y++) level.setBlock(o.offset(x, y, z), (y <= 14 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            var E = net.minecraft.core.Direction.EAST;
+            var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 40, null)); b.invalidate();
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            var rs = b.rows(); BlockPos j = rs.get(30).first(), top = new BlockPos(j.getX(), o.getY() + 15, j.getZ()), me = new BlockPos(o.getX() + 8, o.getY() + 12, o.getZ() - 30), s = new BlockPos(o.getX() + 5, o.getY() + 15, o.getZ() - 30);
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineIsTunnel = true; com.claudemod.director.ClaudeLife.bpSync(c); level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            com.claudemod.entity.nav.Route.forgetTrail(c); // his trail: out of his mine at row 30, up a shaft to the top, 30 south, 25 west, 3 steps down his own little staircase to where he is (~73 steps)
+            java.util.List<BlockPos> trail = new java.util.ArrayList<>(); trail.add(j);
+            for (int y = j.getY() + 1; y <= top.getY(); y++) trail.add(new BlockPos(j.getX(), y, j.getZ()));
+            for (int z = top.getZ() - 1; z >= s.getZ(); z--) trail.add(new BlockPos(top.getX(), top.getY(), z));
+            for (int x = top.getX() - 1; x >= s.getX(); x--) trail.add(new BlockPos(x, top.getY(), s.getZ()));
+            for (int k = 1; k <= 3; k++) trail.add(s.offset(k, -k, 0)); // (his little staircase down, 2 high: rock over him, as live)
+            for (BlockPos q : trail) for (int yy = 0; yy < 2; yy++) level.setBlock(q.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            for (BlockPos q : trail) { c.setPos(q.getX() + 0.5, q.getY(), q.getZ() + 0.5); com.claudemod.entity.nav.Route.step(c); }
+            for (int y = j.getY() + 2; y <= o.getY() + 14; y++) level.setBlock(new BlockPos(j.getX(), y, j.getZ()), Blocks.STONE.defaultBlockState(), 2); // (the shaft filled back: his own way to the rows is through the rock)
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no"); mock[0].teleportTo(level, me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 30) {
+            var b = c.blueprint; BlockPos dest = b.rows().get(10).first(), j = b.rows().get(30).first();
+            c.tasks.clear(); boolean ok = com.claudemod.director.ClaudeLife.bpWalkTo(c, dest);
+            boolean trailBack = c.tasks.stream().anyMatch(x -> x instanceof Task.GoTo go && (go.pos().getX() == j.getX() && go.pos().getY() > o.getY() + 1 || go.pos().getZ() == o.getZ() - 30 && go.pos().getX() > o.getX() + 8)); // a leg on the trail's loop round to row 30
+            String q = c.tasks.toString(); int n = c.tasks.size();
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineShape = null; c.mineCells.clear(); c.mineSpine.clear(); c.prefs.remove("stay_close"); com.claudemod.entity.nav.Route.forgetTrail(c);
+            for (int x = -10; x <= 50; x++) for (int z = -40; z <= 6; z++) for (int y = -6; y <= 20; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.setDeltaMovement(0, 0, 0); c.fallDistance = 0;
+            check(ok, "bpWalkTo: no walk (" + q + ")");
+            check(!trailBack, "3 down his own steps, the door ~35 over the top: back along his trail round to row 30 (" + n + " tasks: " + (q.length() > 200 ? q.substring(0, 200) : q) + ")");
+            pass(stage, t, "up and in by the door, then the rows: " + n + " walks");
         }
         return true;
     }

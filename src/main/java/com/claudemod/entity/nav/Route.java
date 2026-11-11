@@ -75,7 +75,8 @@ public final class Route {
     public static void forgetTrail(ClaudeEntity g) { trail.remove(g.getUUID()); near.remove(g.getUUID()); } // (another dimension: its cells are nowhere here)
     public static List<BlockPos> wayBack(ClaudeEntity g, int ticks) {
         List<BlockPos> out = new ArrayList<>(); var m = trail.get(g.getUUID()); if (m == null) return out;
-        for (var e : m.entrySet()) if (g.tickCount - e.getValue() <= ticks && e.getValue() <= g.tickCount) out.add(e.getKey()); // (entrySet, never get: the map is access-ordered, oldest visit first)
+        List<Map.Entry<BlockPos, Integer>> es = new ArrayList<>(); for (var e : m.entrySet()) if (g.tickCount - e.getValue() <= ticks && e.getValue() <= g.tickCount) es.add(e); // (entrySet, never get: the map is access-ordered, oldest visit first)
+        es.sort(Map.Entry.comparingByValue()); for (var e : es) out.add(e.getKey()); // (by the tick he stood there, not the map's order: any read of a cell (Route.alongRoutes, walked) moved it to the newest end and the way back started there; stage 643)
         java.util.Collections.reverse(out); return out;
     }
     private static boolean live(ClaudeEntity g, Active r) { if (g.currentTask == r.dest) return true; for (Task q : g.tasks) if (q == r.dest) return true; return false; }

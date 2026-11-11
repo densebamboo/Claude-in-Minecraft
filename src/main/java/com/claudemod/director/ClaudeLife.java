@@ -12055,25 +12055,29 @@ public final class ClaudeLife {
             boolean upTop = g.getBlockY() >= g.level().getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, g.getBlockX(), g.getBlockZ()) - 1;
             java.util.List<BlockPos> back = upTop ? java.util.List.of() : com.claudemod.entity.nav.Route.wayBack(g, 20 * 60 * 20);
             int k = -1; for (int i = 0; i < back.size(); i++) if (b.rowOf(back.get(i)) >= 0) { k = i; break; }
+            int upAt = -1; double trailS = Double.MAX_VALUE, doorS = Double.MAX_VALUE; // (where his trail back first reaches the open sky, before it joins his mine: up there, and over the top to his door, the underground exit rule's way, priced against the whole trail; D2D review 054409-89, live 05:41 11-11: 3 steps down his own staircase, "back along his trail (2210 steps)", the door ~75 over the top; stage 1487)
+            for (int i = 0; i < (k >= 0 ? k : 0); i++) { BlockPos q = back.get(i); if (i > 0 && q.distManhattan(back.get(i - 1)) > 3 || !g.level().hasChunkAt(q)) break; if (q.getY() >= g.level().getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, q.getX(), q.getZ()) - 1) { upAt = i; break; } }
             BlockPos cell = null; if (!upTop) for (BlockPos f : b.rows().get(from).feet()) if (cell == null || f.distSqr(me) < cell.distSqr(me)) cell = f; // the row nearest him: his own way there through the rock, priced against the trail back (or the door) and the rows on from where it joins (D2D review 126 11-10: 22 past his row's end, "back along his trail ... (673 steps)", the staircase he'd cut down from the grass climbed again; stage 1479)
             if (cell != null) { final int toRow = to; java.util.function.IntToDoubleFunction rows = r -> { double s0 = 0; BlockPos at = null; for (BlockPos q : b.walkCells(r, toRow)) { if (at != null) s0 += Math.sqrt(at.distSqr(q)); at = q; } return s0; };
                 var lv = (net.minecraft.server.level.ServerLevel) g.level();
                 var plain = com.claudemod.entity.nav.ActionPath.plan(g, lv, me, cell, 1.0, false, 3000, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, g.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), g.tickCount, java.util.List.of(), com.claudemod.entity.nav.ActionPath.lineWeight(lv, me, cell));
                 double own = plain == null ? Double.MAX_VALUE : plain.walks() + com.claudemod.entity.life.Weights.w("route.dig_in_steps", 3) * plain.digs() + rows.applyAsDouble(from);
-                double other = k >= 0 ? k + rows.applyAsDouble(b.rowOf(back.get(k))) : Math.sqrt(me.distSqr(b.entrance)) + rows.applyAsDouble(0);
+                trailS = k >= 0 ? k + rows.applyAsDouble(b.rowOf(back.get(k))) : Double.MAX_VALUE; doorS = (upAt >= 0 ? upAt + Math.sqrt(back.get(upAt).distSqr(b.entrance)) : Math.sqrt(me.distSqr(b.entrance))) + rows.applyAsDouble(0);
+                double other = k >= 0 && (upAt < 0 || trailS <= doorS) ? trailS : doorS;
                 if (own < other) { legs.add(cell); slack.add(0.8); own0 = true;
-                    ClaudeMod.LOGGER.info("[Claude walk] off his mine at {}: his own way to its row at {} ~{} ({} walks, {} digs) beats {} ~{} (ClaudeLife.bpWalkTo)", me.toShortString(), cell.toShortString(), (int) own, plain.walks(), plain.digs(), k >= 0 ? "back along his trail (" + k + " steps)" : "in by the entrance", (int) other);
+                    ClaudeMod.LOGGER.info("[Claude walk] off his mine at {}: his own way to its row at {} ~{} ({} walks, {} digs) beats {} ~{} (ClaudeLife.bpWalkTo)", me.toShortString(), cell.toShortString(), (int) own, plain.walks(), plain.digs(), k >= 0 && other == trailS ? "back along his trail (" + k + " steps)" : "up and in by the entrance", (int) other);
                     }
                 else
-                ClaudeMod.LOGGER.info("[Claude walk] off his mine at {}: {} to its row at {}: {} (ClaudeLife.bpWalkTo)", me.toShortString(), plain == null ? "no way of his own" : "his own way ~" + (int) own + " is longer than ~" + (int) other, cell.toShortString(), k >= 0 ? "back along his trail" : "in by the entrance");
+                ClaudeMod.LOGGER.info("[Claude walk] off his mine at {}: {} to its row at {}: {} (ClaudeLife.bpWalkTo)", me.toShortString(), plain == null ? "no way of his own" : "his own way ~" + (int) own + " is longer than ~" + (int) other, cell.toShortString(), k >= 0 && other == trailS ? "back along his trail" : "up and in by the entrance");
             }
-            if (own0) { } else if (k >= 0) { // underground, his trail joins the mine: back the way he came (the underground exit rule)
+            if (own0) { } else if (k >= 0 && (upAt < 0 || trailS <= doorS)) { // underground, his trail joins the mine: back the way he came (the underground exit rule)
                 for (int i = 4; i < k; i += 5) { legs.add(back.get(i)); slack.add(1.2); }
                 legs.add(back.get(k)); slack.add(0.8); from = b.rowOf(back.get(k));
                 ClaudeMod.LOGGER.info("[Claude walk] off his mine at {}: back along his trail into it at {} ({} steps), then down its rows (ClaudeLife.bpWalkTo)", me.toShortString(), back.get(k).toShortString(), k);
-            } else { // up top, or a hole his trail doesn't join to it: in by the entrance (the walk gets him out first)
+            } else { // up top, or a hole his trail doesn't join to it, or his trail reaches the sky long before his mine: in by the entrance (the walk gets him out first)
+                if (upAt >= 0) { for (int i = 2; i < upAt; i += 3) { legs.add(back.get(i)); slack.add(1.2); } legs.add(back.get(upAt)); slack.add(1.2); ClaudeMod.LOGGER.info("[Claude walk] off his mine at {}: up his own way to the sky at {} ({} steps) and over the top to his door at {} ~{} beats back along his trail into it ({} steps) ~{} (ClaudeLife.bpWalkTo)", me.toShortString(), back.get(upAt).toShortString(), upAt, b.entrance.toShortString(), (int) doorS, k, (int) trailS); }
                 legs.add(b.entrance); slack.add(1.6); from = 0;
-                if (!upTop) ClaudeMod.LOGGER.info("[Claude walk] off his mine at {} underground, no trail of his joins it: in by the entrance at {} (ClaudeLife.bpWalkTo)", me.toShortString(), b.entrance.toShortString());
+                if (!upTop && upAt < 0) ClaudeMod.LOGGER.info("[Claude walk] off his mine at {} underground, no trail of his joins it: in by the entrance at {} (ClaudeLife.bpWalkTo)", me.toShortString(), b.entrance.toShortString());
             }
         }
         for (BlockPos p : b.walkCells(from, to)) { legs.add(p); slack.add(0.8); }

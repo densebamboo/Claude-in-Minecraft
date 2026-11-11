@@ -7405,6 +7405,9 @@ public class WorkGoal extends Goal {
                     g.tasks.addFirst(new Task.Pillar(t.steps() - pillarDone)); g.tasks.addFirst(new Task.Break(pillarFeet.immutable())); return true; }
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] tower at {}: {} in the cell, no floor on it, no block goes in, and not his to dig: no tower here ({} of {} up) (WorkGoal.doPillar)", pillarFeet.toShortString(), fs.getBlock().getName().getString(), pillarDone, t.steps()); return true; } }
             BlockPos head = pillarFeet.above(2);
+            for (BlockPos wb : new BlockPos[] {pillarFeet.above(), head}) if (level.getBlockState(wb).is(net.minecraft.world.level.block.Blocks.COBWEB)) { // a cobweb in his head cell or the one his jump goes into: it holds the jump ("jump too low"), cut it first like a player (live 16:40-16:43 11-10 at -87,19,-383, a mineshaft's web: 90 s of tower tries, stage 1435)
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] tower at {}: a cobweb at {} over him holds the jump: cut first (WorkGoal.doPillar)", pillarFeet.toShortString(), wb.toShortString());
+                g.tasks.addFirst(new Task.Pillar(t.steps() - pillarDone)); g.tasks.addFirst(new Task.Break(wb.immutable())); return true; }
             if (!level.getBlockState(head).getCollisionShape(level, head).isEmpty()) { // (water up there is fine: he swims through it)
                 if (treeBlockInWay(head)) { // leaves (or the trunk) over his head: punch them out and keep towering
                     g.tasks.addFirst(new Task.Pillar(t.steps() - pillarDone));

@@ -10901,6 +10901,7 @@ public final class ClaudeBodyTest {
             case 1432: return st1432(stage, t, c, h, level, mock);
             case 1433: return st1433(stage, t, c, h, level, mock);
             case 1434: return st1434(stage, t, c, h, level, mock);
+            case 1435: return st1435(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -26219,6 +26220,29 @@ public final class ClaudeBodyTest {
             for (int x = -4; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = -2; y <= 4; y++) level.setBlock(at.offset(x, y, z), (y < 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
             check(done, "the mineshaft's rail and fence in his mine's shell not swapped for its patch in 30 s: " + got);
             pass(stage, t, "the rail and the fence out of his mine's shell, patched, in " + (t[0] - 14) + " ticks: " + got);
+        }
+        return true;
+    }
+    /** Stage 1435 (D2D review 164349-85, live 16:40-16:43 11-10 at -87,19,-383, a mineshaft by his mine): a pillar up for iron 2 over him, a mineshaft's cobweb in the cell over his head; every jump caught in it ("stopped towering ... jump too low"), the tower re-planned every 4 s for 90 s, 157 tasks dropped at the end. A player cuts the web first. */
+    private static boolean st1435(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos at = h.absolutePos(new BlockPos(6, 2, 8)), web = at.above(2);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 10) {
+            for (int x = -2; x <= 2; x++) for (int z = -2; z <= 2; z++) for (int y = 0; y <= 5; y++) level.setBlock(at.offset(x, y, z), (x == 0 && z == 0 ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); // a 1-wide shaft up
+            level.setBlock(web, Blocks.COBWEB.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+        }
+        if (t[0] == 20) c.tasks.add(new Task.Pillar(2));
+        boolean up = t[0] > 20 && c.getBlockY() >= at.getY() + 2 && c.onGround();
+        if (up || t[0] == 20 + 20 * 20) {
+            String got = "at " + c.blockPosition().toShortString() + ", web " + (level.getBlockState(web).is(Blocks.COBWEB) ? "still there" : "gone") + ", " + c.tasks + " / " + c.currentTask;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+            for (int x = -2; x <= 2; x++) for (int z = -2; z <= 2; z++) for (int y = 0; y <= 5; y++) level.setBlock(at.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+            check(up, "2 up a shaft with a cobweb over his head not done in 20 s: " + got);
+            pass(stage, t, "the web over his head cut, 2 up in " + (t[0] - 20) + " ticks");
         }
         return true;
     }

@@ -11277,6 +11277,7 @@ public final class ClaudeBodyTest {
             case 520: return st520(stage, t, c, h, level, mock);
             case 519: return st519(stage, t, c, h, level, mock);
             case 518: return st518(stage, t, c, h, level, mock);
+            case 857: return st857(stage, t, c, h, level, mock);
             case 517: return st517(stage, t, c, h, level, mock);
             case 516: return st516(stage, t, c, h, level, mock);
             case 515: return st515(stage, t, c, h, level, mock);
@@ -12383,12 +12384,28 @@ public final class ClaudeBodyTest {
             pass(stage, t, wiSeen.size() + " incidents: " + wiSeen.stream().map(x -> x.length() > 70 ? x.substring(0, 70) + "..." : x).toList()); }
         return true;
     }
+    /** Stage 857 (live 07:00-08:06 11-11 World 17, D2D reviews 279/293/302/304): "obtain iron_sword: smelt iron_nugget 9, craft iron_ingot 1, ...". His spare iron armour planned into the furnace for nuggets, a piece a nugget; he fetched it from his chest a piece a dive. A player mines 1 more iron ore. */
+    private static boolean st857(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); }
+        if (t[0] == 5) {
+            for (net.minecraft.world.item.Item it : new net.minecraft.world.item.Item[] { Items.IRON_HELMET, Items.IRON_HELMET, Items.IRON_LEGGINGS, Items.IRON_LEGGINGS, Items.IRON_BOOTS, Items.IRON_CHESTPLATE, Items.IRON_PICKAXE, Items.IRON_PICKAXE, Items.IRON_AXE, Items.GOLDEN_BOOTS, Items.FURNACE, Items.CRAFTING_TABLE, Items.STONE_PICKAXE }) c.getInventory().add(new ItemStack(it));
+            c.getInventory().add(new ItemStack(Items.COAL, 30)); c.getInventory().add(new ItemStack(Items.RAW_IRON, 1)); c.getInventory().add(new ItemStack(Items.STICK, 4));
+            var plan = com.claudemod.director.Procure.plan(c, level, Items.IRON_SWORD, 1);
+            String d = com.claudemod.director.Procure.describe(plan.steps());
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude test] 857 plan for an iron sword: {} (problem {})", d, plan.problem());
+            check(plan.steps().stream().noneMatch(st -> st.target().equals("iron_nugget")), "iron sword planned through nuggets out of his gear: " + d);
+            check(plan.steps().stream().anyMatch(st -> st.skill().equals("strip_mine") && st.target().equals("iron_ore")), "iron sword with 1 raw iron: no ore mined in the plan: " + d);
+            c.getInventory().clearContent();
+            pass(stage, t, "the plan: " + d);
+        }
+        return true;
+    }
     private static boolean st518(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) { // iron gear on him and a smelt for iron nuggets (live 13:17 World 15: "smelting 2 iron_sword in 1 furnace at once" for a shield): his gear never goes in; no plan through it
         if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); }
         if (t[0] == 5) {
             c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COAL, 8)); c.getInventory().add(new ItemStack(Items.FURNACE));
             String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "iron_nugget", 9);
-            check(r != null && r.startsWith("failed") && c.inventory.count(x -> x.is(Items.IRON_SWORD)) == 2, "smelt iron_nugget with iron gear on him: \"" + r + "\" (swords " + c.inventory.count(x -> x.is(Items.IRON_SWORD)) + ")");
+            check(r != null && (r.startsWith("failed") || r.contains("strip_mine iron_ore")) && c.inventory.count(x -> x.is(Items.IRON_SWORD)) == 2, "smelt iron_nugget with iron gear on him: \"" + r + "\" (swords " + c.inventory.count(x -> x.is(Items.IRON_SWORD)) + ")");
             var plan = com.claudemod.director.Procure.plan(c, level, Items.IRON_NUGGET, 9);
             check(plan.steps().stream().noneMatch(st -> st.skill().equals("smelt") && st.target().equals("iron_nugget")), "procure: nuggets planned out of his gear: " + plan.steps());
             c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();

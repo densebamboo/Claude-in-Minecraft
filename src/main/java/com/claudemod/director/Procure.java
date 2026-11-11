@@ -233,11 +233,12 @@ public final class Procure {
             for (var holder : level.getRecipeManager().getAllRecipesFor(RecipeType.SMELTING)) {
                 var r = holder.value();
                 if (!r.getResultItem(level.registryAccess()).is(item) || r.getIngredients().isEmpty()) continue;
-                if (java.util.Arrays.stream(r.getIngredients().get(0).getItems()).allMatch(net.minecraft.world.item.ItemStack::isDamageableItem)) continue; // (never his gear into the furnace: live 13:17 World 15 his iron swords smelted into nuggets for a shield)
+                ItemStack[] notGear = java.util.Arrays.stream(r.getIngredients().get(0).getItems()).filter(st -> !st.isDamageableItem()).toArray(ItemStack[]::new);
+                if (notGear.length == 0) continue; // (never his gear into the furnace: live 13:17 World 15 his iron swords smelted into nuggets for a shield; per item, since the nugget recipe also takes horse armour: live 07:00 11-11 his spare armour planned into nuggets for a sword, stage 857)
                 Map<Item, Integer> snap = new HashMap<>(have); boolean table1 = table, furnace1 = furnace; // a table or furnace planned in a way that fails is not planned (the nugget way planned the furnace, failed, and the smelt then had none: live plans smelted with no furnace)
                 int mark = steps.size();
                 String rr = needFurnace(deeper, depth + 1);
-                if (rr == null) rr = needAny(r.getIngredients().get(0), n, deeper, depth + 1);
+                if (rr == null) rr = needAny(Ingredient.of(notGear), n, deeper, depth + 1);
                 if (rr == null) rr = needFuel(n, deeper, depth + 1);
                 if (rr == null) {
                     steps.add(new Skills.Step("smelt", Crafting.name(item), n));

@@ -10549,6 +10549,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1486: return st1486(stage, t, c, h, level, mock);
             case 1485: return st1485(stage, t, c, h, level, mock);
             case 1484: return st1484(stage, t, c, h, level, mock);
             case 1483: return st1483(stage, t, c, h, level, mock);
@@ -19463,6 +19464,42 @@ public final class ClaudeBodyTest {
             check(puts[0] == 1, "setup: no blazes known, the tower up the shaft should be his way (" + sb + ")");
             check(puts[1] == 0, "three blazes known over the shaft: still the tower up into their sight, not the hidden way round (" + sb + ")");
             pass(stage, t, "the tower when nothing watches, the hidden way round under three blazes:" + sb);
+        }
+        return true;
+    }
+    /** Stage 1486 (D2D review 042324-46, live 04:19:11-04:20:40 11-11 at his notch -83/-84,17,-420: "[Claude owner] ... claimed by two of his systems: WorkGoal.approach wants it dug out, then ClaudeLife.sealNotches wants it filled, 16 s apart", x5; each notch cell dug once to get out to his work, held open, sealed once after: one job, not a contest). A notch cell dug by another job, then sealed by sealNotches 3 s on: no owner line. */
+    private static BlockPos s1486N, s1486F; private static Object s1486M; private static int s1486T;
+    private static void st1486Dig(ClaudeEntity c, BlockPos p) { c.tasks.addFirst(new Task.Break(p)); c.tasks.clear(); } // (the job that opens the notch: its own claim on the cell)
+    private static boolean st1486(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); s1486N = null; s1486T = 0; }
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            BlockPos d = lnRow(b, 5, 4).immutable();
+            net.minecraft.core.Direction side = null; for (var dd : new net.minecraft.core.Direction[] {net.minecraft.core.Direction.NORTH, net.minecraft.core.Direction.SOUTH}) if (side == null && !com.claudemod.director.ClaudeLife.isMineCell(c, d.relative(dd)) && level.getBlockState(d.relative(dd)).isSolid()) side = dd;
+            check(side != null, "setup: no wall beside the row");
+            s1486N = d.relative(side).above().immutable(); BlockPos far = d.relative(side, 3);
+            level.setBlock(s1486N, Blocks.AIR.defaultBlockState(), 2); com.claudemod.entity.life.Gate.rule(c, s1486N, false, "his access notch, held open while his work out lasts (stage 1486)"); // (as holdNotch rules it: no other fill while it's held)
+            lnStand(c, mock, d, b.entrance); c.tasks.clear(); c.skillQueue.clear(); c.lastStep = null; c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16));
+            try {
+                Class<?> L = com.claudemod.director.ClaudeLife.class; var nm = L.getDeclaredMethod("notches", ClaudeEntity.class); nm.setAccessible(true);
+                @SuppressWarnings("unchecked") var m = (java.util.Map<BlockPos, Object>) nm.invoke(null, c); m.clear(); s1486M = m;
+                Class<?> N = java.util.Arrays.stream(L.getDeclaredClasses()).filter(k -> k.getSimpleName().equals("Notch")).findFirst().get(); var nc = N.getDeclaredConstructors()[0]; nc.setAccessible(true);
+                s1486F = far.immutable(); // (the notch on record only at the seal: his life tick seals it the tick it's known, under the 1 s the owner check counts)
+            } catch (ReflectiveOperationException e) { throw new RuntimeException(e); }
+        }
+        if (t[0] == 40 && s1486N != null) { // the job's dig claim, 1.1 s of real time (the owner check counts real seconds, over 1 apart; in one tick, so no other job claims the cell between), then the seal
+            st1486Dig(c, s1486N); try { Thread.sleep(1100); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+            try {
+                Class<?> L = com.claudemod.director.ClaudeLife.class; Class<?> N = java.util.Arrays.stream(L.getDeclaredClasses()).filter(k -> k.getSimpleName().equals("Notch")).findFirst().get(); var nc = N.getDeclaredConstructors()[0]; nc.setAccessible(true);
+                level.setBlock(s1486N, Blocks.AIR.defaultBlockState(), 2); c.tasks.clear(); /* (open, as the job left it: the stage's mine fills its own wall meanwhile) */ @SuppressWarnings("unchecked") var m = (java.util.Map<BlockPos, Object>) s1486M; m.put(s1486N, nc.newInstance(s1486F, level.dimension(), c.tickCount, true));
+                var sm = L.getDeclaredMethod("sealNotches", ClaudeEntity.class, ServerLevel.class); sm.setAccessible(true);
+                sm.invoke(null, c, level); sm.invoke(null, c, level);
+            } catch (ReflectiveOperationException e) { throw new RuntimeException(e); }
+            boolean patched = c.tasks.stream().anyMatch(x -> x instanceof Task.Place pl && pl.pos().equals(s1486N));
+            String said = com.claudemod.entity.life.MindLog.recent(); boolean contest = said.contains(s1486N.toShortString() + " claimed by two of his systems");
+            ((java.util.Map<?, ?>) s1486M).clear(); c.tasks.clear(); c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            check(patched, "setup: the notch not sealed (no patch queued)");
+            check(!contest, "his notch dug for a job and sealed after it, read as two systems contesting the cell");
+            pass(stage, t, "the notch dug, then sealed: one job, no owner line");
         }
         return true;
     }

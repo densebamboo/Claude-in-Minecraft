@@ -92,7 +92,7 @@ public class ClaudeEntity extends ServerPlayer {
             if (CLAIM.size() > 5000) CLAIM.clear();
             String[] was = CLAIM.get(p.asLong());
             if (was != null && "logged".equals(was[4]) && now - Long.parseLong(was[2]) < 60_000) return; // (said once a minute per block)
-            if (was != null && !was[0].equals(who) && !was[1].equals(kind) && !(was[1].equals("dug out for its ore") && kind.equals("filled") && (g.blueprint == null || g.blueprint.roleAt(p) != com.claudemod.entity.life.MineBlueprint.Role.WALK)) /* (the ore out, then its hole patched: the mine's integrity order, one job; review 195) */ && now - Long.parseLong(was[2]) > 1000 && now - Long.parseLong(was[2]) < 60_000) {
+            if (was != null && !was[0].equals(who) && !was[1].equals(kind) && !(was[1].equals("dug out for its ore") && kind.equals("filled") && (g.blueprint == null || g.blueprint.roleAt(p) != com.claudemod.entity.life.MineBlueprint.Role.WALK)) /* (the ore out, then its hole patched: the mine's integrity order, one job; review 195) */ && !(was[1].startsWith("dug out") && kind.equals("filled") && who.equals("ClaudeLife.sealNotches")) /* (his access notch dug for a job, sealed once it's done: one job; a dig after the seal still counts. D2D review 042324-46; stage 1486) */ && now - Long.parseLong(was[2]) > 1000 && now - Long.parseLong(was[2]) < 60_000) {
                 ClaudeMod.LOGGER.info("[Claude owner] {} claimed by two of his systems: {} wants it {} ({}), then {} wants it {} ({}), {} s apart", p.toShortString(), was[0], was[1], was[3], who, kind, o, (now - Long.parseLong(was[2])) / 1000);
                 CLAIM.put(p.asLong(), new String[] {who, kind, String.valueOf(now), o, "logged"}); return;
             }

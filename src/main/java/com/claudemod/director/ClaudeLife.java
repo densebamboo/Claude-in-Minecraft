@@ -5614,6 +5614,17 @@ public final class ClaudeLife {
     /** Gear past a trip's needs, for his junk chest when his pack is full (D2D 11-11, review 131: his pack full of gear he keeps, each junk round stored a few blocks and the pack stayed full).
      *  Stays on him: two of each pick (stone for rock, iron for ore), the best of every other tool or weapon kind, one gold armour piece (the Nether's), the best armour per slot, 64 logs, and all his kit.
      *  Null: keep it; else why it's spare. His chests count as his pack: a craft or a trip takes it back out. */
+    /** A cheap spare to make room with when nothing on him is junk: what a player tosses first (D2D 11-11). Null when it isn't one. */
+    static String cheapSpare(ClaudeEntity g, net.minecraft.world.entity.player.Inventory inv, ItemStack st) {
+        Item it = st.getItem();
+        if (it == Items.BONE) return "bone";
+        if (it == Items.FLINT) return "flint";
+        if (it == Items.PUFFERFISH) return "pufferfish (poisons him)";
+        if (it == Items.ROTTEN_FLESH && inv.items.stream().anyMatch(o -> o.get(net.minecraft.core.component.DataComponents.FOOD) != null && !o.is(Items.ROTTEN_FLESH) && !o.is(Items.PUFFERFISH) && !o.is(Items.SPIDER_EYE) && !o.is(Items.POISONOUS_POTATO))) return "rotten flesh, other food on him";
+        if (it == Items.STICK && inv.items.stream().anyMatch(o -> o.is(ItemTags.LOGS) || o.is(ItemTags.PLANKS))) return "sticks, wood on him to make more";
+        if ((it == Items.CRAFTING_TABLE || it == Items.FLINT_AND_STEEL) && inv.countItem(it) > st.getCount()) return "a 2nd " + Crafting.name(it) + " in another slot";
+        return null;
+    }
     public static String spareGear(ClaudeEntity g, ItemStack st, int slot) {
         if (st.isEmpty() || neededByPlan(g, st.getItem())) return null;
         var inv = g.inventory.items; Item it = st.getItem();
@@ -5732,9 +5743,10 @@ public final class ClaudeLife {
                         || it == Items.TORCH || it == Items.COAL || it == Items.CHARCOAL || it == Items.STICK || it instanceof net.minecraft.world.item.BucketItem || it == Items.OBSIDIAN || it == Items.ENDER_PEARL || it == Items.BLAZE_ROD || it == Items.FLINT_AND_STEEL
                         || it == Items.CRAFTING_TABLE || it == Items.FURNACE || it == Items.CHEST || it == Items.COBBLESTONE || it == Items.COBBLED_DEEPSLATE
                         || id.contains("diamond") || id.contains("emerald") || id.contains("ingot") || id.startsWith("raw_") || id.endsWith("_ore") || id.contains("lapis") || id.contains("redstone");
-                String spare = spareGear(g, st, i); // spare gear before anything he builds with (live 09:21:17 11-11 in the Nether, D2D review 65: the 51 netherrack, his bridge and plug block, went while a wooden axe sat by a stone one and 3 stone picks by 2 iron ones; stage 1508)
+                if (com.claudemod.entity.life.Watchdog.valuable(st) || it == Items.BOW || it == Items.CROSSBOW || it == Items.SHIELD || it == Items.TRIDENT) continue; // never thrown, spare or not: his chest takes it on the next round, or it stays on him (stash-valuables rule; live 13:22 11-11 the spare iron leggings went, D2D THREW_VALUABLE 52; stage 1515)
+                String spare = spareGear(g, st, i); if (spare == null) spare = cheapSpare(g, inv, st); // cheap spares first: a wooden or stone tool he has better of, bone, rotten flesh or pufferfish with other food on him, flint, sticks with wood on him, a 2nd table or flint and steel (D2D review 65: his netherrack had gone first; stage 1508)
                 if (keep && spare == null) continue;
-                int score = spare != null ? -1000 + st.getCount() : (it instanceof net.minecraft.world.item.BlockItem ? 0 : 1000) + st.getCount(); // spare gear first, then spare blocks, the smallest stack first
+                int score = spare != null ? -1000 + st.getCount() : (it instanceof net.minecraft.world.item.BlockItem ? 2000 : 1000) + st.getCount(); // cheap spares, then other odds and ends, his block stacks last; the smallest stack first
                 if (score < pickScore) { pickScore = score; pick = i; pickWhy = spare; }
             }
             if (pick >= 0 && inv.getFreeSlot() < 0) { var st = inv.items.get(pick); ClaudeMod.LOGGER.info("[Claude life] pack full and nothing junk in it: dropping the {} {} to make room{}", st.getCount(), Crafting.name(st.getItem()), pickWhy == null ? "" : " (spare gear: " + pickWhy + ")"); var e = g.drop(st.copy(), false, true); if (e != null) { g.markGift(e); e.setPickUpDelay(6000); } com.claudemod.entity.life.Watchdog.thrown(g, e); inv.items.set(pick, ItemStack.EMPTY); } // (6000: till it despawns; the 2 s default let his own touch take it back while he stood there, so the 1 lily pad went out every 5 s, 01:32) // (a bed couldn't be made for want of a slot for its table, three plans running)

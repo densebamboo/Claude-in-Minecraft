@@ -10969,6 +10969,7 @@ public final class ClaudeBodyTest {
             case 1512: return st1512(stage, t, c, h, level, mock);
             case 1513: return st1513(stage, t, c, h, level, mock);
             case 1514: return st1514(stage, t, c, h, level, mock);
+            case 1515: return st1515(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -20866,6 +20867,35 @@ public final class ClaudeBodyTest {
             check(!odds.contains("Skeleton"), "a skeleton 31 off with no target counted into the zombie's fight: " + odds);
             check(!run, "one zombie on him, iron sword, 18 HP: he broke off: " + odds);
             pass(stage, t, "the zombie fought, the idle skeleton 31 off not in it (" + odds + ")");
+        }
+        return true;
+    }
+    /** Stage 1515 (D2D urgent, live 13:22:13 11-11 in his mine at y -58, THREW_VALUABLE 52): his pack full to the last slot, "nothing junk in it": the spare iron leggings thrown out (spare gear first, 7d913bbb) while bone, rotten flesh, pufferfish, flint, sticks and a 2nd flint and steel sat in it. Valuables never go; cheap spares first, block stacks last. His live pack, slot for slot. */
+    private static boolean st1515(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard(); }
+        if (t[0] == 5) {
+            var inv = c.getInventory(); inv.clearContent();
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            ItemStack[] pack = { new ItemStack(Items.IRON_SWORD), new ItemStack(Items.BONE, 2), new ItemStack(Items.BOW), new ItemStack(Items.BOW), new ItemStack(Items.COAL, 8), new ItemStack(Items.COBBLED_DEEPSLATE, 64), new ItemStack(Items.COBBLED_DEEPSLATE, 64), new ItemStack(Items.COBBLED_DEEPSLATE, 53),
+                new ItemStack(Items.COOKED_COD, 4), new ItemStack(Items.COOKED_SALMON, 2), new ItemStack(Items.CRAFTING_TABLE, 2), new ItemStack(Items.DIAMOND_PICKAXE), new ItemStack(Items.FISHING_ROD), new ItemStack(Items.FLINT, 1), new ItemStack(Items.FLINT_AND_STEEL), new ItemStack(Items.FLINT_AND_STEEL),
+                new ItemStack(Items.FURNACE), new ItemStack(Items.GOLDEN_BOOTS), new ItemStack(Items.IRON_BOOTS), new ItemStack(Items.IRON_PICKAXE), new ItemStack(Items.IRON_PICKAXE), new ItemStack(Items.IRON_PICKAXE), new ItemStack(Items.OAK_LOG, 41), new ItemStack(Items.OAK_PLANKS, 3),
+                new ItemStack(Items.PUFFERFISH, 4), new ItemStack(Items.ROTTEN_FLESH, 2), new ItemStack(Items.SALMON, 3), new ItemStack(Items.SHIELD), new ItemStack(Items.STICK, 3), new ItemStack(Items.STONE_AXE), new ItemStack(Items.STONE_PICKAXE), new ItemStack(Items.TORCH, 25),
+                new ItemStack(Items.WARPED_ROOTS, 1), new ItemStack(Items.WATER_BUCKET), new ItemStack(Items.WITHER_SKELETON_SKULL, 1), new ItemStack(Items.IRON_LEGGINGS) };
+            for (int i = 0; i < pack.length && i < inv.items.size(); i++) inv.items.set(i, pack[i]); inv.selected = 0; c.skillQueue.clear(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("build_highway", "", 1)); // (his highway job: the deepslate his, as live)
+            String err = null; java.util.Map<net.minecraft.world.item.Item, Integer> before = new java.util.HashMap<>(), after = new java.util.HashMap<>();
+            for (var st : inv.items) if (!st.isEmpty()) before.merge(st.getItem(), st.getCount(), Integer::sum);
+            try { com.claudemod.director.ClaudeLife.dumpJunkTest(c); } catch (Exception e) { err = "dumpJunk threw " + e; }
+            for (var st : inv.items) if (!st.isEmpty()) after.merge(st.getItem(), st.getCount(), Integer::sum);
+            int free = 0; for (var st : inv.items) if (st.isEmpty()) free++;
+            java.util.List<String> lost = new java.util.ArrayList<>(), valuablesLost = new java.util.ArrayList<>();
+            for (var e : before.entrySet()) { int a = after.getOrDefault(e.getKey(), 0); if (a < e.getValue()) { String nm = e.getKey().toString() + " " + (e.getValue() - a); lost.add(nm); if (!java.util.Set.of(Items.BONE, Items.ROTTEN_FLESH, Items.PUFFERFISH, Items.FLINT, Items.STICK, Items.CRAFTING_TABLE, Items.FLINT_AND_STEEL, Items.STONE_AXE, Items.STONE_PICKAXE).contains(e.getKey())) valuablesLost.add(nm); } } // (D2D's cheap spares: anything else (iron gear, bows, blocks) stays)
+            for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) it.discard();
+            inv.clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            check(err == null, err == null ? "" : err);
+            c.skillQueue.clear();
+            check(valuablesLost.isEmpty(), "something past the cheap spares thrown with them in the pack: " + valuablesLost + " (all lost: " + lost + ")");
+            check(free >= 1 && !lost.isEmpty(), "no room made: " + free + " free, lost " + lost);
+            pass(stage, t, "room made with a cheap spare (" + lost + "), the valuables and blocks kept");
         }
         return true;
     }

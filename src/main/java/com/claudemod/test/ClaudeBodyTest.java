@@ -10939,6 +10939,7 @@ public final class ClaudeBodyTest {
             case 1449: return st1449(stage, t, c, h, level, mock);
             case 1500: return st1500(stage, t, c, h, level, mock);
             case 1501: return st1501(stage, t, c, h, level, mock);
+            case 1502: return st1502(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25568,6 +25569,41 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    /** Stage 1502 (D2D hourly 04:33-05:34 item 2, review 185, live 04:32-04:52 11-11 at -143,15,-421): a step he put into a hole in his mine's floor (dirt, no stone on him) went on his take-down list like a tower step; tidyLitter queued its dig 7 times and the shell guard refused each one ("his mine's wall"). A block in a cell of his build is his build: off the take-down list, never a dig queued at it. */
+    private static boolean st1502(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(21400, 80, 20400);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = 0; k <= 48; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 48; x++) for (int z = -6; z <= 6; z++) for (int y = -6; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+            var E = net.minecraft.core.Direction.EAST;
+            var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 30, null)); b.invalidate();
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            var rows = b.rows(); BlockPos floor = rows.get(12).first().below();
+            level.setBlock(floor.east(), Blocks.AIR.defaultBlockState(), 2); level.setBlock(floor.west(), Blocks.AIR.defaultBlockState(), 2); level.setBlock(floor, Blocks.DIRT.defaultBlockState(), 2); // his floor holed round it, the step in one hole
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = rows.get(rows.size() - 1).first(); c.mineIsTunnel = true; com.claudemod.director.ClaudeLife.bpSync(c); level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            BlockPos me = rows.get(8).first();
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no");
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null; c.nextPlanTick = c.tickCount + 20 * 600;
+            c.pillarBlocks.clear(); c.pillarBlocks.addFirst(floor.immutable());
+            st1502F = floor.immutable();
+        }
+        if (t[0] == 20) {
+            String err = null;
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("tidyLitter", ClaudeEntity.class, ServerLevel.class); m.setAccessible(true); m.invoke(null, c, level); } catch (Exception e) { err = "setup threw " + e; }
+            boolean dig = c.tasks.stream().anyMatch(x -> x instanceof Task.Break bk && bk.pos().equals(st1502F));
+            String q = c.tasks.stream().limit(4).toList().toString(); boolean listed = c.pillarBlocks.contains(st1502F);
+            c.tasks.clear(); c.pillarBlocks.clear();
+            check(err == null, err == null ? "" : err);
+            check(level.getBlockState(st1502F).is(Blocks.DIRT), "setup: the step isn't there");
+            check(!dig, "his step in his mine's floor at " + st1502F.toShortString() + " queued for taking down (the shell guard refuses it): " + q);
+            pass(stage, t, "the step in his mine's floor left as his build (still listed " + listed + ")"); return true;
+        }
+        return true;
+    }
+    private static BlockPos st1502F;
     private static int st1249At = -1;
     private static boolean st1249(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.blueprint = null; c.nook = null; c.house = null; c.myStations.clear(); st1249At = -1; }

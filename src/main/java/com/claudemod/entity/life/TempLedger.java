@@ -124,7 +124,7 @@ public final class TempLedger {
     static boolean solid(ServerLevel level, BlockPos p) { return !level.getBlockState(p).getCollisionShape(level, p).isEmpty(); }
 
     /** Part of one of his builds (or a station at his base): never temporary. */
-    static boolean hisBuild(ClaudeEntity g, ServerLevel level, BlockPos p) {
+    public static boolean hisBuild(ClaudeEntity g, ServerLevel level, BlockPos p) {
         if (WatchBuild.ownsCell(g, p)) return true; // a learned build going up (or done): its blocks stay
         boolean walkway = g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.isWalk(p) || g.mineCells.contains(p) || g.landingCells.contains(p); // the mine's walkway is kept open: a block put in it (a pillar to a drop, live 03:18 11-10, D2D review 36) blocks his own tunnel, never a patch
         if (g.blueprint != null && !g.blueprint.isEmpty() && g.blueprint.touches(p) && !walkway) return true;

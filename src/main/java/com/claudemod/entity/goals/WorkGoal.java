@@ -1430,6 +1430,7 @@ public class WorkGoal extends Goal {
             if (trappedBelow && ticks % 40 == 1 && climbTheCave(pos, within)) return true; // underground with no pickaxe: the cave itself is the way up, bit by bit
         }
         /* (breaking through on its own at stuck 60: gone; a dig is a move of the planned way, in MAY_DIG only) */
+        if (stuck == 40 && cutBlocker(pos, within, d)) return true;
         if (stuck == 40) { // a couple of seconds without getting closer: note it for the log
             ServerLevel lv = (ServerLevel) g.level();
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] slow walk: at {} y={} -> {} (d {}), ground={} sneaking={} water={} path={} under him {}",
@@ -1802,6 +1803,20 @@ public class WorkGoal extends Goal {
     }
 
     /** Pathing won't finish a short step (stair steps, ledges): walk straight onto it, hopping up if it's higher. */
+    /** A walk his planner never sees (over 28 off, or swimming): one block in his way, in reach, his to dig there: cut, then on (live 08:18 11-11, D2D review 347: an oak log beside him in his flooded row, BLOCKED_BLOCK every 8 s for 90 s on a walk 90 down it; stage 1511). */
+    private boolean cutBlocker(BlockPos pos, double within, double d) {
+        if (d <= 28 && !(g.isInWater() && !com.claudemod.entity.body.Controls.wading(g)) || !mayDig(pos)) return false; // (the planner's walks dig as its moves)
+        var cause = com.claudemod.entity.life.Stall.diagnose(g, pos, within);
+        if (cause.reason() != com.claudemod.entity.life.Attempts.Reason.BLOCKED_BLOCK) return false;
+        String[] xyz = cause.detail().substring(cause.detail().lastIndexOf(" at ") + 4).split(", ");
+        BlockPos q = new BlockPos(Integer.parseInt(xyz[0]), Integer.parseInt(xyz[1]), Integer.parseInt(xyz[2]));
+        ServerLevel level = (ServerLevel) g.level();
+        if (!digsInTheWay(level, q, level.getBlockState(q)) || com.claudemod.entity.life.TempLedger.isPlug(g, q) || g.getEyePosition().distanceTo(Vec3.atCenterOf(q)) > BREAK_REACH) return false;
+        g.tasks.addFirst(new Task.GoTo(pos, within)); g.tasks.addFirst(new Task.Break(q));
+        com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] {} in his way to {} ({} off, {}): cut it, then on (WorkGoal.cutBlocker)", cause.detail(), pos.toShortString(), (int) d, d > 28 ? "past his planner's 28" : "swimming");
+        return true;
+    }
+
     private void stepTo(BlockPos pos) {
         ServerLevel level = (ServerLevel) g.level();
         boolean dry = level.getBlockState(pos).isAir() && level.getBlockState(pos.above()).isAir() && level.getBlockState(pos.below()).isSolid();

@@ -10963,6 +10963,7 @@ public final class ClaudeBodyTest {
             case 1508: return st1508(stage, t, c, h, level, mock);
             case 1509: return st1509(stage, t, c, h, level, mock);
             case 1510: return st1510(stage, t, c, h, level, mock);
+            case 1511: return st1511(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -20737,6 +20738,27 @@ public final class ClaudeBodyTest {
         return true;
     }
     /** Stage 1510 (D2D reviews 24/26, live 11:19:46-11:21:03 11-11 by his mine's flooded pit): on the dry ledge at -34,51,-18, his walk to the water cell 1 off and 1 down (-34,50,-19, within 0.9); the vanilla path ended where he stood, the close step only stepped into air, he stood 8 s, the spot was dropped and queued again for minutes. He steps off into the water. */
+    /** Stage 1511 (D2D review 347, live 08:18-08:19:43 11-11 in his mine's row flooded to head height): his walk 90 down the row, an oak log in the row beside him; the walker failed BLOCKED_BLOCK on it every 8 s and the next spot 1 on was tried, 90 s, till the plan came back and dug it. He cuts the log in his way. */
+    private static int s1511At = -1;
+    private static boolean st1511(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(0, 0, 0)), me = o.offset(3, 2, 8), to = o.offset(40, 2, 8), log = o.offset(4, 2, 8);
+        if (t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(32, 0, 8)), 3, o.offset(32, 0, 8));
+        if (t[0] == 1) { scenarioReset(c); flatBox(h); s1511At = -1; c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no");
+            c.getInventory().items.set(0, new ItemStack(Items.IRON_PICKAXE)); c.getInventory().items.set(1, new ItemStack(Items.IRON_AXE)); c.getInventory().selected = 0;
+            for (int x = 0; x <= 42; x++) for (int z = 6; z <= 10; z++) for (int y = 1; y <= 4; y++) level.setBlock(o.offset(x, y, z), (z == 8 && (y == 2 || y == 3) && x >= 1 && x <= 41 ? Blocks.WATER : Blocks.STONE).defaultBlockState(), 2); // (his mine's row, flooded to head height)
+            level.setBlock(log, Blocks.OAK_LOG.defaultBlockState(), 2); level.setBlock(log.above(), Blocks.OAK_LOG.defaultBlockState(), 2);
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.fallDistance = 0; }
+        if (t[0] == 10) c.tasks.add(new Task.GoTo(to, 1.0));
+        if (t[0] > 10 && s1511At < 0 && c.getBlockX() > log.getX()) s1511At = t[0] - 10;
+        if (s1511At >= 0 || t[0] == 10 + 240) {
+            String at = c.blockPosition().toShortString(); boolean cut = level.getBlockState(log).isAir() || level.getBlockState(log).getFluidState().isSource();
+            c.tasks.clear(); c.getNavigation().stop(); c.setAirSupply(c.getMaxAirSupply());
+            for (int x = 0; x <= 42; x++) for (int z = 6; z <= 10; z++) for (int y = 1; y <= 4; y++) level.setBlock(o.offset(x, y, z), (x <= 15 && y == 1 ? Blocks.GRASS_BLOCK : x > 15 && y == 1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            check(s1511At >= 0 && s1511At <= 200, "underwater in the row, the log in his way " + (cut ? "cut" : "still there") + ", not past it in " + (s1511At < 0 ? "12 s" : s1511At + " ticks") + " (at " + at + ")");
+            pass(stage, t, "the log in his flooded row cut and passed in " + s1511At + " ticks"); }
+        return true;
+    }
     private static int s1510At = -1;
     private static boolean st1510(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos me = h.absolutePos(new BlockPos(5, 2, 8)), to = h.absolutePos(new BlockPos(6, 1, 8));

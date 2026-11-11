@@ -3169,6 +3169,7 @@ public class WorkGoal extends Goal {
     private void queueWay(java.util.List<Task> tasks, String by) { // (by: the planner's method, as the queue's stack walk names it; ClaudeLife.walkPlanTask reads "WorkGoal.walkTo")
         int r0 = com.claudemod.entity.life.Gate.refused(g);
         for (int i = tasks.size() - 1; i >= 0; i--) { Task t = tasks.get(i); com.claudemod.entity.ClaudeEntity.ORIGIN.put(t, by); g.tasks.addFirst(t); }
+        if (com.claudemod.entity.life.Gate.refused(g) == r0) exitWhy = "handed to the way planned for it: " + tasks.size() + " step(s) queued (" + by + ")"; // (its own why: a walk swapped for its made way read "ended at once: the walker's own refusal" and the reviewer took him for standing still, D2D 152442-25, 152940-39, 153443-55)
         if (com.claudemod.entity.life.Gate.refused(g) == r0 || !(tasks.get(tasks.size() - 1) instanceof Task.GoTo end)) return;
         // a step of the way refused (the referee kept a cell): the rest goes too, else its walk stands behind a block that stays (live 15:07 11-08, 8 s of no headway); the walk on, planned again round it (stage 1049)
         java.util.Set<Task> way = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()); way.addAll(tasks.subList(0, tasks.size() - 1));

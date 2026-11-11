@@ -10934,6 +10934,7 @@ public final class ClaudeBodyTest {
             case 1446: return st1446(stage, t, c, h, level, mock);
             case 1447: return st1447(stage, t, c, h, level, mock);
             case 1448: return st1448(stage, t, c, h, level, mock);
+            case 1449: return st1449(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25414,6 +25415,24 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.skillQueue.clear(); c.storageChests.clear(); c.getInventory().clearContent();
             check(!trip, "a full pack of what his queued step needs and 59 logs: a trip to store them anyway (the deposit keeps them all): " + q);
             pass(stage, t, "nothing the deposit would take: no trip to his storage (" + q + ")");
+        }
+        return true;
+    }
+    /** Stage 1449 (D2D hourly 5, live 02:12 11-11 at 246,70,513, throw_loop x7): an iron sword on him, a stone sword on the ground; his pickup went for it, the toss threw it straight back out (a worse sword beside a better one), he took it in again 2 s on. What the toss would throw out, the pickup leaves. */
+    private static boolean st1449(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.tasks.clear(); c.skillQueue.clear(); c.commandActive = false; c.prefs.put("stay_close", "no"); c.blueprint = null; }
+        if (t[0] == 10) {
+            flatBox(h); BlockPos me = h.absolutePos(new BlockPos(3, 2, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            BlockPos at = me.east(3); var it = new net.minecraft.world.entity.item.ItemEntity(level, at.getX() + 0.5, at.getY(), at.getZ() + 0.5, new ItemStack(Items.STONE_SWORD)); it.setPickUpDelay(0); level.addFreshEntity(it);
+            c.tasks.clear(); c.tasks.add(new Task.Pickup(40));
+        }
+        if (t[0] == 70) {
+            int stone = c.getInventory().countItem(Items.STONE_SWORD); boolean onGround = !level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(8), e -> e.getItem().is(Items.STONE_SWORD)).isEmpty();
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(12))) e.discard();
+            c.tasks.clear(); c.getInventory().clearContent();
+            check(stone == 0, "an iron sword on him: his pickup took the stone sword (the toss throws it straight back out): " + stone + " on him, on the ground " + onGround);
+            pass(stage, t, "a stone sword beside his iron one left on the ground");
         }
         return true;
     }

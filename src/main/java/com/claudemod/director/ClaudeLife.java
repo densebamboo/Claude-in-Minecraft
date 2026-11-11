@@ -5600,7 +5600,7 @@ public final class ClaudeLife {
     /** (tests) */
     public static void dumpJunkTest(ClaudeEntity g) { dumpJunk(g); }
     /** Gear past use: armor worse than what he's wearing in its slot, or a third or later copy of the same tool (World 15 00:05: to the fortress with 0 free slots, two iron sets under his diamond, two of every tool). */
-    static boolean superseded(ClaudeEntity g, ItemStack st, int slot) {
+    public static boolean superseded(ClaudeEntity g, ItemStack st, int slot) {
         if (com.claudemod.entity.life.Watchdog.valuable(st)) return false; // armor, iron+ tools, ingots: stashed or kept, never junk (live 05:16-05:17 11-05: his spare iron and golden boots and iron helmet thrown out three times, golden boots being his Nether gold piece)
         if (st.getItem() instanceof net.minecraft.world.item.ArmorItem a) { var worn = g.getItemBySlot(a.getEquipmentSlot()); return worn.getItem() instanceof net.minecraft.world.item.ArmorItem w && w.getDefense() > a.getDefense(); }
         if (st.getItem() instanceof net.minecraft.world.item.SwordItem sw) for (var o : g.getInventory().items) if (o.getItem() instanceof net.minecraft.world.item.SwordItem b && b.getTier().getAttackDamageBonus() > sw.getTier().getAttackDamageBonus()) return true; // a worse sword beside a better one is dead weight: a stone one is 2 s of cobble if the iron breaks (D2D review 241, World 17 08:40: 2 stone swords kept by 2 iron ones while bones, wart and nether bricks went)

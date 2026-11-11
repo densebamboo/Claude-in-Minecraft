@@ -274,15 +274,17 @@ public final class ActionPath {
     public static double lineWeight(ServerLevel level, BlockPos from, BlockPos to) {
         double hh = h(from, to); if (hh < 1) return 2.5;
         double cost = Math.max(0, to.getY() - from.getY()) * com.claudemod.entity.life.Weights.w("path.put_tower", 14);
-        int n = Math.max(Math.abs(to.getX() - from.getX()), Math.abs(to.getZ() - from.getZ()));
+        int n = Math.max(Math.abs(to.getX() - from.getX()), Math.abs(to.getZ() - from.getZ())); double tower = cost; BlockPos last = from;
         for (int i = 1; i <= n; i++) {
             BlockPos c = new BlockPos(from.getX() + Math.round((to.getX() - from.getX()) * (float) i / n), from.getY() + Math.round((to.getY() - from.getY()) * (float) i / n), from.getZ() + Math.round((to.getZ() - from.getZ()) * (float) i / n));
+            if (!level.hasChunkAt(c)) break; last = c; // (only the land that is loaded: a far line read through getBlockState loads and generates chunks on the server thread; Route.expand's line to a spot ~200 off froze the test server, 02:19 11-11)
             for (BlockPos q : new BlockPos[] {c, c.above()}) { var qs = level.getBlockState(q); if (!qs.getCollisionShape(level, q).isEmpty()) cost += (com.claudemod.entity.life.Weights.w("path.dig_overhead_s", 0.05) + Math.max(0, qs.getDestroySpeed(level, q)) * 0.25) * com.claudemod.entity.life.Weights.w("path.dig_per_s", 5.6); } // (a dig as the moves price it: the swing plus its seconds, hardness x 1.5 / an iron pick's 6; half the swing alone made a tunnel 3 a dig against 10 really, and the greedy search spread over the cave round him, stage 982) // (as the dig moves price it: its break, ~0.25 s a unit of hardness with a fair pick, and 0.05 s on to the next)
             if (level.getBlockState(c.below()).getCollisionShape(level, c.below()).isEmpty()) { cost += com.claudemod.entity.life.Weights.w("path.put_bridge", 12);
                 for (int k = 1; k <= 12; k++) { var st = level.getBlockState(c.below(k)); if (st.getFluidState().is(net.minecraft.tags.FluidTags.LAVA)) { cost += 16; break; } if (!st.getCollisionShape(level, c.below(k)).isEmpty()) break; } }
             else cost += 1;
         }
-        return Math.max(2.5, Math.min(com.claudemod.entity.life.Weights.w("path.greedy_w_max", 30), cost / hh));
+        double hl = Math.max(1, h(from, last)); // (the loaded part of the line stands for all of it)
+        return Math.max(2.5, Math.min(com.claudemod.entity.life.Weights.w("path.greedy_w_max", 30), tower / hh + (cost - tower) / hl));
     }
     private static double h(BlockPos a, BlockPos b) {
         double dx = Math.abs(a.getX() - b.getX()), dy = Math.abs(a.getY() - b.getY()), dz = Math.abs(a.getZ() - b.getZ());

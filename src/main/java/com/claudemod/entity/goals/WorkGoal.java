@@ -5777,6 +5777,9 @@ public class WorkGoal extends Goal {
             if (plug.getCount() >= 2 && clearOfThem && g.getEyePosition().distanceTo(Vec3.atCenterOf(escapeGap)) <= 4.5) { // two blocks across the gap: shut out, like a player
                 escapePlugged = true;
                 plugCells = new java.util.HashSet<>(java.util.List.of(escapeGap.immutable(), escapeGap.above().immutable())); plugFrom = new java.util.ArrayList<>(); for (var m : mobs) plugFrom.add(m.getUUID());
+                if (!g.tasks.isEmpty() && backAmongS(mobs.size()) > w("flee.job_drop_s", 60)) { // the job he ran from is on their side: priced like the retreat's, never dug back to through the plug (live 04:41:24 11-11: plugged at 18 HP, his queued walk back dug through it 1 s on, hit, ran, plugged again; D2D review 145, stage 1501)
+                    com.claudemod.ClaudeMod.LOGGER.info("[Claude life] plugged out of {} of them at health {}: the job back on their side ({} tasks) is dropped, not dug back into (back among {} ~{} s against flee.job_drop_s {}) (WorkGoal.atEscape)", mobs.size(), (int) g.getHealth(), g.tasks.size(), mobs.size(), Math.round(backAmongS(mobs.size())), Math.round(w("flee.job_drop_s", 60)));
+                    com.claudemod.director.ClaudeLife.clearTasks(g); }
                 if (g.getHealth() < w("escape.plug_heal_hp", 16)) { // hurt: behind the plug till healed, never straight back out to them (D2D death 75, live 09:33:26-30 11-10: plugged at 1 HP, the queued walk dug the plug 2 s later, the wither skeleton 8 off on the far side; stage 1359)
                     g.tasks.addFirst(new Task.Wait(20 * (int) w("escape.plug_heal_s", 30), false));
                     net.minecraft.world.item.Item meal = com.claudemod.director.ClaudeLife.foodToEat(g, g.getHealth() <= 6); if (meal != null && g.getFoodData().needsFood()) g.tasks.addFirst(new Task.Eat(meal));

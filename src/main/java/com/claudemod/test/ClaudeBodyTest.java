@@ -10936,6 +10936,7 @@ public final class ClaudeBodyTest {
             case 1448: return st1448(stage, t, c, h, level, mock);
             case 1449: return st1449(stage, t, c, h, level, mock);
             case 1500: return st1500(stage, t, c, h, level, mock);
+            case 1501: return st1501(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -25464,6 +25465,46 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static net.minecraft.world.entity.Mob s1500Sk;
+    /** Stage 1501 (D2D hourly 04:33-05:34 item 1, review 145, live 04:41:13-32 11-11 at -105,24,-442): broke off a fight, ran through a 1-wide gap and plugged it at 18 HP with a creeper, two zombies and a cave spider across it; the run over, his old job (a walk back to -114,22,-426, among them) dug the plug out 1 s later, a zombie hit him, he ran back and plugged it again. Healthy (no heal wait), the job back among them is priced like the retreat's: dropped, the plug stays. */
+    private static java.util.List<net.minecraft.world.entity.Mob> st1501M = new java.util.ArrayList<>(); private static int st1501Plugged = -1; private static String st1501Broke = null;
+    private static boolean st1501(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); for (var m : st1501M) m.discard(); st1501M.clear(); st1501Plugged = -1; st1501Broke = null; }
+        if (t[0] == 10) {
+            for (int x = -3; x <= 20; x++) for (int z = -3; z <= 16; z++) for (int y = 1; y <= 7; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 || y == 7 || x == -3 || x == 20 || z == -3 || z == 16 || z == 5 && !(x == 8 && y <= 3) ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); // a cave split by a wall at z 5, a 1-wide gap at x 8
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 60)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 6)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            BlockPos me = h.absolutePos(new BlockPos(8, 2, 3)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(0); c.setHealth(18); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            int[][] at = {{6, 9}, {10, 10}, {8, 13}, {12, 8}};
+            for (int i = 0; i < at.length; i++) { net.minecraft.world.entity.Mob m = (i == 3 ? EntityType.CREEPER : EntityType.ZOMBIE).create(level); BlockPos mp = h.absolutePos(new BlockPos(at[i][0], 2, at[i][1])); m.moveTo(mp.getX() + 0.5, mp.getY(), mp.getZ() + 0.5, 0, 0); m.setNoAi(true); m.setPersistenceRequired(); level.addFreshEntity(m); st1501M.add(m); }
+        }
+        if (t[0] == 14) {
+            try {
+                c.tasks.addLast(new Task.GoTo(h.absolutePos(new BlockPos(8, 2, 9)), 1.0)); // (his job, queued before the run: live the walk back to -114,22,-426)
+                var wg = com.claudemod.entity.goals.WorkGoal.class;
+                var se = wg.getDeclaredMethod("setEscape", String.class, BlockPos.class, BlockPos.class); se.setAccessible(true); se.invoke(c.work, "gap", c.blockPosition().immutable(), h.absolutePos(new BlockPos(8, 2, 5)));
+                var ae = wg.getDeclaredMethod("atEscape", java.util.List.class); ae.setAccessible(true); Object r = ae.invoke(c.work, java.util.List.copyOf(st1501M));
+                var ce = wg.getDeclaredMethod("clearEscape"); ce.setAccessible(true); ce.invoke(c.work); // (the run's end decided, as live)
+                if (!Integer.valueOf(2).equals(r)) { st1501Broke = "setup: atEscape returned " + r + ", no plug"; }
+            } catch (Exception e) { st1501Broke = "setup threw " + e; }
+        }
+        if (t[0] > 14 && st1501Broke == null) {
+            BlockPos g0 = h.absolutePos(new BlockPos(8, 2, 5)), g1 = g0.above();
+            boolean shut = !level.getBlockState(g0).isAir() && !level.getBlockState(g1).isAir();
+            if (st1501Plugged < 0 && shut) st1501Plugged = t[0];
+            if (st1501Plugged > 0 && !shut) st1501Broke = "the plug opened " + (t[0] - st1501Plugged) + " ticks after it went in, health " + c.getHealth() + ", four of them across it (tasks " + c.tasks + ")";
+            if (st1501Plugged > 0 && st1501Broke == null) for (int x = 0; x <= 17; x++) for (int y = 2; y <= 3; y++) { BlockPos w0 = h.absolutePos(new BlockPos(x, y, 5)); if (level.getBlockState(w0).isAir()) { st1501Broke = "a way dug back through the wall to them at " + w0.toShortString() + ", " + (t[0] - st1501Plugged) + " ticks after the plug (tasks " + c.tasks + ")"; break; } }
+            if (st1501Plugged > 0 && st1501Broke == null && c.getZ() > h.absolutePos(new BlockPos(0, 2, 6)).getZ()) st1501Broke = "back on their side of the wall " + (t[0] - st1501Plugged) + " ticks after the plug";
+        }
+        if (t[0] > 14 && (st1501Broke != null || t[0] > 14 + 240)) {
+            String broke = st1501Broke; int plugged = st1501Plugged; float hp = c.getHealth();
+            for (var m : st1501M) m.discard(); st1501M.clear(); c.tasks.clear(); c.setHealth(20); c.getInventory().clearContent(); c.dropCurrent = true;
+            check(broke == null || !broke.startsWith("setup"), broke == null ? "" : broke);
+            check(plugged > 0, "the plug never went in (health " + hp + ")");
+            check(broke == null, broke == null ? "" : broke);
+            pass(stage, t, "plugged at tick " + plugged + ", still shut 11 s on with them across it, health " + hp); return true;
+        }
+        return true;
+    }
     private static int st1249At = -1;
     private static boolean st1249(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.blueprint = null; c.nook = null; c.house = null; c.myStations.clear(); st1249At = -1; }

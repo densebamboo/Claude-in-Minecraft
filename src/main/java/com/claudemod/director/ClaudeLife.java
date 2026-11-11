@@ -9188,6 +9188,8 @@ public final class ClaudeLife {
             bridgeBlocks().removeIf(p -> level.isLoaded(p) && (level.getBlockState(p).isAir() || isMineCell(g, p.above()))); // (a block under his mine's walkway is the floor across a cavern, the user's rule: level across, then the stairs resume; never cleaned up) (far ones stay on the list: "forget it past 64 blocks" is how the sea got its causeways)
             BlockPos nearest = bridgeBlocks().stream().filter(p -> level.isLoaded(p) && g.distanceToSqr(Vec3.atCenterOf(p)) <= 64 * 64).min(java.util.Comparator.comparingDouble(p -> g.distanceToSqr(Vec3.atCenterOf(p)))).orElse(null);
             List<BlockPos> near = nearest == null ? List.of() : bridgeBlocks().stream().filter(p -> p.distSqr(nearest) <= 40 * 40).sorted(java.util.Comparator.comparingDouble(p -> p.distSqr(nearest))).toList(); // the whole bridge, from the near end
+            var loud = nearest == null ? null : com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(nearest).inflate(16), m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy).stream().findFirst().orElse(null);
+            if (loud != null) { if (g.tickCount - bridgeQuietSaid > 20 * 30 || g.tickCount < bridgeQuietSaid) { bridgeQuietSaid = g.tickCount; ClaudeMod.LOGGER.info("[Claude life] his bridge blocks by {} wait: a {} {} off them, not quiet yet (ClaudeLife.pickUpTempStations)", nearest.toShortString(), loud.getType().getDescription().getString(), (int) Math.sqrt(loud.distanceToSqr(Vec3.atCenterOf(nearest)))); } near = List.of(); } // (an escape plug is on this list "once all is quiet": idle by day with the four he ran from 4-8 off across it, the chore dug it straight out; live 04:41 11-11, stage 1501)
             if (!near.isEmpty()) {
                 g.tasks.add(new Task.GoTo(nearest, 3));
                 for (BlockPos p : near) { g.tasks.add(new Task.Break(p)); bridgeBlocks().remove(p); }
@@ -14229,6 +14231,7 @@ public final class ClaudeLife {
         ClaudeMod.LOGGER.info("[Claude life] a spawner at {}, {} off{}: breaking it first, its mobs keep coming while it stands (ClaudeLife.spawnerJob)", sp.toShortString(), (int) Math.sqrt(sp.distSqr(g.blockPosition())), fighting ? ", in reach mid-fight" : "");
         return true;
     }
+    private static int bridgeQuietSaid = -100000;
     static void clearOnSight(ClaudeEntity g, ServerPlayer player) {
         if (!(g.level() instanceof ServerLevel lv) || g.isSleeping() || g.isInWater() || g.isInLava()) return;
         if (g.currentTask instanceof Task.Attack || g.currentTask instanceof Task.Flee || g.currentTask instanceof Task.Break || g.currentTask instanceof Task.Place || g.currentTask instanceof Task.Pillar || g.currentTask instanceof Task.Leap) return;

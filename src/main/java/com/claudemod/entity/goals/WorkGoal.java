@@ -4053,7 +4053,7 @@ public class WorkGoal extends Goal {
             if (ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude dig] {} in the cell at {}: broken first, then the {} (WorkGoal.doPlace)", name(vs), pos.toShortString(), itemName(new ItemStack(t.item())));
             return exit("vines in the cell: broken first (doPlace)"); } }
         if (!level.getBlockState(pos).canBeReplaced() && !(t.want() != null && com.claudemod.entity.life.PlaceAim.growsInto(level.getBlockState(pos), t.want()))) { placeRetries.remove(pos.below(20000)); sentFor().remove(pos); if (t.facing() != null) sentFor().remove(pos.relative(t.facing())); viewTry().remove(pos); if (stepOutSince != null) { stepOutSince.remove(pos); stepOutSince.remove(pos.below(30000)); stepOutSince.remove(pos.below(40000)); } return exit("the cell's filled already, " + name(level.getBlockState(pos)) + " there (doPlace line 2561)"); }
-        if (t.want() != null && g.inventory.find(s -> s.is(t.item())).isEmpty()) { if (ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no {} on him for the build's cell at {}: not putting anything else there, and no walk to it (WorkGoal.doPlace)", itemName(new ItemStack(t.item())), pos.toShortString()); return exit("out of the planned block (doPlace want)"); } // before any walk to it: a put-back of a dug structure block walked him back up 4, two oak logs pillared, then found no cobblestone on him (live 07:05 11-11, review 303; stage 1491)
+        if (t.want() != null && !stonePatch(t) && g.inventory.find(s -> s.is(t.item())).isEmpty()) { if (ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no {} on him for the build's cell at {}: not putting anything else there, and no walk to it (WorkGoal.doPlace)", itemName(new ItemStack(t.item())), pos.toShortString()); return exit("out of the planned block (doPlace want)"); } // before any walk to it: a put-back of a dug structure block walked him back up 4, two oak logs pillared, then found no cobblestone on him (live 07:05 11-11, review 303; stage 1491)
         { BlockPos open0 = com.claudemod.director.ClaudeLife.nookFillOpenBefore(g, level, pos); if (open0 != null) { if (ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude nook] not setting {} yet: the fill at {} before it is still open (its Place didn't go in), and this one could wall it off: the next round plans again (WorkGoal.doPlace)", pos.toShortString(), open0.toShortString()); return exit("doPlace: the nook fill's order"); } }
         if (!g.pillarBlocks.isEmpty() && g.pillarBlocks.contains(pos.below()) && t.item() instanceof net.minecraft.world.item.BlockItem sb && (sb.getBlock() instanceof net.minecraft.world.level.block.BedBlock || sb.getBlock() instanceof net.minecraft.world.level.block.ChestBlock
                 || sb.getBlock() instanceof net.minecraft.world.level.block.CraftingTableBlock || sb.getBlock() instanceof net.minecraft.world.level.block.AbstractFurnaceBlock)) { // a bed, chest, table or furnace on a block of his scaffold: never (the scaffold comes down)
@@ -4202,7 +4202,7 @@ public class WorkGoal extends Goal {
             return exit("grab it, then the patch (doPlace 2625)"); // grab it, then the patch
         }
         ItemStack stack = g.inventory.find(s -> s.is(t.item()));
-        if (stack.isEmpty() && t.want() != null) { // a build's planned block: never another block in its place
+        if (stack.isEmpty() && t.want() != null && !stonePatch(t)) { // a build's planned block: never another block in its place
             if (ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no {} on him for the build's cell at {}: not putting anything else there (WorkGoal.doPlace)", itemName(new ItemStack(t.item())), pos.toShortString());
             return exit("out of the planned block (doPlace want)");
         }
@@ -7073,6 +7073,9 @@ public class WorkGoal extends Goal {
         if (held == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] the killing hit on the blaze held: it's over lava at {}, its rod would burn: shield up till it drifts over ground, {} s at most (WorkGoal.rodHold)", lava.toShortString(), (int) w("blaze.rod_hold_s", 6));
         return true;
     }
+    /** A wall of his mine put back after a way cut it (ActionPath's restore, want cobblestone or cobbled deepslate): a patch, any stone does (D2D review 43, live 12:31:28 11-11: 12 granite on him, "no cobblestone on him for the build's cell", the wall left open; stage 1551). */
+    private boolean stonePatch(Task.Place t) { return t.want() != null && (t.want().is(net.minecraft.world.level.block.Blocks.COBBLESTONE) || t.want().is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE)) && t.want().getBlock().asItem() == t.item()
+        && !g.inventory.find(st -> st.is(net.minecraft.world.item.Items.COBBLESTONE) || st.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE) || st.is(net.minecraft.world.item.Items.STONE) || st.is(net.minecraft.world.item.Items.ANDESITE) || st.is(net.minecraft.world.item.Items.DIORITE) || st.is(net.minecraft.world.item.Items.GRANITE) || st.is(net.minecraft.world.item.Items.TUFF) || st.is(net.minecraft.world.item.Items.DEEPSLATE)).isEmpty(); } // (and stone on him to do it with: none, the give-up as before, no walk for nothing, stage 1491)
     private boolean cfSwing(net.minecraft.world.entity.LivingEntity mob) {
         if (g.getAttackStrengthScale(0.5f) < 0.95f) return false;
         if (rodHold(mob)) return false; // the killing hit over lava: held

@@ -10550,6 +10550,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1551: return st1551(stage, t, c, h, level, mock);
             case 1550: return st1550(stage, t, c, h, level, mock);
             case 1499: return st1499(stage, t, c, h, level, mock);
             case 1496: return st1496(stage, t, c, h, level, mock);
@@ -19929,6 +19930,29 @@ public final class ClaudeBodyTest {
                 level.setBlock(s1550Me.offset(3, -1, 0), Blocks.STONE.defaultBlockState(), 2);
                 check(dead, "the blaze over ground now, at its last hit, in his reach: not killed in 4 s (" + (q.length() > 120 ? q.substring(0, 120) : q) + ")");
                 pass(stage, t, "the killing hit held over lava, landed over ground in " + s + " s");
+            }
+        }
+        return true;
+    }
+    /** Stage 1551 (D2D review 43, live 12:31:26-28 11-11 at his mine, -139,17,-442: a way cut his wall, ActionPath queued it back as cobblestone (want), he had 12 granite, 5 andesite, 3 diorite and no cobblestone: "no cobblestone on him for the build's cell ... not putting anything else there", the wall left open). A wall cell to put back as cobblestone, granite on him: the granite goes in. */
+    private static int s1551T; private static BlockPos s1551P;
+    private static boolean st1551(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; flatBox(h); s1551T = -1; }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 5)); s1551P = me.offset(2, -1, 0).immutable();
+            level.setBlock(s1551P, Blocks.AIR.defaultBlockState(), 2); // the cut in his wall (a hole in the floor here)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.GRANITE, 12)); c.getInventory().add(new ItemStack(Items.ANDESITE, 5));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Place(s1551P, Items.COBBLESTONE, null, Blocks.COBBLESTONE.defaultBlockState())); s1551T = t[0]; }
+        if (s1551T > 0 && t[0] > s1551T) {
+            boolean in = !level.getBlockState(s1551P).isAir(), idle = c.currentTask == null && c.tasks.isEmpty() && t[0] - s1551T > 10;
+            if (in || idle || t[0] - s1551T > 20 * 4) {
+                String what = level.getBlockState(s1551P).getBlock().getName().getString(), q = c.currentTask + " " + c.tasks;
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; level.setBlock(s1551P, Blocks.STONE.defaultBlockState(), 2); c.getInventory().clearContent();
+                check(in, "his wall to put back as cobblestone, 12 granite on him and no cobblestone: left open (" + (q.length() > 120 ? q.substring(0, 120) : q) + ")");
+                pass(stage, t, "the wall put back with " + what);
             }
         }
         return true;

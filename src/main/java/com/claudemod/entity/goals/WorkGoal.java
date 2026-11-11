@@ -1301,7 +1301,8 @@ public class WorkGoal extends Goal {
         }
         // Way below with no walkable way down (up a tree, on a cliff): dig down under himself, or drop into water / climb down vines.
         boolean mineTripStart = ticks == 10 && !g.mineSpine.isEmpty() && !g.level().canSeeSky(pos) && !com.claudemod.director.ClaudeLife.inHisMine(g, g.blockPosition()) && g.level().canSeeSky(g.blockPosition()); // (a spot down his mine, and he's up top: his stairs from the start, not overland toward it first and the stairs only once stuck: he walked past his own entrance to stand over the chest)
-        if (pos.getY() <= g.getBlockY() - 3 && (stuck > 20 || mineTripStart) && (g.onGround() || g.onClimbable()) && ticks % 10 == 0) {
+        boolean stepOn = pos.equals(stepDownFor) && g.tickCount - stepDownAt < 100 && d > 28; // a step just cut for this walk, past the planner's 28: the next one at once, never 1.5 s stood still first (D2D review 85 11-10: ~3.9 s a step for 55 down; stage 1478)
+        if (pos.getY() <= g.getBlockY() - 3 && (stuck > 20 || mineTripStart || stepOn && ticks >= 2) && (g.onGround() || g.onClimbable()) && (ticks % 10 == 0 || stepOn)) {
             // one of his own stations (a chest, a furnace, a table) down there: it sits in a mine of his, reached by its stairs; never a hole cut in the grass over it (the dirt crosses)
             if (g.mineShape == null && !com.claudemod.entity.ClaudeSpawner.testing && g.myStations.stream().anyMatch(st -> st.distSqr(pos) <= 3 * 3 && (g.level().getBlockState(st).hasBlockEntity() || g.level().getBlockState(st).is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE))) && g.level().canSeeSky(g.blockPosition())) { // (no mine on file at all, a station still standing there; the test box keeps old stage tables about)
                 failed(com.claudemod.entity.life.Attempts.Kind.WALK, pos, com.claudemod.entity.life.Attempts.Reason.GUARD, "his own station under it: reached by its stairs, never a hole cut over it");
@@ -2547,6 +2548,7 @@ public class WorkGoal extends Goal {
     private final java.util.ArrayDeque<BlockPos> dryCells = new java.util.ArrayDeque<>(); private BlockPos lavaOut; private int lavaOutSince; private final java.util.Map<BlockPos, Integer> lavaOutBad = new java.util.HashMap<>(); // (the lava escape's memory)
     private final java.util.Map<BlockPos, Integer> placeRetries = new java.util.HashMap<>();
     private Vec3 stepOffTo;
+    private BlockPos stepDownFor; private int stepDownAt = -100000; private Direction stepDownDir; // (the walk his last step down was cut for, and when)
     private BlockPos lastStepSide;
     private int lastStepDecided = -1000;
     private int stepOffTick = -100;
@@ -2654,6 +2656,11 @@ public class WorkGoal extends Goal {
         if (natural && !tree && !theirs) {
             double hx = dest.getX() + 0.5 - g.getX(), hz = dest.getZ() + 0.5 - g.getZ();
             java.util.List<Direction> ways = new java.util.ArrayList<>();
+            if (stepDownDir != null && dest.equals(stepDownFor) && Math.sqrt(hx * hx + hz * hz) < feet.getY() - dest.getY()) { // deeper than far: the staircase goes straight on, turning round the spot's column, never a new way each step (stage 1478: west, east, west, north, south, a crater 2 deep in 90 s)
+                Direction k = stepDownDir; java.util.function.ToIntFunction<BlockPos> off = q -> Math.max(Math.abs(q.getX() - dest.getX()), Math.abs(q.getZ() - dest.getZ()));
+                if (off.applyAsInt(feet.relative(k)) > 2 && off.applyAsInt(feet.relative(k)) > off.applyAsInt(feet)) k = k.getClockWise(); // (past the column by 2: a quarter turn, a spiral round it)
+                ways.add(k);
+            }
             if (Math.abs(hx) + Math.abs(hz) >= 1.0) ways.add(Direction.getNearest(hx, 0, hz));
             ways.add(g.getDirection());
             for (Direction d : Direction.Plane.HORIZONTAL) if (!ways.contains(d)) ways.add(d);
@@ -2674,6 +2681,7 @@ public class WorkGoal extends Goal {
                 if (steps.isEmpty()) continue; // open already: that is just walking, not for here
                 steps.add(new Task.GoTo(nf.immutable(), 0.6));
                 for (int i = steps.size() - 1; i >= 0; i--) g.tasks.addFirst(steps.get(i));
+                stepDownFor = dest.immutable(); stepDownAt = g.tickCount; stepDownDir = d;
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] getting down: cutting a step down {} at {} (never straight down)", d.getName(), feet.toShortString());
                 return true;
             }

@@ -10549,6 +10549,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1478: return st1478(stage, t, c, h, level, mock);
             case 1477: return st1477(stage, t, c, h, level, mock);
             case 1476: return st1476(stage, t, c, h, level, mock);
             case 1475: return st1475(stage, t, c, h, level, mock);
@@ -19139,6 +19140,34 @@ public final class ClaudeBodyTest {
                 check(!up, "heading up to the sky (at y " + at + ") for a walk to his own mine's row 22 over him: " + (now.length() > 220 ? now.substring(0, 220) : now));
                 check(there, "not at his row's cell in 150 s (at y " + at + ", row at " + st1477H.getY() + ")");
                 pass(stage, t, "up to his row and along it in " + secs + " s, never up to the sky");
+            }
+        }
+        return true;
+    }
+    /** Stage 1478 (D2D review 85, live 21:30:06 11-10: on the grass 18 across and 55 over his furnace at -85,12,-421, "getting down: cutting a step down west" then a stall before each step, ~3.9 s a step: past the planner's 28 blocks only the step cutter carries him, and it waited for "stuck > 20", 1.5 s stood still, before every step): him on stone 40 over a spot 6 across (deeper than far: a staircase straight on, turning round the spot, never a new direction each step: the crater the first cut of this stage dug, west, east, west, north, south). 12 steps down at a player's pace: the digs (3 a step, 0.6 s each with a stone pick) and the step, no wait between. */
+    private static int st1478T;
+    private static boolean st1478(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(21800, 80, 19600), to = o.offset(-6, -40, 0);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -32; k <= 16; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { lnReset(c); c.commandActive = false; st1478T = -1; }
+        if (t[0] == 10) {
+            for (int x = -24; x <= 8; x++) for (int z = -6; z <= 6; z++) for (int y = -44; y <= 4; y++) level.setBlock(o.offset(x, y, z), y < 0 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            c.blueprint = null; c.mineShape = null; c.mineSpine.clear(); c.mineCells.clear(); level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 90f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no"); c.prefs.put("torches_while_digging", "no"); mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 30, o.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.tasks.add(new Task.GoTo(to, 1.0)); st1478T = t[0]; }
+        if (st1478T > 0 && t[0] > st1478T + 2) {
+            boolean down = c.getBlockY() <= o.getY() - 12 && c.onGround();
+            if (down || t[0] - st1478T > 20 * 90) {
+                int secs10 = (t[0] - st1478T) / 2, at = c.getBlockY();
+                c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.prefs.remove("stay_close"); c.prefs.remove("torches_while_digging");
+                for (int x = -24; x <= 8; x++) for (int z = -6; z <= 6; z++) for (int y = -44; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.setDeltaMovement(0, 0, 0); c.fallDistance = 0; /* set down on a pad, not left falling through the cleared rock into the next stage (60 failed after it) */
+                check(down, "not 12 down in 90 s (at y " + at + ", started at " + o.getY() + ")");
+                check(secs10 <= 360, "12 steps down in " + secs10 / 10.0 + " s: over 36 s, a player cuts them in ~26 (3 digs at 0.6 s and the step, each)");
+                pass(stage, t, "12 steps down in " + secs10 / 10.0 + " s");
             }
         }
         return true;

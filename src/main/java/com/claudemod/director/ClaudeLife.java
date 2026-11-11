@@ -3149,6 +3149,9 @@ public final class ClaudeLife {
                         ClaudeMod.LOGGER.info("[Claude skill] explore {}: seen it at {} ({} off): heading there by {} (ClaudeLife explore)", want, known.toShortString(), (int) Math.sqrt(known.distSqr(g.blockPosition())), go.toShortString());
                         return "heading for the " + want.replace('_', ' ') + " I saw at " + known.toShortString();
                     }
+                    if (level.dimension() == net.minecraft.world.level.Level.NETHER) { BlockPos lead = com.claudemod.entity.life.PortalMap.roadLead(g, level, (int) com.claudemod.entity.life.Weights.w("scout.road_lead_reach", 96)); // a road someone built, on out of sight: it goes somewhere, ahead of fresh ground
+                        if (lead != null && !g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, lead, g.tickCount, 20 * 60)) { Task tr = com.claudemod.entity.life.FortressScout.travel(g, level, lead); g.tasks.add(tr instanceof Task.Bore ? tr : new Task.GoTo(lead, 1.5)); g.skillQueue.addFirst(st);
+                            ClaudeMod.LOGGER.info("[Claude skill] explore {}: not seen yet; a road someone built runs on out of sight from {}: along it first (ClaudeLife explore)", want, lead.toShortString()); return "along a road someone built, to where it goes on at " + lead.toShortString() + ": roads lead somewhere"; } }
                     g.exploreAngle = com.claudemod.entity.life.Atlas.freshHeading(g, level, g.exploreAngle); g.exploreTick = g.tickCount;
                     g.skillQueue.addFirst(st); // (looked for again after this leg)
                     ClaudeMod.LOGGER.info("[Claude skill] explore {}: not seen yet ({} cells covered here): off over fresh ground, heading {} deg (ClaudeLife explore)", want, com.claudemod.entity.life.Atlas.covered(g, level), (int) Math.toDegrees(g.exploreAngle));

@@ -10549,6 +10549,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1468: return st1468(stage, t, c, h, level, mock);
             case 1467: return st1467(stage, t, c, h, level, mock);
             case 1466: return st1466(stage, t, c, h, level, mock);
             case 1465: return st1465(stage, t, c, h, level, mock);
@@ -18803,6 +18804,44 @@ public final class ClaudeBodyTest {
             check(s1467B != null && s1467B.startsWith("ok"), "go_to the scouted fortress, no road of his reaching it, him by his portal: the trip builds the road: " + s1467B);
             check(cc.startsWith("ok"), "go_to the fortress with his road reaching it: walked, nothing built: " + cc);
             nsHome(c, h, level); pass(stage, t, s1467A + " || " + s1467B + " || " + cc);
+        }
+        return true;
+    }
+    /** Stage 1468 (the user 11-10, D2D's B point 3: "when another player branches off the existing highway, he should recognize that as another route to another poi"): over an open cavern, his highway on record and someone's 1-wide cobble road off its side, 38 east to nowhere he's been. By the junction: its far end as he can read it is a lead, and find_fortress goes along it before a guess off the region grid. At that end: the road read on, its real end the lead. At the real end: no lead left. */
+    private static String s1468A;
+    private static boolean st1468(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(14600, 70, 10200);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); com.claudemod.entity.life.FortressScout.reset(c); s1468A = null; }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) for (int k = -16; k <= 64; k += 16) for (int m = -16; m <= 48; m += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, m)), 2, o.offset(k, 0, m));
+        if (t[0] == 12) {
+            for (int x = -8; x <= 52; x++) for (int z = -8; z <= 34; z++) for (int y = -14; y <= 8; y++) nl.setBlock(o.offset(x, y, z), (y == -14 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2); // a cavern, its floor 14 down
+            for (int z = 0; z <= 25; z++) for (int x = 0; x <= 1; x++) nl.setBlock(o.offset(x, -1, z), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2);
+            for (int x = 2; x <= 40; x++) nl.setBlock(o.offset(x, -1, 12), Blocks.COBBLESTONE.defaultBlockState(), 2); // their road, east off his highway's side
+            com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(0, -1, 0), o.offset(0, -1, 25), net.minecraft.core.Direction.Axis.Z, 2);
+            nsKit(c); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 1.5, o.getY(), o.getZ() + 12.5, -90f, 0f);
+        }
+        if (t[0] > 12) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 20) { c.skillQueue.clear(); c.tasks.clear();
+            BlockPos l1 = com.claudemod.entity.life.PortalMap.roadLead(c, nl, 96);
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "find_fortress", "", 1); c.tasks.clear(); c.skillQueue.clear();
+            s1468A = "by the junction: lead " + (l1 == null ? "none" : l1.toShortString()) + "; find_fortress: " + r; }
+        if (t[0] == 22) c.teleportTo(nl, o.getX() + 20.5, o.getY(), o.getZ() + 12.5, -90f, 0f);
+        if (t[0] == 30) {
+            BlockPos l2 = com.claudemod.entity.life.PortalMap.roadLead(c, nl, 96);
+            c.teleportTo(nl, o.getX() + 40.5, o.getY(), o.getZ() + 12.5, -90f, 0f);
+            String segs = ""; for (var sg : com.claudemod.entity.life.PortalMap.net(c).segments) segs += sg.describe() + "; ";
+            s1468A += " | at 20 east: lead " + (l2 == null ? "none" : l2.toShortString()) + " | segments: " + segs;
+            check(s1468A.contains("by the junction: lead ") && !s1468A.startsWith("by the junction: lead none") && s1468A.contains("a road someone built"), "someone's road off his highway, its end not walked to: a lead, and find_fortress along it first: " + s1468A);
+            check(l2 != null && l2.getX() == o.getX() + 40, "at the end he read from the junction, the road read on: its real end 40 east the lead: " + s1468A);
+        }
+        if (t[0] == 38) {
+            BlockPos l3 = com.claudemod.entity.life.PortalMap.roadLead(c, nl, 96);
+            com.claudemod.entity.life.PortalMap.net(c).segments.clear(); com.claudemod.entity.life.FortressScout.reset(c); c.tasks.clear(); c.skillQueue.clear();
+            for (int x = -8; x <= 52; x++) for (int z = -8; z <= 34; z++) for (int y = -14; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(l3 == null, "stood at the road's real end: still a lead at " + l3 + " (" + s1468A + ")");
+            nsHome(c, h, level); pass(stage, t, s1468A);
         }
         return true;
     }

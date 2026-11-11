@@ -253,6 +253,22 @@ public final class PortalMap {
                 ClaudeMod.LOGGER.info("[Claude road] a road he sees: {} long along {} from {} to {} (PortalMap.seeRoads)", n, ax.getName(), f.toShortString(), e.toShortString());
                 addSegment(g, d, f, e, ax, 1); } }
     }
+    private static java.util.Map<java.util.UUID, java.util.Set<Long>> roadEndsBeen; // (static: fields added live start null) shortcut: not saved, after a restart a road end he stood at is a lead once more; save it with the net if that walk shows up
+    /** A road someone built whose end he hasn't stood at: the nearest within reach; null when none. A road leads somewhere (a portal, a fortress, a bastion, a forest), a lead to scout before fresh ground; at its end he reads the road on from there (a longer run, a new lead) or sees what it was built to (the user 11-10: "when another player branches off the existing highway, he should recognize that as another route"). Its end at his own highway is no lead. */
+    public static BlockPos roadLead(ClaudeEntity g, net.minecraft.server.level.ServerLevel level, int reach) {
+        FarSight.lookAllRound(g, level); seeRoads(g, level);
+        if (roadEndsBeen == null) roadEndsBeen = new java.util.HashMap<>(); var been = roadEndsBeen.computeIfAbsent(g.getUUID(), k -> new java.util.HashSet<>());
+        String d = dim(level); BlockPos me = g.blockPosition(); BlockPos best = null; double bd = Double.MAX_VALUE;
+        for (Segment s : net(g).segments) { if (!d.equals(s.dim) || s.width != 1) continue; // (the roads he has seen: his own highway is on record 2 wide and up)
+            for (BlockPos end : new BlockPos[] {s.a, s.b}) { double dd = end.distSqr(me);
+                if (dd <= 9) { been.add(end.asLong()); continue; }
+                if (been.contains(end.asLong()) || dd > (double) reach * reach) continue;
+                boolean join = false; for (Segment h : net(g).segments) if (d.equals(h.dim) && h.width >= 2 && Math.abs(end.getY() - h.y()) <= 3) { int al = h.axis == Direction.Axis.X ? end.getX() : end.getZ(), ac = h.axis == Direction.Axis.X ? end.getZ() : end.getX(); if (al >= h.lo() - 2 && al <= h.hi() + 2 && Math.abs(ac - h.line()) <= h.width + 2) join = true; }
+                if (join) continue; // (where it meets his highway: he knows that end)
+                if (dd < bd) { bd = dd; best = end.above().immutable(); } } }
+        if (best != null) ClaudeMod.LOGGER.info("[Claude road] a road someone built, its end at {} ({} off) not walked to: a lead (PortalMap.roadLead)", best.toShortString(), (int) Math.sqrt(bd));
+        return best;
+    }
     static boolean road(net.minecraft.world.level.block.state.BlockState s) {
         return s.is(net.minecraft.tags.BlockTags.PLANKS) || s.is(net.minecraft.world.level.block.Blocks.COBBLESTONE) || s.is(net.minecraft.world.level.block.Blocks.COBBLED_DEEPSLATE) || s.is(net.minecraft.world.level.block.Blocks.STONE_BRICKS) || s.is(net.minecraft.world.level.block.Blocks.DEEPSLATE_BRICKS) || s.is(net.minecraft.world.level.block.Blocks.DEEPSLATE_TILES) || s.is(net.minecraft.world.level.block.Blocks.POLISHED_DEEPSLATE) || s.is(net.minecraft.world.level.block.Blocks.POLISHED_BLACKSTONE) || s.is(net.minecraft.world.level.block.Blocks.POLISHED_BLACKSTONE_BRICKS) || s.is(net.minecraft.world.level.block.Blocks.SMOOTH_STONE);
     }

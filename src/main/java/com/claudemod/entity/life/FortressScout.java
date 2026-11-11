@@ -367,6 +367,8 @@ public final class FortressScout {
                 if (tt != null) { dir[0] = Direction.getNearest(v.x, 0, v.z); why[0] = what + " " + (int) dist + " blocks " + Perception.compassOf(v) + (byEar ? ", through the rock" : "") + ": blazes, wither skeletons and their spawners are a fortress's; tunnelling straight to it"; ClaudeMod.LOGGER.info("[Claude scout] {} {} off: a tunnel to {} (FortressScout.plan)", what, (int) dist, tt.toShortString()); return tt; }
             }
         }
+        { BlockPos lead = PortalMap.roadLead(g, level, (int) Weights.w("scout.road_lead_reach", 96)); // a road someone built, running on out of sight: it goes somewhere, ahead of a guess off the region grid
+          if (lead != null && !scouted(s, lead, me)) { dir[0] = Direction.getNearest(lead.getX() - me.getX(), 0, lead.getZ() - me.getZ()); why[0] = "a road someone built runs on out of sight from " + lead.toShortString() + " (" + (int) horiz(lead, me) + " blocks " + Perception.compassOf(new Vec3(lead.getX() - me.getX(), 0, lead.getZ() - me.getZ())) + "): roads lead somewhere, a portal, a fortress or a bastion, so along it first"; return lead; } }
         // the region grid: the nearest region middle not scouted yet
         int rx0 = regionOf(me.getX()), rz0 = regionOf(me.getZ());
         BlockPos goal = null; int grx = 0, grz = 0; double gd = Double.MAX_VALUE;

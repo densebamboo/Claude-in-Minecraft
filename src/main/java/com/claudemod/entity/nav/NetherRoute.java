@@ -144,6 +144,12 @@ public final class NetherRoute {
         if (log) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] Nether {} -> {}: along his highway on record, {} legs, ~{} s (the straight sprint ~{} s) (NetherRoute.highway)", from.toShortString(), to.toShortString(), legs.size(), (int) dist[1], (int) h(from.getX(), from.getY(), from.getZ(), to));
         return new Plan(legs, offRoad, dist[1], 0, 0, climb, 0, (System.nanoTime() - t0) / 1000000);
     }
+    /** A point of his road tree: his highway runs from that portal to within 8 of it, whole (the user 11-10: "each poi should branch off the existing highway"). */
+    public static boolean onTree(ClaudeEntity g, BlockPos portalAt, BlockPos p) { Plan hp = highway(g, portalAt, p, false); return hp != null && !hp.partial(); }
+    /** Where a road to {@code dest} leaves this segment, and the axis it leaves along: square off it where dest is beside it, on from its end where dest is past it; null when dest is on its line already. */
+    public static Object[] branchPoint(com.claudemod.entity.life.PortalMap.Segment s, BlockPos dest) {
+        int al = along(s, dest); if (al >= s.lo() && al <= s.hi()) return across(s, dest) == s.line() ? null : new Object[] {feet(s, al), s.axis == net.minecraft.core.Direction.Axis.X ? net.minecraft.core.Direction.Axis.Z : net.minecraft.core.Direction.Axis.X};
+        return new Object[] {feet(s, al < s.lo() ? s.lo() : s.hi()), s.axis}; }
     static int along(com.claudemod.entity.life.PortalMap.Segment s, BlockPos p) { return s.axis == net.minecraft.core.Direction.Axis.X ? p.getX() : p.getZ(); }
     static int across(com.claudemod.entity.life.PortalMap.Segment s, BlockPos p) { return s.axis == net.minecraft.core.Direction.Axis.X ? p.getZ() : p.getX(); }
     /** The feet cell on a segment's line at that point along it. */

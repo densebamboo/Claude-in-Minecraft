@@ -44,13 +44,25 @@ public final class Highway {
     static int clear(BridgeBlueprint.Row r) { return r.stair() ? Math.max(3, stairH) : 3; }
     private static double w(String n, double d) { return Weights.w(n, d); }
 
-    static final class State { BridgeBlueprint plan; int portalId = -1; BlockPos dest; boolean said; int built = -1, rows = -1, laidTo = -1, floorTo = -1; int[] stairs; } // laidTo: the furthest row he has seen laid; a row out in unloaded ground at or before it is his own work, laid (a player remembers how far his road goes) // stairs: {leg, row, steps} of the plan underway, pinned (BridgeBlueprint.plan)
+    static final class State { BridgeBlueprint plan; int portalId = -1; BlockPos dest; BlockPos from; Direction.Axis fromAxis; /* (a branch: where it leaves his highway, and along what) */ boolean said; int built = -1, rows = -1, laidTo = -1, floorTo = -1; int[] stairs; } // laidTo: the furthest row he has seen laid; a row out in unloaded ground at or before it is his own work, laid (a player remembers how far his road goes) // stairs: {leg, row, steps} of the plan underway, pinned (BridgeBlueprint.plan)
     private static Map<UUID, State> states; // (static: fields added live start null)
     static State state(ClaudeEntity g) { if (states == null) states = new HashMap<>(); return states.computeIfAbsent(g.getUUID(), k -> new State()); }
     public static void reset(ClaudeEntity g) { if (states != null) states.remove(g.getUUID()); }
     /** The highway underway (portal, destination, rows laid), saved with his portal map: a restart lost it and he walked for the fortress with its deepslate as loose bridge blocks (D2D live 14:19, the user: "bug. he should be building the highway"; stage 913). */
-    public static net.minecraft.nbt.CompoundTag save(ClaudeEntity g) { State s = state(g); if (s.dest == null || s.portalId < 0) return null; var t = new net.minecraft.nbt.CompoundTag(); t.putInt("portal", s.portalId); t.putLong("dest", s.dest.asLong()); t.putInt("built", s.built); t.putInt("rows", s.rows); t.putInt("laidTo", s.laidTo); t.putInt("floorTo", s.floorTo); if (s.stairs != null) t.putIntArray("stairs", s.stairs); return t; }
-    public static void load(ClaudeEntity g, net.minecraft.nbt.CompoundTag t) { State s = state(g); s.plan = null; s.portalId = t.getInt("portal"); s.dest = BlockPos.of(t.getLong("dest")); s.built = t.getInt("built"); s.rows = t.getInt("rows"); s.laidTo = t.contains("laidTo") ? t.getInt("laidTo") : s.built - 1; /* (a save from before laidTo: built rows laid reach at least row built-1) */ s.stairs = t.contains("stairs") ? t.getIntArray("stairs") : null; s.floorTo = t.contains("floorTo") ? t.getInt("floorTo") : -1; ClaudeMod.LOGGER.info("[Claude highway] underway from his saved state: portal #{} to {}, {} of {} rows (Highway.load)", s.portalId, s.dest.toShortString(), s.built, s.rows); }
+    public static net.minecraft.nbt.CompoundTag save(ClaudeEntity g) { State s = state(g); if (s.dest == null || s.portalId < 0) return null; var t = new net.minecraft.nbt.CompoundTag(); t.putInt("portal", s.portalId); t.putLong("dest", s.dest.asLong()); t.putInt("built", s.built); t.putInt("rows", s.rows); t.putInt("laidTo", s.laidTo); t.putInt("floorTo", s.floorTo); if (s.stairs != null) t.putIntArray("stairs", s.stairs); if (s.from != null && s.fromAxis != null) { t.putLong("from", s.from.asLong()); t.putString("fromAxis", s.fromAxis.getName()); } return t; }
+    public static void load(ClaudeEntity g, net.minecraft.nbt.CompoundTag t) { State s = state(g); s.plan = null; s.portalId = t.getInt("portal"); s.dest = BlockPos.of(t.getLong("dest")); s.built = t.getInt("built"); s.rows = t.getInt("rows"); s.laidTo = t.contains("laidTo") ? t.getInt("laidTo") : s.built - 1; /* (a save from before laidTo: built rows laid reach at least row built-1) */ s.stairs = t.contains("stairs") ? t.getIntArray("stairs") : null; s.floorTo = t.contains("floorTo") ? t.getInt("floorTo") : -1; s.from = t.contains("from") ? BlockPos.of(t.getLong("from")) : null; s.fromAxis = t.contains("fromAxis") ? Direction.Axis.byName(t.getString("fromAxis")) : null; ClaudeMod.LOGGER.info("[Claude highway] underway from his saved state: portal #{} to {}, {} of {} rows (Highway.load)", s.portalId, s.dest.toShortString(), s.built, s.rows); }
+    /** The first trip to a scouted place in the Nether that no road of his reaches: the road is built on the way (the user 11-10: "scout out his pois, then establish a highway to them on the way to the pois from his portal"). What he says when it is; null when his road reaches it, it's near, or he has no lit portal to root it on. */
+    public static String firstTrip(ClaudeEntity g, ServerLevel level, BlockPos poi) {
+        if (level.dimension() != net.minecraft.world.level.Level.NETHER) return null;
+        double far = Math.sqrt(g.blockPosition().distSqr(poi)); if (far < w("highway.trip_min_blocks", 64)) return null;
+        boolean rooted = false;
+        for (var p : PortalMap.net(g).portals) { if (!PortalMap.NETHER.equals(p.dim) || !"lit".equals(p.state)) continue; rooted = true;
+            if (com.claudemod.entity.nav.NetherRoute.onTree(g, p.at, poi)) return null; } // (his road gets there: walked along it)
+        if (!rooted) return null;
+        State s = state(g); boolean on = s.dest != null && Math.abs(s.dest.getX() - poi.getX()) + Math.abs(s.dest.getZ() - poi.getZ()) <= 2;
+        ClaudeMod.LOGGER.info("[Claude highway] to {} ({} off): no road of his reaches it{}: built on the way (Highway.firstTrip)", poi.toShortString(), (int) far, on ? ", the one underway goes there" : "");
+        return on ? "the road to " + poi.toShortString() + " is underway: building it on the way there" : "no road of mine reaches " + poi.toShortString() + " yet: building it on the way there, off my highway";
+    }
     /** A highway of his is underway (its block is his building stock, never junk). */
     public static boolean underway(ClaudeEntity g) { State s = state(g); return s.dest != null && s.portalId >= 0; }
     /** Rows of the highway underway whose floor is still to lay (rows short only of a rail don't count: rails wait for the way home); -1 when not known yet. */
@@ -151,7 +163,11 @@ public final class Highway {
     static String makePlan(ClaudeEntity g, ServerLevel level, String words, State s) {
         BlockPos dest = destination(g, level, words);
         if (dest == null) return "failed: no fortress on my map yet, and no x y z given: find_fortress first";
-        var going = s.portalId >= 0 && s.dest != null && Math.abs(s.dest.getX() - dest.getX()) + Math.abs(s.dest.getZ() - dest.getZ()) <= 2 ? PortalMap.byId(g, s.portalId) : null; // (by x z: its height may be put right at the deck)
+        if (s.from != null && s.fromAxis != null && s.dest != null && Math.abs(s.dest.getX() - dest.getX()) + Math.abs(s.dest.getZ() - dest.getZ()) <= 2) { // the branch underway goes on from where it leaves his highway
+            var b = BridgeBlueprint.plan(level, s.from, s.fromAxis, dest, (int) Math.max(1, w("highway.first_width", 2)), false, s.stairs);
+            if (b != null) { s.plan = b; s.dest = dest.immutable(); s.stairs = new int[] {b.stairLeg, b.stairFrom, stepsOf(b)}; ClaudeMod.LOGGER.info("[Claude highway] resuming the branch off his highway at {}: {} (Highway.makePlan)", s.from.toShortString(), b); return null; }
+        }
+        var going = s.from == null && s.portalId >= 0 && s.dest != null && Math.abs(s.dest.getX() - dest.getX()) + Math.abs(s.dest.getZ() - dest.getZ()) <= 2 ? PortalMap.byId(g, s.portalId) : null; // (by x z: its height may be put right at the deck)
         if (going != null && level.isLoaded(going.at)) going.state = PortalMap.stateAt(level, going.at);
         if (going != null && "lit".equals(going.state) && BridgeBlueprint.facingAxis(level, going.at) != null) { // the highway underway goes on from its own portal, not chosen again each call (live 15:05: re-chosen from #3 at row 104 to #4, a frame no longer there)
             var b = BridgeBlueprint.plan(level, going.at, BridgeBlueprint.facingAxis(level, going.at), dest, (int) Math.max(1, w("highway.first_width", 2)), false, s.stairs);
@@ -168,7 +184,25 @@ public final class Highway {
             int rowsN = Math.abs(dest.getX() - p.at.getX()) + Math.abs(dest.getZ() - p.at.getZ()); double walk = PortalMap.NETHER.equals(PortalMap.dim((ServerLevel) g.level())) ? com.claudemod.entity.nav.NetherRoute.priceS(g, g.blockPosition(), p.at) : Math.sqrt(g.blockPosition().distSqr(p.at)) * com.claudemod.entity.nav.NetherRoute.offRoad(g) / sprint;
             opts.add(Decide.Option.of(n, rowsN * rowS + walk + relight, rowsN + " rows x " + rowS + " s + " + Math.round(walk) + " s to it" + (relight > 0 ? " + " + Math.round(relight) + " s to relight it" : "")));
         }
+        Map<String, Object[]> branches = new HashMap<>(); boolean inNether = PortalMap.NETHER.equals(PortalMap.dim((ServerLevel) g.level()));
+        for (var sg : PortalMap.net(g).segments) { // a branch off his highway where it comes nearest: one road tree from his portal, never a second line from it (the user 11-10, D2D's B)
+            if (!PortalMap.NETHER.equals(sg.dim) || sg.width < 2) continue;
+            Object[] bp = com.claudemod.entity.nav.NetherRoute.branchPoint(sg, dest); if (bp == null) continue; BlockPos q = (BlockPos) bp[0];
+            PortalMap.Portal root = null; for (var p : PortalMap.net(g).portals) if (PortalMap.NETHER.equals(p.dim) && "lit".equals(p.state) && com.claudemod.entity.nav.NetherRoute.onTree(g, p.at, q)) { root = p; break; }
+            if (root == null) continue; // (a piece of road not joined to a portal of his: no tree to branch off)
+            int rowsN = Math.abs(dest.getX() - q.getX()) + Math.abs(dest.getZ() - q.getZ());
+            double walk = inNether ? com.claudemod.entity.nav.NetherRoute.priceS(g, g.blockPosition(), q) : Math.sqrt(g.blockPosition().distSqr(root.at)) * com.claudemod.entity.nav.NetherRoute.offRoad(g) / sprint + Math.sqrt(root.at.distSqr(q)) / sprint; // (to the portal as the portal options price it, then along his highway at a sprint)
+            String n = "branch at " + q.toShortString(); if (branches.containsKey(n)) continue; branches.put(n, new Object[] {q, bp[1], root});
+            opts.add(Decide.Option.of(n, rowsN * rowS + walk, rowsN + " rows x " + rowS + " s off his highway (from portal #" + root.id + ") + " + Math.round(walk) + " s to it"));
+        }
         var pick = Decide.choose(g, "highway.portal", "to " + dest.toShortString(), true, opts);
+        if (pick != null && branches.containsKey(pick.name())) { Object[] br = branches.get(pick.name()); BlockPos q = (BlockPos) br[0]; Direction.Axis ax = (Direction.Axis) br[1]; var root = (PortalMap.Portal) br[2];
+            boolean same = q.equals(s.from) && s.dest != null && Math.abs(s.dest.getX() - dest.getX()) + Math.abs(s.dest.getZ() - dest.getZ()) <= 2;
+            var b = BridgeBlueprint.plan(level, q, ax, dest, (int) Math.max(1, w("highway.first_width", 2)), false, same ? s.stairs : null);
+            if (b != null) { s.plan = b; s.portalId = root.id; s.dest = dest.immutable(); s.from = q.immutable(); s.fromAxis = ax; s.stairs = new int[] {b.stairLeg, b.stairFrom, stepsOf(b)}; if (!same) { s.laidTo = -1; s.floorTo = -1; }
+                ClaudeMod.LOGGER.info("[Claude highway] planned as a branch off his highway at {} (portal #{}'s road), along {}: {} (Highway.makePlan)", q.toShortString(), root.id, ax.getName(), b); return null; }
+            final String bad = pick.name(); opts.removeIf(o -> o.name().equals(bad)); }
+        if (pick != null && branches.containsKey(pick.name())) pick = Decide.choose(g, "highway.portal", "to " + dest.toShortString(), true, opts);
         if (pick == null) return "failed: no lit Nether portal on my map to start a highway from (an unlit one is relit first)";
         var portal = byName.get(pick.name());
         var axis = BridgeBlueprint.facingAxis(level, portal.at);
@@ -177,7 +211,7 @@ public final class Highway {
         var b = BridgeBlueprint.plan(level, portal.at, axis, dest, width, false, portal.id == s.portalId && s.dest != null && Math.abs(s.dest.getX() - dest.getX()) + Math.abs(s.dest.getZ() - dest.getZ()) <= 2 ? s.stairs : null);
         if (b == null) return "failed: " + dest.toShortString() + " is straight off the side of portal #" + portal.id + ": no leg out of its face";
         boolean same = portal.id == s.portalId && s.dest != null && Math.abs(s.dest.getX() - dest.getX()) + Math.abs(s.dest.getZ() - dest.getZ()) <= 2;
-        s.plan = b; s.portalId = portal.id; s.dest = dest.immutable(); s.stairs = new int[] {b.stairLeg, b.stairFrom, stepsOf(b)}; if (!same) { s.laidTo = -1; s.floorTo = -1; } // (another highway: nothing of it laid yet; the same one planned again keeps how far it goes)
+        s.plan = b; s.portalId = portal.id; s.dest = dest.immutable(); s.from = null; s.fromAxis = null; s.stairs = new int[] {b.stairLeg, b.stairFrom, stepsOf(b)}; if (!same) { s.laidTo = -1; s.floorTo = -1; } // (another highway: nothing of it laid yet; the same one planned again keeps how far it goes)
         ClaudeMod.LOGGER.info("[Claude highway] planned from portal #{}: {} (Highway.makePlan)", portal.id, b);
         return null;
     }

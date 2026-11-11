@@ -10549,6 +10549,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1467: return st1467(stage, t, c, h, level, mock);
             case 1466: return st1466(stage, t, c, h, level, mock);
             case 1465: return st1465(stage, t, c, h, level, mock);
             case 1464: return st1464(stage, t, c, h, level, mock);
@@ -18759,6 +18760,48 @@ public final class ClaudeBodyTest {
             com.claudemod.entity.life.PortalMap.net(c).segments.clear(); c.getInventory().clearContent();
             check(p != null && (on >= 3 || taken), "his highway 60 to his side runs on 75 to the goal, the rest solid rock: the route " + why);
             nsHome(c, h, level); pass(stage, t, why);
+        }
+        return true;
+    }
+    /** Stage 1467 (the user 11-10, D2D's B: "scout out his pois, then establish a highway to them on the way to the pois from his portal. each poi should branch off the existing highway"): his portal, his highway 100 south from it then 80 east, a scouted place 30 south of the east leg. (A) build_highway to it branches off the east leg, ~30 rows, not a new L from the portal (~30 down the old road, then ~90 new). (B) go_to the fortress there with no road of his reaching it: the trip builds the road. (C) with the branch on record: a walk along his roads, nothing built. */
+    private static String s1467A, s1467B;
+    private static boolean st1467(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(14200, 70, 9800), dest = o.offset(60, 0, 130);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear(); com.claudemod.entity.life.FortressScout.reset(c); s1467A = s1467B = null; }
+        nsTick(nl, c, o, t); if (t[0] % 10 == 0 || t[0] < 10) for (int k = -16; k <= 96; k += 16) for (int m = -16; m <= 144; m += 16) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, m)), 2, o.offset(k, 0, m));
+        if (t[0] >= 10 && t[0] < 10 + 101) { int x = t[0] - 10 - 10; // (a slice a tick: flat netherrack, open over it)
+            for (int z = -4; z <= 140; z++) for (int y = -3; y <= 6; y++) nl.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2); }
+        if (t[0] == 112) {
+            for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, 0), x == -1 || x == 2 || y == -1 || y == 3 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+            for (int x = 0; x <= 1; x++) for (int z = 1; z <= 101; z++) nl.setBlock(o.offset(x, -1, z), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2); for (int x = 2; x <= 80; x++) for (int z = 100; z <= 101; z++) nl.setBlock(o.offset(x, -1, z), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2);
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o, "him", "lit");
+            com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(0, -1, 1), o.offset(0, -1, 100), net.minecraft.core.Direction.Axis.Z, 2); com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(0, -1, 100), o.offset(80, -1, 100), net.minecraft.core.Direction.Axis.X, 2);
+            nsKit(c); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600;
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 1.5, 0f, 0f);
+        }
+        if (t[0] > 112) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 120) { c.skillQueue.clear(); c.tasks.clear();
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "build_highway", dest.getX() + " " + dest.getY() + " " + dest.getZ(), 1); var p = com.claudemod.entity.life.Highway.plan(c);
+            boolean onRoad = p != null && Math.abs(p.portal.getX() - dest.getX()) <= 2 && Math.abs(p.portal.getZ() - o.getZ() - 100) <= 2;
+            s1467A = (onRoad && p.rows.size() <= 40 ? "ok " : "BAD ") + (p == null ? "no plan: " + r : "from " + p.portal.toShortString() + ", " + p.rows.size() + " rows: " + r);
+            c.tasks.clear(); c.skillQueue.clear(); com.claudemod.entity.life.Highway.reset(c); }
+        if (t[0] == 130) { c.skillQueue.clear(); c.tasks.clear(); com.claudemod.entity.life.FortressScout.foundTest(c, dest);
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "go_to", "fortress", 1); boolean hw = c.skillQueue.stream().anyMatch(s0 -> s0.skill().equals("build_highway")) || r.contains("highway");
+            s1467B = (hw ? "ok " : "BAD ") + r + " | queue " + c.skillQueue; c.tasks.clear(); c.skillQueue.clear(); com.claudemod.entity.life.Highway.reset(c); }
+        if (t[0] == 140) {
+            com.claudemod.entity.life.PortalMap.addSegment(c, com.claudemod.entity.life.PortalMap.NETHER, o.offset(60, -1, 102), o.offset(60, -1, 130), net.minecraft.core.Direction.Axis.Z, 2);
+            c.skillQueue.clear(); c.tasks.clear();
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "go_to", "fortress", 1); boolean hw = c.skillQueue.stream().anyMatch(s0 -> s0.skill().equals("build_highway")) || r.contains("highway");
+            String cc = (hw ? "BAD " : "ok ") + r + " | queue " + c.skillQueue;
+            c.tasks.clear(); c.skillQueue.clear(); com.claudemod.entity.life.Highway.reset(c); com.claudemod.entity.life.FortressScout.reset(c);
+            com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).segments.clear();
+            for (int x = -10; x <= 90; x++) for (int z = -4; z <= 140; z++) for (int y = -3; y <= 6; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(120))) e.discard();
+            check(s1467A != null && s1467A.startsWith("ok"), "a highway to a place 30 off his road's east leg: branched off it, ~30 rows: " + s1467A);
+            check(s1467B != null && s1467B.startsWith("ok"), "go_to the scouted fortress, no road of his reaching it, him by his portal: the trip builds the road: " + s1467B);
+            check(cc.startsWith("ok"), "go_to the fortress with his road reaching it: walked, nothing built: " + cc);
+            nsHome(c, h, level); pass(stage, t, s1467A + " || " + s1467B + " || " + cc);
         }
         return true;
     }

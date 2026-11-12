@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1592: return st1592(stage, t, c, h, level, mock);
             case 1591: return st1591(stage, t, c, h, level, mock);
             case 1590: return st1590(stage, t, c, h, level, mock);
             case 1589: return st1589(stage, t, c, h, level, mock);
@@ -21480,6 +21481,43 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    /** Stage 1592 (D2D urgent, live 03:24:39-03:26:00 11-12 at -31,13,-491 then -34,8,-501: a magma bubble column dragged him to its floor, his air came back in it; he swam 10 off along a flooded way, air 145 under a stone roof 2 thick, and dug at it with a stone pick floating, 14 s a block, and drowned; the bubbles he'd come from weren't air to him, nor in his 60 s trail). A flooded room under a roof 2 thick, a 2-high flooded tunnel 8 long to a magma column, his trail along it; air 145, a stone pick: back along the tunnel into the bubbles, breath back, not the dig. */
+    private static boolean st1592(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(1, 2, 1));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(-1, -1, -1), o.offset(15, 10, 7))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(0, 0, 0), o.offset(6, 6, 6))) level.setBlock(p, Blocks.WATER.defaultBlockState(), 2); // the room, 7 deep
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(0, 9, 0), o.offset(6, 10, 6))) level.setBlock(p, Blocks.AIR.defaultBlockState(), 2); // open air over a roof 2 thick (y 7, 8)
+            for (int x = 7; x <= 13; x++) for (int y = 2; y <= 3; y++) level.setBlock(o.offset(x, y, 3), Blocks.WATER.defaultBlockState(), 2); // the tunnel
+            level.setBlock(o.offset(14, -1, 3), Blocks.MAGMA_BLOCK.defaultBlockState(), 2);
+            for (int y = 0; y <= 6; y++) level.setBlock(o.offset(14, y, 3), Blocks.BUBBLE_COLUMN.defaultBlockState().setValue(net.minecraft.world.level.block.BubbleColumnBlock.DRAG_DOWN, true), 2); // a magma column, capped: no air over it
+            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            com.claudemod.entity.nav.Route.forgetTrail(c);
+            java.util.List<BlockPos> way = new java.util.ArrayList<>(); // his way in: dragged down the column, out along the tunnel, up through the room
+            for (int y = 4; y >= 2; y--) way.add(o.offset(14, y, 3));
+            for (int x = 13; x >= 3; x--) way.add(o.offset(x, 2, 3));
+            for (int y = 3; y <= 6; y++) way.add(o.offset(3, y, 3));
+            for (BlockPos q : way) { c.setPos(q.getX() + 0.5, q.getY() + 0.1, q.getZ() + 0.5); com.claudemod.entity.nav.Route.step(c); }
+            BlockPos me = o.offset(3, 6, 3);
+            c.teleportTo(me.getX() + 0.5, me.getY() + 0.1, me.getZ() + 0.5); c.setSwimming(true); c.setPose(net.minecraft.world.entity.Pose.SWIMMING); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.setAirSupply(145);
+            c.tasks.add(new Task.Wait(1000, false));
+            mock[0].teleportTo(o.getX() + 3.5, o.getY() + 12, o.getZ() + 3.5);
+        }
+        if (t[0] > 12) {
+            boolean breathed = c.getAirSupply() >= 280, done = breathed || !c.isAlive() || c.getHealth() < 14 || t[0] > 10 + 20 * 20;
+            if (done) {
+                String at = c.blockPosition().subtract(o) + " y " + String.format("%.2f", c.getY() - o.getY()) + ", air " + c.getAirSupply() + ", health " + c.getHealth() + ", task " + c.currentTask;
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setAirSupply(300); c.setHealth(20);
+                for (BlockPos p : BlockPos.betweenClosed(o.offset(-1, -1, -1), o.offset(15, 10, 7))) level.setBlock(p, (p.getY() == o.getY() - 1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); com.claudemod.entity.nav.Route.forgetTrail(c); /* (a floor left to stand on; its trail cells were this stage's) */
+                c.teleportTo(o.getX() + 3.5, o.getY(), o.getZ() + 3.5); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.fallDistance = 0; c.setSwimming(false); c.setPose(net.minecraft.world.entity.Pose.STANDING);
+                check(breathed && c.isAlive(), "air 145 under a roof 2 thick, the magma column 11 back along his way: no breath in " + (t[0] - 10) / 20.0 + " s (at " + at + ")");
+                pass(stage, t, "back to the bubbles, breath back in " + (t[0] - 10) / 20.0 + " s (at " + at + ")");
+            }
+        }
+        return true;
+    }
+
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */
     private static int s934T, s934Deep;
     private static boolean st934(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

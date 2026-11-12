@@ -226,7 +226,7 @@ public final class Watchdog {
         if (k == null) return;
         St s = st(g); s.trips++;
         s.rung.put(k, new int[] {2, now(g)}); s.what.put(k, what);
-        s.tried.put(k, "the straight way, his own way out (digging, bridging, pillaring), dropping it for another");
+        s.tried.put(k, "the straight way, " + com.claudemod.director.ClaudeLife.escapeSaid(g) + ", dropping it for another"); // (what his own way out was, as escapeStuck found it: live 04:53 11-12 "his own way out (digging, bridging, pillaring)" said over a way of 0 digs, 0 put down; stage 1596)
         ClaudeMod.LOGGER.info("[Claude watchdog] {}: written off by the clock ({}): picked again, they're told (Watchdog.writtenOff)", k, what);
     }
 
@@ -257,7 +257,7 @@ public final class Watchdog {
         if (r[0] > 3) r[0] = 3;
         String tried = s.tried.getOrDefault(k, "the straight way");
         if (r[0] == 1 && !(t instanceof Task.Leap) && com.claudemod.director.ClaudeLife.escapeStuck(g, (ServerLevel) g.level(), t)) {
-            s.tried.put(k, tried + ", a way of his own planned to it (digs, bridges or a pillar where it needed them)");
+            s.tried.put(k, tried + ", " + com.claudemod.director.ClaudeLife.escapeSaid(g));
             ClaudeMod.LOGGER.info("[Claude watchdog] {}: rung 1, his own way to it (dig, bridge, pillar, swim) in front (Watchdog.climb)", k);
             return;
         }
@@ -340,6 +340,7 @@ public final class Watchdog {
 
     /** Once per action, a line to them (said on the next ClaudeLife tick, which has the player). Never waits for an answer. */
     public static void tellOnce(ClaudeEntity g, String k, String line) { tell(g, k, line); }
+    public static String triedForTest(ClaudeEntity g, String k) { return st(g).tried.get(k); } // (tests)
     private static void tell(ClaudeEntity g, String k, String line) {
         St s = st(g);
         if (s.told.contains(k)) { ClaudeMod.LOGGER.info("[Claude watchdog] {}: already told them once, not again (Watchdog.tell)", k); return; }

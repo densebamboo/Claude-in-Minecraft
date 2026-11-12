@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1596: return st1596(stage, t, c, h, level, mock);
             case 1595: return st1595(stage, t, c, h, level, mock);
             case 1594: return st1594(stage, t, c, h, level, mock);
             case 1593: return st1593(stage, t, c, h, level, mock);
@@ -21606,6 +21607,29 @@ public final class ClaudeBodyTest {
             com.claudemod.entity.life.FarSight.reset(c); com.claudemod.entity.life.Perception.sightings(c).clear();
             check(vil.isEmpty(), "oak planks in a cave 10 under the surface read as a village: " + vil);
             pass(stage, t, "no village from a mineshaft's planks (" + (saw.length() > 160 ? saw.substring(0, 160) : saw) + ")");
+        }
+        return true;
+    }
+
+    /** Stage 1596 (D2D review 045046-59, live 04:52:35-04:53:04 11-12 at -29,13,-488 in water: his own way out was "his own way ... (0 walks, 0 digs)", and the 45 s line said "tried the straight way, his own way out (digging, bridging, pillaring), dropping it for another": a claim the log didn't back). Boxed in bedrock, the walk out written off by the 45 s clock: what he says he tried is what his own way out found, never digging he didn't do. */
+    private static boolean st1596(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(4, 3, 4));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(-1, -1, -1), o.offset(1, 2, 1))) level.setBlock(p, (p.getX() == o.getX() && p.getZ() == o.getZ() && (p.getY() == o.getY() || p.getY() == o.getY() + 1) ? Blocks.AIR : Blocks.BEDROCK).defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.fallDistance = 0; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) {
+            Task.GoTo go = new Task.GoTo(o.offset(6, 0, 0).immutable(), 1.0); String k = com.claudemod.entity.life.Watchdog.key(go);
+            boolean way = com.claudemod.director.ClaudeLife.escapeStuck(c, level, go);
+            com.claudemod.entity.life.Watchdog.writtenOff(c, k, "walking out at " + o.toShortString() + ", no nearer in 45 s");
+            String tried = com.claudemod.entity.life.Watchdog.triedForTest(c, k);
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent();
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(-1, -1, -1), o.offset(1, 2, 1))) level.setBlock(p, (p.getY() == o.getY() - 1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            check(!way, "setup: a way out of a bedrock box found");
+            check(tried != null && !tried.contains("(digging, bridging, pillaring)") && tried.contains("no way"), "boxed in bedrock, no way out even digging: says he tried \"" + tried + "\"");
+            pass(stage, t, "says he tried: " + tried);
         }
         return true;
     }

@@ -8449,6 +8449,8 @@ public final class ClaudeLife {
         return true;
     }
 
+    /** What his own way out (escapeStuck) was last, as said in chat. */
+    public static String escapeSaid(ClaudeEntity g) { String h = escapeHow == null ? null : escapeHow.get(g.getUUID()); return h == null ? "nothing of my own yet" : h; }
     private static java.util.Map<java.util.UUID, String> escapeHow; // what the 20 s way out (escapeStuck) was, said as it was in the 45 s chat line (D2D review 8 11-07: "tried my own way out (dig, climb or round)" over a route of 0 digs, 0 put)
     private static java.util.Map<java.util.UUID, Object[]> progPin; // {key, target} of the action his way out (the 20 s escape plan) serves: its steps are measured against that, not as fresh actions
     private static java.util.Map<java.util.UUID, String> progKey; private static java.util.Map<java.util.UUID, java.util.Map<String, Double>> progSeen; // the action he's measured on; every action seen since his last real progress, with his best distance to its target (static: fields added live start null)

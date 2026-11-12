@@ -11041,6 +11041,7 @@ public final class ClaudeBodyTest {
             case 1539: return st1539(stage, t, c, h, level, mock);
             case 1540: return st1540(stage, t, c, h, level, mock);
             case 1541: return st1541(stage, t, c, h, level, mock);
+            case 1542: return st1542(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -22848,6 +22849,43 @@ public final class ClaudeBodyTest {
             level.setBlock(me.east(), Blocks.AIR.defaultBlockState(), 3); level.setBlock(me.west(), Blocks.AIR.defaultBlockState(), 3);
             check(!best.equals("carry on out here"), "dusk, no chestplate, a walk 80 off queued: \"carry on out here\" by his lit spot (" + said + ")");
             pass(stage, t, "dusk with a walk 80 off queued: " + best + " (" + said + ")");
+        }
+        return true;
+    }
+    /** Stage 1542 (D2D review 005715-15, live 00:51:43-00:54:49 11-12 at -130,16/17,-476: his tidy-up went for a cobblestone of his in the rock past his mine's wall; the way cut 2 wall cells, ActionPath.tasks put them back "once past" while he was still in the dead-end pocket he'd dug, the way back out cut them again; referee and owner lines). His block in the rock past his wall, then back into his row: each wall cell cut once, held while he's out, sealed after. */
+    private static BlockPos s1542T, s1542R, s1542B; private static int s1542Y, s1542At, s1542Back, s1542Early; private static final java.util.Map<BlockPos, Integer> s1542Cuts = new java.util.HashMap<>(); private static final java.util.Set<BlockPos> s1542Open = new java.util.HashSet<>();
+    private static boolean st1542(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(7950, 90, 8150);
+        if (t[0] == 1) { scenarioReset(c); c.prefs.put("stay_close", "no"); c.prefs.put("torches_while_digging", "no"); s1542Cuts.clear(); s1542Open.clear(); s1542At = 0; s1542Back = 0; s1542Early = 0; }
+        if (t[0] > 1 && t[0] % 5 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) m.discard();
+        if (t[0] == 10) { c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.teleportTo(o.getX() + 0.5, o.getY() + 2, o.getZ() + 0.5); c.fallDistance = 0; c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(6000); }
+        if (t[0] == 16) {
+            var E = net.minecraft.core.Direction.EAST; var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 30, null)); b.invalidate();
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.stairStart = b.entrance;
+            c.mineShape = new ClaudeEntity.MineShape(2, 3, 4, 8, 6, "right"); for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK) c.mineCells.add(e.getKey().immutable());
+            BlockPos row = b.rows().get(14).first(); int fy = row.getY();
+            for (int x = -4; x <= 40; x++) for (int z = -8; z <= 8; z++) for (int y = -7; y <= 5; y++) { BlockPos q = new BlockPos(o.getX() + x, fy + y, row.getZ() + z); level.setBlock(q, (b.isWalk(q) ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            BlockPos tgt = row.offset(0, -3, 5); // (his block in the rock past his wall, down and across: a pocket only he digs to)
+            level.setBlock(tgt, Blocks.COBBLESTONE.defaultBlockState(), 2); com.claudemod.entity.life.TempLedger.placed(c, level, tgt, Blocks.COBBLESTONE.defaultBlockState(), Blocks.AIR.defaultBlockState());
+            c.teleportTo(row.getX() + 0.5, row.getY(), row.getZ() + 0.5); c.fallDistance = 0;
+            s1542T = tgt.immutable(); s1542R = row.immutable(); s1542B = b.rows().get(20).first().immutable(); s1542Y = fy;
+        }
+        if (t[0] == 30) { c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.tasks.add(new Task.Break(s1542T)); c.tasks.add(new Task.Pickup(60)); }
+        if (t[0] > 30 && c.blueprint != null) for (BlockPos q : BlockPos.betweenClosed(s1542R.offset(-3, -5, -3), s1542R.offset(3, 4, 7))) {
+            if (!c.blueprint.isShell(q)) continue; boolean air = level.getBlockState(q).isAir();
+            if (air && s1542Open.add(q.immutable())) { s1542Cuts.merge(q.immutable(), 1, Integer::sum); if (s1542At > 0) s1542Back++; } else if (!air && s1542Open.remove(q) && s1542At == 0) s1542Early++; // (a cut put back while he was still down there)
+        }
+        if (t[0] > 30 && s1542At == 0 && level.getBlockState(s1542T).isAir() && c.currentTask == null && c.tasks.isEmpty()) { s1542At = t[0]; c.tasks.add(new Task.GoTo(s1542B, 1.0)); } // (then on along his row, as live: the way back in)
+        if (t[0] > 30 && (s1542At > 0 && t[0] - s1542At > 20 * 12 || t[0] == 30 + 20 * 40)) {
+            int back = s1542Back, early = s1542Early, most = s1542Cuts.values().stream().mapToInt(Integer::intValue).max().orElse(0); String cuts = String.valueOf(s1542Cuts); boolean got = level.getBlockState(s1542T).isAir(); int at = s1542At;
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.prefs.remove("torches_while_digging"); c.stairStart = null; c.mineShape = null; c.mineCells.clear(); c.pendingPatches.clear(); c.getInventory().clearContent();
+            for (int x = -4; x <= 40; x++) for (int z = -8; z <= 8; z++) for (int y = -7; y <= 5; y++) level.setBlock(new BlockPos(o.getX() + x, s1542Y + y, s1542R.getZ() + z), Blocks.AIR.defaultBlockState(), 2);
+            c.teleportTo(o.getX() + 0.5, o.getY() + 20, o.getZ() + 0.5); c.fallDistance = 0;
+            check(got && at > 0, "setup: his block past the wall not taken in 40 s (cuts " + cuts + ")");
+            check(early == 0, "his floor cut put back " + early + " time(s) while he was still down in the pocket (the way out cuts again): " + cuts);
+            check(most <= 1, "a floor cell of his cut twice: " + cuts);
+            pass(stage, t, "his floor held open while he was down there, no cell cut twice (" + back + " step cut on the climb back): " + cuts);
         }
         return true;
     }

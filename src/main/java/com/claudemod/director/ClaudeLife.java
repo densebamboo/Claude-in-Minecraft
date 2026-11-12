@@ -738,11 +738,16 @@ public final class ClaudeLife {
     static java.util.Map<BlockPos, Notch> notches(ClaudeEntity g) { if (notchMap == null) notchMap = new java.util.HashMap<>(); return notchMap.computeIfAbsent(g.getUUID(), k -> new java.util.LinkedHashMap<>()); }
     /** A shell cut on a way out of his mine to dest: put back behind him, or held open as his way back (priced: the cut and patch again on the way back against an open hole while he's out). */
     private static final java.util.Map<BlockPos, List<Integer>> NOTCH_CUTS = new java.util.HashMap<>(); // a cell of his shell cut for a way (either way through it) -> when
-    public static boolean holdNotch(ClaudeEntity g, ServerLevel level, BlockPos cut, BlockPos dest) {
+    public static boolean holdNotch(ClaudeEntity g, ServerLevel level, BlockPos cut, BlockPos dest) { return holdNotch(g, level, cut, dest, false); }
+    private static java.util.Set<Long> pocketNotches; // notches into a pocket he dug: out there he comes back through it, queued or not (static: fields added live start null)
+    private static java.util.Set<Long> pocketNotches() { if (pocketNotches == null) pocketNotches = new java.util.HashSet<>(); if (pocketNotches.size() > 256) pocketNotches.clear(); return pocketNotches; }
+    /** pocket: the way digs on into rock past the cut, so the way out is back through it whatever is queued (live 00:51-00:54 11-12, D2D 005715-15: put back "once past" with him still down there, the way out cut it again; stage 1542). */
+    public static boolean holdNotch(ClaudeEntity g, ServerLevel level, BlockPos cut, BlockPos dest, boolean pocket) {
         NOTCH_CUTS.computeIfAbsent(cut.immutable(), k -> new ArrayList<>()).add(g.tickCount); NOTCH_CUTS.values().forEach(l -> l.removeIf(t0 -> g.tickCount - t0 > 20 * 120 || t0 > g.tickCount)); NOTCH_CUTS.values().removeIf(List::isEmpty);
         int trips = 0; for (var e : NOTCH_CUTS.entrySet()) if (e.getKey().distManhattan(cut) <= 1) trips += e.getValue().size(); // (his ways through here in the last 2 min, this one too; the cell beside counts, the way up took the one next to it: live 22:19-22:20 11-11, -39 and -38,15,-445 each cut and put back, 6 ways in 33 s; stage 1581)
         if (dest == null || inMineSide(g, dest) || cut.distSqr(dest) > 16 * 16) return false; // (only a way out to work near the cut; into his mine it's a patch as before)
-        if (!returnQueued(g, g.tasks)) return false; // (no way back into his mine queued: he isn't coming back through it soon, it's put back behind him as before, stage 935)
+        if (pocket) pocketNotches().add(cut.asLong()); else pocketNotches().remove(cut.asLong());
+        if (!pocket && !returnQueued(g, g.tasks)) return false; // (no way back into his mine queued: he isn't coming back through it soon, it's put back behind him as before, stage 935)
         int mobs = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(cut).inflate(16), m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy).size();
         var pick = com.claudemod.entity.life.Decide.choose(g, "mine.notch", cut.toShortString() + " to " + dest.toShortString(), true, List.of(
             com.claudemod.entity.life.Decide.Option.of("patch it now", com.claudemod.entity.life.Weights.w("mine.notch_reopen_s", 6) * trips, "the way back cuts it again and puts it back again (" + trips + " way(s) through here in 2 min)"),
@@ -765,7 +770,7 @@ public final class ClaudeLife {
             boolean left = !here || g.blockPosition().distSqr(n) > 24 * 24;
             boolean out = !left && !inMineSide(g, g.blockPosition()) && !m.containsKey(g.blockPosition()) && g.blockPosition().distSqr(n) <= 16 * 16; // (in a notch's own cell he isn't out: he's coming back in)
             boolean queued = false; java.util.List<Task> ts = new java.util.ArrayList<>(g.tasks); if (g.currentTask != null) ts.add(g.currentTask);
-            out = out && returnQueued(g, ts); // (out there with no way back queued: not coming back through it soon, sealed)
+            out = out && (returnQueued(g, ts) || pocketNotches().contains(n.asLong())); // (out there with no way back queued: not coming back through it soon, sealed; a pocket he dug has no other way out: stage 1542)
             for (Task t : ts) { BlockPos q = t instanceof Task.Place pl && (m.containsKey(pl.pos()) || pl.pos().distManhattan(n) <= 2) ? null : taskPos(t); /* (a patch of this notch or its twin cell, just sealed and off the list: no work out past it; it held -82 open 40 s, live 22:49 11-09, review 55, stage 1289) */ if (q != null && !inMineSide(g, q) && q.distSqr(n) <= 16 * 16) { queued = true; break; } }
             boolean inIt = g.blockPosition().equals(n) || g.blockPosition().above().equals(n); // (standing in it: the patch would go into him)
             BlockPos stepIn = null; if (inIt && !left && !out && !queued) for (Direction d0 : Direction.Plane.HORIZONTAL) { BlockPos q0 = g.blockPosition().relative(d0); if (!m.containsKey(q0) && inMineSide(g, q0) && level.getBlockState(q0).getCollisionShape(level, q0).isEmpty() && level.getBlockState(q0.above()).getCollisionShape(level, q0.above()).isEmpty() && !level.getBlockState(q0.below()).getCollisionShape(level, q0.below()).isEmpty()) { stepIn = q0.immutable(); break; } }

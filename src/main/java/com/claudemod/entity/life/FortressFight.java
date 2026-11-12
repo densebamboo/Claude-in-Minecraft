@@ -59,6 +59,19 @@ public final class FortressFight {
     private static Map<UUID, long[]> blazeLast; // per bot: {the cell, the tick} of the last blaze he saw, and the waits for the next since (static: fields added live start null)
     private static Map<UUID, long[]> blazeLast() { if (blazeLast == null) blazeLast = new HashMap<>(); return blazeLast; }
     /** Server ticks: his own tickCount starts again at 0 after a portal trip, and a time kept from before it read wrong. */
+    private static java.util.Map<java.util.UUID, long[]> crowds; // {centre, until server tick}: a crowd he left to hunt elsewhere
+    /** The crowd of blazes he left, while he keeps away from it, or null. */
+    public static BlockPos crowdLeft(ClaudeEntity g) { if (crowds == null) return null; long[] c = crowds.get(g.getUUID()); return c == null || serverT(g) > c[1] ? null : BlockPos.of(c[0]); }
+    static boolean byCrowd(ClaudeEntity g, BlockPos p) { BlockPos c = crowdLeft(g); double r = Weights.w("blaze.crowd_keep_away_blocks", 32); return c != null && c.distSqr(p) <= r * r; }
+    /** A cell to stand on about 40 off the crowd, out of their sight, the nearest to him; null: none. */
+    static BlockPos awayFrom(ClaudeEntity g, ServerLevel level, BlockPos crowd, List<Blaze> them) {
+        double r = Weights.w("blaze.crowd_leave_blocks", 40); BlockPos best = null; double bd = Double.MAX_VALUE;
+        for (int a = 0; a < 48; a++) { double th = a * Math.PI / 24; for (int dy = -4; dy <= 4; dy++) { BlockPos q = BlockPos.containing(crowd.getX() + 0.5 + r * Math.cos(th), g.getY() + dy, crowd.getZ() + 0.5 + r * Math.sin(th));
+            if (!level.isLoaded(q) || !stand(level, q)) continue; boolean seen = false; for (Blaze b : them) if (sees(level, b, q)) { seen = true; break; } if (seen) continue;
+            double d = q.distSqr(g.blockPosition()); if (d < bd) { bd = d; best = q.immutable(); } } }
+        return best;
+    }
+    public static void crowdForgetTest(ClaudeEntity g) { if (crowds != null) crowds.remove(g.getUUID()); }
     static long serverT(ClaudeEntity g) { return g.getServer() == null ? g.tickCount : g.getServer().getTickCount(); }
     /** A blaze seen at {@code at}: where their spawner or spawning ground is. */
     public static void noteBlaze(ClaudeEntity g, BlockPos at) { blazeLast().put(g.getUUID(), new long[] {at.asLong(), serverT(g), 0}); }
@@ -452,11 +465,13 @@ public final class FortressFight {
     }
     public static double fightS(ClaudeEntity g, double health, double armor, double tough, boolean shield, boolean fed, int rodsLeft) { return fightS(g, health, armor, tough, shield, fed, rodsLeft, -1); }
     /** The same for a given number of blazes (blazesN >= 0), not rods: the fight-or-run price on the ones in front of him (Loops, WorkGoal.shouldFlee). */
-    public static double fightS(ClaudeEntity g, double health, double armor, double tough, boolean shield, boolean fed, int rodsLeft, double blazesN) {
+    public static double fightS(ClaudeEntity g, double health, double armor, double tough, boolean shield, boolean fed, int rodsLeft, double blazesN) { return fightS(g, health, armor, tough, shield, fed, rodsLeft, blazesN, 1); }
+    /** The same with {@code together} of them shooting at him at once (a crowd by a spawner): each kill takes that many blazes' fireballs. */
+    public static double fightS(ClaudeEntity g, double health, double armor, double tough, boolean shield, boolean fed, int rodsLeft, double blazesN, double together) {
         double[] m = HuntPatrol.melee(g); double kill = Math.ceil(Weights.w("blaze.hp", 20) / m[0]) * m[1] + Weights.w("blaze.approach_s", 8);
         double dmg = Weights.w("blaze.fireball_hp", 5), perHit = dmg * (1 - Math.min(20, Math.max(armor / 5, armor - dmg / (2 + tough / 4))) / 25) + (g.hasEffect(net.minecraft.world.effect.MobEffects.FIRE_RESISTANCE) ? 0 : Weights.w("blaze.fire_hp", 3));
         // fireballs at him a kill, and the shield's share of them through: his own fights 11-10 (217 at him in 9 kills, 60 through the shield, 157 blocked; was 1.5 x 0.4, a tenth of it: "fight now ~38 s" with 3 meals and 6 rods on him, the meals gone in 3 min, dead at 00:45, the rods lost; stage 1458)
-        double hits = Weights.w("blaze.hits_per_blaze", 24) * (shield ? Weights.w("blaze.shield_factor", 0.28) : 1), blazes = blazesN >= 0 ? blazesN : Math.ceil(Math.max(0, rodsLeft) / Weights.w("blaze.rods_per_kill", 0.5));
+        double hits = Weights.w("blaze.hits_per_blaze", 24) * (shield ? Weights.w("blaze.shield_factor", 0.28) : 1) * Math.max(1, together), blazes = blazesN >= 0 ? blazesN : Math.ceil(Math.max(0, rodsLeft) / Weights.w("blaze.rods_per_kill", 0.5));
         var fd = g.getFoodData(); double food = fed ? 20 : fd.getFoodLevel(), sat = fed ? Weights.w("food.fed_saturation", 5) : fd.getSaturationLevel();
         double burst = hits * Weights.w("blaze.burst_share", 0.33); // the run of them that lands before he can eat between volleys: what kills (deaths 70-75: 15-17 HP in 10-20 s)
         double heal = Food.regenS(g, blazes * hits * perHit, food, sat); // (the meals on him, plus a caller's what-if: blazeRods' "ready" sets gear_up's own top-up, never an assumed 16: in-fight callers got 16 meals they didn't have) // the meals on him win back the whole fight's HP once (each blaze was healed from the same meals again)
@@ -499,13 +514,11 @@ public final class FortressFight {
             ClaudeMod.LOGGER.info("[Claude fight] no shield, {} iron and {} planks' worth on him: a shield first, it blocks every fireball of a volley (FortressFight.blazeRods)", iron, planks + logs * 4);
             return "a shield first (6 planks and an iron ingot): it takes the blazes' fireballs";
         }
-        { int blocks = 0; for (var it0 : WALLS) blocks += g.inventory.count(x -> x.is(it0)); int want = (int) Weights.w("blaze.kit_blocks", 24); // (blocks to wall in with when there's nowhere out of their sight: live 01:57 11-12, D2D death, "too few blocks to wall in" with 9 on him, 20 -> 0 in their fire; stage 1589)
-          if (blocks < want && run.length > 5 && run[5] == 0 && level.dimension() == net.minecraft.world.level.Level.NETHER && g.inventory.count(s -> s.getItem() instanceof net.minecraft.world.item.PickaxeItem) > 0) {
-              run[5] = 1; g.skillQueue.addFirst(again); g.skillQueue.addFirst(new Skills.Step("collect", "netherrack", want - blocks));
-              ClaudeMod.LOGGER.info("[Claude fight] {} block(s) to wall in with on him, {} wanted for a fight with nowhere out of their sight: {} netherrack first, a few seconds' digging (FortressFight.blazeRods)", blocks, want, want - blocks);
-              return "blocks first: " + (want - blocks) + " netherrack to wall in with if there's nowhere out of the blazes' sight (" + blocks + " on me)"; } }
         { // fight now or get ready first, priced (D2D 04:52 World 17: no armor, every fireball the full 5, 20 -> 3 in 18 s, burned to death; the user's rule: a price, never a gate)
           double tough = g.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS); int left = goal - have;
+          // the crowd where he'd fight: the blazes about the spawner (or him) shoot at once, not one after another (D2D death 07:13:08 11-12: 16 blazes, 56 shots in 23 s by the spawner at 315,63,489; the job walked him back to it each time; stage 1613)
+          BlockPos crowdAt = blazeSpawner(g, level, 20); if (crowdAt == null) crowdAt = g.blockPosition(); List<Blaze> crowdL = blazesNear(g, level, crowdAt, 16); int crowd = crowdL.size();
+          double together = Math.max(1, crowd * Weights.w("blaze.crowd_share", 0.5)); // (cover cuts some of their sight: a share of them at a time)
           var portal = PortalMap.net(g).portals.stream().filter(p0 -> PortalMap.NETHER.equals(p0.dim)).min(java.util.Comparator.comparingDouble(p0 -> p0.at.distSqr(g.blockPosition()))).orElse(null);
           double trip = portal == null ? Weights.w("pearls.no_portal_s", 1800) : 2 * (com.claudemod.entity.nav.NetherRoute.priceS(g, g.blockPosition(), portal.at) + Weights.w("highway.portal_s", 8)); // (his way there as NetherRoute prices it: live 13:03 11-10 "through the portal and back ~152 s" for ~400 blocks walked in ~10 min)
           // "ready" is what gear_up's own kit makes of him, read off the same list (D2D 13:03-13:31 11-10: priced at armor 15 and 16 meals, gear_up stopped at 12-13 meals and no armor: 3 trips home for nothing, stage 1461)
@@ -514,34 +527,49 @@ public final class FortressFight {
           int kitMeals = Math.max((int) Weights.w("trip.food_back_meals", 6), com.claudemod.director.Kit.food(g) + kit.meals()); double hpPerMeal = Weights.w("food.meal_points", 20.8) / 1.5;
           Double wasNf = Food.noFoodHpWhatIf; int wasM = Food.mealsWhatIf; double now, ready, healHere = Double.NaN;
           try { Food.noFoodHpWhatIf = (trip + Weights.w("blaze.ready_s", 240)) / (kitMeals * hpPerMeal) + 4;
-            now = fightS(g, g.getHealth(), g.getArmorValue(), tough, shield, false, left);
-            if (g.getHealth() < g.getMaxHealth() - 1 && food > 0) healHere = Food.regenS(g, g.getMaxHealth() - g.getHealth()) + Weights.w("blaze.heal_backout_s", 15) + fightS(g, g.getMaxHealth(), g.getArmorValue(), tough, shield, false, left); // (out of their sight, his meals, back to full here: live 01:33:58 11-12, review 013454-46, at 15 HP the fight read ~16938 s against ~10998 s for a 594-block walk home, the only way to 20 HP on offer; stage 1586)
+            now = fightS(g, g.getHealth(), g.getArmorValue(), tough, shield, false, left, -1, together);
+            if (g.getHealth() < g.getMaxHealth() - 1 && food > 0) healHere = Food.regenS(g, g.getMaxHealth() - g.getHealth()) + Weights.w("blaze.heal_backout_s", 15) + fightS(g, g.getMaxHealth(), g.getArmorValue(), tough, shield, false, left, -1, together); // (out of their sight, his meals, back to full here: live 01:33:58 11-12, review 013454-46, at 15 HP the fight read ~16938 s against ~10998 s for a 594-block walk home, the only way to 20 HP on offer; stage 1586)
             Food.mealsWhatIf = kit.meals(); if (have > 0) Decide.carriedWhatIf = 0.0; // (home first banks the rods he has: the fight after it risks none of them)
-            ready = fightS(g, 20, readyArmor, tough, readyShield, true, left);
+            ready = fightS(g, 20, readyArmor, tough, readyShield, true, left, -1, together);
           } finally { Food.noFoodHpWhatIf = wasNf; Food.mealsWhatIf = wasM; Decide.carriedWhatIf = null; }
           boolean adds = have > 0 || readyArmor > g.getArmorValue() || readyShield && !shield || kit.meals() > 0;
-          var pick = Decide.choose(g, "blaze.ready", left + " rod(s) to go", true, List.of(
+          BlockPos away = crowd >= 3 ? awayFrom(g, level, crowdAt, crowdL) : null; double elsewhere = Double.NaN;
+          if (away != null) { double fb = Weights.w("blaze.fireball_hp", 5), perB = fb * (1 - Math.min(20, Math.max(g.getArmorValue() / 5.0, g.getArmorValue() - fb / (2 + tough / 4))) / 25) + Weights.w("blaze.fire_hp", 3);
+              double leaveHp = crowd * Weights.w("blaze.backout_exposed_s", 3) * Weights.w("blaze.shots_per_s", 0.6) * Weights.w("blaze.shot_hit_chance", 0.5) * perB * (shield ? Weights.w("blaze.shield_factor", 0.4) : 1);
+              elsewhere = Math.sqrt(away.distSqr(g.blockPosition())) / Decide.sprint() + Decide.hpS(g, 0, leaveHp, perB) + Math.ceil(left / Weights.w("blaze.rods_per_kill", 0.5)) * Weights.w("blaze.elsewhere_find_s", 60) + Food.regenS(g, g.getMaxHealth() - Math.max(1, g.getHealth() - leaveHp)) + fightS(g, g.getMaxHealth(), g.getArmorValue(), tough, shield, false, left); } // (healed out of their sight before the hunt, as the spawner back-out prices it)
+          var pick = Decide.choose(g, "blaze.ready", left + " rod(s) to go, " + crowd + " blaze(s) about " + (crowdAt.equals(g.blockPosition()) ? "him" : "the spawner at " + crowdAt.toShortString()), true, List.of(
+              Double.isNaN(elsewhere) ? Decide.Option.out("hunt them elsewhere", crowd < 3 ? "no crowd here (" + crowd + ")" : "no cell " + (int) Weights.w("blaze.crowd_leave_blocks", 40) + " off out of their sight") : Decide.Option.of("hunt them elsewhere", elsewhere, "to " + away.toShortString() + " out of their sight, then the fortress's own spawns 1-2 at a time, ~" + Math.round(Weights.w("blaze.elsewhere_find_s", 60)) + " s to find each"),
               Decide.Option.of("fight now", now, (int) g.getHealth() + " HP, armor " + g.getArmorValue() + (shield ? ", a shield" : ", no shield")),
               Double.isNaN(healHere) ? Decide.Option.out("heal here first", g.getHealth() >= g.getMaxHealth() - 1 ? "at full health" : "no food on him") : Decide.Option.of("heal here first", healHere, "out of their sight, his " + food + " meal(s), back to " + (int) g.getMaxHealth() + " HP here, then the fight"),
               !adds ? Decide.Option.out("get ready first", inVain && (kit.armor() > g.getArmorValue() || kit.shield()) ? "the last go home for armor brought none (armor " + g.getArmorValue() + "), and nothing else of gear_up's kit to add" : "gear_up's kit adds nothing to him (armor " + g.getArmorValue() + (shield ? ", a shield" : "") + ", " + com.claudemod.director.Kit.food(g) + " meals): kitted out already") : Decide.Option.of("get ready first", trip + Weights.w("blaze.ready_s", 240) + ready, "through the portal and back ~" + Math.round(trip) + " s, gear_up's kit, then the fight at 20 HP, armor " + (int) readyArmor + (readyShield ? ", a shield" : "") + (kit.meals() > 0 ? ", +" + kit.meals() + " meal(s)" : "") + (have > 0 ? ", his " + have + " rod(s) in his chest first" : "") + (inVain ? " (no armor came of the last go)" : ""))));
+          if (pick != null && pick.name().equals("hunt them elsewhere")) {
+              if (crowds == null) crowds = new HashMap<>(); crowds.put(g.getUUID(), new long[] {crowdAt.asLong(), serverT(g) + 20L * (long) Weights.w("blaze.crowd_memory_s", 600)});
+              g.tasks.add(new Task.GoTo(away, 2.0)); g.skillQueue.addFirst(again);
+              ClaudeMod.LOGGER.info("[Claude fight] {} blazes about {}: away to {} out of their sight, the rods from the fortress's own spawns elsewhere, that crowd let be for {} s (FortressFight.blazeRods)", crowd, crowdAt.toShortString(), away.toShortString(), (int) Weights.w("blaze.crowd_memory_s", 600));
+              return "hunting them elsewhere: " + crowd + " blazes about " + crowdAt.toShortString() + ", away to " + away.toShortString() + " for the fortress's own spawns, 1-2 at a time (" + have + "/" + goal + " rods)"; }
           if (pick != null && pick.name().equals("heal here first")) { g.skillQueue.addFirst(again); return healHere(g, level, "the fight at " + (int) g.getHealth() + " HP priced ~" + Math.round(now) + " s, healed here ~" + Math.round(healHere) + " s"); }
           if (pick != null && pick.name().equals("get ready first")) {
               HuntPatrol.readying(g); g.skillQueue.addFirst(again); g.skillQueue.addFirst(new Skills.Step("enter_portal", "", 1)); g.skillQueue.addFirst(new Skills.Step("gear_up", "", 1)); if (have > 0) g.skillQueue.addFirst(new Skills.Step("store", "", 1)); g.skillQueue.addFirst(new Skills.Step("enter_portal", "", 1));
               java.util.List<String> gets = new java.util.ArrayList<>(); if (readyArmor > g.getArmorValue()) gets.add("armor " + (int) readyArmor); if (readyShield && !shield) gets.add("a shield"); if (kit.meals() > 0) gets.add(kit.meals() + " more meal(s)"); if (g.getHealth() < 20) gets.add("full health"); // (what the trip adds, not a fixed "armor and a shield": live 02:20:48 11-11 said that at armor 14 with a shield in hand)
               return "getting ready first: through the portal" + (have > 0 ? " to bank my " + have + " rod(s) and" : "") + " for " + (gets.isEmpty() ? "gear_up's kit" : String.join(", ", gets)) + " (the blazes' fireballs at armor " + g.getArmorValue() + " priced ~" + Math.round(now) + " s against ~" + Math.round(trip + Weights.w("blaze.ready_s", 240) + ready) + " s geared)";
           } }
+        { int blocks = 0; for (var it0 : WALLS) blocks += g.inventory.count(x -> x.is(it0)); int want = (int) Weights.w("blaze.kit_blocks", 24); // (blocks to wall in with when there's nowhere out of their sight: live 01:57 11-12, D2D death, "too few blocks to wall in" with 9 on him, 20 -> 0 in their fire; stage 1589)
+          if (blocks < want && run.length > 5 && run[5] == 0 && level.dimension() == net.minecraft.world.level.Level.NETHER && g.inventory.count(s -> s.getItem() instanceof net.minecraft.world.item.PickaxeItem) > 0) {
+              run[5] = 1; g.skillQueue.addFirst(again); g.skillQueue.addFirst(new Skills.Step("collect", "netherrack", want - blocks));
+              ClaudeMod.LOGGER.info("[Claude fight] {} block(s) to wall in with on him, {} wanted for a fight with nowhere out of their sight: {} netherrack first, a few seconds' digging (FortressFight.blazeRods)", blocks, want, want - blocks);
+              return "blocks first: " + (want - blocks) + " netherrack to wall in with if there's nowhere out of the blazes' sight (" + blocks + " on me)"; } } // (after the ready choice: blocks for the fight he's about to have, not before a trip home for armor: stage 844)
         observe(g, level);
         List<Blaze> bl = blazesNear(g, level, g.blockPosition(), 32);
         bl.removeIf(b -> !g.hasLineOfSight(b) && b.distanceTo(g) > 12); // in view, or close enough he hears it
         BlockPos spawner = blazeSpawner(g, level, 20);
         if (bl.isEmpty() && spawner == null) {
-            { BlockPos known = null; for (BlockPos q : Atlas.spots(g, level, "blaze_spawner")) if ((!level.isLoaded(q) || level.getBlockState(q).is(net.minecraft.world.level.block.Blocks.SPAWNER)) && (known == null || q.distSqr(g.blockPosition()) < known.distSqr(g.blockPosition()))) known = q; // (one broken since: not that)
+            { BlockPos known = null; for (BlockPos q : Atlas.spots(g, level, "blaze_spawner")) if ((!level.isLoaded(q) || level.getBlockState(q).is(net.minecraft.world.level.block.Blocks.SPAWNER)) && !byCrowd(g, q) && (known == null || q.distSqr(g.blockPosition()) < known.distSqr(g.blockPosition()))) known = q; // (one broken since: not that)
               if (known != null && known.distSqr(g.blockPosition()) > 12 * 12) { run[3]++; g.tasks.add(new Task.GoTo(known, 4.0)); g.skillQueue.addFirst(again);
                 ClaudeMod.LOGGER.info("[Claude fight] no blaze in view: to the blaze spawner he found at {} ({} off), where they come from (FortressFight.blazeRods)", known.toShortString(), (int) Math.sqrt(known.distSqr(g.blockPosition())));
                 return "no blaze in view: to the blaze spawner I found at " + known.toShortString() + " (" + have + "/" + goal + " rods)"; } }
             // none in view: walk the fortress he has seen, piece by piece (each piece once a while), looking
             if (FortressScout.onFortress(g)) { BlockPos step = FortressScout.deckStep(g, level); long[] last = blazeLast().get(g.getUUID()); // where the last blaze was, or along the deck into pieces he hasn't seen, priced (D2D 07:20 11-07: one blaze killed, 0/6, he walked the deck to 297,65,485 into a wither skeleton and piglins and died; a player waits where the blazes come from)
-              if (last != null && serverT(g) - last[1] < 20 * Weights.w("blaze.wait_memory_s", 600)) { BlockPos lastAt = BlockPos.of(last[0]); double age = (serverT(g) - last[1]) / 20.0, far = Math.sqrt(lastAt.distSqr(g.blockPosition()));
+              if (last != null && serverT(g) - last[1] < 20 * Weights.w("blaze.wait_memory_s", 600) && !byCrowd(g, BlockPos.of(last[0]))) { BlockPos lastAt = BlockPos.of(last[0]); double age = (serverT(g) - last[1]) / 20.0, far = Math.sqrt(lastAt.distSqr(g.blockPosition()));
                 double waitS = far / Decide.sprint() + Weights.w("blaze.wait_s", 30) * (1 + last[2] * 10 / Weights.w("blaze.spawner_max_s", 40)) * (1 + age / 300); // (a spawner sends more every 10-40 s while he's within 16: the longer he's waited past that with none, and the older the sighting, the less likely one's there)
                 double lookS = step == null ? Double.MAX_VALUE : Math.sqrt(step.distSqr(g.blockPosition())) / Decide.sprint() + Weights.w("fortress.look_risk_s", 45); // (pieces he hasn't seen: wither skeletons, a skeleton group, piglins, met out of cover)
                 var pick = Decide.choose(g, "blaze.look", "no blaze in view; the last one " + Math.round(age) + " s ago at " + lastAt.toShortString() + ", " + last[2] + " wait(s) since", true, List.of(

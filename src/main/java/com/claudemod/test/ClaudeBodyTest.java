@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1613: return st1613(stage, t, c, h, level, mock);
             case 1612: return st1612(stage, t, c, h, level, mock);
             case 1611: return st1611(stage, t, c, h, level, mock);
             case 1610: return st1610(stage, t, c, h, level, mock);
@@ -15438,7 +15439,7 @@ public final class ClaudeBodyTest {
             for (int x = -6; x <= 10; x++) for (int z = -6; z <= 6; z++) for (int y = -3; y <= 5; y++) nl.setBlock(o.offset(x, y, z), Blocks.NETHERRACK.defaultBlockState(), 2);
             for (int y = 0; y <= 1; y++) nl.setBlock(o.offset(0, y, 0), Blocks.AIR.defaultBlockState(), 2); // his pocket
             for (int x = 3; x <= 7; x++) for (int z = -2; z <= 2; z++) for (int y = 0; y <= 3; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); // the blaze's room, 2 netherrack (x 1-2) between
-            nsKit(c); c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
+            nsKit(c); c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); /* (blocks to wall in with: blaze_rods fetches 24 first without them, stage 1589) */
             for (var sl : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET})
                 c.setItemSlot(sl, new ItemStack(sl == net.minecraft.world.entity.EquipmentSlot.HEAD ? Items.DIAMOND_HELMET : sl == net.minecraft.world.entity.EquipmentSlot.CHEST ? Items.DIAMOND_CHESTPLATE : sl == net.minecraft.world.entity.EquipmentSlot.LEGS ? Items.DIAMOND_LEGGINGS : Items.DIAMOND_BOOTS));
             c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20);
@@ -20282,7 +20283,7 @@ public final class ClaudeBodyTest {
             for (int x = -8; x <= 56; x++) for (int z = -10; z <= 10; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.NETHER_BRICKS : Blocks.AIR).defaultBlockState(), 2);
             nl.setBlock(sp, Blocks.SPAWNER.defaultBlockState(), 2); if (nl.getBlockEntity(sp) instanceof net.minecraft.world.level.block.entity.SpawnerBlockEntity sb) sb.setEntityId(EntityType.BLAZE, nl.getRandom());
             for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(70))) e.discard();
-            nsKit(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 23)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            nsKit(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 23)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); /* (blocks to wall in with: blaze_rods fetches 24 first without them, stage 1589) */ c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
             c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
             c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 900;
             c.teleportTo(nl, sp.getX() - 7.5, o.getY(), sp.getZ() + 0.5, -90f, 0f); c.fallDistance = 0; c.setHealth(20); c.getFoodData().setFoodLevel(20);
@@ -20310,7 +20311,7 @@ public final class ClaudeBodyTest {
         if (t[0] == 10) {
             for (int x = -12; x <= 12; x++) for (int z = -12; z <= 12; z++) for (int y = -12; y <= 6; y++) nl.setBlock(o.offset(x, y, z), (y == -1 && Math.abs(x) <= 3 && Math.abs(z) <= 3 || y == -12 ? Blocks.NETHER_BRICKS : Blocks.AIR).defaultBlockState(), 2); // a 7x7 deck over a drop
             for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
-            nsKit(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 23)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            nsKit(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 23)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); /* (blocks to wall in with: blaze_rods fetches 24 first without them, stage 1589) */ c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
             c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
             c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 900;
             c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 90f, 0f); c.fallDistance = 0; c.setHealth(20); c.getFoodData().setFoodLevel(20);
@@ -21823,6 +21824,42 @@ public final class ClaudeBodyTest {
                 check(there, "hit the blaze on the way back but not to cover in 6 s (at +" + at + ", " + line + ")");
                 pass(stage, t, "hit it on the way and behind the wall in " + s + " s");
             }
+        }
+        return true;
+    }
+    /** Stage 1613 (D2D death 07:13:08 11-12 at the spawner at 315,63,489: 16 blazes about it fired 56 shots in 23 s; blaze.ready priced the rods on rods left, never the crowd, and the job walked him back to it after every run; the user's rule via D2D: "leave and come back by another spot" as a priced option). A blaze spawner with 8 blazes about it, him 8 off at full health in iron with a shield, a wall to get behind 18 back: he leaves to hunt them elsewhere, and the job keeps him off that crowd. */
+    private static final java.util.List<net.minecraft.world.entity.monster.Blaze> s1613B = new java.util.ArrayList<>();
+    private static boolean st1613(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(7240, 70, 6820), sp = o.offset(30, 1, 0);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Atlas.reset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.FortressFight.reset(c); com.claudemod.entity.life.FortressFight.crowdForgetTest(c); s1613B.clear(); }
+        if (t[0] > 10 && t[0] % 10 == 0 && c.level() == nl) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 4, c.blockPosition());
+        if (t[0] > 10 && t[0] % 10 == 0) for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(70))) if (!s1613B.contains(e)) e.discard();
+        if (t[0] == 10) {
+            for (int x = -16; x <= 44; x++) for (int z = -44; z <= 44; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.NETHER_BRICKS : Blocks.AIR).defaultBlockState(), 2);
+            for (int z = -30; z <= 30; z++) for (int y = 0; y <= 8; y++) nl.setBlock(o.offset(12, y, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // a wall 18 back from the spawner: out of their sight behind it
+            nl.setBlock(sp, Blocks.SPAWNER.defaultBlockState(), 2); if (nl.getBlockEntity(sp) instanceof net.minecraft.world.level.block.entity.SpawnerBlockEntity sb) sb.setEntityId(EntityType.BLAZE, nl.getRandom());
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(70))) e.discard();
+            nsKit(c); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 23)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 900;
+            c.teleportTo(nl, sp.getX() - 7.5, o.getY(), sp.getZ() + 0.5, -90f, 0f); c.fallDistance = 0; c.setHealth(20); c.getFoodData().setFoodLevel(20);
+        }
+        if (t[0] == 30) for (int i = 0; i < 8; i++) { var b = EntityType.BLAZE.create(nl); double a = i * Math.PI / 4; b.moveTo(sp.getX() + 0.5 + 3.5 * Math.cos(a), sp.getY() + 1 + (i % 3), sp.getZ() + 0.5 + 3.5 * Math.sin(a), 90, 0); b.setNoAi(true); b.setNoGravity(true); b.setPersistenceRequired(); nl.addFreshEntity(b); s1613B.add(b); com.claudemod.entity.life.Perception.noteSeenTest(c, b); }
+        if (t[0] == 40) {
+            c.skillQueue.clear(); c.tasks.clear(); c.setHealth(20);
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "blaze_rods", "blaze_rod", 7);
+            BlockPos away = null; for (Task q : c.tasks) if (q instanceof Task.GoTo g0 && g0.pos().distSqr(sp) >= 32 * 32) away = g0.pos();
+            String q = c.tasks.toString(); c.skillQueue.clear(); c.tasks.clear(); c.dropCurrent = true;
+            boolean left = r != null && r.startsWith("hunting them elsewhere") && away != null;
+            boolean back = false;
+            if (left) { c.teleportTo(nl, away.getX() + 0.5, away.getY(), away.getZ() + 0.5, 90f, 0f); c.fallDistance = 0; String r2 = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "blaze_rods", "blaze_rod", 7); back = c.tasks.stream().anyMatch(x -> x instanceof Task.GoTo g1 && g1.pos().distSqr(sp) <= 16 * 16); if (back) r = r2; c.skillQueue.clear(); c.tasks.clear(); c.dropCurrent = true; }
+            for (var b : s1613B) b.discard(); s1613B.clear(); com.claudemod.entity.life.FortressFight.crowdForgetTest(c);
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl != net.minecraft.world.entity.EquipmentSlot.MAINHAND) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent(); com.claudemod.entity.life.Atlas.reset(c);
+            for (int x = -16; x <= 44; x++) for (int z = -44; z <= 44; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(left, "8 blazes about the spawner 8 off, a wall to get behind: not away to hunt them elsewhere (" + r + "; " + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+            check(!back, "away from the crowd: the job walked him back to it (" + r + ")");
+            nsHome(c, h, level); pass(stage, t, r);
         }
         return true;
     }

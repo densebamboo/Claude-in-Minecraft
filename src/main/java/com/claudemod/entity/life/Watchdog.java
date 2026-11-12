@@ -146,7 +146,7 @@ public final class Watchdog {
     private static boolean walkNoGain(St s, String k, ClaudeEntity g, Task t) {
         double d = targetDist(g, t); double[] last = s.lastEnd.get(k);
         boolean same = last != null && now(g) - last[3] <= WINDOW && d > last[2] - 1.0;
-        s.lastEnd.put(k, new double[] {0, 0, same ? Math.min(d, last[2]) : Math.min(d, s.startDist), now(g)});
+        s.lastEnd.put(k, new double[] {0, 0, same ? last[2] : Math.min(d, s.startDist), now(g)}); // (the mark stays put till he's a block past it: steps of 0.9 each add up; a stair climb out of a cave 50 up was written off on its 3rd step, D2D 182057-43, stage 1528)
         if (!same && last != null) s.ends.remove(k);
         return true;
     }

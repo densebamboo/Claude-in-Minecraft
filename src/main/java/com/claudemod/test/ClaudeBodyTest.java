@@ -11004,6 +11004,7 @@ public final class ClaudeBodyTest {
             case 1525: return st1525(stage, t, c, h, level, mock);
             case 1526: return st1526(stage, t, c, h, level, mock);
             case 1527: return st1527(stage, t, c, h, level, mock);
+            case 1528: return st1528(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -21780,6 +21781,25 @@ public final class ClaudeBodyTest {
             check(c.onGround() || true, "");
             check(!took, "his pillar's block under the climb's next leg taken back up as he sets off: " + q);
             pass(stage, t, "the climb's block kept: " + q);
+        }
+        return true;
+    }
+    /** Stage 1528 (D2D review 182057-43, live 17:50:35-17:58:59 11-11 at -143,32..36,-472..-468): cutting stairs up out of a cave to -130,82,-472, one step every 2 s, each a block up and one along: 51.7, 50.7, 49.8, 48.9, 48.0 off. Each step won a little under a block (0.96 .. 0.89), the watchdog's "no nearer" read every one as no gain, and on the third counted the climb TRIPped and was written off; the hunt for the pigs up top ran from 38 below and the food pick flipped beef, pork, chicken, beef. Steady steps that add up to blocks are progress. */
+    private static final BlockPos st1528O = new BlockPos(19800, 100, 19000);
+    private static boolean st1528(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = st1528O, goal = o.offset(13, 50, 0); var go = new Task.GoTo(goal, 2.0);
+        if (t[0] == 1 || t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Watchdog.reset(c); c.attempts.clear(); c.nextPlanTick = c.tickCount + 20 * 600; c.setNoGravity(true); }
+        int step = (t[0] - 20) / 10, ph = (t[0] - 20) % 10;
+        if (t[0] >= 20 && step < 9) {
+            if (ph == 0) { c.tasks.clear(); c.currentTask = null; c.teleportTo(level, o.getX() + 0.5, o.getY() + step, o.getZ() + step + 0.5, 0f, 0f); c.setDeltaMovement(0, 0, 0); com.claudemod.entity.life.Watchdog.starting(c, go); }
+            if (ph == 6) { c.tasks.clear(); c.tasks.add(new Task.Break(o.offset(0, step + 2, step + 1))); c.tasks.add(go); com.claudemod.entity.life.Watchdog.ended(c, go, null); c.tasks.clear(); c.currentTask = null; }
+        }
+        if (t[0] == 20 + 9 * 10 + 2) {
+            boolean off = c.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK).containsKey(goal);
+            c.setNoGravity(false); c.attempts.clear(); com.claudemod.entity.life.Watchdog.reset(c); nsHome(c, h, level);
+            check(!off, "a stair climb a block up and one along every step, ~0.9 nearer each: written off as a failed walk");
+            pass(stage, t, "9 steps up the stairs, the climb not written off");
         }
         return true;
     }

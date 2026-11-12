@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1589: return st1589(stage, t, c, h, level, mock);
             case 1588: return st1588(stage, t, c, h, level, mock);
             case 1587: return st1587(stage, t, c, h, level, mock);
             case 1586: return st1586(stage, t, c, h, level, mock);
@@ -21319,6 +21320,34 @@ public final class ClaudeBodyTest {
             check(r != null && r.startsWith("waiting") || r != null && r.startsWith("healing"), "setup: not the heal wait (withers near " + wn + ", health " + hp0 + ", in the Nether " + inNl + ", wither alive " + s1588M0alive + "; " + r + ")");
             check(!waitsInView, "at 11 HP, wither skeletons about, a blaze 12 off that sees him: healing in its view (" + r + "; " + (q.length() > 120 ? q.substring(0, 120) : q) + ")");
             pass(stage, t, "out of its sight to heal: " + r);
+        }
+        return true;
+    }
+    /** Stage 1589 (D2D death report, live 01:56:57-01:57:12 11-12 at 317,63,494 by his fortress: "too few blocks to wall in" with 9 cobblestone/deepslate on him, no cover within 10, every way out past them, 20 -> 0 in 15 s, fireballs and fire). The 1582 state with 9 cobblestone: netherrack first, a few seconds of digging, before the fight. */
+    private static boolean st1589(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(12600, 64, 8500);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); com.claudemod.entity.life.Highway.reset(c);
+            com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).edges.clear();
+            com.claudemod.entity.life.PortalMap.note(c, com.claudemod.entity.life.PortalMap.NETHER, o.west(270), "him", "lit"); }
+        nsTick(nl, c, o, t);
+        if (t[0] == 10) {
+            for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(60))) m.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_BOOTS)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 10)); c.getInventory().add(new ItemStack(Items.COOKED_PORKCHOP, 2)); c.getInventory().add(new ItemStack(Items.BLAZE_ROD, 1)); c.getInventory().add(new ItemStack(Items.SALMON, 2)); c.getInventory().add(new ItemStack(Items.ROTTEN_FLESH, 3)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 9));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            for (int x = -3; x <= 3; x++) for (int z = -3; z <= 3; z++) for (int y = -2; y <= 3; y++) nl.setBlock(o.offset(x, y, z), (y < 0 || y == 3 ? Blocks.NETHERRACK : Blocks.AIR).defaultBlockState(), 2);
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+            c.setHealth(20); c.getFoodData().setFoodLevel(20); c.getFoodData().setSaturation(5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear(); c.commandActive = false;
+        }
+        if (t[0] == 30) {
+            String r = com.claudemod.entity.life.FortressFight.blazeRods(c, mock[0], nl, new com.claudemod.entity.life.Skills.Step("blaze_rods", "blaze_rod@7", 1, "near_you"));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent();
+            for (var sl : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET, net.minecraft.world.entity.EquipmentSlot.OFFHAND}) c.setItemSlot(sl, ItemStack.EMPTY);
+            com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).edges.clear();
+            for (int x = -3; x <= 3; x++) for (int z = -3; z <= 3; z++) for (int y = -2; y <= 3; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            nsHome(c, h, level);
+            check(r.startsWith("blocks first"), "at his fortress, armor 14 and a shield, a pick, 9 blocks on him: into the blazes without blocks to wall in (" + r + ")");
+            pass(stage, t, r);
         }
         return true;
     }

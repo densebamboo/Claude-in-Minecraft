@@ -478,7 +478,7 @@ public final class FortressFight {
         int at = target.indexOf('@');
         if (at >= 0) { try { goal = Integer.parseInt(target.substring(at + 1)); } catch (NumberFormatException e) { goal = have + st.count(); } }
         else { goal = have + Math.max(1, st.count()); run = null; } // a new ask: the count is what's to come in on top of what he has
-        if (run == null || run[0] != goal) { run = new int[] {goal, 0, have, 0, 0}; runs().put(g.getUUID(), run); riskSaid().remove(g.getUUID()); } // {goal, goes since a rod, rods then, walks, shield asked}
+        if (run == null || run[0] != goal) { run = new int[] {goal, 0, have, 0, 0, 0}; runs().put(g.getUUID(), run); riskSaid().remove(g.getUUID()); } // {goal, goes since a rod, rods then, walks, shield asked}
         if (have >= goal) { ClaudeMod.LOGGER.info("[Claude fight] {} blaze rods of {}: done (FortressFight.blazeRods)", have, goal); runs().remove(g.getUUID()); covers().remove(g.getUUID()); return "done: " + have + " blaze rods (" + goal + " wanted)"; }
         if (have > run[2]) { run[1] = 0; run[2] = have; } else run[1]++;
         if (run[1] > 40) { runs().remove(g.getUUID()); return "failed: 40 goes at the blazes since the last rod (" + have + " of " + goal + "): not getting them here as things stand"; }
@@ -497,6 +497,11 @@ public final class FortressFight {
             ClaudeMod.LOGGER.info("[Claude fight] no shield, {} iron and {} planks' worth on him: a shield first, it blocks every fireball of a volley (FortressFight.blazeRods)", iron, planks + logs * 4);
             return "a shield first (6 planks and an iron ingot): it takes the blazes' fireballs";
         }
+        { int blocks = 0; for (var it0 : WALLS) blocks += g.inventory.count(x -> x.is(it0)); int want = (int) Weights.w("blaze.kit_blocks", 24); // (blocks to wall in with when there's nowhere out of their sight: live 01:57 11-12, D2D death, "too few blocks to wall in" with 9 on him, 20 -> 0 in their fire; stage 1589)
+          if (blocks < want && run.length > 5 && run[5] == 0 && level.dimension() == net.minecraft.world.level.Level.NETHER && g.inventory.count(s -> s.getItem() instanceof net.minecraft.world.item.PickaxeItem) > 0) {
+              run[5] = 1; g.skillQueue.addFirst(again); g.skillQueue.addFirst(new Skills.Step("collect", "netherrack", want - blocks));
+              ClaudeMod.LOGGER.info("[Claude fight] {} block(s) to wall in with on him, {} wanted for a fight with nowhere out of their sight: {} netherrack first, a few seconds' digging (FortressFight.blazeRods)", blocks, want, want - blocks);
+              return "blocks first: " + (want - blocks) + " netherrack to wall in with if there's nowhere out of the blazes' sight (" + blocks + " on me)"; } }
         { // fight now or get ready first, priced (D2D 04:52 World 17: no armor, every fireball the full 5, 20 -> 3 in 18 s, burned to death; the user's rule: a price, never a gate)
           double tough = g.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS); int left = goal - have;
           var portal = PortalMap.net(g).portals.stream().filter(p0 -> PortalMap.NETHER.equals(p0.dim)).min(java.util.Comparator.comparingDouble(p0 -> p0.at.distSqr(g.blockPosition()))).orElse(null);

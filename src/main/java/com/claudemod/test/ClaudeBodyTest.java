@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1599: return st1599(stage, t, c, h, level, mock);
             case 1598: return st1598(stage, t, c, h, level, mock);
             case 1597: return st1597(stage, t, c, h, level, mock);
             case 1596: return st1596(stage, t, c, h, level, mock);
@@ -21696,6 +21697,35 @@ public final class ClaudeBodyTest {
         return true;
     }
 
+    /** Stage 1599 (D2D, live 06:51:54-06:52:24 11-12 at 314,60,502: "escape: out of their sight at 313, 61, 502: holding", then "hit at his hide 313, 61, 502 (1.3 off it, he's at 314, 60, 502) ... line to the spot false, to him true" 6 times, 20 -> 11 from fireballs; trace drag-64: 60 ticks at 314.30 60.00 502.50 against the step (hcoll), want 313.50 61.00 502.50 set every tick, no jump; stage 1497 steps him in on the flat only). His hide one block up on a step beside him, him in the blaze's line below it: he steps up into the hide. */
+    private static int s1599T; private static net.minecraft.world.entity.monster.Blaze s1599B; private static BlockPos s1599H;
+    private static boolean st1599(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1599T = -1; if (s1599B != null) s1599B.discard(); s1599B = null; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            BlockPos me = h.absolutePos(new BlockPos(6, 2, 10)).immutable(); s1599H = me.west().above().immutable();
+            level.setBlock(me.west(), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // the step under his hide
+            for (int y = 1; y <= 3; y++) level.setBlock(me.west().north().above(y), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // the wall north of the hide: the blaze's line to it
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.teleportTo(me.getX() + 0.8, me.getY(), me.getZ() + 0.5); c.setHealth(12); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var b = EntityType.BLAZE.create(level); BlockPos sp = me.north(9); b.moveTo(sp.getX() + 0.5, sp.getY() + 1, sp.getZ() + 0.5, 0, 0); b.setNoAi(true); b.setNoGravity(true); b.setPersistenceRequired(); level.addFreshEntity(b); b.setTarget(c); s1599B = b;
+            com.claudemod.entity.life.Perception.noteSeenTest(c, b);
+            check(com.claudemod.entity.life.FortressFight.sees(level, b, me) && !com.claudemod.entity.life.FortressFight.sees(level, b, s1599H), "setup: the blaze sees him below the step, not the hide on it");
+        }
+        if (t[0] == 12) { c.work.escapeHoldForTest(s1599H); c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Flee(600)); s1599T = t[0]; }
+        if (s1599T > 0 && t[0] > s1599T) {
+            double d = c.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(s1599H)); boolean in = d < 0.4 && c.onGround();
+            if (in || t[0] - s1599T > 20 * 3) {
+                double s = (t[0] - s1599T) / 20.0; String q = c.currentTask + " " + c.tasks; String at = String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ());
+                s1599B.discard(); s1599B = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.work.escapeHoldForTest(null);
+                BlockPos me = s1599H.below().east(); level.setBlock(me.west(), Blocks.AIR.defaultBlockState(), 2); for (int y = 1; y <= 3; y++) level.setBlock(me.west().north().above(y), Blocks.AIR.defaultBlockState(), 2);
+                c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.fallDistance = 0;
+                check(in, "his hide a step up beside him, him in the blaze's line below it: not in it in 3 s (" + String.format("%.2f", d) + " off at " + at + ", " + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+                pass(stage, t, "up into his hide in " + s + " s");
+            }
+        }
+        return true;
+    }
     /** Stage 934 (the user 11-07 via D2D: "anytime he enters/exits a rock he should place a shell frame. anywhere he needs to patch a tunnel he should place a shell, excluding lava plugs, which he should plug with netherrack or the surrounding blocks. anything that doesnt need patching he can just do the floor"; "the shell frame should be visible on the outside of the rock and have corners"): a tunnel through netherrack z 3-12, open past it, a hole in its west wall at z 7 and lava in its east wall at z 9. Rings at z 3 and z 12, the rock left inside, the hole patched with deepslate, the lava plugged with netherrack; far less deepslate than a full shell. */
     private static int s934T, s934Deep;
     private static boolean st934(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {

@@ -11072,6 +11072,7 @@ public final class ClaudeBodyTest {
             case 1601: return st1601(stage, t, c, h, level, mock);
             case 1602: return st1602(stage, t, c, h, level, mock);
             case 1604: return st1604(stage, t, c, h, level, mock);
+            case 1607: return st1607(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -23800,6 +23801,32 @@ public final class ClaudeBodyTest {
             check(top, "the ore hole's top cell (his floor) not patched in 15 s, him at " + at);
             check(!listed, "the hole's bottom patch is on his tower list: taken back down later as a pillar");
             pass(stage, t, "both cells of the ore hole filled in " + took / 20.0 + " s");
+        }
+        return true;
+    }
+    /** Stage 1607 (D2D review 073738-97, live 07:34:48 and 07:36:56 11-12 at -83,17,-509 / -117,16,-508: "placing cobblestone at -82,18,-509: 3 times in 1 s (first: out of the cell it goes in, then the block from beside (doPlace 2580))", then written off, "stuck: already within 3.5"). His body over the edge into the cell beside at head height, the only cell to step out to his own: into its middle, then the block in. */
+    private static BlockPos s1607P; private static int s1607At;
+    private static boolean st1607(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(6, 2, 6));
+        if (t[0] == 1) { scenarioReset(c); c.prefs.put("stay_close", "no"); s1607At = 0; }
+        if (t[0] > 1 && t[0] % 5 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(30))) m.discard();
+        if (t[0] == 10) {
+            for (int x = -4; x <= 5; x++) for (int z = -4; z <= 4; z++) for (int y = -1; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+            for (int x = -3; x <= 1; x++) level.setBlock(o.offset(x, 0, 0), Blocks.AIR.defaultBlockState(), 2); // (a 1-wide crawl along x)
+            for (int x = -3; x <= 0; x++) level.setBlock(o.offset(x, 1, 0), Blocks.AIR.defaultBlockState(), 2); // (head room over it to his cell)
+            level.setBlock(o.offset(1, 1, 0), Blocks.AIR.defaultBlockState(), 2); s1607P = o.offset(1, 1, 0).immutable(); // (the cell to fill: head height, beside his cell, its face the stone east of it)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            c.teleportTo(o.getX() + 0.78, o.getY(), o.getZ() + 0.5); c.fallDistance = 0; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(6000);
+        }
+        if (t[0] > 10) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 14) { c.teleportTo(o.getX() + 0.78, o.getY(), o.getZ() + 0.5); c.setDeltaMovement(0, 0, 0); c.tasks.add(new Task.Place(s1607P, Items.COBBLESTONE)); s1607At = t[0]; }
+        if (s1607At > 0 && (!level.getBlockState(s1607P).isAir() || t[0] - s1607At > 20 * 8)) {
+            boolean in = !level.getBlockState(s1607P).isAir(); int took = t[0] - s1607At; String at = String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ());
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.prefs.remove("stay_close"); s1607At = 0;
+            for (int x = -4; x <= 5; x++) for (int z = -4; z <= 4; z++) for (int y = -1; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            flatBox(h); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5);
+            check(in, "his body over the edge into the head-height cell beside him: the block not in after 8 s (him at " + at + ")");
+            pass(stage, t, "into the middle of his cell, the block in after " + took / 20.0 + " s");
         }
         return true;
     }

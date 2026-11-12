@@ -385,7 +385,9 @@ public final class TempLedger {
         if (leaving(g, level)) return; // setting off past blocks of his he's done with: back up first ("clear before he leaves")
         if ((g.tickCount / 20) % 5 == 0 && idle(g, level)) { // every 5 s, idle: a batch of his blocks back up, or a tree he owes
             BlockPos under = g.blockPosition().below(); Entry ue = book(g).get(under);
-            if (ue != null && g.onGround() && his(level, ue) && doneWith(g, level, ue, false, true) && (com.claudemod.director.ClaudeLife.dayHere(level) || !level.canSeeSky(under))) { // up on a tower of his with nothing left to do up here: down it, the blocks back
+            BlockPos spawnerBy = ue != null && ("cover".equals(ue.why) || "nerd-pole".equals(ue.why)) ? Perception.seenSpawner(g, level, under, 16) : null; // a cover by a spawner he has seen: its mobs come back whether he knows of one yet or not (a relaunch empties what he knows; live 07:12:14 11-12, down his cover by the blaze spawner 13 off on the first tick, shot 11 s on; stage 1610)
+            if (spawnerBy != null && (g.tickCount / 20) % 60 == 0) ClaudeMod.LOGGER.info("[Claude temp] his {} at {} stays up: the spawner he saw at {} is {} off, its mobs come back (TempLedger.tick)", ue.why, under.toShortString(), spawnerBy.toShortString(), (int) Math.sqrt(spawnerBy.distSqr(under)));
+            if (ue != null && spawnerBy == null && g.onGround() && his(level, ue) && doneWith(g, level, ue, false, true) && (com.claudemod.director.ClaudeLife.dayHere(level) || !level.canSeeSky(under))) { // up on a tower of his with nothing left to do up here: down it, the blocks back
                 g.tasks.add(new Task.Pillar(-1)); g.tasks.add(new Task.Pickup(60)); ue.triedAt = g.tickCount; ue.awayAfterTry = false; ue.now = line(g);
                 ClaudeMod.LOGGER.info("[Claude temp] up on his {} at {} with nothing to do up here: down it, the blocks back", ue.why, under.toShortString());
                 return;

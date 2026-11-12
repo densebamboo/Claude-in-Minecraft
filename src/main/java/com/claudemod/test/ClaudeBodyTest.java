@@ -10551,6 +10551,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1611: return st1611(stage, t, c, h, level, mock);
+            case 1610: return st1610(stage, t, c, h, level, mock);
             case 1599: return st1599(stage, t, c, h, level, mock);
             case 1598: return st1598(stage, t, c, h, level, mock);
             case 1597: return st1597(stage, t, c, h, level, mock);
@@ -21722,6 +21724,68 @@ public final class ClaudeBodyTest {
                 c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.fallDistance = 0;
                 check(in, "his hide a step up beside him, him in the blaze's line below it: not in it in 3 s (" + String.format("%.2f", d) + " off at " + at + ", " + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
                 pass(stage, t, "up into his hide in " + s + " s");
+            }
+        }
+        return true;
+    }
+    /** Stage 1610 (D2D death 07:13:08 11-12, the restart at 07:12:14 at 314,66,502: "up on his cover at 314, 65, 502 with nothing to do up here: down it, the blocks back" on the first tick, his known mobs empty after the relaunch; the blaze spawner he found at 315,63,489 13 off, on record; the blazes heard again from 07:12:15, the walls already coming down, shot at 07:12:25). His cover tower back from his saved state, the spawner he saw 10 off, no mob known yet: the cover stays up. */
+    private static boolean st1610(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13800, 64, 8420); BlockPos sp = o.offset(10, 0, 0);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.FortressFight.reset(c); }
+        if (t[0] < 29) nsTick(nl, c, o, t);
+        if (t[0] > 30 && t[0] % 10 == 0) for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+        if (t[0] == 30) {
+            for (int x = -6; x <= 14; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), y < 0 ? Blocks.NETHER_BRICKS.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            nl.setBlock(sp, Blocks.SPAWNER.defaultBlockState(), 2); com.claudemod.entity.life.Perception.noteSignTest(c, sp, "a mob spawner");
+            var l = new net.minecraft.nbt.ListTag();
+            for (int y = 0; y <= 2; y++) { nl.setBlock(o.above(y), Blocks.COBBLESTONE.defaultBlockState(), 2); var e = new net.minecraft.nbt.CompoundTag(); e.putString("dim", "minecraft:the_nether"); e.putLong("p", o.above(y).asLong()); e.putString("i", "cobblestone"); e.putString("w", "cover"); e.putLong("t", nl.getGameTime() - 20 * 60 * 19); e.putString("b", "-"); e.putString("d", "-"); l.add(e); }
+            var tag = new net.minecraft.nbt.CompoundTag(); tag.put("e", l); com.claudemod.entity.life.TempLedger.load(c, tag);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY() + 3, o.getZ() + 0.5, 90f, 0f); c.fallDistance = 0; c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 30 + 20 * 8) {
+            boolean down = c.tasks.stream().anyMatch(q -> q instanceof Task.Pillar) || c.currentTask instanceof Task.Pillar || c.getY() < o.getY() + 2.5;
+            int standing = 0; for (int y = 0; y <= 2; y++) if (nl.getBlockState(o.above(y)).is(Blocks.COBBLESTONE)) standing++;
+            String q = c.currentTask + " " + c.tasks;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; com.claudemod.entity.life.TempLedger.reset(c);
+            for (int x = -6; x <= 14; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.getInventory().clearContent(); nsHome(c, h, level);
+            check(!down && standing == 3, "his cover tower back from his save, the blaze spawner he saw 10 off, no mob known yet: taken down (" + standing + " of 3 standing, " + (q.length() > 120 ? q.substring(0, 120) : q) + ")");
+            pass(stage, t, "the cover stays up by the spawner");
+        }
+        return true;
+    }
+    /** Stage 1611 (D2D death 07:13:08 11-12 at 315,60,513 -> 326,60,521: health 11, burning, 9-15 blazes about; "back into cover ... to 326, 60, 521" 14.6 off, walked behind the raised shield ("shield up on the way back: a volley due", a fifth of his walking pace), then "hasn't brought him nearer in 2 s / 3 s": shield up and a meal where he stood, 12 -> 1 in 10 s, dead). Health 12, three blazes behind him, his cover 8 off behind a wall: there in 5 s, not a shield-walk. */
+    private static final java.util.List<net.minecraft.world.entity.monster.Blaze> s1611B = new java.util.ArrayList<>(); private static int s1611T;
+    private static boolean st1611(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(13800, 64, 8720);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.FortressFight.reset(c); s1611B.clear(); s1611T = -1; }
+        if (t[0] < 29) nsTick(nl, c, o, t);
+        if (t[0] > 40 && t[0] % 10 == 0) for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) if (!s1611B.contains(e)) e.discard();
+        if (t[0] == 10) {
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+            for (int x = -12; x <= 18; x++) for (int z = -8; z <= 8; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), y < 0 ? Blocks.NETHER_BRICKS.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            for (int z = -1; z <= 1; z++) for (int y = 0; y <= 4; y++) nl.setBlock(o.offset(7, y, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); // the wall: his cover behind it, 7 east
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 7)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 90f, 0f); c.setHealth(12); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 29) for (int z : new int[] {-3, 0, 3}) { var b = net.minecraft.world.entity.EntityType.BLAZE.create(nl); b.moveTo(o.getX() - 7.5, o.getY() + 2, o.getZ() + z + 0.5, -90, 0); b.setPersistenceRequired(); nl.addFreshEntity(b); b.setTarget(c); s1611B.add(b); }
+        if (t[0] == 30) { c.stopUsingItem(); c.tasks.clear(); c.currentTask = null; c.setHealth(12); com.claudemod.entity.life.FortressFight.observe(c, nl); c.tasks.add(new Task.Attack(s1611B.get(1).getUUID(), 20 * 60)); s1611T = t[0]; }
+        if (s1611T > 0 && t[0] > s1611T) {
+            boolean hid = c.getX() > o.getX() + 7.5 && c.onGround(); for (var b : s1611B) if (b.isAlive() && com.claudemod.entity.life.FortressFight.sees(nl, b, c.blockPosition())) hid = false;
+            if (hid || t[0] - s1611T > 20 * 5 || !c.isAlive()) {
+                double s = (t[0] - s1611T) / 20.0; String at = String.format("%.1f %.1f %.1f", c.getX() - o.getX(), c.getY() - o.getY(), c.getZ() - o.getZ()); String line = c.lastSkillLine;
+                for (var b : s1611B) b.discard(); s1611B.clear(); c.stopUsingItem(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.clearFire();
+                for (int x = -12; x <= 18; x++) for (int z = -8; z <= 8; z++) for (int y = -2; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent(); nsHome(c, h, level);
+                check(hid, "health 12, three blazes behind him, his cover 8 off behind a wall: not there in 5 s (at +" + at + " from the start, " + line + ")");
+                pass(stage, t, "behind the wall in " + s + " s");
             }
         }
         return true;

@@ -154,6 +154,8 @@ public final class FortressFight {
     /** How far a blaze shoots: its follow range (vanilla 48), any it sees within that it fires on. Cover is out of sight of all of them (24 left the ones 27 off out: "healing in cover" under their fireballs, World 17 16:12 death 7; stage 1135). */
     static final int SHOT_RANGE = 48;
     /** A blaze he knows of with sight of the cell, or null. */
+    /** How many blazes in shot range see the cell. */
+    public static int blazesSeeing(ClaudeEntity g, ServerLevel level, BlockPos cell) { int n = 0; for (Blaze b : blazesNear(g, level, cell, SHOT_RANGE)) if (sees(level, b, cell)) n++; return n; }
     static Blaze blazeSees(ClaudeEntity g, ServerLevel level, BlockPos cell) { for (Blaze b : blazesNear(g, level, cell, SHOT_RANGE)) if (sees(level, b, cell)) return b; return null; }
 
     /** The blazes about that he knows of: in his line of sight, or within 16 (their breathing and crackle carry), or already on his senses' record. */

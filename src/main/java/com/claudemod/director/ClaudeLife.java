@@ -759,6 +759,13 @@ public final class ClaudeLife {
         return true;
     }
     /** Each second: a notch with no work left out past it (none queued, he's back in) or that he's left the area of is sealed: patched now if he's by it, else handed to his mine rounds. */
+    /** He is past the notch: the open cells he stands in reach it without his mine (out and near it is not past it: a pocket of his own off the other wall held it open 12+ min, D2D review 050049-91, live 04:57-05:10 11-12; stage 1601). */
+    static boolean pastNotch(ClaudeEntity g, ServerLevel level, BlockPos n) {
+        java.util.ArrayDeque<BlockPos> q = new java.util.ArrayDeque<>(); java.util.Set<BlockPos> seen = new java.util.HashSet<>(); q.add(g.blockPosition().immutable()); seen.add(g.blockPosition().immutable());
+        while (!q.isEmpty()) { BlockPos p = q.poll(); if (p.equals(n)) return true; if (seen.size() > 600) return true; // shortcut: a big open cave round him counts as past it, as before
+            for (Direction d : Direction.values()) { BlockPos r = p.relative(d); if (r.distSqr(n) > 16 * 16 || !seen.add(r.immutable())) continue; if (r.equals(n)) return true; if (!level.getBlockState(r).getCollisionShape(level, r).isEmpty() || inMineSide(g, r)) continue; q.add(r.immutable()); } }
+        return false;
+    }
     static void sealNotches(ClaudeEntity g, ServerLevel level) {
         var m = notches(g); if (m.isEmpty()) return;
         for (var it = m.entrySet().iterator(); it.hasNext(); ) { var e = it.next(); BlockPos n = e.getKey(); Notch nt = e.getValue();
@@ -770,7 +777,7 @@ public final class ClaudeLife {
             boolean left = !here || g.blockPosition().distSqr(n) > 24 * 24;
             boolean out = !left && !inMineSide(g, g.blockPosition()) && !m.containsKey(g.blockPosition()) && g.blockPosition().distSqr(n) <= 16 * 16; // (in a notch's own cell he isn't out: he's coming back in)
             boolean queued = false; java.util.List<Task> ts = new java.util.ArrayList<>(g.tasks); if (g.currentTask != null) ts.add(g.currentTask);
-            out = out && (returnQueued(g, ts) || pocketNotches().contains(n.asLong())); // (out there with no way back queued: not coming back through it soon, sealed; a pocket he dug has no other way out: stage 1542)
+            out = out && (returnQueued(g, ts) || pocketNotches().contains(n.asLong())) && pastNotch(g, level, n); // (out there with no way back queued: not coming back through it soon, sealed; a pocket he dug has no other way out: stage 1542)
             for (Task t : ts) { BlockPos q = t instanceof Task.Place pl && (m.containsKey(pl.pos()) || pl.pos().distManhattan(n) <= 2) ? null : taskPos(t); /* (a patch of this notch or its twin cell, just sealed and off the list: no work out past it; it held -82 open 40 s, live 22:49 11-09, review 55, stage 1289) */ if (q != null && !inMineSide(g, q) && q.distSqr(n) <= 16 * 16) { queued = true; break; } }
             boolean inIt = g.blockPosition().equals(n) || g.blockPosition().above().equals(n); // (standing in it: the patch would go into him)
             BlockPos stepIn = null; if (inIt && !left && !out && !queued) for (Direction d0 : Direction.Plane.HORIZONTAL) { BlockPos q0 = g.blockPosition().relative(d0); if (!m.containsKey(q0) && inMineSide(g, q0) && level.getBlockState(q0).getCollisionShape(level, q0).isEmpty() && level.getBlockState(q0.above()).getCollisionShape(level, q0.above()).isEmpty() && !level.getBlockState(q0.below()).getCollisionShape(level, q0.below()).isEmpty()) { stepIn = q0.immutable(); break; } }

@@ -11059,6 +11059,7 @@ public final class ClaudeBodyTest {
             case 1548: return st1548(stage, t, c, h, level, mock);
             case 1549: return st1549(stage, t, c, h, level, mock);
             case 1600: return st1600(stage, t, c, h, level, mock);
+            case 1601: return st1601(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -23410,6 +23411,39 @@ public final class ClaudeBodyTest {
             flatBox(h); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5);
             check(cob == 64, "night underground with no mob: the decision was 'carry on' and the shelter step walled him in anyway (" + (64 - cob) + " cobble put), said: " + line);
             pass(stage, t, "night underground, no mob: no wall, said: " + line);
+        }
+        return true;
+    }
+    /** Stage 1601 (D2D review 050049-91, live 04:57:32-05:10 11-12: the access notch at -149,18,-489 into a pocket he dug, "held open ~3 s" by the price, then "still held: he's out past it" every 10 s for 12+ min while he stood at -139,16,-495, a pocket of his own off the other wall: out of his mine and within 16 of it was "past it"). His notch into a pocket on one wall, him in another pocket off the other wall: the notch is sealed. */
+    private static BlockPos s1601N, s1601R; private static int s1601Y, s1601At;
+    private static boolean st1601(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(7950, 90, 8350);
+        if (t[0] == 1) { scenarioReset(c); c.prefs.put("stay_close", "no"); c.prefs.put("torches_while_digging", "no"); s1601At = 0; s1601N = null; }
+        if (t[0] > 1 && t[0] % 5 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) m.discard();
+        if (t[0] == 10) { c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.teleportTo(o.getX() + 0.5, o.getY() + 2, o.getZ() + 0.5); c.fallDistance = 0; c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(6000); }
+        if (t[0] == 16) {
+            var E = net.minecraft.core.Direction.EAST; var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 30, null)); b.invalidate();
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.stairStart = b.entrance;
+            c.mineShape = new ClaudeEntity.MineShape(2, 3, 4, 8, 6, "right"); for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK) c.mineCells.add(e.getKey().immutable());
+            BlockPos row = b.rows().get(14).first(); int fy = row.getY();
+            for (int x = -4; x <= 40; x++) for (int z = -8; z <= 8; z++) for (int y = -7; y <= 5; y++) { BlockPos q = new BlockPos(o.getX() + x, fy + y, row.getZ() + z); level.setBlock(q, (b.isWalk(q) ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            BlockPos n = null, sh = null; for (int dz = 1; dz <= 4 && (n == null || sh == null); dz++) { if (n == null && b.isShell(row.offset(0, 0, -dz))) n = row.offset(0, 0, -dz).immutable(); if (sh == null && b.isShell(row.offset(0, 0, dz))) sh = row.offset(0, 0, dz).immutable(); }
+            for (BlockPos q : new BlockPos[] {n, n.above(), n.north(), n.north().above(), sh, sh.above(), sh.south(), sh.south().above()}) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2); // (his notch north into a pocket; a pocket of his own off the south wall)
+            c.teleportTo(sh.south().getX() + 0.5, sh.south().getY(), sh.south().getZ() + 0.5); c.fallDistance = 0;
+            s1601N = n; s1601R = row.immutable(); s1601Y = fy;
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            check(com.claudemod.director.ClaudeLife.holdNotch(c, level, n, n.north(), true), "setup: the notch at " + n.toShortString() + " not held");
+            s1601At = t[0];
+        }
+        if (t[0] > 16) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (s1601At > 0 && (!level.getBlockState(s1601N).isAir() || t[0] - s1601At > 20 * 20)) {
+            boolean shut = !level.getBlockState(s1601N).isAir(); int took = t[0] - s1601At; String at = c.blockPosition().toShortString();
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.prefs.remove("torches_while_digging"); c.prefs.remove("stay_close"); c.stairStart = null; c.mineShape = null; c.mineCells.clear(); c.pendingPatches.clear(); c.getInventory().clearContent();
+            for (int x = -4; x <= 40; x++) for (int z = -8; z <= 8; z++) for (int y = -7; y <= 5; y++) level.setBlock(new BlockPos(o.getX() + x, s1601Y + y, s1601R.getZ() + z), Blocks.AIR.defaultBlockState(), 2);
+            c.teleportTo(o.getX() + 0.5, o.getY() + 20, o.getZ() + 0.5); c.fallDistance = 0; s1601At = 0;
+            check(shut, "his notch into the north pocket still open after 20 s with him in a pocket off the south wall at " + at + " (\"he's out past it\")");
+            pass(stage, t, "the notch sealed " + took / 20.0 + " s in, him in the other pocket at " + at);
         }
         return true;
     }

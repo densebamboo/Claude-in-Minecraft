@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1662: return st1662(stage, t, c, h, level, mock);
             case 1661: return st1661(stage, t, c, h, level, mock);
             case 1660: return st1660(stage, t, c, h, level, mock);
             case 1659: return st1659(stage, t, c, h, level, mock);
@@ -22328,6 +22329,33 @@ public final class ClaudeBodyTest {
                 check(walls >= 8, "1 HP, nothing to eat, no pick, 38 stems, a hoglin 10 off under a 3-high roof: " + walls + " of 8 walls round him in 8 s (cover said " + s1661R + "; " + q + ")");
                 pass(stage, t, "walled in with his stems (" + walls + " sides)");
             }
+        }
+        return true;
+    }
+    /** Stage 1662 (D2D review 110602-37, live 11:02:48 11-12): "smelt iron_ingot x8: his own furnace set down here (~90 s) beats his at -49, 8, -501 (96 on foot ...)", then in the same tick "furnace at -49, 8, -501: into reach by the way the walk made, then the job": goToStation priced the furnace 8 off through the rock by his rows (96), smelt's reachableFurnace (a 6 box) took it anyway. His furnace 5 off through rock, no way round: the decision and the smelt name the same furnace. */
+    private static boolean st1662(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.myStations.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) m.discard(); }
+        BlockPos o = h.absolutePos(new BlockPos(4, 2, 6));
+        if (t[0] == 10) {
+            for (int x = -3; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+            level.setBlock(o, Blocks.AIR.defaultBlockState(), 2); level.setBlock(o.above(), Blocks.AIR.defaultBlockState(), 2); // his pocket
+            level.setBlock(o.offset(6, 0, 0), Blocks.AIR.defaultBlockState(), 2); level.setBlock(o.offset(6, 1, 0), Blocks.AIR.defaultBlockState(), 2); // the furnace's own pocket, 5 of rock between
+            BlockPos f = o.offset(5, 0, 0).immutable(); level.setBlock(f, Blocks.FURNACE.defaultBlockState().setValue(net.minecraft.world.level.block.FurnaceBlock.FACING, net.minecraft.core.Direction.EAST), 2); c.myStations.add(f);
+            c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.RAW_IRON, 8)); c.getInventory().add(new ItemStack(Items.COAL, 4)); c.getInventory().add(new ItemStack(Items.FURNACE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+        }
+        if (t[0] == 20) {
+            BlockPos f = o.offset(5, 0, 0);
+            c.tasks.clear(); c.skillQueue.clear();
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "iron_ingot", 8);
+            boolean usesHis = c.tasks.stream().anyMatch(q -> q.toString().contains("x=" + f.getX() + ", y=" + f.getY() + ", z=" + f.getZ()));
+            boolean saidOwn = r != null && !r.contains("furnace at " + f.toShortString()) && !r.contains("over to my furnace") && !r.contains("back to the mine");
+            String q = r + " " + c.tasks.stream().limit(4).toList();
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear();
+            for (int x = -3; x <= 9; x++) for (int z = -3; z <= 3; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            flatBox(h);
+            check(!(usesHis && saidOwn), "his furnace 5 off through rock: the decision set his own down here, the smelt went to his anyway (" + q + ")");
+            pass(stage, t, "one furnace named: " + q);
         }
         return true;
     }

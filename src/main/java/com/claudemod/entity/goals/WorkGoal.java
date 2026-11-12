@@ -1943,7 +1943,10 @@ public class WorkGoal extends Goal {
         var path = g.getNavigation().createPath(spot, spot.equals(pos) ? (int) REACH - 1 : 1);
         boolean roundabout = path != null && path.canReach() && path.getNodeCount() > 2 * Math.sqrt(g.blockPosition().distSqr(pos)) + 8; // a walk round much longer than the line to it: the planned way below prices the digs in the line against it (D2D reviews 215644-146, 195746-142, live 21:55 and 19:56 11-11: 26 nodes round for a block 4 off, 20 east and back for one 7 under; stage 1580)
         if (roundabout && ticks % 120 == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} at {}: the walk round to it is {} steps for {} straight: the planned way weighs digging the line (WorkGoal.approach)", name(g.level().getBlockState(pos)), pos.toShortString(), path.getNodeCount(), (int) Math.sqrt(g.blockPosition().distSqr(pos)));
-        if (path != null && path.canReach() && !bodyRefused && !roundabout) {
+        boolean wetSpot = !g.level().getFluidState(spot.above()).isEmpty() && !g.level().getBlockState(pos).getCollisionShape(g.level(), pos).isEmpty(); // (the spot to dig it from has his eyes under water: 5x a dig, 25x floating; the planned way prices that against dry rock beside it. D2D urgent 04:08 11-12: down a flooded shaft to the iron, 482 "low on air" in 25 min; stage 1548)
+        boolean endsInReach = !(path != null && path.getNodeCount() <= 1 && Math.sqrt(g.blockPosition().distSqr(pos)) > REACH + 1); // (vanilla calls a 1-node path from where he stands "reached" for a block 6 off down a shaft: 4 walks to nowhere, then "gave up", the planned way never asked; stage 1548)
+        if (path != null && path.canReach() && endsInReach && !bodyRefused && !roundabout && !wetSpot) {
+            if (approachTries > 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] approach try {} to {}: the walk to {} ({} nodes, ends {}) again, the last one ended with him {} off it (WorkGoal.approach)", approachTries, pos.toShortString(), spot.toShortString(), path.getNodeCount(), path.getEndNode() == null ? "-" : path.getEndNode().asBlockPos().toShortString(), String.format("%.1f", Math.sqrt(g.blockPosition().distSqr(spot))));
             g.getNavigation().moveTo(path, 0.9);
             return false;
         }

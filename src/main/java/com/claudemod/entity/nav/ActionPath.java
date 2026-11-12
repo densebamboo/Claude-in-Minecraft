@@ -137,6 +137,7 @@ public final class ActionPath {
             scarce = c.maxPuts < 2 * (Math.abs(from.getX() - to.getX()) + Math.abs(from.getY() - to.getY()) + Math.abs(from.getZ() - to.getZ())) + 16; // blocks that can run short on this way: then fewer puts is a way of its own (with plenty, 538 expanded each cell ~3 times for it, out of nodes under a fortress)
         }
         Plan arrivedAt(Node n) { coverNote(c, from, to); /* (never the cell under a goal he can stand on: that's its floor, dug out to "arrive" a block short, and the last step up had nothing to stand on: stage 937, live 03:44 11-07 in a 4-deep hole for minutes) */ leapNote(c, from, to, n); Plan pl = unwind(n); if (mode == Mode.MAY_DIG && c.bp) prune(level.getGameTime()); if (mode == Mode.MAY_DIG && c.bp) for (Act a : pl.acts()) if (a instanceof Act.Dig dg && cuttableShell(g, level, dg.pos())) { SHELL_CUT.put(dg.pos().immutable(), level.getGameTime()); SHELL_CUT_BY.put(dg.pos().immutable(), g); } if (mode == Mode.MAY_BEND) { Map<BlockPos, String> b = new java.util.LinkedHashMap<>(); for (Act a : pl.acts()) if (a instanceof Act.Dig dg && c.bent.containsKey(dg.pos())) b.put(dg.pos(), c.bent.get(dg.pos())); lastBent = b; } return pl; }
+        final java.util.Set<BlockPos> wetPriced = new java.util.HashSet<>();
         boolean arrived(Node n) { return Math.sqrt(n.feet.distSqr(to)) <= within && !(n.feet.equals(to.below()) && c.floor(to) && !c.passable(to.below())); }
         /** Searches on for up to {@code sliceNs}: the plan, null (no way), or PENDING (the slice ran out, the 500 ms not). */
         Plan run(long sliceNs) {
@@ -147,7 +148,9 @@ public final class ActionPath {
                 Node n = open.poll();
                 { Node b0 = best.get(n.feet); if (b0 != n && b0.g() <= n.g() && (!scarce || b0.puts() <= n.puts()) && b0.fire() <= n.fire() && b0.wet() <= n.wet() && b0.hurt() <= n.hurt()) { expanded--; continue; } } // (a stale entry: a way here no worse was expanded already)
                 double dd = Math.sqrt(n.feet.distSqr(to));
-                if (arrived(n)) return arrivedAt(n);
+                if (arrived(n)) { double wx = c.wetDig(n.feet); double ts0 = wx > 1 && !c.passable(to) ? c.digSeconds(to) : 0;
+                    if (ts0 > 0 && wetPriced.add(n.feet.immutable())) { double extra = ts0 * (wx - 1) * com.claudemod.entity.life.Weights.w("path.dig_per_s", 5.6); Node n2 = new Node(n.feet, n.g + extra, n.f + extra, n.from, n.acts, n.puts, n.hurt, n.wet, n.fire); best.put(n.feet, n2); open.add(n2); expanded--; continue; } // (the dig of the target from here, under water: a dry spot beside it may beat it)
+                    return arrivedAt(n); }
                 c.hurtNow = n.hurt;
                 for (Move m : c.moves(n.feet)) {
                     int np = n.puts, nf = n.fire; float nh = n.hurt; for (Act a : m.acts) { if (a instanceof Act.Put pu) { np++; if (byLava(level, pu.pos())) nf++; } else if (a instanceof Act.Leap lp) nh += lp.hp(); }
@@ -587,6 +590,8 @@ public final class ActionPath {
         boolean floor(BlockPos feet) { return solid(feet.below()) || low(feet); }
         boolean tall(BlockPos p) { return !closed.contains(p) && bs(p).getCollisionShape(level, p).max(Direction.Axis.Y) > 1.0; }
         boolean water(BlockPos p) { return fs(p).is(net.minecraft.tags.FluidTags.WATER); }
+        /** How much slower a dig is from feet here (vanilla Player.getDigSpeed, no Aqua Affinity): eyes in water 5x, and 5x more floating off the ground (D2D urgent, live 04:08-04:35 11-12: the way to the ore was down a flooded shaft, every dig 25x, 482 "low on air" in 25 min; stage 1548). */
+        double wetDig(BlockPos feet) { if (!water(feet.above())) return 1; return com.claudemod.entity.life.Weights.w("path.wet_dig_x", 5) * (floor(feet) ? 1 : com.claudemod.entity.life.Weights.w("path.float_dig_x", 5)); }
         boolean solid(BlockPos p) { return closed.contains(p) || !bs(p).getCollisionShape(level, p).isEmpty() && !low(p); }
         final java.util.Map<BlockPos, Boolean> lavaBodyMemo = new java.util.HashMap<>(); // (a pool's cells, once per plan)
         boolean lavaBy(BlockPos p) {
@@ -698,7 +703,7 @@ public final class ActionPath {
                         if (q.equals(t.above()) || q.equals(feet.above(2)) || dy < 0 && q.equals(ahead.above()) ? head(q) : passable(q)) { if (water(q)) cost += 1.5; continue; } // (a head cell: no low floor in it, a lily pad blocks him; review 143)
                         double sec = digSeconds(q);
                         if (sec < 0) { ok = false; break; }
-                        cost += (sec + com.claudemod.entity.life.Weights.w("path.dig_overhead_s", 0.05)) * com.claudemod.entity.life.Weights.w("path.dig_per_s", 5.6) + (sec > 0 ? digWorld(q) : 0); acts.add(new Act.Dig(q.immutable())); // (its real time: the break with his best tool, plus 0.05 s from one block to the next, measured: 8 netherrack with an iron pick in 23 ticks, stage 986; a flat 6 walk-steps a dig made an 11-down staircase ~237 against an 8 HP drop's ~51, review 244. Etiquette, structures and his builds are their own seconds in sec) // (in walk-steps: his dig time at a sprint's 5.6 b/s plus the swing, the pickup and the hole; the user 11-06: digging and putting down weighed well under walking the terrain)
+                        cost += (sec * wetDig(feet) + com.claudemod.entity.life.Weights.w("path.dig_overhead_s", 0.05)) * com.claudemod.entity.life.Weights.w("path.dig_per_s", 5.6) + (sec > 0 ? digWorld(q) : 0); acts.add(new Act.Dig(q.immutable())); // (its real time: the break with his best tool, plus 0.05 s from one block to the next, measured: 8 netherrack with an iron pick in 23 ticks, stage 986; a flat 6 walk-steps a dig made an 11-down staircase ~237 against an 8 HP drop's ~51, review 244. Etiquette, structures and his builds are their own seconds in sec) // (in walk-steps: his dig time at a sprint's 5.6 b/s plus the swing, the pickup and the hole; the user 11-06: digging and putting down weighed well under walking the terrain)
                     }
                     boolean lavaFloor = dy == 0 && canPlace && fs(t.below()).is(net.minecraft.tags.FluidTags.LAVA) && !floor(t) && !reserved.contains(t.below()); // a gap over lava: a block put into the lava is the way across (a player bridging a lava lake), never a jump
                     if (!ok || hurts(t, lavaFloor)) continue; // (magma underfoot, a cactus, fire: a player goes round)

@@ -12442,7 +12442,7 @@ public final class ClaudeLife {
         String tool = ensureToolFor(g, player, level, level.getBlockState(best), st); if (tool != null) return tool;
         g.attempts.counters.put("seenOre:" + best.asLong(), g.tickCount);
         List<BlockPos> v = vein(level, best, 16);
-        if (bestD > 5) g.tasks.add(new Task.GoTo(best, 4)); // the walk there first, routed like any other (live 20:24 11-07: the breaks queued 254 off at -189,68,53 failed "no way to it" in a tick, a dozen veins tried in 3 s)
+        if (bestD > com.claudemod.entity.life.Weights.w("ore.approach_walk_r", 16)) g.tasks.add(new Task.GoTo(best, 4)); // (near: the dig's own approach plans the way, digs priced; an on-foot walk to "within 4" first ended floating in a flooded shaft beside it, every dig 25x, D2D urgent 04:08 11-12, stage 1548) the walk there first, routed like any other (live 20:24 11-07: the breaks queued 254 off at -189,68,53 failed "no way to it" in a tick, a dozen veins tried in 3 s)
         for (BlockPos q : v) g.tasks.add(new Task.Break(q));
         g.tasks.add(new Task.Pickup(100));
         patchOpenings(g, level, v);

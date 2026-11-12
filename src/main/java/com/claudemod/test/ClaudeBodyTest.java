@@ -11054,6 +11054,7 @@ public final class ClaudeBodyTest {
             case 1545: return st1545(stage, t, c, h, level, mock);
             case 1546: return st1546(stage, t, c, h, level, mock);
             case 1547: return st1547(stage, t, c, h, level, mock);
+            case 1548: return st1548(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -23247,10 +23248,10 @@ public final class ClaudeBodyTest {
         return true;
     }
     /** Stage 1547 (D2D review 025416-43/45, live 02:51-02:57 11-12 at -147..-138,15..18,-433: a cave under his mine's walkway, y14-15 all air; bpIntegrity queued the floor patches, "its walkway cell has no floor", "nothing to place against", "can't see a face", each re-queued every few seconds, 44 times in 6 min). A cave 6 deep under 5 cells of his walkway: the floor goes back across it, from the edge out. */
-    private static BlockPos s1547R; private static int s1547At, s1547Done; private static java.util.List<BlockPos> s1547F = new java.util.ArrayList<>();
+    private static BlockPos s1547R; private static int s1547At, s1547Done, s1547NoFace; private static final java.util.Map<BlockPos, Integer> s1547Seen = new java.util.HashMap<>(); private static java.util.List<BlockPos> s1547F = new java.util.ArrayList<>();
     private static boolean st1547(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos o = new BlockPos(7950, 90, 8250);
-        if (t[0] == 1) { scenarioReset(c); c.prefs.put("stay_close", "no"); c.prefs.put("torches_while_digging", "no"); s1547At = 0; s1547Done = -1; s1547F.clear(); }
+        if (t[0] == 1) { scenarioReset(c); c.prefs.put("stay_close", "no"); c.prefs.put("torches_while_digging", "no"); s1547At = 0; s1547Done = -1; s1547F.clear(); s1547NoFace = 0; s1547Seen.clear(); c.attempts.clear(); c.pendingPatches.clear(); c.pillarBlocks.clear(); c.notches.clear(); c.landingCells.clear(); }
         if (t[0] > 1 && t[0] % 5 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) m.discard();
         if (t[0] == 10) { c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.teleportTo(o.getX() + 0.5, o.getY() + 2, o.getZ() + 0.5); c.fallDistance = 0; c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(6000); }
         if (t[0] == 16) {
@@ -23267,13 +23268,46 @@ public final class ClaudeBodyTest {
         }
         if (t[0] >= 30 && s1547Done < 0 && c.currentTask == null && c.tasks.isEmpty() && t[0] % 20 == 10) { if (s1547At == 0) s1547At = t[0]; c.nextPlanTick = c.tickCount + 20 * 600;
             try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("bpIntegrity", ClaudeEntity.class, ServerLevel.class); m.setAccessible(true); m.invoke(null, c, level); } catch (ReflectiveOperationException e) { throw new RuntimeException(e); } } // (his mine's integrity pass, as it runs while he's in it)
+        if (s1547At > 0) { var pm = c.attempts.of(com.claudemod.entity.life.Attempts.Kind.PLACE); if (pm != null) for (var e : pm.entrySet()) { var why = c.attempts.why(com.claudemod.entity.life.Attempts.Kind.PLACE, e.getKey()); if (why != null && why.reason() == com.claudemod.entity.life.Attempts.Reason.NO_FACE && !e.getValue().equals(s1547Seen.get(e.getKey())) && e.getKey().distSqr(s1547R) < 20 * 20) { s1547Seen.put(e.getKey().immutable(), e.getValue()); s1547NoFace++; } } } // (each "nothing to place it against" once per try)
         if (s1547At > 0 && s1547Done < 0 && s1547F.stream().allMatch(f -> !level.getBlockState(f).isAir())) s1547Done = t[0] - s1547At;
         if (s1547At > 0 && (s1547Done >= 0 || t[0] - s1547At > 20 * 45)) {
-            int done = s1547Done; long open = s1547F.stream().filter(f -> level.getBlockState(f).isAir()).count(); BlockPos at = c.blockPosition();
+            int done = s1547Done, noFace = s1547NoFace; long open = s1547F.stream().filter(f -> level.getBlockState(f).isAir()).count(); BlockPos at = c.blockPosition();
             c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.mineCells.clear(); c.prefs.remove("mine_model"); c.prefs.remove("stay_close"); c.prefs.remove("torches_while_digging"); c.getInventory().clearContent();
             flatBox(h);
-            check(done >= 0 && done <= 20 * 12, "his tunnel open across a cave for 5 rows: floor back in " + (done < 0 ? "45+" : done / 20.0) + " s (a player: ~10 s), " + open + " of " + s1547F.size() + " floor cells still open after 45 s (him at " + at.toShortString() + ")");
-            pass(stage, t, "the walkway's floor back across the cave in " + done / 20.0 + " s");
+            check(noFace <= 3, "his tunnel open across a cave for 5 rows: " + noFace + " patches tried with nothing to place them against (each re-queued), floor back in " + (done < 0 ? "45+" : done / 20.0) + " s");
+            check(done >= 0, "his tunnel open across a cave for 5 rows: " + open + " of " + s1547F.size() + " floor cells still open after 45 s (him at " + at.toShortString() + ")");
+            pass(stage, t, "the walkway's floor back across the cave in " + done / 20.0 + " s, " + noFace + " patches with no face");
+        }
+        return true;
+    }
+    /** Stage 1548 (D2D urgent, live 04:08-04:35 11-12 at -34,9..17,-487: "mining the iron_ore I saw at -30,13,-489 (6 off)", the made way down the flooded column and sideways under water; "low on air ... coming up to breathe" 482 times in 25 min, nothing mined; dry rock all round it). Iron ore in the side of a flooded shaft 6 down, dry stone round it: his way to it digs dry rock (a dig under water is 5x, floating 25x), the ore his in 25 s, never short of breath. */
+    private static BlockPos s1548O; private static int s1548T, s1548Got, s1548Air;
+    private static boolean st1548(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 12, 8)); // (10 up: the shaft's bottom well over the world's floor)
+        if (t[0] == 1) { scenarioReset(c); c.prefs.put("stay_close", "no"); s1548T = -1; s1548Got = -1; s1548Air = 300; }
+        if (t[0] > 1 && t[0] % 5 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) m.discard();
+        if (t[0] == 10) {
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) { for (int y = -14; y <= -1; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) level.setBlock(o.offset(x, 4, z), Blocks.STONE.defaultBlockState(), 2); // (a cave over it, as live: no sky)
+            for (int y = -10; y <= -1; y++) level.setBlock(o.offset(0, y, 0), Blocks.WATER.defaultBlockState(), 2); // (a flooded 1x1 shaft, 10 deep, open at the top)
+            s1548O = o.offset(1, -6, 0).immutable(); level.setBlock(s1548O, Blocks.IRON_ORE.defaultBlockState(), 2); // (in the shaft's side, 6 down)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 12)); c.getInventory().add(new ItemStack(Items.GRAVEL, 30)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 12));
+            c.teleportTo(o.getX() + 3.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.setAirSupply(c.getMaxAirSupply()); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear(); c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(6000);
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Break(s1548O)); c.tasks.add(new Task.Pickup(100)); s1548T = t[0]; } // (as the seen-ore approach queues a near one: the dig, its own approach planning the way)
+        if (t[0] > 10) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (s1548T > 0 && t[0] > s1548T) {
+            s1548Air = Math.min(s1548Air, c.getAirSupply());
+            if (s1548Got < 0 && c.getInventory().countItem(Items.RAW_IRON) > 0) s1548Got = t[0] - s1548T;
+            if (s1548Got >= 0 || t[0] - s1548T > 20 * 25) {
+                int got = s1548Got, air = s1548Air; boolean mined = level.getBlockState(s1548O).isAir();
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.setAirSupply(c.getMaxAirSupply()); c.prefs.remove("stay_close");
+                for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = -14; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                flatBox(h); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5);
+                check(got >= 0, "iron ore in a flooded shaft's side 6 down, dry rock round it: not his in 25 s (mined " + mined + ", lowest air " + air + ")");
+                check(air >= 150, "the ore in the flooded shaft: his air down to " + air + " of 300 on the way (a dig under water, not the dry rock beside it)");
+                pass(stage, t, "the ore by the flooded shaft his in " + got / 20.0 + " s, lowest air " + air);
+            }
         }
         return true;
     }

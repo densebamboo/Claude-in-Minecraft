@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1668: return st1668(stage, t, c, h, level, mock);
             case 1667: return st1667(stage, t, c, h, level, mock);
             case 1665: return st1665(stage, t, c, h, level, mock);
             case 1664: return st1664(stage, t, c, h, level, mock);
@@ -22489,6 +22490,38 @@ public final class ClaudeBodyTest {
                 check(!walking, "on blaze_rods, a blaze he knows of " + Math.round(d) + " off behind a wall: still on the walk 40 off after " + took / 20.0 + " s (" + q + ")");
                 pass(stage, t, "the walk stopped for the blaze in " + took / 20.0 + " s");
             }
+        }
+        return true;
+    }
+    /** Stage 1668 (D2D 11-12, the lone-blaze breakdown: 56 blaze fights broken off 11-0x..11-12, 49 of them at 18+ HP, every one "fight ~N s, run ~200 s"; live 13:08:09 11-12 "breaking off the fight with the Blaze 14.0 off (health 20 ...; 2 blaze(s): fight ~1695 s, run ~200 s)"): shouldFlee priced the run's later fight as min(fightS, flee.avoid_s 180), "kept away from", on the rods job, where the blazes are the job. On blaze_rods at full health, armor 14, a shield, 8 salmon, one blaze 12 off in the open: he fights it; off the job the run stays his. */
+    private static net.minecraft.world.entity.monster.Blaze s1668B; private static BlockPos s1668O;
+    private static boolean st1668(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8)); s1668O = o;
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; if (s1668B != null) s1668B.discard(); s1668B = null; }
+        if (t[0] == 10) {
+            for (int x = -16; x <= 20; x++) for (int z = -16; z <= 16; z++) { level.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); for (int y = 0; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); } // an open deck: no cover to find within 10, nothing to build with
+            for (int z = -3; z <= 3; z++) for (int y = 0; y <= 4; y++) level.setBlock(o.offset(-13, y, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); /* a wall 13 west: out of its sight behind it, ~16 steps (live 13:08:53: "escape: out of the shooters' sight at 314, 63, 487 (3 off on foot)") */
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0; c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 8));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setYRot(-90); c.setYHeadRot(-90); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            s1668B = EntityType.BLAZE.create(level); s1668B.moveTo(o.getX() + 12.5, o.getY() + 1, o.getZ() + 0.5, 90, 0); s1668B.setPersistenceRequired(); s1668B.setNoAi(true); level.addFreshEntity(s1668B);
+        }
+        if (t[0] == 20) {
+            com.claudemod.entity.life.Perception.noteSeenTest(c, s1668B);
+            String onJob, offJob; com.claudemod.entity.life.Skills.Step was = c.lastStep;
+            try {
+                var sf = com.claudemod.entity.goals.WorkGoal.class.getDeclaredMethod("shouldFlee", net.minecraft.world.entity.Entity.class, boolean.class); sf.setAccessible(true);
+                var odds = com.claudemod.entity.goals.WorkGoal.class.getDeclaredField("fightOdds"); odds.setAccessible(true);
+                c.lastStep = new com.claudemod.entity.life.Skills.Step("blaze_rods", "blaze_rod@7", 7, ""); boolean runOn = (boolean) sf.invoke(c.work, s1668B, false); onJob = runOn + " (" + odds.get(c.work) + ")";
+                c.lastStep = new com.claudemod.entity.life.Skills.Step("collect", "logs", 8, ""); boolean runOff = (boolean) sf.invoke(c.work, s1668B, false); offJob = runOff + " (" + odds.get(c.work) + ")";
+            } catch (ReflectiveOperationException e) { onJob = "threw " + e; offJob = ""; }
+            c.lastStep = was; s1668B.discard(); s1668B = null; for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+            for (int x = -16; x <= 20; x++) for (int z = -16; z <= 16; z++) for (int y = -1; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            flatBox(h);
+            check(onJob.startsWith("false"), "on blaze_rods at full health, armor 14, a shield, 8 salmon, one blaze 12 off: shouldFlee ran = " + onJob);
+            check(offJob.startsWith("true"), "off the rods job the same blaze: shouldFlee ran = " + offJob + " (the avoid stays his)");
+            pass(stage, t, "rods job: fights (" + onJob + "); off it: runs (" + offJob + ")");
         }
         return true;
     }

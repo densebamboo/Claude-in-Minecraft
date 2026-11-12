@@ -11028,6 +11028,7 @@ public final class ClaudeBodyTest {
             case 1533: return st1533(stage, t, c, h, level, mock);
             case 1534: return st1534(stage, t, c, h, level, mock);
             case 1535: return st1535(stage, t, c, h, level, mock);
+            case 1536: return st1536(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -22484,6 +22485,37 @@ public final class ClaudeBodyTest {
                 check(idle && !gone, "his bridge block 8 up: neither left nor done in 8 s (" + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
                 pass(stage, t, "his bridge block 8 up, a tower the only way: left standing, nothing put down");
             }
+        }
+        return true;
+    }
+    /** Stage 1536 (D2D review_still 216, 3 reviews, live 00:10:04-00:11:19 11-12 at 7,62,30: "[Claude owner] 7, 62, 30 claimed by two of his systems: ClaudeLife.placeNextTo wants it dug out, then his stations' cleanup wants it filled", his furnace's notch dug, cooked in, the furnace taken back and the notch filled: one station's job, not a contest). A notch dug for his furnace, then refilled at the cleanup: no owner line. */
+    private static boolean st1536(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(5, 2, 5));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); flatBox(h); level.setDayTime(6000); }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 4; x++) for (int z = -2; z <= 2; z++) for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), (z == 0 && y <= 1 ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); // (a 1-wide tunnel under rock: his notch goes into its wall)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.FURNACE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 8)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 20) {
+            BlockPos n;
+            try {
+                Class<?> L = com.claudemod.director.ClaudeLife.class;
+                var pm = L.getDeclaredMethod("placeNextTo", ClaudeEntity.class, ServerLevel.class, net.minecraft.world.item.Item.class); pm.setAccessible(true);
+                n = (BlockPos) pm.invoke(null, c, level, Items.FURNACE);
+                check(n != null, "setup: no notch for the furnace");
+                Thread.sleep(1100); // (the owner check counts real seconds, over 1 apart)
+                c.tasks.clear(); level.setBlock(n, Blocks.AIR.defaultBlockState(), 2);
+                var rm = L.getDeclaredMethod("refillNotch", ClaudeEntity.class, BlockPos.class, boolean.class); rm.setAccessible(true);
+                rm.invoke(null, c, n, true);
+            } catch (ReflectiveOperationException e) { throw new RuntimeException(e); } catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new RuntimeException(e); }
+            final BlockPos nn = n; boolean refilled = c.tasks.stream().anyMatch(x -> x instanceof Task.Place pl && pl.pos().equals(nn));
+            boolean contest = com.claudemod.entity.life.MindLog.recent().contains(n.toShortString() + " claimed by two of his systems");
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.prefs.remove("stay_close");
+            for (int x = -4; x <= 4; x++) for (int z = -2; z <= 2; z++) for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(refilled, "setup: the notch not refilled at the cleanup");
+            check(!contest, "his furnace's notch dug, then refilled at the cleanup, read as two systems contesting the cell");
+            pass(stage, t, "the furnace's notch dug, then refilled: one station's job, no owner line");
         }
         return true;
     }

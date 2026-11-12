@@ -11032,6 +11032,7 @@ public final class ClaudeBodyTest {
             case 1536: return st1536(stage, t, c, h, level, mock);
             case 1537: return st1537(stage, t, c, h, level, mock);
             case 1538: return st1538(stage, t, c, h, level, mock);
+            case 1539: return st1539(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -22593,6 +22594,24 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent();
             check(sword || logs == 1 && !tableQueued, "one log, no table: a table made from it for a sword it can't also make (" + logs + " log left, " + (q.length() > 120 ? q.substring(0, 120) : q) + ")");
             pass(stage, t, "one log, no table: no table for a sword it couldn't make, the log kept (" + logs + ")");
+        }
+        return true;
+    }
+    /** Stage 1539 (D2D reviews 285/272, live 00:30:03-00:30:18 11-12 at -16,68,-20, his mine's mouth under its arch: collect logs read him "down in the ground" (the arch's roof over him), "heading up my stairs and out of the mine for wood", the way out "to -16, 68, -20 (0 blocks off)", the walk ended at once, the step back every 5 s against the furnace wait). At his blueprint mine's entrance he's out: no walk out of it. */
+    private static boolean st1539(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            var b = lnMine(h, level, c);
+            lnStand(c, mock, b.entrance, b.entrance); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 20) {
+            boolean out;
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("routeOutOfMine", ClaudeEntity.class, ServerLevel.class); m.setAccessible(true); out = (boolean) m.invoke(null, c, level); } catch (ReflectiveOperationException e) { throw new RuntimeException(e); }
+            String q = String.valueOf(c.tasks); BlockPos at = c.blockPosition(), ent = c.blueprint.entrance;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.put("mine_model", "legacy");
+            check(at.distSqr(ent) <= 2, "setup: not at the entrance (" + at.toShortString() + " vs " + ent.toShortString() + ")");
+            check(!out, "at his mine's entrance: a walk out of the mine queued (" + (q.length() > 140 ? q.substring(0, 140) : q) + ")");
+            pass(stage, t, "at his mine's entrance he's out: no walk out of it");
         }
         return true;
     }

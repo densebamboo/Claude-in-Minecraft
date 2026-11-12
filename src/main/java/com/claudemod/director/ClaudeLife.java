@@ -7681,6 +7681,7 @@ public final class ClaudeLife {
         if (bpMode(g) && g.blueprint != null && !g.blueprint.isEmpty()) {
             BlockPos me = g.blockPosition();
             if (!inHisMine(g, me) && !g.blueprint.touches(me) && !trailJoinsMine(g, level)) { ClaudeMod.LOGGER.info("[Claude life] out of the mine: he isn't in it (at {}, no trail of his under the ground joins it): no walk to it (ClaudeLife.routeOutOfMine)", me.toShortString()); return false; } // (a hole of his 60 off: "up and out of the mine first" walked him 1644 steps into it, live 02:47 11-09, review 133)
+            if (me.distSqr(g.blueprint.entrance) <= 3 * 3) return false; // at the entrance (under its arch) he's out, as the legacy mine below (live 00:30 11-12: "0 blocks off", collect logs back every 5 s, D2D 285/272; stage 1539)
             return bpWalkTo(g, g.blueprint.entrance);
         }
         if (g.stairStart != null && g.blockPosition().distSqr(g.stairStart) <= 3 * 3) return false; // at the entrance (under its arch) he's out: a walk to where he stands looped "out of the mine" until the hunt was skipped

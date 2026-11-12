@@ -430,6 +430,14 @@ public class WorkGoal extends Goal {
                 digInFromArrows();
             }
         }
+        if (g.tickCount % 10 == 0 && diggingIn() && digInTasks.stream().noneMatch(x -> x instanceof Task.Wait && (x == current || g.tasks.contains(x))) && digInTasks.stream().anyMatch(x -> x instanceof Task.Break && (x == current || g.tasks.contains(x)))) { // taking his cover down, its wait over, with hostiles he knows of near: the blocks wait like any litter (death 02:57 11-12: the teardown's pickup walked him into a creeper with 5 hostiles within 10, stage 1144)
+            int r = (int) w("tidy.hostile_r", 12); var near = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(r), x -> x.isAlive());
+            if (!near.isEmpty()) {
+                int left = (int) g.tasks.stream().filter(x -> x instanceof Task.Break && digInTasks.contains(x)).count();
+                g.tasks.removeAll(digInTasks); if (current != null && digInTasks.contains(current)) { clearCrack(); current = null; g.currentTask = null; }
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] his cover at {} stays up: {} hostile(s) he knows of within {} (first {} {} off), {} block(s) left standing on his list for later (WorkGoal.tick)", digInAt == null ? "?" : digInAt.toShortString(), near.size(), r, near.get(0).getType().getDescription().getString(), (int) near.get(0).distanceTo(g), left);
+            }
+        }
         if (g.urgentAttacker != null && diggingIn() && digInTasks.stream().noneMatch(x -> x instanceof Task.Wait && (x == current || g.tasks.contains(x))) && digInTasks.stream().anyMatch(x -> x instanceof Task.Break && (x == current || g.tasks.contains(x)))) { // taking his cover down, its wait over: a shooter's hit isn't "digging on" (live 01:32:56-01:33:10 11-12: the teardown ran on under blazes 11-14 off, 17 -> 11, review 013454-47, stage 1131)
             var sh = ((ServerLevel) g.level()).getEntity(g.urgentAttacker);
             if (sh != null && farShooter(sh)) {

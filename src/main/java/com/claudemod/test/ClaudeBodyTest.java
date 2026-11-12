@@ -10902,6 +10902,7 @@ public final class ClaudeBodyTest {
             case 1078: return st1078(stage, t, c, h, level, mock);
             case 1079: return st1079(stage, t, c, h, level, mock);
             case 1131: return st1131(stage, t, c, h, level, mock);
+            case 1144: return st1144(stage, t, c, h, level, mock);
             case 1077: return st1077(stage, t, c, h, level, mock);
             case 1075: return st1075(stage, t, c, h, level, mock);
             case 747: return st747(stage, t, c, h, level, mock);
@@ -20589,6 +20590,44 @@ public final class ClaudeBodyTest {
             check(los, "setup: no line of sight to the skeleton down the pit");
             check(!(in == 0 && !run), "the way in refused (out of its sight) while the fight-or-run price picked the fight: " + odds);
             pass(stage, t, "agreed: " + (run ? "run" : "fight") + ", way in " + in + " (" + odds + ")");
+        }
+        return true;
+    }
+    /** Stage 1144 (death 02:57:42 11-12 World 17, a cave at -113,13,-444: at 02:56:33 "a minute in his cover with Skeleton 4 off still about: out to deal with it"; the cover's teardown Breaks and its Pickup ran with 5 hostiles within 10 (zombie 3, skeleton 5, creeper 2), the pickup's walk met the creeper): with a hostile he knows of near, the teardown waits, the blocks left standing. */
+    private static java.util.List<BlockPos> s1144C;
+    private static boolean st1144(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(6000); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+            for (int x = -6; x <= 16; x++) for (int z = -6; z <= 6; z++) for (int y = -1; y <= 6; y++) level.setBlock(o.offset(x, y, z), y == -1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            s1144C = new java.util.ArrayList<>(); s1144C.add(o.above(2).immutable());
+            for (int y = 1; y >= 0; y--) for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) s1144C.add(o.above(y).relative(d).immutable());
+            for (BlockPos q : s1144C) level.setBlock(q, Blocks.COBBLESTONE.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_PORKCHOP, 8));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setHealth(18); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.pillarBlocks.clear();
+            java.util.List<Task> up = new java.util.ArrayList<>(); up.add(new Task.Wait(600, false)); // its wait over: the teardown's turn
+            for (BlockPos q : s1144C) { up.add(new Task.Break(q)); c.pillarBlocks.addFirst(q); }
+            up.add(new Task.Pickup(60));
+            for (int i = 1; i < up.size(); i++) c.tasks.add(up.get(i));
+            try { var w = c.work; var cl = w.getClass();
+                var f = cl.getDeclaredField("digInAt"); f.setAccessible(true); f.set(w, o.immutable());
+                f = cl.getDeclaredField("digInTick"); f.setAccessible(true); f.setInt(w, c.tickCount - 20 * 60);
+                f = cl.getDeclaredField("digInRise"); f.setAccessible(true); f.setInt(w, 0);
+                f = cl.getDeclaredField("digInTasks"); f.setAccessible(true); f.set(w, up);
+            } catch (Exception e) { check(false, "setup threw " + e); }
+            var z = net.minecraft.world.entity.EntityType.ZOMBIE.create(level); z.setNoAi(true); z.setPos(o.getX() + 6.5, o.getY(), o.getZ() + 0.5); level.addFreshEntity(z);
+            com.claudemod.entity.life.Perception.felt(c, z); // he knows it's there (heard behind his walls, as live)
+        }
+        if (t[0] > 10 && t[0] < 100 && t[0] % 10 == 0) { var z = level.getEntitiesOfClass(net.minecraft.world.entity.monster.Zombie.class, new net.minecraft.world.phys.AABB(o).inflate(16)).stream().findFirst().orElse(null); if (z != null) com.claudemod.entity.life.Perception.felt(c, z); } // still heard about him
+        if (t[0] == 100) {
+            int standing = 0; for (BlockPos q : s1144C) if (level.getBlockState(q).is(Blocks.COBBLESTONE)) standing++;
+            String q = c.tasks.stream().limit(3).toList().toString();
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(32))) e.discard();
+            c.tasks.clear(); c.pillarBlocks.clear();
+            check(standing >= s1144C.size() - 1, "his cover taken down with a zombie he knows of 6 off: " + standing + " of " + s1144C.size() + " standing, queue " + q);
+            pass(stage, t, "the teardown waits with the zombie about: " + standing + " of " + s1144C.size() + " standing"); return true;
         }
         return true;
     }

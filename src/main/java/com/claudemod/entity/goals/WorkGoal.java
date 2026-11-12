@@ -5897,7 +5897,7 @@ public class WorkGoal extends Goal {
         fleeDir = new Vec3(side.getStepX(), 0, side.getStepZ());
     }
     /** (tests) A run under way whose end is where he stands: the next flee tick is the run's end. */
-    public void towerCoverForTest(BlockPos base, int high, Task.Wait wait) { digInAt = base.immutable(); digInTick = g.tickCount; digInRise = high; digInTasks = new java.util.ArrayList<>(java.util.List.of(new Task.Pillar(high), wait)); g.tasks.addFirst(wait); }
+    public Task.Pillar towerCoverForTest(BlockPos base, int high, Task.Wait wait) { Task.Pillar p = new Task.Pillar(high); digInAt = base.immutable(); digInTick = g.tickCount; digInRise = high; digInTasks = new java.util.ArrayList<>(java.util.List.of(p, wait)); g.tasks.addFirst(wait); return p; }
     public void runEndForTest() { setEscape("run", g.blockPosition().immutable(), null); }
     public String escapeHoldForTest(BlockPos at) { return escapeHoldForTest(at, "hide"); }
     public String escapeHoldForTest(BlockPos at, String kind) { if (at != null) { setEscape(kind, at, null); escapeHeld = true; } return escapeKind + "@" + (escapeAt == null ? "-" : escapeAt.toShortString()) + (escapeHeld ? " held" : ""); } // (tests: a hide he holds; what his escape is now)
@@ -7774,6 +7774,7 @@ public class WorkGoal extends Goal {
                 }
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] no head room to tower at {}: {} at {} over his head, not a tree's; this climb ends here (WorkGoal.doPillar)", pillarFeet.toShortString(), name(level.getBlockState(head)), head.toShortString()); return true;
             }
+            if (pillarDone == 0 && t.steps() > 0 && digInAt != null && digInTasks != null && !digInTasks.isEmpty() && digInTasks.get(0) == t && pillarFeet.getX() == digInAt.getX() && pillarFeet.getZ() == digInAt.getZ() && pillarFeet.getY() > digInAt.getY()) { /* back on this climb up its own column (a hit or a flee check cut it): the blocks under him count, never 6 more from here (live 09:29:09 11-12: "goes up at 298, 65, 505, not at 298, 63, 505 ... he was still moving", topped out at 71, its walls 2 high, stuck on it 6 min; stage 1652) */ boolean own = true; for (int y = digInAt.getY(); y < pillarFeet.getY(); y++) if (level.getBlockState(new BlockPos(digInAt.getX(), y, digInAt.getZ())).getCollisionShape(level, new BlockPos(digInAt.getX(), y, digInAt.getZ())).isEmpty()) { own = false; break; } if (own) { pillarDone = pillarFeet.getY() - digInAt.getY(); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] back on his skytower's climb at {}: {} of {} up already (WorkGoal.doPillar)", pillarFeet.toShortString(), pillarDone, t.steps()); if (pillarDone >= t.steps()) return true; } }
             if (pillarDone == 0 && t.steps() > 0 && digInAt != null && digInTasks != null && !digInTasks.isEmpty() && digInTasks.get(0) == t && !pillarFeet.equals(digInAt)) reanchorSkytower(t, pillarFeet); // (decided on the run: the tower goes up where he stopped, its walls with it)
             // stand still over the spot first (no drifting off from the last walk), then jump
             Vec3 center = Vec3.atBottomCenterOf(pillarFeet);

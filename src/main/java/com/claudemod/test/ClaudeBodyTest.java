@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1652: return st1652(stage, t, c, h, level, mock);
             case 1651: return st1651(stage, t, c, h, level, mock);
             case 1650: return st1650(stage, t, c, h, level, mock);
             case 1617: return st1617(stage, t, c, h, level, mock);
@@ -22013,6 +22014,29 @@ public final class ClaudeBodyTest {
             check(door != null, "the stage's highway doorway not read as one");
             check(p == null, "5 off the deck, nothing in the way: sent round by his highway's doorway at " + (p == null ? "-" : p.deck().toShortString()) + ": " + r);
             nsHome(c, h, level); pass(stage, t, "onto the deck on his own walk, the doorway at " + door.end().deck().toShortString() + " left be (" + r + ")");
+        }
+        return true;
+    }
+    /** Stage 1652 (D2D review 093002-136, live 09:29:07-09 11-12: "a 6-high skytower at 298, 63, 505", cobble down at 63 and 64, a wither skeleton's 8 cut the climb, the same Pillar back on 2 up: "his skytower goes up at 298, 65, 505, not at 298, 63, 505 where the cover was decided (2.0 off: he was still moving)", 6 more from there, its walls and lid 2 high, up to 71, then stuck on it 6 min). 2 up his own tower's column, its climb back on: the tower tops out where it was decided, 6 up, not 6 more. */
+    private static int s1652T; private static Task.Pillar s1652P;
+    private static boolean st1652(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos base = h.absolutePos(new BlockPos(4, 2, 4));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1652T = -1; s1652P = null; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            level.setBlock(base, Blocks.COBBLESTONE.defaultBlockState(), 3); level.setBlock(base.above(), Blocks.COBBLESTONE.defaultBlockState(), 3); // his first 2 blocks of it
+            c.teleportTo(base.getX() + 0.5, base.getY() + 2, base.getZ() + 0.5);
+        }
+        if (t[0] == 14) { var w = new Task.Wait(200, false); s1652P = c.work.towerCoverForTest(base, 6, w); c.tasks.addFirst(s1652P); s1652T = t[0]; }
+        if (s1652T > 0 && t[0] > s1652T + 2 && c.currentTask != s1652P && !c.tasks.contains(s1652P) || s1652T > 0 && t[0] > s1652T + 200) {
+            int up = c.blockPosition().getY() - base.getY(); String q = c.currentTask + " " + c.tasks.stream().limit(4).toList();
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent();
+            for (int y = 0; y <= 12; y++) for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) level.setBlock(base.offset(dx, y, dz), Blocks.AIR.defaultBlockState(), 3);
+            c.teleportTo(base.getX() + 0.5, base.getY(), base.getZ() + 0.5);
+            s1652T = -1;
+            check(up == 6, "his skytower's climb back on 2 up its own column: he topped out " + up + " up, not the 6 it was decided at (" + q + ")");
+            pass(stage, t, "topped out 6 up, where it was decided");
         }
         return true;
     }

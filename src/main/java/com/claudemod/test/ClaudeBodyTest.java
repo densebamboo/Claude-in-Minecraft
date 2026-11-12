@@ -11063,6 +11063,7 @@ public final class ClaudeBodyTest {
             case 1600: return st1600(stage, t, c, h, level, mock);
             case 1601: return st1601(stage, t, c, h, level, mock);
             case 1602: return st1602(stage, t, c, h, level, mock);
+            case 1604: return st1604(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -23533,6 +23534,40 @@ public final class ClaudeBodyTest {
                 check(got || dives <= 2, "copper only to be dug floating under water, past one breath: " + dives + " dives in 90 s (each up for air, the dig put back)");
                 pass(stage, t, got ? "the copper his after " + dives + " dive(s)" : "the copper past one breath left after " + dives + " dive(s), lowest health " + hp);
             }
+        }
+        return true;
+    }
+    /** Stage 1604 (D2D review 063054-30, live 06:28:16-06:28:58 11-12 at -138,14..15,-497: copper under his tunnel's floor, 2 deep; he went down the hole for the drops; at its bottom "placing cobblestone at -138,14,-497 gave up: where he stands: never a block under himself, out of the hole first" (no cell to step out to, 2 up), the bottom patch dropped and the top one capped the hole over air). At the bottom of a 2-deep ore hole under his floor, both patches queued: both cells filled, the bottom first. */
+    private static BlockPos s1604R; private static int s1604Y, s1604At;
+    private static boolean st1604(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(7950, 90, 8550);
+        if (t[0] == 1) { scenarioReset(c); c.prefs.put("stay_close", "no"); c.prefs.put("torches_while_digging", "no"); s1604At = 0; }
+        if (t[0] > 1 && t[0] % 5 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) m.discard();
+        if (t[0] == 10) { c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.teleportTo(o.getX() + 0.5, o.getY() + 2, o.getZ() + 0.5); c.fallDistance = 0; c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(6000); }
+        if (t[0] == 16) {
+            var E = net.minecraft.core.Direction.EAST; var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 30, null)); b.invalidate();
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.stairStart = b.entrance;
+            c.mineShape = new ClaudeEntity.MineShape(2, 3, 4, 8, 6, "right"); for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK) c.mineCells.add(e.getKey().immutable());
+            BlockPos row = b.rows().get(14).first(); int fy = row.getY();
+            for (int x = -4; x <= 40; x++) for (int z = -8; z <= 8; z++) for (int y = -7; y <= 5; y++) { BlockPos q = new BlockPos(o.getX() + x, fy + y, row.getZ() + z); level.setBlock(q, (b.isWalk(q) ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            level.setBlock(row.below(), Blocks.AIR.defaultBlockState(), 2); level.setBlock(row.below(2), Blocks.AIR.defaultBlockState(), 2); // (the ore hole, 2 deep under his floor, the ore mined)
+            c.teleportTo(row.getX() + 0.5, row.getY() - 2, row.getZ() + 0.5); c.fallDistance = 0;
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.tasks.add(new Task.Place(row.below(2).immutable(), Items.COBBLESTONE)); c.tasks.add(new Task.Place(row.below().immutable(), Items.COBBLESTONE)); // (as the vein's patch queues them: the deepest first)
+            s1604R = row.immutable(); s1604Y = fy; s1604At = t[0];
+        }
+        if (t[0] > 16) c.nextPlanTick = c.tickCount + 20 * 600;
+        boolean done = s1604At > 0 && !level.getBlockState(s1604R.below(2)).isAir() && !level.getBlockState(s1604R.below()).isAir();
+        if (s1604At > 0 && (done || t[0] - s1604At > 20 * 15)) {
+            boolean low = !level.getBlockState(s1604R.below(2)).isAir(), top = !level.getBlockState(s1604R.below()).isAir(); int took = t[0] - s1604At; String at = c.blockPosition().toShortString(); boolean listed = c.pillarBlocks.contains(s1604R.below(2));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.prefs.remove("torches_while_digging"); c.prefs.remove("stay_close"); c.stairStart = null; c.mineShape = null; c.mineCells.clear(); c.pendingPatches.clear(); c.pillarBlocks.clear(); c.getInventory().clearContent();
+            for (int x = -4; x <= 40; x++) for (int z = -8; z <= 8; z++) for (int y = -7; y <= 5; y++) level.setBlock(new BlockPos(o.getX() + x, s1604Y + y, s1604R.getZ() + z), Blocks.AIR.defaultBlockState(), 2);
+            c.teleportTo(o.getX() + 0.5, o.getY() + 20, o.getZ() + 0.5); c.fallDistance = 0; s1604At = 0;
+            check(low, "the bottom of the 2-deep ore hole under his floor left open (bottom " + low + ", top " + top + ", him at " + at + "): the patch dropped, no step out of it");
+            check(top, "the ore hole's top cell (his floor) not patched in 15 s, him at " + at);
+            check(!listed, "the hole's bottom patch is on his tower list: taken back down later as a pillar");
+            pass(stage, t, "both cells of the ore hole filled in " + took / 20.0 + " s");
         }
         return true;
     }

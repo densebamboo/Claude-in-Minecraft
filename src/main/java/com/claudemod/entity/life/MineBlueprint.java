@@ -387,8 +387,9 @@ public final class MineBlueprint {
                 Direction wallDir = slotWalls.get(slot); BlockPos w = slot.relative(wallDir);
                 boolean open = level.getBlockState(slot).isAir() || dig.contains(new Task.Break(slot));
                 if (open && level.getFluidState(slot).isEmpty() && !slotLit(level, slot) && !com.claudemod.director.ClaudeLife.obsWorking(w)) {
-                    if (!solid(level, w) || ore(level.getBlockState(w))) { Task pw = new Task.Place(w, isArch(w) ? archBlock() : filler(w)); if (!out.contains(pw)) out.add(pw); } // (ore: its Break is above in this list, the refill straight after it, then the torch)
-                    out.add(new Task.WallTorch(slot, wallDir));
+                    boolean patch = !solid(level, w) || ore(level.getBlockState(w));
+                    if (patch) { Task pw = new Task.Place(w, isArch(w) ? archBlock() : filler(w)); if (!out.contains(pw)) out.add(pw); } // (ore: its Break is above in this list, the refill straight after it, then the torch)
+                    if (patch || level.getBlockState(w).isFaceSturdy(level, w, wallDir.getOpposite())) out.add(new Task.WallTorch(slot, wallDir)); // (a fence or slab in the wall, a mineshaft's: no face a torch holds on; queued anyway, the torch skipped it every few seconds, D2D 163854-58)
                 }
             }
         }

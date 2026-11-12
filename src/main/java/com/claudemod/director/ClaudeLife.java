@@ -12186,7 +12186,7 @@ public final class ClaudeLife {
             BlockPos me1 = g.blockPosition();
             for (BlockPos s0 : b.torchSlots().values()) {
                 if (s0.distSqr(me1) > com.claudemod.entity.life.Weights.w("torch.slot_walk_back", 16) * com.claudemod.entity.life.Weights.w("torch.slot_walk_back", 16) || !level.getBlockState(s0).isAir() || !level.getFluidState(s0).isEmpty() || MineBlueprint.slotLit(level, s0) || !com.claudemod.entity.life.Perception.clear(level, g.getEyePosition(), Vec3.atCenterOf(s0))) continue; // (what he sees: the next branch's slots behind the rock are 4 off and 40+ on foot, live 06:38-07:25 11-08 walked at and skipped for 45 min, stage 1033)
-                Direction wd = b.slotWall(s0); if (wd == null || !MineBlueprint.solid(level, s0.relative(wd))) continue;
+                Direction wd = b.slotWall(s0); if (wd == null || !level.getBlockState(s0.relative(wd)).isFaceSturdy(level, s0.relative(wd), wd.getOpposite())) continue; // (the torch's own test: a fence or slab passed 'solid', the torch skipped it, queued again every few seconds, D2D 163854-58)
                 Task wt = new Task.WallTorch(s0, wd); if (!ts.contains(wt)) ts.add(wt);
             }
             if (b.branchPairs() > 0) for (Task mt : b.branchMouthTorches(level)) if (mt instanceof Task.WallTorch mw && mw.pos().distSqr(me1) <= 16 * 16 && com.claudemod.entity.life.Perception.clear(level, g.getEyePosition(), Vec3.atCenterOf(mw.pos())) && !ts.contains(mt)) ts.add(mt);

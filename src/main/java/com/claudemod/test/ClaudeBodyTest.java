@@ -11013,6 +11013,7 @@ public final class ClaudeBodyTest {
             case 1529: return st1529(stage, t, c, h, level, mock);
             case 1530: return st1530(stage, t, c, h, level, mock);
             case 1531: return st1531(stage, t, c, h, level, mock);
+            case 1532: return st1532(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -22052,6 +22053,21 @@ public final class ClaudeBodyTest {
             check(logNo != null, "night, no armour, a wooden sword: the tree in the open passed the night rule");
             check(oreNo == null, "ore sealed in rock not read as underground: " + oreNo);
             pass(stage, t, "the tree in the open held to the night rule (" + logNo + "), the ore in the rock passes");
+        }
+        return true;
+    }
+    /** Stage 1532 (D2D 202949-93, live 20:20:41 11-11 at his chest -83,16,-430): on the dragon run with no flint and steel, flint 2 and iron ingots on him; his store put both away ("stored 134"), and 6 min later the run's next step, flint and steel, fetched "1 flint ... 473 blocks off, 1 iron_ingot". What the run's open steps are made of stays on him. */
+    private static boolean st1532(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 10) {
+            String goal0 = c.playerGoal; c.playerGoal = "beat the ender dragon"; c.skillQueue.clear(); c.lastStep = null;
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.FLINT, 2)); c.getInventory().add(new ItemStack(Items.IRON_INGOT, 7)); c.getInventory().add(new ItemStack(Items.ROTTEN_FLESH, 4)); c.getInventory().add(new ItemStack(Items.GOLDEN_BOOTS)); // (golden boots on him, as live)
+            boolean flint = com.claudemod.director.ClaudeLife.neededByPlan(c, Items.FLINT), iron = com.claudemod.director.ClaudeLife.neededByPlan(c, Items.IRON_INGOT), flesh = com.claudemod.director.ClaudeLife.neededByPlan(c, Items.ROTTEN_FLESH);
+            var next = com.claudemod.director.ClaudeLife.dragonNext(c, level);
+            c.playerGoal = goal0; c.getInventory().clearContent();
+            check(flint && iron, "the dragon run open, no flint and steel: flint kept " + flint + ", iron kept " + iron + " (next step " + next + ")");
+            check(!flesh, "rotten flesh read as needed by the run");
+            pass(stage, t, "flint and iron kept for the run's flint and steel, the flesh not (next step " + next + ")");
         }
         return true;
     }

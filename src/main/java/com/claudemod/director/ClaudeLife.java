@@ -5650,11 +5650,21 @@ public final class ClaudeLife {
         return null;
     }
     /** An item one of his queued steps needs: a step's own target, or what a queued craft is made of (a furnace: its stone). The toss read none of his plan and threw out the blackstone his furnace wanted (review 65, stage 1209). */
+    private static java.util.Map<java.util.UUID, Object[]> dragonOpenMemo; // (static: fields added live start null)
+    /** The dragon run's open rows as the rules' steps (empty off the dragon goal); one read a tick. */
+    public static java.util.List<Skills.Step> dragonOpenSteps(ClaudeEntity g) {
+        String goal = g.playerGoal == null ? "" : g.playerGoal.toLowerCase(); if (!goal.contains("dragon") || !(g.level() instanceof ServerLevel level)) return java.util.List.of();
+        if (dragonOpenMemo == null) dragonOpenMemo = new java.util.HashMap<>();
+        Object[] m = dragonOpenMemo.get(g.getUUID()); if (m != null && (int) m[0] == g.tickCount) { @SuppressWarnings("unchecked") var l = (java.util.List<Skills.Step>) m[1]; return l; }
+        java.util.List<Skills.Step> out = new java.util.ArrayList<>();
+        for (String[] row : dragonRun(g, level)) { if (!row[0].isEmpty() || row[3].isEmpty()) continue; String[] p = row[3].split(" "); if (p.length > 2) try { out.add(new Skills.Step(p[0], p[1], Integer.parseInt(p[2]))); } catch (NumberFormatException e) { } }
+        dragonOpenMemo.put(g.getUUID(), new Object[] {g.tickCount, out}); return out;
+    }
     public static boolean neededByPlan(ClaudeEntity g, Item it) {
-        java.util.List<Skills.Step> steps = new java.util.ArrayList<>(g.skillQueue); if (g.lastStep != null) steps.add(g.lastStep);
+        java.util.List<Skills.Step> steps = new java.util.ArrayList<>(g.skillQueue); if (g.lastStep != null) steps.add(g.lastStep); steps.addAll(dragonOpenSteps(g)); // (and the dragon run's open steps: the store put away the flint and iron its flint and steel needed, fetched 473 off 6 min later, D2D 202949-93, stage 1532)
         ItemStack probe = new ItemStack(it);
         for (var s : steps) { Item t = item(s.target()); if (t == null) continue; if (t == it) return true;
-            if (s.skill().equals("craft")) { ItemStack smelted = g.level() instanceof ServerLevel sl0 ? sl0.getRecipeManager().getRecipeFor(net.minecraft.world.item.crafting.RecipeType.SMELTING, new net.minecraft.world.item.crafting.SingleRecipeInput(probe), sl0).map(rh -> rh.value().getResultItem(sl0.registryAccess())).orElse(ItemStack.EMPTY) : ItemStack.EMPTY; for (var r : Crafting.recipesFor(g.level(), t)) for (var ing : r.value().getIngredients()) if (ing.test(probe) || !smelted.isEmpty() && ing.test(smelted)) return true; } // (and what its ingredients are smelted from: "craft iron_boots" queued, the store put his raw iron away and the boots' smelt fetched all 10 back 4 s on, live 06:54 11-09, D2D review 114, stage 1253)
+            if (s.skill().equals("craft") || s.skill().equals("obtain")) { ItemStack smelted = g.level() instanceof ServerLevel sl0 ? sl0.getRecipeManager().getRecipeFor(net.minecraft.world.item.crafting.RecipeType.SMELTING, new net.minecraft.world.item.crafting.SingleRecipeInput(probe), sl0).map(rh -> rh.value().getResultItem(sl0.registryAccess())).orElse(ItemStack.EMPTY) : ItemStack.EMPTY; for (var r : Crafting.recipesFor(g.level(), t)) for (var ing : r.value().getIngredients()) if (ing.test(probe) || !smelted.isEmpty() && ing.test(smelted)) return true; } // (and what its ingredients are smelted from: "craft iron_boots" queued, the store put his raw iron away and the boots' smelt fetched all 10 back 4 s on, live 06:54 11-09, D2D review 114, stage 1253)
             if (s.skill().equals("smelt") && g.level() instanceof ServerLevel sl && sl.getRecipeManager().getRecipeFor(net.minecraft.world.item.crafting.RecipeType.SMELTING, new net.minecraft.world.item.crafting.SingleRecipeInput(probe), sl).map(rh -> rh.value().getResultItem(sl.registryAccess()).is(t)).orElse(false)) return true; } // (what a queued smelt cooks: the store put his raw iron away and the smelt fetched it back, review 73)
         return false;
     }

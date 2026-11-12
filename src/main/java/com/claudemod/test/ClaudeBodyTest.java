@@ -10870,6 +10870,7 @@ public final class ClaudeBodyTest {
             case 745: return st745(stage, t, c, h, level, mock);
             case 746: return st746(stage, t, c, h, level, mock);
             case 897: return st897(stage, t, c, h, level, mock);
+            case 1070: return st1070(stage, t, c, h, level, mock);
             case 747: return st747(stage, t, c, h, level, mock);
             case 748: return st748(stage, t, c, h, level, mock);
             case 749: return st749(stage, t, c, h, level, mock);
@@ -19207,6 +19208,40 @@ public final class ClaudeBodyTest {
                 check(hit && arrows == 1, arrows + " arrow(s) at a still blaze 26 off at his level: " + (hit ? "the first ones under it" : "none hit it"));
                 nsHome(c, h, level); pass(stage, t, "hit it with " + arrows + " arrow(s) in " + (t[0] - 40) + " ticks");
             }
+        }
+        return true;
+    }
+    /** Stage 1070 (death 57, live 17:05:13-35 11-11 World 17, 313,63,487 on a fortress deck): cornered by blazes at 9 HP, burning, no cover and no blocks to wall in; pickEscape: "no run end he can walk to ... no way out, holding here". blaze.retreat still priced "out of their sight" as a 15 s run in the open and won (~5697 against ~5744), coverFight held his attack for it, the Flee held where he stood, cornered queued the fight, and round again every 1.5 s: 16 s standing in the fireballs to 0. With every way out seen closed, the run is no option: fight on. */
+    private static java.util.List<net.minecraft.world.entity.monster.Blaze> s1070B; private static int s1070P = -1;
+    private static boolean st1070(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(17400, 70, 10600);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.FortressFight.reset(c); s1070B = new java.util.ArrayList<>(); s1070P = -1; }
+        if (t[0] < 29) nsTick(nl, c, o, t);
+        if (t[0] % 10 == 0 || t[0] < 10) for (int cx = -1; cx <= 2; cx++) { BlockPos q = o.offset(cx * 16, 0, 0); nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(q), 2, q); }
+        if (t[0] == 10) {
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+            for (int x = -12; x <= 36; x++) for (int z = -12; z <= 12; z++) for (int y = -1; y <= 10; y++) nl.setBlock(o.offset(x, y, z), y < 0 ? Blocks.NETHER_BRICKS.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_COD, 4)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); // (no blocks: too few to wall in, as live)
+            for (var sl : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS}) c.setItemSlot(sl, new ItemStack(sl == net.minecraft.world.entity.EquipmentSlot.HEAD ? Items.IRON_HELMET : sl == net.minecraft.world.entity.EquipmentSlot.CHEST ? Items.IRON_CHESTPLATE : Items.IRON_LEGGINGS));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 40) for (int[] q : new int[][] {{4, 2, 1}, {9, 3, 4}}) { var b = net.minecraft.world.entity.EntityType.BLAZE.create(nl); b.moveTo(o.getX() + q[0] + 0.5, o.getY() + q[1], o.getZ() + q[2] + 0.5, 90, 0); b.setNoAi(true); b.setNoGravity(true); b.setPersistenceRequired(); nl.addFreshEntity(b); s1070B.add(b); } // (as live: one 4 off, one 9-10 off)
+        if (t[0] > 40) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 50) {
+            c.setHealth(9); c.setRemainingFireTicks(100); c.tasks.clear(); c.currentTask = null; c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f);
+            try { var f = c.work.getClass().getDeclaredField("noWayOutTick"); f.setAccessible(true); f.setInt(c.work, c.tickCount); // (pickEscape just now: "no run end he can walk to ... no way out, holding here")
+                var m = c.work.getClass().getDeclaredMethod("blazeRetreatPays"); m.setAccessible(true); s1070P = (boolean) m.invoke(c.work) ? 1 : 0; }
+            catch (Exception e) { check(false, "blazeRetreatPays: " + e); }
+        }
+        if (t[0] == 60) {
+            for (var b : s1070B) b.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.clearFire(); c.setHealth(20);
+            for (int x = -12; x <= 36; x++) for (int z = -12; z <= 12; z++) for (int y = -1; y <= 10; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent(); com.claudemod.entity.life.FortressFight.reset(c);
+            check(s1070P == 0, "cornered by blazes at 9 HP burning, every way out seen closed a tick ago, no blocks to wall in: blaze.retreat picked " + (s1070P == 1 ? "out of their sight (a run that isn't there: coverFight holds the fight, the Flee holds in place)" : "?") + " (see the blaze.retreat line)");
+            nsHome(c, h, level); pass(stage, t, "no way out: fight on");
         }
         return true;
     }

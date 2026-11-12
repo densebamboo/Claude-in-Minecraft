@@ -14202,7 +14202,7 @@ public final class ClaudeLife {
         String goal = g.playerGoal == null ? "" : g.playerGoal.toLowerCase();
         if (!goal.contains("dragon")) return false;
         String[][] run = dragonRun(g, level);
-        for (int i = 0; i < run.length; i++) if (run[i][0].isEmpty()) return i == DRAGON_BOW_ROW || run[i][3].startsWith("obtain bow") || run[i][1].startsWith("blaze rods") && com.claudemod.entity.life.FortressFight.bowNeeded(g, level); // (or the rods are next and they failed for want of one: out of sword reach, no spawner)
+        for (int i = 0; i < run.length; i++) if (run[i][0].isEmpty()) return i == DRAGON_BOW_ROW || run[i][3].startsWith("obtain bow") || run[i][3].startsWith("obtain arrow") || run[i][1].startsWith("blaze rods") && com.claudemod.entity.life.FortressFight.bowNeeded(g, level); // (or the rods are next and they failed for want of one: out of sword reach, no spawner)
         return false;
     }
 

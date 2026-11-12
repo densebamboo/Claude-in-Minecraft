@@ -10987,6 +10987,7 @@ public final class ClaudeBodyTest {
             case 1518: return st1518(stage, t, c, h, level, mock);
             case 1519: return st1519(stage, t, c, h, level, mock);
             case 1520: return st1520(stage, t, c, h, level, mock);
+            case 1521: return st1521(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -21329,6 +21330,35 @@ public final class ClaudeBodyTest {
             for (int x = 0; x <= 12; x++) for (int z = 0; z <= 12; z++) for (int y = 2; y <= 9; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2);
             check(r != null && !r.startsWith("failed"), "a riverbed of gravel in sight under him: " + r);
             pass(stage, t, "the gravel under the water taken as there: " + r + " " + q);
+        }
+        return true;
+    }
+    /** Stage 1521 (D2D 144537-24, live 14:41:40-14:44:18 11-11): the Nether prep done but for arrows (a bow on him, 2 arrows, his feathers in a chest 111-286 off): the rules' next step "obtain arrow" 4 times in 3 min, each "nothing to get arrows from right now ... my feathers are 111 blocks off: the want waits" (bowHard false: only "obtain bow" on the prep row counted as the run's must). The arrows the prep row waits on are the must: the feathers fetched. */
+    private static int st1521 = -1;
+    private static boolean st1521(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos home = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { ledReset(c, level); com.claudemod.entity.life.FortressFight.reset(c); ledFar = home.offset(160, 0, 0); c.planning = false; c.nextPlanTick = c.tickCount + 100000; com.claudemod.director.ClaudeLife.hisPortal.remove(c.getUUID()); st1521 = -1; }
+        if (t[0] % 10 == 0) { ledTicket(level, ledFar); ledTicket(level, home); }
+        if (t[0] == 5) { flatBox(h); ledPad(level, ledFar); level.setBlock(ledFar, Blocks.CHEST.defaultBlockState(), 3); c.storageChests.add(ledFar); c.myStations.add(ledFar); ledDeposit(c, ledFar, new ItemStack(Items.FEATHER, 8)); }
+        if (t[0] > 5 && st1521 < 0) {
+            if (ledCount(c, ledFar, Items.FEATHER) != 8 || c.inventory.count(s -> s.is(Items.FEATHER)) != 0) { check(t[0] < 200, "setup: the 8 feathers never made his ledger"); return true; }
+            st1521 = t[0]; ledTo(c, home);
+            c.playerGoal = "beat the ender dragon"; c.prefs.put("stay_close", "no");
+            c.getInventory().clearContent();
+            c.getInventory().add(new ItemStack(Items.GOLDEN_BOOTS)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 64)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.FLINT_AND_STEEL));
+            c.getInventory().add(new ItemStack(Items.BOW)); c.getInventory().add(new ItemStack(Items.ARROW, 2)); c.getInventory().add(new ItemStack(Items.FLINT, 4)); c.getInventory().add(new ItemStack(Items.STICK, 4));
+            btKit(c); check(com.claudemod.director.Kit.missing(c, true).isEmpty(), "setup: the kit still misses " + com.claudemod.director.Kit.missing(c, true));
+            com.claudemod.director.ClaudeLife.hisPortal.put(c.getUUID(), h.absolutePos(new BlockPos(3000, 2, 3000))); // (unloaded far off: taken as standing)
+            String p = com.claudemod.director.ClaudeLife.dragonPath(c, level);
+            var rs = com.claudemod.director.ClaudeLife.ruleStep(c, mock[0]);
+            boolean hard = com.claudemod.director.ClaudeLife.bowHard(c, level);
+            c.tasks.clear(); c.skillQueue.clear();
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "get_arrows", "arrow", 14);
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.playerGoal = null; c.dropCurrent = true; if (level.getBlockEntity(ledFar) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity cb) cb.clearContent(); ledReset(c, level); // (the shared test chest emptied: its feathers made the arrows the next must in 1360)
+            check(rs != null && rs.target().startsWith("arrow"), "setup: the rules' next step isn't the arrows: " + rs + " (run: " + p + ")");
+            check(hard, "the arrows are the prep's last piece: bowHard false, so his feathers 160 off aren't worth the walk");
+            check(r != null && r.contains("feathers are in my chest"), "the prep waiting on arrows, his feathers 160 off: " + r);
+            pass(stage, t, "the prep's arrows the run's must: " + r); return true;
         }
         return true;
     }
@@ -32779,7 +32809,7 @@ public final class ClaudeBodyTest {
             check(rs != null && rs.skill().equals("obtain") && rs.target().equals("bow"), "Nether prep done but for the bow, 3 string in his chest 160 off: the rules' next step is " + rs + " (run: " + p + ")");
             check(com.claudemod.director.ClaudeLife.bowHard(c, level), "the bow is the prep's last piece: his chest's string isn't worth the walk (bowHard false)");
             c.getInventory().add(new ItemStack(Items.BOW)); // with a bow on him the prep is done and the rods are next: no must for the string
-            check(!com.claudemod.director.ClaudeLife.bowHard(c, level), "a bow on him, the rods next: bowHard true anyway");
+            check(!com.claudemod.director.ClaudeLife.bowHard(c, level), "a bow on him, the rods next: bowHard true anyway (run: " + com.claudemod.director.ClaudeLife.dragonPath(c, level) + ")");
             c.getInventory().removeItem(c.getInventory().findSlotMatchingItem(new ItemStack(Items.BOW)), 1); c.getInventory().add(new ItemStack(Items.BLAZE_ROD, 3));
             c.attempts.fail(com.claudemod.entity.life.Attempts.Kind.WALK, ledFar, c.tickCount); // (his string's chest out of reach just now: no bow to be had, so the prep is done without one, never a wait)
             var rs2 = com.claudemod.director.ClaudeLife.ruleStep(c, mock[0]);

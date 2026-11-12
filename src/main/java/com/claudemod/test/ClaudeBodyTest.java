@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1583: return st1583(stage, t, c, h, level, mock);
             case 1582: return st1582(stage, t, c, h, level, mock);
             case 1581: return st1581(stage, t, c, h, level, mock);
             case 1580: return st1580(stage, t, c, h, level, mock);
@@ -21088,6 +21089,40 @@ public final class ClaudeBodyTest {
             nsHome(c, h, level);
             check(!r.startsWith("getting ready first"), "at his fortress, armor 14 and a shield, 20 HP, 12 meals, 1 rod of 7, his portal 270 off: sent home to bank the rod (" + r + ")");
             pass(stage, t, "on with the fight: " + r);
+        }
+        return true;
+    }
+    /** Stage 1583 (D2D review 235003-94, live 23:46:00-44 11-11 at 258,65,514 on his fortress: blazes 33-35 off at his level, a bow and no arrows, a shield; "waiting at the cover's edge: quiet, 35 off (past the 14 to close in), a bow and no arrows" in their sight, volleys on the shield and the fire through, 0 swings in 36 s; 002003-230 the same at a blaze 8 up). A blaze 20 off at his level, his sword, a shield, a bow, no arrows, stone for cover: the wait is out of its sight (a blaze that sees him hangs back and shoots; out of sight it comes in), not at the edge in its view. */
+    private static net.minecraft.world.entity.monster.Blaze s1583B; private static int s1583T, s1583Seen, s1583N;
+    private static boolean st1583(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1583B = null; s1583T = -1; s1583Seen = 0; s1583N = 0; }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) if (e != s1583B) e.discard();
+        if (t[0] == 10) {
+            for (int x = -8; x <= 26; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 8; y++) level.setBlock(o.offset(x, y, z), (y < 0 ? Blocks.NETHER_BRICKS : Blocks.AIR).defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().items.set(1, new ItemStack(Items.BOW)); c.getInventory().items.set(2, new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().items.set(3, new ItemStack(Items.COOKED_BEEF, 16)); c.getInventory().selected = 0;
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 45, o.getZ() + 0.5, 0f, 0f);
+            level.setDayTime(6000);
+        }
+        if (t[0] == 80) {
+            s1583B = EntityType.BLAZE.create(level); s1583B.moveTo(o.getX() + 20.5, o.getY() + 1, o.getZ() + 0.5, 90, 0); s1583B.setPersistenceRequired(); level.addFreshEntity(s1583B);
+            s1583B.setTarget(c); c.tasks.add(new Task.Attack(s1583B.getUUID(), 20 * 60)); s1583T = t[0];
+        }
+        if (s1583T > 0 && t[0] > s1583T) {
+            c.getFoodData().setFoodLevel(20); if (c.getHealth() < 12) c.setHealth(12);
+            if (t[0] - s1583T > 20 * 8 && s1583B.isAlive()) { s1583N++; if (s1583B.hasLineOfSight(c) && s1583B.distanceTo(c) > 14) s1583Seen++; } // (after 8 s: his cover made)
+            if (!s1583B.isAlive() || t[0] > s1583T + 20 * 28) {
+                boolean dead = !s1583B.isAlive(); int seen = s1583Seen, n = s1583N; String said = c.lastSkillLine;
+                s1583B.discard(); for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.projectile.Projectile.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+                for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl != net.minecraft.world.entity.EquipmentSlot.MAINHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); if (c.isUsingItem()) c.stopUsingItem(); c.clearFire();
+                for (int x = -8; x <= 26; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                flatBox(h); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5);
+                check(dead || n == 0 || seen * 10 <= n * 4, "a blaze 20 off at his level, no arrows: in its sight past sword reach " + seen + " of " + n + " ticks, waiting where it shoots and never comes in");
+                pass(stage, t, dead ? "the blaze came in and died" : "out of its sight " + (n - seen) + " of " + n + " ticks");
+            }
         }
         return true;
     }

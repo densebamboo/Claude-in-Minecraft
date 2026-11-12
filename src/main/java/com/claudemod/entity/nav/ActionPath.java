@@ -267,7 +267,14 @@ public final class ActionPath {
         for (Direction d : Direction.values()) if (!level.getFluidState(q.relative(d)).isEmpty()) return " (kept: holds " + (level.getFluidState(q.relative(d)).is(net.minecraft.tags.FluidTags.LAVA) ? "lava" : "water") + " back at " + q.relative(d).toShortString() + ")";
         if (s.getBlock() instanceof net.minecraft.world.level.block.FallingBlock) return " (kept: it falls on him)";
         if (!level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(q).inflate(2), m -> m.isAlive() && m.getTarget() == c.g).isEmpty()) return " (kept: opens onto a mob after him)";
-        return " (kept: no tool for it, or a protected block)";
+        if (c.g != null && com.claudemod.entity.life.Gate.keptFromDig(c.g, q)) return " (kept: the referee's, refused before)";
+        if (s.getDestroySpeed(level, q) < 0) return " (kept: unbreakable)";
+        if (s.hasBlockEntity()) return " (kept: a block with contents)";
+        if (s.is(net.minecraft.world.level.block.Blocks.CRAFTING_TABLE) && !com.claudemod.director.ClaudeLife.isTempStation(c.g, q) && !com.claudemod.director.ClaudeLife.stationPickup(q)) return " (kept: a crafting station, not one of his temp tables)"; // (live 23:01 11-11, review 230509-8: a table read \"no tool for it\" with an axe and a pick on him)
+        if (c.owner != null && com.claudemod.director.ClaudeLife.protectedBlock(c.g, c.owner, q)) return " (kept: a protected block)";
+        if (c.hisBuild(q)) return " (kept: his build)";
+        if (com.claudemod.entity.life.TempLedger.isPlug(c.g, q)) return " (kept: his own plug)";
+        return " (kept: no tool for it)";
     }
     /**
      * The greedy search's weight for this way: what the straight line costs a block (a dug cell, a bridge block over a gap, more

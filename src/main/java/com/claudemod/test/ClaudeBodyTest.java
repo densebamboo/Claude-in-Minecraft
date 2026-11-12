@@ -10889,6 +10889,7 @@ public final class ClaudeBodyTest {
             case 1070: return st1070(stage, t, c, h, level, mock);
             case 1074: return st1074(stage, t, c, h, level, mock);
             case 1076: return st1076(stage, t, c, h, level, mock);
+            case 1077: return st1077(stage, t, c, h, level, mock);
             case 1075: return st1075(stage, t, c, h, level, mock);
             case 747: return st747(stage, t, c, h, level, mock);
             case 748: return st748(stage, t, c, h, level, mock);
@@ -20537,6 +20538,34 @@ public final class ClaudeBodyTest {
             for (int x = -6; x <= 6; x++) for (int z = -6; z <= 12; z++) for (int y = -9; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
             check(!(still && !shield), "held on the lip 3 s with his shield down, a skeleton 8 below in sight (at " + at + "): " + (q.length() > 140 ? q.substring(0, 140) : q));
             pass(stage, t, (still ? "on the lip, shield up" : "off the lip to " + at));
+        }
+        return true;
+    }
+    /** Stage 1077 (death 21:43 11-11 World 17: one skeleton 7 below, 10 off, reachable only by a dug way. closeOnShooter priced the way in "~8.2 s under its fire (~12 damage) at health 16: out of its sight instead", while fight.flee priced the same fight "~6 s (4 swings, ~2 HP of hits)": fight. The two measures disagreed on every such fight, so he flipped between fight, footing, run and out of sight). A skeleton 6 down a pit, only a dig down to it, 12 HP, no shield: the fight-or-run price and the way in agree. */
+    private static net.minecraft.world.entity.monster.Skeleton s1077S;
+    private static boolean st1077(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); if (s1077S != null) s1077S.discard(); s1077S = null; level.setDayTime(6000); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+            for (int x = -6; x <= 6; x++) for (int z = -4; z <= 12; z++) for (int y = -12; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+            for (int z = -2; z <= 1; z++) for (int y = 0; y <= 1; y++) level.setBlock(o.offset(0, y, z), Blocks.AIR.defaultBlockState(), 2); // his tunnel, open to the pit
+            for (int x = -1; x <= 1; x++) for (int z = 2; z <= 10; z++) for (int y = -6; y <= 1; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); // the pit, its floor 7 down
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0; c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 8));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor() || sl == net.minecraft.world.entity.EquipmentSlot.OFFHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 30f); c.setHealth(12); c.getFoodData().setFoodLevel(20); c.fallDistance = 0; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var sk = EntityType.SKELETON.create(level); sk.moveTo(o.getX() + 0.5, o.getY() - 6, o.getZ() + 6.5, 180, 0); sk.setNoAi(true); sk.setPersistenceRequired(); sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW)); level.addFreshEntity(sk); sk.setTarget(c); s1077S = sk; com.claudemod.entity.life.Perception.noteSeenTest(c, sk);
+        }
+        if (t[0] == 11) {
+            boolean run; String odds; boolean los = c.hasLineOfSight(s1077S);
+            try { var m = c.work.getClass().getDeclaredMethod("shouldFlee", net.minecraft.world.entity.Entity.class, boolean.class); m.setAccessible(true); run = (Boolean) m.invoke(c.work, s1077S, true);
+                var fo = c.work.getClass().getDeclaredField("fightOdds"); fo.setAccessible(true); odds = (String) fo.get(c.work); } catch (ReflectiveOperationException e) { check(false, "shouldFlee: " + e); return true; }
+            int in = c.work.closeOnShooterTest(s1077S);
+            s1077S.discard(); s1077S = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.setHealth(20);
+            for (int x = -6; x <= 6; x++) for (int z = -4; z <= 12; z++) for (int y = -12; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(los, "setup: no line of sight to the skeleton down the pit");
+            check(!(in == 0 && !run), "the way in refused (out of its sight) while the fight-or-run price picked the fight: " + odds);
+            pass(stage, t, "agreed: " + (run ? "run" : "fight") + ", way in " + in + " (" + odds + ")");
         }
         return true;
     }

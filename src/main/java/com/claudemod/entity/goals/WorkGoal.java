@@ -7378,7 +7378,7 @@ public class WorkGoal extends Goal {
         boolean shield = g.getItemBySlot(EquipmentSlot.OFFHAND).is(net.minecraft.world.item.Items.SHIELD);
         double secs = plan.walks() * 0.25 + plan.digs() * 0.6 + plan.puts() * 0.8;
         double take = Math.floor(secs / 2.0) * 4.0 * (1 - Math.min(20, g.getArmorValue()) / 25.0) * (shield ? 0.3 : 1.0) + edgeHp; // (a shot every ~2 s on the way in, ~4 a bolt or arrow less his armor; a shield takes most; and the falls its edges risk)
-        if (g.getHealth() - take < 8) { closeSay(String.format("the way in to the %s (%d below, %d off) is ~%.1f s under its fire (~%.0f damage) at health %d: out of its sight instead", who, below, off, secs, take, (int) g.getHealth())); return 0; }
+        if (g.getHealth() - take < 8) { closeSay(String.format("the way in to the %s (%d below, %d off) is ~%.1f s under its fire (~%.0f damage) at health %d: out of its sight instead (fight.flee's last price: %s)", who, below, off, secs, take, (int) g.getHealth(), fightOdds)); return 0; } // (the two prices side by side: death 21:43 11-11 had fight "~2 HP" against a way in "~12 damage" 50 s apart, never on one tick; stage 1077)
         var acts = plan.acts();
         if (acts.isEmpty()) return 0;
         String sized = String.format("%d walks %d digs %d blocks, ~%.1f s under its fire at health %d%s", plan.walks(), plan.digs(), plan.puts(), secs, (int) g.getHealth(), shield ? ", shield up while it's loaded" : "");

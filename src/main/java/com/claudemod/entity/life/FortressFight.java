@@ -458,7 +458,9 @@ public final class FortressFight {
         var fd = g.getFoodData(); double food = fed ? 20 : fd.getFoodLevel(), sat = fed ? Weights.w("food.fed_saturation", 5) : fd.getSaturationLevel();
         double burst = hits * Weights.w("blaze.burst_share", 0.33); // the run of them that lands before he can eat between volleys: what kills (deaths 70-75: 15-17 HP in 10-20 s)
         double heal = Food.regenS(g, blazes * hits * perHit, food, sat); // (the meals on him, plus a caller's what-if: blazeRods' "ready" sets gear_up's own top-up, never an assumed 16: in-fight callers got 16 meals they didn't have) // the meals on him win back the whole fight's HP once (each blaze was healed from the same meals again)
-        return blazes * (kill + Decide.riskS(g, health, burst * perHit, perHit, (int) Math.ceil(burst) + 2)) + heal;
+        int most = (int) Math.ceil(burst) + 2; double pDie = Decide.dieP(health, burst * perHit, perHit, most), carried = Decide.deathS(g) - Weights.w("danger.death_s", 1800);
+        // the rods etc. on him are lost once at most: riskS adds them each blaze (12 blazes at 18% read as 2.2 losses of his 1 rod, ~650 s: live 23:38:54 11-11 "get ready first" home to bank it, 485 s+ of walking; stage 1582)
+        return blazes * (kill + Decide.riskS(g, health, burst * perHit, perHit, most) - pDie * carried) + (1 - Math.pow(1 - pDie, Math.max(0, blazes))) * carried + heal;
     }
 
     public static String blazeRods(ClaudeEntity g, ServerPlayer player, ServerLevel level, Skills.Step st) {

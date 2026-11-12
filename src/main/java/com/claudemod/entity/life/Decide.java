@@ -76,8 +76,10 @@ public final class Decide {
         if (health <= 0) return deathS(g);
         double floor = w("danger.min_hp_left", 4), ph = Math.max(0.5, perHit), lam = Math.max(0, hits) / ph;
         int kDie = (int) Math.ceil(health / ph), kFloor = (int) Math.ceil((health - floor) / ph);
-        return (kDie > most ? 0 : atLeast(lam, kDie)) * deathS(g) + (kFloor > most ? 0 : atLeast(lam, kFloor)) * w("danger.under_floor_s", 300);
+        return dieP(health, hits, perHit, most) * deathS(g) + (kFloor > most ? 0 : atLeast(lam, kFloor)) * w("danger.under_floor_s", 300);
     }
+    /** riskS's chance of dying: hits HP expected at perHit each, at most `most` of them. */
+    public static double dieP(double health, double hits, double perHit, int most) { double ph = Math.max(0.5, perHit); int kDie = (int) Math.ceil(health / ph); return kDie > most ? 0 : atLeast(Math.max(0, hits) / ph, kDie); }
     /**
      * What a death costs him: danger.death_s, plus the dragon-path items on him he'd lose (they drop where he dies, into lava or
      * fire as often as not in the Nether): each blaze rod danger.rod_s, pearl danger.pearl_s, eye both. He held rods three times

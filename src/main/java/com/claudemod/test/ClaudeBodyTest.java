@@ -11052,6 +11052,7 @@ public final class ClaudeBodyTest {
             case 1543: return st1543(stage, t, c, h, level, mock);
             case 1545: return st1545(stage, t, c, h, level, mock);
             case 1546: return st1546(stage, t, c, h, level, mock);
+            case 1547: return st1547(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -23208,6 +23209,37 @@ public final class ClaudeBodyTest {
             check(plugged > 0, "the plug never went in");
             check(broke == null, broke == null ? "" : broke);
             pass(stage, t, "no way back among the 4 he shut out, 10 s at full health");
+        }
+        return true;
+    }
+    /** Stage 1547 (D2D review 025416-43/45, live 02:51-02:57 11-12 at -147..-138,15..18,-433: a cave under his mine's walkway, y14-15 all air; bpIntegrity queued the floor patches, "its walkway cell has no floor", "nothing to place against", "can't see a face", each re-queued every few seconds, 44 times in 6 min). A cave 6 deep under 5 cells of his walkway: the floor goes back across it, from the edge out. */
+    private static BlockPos s1547R; private static int s1547At, s1547Done; private static java.util.List<BlockPos> s1547F = new java.util.ArrayList<>();
+    private static boolean st1547(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(7950, 90, 8250);
+        if (t[0] == 1) { scenarioReset(c); c.prefs.put("stay_close", "no"); c.prefs.put("torches_while_digging", "no"); s1547At = 0; s1547Done = -1; s1547F.clear(); }
+        if (t[0] > 1 && t[0] % 5 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) m.discard();
+        if (t[0] == 10) { c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.teleportTo(o.getX() + 0.5, o.getY() + 2, o.getZ() + 0.5); c.fallDistance = 0; c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(6000); }
+        if (t[0] == 16) {
+            var E = net.minecraft.core.Direction.EAST; var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 30, null)); b.invalidate();
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.stairStart = b.entrance;
+            c.mineShape = new ClaudeEntity.MineShape(2, 3, 4, 8, 6, "right"); for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK) c.mineCells.add(e.getKey().immutable());
+            BlockPos row = b.rows().get(12).first(); int fy = row.getY();
+            for (int x = -4; x <= 40; x++) for (int z = -8; z <= 8; z++) for (int y = -7; y <= 5; y++) { BlockPos q = new BlockPos(o.getX() + x, fy + y, row.getZ() + z); level.setBlock(q, (b.isWalk(q) ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            BlockPos c0 = b.rows().get(14).first(), c1 = b.rows().get(18).first(); // (the cave: under rows 14..18, 6 deep, wider than the tunnel)
+            for (BlockPos q : BlockPos.betweenClosed(new BlockPos(Math.min(c0.getX(), c1.getX()), fy - 7, row.getZ() - 4), new BlockPos(Math.max(c0.getX(), c1.getX()), fy + 4, row.getZ() + 4))) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2);
+            for (int r = 14; r <= 18; r++) for (BlockPos f : b.rows().get(r).feet()) s1547F.add(f.below().immutable());
+            c.teleportTo(row.getX() + 0.5, row.getY(), row.getZ() + 0.5); c.fallDistance = 0; s1547R = row.immutable();
+        }
+        if (t[0] >= 30 && s1547Done < 0 && c.currentTask == null && c.tasks.isEmpty() && t[0] % 20 == 10) { if (s1547At == 0) s1547At = t[0]; c.nextPlanTick = c.tickCount + 20 * 600;
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("bpIntegrity", ClaudeEntity.class, ServerLevel.class); m.setAccessible(true); m.invoke(null, c, level); } catch (ReflectiveOperationException e) { throw new RuntimeException(e); } } // (his mine's integrity pass, as it runs while he's in it)
+        if (s1547At > 0 && s1547Done < 0 && s1547F.stream().allMatch(f -> !level.getBlockState(f).isAir())) s1547Done = t[0] - s1547At;
+        if (s1547At > 0 && (s1547Done >= 0 || t[0] - s1547At > 20 * 45)) {
+            int done = s1547Done; long open = s1547F.stream().filter(f -> level.getBlockState(f).isAir()).count(); BlockPos at = c.blockPosition();
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.mineCells.clear(); c.prefs.remove("mine_model"); c.prefs.remove("stay_close"); c.prefs.remove("torches_while_digging"); c.getInventory().clearContent();
+            flatBox(h);
+            check(done >= 0 && done <= 20 * 12, "his tunnel open across a cave for 5 rows: floor back in " + (done < 0 ? "45+" : done / 20.0) + " s (a player: ~10 s), " + open + " of " + s1547F.size() + " floor cells still open after 45 s (him at " + at.toShortString() + ")");
+            pass(stage, t, "the walkway's floor back across the cave in " + done / 20.0 + " s");
         }
         return true;
     }

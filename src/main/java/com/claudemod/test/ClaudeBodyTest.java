@@ -10997,6 +10997,7 @@ public final class ClaudeBodyTest {
             case 1522: return st1522(stage, t, c, h, level, mock);
             case 1523: return st1523(stage, t, c, h, level, mock);
             case 1524: return st1524(stage, t, c, h, level, mock);
+            case 1525: return st1525(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -21582,6 +21583,27 @@ public final class ClaudeBodyTest {
             for (BlockPos q0 : new BlockPos[] {fa, fb, fc}) { if (level.getBlockEntity(q0) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fe) fe.clearContent(); level.setBlock(q0, Blocks.AIR.defaultBlockState(), 2); }
             check(head instanceof Task.Place, "at the furnace, his own Place queued behind two more furnaces' takes: the queue after the side-job look is " + q);
             pass(stage, t, "his own job first while it cooks: " + q);
+        }
+        return true;
+    }
+    /** Stage 1525 (D2D 171047-72, live 17:06:52-17:07:22 11-11 at -41,68,-55): his crafting table set down on a felled tree's stump for his crafts; the tree's finish took it "back up first, then the sapling" with no sapling on him ("owed one"), the next craft set it down on the stump again, the tidy pass took it up again: 3 times in 40 s. With no sapling to plant, the table stays. */
+    private static boolean st1525(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos b = h.absolutePos(new BlockPos(5, 2, 5));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.blueprint = null; c.tempStations.clear(); }
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(1000); level.setBlock(b.below(), Blocks.GRASS_BLOCK.defaultBlockState(), 2);
+            level.setBlock(b, Blocks.CRAFTING_TABLE.defaultBlockState(), 3); com.claudemod.entity.life.TempLedger.placed(c, level, b, Blocks.CRAFTING_TABLE.defaultBlockState(), Blocks.AIR.defaultBlockState()); c.tempStations.add(b.immutable());
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_INGOT, 16)); c.getInventory().add(new ItemStack(Items.STICK, 3));
+            BlockPos me = b.east(2); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = new com.claudemod.entity.life.Skills.Step("craft", "iron_pickaxe", 1);
+            c.tasks.add(new Task.FinishTree(b.immutable(), 0));
+        }
+        if (t[0] == 10 + 60) {
+            boolean stands = level.getBlockState(b).is(Blocks.CRAFTING_TABLE); String q = String.valueOf(c.tasks);
+            c.tasks.clear(); c.dropCurrent = true; c.tempStations.clear(); c.lastStep = null; level.setBlock(b, Blocks.AIR.defaultBlockState(), 2); c.getInventory().clearContent();
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(b).inflate(8))) e.discard();
+            check(stands, "his table on the stump taken up for a sapling he hasn't got (" + q + ")");
+            pass(stage, t, "no sapling on him: his table left on the stump for his crafts");
         }
         return true;
     }

@@ -30990,7 +30990,7 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.skillQueue.clear();
             String rs = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "cooked_salmon", 5); try { var f = com.claudemod.director.Kit.class.getDeclaredField("foodPick"); f.setAccessible(true); ((java.util.Map<?, ?>) f.get(null)).remove(c.getUUID()); } catch (Exception e) { throw new RuntimeException(e); } // (the pick set above goes: it leaked into 968's next ask)
             c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.animal.Salmon.class, c.getBoundingBox().inflate(16))) m.discard(); for (int x = 3; x <= 6; x++) for (int z = -2; z <= 2; z++) level.setBlock(me.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2);
-            check(fa != null && fa.item() == Items.COOKED_SALMON && fa.count() <= 5, "short of trip food, 5 raw salmon on him: the kit's ask " + (fa == null ? "none" : fa.count() + " " + fa.item()));
+            check(fa != null && fa.item() == Items.COOKED_SALMON && fa.count() >= 5, "short of trip food, 5 raw salmon on him: the kit's ask doesn't take them in: " + (fa == null ? "none" : fa.count() + " " + fa.item())); /* (re-pitched: since 67433546 folds his raw into the kit's food, the fish pick asks his 5 plus the school's 2) */
             check(!(rc.contains("cooked, not a hunt") && rs.contains("isn't worth a furnace")), "collect and smelt each left it to the other: collect \"" + rc + "\", smelt \"" + rs + "\"");
             pass(stage, t, "collect: " + rc + "; smelt: " + rs);
         }

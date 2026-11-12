@@ -2089,8 +2089,10 @@ public class WorkGoal extends Goal {
     }
 
     /** What he towers up and bridges with, like a player: dirt, cobblestone or cobbled deepslate. Never wood. */
+    /** The block he towers, walls and bridges with right now (stage 1568). */
+    public ItemStack scaffoldNow() { return scaffoldBlock(); }
     private ItemStack scaffoldBlock() {
-        if (g.level().dimensionType().hasCeiling()) { ItemStack gp = com.claudemod.entity.life.FortressScout.ghastProof(g); if (!gp.isEmpty()) return gp; } // the Nether: bridges and walls of cobblestone or cobbled deepslate, never netherrack or dirt while he has those (the user 16:30: "its not ghast proof. cobble is better")
+        if (g.level().dimensionType().hasCeiling()) { var wi = com.claudemod.entity.life.FortressFight.wallItem(g); if (wi != null && wi != net.minecraft.world.item.Items.SOUL_SAND && wi != net.minecraft.world.item.Items.SOUL_SOIL && wi != net.minecraft.world.item.Items.MAGMA_BLOCK) { ItemStack gp = biggestStack(s -> s.is(wi)); if (!gp.isEmpty()) return gp; } } /* (ghast-proof when he has 8+ of it, else the kind he has most of: one stack of 2 cobblestone with 112 netherrack read "underground with 2 blocks: no tower worth it" from the blazes, 20 -> 4, live 17:04:43 11-11, D2D review 170525-53; stage 1568) */ // the Nether: bridges and walls of cobblestone or cobbled deepslate, never netherrack or dirt while he has those (the user 16:30: "its not ghast proof. cobble is better")
         if (g.level().canSeeSky(g.blockPosition())) for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { ItemStack d0 = g.inventory.items.getItem(i); if (d0.is(net.minecraft.world.item.Items.DIRT) || d0.is(net.minecraft.world.item.Items.GRASS_BLOCK)) return d0; } // (out in the world; underground, stone: a floor patched in his mine is stone) // dirt first: a block he puts down out in the world reads as ground (the user: a bridge over a crater by his house went in as cobbled deepslate)
         ItemStack s0 = biggestStack(s -> s.is(net.minecraft.world.item.Items.DIRT) || s.is(net.minecraft.world.item.Items.COBBLESTONE)
                 || s.is(net.minecraft.world.item.Items.COBBLED_DEEPSLATE)); // (the biggest: the first was cobblestone x1 beside 67 cobbled deepslate, "underground with 1 blocks", no tower from the horde, live 16:25)

@@ -10551,6 +10551,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1569: return st1569(stage, t, c, h, level, mock);
+            case 1568: return st1568(stage, t, c, h, level, mock);
             case 1567: return st1567(stage, t, c, h, level, mock);
             case 1566: return st1566(stage, t, c, h, level, mock);
             case 1565: return st1565(stage, t, c, h, level, mock);
@@ -20452,6 +20454,55 @@ public final class ClaudeBodyTest {
                 for (int x = -20; x <= 12; x++) for (int z = -7; z <= 7; z++) for (int y = -1; y <= 6; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
                 check(walls && !ran, "health 9, burning, three blazes, nowhere out of their sight, 2 cobblestone and 64 netherrack on him: not walled in (" + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
                 pass(stage, t, "walled in: " + (q.length() > 100 ? q.substring(0, 100) : q));
+            }
+        }
+        return true;
+    }
+    /** Stage 1568 (D2D review 170525-53, live 17:04:43-56 11-11 on the fortress deck at 314,63,487: flee.cornered picked "cover ~63 s (dug in or boxed here)", then "no cover: underground with 2 blocks: no tower worth it" and "no tower to be had (2 blocks ...)", 20 -> 4 in their fire; his pack: cobblestone 2, netherrack 112; scaffoldBlock in the Nether gave the ghast-proof stack whatever its size). In the Nether with 2 cobblestone and 64 netherrack: his tower and wall block is the netherrack, all of it counted. */
+    private static boolean st1568(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(7340, 80, 6720);
+        if (t[0] == 1) scenarioReset(c);
+        if (t[0] > 10 && t[0] % 10 == 0 && c.level() == nl) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 3, c.blockPosition());
+        if (t[0] == 10) {
+            for (int x = -3; x <= 3; x++) for (int z = -3; z <= 3; z++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, z), (y == -1 ? Blocks.NETHER_BRICKS : Blocks.AIR).defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 2)); c.getInventory().add(new ItemStack(Items.NETHERRACK, 64));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 20) {
+            ItemStack s = c.work.scaffoldNow(); String got = s.isEmpty() ? "nothing" : s.getCount() + " " + s.getItem();
+            c.getInventory().clearContent();
+            check(c.level() == nl, "setup: not in the Nether");
+            check(s.is(Items.NETHERRACK) && s.getCount() >= 6, "2 cobblestone and 64 netherrack in the Nether: his tower block is " + got + " (the 2 read as no tower worth it)");
+            nsHome(c, h, level); pass(stage, t, "towers with " + got);
+        }
+        return true;
+    }
+    /** Stage 1569 (D2D review 165406-141, live 16:52:32-16:53:02 11-11 at his home portal -10,68,-23: "stepping into portal #2", the same second "a Zombie 8 blocks off in sight: after it"; down its pit, the kill, the rotten flesh, then "12 s on ... not in the portal", the step failed, a new plan smelted a salmon, the walk back; 30 s for a 4 s step). His lit portal 2 off, a zombie 8 off in sight: through the portal, no chase. */
+    private static int st1569T0 = -1; private static net.minecraft.world.entity.monster.Zombie s1569Z; private static boolean s1569Chased;
+    private static boolean st1569(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(6, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(6000); st1569T0 = -1; s1569Chased = false; if (s1569Z != null) s1569Z.discard(); s1569Z = null; flatBox(h); }
+        if (t[0] == 10) {
+            for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, 0), x == -1 || x == 2 || y == -1 || y == 3 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.X), 2 | 16);
+            nsKit(c); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() - 1.5); com.claudemod.entity.life.Watchdog.teleported(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var z = EntityType.ZOMBIE.create(level); z.moveTo(o.getX() + 0.5, o.getY(), o.getZ() + 6.5, 180, 0); z.setNoAi(true); z.setPersistenceRequired(); level.addFreshEntity(z); s1569Z = z; com.claudemod.entity.life.Perception.noteSeenTest(c, z); // (beyond the portal, in his view as he walks in)
+        }
+        if (t[0] == 14) { c.lastStep = new com.claudemod.entity.life.Skills.Step("enter_portal", "", 1); com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "enter_portal", "", 1); st1569T0 = t[0]; } // (the step he is on, as the live runner keeps it)
+        if (st1569T0 > 0) {
+            if ((t[0] - st1569T0) % 20 == 5 && c.level() == level) com.claudemod.director.ClaudeLife.clearOnSightTest(c, mock[0]); // (the live loop runs it once a second; off in tests)
+            java.util.function.Predicate<Task> chase = q -> q instanceof Task.Attack a && s1569Z != null && a.target().equals(s1569Z.getUUID());
+            if (chase.test(c.currentTask) || c.tasks.stream().anyMatch(chase)) s1569Chased = true;
+            boolean through = c.level().dimension() == net.minecraft.world.level.Level.NETHER;
+            if (through || t[0] - st1569T0 > 20 * 12) {
+                int s = t[0] - st1569T0; String q = c.currentTask + " " + c.tasks;
+                if (s1569Z != null) s1569Z.discard(); s1569Z = null;
+                for (int x = -1; x <= 2; x++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, 0), Blocks.AIR.defaultBlockState(), 2 | 16);
+                nsHome(c, h, level);
+                check(!s1569Chased, "stepping into his portal, a zombie 8 off: went after it");
+                check(through, "his portal 2 off: not through in 12 s (" + (q.length() > 140 ? q.substring(0, 140) : q) + ")");
+                pass(stage, t, "through in " + s / 20.0 + " s, the zombie let be");
             }
         }
         return true;

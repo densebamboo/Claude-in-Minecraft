@@ -408,18 +408,32 @@ public final class PortalMap {
         }
         return null;
     }
+    private static Map<java.util.UUID, Object> enterRetried; // the portal id he was sent back into once this go (static: fields added live start null)
+    private static Map<java.util.UUID, Object> enterRetried() { if (enterRetried == null) enterRetried = new HashMap<>(); return enterRetried; }
+    /** He stepped into a portal moments ago and it hasn't taken him yet: a fight started now pulls him off it. */
+    public static boolean steppingIn(ClaudeEntity g) {
+        Object[] en = entering == null ? null : entering.get(g.getUUID()); if (en != null && g.tickCount - (int) en[1] <= 20 * 6) return true;
+        if (g.lastStep == null || !"enter_portal".equals(g.lastStep.skill())) return false; // (the nearest lit one's own walk-in keeps no record: on the step and at a portal is stepping in)
+        BlockPos f = g.blockPosition(); for (BlockPos q : BlockPos.betweenClosed(f.offset(-2, -1, -2), f.offset(2, 2, 2))) if (g.level().getBlockState(q).is(net.minecraft.world.level.block.Blocks.NETHER_PORTAL)) return true;
+        return false;
+    }
     public static String enterStep(ClaudeEntity g, ServerLevel level, Skills.Step st, String target) {
         if (entering == null) entering = new HashMap<>();
         Object[] en = entering.get(g.getUUID());
         if (en != null && g.tickCount - (int) en[1] > 20 * 60) { entering.remove(g.getUUID()); en = null; } // (a stale one: a death, a dropped plan; this is a fresh go)
         if (en != null) { // he stepped in: through, still in it, or never got in (live 10:27 World 15: "stepping into portal #4" was taken for there, find_fortress ran in the overworld 5 s on)
             String from = (String) en[0]; int since = g.tickCount - (int) en[1];
-            if (!from.equals(dim(level))) { entering.remove(g.getUUID()); ClaudeMod.LOGGER.info("[Claude portal] through portal #{}: in {} now ({} s) (PortalMap.enterStep)", en[2], dim(level), since / 20); return "done: through portal #" + en[2] + ", in the " + dim(level).replace("the_", "").replace('_', ' ') + " now"; }
+            if (!from.equals(dim(level))) { entering.remove(g.getUUID()); enterRetried().remove(g.getUUID()); ClaudeMod.LOGGER.info("[Claude portal] through portal #{}: in {} now ({} s) (PortalMap.enterStep)", en[2], dim(level), since / 20); return "done: through portal #" + en[2] + ", in the " + dim(level).replace("the_", "").replace('_', ' ') + " now"; }
             boolean inIt = level.getBlockState(g.blockPosition()).is(net.minecraft.world.level.block.Blocks.NETHER_PORTAL) || level.getBlockState(g.blockPosition().above()).is(net.minecraft.world.level.block.Blocks.NETHER_PORTAL);
             if (inIt && since < 20 * 15) { BlockPos out = stepOutOf(g, level); if (out != null) { BlockPos back = g.blockPosition(); g.tasks.add(new Task.GoTo(out, 0.4)); g.tasks.add(new Task.Wait(12, false)); g.tasks.add(new Task.GoTo(back, 0.3)); g.skillQueue.addFirst(new Skills.Step(st.skill(), target, st.count(), st.where())); ClaudeMod.LOGGER.info("[Claude portal] in #{} on its cooldown ({} ticks, restarted while he stands in it): a step out to {} and back in (PortalMap.enterStep)", en[2], g.getPortalCooldown(), out.toShortString()); return "a step out of portal #" + en[2] + " and back in (its cooldown runs only while I'm out of it)"; } if (since >= 20 * 5) ClaudeMod.LOGGER.info("[Claude portal] in #{} {} s, not taken yet: portal cooldown {} (a cooldown on means vanilla restarts it each tick he stands in the portal), at {} (PortalMap.enterStep)", en[2], since / 20, g.getPortalCooldown(), g.position()); g.tasks.add(new Task.Wait(20, false)); g.skillQueue.addFirst(new Skills.Step(st.skill(), target, st.count(), st.where())); return "standing in portal #" + en[2] + ", waiting for it to take me (" + since / 20 + " s)"; } // (a player stands still in it 4 s)
-            entering.remove(g.getUUID());
-            ClaudeMod.LOGGER.info("[Claude portal] enter #{}: {} s on, still in the {} at {}, {} (portal cooldown {}) (PortalMap.enterStep)", en[2], since / 20, from, g.blockPosition().toShortString(), inIt ? "in the portal and not taken" : "not in the portal", g.getPortalCooldown());
-            return "failed: " + (inIt ? "portal #" + en[2] + " didn't take me" : "didn't get into portal #" + en[2]) + " (I'm at " + g.blockPosition().toShortString() + ", still in the " + from.replace('_', ' ') + ")";
+            if (!inIt && !en[2].equals(enterRetried().get(g.getUUID()))) { // pulled off it before it took him (a fight, a pickup): back in once, not a failed step and a new plan (live 16:52:32-16:53:02 11-11, D2D review 165406-141: a zombie chased off the portal, "didn't get into portal #2", gear_up and a smelt before the walk back; stage 1569)
+                entering.remove(g.getUUID()); enterRetried().put(g.getUUID(), en[2]); en = null;
+                ClaudeMod.LOGGER.info("[Claude portal] enter: not in the portal {} s on (at {}): pulled off it, back to it (PortalMap.enterStep)", since / 20, g.blockPosition().toShortString());
+            } else {
+                entering.remove(g.getUUID());
+                ClaudeMod.LOGGER.info("[Claude portal] enter #{}: {} s on, still in the {} at {}, {} (portal cooldown {}) (PortalMap.enterStep)", en[2], since / 20, from, g.blockPosition().toShortString(), inIt ? "in the portal and not taken" : "not in the portal", g.getPortalCooldown());
+                return "failed: " + (inIt ? "portal #" + en[2] + " didn't take me" : "didn't get into portal #" + en[2]) + " (I'm at " + g.blockPosition().toShortString() + ", still in the " + from.replace('_', ' ') + ")";
+            }
         }
         String t = target == null ? "" : target.replace('_', ' ').trim();
         boolean named = !t.isEmpty() && !t.startsWith("@") && !t.matches("(the |a )?(nether )?portal|it|nearest|any");

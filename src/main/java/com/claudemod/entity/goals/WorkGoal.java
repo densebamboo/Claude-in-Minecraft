@@ -7285,6 +7285,7 @@ public class WorkGoal extends Goal {
         for (String m : new String[] {"waiting", "healing", "eating", "milk", "one at a time", "shield up", "back into cover", "ducking into cover", "drawing its shots", "off the fire", "to the middle of his block"}) if (cfMode.startsWith(m)) return true;
         return false;
     }
+    private Integer cfNoWayFrom; /* when the skeleton he waits on in his gap last had a way to its mouth: null, it has one (lazy: fields added live start null) */
     private void cfSay(String mode, String why) { if (!mode.equals(cfMode)) { cfMode = mode; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] {}: {} (WorkGoal.coverFight)", mode, why); } }
     // cfMove: the last step goes straight to the centre: the path calls itself done ~0.5 short, over the cell edge (01:30 he stood at -72.0, cover -73, burning 13 -> 1)
     private BlockPos cfOwnWay, cfOwnLast, cfCoverCell; private int cfOwnTick = -100000; // (a spot cfMove leaves to his own walker this tick; the last one, and when)
@@ -7425,6 +7426,8 @@ public class WorkGoal extends Goal {
             if (!inCover) { if (mob.distanceTo(g) < 3.2 && shield) shieldUp(mob); else shieldDown(); g.setSprinting(!g.isUsingItem()); cfMove(cv.cover(), g.isUsingItem() ? 1.0 : 1.3); cfSay("into the gap", cv.how()); return false; }
             g.getNavigation().stop(); g.setSprinting(false); shieldDown(); g.getLookControl().setLookAt(mob);
             if (mob.getBoundingBox().distanceToSqr(g.getEyePosition()) <= 9.0 && canHit(mob)) { cfIdle = 0; if (cfSwing(mob)) cfSay("hitting it from the gap", "it's " + String.format("%.1f", mob.distanceTo(g)) + " off and can't reach in; crits between swings"); return false; }
+            if (cfIdle % 20 == 10) { if (mobPaths(mob, cv.peek())) cfNoWayFrom = null; else if (cfNoWayFrom == null) cfNoWayFrom = g.tickCount; } /* its way to the gap's mouth, once a second (D2D review 123717-12, live 12:36:04-24 11-12: the skeleton 1 up with "its way to him false" the whole time, 20 s waited out; stage 1665) */
+            if (cfNoWayFrom != null && g.tickCount - cfNoWayFrom >= 40) { cfNoWayFrom = null; cfSay("it isn't coming", "the wither skeleton " + (int) mob.distanceTo(g) + " off has had no way to the gap's mouth at " + cv.peek().toShortString() + " for 2 s: done waiting"); return true; }
             if (++cfIdle > 20 * 20) { cfSay("it isn't coming", "20 s in the gap and the wither skeleton stays " + (int) mob.distanceTo(g) + " off: done waiting"); return true; }
             cfSay("waiting in the gap", "it can't reach in; it comes to " + cv.peek().toShortString() + " and gets hit there");
             return false;

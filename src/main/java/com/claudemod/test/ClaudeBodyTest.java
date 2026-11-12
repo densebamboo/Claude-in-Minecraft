@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1665: return st1665(stage, t, c, h, level, mock);
             case 1664: return st1664(stage, t, c, h, level, mock);
             case 1663: return st1663(stage, t, c, h, level, mock);
             case 1662: return st1662(stage, t, c, h, level, mock);
@@ -22426,6 +22427,36 @@ public final class ClaudeBodyTest {
             check(bad == null, bad == null ? "" : bad);
             check(up == of, "his cover's Places queued behind a fight on the blaze: " + up + " of " + of + " up in 3 s (" + q + ")");
             pass(stage, t, "the cover went up behind the fight: " + of + " blocks");
+        }
+        return true;
+    }
+    /** Stage 1665 (D2D review 123717-12, live 12:36:04-24 11-12 at the fortress 243,60,503): "waiting in the gap: it can't reach in; it comes to 245, 60, 503 and gets hit there", the wither skeleton 1 up at 243,61,505 with "its way to him false" the whole time; 20 s till "it isn't coming". In his 2-high gap, a wither skeleton on him shut in a pocket over the corridor roof, no way to the gap's mouth: he's done waiting within 5 s. */
+    private static int s1665T; private static net.minecraft.world.entity.monster.WitherSkeleton s1665W;
+    private static boolean st1665(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { resetLoot(c, mock[0]); com.claudemod.entity.life.FortressFight.reset(c); c.commandActive = true; c.prefs.put("stay_close", "no"); s1665T = -1; if (s1665W != null) s1665W.discard(); s1665W = null; }
+        if (t[0] == 10) {
+            lootBox(h, 1);
+            for (int x = 0; x <= 22; x++) for (int z = 4; z <= 12; z++) { h.setBlock(new BlockPos(x, 1, z), Blocks.NETHER_BRICKS); for (int yy = 2; yy <= 10; yy++) h.setBlock(new BlockPos(x, yy, z), yy <= 6 ? Blocks.NETHER_BRICKS : Blocks.AIR); }
+            for (int x = 3; x <= 21; x++) for (int z = 7; z <= 9; z++) for (int yy = 2; yy <= 5; yy++) h.setBlock(new BlockPos(x, yy, z), Blocks.AIR); // the corridor, 3 wide 4 high
+            for (int x = 1; x <= 2; x++) for (int yy = 2; yy <= 3; yy++) h.setBlock(new BlockPos(x, yy, 8), Blocks.AIR); // the 2-high gap off its west end
+            for (int x = 5; x <= 7; x++) for (int z = 7; z <= 9; z++) for (int yy = 7; yy <= 10; yy++) h.setBlock(new BlockPos(x, yy, z), x == 6 && z == 8 && yy <= 9 ? Blocks.AIR : Blocks.NETHER_BRICKS); // a pocket over the roof, shut all round
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(h.absolutePos(BlockPos.ZERO)).inflate(40))) e.discard();
+            c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.getInventory().add(new ItemStack(Items.IRON_SWORD));
+            c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            BlockPos at = h.absolutePos(new BlockPos(1, 2, 8)); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); c.setYRot(-90); c.setYHeadRot(-90);
+            s1665W = EntityType.WITHER_SKELETON.create(level); BlockPos a = h.absolutePos(new BlockPos(6, 7, 8)); s1665W.moveTo(a.getX() + 0.5, a.getY(), a.getZ() + 0.5, 90, 0); s1665W.setNoAi(true); s1665W.setPersistenceRequired(); level.addFreshEntity(s1665W); s1665W.setTarget(c);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.tasks.add(new Task.Attack(s1665W.getUUID(), 20 * 40)); s1665T = t[0];
+            { BlockPos m = h.absolutePos(new BlockPos(2, 12, 2)); mock[0].teleportTo(m.getX() + 0.5, m.getY(), m.getZ() + 0.5); }
+        }
+        if (s1665T > 0 && t[0] > s1665T + 2) {
+            java.util.UUID id = s1665W.getUUID();
+            boolean on = c.currentTask instanceof Task.Attack a0 && a0.target().equals(id) || c.tasks.stream().anyMatch(q -> q instanceof Task.Attack a1 && a1.target().equals(id));
+            if (!on || t[0] > s1665T + 20 * 8) {
+                int took = t[0] - s1665T; String q = c.currentTask + " " + c.tasks.stream().limit(3).toList();
+                s1665W.discard(); s1665W = null; s1665T = -1; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY); c.prefs.remove("stay_close"); c.commandActive = false;
+                check(took <= 20 * 5, "in his gap, the wither skeleton shut in a pocket with no way to the gap's mouth: still waiting on it after " + took / 20 + " s (" + q + ")");
+                pass(stage, t, "done waiting on it in " + String.format("%.1f", took / 20.0) + " s");
+            }
         }
         return true;
     }

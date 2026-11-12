@@ -11082,6 +11082,7 @@ public final class ClaudeBodyTest {
             case 1604: return st1604(stage, t, c, h, level, mock);
             case 1608: return st1608(stage, t, c, h, level, mock);
             case 1618: return st1618(stage, t, c, h, level, mock);
+            case 1619: return st1619(stage, t, c, h, level, mock);
             case 1607: return st1607(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
@@ -24113,6 +24114,35 @@ public final class ClaudeBodyTest {
             flatBox(h); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5);
             check(holds, "the copper marked past one breath, a block put in the water by it (the ore still wet): the mark lifted");
             pass(stage, t, "past one breath: the mark held through a plug beside it");
+        }
+        return true;
+    }
+    /** Stage 1619 (D2D verified conflict 104635-79, live 10:43:43-10:45:16 11-12 at -49,63,-245: night.out "wait for first light" at his spot, every tick; the smelt done, the next step "obtain iron_sword -> my iron_sword is in my chest at -330,-58,-18, getting it", 62 legs over the land at night ungeared, a skeleton's arrow 100 blocks on: the fetch never asked the night). Midnight, out in the open with no armor and no sword, his iron sword in his chest 60 off: no walk out for it. */
+    private static BlockPos s1619Me;
+    private static boolean st1619(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.myStations.clear(); com.claudemod.entity.life.ChestLedger.reset(c); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); }
+        if (t[0] > 8 && t[0] % 5 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 4, c.blockPosition());
+        if (t[0] > 1 && t[0] % 5 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard();
+        if (t[0] == 10) { s1619Me = c.blockPosition(); } BlockPos me = s1619Me, far = me == null ? null : me.offset(60, 0, 0);
+        if (t[0] == 10) {
+            for (int x = -8; x <= 64; x++) for (int z = -4; z <= 4; z++) { level.setBlock(me.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            level.setBlock(far, Blocks.CHEST.defaultBlockState(), 3);
+            if (level.getBlockEntity(far) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity b) b.setItem(0, new ItemStack(Items.IRON_SWORD));
+            c.myStations.add(far.immutable()); com.claudemod.entity.life.ChestLedger.look(c, level, far);
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.WOODEN_AXE)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 11)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 4));
+            c.getFoodData().setFoodLevel(20); c.setHealth(20); level.setDayTime(18000); c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] > 10) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 20) {
+            c.tasks.clear(); c.skillQueue.clear();
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "obtain", "iron_sword", 1);
+            boolean out = false; for (var k : c.tasks) if (k instanceof com.claudemod.entity.life.Task.Chest ch && ch.pos().equals(far) || k instanceof com.claudemod.entity.life.Task.GoTo gt && gt.pos().distSqr(far) < 9) out = true;
+            String q = String.valueOf(c.tasks);
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.getInventory().clearContent(); c.myStations.clear(); com.claudemod.entity.life.ChestLedger.reset(c); level.setDayTime(6000);
+            for (int x = -8; x <= 64; x++) for (int z = -4; z <= 4; z++) for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(!out, "midnight, no armor, no sword, out in the open: off to his chest 60 off for the iron sword (\"" + r + "\"; " + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+            pass(stage, t, "the sword waits for first light: \"" + r + "\"");
         }
         return true;
     }

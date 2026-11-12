@@ -5306,6 +5306,18 @@ public class WorkGoal extends Goal {
         return true;
     }
 
+    /** How far off a melee mob must be for a skytower to clear it: its reach, and its chase over his climb to above its head (the cover proximity rule's 6 is a zombie's; never less).
+     *  Vanilla moves a mob by its speed twice (its input and its speed factor): a zombie's 0.23 is ~2.3 b/s, a skeleton's melee chase 0.25 x 1.2 ~4 b/s (live 09:29:07 11-12: "nearest melee 6.7: the tower needs 6+", a wither skeleton's 8 at 2 up a second later; stage 1653). */
+    private double towerNeed(net.minecraft.world.entity.Mob m) {
+        double sp = m.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED) * (m instanceof net.minecraft.world.entity.monster.AbstractSkeleton ? 1.2 : 1.0);
+        double bps = sp * sp / 0.098 * 4.317; int blocks = Math.max(2, (int) Math.ceil(m.getBbHeight() + m.getY() - g.getY()));
+        return Math.max(6, w("cover.melee_reach", 2.0) + (0.25 + blocks * w("cover.tower_block_s", 0.48)) * bps);
+    }
+    /** The melee mob nearest to being on him before a tower clears it: distance less its towerNeed (negative: no tower), and what it is. */
+    private String towerShort(java.util.Collection<? extends net.minecraft.world.entity.Mob> mobs, double[] margin) {
+        margin[0] = 99; String who = "none"; for (var m : mobs) { if (shoots(m)) continue; double need = towerNeed(m), mg = m.distanceTo(g) - need; if (mg < margin[0]) { margin[0] = mg; who = String.format("the %s %.1f off needs %.1f+", m.getType().getDescription().getString(), m.distanceTo(g), need); } }
+        return who;
+    }
     private java.util.List<net.minecraft.world.entity.Mob> hostilesNear(double r) {
         return com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(r),
                 m -> m.isAlive() && (m instanceof net.minecraft.world.entity.monster.Enemy || m instanceof net.minecraft.world.entity.NeutralMob nm0 && nm0.isAngryAt(g)) && (m.getTarget() == g || m.distanceTo(g) < 6)
@@ -6065,10 +6077,10 @@ public class WorkGoal extends Goal {
             cornerPrices(near, mobs); boolean unpriced = Double.isNaN(pricedFightS); double fightS = unpriced ? Double.MAX_VALUE / 4 : pricedFightS, runS = (Double.isNaN(pricedRunS) ? w("flee.run_s", 20) : pricedRunS) + w("flee.cornered_run_s", 30); // (fight.flee's own prices, refreshed; the run from a corner costs its dead ends again)
             double build = w("cover.build_s", 2.5), buildHp = 0; for (var m : mobs) if (m.distanceTo(g) < 4 && !shoots(m)) buildHp += w("fight.mob_hits_per_s", 0.8) * build * mobHit(m);
             double coverS = build + com.claudemod.entity.life.Decide.hpS(g, 0, buildHp, 3) + w("cover.wait_out_s", 60);
-            double meleeOn = mobs.stream().filter(m -> !shoots(m)).mapToDouble(m -> m.distanceTo(g)).min().orElse(99);
+            double meleeOn = mobs.stream().filter(m -> !shoots(m)).mapToDouble(m -> m.distanceTo(g)).min().orElse(99); double[] onM = new double[1]; String onWho = towerShort(mobs, onM);
             var corner = com.claudemod.entity.life.Decide.choose(g, "flee.cornered", (int) g.getHealth() + " HP, " + mobs.size() + " on him, " + near.getType().getDescription().getString() + " " + (int) near.distanceTo(g) + " off", true, java.util.List.of(
                 unpriced ? com.claudemod.entity.life.Decide.Option.out("fight", "not priced: " + fightOdds) : com.claudemod.entity.life.Decide.Option.of("fight", !armed() ? Double.MAX_VALUE / 4 : fightS, !armed() ? "bare hands" : "his way out through them, with his " + com.claudemod.entity.life.Crafting.name(bestWeapon(g).getItem())),
-                meleeOn < 6 ? com.claudemod.entity.life.Decide.Option.out("cover", String.format("a melee mob %.1f off: a tower needs 6+, a hole 12+ (the cover proximity rule)", meleeOn)) : com.claudemod.entity.life.Decide.Option.of("cover", coverS, "dug in or boxed here, ~" + Math.round(buildHp) + " HP while it goes up"), // (priced as open while digInFromArrows would refuse it: "cover" won and he did the fight it had priced dearer, live 18:39 and 20:25 11-08)
+                onM[0] < 0 ? com.claudemod.entity.life.Decide.Option.out("cover", String.format("a melee mob %.1f off: %s, a hole 12+ (the cover proximity rule)", meleeOn, onWho)) : com.claudemod.entity.life.Decide.Option.of("cover", coverS, "dug in or boxed here, ~" + Math.round(buildHp) + " HP while it goes up"), // (priced as open while digInFromArrows would refuse it: "cover" won and he did the fight it had priced dearer, live 18:39 and 20:25 11-08)
                 "backoff".equals(escapeKind) ? com.claudemod.entity.life.Decide.Option.out("run", "every way out goes past them (held where he backed off to)") : com.claudemod.entity.life.Decide.Option.of("run", runS, "on, another way"))); // (priced as a getaway that isn't there, run won every 1.5 s and he died holding: stage 1052)
             String pick = corner == null ? "fight" : corner.name();
             if (pick.equals("run")) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] cornered (health {}): on another way (WorkGoal.doFlee)", (int) g.getHealth()); clearEscape(); pickEscape(mobs); fleeFrom = g.position(); return false; }
@@ -6359,7 +6371,8 @@ public class WorkGoal extends Goal {
             boolean roofless = (!phantoms.isEmpty() || !shooters.isEmpty()) && solidScaffold().getCount() < 13; // (the hut is walls hung off the tower: sand or gravel just falls, so only solid blocks count; a sand hut fell apart under a skeleton and he was shot off) // phantoms dive and skeletons shoot: a tower with no hut on it is just a perch to be shot off; the dig-in with its lid below is the cover then
             if (!blocks.isEmpty() && blocks.getCount() >= 2 && room && g.onGround() && !roofless) {
                 if (underground && blocks.getCount() < 6) return noCover("underground with " + blocks.getCount() + " blocks: no tower worth it"); // (a tower with no blocks to spare to cap it: not worth it down here)
-                if (melee < 6) { coverGap = true; return noCover(String.format("a melee mob %.1f off: a tower needs 6+ (the cover proximity rule), running for the gap first", melee)); } // (desperate too: at 2 hearts the 3-high tower went up with the zombie 2.7 off, it hit him on the second block and again on the way down, dead; "hole possible" made it the exception, then the hole needed 8.7 and the tower went up anyway) // (the user's cover rule: a tower needs 6+ from melee mobs; the old desperate exception stays only where a hole was the alternative) proximity: three blocks up takes ~2 s and a zombie covers 5 blocks in that; nearer than that he keeps running (sprinting outruns them) and towers once he has the gap
+                double[] twM = new double[1]; String twWho = towerShort(hostilesNear(14), twM);
+                if (twM[0] < 0) { coverGap = true; return noCover(String.format("a melee mob %.1f off: %s (the cover proximity rule, its chase over the climb), running for the gap first", melee, twWho)); } // (desperate too: at 2 hearts the 3-high tower went up with the zombie 2.7 off, it hit him on the second block and again on the way down, dead; "hole possible" made it the exception, then the hole needed 8.7 and the tower went up anyway) // (the user's cover rule: a tower needs 6+ from melee mobs; the old desperate exception stays only where a hole was the alternative) proximity: three blocks up takes ~2 s and a zombie covers 5 blocks in that; nearer than that he keeps running (sprinting outruns them) and towers once he has the gap
                 boolean creeperBy = !level.getEntitiesOfClass(net.minecraft.world.entity.monster.Creeper.class, g.getBoundingBox().inflate(16)).isEmpty() && shooters.isEmpty() && phantoms.isEmpty(); // a creeper about: 4 up, out of its 3-block fuse range (at 3 it lit at the foot of his tower, blew it out from under him, and the zombies had him)
                 int towerH = creeperBy && level.getBlockState(feet.above(5)).getCollisionShape(level, feet.above(5)).isEmpty() ? 4 : 3;
                 int rise = 0; // on a slope "3 up" is measured from the higher ground beside him: a zombie a block up the hill hit him on top of his 3-high tower

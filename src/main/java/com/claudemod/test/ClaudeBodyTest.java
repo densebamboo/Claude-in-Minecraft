@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1653: return st1653(stage, t, c, h, level, mock);
             case 1652: return st1652(stage, t, c, h, level, mock);
             case 1651: return st1651(stage, t, c, h, level, mock);
             case 1650: return st1650(stage, t, c, h, level, mock);
@@ -22037,6 +22038,31 @@ public final class ClaudeBodyTest {
             s1652T = -1;
             check(up == 6, "his skytower's climb back on 2 up its own column: he topped out " + up + " up, not the 6 it was decided at (" + q + ")");
             pass(stage, t, "topped out 6 up, where it was decided");
+        }
+        return true;
+    }
+    /** Stage 1653 (D2D review 093002-136, live 09:29:07-09 11-12: "a 6-high skytower at 298, 63, 505 ... nearest melee 6.7: the tower needs 6+", a wither skeleton's 8 at 2 up a second later and another at 4 up, 18 -> 9; the 6 is the cover proximity rule as a zombie's (~2.3 b/s), a wither skeleton's melee chase is ~4 b/s and it stands 2.4 high: 3 blocks to clear it, ~1.7 s). A wither skeleton 6.7 off after him, cobble in his pack: no tower he can't finish before it's on him. */
+    private static boolean st1653(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(14200, 64, 8520);
+        if (t[0] == 1) { scenarioReset(c); }
+        if (t[0] % 10 == 0 || t[0] < 10) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+        Runnable clean = () -> { for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard(); for (int x = -16; x <= 16; x++) for (int z = -16; z <= 16; z++) for (int y = -1; y <= 12; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; nsHome(c, h, level); };
+        if (t[0] == 12) {
+            for (int x = -16; x <= 16; x++) for (int z = -16; z <= 16; z++) { nl.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); for (int y = 0; y <= 12; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.setHealth(14); c.getFoodData().setFoodLevel(10); c.getFoodData().setSaturation(0);
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f);
+        }
+        if (t[0] == 16) { for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+            var w = EntityType.WITHER_SKELETON.create(nl); w.moveTo(o.getX() + 7.2, o.getY(), o.getZ() + 0.5, 90, 0); w.setNoAi(true); w.setPersistenceRequired(); nl.addFreshEntity(w); w.setTarget(c); com.claudemod.entity.life.Perception.noteSeenTest(c, w);
+            c.nextPlanTick = c.tickCount + 20 * 600; c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; }
+        if (t[0] == 20) {
+            boolean ok = c.work.shelter(); boolean tower = c.tasks.stream().anyMatch(x -> x instanceof Task.Pillar p && p.steps() > 0) || c.currentTask instanceof Task.Pillar;
+            String why = c.work.lastNoCoverWhy; String q = c.tasks.stream().limit(3).toList().toString();
+            clean.run();
+            check(!tower, "a wither skeleton 6.7 off after him: a skytower started (shelter " + ok + ", " + q + ")");
+            pass(stage, t, "no tower with it 6.7 off: " + why);
         }
         return true;
     }

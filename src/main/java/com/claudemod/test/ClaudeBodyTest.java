@@ -11037,6 +11037,7 @@ public final class ClaudeBodyTest {
             case 1538: return st1538(stage, t, c, h, level, mock);
             case 1539: return st1539(stage, t, c, h, level, mock);
             case 1540: return st1540(stage, t, c, h, level, mock);
+            case 1541: return st1541(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -22724,6 +22725,30 @@ public final class ClaudeBodyTest {
             check(torches == 20, "setup: the torch rule didn't make its 16 (" + torches + ")");
             check(!still, "16 torches made by the rule, the plan's craft torch x16 still queued: " + q);
             pass(stage, t, "the rule's 16 torches took the plan's torch craft off the queue: " + q);
+        }
+        return true;
+    }
+    /** Stage 1541 (D2D review 28, live 00:45:14-00:45:24 11-12: dusk, armor 2, no chestplate; "his lit mine 102 off" then 10 s on, by his lit furnace, "carry on out here ~0 s (the night's no danger to him as he is)", the walk to his mine queued behind the smelt went 80 out after dark). At dusk with a walk 80 off queued, the torchlight where he stands passes nothing: not "carry on out here". */
+    private static boolean st1541(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(5, 2, 5));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; flatBox(h); }
+        if (t[0] == 10) {
+            level.setBlock(me.east(), Blocks.GLOWSTONE.defaultBlockState(), 3); level.setBlock(me.west(), Blocks.GLOWSTONE.defaultBlockState(), 3); // (his lit furnace spot)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.DIAMOND_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 2));
+            for (var sl : new net.minecraft.world.entity.EquipmentSlot[] {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS}) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.lastStep = null;
+            level.setDayTime(11880);
+        }
+        if (t[0] == 20) {
+            c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("smelt", "iron_ingot", 1)); c.tasks.add(new Task.Wait(200, false)); c.tasks.add(new Task.GoTo(me.offset(80, 0, 0), 2.0)); // (the smelt's wait, then the walk to his mine)
+            var said = new java.util.ArrayList<String>();
+            Object[] spot = com.claudemod.entity.life.Decide.nightSpot(c, level, level.getDayTime() % 24000, said, false);
+            String best = spot == null ? "null" : String.valueOf(spot[0]);
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, ItemStack.EMPTY); level.setDayTime(6000);
+            level.setBlock(me.east(), Blocks.AIR.defaultBlockState(), 3); level.setBlock(me.west(), Blocks.AIR.defaultBlockState(), 3);
+            check(!best.equals("carry on out here"), "dusk, no chestplate, a walk 80 off queued: \"carry on out here\" by his lit spot (" + said + ")");
+            pass(stage, t, "dusk with a walk 80 off queued: " + best + " (" + said + ")");
         }
         return true;
     }

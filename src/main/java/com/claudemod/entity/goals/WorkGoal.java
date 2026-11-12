@@ -5406,6 +5406,7 @@ public class WorkGoal extends Goal {
 
     /** Fight or run: hurt, unarmed against a crowd, or a creeper about to blow means run. */
     private net.minecraft.world.phys.Vec3 fleeFrom;
+    private int backoffLookTick = -100, backoffSaid = -100; // (atEscape: a hide looked for from his back-off once a second; the shield line once in 2 s)
     private int cornerUntil, noWayOutTick = -100000; private double pricedFightS, pricedRunS; // (noWayOutTick: when pickEscape last found every way out goes past them)
 
     /** A crowd he'd run from with a wither skeleton in it, and a 2-high gap it can't reach into (FortressFight's wither cover): that wither skeleton, fought from the gap (the chokepoint: one at a time, the tall ones can't follow in). Null: run as before. Live 13:59 11-04: four escape runs, each blocked by a wither skeleton, 20 -> 0 in 10 s; the same kind of gap had held one off a minute before. */
@@ -5945,6 +5946,13 @@ public class WorkGoal extends Goal {
         if ("backoff".equals(escapeKind)) { // as far from them as he gets without going by them: held there till the run's clock is out (a re-pick here was the same cell, 3 times a tick)
             if (d >= 1.5) return 0;
             if (!escapeHeld) { escapeHeld = true; g.setSprinting(false); g.getNavigation().stop(); com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: backed off to {}, as far from them as he gets: holding (WorkGoal.atEscape)", escapeAt.toShortString()); }
+            net.minecraft.world.entity.Mob seer = null; for (var m : mobs) if (farShooter(m) && m.isAlive() && com.claudemod.entity.life.Perception.clear(lv, m.getEyePosition(), g.getEyePosition())) { seer = m; break; } // a shooter with a line on him where he holds: his hold is no cover from it (D2D death 08:14:05 11-12: "backed off to 323, 60, 522 ... holding" in the blaze's sight; stage 1617)
+            if (seer != null) {
+                BlockPos hs = g.tickCount - backoffLookTick >= 20 ? hideSpot(lv, g.blockPosition(), mobs) : null; if (hs != null || g.tickCount - backoffLookTick >= 20) backoffLookTick = g.tickCount;
+                if (hs != null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: the {} {} off sees him at his back-off {}: on to {} out of its sight (WorkGoal.atEscape)", seer.getType().getDescription().getString(), (int) seer.distanceTo(g), escapeAt.toShortString(), hs.toShortString()); setEscape("hide", hs.immutable(), null); return 0; }
+                boolean melee = false; for (var m : mobs) if (m.isAlive() && !farShooter(m) && m.distanceTo(g) < 3) { melee = true; break; }
+                if (!melee && g.getItemBySlot(EquipmentSlot.OFFHAND).is(net.minecraft.world.item.Items.SHIELD)) { if (!g.isUsingItem() && g.tickCount - backoffSaid > 40) { backoffSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] escape: the {} {} off sees him at his back-off {}, nowhere out of its sight within reach: shield up toward it (WorkGoal.atEscape)", seer.getType().getDescription().getString(), (int) seer.distanceTo(g), escapeAt.toShortString()); } shieldUp(seer); }
+            } else if (g.isUsingItem() && g.getUsedItemHand() == InteractionHand.OFF_HAND) shieldDown();
             return 1;
         }
         if ("portal".equals(escapeKind)) {

@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1617: return st1617(stage, t, c, h, level, mock);
             case 1616: return st1616(stage, t, c, h, level, mock);
             case 1615: return st1615(stage, t, c, h, level, mock);
             case 1614: return st1614(stage, t, c, h, level, mock);
@@ -21926,6 +21927,31 @@ public final class ClaudeBodyTest {
             com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).edges.clear(); com.claudemod.entity.life.Atlas.reset(c);
             check(got == b, "a fortress on his atlas 20 off the far portal's Nether side, 200 off the near one's: \"the fortress\" resolved to " + gotS + ", not #" + b.id + " (the near one is #" + a.id + ")");
             pass(stage, t, "the portal nearest the fortress on his atlas: " + gotS);
+        }
+        return true;
+    }
+    /** Stage 1617 (D2D death 08:14:05 11-12 at 323,60,522 and 307,61,521: "escape: backed off to ..., as far from them as he gets: holding", the blaze with a line on him the whole hold; the "hide" hold leaves a spot a shooter sees, the "backoff" hold never looked). Held at his back-off spot on open ground, a blaze 10 off seeing him, a shield in his off hand: the shield up toward it within 1 s. */
+    private static int s1617T; private static net.minecraft.world.entity.monster.Blaze s1617B;
+    private static boolean st1617(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1617T = -1; if (s1617B != null) s1617B.discard(); s1617B = null; level.setDayTime(6000); flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            BlockPos me = h.absolutePos(new BlockPos(3, 2, 5));
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(12); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var b = EntityType.BLAZE.create(level); BlockPos sp = me.east(10); b.moveTo(sp.getX() + 0.5, sp.getY() + 1, sp.getZ() + 0.5, 90, 0); b.setNoAi(true); b.setNoGravity(true); b.setPersistenceRequired(); level.addFreshEntity(b); b.setTarget(c); s1617B = b;
+            com.claudemod.entity.life.Perception.noteSeenTest(c, b);
+        }
+        if (t[0] == 12) { c.work.escapeHoldForTest(c.blockPosition(), "backoff"); c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Flee(600)); s1617T = t[0]; }
+        if (s1617T > 0 && t[0] > s1617T) {
+            boolean shield = c.isUsingItem() && c.getUseItem().is(Items.SHIELD); boolean hid = !com.claudemod.entity.life.FortressFight.sees(level, s1617B, c.blockPosition());
+            if (shield || hid || t[0] - s1617T > 20) {
+                String q = c.currentTask + " " + c.tasks + " " + c.work.escapeHoldForTest(null);
+                s1617B.discard(); s1617B = null; c.stopUsingItem(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+                for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+                check(shield || hid, "held at his back-off spot, a blaze 10 off seeing him, a shield on him: neither the shield up nor out of its sight in 1 s (" + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+                pass(stage, t, shield ? "shield up toward it" : "out of its sight");
+            }
         }
         return true;
     }

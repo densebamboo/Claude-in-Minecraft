@@ -11060,6 +11060,7 @@ public final class ClaudeBodyTest {
             case 1549: return st1549(stage, t, c, h, level, mock);
             case 1600: return st1600(stage, t, c, h, level, mock);
             case 1601: return st1601(stage, t, c, h, level, mock);
+            case 1602: return st1602(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -23444,6 +23445,35 @@ public final class ClaudeBodyTest {
             c.teleportTo(o.getX() + 0.5, o.getY() + 20, o.getZ() + 0.5); c.fallDistance = 0; s1601At = 0;
             check(shut, "his notch into the north pocket still open after 20 s with him in a pocket off the south wall at " + at + " (\"he's out past it\")");
             pass(stage, t, "the notch sealed " + took / 20.0 + " s in, him in the other pocket at " + at);
+        }
+        return true;
+    }
+    /** Stage 1602 (D2D urgent, live 05:35-06:02+ 11-12 at -46,10..17,-499: copper ore at -45,12,-499 in a water pocket held by his plugs; the made way swam down (0-3 digs), "low on air: coming up to breathe", a full breath, the dig re-queued, every ~22 s, 90+ "low on air" lines: the breath rule put the job back and nothing heard it failed). Copper in the side of a deep flooded pool, obsidian round it, only to be dug floating (~19 s, past one breath): a dive or two, then it's left. */
+    private static BlockPos s1602O; private static int s1602T, s1602Dives, s1602Hp; private static boolean s1602Under;
+    private static boolean st1602(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 16, 8));
+        if (t[0] == 1) { scenarioReset(c); c.prefs.put("stay_close", "no"); s1602T = -1; s1602Dives = 0; s1602Hp = 20; s1602Under = false; }
+        if (t[0] > 1 && t[0] % 5 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) m.discard();
+        if (t[0] == 10) {
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = -16; y <= 4; y++) { int r = Math.max(Math.abs(x), Math.abs(z)); level.setBlock(o.offset(x, y, z), y >= 0 && y <= 3 ? Blocks.AIR.defaultBlockState() : y < 0 && r <= 1 && y >= -14 ? Blocks.WATER.defaultBlockState() : y < 0 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.STONE.defaultBlockState(), 2); } // (a 3x3 pool 14 deep in obsidian, a cave over it: only the water to it)
+            s1602O = o.offset(2, -7, 0).immutable(); level.setBlock(s1602O, Blocks.COPPER_ORE.defaultBlockState(), 2); // (in the ring, 7 down, 7 over the pool's floor)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 12)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 12));
+            c.teleportTo(o.getX() + 3.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.setAirSupply(c.getMaxAirSupply()); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear(); c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(6000);
+        }
+        if (t[0] == 20) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Break(s1602O)); c.tasks.add(new Task.Pickup(100)); s1602T = t[0]; }
+        if (t[0] > 10) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (s1602T > 0 && t[0] > s1602T) {
+            boolean under = c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER); if (under && !s1602Under) s1602Dives++; s1602Under = under; s1602Hp = Math.min(s1602Hp, (int) c.getHealth());
+            boolean got = c.getInventory().countItem(Items.RAW_COPPER) > 0;
+            if (got || t[0] - s1602T > 20 * 90) {
+                int dives = s1602Dives, hp = s1602Hp;
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.setAirSupply(c.getMaxAirSupply()); c.prefs.remove("stay_close");
+                for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = -16; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                flatBox(h); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5);
+                check(hp >= 10, "copper in a deep flooded pool: his health down to " + hp);
+                check(got || dives <= 2, "copper only to be dug floating under water, past one breath: " + dives + " dives in 90 s (each up for air, the dig put back)");
+                pass(stage, t, got ? "the copper his after " + dives + " dive(s)" : "the copper past one breath left after " + dives + " dive(s), lowest health " + hp);
+            }
         }
         return true;
     }

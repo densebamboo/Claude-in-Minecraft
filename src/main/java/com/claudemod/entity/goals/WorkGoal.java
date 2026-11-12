@@ -224,6 +224,7 @@ public class WorkGoal extends Goal {
         // Air first, like a player watching his bubbles: underwater and getting low, everything waits while he comes up to
         // breathe (and he stays up till he's got his breath back).
         boolean underwater = g.isEyeInFluid(net.minecraft.tags.FluidTags.WATER);
+        if (underwater && !eyesUnder) diveAir = g.getAirSupply(); eyesUnder = underwater; // (the air he went under with: a full breath that didn't get him there is the answer for that block)
         if (((underwater && g.getAirSupply() < 120) || (surfacing && g.getAirSupply() < 280 && g.isInWater())) && !com.claudemod.entity.life.Watchdog.airRoute(g)) { // (the watchdog's dug way to air, once the swim-up failed: its tasks run, not this)
             BlockPos spot = breathingSpot();
             boolean diggingRoof = roofDig(current) && noOpenAir; // Keep the same overhead dig when he sinks toward the floor. (only a dig for air: with air open in reach, a dig over his head is a step of his way on and waits; live 10:51 11-09 he mined one floating, sank out of reach and drowned with the air one cell over: stage 1258)
@@ -231,6 +232,10 @@ public class WorkGoal extends Goal {
                 surfacing = true;
                 if (current != null && !diggingRoof) { clearCrack(); Task air = noOpenAir && roofDig(g.tasks.peek()) ? g.tasks.poll() : null; g.tasks.addFirst(current); if (air != null) g.tasks.addFirst(air); current = null; g.currentTask = null; } // (breathingSpot's own dig for air stays first)
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude life] low on air ({}) at {}: coming up to breathe", g.getAirSupply(), g.blockPosition().toShortString());
+                BlockPos for0 = approachAt; // the block his way under water was for: a full breath and still standing, it's past one breath from there, the dig told so (D2D urgent, live 05:35-06:02 11-12: copper in a water pocket, the job put back after every breath, 90+ dives; stage 1602)
+                if (for0 != null && diveAir >= 280 && g.tickCount - approachAtTick < 20 * 60 && !g.level().getBlockState(for0).getCollisionShape(g.level(), for0).isEmpty() && java.util.stream.Stream.concat(java.util.stream.Stream.of(current), g.tasks.stream()).anyMatch(t0 -> t0 instanceof Task.Break b0 && b0.pos().equals(for0))) {
+                    g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.REACH, for0, g.tickCount, null, com.claudemod.entity.life.Attempts.Reason.BLOCKED_FLUID, "under water past one breath (went under on air " + diveAir + ")");
+                    com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} at {}: went under on a full breath ({}) and it still stands: past one breath from there, left (WorkGoal.reflexes)", name(g.level().getBlockState(for0)), for0.toShortString(), diveAir); approachAt = null; } // (no standing kept: where he stands above the water changes nothing under it; the water round it or his kit does)
             }
             if (diggingRoof || (roofDig(g.tasks.peek()) && current == null && noOpenAir)) { // the roof: dug through below, this tick (returning here every tick left the dig queued and him drowning under it)
                 BlockPos roofOverEyes = ((Task.Break) (diggingRoof ? current : g.tasks.peek())).pos();
@@ -1929,8 +1934,10 @@ public class WorkGoal extends Goal {
      * planned way (digging allowed: a player tunnels to ore, towers under a block overhead, bridges a gap; his mine's shell, his
      * house and farm stay walls) to a cell within reach, then the block, then any tower back down. No way: one line, marked off.
      */
+    private int diveAir = 300, approachAtTick; private boolean eyesUnder; private BlockPos approachAt; // (the dive's air and the block the way was for: the breath rule's word back to the dig)
     private boolean approach(BlockPos pos) {
         if (ticks == 1) approachTries = 0;
+        approachAt = pos.immutable(); approachAtTick = g.tickCount;
         boolean bodyRefused = com.claudemod.entity.body.Controls.refusedLately(g, 10); // his body refused the vanilla path's step (2+ up, lava): it doesn't really reach, the planned way takes it (09:16 in a 2-deep hole at -9,75,9 he stood 10 s per block under a step he can't jump)
         if (bodyRefused && !g.getNavigation().isDone()) g.getNavigation().stop();
         if (!g.getNavigation().isDone()) {

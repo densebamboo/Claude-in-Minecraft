@@ -11030,6 +11030,7 @@ public final class ClaudeBodyTest {
             case 1535: return st1535(stage, t, c, h, level, mock);
             case 1536: return st1536(stage, t, c, h, level, mock);
             case 1537: return st1537(stage, t, c, h, level, mock);
+            case 1538: return st1538(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -22539,6 +22540,24 @@ public final class ClaudeBodyTest {
             check(first, "setup: the craft right after the empty collect not held");
             check(!second, "the next plan's craft held again by the same empty collect (its own line read back: " + (line.length() > 140 ? line.substring(0, 140) : line) + ")");
             pass(stage, t, "the empty collect held the craft once; the next plan's craft goes on");
+        }
+        return true;
+    }
+    /** Stage 1538 (D2D review 275, live 00:28:05 and 00:28:40 11-12 after his death: one log on him, ClaudeLife.craftSwordIfCan read it as a wooden sword's wood, the table for it was made from that log, no sword, the table back up 10 s later, twice, and his log run "came up empty"). One log, no table: the table and the sword don't both come from it, nothing goes down. */
+    private static boolean st1538(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos me = h.absolutePos(new BlockPos(5, 2, 5));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; flatBox(h); level.setDayTime(6000); }
+        if (t[0] == 10) {
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.OAK_LOG));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 20) {
+            com.claudemod.director.ClaudeLife.craftSwordIfCan(c, level);
+            int logs = c.getInventory().countItem(Items.OAK_LOG); boolean tableQueued = c.tasks.stream().anyMatch(x -> x instanceof Task.Place pl && pl.item() == Items.CRAFTING_TABLE) || c.getInventory().countItem(Items.CRAFTING_TABLE) > 0;
+            boolean sword = c.getInventory().countItem(Items.WOODEN_SWORD) > 0; String q = String.valueOf(c.tasks);
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent();
+            check(sword || logs == 1 && !tableQueued, "one log, no table: a table made from it for a sword it can't also make (" + logs + " log left, " + (q.length() > 120 ? q.substring(0, 120) : q) + ")");
+            pass(stage, t, "one log, no table: no table for a sword it couldn't make, the log kept (" + logs + ")");
         }
         return true;
     }

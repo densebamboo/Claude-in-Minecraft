@@ -13034,8 +13034,13 @@ public final class ClaudeLife {
         for (int i = 0; i < SWORDS.length; i++) { final Item s0 = SWORDS[i]; if (g.inventory.count(s -> s.is(s0)) > 0) { haveTier = SWORDS.length - 1 - i; break; } }
         // the best he could make from what he's carrying; nothing better than what he has means no table goes down for it
         boolean handle = g.inventory.count(s -> s.is(Items.STICK)) > 0 || g.inventory.count(s -> s.is(ItemTags.PLANKS)) >= 2 || g.inventory.count(s -> s.is(ItemTags.LOGS)) > 0; // (a sword takes a stick: 3 iron and no wood walked him off his climb out for logs back down to his table every 10 s, the craft failing there, World 15 02:16)
+        // the table comes out of the same wood when there's none to use (live 00:28 11-12, D2D 275: one log made the table, no sword, the table back up, twice; stage 1538)
+        int wood = g.inventory.count(s -> s.is(ItemTags.PLANKS)) + 4 * g.inventory.count(s -> s.is(ItemTags.LOGS));
+        int tableWood = tableInReach(g, level) != null || g.inventory.count(s -> s.is(Items.CRAFTING_TABLE)) > 0 || findNear(level, g.blockPosition(), 24, b -> b.is(Blocks.CRAFTING_TABLE)) != null ? 0 : 4;
+        int stickWood = g.inventory.count(s -> s.is(Items.STICK)) > 0 ? 0 : 2;
+        if (handle && wood < stickWood + tableWood) handle = false;
         int canTier = !handle ? -1 : g.inventory.count(s -> s.is(Items.IRON_INGOT)) >= 2 ? 2 : g.inventory.count(s -> s.is(ItemTags.STONE_TOOL_MATERIALS)) >= 2 ? 1
-                : g.inventory.count(s -> s.is(ItemTags.PLANKS)) + 4 * g.inventory.count(s -> s.is(ItemTags.LOGS)) >= 4 ? 0 : -1;
+                : wood >= 2 + stickWood + tableWood ? 0 : -1;
         if (canTier <= haveTier) return;
         // a sword takes a table: one goes down right here if he has none in reach, like a player (picked up again when he moves on)
         boolean table = ensureCraftingTable(g, level, Items.STONE_SWORD);

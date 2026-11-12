@@ -76,10 +76,25 @@ public final class CombatBrain {
     static boolean sweepBeatsCrit(ClaudeEntity g, LivingEntity target) {
         if (!g.getMainHandItem().canPerformAction(net.neoforged.neoforge.common.ItemAbilities.SWORD_SWEEP)) return false;
         double dmg = g.getAttributeValue(Attributes.ATTACK_DAMAGE);
-        int n = g.level().getEntitiesOfClass(LivingEntity.class, target.getBoundingBox().inflate(1, 0.25, 1), m -> m != target && m != g && m instanceof Enemy && m.isAlive() && g.distanceToSqr(m) < 9).size();
+        if (sweepBystander(g, target) != null) return false; // a sweep would hit something calm beside it
+        int n = g.level().getEntitiesOfClass(LivingEntity.class, target.getBoundingBox().inflate(1, 0.25, 1), m -> m != target && m != g && foe(g, m) && m.isAlive() && g.distanceToSqr(m) < 9).size();
         if (n == 0) return false;
         double sweep = n * (1 + g.getAttributeValue(Attributes.SWEEPING_DAMAGE_RATIO) * dmg) * w("combat.move.sweep.worth", 1.0), crit = 0.5 * dmg * w("combat.move.crit.worth", 1.0);
         if (sweep > crit) { CombatLog.move(g, "sweep"); return true; }
         return false;
+    }
+
+    /** A mob he's fighting: hostile, and a neutral one (enderman, zombified piglin, golem, wolf, bee) only once it's angry at him. */
+    static boolean foe(ClaudeEntity g, LivingEntity m) {
+        if (m instanceof net.minecraft.world.entity.NeutralMob nm) return nm.isAngryAt(g);
+        return m instanceof Enemy;
+    }
+
+    /** What vanilla's sword sweep would hit beside the target that isn't his foe (a calm enderman, a villager, the user), or null. The sweep: a full-charge sword hit on the ground, not sprinting, not walking (Player.attack). */
+    public static LivingEntity sweepBystander(ClaudeEntity g, net.minecraft.world.entity.Entity target) {
+        if (!g.getMainHandItem().canPerformAction(net.neoforged.neoforge.common.ItemAbilities.SWORD_SWEEP) || !g.onGround() || g.isSprinting() || g.getAttackStrengthScale(0.5f) <= 0.9f || g.walkDist - g.walkDistO >= g.getSpeed()) return null;
+        for (LivingEntity m : g.level().getEntitiesOfClass(LivingEntity.class, target.getBoundingBox().inflate(1, 0.25, 1)))
+            if (m != target && m != g && m.isAlive() && !g.isAlliedTo(m) && !(m instanceof net.minecraft.world.entity.decoration.ArmorStand a && a.isMarker()) && g.distanceToSqr(m) < 9 && !foe(g, m)) return m;
+        return null;
     }
 }

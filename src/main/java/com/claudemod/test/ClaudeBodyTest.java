@@ -10882,6 +10882,7 @@ public final class ClaudeBodyTest {
             case 897: return st897(stage, t, c, h, level, mock);
             case 1070: return st1070(stage, t, c, h, level, mock);
             case 1074: return st1074(stage, t, c, h, level, mock);
+            case 1075: return st1075(stage, t, c, h, level, mock);
             case 747: return st747(stage, t, c, h, level, mock);
             case 748: return st748(stage, t, c, h, level, mock);
             case 749: return st749(stage, t, c, h, level, mock);
@@ -20469,6 +20470,36 @@ public final class ClaudeBodyTest {
                 for (int x = -20; x <= 12; x++) for (int z = -7; z <= 7; z++) for (int y = -1; y <= 6; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
                 check(walls && !ran, "on a fence top (at " + at + "), health 9, burning, three blazes, nowhere out of their sight, 64 cobbled deepslate: not walled in in 3 s (" + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
                 pass(stage, t, "walled in on the fence top: " + (q.length() > 100 ? q.substring(0, 100) : q));
+            }
+        }
+        return true;
+    }
+    /** Stage 1075 (death 20:55:49 11-11 World 17, fortress at 244,80,498: sword hits on a wither skeleton on the ground swept a calm enderman beside it, "a Enderman 2.9 off turned on him ... last hurt by him 2 ticks ago", 7 -> 3 -> dead). A zombie to kill at 7 HP with a calm enderman 0.9 beside it: the enderman takes nothing. */
+    private static net.minecraft.world.entity.Mob[] s1075M; private static int s1075T;
+    private static boolean st1075(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1075T = -1; if (s1075M != null) for (var m : s1075M) m.discard(); s1075M = null; level.setDayTime(6000); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+            for (int x = -8; x <= 8; x++) for (int z = -8; z <= 8; z++) for (int y = -1; y <= 4; y++) level.setBlock(o.offset(x, y, z), (y == -1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0; c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setYRot(-90); c.setHealth(7); /* (live: 6-7 HP, no crit hops at 8 or under) */ c.getFoodData().setFoodLevel(20); c.fallDistance = 0; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var z = EntityType.ZOMBIE.create(level); z.moveTo(o.getX() + 3.4, o.getY(), o.getZ() + 0.5, 90, 0); z.setNoAi(true); z.setPersistenceRequired(); level.addFreshEntity(z);
+            var en = EntityType.ENDERMAN.create(level); en.moveTo(o.getX() + 3.1, o.getY(), o.getZ() + 1.4, 90, 0); en.setNoAi(true); en.setPersistenceRequired(); level.addFreshEntity(en);
+            s1075M = new net.minecraft.world.entity.Mob[] {z, en}; com.claudemod.entity.life.Perception.noteSeenTest(c, z); com.claudemod.entity.life.Perception.noteSeenTest(c, en);
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Attack(s1075M[0].getUUID(), 20 * 20)); s1075T = t[0]; }
+        if (s1075T > 0 && t[0] > s1075T) {
+            var z = s1075M[0]; var en = (net.minecraft.world.entity.monster.EnderMan) s1075M[1];
+            boolean swept = en.getHealth() < en.getMaxHealth() || en.getLastHurtByMob() == c;
+            if (swept || !z.isAlive() || t[0] - s1075T > 20 * 15) {
+                float enHp = en.getHealth(); boolean dead = !z.isAlive();
+                for (var m : s1075M) m.discard(); s1075M = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent();
+                c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY);
+                check(!swept, "a calm enderman 0.9 beside the zombie he fought took a hit (health " + enHp + " of 40): his sword swept it");
+                check(dead, "the zombie not killed in 15 s");
+                pass(stage, t, "the zombie killed in " + (t[0] - s1075T) / 20.0 + " s, the enderman beside it untouched");
             }
         }
         return true;

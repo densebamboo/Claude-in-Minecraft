@@ -517,8 +517,14 @@ public class ClaudeEntity extends ServerPlayer {
         return took;
     }
 
+    private int sweepJumpTick = -100; // his last jump to keep a swing off a calm bystander
     @Override
     public void attack(net.minecraft.world.entity.Entity target) { // every swing at a mob, landed or not (the fight episode's swings)
+        if (!level().isClientSide) { var by = com.claudemod.entity.goals.CombatBrain.sweepBystander(this, target); // (death 20:55:49 11-11: a ground hit on a wither skeleton swept a calm enderman beside it; stage 1075)
+            if (by != null && tickCount - sweepJumpTick > 10) { sweepJumpTick = tickCount; getJumpControl().jump();
+                ClaudeMod.LOGGER.info("[Claude fight] the swing at the {} held for a jump: on the ground it would sweep the {} {} off beside it, calm; the hit lands in the air (ClaudeEntity.attack)", target.getType().getDescription().getString(), by.getType().getDescription().getString(), String.format("%.1f", by.distanceTo(target)));
+                return; }
+            if (by != null) ClaudeMod.LOGGER.info("[Claude fight] the swing at the {} sweeps the {} beside it: the jump {} ticks ago never left the ground (ClaudeEntity.attack)", target.getType().getDescription().getString(), by.getType().getDescription().getString(), tickCount - sweepJumpTick); }
         boolean foe = !level().isClientSide && target instanceof net.minecraft.world.entity.monster.Enemy;
         if (foe) com.claudemod.entity.life.CombatLog.swing(this);
         float hp0 = target instanceof net.minecraft.world.entity.LivingEntity l0 ? l0.getHealth() : 0; int iframes = target.invulnerableTime;

@@ -2155,6 +2155,11 @@ public class WorkGoal extends Goal {
     /** The block he towers, walls and bridges with right now (stage 1568). */
     public ItemStack scaffoldNow() { return scaffoldBlock(); }
     private ItemStack scaffoldBlock() {
+        ItemStack s = scaffoldBlock0(); if (s.getCount() >= 6) return s;
+        for (var tag : java.util.List.of(net.minecraft.tags.ItemTags.LOGS, net.minecraft.tags.ItemTags.PLANKS)) { ItemStack w0 = biggestStack(x -> x.is(tag)); if (w0.getCount() > s.getCount() && g.inventory.count(x -> x.is(tag)) - com.claudemod.entity.life.Weights.w(tag == net.minecraft.tags.ItemTags.LOGS ? "scaffold.keep_logs" : "scaffold.keep_planks", tag == net.minecraft.tags.ItemTags.LOGS ? 4 : 8) >= 6) return w0; } // a few of the proper kind (1 wart block) beside a stack of logs: the logs (D2D death 11:33:46 11-12: "1 blocks" with 38 crimson stems on him, no box at 1 HP; stage 1661)
+        return s;
+    }
+    private ItemStack scaffoldBlock0() {
         if (g.level().dimensionType().hasCeiling()) { var wi = com.claudemod.entity.life.FortressFight.wallItem(g); if (wi != null && wi != net.minecraft.world.item.Items.SOUL_SAND && wi != net.minecraft.world.item.Items.SOUL_SOIL && wi != net.minecraft.world.item.Items.MAGMA_BLOCK) { ItemStack gp = biggestStack(s -> s.is(wi)); if (!gp.isEmpty()) return gp; } } /* (ghast-proof when he has 8+ of it, else the kind he has most of: one stack of 2 cobblestone with 112 netherrack read "underground with 2 blocks: no tower worth it" from the blazes, 20 -> 4, live 17:04:43 11-11, D2D review 170525-53; stage 1568) */ // the Nether: bridges and walls of cobblestone or cobbled deepslate, never netherrack or dirt while he has those (the user 16:30: "its not ghast proof. cobble is better")
         if (g.level().canSeeSky(g.blockPosition())) for (int i = 0; i < g.inventory.items.getContainerSize(); i++) { ItemStack d0 = g.inventory.items.getItem(i); if (d0.is(net.minecraft.world.item.Items.DIRT) || d0.is(net.minecraft.world.item.Items.GRASS_BLOCK)) return d0; } // (out in the world; underground, stone: a floor patched in his mine is stone) // dirt first: a block he puts down out in the world reads as ground (the user: a bridge over a crater by his house went in as cobbled deepslate)
         ItemStack s0 = biggestStack(s -> s.is(net.minecraft.world.item.Items.DIRT) || s.is(net.minecraft.world.item.Items.COBBLESTONE)
@@ -6419,7 +6424,7 @@ public class WorkGoal extends Goal {
                 return true;
                 }
             }
-            if (!holeOk) return noCover("no tower to be had (" + blocks.getCount() + " blocks, head room " + room + ") and no hole here"); // no tower to be had, and no hole here either
+            if (!holeOk && !underground) return noCover("no tower to be had (" + blocks.getCount() + " blocks, head room " + room + ") and no hole here"); // no tower to be had, and no hole here either (underground: the box below decides; D2D death 11:33:46 11-12: a low Nether cave, no pick, it returned here before the box, 1 HP, a hoglin; stage 1661)
             if (melee < holeNeed && (!(current instanceof Task.Flee) || ticks < 120 || melee < 3)) return noCoverGap(String.format("a melee mob %.1f off: the hole needs %.1f+, no tower to be had (the cover proximity rule): running for the gap first", melee, holeNeed)); // (never with one within 3, desperate or boxed in: three husks hit him to death in the hole he was digging) // proximity: the hole takes digTicks plus the lid; nearer than a zombie covers in that time he keeps running for the gap first; six seconds of running with no gap gained (boxed in) and the hole goes in anyway: two down blocks most of them
         }
         if (underground) { // no digging down from a cave floor: walls round him where he stands instead, the way a player boxes himself in when a skeleton has him in a cave (no cover rule at all down here is how he died at -4, -27, -28)

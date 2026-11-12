@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1661: return st1661(stage, t, c, h, level, mock);
             case 1660: return st1660(stage, t, c, h, level, mock);
             case 1659: return st1659(stage, t, c, h, level, mock);
             case 1658: return st1658(stage, t, c, h, level, mock);
@@ -22293,6 +22294,38 @@ public final class ClaudeBodyTest {
                 check(up, "never up his tower in 10 s (" + q + ")");
                 check(feet >= ground + 2 - 0.01, "his hoglin tower in a dip: feet at " + String.format("%.2f", feet) + ", the ground beside it at " + ground + ": the hoglin there reaches him (" + q + ")");
                 pass(stage, t, "2 up from the ground beside his dip: feet " + String.format("%.2f", feet) + " over " + ground);
+            }
+        }
+        return true;
+    }
+    /** Stage 1661 (D2D death 11:33:46 11-12, Nether -21,35,42): at 1 HP, nothing to eat, no pick, 38 crimson stems on him, hoglins heard 5-14 off in a low cave: "no cover: no tower to be had (1 blocks, head room false) and no hole here", the shelter "already inside the rock", a hoglin 1 -> 0. The tower/hole branch returned before the underground box, and the stems weren't counted as blocks. In the Nether under a 3-high roof, no pick, 38 stems and 1 wart block, 1 HP: he walls himself in. */
+    private static net.minecraft.world.entity.monster.hoglin.Hoglin s1661H; private static BlockPos s1661O; private static String s1661R;
+    private static boolean st1661(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER); BlockPos no = new BlockPos(16900, 70, 10900);
+        if (t[0] < 9) nsTick(nl, c, no, t);
+        if (t[0] % 10 == 0) nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(no), 2, no);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); if (s1661H != null) s1661H.discard(); s1661H = null; s1661R = null; }
+        if (t[0] == 10) {
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(no).inflate(48))) e.discard();
+            BlockPos o = no; s1661O = o;
+            for (int x = -3; x <= 14; x++) for (int z = -4; z <= 4; z++) for (int y = -1; y <= 3; y++) nl.setBlock(o.offset(x, y, z), y == -1 || y == 3 ? Blocks.NETHERRACK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); // a cave 3 high under a stone roof
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.CRIMSON_STEM, 38)); c.getInventory().add(new ItemStack(Items.NETHER_WART_BLOCK, 1)); /* (as live: one wart block beside the stems) */
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setYRot(-90); c.setYHeadRot(-90); c.setHealth(1); c.getFoodData().setFoodLevel(15); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            s1661H = net.minecraft.world.entity.EntityType.HOGLIN.create(nl); s1661H.moveTo(o.getX() + 10.5, o.getY(), o.getZ() + 0.5, 90, 0); s1661H.setNoAi(true); s1661H.setPersistenceRequired(); nl.addFreshEntity(s1661H); s1661H.setTarget(c);
+        }
+        if (t[0] == 20) {
+            try { var m = com.claudemod.entity.goals.WorkGoal.class.getDeclaredMethod("digInFromArrows"); m.setAccessible(true); s1661R = String.valueOf(m.invoke(c.work)); } catch (ReflectiveOperationException e) { s1661R = "threw " + e; }
+        }
+        if (t[0] > 20) { c.setHealth(1); s1661H.setTarget(c);
+            int walls = 0; for (net.minecraft.core.Direction d : net.minecraft.core.Direction.Plane.HORIZONTAL) for (int y = 0; y <= 1; y++) if (!nl.getBlockState(s1661O.above(y).relative(d)).isAir()) walls++;
+            if (walls >= 8 || t[0] >= 20 + 20 * 8) {
+                String q = c.currentTask + " " + c.tasks.stream().limit(4).toList();
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; s1661H.discard(); s1661H = null; c.setHealth(20); c.getInventory().clearContent();
+                for (int x = -3; x <= 14; x++) for (int z = -4; z <= 4; z++) for (int y = -1; y <= 3; y++) nl.setBlock(s1661O.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                nsHome(c, h, level);
+                check(walls >= 8, "1 HP, nothing to eat, no pick, 38 stems, a hoglin 10 off under a 3-high roof: " + walls + " of 8 walls round him in 8 s (cover said " + s1661R + "; " + q + ")");
+                pass(stage, t, "walled in with his stems (" + walls + " sides)");
             }
         }
         return true;

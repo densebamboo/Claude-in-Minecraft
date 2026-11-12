@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1660: return st1660(stage, t, c, h, level, mock);
             case 1659: return st1659(stage, t, c, h, level, mock);
             case 1658: return st1658(stage, t, c, h, level, mock);
             case 1657: return st1657(stage, t, c, h, level, mock);
@@ -22263,6 +22264,35 @@ public final class ClaudeBodyTest {
                 check(!gone, "a walk through a portal's plane took him into the Nether: no portal step, no 4 s stood in it");
                 check(there, "never across to " + s1659To.toShortString() + " in 10 s");
                 pass(stage, t, "through the portal's plane and on, still in the overworld");
+            }
+        }
+        return true;
+    }
+    /** Stage 1660 (D2D death 11:33:46 11-12, crimson forest): "hoglins from 2 up a pillar, where they can't reach him", planks at -55,44,65 and -55,45,65, his feet at 46; the hoglin on the floor beside him at -54,45,64, one up from his: its 1.4 reached 46.4, 16 -> 11 -> 4 -> 1. Two up from his own cell was one up from theirs. In a dip a block below the ground round it, a hoglin on that ground: his tower goes 2 up from the highest floor beside it. */
+    private static net.minecraft.world.entity.monster.hoglin.Hoglin s1660H; private static int s1660T; private static BlockPos s1660O;
+    private static boolean st1660(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1660T = -1; if (s1660H != null) s1660H.discard(); s1660H = null; }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            BlockPos o = h.absolutePos(new BlockPos(6, 2, 6)); s1660O = o;
+            for (int x = -4; x <= 4; x++) for (int z = -4; z <= 4; z++) { level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); level.setBlock(o.offset(x, 0, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 1; y <= 6; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            level.setBlock(o, Blocks.AIR.defaultBlockState(), 2); // the dip he stands in: its floor at o.below(), the ground round it a block higher
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.OAK_PLANKS, 32));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            s1660H = net.minecraft.world.entity.EntityType.HOGLIN.create(level); s1660H.moveTo(o.getX() + 2.0, o.getY() + 1, o.getZ() + 0.5, 90, 0); s1660H.setNoAi(true); s1660H.setPersistenceRequired(); level.addFreshEntity(s1660H); // (on the ground beside the dip, as live: 1 up from his floor)
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.tasks.add(new Task.Pillar(2)); c.tasks.add(new Task.Attack(s1660H.getUUID(), 400)); c.tasks.add(new Task.Pillar(-2)); s1660T = t[0]; }
+        if (s1660T > 0 && t[0] > s1660T) {
+            boolean up = !(c.currentTask instanceof Task.Pillar) && c.tasks.stream().noneMatch(q -> q instanceof Task.Pillar p && p.steps() > 0) && c.onGround();
+            if (up || t[0] - s1660T > 20 * 10) {
+                double feet = c.getY(); int ground = s1660O.getY() + 1; String q = c.currentTask + " " + c.tasks.stream().limit(3).toList();
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; s1660H.discard(); s1660H = null; s1660T = -1;
+                for (int x = -4; x <= 4; x++) for (int z = -4; z <= 4; z++) for (int y = -1; y <= 6; y++) level.setBlock(s1660O.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                c.teleportTo(s1660O.getX() + 0.5, s1660O.getY(), s1660O.getZ() + 0.5); c.getInventory().clearContent(); flatBox(h);
+                check(up, "never up his tower in 10 s (" + q + ")");
+                check(feet >= ground + 2 - 0.01, "his hoglin tower in a dip: feet at " + String.format("%.2f", feet) + ", the ground beside it at " + ground + ": the hoglin there reaches him (" + q + ")");
+                pass(stage, t, "2 up from the ground beside his dip: feet " + String.format("%.2f", feet) + " over " + ground);
             }
         }
         return true;

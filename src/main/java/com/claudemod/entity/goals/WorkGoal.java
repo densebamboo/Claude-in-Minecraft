@@ -7715,6 +7715,15 @@ public class WorkGoal extends Goal {
     private boolean doPillar(Task.Pillar t) {
         ServerLevel level = (ServerLevel) g.level();
         if (ticks == 1) { pillarDone = 0; pillarPhase = 0; }
+        if (ticks == 1 && t.steps() >= 2 && g.tasks.peekFirst() instanceof Task.Attack) { /* (2 up: out of their reach; a 1-up tower is for reaching up, a golem's head: stage 687) */ // a tower to fight from: 2 up from the highest floor a mob stands on beside it, not from his own cell (D2D death 11:33:46 11-12: "from 2 up a pillar" in a dip, the hoglin on the floor beside it one higher reached him, 16 -> 1; stage 1660)
+            BlockPos f0 = g.blockPosition(); int beside = 0;
+            for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) { if (dx == 0 && dz == 0) continue; for (int dy = 3; dy >= 1; dy--) { BlockPos n0 = f0.offset(dx, dy, dz); if (level.getBlockState(n0).getCollisionShape(level, n0).isEmpty() && !level.getBlockState(n0.below()).getCollisionShape(level, n0.below()).isEmpty()) { beside = Math.max(beside, dy); break; } } }
+            int need = 2 + beside;
+            if (t.steps() < need) {
+                java.util.List<Task> q0 = new java.util.ArrayList<>(g.tasks); for (int i = 0; i < q0.size(); i++) if (q0.get(i) instanceof Task.Pillar d0 && d0.steps() == -t.steps()) { q0.set(i, new Task.Pillar(-need)); break; } // (his way back down matches it)
+                g.tasks.clear(); g.tasks.addAll(q0); g.tasks.addFirst(new Task.Pillar(need));
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] tower at {} to fight from: the floor beside it is {} up, so {} up, not {} (WorkGoal.doPillar)", f0.toShortString(), beside, need, t.steps());
+                return true; } }
         g.getNavigation().stop();
         if (t.steps() < 0) {
             // still up here for the next block (the rest of a branch)? keep the tower for now; it comes down after

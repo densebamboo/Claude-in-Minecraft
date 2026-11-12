@@ -5772,14 +5772,11 @@ public final class ClaudeLife {
                 if (c != null) { if (storable) g.storageChests.add(c.immutable()); else { String jl = g.pref("junk_chests", ""); g.prefs.put("junk_chests", (jl.isEmpty() ? "" : jl + ";") + c.getX() + " " + c.getY() + " " + c.getZ()); ClaudeMod.LOGGER.info("[Claude life] nothing on him his storage takes, only junk and spare gear: the chest at {} is a junk chest (ClaudeLife.dumpJunk)", c.toShortString()); } /* (a storage chest for a pack of junk and spares: the Deposit stored 0, and a chest more every 5 s, three in 25 s, live 07:20 11-11, D2D review 35, stage 1504) */ { java.util.List<Task> q0 = new java.util.ArrayList<>(g.tasks); int at0 = 0; for (int i = 0; i < q0.size(); i++) if (q0.get(i) instanceof Task.Place pl0 && pl0.pos().equals(c)) { at0 = i + 1; break; } q0.add(at0, new Task.Deposit(c.immutable())); g.tasks.clear(); g.tasks.addAll(q0); } /* (after the chest's own notch and placement: in front of them it found "no chest", and 5 s on a second chest went down; live 04:02 11-09, review 166, stage 1233) */ ClaudeMod.LOGGER.info("[Claude life] inventory full and no storage near: a chest at {} for it", c.toShortString()); return; }
             }
         }
-        java.util.List<Integer> spareToss = g.level() instanceof ServerLevel slP ? spareChoice(g, slP) : null; // (spare gear first: a chest for it here or the least of it dropped, priced; the stock toss only when there is none)
-        if (spareToss != null && spareToss.isEmpty()) return;
         java.util.Set<Item> junk = JUNK;
         java.util.Map<Item, Integer> kept = new java.util.HashMap<>();
         java.util.List<Integer> toss = new java.util.ArrayList<>(); // what this toss throws, picked before he turns: the turn away from his work is for that, not for the junk list alone (spare cobble and a 4th stone pick went at his feet in his highway tunnel, walked over and taken back, live 22:00:39 / 22:57, stage 788)
         java.util.Map<Item, Boolean> need = new java.util.HashMap<>(); java.util.List<Integer> order = new java.util.ArrayList<>(); for (int i = 0; i < inv.items.size(); i++) order.add(i);
         order.sort(java.util.Comparator.comparing((Integer i) -> inv.items.get(i).isEmpty() || !need.computeIfAbsent(inv.items.get(i).getItem(), x -> neededByPlan(g, x))).thenComparing((Integer i) -> { var s0 = inv.items.get(i); return s0.is(Items.COBBLESTONE) || s0.is(Items.COBBLED_DEEPSLATE) || s0.is(Items.NETHERRACK) || s0.is(Items.BLACKSTONE) ? -s0.getCount() : 0; })); // (stacks his queued steps need first: they get the stone kept; then the biggest stone stacks: 5 cobble and 1 deepslate kept in slot order threw the 19 netherrack he was digging, every 5 s, D2D review 125225-43 live 12:50 11-12; stage 1621)
-        if (spareToss != null) toss.addAll(spareToss); else
         for (int i : order) {
             var st = inv.items.get(i);
             if (st.isEmpty() || i == inv.selected) continue;
@@ -5791,6 +5788,8 @@ public final class ClaudeLife {
             if (!cobble && !junk.contains(st.getItem()) && !superseded(g, st, i)) continue;
             toss.add(i);
         }
+        boolean cheapOn = false; for (int i = 0; i < inv.items.size(); i++) { var st = inv.items.get(i); if (!st.isEmpty() && i != inv.selected && cheapSpare(g, inv, st) != null) { cheapOn = true; break; } }
+        if (toss.isEmpty() && !cheapOn && g.level() instanceof ServerLevel slP) { java.util.List<Integer> spareToss = spareChoice(g, slP); if (spareToss != null && spareToss.isEmpty()) return; if (spareToss != null) toss.addAll(spareToss); } // (spare gear only when there is no junk or cheap spare to throw (those go below): a spare bow went with bone, flesh and sticks in the pack, BP 11-12, stage 1515; then a chest for it here or the least of it dropped, priced)
         { BlockPos work = null; java.util.List<Task> ahead = new java.util.ArrayList<>(); if (g.currentTask != null) ahead.add(g.currentTask); ahead.addAll(g.tasks); // a toss goes away from his work, like a player's: thrown at his feet, he walked back over it and his body took it all back up (live 11:10: the same 6 stacks thrown every 5 s)
           for (Task t : ahead) { if (t instanceof Task.Break b) work = b.pos(); else if (t instanceof Task.GoTo w) work = w.pos(); else if (t instanceof Task.Place pl) work = pl.pos(); if (work != null) break; }
           // ponytail: netherrack is junk but the toss below keeps 2 stacks of it as his building stone: counted here it turned him round every 5 s to throw nothing, spinning him off his walks (live 14:30)

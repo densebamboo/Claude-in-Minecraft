@@ -11098,6 +11098,7 @@ public final class ClaudeBodyTest {
             case 1624: return st1624(stage, t, c, h, level, mock);
             case 1625: return st1625(stage, t, c, h, level, mock);
             case 1607: return st1607(stage, t, c, h, level, mock);
+            case 1626: return st1626(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -24572,6 +24573,42 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.getInventory().clearContent(); c.setLastDeathLocation(java.util.Optional.empty());
             check(walk, "his water bucket and bucket 13 off, his pack empty: left as worth nothing (\"" + r + "\")");
             pass(stage, t, "back for his buckets: \"" + r + "\"");
+        }
+        return true;
+    }
+    /** Stage 1626 (D2D 14:14-14:21 11-12 in the Nether at 250,65,507: his pile 4 off with the day's only 2 blaze rods in it, "worth 680: going in", "grab and run: the 8 valuable"; his pack at 0 free (3 iron boots, 3 chestplates, 2 golden boots, 2 shields, 2 iron picks, 2 swords, 4 tables, 3 water buckets, 2 bows); "nothing to pick up (24 drops in his sweep, all skipped as said)", on he went, the rods despawned at 14:21:24). That pack, his pile with 2 blaze rods and 22 netherrack 4 off: the rods on him. */
+    private static boolean s1626Got; private static int s1626At; private static net.minecraft.world.entity.monster.Skeleton s1626Sk;
+    private static boolean st1626(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos pile = h.absolutePos(new BlockPos(6, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(64))) it.discard(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); com.claudemod.entity.life.Perception.reset(c); c.failCount.remove("recover_drops"); c.storageChests.clear(); s1626Got = false; s1626At = 0; }
+        if (s1626Sk != null && s1626At > 0 && t[0] % 20 == 0 && s1626Sk.isAlive()) com.claudemod.entity.life.CombatLog.shotAt(c, s1626Sk); // (the fight kept open)
+        if (t[0] == 5) {
+            flatBox(h); level.setDayTime(level.getDayTime() / 24000 * 24000 + 1000);
+            var inv = c.getInventory(); inv.clearContent(); inv.selected = 0; int k = 0;
+            Object[][] pack = { {Items.IRON_SWORD, 1}, {Items.IRON_SWORD, 1}, {Items.APPLE, 3}, {Items.BOW, 1}, {Items.BOW, 1}, {Items.BREAD, 3}, {Items.CHICKEN, 2}, {Items.COAL, 45}, {Items.COOKED_CHICKEN, 2}, {Items.COOKED_SALMON, 20}, {Items.CRAFTING_TABLE, 4},
+                {Items.FLINT_AND_STEEL, 1}, {Items.GOLDEN_BOOTS, 1}, {Items.GOLDEN_BOOTS, 1}, {Items.IRON_AXE, 1}, {Items.IRON_BOOTS, 1}, {Items.IRON_BOOTS, 1}, {Items.IRON_BOOTS, 1}, {Items.IRON_CHESTPLATE, 1}, {Items.IRON_CHESTPLATE, 1}, {Items.IRON_CHESTPLATE, 1}, {Items.IRON_HELMET, 1},
+                {Items.IRON_PICKAXE, 1}, {Items.IRON_PICKAXE, 1}, {Items.SALMON, 4}, {Items.SHIELD, 1}, {Items.SHIELD, 1}, {Items.STONE_PICKAXE, 1}, {Items.STONE_PICKAXE, 1}, {Items.STONE_SHOVEL, 1}, {Items.TORCH, 64}, {Items.TORCH, 55}, {Items.WATER_BUCKET, 1}, {Items.WATER_BUCKET, 1}, {Items.WATER_BUCKET, 1}, {Items.WOODEN_PICKAXE, 1} }; // (his pack at 14:14:08 exactly, 36 slots)
+            for (Object[] p0 : pack) inv.items.set(k++, new ItemStack((net.minecraft.world.item.Item) p0[0], (Integer) p0[1]));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); // (armor 14 live: iron helmet, chestplate, leggings, his Nether gold boots; a shield in hand, so none comes off his pack)
+            c.teleportTo(pile.getX() + 0.5, pile.getY(), pile.getZ() + 0.5);
+            var drops = new java.util.ArrayList<ItemStack>(); drops.add(new ItemStack(Items.BLAZE_ROD, 2)); for (int n = 0; n < 22; n++) drops.add(new ItemStack(Items.NETHERRACK, 1 + n % 3));
+            for (var st0 : drops) { var it = new net.minecraft.world.entity.item.ItemEntity(level, pile.getX() + 0.5, pile.getY() + 0.1, pile.getZ() + 0.5, st0, 0, 0, 0); level.addFreshEntity(it); }
+            com.claudemod.director.ClaudeLife.markOwnDrops(c);
+            BlockPos from = h.absolutePos(new BlockPos(2, 2, 8)); c.teleportTo(from.getX() + 0.5, from.getY(), from.getZ() + 0.5);
+            c.setLastDeathLocation(java.util.Optional.of(net.minecraft.core.GlobalPos.of(level.dimension(), pile)));
+            var sk = net.minecraft.world.entity.EntityType.SKELETON.create(level); BlockPos skAt = h.absolutePos(new BlockPos(2, 2, 20)); sk.moveTo(skAt.getX() + 0.5, skAt.getY(), skAt.getZ() + 0.5, 0, 0); sk.setNoAi(true); level.addFreshEntity(sk); sk.setTarget(c); s1626Sk = sk; com.claudemod.entity.life.CombatLog.shotAt(c, sk); // (a fight on, as live: a shooter 12 off, after him)
+            c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear(); c.lastStep = null; s1626At = t[0];
+        }
+        if (s1626At > 0 && t[0] > s1626At) {
+            if (c.getInventory().countItem(Items.BLAZE_ROD) >= 2) s1626Got = true;
+            if (s1626Got || t[0] - s1626At > 20 * 25) {
+                boolean got = s1626Got; int took = t[0] - s1626At; int free = 0; for (var s0 : c.getInventory().items) if (s0.isEmpty()) free++;
+                String q = c.currentTask + " " + c.tasks.stream().limit(4).toList();
+                for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(64))) it.discard();
+                c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.setLastDeathLocation(java.util.Optional.empty()); c.storageChests.clear(); s1626At = 0; boolean fought = com.claudemod.entity.life.CombatLog.inFight(c); if (s1626Sk != null) s1626Sk.discard(); s1626Sk = null; com.claudemod.entity.life.CombatLog.closeNow(c); check(fought || got, "setup: no fight open");
+                check(got, "a full pack of duplicates, his pile 4 off with 2 blaze rods: the rods not on him after 25 s (" + free + " free; " + q + ")");
+                pass(stage, t, "the 2 blaze rods on him after " + took / 20.0 + " s");
+            }
         }
         return true;
     }

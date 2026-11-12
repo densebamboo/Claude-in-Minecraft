@@ -11046,6 +11046,7 @@ public final class ClaudeBodyTest {
             case 1540: return st1540(stage, t, c, h, level, mock);
             case 1541: return st1541(stage, t, c, h, level, mock);
             case 1542: return st1542(stage, t, c, h, level, mock);
+            case 1543: return st1543(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -12490,7 +12491,7 @@ public final class ClaudeBodyTest {
             c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "iron_sword", 1, "near_you")); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("craft", "iron_pickaxe", 1, "near_you"));
             com.claudemod.director.ClaudeLife.craftSwordIfCan(c, level);
             int swords = c.inventory.count(x -> x.is(Items.IRON_SWORD)); String q = c.skillQueue.toString();
-            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear(); level.setBlock(h.absolutePos(new BlockPos(6, 2, 5)), Blocks.AIR.defaultBlockState(), 3);
             check(swords == 1, "the fight code made no iron sword (" + swords + ")");
             check(!q.contains("iron_sword"), "an iron sword made for the fight, its plan step still queued: " + q);
             check(q.contains("iron_pickaxe"), "the rest of the plan went with it: " + q);
@@ -12522,7 +12523,7 @@ public final class ClaudeBodyTest {
             check(r != null && (r.startsWith("failed") || r.contains("strip_mine iron_ore")) && c.inventory.count(x -> x.is(Items.IRON_SWORD)) == 2, "smelt iron_nugget with iron gear on him: \"" + r + "\" (swords " + c.inventory.count(x -> x.is(Items.IRON_SWORD)) + ")");
             var plan = com.claudemod.director.Procure.plan(c, level, Items.IRON_NUGGET, 9);
             check(plan.steps().stream().noneMatch(st -> st.skill().equals("smelt") && st.target().equals("iron_nugget")), "procure: nuggets planned out of his gear: " + plan.steps());
-            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear(); level.setBlock(h.absolutePos(new BlockPos(6, 2, 5)), Blocks.AIR.defaultBlockState(), 3);
             BlockPos br = c.blockPosition().below(); var was = level.getBlockState(br); level.setBlock(br, Blocks.NETHER_BRICKS.defaultBlockState(), 2); // (on a fortress bridge, live 13:20: "still 19 blocks short")
             check(com.claudemod.entity.life.FortressScout.onFortress(c), "fortress: nether bricks under him not read as on the fortress");
             level.setBlock(br, was, 2);
@@ -12887,7 +12888,7 @@ public final class ClaudeBodyTest {
                 BlockPos farF = me.offset(165, 0, 0); c.myStations.add(farF); // (his nook's furnaces, 165 off)
                 String d = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "iron_ingot", 11);
                 check(d != null && d.startsWith("done:") && d.contains("rides home") && c.tasks.isEmpty(), "smelt 165 from his furnaces: \"" + d + "\" (tasks " + c.tasks + ")");
-                c.myStations.remove(farF); c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
+                c.myStations.remove(farF); c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear(); level.setBlock(h.absolutePos(new BlockPos(6, 2, 5)), Blocks.AIR.defaultBlockState(), 3);
                 pass(stage, t, "\"" + a + "\"; then \"" + b + "\"; far: \"" + d + "\"");
             }
             return true;
@@ -15254,7 +15255,7 @@ public final class ClaudeBodyTest {
         if (t[0] > 20 + 20 * 12 && t[0] < 20 + 20 * 22) { c.nextPlanTick = c.tickCount + 20 * 600; c.skillQueue.removeIf(q -> !q.skill().equals("enter_portal")); }
         if (t[0] == 20 + 20 * 22) {
             boolean back = level.getBlockState(me.offset(7, 0, 0)).is(Blocks.OBSIDIAN); int left = c.getInventory().countItem(Items.OBSIDIAN);
-            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear(); level.setBlock(h.absolutePos(new BlockPos(6, 2, 5)), Blocks.AIR.defaultBlockState(), 3);
             for (int x = -4; x <= 14; x++) for (int z = -6; z <= 6; z++) for (int y = -1; y <= 4; y++) level.setBlock(me.offset(x, y, z), y == -1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
             com.claudemod.entity.life.PortalMap.net(c).portals.clear();
             check(back && left == 1, "(b) the frame short 1 obsidian, 2 on him: the gap filled " + back + ", " + left + " left on him");
@@ -22459,7 +22460,7 @@ public final class ClaudeBodyTest {
         if (t[0] == 20) {
             String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "collect", "gravel", 4);
             String q = String.valueOf(c.tasks.stream().limit(4).toList());
-            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear(); level.setBlock(h.absolutePos(new BlockPos(6, 2, 5)), Blocks.AIR.defaultBlockState(), 3);
             for (int x = 0; x <= 12; x++) for (int z = 0; z <= 12; z++) for (int y = 2; y <= 9; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2);
             check(r != null && !r.startsWith("failed"), "a riverbed of gravel in sight under him: " + r);
             pass(stage, t, "the gravel under the water taken as there: " + r + " " + q);
@@ -23006,6 +23007,21 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    /** Stage 1543 (D2D review 014948-32, live 01:48:52-01:49:18 11-12 in the Nether: the plan's "smelt cooked_porkchop x3" for the 3 already in his furnace; taken out, 6 cooked on him and none raw, the step ran: "failed: you have nothing that smelts into or from cooked_porkchop", the watchdog's TRIP and "could you help with that?" to them). With the cooked ones on him, the step is done, not failed. */
+    private static boolean st1543(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; flatBox(h); }
+        if (t[0] == 10) {
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COOKED_PORKCHOP, 6)); c.getInventory().add(new ItemStack(Items.COAL, 9)); c.getInventory().add(new ItemStack(Items.FURNACE));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.myStations.clear(); BlockPos fu = h.absolutePos(new BlockPos(6, 2, 5)); level.setBlock(fu, Blocks.FURNACE.defaultBlockState(), 3); c.myStations.add(fu); c.teleportTo(fu.getX() - 1.5, fu.getY(), fu.getZ() + 0.5); // (his furnace by, as live)
+            String said;
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("runSkill", ClaudeEntity.class, ServerPlayer.class, com.claudemod.entity.life.Skills.Step.class); m.setAccessible(true);
+                said = String.valueOf(m.invoke(null, c, mock[0], new com.claudemod.entity.life.Skills.Step("smelt", "cooked_porkchop", 3))); } catch (ReflectiveOperationException e) { throw new RuntimeException(e); }
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear(); level.setBlock(h.absolutePos(new BlockPos(6, 2, 5)), Blocks.AIR.defaultBlockState(), 3);
+            check(!said.startsWith("failed"), "6 cooked porkchop on him, smelt cooked_porkchop x3: " + said);
+            pass(stage, t, "smelt x3 with 6 cooked on him: " + said);
+        }
+        return true;
+    }
     private static int s1511At = -1;
     private static boolean st1511(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos o = h.absolutePos(new BlockPos(0, 0, 0)), me = o.offset(3, 2, 8), to = o.offset(40, 2, 8), log = o.offset(4, 2, 8);
@@ -23425,7 +23441,7 @@ public final class ClaudeBodyTest {
     private static boolean st831(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         var F = com.claudemod.entity.life.Food.class; var fd = c.getFoodData();
         if (t[0] == 1) {
-            scenarioReset(c); c.nextPlanTick = c.tickCount + 24000; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
+            scenarioReset(c); c.nextPlanTick = c.tickCount + 24000; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear(); level.setBlock(h.absolutePos(new BlockPos(6, 2, 5)), Blocks.AIR.defaultBlockState(), 3);
             fd.setFoodLevel(20); fd.setSaturation(20);
             double a = com.claudemod.entity.life.Food.regenS(c, 10); check(Math.abs(a - 5) < 0.01, "food 20, saturation 20, nothing on him: 10 HP in 5 s, said " + a);
             fd.setFoodLevel(18); fd.setSaturation(0);
@@ -26011,7 +26027,7 @@ public final class ClaudeBodyTest {
             sk.moveTo(sp.getX() + 0.5, sp.getY(), sp.getZ() + 0.5, 90, 0); sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW)); sk.setPersistenceRequired(); level.addFreshEntity(sk); sk.setTarget(c);
             var ws = EntityType.WITHER_SKELETON.create(level); BlockPos wp = me.east(4);
             ws.moveTo(wp.getX() + 0.5, wp.getY(), wp.getZ() + 0.5, 90, 0); ws.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); ws.setPersistenceRequired(); level.addFreshEntity(ws); ws.setTarget(c); st1064W = ws.getUUID();
-            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
+            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear(); level.setBlock(h.absolutePos(new BlockPos(6, 2, 5)), Blocks.AIR.defaultBlockState(), 3);
             c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 16)); c.getInventory().add(new ItemStack(Items.COOKED_COD, 4));
             c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS));
             c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setHealth(20); c.getFoodData().setFoodLevel(20);
@@ -26040,7 +26056,7 @@ public final class ClaudeBodyTest {
             sk.moveTo(sp.getX() + 0.5, sp.getY(), sp.getZ() + 0.5, 90, 0); sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW)); sk.setPersistenceRequired(); level.addFreshEntity(sk);
             var ws = EntityType.WITHER_SKELETON.create(level); BlockPos wp = me.east(4);
             ws.moveTo(wp.getX() + 0.5, wp.getY(), wp.getZ() + 0.5, 90, 0); ws.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.STONE_SWORD)); ws.setPersistenceRequired(); level.addFreshEntity(ws); st1065W = ws.getUUID();
-            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
+            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear(); level.setBlock(h.absolutePos(new BlockPos(6, 2, 5)), Blocks.AIR.defaultBlockState(), 3);
             c.getInventory().add(new ItemStack(Items.WOODEN_SWORD)); c.getInventory().add(new ItemStack(Items.DIRT, 20));
             c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setHealth(20); c.getFoodData().setFoodLevel(20);
             c.tasks.add(new Task.Wait(1000, false));
@@ -26089,7 +26105,7 @@ public final class ClaudeBodyTest {
             for (BlockPos p : BlockPos.betweenClosed(me.offset(-4, -1, -4), me.offset(30, 4, 26))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
             int[][] legs = {{-3, 0, 8, 0}, {8, 0, 8, 10}, {8, 10, 20, 10}, {20, 10, 20, 22}, {20, 22, 28, 22}}; // a zig-zag cave, 3 wide, 3 high, unlit
             for (int[] L : legs) for (BlockPos p : BlockPos.betweenClosed(me.offset(Math.min(L[0], L[2]) - 1, 0, Math.min(L[1], L[3]) - 1), me.offset(Math.max(L[0], L[2]) + 1, 2, Math.max(L[1], L[3]) + 1))) level.setBlock(p, Blocks.AIR.defaultBlockState(), 2);
-            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
+            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear(); level.setBlock(h.absolutePos(new BlockPos(6, 2, 5)), Blocks.AIR.defaultBlockState(), 3);
             c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.DIRT, 16)); c.getInventory().add(new ItemStack(Items.COOKED_COD, 4)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
             c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
             c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS));
@@ -26126,7 +26142,7 @@ public final class ClaudeBodyTest {
         if (t[0] == 10) {
             for (BlockPos p : BlockPos.betweenClosed(me.offset(-3, -4, -3), me.offset(14, 6, 3))) level.setBlock(p, Blocks.STONE.defaultBlockState(), 2);
             for (BlockPos p : BlockPos.betweenClosed(me, me.offset(12, 1, 0))) level.setBlock(p, Blocks.AIR.defaultBlockState(), 2); // a 1-wide tunnel east, its west end shut: he's at the dead end
-            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
+            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear(); level.setBlock(h.absolutePos(new BlockPos(6, 2, 5)), Blocks.AIR.defaultBlockState(), 3);
             c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 6));
             c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setHealth(17); c.getFoodData().setFoodLevel(20);
             for (int dx : new int[]{2, 4, 6}) { var z = EntityType.ZOMBIE.create(level); z.setBaby(false); BlockPos zp = me.east(dx); z.moveTo(zp.getX() + 0.5, zp.getY(), zp.getZ() + 0.5, 90, 0); z.setPersistenceRequired(); level.addFreshEntity(z); }
@@ -26260,7 +26276,7 @@ public final class ClaudeBodyTest {
             level.setBlock(st1073Ore, Blocks.IRON_ORE.defaultBlockState(), 2); level.setBlock(st1073Patch, Blocks.COBBLESTONE.defaultBlockState(), 2);
             com.claudemod.entity.life.TempLedger.builtCells(c).put(st1073Patch, "ClaudeLife.mineIntegrity");
             com.claudemod.director.ClaudeLife.seenOre(c).clear(); com.claudemod.director.ClaudeLife.seenOre(c).add(st1073Ore);
-            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
+            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear(); level.setBlock(h.absolutePos(new BlockPos(6, 2, 5)), Blocks.AIR.defaultBlockState(), 3);
             c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 8));
             c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c); c.setHealth(20); c.getFoodData().setFoodLevel(20);
             c.tasks.add(new Task.Break(st1073Ore));
@@ -36423,7 +36439,7 @@ public final class ClaudeBodyTest {
         if (t[0] == 1) { scenarioReset(c); flatBox(h); c.nextPlanTick = c.tickCount + 12000; com.claudemod.entity.life.DeathLog.reset(c); }
         if (t[0] == 10) {
             BlockPos me = h.absolutePos(new BlockPos(1, 2, 1)), junk = h.absolutePos(new BlockPos(14, 2, 14)), kit = new BlockPos(me.getX() + 300, 70, me.getZ()); level.setDayTime(6000); // (300 off at y 70 as before: unloaded, and a run a player takes for 10 raw iron by day; millions off it no longer pays)
-            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent();
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear(); level.setBlock(h.absolutePos(new BlockPos(6, 2, 5)), Blocks.AIR.defaultBlockState(), 3);
             c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 4));
             var bone = new net.minecraft.world.entity.item.ItemEntity(level, junk.getX() + 0.5, junk.getY(), junk.getZ() + 0.5, new ItemStack(Items.BONE)); level.addFreshEntity(bone);
             com.claudemod.entity.life.DeathLog.died(c, level, junk, java.util.List.of(bone));

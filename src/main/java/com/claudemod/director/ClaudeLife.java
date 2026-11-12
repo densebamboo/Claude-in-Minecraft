@@ -3485,6 +3485,7 @@ public final class ClaudeLife {
                         Procure.Plan plan = Procure.plan(g, level, item, count);
                         if (plan.problem() == null && plan.steps().size() > 1) { g.gatherForCraftTick = g.tickCount; g.expandTicks.put(target, g.tickCount); for (int i = plan.steps().size() - 1; i >= 0; i--) g.skillQueue.addFirst(plan.steps().get(i)); return "nothing on me smelts into " + target + " yet: " + Procure.describe(plan.steps()) + " first"; }
                     }
+                    { int have = g.inventory.count(x -> x.is(item)); if (have >= count) return "done: " + have + " " + target + " on me already, nothing left to smelt into it"; } // (the plan's smelt for a batch already cooked and taken out: live 01:49 11-12, D2D 014948-32, "failed" and "could you help" with 6 on him; stage 1543)
                     return "failed: you have nothing that smelts into or from " + target;
                 }
                 boolean hasFuel = !g.inventory.find(t -> (t.is(Items.COAL) || t.is(Items.CHARCOAL) || t.is(ItemTags.LOGS) || t.is(ItemTags.PLANKS) || t.is(Items.STICK)) && !t.is(ItemTags.NON_FLAMMABLE_WOOD)).isEmpty() /* ponytail: crimson/warped wood is no fuel */;

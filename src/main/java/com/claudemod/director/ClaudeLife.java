@@ -5655,6 +5655,42 @@ public final class ClaudeLife {
         if ((it == Items.CRAFTING_TABLE || it == Items.FLINT_AND_STEEL) && inv.countItem(it) > st.getCount()) return "a 2nd " + Crafting.name(it) + " in another slot";
         return null;
     }
+    /**
+     * A full pack with spare gear on him (spareGear's duplicates: armour he wears as good or better, a second sword or bow, a third pick, a second water bucket) and none of his storage taking it:
+     * a chest put down here for all of it (made from wood on him, his to come back to) against the least of it dropped, priced as the seconds to get it again. Junk dumping keeps its own rule
+     * (spare iron never junk, 11-05); this is the choice about duplicates. Null: no spare gear, the stock toss goes on; an empty list: the chest took them; else the slots to drop.
+     * (D2D full-pack family 11-12: 3 iron boots, 2 helmets, 2 swords, 2 bows, 3 water buckets off his piles, so logs, stems and netherrack went out and were walked back up; stage 1622)
+     */
+    static java.util.List<Integer> spareChoice(ClaudeEntity g, ServerLevel sl) {
+        var inv = g.getInventory(); java.util.List<Integer> spares = new java.util.ArrayList<>();
+        for (int i = 0; i < inv.items.size(); i++) { var st = inv.items.get(i); if (st.isEmpty() || i == inv.selected || st.is(ItemTags.LOGS) || !(st.getItem() instanceof net.minecraft.world.item.ArmorItem || st.isDamageableItem() || st.is(Items.WATER_BUCKET))) continue; if (spareGear(g, st, i) != null) spares.add(i); }
+        if (spares.isEmpty()) return null;
+        int free = 0; for (var s0 : inv.items) if (s0.isEmpty()) free++;
+        java.util.function.ToDoubleFunction<Integer> worth = i -> worthEach(inv.items.get(i)) * Math.max(1, inv.items.get(i).getCount()) * com.claudemod.entity.life.Weights.w("recovery.trip_s_per_point", 3);
+        spares.sort(java.util.Comparator.comparingDouble(worth));
+        java.util.List<Integer> drop = new java.util.ArrayList<>(spares.subList(0, Math.min(Math.max(1, 2 - free), spares.size())));
+        double dropS = 0, allS = 0; for (int i : drop) dropS += worth.applyAsDouble(i); for (int i : spares) allS += worth.applyAsDouble(i);
+        boolean wood = inv.countItem(Items.CHEST) > 0 || g.inventory.count(x -> x.is(ItemTags.PLANKS)) >= 8 || g.inventory.count(x -> x.is(ItemTags.LOGS)) >= 2;
+        double back = com.claudemod.entity.life.Weights.w("spare.chest_back_odds", 0.5);
+        var chestO = wood ? com.claudemod.entity.life.Decide.Option.of("a chest here for them", com.claudemod.entity.life.Weights.w("spare.chest_s", 8) + allS * (1 - back), spares.size() + " piece(s), back for them " + Math.round(back * 100) + "% likely")
+                : com.claudemod.entity.life.Decide.Option.out("a chest here for them", "no chest or wood for one on him");
+        var dropO = com.claudemod.entity.life.Decide.Option.of("drop the least of them", dropS, drop.size() + " piece(s): " + drop.stream().map(i -> Crafting.name(inv.items.get(i).getItem())).collect(java.util.stream.Collectors.joining(", ")));
+        String ctx = spares.stream().map(i -> Crafting.name(inv.items.get(i).getItem())).collect(java.util.stream.Collectors.joining(", ")) + " spare on him, " + free + " free";
+        var pick = com.claudemod.entity.life.Decide.choose(g, "pack.spares", ctx, true, java.util.List.of(chestO, dropO));
+        if (pick == chestO) {
+            if (inv.countItem(Items.CHEST) == 0) { boolean tbl = ensureCraftingTable(g, sl, Items.CHEST); Crafting.craft(sl, g.inventory, Items.CHEST, 1, tbl); }
+            BlockPos c = inv.countItem(Items.CHEST) > 0 ? placeNextTo(g, sl, Items.CHEST) : null;
+            if (c != null && sl.getBlockEntity(c) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box) {
+                int n = 0; StringBuilder in = new StringBuilder();
+                for (int i : spares) { var st = inv.items.get(i); if (st.isEmpty()) continue; for (int k = 0; k < box.getContainerSize(); k++) if (box.getItem(k).isEmpty()) { box.setItem(k, st.copy()); in.append(Crafting.name(st.getItem())).append(' '); inv.items.set(i, ItemStack.EMPTY); n++; break; } }
+                box.setChanged(); g.storageChests.add(c.immutable()); g.myStations.add(c.immutable()); com.claudemod.entity.life.ChestLedger.look(g, sl, c);
+                ClaudeMod.LOGGER.info("[Claude life] a chest put down at {} for his spare gear: {} piece(s) in ({}) (ClaudeLife.spareChoice)", c.toShortString(), n, in.toString().trim());
+                return java.util.List.of();
+            }
+            ClaudeMod.LOGGER.info("[Claude life] no chest for his spare gear after all ({}): the least of it dropped instead (ClaudeLife.spareChoice)", c == null ? "no spot for it here" : "not a chest");
+        }
+        return drop;
+    }
     public static String spareGear(ClaudeEntity g, ItemStack st, int slot) {
         if (st.isEmpty() || neededByPlan(g, st.getItem())) return null;
         var inv = g.inventory.items; Item it = st.getItem();
@@ -5669,7 +5705,8 @@ public final class ClaudeLife {
         }
         if (it instanceof net.minecraft.world.item.PickaxeItem) { int before = 0; for (int i = 0; i < slot; i++) if (inv.getItem(i).is(it)) before++; return before >= 2 ? "a third of them, two kept for the wear" : null; }
         if (it instanceof net.minecraft.world.item.TieredItem) { for (int i = 0; i < inv.getContainerSize(); i++) { var o = inv.getItem(i); if (i == slot || o.getItem().getClass() != it.getClass()) continue; if (o.getMaxDamage() > st.getMaxDamage() || o.getMaxDamage() == st.getMaxDamage() && i < slot) return "a better or same one on him"; } return null; } // (swords, axes, shovels, hoes: the best of each kind)
-        if (st.isDamageableItem()) { int before = 0; for (int i = 0; i < slot; i++) if (inv.getItem(i).is(it)) before++; return before >= 1 ? "a second one" : null; } // (a bow, a rod, shears, flint and steel: one does)
+        if (st.isDamageableItem()) { int before = 0; for (int i = 0; i < slot; i++) if (inv.getItem(i).is(it)) before++; return before >= 1 ? "a second one" : null; }
+        if (it == Items.WATER_BUCKET) { int before = 0; for (int i = 0; i < slot; i++) if (inv.getItem(i).is(it)) before++; return before >= 1 ? "a second water bucket" : null; } // (one does; three off his recovered piles filled his pack, D2D 12:41 11-12, stage 1622) // (a bow, a rod, shears, flint and steel: one does)
         return null;
     }
     /** An item one of his queued steps needs: a step's own target, or what a queued craft is made of (a furnace: its stone). The toss read none of his plan and threw out the blackstone his furnace wanted (review 65, stage 1209). */
@@ -5734,11 +5771,14 @@ public final class ClaudeLife {
                 if (c != null) { if (storable) g.storageChests.add(c.immutable()); else { String jl = g.pref("junk_chests", ""); g.prefs.put("junk_chests", (jl.isEmpty() ? "" : jl + ";") + c.getX() + " " + c.getY() + " " + c.getZ()); ClaudeMod.LOGGER.info("[Claude life] nothing on him his storage takes, only junk and spare gear: the chest at {} is a junk chest (ClaudeLife.dumpJunk)", c.toShortString()); } /* (a storage chest for a pack of junk and spares: the Deposit stored 0, and a chest more every 5 s, three in 25 s, live 07:20 11-11, D2D review 35, stage 1504) */ { java.util.List<Task> q0 = new java.util.ArrayList<>(g.tasks); int at0 = 0; for (int i = 0; i < q0.size(); i++) if (q0.get(i) instanceof Task.Place pl0 && pl0.pos().equals(c)) { at0 = i + 1; break; } q0.add(at0, new Task.Deposit(c.immutable())); g.tasks.clear(); g.tasks.addAll(q0); } /* (after the chest's own notch and placement: in front of them it found "no chest", and 5 s on a second chest went down; live 04:02 11-09, review 166, stage 1233) */ ClaudeMod.LOGGER.info("[Claude life] inventory full and no storage near: a chest at {} for it", c.toShortString()); return; }
             }
         }
+        java.util.List<Integer> spareToss = g.level() instanceof ServerLevel slP ? spareChoice(g, slP) : null; // (spare gear first: a chest for it here or the least of it dropped, priced; the stock toss only when there is none)
+        if (spareToss != null && spareToss.isEmpty()) return;
         java.util.Set<Item> junk = JUNK;
         java.util.Map<Item, Integer> kept = new java.util.HashMap<>();
         java.util.List<Integer> toss = new java.util.ArrayList<>(); // what this toss throws, picked before he turns: the turn away from his work is for that, not for the junk list alone (spare cobble and a 4th stone pick went at his feet in his highway tunnel, walked over and taken back, live 22:00:39 / 22:57, stage 788)
         java.util.Map<Item, Boolean> need = new java.util.HashMap<>(); java.util.List<Integer> order = new java.util.ArrayList<>(); for (int i = 0; i < inv.items.size(); i++) order.add(i);
         order.sort(java.util.Comparator.comparing((Integer i) -> inv.items.get(i).isEmpty() || !need.computeIfAbsent(inv.items.get(i).getItem(), x -> neededByPlan(g, x))).thenComparing((Integer i) -> { var s0 = inv.items.get(i); return s0.is(Items.COBBLESTONE) || s0.is(Items.COBBLED_DEEPSLATE) || s0.is(Items.NETHERRACK) || s0.is(Items.BLACKSTONE) ? -s0.getCount() : 0; })); // (stacks his queued steps need first: they get the stone kept; then the biggest stone stacks: 5 cobble and 1 deepslate kept in slot order threw the 19 netherrack he was digging, every 5 s, D2D review 125225-43 live 12:50 11-12; stage 1621)
+        if (spareToss != null) toss.addAll(spareToss); else
         for (int i : order) {
             var st = inv.items.get(i);
             if (st.isEmpty() || i == inv.selected) continue;

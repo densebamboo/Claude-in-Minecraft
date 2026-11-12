@@ -11047,6 +11047,7 @@ public final class ClaudeBodyTest {
             case 1541: return st1541(stage, t, c, h, level, mock);
             case 1542: return st1542(stage, t, c, h, level, mock);
             case 1543: return st1543(stage, t, c, h, level, mock);
+            case 1545: return st1545(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -23019,6 +23020,42 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear(); level.setBlock(h.absolutePos(new BlockPos(6, 2, 5)), Blocks.AIR.defaultBlockState(), 3);
             check(!said.startsWith("failed"), "6 cooked porkchop on him, smelt cooked_porkchop x3: " + said);
             pass(stage, t, "smelt x3 with 6 cooked on him: " + said);
+        }
+        return true;
+    }
+    /** Stage 1545 (D2D death 55, live 02:57:42 11-12: 20 HP, armor 0, a stone axe, a creeper 2.4 off after him on his walk, a zombie 3 and a skeleton 5 off; walk.blocked "clear them ~3457 s" (wait out: it's after him) queued the Attack, doAttack "breaking off the fight ... run ~1398 s", and the walk again: 9 rounds in 0.7 s, never a step away, blown up). The creeper on his way, the fight priced over the run: one break-off at most, then away from it. */
+    private static net.minecraft.world.entity.Mob[] s1545M; private static int s1545T, s1545Atk, s1545Flee; private static Task s1545Last;
+    private static boolean st1545(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1545M = null; s1545T = -1; s1545Atk = 0; s1545Flee = 0; s1545Last = null; }
+        if (t[0] > 4 && t[0] % 5 == 0) for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(60))) if (s1545M == null || !java.util.Arrays.asList(s1545M).contains(e)) e.discard();
+        if (t[0] == 10) {
+            for (int x = -16; x <= 26; x++) for (int z = -10; z <= 10; z++) { for (int y = 0; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.STONE_AXE)); c.getInventory().items.set(1, new ItemStack(Items.COBBLESTONE, 8)); c.getInventory().selected = 0;
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setYRot(-90); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear(); mock[0].teleportTo(level, o.getX() + 0.5, o.getY() + 45, o.getZ() + 0.5, 0f, 0f);
+            level.setDayTime(6000);
+        }
+        if (t[0] == 20) {
+            s1545M = new net.minecraft.world.entity.Mob[] {EntityType.CREEPER.create(level), EntityType.ZOMBIE.create(level), EntityType.SKELETON.create(level), EntityType.CREEPER.create(level)}; double[][] at = {{2.9, 0.5}, {0.5, 3.5}, {-4.5, 0.5}, {0.5, -11.5}};
+            for (int k = 0; k < s1545M.length; k++) { var m = s1545M[k]; m.moveTo(o.getX() + at[k][0], o.getY(), o.getZ() + at[k][1], 90, 0); m.setPersistenceRequired(); m.setNoAi(true); level.addFreshEntity(m); m.setTarget(c); com.claudemod.entity.life.Perception.felt(c, m); }
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.tasks.add(new Task.GoTo(o.offset(4, 0, 0), 1.0)); s1545T = t[0]; { Task pk = new Task.Pickup(100); c.tasks.add(pk); try { var wc = c.work.getClass(); var da = wc.getDeclaredField("digInAt"); da.setAccessible(true); da.set(c.work, o.above(2)); var dt = wc.getDeclaredField("digInTasks"); dt.setAccessible(true); dt.set(c.work, new java.util.ArrayList<Task>(java.util.List.of(pk))); } catch (ReflectiveOperationException e) { throw new RuntimeException(e); } } // (as live: the walk is his cover's teardown pickup, a step of his dig-in, and he stands in its hole's cells)
+        }
+        if (t[0] > 10) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (s1545T > 0 && t[0] > s1545T) {
+            for (var m : s1545M) if (m.isAlive()) m.setTarget(c);
+            Task cur = c.currentTask; if (cur != s1545Last && cur instanceof Task.Attack a && a.target().equals(s1545M[0].getUUID())) s1545Atk++; s1545Last = cur;
+            if (cur instanceof Task.Flee) s1545Flee++;
+            if (t[0] == s1545T + 60) {
+                int atk = s1545Atk, fl = s1545Flee; double off = c.distanceTo(s1545M[0]);
+                for (var m : s1545M) m.discard(); try { var da = c.work.getClass().getDeclaredField("digInAt"); da.setAccessible(true); da.set(c.work, null); var dt = c.work.getClass().getDeclaredField("digInTasks"); dt.setAccessible(true); dt.set(c.work, java.util.List.of()); } catch (ReflectiveOperationException e) { }
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.setHealth(20); c.attempts.clear(); try { var nw = c.work.getClass().getDeclaredField("noWayOutTick"); nw.setAccessible(true); nw.setInt(c.work, -100000); } catch (ReflectiveOperationException e) { }
+                for (int x = -16; x <= 26; x++) for (int z = -10; z <= 10; z++) level.setBlock(o.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2);
+                flatBox(h); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5);
+                check(atk <= 1, "a creeper 2.4 off after him on his walk, fight priced over the run: the Attack on it queued " + atk + " times in 3 s (walk.blocked vs doAttack's break-off), " + fl + " ticks running, " + String.format("%.1f", off) + " off it at the end");
+                check(fl >= 10 || off > 5, "the creeper 2.4 off: broke off and never got away from it (" + fl + " ticks running, " + String.format("%.1f", off) + " off)");
+                pass(stage, t, "one break-off from the creeper, then away: " + fl + " ticks running, " + String.format("%.1f", off) + " off");
+            }
         }
         return true;
     }

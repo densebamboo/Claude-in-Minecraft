@@ -6185,7 +6185,8 @@ public class WorkGoal extends Goal {
         coverGap = false;
         ServerLevel level = level();
         BlockPos feet = g.blockPosition();
-        if (diggingIn()) {
+        boolean tearingDown = diggingIn() && digInTasks.stream().noneMatch(x -> x instanceof Task.Wait && (x == current || g.tasks.contains(x))); // its wait over, the lid coming out: no cover round him any more (D2D death 55, live 02:57:42 11-12: "in his hole" ended every run at its first tick, a creeper 2 off, 9 rounds of walk vs break-off in 0.7 s; stage 1545)
+        if (diggingIn() && !tearingDown) {
             if (inDigInHole()) return true; // at it already (or down in it): carry on (one threat, one cover: never a second over it)
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] knocked off his cover at {} (he's at {}): its steps dropped, cover again from here if anything still calls for it (WorkGoal.digInFromArrows)", digInAt.toShortString(), feet.toShortString());
             g.tasks.removeAll(digInTasks); // knocked off the spot: that hole's no use, start again here

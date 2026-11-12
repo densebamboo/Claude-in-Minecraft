@@ -6954,6 +6954,8 @@ public class WorkGoal extends Goal {
     /** A blaze in range to shoot him: out to its own follow range (48), not 24 (live 00:46 11-08: one 29 off hit him 4 times while coverFight said "no blaze sees it", stage 983). */
     private boolean shootsHere(net.minecraft.world.entity.Entity b) { return b.isAlive() && b instanceof net.minecraft.world.entity.LivingEntity l && l.distanceTo(g) <= l.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.FOLLOW_RANGE); }
     private int blazeHeldSaid = -1;
+    /** How many cells over his feet cell the wall-in's walls go: to his head's own cell (1 standing on a full block, 2 on a fence or wall top, his head then a cell higher). */
+    private int boxUp(BlockPos feet) { return Math.max(1, net.minecraft.util.Mth.floor(g.getBoundingBox().maxY - 0.01) - feet.getY()); }
     private boolean blazeRetreatPays() {
         ServerLevel lv = (ServerLevel) g.level();
         var blz = com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(48), this::shootsHere);
@@ -6967,7 +6969,7 @@ public class WorkGoal extends Goal {
         java.util.function.Predicate<BlockPos> hidden = c -> { for (var b : all) if (com.claudemod.entity.life.FortressFight.sees(lv, b, c)) return false; return true; };
         BlockPos feet = BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()); java.util.Map<BlockPos, Integer> steps = new java.util.HashMap<>();
         BlockPos hide = hidden.test(feet) ? feet : blazeHideCell(lv, feet, hidden, steps);
-        int boxN = 0; for (Direction dir : Direction.Plane.HORIZONTAL) for (int y = 0; y <= 1; y++) if (lv.getBlockState(feet.relative(dir).above(y)).canBeReplaced()) boxN++; if (lv.getBlockState(feet.above(2)).canBeReplaced()) boxN += 2; // (nowhere out of their sight: blazeRetreat walls him in where he stands, the roof against one more on a wall)
+        int up = boxUp(feet), boxN = 0; for (Direction dir : Direction.Plane.HORIZONTAL) for (int y = 0; y <= up; y++) if (lv.getBlockState(feet.relative(dir).above(y)).canBeReplaced()) boxN++; if (lv.getBlockState(feet.above(up + 1)).canBeReplaced()) boxN += 2; // (nowhere out of their sight: blazeRetreat walls him in where he stands, the roof against one more on a wall)
         final int boxN0 = boxN; var boxIt = com.claudemod.entity.life.FortressFight.wallItem(g, boxN); boolean box = hide == null && boxN > 0 && boxIt != null && g.inventory.count(x -> x.is(boxIt)) >= boxN0; // (all his stacks of one kind: one stack of 2 cobblestone read as no blocks with 112 netherrack on him, death 57)
         double walk = hide != null ? steps.getOrDefault(hide, 0) / com.claudemod.entity.life.Decide.sprint() : box ? boxN * w("cover.place_s", 0.35) / 2 : w("blaze.open_run_s", 15); // (a box: the build is the time in their sight, counted twice below as there-and-back)
         double fb = w("blaze.fireball_hp", 5), perB = fb * (1 - Math.min(20, Math.max(armor / 5.0, armor - fb / (2 + tough / 4))) / 25) + w("blaze.fire_hp", 3);
@@ -7070,9 +7072,10 @@ public class WorkGoal extends Goal {
         }
         { // nowhere out of their sight: cover made where he stands, a block at feet and head on each side and one over him (a blaze only shoots what it sees; running in their sight is what killed him, World 15 12:06, six blazes, 20 -> 0)
             java.util.List<BlockPos> box = new java.util.ArrayList<>();
-            for (Direction dir : Direction.Plane.HORIZONTAL) { box.add(feet.relative(dir)); box.add(feet.relative(dir).above()); }
+            int up = boxUp(feet); // (his head's own cell: feet + 1 on a full block, feet + 2 on a fence or wall top)
+            for (Direction dir : Direction.Plane.HORIZONTAL) for (int y = 0; y <= up; y++) box.add(feet.relative(dir).above(y));
             box.removeIf(c -> !level.getBlockState(c).canBeReplaced());
-            BlockPos roof = feet.above(2);
+            BlockPos roof = feet.above(up + 1); // (over his head: at feet + 2 on a fence top his head was in it, "to the middle of his block" every tick, never a wall; 19:11 11-11, dead; stage 1074)
             if (level.getBlockState(roof).canBeReplaced()) { // the roof has no face of its own to go against (the wall tops are diagonal to it): a block up on one wall first, then the roof against its side, as a player does
                 boolean faced = false; for (Direction dir : Direction.Plane.HORIZONTAL) if (!level.getBlockState(roof.relative(dir)).canBeReplaced()) faced = true;
                 if (!faced) { Direction toward = Direction.getNearest(blazes.get(0).getX() - g.getX(), 0, blazes.get(0).getZ() - g.getZ()); box.add(roof.relative(toward)); }

@@ -10877,6 +10877,7 @@ public final class ClaudeBodyTest {
             case 746: return st746(stage, t, c, h, level, mock);
             case 897: return st897(stage, t, c, h, level, mock);
             case 1070: return st1070(stage, t, c, h, level, mock);
+            case 1074: return st1074(stage, t, c, h, level, mock);
             case 747: return st747(stage, t, c, h, level, mock);
             case 748: return st748(stage, t, c, h, level, mock);
             case 749: return st749(stage, t, c, h, level, mock);
@@ -20429,6 +20430,36 @@ public final class ClaudeBodyTest {
                 for (int x = -3; x <= 6; x++) for (int z = -2; z <= 2; z++) for (int y = -1; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
                 check(left == 0, "three iron in a row into the wall, the far ones' digs queued first: " + left + " left unmined (" + (q.length() > 140 ? q.substring(0, 140) : q) + ")");
                 pass(stage, t, "the whole row in " + (t[0] - s1566T) / 20.0 + " s");
+            }
+        }
+        return true;
+    }
+    /** Stage 1074 (death at 19:11:50 11-11 World 17, fortress deck 312,65,491: blaze.retreat picked "boxed in where he stands, 10 blocks" with 276 cobbled deepslate on him, but he stood on a nether brick fence's top (y 65.50): his head (to 67.30) reached into the box's roof cell (feet + 2), so "to the middle of his block: his body's over a wall cell's edge" every tick for 19 s, centred to 0.05, never a wall; 17 -> 5 in their fire, dead). On a fence top, hurt and burning, three blazes, nowhere out of sight, 64 cobbled deepslate: walled in. */
+    private static net.minecraft.world.entity.monster.Blaze[] s1074B; private static int s1074T;
+    private static boolean st1074(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1074T = -1; if (s1074B != null) for (var b : s1074B) b.discard(); s1074B = null; level.setDayTime(6000); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+            for (int x = -20; x <= 12; x++) for (int z = -7; z <= 7; z++) for (int y = -1; y <= 6; y++) level.setBlock(o.offset(x, y, z), (y == -1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // an open deck: nowhere out of their sight
+            level.setBlock(o, Blocks.NETHER_BRICK_FENCE.defaultBlockState(), 2); // (his footing: a fence's top, 1.5 up)
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0; c.getInventory().add(new ItemStack(Items.COBBLED_DEEPSLATE, 64)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS));
+            c.teleportTo(o.getX() + 0.5, o.getY() + 1.5, o.getZ() + 0.5); c.setHealth(9); c.getFoodData().setFoodLevel(20); c.setRemainingFireTicks(100); c.fallDistance = 0; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            s1074B = new net.minecraft.world.entity.monster.Blaze[3];
+            for (int i = 0; i < 3; i++) { var b = EntityType.BLAZE.create(level); b.moveTo(o.getX() + 8.5, o.getY() + 4, o.getZ() + 0.5 + (i - 1) * 3, 90, 0); b.setNoAi(true); b.setNoGravity(true); b.setPersistenceRequired(); level.addFreshEntity(b); b.setTarget(c); s1074B[i] = b; com.claudemod.entity.life.Perception.noteSeenTest(c, b); }
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Attack(s1074B[1].getUUID(), 20 * 60)); s1074T = t[0]; }
+        if (s1074T > 0 && t[0] > s1074T) {
+            java.util.function.Predicate<Task> wall = q -> q instanceof Task.Place p && p.pos().distManhattan(o) <= 4;
+            boolean walls = wall.test(c.currentTask) || c.tasks.stream().anyMatch(wall), ran = c.currentTask instanceof Task.Flee || c.tasks.stream().anyMatch(q -> q instanceof Task.Flee);
+            if (walls || ran || t[0] - s1074T > 20 * 3) {
+                String q = c.currentTask + " " + c.tasks; String at = String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ());
+                for (var b : s1074B) b.discard(); s1074B = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.clearFire();
+                for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl != net.minecraft.world.entity.EquipmentSlot.MAINHAND) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+                for (int x = -20; x <= 12; x++) for (int z = -7; z <= 7; z++) for (int y = -1; y <= 6; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(walls && !ran, "on a fence top (at " + at + "), health 9, burning, three blazes, nowhere out of their sight, 64 cobbled deepslate: not walled in in 3 s (" + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+                pass(stage, t, "walled in on the fence top: " + (q.length() > 100 ? q.substring(0, 100) : q));
             }
         }
         return true;

@@ -10899,6 +10899,7 @@ public final class ClaudeBodyTest {
             case 1076: return st1076(stage, t, c, h, level, mock);
             case 1078: return st1078(stage, t, c, h, level, mock);
             case 1079: return st1079(stage, t, c, h, level, mock);
+            case 1131: return st1131(stage, t, c, h, level, mock);
             case 1077: return st1077(stage, t, c, h, level, mock);
             case 1075: return st1075(stage, t, c, h, level, mock);
             case 747: return st747(stage, t, c, h, level, mock);
@@ -20584,6 +20585,45 @@ public final class ClaudeBodyTest {
             check(los, "setup: no line of sight to the skeleton down the pit");
             check(!(in == 0 && !run), "the way in refused (out of its sight) while the fight-or-run price picked the fight: " + odds);
             pass(stage, t, "agreed: " + (run ? "run" : "fight") + ", way in " + in + " (" + odds + ")");
+        }
+        return true;
+    }
+    /** Stage 1131 (live 01:32:56-01:33:10 11-12 World 17 fortress, review 013454-47: out of his cover after 24 s, the teardown's Breaks ran on while blazes 11-14 off hit him, "hit while digging in ... more than 2.5: not in the hole with him: digging on, not a fight", 17 -> 11): a shooter's hit stops the teardown of his cover, the blocks left standing. */
+    private static java.util.List<BlockPos> s1131C;
+    private static boolean st1131(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(6000); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+            for (int x = -6; x <= 16; x++) for (int z = -6; z <= 6; z++) for (int y = -1; y <= 6; y++) level.setBlock(o.offset(x, y, z), y == -1 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            s1131C = new java.util.ArrayList<>(); s1131C.add(o.above(2).immutable());
+            for (int y = 1; y >= 0; y--) for (var d : net.minecraft.core.Direction.Plane.HORIZONTAL) s1131C.add(o.above(y).relative(d).immutable());
+            for (BlockPos q : s1131C) level.setBlock(q, Blocks.COBBLESTONE.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COOKED_PORKCHOP, 8));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setHealth(17); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.pillarBlocks.clear();
+            java.util.List<Task> up = new java.util.ArrayList<>(); up.add(new Task.Wait(600, false)); // its wait over: the teardown's turn
+            for (BlockPos q : s1131C) { up.add(new Task.Break(q)); c.pillarBlocks.addFirst(q); }
+            up.add(new Task.Pickup(60));
+            for (int i = 1; i < up.size(); i++) c.tasks.add(up.get(i));
+            try { var w = c.work; var cl = w.getClass();
+                var f = cl.getDeclaredField("digInAt"); f.setAccessible(true); f.set(w, o.immutable());
+                f = cl.getDeclaredField("digInTick"); f.setAccessible(true); f.setInt(w, c.tickCount - 20 * 24);
+                f = cl.getDeclaredField("digInRise"); f.setAccessible(true); f.setInt(w, 0);
+                f = cl.getDeclaredField("digInTasks"); f.setAccessible(true); f.set(w, up);
+            } catch (Exception e) { check(false, "setup threw " + e); }
+            var sk = net.minecraft.world.entity.EntityType.SKELETON.create(level); sk.setNoAi(true); sk.setPos(o.getX() + 11.5, o.getY(), o.getZ() + 0.5); sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW)); level.addFreshEntity(sk);
+        }
+        if (t[0] == 20) { var sk = level.getEntitiesOfClass(net.minecraft.world.entity.monster.Skeleton.class, new net.minecraft.world.phys.AABB(o).inflate(16)).stream().findFirst().orElse(null); if (sk != null) c.urgentAttacker = sk.getUUID(); } // its arrow, as it hits him mid-teardown
+        if (t[0] == 100) {
+            int standing = 0; for (BlockPos q : s1131C) if (level.getBlockState(q).is(Blocks.COBBLESTONE)) standing++;
+            boolean queued = c.tasks.stream().anyMatch(x -> x instanceof Task.Break bk && s1131C.contains(bk.pos()));
+            String q = c.tasks.stream().limit(3).toList().toString();
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(32))) e.discard();
+            c.tasks.clear(); c.pillarBlocks.clear(); c.urgentAttacker = null;
+            check(standing >= s1131C.size() - 2, "his cover taken down with a skeleton shooting him: " + standing + " of " + s1131C.size() + " standing, queue " + q);
+            check(!queued, "the rest of the teardown still queued after the hit: " + q);
+            pass(stage, t, "the teardown stopped at the shot: " + standing + " of " + s1131C.size() + " standing"); return true;
         }
         return true;
     }

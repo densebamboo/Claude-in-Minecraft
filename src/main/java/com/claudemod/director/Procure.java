@@ -92,6 +92,8 @@ public final class Procure {
         if (SOURCES.get(Items.ARROW) == null || !"get_arrows".equals(SOURCES.get(Items.ARROW).skill())) SOURCES.put(Items.ARROW, new Source("get_arrows", "arrow", -1, null));
         if (SOURCES.get(Items.BLAZE_ROD) == null || !"blaze_rods".equals(SOURCES.get(Items.BLAZE_ROD).skill())) { SOURCES.put(Items.BLAZE_ROD, new Source("blaze_rods", "blaze_rod", -1, null)); SOURCES.put(Items.NETHER_WART, new Source("loot", "fortress", -1, null)); } if (SOURCES.get(Items.ENDER_PEARL) == null || !"ender_pearls".equals(SOURCES.get(Items.ENDER_PEARL).skill())) SOURCES.put(Items.ENDER_PEARL, new Source("ender_pearls", "ender_pearl", -1, null)); // (live: the static block doesn't re-run on a hot push)
         Solver s = new Solver(g, level);
+        if (s.golemMaybeD >= 0) { Solver dry = new Solver(g, level); dry.golemTrip = false; for (Map.Entry<Item, Integer> e : wants.entrySet()) if (dry.need(e.getKey(), e.getValue(), Set.of(), 0) != null) break; // the iron the whole plan wants, the golem left out: its trip is priced against that, not the first piece's share (D2D review 152442-23, live 15:23:59 11-11: "1 iron" priced, 23 wanted; stage 1562)
+          s.ironTotal = dry.steps.stream().filter(st -> st.skill().equals("smelt") && st.target().equals("iron_ingot")).mapToInt(Skills.Step::count).sum(); }
         for (Map.Entry<Item, Integer> e : wants.entrySet()) {
             String problem = s.need(e.getKey(), e.getValue(), Set.of(), 0);
             if (problem != null) return new Plan(List.of(), problem);
@@ -159,6 +161,7 @@ public final class Procure {
             furnace = ownFurnace || ClaudeLife.findNear(level, g.blockPosition(), 16, b -> b.is(Blocks.FURNACE)) != null || have.getOrDefault(Items.FURNACE, 0) > 0;
         }
 
+        private int ironTotal; // the iron to smelt for the whole plan, no golem (planAll's dry run)
         private double golemMaybeD = -1; private Boolean golemTrip; // a remembered village's golem, none seen: how far the village is (-1: none, or a golem in sight)
         private final Map<Item, Integer> pocket = new HashMap<>(), start = new HashMap<>();
         /** What the plan used past his pockets that his chests hold (by his ledger). */
@@ -186,11 +189,14 @@ public final class Procure {
             }
             if (item == Items.IRON_INGOT && have.getOrDefault(GOLEM_READY, 0) > 0 && golemMaybeD >= 0 && golemTrip == null) { // no golem seen there: the trip against the mine, by the iron it's likely to give (D2D review 67, live 11:31:54 11-11: 98 blocks to a village for a golem never seen, none there; stages 629, 630)
                 double odds = com.claudemod.entity.life.Weights.w("village.golem_odds", 0.8), e = odds * com.claudemod.entity.life.Weights.w("golem.iron", 4), perIron = com.claudemod.entity.life.Weights.w("procure.item_s", 3) + com.claudemod.entity.life.Weights.w("procure.smelt_s", 10);
-                double mineTrip = com.claudemod.entity.life.Weights.w("procure.mine_s", 60) + (g.stairStart == null ? 0 : 2 * Math.sqrt(g.stairStart.distSqr(g.blockPosition())) / com.claudemod.entity.life.Decide.sprint());
-                double villageS = 2 * golemMaybeD / com.claudemod.entity.life.Decide.sprint() + com.claudemod.entity.life.Weights.w("golem.fight_s", 40) + Math.max(0, n - e) * perIron + (n > e ? mineTrip : 0), mineS = n * perIron + mineTrip;
-                var pick = com.claudemod.entity.life.Decide.choose(g, "village.golem", n + " iron, a village " + (int) golemMaybeD + " off, no golem seen there", true, List.of(
-                    com.claudemod.entity.life.Decide.Option.of("its golem", villageS, "there and back, ~" + String.format("%.1f", e) + " iron at " + Math.round(odds * 100) + "% odds of a golem" + (n > e ? ", the rest mined" : "")),
-                    com.claudemod.entity.life.Decide.Option.of("mine it", mineS, n + " ore mined and smelted")));
+                int nAll = Math.max(n, ironTotal); // (the whole plan's: the mine trip comes anyway once it wants more than the golem gives)
+                var bp = g.blueprint; net.minecraft.core.BlockPos door = bp != null && !bp.isEmpty() ? bp.entrance : g.stairStart, face = bp != null && !bp.isEmpty() ? bp.face() : null;
+                double mineWay = door == null ? 0 : Math.sqrt(door.distSqr(g.blockPosition())) + (face == null ? 0 : Math.sqrt(face.distSqr(door))); // to its door, then in to its face, as seenOreFirst prices it (D2D review 152940-38, live 15:25:11 11-11: "mine it ~119 s" by the stairs, the iron 471 off down it; stage 1562)
+                double mineTrip = com.claudemod.entity.life.Weights.w("procure.mine_s", 60) + 2 * mineWay / com.claudemod.entity.life.Decide.sprint();
+                double villageS = 2 * golemMaybeD / com.claudemod.entity.life.Decide.sprint() + com.claudemod.entity.life.Weights.w("golem.fight_s", 40) + Math.max(0, nAll - e) * perIron + (nAll > e ? mineTrip : 0), mineS = nAll * perIron + mineTrip;
+                var pick = com.claudemod.entity.life.Decide.choose(g, "village.golem", nAll + " iron, a village " + (int) golemMaybeD + " off, no golem seen there", true, List.of(
+                    com.claudemod.entity.life.Decide.Option.of("its golem", villageS, "there and back, ~" + String.format("%.1f", e) + " iron at " + Math.round(odds * 100) + "% odds of a golem" + (nAll > e ? ", the rest mined" : "")),
+                    com.claudemod.entity.life.Decide.Option.of("mine it", mineS, nAll + " ore mined and smelted, " + (int) mineWay + " to its face")));
                 golemTrip = pick != null && pick.name().equals("its golem"); // (asked once a plan: a back-out restores what he has, never the question)
             }
             if (item == Items.IRON_INGOT && have.getOrDefault(GOLEM_READY, 0) > 0 && !Boolean.FALSE.equals(golemTrip)) { // a golem in sight he's fit to fight: 3-5 iron from the 3-high tower beside it, quicker than any strip mine

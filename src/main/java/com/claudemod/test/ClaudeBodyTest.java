@@ -10550,6 +10550,9 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1563: return st1563(stage, t, c, h, level, mock);
+            case 1562: return st1562(stage, t, c, h, level, mock);
+            case 1561: return st1561(stage, t, c, h, level, mock);
             case 1560: return st1560(stage, t, c, h, level, mock);
             case 1559: return st1559(stage, t, c, h, level, mock);
             case 1558: return st1558(stage, t, c, h, level, mock);
@@ -20207,6 +20210,98 @@ public final class ClaudeBodyTest {
             for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl != net.minecraft.world.entity.EquipmentSlot.MAINHAND) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
             check(step && !waits, "a blaze under the deck's side, the floor between: waited where he stood, not a step to its sight (" + r + "; " + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
             nsHome(c, h, level); pass(stage, t, "a step to see it: " + r);
+        }
+        return true;
+    }
+    /** Stage 1561 (D2D review 150321-12, live 14:59:10 11-11 at 316,65,498: "healing in cover: health 13" with "built: 1 cobblestone at 315, 65, 497 cutting the sight of 5 blaze(s)", and the same moment "health 13, burning, no cover here and 5 blaze(s) about: out of their sight to 325, 71, 495 (16 steps)": a cover with a block still to put counted as none, the run through the open took a fireball, 13 -> 10). Hurt and burning on an open deck, three blazes, his blocks on him for a cover beside him and the nearest hide 16 steps off: the cover, not the run. */
+    private static net.minecraft.world.entity.monster.Blaze[] s1561B; private static int s1561T;
+    private static boolean st1561(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1561T = -1; if (s1561B != null) for (var b : s1561B) b.discard(); s1561B = null; level.setDayTime(6000); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+            for (int x = -20; x <= 12; x++) for (int z = -7; z <= 7; z++) for (int y = -1; y <= 6; y++) level.setBlock(o.offset(x, y, z), (y == -1 || x == -11 && Math.abs(z) <= 3 && y <= 4 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // an open deck, a wall off west: the hide behind it ~16 steps away round its end
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0; c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(13); c.getFoodData().setFoodLevel(20); c.setRemainingFireTicks(100); c.fallDistance = 0; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            s1561B = new net.minecraft.world.entity.monster.Blaze[3];
+            for (int i = 0; i < 3; i++) { var b = EntityType.BLAZE.create(level); b.moveTo(o.getX() + 8.5, o.getY() + 3, o.getZ() + 0.5 + (i - 1) * 3, 90, 0); b.setNoAi(true); b.setNoGravity(true); b.setPersistenceRequired(); level.addFreshEntity(b); b.setTarget(c); s1561B[i] = b; com.claudemod.entity.life.Perception.noteSeenTest(c, b); }
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Attack(s1561B[1].getUUID(), 20 * 60)); s1561T = t[0]; }
+        if (s1561T > 0 && t[0] > s1561T) {
+            java.util.function.Predicate<Task> run = q -> q instanceof Task.GoTo g0 && g0.pos().getX() <= o.getX() - 9;
+            boolean ran = run.test(c.currentTask) || c.tasks.stream().anyMatch(run) || c.getX() < o.getX() - 4;
+            if (ran || t[0] - s1561T > 20 * 3) {
+                String q = c.currentTask + " " + c.tasks;
+                for (var b : s1561B) b.discard(); s1561B = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.clearFire();
+                for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl != net.minecraft.world.entity.EquipmentSlot.MAINHAND) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent();
+                for (int x = -20; x <= 12; x++) for (int z = -7; z <= 7; z++) for (int y = -1; y <= 6; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(!ran, "hurt and burning, three blazes, blocks for a cover beside him: ran 16 steps through their sight to the hide instead (" + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
+                pass(stage, t, "the cover beside him over the long run: " + (q.length() > 100 ? q.substring(0, 100) : q));
+            }
+        }
+        return true;
+    }
+    /** Stage 1562 (D2D reviews 152442-23 and 152940-38, live 15:23:59 and 15:25:11 11-11: village.golem priced "1 iron" (the chestplate's last one) while gear_up's plan wanted 23, so the trip for ~3 golem iron beat a mine trip the other 20 needed anyway, a 127-block walk to a village with no golem seen; and "mine it ~119 s" priced the walk to his stairs, where the iron he then went for was 471 off down his mine). (a) A village 80 off, no golem seen, 7 ingots on him and a chestplate, leggings, boots and helmet wanted: no golem trip. (b) A village 200 off, 3 iron wanted, his stairs 10 off but the mine's face 400 in: the golem trip. */
+    private static boolean st1562(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.tasks.clear(); c.skillQueue.clear(); c.commandActive = false; c.prefs.put("stay_close", "no"); c.prefs.put("village_mode", "useful"); com.claudemod.entity.life.Perception.sightings(c).removeIf(s0 -> s0.id().equals("village")); }
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(1000);
+            BlockPos hay = h.absolutePos(new BlockPos(9, 2, 8)); level.setBlockAndUpdate(hay, Blocks.HAY_BLOCK.defaultBlockState()); level.setBlockAndUpdate(hay.north(), Blocks.HAY_BLOCK.defaultBlockState());
+            c.getInventory().clearContent(); for (net.minecraft.world.item.Item it : new net.minecraft.world.item.Item[] {Items.STONE_AXE, Items.STONE_PICKAXE, Items.IRON_SWORD}) c.getInventory().add(new ItemStack(it)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 6)); c.setHealth(20f);
+            BlockPos me = h.absolutePos(new BlockPos(3, 2, 8)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, net.minecraft.world.phys.Vec3.atCenterOf(hay));
+        }
+        if (t[0] == 12) { com.claudemod.entity.life.FarSight.lookAllRound(c, level); com.claudemod.entity.life.FarSight.nearScan(c, level); }
+        if (t[0] == 14) {
+            if (com.claudemod.entity.life.Perception.nearestLandmark(c, "village") == null) { check(false, "setup: the hay he saw never went on record as a village"); return true; }
+            BlockPos far = h.absolutePos(new BlockPos(3, 20, 8)).east(80); for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) level.setBlockAndUpdate(far.offset(x, -1, z), Blocks.STONE.defaultBlockState());
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(far.getX() + 0.5, far.getY(), far.getZ() + 0.5); c.fallDistance = 0;
+        }
+        if (t[0] == 18) {
+            BlockPos ssWas = c.stairStart; var bpWas = c.blueprint; c.stairStart = null; c.blueprint = null;
+            c.getInventory().add(new ItemStack(Items.IRON_INGOT, 7));
+            var wants = new java.util.LinkedHashMap<net.minecraft.world.item.Item, Integer>(); wants.put(Items.IRON_CHESTPLATE, 1); wants.put(Items.IRON_LEGGINGS, 1); wants.put(Items.IRON_BOOTS, 1); wants.put(Items.IRON_HELMET, 1);
+            String kit = com.claudemod.director.Procure.describe(com.claudemod.director.Procure.planAll(c, level, wants).steps());
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 6)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16));
+            BlockPos far = h.absolutePos(new BlockPos(3, 20, 8)).east(200); for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) level.setBlockAndUpdate(far.offset(x, -1, z), Blocks.STONE.defaultBlockState());
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(far.getX() + 0.5, far.getY(), far.getZ() + 0.5); c.fallDistance = 0;
+            var N = net.minecraft.core.Direction.NORTH; var b = new com.claudemod.entity.life.MineBlueprint(far.offset(10, -20, 0), N, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), N, 400, null)); b.invalidate();
+            c.blueprint = b; c.stairStart = b.entrance; String mm = c.prefs.get("mine_model"); c.prefs.put("mine_model", "blueprint");
+            String three = com.claudemod.director.Procure.describe(com.claudemod.director.Procure.plan(c, level, Items.IRON_INGOT, 3).steps());
+            c.blueprint = bpWas; c.stairStart = ssWas; if (mm == null) c.prefs.remove("mine_model"); else c.prefs.put("mine_model", mm); c.getInventory().clearContent();
+            check(!kit.contains("village_iron"), "1 iron short of the chestplate and 16 more for the rest, a village 80 off with no golem seen: the golem trip for ~3 when the mine gives the rest anyway: " + kit);
+            check(three.contains("village_iron"), "3 iron, a village 200 off, his mine's face 400 in past stairs 10 off: priced as a walk to the stairs, mined: " + three);
+            pass(stage, t, "the kit: " + kit + " | 3 iron: " + three);
+        }
+        return true;
+    }
+    /** Stage 1563 (D2D review 153443-53, live 15:31:09-13 11-11 at -32,14,-460: redstone ore mined down a 1-wide hole into a cave, the dust fell 4 to -32,10,-459, "no step down at -32, 13, -459 (nothing under it: a drop, not a step)", then "left Redstone Dust ... behind: no way to it", 10 dust given up; his walker, which prices a drop and a dig, is asked only for drops above him). Redstone 4 down a 1-wide hole beside him into a pocket: he goes down for it. */
+    private static int s1563T; private static BlockPos s1563O;
+    private static boolean st1563(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8)), hole = o.east(), item = hole.below(4);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1563T = -1; s1563O = o.immutable(); level.setDayTime(6000); c.blueprint = null; }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new net.minecraft.world.phys.AABB(o).inflate(24), e -> !(e instanceof ClaudeEntity) && !(e instanceof ServerPlayer))) e.discard();
+            for (int x = -4; x <= 5; x++) for (int z = -4; z <= 4; z++) for (int y = -7; y <= 3; y++) {
+                boolean pocket = y >= -4 && y <= -3 && x >= 0 && x <= 2 && Math.abs(z) <= 1, shaft = x == 1 && z == 0 && y >= -2 && y <= -1;
+                level.setBlock(o.offset(x, y, z), (y <= -1 && !pocket && !shaft ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.teleportTo(o.getX() + 0.8, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.fallDistance = 0; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 20) { var it = new net.minecraft.world.entity.item.ItemEntity(level, item.getX() + 0.5, item.getY(), item.getZ() + 0.5, new ItemStack(Items.REDSTONE, 5)); it.setDeltaMovement(0, 0, 0); level.addFreshEntity(it); }
+        if (t[0] == 30) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Pickup(100)); s1563T = t[0]; }
+        if (s1563T > 0 && t[0] > s1563T) {
+            int got = c.getInventory().countItem(Items.REDSTONE);
+            if (got >= 5 || t[0] - s1563T > 20 * 10) {
+                String q = c.currentTask + " " + c.tasks; BlockPos at = c.blockPosition();
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.fallDistance = 0; c.setHealth(20);
+                for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(o).inflate(12))) e.discard();
+                for (int x = -4; x <= 5; x++) for (int z = -4; z <= 4; z++) for (int y = -7; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(got >= 5, "5 redstone 4 down a 1-wide hole beside him, into a pocket: not got in 10 s (" + got + " on him, at " + at.toShortString() + ", " + (q.length() > 140 ? q.substring(0, 140) : q) + ")");
+                pass(stage, t, "down for the redstone in " + (t[0] - s1563T) / 20.0 + " s");
+            }
         }
         return true;
     }

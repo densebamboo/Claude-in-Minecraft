@@ -3271,7 +3271,7 @@ public class WorkGoal extends Goal {
                 com.claudemod.ClaudeMod.LOGGER.info("[Claude pickup] {} at {} sits on leaves at {} in his reach: knocked down, not climbed to (WorkGoal.doPickup)", nearest.getItem().getHoverName().getString(), ip.toShortString(), on.toShortString());
                 g.tasks.addFirst(again); g.tasks.addFirst(new Task.Break(on.immutable())); return true; } }
         // 2. a walk his walker plans: its ActionPath prices a dig, a step cut or a pillar against the way round (live 14:16 11-05: up out of a 3-deep pit, the sight-line dig and a 3-block "jump" had him "tried 16 ways"); the moves below only once that walk is on record failed, nothing changed since
-        if (bp == null && nearest.getY() - g.getY() > 1.3 && !g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.WALK, ip, g.tickCount, 0)) { // (higher than a jump (1.25): no move below climbs it; down in a pocket or across a gap they do. shortcut: the walker can't yet plan into a 1-deep side pocket (522) or a lava gap's pickup (525), widen when it can)
+        if (bp == null && (nearest.getY() - g.getY() > 1.3 || valuable && nearest.getY() - g.getY() < -1.3) && !g.attempts.skipped(com.claudemod.entity.life.Attempts.Kind.WALK, ip, g.tickCount, 0)) { // (ore down a hole too: the drop or a dig down is the walker's to price; D2D review 153443-53, live 15:31:09 11-11: 10 redstone 4 down left "no way to it"; stage 1563) // (higher than a jump (1.25): no move below climbs it; down in a pocket or across a gap they do. shortcut: the walker can't yet plan into a 1-deep side pocket (522) or a lava gap's pickup (525), widen when it can)
             com.claudemod.ClaudeMod.LOGGER.info("[Claude pickup] {} at {}: no plain walk from {} ({} up, {} off): his walker plans the way (WorkGoal.doPickup)", nearest.getItem().getHoverName().getString(), ip.toShortString(), g.blockPosition().toShortString(), String.format("%.1f", nearest.getY() - g.getY()), String.format("%.1f", hz));
             g.tasks.addFirst(again); g.tasks.addFirst(new Task.GoTo(ip.immutable(), 1.0)); return true;
         }
@@ -7017,7 +7017,8 @@ public class WorkGoal extends Goal {
         return false;
     }
     private BlockPos cfBoxAt; // the box blazeRetreat walled him into: his cover till he's healed (lazy: a field added live starts null)
-    private Boolean blazeRetreat(Task.Attack t, net.minecraft.world.entity.LivingEntity mob) {
+    private int blazeCoverSaid = -1; // (the cover-over-the-run line once per 5 s)
+    private Boolean blazeRetreat(Task.Attack t, net.minecraft.world.entity.LivingEntity mob, com.claudemod.entity.life.FortressFight.Cover cv) {
         ServerLevel level = (ServerLevel) g.level();
         var blazes = level.getEntitiesOfClass(net.minecraft.world.entity.monster.Blaze.class, g.getBoundingBox().inflate(48), this::shootsHere);
         if (blazes.isEmpty()) return null;
@@ -7033,6 +7034,9 @@ public class WorkGoal extends Goal {
         }
         java.util.Map<BlockPos, Integer> dist = new java.util.HashMap<>(); BlockPos hide = blazeHideCell(level, feet, hidden, dist);
         g.tasks.addFirst(new Task.Attack(t.target(), Math.max(200, t.maxTicks() - ticks)));
+        if (hide != null && cv != null && com.claudemod.entity.life.FortressFight.wallItem(g) != null) { // a cover a few blocks from done beside him against the run to the hide: the shorter time in their sight (D2D review 150321-12, live 14:59:10 11-11: "built: 1 cobblestone" counted as no cover, 16 steps through 5 blazes' sight, 13 -> 10; stage 1561)
+            int k = com.claudemod.entity.life.FortressFight.unbuilt(g, level, cv).size(); double buildS = k * w("cover.place_s", 0.35) + Math.sqrt(cv.cover().distSqr(feet)) / com.claudemod.entity.life.Decide.sprint(), runS = dist.getOrDefault(hide, 0) / com.claudemod.entity.life.Decide.sprint();
+            if (buildS < runS) { g.tasks.pollFirst(); if (blazeCoverSaid != g.tickCount / 100) { blazeCoverSaid = g.tickCount / 100; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] health {}{}: his cover at {} is {} block(s) from done (~{} s in their sight) against the hide at {}, {} steps (~{} s): the cover (WorkGoal.blazeRetreat)", (int) g.getHealth(), g.isOnFire() ? ", burning" : "", cv.cover().toShortString(), k, String.format("%.1f", buildS), hide.toShortString(), dist.getOrDefault(hide, 0), String.format("%.1f", runS)); } return null; } }
         if (hide != null) {
             g.tasks.addFirst(new Task.GoTo(hide, 0.5));
             blazeRetreatTick = g.tickCount;
@@ -7138,8 +7142,8 @@ public class WorkGoal extends Goal {
         cfCoverCell = cv == null ? null : cv.cover();
         if (cfBoxAt != null) { // in the box he walled himself into, hurt or burning: it's his cover till he's healed, never dug out for a cover elsewhere (D2D death 73, live 05:38:25-36 11-10: walled in at 276,65,531, the next tick's "back into cover" walked him to the cover built 3 off at 276,65,528, two of his fresh walls dug out, a wither skeleton in through the gap, 13 -> 0; stage 1370)
             if (!BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()).equals(cfBoxAt) || g.getHealth() >= g.getMaxHealth() && !g.isOnFire()) cfBoxAt = null;
-            else if (blaze) { Boolean r = blazeRetreat(t, mob); if (r != null) return r; } }
-        if ((cv == null || blaze && !com.claudemod.entity.life.FortressFight.unbuilt(g, level, cv).isEmpty()) && blaze && g.getHealth() < g.getMaxHealth() && blazeRetreatPays()) { Boolean r = blazeRetreat(t, mob); if (r != null) return r; } // (priced, blaze.retreat: was "health 12 or less, 14 on fire") // (hurt, no cover: out of their sight first, never the open fight; World 15 10:09 burned to death "in the open" at 6) // (a cover still to build is no cover yet: hurt, the retreat's own choice first, the full box where nowhere's out of sight; stage 947)
+            else if (blaze) { Boolean r = blazeRetreat(t, mob, null); if (r != null) return r; } }
+        if ((cv == null || blaze && !com.claudemod.entity.life.FortressFight.unbuilt(g, level, cv).isEmpty()) && blaze && g.getHealth() < g.getMaxHealth() && blazeRetreatPays()) { Boolean r = blazeRetreat(t, mob, cv); if (r != null) return r; } // (priced, blaze.retreat: was "health 12 or less, 14 on fire") // (hurt, no cover: out of their sight first, never the open fight; World 15 10:09 burned to death "in the open" at 6) // (a cover still to build is no cover yet: hurt, the retreat's own choice first, the full box where nowhere's out of sight; stage 947)
         if (cv == null && !blaze) { Boolean wp = witherHole(t, mob); if (wp != null) return wp; } // (no 2-high gap for a wither skeleton: he digs a 2-high gap, never the open fight; World 15 19:00, two of them in the open, dead)
         if (cv == null) { if (ticks == 1) cfSay("in the open", "no cover for this " + mob.getType().getDescription().getString() + " here: the ordinary fight, shield and crits"); return null; }
         if (!(g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW))) equipWeapon(); // ponytail: live 18:56 "shooting it" x4 and arrows stayed 57: the sword swapped in every tick and cut each draw

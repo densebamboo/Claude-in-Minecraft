@@ -11011,6 +11011,7 @@ public final class ClaudeBodyTest {
             case 1528: return st1528(stage, t, c, h, level, mock);
             case 1529: return st1529(stage, t, c, h, level, mock);
             case 1530: return st1530(stage, t, c, h, level, mock);
+            case 1531: return st1531(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -21993,6 +21994,31 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.dropCurrent = true; level.setBlock(b0, Blocks.AIR.defaultBlockState(), 2); level.setBlock(b1, Blocks.AIR.defaultBlockState(), 2); c.getInventory().clearContent(); c.prefs.remove("stay_close"); com.claudemod.entity.life.Gate.reset(c); c.attempts.clear();
             check(dropped == 0, "the walk set aside " + dropped + " of 3 times for digs the gate refused: " + q);
             pass(stage, t, "the walk kept, the refused digs left: " + q);
+        }
+        return true;
+    }
+    /** Stage 1531 (D2D 193236-41, live 19:27:55 11-11 by his mine at -18,67,-20): night, no armour, a wooden sword; the tree 44 off "passes the night rule as underground there (sky light 0)": the light read in the log itself, a solid block, always 0. Out he went for it, the plan called him back, in again. A tree in the open is the open; ore sealed in rock is still underground. */
+    private static boolean st1531(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(19600, 140, 19700), log = o.offset(10, 1, 0), ore = o.offset(-10, 2, 0);
+        if (t[0] == 1 || t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 10) {
+            for (int x = -14; x <= 14; x++) for (int z = -4; z <= 4; z++) level.setBlock(o.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2);
+            for (int y = 0; y <= 3; y++) level.setBlock(log.atY(o.getY() + y), Blocks.OAK_LOG.defaultBlockState(), 2);
+            for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) level.setBlock(log.offset(x, 3, z), x == 0 && z == 0 ? Blocks.OAK_LOG.defaultBlockState() : Blocks.OAK_LEAVES.defaultBlockState().setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true), 2);
+            for (int x = -2; x <= 2; x++) for (int y = 0; y <= 4; y++) for (int z = -2; z <= 2; z++) level.setBlock(ore.offset(x, y - 2, z), Blocks.STONE.defaultBlockState(), 2); level.setBlock(ore, Blocks.IRON_ORE.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.WOODEN_SWORD)); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, 0f, 0f); c.prefs.put("stay_close", "no"); level.setDayTime(18000);
+        }
+        if (t[0] == 40) {
+            String logNo = com.claudemod.director.ClaudeLife.nightGearNo(c, level, log), oreNo = com.claudemod.director.ClaudeLife.nightGearNo(c, level, ore);
+            int sky = level.getBrightness(net.minecraft.world.level.LightLayer.SKY, log.east());
+            for (int x = -14; x <= 14; x++) for (int z = -4; z <= 4; z++) for (int y = -3; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.prefs.remove("stay_close"); level.setDayTime(1000); nsHome(c, h, level);
+            check(sky >= 10, "setup: the tree isn't out in the open (sky light " + sky + " beside it)");
+            check(logNo != null, "night, no armour, a wooden sword: the tree in the open passed the night rule");
+            check(oreNo == null, "ore sealed in rock not read as underground: " + oreNo);
+            pass(stage, t, "the tree in the open held to the night rule (" + logNo + "), the ore in the rock passes");
         }
         return true;
     }

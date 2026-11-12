@@ -11088,6 +11088,7 @@ public final class ClaudeBodyTest {
             case 1608: return st1608(stage, t, c, h, level, mock);
             case 1618: return st1618(stage, t, c, h, level, mock);
             case 1619: return st1619(stage, t, c, h, level, mock);
+            case 1620: return st1620(stage, t, c, h, level, mock);
             case 1607: return st1607(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
@@ -24317,6 +24318,29 @@ public final class ClaudeBodyTest {
             for (int x = -8; x <= 64; x++) for (int z = -4; z <= 4; z++) for (int y = 0; y <= 3; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
             check(!out, "midnight, no armor, no sword, out in the open: off to his chest 60 off for the iron sword (\"" + r + "\"; " + (q.length() > 160 ? q.substring(0, 160) : q) + ")");
             pass(stage, t, "the sword waits for first light: \"" + r + "\"");
+        }
+        return true;
+    }
+    /** Stage 1620 (D2D review 122056-39, live 12:17:22-24 11-12 at -118,19,-533: "cobblestone at -118,19,-533 waits for Raw Iron at -118,19,-533: the whole pocket picked up before closing" with him at -97,16,-537, 21 off; the pickup looks 8 round him, saw nothing, ended at once; the place again: 20 times in 2 s, dropped, BANDAID). A hole in his walkway floor with raw iron in it, him 11 rows off: in, the iron up, the patch in. */
+    private static BlockPos s1620P; private static int s1620At;
+    private static boolean st1620(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { lnReset(c); c.nextPlanTick = c.tickCount + 12000; c.commandActive = false; c.prefs.put("stay_close", "no"); s1620At = 0; }
+        if (t[0] == 10) { var b = lnMine(h, level, c);
+            BlockPos r = lnRow(b, 1, 11);
+            s1620P = r.below().immutable(); level.setBlock(s1620P, Blocks.AIR.defaultBlockState(), 2); // (a hole in his walkway floor)
+            var drop = new net.minecraft.world.entity.item.ItemEntity(level, s1620P.getX() + 0.5, s1620P.getY() + 0.1, s1620P.getZ() + 0.5, new ItemStack(Items.RAW_IRON, 1)); drop.setDeltaMovement(0, 0, 0); level.addFreshEntity(drop); // (the iron in it)
+            c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            lnStand(c, mock, lnRow(b, 1, 0), b.entrance); c.tasks.clear(); c.skillQueue.clear();
+        }
+        if (t[0] > 10) c.nextPlanTick = c.tickCount + 12000;
+        if (t[0] == 20) { c.tasks.clear(); c.tasks.add(new Task.Place(s1620P, Items.COBBLESTONE)); s1620At = t[0]; }
+        if (s1620At > 0 && (level.getBlockState(s1620P).is(Blocks.COBBLESTONE) || t[0] - s1620At > 20 * 15)) {
+            boolean in = level.getBlockState(s1620P).is(Blocks.COBBLESTONE), iron = c.getInventory().countItem(Items.RAW_IRON) > 0; int took = t[0] - s1620At; String q = c.currentTask + " queue " + c.tasks.stream().limit(6).toList();
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(24))) e.discard();
+            c.getInventory().clearContent(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("stay_close"); c.attempts.clear(); s1620At = 0;
+            check(in && iron, "raw iron in a floor hole 11 off: after " + took / 20.0 + " s the patch " + (in ? "in" : "not in") + ", the iron " + (iron ? "on him" : "not on him") + " (" + q + ")");
+            check(took < 20 * 10, "raw iron in a floor hole 11 off: " + took / 20.0 + " s for the walk, the pickup and the patch");
+            pass(stage, t, "in to the hole, the iron up, the patch in after " + took / 20.0 + " s");
         }
         return true;
     }

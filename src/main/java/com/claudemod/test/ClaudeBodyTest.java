@@ -11096,6 +11096,7 @@ public final class ClaudeBodyTest {
             case 1622: return st1622(stage, t, c, h, level, mock);
             case 1623: return st1623(stage, t, c, h, level, mock);
             case 1624: return st1624(stage, t, c, h, level, mock);
+            case 1625: return st1625(stage, t, c, h, level, mock);
             case 1607: return st1607(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
@@ -24545,6 +24546,32 @@ public final class ClaudeBodyTest {
             c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.getInventory().clearContent(); c.setLastDeathLocation(java.util.Optional.empty());
             check(!walk, "a full pack of iron, a pile of stone swords 13 off: off for the pile he has no room for (\"" + r + "\"; " + q + ")");
             pass(stage, t, "the pile left: \"" + r + "\"");
+        }
+        return true;
+    }
+    /** Stage 1625 (D2D 11-12: buckets priced at 0 points, a bucket being 3 iron and his lava and water tool: a spare water bucket "free" to drop, a pile with his buckets in it not worth a step). His water bucket and empty bucket lying 13 off, his pack empty: back for them. */
+    private static boolean s1625Walk; private static String s1625Said;
+    private static boolean st1625(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos pile = h.absolutePos(new BlockPos(14, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(64))) it.discard(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); com.claudemod.entity.life.Perception.reset(c); c.failCount.remove("recover_drops"); }
+        if (t[0] == 5) {
+            flatBox(h); level.setDayTime(level.getDayTime() / 24000 * 24000 + 1000);
+            var inv = c.getInventory(); inv.clearContent(); inv.selected = 0; inv.items.set(0, new ItemStack(Items.IRON_PICKAXE)); 
+            c.teleportTo(pile.getX() + 0.5, pile.getY(), pile.getZ() + 0.5);
+            for (var st0 : java.util.List.of(new ItemStack(Items.WATER_BUCKET), new ItemStack(Items.BUCKET))) { var it = new net.minecraft.world.entity.item.ItemEntity(level, pile.getX() + 0.5, pile.getY() + 0.1, pile.getZ() + 0.5, st0, 0, 0, 0); it.setNeverPickUp(); level.addFreshEntity(it); }
+            com.claudemod.director.ClaudeLife.markOwnDrops(c);
+            BlockPos from = h.absolutePos(new BlockPos(1, 2, 8)); c.teleportTo(from.getX() + 0.5, from.getY(), from.getZ() + 0.5);
+            c.setLastDeathLocation(java.util.Optional.of(net.minecraft.core.GlobalPos.of(level.dimension(), pile)));
+            c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear(); c.lastStep = null; s1625Walk = false; s1625Said = null; // (his death log finds the pile and asks, as live)
+        }
+        if (t[0] > 5 && t[0] < 20 * 6) { if (c.tasks.stream().anyMatch(k -> k instanceof Task.GoTo gt && gt.pos().distSqr(pile) <= 6 * 6) || c.currentTask instanceof Task.GoTo g0 && g0.pos().distSqr(pile) <= 6 * 6 || c.blockPosition().distSqr(pile) <= 4 * 4) s1625Walk = true; if (c.lastStep != null && c.lastStep.skill().equals("recover_drops")) s1625Said = String.valueOf(c.lastStep); }
+        if (t[0] == 20 * 6) {
+            String r = s1625Said; boolean walk = s1625Walk;
+            String q = String.valueOf(c.tasks.stream().limit(4).toList());
+            for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(64))) it.discard();
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.getInventory().clearContent(); c.setLastDeathLocation(java.util.Optional.empty());
+            check(walk, "his water bucket and bucket 13 off, his pack empty: left as worth nothing (\"" + r + "\")");
+            pass(stage, t, "back for his buckets: \"" + r + "\"");
         }
         return true;
     }

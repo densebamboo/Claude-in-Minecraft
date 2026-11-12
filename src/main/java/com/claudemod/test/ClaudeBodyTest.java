@@ -11093,6 +11093,7 @@ public final class ClaudeBodyTest {
             case 1620: return st1620(stage, t, c, h, level, mock);
             case 1621: return st1621(stage, t, c, h, level, mock);
             case 1622: return st1622(stage, t, c, h, level, mock);
+            case 1623: return st1623(stage, t, c, h, level, mock);
             case 1607: return st1607(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
@@ -24433,13 +24434,12 @@ public final class ClaudeBodyTest {
         if (t[0] == 10) {
             s1622Me = c.blockPosition().immutable();
             for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) { level.setBlock(s1622Me.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(s1622Me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
-            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
             var inv = c.getInventory(); inv.clearContent(); inv.selected = 0; int k = 0;
             Object[][] pack = { {Items.IRON_PICKAXE, 1}, {Items.APPLE, 3}, {Items.ARROW, 5}, {Items.BOW, 1}, {Items.BOW, 1}, {Items.BREAD, 3}, {Items.CHICKEN, 2}, {Items.COAL, 15}, {Items.COBBLESTONE, 2}, {Items.COOKED_CHICKEN, 2}, {Items.COOKED_SALMON, 28},
                 {Items.CRAFTING_TABLE, 3}, {Items.FLINT_AND_STEEL, 1}, {Items.FURNACE, 2}, {Items.GOLDEN_BOOTS, 1}, {Items.IRON_BOOTS, 1}, {Items.IRON_BOOTS, 1}, {Items.IRON_BOOTS, 1}, {Items.IRON_CHESTPLATE, 1}, {Items.IRON_HELMET, 1}, {Items.IRON_HELMET, 1},
                 {Items.IRON_LEGGINGS, 1}, {Items.IRON_PICKAXE, 1}, {Items.IRON_SWORD, 1}, {Items.IRON_SWORD, 1}, {Items.NETHERRACK, 8}, {Items.SHIELD, 1}, {Items.STONE_AXE, 1}, {Items.STONE_PICKAXE, 1}, {Items.STONE_SHOVEL, 1}, {Items.TORCH, 57},
                 {Items.WATER_BUCKET, 1}, {Items.WATER_BUCKET, 1}, {Items.WATER_BUCKET, 1}, {Items.CRIMSON_STEM, 38} };
-            for (Object[] p0 : pack) inv.items.set(k++, new ItemStack((net.minecraft.world.item.Item) p0[0], (Integer) p0[1]));
+            for (Object[] p0 : pack) inv.items.set(k++, new ItemStack((net.minecraft.world.item.Item) p0[0], (Integer) p0[1])); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS)); // (worn: put on after the pack, its clear takes the armour off too)
             c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(6000);
         }
         if (t[0] > 10) c.nextPlanTick = c.tickCount + 20 * 600;
@@ -24456,6 +24456,36 @@ public final class ClaudeBodyTest {
             check(stems == 38 && rack == 8 && cob == 2 && salmon == 28 && torch == 57 && arrows == 5 && coal == 15, "a pack full of spare gear: his stock went instead (" + left + ")");
             check(free >= 2, "a pack full of spare gear: no room made (" + left + ")");
             pass(stage, t, "room made from the spares, the stock kept: " + left);
+        }
+        return true;
+    }
+    /** Stage 1623 (D2D review 124227-17, live 12:36:59 11-12: into the Nether with 3 iron boots, 2 iron helmets, 2 iron picks, 2 iron swords, 2 stone axes, 3 water buckets, 0 free slots; the trip stash counted only diamonds, gold and the like, and his storage never took gear). His storage chest 2 off, a Nether trip next, that spare gear on him and nothing else of value: a stash before the trip, and the chest takes the spares, one of each kept. */
+    private static BlockPos s1623Me, s1623C; private static int s1623At; private static String s1623R;
+    private static boolean st1623(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.storageChests.clear(); c.myStations.clear(); com.claudemod.entity.life.ChestLedger.reset(c); c.prefs.put("stay_close", "no"); s1623At = 0; s1623R = null; for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) m.discard(); }
+        if (t[0] == 10) {
+            s1623Me = c.blockPosition().immutable();
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) { level.setBlock(s1623Me.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(s1623Me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            s1623C = s1623Me.offset(2, 0, 0).immutable(); level.setBlock(s1623C, Blocks.CHEST.defaultBlockState(), 3); c.storageChests.add(s1623C); c.myStations.add(s1623C); com.claudemod.entity.life.ChestLedger.look(c, level, s1623C);
+            var inv = c.getInventory(); inv.clearContent(); inv.selected = 0; int k = 0;
+            Object[][] pack = { {Items.IRON_PICKAXE, 1}, {Items.IRON_PICKAXE, 1}, {Items.STONE_PICKAXE, 1}, {Items.IRON_SWORD, 1}, {Items.IRON_SWORD, 1}, {Items.IRON_BOOTS, 1}, {Items.IRON_BOOTS, 1}, {Items.IRON_HELMET, 1},
+                {Items.STONE_AXE, 1}, {Items.STONE_AXE, 1}, {Items.WATER_BUCKET, 1}, {Items.WATER_BUCKET, 1}, {Items.WATER_BUCKET, 1}, {Items.BOW, 1}, {Items.BOW, 1}, {Items.SHIELD, 1}, {Items.COOKED_SALMON, 29}, {Items.TORCH, 57}, {Items.COBBLESTONE, 64} };
+            for (Object[] p0 : pack) inv.items.set(k++, new ItemStack((net.minecraft.world.item.Item) p0[0], (Integer) p0[1])); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS)); // (worn: put on after the pack, its clear takes the armour off too)
+            c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(6000);
+        }
+        if (t[0] > 10) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 20) {
+            s1623R = com.claudemod.director.ClaudeLife.stashForTripTest(c, level);
+            c.skillQueue.clear(); c.tasks.clear(); c.tasks.add(new Task.Deposit(s1623C)); s1623At = t[0];
+        }
+        if (s1623At > 0 && t[0] - s1623At > 40 && c.currentTask == null && c.tasks.isEmpty() || s1623At > 0 && t[0] - s1623At > 20 * 10) {
+            var inv = c.getInventory(); int boots = inv.countItem(Items.IRON_BOOTS), helms = inv.countItem(Items.IRON_HELMET), swords = inv.countItem(Items.IRON_SWORD), picks = inv.countItem(Items.IRON_PICKAXE), axes = inv.countItem(Items.STONE_AXE), buckets = inv.countItem(Items.WATER_BUCKET), bows = inv.countItem(Items.BOW), shield = inv.countItem(Items.SHIELD);
+            String r = s1623R; String on = boots + " boots, " + helms + " helmets (the worn ones counted), " + swords + " swords, " + picks + " iron picks, " + axes + " stone axes, " + buckets + " water buckets, " + bows + " bows, " + shield + " shield";
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = 0; y <= 3; y++) level.setBlock(s1623Me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            inv.clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); c.tasks.clear(); c.skillQueue.clear(); c.storageChests.clear(); c.myStations.clear(); com.claudemod.entity.life.ChestLedger.reset(c); c.prefs.remove("stay_close"); s1623At = 0;
+            check(r != null, "a Nether trip next, spare gear on him and his storage 2 off: no stash before the trip (" + on + ")");
+            check(boots == 1 && helms == 1 && swords == 1 && picks == 2 && axes == 1 && buckets == 1 && bows == 1 && shield == 1, "at his storage: the spares not banked, one of each kept (" + on + ")");
+            pass(stage, t, "stashed before the trip, one of each kept: " + on);
         }
         return true;
     }

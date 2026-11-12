@@ -10551,6 +10551,8 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1574: return st1574(stage, t, c, h, level, mock);
+            case 1573: return st1573(stage, t, c, h, level, mock);
             case 1572: return st1572(stage, t, c, h, level, mock);
             case 1571: return st1571(stage, t, c, h, level, mock);
             case 1570: return st1570(stage, t, c, h, level, mock);
@@ -20646,6 +20648,67 @@ public final class ClaudeBodyTest {
                 check(there, "his row's floor gone over a cavern: not along it to " + s1572G.toShortString() + " at his row's height in 30 s (at " + at.toShortString() + ", " + (q.length() > 140 ? q.substring(0, 140) : q) + ")");
                 pass(stage, t, "along his row over the lost floor in " + s / 20.0 + " s, the walkway clear");
             }
+        }
+        return true;
+    }
+    /** Stage 1573 (D2D review 190208-7, live 18:57:02 11-11: at -267,-58,-20, the far end of his mine's ~230-block row, the pearl hunt's explore leg went 45 on from where he stood, -267,69,25; "33 legs, up his mine's rows and out, then over the land", ~230 east to his door at about -40, then "236 blocks off" back west over the land). Him at the end of a 150-block row under the grass, exploring: the leg is measured from his door, where he comes out, not from his spot 150 in. */
+    private static boolean st1573(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(17400, 70, 10900), me = o.offset(154, -3, 0);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("mine_model", "blueprint"); level.setDayTime(3000); }
+        if (t[0] % 10 == 0 || t[0] < 10) for (int k = 0; k <= 192; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 2, o.offset(k, 0, 0));
+        if (t[0] == 10) {
+            for (int x = -2; x <= 190; x++) for (int z = -3; z <= 3; z++) for (int y = -8; y <= 6; y++) level.setBlock(o.offset(x, y, z), y <= 2 ? Blocks.STONE.defaultBlockState() : y == 3 ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            for (int x = 4; x <= 154; x++) for (int y = -3; y <= -2; y++) level.setBlock(o.offset(x, y, 0), Blocks.AIR.defaultBlockState(), 2); // his mine's row, 6 under the grass
+            var b = new com.claudemod.entity.life.MineBlueprint(o, net.minecraft.core.Direction.EAST, 2, 4); b.segments.get(0).n = 4;
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, o.offset(4, -3, 0), net.minecraft.core.Direction.EAST, 151, null));
+            c.blueprint = b; c.nook = null; c.nooks.clear(); c.stairStart = o;
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, -90f, 0f); mock[0].teleportTo(level, me.getX() + 0.5, me.getY() + 40, me.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear();
+        }
+        if (t[0] == 30) {
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "explore", "", 1);
+            BlockPos dest = null; for (Task q : c.tasks) if (q instanceof Task.GoTo go) dest = go.pos();
+            var b = c.blueprint; BlockPos door = b.outside(); String q = c.tasks.toString();
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.stairStart = null; c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY);
+            for (int x = -2; x <= 190; x++) for (int z = -3; z <= 3; z++) for (int y = -8; y <= 6; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(dest != null, "exploring from 150 in his mine: no walk (" + r + "; " + (q.length() > 120 ? q.substring(0, 120) : q) + ")");
+            int fromDoor = (int) Math.sqrt(Math.pow(dest.getX() - door.getX(), 2) + Math.pow(dest.getZ() - door.getZ(), 2));
+            check(fromDoor <= 60, "exploring from 150 in his mine: the leg goes to " + dest.toShortString() + ", " + fromDoor + " from his door at " + door.toShortString() + " (measured from his spot under the ground, out by the door and back)");
+            pass(stage, t, "the leg " + fromDoor + " from his door: " + r);
+        }
+        return true;
+    }
+    /** Stage 1574 (D2D review 190208-8, live 19:00:51-19:01:05 11-11 at -289,69,-3: an enderman on him at -287,65,-11, 4 below, 9 off, "its way to him false", "walkable false"; 15 s standing still "staring it up to him", fight_no_effect; the stare calls over only a calm one, an angry one stuck below never teleports in at 9 off). Him on a 4-high ledge, an angry enderman 13 off on the ground below with no way up: no standing there staring; the way down to it or leaving it, within 8 s. */
+    private static int s1574T; private static boolean s1574On; private static net.minecraft.world.entity.monster.EnderMan s1574E; private static net.minecraft.world.phys.Vec3 s1574P;
+    private static boolean st1574(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(17400, 70, 11200);
+        if (t[0] == 1) { scenarioReset(c); s1574T = -1; c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); level.setDayTime(18000); if (s1574E != null) s1574E.discard(); s1574E = null; s1574On = false; }
+        if (t[0] % 10 == 0 || t[0] < 10) for (int k = 0; k <= 16; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 10) {
+            for (int x = -6; x <= 20; x++) for (int z = -6; z <= 6; z++) for (int y = -1; y <= 8; y++) { boolean ledge = x <= 2 && Math.abs(z) <= 2 && y <= 3; level.setBlock(o.offset(x, y, z), (y == -1 || ledge ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); }
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY() + 4, o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear();
+        }
+        if (t[0] == 80) {
+            var e = EntityType.ENDERMAN.create(level); e.moveTo(o.getX() + 13.5, o.getY(), o.getZ() + 0.5, 90, 0); e.setNoAi(true); e.setPersistenceRequired(); level.addFreshEntity(e); e.setTarget(c); s1574E = e;
+        }
+        if (t[0] == 90 && s1574E != null) {
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.tasks.add(new Task.Attack(s1574E.getUUID(), 20 * 60)); s1574T = t[0]; s1574P = c.position();
+        }
+        if (s1574T > 0 && t[0] - s1574T == 20 && s1574E != null && (c.currentTask instanceof Task.Attack a0 && a0.target().equals(s1574E.getUUID()) || c.tasks.stream().anyMatch(q0 -> q0 instanceof Task.Attack a1 && a1.target().equals(s1574E.getUUID())))) s1574On = true;
+        if (s1574T > 0 && t[0] - s1574T == 20 * 8) {
+            var e = s1574E; boolean onIt = c.currentTask instanceof Task.Attack a && e != null && a.target().equals(e.getUUID());
+            boolean moving = c.tasks.stream().anyMatch(q -> q instanceof Task.GoTo || q instanceof Task.Break) || c.currentTask instanceof Task.GoTo || c.currentTask instanceof Task.Break;
+            double moved = c.position().distanceTo(s1574P); String q = c.currentTask + " " + c.tasks; boolean angry = e != null && e.getTarget() == c, dead = e != null && !e.isAlive();
+            if (e != null) e.discard(); s1574E = null;
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY);
+            for (int x = -6; x <= 20; x++) for (int z = -6; z <= 6; z++) for (int y = -1; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(angry, "setup: the enderman not on him"); check(s1574On, "setup: the fight with it never ran (" + (q.length() > 80 ? q.substring(0, 80) : q) + ")");
+            check(!(onIt && !moving && moved < 1.0), "an angry enderman 4 below, 13 off, no way up: 8 s standing on his ledge at it (moved " + String.format("%.1f", moved) + "; " + (q.length() > 140 ? q.substring(0, 140) : q) + ")");
+            pass(stage, t, dead ? "down to it and killed it, " + String.format("%.1f", moved) + " moved" : onIt ? "on his way down to it, " + String.format("%.1f", moved) + " moved" : "left it: " + (q.length() > 80 ? q.substring(0, 80) : q));
         }
         return true;
     }

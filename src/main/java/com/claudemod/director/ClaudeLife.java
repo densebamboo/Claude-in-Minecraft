@@ -3145,7 +3145,9 @@ public final class ClaudeLife {
                 g.exploreTick = g.tickCount;
                 double a = g.exploreAngle;
                 int dx = (int) (Math.cos(a) * 45), dz = (int) (Math.sin(a) * 45);
-                int x = g.getBlockX() + dx, z = g.getBlockZ() + dz;
+                BlockPos from0 = g.blockPosition(); { var mb = g.blueprint; // in his mine under the ground he comes out by his door: the leg from there (D2D review 190208-7, live 18:57 11-11: 45 on from the far end of a 230-block row, out by the door and 236 back over the land)
+                  if (mb != null && !mb.isEmpty() && !level.dimensionType().hasCeiling() && (mb.isWalk(from0) || mb.isWalk(from0.above()) || mb.isWalk(from0.below())) && !level.canSeeSky(from0.above())) { ClaudeMod.LOGGER.info("[Claude skill] explore: in his mine at {}, out by his door at {}: the leg from there (ClaudeLife explore)", from0.toShortString(), mb.outside().toShortString()); from0 = mb.outside(); } }
+                int x = from0.getX() + dx, z = from0.getZ() + dz;
                 if (level.dimensionType().hasCeiling()) { // the Nether: every column's top is the bedrock roof (live 16:26: GoTo 49, 128, 37 on top of it, a minute of steps cut up toward it): ground at his own height, never above y 110
                     BlockPos nd = null;
                     if (level.getBiome(g.blockPosition()).is(net.minecraft.world.level.biome.Biomes.WARPED_FOREST) && !com.claudemod.entity.life.Atlas.quietAt(g, level, g.blockPosition())) { // a sweep of the forest: each leg ~20 out toward the ground he's walked least, staying in it

@@ -14679,6 +14679,7 @@ public final class ClaudeLife {
         for (var s : com.claudemod.entity.life.Perception.landmarks(g)) {
             if (!com.claudemod.entity.life.FarSight.kindMatches("village", s.id())) continue;
             BlockPos c = s.nearestCell(g.position()); double d = c.distToCenterSqr(g.position());
+            if (!s.sure() && s.block() != null && s.block().endsWith("(a building)") && g.level() instanceof ServerLevel sl0 && com.claudemod.entity.life.FarSight.underground(sl0, c)) continue; // (a "building" deep under the ground on his record from before: a mineshaft's planks, no village; stage 1595)
             if (d > bd || !worth.test(s) || g.attempts.within(com.claudemod.entity.life.Attempts.Kind.WALK, c, g.tickCount, 20 * 300)) continue; // (a walk there that failed: the next one)
             bd = d; best = s;
         }

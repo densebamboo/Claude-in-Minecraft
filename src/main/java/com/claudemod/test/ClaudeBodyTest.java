@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1595: return st1595(stage, t, c, h, level, mock);
             case 1594: return st1594(stage, t, c, h, level, mock);
             case 1593: return st1593(stage, t, c, h, level, mock);
             case 1592: return st1592(stage, t, c, h, level, mock);
@@ -21581,6 +21582,29 @@ public final class ClaudeBodyTest {
                 check(s1594Bad == null, "out of the water at air 100 with his dig under it: " + s1594Bad + " (" + at + ")");
                 pass(stage, t, "a full breath, then down: " + at + " after " + (t[0] - s1594T) / 20.0 + " s");
             }
+        }
+        return true;
+    }
+
+    /** Stage 1595 (D2D reviews 041001-36 and 052623-33, live 04:06 and 05:23:54 11-12: "village.golem (1 iron, a village 1 off, no golem seen there): its golem ~41 s ... at 80% odds", no golem, no chest, a wasted walk, six times since 02:06; the "village" was oak planks at y 19-25 under -53,19,-486 and the like, a mineshaft's, "saw oak planks (a building) ... a village on record"). Oak planks in a cave room 10 under the surface, three of them close: no village on record. */
+    private static boolean st1595(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; com.claudemod.entity.life.FarSight.reset(c); com.claudemod.entity.life.Perception.sightings(c).clear(); }
+        if (t[0] == 10) {
+            for (int x = -6; x <= 6; x++) for (int y = -1; y <= 12; y++) for (int z = -6; z <= 6; z++) { boolean room = Math.abs(x) <= 4 && Math.abs(z) <= 4 && y >= 0 && y <= 3; level.setBlock(o.offset(x, y, z), (room ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); }
+            for (int y = 0; y <= 2; y++) level.setBlock(o.offset(3, y, 3), Blocks.OAK_PLANKS.defaultBlockState(), 2); // a mineshaft's posts and beam
+            level.setBlock(o.offset(2, 2, 3), Blocks.OAK_PLANKS.defaultBlockState(), 2); level.setBlock(o.offset(-3, 0, 3), Blocks.OAK_FENCE.defaultBlockState(), 2); level.setBlock(o.offset(-3, 1, 3), Blocks.OAK_PLANKS.defaultBlockState(), 2);
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() - 1.5); c.setYRot(0); c.setYHeadRot(0); c.fallDistance = 0;
+        }
+        if (t[0] == 12) { com.claudemod.entity.life.FarSight.lookAllRound(c, level); com.claudemod.entity.life.FarSight.nearScan(c, level); }
+        if (t[0] == 14) { com.claudemod.entity.life.FarSight.lookAllRound(c, level); com.claudemod.entity.life.FarSight.nearScan(c, level); }
+        if (t[0] == 16) {
+            String vil = ""; for (var s : com.claudemod.entity.life.Perception.landmarks(c)) if (com.claudemod.entity.life.FarSight.kindMatches("village", s.id()) && s.nearestCell(c.position()).distSqr(o) < 30 * 30) vil += s.id() + " " + s.block() + " at " + s.nearestCell(c.position()).toShortString() + "; ";
+            String saw = com.claudemod.entity.life.Perception.sightings(c).toString();
+            for (int x = -6; x <= 6; x++) for (int y = -1; y <= 12; y++) for (int z = -6; z <= 6; z++) level.setBlock(o.offset(x, y, z), (y == -1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            com.claudemod.entity.life.FarSight.reset(c); com.claudemod.entity.life.Perception.sightings(c).clear();
+            check(vil.isEmpty(), "oak planks in a cave 10 under the surface read as a village: " + vil);
+            pass(stage, t, "no village from a mineshaft's planks (" + (saw.length() > 160 ? saw.substring(0, 160) : saw) + ")");
         }
         return true;
     }

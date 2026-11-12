@@ -247,6 +247,8 @@ public final class FarSight {
     static java.util.Set<Long> passed(ClaudeEntity g) { if (passed == null) passed = new HashMap<>(); return passed.computeIfAbsent(g.getUUID(), k -> new java.util.HashSet<>()); }
     public static int newSightings(ClaudeEntity g) { return made == null ? 0 : made.getOrDefault(g.getUUID(), 0); }
     /** His own builds: his house, farm, mine, stations and chests are his, not a village's. */
+    /** Deep under the ground over it (village.underground_depth below the surface there): a mine's or a mineshaft's, never a village house. */
+    public static boolean underground(ServerLevel l, BlockPos p) { return l.isLoaded(p) && p.getY() < l.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, p.getX(), p.getZ()) - Weights.w("village.underground_depth", 8); }
     static boolean own(ClaudeEntity g, BlockPos p) {
         return g.house != null && g.house.touches(p) || g.farm != null && g.farm.touches(p) || g.myStations.contains(p) || g.storageChests.contains(p) || com.claudemod.director.ClaudeLife.ownMine(g, p);
     }
@@ -268,7 +270,7 @@ public final class FarSight {
         Perception.Sighting best = null; double bd = Double.MAX_VALUE;
         for (Perception.Sighting s : list) {
             if (s.dim() != dim) continue;
-            boolean fits = sg.strong ? s.id().equals(sg.id) : java.util.Arrays.asList(sg.extend).contains(s.id());
+            boolean fits = sg.strong ? s.id().equals(sg.id) : java.util.Arrays.asList(sg.extend).contains(s.id()) && !(s.id().equals("village") && underground(level, p)); // (a mineshaft's planks under a village are no part of it)
             if (!fits) continue;
             double d = com.claudemod.director.Structures.distSqrTo(s.seen(), p);
             if (d <= MERGE * MERGE && d < bd) { bd = d; best = s; }
@@ -276,7 +278,7 @@ public final class FarSight {
         if (best != null) { best.add(p, now); if (sg.strong && sg.sure && !best.sure) { best.sure = true; best.block = sg.label; } return best; }
         String id = sg.id, label = sg.label; boolean sure = sg.sure; List<BlockPos> with = new ArrayList<>();
         if (!sg.strong) {
-            if (!sg.house) { passed(g).add(p.asLong()); return null; }
+            if (!sg.house || underground(level, p)) { passed(g).add(p.asLong()); return null; } // (deep under the ground: a mine's or a mineshaft's, no village house; live 02:06-05:28 11-12 a mineshaft's planks at y 19-25 read as six villages, stage 1595)
             if (houseCells == null) houseCells = new HashMap<>();
             var hc = houseCells.computeIfAbsent(g.getUUID(), k -> new ArrayList<>());
             hc.removeIf(e -> now - e[1] > 20 * 60 || e[1] > now);

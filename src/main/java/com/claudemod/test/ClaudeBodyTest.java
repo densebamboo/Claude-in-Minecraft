@@ -11050,6 +11050,7 @@ public final class ClaudeBodyTest {
             case 1542: return st1542(stage, t, c, h, level, mock);
             case 1543: return st1543(stage, t, c, h, level, mock);
             case 1545: return st1545(stage, t, c, h, level, mock);
+            case 1546: return st1546(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -23133,6 +23134,51 @@ public final class ClaudeBodyTest {
                 check(fl >= 10 || off > 5, "the creeper 2.4 off: broke off and never got away from it (" + fl + " ticks running, " + String.format("%.1f", off) + " off)");
                 pass(stage, t, "one break-off from the creeper, then away: " + fl + " ticks running, " + String.format("%.1f", off) + " off");
             }
+        }
+        return true;
+    }
+    /** Stage 1546 (D2D review 032312-28, live 03:22:06-29 11-12 at -37,16,-493: through a gap at 20 HP, plugged it with two cobblestone, 4 skeletons and zombies across it; nothing queued yet, so no job dropped, and his strip_mine's next walk dug the plug out 2 s later; knocked back, plugged again, ~25 s of fill and dig under fire). At full health, 4 he shut out still across it: the plug holds while going back among them is priced over flee.job_drop_s, as the plug's own job drop prices it. */
+    private static net.minecraft.world.entity.Mob[] s1546M; private static int s1546Plugged; private static String s1546Broke;
+    private static boolean st1546(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600; if (s1546M != null) for (var m : s1546M) m.discard(); s1546M = null; s1546Plugged = -1; s1546Broke = null; }
+        if (t[0] == 10) {
+            for (int x = -3; x <= 20; x++) for (int z = -3; z <= 16; z++) for (int y = 1; y <= 7; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 || y == 7 || x == -3 || x == 20 || z == -3 || z == 16 || z == 5 && !(x == 8 && y <= 3) ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); // a room split by a wall at z 5, a 1-wide gap at x 8
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 10)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 6)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            BlockPos me = h.absolutePos(new BlockPos(8, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(0); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            s1546M = new net.minecraft.world.entity.Mob[] {EntityType.ZOMBIE.create(level), EntityType.ZOMBIE.create(level), EntityType.SKELETON.create(level), EntityType.SKELETON.create(level)}; int[][] at = {{2, 14}, {3, 15}, {14, 15}, {15, 14}};
+            for (int k = 0; k < 4; k++) { BlockPos wp = h.absolutePos(new BlockPos(at[k][0], 2, at[k][1])); s1546M[k].moveTo(wp.getX() + 0.5, wp.getY(), wp.getZ() + 0.5, 180, 0); s1546M[k].setNoAi(true); s1546M[k].setPersistenceRequired(); level.addFreshEntity(s1546M[k]); }
+        }
+        if (t[0] == 14) {
+            try {
+                var wg = com.claudemod.entity.goals.WorkGoal.class;
+                var se = wg.getDeclaredMethod("setEscape", String.class, BlockPos.class, BlockPos.class); se.setAccessible(true); se.invoke(c.work, "gap", c.blockPosition().immutable(), h.absolutePos(new BlockPos(8, 2, 5)));
+                var ae = wg.getDeclaredMethod("atEscape", java.util.List.class); ae.setAccessible(true); Object r = ae.invoke(c.work, java.util.List.of(s1546M));
+                var ce = wg.getDeclaredMethod("clearEscape"); ce.setAccessible(true); ce.invoke(c.work); // (the run's end decided, as live)
+                c.tasks.addLast(new Task.GoTo(h.absolutePos(new BlockPos(17, 2, 8)), 1.0)); // (his job's next walk, queued after the plug went in: live strip_mine's walk to its tunnel past them)
+                if (!Integer.valueOf(2).equals(r)) s1546Broke = "setup: atEscape returned " + r + ", no plug";
+            } catch (Exception e) { s1546Broke = "setup threw " + e; }
+        }
+        if (t[0] > 14 && s1546M != null && s1546Broke == null) {
+            for (var m : s1546M) if (m.isAlive()) m.setTarget(c);
+            BlockPos g0 = h.absolutePos(new BlockPos(8, 2, 5)), g1 = g0.above();
+            boolean shut = !level.getBlockState(g0).isAir() && !level.getBlockState(g1).isAir();
+            if (s1546Plugged < 0 && shut) s1546Plugged = t[0];
+            if (s1546Plugged > 0 && !shut) s1546Broke = "the plug opened " + (t[0] - s1546Plugged) + " ticks after it went in, health " + c.getHealth() + ", 4 he shut out across it (tasks " + c.tasks + ")";
+            for (int x = -2; x <= 19 && s1546Broke == null; x++) if (x != 8 && level.getBlockState(h.absolutePos(new BlockPos(x, 2, 5))).isAir()) s1546Broke = "a way dug through the wall at x " + x + " beside his plug, health " + c.getHealth() + ", 4 he shut out across it (tasks " + c.tasks + ")";
+            if (s1546Broke == null && c.getZ() > h.absolutePos(new BlockPos(8, 2, 6)).getZ()) s1546Broke = "back on their side of the wall, 4 he shut out there";
+        }
+        if (t[0] > 14 && (s1546Broke != null || t[0] > 14 + 200)) {
+            String broke = s1546Broke; int plugged = s1546Plugged;
+            for (var m : s1546M) m.discard(); s1546M = null; c.tasks.clear(); c.setHealth(20); c.getInventory().clearContent(); c.dropCurrent = true; c.prefs.remove("stay_close");
+            try { var ce = com.claudemod.entity.goals.WorkGoal.class.getDeclaredMethod("clearEscape"); ce.setAccessible(true); ce.invoke(c.work); var pc = com.claudemod.entity.goals.WorkGoal.class.getDeclaredField("plugCells"); pc.setAccessible(true); pc.set(c.work, null); } catch (ReflectiveOperationException e) { }
+            for (int x = -3; x <= 20; x++) for (int z = -3; z <= 16; z++) for (int y = 1; y <= 7; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2);
+            flatBox(h);
+            check(broke == null || !broke.startsWith("setup"), broke == null ? "" : broke);
+            check(plugged > 0, "the plug never went in");
+            check(broke == null, broke == null ? "" : broke);
+            pass(stage, t, "no way back among the 4 he shut out, 10 s at full health");
         }
         return true;
     }

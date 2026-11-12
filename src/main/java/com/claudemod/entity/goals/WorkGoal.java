@@ -572,6 +572,9 @@ public class WorkGoal extends Goal {
                 case Task.GoTo t -> { if (ticks == 1) exitWhy = null; if (ticks == 1 && swimWps().contains(t) && !g.isInWater() && g.onGround() && t.pos().distSqr(g.blockPosition()) > 2 * 2 && (!g.level().getFluidState(t.pos()).isEmpty() || !g.level().getFluidState(t.pos().below()).isEmpty())) { com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] out of the water at {}: the swim waypoint {} dropped (WorkGoal GoTo)", g.blockPosition().toShortString(), t.pos().toShortString()); yield true; } /* (a swim to the shore, queued while stuck swimming, outlived his getting out: live 01:16 11-05 he dug his ceiling toward a "shore" in the flooded pocket over his mine) */ if (g.staying && t.pos().distSqr(g.blockPosition()) > 2 * 2) { if (g.tickCount % 100 < 2 || ticks == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] staying put where they said: the walk to {} ({}) waits (WorkGoal)", t.pos().toShortString(), com.claudemod.entity.ClaudeEntity.originOf(t)); yield true; } // (told to stay put, every chore of his own walks him off: a stash run, a torch run, his nook; one gate at the walk, their own go_to clears staying first, 15:03)
                     if ((g.onClimbable() || g.level().getBlockState(t.pos()).is(net.minecraft.tags.BlockTags.CLIMBABLE)) && t.pos().getX() == g.getBlockX() && t.pos().getZ() == g.getBlockZ() && t.pos().getY() > g.getBlockY()) { g.getNavigation().stop(); g.getJumpControl().jump(); if (ticks > 40) com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] climb to {} gave up at y {} after 2 s (WorkGoal GoTo climb)", t.pos().toShortString(), g.getBlockY()); yield ticks > 40; } // ponytail: hold jump till he is in the cell (live 16:21 a one-tick jump per leg ended every leg at once, a vine-column loop); 2 s a cell cap // ponytail: live 14:50 -59,5x,-909: up a free-standing twisting vine a player holds jump; the walk never did, "couldn't get to" each cell of the planned climb
                     if (ticks == 1 && t.pos().distSqr(g.blockPosition()) > 4 * 4 && coverBeforeWalk(t)) yield true;
+                    if (ticks == 1) { var ph = plugHold(t.pos()); if (ph != null) { // (any way there, through the plug or the wall beside it: back among them all the same)
+                        if (g.tickCount - plugSaid > 20 * 30) { plugSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the walk to {} goes back among the ones he shut out behind his plug (the {} {} off): {} (WorkGoal.GoTo)", t.pos().toShortString(), ph.getType().getDescription().getString(), (int) ph.distanceTo(g), plugHoldWhy); }
+                        g.tasks.addFirst(t); g.tasks.addFirst(new Task.Wait(20 * 5, false)); exitWhy = "behind his plug, the ones he shut out across it"; yield true; } }
                     if (ticks == 1 && inReach(t.pos())) { // (only where he can dig it from: from 128 off it put a seen ore's Breaks ahead of the walk there, "no way to it" in a tick, dropped, D2D review 248/303/29; stage 1020) a walk into a cell still solid, its dig queued behind the walk: the dig first, then the walk (live 04:43 World 15: a GoTo into the rock under him, its Break next in the queue, 32 stalls in a minute)
                         BlockPos tp = t.pos(); var lv0 = g.level(); java.util.List<Task> first = new java.util.ArrayList<>();
                         for (Task q0 : g.tasks) {
@@ -2229,19 +2232,30 @@ public class WorkGoal extends Goal {
     private java.util.Map<BlockPos, Integer> plugLog; // water sources he plugged, and when (lazy: fields added live start null)
     private java.util.Map<BlockPos, Integer> plugLog() { if (plugLog == null) plugLog = new java.util.HashMap<>(); if (plugLog.size() > 200) plugLog.clear(); return plugLog; }
 
+    /** Behind his escape plug with what he shut out still across it (within 16 of him, or of the spot a walk goes to): hurt, or going back among them priced over flee.job_drop_s as the plug's own job drop prices it. The nearest such mob, else null (and the plug forgotten once none is about). D2D review 032312-28, live 03:22 11-12: plugged at 20 HP, his job's next walk dug back through to the 4 he'd shut out; stage 1546. */
+    private net.minecraft.world.entity.Mob plugHold(BlockPos to) {
+        if (plugCells == null || plugFrom == null) return null;
+        java.util.List<net.minecraft.world.entity.Mob> across = new java.util.ArrayList<>();
+        for (var u : plugFrom) if (level().getEntity(u) instanceof net.minecraft.world.entity.Mob m && m.isAlive() && m.distanceTo(g) < 16) across.add(m);
+        if (across.isEmpty()) { plugCells = null; return null; }
+        if (to != null && across.stream().noneMatch(m -> m.blockPosition().distSqr(to) < 16 * 16)) return null; // (a walk that keeps away from them: not back among them)
+        double back = backAmongS(across.size()); boolean hurt = g.getHealth() < w("escape.plug_heal_hp", 16);
+        if (!hurt && back <= w("flee.job_drop_s", 60)) return null;
+        plugHoldWhy = hurt ? "healing behind it first" : "back among " + across.size() + " ~" + Math.round(back) + " s against flee.job_drop_s " + Math.round(w("flee.job_drop_s", 60)) + ": behind it till they're gone";
+        return across.stream().min(java.util.Comparator.comparingDouble(m -> m.distanceTo(g))).get();
+    }
+    private String plugHoldWhy = "";
     private java.util.Set<BlockPos> plugCells; private java.util.List<java.util.UUID> plugFrom; private int plugSaid = -100000; // his escape plug and what he fled through it (lazy: fields added live start null)
     private Task goBestFor; private double goBest; private int goBestTick; // (the walk's best distance to its goal, and when: the 45 s clock spares a walk still getting nearer)
     private boolean doBreak(BlockPos pos) {
         ServerLevel level = (ServerLevel) g.level();
         if (plugCells != null && plugCells.contains(pos)) { // his own escape plug, with what he fled still across it and him hurt: kept shut, he heals behind it (D2D death 75; stage 1359)
-            net.minecraft.world.entity.Mob across = null;
-            if (g.getHealth() < w("escape.plug_heal_hp", 16) && plugFrom != null) for (var u : plugFrom) if (level.getEntity(u) instanceof net.minecraft.world.entity.Mob m && m.isAlive() && m.distanceTo(g) < 16) { across = m; break; }
-            if (across == null) plugCells = null;
-            else {
-                if (g.tickCount - plugSaid > 20 * 30) { plugSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not opening his plug at {}: health {}, the {} he shut out {} off: healing behind it first (WorkGoal.doBreak)", pos.toShortString(), (int) g.getHealth(), across.getType().getDescription().getString(), (int) across.distanceTo(g)); }
+            net.minecraft.world.entity.Mob across = plugHold(null);
+            if (across != null) {
+                if (g.tickCount - plugSaid > 20 * 30) { plugSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not opening his plug at {}: health {}, the {} he shut out {} off: {} (WorkGoal.doBreak)", pos.toShortString(), (int) g.getHealth(), across.getType().getDescription().getString(), (int) across.distanceTo(g), plugHoldWhy); }
                 g.tasks.addFirst(new Task.Wait(20 * 5, false));
                 net.minecraft.world.item.Item meal = com.claudemod.director.ClaudeLife.foodToEat(g, g.getHealth() <= 6); if (meal != null && g.getFoodData().needsFood()) g.tasks.addFirst(new Task.Eat(meal));
-                return exit("his escape plug, hurt with them across it");
+                return exit("his escape plug, with them across it");
             }
         }
         if ((com.claudemod.director.ClaudeLife.bridgeBlocks().contains(pos) || com.claudemod.entity.life.TempLedger.has(g, pos)) /* (the take-back list is open-sky blocks only: in the Nether his soul sand way block went out from under him into lava, live 02:32 11-10, stage 1362) */ && g.getBoundingBox().move(0, -0.1, 0).intersects(new net.minecraft.world.phys.AABB(pos)) && level.getBlockState(pos.below()).getCollisionShape(level, pos.below()).isEmpty()) return exit("a block he put down to climb by, still under him (the walk off it ended at once): never cut from under his own (doBreak 1445)"); // a block he put down to climb by, still under him (the walk off it ended at once): never cut from under his own feet over a drop; it stays on the take-down list (a pillar's top with its next block under it is the take-down itself, one block down like a player: the guard refused it 3x a second at 4,86,2, live 23:32)

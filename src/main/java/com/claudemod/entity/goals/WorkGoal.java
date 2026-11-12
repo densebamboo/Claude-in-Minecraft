@@ -246,6 +246,11 @@ public class WorkGoal extends Goal {
                 return true;
             }
         }
+        if (surfacing && !g.isInWater() && g.getAirSupply() < 280 && g.hurtTime == 0 && !com.claudemod.entity.life.Watchdog.airRoute(g)) { // up out of the water: a full breath (2 s at most) before anything takes him back under (live 04:10-04:35 11-12: the breath ended the moment he stood out of the water at air 123, over the 120 line, and he dove back to the flooded dig with less than half his air, 482 times; stage 1594)
+            g.getNavigation().stop(); g.getMoveControl().setWantedPosition(g.getX(), g.getY(), g.getZ(), 0);
+            if (g.tickCount % 20 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] out of the water at {} (air {}): a full breath before going on", g.blockPosition().toShortString(), g.getAirSupply());
+            return true;
+        }
         if (surfacing && g.getAirSupply() < 280 && !((current == null && roofDig(g.tasks.peek())) || roofDig(current))) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] breath ended at air {} at {} (y {}): in water {}, eyes under {}, dug way {}, task {} (WorkGoal.reflexes)", g.getAirSupply(), g.blockPosition().toShortString(), String.format("%.2f", g.getY()), g.isInWater(), g.isEyeInFluid(net.minecraft.tags.FluidTags.WATER), com.claudemod.entity.life.Watchdog.airRoute(g), current); // (live 02:29 11-12 he went back under at ~200 air four times in 30 s: why it ended, logged first)
         if (!(surfacing && ((current == null && roofDig(g.tasks.peek())) || roofDig(current)))) surfacing = false; // (still surfacing while the roof dig runs below: not a fresh start, no re-queue, every tick)
         // In lava: out first, everything else waits (he stood 3 s in a lava flow finishing a Place and died, 09:02)

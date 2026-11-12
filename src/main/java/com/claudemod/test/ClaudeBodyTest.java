@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1594: return st1594(stage, t, c, h, level, mock);
             case 1593: return st1593(stage, t, c, h, level, mock);
             case 1592: return st1592(stage, t, c, h, level, mock);
             case 1591: return st1591(stage, t, c, h, level, mock);
@@ -21545,6 +21546,39 @@ public final class ClaudeBodyTest {
             c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setSwimming(false); c.setPose(net.minecraft.world.entity.Pose.STANDING); c.fallDistance = 0;
             check(!chase, "under water with air 250, a zombie 16 off through a flooded cave: after it (" + cover + "; " + (q.length() > 140 ? q.substring(0, 140) : q) + ")");
             pass(stage, t, "the zombie through the water let be (" + cover + ")");
+        }
+        return true;
+    }
+
+    /** Stage 1594 (D2D, live from ~04:10 11-12 at -34,17,-487, a trap: "breath ended at air 123 at -34,17,-487 (y 17.10): in water false, eyes under false, dug way false, task null" every 55 s, then straight back down to the flooded dig at -34,13,-486; 482 "low on air" in 25 min: out of the water the breath ended, 123 sat over the 120 line, half a breath a dive). Surfacing from a dive, out of the water on the pool's edge at air 100, the ore he's on under the water: a full breath before he goes back under. */
+    private static int s1594T; private static String s1594Bad;
+    private static boolean st1594(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(2, 3, 2)), ore = o.offset(3, -1, 1); // (the ore at the foot of the water column beside the edge he stands on, as live: one step and he sinks to it)
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; s1594T = -1; s1594Bad = null; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(-1, -2, -1), o.offset(6, 8, 4))) level.setBlock(p, (p.getY() <= o.getY() + 4 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            for (BlockPos p : BlockPos.betweenClosed(o.offset(0, 0, 0), o.offset(3, 4, 3))) level.setBlock(p, Blocks.WATER.defaultBlockState(), 2); // a pool 5 deep, open on top, a stone edge round it at its surface
+            level.setBlock(ore, Blocks.IRON_ORE.defaultBlockState(), 2);
+            c.currentTask = null; c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            c.teleportTo(o.getX() + 1.5, o.getY() + 1, o.getZ() + 1.5); c.setSwimming(true); c.setPose(net.minecraft.world.entity.Pose.SWIMMING); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.setAirSupply(100);
+            mock[0].teleportTo(o.getX() + 2.5, o.getY() + 8, o.getZ() + 6.5);
+        }
+        if (t[0] == 14) { // (his reflex has him surfacing by now) up on the edge, out of the water, with his job back down at the ore
+            c.teleportTo(o.getX() + 4.5, o.getY() + 5, o.getZ() + 1.5); c.setSwimming(false); c.setPose(net.minecraft.world.entity.Pose.STANDING); com.claudemod.entity.life.Watchdog.teleported(c); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.setAirSupply(100);
+            c.tasks.add(new Task.Break(ore.immutable())); s1594T = t[0];
+        }
+        if (s1594T > 0 && t[0] > s1594T) {
+            boolean under = c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER);
+            if (under && c.getAirSupply() < 270 && s1594Bad == null) s1594Bad = "back under at air " + c.getAirSupply() + " " + (t[0] - s1594T) + " ticks after he came out";
+            boolean done = s1594Bad != null || under || t[0] - s1594T > 20 * 15;
+            if (done) {
+                String at = "air " + c.getAirSupply() + ", at " + c.blockPosition().subtract(o) + ", task " + c.currentTask + " " + c.tasks;
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setAirSupply(300);
+                for (BlockPos p : BlockPos.betweenClosed(o.offset(-1, -2, -1), o.offset(6, 8, 4))) level.setBlock(p, (p.getY() == o.getY() - 2 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+                c.teleportTo(o.getX() + 1.5, o.getY() - 1, o.getZ() + 1.5); c.setSwimming(false); c.setPose(net.minecraft.world.entity.Pose.STANDING); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.fallDistance = 0;
+                check(s1594Bad == null, "out of the water at air 100 with his dig under it: " + s1594Bad + " (" + at + ")");
+                pass(stage, t, "a full breath, then down: " + at + " after " + (t[0] - s1594T) / 20.0 + " s");
+            }
         }
         return true;
     }

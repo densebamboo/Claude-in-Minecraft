@@ -594,7 +594,9 @@ public class WorkGoal extends Goal {
         // Watchdog: no single action should take 45s (cooking and long fights have their own limits). Skip it, never hang.
         boolean longByNature = current instanceof Task.Smelt || current instanceof Task.FurnaceTake || current instanceof Task.Attack
                 || current instanceof Task.Wait || current instanceof Task.Fish || current instanceof Task.Bore; // (the bore ends itself after 3 s without a step)
-        if (!done && !longByNature && ticks > 20 * 45) {
+        if (current instanceof Task.GoTo go0) { double d0 = Math.sqrt(go0.pos().distToCenterSqr(g.position())); if (goBestFor != current) { goBestFor = current; goBest = d0; goBestTick = ticks; } else if (d0 < goBest - 3) { goBest = d0; goBestTick = ticks; } }
+        boolean stillNearing = current instanceof Task.GoTo && current == goBestFor && ticks - goBestTick < 20 * 15 && ticks < 20 * 300; // a walk 3+ nearer in the last 15 s is no stuck one: a long walk is long (D2D review 220203-157, live 21:56 11-11: ~250 blocks in its last 44 s, cut at 45 s, written off NO_PATH 154 short; stage 1578); 5 min at most
+        if (!done && !longByNature && !stillNearing && ticks > 20 * 45) {
             com.claudemod.ClaudeMod.LOGGER.info("[Claude life] stuck on {} for 45s, skipping it", current);
             g.getNavigation().stop();
             BlockPos spot = switch (current) { case Task.Break b -> b.pos(); case Task.GoTo go -> go.pos(); case Task.Place pl -> pl.pos(); default -> null; }; // what he couldn't get at stays off the list a while (the ore-spotting would queue it straight back)
@@ -1895,7 +1897,9 @@ public class WorkGoal extends Goal {
         if (++approachTries > 3) { { var c0 = com.claudemod.entity.life.Stall.diagnose(g, pos, 3.2); g.attempts.fail(com.claudemod.entity.life.Attempts.Kind.REACH, pos, g.tickCount, g.blockPosition(), c0.reason(), c0.detail(), c0.mob()); g.attempts.bandaid("the approach gave up after 3 re-plans at " + pos.toShortString() + ": " + c0.say()); } com.claudemod.ClaudeMod.LOGGER.info("[Claude life] gave up reaching {} (he's at {})", pos.toShortString(), g.blockPosition().toShortString()); return true; }
         BlockPos spot = standSpotBeside(pos); // never path "into" a solid block (vanilla would aim at the air above it)
         var path = g.getNavigation().createPath(spot, spot.equals(pos) ? (int) REACH - 1 : 1);
-        if (path != null && path.canReach() && !bodyRefused) {
+        boolean roundabout = path != null && path.canReach() && path.getNodeCount() > 2 * Math.sqrt(g.blockPosition().distSqr(pos)) + 8; // a walk round much longer than the line to it: the planned way below prices the digs in the line against it (D2D reviews 215644-146, 195746-142, live 21:55 and 19:56 11-11: 26 nodes round for a block 4 off, 20 east and back for one 7 under; stage 1580)
+        if (roundabout && ticks % 120 == 1) com.claudemod.ClaudeMod.LOGGER.info("[Claude life] {} at {}: the walk round to it is {} steps for {} straight: the planned way weighs digging the line (WorkGoal.approach)", name(g.level().getBlockState(pos)), pos.toShortString(), path.getNodeCount(), (int) Math.sqrt(g.blockPosition().distSqr(pos)));
+        if (path != null && path.canReach() && !bodyRefused && !roundabout) {
             g.getNavigation().moveTo(path, 0.9);
             return false;
         }
@@ -2185,6 +2189,7 @@ public class WorkGoal extends Goal {
     private java.util.Map<BlockPos, Integer> plugLog() { if (plugLog == null) plugLog = new java.util.HashMap<>(); if (plugLog.size() > 200) plugLog.clear(); return plugLog; }
 
     private java.util.Set<BlockPos> plugCells; private java.util.List<java.util.UUID> plugFrom; private int plugSaid = -100000; // his escape plug and what he fled through it (lazy: fields added live start null)
+    private Task goBestFor; private double goBest; private int goBestTick; // (the walk's best distance to its goal, and when: the 45 s clock spares a walk still getting nearer)
     private boolean doBreak(BlockPos pos) {
         ServerLevel level = (ServerLevel) g.level();
         if (plugCells != null && plugCells.contains(pos)) { // his own escape plug, with what he fled still across it and him hurt: kept shut, he heals behind it (D2D death 75; stage 1359)
@@ -4114,6 +4119,9 @@ public class WorkGoal extends Goal {
             int ri = g.blueprint.nearestRow(pos);
             BlockPos in = null; for (BlockPos q : BlockPos.betweenClosed(pos.offset(-2, -2, -2), pos.offset(2, 1, 2))) if (g.blueprint.isWalk(q) && !g.blueprint.isWalk(q.below()) && (in == null || q.distSqr(g.blockPosition()) < in.distSqr(g.blockPosition()))) in = q.immutable(); // (the walkway cell right by the patch, a branch's too: nearestRow skips branch rows and sent him 44 to the trunk and back, live 08:43 11-08, review 99, stage 1036)
             if (in == null && ri >= 0) for (BlockPos f : g.blueprint.rows().get(ri).feet()) if (in == null || f.distSqr(g.blockPosition()) < in.distSqr(g.blockPosition())) in = f; // (else the walkway cell of that row nearest him)
+            if (in != null && ticks == 1 && level.getBlockState(in.below()).getCollisionShape(level, in.below()).isEmpty()) { StringBuilder mp = new StringBuilder(); BlockPos me5 = g.blockPosition(); // (the walkway cell he'd walk back to has no floor: D2D review 220640-184, live 22:05 11-11, 28 s on -135,16,-461 "Air on Air"; not rebuilt as a stage yet: the blocks round it, y-2..+1, P the cell, @ him)
+                for (int dy = -2; dy <= 1; dy++) { mp.append(" y").append(in.getY() + dy).append(':'); for (int dz = -2; dz <= 2; dz++) { for (int dx = -2; dx <= 2; dx++) { BlockPos q = in.offset(dx, dy, dz); mp.append(q.equals(in) ? 'P' : q.equals(me5) || q.equals(me5.above()) ? '@' : !level.getFluidState(q).isEmpty() ? '~' : level.getBlockState(q).getCollisionShape(level, q).isEmpty() ? '.' : '#'); } if (dz < 2) mp.append('|'); } }
+                com.claudemod.ClaudeMod.LOGGER.info("[Claude life] the walk back into his mine for the patch at {}: its walkway cell {} has no floor (x {}..{}, z {}..{}):{} (WorkGoal.doPlace)", pos.toShortString(), in.toShortString(), in.getX() - 2, in.getX() + 2, in.getZ() - 2, in.getZ() + 2, mp); }
             if (in != null && !walkFailedSince(in, pos)) {
                 if (in.getY() == g.getBlockY() && Math.hypot(g.getX() - (in.getX() + 0.5), g.getZ() - (in.getZ() + 0.5)) <= 1.6) { // a cell off: a nudge in (a walk to the cell beside spins on the spot)
                     if (stepOutFor != t) { stepOutFor = t; stepOutAt = ticks; }

@@ -10551,6 +10551,9 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1580: return st1580(stage, t, c, h, level, mock);
+            case 1579: return st1579(stage, t, c, h, level, mock);
+            case 1578: return st1578(stage, t, c, h, level, mock);
             case 1577: return st1577(stage, t, c, h, level, mock);
             case 1576: return st1576(stage, t, c, h, level, mock);
             case 1575: return st1575(stage, t, c, h, level, mock);
@@ -20859,6 +20862,103 @@ public final class ClaudeBodyTest {
             for (int x = -6; x <= 66; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
             check(r != null && r.size() >= 2, "4 up on a trunk, a spot 60 off over flat land: no land plan (" + said + ")");
             pass(stage, t, "legs from the ground: " + said);
+        }
+        return true;
+    }
+    /** Stage 1578 (D2D review 220203-157, live 21:54:28-21:56:23 11-11: a walk to -16,68,-20 454 off, from under the ground, his walker's; ~250 blocks of it in the last 44 s along his rows, then "stuck on GoTo ... for 45s, skipping it", written off NO_PATH 154 short, 3 reviews in the hour). A 300-block tunnel, him at one end, a GoTo to the other: he gets there, the 45 s clock never cuts a walk still getting nearer. */
+    private static int s1578T; private static BlockPos s1578G;
+    private static boolean st1578(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(17400, 60, 12400);
+        if (t[0] == 1) { scenarioReset(c); s1578T = -1; c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("torches_while_digging", "no"); }
+        if (t[0] % 10 == 0 || t[0] < 10) for (int k = -16; k <= 320; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 1, o.offset(k, 0, 0));
+        if (t[0] == 10) {
+            for (int x = -3; x <= 303; x++) for (int z = -2; z <= 2; z++) for (int y = -2; y <= 8; y++) level.setBlock(o.offset(x, y, z), (z == 0 && (y == 0 || y == 1) && x >= -1 && x <= 301 ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); // a 2-high tunnel 7 under the top of the rock
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 8));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear();
+        }
+        if (t[0] == 40) { s1578G = o.offset(300, 0, 0).immutable(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.tasks.add(new Task.GoTo(s1578G, 1.5)); s1578T = t[0]; }
+        if (s1578T > 0) {
+            boolean there = c.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(s1578G)) <= 2.5;
+            boolean dropped = !there && !(c.currentTask instanceof Task.GoTo) && c.tasks.stream().noneMatch(q -> q instanceof Task.GoTo);
+            if (there || dropped || t[0] - s1578T > 20 * 120) {
+                int s = t[0] - s1578T; BlockPos at = c.blockPosition(); String q = c.currentTask + " " + c.tasks;
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent();
+                for (int x = -3; x <= 303; x++) for (int z = -2; z <= 2; z++) for (int y = -2; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                c.teleportTo(level, o.getX() + 0.5, o.getY() + 20, o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0;
+                check(there, "a 300-block tunnel walk: " + (dropped ? "dropped after " + s / 20.0 + " s at " + at.toShortString() + ", " + (300 - (at.getX() - o.getX())) + " short" : "not there in 120 s, at " + at.toShortString()) + " (" + (q.length() > 100 ? q.substring(0, 100) : q) + ")");
+                pass(stage, t, "300 blocks in " + s / 20.0 + " s");
+            }
+        }
+        return true;
+    }
+    /** Stage 1579 (D2D review 220640-184, live 22:05:21-49 11-11 at -135,16,-463, out past his wall in the floor-gone stretch: "the walk back into his mine at -135, 16, -461" for the patch at -135,17,-462; the cell was Air on Air, its floor fallen into the cave; path short, the 8 s clock, UNKNOWN, "couldn't get to ... (Air on Air)", ~28 s). Him out past his row's wall, the wall cell over his way back open, the row's floor gone right by it: the patch goes in, in 8 s. (Green on the code of the day too: the live 28 s isn't rebuilt yet; WorkGoal.doPlace logs the blocks round a floorless walk-back cell.) */
+    private static int s1579T; private static BlockPos s1579P;
+    private static boolean st1579(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(7950, 90, 7850);
+        if (t[0] == 1) { scenarioReset(c); s1579T = -1; c.prefs.put("stay_close", "no"); c.prefs.put("torches_while_digging", "no"); }
+        if (t[0] == 10) {
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            c.teleportTo(o.getX() + 0.5, o.getY() + 2, o.getZ() + 0.5); c.fallDistance = 0; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 16) {
+            var E = net.minecraft.core.Direction.EAST; var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 30, null)); b.invalidate();
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.stairStart = b.entrance;
+            c.mineShape = new ClaudeEntity.MineShape(2, 3, 4, 8, 6, "right"); for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK) c.mineCells.add(e.getKey().immutable());
+            BlockPos r0 = b.rows().get(12).first(); int fy = r0.getY(), x0 = r0.getX(), z0 = r0.getZ(), side = b.isWalk(new BlockPos(x0, fy, z0 - 1)) ? 1 : -1; // (side: the wall away from the row's other walk cell)
+            for (int x = -4; x <= 40; x++) for (int z = -6; z <= 6; z++) for (int y = -9; y <= 5; y++) { BlockPos q = new BlockPos(o.getX() + x, fy + y, z0 + z); boolean gap = Math.abs(q.getX() - x0) <= 1 && y <= -1 && y >= -8 && Math.abs(z) <= 3 && z * side <= 1;
+                level.setBlock(q, (b.isWalk(q) || gap ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); } // his row; its floor gone into a cave for 3 cells by x0, under the wall cell on his way back too (live: path=0/1, short of it)
+            BlockPos wallLo = new BlockPos(x0, fy, z0 + side), wallHi = wallLo.above(), hole = wallLo.relative(side > 0 ? net.minecraft.core.Direction.SOUTH : net.minecraft.core.Direction.NORTH);
+            for (BlockPos q : new BlockPos[] {wallLo, wallHi, hole, hole.above()}) level.setBlock(q, Blocks.AIR.defaultBlockState(), 2); // (his way out to an ore hole past the wall, the wall dug)
+            check(level.getBlockState(r0.below()).isAir() && !b.isWalk(wallHi), "setup: the floor at " + r0.toShortString() + " still there, or the wall cell a walk cell");
+            c.teleportTo(hole.getX() + 0.5, hole.getY(), hole.getZ() + 0.5); c.fallDistance = 0;
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.pendingPatches.clear();
+            s1579P = wallHi.immutable(); Task.Place p = new Task.Place(s1579P, Items.COBBLESTONE); com.claudemod.entity.ClaudeEntity.ORIGIN.put(p, "ClaudeLife.bpReconcile:1"); c.tasks.add(p); s1579T = t[0];
+        }
+        if (s1579T > 0) {
+            boolean done = !level.getBlockState(s1579P).isAir();
+            if (done || t[0] - s1579T > 20 * 8) {
+                int s = t[0] - s1579T; String q = c.currentTask + " " + c.tasks; BlockPos at = c.blockPosition();
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.prefs.remove("torches_while_digging"); c.stairStart = null; c.mineShape = null; c.mineCells.clear(); c.pendingPatches.clear(); c.getInventory().clearContent();
+                for (int x = -4; x <= 40; x++) for (int z = -6; z <= 6; z++) for (int y = -9; y <= 5; y++) level.setBlock(o.offset(x, s1579P.getY() - 1 - o.getY() + y, s1579P.getZ() - o.getZ() + z), Blocks.AIR.defaultBlockState(), 2);
+                c.teleportTo(o.getX() + 0.5, o.getY() + 20, o.getZ() + 0.5); c.fallDistance = 0;
+                check(done, "his wall's patch past a row cell with its floor gone: not in in 8 s (at " + at.toShortString() + ", " + (q.length() > 140 ? q.substring(0, 140) : q) + ")");
+                pass(stage, t, "patched in " + s / 20.0 + " s");
+            }
+        }
+        return true;
+    }
+    /** Stage 1580 (D2D reviews 215644-146 and 195746-142, live 21:55:21 11-11: a cobblestone 4 off at -95,20,-401, "moved by a vanilla path of 26 nodes", then the stone in the line dug anyway; 19:56 a gold ore 7 under him, the walk 20 east and back, 16.9 s). A block 8 off, a stub of his tunnel 5 toward it and 2 stone between; the only open way to a cell beside it a ~27-block U: the stone dug, the block broken, no walk round. */
+    private static int s1580T; private static double s1580Far; private static BlockPos s1580B;
+    private static boolean st1580(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(17400, 60, 12700);
+        if (t[0] == 1) { scenarioReset(c); s1580T = -1; c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("torches_while_digging", "no"); }
+        if (t[0] % 10 == 0 || t[0] < 10) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 10) {
+            for (int x = -4; x <= 10; x++) for (int z = -14; z <= 4; z++) for (int y = -2; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+            java.util.List<BlockPos> open = new java.util.ArrayList<>();
+            for (int z = -10; z <= 0; z++) open.add(o.offset(0, 0, z)); for (int x = 0; x <= 8; x++) open.add(o.offset(x, 0, -10)); for (int z = -10; z <= -1; z++) open.add(o.offset(8, 0, z)); // the U round, ~27 to the cell beside it
+            for (int x = 1; x <= 5; x++) open.add(o.offset(x, 0, 0)); // the stub toward it, then 2 stone
+            for (BlockPos q : open) { level.setBlock(q, Blocks.AIR.defaultBlockState(), 2); level.setBlock(q.above(), Blocks.AIR.defaultBlockState(), 2); }
+            s1580B = o.offset(8, 0, 0).immutable(); level.setBlock(s1580B, Blocks.COBBLESTONE.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 16));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear();
+        }
+        if (t[0] == 30) { s1580Far = 0; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.tasks.add(new Task.Break(s1580B)); s1580T = t[0]; }
+        if (s1580T > 0) {
+            s1580Far = Math.max(s1580Far, c.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(o)));
+            boolean done = level.getBlockState(s1580B).isAir();
+            if (done || t[0] - s1580T > 20 * 15) {
+                int s = t[0] - s1580T; String q = c.currentTask + " " + c.tasks; BlockPos at = c.blockPosition(); double far = s1580Far;
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent();
+                for (int x = -4; x <= 10; x++) for (int z = -14; z <= 4; z++) for (int y = -2; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                c.teleportTo(level, o.getX() + 0.5, o.getY() + 20, o.getZ() + 0.5, 0f, 0f); c.fallDistance = 0;
+                check(done, "a block 8 off, 2 stone past his stub: not broken in 15 s (at " + at.toShortString() + ", " + (q.length() > 100 ? q.substring(0, 100) : q) + ")");
+                check(far <= 8, "a block 8 off, 2 stone past his stub: walked " + String.format("%.1f", far) + " out round the U to it (" + s / 20.0 + " s)");
+                pass(stage, t, "broken in " + s / 20.0 + " s, " + String.format("%.1f", far) + " out at most");
+            }
         }
         return true;
     }

@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1616: return st1616(stage, t, c, h, level, mock);
             case 1615: return st1615(stage, t, c, h, level, mock);
             case 1614: return st1614(stage, t, c, h, level, mock);
             case 1613: return st1613(stage, t, c, h, level, mock);
@@ -21905,6 +21906,25 @@ public final class ClaudeBodyTest {
             var mm = java.util.regex.Pattern.compile("kill in (\\d+)").matcher(odds); int swings = mm.find() ? Integer.parseInt(mm.group(1)) : -1;
             check(swings >= 10, "a big magma cube 2 off: priced as " + swings + " swing(s), not what it splits into (" + odds + ")");
             pass(stage, t, odds);
+        }
+        return true;
+    }
+    /** Stage 1616 (D2D review 081059-58, live 08:09:28/39 11-12: '"fortress": no fortress seen yet: the nearest lit portal to the Nether, #2', then at 08:09:51 FortressScout "a nether fortress on his atlas at 310,33,402 (509 off): no scouting for it"; PortalMap.resolve read only this session's sightings, never the atlas, so the portal for the fortress was picked blind of it). Two lit portals, the near one's Nether side 200 off the fortress on his atlas, the far one's 20 off: the far one. */
+    private static boolean st1616(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).edges.clear(); com.claudemod.entity.life.Atlas.reset(c); }
+        if (t[0] == 10) {
+            var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER); String OW = com.claudemod.entity.life.PortalMap.OW, NE = com.claudemod.entity.life.PortalMap.NETHER;
+            BlockPos me = c.blockPosition(); int ax = (me.getX() + 8) & ~7, bx = ax + 1600;
+            var a = com.claudemod.entity.life.PortalMap.note(c, OW, new BlockPos(ax, me.getY(), me.getZ()), "him", "lit");
+            com.claudemod.entity.life.PortalMap.note(c, NE, new BlockPos(ax / 8, 64, me.getZ() / 8), "unknown", "lit");
+            var b = com.claudemod.entity.life.PortalMap.note(c, OW, new BlockPos(bx, me.getY(), me.getZ()), "him", "lit");
+            var nb = com.claudemod.entity.life.PortalMap.note(c, NE, new BlockPos(bx / 8, 64, me.getZ() / 8), "unknown", "lit");
+            com.claudemod.entity.life.Atlas.note(c, nl, "fortress", nb.at.offset(20, -20, 0)); // on his atlas from an earlier session; no sighting this one
+            var got = com.claudemod.entity.life.PortalMap.resolve(c, "the fortress");
+            String gotS = got == null ? "none" : "#" + got.id + " at " + got.at.toShortString();
+            com.claudemod.entity.life.PortalMap.net(c).portals.clear(); com.claudemod.entity.life.PortalMap.net(c).edges.clear(); com.claudemod.entity.life.Atlas.reset(c);
+            check(got == b, "a fortress on his atlas 20 off the far portal's Nether side, 200 off the near one's: \"the fortress\" resolved to " + gotS + ", not #" + b.id + " (the near one is #" + a.id + ")");
+            pass(stage, t, "the portal nearest the fortress on his atlas: " + gotS);
         }
         return true;
     }

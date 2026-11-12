@@ -149,7 +149,7 @@ public final class Procure {
             // (live 14:12 11-05: 6 furnaces and 17 ingots at his nook 86 off, past the old 64: "craft furnace 1", no cobble on him, a pit dug by his house)
             int stoneOn = 0, planksOn = 0; for (var e0 : pocket.entrySet()) { if (new ItemStack(e0.getKey()).is(net.minecraft.tags.ItemTags.STONE_CRAFTING_MATERIALS)) stoneOn += e0.getValue(); if (new ItemStack(e0.getKey()).is(net.minecraft.tags.ItemTags.PLANKS)) planksOn += e0.getValue(); }
             for (net.minecraft.core.BlockPos p : g.myStations) { if (!level.isLoaded(p)) continue;
-                if (level.getBlockState(p).is(Blocks.CRAFTING_TABLE) && planksOn < 4) ownTable = true; if (level.getBlockState(p).is(Blocks.FURNACE) && stoneOn < 8) ownFurnace = true; }
+                if (level.getBlockState(p).is(Blocks.CRAFTING_TABLE) && planksOn < 4) ownTable = true; if (level.getBlockState(p).is(Blocks.FURNACE) && (stoneOn < 8 || p.distSqr(g.blockPosition()) <= Math.pow(com.claudemod.entity.life.Weights.w("procure.own_furnace_walk", 32), 2))) ownFurnace = true; } // (a short walk to his own beats a new one even with the stone on him: 19 off, "craft furnace 1" walked him to his table 10 from it, "done: there's already a furnace", D2D 161338-14)
             String mode = g.pref("village_mode", "useful"); // a village he saw, out of sight: its hay, golem and beds count too, the nearest worthwhile one (the user 11-04)
             var vil = ClaudeLife.knownVillage(g, "village_iron", level);
             int bales0 = ClaudeLife.villageHayInSight(g, level); if (bales0 == 0 && ClaudeLife.knownVillage(g, "village_food", level) != null) bales0 = mode.equals("raid") ? 8 : 4;

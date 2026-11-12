@@ -10989,6 +10989,7 @@ public final class ClaudeBodyTest {
             case 1520: return st1520(stage, t, c, h, level, mock);
             case 1521: return st1521(stage, t, c, h, level, mock);
             case 1522: return st1522(stage, t, c, h, level, mock);
+            case 1523: return st1523(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -21400,6 +21401,23 @@ public final class ClaudeBodyTest {
             check(!s1522In, "back into his mine to patch the wall he'd walked out through, his way on past it");
             check(s <= 15, "through one block of his wall and on 9: " + s + " s (a player ~6)");
             pass(stage, t, "through his wall, patched behind him, on to the corridor's end in " + s + " s"); }
+        return true;
+    }
+    /** Stage 1523 (D2D 161338-14 and 162401-6, live 16:08:22-16:08:31 11-11 at -85,16,-448): his mine's furnace 19 off at -86,15,-467, 17 cobble and 21 diorite on him: gear_up planned "craft furnace 1" (his own stations don't count with the stone for a new one on him, past 16), the craft walked him down to his table 10 from that furnace, "done: there's already a furnace", and back up a pillar. His own furnace a short walk off is the furnace. */
+    private static boolean st1523(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.blueprint = null; c.nook = null; c.house = null; c.myStations.clear(); }
+        if (t[0] == 10) {
+            flatBox(h); BlockPos f = h.absolutePos(new BlockPos(2, 2, 2)); level.setBlock(f, Blocks.FURNACE.defaultBlockState(), 3); c.myStations.add(f.immutable());
+            BlockPos me = f.east(19).south(2); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 17)); c.getInventory().add(new ItemStack(Items.DIORITE, 21)); c.getInventory().add(new ItemStack(Items.RAW_IRON, 3)); c.getInventory().add(new ItemStack(Items.COAL, 6)); c.getInventory().add(new ItemStack(Items.CRAFTING_TABLE));
+        }
+        if (t[0] == 20) {
+            var plan = com.claudemod.director.Procure.plan(c, level, Items.IRON_INGOT, 3); String s0 = com.claudemod.director.Procure.describe(plan.steps());
+            BlockPos f = h.absolutePos(new BlockPos(2, 2, 2)); level.setBlock(f, Blocks.AIR.defaultBlockState(), 2); c.myStations.clear(); c.getInventory().clearContent();
+            check(plan.problem() == null, "procure: " + plan.problem());
+            check(!s0.contains("craft furnace"), "his furnace 19 off, the stone for one on him: a new furnace planned: " + s0);
+            pass(stage, t, "his own furnace 19 off is the furnace: " + s0);
+        }
         return true;
     }
     private static int s1511At = -1;

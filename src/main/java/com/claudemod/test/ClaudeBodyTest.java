@@ -10996,6 +10996,7 @@ public final class ClaudeBodyTest {
             case 1521: return st1521(stage, t, c, h, level, mock);
             case 1522: return st1522(stage, t, c, h, level, mock);
             case 1523: return st1523(stage, t, c, h, level, mock);
+            case 1524: return st1524(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -21562,6 +21563,25 @@ public final class ClaudeBodyTest {
             check(plan.problem() == null, "procure: " + plan.problem());
             check(!s0.contains("craft furnace"), "his furnace 19 off, the stone for one on him: a new furnace planned: " + s0);
             pass(stage, t, "his own furnace 19 off is the furnace: " + s0);
+        }
+        return true;
+    }
+    /** Stage 1524 (D2D 164905-119, live 16:43:54-16:44:48 11-11 at -19,65,-21): at his furnace with iron cooking, two more furnaces' takes queued and a sapling's Place behind them: "while the furnace works: his own 1 queued job(s) first (first: Place)" put the take back ahead of the next furnace job, which was the queue's head, so the Place stayed last; the same every 5 s, 54 s stood there. His own job goes first. */
+    private static boolean st1524(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.blueprint = null; c.myStations.clear(); }
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(3000);
+            BlockPos fa = h.absolutePos(new BlockPos(4, 2, 4)), fb = fa.east(2), fc = fa.east(4), far = h.absolutePos(new BlockPos(20, 2, 20));
+            for (BlockPos q : new BlockPos[] {fa, fb, fc}) { level.setBlock(q, Blocks.FURNACE.defaultBlockState().setValue(net.minecraft.world.level.block.AbstractFurnaceBlock.LIT, true), 3); if (level.getBlockEntity(q) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fe) { fe.setItem(0, new ItemStack(Items.RAW_IRON, 5)); fe.setItem(1, new ItemStack(Items.COAL, 4)); } c.myStations.add(q.immutable()); }
+            BlockPos me = fa.south(); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.OAK_SAPLING, 2)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = new Task.FurnaceTake(fa); c.tasks.add(new Task.FurnaceTake(fb)); c.tasks.add(new Task.FurnaceTake(fc)); c.tasks.add(new Task.Place(far, Items.OAK_SAPLING)); c.sideJobTick = c.tickCount - 200;
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("sideJobWhileCooking", ClaudeEntity.class, ServerPlayer.class); m.setAccessible(true); m.invoke(null, c, mock[0]); } catch (ReflectiveOperationException e) { throw new RuntimeException(e); }
+            Task head = c.tasks.peekFirst(); String q = String.valueOf(c.tasks);
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.myStations.clear(); c.getInventory().clearContent();
+            for (BlockPos q0 : new BlockPos[] {fa, fb, fc}) { if (level.getBlockEntity(q0) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity fe) fe.clearContent(); level.setBlock(q0, Blocks.AIR.defaultBlockState(), 2); }
+            check(head instanceof Task.Place, "at the furnace, his own Place queued behind two more furnaces' takes: the queue after the side-job look is " + q);
+            pass(stage, t, "his own job first while it cooks: " + q);
         }
         return true;
     }

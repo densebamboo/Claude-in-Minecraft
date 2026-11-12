@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1664: return st1664(stage, t, c, h, level, mock);
             case 1663: return st1663(stage, t, c, h, level, mock);
             case 1662: return st1662(stage, t, c, h, level, mock);
             case 1661: return st1661(stage, t, c, h, level, mock);
@@ -22392,6 +22393,37 @@ public final class ClaudeBodyTest {
                 check(!(min < 8 && hp < 16), "clear of the wither skeleton at 9 HP, food 20: his walk took him back " + String.format("%.1f", min) + " off it at health " + hp + " (" + q + ")");
                 pass(stage, t, "healing before the walk back past it: nearest " + String.format("%.1f", min) + " in 10 s (" + q + ")");
             }
+        }
+        return true;
+    }
+    /** Stage 1664 (D2D review 124707-26, live 12:46:39-48 11-12 by the spawner at 315,63,489): "building cover from the blazes: 2 block(s)" queued its Places; a fireball 0.7 s on armed a fresh fight in front of them; that fight's coverFight skipped the build (Places already queued) and held on the shield, the Places behind it never ran: 9 s in the open, burning, 20 -> 13, cover "4 block(s) from done" the whole time. Open deck, a blaze 9 off, his cover's Places queued behind a fight on it: they go in within 3 s. */
+    private static net.minecraft.world.entity.monster.Blaze s1664B; private static java.util.List<BlockPos> s1664Put; private static int s1664T; private static String s1664Bad;
+    private static boolean st1664(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); if (s1664B != null) s1664B.discard(); s1664B = null; s1664Put = null; s1664T = -1; s1664Bad = null; }
+        if (t[0] == 10) {
+            for (int x = -12; x <= 16; x++) for (int z = -12; z <= 12; z++) { level.setBlock(o.offset(x, -1, z), Blocks.NETHER_BRICKS.defaultBlockState(), 2); for (int y = 0; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); } // an open deck: no cover to find
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0; c.getInventory().add(new ItemStack(Items.NETHERRACK, 16)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(17); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; mock[0].teleportTo(o.getX() + 0.5, o.getY() + 45, o.getZ() + 0.5);
+            s1664B = EntityType.BLAZE.create(level); s1664B.moveTo(o.getX() + 9.5, o.getY() + 1, o.getZ() + 0.5, 90, 0); s1664B.setPersistenceRequired(); s1664B.setNoAi(true); level.addFreshEntity(s1664B);
+        }
+        if (t[0] == 20) {
+            var cv = com.claudemod.entity.life.FortressFight.coverFor(c, level, s1664B);
+            if (cv == null) s1664Bad = "setup: no cover to build on the deck";
+            else { s1664Put = new java.util.ArrayList<>(com.claudemod.entity.life.FortressFight.unbuilt(c, level, cv)); if (s1664Put.isEmpty()) s1664Bad = "setup: the cover has nothing to put up (" + cv.how() + ")"; }
+            if (s1664Bad == null) { // as live: the build queued (its Places, then the fight), and the hit's fresh fight armed in front of them
+                c.tasks.clear(); c.tasks.add(new Task.Attack(s1664B.getUUID(), 20 * 30)); for (BlockPos p : s1664Put) c.tasks.add(new Task.Place(p, Items.NETHERRACK)); c.tasks.add(new Task.Attack(s1664B.getUUID(), 20 * 30)); c.currentTask = null; c.dropCurrent = true; s1664T = t[0];
+            }
+        }
+        if (t[0] > 20 && (s1664Bad != null || s1664T > 0 && (s1664Put.stream().allMatch(p -> !level.getBlockState(p).isAir()) || t[0] > s1664T + 60))) {
+            String bad = s1664Bad; int up = s1664Put == null ? 0 : (int) s1664Put.stream().filter(p -> !level.getBlockState(p).isAir()).count(), of = s1664Put == null ? 0 : s1664Put.size(); String q = c.currentTask + " " + c.tasks.stream().limit(4).toList();
+            if (s1664B != null) s1664B.discard(); s1664B = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20); c.getInventory().clearContent(); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY); c.prefs.remove("stay_close");
+            for (int x = -12; x <= 16; x++) for (int z = -12; z <= 12; z++) for (int y = -1; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            flatBox(h);
+            check(bad == null, bad == null ? "" : bad);
+            check(up == of, "his cover's Places queued behind a fight on the blaze: " + up + " of " + of + " up in 3 s (" + q + ")");
+            pass(stage, t, "the cover went up behind the fight: " + of + " blocks");
         }
         return true;
     }

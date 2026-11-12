@@ -1842,6 +1842,7 @@ public final class ClaudeLife {
         var mine = new ArrayList<>(ownDropsNear(g, level, 24));
         mine.removeIf(i -> !com.claudemod.entity.life.Clocks.canMake(g, i)); // (a pile with less time on it than the run is not run for)
         if (mine.isEmpty() || !com.claudemod.entity.life.Perception.known(g, net.minecraft.world.entity.Mob.class, g.getBoundingBox().inflate(12), m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy).isEmpty()) return false;
+        if (carryWorth(g, mine) == 0) { Integer said = g.attempts.counters.get("ownDropsNoRoom"); if (said == null || g.tickCount - said > 20 * 60) { g.attempts.counters.put("ownDropsNoRoom", g.tickCount); ClaudeMod.LOGGER.info("[Claude life] his own stuff lying at {} ({} piles): nothing of it he has room for or would swap for, left (ClaudeLife.fetchOwnDrops)", mine.get(0).blockPosition().toShortString(), mine.size()); } return false; } // (a full pack walked to a pile and refused it, D2D review 130223-73; stage 1624)
         mine.sort(Comparator.comparingDouble(i -> i.distanceToSqr(g)));
         for (var i : mine.subList(0, Math.min(8, mine.size()))) { g.tasks.add(new Task.GoTo(i.blockPosition(), 1.0)); g.tasks.add(new Task.Pickup(40)); }
         ClaudeMod.LOGGER.info("[Claude life] his own stuff lying at {}: picking it up ({} piles)", mine.get(0).blockPosition().toShortString(), mine.size());
@@ -4336,7 +4337,7 @@ public final class ClaudeLife {
                 if (drops.isEmpty()) return "done: nothing of yours left on the ground" + (death.isPresent() ? " where you died" : "") + ": it despawned or someone took it, none of it came back to my pack"; // ponytail: live 15:06 the planner read the bare line as "my 40 stacks are already back in my pack"
                 // the run there priced (recovery.trip; was "nothing iron or better and over 12 off: abandoned"): what lies there, as the time to get it again, against the walk there and back and the hits on it (a stone-age pile 40 blocks down a cave once had him circling the cave mouth for ten minutes, then dead in it)
                 if (g.blockPosition().distSqr(spot) > 12 * 12) { // (one in reach is a pickup, not a run)
-                    double worthS = dropsWorth(drops) * com.claudemod.entity.life.Weights.w("recovery.trip_s_per_point", 3), tripS = com.claudemod.entity.life.DeathLog.tripS(g, dimHere, spot);
+                    double worthS = carryWorth(g, drops) * com.claudemod.entity.life.Weights.w("recovery.trip_s_per_point", 3), tripS = com.claudemod.entity.life.DeathLog.tripS(g, dimHere, spot); // (what he can carry of it: a full pack walked 173 blocks to a pile and refused most of it, D2D review 130223-73 11-12; stage 1624)
                     var pick = com.claudemod.entity.life.Decide.choose(g, "recovery.trip", drops.size() + " stack(s) of his at " + spot.toShortString() + ", " + (int) Math.sqrt(g.blockPosition().distSqr(spot)) + " off", true, java.util.List.of(
                         com.claudemod.entity.life.Decide.Option.of("go for them", tripS, "the walk there and back, the hits on it (" + com.claudemod.entity.life.DeathLog.threatNote(g, dimHere, spot) + ")"), com.claudemod.entity.life.Decide.Option.of("leave them", worthS, "the time to get them again")));
                     if (pick.name().equals("leave them")) {
@@ -7365,6 +7366,21 @@ public final class ClaudeLife {
         return w;
     }
     /** One of an item, in dropsWorth's points. */
+    /**
+     * A pile's worth as he can carry it: stacks that merge onto his own, then the best of the rest into his free slots past the 2 he keeps for a craft,
+     * then any that beats the least of what he carries, for the difference (that stack left or stashed for it). Points, as dropsWorth.
+     */
+    public static int carryWorth(ClaudeEntity g, java.util.List<net.minecraft.world.entity.item.ItemEntity> drops) {
+        var inv = g.inventory.items; int free = 0; java.util.List<Integer> his = new java.util.ArrayList<>();
+        for (int i = 0; i < inv.getContainerSize(); i++) { var s0 = inv.getItem(i); if (s0.isEmpty()) free++; else if (!neededByPlan(g, s0.getItem())) his.add(worthEach(s0) * (s0.getMaxStackSize() == 1 ? 1 : s0.getCount())); }
+        java.util.Collections.sort(his); int room = Math.max(0, free - 2), w = 0;
+        var ds = new java.util.ArrayList<ItemStack>(); for (var d : drops) ds.add(d.getItem());
+        ds.sort(java.util.Comparator.comparingInt((ItemStack s0) -> -worthEach(s0) * (s0.getMaxStackSize() == 1 ? 1 : s0.getCount())));
+        for (var s0 : ds) { int v = worthEach(s0) * (s0.getMaxStackSize() == 1 ? 1 : s0.getCount());
+            boolean merges = false; for (int i = 0; i < inv.getContainerSize() && !merges; i++) { var o = inv.getItem(i); merges = !o.isEmpty() && ItemStack.isSameItemSameComponents(o, s0) && o.getCount() + s0.getCount() <= o.getMaxStackSize(); }
+            if (merges) w += v; else if (room > 0) { w += v; room--; } else if (!his.isEmpty() && v > his.get(0)) { w += v - his.remove(0); } }
+        return w;
+    }
     public static int worthEach(ItemStack s) {
         String id = BuiltInRegistries.ITEM.getKey(s.getItem()).getPath();
         int each = id.contains("diamond") ? (s.getItem() instanceof net.minecraft.world.item.ArmorItem || s.getItem() instanceof net.minecraft.world.item.TieredItem ? 120 : 40)

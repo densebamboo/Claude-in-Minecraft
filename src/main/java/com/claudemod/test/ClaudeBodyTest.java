@@ -11094,6 +11094,7 @@ public final class ClaudeBodyTest {
             case 1621: return st1621(stage, t, c, h, level, mock);
             case 1622: return st1622(stage, t, c, h, level, mock);
             case 1623: return st1623(stage, t, c, h, level, mock);
+            case 1624: return st1624(stage, t, c, h, level, mock);
             case 1607: return st1607(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
@@ -24486,6 +24487,32 @@ public final class ClaudeBodyTest {
             check(r != null, "a Nether trip next, spare gear on him and his storage 2 off: no stash before the trip (" + on + ")");
             check(boots == 1 && helms == 1 && swords == 1 && picks == 2 && axes == 1 && buckets == 1 && bows == 1 && shield == 1, "at his storage: the spares not banked, one of each kept (" + on + ")");
             pass(stage, t, "stashed before the trip, one of each kept: " + on);
+        }
+        return true;
+    }
+    /** Stage 1624 (D2D review 130223-73, live 13:0x 11-12: a 173-block walk to his pile at -21,35,42 with a full pack, most of it refused for room when he got there, the pile despawned; the trip was priced on all of the pile, not on what he could carry). A full pack of iron ingots, his pile of stone swords 13 off: the pile is worth what he'd carry, nothing, so he leaves it. */
+    private static boolean s1624Walk; private static String s1624Said;
+    private static boolean st1624(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos pile = h.absolutePos(new BlockPos(14, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(64))) it.discard(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); com.claudemod.entity.life.Perception.reset(c); c.failCount.remove("recover_drops"); }
+        if (t[0] == 5) {
+            flatBox(h); level.setDayTime(level.getDayTime() / 24000 * 24000 + 1000);
+            var inv = c.getInventory(); inv.clearContent(); inv.selected = 0; inv.items.set(0, new ItemStack(Items.IRON_PICKAXE)); for (int i = 1; i < inv.items.size(); i++) inv.items.set(i, new ItemStack(Items.IRON_INGOT, 64)); // (a full pack, every stack worth more than the pile)
+            c.teleportTo(pile.getX() + 0.5, pile.getY(), pile.getZ() + 0.5);
+            for (int k = 0; k < 4; k++) { var it = new net.minecraft.world.entity.item.ItemEntity(level, pile.getX() + 0.5, pile.getY() + 0.1, pile.getZ() + 0.5, new ItemStack(Items.STONE_SWORD), 0, 0, 0); it.setNeverPickUp(); level.addFreshEntity(it); }
+            com.claudemod.director.ClaudeLife.markOwnDrops(c);
+            BlockPos from = h.absolutePos(new BlockPos(1, 2, 8)); c.teleportTo(from.getX() + 0.5, from.getY(), from.getZ() + 0.5);
+            c.setLastDeathLocation(java.util.Optional.of(net.minecraft.core.GlobalPos.of(level.dimension(), pile)));
+            c.tasks.clear(); c.dropCurrent = true; c.skillQueue.clear(); c.lastStep = null; s1624Walk = false; s1624Said = null; // (his death log finds the pile and asks, as live)
+        }
+        if (t[0] > 5 && t[0] < 20 * 6) { if (c.tasks.stream().anyMatch(k -> k instanceof Task.GoTo gt && gt.pos().distSqr(pile) <= 6 * 6) || c.currentTask instanceof Task.GoTo g0 && g0.pos().distSqr(pile) <= 6 * 6 || c.blockPosition().distSqr(pile) <= 4 * 4) s1624Walk = true; if (c.lastStep != null && c.lastStep.skill().equals("recover_drops")) s1624Said = String.valueOf(c.lastStep); }
+        if (t[0] == 20 * 6) {
+            String r = s1624Said; boolean walk = s1624Walk;
+            String q = String.valueOf(c.tasks.stream().limit(4).toList());
+            for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(64))) it.discard();
+            c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true; c.getInventory().clearContent(); c.setLastDeathLocation(java.util.Optional.empty());
+            check(!walk, "a full pack of iron, a pile of stone swords 13 off: off for the pile he has no room for (\"" + r + "\"; " + q + ")");
+            pass(stage, t, "the pile left: \"" + r + "\"");
         }
         return true;
     }

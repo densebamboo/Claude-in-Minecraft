@@ -8047,7 +8047,7 @@ public final class ClaudeBodyTest {
         if (stage[0] >= 474 && stage[0] <= 479) return watchdogStages(stage, t, c, h, level, mock);
         if (stage[0] >= 491 && stage[0] <= 492) return mineRecordStages(stage, t, c, h, level, mock);
         if (stage[0] == 493) return bridgeStages(stage, t, c, h, level, mock);
-        if ((stage[0] >= 494 && stage[0] <= 1099 || stage[0] >= 1130 && stage[0] <= 1599) && stages494(stage, t, c, h, level, mock)) return true; // (1150-1199: Big Picture's next range)
+        if ((stage[0] >= 494 && stage[0] <= 1099 || stage[0] >= 1130 && stage[0] <= 1649) && stages494(stage, t, c, h, level, mock)) return true; // (1150-1199: Big Picture's next range)
         if (stage[0] >= 1100 && stage[0] < 1100 + BENCH.length - 16) return bench(stage, t, c, h, level); // (the combat benchmark, part 2: every enemy type, mixed groups)
         if (stage[0] >= 279 && stage[0] <= 285) {
             if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.Whereabouts.reset(c); com.claudemod.entity.life.Perception.reset(c); com.claudemod.entity.life.ExactSpot.reset(c); com.claudemod.director.Primitives.reset(c);
@@ -11057,6 +11057,7 @@ public final class ClaudeBodyTest {
             case 1547: return st1547(stage, t, c, h, level, mock);
             case 1548: return st1548(stage, t, c, h, level, mock);
             case 1549: return st1549(stage, t, c, h, level, mock);
+            case 1600: return st1600(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -23362,6 +23363,29 @@ public final class ClaudeBodyTest {
                 check(opens == 0, "glow ink in a water pocket behind one stone: his own water plugs dug " + opens + " times in 15 s for it");
                 pass(stage, t, "his water plugs left standing, the glow ink left");
             }
+        }
+        return true;
+    }
+    /** Stage 1600 (D2D review 051604-9, live 05:10:52 11-12 at -139,16,-495: the night respawn's shelter step; Decide.nightWalk "0 hostile(s) known ... carry on out here" (underground, the night no danger), the same second the shelter step walled him in as "a crowd on him underground ... 0 within 14", then his walk out dug his own wall, ~4 min at his mine's mouth). Night, underground, no mob anywhere: the shelter step takes the decision, no wall. */
+    private static int s1600T; private static BlockPos s1600O;
+    private static boolean st1600(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 2, 8));
+        if (t[0] == 1) { scenarioReset(c); c.prefs.put("stay_close", "no"); s1600T = -1; s1600O = o; }
+        if (t[0] > 1 && t[0] % 5 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) m.discard();
+        if (t[0] == 10) {
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = -4; y <= 4; y++) level.setBlock(o.offset(x, y, z), Math.abs(x) <= 3 && Math.abs(z) <= 1 && y >= 0 && y <= 1 ? Blocks.AIR.defaultBlockState() : Blocks.STONE.defaultBlockState(), 2); // (a closed tunnel under rock)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 8));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(13218);
+        }
+        if (t[0] > 10) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 40) { c.tasks.clear(); c.skillQueue.clear(); c.lastSkillLine = ""; c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("shelter", "", 1)); s1600T = t[0]; }
+        if (s1600T > 0 && t[0] - s1600T >= 100) {
+            int cob = c.getInventory().countItem(Items.COBBLESTONE); String line = String.valueOf(c.lastSkillLine) + " at " + c.blockPosition().toShortString() + " (room " + s1600O.toShortString() + ", top " + level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, s1600O.getX(), s1600O.getZ()) + ")";
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.prefs.remove("stay_close"); level.setDayTime(1000);
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = -4; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            flatBox(h); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5);
+            check(cob == 64, "night underground with no mob: the decision was 'carry on' and the shelter step walled him in anyway (" + (64 - cob) + " cobble put), said: " + line);
+            pass(stage, t, "night underground, no mob: no wall, said: " + line);
         }
         return true;
     }

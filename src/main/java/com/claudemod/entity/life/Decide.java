@@ -219,6 +219,8 @@ public final class Decide {
         long tod = level.getDayTime() % 24000; java.util.List<String> said = new java.util.ArrayList<>();
         Object[] pick = nightSpot(g, level, tod, said, true); String best = (String) pick[0]; BlockPos to = (BlockPos) pick[1];
         ClaudeMod.LOGGER.info("[Claude decide] night cover (tick {}, {} hostile(s) known, armor {}, health {}): {}: {} (Decide.nightWalk)", tod, hostilesKnown(g), g.getArmorValue(), (int) g.getHealth(), String.join("; ", said), best);
+        if (to == null && best.equals("carry on out here") && Perception.known(g, net.minecraft.world.entity.monster.Monster.class, g.getBoundingBox().inflate(8), m -> m.isAlive() && m.getTarget() == g).isEmpty())
+            return "done: the night's no danger to me as I am: no cover, on with the work"; // (the pick was to carry on: the shelter step walled him in anyway against nothing, D2D review 051604-9, live 05:10:52 11-12; stage 1600)
         if (to == null) return null;
         g.attempts.counters.put("nightSpot:" + to.asLong(), g.tickCount);
         int off = (int) Math.sqrt(g.blockPosition().distSqr(to));

@@ -920,10 +920,10 @@ public class WorkGoal extends Goal {
 
     /** A walk farther than his walker plans, or between the surface and his mine: the whole way planned into legs (Route) and put in its place. */
     private boolean routeOut(Task.GoTo t) {
-        if (hopsTried.containsKey(t.pos())) return false; // a hop or a way out of his own: the walker's (a route from underground to his staircase's top went back down it, stage 903)
+        if (hopsTried.containsKey(t.pos())) { if (Math.sqrt(t.pos().distSqr(g.blockPosition())) > 28) com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] the walk to {} ({} off): no route, his own hop/way out there {} s ago, the walker's (WorkGoal.routeOut)", t.pos().toShortString(), (int) Math.sqrt(t.pos().distSqr(g.blockPosition())), (g.tickCount - hopsTried.get(t.pos())) / 20); return false; } // a hop or a way out of his own: the walker's (a route from underground to his staircase's top went back down it, stage 903)
         if (Math.sqrt(BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()).distSqr(t.pos())) <= t.within()) return false; // there already: the walk ends, no route (live 21:19: "to -16, 68, -20 (0 blocks off): 3 legs", planned 12 times standing on it)
         java.util.List<Task> legs; com.claudemod.entity.nav.NetherRoute.capped = true; try { legs = com.claudemod.entity.nav.Route.expand(g, level(), t.pos(), t.within()); } finally { com.claudemod.entity.nav.NetherRoute.capped = false; } // (a time cap on his walks' Nether searches, stage 1430)
-        if (legs == null || com.claudemod.entity.nav.Route.walkerTakes(legs)) return false;
+        if (legs == null || com.claudemod.entity.nav.Route.walkerTakes(legs)) { if (legs == null && Math.sqrt(t.pos().distSqr(g.blockPosition())) > 28) com.claudemod.ClaudeMod.LOGGER.info("[Claude walk] the walk to {} ({} off): Route gave no legs, the walker's alone (WorkGoal.routeOut)", t.pos().toShortString(), (int) Math.sqrt(t.pos().distSqr(g.blockPosition()))); return false; } // (live 06:04 11-12 a cod trip 46 off and 45 up from his mine went to the walker's straight cuts into the rock with no route line: which return, logged first)
         if (legs.isEmpty()) { g.getNavigation().stop(); exitWhy = "behind him on the route he's on: dropped (WorkGoal.routeOut)"; return true; } // (behind him on a route he's on: Route said so, dropped)
         for (int i = legs.size() - 1; i >= 0; i--) g.tasks.addFirst(legs.get(i));
         g.getNavigation().stop();

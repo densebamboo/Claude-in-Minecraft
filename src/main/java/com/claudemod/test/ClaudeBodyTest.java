@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1576: return st1576(stage, t, c, h, level, mock);
             case 1575: return st1575(stage, t, c, h, level, mock);
             case 1574: return st1574(stage, t, c, h, level, mock);
             case 1573: return st1573(stage, t, c, h, level, mock);
@@ -20776,6 +20777,35 @@ public final class ClaudeBodyTest {
             check(!door, "his chest 24 down, 30 across, his door 120 back along the grass: in by his door and down 150 of rows (" + said + ")");
             check(rd < byDoor, "his chest " + straight + " off priced " + rd + ", the door's way (" + byDoor + " at its shortest)");
             pass(stage, t, "his own way there (" + said + "), priced " + rd + " for " + straight + " straight");
+        }
+        return true;
+    }
+    /** Stage 1576 (Loops via D2D reviews 72/74/141/201422-44, live 20:13:33-42 11-11 at -38,16,-469: his branch broke into a water pocket at -37,16,-469; the patch of the source at -37,16,-470 had a face (the floor under it) seen from his tunnel's end, he stood there, the pocket's flow out of the hole pushed him back to -39 then -40 while the sneak nudge leaned in, "moved since the last step: false", NO_FACE, given up). His tunnel's end, the hole he just dug into a water pocket, its water running out past him, him a block back in it (where the flow had him live): the source by the hole patched within 10 s. */
+    private static int s1576T; private static BlockPos s1576P;
+    private static boolean st1576(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(17400, 70, 11800);
+        if (t[0] == 1) { scenarioReset(c); s1576T = -1; c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); c.prefs.put("torches_while_digging", "no"); }
+        if (t[0] % 10 == 0 || t[0] < 10) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 2, o);
+        if (t[0] == 10) {
+            for (int x = -8; x <= 6; x++) for (int z = -6; z <= 3; z++) for (int y = -2; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2);
+            for (int x = -7; x <= 0; x++) for (int y = 0; y <= 1; y++) level.setBlock(o.offset(x, y, 0), Blocks.AIR.defaultBlockState(), 2); // his tunnel, east to its end at o
+            for (int x = 1; x <= 3; x++) for (int z = -3; z <= -1; z++) { level.setBlock(o.offset(x, 0, z), Blocks.WATER.defaultBlockState(), 3); level.setBlock(o.offset(x, 1, z), Blocks.AIR.defaultBlockState(), 2); } // the pocket
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.fallDistance = 0;
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear();
+        }
+        if (t[0] == 20) { level.setBlock(o.offset(1, 0, 0), Blocks.AIR.defaultBlockState(), 3); } // (the hole he just dug: the pocket runs out through it, down his tunnel)
+        if (t[0] == 60) { s1576P = o.offset(1, 0, -1).immutable(); c.teleportTo(level, o.getX() - 0.7, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.tasks.add(new Task.Place(s1576P, Items.COBBLESTONE)); s1576T = t[0]; }
+        if (s1576T > 0) {
+            boolean done = !level.getBlockState(s1576P).getCollisionShape(level, s1576P).isEmpty();
+            if (done || t[0] - s1576T > 20 * 10) {
+                int s = t[0] - s1576T; String q = c.currentTask + " " + c.tasks; BlockPos at = c.blockPosition(); boolean flowed = !level.getFluidState(o).isEmpty();
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent();
+                for (int x = -8; x <= 6; x++) for (int z = -6; z <= 3; z++) for (int y = -2; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(flowed, "setup: the pocket's water never ran into his tunnel");
+                check(done, "the water source by the hole into his tunnel: not patched in 10 s (at " + at.toShortString() + ", " + (q.length() > 120 ? q.substring(0, 120) : q) + ")");
+                pass(stage, t, "the source patched in " + s / 20.0 + " s");
+            }
         }
         return true;
     }

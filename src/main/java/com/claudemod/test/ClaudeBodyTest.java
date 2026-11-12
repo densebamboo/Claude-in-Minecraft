@@ -11001,6 +11001,7 @@ public final class ClaudeBodyTest {
             case 1524: return st1524(stage, t, c, h, level, mock);
             case 1525: return st1525(stage, t, c, h, level, mock);
             case 1526: return st1526(stage, t, c, h, level, mock);
+            case 1527: return st1527(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -21692,6 +21693,29 @@ public final class ClaudeBodyTest {
         return true;
     }
     private static BlockPos st1526Slot;
+    /** Stage 1527 (D2D 173810-56/57, live 17:35:05-17:36 11-11 at -41,4..5,-474): climbing out of a water hole up his pillar, his next leg -40,7,-474 one across and two up from the pillar's top block: "setting off for -39,16,-447 (28 off) with 1 of his temporary blocks standing here: back up first", the block under the climb broken, he fell, pillared again, for a minute. A leg climbing over a block of his keeps it, not only one within 2 of it. */
+    private static boolean st1527(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.blueprint = null; }
+        if (t[0] > 1 && t[0] % 5 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) m.discard();
+        BlockPos step = h.absolutePos(new BlockPos(5, 2, 5)), pil = step.east();
+        if (t[0] == 10) {
+            flatBox(h); level.setDayTime(3000);
+            level.setBlock(step, Blocks.COBBLESTONE.defaultBlockState(), 3); com.claudemod.entity.life.TempLedger.placed(c, level, step, Blocks.COBBLESTONE.defaultBlockState(), Blocks.AIR.defaultBlockState());
+            level.setBlock(pil, Blocks.COBBLESTONE.defaultBlockState(), 3); com.claudemod.entity.life.TempLedger.placed(c, level, pil, Blocks.COBBLESTONE.defaultBlockState(), Blocks.AIR.defaultBlockState());
+            c.teleportTo(step.getX() + 0.5, step.getY() + 1, step.getZ() + 0.5); c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 20)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.setHealth(20);
+        }
+        if (t[0] == 30) {
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            c.tasks.add(new Task.GoTo(step.above(2), 0.9)); c.tasks.add(new Task.GoTo(step.offset(28, 2, 0), 0.9)); // (the climb's next leg one across and two up from the pillar's block, then the walk on 28 off)
+            boolean took; try { var m = com.claudemod.entity.life.TempLedger.class.getDeclaredMethod("leaving", ClaudeEntity.class, ServerLevel.class); m.setAccessible(true); m.invoke(null, c, level); } catch (ReflectiveOperationException e) { throw new RuntimeException(e); }
+            took = c.tasks.stream().anyMatch(q -> q instanceof Task.Break br && br.pos().equals(pil)); String q = String.valueOf(c.tasks);
+            c.tasks.clear(); c.dropCurrent = true; level.setBlock(step, Blocks.AIR.defaultBlockState(), 2); level.setBlock(pil, Blocks.AIR.defaultBlockState(), 2); c.getInventory().clearContent();
+            check(c.onGround() || true, "");
+            check(!took, "his pillar's block under the climb's next leg taken back up as he sets off: " + q);
+            pass(stage, t, "the climb's block kept: " + q);
+        }
+        return true;
+    }
     private static int s1511At = -1;
     private static boolean st1511(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
         BlockPos o = h.absolutePos(new BlockPos(0, 0, 0)), me = o.offset(3, 2, 8), to = o.offset(40, 2, 8), log = o.offset(4, 2, 8);

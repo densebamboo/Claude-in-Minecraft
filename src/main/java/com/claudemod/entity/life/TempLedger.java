@@ -428,7 +428,7 @@ public final class TempLedger {
                 && handy(g, level, e, me, eye) // (in reach AND in sight: 02:2x a block 2 below behind the floor he stood on was queued, the walker refused every stand spot, a 3x CONFLICT)
                 && !(e.triedAt >= 0 && g.tickCount - e.triedAt < 40) && !g.attempts.within(Attempts.Kind.BREAK, e.pos, g.tickCount, 20 * 60) && !Watchdog.off(g, new Task.Break(e.pos)) /* its break failed (a structure block in the way, live 01:30): not re-queued every 2 s */ && !(!com.claudemod.director.ClaudeLife.dayHere(level) && level.canSeeSky(e.pos) && !"light".equals(e.why))
                 && doneWith(g, level, e, false) && takeable(g, level, e)
-                && !e.pos.equals(me.below()) && !e.pos.equals(me) && legs.stream().noneMatch(l -> l.distSqr(e.pos) <= 2 * 2); // still on the way: the route's legs climb over it (01:40 he pillared up for the route, took the pillar down "leaving", fell, pillared again: a loop)
+                && !e.pos.equals(me.below()) && !e.pos.equals(me) && legs.stream().noneMatch(l -> l.distSqr(e.pos) <= 2 * 2 || Math.abs(l.getX() - e.pos.getX()) <= 1 && Math.abs(l.getZ() - e.pos.getZ()) <= 1 && l.getY() > e.pos.getY() && l.getY() - e.pos.getY() <= 3); // (a leg a cell across and up to 3 above it climbs by it: 2.2 off his next leg, his pillar's block went, he fell back, a minute of it, D2D 173810-56) // still on the way: the route's legs climb over it (01:40 he pillared up for the route, took the pillar down "leaving", fell, pillared again: a loop)
         Entry first = null;
         for (Entry e : book(g).values()) if (due.test(e) && (first == null || e.pos.distSqr(me) < first.pos.distSqr(me))) first = e;
         if (first == null) return false;

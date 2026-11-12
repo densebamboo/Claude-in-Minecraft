@@ -384,3 +384,10 @@ Also open from today:
   - Food order: 17:2x, walked 87 home from the lake, then about 84 back toward it for a cow, with cows in view near the house (3 WASTED_WALKs). 16:3x, after a respawn at food 20, salmon x16 came before any tools.
   - Swim vs land: 17:1x, 50+ s in water on a walk to the mine (air warnings, stuck at the lake edge); 17:00, 70 s in water over 39 blocks to set furnaces.
 - **Red on main (11-05 17:40, also without the hoglin fix)**: 32 (water pit: still at y 3), 234 (the block behind the tower learned unseen), 235/237 (house builds stall on a cow search), 236 (after the new world: [tower]), 554 (unreachable enderman never let be).
+
+- **Gate flakes (Loops, 2026-11-12; logged, not fixed, dragon-only focus)**:
+  - Stage 1418 (his block over his ceiling, cuts put back within 5 s) fails about 1 run in 3-10 on main. It's independent of f55978ee and 63f36180; a passing run is ~6.7 s, and either slow link below tips the 5 s bound.
+    - (a) The pocket-drop wait. The dug block's drop rests in the pocket above his ceiling, and doPlace holds the patch ("waits for Cobblestone ...: the whole pocket picked up before closing"). doPickup gives up on it at once ("no way to it"), and only then does the patch go in.
+    - (b) The perched step-out spin. He stands on top of the wall stub at y 81, half in the cut cell, his head in the patch cell. stepOutSpot gives a cell one down and diagonal. The walk's node is under him, so he spins ("273 deg in 13 ticks"), then mtLoop drops the walk and "GoTo ... ended at once" from a block above the target.
+    - Pick (b) up if a live SPIN incident shows it.
+  - Stage 1228 is an order flake: it fails after 1065, 1392, 1148 and passes alone (D2D, 11-12).

@@ -84,7 +84,8 @@ public final class Attempts {
         Why w = why.get(k).get(p);
         if (w == null || g == null || !(g.level() instanceof net.minecraft.server.level.ServerLevel lv)) return null;
         String ch = null;
-        if (worldSig(p) != w.world()) ch = "the blocks round it changed";
+        boolean stillWet = false; if (w.reason() == Reason.BLOCKED_FLUID && w.detail().startsWith("under water past one breath")) for (net.minecraft.core.Direction d : net.minecraft.core.Direction.values()) if (lv.getFluidState(p.relative(d)).is(net.minecraft.tags.FluidTags.WATER)) { stillWet = true; break; } // (past one breath: a plug of his beside it changes the blocks, not the swim; only the water gone from it does. D2D death 10:39:46 11-12, his own plug lifted it and he dove again; stage 1618)
+        if (worldSig(p) != w.world() && !stillWet) ch = "the blocks round it changed";
         else if (kitSig() != w.kit()) ch = "his tools or blocks changed";
         else if (!w.stood().isEmpty() && (g.onGround() || g.isInWater()) && w.stood().stream().noneMatch(s0 -> Math.abs(s0.getY() - g.blockPosition().getY()) <= (far(w.reason()) ? Weights.w("attempts.area_dy", 1) : 0) && s0.closerThan(g.blockPosition(), far(w.reason()) ? Weights.w("attempts.area_blocks", 8) : 2.5))) ch = "he stands somewhere new (" + g.blockPosition().toShortString() + ")"; // (a whole-area cause: a step down off a block is the same area, 2+ levels is new: World 17 00:57, NO_PATH 'back on' a block lower a second later, the explore re-picked it every 20 s) // (another level is somewhere new: 2 up his own pillar read as "the same spot" and the made way's walks were skipped round and round for 8 min, 11:03 11-05, stage 722; every level it failed from stays on record, so one go per level)
         else if (w.mob() != null) { var m = lv.getEntity(w.mob()); boolean off = m == null || !m.isAlive();

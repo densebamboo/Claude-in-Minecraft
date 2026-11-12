@@ -11078,6 +11078,7 @@ public final class ClaudeBodyTest {
             case 1602: return st1602(stage, t, c, h, level, mock);
             case 1604: return st1604(stage, t, c, h, level, mock);
             case 1608: return st1608(stage, t, c, h, level, mock);
+            case 1618: return st1618(stage, t, c, h, level, mock);
             case 1607: return st1607(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
@@ -23999,6 +24000,31 @@ public final class ClaudeBodyTest {
             flatBox(h); c.teleportTo(o.getX() + 0.5, o.getY() - 10, o.getZ() + 0.5);
             check(again == null, "the jump " + before + " failed (the walk to its lip ended off it) and the next plan takes the same jump again");
             pass(stage, t, "the failed jump " + before + " not planned again: " + (plan == null ? "no way" : plan.acts().toString()));
+        }
+        return true;
+    }
+    /** Stage 1618 (D2D death 10:39:46 11-12, drowned in the flooded pocket at -42..-45,11..13,-497..-499: the copper at -44,11,-499 marked past one breath at 10:37:29 (WorkGoal.reflexes), then "REACH back on: the blocks round it changed" at 10:38:56, the change his own plug beside it ("hit water at -43,13,-499: plugging 1 source block"), and he dove again till he drowned). The pool of 1602, the mark as the breath rule books it, a block put in the water beside the ore with the ore still wet: the mark holds. */
+    private static BlockPos s1618O; private static int s1618Marked;
+    private static boolean st1618(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 16, 8));
+        if (t[0] == 1) { scenarioReset(c); c.prefs.put("stay_close", "no"); s1618Marked = 0; }
+        if (t[0] > 1 && t[0] % 5 == 0) for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) m.discard();
+        if (t[0] == 10) {
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = -16; y <= 4; y++) { int r = Math.max(Math.abs(x), Math.abs(z)); level.setBlock(o.offset(x, y, z), y >= 0 && y <= 3 ? Blocks.AIR.defaultBlockState() : y < 0 && r <= 1 && y >= -14 ? Blocks.WATER.defaultBlockState() : y < 0 ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.STONE.defaultBlockState(), 2); }
+            s1618O = o.offset(2, -7, 0).immutable(); level.setBlock(s1618O, Blocks.COPPER_ORE.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 12));
+            c.teleportTo(o.getX() + 3.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.setAirSupply(c.getMaxAirSupply()); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.attempts.clear(); c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(6000);
+        }
+        if (t[0] > 10) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 20) { c.attempts.fail(com.claudemod.entity.life.Attempts.Kind.REACH, s1618O, c.tickCount, null, com.claudemod.entity.life.Attempts.Reason.BLOCKED_FLUID, "under water past one breath (went under on air 299)"); s1618Marked = t[0]; } // (as WorkGoal.reflexes books it)
+        if (t[0] == 24) level.setBlock(o.offset(1, -6, 1), Blocks.COBBLESTONE.defaultBlockState(), 2); // (a plug of his in the pool beside it: the ore still touches water)
+        if (s1618Marked > 0 && t[0] - s1618Marked > 30) {
+            var w = c.attempts.why(com.claudemod.entity.life.Attempts.Kind.REACH, s1618O); boolean holds = w != null && w.detail().startsWith("under water past one breath");
+            c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.prefs.remove("stay_close"); c.attempts.clear(); s1618Marked = 0;
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = -16; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            flatBox(h); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5);
+            check(holds, "the copper marked past one breath, a block put in the water by it (the ore still wet): the mark lifted");
+            pass(stage, t, "past one breath: the mark held through a plug beside it");
         }
         return true;
     }

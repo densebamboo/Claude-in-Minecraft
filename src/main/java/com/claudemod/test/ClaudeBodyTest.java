@@ -11019,6 +11019,7 @@ public final class ClaudeBodyTest {
             case 1531: return st1531(stage, t, c, h, level, mock);
             case 1532: return st1532(stage, t, c, h, level, mock);
             case 1533: return st1533(stage, t, c, h, level, mock);
+            case 1535: return st1535(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -22198,6 +22199,39 @@ public final class ClaudeBodyTest {
             inv.clearContent(); c.attempts.clear();
             check(ch == null, "the same tools in other slots read as a change: " + ch);
             pass(stage, t, "the NO_FACE holds with the pick swapped into his hand");
+        }
+        return true;
+    }
+    /** Stage 1535 (D2D hourly 22:3x, live 21:24-21:33 11-11 at -125,17,-457): c37686a4 kept a torch whose wall's patch was anywhere in his queue; the patch from an earlier sweep sat further back, the new torch went in front, "no face on the wall (air), skipped" 4 times in 9 s. A torch goes in only behind its wall's patch. */
+    private static BlockPos st1535Slot;
+    private static boolean st1535(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(19600, 80, 19700);
+        if (t[0] == 1 || t[0] % 10 == 0) for (int k = -16; k <= 32; k += 16) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o.offset(k, 0, 0)), 3, o.offset(k, 0, 0));
+        if (t[0] == 1) { scenarioReset(c); c.commandActive = false; }
+        if (t[0] == 10) {
+            for (int x = -4; x <= 28; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.DEEPSLATE.defaultBlockState(), 2);
+            var E = net.minecraft.core.Direction.EAST;
+            var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 20, null)); b.invalidate();
+            for (var r : b.rows()) for (BlockPos f : r.feet()) for (int yy = 0; yy < r.height(); yy++) level.setBlock(f.above(yy), Blocks.AIR.defaultBlockState(), 2);
+            BlockPos me = b.rows().get(10).first(); BlockPos slot = null;
+            for (BlockPos sl : b.torchSlots().values()) if (b.slotWall(sl) != null && (slot == null || sl.distSqr(me) < slot.distSqr(me))) slot = sl;
+            check(slot != null, "setup: no torch slot in the test mine");
+            level.setBlock(slot, Blocks.AIR.defaultBlockState(), 2); level.setBlock(slot.relative(b.slotWall(slot)), Blocks.AIR.defaultBlockState(), 2); st1535Slot = slot.immutable();
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.mineFace = b.rows().get(19).first(); c.mineIsTunnel = true; level.setDayTime(1000);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.TORCH, 47)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            com.claudemod.entity.life.Watchdog.teleported(c); c.teleportTo(level, me.getX() + 0.5, me.getY(), me.getZ() + 0.5, 0f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.prefs.put("stay_close", "no"); mock[0].teleportTo(level, me.getX() + 0.5, me.getY() + 30, me.getZ() + 0.5, 0f, 0f);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.attempts.clear(); c.dropCurrent = true; c.lastStep = null; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 20) {
+            c.tasks.clear(); c.tasks.add(new Task.Wait(200, false)); c.tasks.add(new Task.Place(st1535Slot.relative(c.blueprint.slotWall(st1535Slot)), Items.COBBLESTONE)); // (the patch from an earlier sweep, queued behind other work)
+            try { var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("bpIntegrity", ClaudeEntity.class, ServerLevel.class); m.setAccessible(true); m.invoke(null, c, level); } catch (ReflectiveOperationException ex) { throw new RuntimeException(ex); }
+            var tl = new java.util.ArrayList<>(c.tasks); int ti = -1, pi = -1; for (int i = 0; i < tl.size(); i++) { if (ti < 0 && tl.get(i) instanceof Task.WallTorch wt && wt.pos().equals(st1535Slot)) ti = i; if (pi < 0 && tl.get(i) instanceof Task.Place pl && pl.pos().equals(st1535Slot.relative(c.blueprint.slotWall(st1535Slot)))) pi = i; } boolean queued = ti >= 0 && (pi < 0 || ti < pi);
+            String q = String.valueOf(c.tasks.stream().filter(x -> x instanceof Task.WallTorch).toList());
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.mineFace = null; c.prefs.remove("stay_close");
+            for (int x = -4; x <= 28; x++) for (int z = -6; z <= 6; z++) for (int y = -2; y <= 5; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(!queued, "a torch slot whose wall is air queued ahead of its wall's patch (queued from an earlier sweep): " + q);
+            nsHome(c, h, level); pass(stage, t, "the torch after its wall's patch: " + q);
         }
         return true;
     }

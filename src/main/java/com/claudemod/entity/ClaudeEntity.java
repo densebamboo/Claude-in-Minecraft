@@ -281,7 +281,7 @@ public class ClaudeEntity extends ServerPlayer {
     private boolean brainCrashed = false;
     // holding left click on a block (real survival mining through the game's own block-breaking code)
     @Nullable private BlockPos digging;
-    private float digProgress;
+    private float digProgress; public float digProgressNow() { return digProgress; } // (the dug way to air: a dig rising is progress, Watchdog.airRoute)
 
     public ClaudeEntity(MinecraftServer server, ServerLevel level, GameProfile profile) {
         super(server, level, profile, ClientInformation.createDefault());

@@ -10551,6 +10551,9 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1656: return st1656(stage, t, c, h, level, mock);
+            case 1655: return st1655(stage, t, c, h, level, mock);
+            case 1654: return st1654(stage, t, c, h, level, mock);
             case 1653: return st1653(stage, t, c, h, level, mock);
             case 1652: return st1652(stage, t, c, h, level, mock);
             case 1651: return st1651(stage, t, c, h, level, mock);
@@ -22064,6 +22067,91 @@ public final class ClaudeBodyTest {
             clean.run();
             check(!tower, "a wither skeleton 6.7 off after him: a skytower started (shelter " + ok + ", " + q + ")");
             pass(stage, t, "no tower with it 6.7 off: " + why);
+        }
+        return true;
+    }
+    /** Stage 1654 (D2D near death 09:44-09:46 11-12): armor 0, 0 meals, raw salmon and a wooden pickaxe, no stone on him; "smelt cooked_salmon: his own furnace at -154, 40, -3 (31 off), not a new one here", 24 down a dark cave, unpriced; a creeper and 3 zombies there, 20 -> 1. His furnace 12 into a dark tunnel 26 off, stone under him: not the walk into the dark. */
+    private static boolean st1654(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.myStations.clear(); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(80))) m.discard(); }
+        if (t[0] > 8 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, c.chunkPosition(), 4, c.blockPosition());
+        if (t[0] == 10) {
+            BlockPos me = c.blockPosition();
+            for (int x = -6; x <= 30; x++) for (int z = -6; z <= 6; z++) { level.setBlock(me.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int x = 14; x <= 28; x++) for (int z = -2; z <= 2; z++) for (int y = 0; y <= 3; y++) { boolean inside = x <= 27 && z >= -1 && z <= 1 && y <= 2 && x >= 14; level.setBlock(me.offset(x, y, z), inside && !(x == 14 && false) ? Blocks.AIR.defaultBlockState() : Blocks.STONE.defaultBlockState(), 2); } // a stone tunnel, open at x 14, roofed
+            for (int z = -1; z <= 1; z++) for (int y = 0; y <= 2; y++) level.setBlock(me.offset(14, y, z), Blocks.AIR.defaultBlockState(), 2);
+            BlockPos f = me.offset(26, 0, 0); level.setBlock(f, Blocks.FURNACE.defaultBlockState(), 2); c.myStations.add(f.immutable());
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5);
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.SALMON, 14)); c.getInventory().add(new ItemStack(Items.WOODEN_PICKAXE)); c.getInventory().add(new ItemStack(Items.OAK_LOG, 12));
+            c.getFoodData().setFoodLevel(8); c.setHealth(20); level.setDayTime(6000);
+        }
+        if (t[0] == 20) {
+            BlockPos f = c.myStations.isEmpty() ? null : c.myStations.iterator().next(); int light = 0; if (f != null) for (net.minecraft.core.Direction d : net.minecraft.core.Direction.values()) if (level.getBlockState(f.relative(d)).isAir()) light = Math.max(light, level.getMaxLocalRawBrightness(f.relative(d)));
+            c.tasks.clear(); c.skillQueue.clear();
+            String r = com.claudemod.director.ClaudeLife.testSkill(c, mock[0], "smelt", "cooked_salmon", 14);
+            String q = c.tasks.stream().limit(3).toList() + " skills " + c.skillQueue;
+            c.tasks.clear(); c.skillQueue.clear(); c.getInventory().clearContent(); c.myStations.clear();
+            check(light < 8, "set up: the tunnel's furnace isn't dark (light " + light + ")");
+            check(r == null || !r.contains("over to my furnace"), "armor 0, no meals, his furnace 26 off in a dark tunnel: walked there (" + r + " " + q + ")");
+            pass(stage, t, "not into the dark for it: " + r + " " + q);
+        }
+        return true;
+    }
+    /** Stage 1655 (D2D death 10:39:46 11-12, drowned at -42,13,-498: his own plug at -42,14,-498 over his head, water over it; in a 1-high cell, swimming low, the dug way to air's breaks at -43,14,-498 and -43,15,-498 "not in sight ... cobblestone at -42,14,-498 is in the way", dropped after a tick each, his own build never broken; 20 -> 0 in ~10 s). Under water, low on air, his plug between his eye and the block his way to air digs: the plug comes out, then the block. */
+    private static BlockPos s1655F; private static int s1655T;
+    private static boolean st1655(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1655T = -1; c.tasks.clear(); c.skillQueue.clear(); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            BlockPos f = h.absolutePos(new BlockPos(4, 3, 4)); s1655F = f;
+            for (int x = -3; x <= 3; x++) for (int z = -3; z <= 3; z++) for (int y = -1; y <= 4; y++) level.setBlock(f.offset(x, y, z), Blocks.STONE.defaultBlockState(), 3);
+            level.setBlock(f, Blocks.WATER.defaultBlockState(), 3); level.setBlock(f.above(), Blocks.COBBLESTONE.defaultBlockState(), 3); level.setBlock(f.above(2), Blocks.WATER.defaultBlockState(), 3);
+            level.setBlock(f.offset(-1, 2, -1), Blocks.AIR.defaultBlockState(), 3); level.setBlock(f.offset(-1, 3, -1), Blocks.AIR.defaultBlockState(), 3); // the air his way goes to (as live, -43,15,-499 by his cell)
+            com.claudemod.entity.life.TempLedger.builtCells(c).put(f.above().immutable(), "WorkGoal.blockWaterInflow:1"); // his own plug
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            c.teleportTo(f.getX() + 0.5, f.getY(), f.getZ() + 0.5); c.setHealth(20); c.dropCurrent = true;
+        }
+        if (t[0] == 16) { c.setAirSupply(80); c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Break(s1655F.offset(-1, 1, 0))); s1655T = t[0]; }
+        if (s1655T > 0 && t[0] > s1655T) {
+            boolean stone = !c.isEyeInFluid(net.minecraft.tags.FluidTags.WATER) || c.getAirSupply() >= 200, plug = !level.getBlockState(s1655F.above()).is(Blocks.COBBLESTONE);
+            if (stone || t[0] - s1655T > 200) {
+                String q = c.currentTask + " " + c.tasks.stream().limit(3).toList() + " pose " + c.getPose() + " air " + c.getAirSupply();
+                com.claudemod.entity.life.TempLedger.builtCells(c).remove(s1655F.above());
+                for (int x = -3; x <= 3; x++) for (int z = -3; z <= 3; z++) for (int y = -1; y <= 4; y++) level.setBlock(s1655F.offset(x, y, z), Blocks.AIR.defaultBlockState(), 3);
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setAirSupply(c.getMaxAirSupply()); c.getInventory().clearContent();
+                c.teleportTo(s1655F.getX() + 0.5, s1655F.getY() - 1, s1655F.getZ() + 0.5); s1655T = -1;
+                check(stone, "under water at 80 air, his plug over his head, air a dig away: no breath in 10 s (plug out " + plug + "; " + q + ")");
+                pass(stage, t, "a breath " + (t[0] - s1655T) + " ticks in (" + (plug ? "his plug broken" : "his plug kept") + ")");
+            }
+        }
+        return true;
+    }
+    /** Stage 1656 (D2D death 10:39:46 11-12: the dug way to air under way, its break of -43,14,-498 "NO_PATH not in sight from any cell he can stand in ... cobblestone at -42,14,-498 is in the way", his own plug: a build he never breaks, so the dig dropped after a tick, then the gate's "nothing changed"). Swimming low under his plug, his dug way to air on, the block it digs seen only past the plug: the plug comes out first. */
+    private static BlockPos s1656F; private static int s1656T;
+    private static boolean st1656(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1656T = -1; c.tasks.clear(); c.skillQueue.clear(); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            BlockPos f = h.absolutePos(new BlockPos(4, 3, 4)); s1656F = f;
+            for (int x = -3; x <= 3; x++) for (int z = -3; z <= 3; z++) for (int y = -1; y <= 4; y++) level.setBlock(f.offset(x, y, z), Blocks.STONE.defaultBlockState(), 3);
+            level.setBlock(f, Blocks.WATER.defaultBlockState(), 3); level.setBlock(f.above(), Blocks.COBBLESTONE.defaultBlockState(), 3); level.setBlock(f.above(2), Blocks.WATER.defaultBlockState(), 3);
+            level.setBlock(f.offset(-1, 2, -1), Blocks.AIR.defaultBlockState(), 3); level.setBlock(f.offset(-1, 3, -1), Blocks.AIR.defaultBlockState(), 3);
+            com.claudemod.entity.life.TempLedger.builtCells(c).put(f.above().immutable(), "WorkGoal.blockWaterInflow:1");
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            c.teleportTo(f.getX() + 0.5, f.getY(), f.getZ() + 0.5); c.setHealth(20); c.dropCurrent = true;
+        }
+        if (t[0] == 16) { c.setAirSupply(0); com.claudemod.entity.life.Watchdog.drowningOutForTest(c); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setAirSupply(200); c.tasks.add(new Task.Break(s1656F.offset(-1, 2, 0))); s1656T = t[0]; /* (as live -43,15,-498: two up, past his plug) */ }
+        if (s1656T > 0 && t[0] > s1656T) {
+            boolean plug = !level.getBlockState(s1656F.above()).is(Blocks.COBBLESTONE), queued = c.tasks.stream().anyMatch(x -> x instanceof Task.Break b && b.pos().equals(s1656F.above())) || c.currentTask instanceof Task.Break b0 && b0.pos().equals(s1656F.above());
+            if (plug || queued || t[0] - s1656T > 30) {
+                String q = c.currentTask + " " + c.tasks.stream().limit(3).toList() + " route " + com.claudemod.entity.life.Watchdog.airRoute(c);
+                com.claudemod.entity.life.TempLedger.builtCells(c).remove(s1656F.above());
+                for (int x = -3; x <= 3; x++) for (int z = -3; z <= 3; z++) for (int y = -1; y <= 4; y++) level.setBlock(s1656F.offset(x, y, z), Blocks.AIR.defaultBlockState(), 3);
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setAirSupply(c.getMaxAirSupply()); c.getInventory().clearContent();
+                c.teleportTo(s1656F.getX() + 0.5, s1656F.getY() - 1, s1656F.getZ() + 0.5); s1656T = -1;
+                check(plug || queued, "his dug way to air on, his plug in the way of its dig: the plug kept, the dig dropped (" + q + ")");
+                pass(stage, t, "his plug first, then the dig (" + (plug ? "out" : "queued") + ")");
+            }
         }
         return true;
     }

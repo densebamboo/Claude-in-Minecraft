@@ -65,7 +65,7 @@ public final class Watchdog {
         final Map<String, String> tried = new HashMap<>();   // action key -> the ways tried so far, for the line to them
         final Map<String, String> what = new HashMap<>();    // action key -> what failed and how, from its trip
         final java.util.Set<String> told = new java.util.HashSet<>();
-        int airRouteTick = -100000;                          // when drowningOut queued a dug way to air (the swim-up reflex stands aside for 10 s)
+        int airRouteTick = -100000; float airRouteDig;                          // when drowningOut queued a dug way to air (the swim-up reflex stands aside for 10 s)
         BlockPos airRouteTo; double airRouteD, airRouteBest; int airRouteBestTick; // its air cell, his eyes' distance to it then, the nearest since and when
         final Map<String, int[]> means = new HashMap<>();    // action key -> {ends excused as "something in front of it first", first tick}
         Task started; int startTick, startBroken, startItems; double startDist; // the action now running, as it began
@@ -810,6 +810,7 @@ public final class Watchdog {
         if (s.airRouteTo == null) return true;
         double d = g.getEyePosition().distanceTo(net.minecraft.world.phys.Vec3.atCenterOf(s.airRouteTo));
         if (d < s.airRouteBest - 0.3) { s.airRouteBest = d; s.airRouteBestTick = now(g); }
+        { float dig = g.digProgressNow(), rate = dig - s.airRouteDig; if (rate > 0.001f && (1 - dig) / rate <= Math.max(Weights.w("drown.air_route_stall_ticks", 30), g.getAirSupply())) s.airRouteBestTick = now(g); s.airRouteDig = dig; } // a block of the way coming out before his air does is progress: under water a dig runs 5x slow and outlasted the 30 ticks, the way dropped mid-dig (stage 1655); one that outlasts his air is not (stage 1011: 140 ticks floating at air 0, the swim 3 cells)
         boolean further = d > s.airRouteD + 1.5, stalled = now(g) - s.airRouteBestTick > Weights.w("drown.air_route_stall_ticks", 30);
         if (!further && !stalled) return true;
         s.airRouteTick = -100000;
@@ -820,14 +821,24 @@ public final class Watchdog {
     static String drowningOut(ClaudeEntity g) {
         if (!g.isEyeInFluid(net.minecraft.tags.FluidTags.WATER) || g.getAirSupply() > 0 || !(g.level() instanceof ServerLevel lv)) return "";
         if (airRoute(g)) { St s1 = st(g); return "; drowning: the dug way to air at " + (s1.airRouteTo == null ? "-" : s1.airRouteTo.toShortString()) + " already under way"; } // (one at a time: HEALTH FALLING firing mid-way re-queued it and restarted its stall clock, the swim-up reflex held off twice as long: stage 1261)
+        BlockPos best = airNear(g, lv); if (best == null) return "; drowning, no air within 6";
+        boolean planned = dugWayToAir(g, lv, best, "with the swim-up failing");
+        return planned ? "; drowning: a dug way to air at " + best.toShortString() + " queued" : "; drowning: no way to air at " + best.toShortString();
+    }
+    /** The nearest cell he can breathe in within 6 of his eye: air, with air over it. */
+    public static BlockPos airNear(ClaudeEntity g, ServerLevel lv) {
         BlockPos me = BlockPos.containing(g.getEyePosition()), best = null;
         for (BlockPos q : BlockPos.betweenClosed(me.offset(-6, -3, -6), me.offset(6, 6, 6))) // the nearest cell he can breathe in: air, with air over it
             if (lv.getBlockState(q).isAir() && lv.getBlockState(q.above()).isAir() && (best == null || q.distSqr(me) < best.distSqr(me))) best = q.immutable();
-        if (best == null) return "; drowning, no air within 6";
+        return best;
+    }
+    /** A dug way to the air at best, queued (escapeStuck: his own way with digs), the swim-up reflex standing aside while it runs. Also from the reflex itself the moment no air is in swimming reach (D2D death 10:39:46 11-12: "back toward the air ... instead of digging up into it" every tick for 15 s at air he couldn't reach, this dug way only at air 0; stage 1655). */
+    public static boolean dugWayToAir(ClaudeEntity g, ServerLevel lv, BlockPos best, String why) {
+        BlockPos me = BlockPos.containing(g.getEyePosition());
         boolean planned = com.claudemod.director.ClaudeLife.escapeStuck(g, lv, new Task.GoTo(best, 0.5));
         if (planned) { St s0 = st(g); s0.airRouteTick = now(g); s0.airRouteTo = best; s0.airRouteD = s0.airRouteBest = g.getEyePosition().distanceTo(net.minecraft.world.phys.Vec3.atCenterOf(best)); s0.airRouteBestTick = now(g); }
-        ClaudeMod.LOGGER.info("[Claude watchdog] drowning at {} with the swim-up failing: {} air at {} (Watchdog.drowningOut)", me.toShortString(), planned ? "a dug way to the" : "no way found to the", best.toShortString());
-        return planned ? "; drowning: a dug way to air at " + best.toShortString() + " queued" : "; drowning: no way to air at " + best.toShortString();
+        ClaudeMod.LOGGER.info("[Claude watchdog] drowning at {} {}: {} air at {} (Watchdog.drowningOut)", me.toShortString(), why, planned ? "a dug way to the" : "no way found to the", best.toShortString());
+        return planned;
     }
 
     /** A skill line coming straight back (under 1 s, 3 times running): it returns at once and is queued again (live 12:30 World 15 "collect beef" 9 times in 2 s). */

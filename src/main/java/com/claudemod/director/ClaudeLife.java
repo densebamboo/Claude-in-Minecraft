@@ -5673,7 +5673,8 @@ public final class ClaudeLife {
         double dropS = 0, allS = 0; for (int i : drop) dropS += worth.applyAsDouble(i); for (int i : spares) allS += worth.applyAsDouble(i);
         boolean wood = inv.countItem(Items.CHEST) > 0 || g.inventory.count(x -> x.is(ItemTags.PLANKS)) >= 8 || g.inventory.count(x -> x.is(ItemTags.LOGS)) >= 2;
         double back = com.claudemod.entity.life.Weights.w("spare.chest_back_odds", 0.5);
-        var chestO = wood ? com.claudemod.entity.life.Decide.Option.of("a chest here for them", com.claudemod.entity.life.Weights.w("spare.chest_s", 8) + allS * (1 - back), spares.size() + " piece(s), back for them " + Math.round(back * 100) + "% likely")
+        boolean stays = sl.dimension() == net.minecraft.world.level.Level.OVERWORLD && baseArea(g, g.blockPosition()); // (a chest stays only at his base, his mine too, off his temp list below: out in the world it is a temp station, cleaned up 5 s later and the gear spilled, then boxed again, D2D 152554-5, stage 1627)
+        var chestO = !stays ? com.claudemod.entity.life.Decide.Option.out("a chest here for them", "out of his base a chest of his is clutter, taken back up") : wood ? com.claudemod.entity.life.Decide.Option.of("a chest here for them", com.claudemod.entity.life.Weights.w("spare.chest_s", 8) + allS * (1 - back), spares.size() + " piece(s), back for them " + Math.round(back * 100) + "% likely")
                 : com.claudemod.entity.life.Decide.Option.out("a chest here for them", "no chest or wood for one on him");
         var dropO = com.claudemod.entity.life.Decide.Option.of("drop the least of them", dropS, drop.size() + " piece(s): " + drop.stream().map(i -> Crafting.name(inv.items.get(i).getItem())).collect(java.util.stream.Collectors.joining(", ")));
         String ctx = spares.stream().map(i -> Crafting.name(inv.items.get(i).getItem())).collect(java.util.stream.Collectors.joining(", ")) + " spare on him, " + free + " free";
@@ -5684,7 +5685,7 @@ public final class ClaudeLife {
             if (c != null && sl.getBlockEntity(c) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity box) {
                 int n = 0; StringBuilder in = new StringBuilder();
                 for (int i : spares) { var st = inv.items.get(i); if (st.isEmpty()) continue; for (int k = 0; k < box.getContainerSize(); k++) if (box.getItem(k).isEmpty()) { box.setItem(k, st.copy()); in.append(Crafting.name(st.getItem())).append(' '); inv.items.set(i, ItemStack.EMPTY); n++; break; } }
-                box.setChanged(); g.storageChests.add(c.immutable()); g.myStations.add(c.immutable()); com.claudemod.entity.life.ChestLedger.look(g, sl, c);
+                box.setChanged(); g.storageChests.add(c.immutable()); g.myStations.add(c.immutable()); g.tempStations.remove(c); com.claudemod.entity.life.ChestLedger.look(g, sl, c);
                 ClaudeMod.LOGGER.info("[Claude life] a chest put down at {} for his spare gear: {} piece(s) in ({}) (ClaudeLife.spareChoice)", c.toShortString(), n, in.toString().trim());
                 return java.util.List.of();
             }

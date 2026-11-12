@@ -11102,6 +11102,7 @@ public final class ClaudeBodyTest {
             case 1625: return st1625(stage, t, c, h, level, mock);
             case 1607: return st1607(stage, t, c, h, level, mock);
             case 1626: return st1626(stage, t, c, h, level, mock);
+            case 1627: return st1627(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -24705,6 +24706,35 @@ public final class ClaudeBodyTest {
                 check(got, "a full pack of duplicates, his pile 4 off with 2 blaze rods: the rods not on him after 25 s (" + free + " free; " + q + ")");
                 pass(stage, t, "the 2 blaze rods on him after " + took / 20.0 + " s");
             }
+        }
+        return true;
+    }
+    /** Stage 1627 (D2D review 152554-5, live 15:24:58 11-12 out in the world: "a chest here" for his spare stone sword, the chest picked back up as a temp station 5 s later, the sword spilled, refused twice by his pickup, walked back for and boxed again 15:25:53). A full pack, one spare piece, wood on him, out in the world (no base): a chest he puts down for it still stands 8 s on, and the spare isn't back on him. */
+    private static BlockPos s1627Me; private static boolean s1627Chest;
+    private static boolean st1627(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.tasks.clear(); c.skillQueue.clear(); c.storageChests.clear(); c.tempStations.clear(); c.prefs.put("stay_close", "no"); for (var m : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(40))) m.discard(); }
+        if (t[0] == 10) {
+            s1627Me = c.blockPosition().immutable(); s1627Chest = false;
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) { level.setBlock(s1627Me.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 2); for (int y = 0; y <= 3; y++) level.setBlock(s1627Me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            var inv = c.getInventory(); inv.clearContent(); inv.selected = 0; int k = 0;
+            Object[][] pack = { {Items.IRON_PICKAXE, 1}, {Items.IRON_SWORD, 1}, {Items.BOW, 1}, {Items.SHIELD, 1}, {Items.WATER_BUCKET, 1}, {Items.IRON_AXE, 1}, {Items.EMERALD, 2}, {Items.COPPER_INGOT, 10}, {Items.CRAFTING_TABLE, 1}, {Items.FURNACE, 1}, {Items.TORCH, 64}, {Items.TORCH, 64},
+                {Items.COAL, 64}, {Items.COAL, 30}, {Items.COOKED_SALMON, 28}, {Items.BREAD, 3}, {Items.APPLE, 3}, {Items.OAK_LOG, 64}, {Items.OAK_LOG, 19}, {Items.ARROW, 5}, {Items.COBBLESTONE, 64}, {Items.NETHERRACK, 8}, {Items.IRON_BOOTS, 1}, {Items.GOLDEN_BOOTS, 1},
+                {Items.BLAZE_ROD, 6}, {Items.ENDER_PEARL, 4}, {Items.IRON_INGOT, 10}, {Items.RAW_IRON, 8}, {Items.DIAMOND, 3}, {Items.REDSTONE, 12}, {Items.LAPIS_LAZULI, 9}, {Items.OBSIDIAN, 10}, {Items.OAK_PLANKS, 20}, {Items.COOKED_CHICKEN, 2}, {Items.CHICKEN, 2} }; // (35 slots, 1 free; one spare: the iron boots, he wears iron ones)
+            for (Object[] p0 : pack) inv.items.set(k++, new ItemStack((net.minecraft.world.item.Item) p0[0], (Integer) p0[1]));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS)); // (worn: after the pack, its clear takes armour off too)
+            c.nextPlanTick = c.tickCount + 20 * 600; level.setDayTime(6000);
+        }
+        if (t[0] > 10) c.nextPlanTick = c.tickCount + 20 * 600;
+        if (t[0] == 20) { com.claudemod.director.ClaudeLife.dumpJunkTest(c); for (BlockPos q : BlockPos.betweenClosed(s1627Me.offset(-4, -1, -4), s1627Me.offset(4, 3, 4))) if (level.getBlockState(q).is(Blocks.CHEST)) s1627Chest = true; }
+        if (t[0] == 20 + 160) {
+            var inv = c.getInventory(); boolean standing = false; for (BlockPos q : BlockPos.betweenClosed(s1627Me.offset(-6, -1, -6), s1627Me.offset(6, 3, 6))) if (level.getBlockState(q).is(Blocks.CHEST)) standing = true;
+            int boots = 0; for (var s0 : inv.items) if (s0.is(Items.IRON_BOOTS)) boots++;
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, c.getBoundingBox().inflate(16))) e.discard();
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 6; z++) for (int y = 0; y <= 3; y++) level.setBlock(s1627Me.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            inv.clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY); c.tasks.clear(); c.currentTask = null; c.storageChests.clear(); c.tempStations.clear(); c.myStations.clear(); c.prefs.remove("stay_close");
+            check(!s1627Chest || standing, "a chest put down out in the world for his spare boots, taken back up as clutter within 8 s");
+            check(boots == 0, "the spare boots back in his pack after the choice to put them away (" + boots + ")");
+            pass(stage, t, s1627Chest ? "the chest for his spare stands" : "no chest out in the world: the spare dropped, left");
         }
         return true;
     }

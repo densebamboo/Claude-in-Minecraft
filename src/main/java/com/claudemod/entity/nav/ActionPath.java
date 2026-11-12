@@ -138,6 +138,8 @@ public final class ActionPath {
         }
         Plan arrivedAt(Node n) { coverNote(c, from, to); /* (never the cell under a goal he can stand on: that's its floor, dug out to "arrive" a block short, and the last step up had nothing to stand on: stage 937, live 03:44 11-07 in a 4-deep hole for minutes) */ leapNote(c, from, to, n); Plan pl = unwind(n); if (mode == Mode.MAY_DIG && c.bp) prune(level.getGameTime()); if (mode == Mode.MAY_DIG && c.bp) for (Act a : pl.acts()) if (a instanceof Act.Dig dg && cuttableShell(g, level, dg.pos())) { SHELL_CUT.put(dg.pos().immutable(), level.getGameTime()); SHELL_CUT_BY.put(dg.pos().immutable(), g); } if (mode == Mode.MAY_BEND) { Map<BlockPos, String> b = new java.util.LinkedHashMap<>(); for (Act a : pl.acts()) if (a instanceof Act.Dig dg && c.bent.containsKey(dg.pos())) b.put(dg.pos(), c.bent.get(dg.pos())); lastBent = b; } return pl; }
         final java.util.Set<BlockPos> wetPriced = new java.util.HashSet<>();
+        /** The dig of the goal from there under water, and the swim in and back out: longer than his air, not done on one breath. */
+        boolean airShort(Node n) { double wx = c.wetDig(n.feet); if (wx <= 1 || c.passable(to)) return false; return c.digSeconds(to) * wx + 2 * n.wet * com.claudemod.entity.life.Weights.w("path.swim_cell_s", 0.5) > g.getAirSupply() / 20.0; }
         boolean arrived(Node n) { return Math.sqrt(n.feet.distSqr(to)) <= within && !(n.feet.equals(to.below()) && c.floor(to) && !c.passable(to.below())); }
         /** Searches on for up to {@code sliceNs}: the plan, null (no way), or PENDING (the slice ran out, the 500 ms not). */
         Plan run(long sliceNs) {
@@ -149,6 +151,7 @@ public final class ActionPath {
                 { Node b0 = best.get(n.feet); if (b0 != n && b0.g() <= n.g() && (!scarce || b0.puts() <= n.puts()) && b0.fire() <= n.fire() && b0.wet() <= n.wet() && b0.hurt() <= n.hurt()) { expanded--; continue; } } // (a stale entry: a way here no worse was expanded already)
                 double dd = Math.sqrt(n.feet.distSqr(to));
                 if (arrived(n)) { double wx = c.wetDig(n.feet); double ts0 = wx > 1 && !c.passable(to) ? c.digSeconds(to) : 0;
+                    if (airShort(n)) { c.digAirRefused++; continue; } // (a dig under water there and the swim in and back out: longer than his air, it can't be done on one breath; live 06:01 11-12 copper floating 25x slow on ~15 s of air, down and up every 22 s; stage 1597)
                     if (ts0 > 0 && wetPriced.add(n.feet.immutable())) { double extra = ts0 * (wx - 1) * com.claudemod.entity.life.Weights.w("path.dig_per_s", 5.6); Node n2 = new Node(n.feet, n.g + extra, n.f + extra, n.from, n.acts, n.puts, n.hurt, n.wet, n.fire); best.put(n.feet, n2); open.add(n2); expanded--; continue; } // (the dig of the target from here, under water: a dry spot beside it may beat it)
                     return arrivedAt(n); }
                 c.hurtNow = n.hurt;
@@ -165,7 +168,7 @@ public final class ActionPath {
                     open.add(nn);
                 }
             }
-            if (!open.isEmpty()) { Node got = null; for (Node k : best.values()) if (arrived(k) && (got == null || k.g() < got.g())) got = k; // the budget ran out with a way to the goal already found, only not yet the cheapest: that way, never "no way" (live 02:13 11-11 mid-fight: "nearest 242, 79, 506, 0.0 off", no way, 6 times in 5 s; stage 1483)
+            if (!open.isEmpty()) { Node got = null; for (Node k : best.values()) if (arrived(k) && !airShort(k) && (got == null || k.g() < got.g())) got = k; // the budget ran out with a way to the goal already found, only not yet the cheapest: that way, never "no way" (live 02:13 11-11 mid-fight: "nearest 242, 79, 506, 0.0 off", no way, 6 times in 5 s; stage 1483)
               if (got != null) { com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} -> {}: the search budget ran out ({} nodes) with the goal reached: that way, cost {} (ActionPath.plan)", from.toShortString(), to.toShortString(), expanded, String.format("%.1f", got.g())); return arrivedAt(got); } }
             coverNote(c, from, to); leapNote(c, from, to, null);
             { Node near = null; for (Node k : best.values()) if (near == null || h(k.feet, to) < h(near.feet, to)) near = k;
@@ -185,6 +188,7 @@ public final class ActionPath {
     }
 
     private static void coverNote(Costs c, BlockPos from, BlockPos to) {
+        if (c.digAirRefused > 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} -> {}: {} spot(s) to dig it from under water turned down: the dig there and the swim back out are longer than his air ({}) (ActionPath.plan)", from.toShortString(), to.toShortString(), c.digAirRefused, c.g.getAirSupply());
         if (c.airRefused > 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} -> {}: {} swims refused as longer under water than half his air (ActionPath.plan)", from.toShortString(), to.toShortString(), c.airRefused);
         if (c.coverLeft > 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} -> {}: his cover's cells left alone ({} looks at them refused): never dug through (ActionPath.plan)", from.toShortString(), to.toShortString(), c.coverLeft);
     }
@@ -526,6 +530,7 @@ public final class ActionPath {
             for (var w0 : withers) { double d = Math.sqrt(Math.pow(t.getX() + 0.5 - w0.x, 2) + Math.pow(t.getZ() + 0.5 - w0.z, 2)) + Math.abs(t.getY() - w0.y) * 0.5; if (d < 7) add += (7 - d) * com.claudemod.entity.life.Weights.w("path.wither_near", 1.5); }
             threatMemo.put(t.immutable(), add); return add;
         }
+        int digAirRefused; // arrivals turned down: the dig there under water and the swim back longer than his air
         int airRefused; // moves turned down as a longer swim under water than half his air
         float hurtNow; // the HP the drops on the way to the node being expanded took (no regen counted)
         final float hp, margin; final double hpPrice; // his health now; the HP he keeps after any drop (Leaps.margin); what an HP is worth to him now (Leaps.hpPrice: dear when he can't regen it)

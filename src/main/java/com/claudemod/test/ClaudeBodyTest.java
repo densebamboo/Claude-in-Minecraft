@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1597: return st1597(stage, t, c, h, level, mock);
             case 1596: return st1596(stage, t, c, h, level, mock);
             case 1595: return st1595(stage, t, c, h, level, mock);
             case 1594: return st1594(stage, t, c, h, level, mock);
@@ -21632,6 +21633,31 @@ public final class ClaudeBodyTest {
             check(!way, "setup: a way out of a bedrock box found");
             check(tried != null && !tried.contains("(digging, bridging, pillaring)") && tried.contains("no way"), "boxed in bedrock, no way out even digging: says he tried \"" + tried + "\"");
             pass(stage, t, "says he tried: " + tried);
+        }
+        return true;
+    }
+
+    /** Stage 1597 (D2D/Loops, live 06:01:24-06:02:04 11-12 at -46,16,-499: "no way to the copper ore at -45, 12, -499 on foot: made one (0 digs, 0 blocks put down, 2 walks)", a swim down a flooded shaft to dig it floating, 25x slow, ~19 s for copper with his iron pick on ~15 s of air; he sank past it, low on air, up, again every ~22 s). A copper ore in the wall of a flooded shaft 5 under its rim, out of reach from the rim, nothing under it to stand on for 10 more, no dry way round: the way to it never arrives floating in the water for a dig longer than his air. */
+    private static boolean st1597(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(6, 2, 6));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 12000; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            for (int x = -7; x <= 7; x++) for (int z = -7; z <= 7; z++) for (int y = 0; y <= 19; y++) level.setBlock(o.offset(x, y, z), (y >= 18 ? Blocks.AIR : x == 0 && z == 0 && y >= 1 ? Blocks.WATER : Blocks.BEDROCK).defaultBlockState(), 2); // a 1x1 shaft flooded from y 1 to 17, its rim at 18, in rock he can't dig (live: no dry way he'd take)
+            level.setBlock(o.offset(-1, 12, 0), Blocks.COPPER_ORE.defaultBlockState(), 2);
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 32));
+            c.teleportTo(o.getX() + 1.5, o.getY() + 18, o.getZ() + 0.5); c.fallDistance = 0; c.setAirSupply(300);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+        }
+        if (t[0] == 14) {
+            BlockPos ore = o.offset(-1, 12, 0), me = c.blockPosition();
+            var plan = com.claudemod.entity.nav.ActionPath.plan(c, level, me, ore, 4.5, true, 3000, com.claudemod.entity.nav.ActionPath.Mode.MAY_DIG, c.attempts.of(com.claudemod.entity.life.Attempts.Kind.WALK), c.tickCount);
+            BlockPos end = me; if (plan != null) for (var a : plan.acts()) if (a instanceof com.claudemod.entity.nav.ActionPath.Act.Walk wk) end = wk.feet();
+            boolean wet = level.getFluidState(end.above()).is(net.minecraft.tags.FluidTags.WATER), floats = wet && level.getBlockState(end.below()).getCollisionShape(level, end.below()).isEmpty();
+            String said = plan == null ? "no way" : plan.acts().size() + " acts (" + plan.digs() + " digs, " + plan.walks() + " walks) to " + end.subtract(o);
+            for (int x = -7; x <= 7; x++) for (int z = -7; z <= 7; z++) for (int y = 0; y <= 19; y++) level.setBlock(o.offset(x, y, z), (y == 0 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            c.teleportTo(o.getX() + 0.5, o.getY() + 1, o.getZ() + 0.5); c.fallDistance = 0; c.getInventory().clearContent();
+            check(!floats, "a copper ore 6 down a flooded shaft, ~19 s to dig floating on 15 s of air: the way ends floating in the water (" + said + ")");
+            pass(stage, t, "the way to it: " + said);
         }
         return true;
     }

@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1615: return st1615(stage, t, c, h, level, mock);
             case 1614: return st1614(stage, t, c, h, level, mock);
             case 1613: return st1613(stage, t, c, h, level, mock);
             case 1612: return st1612(stage, t, c, h, level, mock);
@@ -21882,6 +21883,28 @@ public final class ClaudeBodyTest {
             s1614C.discard(); s1614C = null; for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
             check(!back, "health 20, iron armor, a creeper 10 off still after him: back to his job as if it followed him there harmless (" + c.lastSkillLine + ")");
             pass(stage, t, "runs on past its follow range");
+        }
+        return true;
+    }
+    /** Stage 1615 (D2D death 08:14:05 11-12 at 315,60,523: "fight.flee (2 on him (Magma Cube 1, Blaze 6)): fight ~4 s (5 swings, ~2 HP)", the big cube priced as one 16 HP mob; it split into 4 and those into more, 7 then 10, 13, 16 cubes on him within 12 s, 15 -> 0). A big magma cube 2 off, him in iron with a sword: the fight's price counts what it splits into, not one cube. */
+    private static net.minecraft.world.entity.monster.MagmaCube s1615M;
+    private static boolean st1615(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); if (s1615M != null) s1615M.discard(); s1615M = null; flatBox(h); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            BlockPos me = h.absolutePos(new BlockPos(4, 2, 4));
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BREAD, 8)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.GOLDEN_BOOTS));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setHealth(15); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var mc = EntityType.MAGMA_CUBE.create(level); mc.setSize(4, true); BlockPos sp = me.east(3); mc.moveTo(sp.getX() + 0.5, sp.getY(), sp.getZ() + 0.5, 90, 0); mc.setNoAi(true); mc.setPersistenceRequired(); level.addFreshEntity(mc); mc.setTarget(c); s1615M = mc;
+            com.claudemod.entity.life.Perception.noteSeenTest(c, mc);
+        }
+        if (t[0] == 14) {
+            String odds = c.work.fleeOddsForTest(s1615M);
+            s1615M.discard(); s1615M = null; for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
+            var mm = java.util.regex.Pattern.compile("kill in (\\d+)").matcher(odds); int swings = mm.find() ? Integer.parseInt(mm.group(1)) : -1;
+            check(swings >= 10, "a big magma cube 2 off: priced as " + swings + " swing(s), not what it splits into (" + odds + ")");
+            pass(stage, t, odds);
         }
         return true;
     }

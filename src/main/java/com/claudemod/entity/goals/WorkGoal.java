@@ -2264,10 +2264,10 @@ public class WorkGoal extends Goal {
     private Task goBestFor; private double goBest; private int goBestTick; // (the walk's best distance to its goal, and when: the 45 s clock spares a walk still getting nearer)
     private boolean doBreak(BlockPos pos) {
         ServerLevel level = (ServerLevel) g.level();
-        if (plugCells != null && plugCells.contains(pos)) { // his own escape plug, with what he fled still across it and him hurt: kept shut, he heals behind it (D2D death 75; stage 1359)
+        if (plugCells != null && plugCells.stream().anyMatch(pc -> Math.abs(pc.getX() - pos.getX()) <= 1 && Math.abs(pc.getY() - pos.getY()) <= 1 && Math.abs(pc.getZ() - pos.getZ()) <= 1)) { // his own escape plug, or the wall beside it, with what he fled still across it and him hurt: kept shut, he heals behind it (D2D death 75; stage 1359). The wall beside it too: a made way's digs queued ahead of its walk cut round the plug with no walk to hold them (D2D death 11:21:58 11-12; stage 1658)
             net.minecraft.world.entity.Mob across = plugHold(null);
             if (across != null) {
-                if (g.tickCount - plugSaid > 20 * 30) { plugSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not opening his plug at {}: health {}, the {} he shut out {} off: {} (WorkGoal.doBreak)", pos.toShortString(), (int) g.getHealth(), across.getType().getDescription().getString(), (int) across.distanceTo(g), plugHoldWhy); }
+                if (g.tickCount - plugSaid > 20 * 30) { plugSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude life] not opening his plug or the wall beside it at {}: health {}, the {} he shut out {} off: {} (WorkGoal.doBreak)", pos.toShortString(), (int) g.getHealth(), across.getType().getDescription().getString(), (int) across.distanceTo(g), plugHoldWhy); }
                 g.tasks.addFirst(new Task.Wait(20 * 5, false));
                 net.minecraft.world.item.Item meal = com.claudemod.director.ClaudeLife.foodToEat(g, g.getHealth() <= 6); if (meal != null && g.getFoodData().needsFood()) g.tasks.addFirst(new Task.Eat(meal));
                 return exit("his escape plug, with them across it");
@@ -7907,6 +7907,15 @@ public class WorkGoal extends Goal {
             if (yAt < dy) lo = a; else hi = a; }
         return new double[] {(lo + hi) / 2, ticks};
     }
+    private int bystanderSaid = -1000;
+    /** A mob in the arrow's way that the arrow would turn on him: a neutral not yet angry at him (a pigman, an enderman, a golem), a piglin, or anything not hostile. Along the straight line from his eye to its middle, each box widened by the arrow (D2D death 11:21:58 11-12: a pigman 3 off on the line to a blaze, "line clear" for blocks only, 10 turned; stage 1657). shortcut: the straight line, not the arrow's arc: past ~20 blocks the arc rises over the line; good enough for the bystanders near him that matter. */
+    private net.minecraft.world.entity.LivingEntity inArrowWay(net.minecraft.world.entity.LivingEntity mob) {
+        Vec3 eye = g.getEyePosition(), to = mob.getBoundingBox().getCenter();
+        for (var e : g.level().getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, new net.minecraft.world.phys.AABB(eye, to).inflate(1.0), x -> x != g && x != mob && x.isAlive())) {
+            boolean wouldTurn = !(e instanceof net.minecraft.world.entity.monster.Enemy) || e instanceof net.minecraft.world.entity.monster.piglin.AbstractPiglin || e instanceof net.minecraft.world.entity.NeutralMob nm && !nm.isAngryAt(g);
+            if (wouldTurn && e.getBoundingBox().inflate(0.5).clip(eye, to).isPresent()) return e; }
+        return null;
+    }
     private boolean shootAt(net.minecraft.world.entity.LivingEntity mob) {
         if (mob instanceof net.minecraft.world.entity.monster.EnderMan) { if (g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW)) g.stopUsingItem(); return false; } /* vanilla: an enderman teleports out of every arrow; live 01:42 twelve arrows at one, two after he said "switching to the diamond sword" */
         ItemStack bow = g.inventory.find(s -> s.is(net.minecraft.world.item.Items.BOW));
@@ -7917,6 +7926,7 @@ public class WorkGoal extends Goal {
         double minRange = mob instanceof net.minecraft.world.entity.monster.Creeper ? 5.0 : lureShot ? 2.0 : 6.0; // (a shot to draw a golem to his tower: close is fine, it can't reach him)
         boolean drawing = g.isUsingItem() && g.getUseItem().is(net.minecraft.world.item.Items.BOW);
         if (d < minRange - (drawing ? 1.0 : 0) || d > 28 || !canHit(mob) || g.isInWater()) { if (drawing) g.stopUsingItem(); return false; }
+        { var by = inArrowWay(mob); if (by != null) { if (drawing) g.stopUsingItem(); if (g.tickCount - bystanderSaid >= 40) { bystanderSaid = g.tickCount; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] no shot at the {} {} off: a {} {} off is in the arrow's way, and it would turn on him (WorkGoal.shootAt)", mob.getType().getDescription().getString(), (int) d, by.getType().getDescription().getString(), String.format("%.1f", g.distanceTo(by))); } return false; } }
         g.getNavigation().stop(); // stood still to shoot, like a player
         g.setSprinting(false);
         bowAimTick = g.tickCount;

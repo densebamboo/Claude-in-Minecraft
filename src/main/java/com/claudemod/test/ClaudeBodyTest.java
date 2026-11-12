@@ -10551,6 +10551,9 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1659: return st1659(stage, t, c, h, level, mock);
+            case 1658: return st1658(stage, t, c, h, level, mock);
+            case 1657: return st1657(stage, t, c, h, level, mock);
             case 1656: return st1656(stage, t, c, h, level, mock);
             case 1655: return st1655(stage, t, c, h, level, mock);
             case 1654: return st1654(stage, t, c, h, level, mock);
@@ -22152,6 +22155,114 @@ public final class ClaudeBodyTest {
                 c.teleportTo(s1656F.getX() + 0.5, s1656F.getY() - 1, s1656F.getZ() + 0.5); s1656T = -1;
                 check(plug || queued, "his dug way to air on, his plug in the way of its dig: the plug kept, the dig dropped (" + q + ")");
                 pass(stage, t, "his plug first, then the dig (" + (plug ? "out" : "queued") + ")");
+            }
+        }
+        return true;
+    }
+    /** Stage 1657 (D2D death 11:21:58 11-12, fortress 236,60,509): "shooting it: the blaze is out of sword reach, 10 off and quiet: arrows", "shot at a Blaze 8 blocks off (... line clear)" from 264,60,505 east at the blaze at 274,60,507; a Zombified Piglin at 267,60,505 on that line, "last hurt by him 1 ticks ago", 10 turned, 20 -> 0. The line checked blocks only. A pigman in the arrow's way: no shot through it. */
+    private static net.minecraft.world.entity.monster.Blaze s1657B; private static net.minecraft.world.entity.monster.ZombifiedPiglin s1657P;
+    private static boolean st1657(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        var nl = level.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+        BlockPos o = new BlockPos(16700, 70, 10700);
+        if (t[0] == 1) { scenarioReset(c); com.claudemod.entity.life.FortressFight.reset(c); s1657B = null; s1657P = null; }
+        if (t[0] < 29) nsTick(nl, c, o, t);
+        if (t[0] % 10 == 0 || t[0] < 10) { BlockPos q = o.offset(8, 0, 0); nl.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(q), 2, q); }
+        if (t[0] > 30 && t[0] % 10 == 0) for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) if (e != s1657B && e != s1657P) e.discard();
+        if (t[0] == 10) {
+            for (var e : nl.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(40))) e.discard();
+            for (int x = -4; x <= 16; x++) for (int z = -4; z <= 4; z++) for (int y = -1; y <= 8; y++) nl.setBlock(o.offset(x, y, z), y < 0 ? Blocks.NETHER_BRICKS.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
+            c.getInventory().clearContent(); for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY);
+            c.getInventory().add(new ItemStack(Items.IRON_SWORD)); c.getInventory().add(new ItemStack(Items.BOW)); c.getInventory().add(new ItemStack(Items.ARROW, 16)); c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 29) {
+            s1657B = net.minecraft.world.entity.EntityType.BLAZE.create(nl); s1657B.moveTo(o.getX() + 10.5, o.getY(), o.getZ() + 1.5, 90, 0); s1657B.setNoAi(true); s1657B.setNoGravity(true); s1657B.setPersistenceRequired(); nl.addFreshEntity(s1657B);
+            s1657P = net.minecraft.world.entity.EntityType.ZOMBIFIED_PIGLIN.create(nl); s1657P.moveTo(o.getX() + 3.5, o.getY(), o.getZ() + 0.8, 0, 0); s1657P.setNoAi(true); s1657P.setPersistenceRequired(); nl.addFreshEntity(s1657P); // (live: 267,60,505 between him at 264,60,505 and the blaze at 274,60,507)
+        }
+        if (t[0] == 40) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Attack(s1657B.getUUID(), 20 * 30)); }
+        if (t[0] > 40) { c.nextPlanTick = c.tickCount + 20 * 600; if (c.distanceTo(s1657B) < 9) c.teleportTo(nl, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); // (kept at 10: the shot is what's tested)
+            boolean pig = s1657P.getHealth() < s1657P.getMaxHealth() || s1657P.getLastHurtByMob() == c;
+            if (pig || t[0] >= 40 + 20 * 6) {
+                int arrows = 16 - c.inventory.count(s -> s.is(Items.ARROW)); String q0 = c.tasks.toString() + " doing " + c.currentTask;
+                s1657B.discard(); s1657P.discard(); c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; if (c.isUsingItem()) c.stopUsingItem();
+                for (var a : nl.getEntitiesOfClass(net.minecraft.world.entity.projectile.AbstractArrow.class, new net.minecraft.world.phys.AABB(o).inflate(40))) a.discard();
+                for (int x = -4; x <= 16; x++) for (int z = -4; z <= 4; z++) for (int y = -1; y <= 8; y++) nl.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) c.setItemSlot(sl, ItemStack.EMPTY); c.getInventory().clearContent(); com.claudemod.entity.life.FortressFight.reset(c);
+                check(!pig, "a pigman 3 off on the line to a blaze 10 off: shot through it (" + arrows + " arrow(s), " + q0 + ")");
+                nsHome(c, h, level); pass(stage, t, "no arrow through the pigman in 6 s (" + arrows + " loosed)");
+            }
+        }
+        return true;
+    }
+    /** Stage 1658 (D2D death 11:21:58 11-12, fortress 236,60,509): plugged out of 10 pigmen at 240,60,505, then the drops trip's made way to 240,59,509 queued its digs first, Break 239,60/61,504-506 beside his plug, and ran them unguarded (the plug hold only on breaking the plug itself and on a walk's first tick); a pigman 3 off at 240,60,506 through the cut a second later, 20 -> 0. As 1658, the made way's digs beside the plug queued ahead of its walk. */
+    private static net.minecraft.world.entity.Mob[] s1658M; private static int s1658Plugged; private static String s1658Broke;
+    private static boolean st1658(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.prefs.put("stay_close", "no"); c.nextPlanTick = c.tickCount + 20 * 600; if (s1658M != null) for (var m : s1658M) m.discard(); s1658M = null; s1658Plugged = -1; s1658Broke = null; }
+        if (t[0] == 10) {
+            for (int x = -3; x <= 20; x++) for (int z = -3; z <= 16; z++) for (int y = 1; y <= 7; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), y == 1 || y == 7 || x == -3 || x == 20 || z == -3 || z == 16 || z == 5 && !(x == 8 && y <= 3) ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2); // a room split by a wall at z 5, a 1-wide gap at x 8
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(64))) e.discard();
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.STONE_SWORD)); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 10)); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 6)); c.getInventory().add(new ItemStack(Items.STONE_PICKAXE));
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl.isArmor()) c.setItemSlot(sl, ItemStack.EMPTY);
+            BlockPos me = h.absolutePos(new BlockPos(8, 2, 4)); c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.setYRot(0); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.dropCurrent = true;
+            s1658M = new net.minecraft.world.entity.Mob[] {EntityType.ZOMBIE.create(level), EntityType.ZOMBIE.create(level), EntityType.SKELETON.create(level), EntityType.SKELETON.create(level)}; int[][] at = {{2, 14}, {3, 15}, {14, 15}, {15, 14}};
+            for (int k = 0; k < 4; k++) { BlockPos wp = h.absolutePos(new BlockPos(at[k][0], 2, at[k][1])); s1658M[k].moveTo(wp.getX() + 0.5, wp.getY(), wp.getZ() + 0.5, 180, 0); s1658M[k].setNoAi(true); s1658M[k].setPersistenceRequired(); level.addFreshEntity(s1658M[k]); }
+        }
+        if (t[0] == 14) {
+            try {
+                var wg = com.claudemod.entity.goals.WorkGoal.class;
+                var se = wg.getDeclaredMethod("setEscape", String.class, BlockPos.class, BlockPos.class); se.setAccessible(true); se.invoke(c.work, "gap", c.blockPosition().immutable(), h.absolutePos(new BlockPos(8, 2, 5)));
+                var ae = wg.getDeclaredMethod("atEscape", java.util.List.class); ae.setAccessible(true); Object r = ae.invoke(c.work, java.util.List.of(s1658M));
+                var ce = wg.getDeclaredMethod("clearEscape"); ce.setAccessible(true); ce.invoke(c.work); // (the run's end decided, as live)
+                c.tasks.addLast(new Task.Break(h.absolutePos(new BlockPos(7, 2, 5)))); c.tasks.addLast(new Task.Break(h.absolutePos(new BlockPos(7, 3, 5)))); c.tasks.addLast(new Task.GoTo(h.absolutePos(new BlockPos(7, 2, 6)), 0.9)); c.tasks.addLast(new Task.GoTo(h.absolutePos(new BlockPos(17, 2, 8)), 1.0)); /* (the made way: its digs beside the plug first, then its walks) */ // (his job's next walk, queued after the plug went in: live strip_mine's walk to its tunnel past them)
+                if (!Integer.valueOf(2).equals(r)) s1658Broke = "setup: atEscape returned " + r + ", no plug";
+            } catch (Exception e) { s1658Broke = "setup threw " + e; }
+        }
+        if (t[0] > 14 && s1658M != null && s1658Broke == null) {
+            for (var m : s1658M) if (m.isAlive()) m.setTarget(c);
+            BlockPos g0 = h.absolutePos(new BlockPos(8, 2, 5)), g1 = g0.above();
+            boolean shut = !level.getBlockState(g0).isAir() && !level.getBlockState(g1).isAir();
+            if (s1658Plugged < 0 && shut) s1658Plugged = t[0];
+            if (s1658Plugged > 0 && !shut) s1658Broke = "the plug opened " + (t[0] - s1658Plugged) + " ticks after it went in, health " + c.getHealth() + ", 4 he shut out across it (tasks " + c.tasks + ")";
+            for (int x = -2; x <= 19 && s1658Broke == null; x++) if (x != 8 && level.getBlockState(h.absolutePos(new BlockPos(x, 2, 5))).isAir()) s1658Broke = "a way dug through the wall at x " + x + " beside his plug, health " + c.getHealth() + ", 4 he shut out across it (tasks " + c.tasks + ")";
+            if (s1658Broke == null && c.getZ() > h.absolutePos(new BlockPos(8, 2, 6)).getZ()) s1658Broke = "back on their side of the wall, 4 he shut out there";
+        }
+        if (t[0] > 14 && (s1658Broke != null || t[0] > 14 + 200)) {
+            String broke = s1658Broke; int plugged = s1658Plugged;
+            for (var m : s1658M) m.discard(); s1658M = null; c.tasks.clear(); c.setHealth(20); c.getInventory().clearContent(); c.dropCurrent = true; c.prefs.remove("stay_close");
+            try { var ce = com.claudemod.entity.goals.WorkGoal.class.getDeclaredMethod("clearEscape"); ce.setAccessible(true); ce.invoke(c.work); var pc = com.claudemod.entity.goals.WorkGoal.class.getDeclaredField("plugCells"); pc.setAccessible(true); pc.set(c.work, null); } catch (ReflectiveOperationException e) { }
+            for (int x = -3; x <= 20; x++) for (int z = -3; z <= 16; z++) for (int y = 1; y <= 7; y++) level.setBlock(h.absolutePos(new BlockPos(x, y, z)), Blocks.AIR.defaultBlockState(), 2);
+            flatBox(h);
+            check(broke == null || !broke.startsWith("setup"), broke == null ? "" : broke);
+            check(plugged > 0, "the plug never went in");
+            check(broke == null, broke == null ? "" : broke);
+            pass(stage, t, "the made way's digs beside his plug held, 10 s at full health");
+        }
+        return true;
+    }
+    /** Stage 1659 (D2D death 11:33:46 11-12): "for wooden_axe: walking to a crafting table at -13,67,-20" past his portal at -10,68,-23, 4 s later "came out of the portal at -2,59,1 in the_nether" with no portal step, armor 0, 0 meals: a hoglin killed him there. A survival player is taken only after 80 ticks stood in a portal (playersNetherPortalDefaultDelay); any other entity at once. A walk through a portal's plane: he stays in the overworld. */
+    private static int s1659T; private static BlockPos s1659To;
+    private static boolean st1659(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1659T = -1; }
+        BlockPos o = h.absolutePos(new BlockPos(2, 2, 6));
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, c.getBoundingBox().inflate(48))) e.discard();
+            for (int x = -2; x <= 14; x++) for (int z = -4; z <= 4; z++) { level.setBlock(o.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 2); for (int y = 0; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2); }
+            for (int z = -1; z <= 1; z++) for (int y = 0; y <= 2; y++) level.setBlock(o.offset(6, y, z), Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS, net.minecraft.core.Direction.Axis.Z), 2); // a portal's plane across his walk (no frame: flag 2, nothing updates it away)
+            c.getInventory().clearContent(); c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setYRot(-90); c.setHealth(20); c.getFoodData().setFoodLevel(20);
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; s1659To = o.offset(12, 0, 0).immutable();
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.tasks.add(new Task.GoTo(s1659To, 1.0)); s1659T = t[0]; }
+        if (s1659T > 0 && t[0] > s1659T) {
+            boolean gone = c.level() != level, there = !gone && c.distanceToSqr(s1659To.getX() + 0.5, s1659To.getY(), s1659To.getZ() + 0.5) < 1.6 * 1.6;
+            if (gone || there || t[0] - s1659T > 20 * 10) {
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true;
+                if (gone) nsHome(c, h, level);
+                for (int x = -2; x <= 14; x++) for (int z = -4; z <= 4; z++) for (int y = -1; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                flatBox(h); s1659T = -1;
+                check(!gone, "a walk through a portal's plane took him into the Nether: no portal step, no 4 s stood in it");
+                check(there, "never across to " + s1659To.toShortString() + " in 10 s");
+                pass(stage, t, "through the portal's plane and on, still in the overworld");
             }
         }
         return true;

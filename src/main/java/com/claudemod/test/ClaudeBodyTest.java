@@ -11029,6 +11029,7 @@ public final class ClaudeBodyTest {
             case 1534: return st1534(stage, t, c, h, level, mock);
             case 1535: return st1535(stage, t, c, h, level, mock);
             case 1536: return st1536(stage, t, c, h, level, mock);
+            case 1537: return st1537(stage, t, c, h, level, mock);
             case 1048: return st1048(stage, t, c, h, level, mock);
             case 1049: return st1049(stage, t, c, h, level, mock);
             case 1205: return st1205(stage, t, c, h, level, mock);
@@ -22516,6 +22517,28 @@ public final class ClaudeBodyTest {
             check(refilled, "setup: the notch not refilled at the cleanup");
             check(!contest, "his furnace's notch dug, then refilled at the cleanup, read as two systems contesting the cell");
             pass(stage, t, "the furnace's notch dug, then refilled: one station's job, no owner line");
+        }
+        return true;
+    }
+    /** Stage 1537 (D2D reviews 273/272, live 00:27:03-00:28:17 11-12 after his death: "craft diamond_pickaxe not run: the collect logs before it came up empty (... it said \"failed: came up empty: none of the logs got (failed: came up empty: ...\")", the plan thought again every 5 s with Haiku, his fish-then-cook plan never started; ClaudeLife.emptyGather's own line read back as the collect's next plan after next). A collect that came up empty holds the craft after it once; the next plan's craft is not held by that same memory. */
+    private static boolean st1537(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; }
+        if (t[0] == 10) {
+            c.getInventory().clearContent(); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null;
+            boolean first, second;
+            try {
+                var m = com.claudemod.director.ClaudeLife.class.getDeclaredMethod("emptyGather", ClaudeEntity.class, com.claudemod.entity.life.Skills.Step.class); m.setAccessible(true);
+                c.lastStep = new com.claudemod.entity.life.Skills.Step("collect", "logs", 2); c.lastSkillLine = "collect logs x2 -> failed: came up empty: no logs within reach";
+                var craft = new com.claudemod.entity.life.Skills.Step("craft", "diamond_pickaxe", 1);
+                c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("fish", "salmon", 8));
+                first = (boolean) m.invoke(null, c, craft); // (the collect just came up empty: the craft held, the plan thought again)
+                c.skillQueue.clear(); c.skillQueue.add(new com.claudemod.entity.life.Skills.Step("fish", "salmon", 8)); // (the new plan: the gear rule's craft first again, then his fish)
+                second = (boolean) m.invoke(null, c, new com.claudemod.entity.life.Skills.Step("craft", "diamond_pickaxe", 1));
+            } catch (ReflectiveOperationException e) { throw new RuntimeException(e); }
+            String line = c.lastSkillLine; c.skillQueue.clear(); c.lastStep = null; c.lastSkillLine = ""; c.failCount.clear();
+            check(first, "setup: the craft right after the empty collect not held");
+            check(!second, "the next plan's craft held again by the same empty collect (its own line read back: " + (line.length() > 140 ? line.substring(0, 140) : line) + ")");
+            pass(stage, t, "the empty collect held the craft once; the next plan's craft goes on");
         }
         return true;
     }

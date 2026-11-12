@@ -719,6 +719,7 @@ public final class ClaudeLife {
         String why = "failed: came up empty: none of the " + t + " got (" + (said.length() > 80 ? said.substring(0, 80) : said) + "), so no " + step.skill() + " " + step.target() + " yet";
         g.lastSkillLine = "collect " + t + (prev.count() > 1 ? " x" + prev.count() : "") + " -> " + why; ClaudeMod.LOGGER.info("[Claude skill] {}", g.lastSkillLine);
         String fk = "collect " + t; g.failCount.merge(fk, 1, Integer::sum); g.failReason.put("collect", why);
+        g.lastStep = null; // (the empty collect held this plan; the next plan's craft isn't held by it again: its line read back held every new plan, Haiku every 5 s, his fish never run, D2D 273, live 00:27 11-12; stage 1537)
         boolean pile = g.skillQueue.stream().anyMatch(s0 -> s0.skill().equals("recover_drops"));
         g.skillQueue.clear(); if (pile) g.skillQueue.add(new Skills.Step("recover_drops", "", 1)); // (the run to his pile outlives a replan, as in runWork)
         g.nextPlanTick = Math.max(g.tickCount, g.planStartTick + PLAN_GAP_TICKS);

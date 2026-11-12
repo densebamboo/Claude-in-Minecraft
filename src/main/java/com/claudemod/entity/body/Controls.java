@@ -107,6 +107,12 @@ public final class Controls {
     /** His body refused the path's step within the last {@code ticks}: the path doesn't really reach, whatever it says (the walk's own planner takes it). */
     public static boolean refusedLately(Player p, int ticks) { Integer t = refused == null ? null : refused.get(p.getUUID()); return t != null && p.tickCount - t <= ticks && p.tickCount >= t; }
     /** Something to stand on (a collision shape, water, a ladder or vine) at the cell or within {@code max} under it. */
+    /** A planned step 4-8 down whose fall leaves him his margin (Leaps.damage, Leaps.margin): the drop a player takes (death 00:22:21 11-12: held at a 4-down lip, 1 HP, 25 s under blaze fire; stage 1078). */
+    static boolean fallKept(Player p, net.minecraft.world.level.pathfinder.Node n) {
+        int down = p.getBlockY() - n.y; if (down < 4 || down > 8 || !(p instanceof com.claudemod.entity.ClaudeEntity g) || !(p.level() instanceof net.minecraft.server.level.ServerLevel lv)) return false;
+        var land = new net.minecraft.core.BlockPos(n.x, n.y - 1, n.z); if (lv.getBlockState(land).getCollisionShape(lv, land).isEmpty()) return false;
+        return com.claudemod.entity.nav.Leaps.health(g) - com.claudemod.entity.nav.Leaps.damage(g, lv, down, lv.getBlockState(land)) >= com.claudemod.entity.nav.Leaps.margin(g);
+    }
     static boolean groundUnder(Player p, net.minecraft.core.BlockPos cell, int max) {
         var lv = p.level();
         for (int k = 0; k <= max; k++) { var q = cell.below(k + 1); var c = cell.below(k);
@@ -304,7 +310,7 @@ public final class Controls {
             } else refusedStep(p);
             if (p instanceof com.claudemod.entity.ClaudeEntity ce1 && ce1.tickCount % 40 == 0) com.claudemod.ClaudeMod.LOGGER.info("[Claude move] the path's next step at {},{},{} is {} up from {}: no jump makes that, not jumped at (Controls.apply)", nextNode.x, nextNode.y, nextNode.z, nextNode.y - (int) Math.floor(p.getY() + 0.01), p.blockPosition().toShortString());
         }
-        boolean safeStep = nextNode != null && nextNode.y >= p.getBlockY() - 3 && Math.abs(nextNode.x + 0.5 - p.getX()) <= 1.6 && Math.abs(nextNode.z + 0.5 - p.getZ()) <= 1.6 && groundUnder(p, new net.minecraft.core.BlockPos(nextNode.x, nextNode.y, nextNode.z), 3); // (and ground really is under that step, 3 or less: stage 538, a node off a 2-cell pillar top passed as safe, 15 blocks of air under it, he walked off it to 5 HP) // his path's next step is right there and at most 3 down: the pathfinder already judged that fall; the lip check below cut across a corner of a hillside and had him shuffling at the edge (the user)
+        boolean safeStep = nextNode != null && (nextNode.y >= p.getBlockY() - 3 || fallKept(p, nextNode)) && Math.abs(nextNode.x + 0.5 - p.getX()) <= 1.6 && Math.abs(nextNode.z + 0.5 - p.getZ()) <= 1.6 && groundUnder(p, new net.minecraft.core.BlockPos(nextNode.x, nextNode.y, nextNode.z), 3); // (and ground really is under that step, 3 or less: stage 538, a node off a 2-cell pillar top passed as safe, 15 blocks of air under it, he walked off it to 5 HP) // his path's next step is right there and at most 3 down: the pathfinder already judged that fall; the lip check below cut across a corner of a hillside and had him shuffling at the edge (the user)
         if (walk != null && walk.lengthSqr() > 1e-4 && p.onGround() && !p.isInWater() && !p.onClimbable() && nextNode != null && (nextNode.x != p.getBlockX() || nextNode.z != p.getBlockZ()) && hurtingDrop(p, p.blockPosition())) { // ponytail: live 17:37 -123,77,-962: perched on a neighbour's corner over a 43-deep shaft, the step 1 up across it slid him off (the lip rule below never checks his own cell); his own planner (refusedStep) takes the step instead
             walk = null; jumpNow = false; jumpOff = "on an edge over an open drop"; p.setJumping(false); p.setSprinting(false); refusedStep(p);
             net.minecraft.world.phys.AABB bb = p.getBoundingBox(); net.minecraft.core.BlockPos sup = null; // ponytail: live 20:36 -111 84 -907, perched on a corner the planner (starting from his air cell) kept replanning the same flat step across the gap: step back onto the block that holds him so the next plan starts from real footing

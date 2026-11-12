@@ -10889,6 +10889,7 @@ public final class ClaudeBodyTest {
             case 1070: return st1070(stage, t, c, h, level, mock);
             case 1074: return st1074(stage, t, c, h, level, mock);
             case 1076: return st1076(stage, t, c, h, level, mock);
+            case 1078: return st1078(stage, t, c, h, level, mock);
             case 1077: return st1077(stage, t, c, h, level, mock);
             case 1075: return st1075(stage, t, c, h, level, mock);
             case 747: return st747(stage, t, c, h, level, mock);
@@ -20569,6 +20570,36 @@ public final class ClaudeBodyTest {
         }
         return true;
     }
+    /** Stage 1078 (death 00:22:21 11-12 World 17, by the fortress at 303,67,483: the escape's walk had its next node 4 down (303,63,482), "stopped at the lip 303, 67, 482: 5 down, no water (safe step false: 4 down, ground under it true)" for about 25 s while blazes shot him, 19 -> 0; a 4-block drop costs 1 HP). His walker handed a path whose next node is 4 down off a ledge (1 HP), health 20: he takes it, not held at the lip. */
+    private static int s1078T; private static BlockPos s1078G;
+    private static boolean st1078(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1078T = -1; level.setDayTime(6000); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+            for (int x = -4; x <= 12; x++) for (int z = -4; z <= 4; z++) for (int y = -6; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            for (int x = -4; x <= 0; x++) for (int z = -4; z <= 4; z++) for (int y = -5; y <= -1; y++) level.setBlock(o.offset(x, y, z), Blocks.NETHERRACK.defaultBlockState(), 2); // his ledge, a solid block 4 high
+            for (int x = 1; x <= 12; x++) for (int z = -4; z <= 4; z++) level.setBlock(o.offset(x, -5, z), Blocks.NETHERRACK.defaultBlockState(), 2); // the floor 4 below
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 8));
+            c.teleportTo(level, o.getX() + 0.5, o.getY(), o.getZ() + 0.5, -90f, 0f); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.fallDistance = 0; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            s1078G = o.offset(8, -4, 0);
+        }
+        if ((t[0] - 14) % 10 == 0 && t[0] >= 14 && t[0] < 14 + 20 * 8 && c.getY() > o.getY() - 1) { // the escape run's shape: a path handed to his walker whose next node is 4 down (no leap planned), as live
+            if (t[0] == 14) { c.tasks.clear(); c.currentTask = null; s1078T = t[0]; }
+            var nodes = new java.util.ArrayList<net.minecraft.world.level.pathfinder.Node>(); nodes.add(new net.minecraft.world.level.pathfinder.Node(o.getX(), o.getY(), o.getZ())); nodes.add(new net.minecraft.world.level.pathfinder.Node(o.getX() + 1, o.getY() - 4, o.getZ())); nodes.add(new net.minecraft.world.level.pathfinder.Node(s1078G.getX(), s1078G.getY(), s1078G.getZ()));
+            var path = new net.minecraft.world.level.pathfinder.Path(nodes, s1078G, true); path.advance(); c.getNavigation().moveTo(path, 1.0); }
+        if (s1078T > 0 && t[0] > s1078T) {
+            boolean down = c.getY() < o.getY() - 3, done = c.blockPosition().closerThan(s1078G, 1.5);
+            if (done || t[0] - s1078T > 20 * 8) {
+                String at = String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ()), q = c.currentTask + " " + c.tasks; float hp = c.getHealth();
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.getInventory().clearContent(); c.setHealth(20);
+                for (int x = -4; x <= 12; x++) for (int z = -4; z <= 4; z++) for (int y = -6; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                check(down, "a walk whose way on is a 4-block drop (1 HP) at health 20: still on the ledge after 8 s (at " + at + "): " + (q.length() > 140 ? q.substring(0, 140) : q));
+                pass(stage, t, "down the 4 and there in " + (t[0] - s1078T) / 20.0 + " s, health " + hp);
+            }
+        }
+        return true;
+    }
     /** Stage 1567 (D2D death 57, live 17:05:27-33 11-11 on the fortress deck at 313,63,487: health 9, burning, 6 blazes, "no cover, no cell out of 6 blaze(s)' sight within 24 steps and too few blocks to wall in: running", 9 -> 1 -> dead, with 2 cobblestone and 112 netherrack on him; the wall-in read one stack of the first block kind, cobblestone's 2). Hurt and burning on an open deck, three blazes, no hide anywhere, 2 cobblestone and 64 netherrack: walled in with the netherrack, not a run. */
     private static net.minecraft.world.entity.monster.Blaze[] s1567B; private static int s1567T;
     private static boolean st1567(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
@@ -29058,16 +29089,16 @@ public final class ClaudeBodyTest {
         BlockPos at = new BlockPos(9960, 80, 9780), cell = at.east();
         if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1295R = null; }
         if (t[0] == 10) {
-            for (int x = -4; x <= 6; x++) for (int z = -4; z <= 4; z++) for (int y = -7; y <= 6; y++) level.setBlock(at.offset(x, y, z), (y < 0 && (x <= 0 || y < -6) ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // his ledge to x 0, a 6 drop past it
+            for (int x = -4; x <= 6; x++) for (int z = -4; z <= 4; z++) for (int y = -11; y <= 6; y++) level.setBlock(at.offset(x, y, z), (y < 0 && (x <= 0 || y < -10) ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2); // his ledge to x 0, a 10 drop past it (past the 8 a planned drop is taken at: Controls.fallKept, 11-12)
             c.getInventory().clearContent(); c.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5); com.claudemod.entity.life.Watchdog.teleported(c);
             c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true; c.setHealth(20);
         }
         if (t[0] >= 20 && t[0] < 60) { // his walk's path: his cell, then the open cell 5 down (no ground within 3 of the node's column top: not a safe step)
-            var nodes = new java.util.ArrayList<net.minecraft.world.level.pathfinder.Node>(); nodes.add(new net.minecraft.world.level.pathfinder.Node(at.getX(), at.getY(), at.getZ())); nodes.add(new net.minecraft.world.level.pathfinder.Node(cell.getX(), cell.getY() - 6, cell.getZ()));
-            var path = new net.minecraft.world.level.pathfinder.Path(nodes, cell.below(6), false); path.advance();
+            var nodes = new java.util.ArrayList<net.minecraft.world.level.pathfinder.Node>(); nodes.add(new net.minecraft.world.level.pathfinder.Node(at.getX(), at.getY(), at.getZ())); nodes.add(new net.minecraft.world.level.pathfinder.Node(cell.getX(), cell.getY() - 10, cell.getZ()));
+            var path = new net.minecraft.world.level.pathfinder.Path(nodes, cell.below(10), false); path.advance();
             if (c.getNavigation().getPath() == null || c.getNavigation().isDone()) c.getNavigation().moveTo(path, 1.0);
         }
-        if (t[0] == 55) s1295R = com.claudemod.entity.life.Stall.diagnose(c, cell.below(6), 1.0);
+        if (t[0] == 55) s1295R = com.claudemod.entity.life.Stall.diagnose(c, cell.below(10), 1.0);
         if (t[0] == 60) {
             boolean held = c.blockPosition().equals(at) && c.isAlive();
             c.getNavigation().stop(); c.tasks.clear(); c.dropCurrent = true; c.setHealth(20);

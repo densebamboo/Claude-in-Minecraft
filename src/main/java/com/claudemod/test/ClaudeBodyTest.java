@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1572: return st1572(stage, t, c, h, level, mock);
             case 1571: return st1571(stage, t, c, h, level, mock);
             case 1570: return st1570(stage, t, c, h, level, mock);
             case 1569: return st1569(stage, t, c, h, level, mock);
@@ -20604,6 +20605,45 @@ public final class ClaudeBodyTest {
             check(moved < 3, "a patch of his wall 30 behind him, queued by his upkeep: walked " + String.format("%.1f", moved) + " back toward it (" + (q.length() > 120 ? q.substring(0, 120) : q) + ")");
             check(kept, "the patch 30 behind him: not kept for when he's back by it");
             pass(stage, t, "kept for later, " + String.format("%.1f", moved) + " walked");
+        }
+        return true;
+    }
+    /** Stage 1572 (Loops via D2D review 174307-60, live 17:37:48-17:42:40 11-11 at -137,16,-445: his row's floor y15 gone over a cave from about x -119 to -140; the way to his walkway cell put a block in the walkway itself (a tower step), he stood at y17 with his head in the ceiling cell, the way dug it and put it back at its end, round again for 5 min). His row's floor gone over a cavern for 12 rows, him on his wall's top beside the walkway: he gets along it at his row's own height, bridging the floor, with no block left in his walkway. (Green on the code of the day too: the live loop's start isn't rebuilt yet; ActionPath.putBackRepeat logs the blocks round the next one.) */
+    private static int s1572T; private static BlockPos s1572G; private static final java.util.Set<BlockPos> s1572P = new java.util.HashSet<>();
+    private static boolean st1572(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(7950, 90, 7650);
+        if (t[0] == 1) { scenarioReset(c); s1572T = -1; c.prefs.put("stay_close", "no"); }
+        if (t[0] == 10) {
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.COBBLESTONE, 64)); c.getInventory().add(new ItemStack(Items.IRON_PICKAXE)); c.getInventory().add(new ItemStack(Items.BREAD, 8));
+            c.teleportTo(o.getX() + 0.5, o.getY() + 2, o.getZ() + 0.5); c.fallDistance = 0; c.nextPlanTick = c.tickCount + 20 * 600;
+        }
+        if (t[0] == 16) {
+            var E = net.minecraft.core.Direction.EAST; var b = new com.claudemod.entity.life.MineBlueprint(o, E, 2, 3);
+            b.segments.add(new com.claudemod.entity.life.MineBlueprint.Segment(com.claudemod.entity.life.MineBlueprint.Kind.FLAT, b.nextStart(false), E, 30, null)); b.invalidate();
+            c.blueprint = b; c.prefs.put("mine_model", "blueprint"); c.stairStart = b.entrance; c.prefs.put("torches_while_digging", "no");
+            c.mineShape = new ClaudeEntity.MineShape(2, 3, 4, 8, 6, "right"); for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK) c.mineCells.add(e.getKey().immutable());
+            var rs = b.rows(); BlockPos me = rs.get(4).first(); int fy = me.getY();
+            int gx0 = rs.get(11).first().getX(), gx1 = rs.get(22).first().getX();
+            for (int x = -4; x <= 36; x++) for (int z = -5; z <= 5; z++) for (int y = -9; y <= 5; y++) { BlockPos q = new BlockPos(o.getX() + x, fy + y, o.getZ() + z); boolean gap = q.getX() >= Math.min(gx0, gx1) && q.getX() <= Math.max(gx0, gx1);
+                boolean open = b.isWalk(q) || gap && y <= -1 && y >= -8 && Math.abs(z) <= 3; level.setBlock(q, (open ? Blocks.AIR : Blocks.STONE).defaultBlockState(), 2); } // his tunnel, and a cavern under rows 11-22: their floor gone
+            s1572P.clear(); int top = fy, wz = Integer.MAX_VALUE, sx = rs.get(16).first().getX(); for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK && e.getKey().getX() == sx) { top = Math.max(top, e.getKey().getY()); wz = Math.min(wz, e.getKey().getZ()); }
+            BlockPos on = new BlockPos(sx, top + 1, wz - 1); level.setBlock(on, Blocks.AIR.defaultBlockState(), 2); level.setBlock(on.above(), Blocks.AIR.defaultBlockState(), 2); level.setBlock(on.below(), Blocks.STONE.defaultBlockState(), 2); // (live: on his wall's top beside the walkway, the shell above it dug)
+            c.teleportTo(on.getX() + 0.5, on.getY(), on.getZ() + 0.5); c.fallDistance = 0;
+            c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            s1572G = rs.get(18).first().immutable(); c.tasks.add(new Task.GoTo(s1572G, 1.0)); s1572T = t[0];
+        }
+        if (s1572T > 0 && t[0] > s1572T) {
+            boolean there = c.blockPosition().getY() == s1572G.getY() && c.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(s1572G)) <= 1.6 && c.onGround();
+            if (there || t[0] - s1572T > 20 * 30) {
+                var b = c.blueprint; int inWalk = 0; for (var e : b.roles().entrySet()) if (e.getValue() == com.claudemod.entity.life.MineBlueprint.Role.WALK && !s1572P.contains(e.getKey()) && !level.getBlockState(e.getKey()).getCollisionShape(level, e.getKey()).isEmpty()) inWalk++;
+                String q = c.currentTask + " " + c.tasks; BlockPos at = c.blockPosition(); int s = t[0] - s1572T;
+                c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.blueprint = null; c.prefs.remove("mine_model"); c.prefs.remove("torches_while_digging"); c.stairStart = null; c.mineShape = null; c.mineCells.clear(); c.pendingPatches.clear(); c.getInventory().clearContent();
+                for (int x = -4; x <= 36; x++) for (int z = -5; z <= 5; z++) for (int y = -9; y <= 5; y++) level.setBlock(new BlockPos(o.getX() + x, s1572G.getY() + y, o.getZ() + z), Blocks.AIR.defaultBlockState(), 2);
+                c.teleportTo(o.getX() + 0.5, o.getY() + 20, o.getZ() + 0.5); c.fallDistance = 0;
+                check(inWalk == 0, inWalk + " more block(s) put in his mine's walkway on the way over the lost floor");
+                check(there, "his row's floor gone over a cavern: not along it to " + s1572G.toShortString() + " at his row's height in 30 s (at " + at.toShortString() + ", " + (q.length() > 140 ? q.substring(0, 140) : q) + ")");
+                pass(stage, t, "along his row over the lost floor in " + s / 20.0 + " s, the walkway clear");
+            }
         }
         return true;
     }

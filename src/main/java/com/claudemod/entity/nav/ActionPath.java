@@ -305,6 +305,19 @@ public final class ActionPath {
     }
 
     /** The plan as his tasks: walks run together into a GoTo every six cells and up to each dig, placement or door (the vanilla path handles open ground, a waypoint keeps it on the planned way). */
+    private static final Map<BlockPos, long[]> PUT_BACK = new HashMap<>(); // cell -> {times, first game tick}
+    /** The same build block dug for a way and put back a 3rd time within 60 s is a loop (Loops via D2D review 174307-60, live 17:37-17:42 11-11, 5 min on -137,18,-445): the blocks round it and him, y-3..+2, so it can be rebuilt as a stage. */
+    private static void putBackRepeat(ServerLevel level, BlockPos from, List<Object[]> restore) {
+        if (level == null) return; long now = level.getGameTime();
+        for (Object[] o : restore) { BlockPos pos = ((BlockPos) o[0]).immutable(); long[] c = PUT_BACK.get(pos);
+            if (c == null || now - c[1] > 1200) { PUT_BACK.put(pos, new long[] {1, now}); continue; }
+            if (++c[0] != 3) continue;
+            StringBuilder mp = new StringBuilder(); for (int dy = -3; dy <= 2; dy++) { mp.append(" y").append(pos.getY() + dy).append(':'); for (int dz = -2; dz <= 2; dz++) { for (int dx = -2; dx <= 2; dx++) { BlockPos q = pos.offset(dx, dy, dz); var st = level.getBlockState(q);
+                mp.append(q.equals(pos) ? 'P' : from != null && (q.equals(from) || q.equals(from.above())) ? '@' : !level.getFluidState(q).isEmpty() ? '~' : st.getCollisionShape(level, q).isEmpty() ? '.' : '#'); } if (dz < 2) mp.append('|'); } }
+            com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} dug for a way and put back 3 times in {} s (way from {}): round it (x {}..{}, z {}..{}, P the cell, @ him):{} (ActionPath.putBackRepeat)", pos.toShortString(), (now - c[1]) / 20, from == null ? "?" : from.toShortString(), pos.getX() - 2, pos.getX() + 2, pos.getZ() - 2, pos.getZ() + 2, mp); }
+        if (PUT_BACK.size() > 256) PUT_BACK.entrySet().removeIf(e -> now - e.getValue()[1] > 1200);
+    }
+
     public static List<Task> tasks(Plan plan, BlockPos from, Item scaffold, BlockPos dest, double within) { return tasks(plan, from, scaffold, dest, within, null); }
 
     /**
@@ -347,7 +360,7 @@ public final class ActionPath {
                     out.add(new Task.GoTo(lastWalk, 0.9)); lastWalk = null; run = 0;
                     for (Object[] o : restore) { BlockState st0 = (BlockState) o[1]; out.add(new Task.Place((BlockPos) o[0], st0.getBlock().asItem(), null, st0)); }
                     com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} structure block(s) dug for the way ({}): put back from {} once past (ActionPath.tasks)", restore.size(), restore.stream().map(o -> ((BlockPos) o[0]).toShortString()).toList(), at0.toShortString());
-                    restore.clear(); continue; } }
+                    putBackRepeat(level, from, restore); restore.clear(); continue; } }
                 final BlockPos at = cur; List<BlockPos> off = new ArrayList<>();
                 if (!takeBack.isEmpty() && takeBack.stream().noneMatch(q -> at.equals(q) || at.equals(q.above())) && takeBack.stream().anyMatch(q -> at.distSqr(q) <= 3 * 3)) { net.minecraft.world.phys.Vec3 eye = net.minecraft.world.phys.Vec3.atBottomCenterOf(at).add(0, 1.62, 0); for (BlockPos q : takeBack) if (eye.distanceTo(net.minecraft.world.phys.Vec3.atCenterOf(q)) <= 4.0) off.add(q); } // (in reach from the ledge only: the rest of a tall tower stays the take-down chore's; going back down for it undid the climb)
                 if (!off.isEmpty()) { // stepped off the tower that got him up, still right by it (on the ledge): back out now, top first, while it's in view below him
@@ -391,7 +404,7 @@ public final class ActionPath {
         final BlockPos endAt = lastWalk;
         if (lastWalk != null) { out.add(new Task.GoTo(lastWalk, 0.9)); lastWalk = null; }
         if (endAt != null && dest != null && restore.stream().anyMatch(o -> o[0].equals(endAt) || o[0].equals(endAt.above()))) out.add(new Task.GoTo(dest, within)); // the way ends in a cell he cut (within reach of the goal): on to the goal first, else the block went back into the cell he stood in and the walk planned the cut again (stage 935, a loop)
-        if (!restore.isEmpty()) { for (Object[] o : restore) { BlockState st0 = (BlockState) o[1]; out.add(new Task.Place((BlockPos) o[0], st0.getBlock().asItem(), null, st0)); } com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} structure block(s) dug for the way ({}): put back at the way's end (ActionPath.tasks)", restore.size(), restore.stream().map(o -> ((BlockPos) o[0]).toShortString()).toList()); }
+        if (!restore.isEmpty()) { for (Object[] o : restore) { BlockState st0 = (BlockState) o[1]; out.add(new Task.Place((BlockPos) o[0], st0.getBlock().asItem(), null, st0)); } putBackRepeat(level, from, restore); com.claudemod.ClaudeMod.LOGGER.info("[Claude route] {} structure block(s) dug for the way ({}): put back at the way's end (ActionPath.tasks)", restore.size(), restore.stream().map(o -> ((BlockPos) o[0]).toShortString()).toList()); }
         // (no pickup after: the block drops back down where he climbed from, and going back down for one cobble undid the climb, a loop; what's left on the list, a block still under him at the end, is the daylight chore's, as before)
         out.add(new Task.GoTo(dest, within));
         return out;

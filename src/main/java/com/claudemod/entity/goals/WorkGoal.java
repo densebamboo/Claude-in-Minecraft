@@ -5962,7 +5962,7 @@ public class WorkGoal extends Goal {
                 && !mobs.stream().allMatch(m -> (com.claudemod.entity.goals.WorkGoal.shoots(m)) && m.distanceTo(g) > 3) // "cornered" by a crossbow 8 blocks off is not a fight to wade into (health 16 to 1 in 10 s)
                 && !(mobs.stream().min(java.util.Comparator.comparingDouble(m -> m.distanceTo(g))).get() instanceof net.minecraft.world.entity.monster.Creeper)) { // and never a creeper: "fighting his way out" of one is the explosion
             var near = mobs.stream().min(java.util.Comparator.comparingDouble(m -> m.distanceTo(g))).get();
-            shouldFlee(near); boolean unpriced = Double.isNaN(pricedFightS); double fightS = unpriced ? Double.MAX_VALUE / 4 : pricedFightS, runS = (Double.isNaN(pricedRunS) ? w("flee.run_s", 20) : pricedRunS) + w("flee.cornered_run_s", 30); // (fight.flee's own prices, refreshed; the run from a corner costs its dead ends again)
+            cornerPrices(near, mobs); boolean unpriced = Double.isNaN(pricedFightS); double fightS = unpriced ? Double.MAX_VALUE / 4 : pricedFightS, runS = (Double.isNaN(pricedRunS) ? w("flee.run_s", 20) : pricedRunS) + w("flee.cornered_run_s", 30); // (fight.flee's own prices, refreshed; the run from a corner costs its dead ends again)
             double build = w("cover.build_s", 2.5), buildHp = 0; for (var m : mobs) if (m.distanceTo(g) < 4 && !shoots(m)) buildHp += w("fight.mob_hits_per_s", 0.8) * build * mobHit(m);
             double coverS = build + com.claudemod.entity.life.Decide.hpS(g, 0, buildHp, 3) + w("cover.wait_out_s", 60);
             double meleeOn = mobs.stream().filter(m -> !shoots(m)).mapToDouble(m -> m.distanceTo(g)).min().orElse(99);
@@ -7349,6 +7349,14 @@ public class WorkGoal extends Goal {
     /** closeOnShooter searched for a way in to this mob and found none, and he, it and his blocks are still where they were: the same search would find none again. */
     public boolean noWayInStill(net.minecraft.world.entity.LivingEntity mob) { long[] nw = noWayIn == null ? null : noWayIn.get(mob.getUUID()); return nw != null && g.tickCount - nw[0] < 20 * w("fight.no_way_hold_s", 60) && BlockPos.of(nw[1]).closerThan(mob.blockPosition(), 2.5) && BlockPos.of(nw[2]).closerThan(BlockPos.containing(g.getX(), g.getY() + 0.2, g.getZ()), 2.5) && nw[3] == com.claudemod.entity.nav.ActionPath.moveBlocks(g); }
     private java.util.Map<java.util.UUID, long[]> noWayIn() { if (noWayIn == null) noWayIn = new java.util.HashMap<>(); return noWayIn; }
+    /** fight.flee's prices for the cornered choice (pricedFightS, pricedRunS), sized up on the nearest one. */
+    private void cornerPrices(net.minecraft.world.entity.Mob near, java.util.List<? extends net.minecraft.world.entity.Mob> mobs) {
+        shouldFlee(near); if (!Double.isNaN(pricedRunS)) return;
+        // the nearest one has no price (out of its reach below him, say): the others on him do (live 00:21:57 11-12, review 002523-245: a wither skeleton 9 off below priced nothing, so the run read a flat ~50 s against cover's 63, under 2 blazes' fire, ~2949 s by their own price; dead at 00:22)
+        for (var m : mobs.stream().filter(m0 -> m0 != near).sorted(java.util.Comparator.comparingDouble(m0 -> m0.distanceTo(g))).toList()) { String odds = fightOdds; shouldFlee(m); if (!Double.isNaN(pricedRunS)) return; fightOdds = odds; }
+    }
+    /** (tests) the cornered choice's run price: fight.flee's run, or the flat flee.run_s, plus the corner's own. */
+    public double cornerRunTest(net.minecraft.world.entity.Mob near, java.util.List<? extends net.minecraft.world.entity.Mob> mobs) { cornerPrices(near, mobs); return (Double.isNaN(pricedRunS) ? w("flee.run_s", 20) : pricedRunS) + w("flee.cornered_run_s", 30); }
     public int closeOnShooterTest(net.minecraft.world.entity.LivingEntity mob) { return closeOnShooter(mob, new Task.Attack(mob.getUUID(), 300)); } // (tests)
     private int closeOnShooter(net.minecraft.world.entity.LivingEntity mob, Task.Attack t) {
         ServerLevel level = (ServerLevel) g.level();

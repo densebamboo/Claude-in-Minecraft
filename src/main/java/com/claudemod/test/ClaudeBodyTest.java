@@ -10551,6 +10551,7 @@ public final class ClaudeBodyTest {
             case 979: return st979(stage, t, c, h, level, mock);
             case 980: return st980(stage, t, c, h, level, mock);
             case 981: return st981(stage, t, c, h, level, mock);
+            case 1585: return st1585(stage, t, c, h, level, mock);
             case 1584: return st1584(stage, t, c, h, level, mock);
             case 1583: return st1583(stage, t, c, h, level, mock);
             case 1582: return st1582(stage, t, c, h, level, mock);
@@ -21157,6 +21158,36 @@ public final class ClaudeBodyTest {
                 check(landed, "the sprint-jump to " + land.toShortString() + " not made in 6 s (at " + at.toShortString() + ", " + q + ")");
                 pass(stage, t, "lined up and over, " + String.format("%.2f", gap) + " clear of the lava beside the lip");
             }
+        }
+        return true;
+    }
+    /** Stage 1585 (D2D review 002523-245, live 00:21:54-57 11-12 at 300,68,483 by his fortress: fight.flee "2 blaze(s) ... run ~2949 s", then flee.cornered "(19 HP, 2 on him, Wither Skeleton 9 off): fight out (not priced ...); cover ~63 s; run ~50 s: run": the nearest, a wither skeleton below him out of its reach, priced nothing, so the run was the flat 20 + 30 under the blazes' fire; 19 -> 0 by 00:22:21). Him on a ledge 4 up, a wither skeleton 9 off below that can't get up, 2 blazes 20 off in sight: the cornered run is priced with their fire. */
+    private static java.util.List<net.minecraft.world.entity.Mob> s1585M = new java.util.ArrayList<>();
+    private static boolean st1585(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = new BlockPos(8250, 90, 7650), me = o.above(4);
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); for (var m : s1585M) m.discard(); s1585M.clear(); }
+        if (t[0] > 10 && t[0] % 10 == 0) level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(o), 3, o);
+        if (t[0] == 10) {
+            for (int x = -12; x <= 24; x++) for (int z = -8; z <= 8; z++) for (int y = -1; y <= 8; y++) level.setBlock(o.offset(x, y, z), (y == -1 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) for (int y = 0; y <= 3; y++) level.setBlock(o.offset(x, y, z), Blocks.STONE.defaultBlockState(), 2); // (his ledge: a sheer 3x3 pillar, 4 up)
+            c.getInventory().clearContent(); c.getInventory().add(new ItemStack(Items.IRON_SWORD)); /* (no blocks: as live, no cover to be had here, coverFor none: "none to build ... 139 no standing") */ c.getInventory().add(new ItemStack(Items.COOKED_BEEF, 4));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS)); c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.teleportTo(me.getX() + 0.5, me.getY(), me.getZ() + 0.5); c.fallDistance = 0; c.setHealth(19); c.getFoodData().setFoodLevel(20); c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            level.setDayTime(18000);
+        }
+        if (t[0] == 80) {
+            var w = EntityType.WITHER_SKELETON.create(level); w.moveTo(o.getX() + 9.5, o.getY(), o.getZ() + 0.5, 0, 0); w.setPersistenceRequired(); w.setNoAi(true); level.addFreshEntity(w); w.setTarget(c); s1585M.add(w); com.claudemod.entity.life.Perception.noteSeenTest(c, w);
+            for (int k = 0; k < 2; k++) { var b = EntityType.BLAZE.create(level); b.moveTo(o.getX() + 20.5, me.getY() + 1, o.getZ() - 2.5 + 5 * k, 90, 0); b.setPersistenceRequired(); b.setNoAi(true); b.setNoGravity(true); level.addFreshEntity(b); b.setTarget(c); s1585M.add(b); com.claudemod.entity.life.Perception.noteSeenTest(c, b); }
+        }
+        if (t[0] == 100) {
+            double run = c.work.cornerRunTest(s1585M.get(0), s1585M); boolean gone = s1585M.stream().anyMatch(m -> !m.isAlive());
+            for (var m : s1585M) m.discard(); s1585M.clear(); c.getInventory().clearContent();
+            for (var sl : net.minecraft.world.entity.EquipmentSlot.values()) if (sl != net.minecraft.world.entity.EquipmentSlot.MAINHAND) c.setItemSlot(sl, ItemStack.EMPTY);
+            for (int x = -12; x <= 24; x++) for (int z = -8; z <= 8; z++) for (int y = -1; y <= 8; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            c.teleportTo(o.getX() + 0.5, o.getY() + 20, o.getZ() + 0.5); c.fallDistance = 0; c.setHealth(20); level.setDayTime(6000);
+            check(!gone, "setup: a mob gone from the world");
+            check(run > 100, "cornered on a ledge, a wither skeleton below that can't reach him, 2 blazes 20 off in sight: the run priced ~" + Math.round(run) + " s (a flat run, their fire on it unpriced)");
+            pass(stage, t, "the cornered run priced ~" + Math.round(run) + " s with the blazes' fire");
         }
         return true;
     }

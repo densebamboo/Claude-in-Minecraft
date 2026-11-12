@@ -10884,6 +10884,7 @@ public final class ClaudeBodyTest {
             case 897: return st897(stage, t, c, h, level, mock);
             case 1070: return st1070(stage, t, c, h, level, mock);
             case 1074: return st1074(stage, t, c, h, level, mock);
+            case 1076: return st1076(stage, t, c, h, level, mock);
             case 1075: return st1075(stage, t, c, h, level, mock);
             case 747: return st747(stage, t, c, h, level, mock);
             case 748: return st748(stage, t, c, h, level, mock);
@@ -20503,6 +20504,34 @@ public final class ClaudeBodyTest {
                 check(dead, "the zombie not killed in 15 s");
                 pass(stage, t, "the zombie killed in " + (t[0] - s1075T) / 20.0 + " s, the enderman beside it untouched");
             }
+        }
+        return true;
+    }
+    /** Stage 1076 (death 21:43:19 11-11 World 17, his mine at -136,17,-457: a skeleton 7 below and 10 off, "a lip behind him ... to firm footing at -135,18,-458 first" every tick, "no path | want none" for 15 s, the shield down, 6 arrows, 20 -> 0). On a lip with a skeleton below him; the only firmer footing 1 up under his ceiling, no step onto it: not held on the lip with his shield down. */
+    private static net.minecraft.world.entity.monster.Skeleton s1076S; private static int s1076T; private static BlockPos s1076F;
+    private static boolean st1076(int[] stage, int[] t, ClaudeEntity c, GameTestHelper h, ServerLevel level, ServerPlayer[] mock) {
+        BlockPos o = h.absolutePos(new BlockPos(8, 22, 8));
+        if (t[0] == 1) { scenarioReset(c); c.nextPlanTick = c.tickCount + 20 * 600; c.prefs.put("stay_close", "no"); s1076T = -1; if (s1076S != null) s1076S.discard(); s1076S = null; level.setDayTime(18000); }
+        if (t[0] == 10) {
+            for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, new net.minecraft.world.phys.AABB(o).inflate(48))) e.discard();
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 12; z++) for (int y = -9; y <= 4; y++) level.setBlock(o.offset(x, y, z), (y == -9 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 2);
+            level.setBlock(o.below(), Blocks.DIRT.defaultBlockState(), 2); // his ledge: one cell, open all round below
+            level.setBlock(o.above(2), Blocks.STONE.defaultBlockState(), 2); // his ceiling: no jump
+            for (int z = -3; z <= 0; z++) level.setBlock(o.offset(1, 0, z), Blocks.COBBLESTONE.defaultBlockState(), 2); // the firmer footing 1 up, east (a floor north of it too: no lip)
+            s1076F = o.immutable();
+            c.getInventory().clearContent(); c.getInventory().items.set(0, new ItemStack(Items.IRON_SWORD)); c.getInventory().selected = 0; c.getInventory().add(new ItemStack(Items.COOKED_SALMON, 8));
+            c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+            c.teleportTo(o.getX() + 0.5, o.getY(), o.getZ() + 0.5); c.setHealth(20); c.getFoodData().setFoodLevel(20); c.fallDistance = 0; c.tasks.clear(); c.skillQueue.clear(); c.currentTask = null; c.dropCurrent = true;
+            var sk = EntityType.SKELETON.create(level); sk.moveTo(o.getX() + 0.5, o.getY() - 8, o.getZ() + 8.5, 180, 0); sk.setNoAi(true); sk.setPersistenceRequired(); sk.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.BOW)); level.addFreshEntity(sk); sk.setTarget(c); s1076S = sk; com.claudemod.entity.life.Perception.noteSeenTest(c, sk);
+        }
+        if (t[0] == 14) { c.tasks.clear(); c.currentTask = null; c.tasks.add(new Task.Attack(s1076S.getUUID(), 20 * 30)); s1076T = t[0]; }
+        if (s1076T > 0 && t[0] == s1076T + 60) {
+            boolean still = c.blockPosition().equals(s1076F), shield = c.isUsingItem();
+            String at = String.format("%.2f %.2f %.2f", c.getX(), c.getY(), c.getZ()), q = c.currentTask + " " + c.tasks;
+            s1076S.discard(); s1076S = null; c.tasks.clear(); c.currentTask = null; c.dropCurrent = true; c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, ItemStack.EMPTY); c.getInventory().clearContent();
+            for (int x = -6; x <= 6; x++) for (int z = -6; z <= 12; z++) for (int y = -9; y <= 4; y++) level.setBlock(o.offset(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            check(!(still && !shield), "held on the lip 3 s with his shield down, a skeleton 8 below in sight (at " + at + "): " + (q.length() > 140 ? q.substring(0, 140) : q));
+            pass(stage, t, (still ? "on the lip, shield up" : "off the lip to " + at));
         }
         return true;
     }

@@ -6885,6 +6885,9 @@ public class WorkGoal extends Goal {
         return true;
     }
     private java.util.UUID holdSaid; private boolean fightOnHw;
+    private BlockPos footFeet, footBest; private int footTick; // fightFooting's pick, kept 10 ticks a spot
+    /** A cell vanilla's walker has a way onto from where he stands (the path ends in it). */
+    public boolean wayOnto(BlockPos q) { var path = g.getNavigation().createPath(q, 0); return path != null && path.canReach(); }
     private Boolean fightFooting(net.minecraft.world.entity.LivingEntity mob) {
         if (!g.onGround() || g.isInWater()) return null;
         ServerLevel level = (ServerLevel) g.level();
@@ -6894,7 +6897,7 @@ public class WorkGoal extends Goal {
         boolean shooter = shoots(mob) || mob instanceof net.minecraft.world.entity.monster.Blaze || mob instanceof net.minecraft.world.entity.monster.Ghast; // (an arrow or fireball throws him from range: World 15 13:51, a skeleton's arrow off a lip, 22 down)
         boolean throwsHim = shooter ? mob.distanceTo(g) <= 24 && g.hasLineOfSight(mob) : mob.distanceTo(g) <= (footingSaid != null ? 6 : 4); // ponytail: 4 to start, 6 to finish the step (live 20:07 -119,76,-936: an enderman at the edge of 4 flipped it on and off, the approach stepped him back onto the lip 7 times in 2 s). (a melee mob only in reach: live 14:45 an enderman 15 off stepped him back and forth against the approach, 4 shuffles a second)
         if (!fire && (!throwsHim || !lipBehind(level, feet, away))) { footingSaid = null; return null; } // ponytail: live 14:45 -36,50,-898: a lip "behind" him from an enderman 15 off; the approach stepped him back onto it, 4 shuffles a second. Only a mob in reach throws him
-        BlockPos best = null; double bd = Double.MAX_VALUE;
+        if (feet.equals(footFeet) && g.tickCount - footTick < 10) { if (footBest == null) return null; } else { footFeet = feet; footTick = g.tickCount; footBest = null; java.util.List<BlockPos> picks = new java.util.ArrayList<>(); java.util.Map<BlockPos, Double> cost = new java.util.HashMap<>();
         String hd = com.claudemod.entity.life.PortalMap.NETHER; boolean onHw = level.dimension() == net.minecraft.world.level.Level.NETHER && com.claudemod.entity.life.PortalMap.highwayBlock(g, hd, feet.below(), level.getBlockState(feet.below()));
         for (BlockPos q0 : BlockPos.betweenClosed(feet.offset(-4, -1, -4), feet.offset(4, 1, 4))) { BlockPos q = q0.immutable();
             if (q.equals(feet) || !com.claudemod.entity.life.FortressFight.stand(level, q) || com.claudemod.entity.body.Controls.lavaCell(g, q)) continue;
@@ -6902,8 +6905,11 @@ public class WorkGoal extends Goal {
             Vec3 aw = Vec3.atBottomCenterOf(q).subtract(mob.position()).multiply(1, 0, 1); if (aw.lengthSqr() < 1e-4) continue; aw = aw.normalize();
             if (lipBehind(level, q, aw)) continue;
             double d = q.distSqr(feet) + (mob.distanceToSqr(Vec3.atBottomCenterOf(q)) < 2.5 * 2.5 ? 50 : 0); // (never into its arms for it)
-            if (d < bd) { bd = d; best = q; } }
-        if (best == null) { if (!feet.equals(footingSaid)) { footingSaid = feet; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] a lip behind him at {} the way the {} would throw him, and no firmer footing within 4: fighting on (WorkGoal.fightFooting)", feet.toShortString(), mob.getType().getDescription().getString()); } return null; }
+            picks.add(q); cost.put(q, d); }
+        picks.sort(java.util.Comparator.comparingDouble(cost::get)); int tried = 0;
+        for (BlockPos q : picks) { if (tried++ >= 6) break; if (wayOnto(q)) { footBest = q; break; } } // (death 21:43:19 11-11: footing 1 up he had no way onto, "no path | want none" 15 s, shield down, shot dead; stage 1076)
+        if (footBest == null) { if (!feet.equals(footingSaid)) { footingSaid = feet; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] a lip behind him at {} the way the {} would throw him, and no firmer footing within 4 he has a way onto ({} looked at): fighting on (WorkGoal.fightFooting)", feet.toShortString(), mob.getType().getDescription().getString(), tried); } return null; } }
+        BlockPos best = footBest;
         if (!feet.equals(footingSaid)) { footingSaid = feet; com.claudemod.ClaudeMod.LOGGER.info("[Claude fight] {} at {} the way the {} would throw him: to firm footing at {} first, then the fight (WorkGoal.fightFooting)", fire ? "fire under him" : "a lip behind him", feet.toShortString(), mob.getType().getDescription().getString(), best.toShortString()); }
         if (g.isUsingItem()) g.stopUsingItem();
         g.setSprinting(false); cfMove(best, 1.0);
